@@ -1,18 +1,16 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
-<Project ToolsVersion="4.0" DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+<Project ToolsVersion="14.0" DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <Import Project="$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props" Condition="Exists('$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props')" />
   <PropertyGroup>
     <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
     <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
-    <ProjectGuid>{3BD22EFF-873C-48CF-B8E6-075ACA62F48C}</ProjectGuid>
+    <ProjectGuid>{944A49E8-4F77-4193-91C9-6B9DDD1AB077}</ProjectGuid>
     <OutputType>Library</OutputType>
     <AppDesignerFolder>Properties</AppDesignerFolder>
-    <RootNamespace>Tests</RootNamespace>
-    <AssemblyName>Tests</AssemblyName>
-    <TargetFrameworkVersion>v4.5</TargetFrameworkVersion>
+    <RootNamespace>Sodium</RootNamespace>
+    <AssemblyName>Sodium</AssemblyName>
+    <TargetFrameworkVersion>v4.6</TargetFrameworkVersion>
     <FileAlignment>512</FileAlignment>
-    <ProductVersion>12.0.0</ProductVersion>
-    <SchemaVersion>2.0</SchemaVersion>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
     <DebugSymbols>true</DebugSymbols>
@@ -32,8 +30,8 @@
     <WarningLevel>4</WarningLevel>
   </PropertyGroup>
   <ItemGroup>
-    <Reference Include="nunit.framework, Version=3.0.5813.39031, Culture=neutral, PublicKeyToken=2638cd05610744eb, processorArchitecture=MSIL">
-      <HintPath>..\Sodium\packages\NUnit.3.0.1\lib\net45\nunit.framework.dll</HintPath>
+    <Reference Include="Priority Queue, Version=2.0.0.0, Culture=neutral, processorArchitecture=MSIL">
+      <HintPath>..\packages\OptimizedPriorityQueue.2.0.0\lib\net45\Priority Queue.dll</HintPath>
       <Private>True</Private>
     </Reference>
     <Reference Include="System" />
@@ -42,19 +40,38 @@
     <Reference Include="System.Data.DataSetExtensions" />
     <Reference Include="Microsoft.CSharp" />
     <Reference Include="System.Data" />
+    <Reference Include="System.Net.Http" />
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="c#\sodium\BehaviorTester.cs" />
-    <Compile Include="c#\sodium\EventTester.cs" />
-    <Compile Include="c#\sodium\NodeTester.cs" />
+    <Compile Include="Cell.cs" />
+    <Compile Include="CellExtensionMethods.cs" />
+    <Compile Include="CellLoopInternal.cs" />
+    <Compile Include="CellSink.cs" />
+    <Compile Include="CellSinkInternal.cs" />
+    <Compile Include="CoalesceHandler.cs" />
+    <Compile Include="StreamExtensionMethods.cs" />
+    <Compile Include="CellLoop.cs" />
+    <Compile Include="IMaybe.cs" />
+    <Compile Include="LazyBehavior.cs" />
+    <Compile Include="LazyExtensionMethods.cs" />
+    <Compile Include="Listener.cs" />
+    <Compile Include="Stream.cs" />
+    <Compile Include="StreamLoop.cs" />
+    <Compile Include="StreamSink.cs" />
+    <Compile Include="IListener.cs" />
+    <Compile Include="Maybe.cs" />
+    <Compile Include="MaybeValue.cs" />
+    <Compile Include="Node.cs" />
+    <Compile Include="Operational.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
-  </ItemGroup>
-  <ItemGroup>
-    <ProjectReference Include="..\Sodium\Sodium.csproj">
-      <Project>{D2080704-D359-4743-B568-5D976F9882A0}</Project>
-      <Name>Sodium</Name>
-    </ProjectReference>
+    <Compile Include="Time\SystemClockTimerSystem.cs" />
+    <Compile Include="Time\ITimer.cs" />
+    <Compile Include="Time\ITimerSystemImplementation.cs" />
+    <Compile Include="Time\SecondsTimerSystem.cs" />
+    <Compile Include="Time\TimerSystem.cs" />
+    <Compile Include="Transaction.cs" />
+    <Compile Include="Unit.cs" />
   </ItemGroup>
   <ItemGroup>
     <None Include="packages.config" />

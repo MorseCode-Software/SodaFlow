@@ -319,6 +319,14 @@
             <param name="message">The message.</param>
             <param name="args">The message arguments.</param>
         </member>
+        <member name="M:NUnit.Framework.Internal.AsyncInvocationRegion.WaitForPendingOperationsToComplete(System.Object)">
+            <summary>
+            Waits for pending asynchronous operations to complete, if appropriate,
+            and returns a proper result of the invocation by unwrapping task results
+            </summary>
+            <param name="invocationResult">The raw result of the method invocation</param>
+            <returns>The unwrapped result, if necessary</returns>
+        </member>
         <member name="T:NUnit.Framework.Internal.Builders.CombinatorialStrategy">
             <summary>
             CombinatorialStrategy creates test cases by using all possible
@@ -357,39 +365,6 @@
             <returns>
             An IEnumerable providing the required data
             </returns>
-        </member>
-        <member name="T:NUnit.Framework.Internal.Builders.DefaultSuiteBuilder">
-            <summary>
-            Built-in SuiteBuilder for all types of test classes.
-            </summary>
-        </member>
-        <member name="M:NUnit.Framework.Internal.Builders.DefaultSuiteBuilder.CanBuildFrom(NUnit.Framework.Interfaces.ITypeInfo)">
-            <summary>
-            Checks to see if the provided Type is a fixture.
-            To be considered a fixture, it must be a non-abstract
-            class with one or more attributes implementing the
-            IFixtureBuilder interface or one or more methods
-            marked as tests.
-            </summary>
-            <param name="typeInfo">The fixture type to check</param>
-            <returns>True if the fixture can be built, false if not</returns>
-        </member>
-        <member name="M:NUnit.Framework.Internal.Builders.DefaultSuiteBuilder.BuildFrom(NUnit.Framework.Interfaces.ITypeInfo)">
-            <summary>
-            Build a TestSuite from TypeInfo provided.
-            </summary>
-            <param name="typeInfo">The fixture type to build</param>
-            <returns>A TestSuite built from that type</returns>
-        </member>
-        <member name="M:NUnit.Framework.Internal.Builders.DefaultSuiteBuilder.GetFixtureBuilderAttributes(NUnit.Framework.Interfaces.ITypeInfo)">
-            <summary>
-            We look for attributes implementing IFixtureBuilder at one level 
-            of inheritance at a time. Attributes on base classes are not used 
-            unless there are no fixture builder attributes at all on the derived
-            class. This is by design.
-            </summary>
-            <param name="typeInfo">The type being examined for attributes</param>
-            <returns>A list of the attributes found.</returns>
         </member>
         <member name="T:NUnit.Framework.Internal.Builders.DefaultTestCaseBuilder">
             <summary>
@@ -610,6 +585,39 @@
             <param name="method">The method for which a test is to be created</param>
             <param name="suite">The test suite being built.</param>
             <returns>A newly constructed Test</returns>
+        </member>
+        <member name="T:NUnit.Framework.Internal.Builders.DefaultSuiteBuilder">
+            <summary>
+            Built-in SuiteBuilder for all types of test classes.
+            </summary>
+        </member>
+        <member name="M:NUnit.Framework.Internal.Builders.DefaultSuiteBuilder.CanBuildFrom(NUnit.Framework.Interfaces.ITypeInfo)">
+            <summary>
+            Checks to see if the provided Type is a fixture.
+            To be considered a fixture, it must be a non-abstract
+            class with one or more attributes implementing the
+            IFixtureBuilder interface or one or more methods
+            marked as tests.
+            </summary>
+            <param name="typeInfo">The fixture type to check</param>
+            <returns>True if the fixture can be built, false if not</returns>
+        </member>
+        <member name="M:NUnit.Framework.Internal.Builders.DefaultSuiteBuilder.BuildFrom(NUnit.Framework.Interfaces.ITypeInfo)">
+            <summary>
+            Build a TestSuite from TypeInfo provided.
+            </summary>
+            <param name="typeInfo">The fixture type to build</param>
+            <returns>A TestSuite built from that type</returns>
+        </member>
+        <member name="M:NUnit.Framework.Internal.Builders.DefaultSuiteBuilder.GetFixtureBuilderAttributes(NUnit.Framework.Interfaces.ITypeInfo)">
+            <summary>
+            We look for attributes implementing IFixtureBuilder at one level 
+            of inheritance at a time. Attributes on base classes are not used 
+            unless there are no fixture builder attributes at all on the derived
+            class. This is by design.
+            </summary>
+            <param name="typeInfo">The type being examined for attributes</param>
+            <returns>A list of the attributes found.</returns>
         </member>
         <member name="T:NUnit.Framework.Internal.Builders.PairwiseStrategy">
             <summary>
@@ -844,57 +852,6 @@
             </summary>
             <returns>The test cases.</returns>
         </member>
-        <member name="M:NUnit.Framework.Internal.AsyncInvocationRegion.WaitForPendingOperationsToComplete(System.Object)">
-            <summary>
-            Waits for pending asynchronous operations to complete, if appropriate,
-            and returns a proper result of the invocation by unwrapping task results
-            </summary>
-            <param name="invocationResult">The raw result of the method invocation</param>
-            <returns>The unwrapped result, if necessary</returns>
-        </member>
-        <member name="T:NUnit.Framework.Internal.Commands.OneTimeSetUpCommand">
-            <summary>
-            OneTimeSetUpCommand runs any one-time setup methods for a suite,
-            constructing the user test object if necessary.
-            </summary>
-        </member>
-        <member name="M:NUnit.Framework.Internal.Commands.OneTimeSetUpCommand.#ctor(NUnit.Framework.Internal.TestSuite,System.Collections.Generic.List{NUnit.Framework.Internal.Commands.SetUpTearDownItem},System.Collections.Generic.List{NUnit.Framework.Internal.Commands.TestActionItem})">
-            <summary>
-            Constructs a OneTimeSetUpCommand for a suite
-            </summary>
-            <param name="suite">The suite to which the command applies</param>
-            <param name="setUpTearDown">A SetUpTearDownList for use by the command</param>
-            <param name="actions">A List of TestActionItems to be run after Setup</param>
-        </member>
-        <member name="M:NUnit.Framework.Internal.Commands.OneTimeSetUpCommand.Execute(NUnit.Framework.Internal.TestExecutionContext)">
-            <summary>
-            Overridden to run the one-time setup for a suite.
-            </summary>
-            <param name="context">The TestExecutionContext to be used.</param>
-            <returns>A TestResult</returns>
-        </member>
-        <member name="T:NUnit.Framework.Internal.Commands.OneTimeTearDownCommand">
-            <summary>
-            OneTimeTearDownCommand performs any teardown actions
-            specified for a suite and calls Dispose on the user
-            test object, if any.
-            </summary>
-        </member>
-        <member name="M:NUnit.Framework.Internal.Commands.OneTimeTearDownCommand.#ctor(NUnit.Framework.Internal.TestSuite,System.Collections.Generic.List{NUnit.Framework.Internal.Commands.SetUpTearDownItem},System.Collections.Generic.List{NUnit.Framework.Internal.Commands.TestActionItem})">
-            <summary>
-            Construct a OneTimeTearDownCommand
-            </summary>
-            <param name="suite">The test suite to which the command applies</param>
-            <param name="setUpTearDownItems">A SetUpTearDownList for use by the command</param>
-            <param name="actions">A List of TestActionItems to be run before teardown.</param>
-        </member>
-        <member name="M:NUnit.Framework.Internal.Commands.OneTimeTearDownCommand.Execute(NUnit.Framework.Internal.TestExecutionContext)">
-            <summary>
-            Overridden to run the teardown methods specified on the test.
-            </summary>
-            <param name="context">The TestExecutionContext to be used.</param>
-            <returns>A TestResult</returns>
-        </member>
         <member name="T:NUnit.Framework.Internal.Commands.ApplyChangesToContextCommand">
             <summary>
             ContextSettingsCommand applies specified changes to the
@@ -974,6 +931,49 @@
             Runs the test, saving a TestResult in the supplied TestExecutionContext
             </summary>
             <param name="context">The context in which the test should run.</param>
+            <returns>A TestResult</returns>
+        </member>
+        <member name="T:NUnit.Framework.Internal.Commands.OneTimeSetUpCommand">
+            <summary>
+            OneTimeSetUpCommand runs any one-time setup methods for a suite,
+            constructing the user test object if necessary.
+            </summary>
+        </member>
+        <member name="M:NUnit.Framework.Internal.Commands.OneTimeSetUpCommand.#ctor(NUnit.Framework.Internal.TestSuite,System.Collections.Generic.List{NUnit.Framework.Internal.Commands.SetUpTearDownItem},System.Collections.Generic.List{NUnit.Framework.Internal.Commands.TestActionItem})">
+            <summary>
+            Constructs a OneTimeSetUpCommand for a suite
+            </summary>
+            <param name="suite">The suite to which the command applies</param>
+            <param name="setUpTearDown">A SetUpTearDownList for use by the command</param>
+            <param name="actions">A List of TestActionItems to be run after Setup</param>
+        </member>
+        <member name="M:NUnit.Framework.Internal.Commands.OneTimeSetUpCommand.Execute(NUnit.Framework.Internal.TestExecutionContext)">
+            <summary>
+            Overridden to run the one-time setup for a suite.
+            </summary>
+            <param name="context">The TestExecutionContext to be used.</param>
+            <returns>A TestResult</returns>
+        </member>
+        <member name="T:NUnit.Framework.Internal.Commands.OneTimeTearDownCommand">
+            <summary>
+            OneTimeTearDownCommand performs any teardown actions
+            specified for a suite and calls Dispose on the user
+            test object, if any.
+            </summary>
+        </member>
+        <member name="M:NUnit.Framework.Internal.Commands.OneTimeTearDownCommand.#ctor(NUnit.Framework.Internal.TestSuite,System.Collections.Generic.List{NUnit.Framework.Internal.Commands.SetUpTearDownItem},System.Collections.Generic.List{NUnit.Framework.Internal.Commands.TestActionItem})">
+            <summary>
+            Construct a OneTimeTearDownCommand
+            </summary>
+            <param name="suite">The test suite to which the command applies</param>
+            <param name="setUpTearDownItems">A SetUpTearDownList for use by the command</param>
+            <param name="actions">A List of TestActionItems to be run before teardown.</param>
+        </member>
+        <member name="M:NUnit.Framework.Internal.Commands.OneTimeTearDownCommand.Execute(NUnit.Framework.Internal.TestExecutionContext)">
+            <summary>
+            Overridden to run the teardown methods specified on the test.
+            </summary>
+            <param name="context">The TestExecutionContext to be used.</param>
             <returns>A TestResult</returns>
         </member>
         <member name="T:NUnit.Framework.Internal.Commands.SetUpTearDownCommand">
@@ -1166,434 +1166,6 @@
             </summary>
             <param name="context"></param>
             <returns></returns>
-        </member>
-        <member name="T:NUnit.Framework.Internal.Filters.ClassNameFilter">
-            <summary>
-            ClassName filter selects tests based on the class FullName
-            </summary>
-        </member>
-        <member name="M:NUnit.Framework.Internal.Filters.ClassNameFilter.#ctor(System.String)">
-            <summary>
-            Construct a FullNameFilter for a single name
-            </summary>
-            <param name="expectedValue">The name the filter will recognize.</param>
-        </member>
-        <member name="M:NUnit.Framework.Internal.Filters.ClassNameFilter.Match(NUnit.Framework.Interfaces.ITest)">
-            <summary>
-            Match a test against a single value.
-            </summary>
-        </member>
-        <member name="P:NUnit.Framework.Internal.Filters.ClassNameFilter.ElementName">
-            <summary>
-            Gets the element name
-            </summary>
-            <value>Element name</value>
-        </member>
-        <member name="T:NUnit.Framework.Internal.Filters.CompositeFilter">
-            <summary>
-            A base class for multi-part filters
-            </summary>
-        </member>
-        <member name="M:NUnit.Framework.Internal.Filters.CompositeFilter.#ctor">
-            <summary>
-            Constructs an empty CompositeFilter
-            </summary>
-        </member>
-        <member name="M:NUnit.Framework.Internal.Filters.CompositeFilter.#ctor(NUnit.Framework.Interfaces.ITestFilter[])">
-            <summary>
-            Constructs a CompositeFilter from an array of filters
-            </summary>
-            <param name="filters"></param>
-        </member>
-        <member name="M:NUnit.Framework.Internal.Filters.CompositeFilter.Add(NUnit.Framework.Interfaces.ITestFilter)">
-            <summary>
-            Adds a filter to the list of filters
-            </summary>
-            <param name="filter">The filter to be added</param>
-        </member>
-        <member name="P:NUnit.Framework.Internal.Filters.CompositeFilter.Filters">
-            <summary>
-            Return a list of the composing filters.
-            </summary>
-        </member>
-        <member name="M:NUnit.Framework.Internal.Filters.CompositeFilter.AddToXml(NUnit.Framework.Interfaces.TNode,System.Boolean)">
-            <summary>
-            Adds an XML node
-            </summary>
-            <param name="parentNode">Parent node</param>
-            <param name="recursive">True if recursive</param>
-            <returns>The added XML node</returns>
-        </member>
-        <member name="P:NUnit.Framework.Internal.Filters.CompositeFilter.ElementName">
-            <summary>
-            Gets the element name
-            </summary>
-            <value>Element name</value>
-        </member>
-        <member name="T:NUnit.Framework.Internal.Filters.FullNameFilter">
-            <summary>
-            FullName filter selects tests based on their FullName
-            </summary>
-        </member>
-        <member name="M:NUnit.Framework.Internal.Filters.FullNameFilter.#ctor(System.String)">
-            <summary>
-            Construct a FullNameFilter for a single name
-            </summary>
-            <param name="expectedValue">The name the filter will recognize.</param>
-        </member>
-        <member name="M:NUnit.Framework.Internal.Filters.FullNameFilter.Match(NUnit.Framework.Interfaces.ITest)">
-            <summary>
-            Match a test against a single value.
-            </summary>
-        </member>
-        <member name="P:NUnit.Framework.Internal.Filters.FullNameFilter.ElementName">
-            <summary>
-            Gets the element name
-            </summary>
-            <value>Element name</value>
-        </member>
-        <member name="T:NUnit.Framework.Internal.Filters.MethodNameFilter">
-            <summary>
-            FullName filter selects tests based on their FullName
-            </summary>
-        </member>
-        <member name="M:NUnit.Framework.Internal.Filters.MethodNameFilter.#ctor(System.String)">
-            <summary>
-            Construct a MethodNameFilter for a single name
-            </summary>
-            <param name="expectedValue">The name the filter will recognize.</param>
-        </member>
-        <member name="M:NUnit.Framework.Internal.Filters.MethodNameFilter.Match(NUnit.Framework.Interfaces.ITest)">
-            <summary>
-            Match a test against a single value.
-            </summary>
-        </member>
-        <member name="P:NUnit.Framework.Internal.Filters.MethodNameFilter.ElementName">
-            <summary>
-            Gets the element name
-            </summary>
-            <value>Element name</value>
-        </member>
-        <member name="T:NUnit.Framework.Internal.Filters.PropertyFilter">
-            <summary>
-            PropertyFilter is able to select or exclude tests
-            based on their properties.
-            </summary>
-            
-        </member>
-        <member name="M:NUnit.Framework.Internal.Filters.PropertyFilter.#ctor(System.String,System.String)">
-            <summary>
-            Construct a PropertyFilter using a property name and expected value
-            </summary>
-            <param name="propertyName">A property name</param>
-            <param name="expectedValue">The expected value of the property</param>
-        </member>
-        <member name="M:NUnit.Framework.Internal.Filters.PropertyFilter.Match(NUnit.Framework.Interfaces.ITest)">
-            <summary>
-            Check whether the filter matches a test
-            </summary>
-            <param name="test">The test to be matched</param>
-            <returns></returns>
-        </member>
-        <member name="M:NUnit.Framework.Internal.Filters.PropertyFilter.AddToXml(NUnit.Framework.Interfaces.TNode,System.Boolean)">
-            <summary>
-            Adds an XML node
-            </summary>
-            <param name="parentNode">Parent node</param>
-            <param name="recursive">True if recursive</param>
-            <returns>The added XML node</returns>
-        </member>
-        <member name="P:NUnit.Framework.Internal.Filters.PropertyFilter.ElementName">
-            <summary>
-            Gets the element name
-            </summary>
-            <value>Element name</value>
-        </member>
-        <member name="T:NUnit.Framework.Internal.Filters.TestNameFilter">
-            <summary>
-            TestName filter selects tests based on their Name
-            </summary>
-        </member>
-        <member name="M:NUnit.Framework.Internal.Filters.TestNameFilter.#ctor(System.String)">
-            <summary>
-            Construct a TestNameFilter for a single name
-            </summary>
-            <param name="expectedValue">The name the filter will recognize.</param>
-        </member>
-        <member name="M:NUnit.Framework.Internal.Filters.TestNameFilter.Match(NUnit.Framework.Interfaces.ITest)">
-            <summary>
-            Match a test against a single value.
-            </summary>
-        </member>
-        <member name="P:NUnit.Framework.Internal.Filters.TestNameFilter.ElementName">
-            <summary>
-            Gets the element name
-            </summary>
-            <value>Element name</value>
-        </member>
-        <member name="T:NUnit.Framework.Internal.Filters.AndFilter">
-            <summary>
-            Combines multiple filters so that a test must pass all 
-            of them in order to pass this filter.
-            </summary>
-        </member>
-        <member name="M:NUnit.Framework.Internal.Filters.AndFilter.#ctor">
-            <summary>
-            Constructs an empty AndFilter
-            </summary>
-        </member>
-        <member name="M:NUnit.Framework.Internal.Filters.AndFilter.#ctor(NUnit.Framework.Interfaces.ITestFilter[])">
-            <summary>
-            Constructs an AndFilter from an array of filters
-            </summary>
-            <param name="filters"></param>
-        </member>
-        <member name="M:NUnit.Framework.Internal.Filters.AndFilter.Pass(NUnit.Framework.Interfaces.ITest)">
-            <summary>
-            Checks whether the AndFilter is matched by a test
-            </summary>
-            <param name="test">The test to be matched</param>
-            <returns>True if all the component filters pass, otherwise false</returns>
-        </member>
-        <member name="M:NUnit.Framework.Internal.Filters.AndFilter.Match(NUnit.Framework.Interfaces.ITest)">
-            <summary>
-            Checks whether the AndFilter is matched by a test
-            </summary>
-            <param name="test">The test to be matched</param>
-            <returns>True if all the component filters match, otherwise false</returns>
-        </member>
-        <member name="P:NUnit.Framework.Internal.Filters.AndFilter.ElementName">
-            <summary>
-            Gets the element name
-            </summary>
-            <value>Element name</value>
-        </member>
-        <member name="T:NUnit.Framework.Internal.Filters.CategoryFilter">
-            <summary>
-            CategoryFilter is able to select or exclude tests
-            based on their categories.
-            </summary>
-            
-        </member>
-        <member name="M:NUnit.Framework.Internal.Filters.CategoryFilter.#ctor(System.String)">
-            <summary>
-            Construct a CategoryFilter using a single category name
-            </summary>
-            <param name="name">A category name</param>
-        </member>
-        <member name="M:NUnit.Framework.Internal.Filters.CategoryFilter.Match(NUnit.Framework.Interfaces.ITest)">
-            <summary>
-            Check whether the filter matches a test
-            </summary>
-            <param name="test">The test to be matched</param>
-            <returns></returns>
-        </member>
-        <member name="P:NUnit.Framework.Internal.Filters.CategoryFilter.ElementName">
-            <summary>
-            Gets the element name
-            </summary>
-            <value>Element name</value>
-        </member>
-        <member name="T:NUnit.Framework.Internal.Filters.IdFilter">
-            <summary>
-            IdFilter selects tests based on their id
-            </summary>
-        </member>
-        <member name="M:NUnit.Framework.Internal.Filters.IdFilter.#ctor(System.String)">
-            <summary>
-            Construct an IdFilter for a single value
-            </summary>
-            <param name="id">The id the filter will recognize.</param>
-        </member>
-        <member name="M:NUnit.Framework.Internal.Filters.IdFilter.Match(NUnit.Framework.Interfaces.ITest)">
-            <summary>
-            Match a test against a single value.
-            </summary>
-        </member>
-        <member name="P:NUnit.Framework.Internal.Filters.IdFilter.ElementName">
-            <summary>
-            Gets the element name
-            </summary>
-            <value>Element name</value>
-        </member>
-        <member name="T:NUnit.Framework.Internal.Filters.NotFilter">
-            <summary>
-            NotFilter negates the operation of another filter
-            </summary>
-        </member>
-        <member name="M:NUnit.Framework.Internal.Filters.NotFilter.#ctor(NUnit.Framework.Internal.TestFilter)">
-            <summary>
-            Construct a not filter on another filter
-            </summary>
-            <param name="baseFilter">The filter to be negated</param>
-        </member>
-        <member name="P:NUnit.Framework.Internal.Filters.NotFilter.BaseFilter">
-            <summary>
-            Gets the base filter
-            </summary>
-        </member>
-        <member name="M:NUnit.Framework.Internal.Filters.NotFilter.Pass(NUnit.Framework.Interfaces.ITest)">
-            <summary>
-            Determine if a particular test passes the filter criteria. The default 
-            implementation checks the test itself, its parents and any descendants.
-            
-            Derived classes may override this method or any of the Match methods
-            to change the behavior of the filter.
-            </summary>
-            <param name="test">The test to which the filter is applied</param>
-            <returns>True if the test passes the filter, otherwise false</returns>
-        </member>
-        <member name="M:NUnit.Framework.Internal.Filters.NotFilter.Match(NUnit.Framework.Interfaces.ITest)">
-            <summary>
-            Check whether the filter matches a test
-            </summary>
-            <param name="test">The test to be matched</param>
-            <returns>True if it matches, otherwise false</returns>
-        </member>
-        <member name="M:NUnit.Framework.Internal.Filters.NotFilter.IsExplicitMatch(NUnit.Framework.Interfaces.ITest)">
-            <summary>
-            Determine if a test matches the filter expicitly. That is, it must
-            be a direct match of the test itself or one of it's children.
-            </summary>
-            <param name="test">The test to which the filter is applied</param>
-            <returns>True if the test matches the filter explicityly, otherwise false</returns>
-        </member>
-        <member name="M:NUnit.Framework.Internal.Filters.NotFilter.AddToXml(NUnit.Framework.Interfaces.TNode,System.Boolean)">
-            <summary>
-            Adds an XML node
-            </summary>
-            <param name="parentNode">Parent node</param>
-            <param name="recursive">True if recursive</param>
-            <returns>The added XML node</returns>
-        </member>
-        <member name="T:NUnit.Framework.Internal.Filters.OrFilter">
-            <summary>
-            Combines multiple filters so that a test must pass one 
-            of them in order to pass this filter.
-            </summary>
-        </member>
-        <member name="M:NUnit.Framework.Internal.Filters.OrFilter.#ctor">
-            <summary>
-            Constructs an empty OrFilter
-            </summary>
-        </member>
-        <member name="M:NUnit.Framework.Internal.Filters.OrFilter.#ctor(NUnit.Framework.Interfaces.ITestFilter[])">
-            <summary>
-            Constructs an AndFilter from an array of filters
-            </summary>
-            <param name="filters"></param>
-        </member>
-        <member name="M:NUnit.Framework.Internal.Filters.OrFilter.Pass(NUnit.Framework.Interfaces.ITest)">
-            <summary>
-            Checks whether the OrFilter is matched by a test
-            </summary>
-            <param name="test">The test to be matched</param>
-            <returns>True if any of the component filters pass, otherwise false</returns>
-        </member>
-        <member name="M:NUnit.Framework.Internal.Filters.OrFilter.Match(NUnit.Framework.Interfaces.ITest)">
-            <summary>
-            Checks whether the OrFilter is matched by a test
-            </summary>
-            <param name="test">The test to be matched</param>
-            <returns>True if any of the component filters match, otherwise false</returns>
-        </member>
-        <member name="P:NUnit.Framework.Internal.Filters.OrFilter.ElementName">
-            <summary>
-            Gets the element name
-            </summary>
-            <value>Element name</value>
-        </member>
-        <member name="T:NUnit.Framework.Internal.Filters.ValueMatchFilter">
-            <summary>
-            ValueMatchFilter selects tests based on some value, which
-            is expected to be contained in the test.
-            </summary>
-        </member>
-        <member name="P:NUnit.Framework.Internal.Filters.ValueMatchFilter.ExpectedValue">
-            <summary>
-            Returns the value matched by the filter - used for testing
-            </summary>
-        </member>
-        <member name="P:NUnit.Framework.Internal.Filters.ValueMatchFilter.IsRegex">
-            <summary>
-            Indicates whether the value is a regular expression
-            </summary>
-        </member>
-        <member name="M:NUnit.Framework.Internal.Filters.ValueMatchFilter.#ctor(System.String)">
-            <summary>
-            Construct a ValueMatchFilter for a single value.
-            </summary>
-            <param name="expectedValue">The value to be included.</param>
-        </member>
-        <member name="M:NUnit.Framework.Internal.Filters.ValueMatchFilter.Match(System.String)">
-            <summary>
-            Match the input provided by the derived class
-            </summary>
-            <param name="input">The value to be matchedT</param>
-            <returns>True for a match, false otherwise.</returns>
-        </member>
-        <member name="M:NUnit.Framework.Internal.Filters.ValueMatchFilter.AddToXml(NUnit.Framework.Interfaces.TNode,System.Boolean)">
-            <summary>
-            Adds an XML node
-            </summary>
-            <param name="parentNode">Parent node</param>
-            <param name="recursive">True if recursive</param>
-            <returns>The added XML node</returns>
-        </member>
-        <member name="P:NUnit.Framework.Internal.Filters.ValueMatchFilter.ElementName">
-            <summary>
-            Gets the element name
-            </summary>
-            <value>Element name</value>
-        </member>
-        <member name="T:NUnit.Framework.Internal.GenericMethodHelper">
-            <summary>
-            GenericMethodHelper is able to deduce the Type arguments for
-            a generic method from the actual arguments provided.
-            </summary>
-        </member>
-        <member name="M:NUnit.Framework.Internal.GenericMethodHelper.#ctor(System.Reflection.MethodInfo)">
-            <summary>
-            Construct a GenericMethodHelper for a method
-            </summary>
-            <param name="method">MethodInfo for the method to examine</param>
-        </member>
-        <member name="M:NUnit.Framework.Internal.GenericMethodHelper.GetTypeArguments(System.Object[])">
-            <summary>
-            Return the type argments for the method, deducing them
-            from the arguments actually provided.
-            </summary>
-            <param name="argList">The arguments to the method</param>
-            <returns>An array of type arguments.</returns>
-        </member>
-        <member name="T:NUnit.Framework.Internal.InvalidDataSourceException">
-            <summary>
-            InvalidTestFixtureException is thrown when an appropriate test
-            fixture constructor using the provided arguments cannot be found.
-            </summary>
-        </member>
-        <member name="M:NUnit.Framework.Internal.InvalidDataSourceException.#ctor">
-            <summary>
-            Initializes a new instance of the <see cref="T:NUnit.Framework.Internal.InvalidTestFixtureException"/> class.
-            </summary>
-        </member>
-        <member name="M:NUnit.Framework.Internal.InvalidDataSourceException.#ctor(System.String)">
-            <summary>
-            Initializes a new instance of the <see cref="T:NUnit.Framework.Internal.InvalidTestFixtureException"/> class.
-            </summary>
-            <param name="message">The message.</param>
-        </member>
-        <member name="M:NUnit.Framework.Internal.InvalidDataSourceException.#ctor(System.String,System.Exception)">
-            <summary>
-            Initializes a new instance of the <see cref="T:NUnit.Framework.Internal.InvalidTestFixtureException"/> class.
-            </summary>
-            <param name="message">The message.</param>
-            <param name="inner">The inner.</param>
-        </member>
-        <member name="M:NUnit.Framework.Internal.InvalidDataSourceException.#ctor(System.Runtime.Serialization.SerializationInfo,System.Runtime.Serialization.StreamingContext)">
-            <summary>
-            Serialization Constructor
-            </summary>
         </member>
         <member name="T:NUnit.Framework.Internal.CultureDetector">
             <summary>
@@ -2587,6 +2159,434 @@
             Write the generic 'Actual' line for a given value
             </summary>
             <param name="actual">The actual value causing a failure</param>
+        </member>
+        <member name="T:NUnit.Framework.Internal.Filters.AndFilter">
+            <summary>
+            Combines multiple filters so that a test must pass all 
+            of them in order to pass this filter.
+            </summary>
+        </member>
+        <member name="M:NUnit.Framework.Internal.Filters.AndFilter.#ctor">
+            <summary>
+            Constructs an empty AndFilter
+            </summary>
+        </member>
+        <member name="M:NUnit.Framework.Internal.Filters.AndFilter.#ctor(NUnit.Framework.Interfaces.ITestFilter[])">
+            <summary>
+            Constructs an AndFilter from an array of filters
+            </summary>
+            <param name="filters"></param>
+        </member>
+        <member name="M:NUnit.Framework.Internal.Filters.AndFilter.Pass(NUnit.Framework.Interfaces.ITest)">
+            <summary>
+            Checks whether the AndFilter is matched by a test
+            </summary>
+            <param name="test">The test to be matched</param>
+            <returns>True if all the component filters pass, otherwise false</returns>
+        </member>
+        <member name="M:NUnit.Framework.Internal.Filters.AndFilter.Match(NUnit.Framework.Interfaces.ITest)">
+            <summary>
+            Checks whether the AndFilter is matched by a test
+            </summary>
+            <param name="test">The test to be matched</param>
+            <returns>True if all the component filters match, otherwise false</returns>
+        </member>
+        <member name="P:NUnit.Framework.Internal.Filters.AndFilter.ElementName">
+            <summary>
+            Gets the element name
+            </summary>
+            <value>Element name</value>
+        </member>
+        <member name="T:NUnit.Framework.Internal.Filters.CategoryFilter">
+            <summary>
+            CategoryFilter is able to select or exclude tests
+            based on their categories.
+            </summary>
+            
+        </member>
+        <member name="M:NUnit.Framework.Internal.Filters.CategoryFilter.#ctor(System.String)">
+            <summary>
+            Construct a CategoryFilter using a single category name
+            </summary>
+            <param name="name">A category name</param>
+        </member>
+        <member name="M:NUnit.Framework.Internal.Filters.CategoryFilter.Match(NUnit.Framework.Interfaces.ITest)">
+            <summary>
+            Check whether the filter matches a test
+            </summary>
+            <param name="test">The test to be matched</param>
+            <returns></returns>
+        </member>
+        <member name="P:NUnit.Framework.Internal.Filters.CategoryFilter.ElementName">
+            <summary>
+            Gets the element name
+            </summary>
+            <value>Element name</value>
+        </member>
+        <member name="T:NUnit.Framework.Internal.Filters.ClassNameFilter">
+            <summary>
+            ClassName filter selects tests based on the class FullName
+            </summary>
+        </member>
+        <member name="M:NUnit.Framework.Internal.Filters.ClassNameFilter.#ctor(System.String)">
+            <summary>
+            Construct a FullNameFilter for a single name
+            </summary>
+            <param name="expectedValue">The name the filter will recognize.</param>
+        </member>
+        <member name="M:NUnit.Framework.Internal.Filters.ClassNameFilter.Match(NUnit.Framework.Interfaces.ITest)">
+            <summary>
+            Match a test against a single value.
+            </summary>
+        </member>
+        <member name="P:NUnit.Framework.Internal.Filters.ClassNameFilter.ElementName">
+            <summary>
+            Gets the element name
+            </summary>
+            <value>Element name</value>
+        </member>
+        <member name="T:NUnit.Framework.Internal.Filters.CompositeFilter">
+            <summary>
+            A base class for multi-part filters
+            </summary>
+        </member>
+        <member name="M:NUnit.Framework.Internal.Filters.CompositeFilter.#ctor">
+            <summary>
+            Constructs an empty CompositeFilter
+            </summary>
+        </member>
+        <member name="M:NUnit.Framework.Internal.Filters.CompositeFilter.#ctor(NUnit.Framework.Interfaces.ITestFilter[])">
+            <summary>
+            Constructs a CompositeFilter from an array of filters
+            </summary>
+            <param name="filters"></param>
+        </member>
+        <member name="M:NUnit.Framework.Internal.Filters.CompositeFilter.Add(NUnit.Framework.Interfaces.ITestFilter)">
+            <summary>
+            Adds a filter to the list of filters
+            </summary>
+            <param name="filter">The filter to be added</param>
+        </member>
+        <member name="P:NUnit.Framework.Internal.Filters.CompositeFilter.Filters">
+            <summary>
+            Return a list of the composing filters.
+            </summary>
+        </member>
+        <member name="M:NUnit.Framework.Internal.Filters.CompositeFilter.AddToXml(NUnit.Framework.Interfaces.TNode,System.Boolean)">
+            <summary>
+            Adds an XML node
+            </summary>
+            <param name="parentNode">Parent node</param>
+            <param name="recursive">True if recursive</param>
+            <returns>The added XML node</returns>
+        </member>
+        <member name="P:NUnit.Framework.Internal.Filters.CompositeFilter.ElementName">
+            <summary>
+            Gets the element name
+            </summary>
+            <value>Element name</value>
+        </member>
+        <member name="T:NUnit.Framework.Internal.Filters.FullNameFilter">
+            <summary>
+            FullName filter selects tests based on their FullName
+            </summary>
+        </member>
+        <member name="M:NUnit.Framework.Internal.Filters.FullNameFilter.#ctor(System.String)">
+            <summary>
+            Construct a FullNameFilter for a single name
+            </summary>
+            <param name="expectedValue">The name the filter will recognize.</param>
+        </member>
+        <member name="M:NUnit.Framework.Internal.Filters.FullNameFilter.Match(NUnit.Framework.Interfaces.ITest)">
+            <summary>
+            Match a test against a single value.
+            </summary>
+        </member>
+        <member name="P:NUnit.Framework.Internal.Filters.FullNameFilter.ElementName">
+            <summary>
+            Gets the element name
+            </summary>
+            <value>Element name</value>
+        </member>
+        <member name="T:NUnit.Framework.Internal.Filters.IdFilter">
+            <summary>
+            IdFilter selects tests based on their id
+            </summary>
+        </member>
+        <member name="M:NUnit.Framework.Internal.Filters.IdFilter.#ctor(System.String)">
+            <summary>
+            Construct an IdFilter for a single value
+            </summary>
+            <param name="id">The id the filter will recognize.</param>
+        </member>
+        <member name="M:NUnit.Framework.Internal.Filters.IdFilter.Match(NUnit.Framework.Interfaces.ITest)">
+            <summary>
+            Match a test against a single value.
+            </summary>
+        </member>
+        <member name="P:NUnit.Framework.Internal.Filters.IdFilter.ElementName">
+            <summary>
+            Gets the element name
+            </summary>
+            <value>Element name</value>
+        </member>
+        <member name="T:NUnit.Framework.Internal.Filters.MethodNameFilter">
+            <summary>
+            FullName filter selects tests based on their FullName
+            </summary>
+        </member>
+        <member name="M:NUnit.Framework.Internal.Filters.MethodNameFilter.#ctor(System.String)">
+            <summary>
+            Construct a MethodNameFilter for a single name
+            </summary>
+            <param name="expectedValue">The name the filter will recognize.</param>
+        </member>
+        <member name="M:NUnit.Framework.Internal.Filters.MethodNameFilter.Match(NUnit.Framework.Interfaces.ITest)">
+            <summary>
+            Match a test against a single value.
+            </summary>
+        </member>
+        <member name="P:NUnit.Framework.Internal.Filters.MethodNameFilter.ElementName">
+            <summary>
+            Gets the element name
+            </summary>
+            <value>Element name</value>
+        </member>
+        <member name="T:NUnit.Framework.Internal.Filters.NotFilter">
+            <summary>
+            NotFilter negates the operation of another filter
+            </summary>
+        </member>
+        <member name="M:NUnit.Framework.Internal.Filters.NotFilter.#ctor(NUnit.Framework.Internal.TestFilter)">
+            <summary>
+            Construct a not filter on another filter
+            </summary>
+            <param name="baseFilter">The filter to be negated</param>
+        </member>
+        <member name="P:NUnit.Framework.Internal.Filters.NotFilter.BaseFilter">
+            <summary>
+            Gets the base filter
+            </summary>
+        </member>
+        <member name="M:NUnit.Framework.Internal.Filters.NotFilter.Pass(NUnit.Framework.Interfaces.ITest)">
+            <summary>
+            Determine if a particular test passes the filter criteria. The default 
+            implementation checks the test itself, its parents and any descendants.
+            
+            Derived classes may override this method or any of the Match methods
+            to change the behavior of the filter.
+            </summary>
+            <param name="test">The test to which the filter is applied</param>
+            <returns>True if the test passes the filter, otherwise false</returns>
+        </member>
+        <member name="M:NUnit.Framework.Internal.Filters.NotFilter.Match(NUnit.Framework.Interfaces.ITest)">
+            <summary>
+            Check whether the filter matches a test
+            </summary>
+            <param name="test">The test to be matched</param>
+            <returns>True if it matches, otherwise false</returns>
+        </member>
+        <member name="M:NUnit.Framework.Internal.Filters.NotFilter.IsExplicitMatch(NUnit.Framework.Interfaces.ITest)">
+            <summary>
+            Determine if a test matches the filter expicitly. That is, it must
+            be a direct match of the test itself or one of it's children.
+            </summary>
+            <param name="test">The test to which the filter is applied</param>
+            <returns>True if the test matches the filter explicityly, otherwise false</returns>
+        </member>
+        <member name="M:NUnit.Framework.Internal.Filters.NotFilter.AddToXml(NUnit.Framework.Interfaces.TNode,System.Boolean)">
+            <summary>
+            Adds an XML node
+            </summary>
+            <param name="parentNode">Parent node</param>
+            <param name="recursive">True if recursive</param>
+            <returns>The added XML node</returns>
+        </member>
+        <member name="T:NUnit.Framework.Internal.Filters.OrFilter">
+            <summary>
+            Combines multiple filters so that a test must pass one 
+            of them in order to pass this filter.
+            </summary>
+        </member>
+        <member name="M:NUnit.Framework.Internal.Filters.OrFilter.#ctor">
+            <summary>
+            Constructs an empty OrFilter
+            </summary>
+        </member>
+        <member name="M:NUnit.Framework.Internal.Filters.OrFilter.#ctor(NUnit.Framework.Interfaces.ITestFilter[])">
+            <summary>
+            Constructs an AndFilter from an array of filters
+            </summary>
+            <param name="filters"></param>
+        </member>
+        <member name="M:NUnit.Framework.Internal.Filters.OrFilter.Pass(NUnit.Framework.Interfaces.ITest)">
+            <summary>
+            Checks whether the OrFilter is matched by a test
+            </summary>
+            <param name="test">The test to be matched</param>
+            <returns>True if any of the component filters pass, otherwise false</returns>
+        </member>
+        <member name="M:NUnit.Framework.Internal.Filters.OrFilter.Match(NUnit.Framework.Interfaces.ITest)">
+            <summary>
+            Checks whether the OrFilter is matched by a test
+            </summary>
+            <param name="test">The test to be matched</param>
+            <returns>True if any of the component filters match, otherwise false</returns>
+        </member>
+        <member name="P:NUnit.Framework.Internal.Filters.OrFilter.ElementName">
+            <summary>
+            Gets the element name
+            </summary>
+            <value>Element name</value>
+        </member>
+        <member name="T:NUnit.Framework.Internal.Filters.PropertyFilter">
+            <summary>
+            PropertyFilter is able to select or exclude tests
+            based on their properties.
+            </summary>
+            
+        </member>
+        <member name="M:NUnit.Framework.Internal.Filters.PropertyFilter.#ctor(System.String,System.String)">
+            <summary>
+            Construct a PropertyFilter using a property name and expected value
+            </summary>
+            <param name="propertyName">A property name</param>
+            <param name="expectedValue">The expected value of the property</param>
+        </member>
+        <member name="M:NUnit.Framework.Internal.Filters.PropertyFilter.Match(NUnit.Framework.Interfaces.ITest)">
+            <summary>
+            Check whether the filter matches a test
+            </summary>
+            <param name="test">The test to be matched</param>
+            <returns></returns>
+        </member>
+        <member name="M:NUnit.Framework.Internal.Filters.PropertyFilter.AddToXml(NUnit.Framework.Interfaces.TNode,System.Boolean)">
+            <summary>
+            Adds an XML node
+            </summary>
+            <param name="parentNode">Parent node</param>
+            <param name="recursive">True if recursive</param>
+            <returns>The added XML node</returns>
+        </member>
+        <member name="P:NUnit.Framework.Internal.Filters.PropertyFilter.ElementName">
+            <summary>
+            Gets the element name
+            </summary>
+            <value>Element name</value>
+        </member>
+        <member name="T:NUnit.Framework.Internal.Filters.TestNameFilter">
+            <summary>
+            TestName filter selects tests based on their Name
+            </summary>
+        </member>
+        <member name="M:NUnit.Framework.Internal.Filters.TestNameFilter.#ctor(System.String)">
+            <summary>
+            Construct a TestNameFilter for a single name
+            </summary>
+            <param name="expectedValue">The name the filter will recognize.</param>
+        </member>
+        <member name="M:NUnit.Framework.Internal.Filters.TestNameFilter.Match(NUnit.Framework.Interfaces.ITest)">
+            <summary>
+            Match a test against a single value.
+            </summary>
+        </member>
+        <member name="P:NUnit.Framework.Internal.Filters.TestNameFilter.ElementName">
+            <summary>
+            Gets the element name
+            </summary>
+            <value>Element name</value>
+        </member>
+        <member name="T:NUnit.Framework.Internal.Filters.ValueMatchFilter">
+            <summary>
+            ValueMatchFilter selects tests based on some value, which
+            is expected to be contained in the test.
+            </summary>
+        </member>
+        <member name="P:NUnit.Framework.Internal.Filters.ValueMatchFilter.ExpectedValue">
+            <summary>
+            Returns the value matched by the filter - used for testing
+            </summary>
+        </member>
+        <member name="P:NUnit.Framework.Internal.Filters.ValueMatchFilter.IsRegex">
+            <summary>
+            Indicates whether the value is a regular expression
+            </summary>
+        </member>
+        <member name="M:NUnit.Framework.Internal.Filters.ValueMatchFilter.#ctor(System.String)">
+            <summary>
+            Construct a ValueMatchFilter for a single value.
+            </summary>
+            <param name="expectedValue">The value to be included.</param>
+        </member>
+        <member name="M:NUnit.Framework.Internal.Filters.ValueMatchFilter.Match(System.String)">
+            <summary>
+            Match the input provided by the derived class
+            </summary>
+            <param name="input">The value to be matchedT</param>
+            <returns>True for a match, false otherwise.</returns>
+        </member>
+        <member name="M:NUnit.Framework.Internal.Filters.ValueMatchFilter.AddToXml(NUnit.Framework.Interfaces.TNode,System.Boolean)">
+            <summary>
+            Adds an XML node
+            </summary>
+            <param name="parentNode">Parent node</param>
+            <param name="recursive">True if recursive</param>
+            <returns>The added XML node</returns>
+        </member>
+        <member name="P:NUnit.Framework.Internal.Filters.ValueMatchFilter.ElementName">
+            <summary>
+            Gets the element name
+            </summary>
+            <value>Element name</value>
+        </member>
+        <member name="T:NUnit.Framework.Internal.GenericMethodHelper">
+            <summary>
+            GenericMethodHelper is able to deduce the Type arguments for
+            a generic method from the actual arguments provided.
+            </summary>
+        </member>
+        <member name="M:NUnit.Framework.Internal.GenericMethodHelper.#ctor(System.Reflection.MethodInfo)">
+            <summary>
+            Construct a GenericMethodHelper for a method
+            </summary>
+            <param name="method">MethodInfo for the method to examine</param>
+        </member>
+        <member name="M:NUnit.Framework.Internal.GenericMethodHelper.GetTypeArguments(System.Object[])">
+            <summary>
+            Return the type argments for the method, deducing them
+            from the arguments actually provided.
+            </summary>
+            <param name="argList">The arguments to the method</param>
+            <returns>An array of type arguments.</returns>
+        </member>
+        <member name="T:NUnit.Framework.Internal.InvalidDataSourceException">
+            <summary>
+            InvalidTestFixtureException is thrown when an appropriate test
+            fixture constructor using the provided arguments cannot be found.
+            </summary>
+        </member>
+        <member name="M:NUnit.Framework.Internal.InvalidDataSourceException.#ctor">
+            <summary>
+            Initializes a new instance of the <see cref="T:NUnit.Framework.Internal.InvalidTestFixtureException"/> class.
+            </summary>
+        </member>
+        <member name="M:NUnit.Framework.Internal.InvalidDataSourceException.#ctor(System.String)">
+            <summary>
+            Initializes a new instance of the <see cref="T:NUnit.Framework.Internal.InvalidTestFixtureException"/> class.
+            </summary>
+            <param name="message">The message.</param>
+        </member>
+        <member name="M:NUnit.Framework.Internal.InvalidDataSourceException.#ctor(System.String,System.Exception)">
+            <summary>
+            Initializes a new instance of the <see cref="T:NUnit.Framework.Internal.InvalidTestFixtureException"/> class.
+            </summary>
+            <param name="message">The message.</param>
+            <param name="inner">The inner.</param>
+        </member>
+        <member name="M:NUnit.Framework.Internal.InvalidDataSourceException.#ctor(System.Runtime.Serialization.SerializationInfo,System.Runtime.Serialization.StreamingContext)">
+            <summary>
+            Serialization Constructor
+            </summary>
         </member>
         <member name="T:NUnit.Framework.Internal.InvalidTestFixtureException">
             <summary>
@@ -7744,6 +7744,113 @@
             </summary>
             <param name="test">The test to modify</param>
         </member>
+        <member name="T:NUnit.Framework.LevelOfParallelismAttribute">
+            <summary>
+            LevelOfParallelismAttribute is used to set the number of worker threads
+            that may be allocated by the framework for running tests.
+            </summary>
+        </member>
+        <member name="M:NUnit.Framework.LevelOfParallelismAttribute.#ctor(System.Int32)">
+            <summary>
+            Construct a LevelOfParallelismAttribute.
+            </summary>
+            <param name="level">The number of worker threads to be created by the framework.</param>
+        </member>
+        <member name="T:NUnit.Framework.OneTimeSetUpAttribute">
+            <summary>
+            Attribute used to identify a method that is called once
+            to perform setup before any child tests are run.
+            </summary>
+        </member>
+        <member name="T:NUnit.Framework.OneTimeTearDownAttribute">
+            <summary>
+            Attribute used to identify a method that is called once
+            after all the child tests have run. The method is 
+            guaranteed to be called, even if an exception is thrown.
+            </summary>
+        </member>
+        <member name="T:NUnit.Framework.RetryAttribute">
+            <summary>
+            RepeatAttribute may be applied to test case in order
+            to run it multiple times.
+            </summary>
+        </member>
+        <member name="M:NUnit.Framework.RetryAttribute.#ctor(System.Int32)">
+            <summary>
+            Construct a RepeatAttribute
+            </summary>
+            <param name="count">The number of times to run the test</param>
+        </member>
+        <member name="M:NUnit.Framework.RetryAttribute.Wrap(NUnit.Framework.Internal.Commands.TestCommand)">
+            <summary>
+            Wrap a command and return the result.
+            </summary>
+            <param name="command">The command to be wrapped</param>
+            <returns>The wrapped command</returns>
+        </member>
+        <member name="T:NUnit.Framework.RetryAttribute.RetryCommand">
+            <summary>
+            The test command for the RetryAttribute
+            </summary>
+        </member>
+        <member name="M:NUnit.Framework.RetryAttribute.RetryCommand.#ctor(NUnit.Framework.Internal.Commands.TestCommand,System.Int32)">
+            <summary>
+            Initializes a new instance of the <see cref="T:NUnit.Framework.RetryAttribute.RetryCommand"/> class.
+            </summary>
+            <param name="innerCommand">The inner command.</param>
+            <param name="retryCount">The number of repetitions</param>
+        </member>
+        <member name="M:NUnit.Framework.RetryAttribute.RetryCommand.Execute(NUnit.Framework.Internal.TestExecutionContext)">
+            <summary>
+            Runs the test, saving a TestResult in the supplied TestExecutionContext.
+            </summary>
+            <param name="context">The context in which the test should run.</param>
+            <returns>A TestResult</returns>
+        </member>
+        <member name="T:NUnit.Framework.TestActionAttribute">
+            <summary>
+            Provide actions to execute before and after tests.
+            </summary>
+        </member>
+        <member name="M:NUnit.Framework.TestActionAttribute.BeforeTest(NUnit.Framework.Interfaces.ITest)">
+            <summary>
+            Executed before each test is run
+            </summary>
+            <param name="test">The test that is going to be run.</param>
+        </member>
+        <member name="M:NUnit.Framework.TestActionAttribute.AfterTest(NUnit.Framework.Interfaces.ITest)">
+            <summary>
+            Executed after each test is run
+            </summary>
+            <param name="test">The test that has just been run.</param>
+        </member>
+        <member name="P:NUnit.Framework.TestActionAttribute.Targets">
+            <summary>
+            Provides the target for the action attribute
+            </summary>
+        </member>
+        <member name="T:NUnit.Framework.ParallelizableAttribute">
+            <summary>
+            ParallelizableAttribute is used to mark tests that may be run in parallel.
+            </summary>
+        </member>
+        <member name="M:NUnit.Framework.ParallelizableAttribute.#ctor">
+            <summary>
+            Construct a ParallelizableAttribute using default ParallelScope.Self.
+            </summary>
+        </member>
+        <member name="M:NUnit.Framework.ParallelizableAttribute.#ctor(NUnit.Framework.ParallelScope)">
+            <summary>
+            Construct a ParallelizableAttribute with a specified scope.
+            </summary>
+            <param name="scope">The ParallelScope associated with this attribute.</param>
+        </member>
+        <member name="M:NUnit.Framework.ParallelizableAttribute.ApplyToContext(NUnit.Framework.Internal.TestExecutionContext)">
+            <summary>
+            Modify the context to be used for child tests
+            </summary>
+            <param name="context">The current TestExecutionContext</param>
+        </member>
         <member name="T:NUnit.Framework.CultureAttribute">
             <summary>
             CultureAttribute is used to mark a test fixture or an
@@ -7932,18 +8039,6 @@
             The reason for including or excluding the test
             </summary>
         </member>
-        <member name="T:NUnit.Framework.LevelOfParallelismAttribute">
-            <summary>
-            LevelOfParallelismAttribute is used to set the number of worker threads
-            that may be allocated by the framework for running tests.
-            </summary>
-        </member>
-        <member name="M:NUnit.Framework.LevelOfParallelismAttribute.#ctor(System.Int32)">
-            <summary>
-            Construct a LevelOfParallelismAttribute.
-            </summary>
-            <param name="level">The number of worker threads to be created by the framework.</param>
-        </member>
         <member name="T:NUnit.Framework.MaxTimeAttribute">
             <summary>
             Summary description for MaxTimeAttribute.
@@ -7965,19 +8060,6 @@
             Default constructor
             </summary>
         </member>
-        <member name="T:NUnit.Framework.OneTimeSetUpAttribute">
-            <summary>
-            Attribute used to identify a method that is called once
-            to perform setup before any child tests are run.
-            </summary>
-        </member>
-        <member name="T:NUnit.Framework.OneTimeTearDownAttribute">
-            <summary>
-            Attribute used to identify a method that is called once
-            after all the child tests have run. The method is 
-            guaranteed to be called, even if an exception is thrown.
-            </summary>
-        </member>
         <member name="T:NUnit.Framework.PairwiseAttribute">
             <summary>
             Marks a test to use a pairwise join of any argument 
@@ -7989,28 +8071,6 @@
             <summary>
             Default constructor
             </summary>
-        </member>
-        <member name="T:NUnit.Framework.ParallelizableAttribute">
-            <summary>
-            ParallelizableAttribute is used to mark tests that may be run in parallel.
-            </summary>
-        </member>
-        <member name="M:NUnit.Framework.ParallelizableAttribute.#ctor">
-            <summary>
-            Construct a ParallelizableAttribute using default ParallelScope.Self.
-            </summary>
-        </member>
-        <member name="M:NUnit.Framework.ParallelizableAttribute.#ctor(NUnit.Framework.ParallelScope)">
-            <summary>
-            Construct a ParallelizableAttribute with a specified scope.
-            </summary>
-            <param name="scope">The ParallelScope associated with this attribute.</param>
-        </member>
-        <member name="M:NUnit.Framework.ParallelizableAttribute.ApplyToContext(NUnit.Framework.Internal.TestExecutionContext)">
-            <summary>
-            Modify the context to be used for child tests
-            </summary>
-            <param name="context">The current TestExecutionContext</param>
         </member>
         <member name="T:NUnit.Framework.ParallelScope">
             <summary>
@@ -8343,44 +8403,6 @@
             Construct a RequiresThreadAttribute, specifying the apartment
             </summary>
         </member>
-        <member name="T:NUnit.Framework.RetryAttribute">
-            <summary>
-            RepeatAttribute may be applied to test case in order
-            to run it multiple times.
-            </summary>
-        </member>
-        <member name="M:NUnit.Framework.RetryAttribute.#ctor(System.Int32)">
-            <summary>
-            Construct a RepeatAttribute
-            </summary>
-            <param name="count">The number of times to run the test</param>
-        </member>
-        <member name="M:NUnit.Framework.RetryAttribute.Wrap(NUnit.Framework.Internal.Commands.TestCommand)">
-            <summary>
-            Wrap a command and return the result.
-            </summary>
-            <param name="command">The command to be wrapped</param>
-            <returns>The wrapped command</returns>
-        </member>
-        <member name="T:NUnit.Framework.RetryAttribute.RetryCommand">
-            <summary>
-            The test command for the RetryAttribute
-            </summary>
-        </member>
-        <member name="M:NUnit.Framework.RetryAttribute.RetryCommand.#ctor(NUnit.Framework.Internal.Commands.TestCommand,System.Int32)">
-            <summary>
-            Initializes a new instance of the <see cref="T:NUnit.Framework.RetryAttribute.RetryCommand"/> class.
-            </summary>
-            <param name="innerCommand">The inner command.</param>
-            <param name="retryCount">The number of repetitions</param>
-        </member>
-        <member name="M:NUnit.Framework.RetryAttribute.RetryCommand.Execute(NUnit.Framework.Internal.TestExecutionContext)">
-            <summary>
-            Runs the test, saving a TestResult in the supplied TestExecutionContext.
-            </summary>
-            <param name="context">The context in which the test should run.</param>
-            <returns>A TestResult</returns>
-        </member>
         <member name="T:NUnit.Framework.SequentialAttribute">
             <summary>
             Marks a test to use a Sequential join of any argument 
@@ -8454,28 +8476,6 @@
             Attribute used to identify a method that is called 
             immediately after each test is run. The method is 
             guaranteed to be called, even if an exception is thrown.
-            </summary>
-        </member>
-        <member name="T:NUnit.Framework.TestActionAttribute">
-            <summary>
-            Provide actions to execute before and after tests.
-            </summary>
-        </member>
-        <member name="M:NUnit.Framework.TestActionAttribute.BeforeTest(NUnit.Framework.Interfaces.ITest)">
-            <summary>
-            Executed before each test is run
-            </summary>
-            <param name="test">The test that is going to be run.</param>
-        </member>
-        <member name="M:NUnit.Framework.TestActionAttribute.AfterTest(NUnit.Framework.Interfaces.ITest)">
-            <summary>
-            Executed after each test is run
-            </summary>
-            <param name="test">The test that has just been run.</param>
-        </member>
-        <member name="P:NUnit.Framework.TestActionAttribute.Targets">
-            <summary>
-            Provides the target for the action attribute
             </summary>
         </member>
         <member name="T:NUnit.Framework.TestAttribute">
@@ -9428,6 +9428,26 @@
             Obtains a lifetime service object to control the lifetime policy for this instance.
             </summary>
         </member>
+        <member name="T:NUnit.Framework.Compatibility.TypeExtensions">
+            <summary>
+            Provides NUnit specific extensions to aid in Reflection
+            across multiple frameworks
+            </summary>
+            <remarks>
+            This version of the class supplies GetTypeInfo() on platforms
+            that don't support it.
+            </remarks>
+        </member>
+        <member name="M:NUnit.Framework.Compatibility.TypeExtensions.GetTypeInfo(System.Type)">
+            <summary>
+            GetTypeInfo gives access to most of the Type information we take for granted
+            on .NET Core and Windows Runtime. Rather than #ifdef different code for different
+            platforms, it is easiest to just code all platforms as if they worked this way,
+            thus the simple passthrough.
+            </summary>
+            <param name="type"></param>
+            <returns></returns>
+        </member>
         <member name="T:NUnit.Framework.Compatibility.Stopwatch">
             <summary>
             This class is a System.Diagnostics.Stopwatch on operating systems that support it. On those that don't,
@@ -9844,32 +9864,6 @@
             </summary>
             <returns></returns>
         </member>
-        <member name="T:NUnit.Framework.Constraints.CollectionSubsetConstraint">
-            <summary>
-            CollectionSubsetConstraint is used to determine whether
-            one collection is a subset of another
-            </summary>
-        </member>
-        <member name="M:NUnit.Framework.Constraints.CollectionSubsetConstraint.#ctor(System.Collections.IEnumerable)">
-            <summary>
-            Construct a CollectionSubsetConstraint
-            </summary>
-            <param name="expected">The collection that the actual value is expected to be a subset of</param>
-        </member>
-        <member name="P:NUnit.Framework.Constraints.CollectionSubsetConstraint.Description">
-            <summary>
-            The Description of what this constraint tests, for
-            use in messages and in the ConstraintResult.
-            </summary>
-        </member>
-        <member name="M:NUnit.Framework.Constraints.CollectionSubsetConstraint.Matches(System.Collections.IEnumerable)">
-            <summary>
-            Test whether the actual collection is a subset of 
-            the expected collection provided.
-            </summary>
-            <param name="actual"></param>
-            <returns></returns>
-        </member>
         <member name="T:NUnit.Framework.Constraints.CollectionSupersetConstraint">
             <summary>
             CollectionSupersetConstraint is used to determine whether
@@ -9891,6 +9885,32 @@
         <member name="M:NUnit.Framework.Constraints.CollectionSupersetConstraint.Matches(System.Collections.IEnumerable)">
             <summary>
             Test whether the actual collection is a superset of 
+            the expected collection provided.
+            </summary>
+            <param name="actual"></param>
+            <returns></returns>
+        </member>
+        <member name="T:NUnit.Framework.Constraints.CollectionSubsetConstraint">
+            <summary>
+            CollectionSubsetConstraint is used to determine whether
+            one collection is a subset of another
+            </summary>
+        </member>
+        <member name="M:NUnit.Framework.Constraints.CollectionSubsetConstraint.#ctor(System.Collections.IEnumerable)">
+            <summary>
+            Construct a CollectionSubsetConstraint
+            </summary>
+            <param name="expected">The collection that the actual value is expected to be a subset of</param>
+        </member>
+        <member name="P:NUnit.Framework.Constraints.CollectionSubsetConstraint.Description">
+            <summary>
+            The Description of what this constraint tests, for
+            use in messages and in the ConstraintResult.
+            </summary>
+        </member>
+        <member name="M:NUnit.Framework.Constraints.CollectionSubsetConstraint.Matches(System.Collections.IEnumerable)">
+            <summary>
+            Test whether the actual collection is a subset of 
             the expected collection provided.
             </summary>
             <param name="actual"></param>
@@ -14179,306 +14199,6 @@
             Gets the ResultState provided by this exception
             </summary>
         </member>
-        <member name="T:NUnit.Framework.FileAssert">
-            <summary>
-            Asserts on Files
-            </summary>
-        </member>
-        <member name="M:NUnit.Framework.FileAssert.Equals(System.Object,System.Object)">
-            <summary>
-            The Equals method throws an AssertionException. This is done 
-            to make sure there is no mistake by calling this function.
-            </summary>
-            <param name="a"></param>
-            <param name="b"></param>
-        </member>
-        <member name="M:NUnit.Framework.FileAssert.ReferenceEquals(System.Object,System.Object)">
-            <summary>
-            override the default ReferenceEquals to throw an AssertionException. This 
-            implementation makes sure there is no mistake in calling this function 
-            as part of Assert. 
-            </summary>
-            <param name="a"></param>
-            <param name="b"></param>
-        </member>
-        <member name="M:NUnit.Framework.FileAssert.AreEqual(System.IO.Stream,System.IO.Stream,System.String,System.Object[])">
-            <summary>
-            Verifies that two Streams are equal.  Two Streams are considered
-            equal if both are null, or if both have the same value byte for byte.
-            If they are not equal an <see cref="T:NUnit.Framework.AssertionException"/> is thrown.
-            </summary>
-            <param name="expected">The expected Stream</param>
-            <param name="actual">The actual Stream</param>
-            <param name="message">The message to display if Streams are not equal</param>
-            <param name="args">Arguments to be used in formatting the message</param>
-        </member>
-        <member name="M:NUnit.Framework.FileAssert.AreEqual(System.IO.Stream,System.IO.Stream)">
-            <summary>
-            Verifies that two Streams are equal.  Two Streams are considered
-            equal if both are null, or if both have the same value byte for byte.
-            If they are not equal an <see cref="T:NUnit.Framework.AssertionException"/> is thrown.
-            </summary>
-            <param name="expected">The expected Stream</param>
-            <param name="actual">The actual Stream</param>
-        </member>
-        <member name="M:NUnit.Framework.FileAssert.AreEqual(System.IO.FileInfo,System.IO.FileInfo,System.String,System.Object[])">
-            <summary>
-            Verifies that two files are equal.  Two files are considered
-            equal if both are null, or if both have the same value byte for byte.
-            If they are not equal an <see cref="T:NUnit.Framework.AssertionException"/> is thrown.
-            </summary>
-            <param name="expected">A file containing the value that is expected</param>
-            <param name="actual">A file containing the actual value</param>
-            <param name="message">The message to display if Streams are not equal</param>
-            <param name="args">Arguments to be used in formatting the message</param>
-        </member>
-        <member name="M:NUnit.Framework.FileAssert.AreEqual(System.IO.FileInfo,System.IO.FileInfo)">
-            <summary>
-            Verifies that two files are equal.  Two files are considered
-            equal if both are null, or if both have the same value byte for byte.
-            If they are not equal an <see cref="T:NUnit.Framework.AssertionException"/> is thrown.
-            </summary>
-            <param name="expected">A file containing the value that is expected</param>
-            <param name="actual">A file containing the actual value</param>
-        </member>
-        <member name="M:NUnit.Framework.FileAssert.AreEqual(System.String,System.String,System.String,System.Object[])">
-            <summary>
-            Verifies that two files are equal.  Two files are considered
-            equal if both are null, or if both have the same value byte for byte.
-            If they are not equal an <see cref="T:NUnit.Framework.AssertionException"/> is thrown.
-            </summary>
-            <param name="expected">The path to a file containing the value that is expected</param>
-            <param name="actual">The path to a file containing the actual value</param>
-            <param name="message">The message to display if Streams are not equal</param>
-            <param name="args">Arguments to be used in formatting the message</param>
-        </member>
-        <member name="M:NUnit.Framework.FileAssert.AreEqual(System.String,System.String)">
-            <summary>
-            Verifies that two files are equal.  Two files are considered
-            equal if both are null, or if both have the same value byte for byte.
-            If they are not equal an <see cref="T:NUnit.Framework.AssertionException"/> is thrown.
-            </summary>
-            <param name="expected">The path to a file containing the value that is expected</param>
-            <param name="actual">The path to a file containing the actual value</param>
-        </member>
-        <member name="M:NUnit.Framework.FileAssert.AreNotEqual(System.IO.Stream,System.IO.Stream,System.String,System.Object[])">
-            <summary>
-            Asserts that two Streams are not equal. If they are equal
-            an <see cref="T:NUnit.Framework.AssertionException"/> is thrown.
-            </summary>
-            <param name="expected">The expected Stream</param>
-            <param name="actual">The actual Stream</param>
-            <param name="message">The message to be displayed when the two Stream are the same.</param>
-            <param name="args">Arguments to be used in formatting the message</param>
-        </member>
-        <member name="M:NUnit.Framework.FileAssert.AreNotEqual(System.IO.Stream,System.IO.Stream)">
-            <summary>
-            Asserts that two Streams are not equal. If they are equal
-            an <see cref="T:NUnit.Framework.AssertionException"/> is thrown.
-            </summary>
-            <param name="expected">The expected Stream</param>
-            <param name="actual">The actual Stream</param>
-        </member>
-        <member name="M:NUnit.Framework.FileAssert.AreNotEqual(System.IO.FileInfo,System.IO.FileInfo,System.String,System.Object[])">
-            <summary>
-            Asserts that two files are not equal. If they are equal
-            an <see cref="T:NUnit.Framework.AssertionException"/> is thrown.
-            </summary>
-            <param name="expected">A file containing the value that is expected</param>
-            <param name="actual">A file containing the actual value</param>
-            <param name="message">The message to display if Streams are not equal</param>
-            <param name="args">Arguments to be used in formatting the message</param>
-        </member>
-        <member name="M:NUnit.Framework.FileAssert.AreNotEqual(System.IO.FileInfo,System.IO.FileInfo)">
-            <summary>
-            Asserts that two files are not equal. If they are equal
-            an <see cref="T:NUnit.Framework.AssertionException"/> is thrown.
-            </summary>
-            <param name="expected">A file containing the value that is expected</param>
-            <param name="actual">A file containing the actual value</param>
-        </member>
-        <member name="M:NUnit.Framework.FileAssert.AreNotEqual(System.String,System.String,System.String,System.Object[])">
-            <summary>
-            Asserts that two files are not equal. If they are equal
-            an <see cref="T:NUnit.Framework.AssertionException"/> is thrown.
-            </summary>
-            <param name="expected">The path to a file containing the value that is expected</param>
-            <param name="actual">The path to a file containing the actual value</param>
-            <param name="message">The message to display if Streams are not equal</param>
-            <param name="args">Arguments to be used in formatting the message</param>
-        </member>
-        <member name="M:NUnit.Framework.FileAssert.AreNotEqual(System.String,System.String)">
-            <summary>
-            Asserts that two files are not equal. If they are equal
-            an <see cref="T:NUnit.Framework.AssertionException"/> is thrown.
-            </summary>
-            <param name="expected">The path to a file containing the value that is expected</param>
-            <param name="actual">The path to a file containing the actual value</param>
-        </member>
-        <member name="M:NUnit.Framework.FileAssert.Exists(System.IO.FileInfo,System.String,System.Object[])">
-            <summary>
-            Asserts that the file exists. If it does not exist
-            an <see cref="T:NUnit.Framework.AssertionException"/> is thrown.
-            </summary>
-            <param name="actual">A file containing the actual value</param>
-            <param name="message">The message to display if Streams are not equal</param>
-            <param name="args">Arguments to be used in formatting the message</param>
-        </member>
-        <member name="M:NUnit.Framework.FileAssert.Exists(System.IO.FileInfo)">
-            <summary>
-            Asserts that the file exists. If it does not exist
-            an <see cref="T:NUnit.Framework.AssertionException"/> is thrown.
-            </summary>
-            <param name="actual">A file containing the actual value</param>
-        </member>
-        <member name="M:NUnit.Framework.FileAssert.Exists(System.String,System.String,System.Object[])">
-            <summary>
-            Asserts that the file exists. If it does not exist
-            an <see cref="T:NUnit.Framework.AssertionException"/> is thrown.
-            </summary>
-            <param name="actual">The path to a file containing the actual value</param>
-            <param name="message">The message to display if Streams are not equal</param>
-            <param name="args">Arguments to be used in formatting the message</param>
-        </member>
-        <member name="M:NUnit.Framework.FileAssert.Exists(System.String)">
-            <summary>
-            Asserts that the file exists. If it does not exist
-            an <see cref="T:NUnit.Framework.AssertionException"/> is thrown.
-            </summary>
-            <param name="actual">The path to a file containing the actual value</param>
-        </member>
-        <member name="M:NUnit.Framework.FileAssert.DoesNotExist(System.IO.FileInfo,System.String,System.Object[])">
-            <summary>
-            Asserts that the file does not exist. If it does exist
-            an <see cref="T:NUnit.Framework.AssertionException"/> is thrown.
-            </summary>
-            <param name="actual">A file containing the actual value</param>
-            <param name="message">The message to display if Streams are not equal</param>
-            <param name="args">Arguments to be used in formatting the message</param>
-        </member>
-        <member name="M:NUnit.Framework.FileAssert.DoesNotExist(System.IO.FileInfo)">
-            <summary>
-            Asserts that the file does not exist. If it does exist
-            an <see cref="T:NUnit.Framework.AssertionException"/> is thrown.
-            </summary>
-            <param name="actual">A file containing the actual value</param>
-        </member>
-        <member name="M:NUnit.Framework.FileAssert.DoesNotExist(System.String,System.String,System.Object[])">
-            <summary>
-            Asserts that the file does not exist. If it does exist
-            an <see cref="T:NUnit.Framework.AssertionException"/> is thrown.
-            </summary>
-            <param name="actual">The path to a file containing the actual value</param>
-            <param name="message">The message to display if Streams are not equal</param>
-            <param name="args">Arguments to be used in formatting the message</param>
-        </member>
-        <member name="M:NUnit.Framework.FileAssert.DoesNotExist(System.String)">
-            <summary>
-            Asserts that the file does not exist. If it does exist
-            an <see cref="T:NUnit.Framework.AssertionException"/> is thrown.
-            </summary>
-            <param name="actual">The path to a file containing the actual value</param>
-        </member>
-        <member name="T:NUnit.Framework.GlobalSettings">
-            <summary>
-            GlobalSettings is a place for setting default _values used
-            by the framework in performing asserts.
-            </summary>
-        </member>
-        <member name="F:NUnit.Framework.GlobalSettings.DefaultFloatingPointTolerance">
-            <summary>
-            Default tolerance for floating point equality
-            </summary>
-        </member>
-        <member name="T:NUnit.Framework.Has">
-            <summary>
-            Helper class with properties and methods that supply
-            a number of constraints used in Asserts.
-            </summary>
-        </member>
-        <member name="P:NUnit.Framework.Has.No">
-            <summary>
-            Returns a ConstraintExpression that negates any
-            following constraint.
-            </summary>
-        </member>
-        <member name="P:NUnit.Framework.Has.All">
-            <summary>
-            Returns a ConstraintExpression, which will apply
-            the following constraint to all members of a collection,
-            succeeding if all of them succeed.
-            </summary>
-        </member>
-        <member name="P:NUnit.Framework.Has.Some">
-            <summary>
-            Returns a ConstraintExpression, which will apply
-            the following constraint to all members of a collection,
-            succeeding if at least one of them succeeds.
-            </summary>
-        </member>
-        <member name="P:NUnit.Framework.Has.None">
-            <summary>
-            Returns a ConstraintExpression, which will apply
-            the following constraint to all members of a collection,
-            succeeding if all of them fail.
-            </summary>
-        </member>
-        <member name="M:NUnit.Framework.Has.Exactly(System.Int32)">
-            <summary>
-            Returns a ConstraintExpression, which will apply
-            the following constraint to all members of a collection,
-            succeeding only if a specified number of them succeed.
-            </summary>
-        </member>
-        <member name="M:NUnit.Framework.Has.Property(System.String)">
-            <summary>
-            Returns a new PropertyConstraintExpression, which will either
-            test for the existence of the named property on the object
-            being tested or apply any following constraint to that property.
-            </summary>
-        </member>
-        <member name="P:NUnit.Framework.Has.Length">
-            <summary>
-            Returns a new ConstraintExpression, which will apply the following
-            constraint to the Length property of the object being tested.
-            </summary>
-        </member>
-        <member name="P:NUnit.Framework.Has.Count">
-            <summary>
-            Returns a new ConstraintExpression, which will apply the following
-            constraint to the Count property of the object being tested.
-            </summary>
-        </member>
-        <member name="P:NUnit.Framework.Has.Message">
-            <summary>
-            Returns a new ConstraintExpression, which will apply the following
-            constraint to the Message property of the object being tested.
-            </summary>
-        </member>
-        <member name="P:NUnit.Framework.Has.InnerException">
-            <summary>
-            Returns a new ConstraintExpression, which will apply the following
-            constraint to the InnerException property of the object being tested.
-            </summary>
-        </member>
-        <member name="M:NUnit.Framework.Has.Attribute(System.Type)">
-            <summary>
-            Returns a new AttributeConstraint checking for the
-            presence of a particular attribute on an object.
-            </summary>
-        </member>
-        <member name="M:NUnit.Framework.Has.Attribute``1">
-            <summary>
-            Returns a new AttributeConstraint checking for the
-            presence of a particular attribute on an object.
-            </summary>
-        </member>
-        <member name="M:NUnit.Framework.Has.Member(System.Object)">
-            <summary>
-            Returns a new CollectionContainsConstraint checking for the
-            presence of a particular object in the collection.
-            </summary>
-        </member>
         <member name="T:NUnit.Framework.Interfaces.IApplyToContext">
             <summary>
             The IApplyToContext interface is implemented by attributes
@@ -14503,6 +14223,19 @@
             Modifies a test as defined for the specific attribute.
             </summary>
             <param name="test">The test to modify</param>
+        </member>
+        <member name="T:NUnit.Framework.Interfaces.ICombiningStrategy">
+            <summary>
+            CombiningStrategy is the abstract base for classes that
+            know how to combine values provided for individual test
+            parameters to create a set of test cases.
+            </summary>
+        </member>
+        <member name="M:NUnit.Framework.Interfaces.ICombiningStrategy.GetTestCases(System.Collections.IEnumerable[])">
+            <summary>
+            Gets the test cases generated by the CombiningStrategy.
+            </summary>
+            <returns>The test cases.</returns>
         </member>
         <member name="T:NUnit.Framework.Interfaces.ICommandWrapper">
             <summary>
@@ -14938,6 +14671,22 @@
             Gets a fixture object for running this test.
             </summary>
         </member>
+        <member name="T:NUnit.Framework.Interfaces.ITestBuilder">
+            <summary>
+            The ITestBuilder interface is exposed by a class that knows how to
+            build one or more TestMethods from a MethodInfo. In general, it is exposed
+            by an attribute, which has additional information available to provide
+            the necessary test parameters to distinguish the test cases built.
+            </summary>
+        </member>
+        <member name="M:NUnit.Framework.Interfaces.ITestBuilder.BuildFrom(NUnit.Framework.Interfaces.IMethodInfo,NUnit.Framework.Internal.Test)">
+            <summary>
+            Build one or more TestMethods from the provided MethodInfo.
+            </summary>
+            <param name="method">The method to be used as a test</param>
+            <param name="suite">The TestSuite to which the method will be added</param>
+            <returns>A TestMethod object</returns>
+        </member>
         <member name="T:NUnit.Framework.Interfaces.ITestCaseBuilder">
             <summary>
             The ITestCaseBuilder interface is exposed by a class that knows how to
@@ -15070,22 +14819,6 @@
             Called when a test has finished
             </summary>
             <param name="result">The result of the test</param>
-        </member>
-        <member name="T:NUnit.Framework.Interfaces.ITestBuilder">
-            <summary>
-            The ITestBuilder interface is exposed by a class that knows how to
-            build one or more TestMethods from a MethodInfo. In general, it is exposed
-            by an attribute, which has additional information available to provide
-            the necessary test parameters to distinguish the test cases built.
-            </summary>
-        </member>
-        <member name="M:NUnit.Framework.Interfaces.ITestBuilder.BuildFrom(NUnit.Framework.Interfaces.IMethodInfo,NUnit.Framework.Internal.Test)">
-            <summary>
-            Build one or more TestMethods from the provided MethodInfo.
-            </summary>
-            <param name="method">The method to be used as a test</param>
-            <param name="suite">The TestSuite to which the method will be added</param>
-            <returns>A TestMethod object</returns>
         </member>
         <member name="T:NUnit.Framework.Interfaces.ITestResult">
             <summary>
@@ -15705,18 +15438,305 @@
             <param name="key">The key.</param>
             <returns>Value of the attribute or null</returns>
         </member>
-        <member name="T:NUnit.Framework.Interfaces.ICombiningStrategy">
+        <member name="T:NUnit.Framework.FileAssert">
             <summary>
-            CombiningStrategy is the abstract base for classes that
-            know how to combine values provided for individual test
-            parameters to create a set of test cases.
+            Asserts on Files
             </summary>
         </member>
-        <member name="M:NUnit.Framework.Interfaces.ICombiningStrategy.GetTestCases(System.Collections.IEnumerable[])">
+        <member name="M:NUnit.Framework.FileAssert.Equals(System.Object,System.Object)">
             <summary>
-            Gets the test cases generated by the CombiningStrategy.
+            The Equals method throws an AssertionException. This is done 
+            to make sure there is no mistake by calling this function.
             </summary>
-            <returns>The test cases.</returns>
+            <param name="a"></param>
+            <param name="b"></param>
+        </member>
+        <member name="M:NUnit.Framework.FileAssert.ReferenceEquals(System.Object,System.Object)">
+            <summary>
+            override the default ReferenceEquals to throw an AssertionException. This 
+            implementation makes sure there is no mistake in calling this function 
+            as part of Assert. 
+            </summary>
+            <param name="a"></param>
+            <param name="b"></param>
+        </member>
+        <member name="M:NUnit.Framework.FileAssert.AreEqual(System.IO.Stream,System.IO.Stream,System.String,System.Object[])">
+            <summary>
+            Verifies that two Streams are equal.  Two Streams are considered
+            equal if both are null, or if both have the same value byte for byte.
+            If they are not equal an <see cref="T:NUnit.Framework.AssertionException"/> is thrown.
+            </summary>
+            <param name="expected">The expected Stream</param>
+            <param name="actual">The actual Stream</param>
+            <param name="message">The message to display if Streams are not equal</param>
+            <param name="args">Arguments to be used in formatting the message</param>
+        </member>
+        <member name="M:NUnit.Framework.FileAssert.AreEqual(System.IO.Stream,System.IO.Stream)">
+            <summary>
+            Verifies that two Streams are equal.  Two Streams are considered
+            equal if both are null, or if both have the same value byte for byte.
+            If they are not equal an <see cref="T:NUnit.Framework.AssertionException"/> is thrown.
+            </summary>
+            <param name="expected">The expected Stream</param>
+            <param name="actual">The actual Stream</param>
+        </member>
+        <member name="M:NUnit.Framework.FileAssert.AreEqual(System.IO.FileInfo,System.IO.FileInfo,System.String,System.Object[])">
+            <summary>
+            Verifies that two files are equal.  Two files are considered
+            equal if both are null, or if both have the same value byte for byte.
+            If they are not equal an <see cref="T:NUnit.Framework.AssertionException"/> is thrown.
+            </summary>
+            <param name="expected">A file containing the value that is expected</param>
+            <param name="actual">A file containing the actual value</param>
+            <param name="message">The message to display if Streams are not equal</param>
+            <param name="args">Arguments to be used in formatting the message</param>
+        </member>
+        <member name="M:NUnit.Framework.FileAssert.AreEqual(System.IO.FileInfo,System.IO.FileInfo)">
+            <summary>
+            Verifies that two files are equal.  Two files are considered
+            equal if both are null, or if both have the same value byte for byte.
+            If they are not equal an <see cref="T:NUnit.Framework.AssertionException"/> is thrown.
+            </summary>
+            <param name="expected">A file containing the value that is expected</param>
+            <param name="actual">A file containing the actual value</param>
+        </member>
+        <member name="M:NUnit.Framework.FileAssert.AreEqual(System.String,System.String,System.String,System.Object[])">
+            <summary>
+            Verifies that two files are equal.  Two files are considered
+            equal if both are null, or if both have the same value byte for byte.
+            If they are not equal an <see cref="T:NUnit.Framework.AssertionException"/> is thrown.
+            </summary>
+            <param name="expected">The path to a file containing the value that is expected</param>
+            <param name="actual">The path to a file containing the actual value</param>
+            <param name="message">The message to display if Streams are not equal</param>
+            <param name="args">Arguments to be used in formatting the message</param>
+        </member>
+        <member name="M:NUnit.Framework.FileAssert.AreEqual(System.String,System.String)">
+            <summary>
+            Verifies that two files are equal.  Two files are considered
+            equal if both are null, or if both have the same value byte for byte.
+            If they are not equal an <see cref="T:NUnit.Framework.AssertionException"/> is thrown.
+            </summary>
+            <param name="expected">The path to a file containing the value that is expected</param>
+            <param name="actual">The path to a file containing the actual value</param>
+        </member>
+        <member name="M:NUnit.Framework.FileAssert.AreNotEqual(System.IO.Stream,System.IO.Stream,System.String,System.Object[])">
+            <summary>
+            Asserts that two Streams are not equal. If they are equal
+            an <see cref="T:NUnit.Framework.AssertionException"/> is thrown.
+            </summary>
+            <param name="expected">The expected Stream</param>
+            <param name="actual">The actual Stream</param>
+            <param name="message">The message to be displayed when the two Stream are the same.</param>
+            <param name="args">Arguments to be used in formatting the message</param>
+        </member>
+        <member name="M:NUnit.Framework.FileAssert.AreNotEqual(System.IO.Stream,System.IO.Stream)">
+            <summary>
+            Asserts that two Streams are not equal. If they are equal
+            an <see cref="T:NUnit.Framework.AssertionException"/> is thrown.
+            </summary>
+            <param name="expected">The expected Stream</param>
+            <param name="actual">The actual Stream</param>
+        </member>
+        <member name="M:NUnit.Framework.FileAssert.AreNotEqual(System.IO.FileInfo,System.IO.FileInfo,System.String,System.Object[])">
+            <summary>
+            Asserts that two files are not equal. If they are equal
+            an <see cref="T:NUnit.Framework.AssertionException"/> is thrown.
+            </summary>
+            <param name="expected">A file containing the value that is expected</param>
+            <param name="actual">A file containing the actual value</param>
+            <param name="message">The message to display if Streams are not equal</param>
+            <param name="args">Arguments to be used in formatting the message</param>
+        </member>
+        <member name="M:NUnit.Framework.FileAssert.AreNotEqual(System.IO.FileInfo,System.IO.FileInfo)">
+            <summary>
+            Asserts that two files are not equal. If they are equal
+            an <see cref="T:NUnit.Framework.AssertionException"/> is thrown.
+            </summary>
+            <param name="expected">A file containing the value that is expected</param>
+            <param name="actual">A file containing the actual value</param>
+        </member>
+        <member name="M:NUnit.Framework.FileAssert.AreNotEqual(System.String,System.String,System.String,System.Object[])">
+            <summary>
+            Asserts that two files are not equal. If they are equal
+            an <see cref="T:NUnit.Framework.AssertionException"/> is thrown.
+            </summary>
+            <param name="expected">The path to a file containing the value that is expected</param>
+            <param name="actual">The path to a file containing the actual value</param>
+            <param name="message">The message to display if Streams are not equal</param>
+            <param name="args">Arguments to be used in formatting the message</param>
+        </member>
+        <member name="M:NUnit.Framework.FileAssert.AreNotEqual(System.String,System.String)">
+            <summary>
+            Asserts that two files are not equal. If they are equal
+            an <see cref="T:NUnit.Framework.AssertionException"/> is thrown.
+            </summary>
+            <param name="expected">The path to a file containing the value that is expected</param>
+            <param name="actual">The path to a file containing the actual value</param>
+        </member>
+        <member name="M:NUnit.Framework.FileAssert.Exists(System.IO.FileInfo,System.String,System.Object[])">
+            <summary>
+            Asserts that the file exists. If it does not exist
+            an <see cref="T:NUnit.Framework.AssertionException"/> is thrown.
+            </summary>
+            <param name="actual">A file containing the actual value</param>
+            <param name="message">The message to display if Streams are not equal</param>
+            <param name="args">Arguments to be used in formatting the message</param>
+        </member>
+        <member name="M:NUnit.Framework.FileAssert.Exists(System.IO.FileInfo)">
+            <summary>
+            Asserts that the file exists. If it does not exist
+            an <see cref="T:NUnit.Framework.AssertionException"/> is thrown.
+            </summary>
+            <param name="actual">A file containing the actual value</param>
+        </member>
+        <member name="M:NUnit.Framework.FileAssert.Exists(System.String,System.String,System.Object[])">
+            <summary>
+            Asserts that the file exists. If it does not exist
+            an <see cref="T:NUnit.Framework.AssertionException"/> is thrown.
+            </summary>
+            <param name="actual">The path to a file containing the actual value</param>
+            <param name="message">The message to display if Streams are not equal</param>
+            <param name="args">Arguments to be used in formatting the message</param>
+        </member>
+        <member name="M:NUnit.Framework.FileAssert.Exists(System.String)">
+            <summary>
+            Asserts that the file exists. If it does not exist
+            an <see cref="T:NUnit.Framework.AssertionException"/> is thrown.
+            </summary>
+            <param name="actual">The path to a file containing the actual value</param>
+        </member>
+        <member name="M:NUnit.Framework.FileAssert.DoesNotExist(System.IO.FileInfo,System.String,System.Object[])">
+            <summary>
+            Asserts that the file does not exist. If it does exist
+            an <see cref="T:NUnit.Framework.AssertionException"/> is thrown.
+            </summary>
+            <param name="actual">A file containing the actual value</param>
+            <param name="message">The message to display if Streams are not equal</param>
+            <param name="args">Arguments to be used in formatting the message</param>
+        </member>
+        <member name="M:NUnit.Framework.FileAssert.DoesNotExist(System.IO.FileInfo)">
+            <summary>
+            Asserts that the file does not exist. If it does exist
+            an <see cref="T:NUnit.Framework.AssertionException"/> is thrown.
+            </summary>
+            <param name="actual">A file containing the actual value</param>
+        </member>
+        <member name="M:NUnit.Framework.FileAssert.DoesNotExist(System.String,System.String,System.Object[])">
+            <summary>
+            Asserts that the file does not exist. If it does exist
+            an <see cref="T:NUnit.Framework.AssertionException"/> is thrown.
+            </summary>
+            <param name="actual">The path to a file containing the actual value</param>
+            <param name="message">The message to display if Streams are not equal</param>
+            <param name="args">Arguments to be used in formatting the message</param>
+        </member>
+        <member name="M:NUnit.Framework.FileAssert.DoesNotExist(System.String)">
+            <summary>
+            Asserts that the file does not exist. If it does exist
+            an <see cref="T:NUnit.Framework.AssertionException"/> is thrown.
+            </summary>
+            <param name="actual">The path to a file containing the actual value</param>
+        </member>
+        <member name="T:NUnit.Framework.GlobalSettings">
+            <summary>
+            GlobalSettings is a place for setting default _values used
+            by the framework in performing asserts.
+            </summary>
+        </member>
+        <member name="F:NUnit.Framework.GlobalSettings.DefaultFloatingPointTolerance">
+            <summary>
+            Default tolerance for floating point equality
+            </summary>
+        </member>
+        <member name="T:NUnit.Framework.Has">
+            <summary>
+            Helper class with properties and methods that supply
+            a number of constraints used in Asserts.
+            </summary>
+        </member>
+        <member name="P:NUnit.Framework.Has.No">
+            <summary>
+            Returns a ConstraintExpression that negates any
+            following constraint.
+            </summary>
+        </member>
+        <member name="P:NUnit.Framework.Has.All">
+            <summary>
+            Returns a ConstraintExpression, which will apply
+            the following constraint to all members of a collection,
+            succeeding if all of them succeed.
+            </summary>
+        </member>
+        <member name="P:NUnit.Framework.Has.Some">
+            <summary>
+            Returns a ConstraintExpression, which will apply
+            the following constraint to all members of a collection,
+            succeeding if at least one of them succeeds.
+            </summary>
+        </member>
+        <member name="P:NUnit.Framework.Has.None">
+            <summary>
+            Returns a ConstraintExpression, which will apply
+            the following constraint to all members of a collection,
+            succeeding if all of them fail.
+            </summary>
+        </member>
+        <member name="M:NUnit.Framework.Has.Exactly(System.Int32)">
+            <summary>
+            Returns a ConstraintExpression, which will apply
+            the following constraint to all members of a collection,
+            succeeding only if a specified number of them succeed.
+            </summary>
+        </member>
+        <member name="M:NUnit.Framework.Has.Property(System.String)">
+            <summary>
+            Returns a new PropertyConstraintExpression, which will either
+            test for the existence of the named property on the object
+            being tested or apply any following constraint to that property.
+            </summary>
+        </member>
+        <member name="P:NUnit.Framework.Has.Length">
+            <summary>
+            Returns a new ConstraintExpression, which will apply the following
+            constraint to the Length property of the object being tested.
+            </summary>
+        </member>
+        <member name="P:NUnit.Framework.Has.Count">
+            <summary>
+            Returns a new ConstraintExpression, which will apply the following
+            constraint to the Count property of the object being tested.
+            </summary>
+        </member>
+        <member name="P:NUnit.Framework.Has.Message">
+            <summary>
+            Returns a new ConstraintExpression, which will apply the following
+            constraint to the Message property of the object being tested.
+            </summary>
+        </member>
+        <member name="P:NUnit.Framework.Has.InnerException">
+            <summary>
+            Returns a new ConstraintExpression, which will apply the following
+            constraint to the InnerException property of the object being tested.
+            </summary>
+        </member>
+        <member name="M:NUnit.Framework.Has.Attribute(System.Type)">
+            <summary>
+            Returns a new AttributeConstraint checking for the
+            presence of a particular attribute on an object.
+            </summary>
+        </member>
+        <member name="M:NUnit.Framework.Has.Attribute``1">
+            <summary>
+            Returns a new AttributeConstraint checking for the
+            presence of a particular attribute on an object.
+            </summary>
+        </member>
+        <member name="M:NUnit.Framework.Has.Member(System.Object)">
+            <summary>
+            Returns a new CollectionContainsConstraint checking for the
+            presence of a particular object in the collection.
+            </summary>
         </member>
         <member name="T:NUnit.Framework.Is">
             <summary>
