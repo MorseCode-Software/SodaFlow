@@ -6,9 +6,9 @@
         stays in that project's own file.
     -->
     <PropertyGroup>
-        <Authors>SodiumFRP</Authors>
-        <Company>SodiumFRP</Company>
-        <PackageProjectUrl>https://github.com/SodiumFRP/sodium</PackageProjectUrl>
+        <Authors>MorseCode Software LLC</Authors>
+        <Company>MorseCode Software LLC</Company>
+        <PackageProjectUrl>https://github.com/REPLACE-ME/sodaflow</PackageProjectUrl>
         <IncludeSource>True</IncludeSource>
         <IncludeSymbols>True</IncludeSymbols>
     </PropertyGroup>
@@ -19,13 +19,13 @@
         nuget.org a real licence badge and lets dependency auditing tools read the licence without
         fetching a URL.
 
-        BSD-3-Clause, not the MIT that the old licenseUrl pointed at. The repository's COPYING is a
+        BSD-3-Clause, not the MIT that the old licenseUrl pointed at. The repository's LICENSE is a
         three-clause BSD licence — it carries both the binary-redistribution clause and the
         non-endorsement clause, neither of which exists in MIT — so the previous declaration was
-        simply wrong. There is no .NET-specific licence file, so root COPYING governs this code.
+        simply wrong. There is no .NET-specific licence file, so root LICENSE governs this code.
 
-        COPYING's "except for portions of this code where a different licence is given" preamble
-        still applies: JetBrainsAnnotations.cs in Sodium.Frp and Sodium.Functional carries JetBrains'
+        LICENSE's "except for portions of this code where a different licence is given" preamble
+        still applies: JetBrainsAnnotations.cs in SodaFlow and SodaFlow.Functional carries JetBrains'
         own MIT notice. An expression describes the licence of the package's own code, which is what
         this is; the third-party notice travels in the source file that bears it.
     -->
@@ -39,9 +39,9 @@
 
         Each packable project sets its own MinVerTagPrefix, and that is what lets these packages
         release on independent schedules: a project's stable version only moves when a tag carrying
-        its own prefix is pushed. Tagging dotnet-async-1.1.0 releases the C# async wrapper at 1.1.0
+        its own prefix is pushed. Tagging sodaflow-async-1.1.0 releases the C# async wrapper at 1.1.0
         and leaves every other package where its own last tag put it. This follows the per-component
-        tagging already used in this repository — haskell-*, java-*, sodium-*.
+        tagging inherited from the Sodium repository this code came from.
 
         A commit with no matching tag builds as a prerelease of the next patch, e.g.
         1.0.1-alpha.0.7, where 7 counts commits since the tag. CI can therefore build and pack every

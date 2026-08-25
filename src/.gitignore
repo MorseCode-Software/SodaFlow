@@ -216,7 +216,7 @@ pip-log.txt
 #Mr Developer
 .mr.developer.cfg
 
-/src/Sodium/packages/
+/packages/
 
 .paket/paket.restore.targets
 paket-files/

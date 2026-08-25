@@ -1,0 +1,39 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <AssemblyName>SodaFlow.FSharp.Async</AssemblyName>
+    <RootNamespace>SodaFlow.Async</RootNamespace>
+    <TargetFrameworks>net472;net60;netstandard2.0</TargetFrameworks>
+  </PropertyGroup>
+
+  <PropertyGroup>
+    <PackageId>SodaFlow.FSharp.Async</PackageId>
+    <MinVerTagPrefix>sodaflow-fsharp-async-</MinVerTagPrefix>
+    <Product>SodaFlow Async Extensions for F#</Product>
+    <Title>SodaFlow Async Extensions for F#</Title>
+    <Description>SodaFlow Async Extensions library for F#.</Description>
+  </PropertyGroup>
+
+  <PropertyGroup>
+    <!--
+        GenerateDocumentationFile rather than an explicit DocumentationFile path: this project
+        multi-targets, and a single hard-coded path would make all three target frameworks write over
+        one another's XML. This emits one file per target framework, next to its own assembly, which
+        is also where NuGet pack expects to find it when populating each lib folder.
+    -->
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Update="FSharp.Core" Version="4.5.2" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Compile Include="MapAsync.fs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\SodaFlow.Core.Async\SodaFlow.Core.Async.csproj" />
+  </ItemGroup>
+
+</Project>

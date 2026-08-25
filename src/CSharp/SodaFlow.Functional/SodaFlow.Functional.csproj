@@ -1,0 +1,39 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFrameworks>net472;net60;netstandard2.0</TargetFrameworks>
+  </PropertyGroup>
+
+  <PropertyGroup>
+    <PackageId>SodaFlow.Functional</PackageId>
+    <MinVerTagPrefix>sodaflow-functional-</MinVerTagPrefix>
+    <Product>SodaFlow Functional for C#</Product>
+    <Title>SodaFlow Functional for C#</Title>
+    <Description>SodaFlow Functional - Functional constructs for C#.</Description>
+    <AssemblyName>SodaFlow.Functional</AssemblyName>
+    <RootNamespace>SodaFlow.Functional</RootNamespace>
+    <EnableDefaultItems>false</EnableDefaultItems>
+    <!--
+        GenerateDocumentationFile rather than a per-configuration DocumentationFile path: this project
+        multi-targets, and a single hard-coded path made all three target frameworks write over one
+        another's XML. This emits one file per target framework, next to its own assembly, which is
+        where NuGet pack expects it when populating each lib folder, and where the DocFX site under
+        docs/ picks it up when generating API reference.
+    -->
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Include="Either.cs" />
+    <Compile Include="IEither.cs" />
+    <Compile Include="IMaybe.cs" />
+    <Compile Include="JetBrainsAnnotations.cs" />
+    <Compile Include="LazyExtensionMethods.cs" />
+    <Compile Include="Maybe.cs" />
+    <Compile Include="MaybeExtensionMethods.cs" />
+    <Compile Include="MaybeMonad.cs" />
+    <Compile Include="Unit.cs" />
+    <Compile Include="UnitExtensionMethods.cs" />
+  </ItemGroup>
+
+</Project>

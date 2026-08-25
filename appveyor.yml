@@ -1,11 +1,11 @@
-# AppVeyor build for the .NET implementation under dotnet/src/Sodium.
+# AppVeyor build for the .NET implementation under src.
 #
 # NOTE: committing this file supersedes the configuration currently held in the AppVeyor UI.
 # Compare the two before enabling "use YAML from repository".
 #
 # Package versions are NOT set here. Each packable project derives its own version from git tags
-# via MinVer (see dotnet/src/Sodium/Directory.Build.props), so pushing dotnet-async-csharp-1.1.0
-# releases only SodiumFRP.Async and leaves every other package on its own last tag. Deliberately
+# via MinVer (see src/Directory.Build.props), so pushing dotnet-async-csharp-1.1.0
+# releases only SodaFlow.Async and leaves every other package on its own last tag. Deliberately
 # absent, therefore, is AppVeyor's dotnet_csproj patcher: it stamps every matched project with a
 # single shared version, which is the opposite of what this repository wants.
 
@@ -23,12 +23,12 @@ environment:
   DOTNET_CLI_TELEMETRY_OPTOUT: true
   DOTNET_NOLOGO: true
   DOTNET_SKIP_FIRST_TIME_EXPERIENCE: true
-  SOLUTION: dotnet\src\Sodium\Sodium.sln
+  SOLUTION: src\SodaFlow.sln
   NUGET_API_KEY:
     secure: r6jIcYnZ7H2gS7BnOhi1rR1rGUwrPcHfjbuLDLXhThPccOX6LznLnxKyUK6QO6C7
 
 # Every project in the solution is SDK-style now (the last legacy, packages.config holdouts —
-# Sodium.Frp.Tests, .Tests.Internal, .Tests.Memory, .Tests.Performance — were converted alongside
+# SodaFlow.Tests, .Tests.Internal, .Tests.Memory, .Tests.Performance — were converted alongside
 # this file), so plain dotnet restore covers all of it. Confirmed locally: restores all sixteen
 # projects with nothing left for nuget.exe to handle that this doesn't.
 before_build:
@@ -42,31 +42,31 @@ build_script:
   - dotnet build %SOLUTION% -c %CONFIGURATION%
 
 # Every test project is SDK-style with Microsoft.NET.Test.Sdk + NUnit3TestAdapter now, so dotnet
-# test runs all eight: the three original C# ones (Sodium.Frp.Tests, .Tests.Internal, .Tests.Memory
+# test runs all eight: the three original C# ones (SodaFlow.Tests, .Tests.Internal, .Tests.Memory
 # — converted from legacy, packages.config projects specifically so they could pick up the test
 # adapter), the two C# async ones converted the same way earlier, and the three F# ones (always
-# SDK-style). Sodium.Frp.Tests.Performance is deliberately absent from this list — it is a console
+# SDK-style). SodaFlow.Tests.Performance is deliberately absent from this list — it is a console
 # benchmark (OutputType Exe, no NUnit reference, no [Test] attributes), not a test project; dotnet
 # test would just report "no test is available" for it.
 #
 # Confirmed locally against a Debug build of this solution: 240, 7, 6+5, 153+5, 4+1, 14, 19 and 21
 # tests respectively — 0 failed anywhere.
 #
-# The 6+5 is Sodium.Frp.Tests.Memory. Its original StreamTests count live objects with dotMemory,
+# The 6+5 is SodaFlow.Tests.Memory. Its original StreamTests count live objects with dotMemory,
 # which isn't installed on a CI agent, so those five are tagged [Ignore("Requires dotMemory.")] and
 # skip. The others are GarbageCollectionTests, which assert the same lifetime invariants using only
 # weak references, the node's listener set, and the manager's registry count, so they do run here.
 # Keep it that way: they are the only automated cover for stream/listener cleanup, and each one has
 # been checked to fail when the cleanup it guards is broken.
 test_script:
-  - dotnet test dotnet\src\Sodium\CSharp\Sodium.Frp.Tests\Sodium.Frp.Tests.csproj -c %CONFIGURATION% --no-build
-  - dotnet test dotnet\src\Sodium\CSharp\Sodium.Frp.Tests.Internal\Sodium.Frp.Tests.Internal.csproj -c %CONFIGURATION% --no-build
-  - dotnet test dotnet\src\Sodium\CSharp\Sodium.Frp.Tests.Memory\Sodium.Frp.Tests.Memory.csproj -c %CONFIGURATION% --no-build
-  - dotnet test dotnet\src\Sodium\FSharp\Sodium.FSharp.Frp.Tests\Sodium.FSharp.Frp.Tests.fsproj -c %CONFIGURATION% --no-build
-  - dotnet test dotnet\src\Sodium\FSharp\Sodium.FSharp.Frp.Tests.Internal\Sodium.FSharp.Frp.Tests.Internal.fsproj -c %CONFIGURATION% --no-build
-  - dotnet test dotnet\src\Sodium\Async\FSharp\Sodium.FSharp.Frp.Async.Tests\Sodium.FSharp.Frp.Async.Tests.fsproj -c %CONFIGURATION% --no-build
-  - dotnet test dotnet\src\Sodium\Async\Sodium.Core.Frp.Async.Tests\Sodium.Core.Frp.Async.Tests.csproj -c %CONFIGURATION% --no-build
-  - dotnet test dotnet\src\Sodium\Async\CSharp\Sodium.Frp.Async.Tests\Sodium.Frp.Async.Tests.csproj -c %CONFIGURATION% --no-build
+  - dotnet test src\CSharp\SodaFlow.Tests\SodaFlow.Tests.csproj -c %CONFIGURATION% --no-build
+  - dotnet test src\CSharp\SodaFlow.Tests.Internal\SodaFlow.Tests.Internal.csproj -c %CONFIGURATION% --no-build
+  - dotnet test src\CSharp\SodaFlow.Tests.Memory\SodaFlow.Tests.Memory.csproj -c %CONFIGURATION% --no-build
+  - dotnet test src\FSharp\SodaFlow.FSharp.Tests\SodaFlow.FSharp.Tests.fsproj -c %CONFIGURATION% --no-build
+  - dotnet test src\FSharp\SodaFlow.FSharp.Tests.Internal\SodaFlow.FSharp.Tests.Internal.fsproj -c %CONFIGURATION% --no-build
+  - dotnet test src\Async\FSharp\SodaFlow.FSharp.Async.Tests\SodaFlow.FSharp.Async.Tests.fsproj -c %CONFIGURATION% --no-build
+  - dotnet test src\Async\SodaFlow.Core.Async.Tests\SodaFlow.Core.Async.Tests.csproj -c %CONFIGURATION% --no-build
+  - dotnet test src\Async\CSharp\SodaFlow.Async.Tests\SodaFlow.Async.Tests.csproj -c %CONFIGURATION% --no-build
 
 # One dotnet pack over the whole solution now, rather than one invocation per packable project:
 # the previous per-project list existed only to route around dotnet pack failing outright
@@ -75,7 +75,7 @@ test_script:
 # ones. Eight of those nine reference Microsoft.NET.Test.Sdk, which the SDK reads as IsTestProject
 # and defaults IsPackable to false for accordingly — no explicit opt-out needed, confirmed via
 # dotnet msbuild -getProperty:IsPackable/-getProperty:IsTestProject. The ninth,
-# Sodium.Frp.Tests.Performance, is a console benchmark with no test adapter reference at all, so it
+# SodaFlow.Tests.Performance, is a console benchmark with no test adapter reference at all, so it
 # never gets that automatic IsTestProject treatment; it sets IsPackable false explicitly instead.
 # Confirmed locally: produces the same seven packages the old per-project list did, nothing more,
 # exit code 0.

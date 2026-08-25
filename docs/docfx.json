@@ -4,7 +4,7 @@
   "metadata": [
     {
       "//": [
-        "Only the C# packages are listed. Sodium.FSharp.Frp and Sodium.FSharp.Frp.Async are",
+        "Only the C# packages are listed. SodaFlow.FSharp and SodaFlow.FSharp.Async are",
         "deliberately absent: DocFX reads compiled metadata, so an F# assembly renders in its",
         "compiled shape (modules as static classes, FSharpFunc in every signature), and those",
         "assemblies carry no /// comments to render anyway. See docs/fsharp-api.md.",
@@ -15,13 +15,13 @@
       ],
       "src": [
         {
-          "src": "../dotnet/src/Sodium",
+          "src": "../src",
           "files": [
-            "Sodium.Core.Frp/Sodium.Core.Frp.csproj",
-            "CSharp/Sodium.Frp/Sodium.Frp.csproj",
-            "CSharp/Sodium.Functional/Sodium.Functional.csproj",
-            "Async/Sodium.Core.Frp.Async/Sodium.Core.Frp.Async.csproj",
-            "Async/CSharp/Sodium.Frp.Async/Sodium.Frp.Async.csproj"
+            "SodaFlow.Core/SodaFlow.Core.csproj",
+            "CSharp/SodaFlow/SodaFlow.csproj",
+            "CSharp/SodaFlow.Functional/SodaFlow.Functional.csproj",
+            "Async/SodaFlow.Core.Async/SodaFlow.Core.Async.csproj",
+            "Async/CSharp/SodaFlow.Async/SodaFlow.Async.csproj"
           ]
         }
       ],
@@ -52,12 +52,12 @@
     "template": [ "default", "modern" ],
     "postProcessors": [ "ExtractSearchIndex" ],
     "globalMetadata": {
-      "_appName": "Sodium FRP",
-      "_appTitle": "Sodium FRP for .NET",
-      "_appFooter": "Sodium FRP &mdash; BSD-3-Clause",
+      "_appName": "SodaFlow",
+      "_appTitle": "SodaFlow for .NET",
+      "_appFooter": "SodaFlow &mdash; BSD-3-Clause",
       "_enableSearch": true,
       "_gitContribute": {
-        "repo": "https://github.com/SodiumFRP/sodium",
+        "repo": "https://github.com/SodaFlow/sodium",
         "branch": "master"
       }
     }
