@@ -2,13 +2,32 @@
   href: getting-started.md
 - name: Which package do I install?
   href: packages.md
-- name: Core concepts
-  href: concepts.md
-- name: Listener lifetimes
-  href: lifetimes.md
-- name: Asynchronous work
-  href: async.md
+
+- name: Concepts
+  items:
+    - name: Core concepts
+      href: concepts.md
+    - name: Transactions
+      href: transactions.md
+    - name: Feedback loops
+      href: loops.md
+    - name: Switch and dynamic graphs
+      href: switch.md
+    - name: Listener lifetimes
+      href: lifetimes.md
+
+- name: Reference
+  items:
+    - name: Operation reference
+      href: operations.md
+    - name: Time and timers
+      href: time.md
+    - name: Asynchronous work
+      href: async.md
+    - name: Maybe, Either and Unit
+      href: functional.md
+    - name: F# and the API reference
+      href: fsharp-api.md
+
 - name: Cookbook
   href: cookbook.md
-- name: F# and the API reference
-  href: fsharp-api.md

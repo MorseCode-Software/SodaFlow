@@ -4,82 +4,87 @@ title: Core concepts
 
 # Core concepts
 
-Sodium has a small vocabulary. Almost everything you build is a composition of four ideas.
+Sodium has a small vocabulary. Almost everything you build is a composition of four ideas, and
+the whole library follows once you have them.
 
 ## Stream
 
 A `Stream<T>` is a sequence of discrete events, each carrying a value of type `T`. It has no
-value between firings — asking "what is this stream's value right now?" is not a meaningful
-question. Button clicks, keystrokes, and network responses are streams.
+value between firings — "what is this stream's value right now?" is not a meaningful question.
+Button clicks, keystrokes, network responses, and timer expiries are streams.
 
-Create one with `Stream.Never<T>()` (fires nothing) or `Stream.CreateSink<T>()` (a stream you
-push into from imperative code with `Send`).
-
-The core operations:
-
-| Operation | Meaning |
-| --- | --- |
-| `Map` | Transform each value. |
-| `Filter` | Drop firings that fail a predicate. |
-| `Merge` / `OrElse` | Combine two streams. `Merge` takes a function to resolve simultaneous firings; `OrElse` picks the left one. |
-| `Hold` | Turn the stream into a cell that remembers the latest value. |
-| `Snapshot` | On each firing, sample one or more cells or behaviors and combine. |
-| `Gate` | Drop firings while a `Cell<bool>` is false. |
-| `Collect` | Fold over the stream, carrying state. |
-| `Calm` | Suppress firings equal to the previous one. |
+Create one with `Stream.Never<T>()`, which fires nothing, or `Stream.CreateSink<T>()`, which
+you push into from imperative code with `Send`.
 
 ## Cell
 
 A `Cell<T>` holds a value that changes at discrete points in time. Unlike a stream it always
-has a current value, so `Listen` on a cell fires immediately with that value and then on every
-change.
+has a current value, so `Listen` on a cell fires immediately with that value and then again on
+every change. Cells are what you bind UI to.
 
 Create one with `Cell.Constant(value)`, `Cell.CreateSink(initial)`, or — most often — by
-calling `Hold` on a stream.
+calling `Hold` on a stream. `Hold` is the bridge from the discrete world to the stateful one:
+
+```csharp
+Cell<int> count = clicks.Accum(0, (_, n) => n + 1).Hold(0);
+```
 
 ## Behavior
 
 A `Behavior<T>` is a value defined at *every* point in time, not just at discrete steps. Cells
-and behaviors are closely related: `Cell` is the discrete, stepwise view and `Behavior` the
-continuous one. Most of the API is mirrored across both, and you can convert between them.
+and behaviors are two views of the same underlying idea: `Cell` is the discrete, stepwise one
+and `Behavior` the continuous one.
 
-If you are unsure which to reach for, use `Cell`. Reach for `Behavior` when you genuinely need
-a value that is defined continuously — for example when modelling time itself.
+The API surfaces this asymmetry deliberately. A cell has `Updates`, `Values`, and `Listen`; a
+behavior has none of them. You cannot ask a behavior when it changed, because a continuous
+value does not have a well-defined set of change moments — and being able to detect them would
+break the model's guarantees. `c.AsBehavior()` converts freely in the direction that discards
+information; going the other way requires the `Operational` primitives and their caveats.
+
+If you are unsure which to reach for, use `Cell`. Reach for `Behavior` when the value genuinely
+is continuous — [time](time.md) being the canonical case.
 
 ## Transaction
 
 Everything happens inside a transaction, and this is the property that makes Sodium worth
 using. Within one transaction the entire dependency graph updates **atomically**: no listener
-ever observes a half-updated world, and a value derived from two sources that both changed
-simultaneously is computed once, from the new values of both. This is the "no glitches"
-guarantee.
+observes a half-updated world, and a value derived from two sources that both changed
+simultaneously is computed once, from the new value of both.
 
-Sending into a sink starts a transaction implicitly. To make several sends land in the *same*
-transaction — so downstream sees one atomic change rather than several — run them inside
-`Transaction.Run`.
+That is the "no glitches" guarantee, and it is the thing an event bus cannot give you.
+[Transactions](transactions.md) covers what it buys you, when you need an explicit one, and
+what simultaneity means.
 
-`Transaction` also offers `IsActive`, `OnStart` and `Post` for work that must be scheduled
-relative to transaction boundaries.
+## How they fit together
 
-## Loops
+```
+imperative code
+      │  Send
+      ▼
+  StreamSink ──────────────┐
+      │                    │
+      │ Map, Filter,       │
+      │ Merge, Snapshot    │
+      ▼                    │
+   Stream ── Hold ──────► Cell ── AsBehavior ──► Behavior
+      │                    │                        │
+      │ Listen             │ Listen, Lift, Calm     │ Sample, Lift
+      ▼                    ▼                        ▼
+  side effects         UI binding              continuous values
+```
 
-Feedback — a cell whose new value depends on its own old value, routed through other logic —
-needs a forward declaration. That is what `StreamLoop<T>`, `CellLoop<T>` and `BehaviorLoop<T>`
-are for: create the loop, build the graph that refers to it, then close the loop. The
-`Stream.Loop` / `Cell.Loop` helpers and their F# equivalents (`loopS`, `loopC`) wrap this in a
-single call that hands you the placeholder and takes back the definition.
+Streams carry events, `Hold` turns them into state, and `Snapshot` reads that state back when
+the next event arrives. Almost every Sodium program is that cycle, sometimes closed into a
+[feedback loop](loops.md).
 
-## Operational
+## Where to go next
 
-`Operational` holds primitives that deliberately break the model's guarantees:
-`Operational.Updates`, `Operational.Value`, `Operational.Split`, `Operational.Defer`.
-
-The source describes them as "OPERATIONAL primitives, which are not part of the main Sodium
-API" — they break the non-detectability of behavior steps. The rule stated there is that you
-may use them only inside functions that do not let the caller detect those updates. In other
-words: they are legitimate building blocks for library code, and a smell in application code.
-
-> [!NOTE]
-> This page is a map, not the territory. The per-operation semantics — especially `Snapshot`
-> versus `Hold` ordering within a transaction, and the exact behaviour of `Switch` — deserve
-> pages of their own with worked examples. Contributions welcome.
+| Topic | Page |
+| --- | --- |
+| Every operation, C# and F# side by side | [Operation reference](operations.md) |
+| Atomicity, simultaneity, `Post` | [Transactions](transactions.md) |
+| Values that depend on their own past | [Feedback loops](loops.md) |
+| Graphs whose shape changes at runtime | [Switch](switch.md) |
+| Clocks, alarms, deterministic tests | [Time and timers](time.md) |
+| Subscriptions and garbage collection | [Listener lifetimes](lifetimes.md) |
+| `Maybe`, `Either`, `Unit` | [Sodium.Functional](functional.md) |

@@ -105,6 +105,7 @@ and stay consistent.
 ## Next
 
 - [Core concepts](concepts.md) — what streams, cells, behaviors and transactions actually mean.
+- [Operation reference](operations.md) — every operation, in both languages.
+- [Cookbook](cookbook.md) — recipes for common problems.
 - [Listener lifetimes](lifetimes.md) — when to hold a listener and when to dispose it.
 - [Asynchronous work](async.md) — running tasks from a stream without breaking the model.
-- [Cookbook](cookbook.md) — complete worked examples.

@@ -30,7 +30,18 @@ own repositories under the [SodiumFRP organisation](https://github.com/SodiumFRP
 - [Getting started](docs/getting-started.md) — install a package and run your first program.
 - [Which package do I install?](docs/packages.md) — there are seven; this page picks one for you.
 - [Core concepts](docs/concepts.md) — streams, cells, behaviors, and transactions.
+- [Operation reference](docs/operations.md) — every operation, C# and F# side by side.
+- [Cookbook](docs/cookbook.md) — recipes for the things that come up constantly.
 - [API reference](api/index.md) — generated from the source.
+
+## Going deeper
+
+- [Transactions](docs/transactions.md) — atomicity, simultaneity, and why glitches cannot happen.
+- [Feedback loops](docs/loops.md) — values that depend on their own past.
+- [Switch and dynamic graphs](docs/switch.md) — changing the graph's shape at runtime.
+- [Listener lifetimes](docs/lifetimes.md) — the most common way to break a Sodium program.
+- [Time and timers](docs/time.md) — clocks, alarms, and deterministic tests.
+- [Asynchronous work](docs/async.md) — running tasks without breaking the model.
 
 ## Elsewhere
 
