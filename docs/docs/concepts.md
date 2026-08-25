@@ -4,7 +4,7 @@ title: Core concepts
 
 # Core concepts
 
-Sodium has a small vocabulary. Almost everything you build is a composition of four ideas, and
+SodaFlow has a small vocabulary. Almost everything you build is a composition of four ideas, and
 the whole library follows once you have them.
 
 ## Stream
@@ -46,7 +46,7 @@ is continuous — [time](time.md) being the canonical case.
 
 ## Transaction
 
-Everything happens inside a transaction, and this is the property that makes Sodium worth
+Everything happens inside a transaction, and this is the property that makes SodaFlow worth
 using. Within one transaction the entire dependency graph updates **atomically**: no listener
 observes a half-updated world, and a value derived from two sources that both changed
 simultaneously is computed once, from the new value of both.
@@ -74,7 +74,7 @@ imperative code
 ```
 
 Streams carry events, `Hold` turns them into state, and `Snapshot` reads that state back when
-the next event arrives. Almost every Sodium program is that cycle, sometimes closed into a
+the next event arrives. Almost every SodaFlow program is that cycle, sometimes closed into a
 [feedback loop](loops.md).
 
 ## Where to go next
@@ -87,4 +87,4 @@ the next event arrives. Almost every Sodium program is that cycle, sometimes clo
 | Graphs whose shape changes at runtime | [Switch](switch.md) |
 | Clocks, alarms, deterministic tests | [Time and timers](time.md) |
 | Subscriptions and garbage collection | [Listener lifetimes](lifetimes.md) |
-| `Maybe`, `Either`, `Unit` | [Sodium.Functional](functional.md) |
+| `Maybe`, `Either`, `Unit` | [SodaFlow.Functional](functional.md) |

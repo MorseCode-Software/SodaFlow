@@ -6,24 +6,24 @@ title: Getting started
 
 ## Install
 
-Most people want one package. If you write C#, that is `SodiumFRP`; if you write F#, it is
-`SodiumFRP.FSharp`. Both pull in the core engine as a dependency.
+Most people want one package. If you write C#, that is `SodaFlow`; if you write F#, it is
+`SodaFlow.FSharp`. Both pull in the core engine as a dependency.
 
 # [C#](#tab/csharp)
 
 ```bash
-dotnet add package SodiumFRP
+dotnet add package SodaFlow
 ```
 
 # [F#](#tab/fsharp)
 
 ```bash
-dotnet add package SodiumFRP.FSharp
+dotnet add package SodaFlow.FSharp
 ```
 
 ---
 
-If you are not sure — or you have seen `SodiumFRP.Core` and wondered what it is for — read
+If you are not sure — or you have seen `SodaFlow.Core` and wondered what it is for — read
 [Which package do I install?](packages.md).
 
 ## Your first program
@@ -35,7 +35,7 @@ turns a stream into a cell that remembers the most recent value. `Listen` subscr
 
 ```csharp
 using System;
-using Sodium.Frp;
+using SodaFlow;
 
 StreamSink<int> s = Stream.CreateSink<int>();
 Cell<int> c = s.Hold(0);
@@ -58,7 +58,7 @@ Output:
 # [F#](#tab/fsharp)
 
 ```fsharp
-open Sodium.Frp
+open SodaFlow
 
 let s = sinkS<int> ()
 let c = s |> holdS 0
@@ -91,13 +91,13 @@ you are reading before you copy an example.
 
 **C# leans on extension methods.** `Stream<T>` and `Cell<T>` themselves carry almost nothing;
 `Map`, `Hold`, `Snapshot`, `Filter`, `Merge`, `Listen` and the rest are extension methods in
-`Sodium.Frp.StreamExtensionMethods` and friends. `using Sodium.Frp;` brings them all into
+`SodaFlow.StreamExtensionMethods` and friends. `using SodaFlow;` brings them all into
 scope. Construction goes through static factories: `Stream.CreateSink<T>()`,
 `Cell.CreateSink(initial)`, `Cell.Constant(value)`.
 
 **F# offers two spellings of everything.** There are qualified module functions —
 `Stream.map`, `Cell.listen`, `StreamSink.send` — and a set of suffixed aliases in an
-`[<AutoOpen>]` module, so `open Sodium.Frp` alone gives you `mapS`, `listenC`, `sendS`,
+`[<AutoOpen>]` module, so `open SodaFlow` alone gives you `mapS`, `listenC`, `sendS`,
 `sinkS`. The suffix names the type the function operates on: `S` for stream, `C` for cell,
 `B` for behavior, `L` for listener. They are the same functions; pick whichever reads better
 and stay consistent.

@@ -138,10 +138,14 @@ survives. See [Asynchronous work](async.md).
 
 ## Longer worked examples
 
-The [book](https://www.manning.com/books/functional-reactive-programming)'s examples live in
-this repository under [`book/`](https://github.com/SodiumFRP/sodium/tree/master/book), most of
-them in C# and F# as well as Java. They are the best available long-form Sodium code, and they
-compile.
+The [book](https://www.manning.com/books/functional-reactive-programming) (Blackheath & Jones)
+is the long-form treatment of this model, and is worth reading both for the Sodium basics
+SodaFlow inherits and for Functional Reactive Programming generally. Its worked examples live in
+the upstream [Sodium repository](https://github.com/SodiumFRP/sodium) under
+[`book/`](https://github.com/SodiumFRP/sodium/tree/master/book), most of them in C# and F# as
+well as Java. They are written against Sodium's API, so the namespaces and package names differ
+from SodaFlow's, but the model and the operation names carry over directly — they remain the
+best available long-form examples, and they compile.
 
 | Example | Source | Demonstrates |
 | --- | --- | --- |

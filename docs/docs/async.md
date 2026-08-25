@@ -4,21 +4,21 @@ title: Asynchronous work
 
 # Asynchronous work
 
-Sodium's model is synchronous and atomic: a transaction runs to completion and everything
+SodaFlow's model is synchronous and atomic: a transaction runs to completion and everything
 settles. A `Task` does not fit that shape. `MapAsync` is the bridge — it runs asynchronous work
 in response to stream firings and feeds the outcome back in as ordinary streams.
 
 It lives in a separate package; see [Which package do I install?](packages.md).
 
 ```bash
-dotnet add package SodiumFRP.Async
+dotnet add package SodaFlow.Async
 ```
 
 ## The shape of it
 
 ```csharp
-using Sodium.Frp;
-using Sodium.Frp.Async;
+using SodaFlow;
+using SodaFlow.Async;
 
 StreamSink<string> queries = Stream.CreateSink<string>();
 StreamSink<SearchResult> results = Stream.CreateSink<SearchResult>();

@@ -4,7 +4,7 @@ title: Transactions
 
 # Transactions
 
-The transaction is the reason to use Sodium rather than an event bus or a stream of callbacks.
+The transaction is the reason to use SodaFlow rather than an event bus or a stream of callbacks.
 Everything else in the library is in service of this one property.
 
 ## The guarantee
@@ -27,7 +27,7 @@ In a naive propagation system, sending `2` into `x` might briefly produce `"2 ->
 never logically existed, but a listener would see it, and code written against it would be
 subtly wrong in ways that only show up under load.
 
-Sodium does not produce it. `label` fires once, with `"2 -> 4"`.
+SodaFlow does not produce it. `label` fires once, with `"2 -> 4"`.
 
 This is not achieved by ordering listeners carefully. It comes from the dependency graph: each
 node has a rank, updates propagate in rank order within the transaction, and nothing fires

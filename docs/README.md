@@ -1,6 +1,6 @@
 # Documentation site
 
-The Sodium FRP for .NET documentation site. Built with [DocFX](https://dotnet.github.io/docfx/)
+The SodaFlow for .NET documentation site. Built with [DocFX](https://dotnet.github.io/docfx/)
 and published to GitHub Pages by [`.github/workflows/docs.yml`](../.github/workflows/docs.yml)
 on every push to `master`.
 
@@ -57,8 +57,8 @@ Add a Markdown file under `docs/` and an entry in `docs/toc.yml`. Two convention
 The trailing `---` closes the tab group. Tab selection is remembered across pages, so a reader
 who picks F# stays on F#.
 
-**Cross-references into the API.** Link to a type with `@Sodium.Frp.Stream\`1` or
-`<xref:Sodium.Frp.Cell\`1>` rather than a hand-written URL, so the link survives refactoring.
+**Cross-references into the API.** Link to a type with `@SodaFlow.Stream\`1` or
+`<xref:SodaFlow.Cell\`1>` rather than a hand-written URL, so the link survives refactoring.
 Backtick-N is the arity suffix for generic types.
 
 ## Adding a project to the API reference

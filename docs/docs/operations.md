@@ -7,7 +7,7 @@ title: Operation reference
 Every operation, in both languages, in one place. C# spells these as extension methods and
 static factories; F# offers qualified module functions (`Stream.map`) and `[<AutoOpen>]`
 suffixed aliases (`mapS`). The alias column below lists the latter, since that is what you get
-from `open Sodium.Frp` alone.
+from `open SodaFlow` alone.
 
 For full signatures and parameter contracts, follow through to the
 [generated API reference](../api/index.md).
@@ -140,7 +140,7 @@ See [Transactions](transactions.md) for what this buys you and when you need to 
 | `Operational.Defer(s)` | Push firings into a subsequent transaction. |
 | `Operational.Split(s)` | Turn a stream of collections into a stream firing once per element, each in its own transaction. |
 
-The source is blunt about the first two: they are "not part of the main Sodium API" and they
+The source is blunt about the first two: they are "not part of the main SodaFlow API" and they
 break the non-detectability of behavior steps. The stated rule is that you may use them only
 inside functions that do not let the caller detect those steps. In practice — fine in library
 internals, a smell in application code.

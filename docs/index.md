@@ -1,10 +1,10 @@
 ---
-title: Sodium FRP for .NET
+title: SodaFlow for .NET
 ---
 
-# Sodium FRP for .NET
+# SodaFlow for .NET
 
-Sodium is a Functional Reactive Programming library. It gives you two composable
+SodaFlow is a Functional Reactive Programming library. It gives you two composable
 primitives — a **stream** of discrete events and a **cell** holding a value over time —
 and guarantees that anything you build out of them updates *atomically*, with no glitches
 and no intermediate states that never logically existed.
@@ -20,10 +20,12 @@ s.Send(9);   // prints 9
 l.Unlisten();
 ```
 
-This site documents the **.NET implementation** — the C# and F# packages built from
-[`dotnet/src/Sodium`](https://github.com/SodiumFRP/sodium/tree/master/dotnet/src/Sodium).
-Sodium also exists for Java, Scala, C++, Kotlin, TypeScript, and Rust; those live in their
-own repositories under the [SodiumFRP organisation](https://github.com/SodiumFRP).
+SodaFlow is based on [Sodium](https://github.com/SodiumFRP/sodium), the Functional Reactive
+Programming library by Stephen Blackheath and Anthony Jones, and began as that project's .NET
+implementation. The model documented here — streams, cells, behaviors, and transactions — is
+Sodium's, and the credit for it belongs there. Sodium's implementations for Java, Scala, C++,
+Kotlin, TypeScript, and Rust live under the
+[SodiumFRP organisation](https://github.com/SodiumFRP).
 
 ## Start here
 
@@ -39,14 +41,17 @@ own repositories under the [SodiumFRP organisation](https://github.com/SodiumFRP
 - [Transactions](docs/transactions.md) — atomicity, simultaneity, and why glitches cannot happen.
 - [Feedback loops](docs/loops.md) — values that depend on their own past.
 - [Switch and dynamic graphs](docs/switch.md) — changing the graph's shape at runtime.
-- [Listener lifetimes](docs/lifetimes.md) — the most common way to break a Sodium program.
+- [Listener lifetimes](docs/lifetimes.md) — the most common way to break a SodaFlow program.
 - [Time and timers](docs/time.md) — clocks, alarms, and deterministic tests.
 - [Asynchronous work](docs/async.md) — running tasks without breaking the model.
 
 ## Elsewhere
 
 - **Book** — [*Functional Reactive Programming*](https://www.manning.com/books/functional-reactive-programming)
-  (Blackheath & Jones, Manning) is the long-form treatment. Its worked examples live in
+  (Blackheath & Jones, Manning) is the best reference for both the Sodium model SodaFlow is
+  built on and for Functional Reactive Programming in general. Almost everything it teaches
+  applies directly here. Its worked examples live in
   [`book/`](https://github.com/SodiumFRP/sodium/tree/master/book) in C#, F#, and Java.
-- **Forum** — <https://sodiumfrp.discourse.group/>
-- **Issues** — <https://github.com/SodiumFRP/sodium/issues>
+- **Sodium** — the upstream project SodaFlow is based on:
+  <https://github.com/SodiumFRP/sodium>. Its user forum, which covers the shared model rather
+  than SodaFlow specifically, is at <https://sodiumfrp.discourse.group/>.

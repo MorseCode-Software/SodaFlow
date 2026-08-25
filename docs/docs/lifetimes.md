@@ -5,7 +5,7 @@ title: Listener lifetimes
 # Listener lifetimes
 
 FRP graphs are held together by references, and getting those references wrong is the most
-common way to break a Sodium program. Listeners that die early stop firing, silently; listeners
+common way to break a SodaFlow program. Listeners that die early stop firing, silently; listeners
 that never die leak, also silently. Neither throws.
 
 ## Strong and weak
@@ -104,7 +104,7 @@ Note the shape of the guarantee: this is finalization, not deterministic disposa
 
 ## Verifying it
 
-These invariants are enforced by `Sodium.Frp.Tests.Memory`, which asserts them using weak
+These invariants are enforced by `SodaFlow.Tests.Memory`, which asserts them using weak
 references, the node's listener set, and the manager's registry count — no profiler required
 for most of them. If you change cleanup behaviour, those tests are the specification.
 

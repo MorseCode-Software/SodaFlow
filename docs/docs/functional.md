@@ -4,19 +4,19 @@ title: Maybe, Either and Unit
 
 # Maybe, Either and Unit
 
-`Sodium.Functional` is the small functional vocabulary the C# API needs and C# does not ship
+`SodaFlow.Functional` is the small functional vocabulary the C# API needs and C# does not ship
 with. It contains no FRP at all and can be used on its own. F# already has `option`, `Result`
-and `unit`, which is why `SodiumFRP.FSharp` does not depend on it — the F# API uses the
+and `unit`, which is why `SodaFlow.FSharp` does not depend on it — the F# API uses the
 built-in types throughout.
 
-The package ships as `Sodium.Functional` and comes in automatically with `SodiumFRP`.
+The package ships as `SodaFlow.Functional` and comes in automatically with `SodaFlow`.
 
 ## `Maybe<T>`
 
 A value that may or may not be present, without using `null` to say so.
 
 ```csharp
-using Sodium.Functional;
+using SodaFlow.Functional;
 
 Maybe<int> some = Maybe.Some(42);
 Maybe<int> none = Maybe.None;
@@ -67,7 +67,7 @@ The F# equivalent of `FilterMaybe` is `filterOptionS`, and it works on `option` 
 
 ## `Either<T1, T2>`
 
-A value that is exactly one of several alternatives. Sodium's version goes up to eight:
+A value that is exactly one of several alternatives. SodaFlow's version goes up to eight:
 `Either<T1, T2>` through `Either<T1, ..., T8>`.
 
 ```csharp

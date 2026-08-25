@@ -4,7 +4,7 @@ title: Switch and dynamic graphs
 
 # Switch and dynamic graphs
 
-Everything else in Sodium builds a graph whose *shape* is fixed once constructed. `Switch` is
+Everything else in SodaFlow builds a graph whose *shape* is fixed once constructed. `Switch` is
 what lets the shape change at runtime: a list of items where each row has its own streams, a
 wizard where each step wires up differently, a connection that is replaced when it drops.
 

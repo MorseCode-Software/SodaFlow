@@ -13,7 +13,7 @@ moment.
 
 ## Choosing a timer system
 
-Two implementations ship in `Sodium.Frp`:
+Two implementations ship in `SodaFlow`:
 
 | Type | Time is | Use when |
 | --- | --- | --- |
@@ -77,8 +77,8 @@ alarm.Send(Maybe.None);
 # [F#](#tab/fsharp)
 
 ```fsharp
-open Sodium.Frp
-open Sodium.Frp.Time
+open SodaFlow
+open SodaFlow.Time
 
 let timers = SecondsTimerSystem (fun ex -> Log.Error ex) :> ITimerSystem<float>
 
@@ -93,7 +93,7 @@ alarm |> sendC None
 ```
 
 Note that the F# side takes an `option`, not a `Maybe` — `Some target` to arm, `None` to
-disarm — and that `Sodium.Frp.Time` needs its own `open`.
+disarm — and that `SodaFlow.Time` needs its own `open`.
 
 ---
 
@@ -112,5 +112,5 @@ through your logic: supply your own implementation and time becomes a value you 
 advance the clock with `RunTimersTo` and run deterministically, with no sleeping and no
 flakiness.
 
-The F# implementation mirrors all of this in `Sodium.Frp.Time` — `TimerSystem<'T>`,
+The F# implementation mirrors all of this in `SodaFlow.Time` — `TimerSystem<'T>`,
 `SecondsTimerSystem`, `SystemClockTimerSystem`, and the same interfaces.
