@@ -1,0 +1,39 @@
+SodaFlow
+Copyright (c) 2016-2026 MorseCode Software LLC
+
+
+ORIGIN
+------
+
+SodaFlow is derived from Sodium, a Functional Reactive Programming library
+created by Stephen Blackheath and Anthony Jones:
+
+    https://github.com/SodiumFRP/sodium
+
+Sodium is Copyright (c) 2012-2015 Stephen Blackheath and Anthony Jones and is
+used here under the BSD 3-Clause License. That license applies to both the
+original work and to SodaFlow; its full text is in the LICENSE file, which
+must be retained in all source and binary redistributions of SodaFlow.
+
+SodaFlow began as the .NET (C# and F#) implementation within the Sodium
+repository and retains that implementation's full commit history. The original
+C# port was contributed by Michael Lund in 2014; the implementation was
+substantially rewritten and has been maintained since 2016 by MorseCode
+Software LLC. Additional contributions were made by Stephen Blackheath and
+Bastian Moldenhauer.
+
+SodaFlow is not endorsed by, affiliated with, or sponsored by Stephen
+Blackheath, Anthony Jones, or the Sodium project. Neither the Sodium name nor
+the names of its authors are used to promote SodaFlow.
+
+
+THIRD-PARTY COMPONENTS
+----------------------
+
+JetBrains Annotations
+    src/CSharp/SodaFlow/JetBrainsAnnotations.cs
+    src/CSharp/SodaFlow.Functional/JetBrainsAnnotations.cs
+
+    Copyright (c) 2016 JetBrains (http://www.jetbrains.com)
+    Licensed under the MIT License. The full license text is reproduced in the
+    header of each file and must be retained there.
