@@ -12,14 +12,18 @@
     <Product>Sodium FRP for F#</Product>
     <Title>Sodium FRP for F#</Title>
     <Description>Sodium - Functional Reactive Programming (FRP) library for F#.</Description>
-  </PropertyGroup>
+    <!--
+        GenerateDocumentationFile rather than a per-configuration DocumentationFile path: this project
+        multi-targets, and a single hard-coded path made all three target frameworks write over one
+        another's XML. This emits one file per target framework, next to its own assembly, which is
+        where NuGet pack expects it when populating each lib folder, and where the DocFX site under
+        docs/ picks it up when generating API reference.
 
-  <PropertyGroup Condition=" '$(Configuration)' == 'Debug' ">
-    <DocumentationFile>bin\Debug\Sodium.FSharp.Frp.xml</DocumentationFile>
-  </PropertyGroup>
-
-  <PropertyGroup Condition=" '$(Configuration)' == 'Release' ">
-    <DocumentationFile>bin\Release\Sodium.FSharp.Frp.xml</DocumentationFile>
+        The flag is on, but this assembly currently carries no /// comments, so the XML it emits is
+        empty. The DocFX site therefore generates API reference for the C# packages only - see
+        docs/docs/fsharp-api.md for why, and what it would take to change that.
+    -->
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
   </PropertyGroup>
 
   <ItemGroup>

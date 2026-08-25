@@ -13,6 +13,16 @@
     <AssemblyName>Sodium.Core.Frp</AssemblyName>
     <RootNamespace>Sodium.Frp</RootNamespace>
     <EnableDefaultItems>false</EnableDefaultItems>
+    <!--
+        This package ships as SodiumFRP.Core and had no documentation file at all. The types a
+        consumer actually holds through the C# and F# wrappers - Stream, Cell, Behavior,
+        Transaction and friends - are declared here, so without this both IntelliSense and the
+        generated API reference show them bare.
+
+        GenerateDocumentationFile rather than an explicit path: this project multi-targets, and one
+        hard-coded path would make all three target frameworks write over one another's XML.
+    -->
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
   </PropertyGroup>
 
   <ItemGroup>

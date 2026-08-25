@@ -21,7 +21,7 @@ namespace Sodium.Frp
         /// <remarks>
         ///     <para>
         ///         No assumptions should be made about what thread the handler is called on and it should not block.
-        ///         Neither <see cref="StreamSink{T}.Send" /> nor <see cref="CellSinkExtensionMethods.Send{T}" /> may be called from the
+        ///         Neither <see cref="StreamSinkExtensionMethods.Send{T}" /> nor <see cref="CellSinkExtensionMethods.Send{T}" /> may be called from the
         ///         handler.
         ///         They will throw an exception because this method is not meant to be used to create new primitives.
         ///     </para>
@@ -49,7 +49,7 @@ namespace Sodium.Frp
         /// <remarks>
         ///     <para>
         ///         No assumptions should be made about what thread the handler is called on and it should not block.
-        ///         Neither <see cref="StreamSink{T}.Send" /> nor <see cref="CellSinkExtensionMethods.Send{T}" /> may be called from the
+        ///         Neither <see cref="StreamSinkExtensionMethods.Send{T}" /> nor <see cref="CellSinkExtensionMethods.Send{T}" /> may be called from the
         ///         handler.
         ///         They will throw an exception because this method is not meant to be used to create new primitives.
         ///     </para>

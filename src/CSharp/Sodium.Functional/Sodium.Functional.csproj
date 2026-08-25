@@ -13,14 +13,14 @@
     <AssemblyName>Sodium.Functional</AssemblyName>
     <RootNamespace>Sodium.Functional</RootNamespace>
     <EnableDefaultItems>false</EnableDefaultItems>
-  </PropertyGroup>
-
-  <PropertyGroup Condition=" '$(Configuration)' == 'Debug' ">
-    <DocumentationFile>bin\Debug\Sodium.Functional.xml</DocumentationFile>
-  </PropertyGroup>
-
-  <PropertyGroup Condition=" '$(Configuration)' == 'Release' ">
-    <DocumentationFile>bin\Release\Sodium.Functional.xml</DocumentationFile>
+    <!--
+        GenerateDocumentationFile rather than a per-configuration DocumentationFile path: this project
+        multi-targets, and a single hard-coded path made all three target frameworks write over one
+        another's XML. This emits one file per target framework, next to its own assembly, which is
+        where NuGet pack expects it when populating each lib folder, and where the DocFX site under
+        docs/ picks it up when generating API reference.
+    -->
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
   </PropertyGroup>
 
   <ItemGroup>

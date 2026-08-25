@@ -1,0 +1,65 @@
+{
+  "$schema": "https://raw.githubusercontent.com/dotnet/docfx/main/schemas/docfx.schema.json",
+
+  "metadata": [
+    {
+      "//": [
+        "Only the C# packages are listed. Sodium.FSharp.Frp and Sodium.FSharp.Frp.Async are",
+        "deliberately absent: DocFX reads compiled metadata, so an F# assembly renders in its",
+        "compiled shape (modules as static classes, FSharpFunc in every signature), and those",
+        "assemblies carry no /// comments to render anyway. See docs/fsharp-api.md.",
+        "",
+        "TargetFramework is pinned because every project here multi-targets net472, net60 and",
+        "netstandard2.0. Without pinning, DocFX builds all three and emits duplicate members.",
+        "net60 is the alias these projects use for net6.0; the output folder is literally 'net60'."
+      ],
+      "src": [
+        {
+          "src": "../dotnet/src/Sodium",
+          "files": [
+            "Sodium.Core.Frp/Sodium.Core.Frp.csproj",
+            "CSharp/Sodium.Frp/Sodium.Frp.csproj",
+            "CSharp/Sodium.Functional/Sodium.Functional.csproj",
+            "Async/Sodium.Core.Frp.Async/Sodium.Core.Frp.Async.csproj",
+            "Async/CSharp/Sodium.Frp.Async/Sodium.Frp.Async.csproj"
+          ]
+        }
+      ],
+      "dest": "api",
+      "properties": {
+        "TargetFramework": "net60",
+        "Configuration": "Release"
+      },
+      "memberLayout": "separatePages",
+      "namespaceLayout": "nested"
+    }
+  ],
+
+  "build": {
+    "content": [
+      {
+        "files": [ "**/*.{md,yml}" ],
+        "exclude": [ "_site/**", "**/bin/**", "**/obj/**", "README.md" ]
+      }
+    ],
+    "resource": [
+      {
+        "files": [ "images/**" ],
+        "exclude": [ "_site/**" ]
+      }
+    ],
+    "output": "_site",
+    "template": [ "default", "modern" ],
+    "postProcessors": [ "ExtractSearchIndex" ],
+    "globalMetadata": {
+      "_appName": "Sodium FRP",
+      "_appTitle": "Sodium FRP for .NET",
+      "_appFooter": "Sodium FRP &mdash; BSD-3-Clause",
+      "_enableSearch": true,
+      "_gitContribute": {
+        "repo": "https://github.com/SodiumFRP/sodium",
+        "branch": "master"
+      }
+    }
+  }
+}

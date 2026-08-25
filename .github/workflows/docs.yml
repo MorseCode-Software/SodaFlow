@@ -1,0 +1,77 @@
+# Builds the DocFX site under docs/ and publishes it to GitHub Pages.
+#
+# This is independent of appveyor.yml, which builds and packs the .NET solution. The two do not
+# share state: AppVeyor owns NuGet releases, this owns the documentation site.
+name: Documentation
+
+on:
+  push:
+    branches: [ master ]
+    paths:
+      - 'docs/**'
+      - 'dotnet/**'
+      - '.config/dotnet-tools.json'
+      - '.github/workflows/docs.yml'
+  pull_request:
+    paths:
+      - 'docs/**'
+      - 'dotnet/**'
+      - '.config/dotnet-tools.json'
+      - '.github/workflows/docs.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Never let two publishes race. In-progress runs are allowed to finish so a deploy is not left
+# half-applied.
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          # 6.0 for the net60 target the docs are generated against, 8.0 to run DocFX itself.
+          dotnet-version: |
+            6.0.x
+            8.0.x
+
+      - name: Restore tools
+        run: dotnet tool restore
+
+      # Only the projects DocFX extracts, and only their net60 target. Building the whole
+      # solution here would fail: it also targets net472, which needs Windows.
+      - name: Restore projects
+        run: |
+          dotnet restore dotnet/src/Sodium/Sodium.Core.Frp/Sodium.Core.Frp.csproj
+          dotnet restore dotnet/src/Sodium/CSharp/Sodium.Frp/Sodium.Frp.csproj
+          dotnet restore dotnet/src/Sodium/CSharp/Sodium.Functional/Sodium.Functional.csproj
+          dotnet restore dotnet/src/Sodium/Async/Sodium.Core.Frp.Async/Sodium.Core.Frp.Async.csproj
+          dotnet restore dotnet/src/Sodium/Async/CSharp/Sodium.Frp.Async/Sodium.Frp.Async.csproj
+
+      - name: Build site
+        run: dotnet docfx docs/docfx.json --warningsAsErrors
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: docs/_site
+
+  # Pull requests build the site to catch breakage, but only master publishes it.
+  deploy:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/master'
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

@@ -228,3 +228,8 @@ target/
 # IntelliJ Idea
 **/.idea/workspace.xml
 **/.idea/tasks.xml
+
+# DocFX documentation site
+docs/_site/
+docs/api/*.yml
+docs/api/.manifest
