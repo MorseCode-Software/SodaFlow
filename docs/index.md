@@ -23,7 +23,8 @@ l.Unlisten();
 SodaFlow is based on [Sodium](https://github.com/SodiumFRP/sodium), the Functional Reactive
 Programming library by Stephen Blackheath and Anthony Jones, and began as that project's .NET
 implementation. The model documented here — streams, cells, behaviors, and transactions — is
-Sodium's, and the credit for it belongs there. Sodium's implementations for Java, Scala, C++,
+Sodium's — including its [denotational semantics](docs/semantics.md), which SodaFlow
+implements unchanged — and the credit for it belongs there. Sodium's implementations for Java, Scala, C++,
 Kotlin, TypeScript, and Rust live under the
 [SodiumFRP organisation](https://github.com/SodiumFRP).
 
@@ -44,6 +45,8 @@ Kotlin, TypeScript, and Rust live under the
 - [Listener lifetimes](docs/lifetimes.md) — the most common way to break a SodaFlow program.
 - [Time and timers](docs/time.md) — clocks, alarms, and deterministic tests.
 - [Asynchronous work](docs/async.md) — running tasks without breaking the model.
+- [Denotational semantics](docs/semantics.md) — SodaFlow implements Sodium's formal
+  specification, and is tested against it.
 
 ## Elsewhere
 

@@ -57,7 +57,7 @@
       "_appFooter": "SodaFlow &mdash; BSD-3-Clause",
       "_enableSearch": true,
       "_gitContribute": {
-        "repo": "https://github.com/SodaFlow/sodium",
+        "repo": "https://github.com/REPLACE-ME/sodaflow",
         "branch": "master"
       }
     }

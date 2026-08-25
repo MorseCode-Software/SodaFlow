@@ -88,3 +88,4 @@ the next event arrives. Almost every SodaFlow program is that cycle, sometimes c
 | Clocks, alarms, deterministic tests | [Time and timers](time.md) |
 | Subscriptions and garbage collection | [Listener lifetimes](lifetimes.md) |
 | `Maybe`, `Either`, `Unit` | [SodaFlow.Functional](functional.md) |
+| The formal meaning of every primitive | [Denotational semantics](semantics.md) |

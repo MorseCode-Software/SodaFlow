@@ -50,6 +50,12 @@ Functional Reactive Programming library by Stephen Blackheath and Anthony
 Jones, and began as that project's .NET implementation. It retains the full
 commit history of that implementation, back to the original C# port in 2014.
 
+SodaFlow implements Sodium's **denotational semantics** unchanged. The formal
+specification and its executable Haskell reference are vendored under
+`denotational/` (Copyright (c) 2015 Stephen Blackheath, separately licensed —
+see `denotational/LICENSE`), and `DenotationalSemanticsTests` asserts
+conformance with 23 tests in C# and 23 in F#.
+
 Sodium is Copyright (c) 2012-2015 Stephen Blackheath and Anthony Jones. The
 BSD 3-Clause licence covering it applies to SodaFlow as well, and the LICENSE
 file must be retained in all source and binary redistributions. See

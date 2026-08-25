@@ -27,6 +27,26 @@ Blackheath, Anthony Jones, or the Sodium project. Neither the Sodium name nor
 the names of its authors are used to promote SodaFlow.
 
 
+SEPARATELY LICENSED PORTIONS
+----------------------------
+
+Denotational semantics (denotational/)
+    "Denotational Semantics of Sodium 1.1" and its executable Haskell reference
+    implementation are the formal specification of the Sodium model that
+    SodaFlow implements.
+
+    Copyright (c) 2015 Stephen Blackheath
+    Licensed under the BSD 3-Clause License, which is a DIFFERENT licence
+    instance from the one in LICENSE: it is held by Stephen Blackheath alone,
+    not by Blackheath and Jones. Its full text is in denotational/LICENSE and
+    must be retained there. This is the "portions of this code where a
+    different licence is given" case that LICENSE's preamble refers to.
+
+    This material is included unmodified. The Sodium naming inside it is
+    deliberate and must not be renamed to SodaFlow: it is Blackheath's
+    document about Sodium, not a SodaFlow work.
+
+
 THIRD-PARTY COMPONENTS
 ----------------------
 
