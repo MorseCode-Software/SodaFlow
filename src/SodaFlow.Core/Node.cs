@@ -153,6 +153,16 @@ namespace SodaFlow
 
         // Returns the targets themselves rather than projecting out their nodes, so that walking
         // them does not allocate a LINQ iterator per node visited during a rerank cascade.
+        //
+        // A rerank does hold ListenersLock for its whole cascade, so it could iterate the live
+        // HashSet with its struct enumerator and skip the snapshot altogether. That was tried and
+        // measured flat - fan-outs of 200 and 1000, chains of 200 and 1000, allocating the same
+        // to the byte in three of the four. The snapshot is already free here: a node with no
+        // listeners gets the shared NoListeners array, and a cascade during construction walks
+        // exactly those freshly created nodes. Against no saving it would add a virtual call per
+        // node visited, force EnsureBiggerThanRecursive to become protected, and make "nothing
+        // mutates the listener set mid-cascade" load-bearing - today the snapshot means a walker
+        // would simply see an older view rather than throw.
         protected abstract TargetSnapshot<Target> GetListenerTargetsUnsafe();
 
         public abstract class Target
