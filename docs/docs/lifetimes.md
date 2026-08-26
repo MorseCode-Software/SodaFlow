@@ -11,8 +11,9 @@ that never die leak, also silently. Neither throws.
 ## Strong and weak
 
 `Listen` returns an `IStrongListener`. It keeps the graph it observes alive, and it implements
-`IDisposable`. Hold it for as long as you want the subscription to live, then `Unlisten()` or
-`Dispose()` it — they do the same thing.
+`IDisposable`. Hold it for as long as you need to be able to *end* the subscription, then
+`Unlisten()` or `Dispose()` it — they do the same thing. Dropping the handle does not end the
+subscription; see [below](#dropping-the-listener-listen-returns).
 
 `ListenWeak` returns an `IWeakListener`. It does **not** keep the graph alive. Use it when
 something else already owns the lifetime and you do not want the subscription extending it.
@@ -20,15 +21,22 @@ something else already owns the lifetime and you do not want the subscription ex
 `ListenOnce` unsubscribes itself after the first firing. `ListenOnceAsync` gives you the same
 thing as a `Task<T>`, with an optional `CancellationToken`.
 
-## The common mistake
+## Dropping the listener `Listen` returns
 
 ```csharp
-// Wrong: nothing holds the listener, so it can be collected and stop firing.
+// Keeps firing — but nothing can stop it any more.
 s.Map(x => x * 2).Listen(Console.WriteLine);
 ```
 
-This compiles, runs, and works — until a garbage collection happens, after which it silently
-stops. Assign it to something whose lifetime matches the subscription you want:
+`Listen` roots the listener in the stream's keep-alive set, so discarding the return value
+does **not** stop delivery. The handler keeps running until the stream itself is disposed or
+collected. What you have lost is the handle: there is no longer any way to `Unlisten()`, so
+the subscription overstays rather than dying quietly.
+
+That is deliberate, and pinned by `ListenerIsKeptAliveWhileStillListening` in the memory
+tests — a listener that silently stopped firing would be the worse failure of the two.
+
+Keep the listener whenever you need to be able to stop it:
 
 ```csharp
 this.listener = s.Map(x => x * 2).Listen(Console.WriteLine);
@@ -43,6 +51,23 @@ using (result.Listen(@out.Add))
     s.Send(2);
 }
 ```
+
+## The mistake that does fail silently
+
+`ListenWeak` is the one where dropping the reference stops delivery:
+
+```csharp
+// Wrong: nothing holds the weak listener, so it can be collected and stop firing.
+s.Map(x => x * 2).ListenWeak(Console.WriteLine);
+```
+
+This compiles, runs, and works — until a garbage collection happens, after which it silently
+stops. The node holds your handler through a `WeakReference`, and the returned
+`IWeakListener` is the only thing keeping it alive — `ListenWeak` deliberately does not root
+that listener anywhere. Drop it and the handler becomes collectable.
+
+Use `ListenWeak` only when something else owns the lifetime, and hold that reference for
+exactly as long as you want the subscription to live.
 
 ## Do not `Send` from inside a handler
 
