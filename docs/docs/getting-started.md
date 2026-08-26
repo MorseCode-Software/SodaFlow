@@ -102,8 +102,30 @@ scope. Construction goes through static factories: `Stream.CreateSink<T>()`,
 `B` for behavior, `L` for listener. They are the same functions; pick whichever reads better
 and stay consistent.
 
+## Build your graph inside a transaction
+
+The example above is small enough not to care, but as soon as a graph is more than a couple of
+operations, construct it — and attach its listeners — inside a single `Transaction.Run`:
+
+```csharp
+Cell<Report> report = Transaction.Run(() =>
+{
+    // build the graph, close any loops, attach listeners
+    ...
+});
+```
+
+Built outside one, a graph is built across a series of implicit transactions, one per
+operation, and a firing that occurs between two of them is simply lost. `Values` makes this
+easy to hit: the stream fires during the transaction in which it was *obtained*, so obtaining
+it outside an explicit transaction spends that firing before anything is listening. You still
+get every later change, which is what makes the omission easy to miss.
+
+See [Transactions](transactions.md).
+
 ## Next
 
+- [Transactions](transactions.md) — why graph construction belongs inside `Transaction.Run`.
 - [Core concepts](concepts.md) — what streams, cells, behaviors and transactions actually mean.
 - [Operation reference](operations.md) — every operation, in both languages.
 - [Cookbook](cookbook.md) — recipes for common problems.

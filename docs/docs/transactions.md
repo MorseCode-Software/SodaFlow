@@ -77,8 +77,52 @@ credentials, a selection and its context.
 
 ### Building a graph that must be observed from its first moment
 
-`Values` only delivers its initial firing inside the transaction in which it was obtained, and
-loops must be created and closed inside one transaction. Both require `Transaction.Run`.
+Build the graph **and attach its listeners inside one `Transaction.Run`**. A graph assembled
+outside a transaction is assembled across a series of implicit ones — every operation opening
+and closing its own — and any firing that happens between two of them has nowhere to land.
+
+`Values` is where this bites hardest, because a `Values` stream fires during the transaction in
+which it was **obtained**, not when it is listened to. Getting the stream is itself enough to
+spend that firing:
+
+```csharp
+// Wrong: obtaining Values opened an implicit transaction and the initial
+// firing happened inside it, before anything was listening.
+Stream<int> v = c.Values();
+IListener l = v.Listen(Console.WriteLine);   // current value already missed
+```
+
+Obtain it and subscribe in the same transaction, and the firing has somewhere to go:
+
+```csharp
+// Right.
+IListener l = Transaction.Run(() => c.Values().Listen(Console.WriteLine));
+```
+
+The failure is silent — you still receive every later change, so the stream looks like it works
+and merely skipped its first value. Every `Values` test in the suite is wrapped this way.
+
+The same reasoning applies to a graph built in pieces. Wrap the whole construction, including
+any `Hold` whose initial value comes from a `Values`, and any listeners you want attached from
+the start:
+
+```csharp
+Cell<IReadOnlyList<Item>> items = Transaction.Run(() =>
+{
+    // build the graph, close any loops, attach listeners
+    ...
+});
+```
+
+Transactions are globally serialized, so doing it this way also closes the window between
+construction and subscription in which another thread could send something you would never see.
+
+Loops are the other case that requires an explicit transaction: one must be created and closed
+inside a single transaction, which is exactly what the functional form (`Stream.Loop`,
+`Cell.Loop`, `Behavior.Loop`) handles for you.
+
+If all you need is "the current value, then every change", `Listen` on a cell already delivers
+the current value first and needs none of this.
 
 ### Reading a consistent snapshot
 
