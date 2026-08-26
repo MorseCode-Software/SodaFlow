@@ -182,7 +182,7 @@ namespace SodaFlow
         // Snapshot of listeners, rebuilt lazily. Send walks the listener set on every single
         // firing while the set itself only changes when the graph is wired up or a dead weak
         // reference is reaped, so without this every firing allocated a fresh array.
-        // Null means stale; all mutations below null it out under ListenersLock.
+        // A default snapshot means stale; all mutations below reset it under ListenersLock.
         private TargetSnapshot<Target> listenersSnapshot;
 
         internal Node()
