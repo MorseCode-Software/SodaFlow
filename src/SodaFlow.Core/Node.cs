@@ -3,6 +3,57 @@ using System.Collections.Generic;
 
 namespace SodaFlow
 {
+    // A view over a node's cached listener snapshot.
+    //
+    // A readonly struct carrying its own GetEnumerator rather than an IReadOnlyList<Target>:
+    // foreach binds to this GetEnumerator before it ever considers IEnumerable<T>, so walking a
+    // snapshot compiles to an indexed loop over the array and allocates nothing. Through the
+    // interface each walk allocated an enumerator, and Send walks the listener set on every
+    // single firing - the same accounting that already collapsed SendEntry's closure.
+    //
+    // It also leaves callers no way to mutate what they are handed. The array underneath is
+    // cached and shared by every walker, so a write through it would corrupt the listener set
+    // for all of them rather than spoiling a private copy.
+    internal readonly struct TargetSnapshot<TTarget>
+        where TTarget : Node.Target
+    {
+        private readonly TTarget[] targets;
+
+        internal TargetSnapshot(TTarget[] targets) => this.targets = targets;
+
+        // default(TargetSnapshot<>) is the stale marker, taking over the role the null array
+        // reference used to play. A snapshot wrapping an empty array is valid and not stale.
+        internal bool IsStale => this.targets == null;
+
+        internal int Count => this.targets == null ? 0 : this.targets.Length;
+
+        // Node<T> holds Node<T>.Target[] while Node's accessor is declared in terms of
+        // Node.Target. Arrays are covariant and nothing ever writes through the reference, so the
+        // same array is simply rewrapped. A struct, unlike IReadOnlyList<out T>, is invariant and
+        // cannot make that conversion implicitly.
+        internal TargetSnapshot<Node.Target> AsBaseTargets() => new TargetSnapshot<Node.Target>(this.targets);
+
+        public Enumerator GetEnumerator() => new Enumerator(this.targets);
+
+        // Public members because the foreach pattern requires them, on an internal type so
+        // nothing widens the assembly's surface.
+        internal struct Enumerator
+        {
+            private readonly TTarget[] targets;
+            private int index;
+
+            internal Enumerator(TTarget[] targets)
+            {
+                this.targets = targets;
+                this.index = -1;
+            }
+
+            public TTarget Current => this.targets[this.index];
+
+            public bool MoveNext() => this.targets != null && ++this.index < this.targets.Length;
+        }
+    }
+
     internal abstract class Node
     {
         public const int NullRank = int.MaxValue;
@@ -93,7 +144,7 @@ namespace SodaFlow
 
         // Returns the targets themselves rather than projecting out their nodes, so that walking
         // them does not allocate a LINQ iterator per node visited during a rerank cascade.
-        protected abstract IReadOnlyList<Target> GetListenerTargetsUnsafe();
+        protected abstract TargetSnapshot<Target> GetListenerTargetsUnsafe();
 
         public abstract class Target
         {
@@ -123,7 +174,7 @@ namespace SodaFlow
         // firing while the set itself only changes when the graph is wired up or a dead weak
         // reference is reaped, so without this every firing allocated a fresh array.
         // Null means stale; all mutations below null it out under ListenersLock.
-        private Target[] listenersSnapshot;
+        private TargetSnapshot<Target> listenersSnapshot;
 
         internal Node()
         {
@@ -160,7 +211,7 @@ namespace SodaFlow
 
                 this.listeners.Add(t);
                 this.listenersCapacity++;
-                this.listenersSnapshot = null;
+                this.listenersSnapshot = default;
             }
             lock (NodeRanksLock)
             {
@@ -182,7 +233,7 @@ namespace SodaFlow
                 : base(node, isActivated) => this.Action = new WeakReference<Action<TransactionInternal, T>>(action);
         }
 
-        internal IReadOnlyList<Target> GetListenersCopy()
+        internal TargetSnapshot<Target> GetListenersCopy()
         {
             lock (ListenersLock)
             {
@@ -200,7 +251,7 @@ namespace SodaFlow
                 }
 
                 this.listeners.Remove(target);
-                this.listenersSnapshot = null;
+                this.listenersSnapshot = default;
                 // HashSet does not reclaim space after items are removed, so we will create a new one if we can reclaim a substantial amount of space
                 if (this.listenersCapacity > 100 && this.listeners.Count < this.listenersCapacity / 2)
                 {
@@ -210,29 +261,30 @@ namespace SodaFlow
             }
         }
 
-        // Callers must hold ListenersLock. The returned array is never handed out for mutation,
+        // Callers must hold ListenersLock. TargetSnapshot hands out no way to mutate the array,
         // and each snapshot is immutable once built, so a caller that is still walking an older
         // one after an invalidation simply sees the listener set as of when it started - exactly
         // the semantics the previous copy-per-call gave.
-        private Target[] GetListenersSnapshotUnsafe()
+        private TargetSnapshot<Target> GetListenersSnapshotUnsafe()
         {
-            if (this.listenersSnapshot == null)
+            if (this.listenersSnapshot.IsStale)
             {
                 if (this.listeners == null || this.listeners.Count == 0)
                 {
-                    this.listenersSnapshot = NoListeners;
+                    this.listenersSnapshot = new TargetSnapshot<Target>(NoListeners);
                 }
                 else
                 {
                     Target[] snapshot = new Target[this.listeners.Count];
                     this.listeners.CopyTo(snapshot);
-                    this.listenersSnapshot = snapshot;
+                    this.listenersSnapshot = new TargetSnapshot<Target>(snapshot);
                 }
             }
 
             return this.listenersSnapshot;
         }
 
-        protected override IReadOnlyList<Node.Target> GetListenerTargetsUnsafe() => this.GetListenersSnapshotUnsafe();
+        protected override TargetSnapshot<Node.Target> GetListenerTargetsUnsafe() =>
+            this.GetListenersSnapshotUnsafe().AsBaseTargets();
     }
 }
