@@ -55,6 +55,7 @@ Kotlin, TypeScript, and Rust live under the
   built on and for Functional Reactive Programming in general. Almost everything it teaches
   applies directly here. Its worked examples live in
   [`book/`](https://github.com/SodiumFRP/sodium/tree/master/book) in C#, F#, and Java.
+- **Issues** — <https://github.com/MorseCode-Software/SodaFlow/issues>
 - **Sodium** — the upstream project SodaFlow is based on:
   <https://github.com/SodiumFRP/sodium>. Its user forum, which covers the shared model rather
   than SodaFlow specifically, is at <https://sodiumfrp.discourse.group/>.

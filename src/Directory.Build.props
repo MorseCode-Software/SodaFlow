@@ -8,7 +8,7 @@
     <PropertyGroup>
         <Authors>MorseCode Software LLC</Authors>
         <Company>MorseCode Software LLC</Company>
-        <PackageProjectUrl>https://github.com/REPLACE-ME/sodaflow</PackageProjectUrl>
+        <PackageProjectUrl>https://github.com/MorseCode-Software/SodaFlow</PackageProjectUrl>
         <IncludeSource>True</IncludeSource>
         <IncludeSymbols>True</IncludeSymbols>
     </PropertyGroup>
