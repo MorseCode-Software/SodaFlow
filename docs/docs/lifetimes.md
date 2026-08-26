@@ -144,15 +144,24 @@ once you drop your handle. A listener never permanently roots a stream by itself
 
 What `AttachListener` adds is the ability to bind *some other* listener to *a chosen* stream's
 lifetime, and to have it actively unlistened — disconnecting its node from upstream — when that
-stream is collected, rather than merely becoming unreachable. That matters when a subscription
-is created inside a graph you hold no handle to, typically a [`Switch`](switch.md) branch that
-comes and goes: tying it to the source stream would outlive the branch, so it is tied to the
-branch instead. The XML documentation on `Listen` points here for that case.
+stream is collected, rather than merely becoming unreachable. The XML documentation on `Listen`
+points here for that case.
+
+Internally that is how a combinator keeps its own wiring alive. [`Switch`](switch.md) subscribes
+to the outer cell to learn when the branch changes, and to whichever inner stream is currently
+selected; the caller holds neither, only the stream `Switch` returns. Both subscriptions are
+therefore attached to that returned stream, so they live exactly as long as the result does.
+`Operational`, `LoopedStream` and `TimerSystem` do the same thing. This is not a situation
+application code can get into: the weak `Listen` overload that makes it necessary is `internal`,
+and `Switch` has already done it for you.
 
 `MutableListener` is an `IListener` whose target can be swapped (`SetListener`, `ClearListener`,
-`Unlisten`) while the handle stays stable — for a long-lived object subscribing to a succession
-of short-lived sources. `Cleanup` runs an action when it is collected, or immediately via
-`CleanupNow()`, which is finalization rather than deterministic disposal: it runs *eventually*.
+`Unlisten`) while the handle stays stable. `Switch` needs exactly that: the inner subscription is
+replaced on every branch change, but attaching a fresh listener each time would grow the stream's
+attached-listener list without bound, so one stable handle is attached once and re-pointed.
+
+`Cleanup` runs an action when it is collected, or immediately via `CleanupNow()` — finalization
+rather than deterministic disposal, so it runs *eventually*.
 
 ## Verifying it
 
