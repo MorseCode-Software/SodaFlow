@@ -6,7 +6,7 @@ name: Documentation
 
 on:
   push:
-    branches: [ master ]
+    branches: [ main ]
     paths:
       - 'docs/**'
       - 'src/**'
@@ -64,9 +64,9 @@ jobs:
         with:
           path: docs/_site
 
-  # Pull requests build the site to catch breakage, but only master publishes it.
+  # Pull requests build the site to catch breakage, but only main publishes it.
   deploy:
-    if: github.event_name == 'push' && github.ref == 'refs/heads/master'
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     needs: build
     runs-on: ubuntu-latest
     environment:

@@ -2,7 +2,7 @@
 
 The SodaFlow for .NET documentation site. Built with [DocFX](https://dotnet.github.io/docfx/)
 and published to GitHub Pages by [`.github/workflows/docs.yml`](../.github/workflows/docs.yml)
-on every push to `master`.
+on every push to `main`.
 
 ## Build it locally
 
