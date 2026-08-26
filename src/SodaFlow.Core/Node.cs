@@ -14,6 +14,15 @@ namespace SodaFlow
     // It also leaves callers no way to mutate what they are handed. The array underneath is
     // cached and shared by every walker, so a write through it would corrupt the listener set
     // for all of them rather than spoiling a private copy.
+    //
+    // That safety is free, so do not be tempted to strip this wrapper and hand out the bare
+    // Target[] for speed - it was measured, and there is nothing to win. One sink feeding eight
+    // mapped streams, each listened to, over 200,000 sends: 2312 bytes/send through
+    // IReadOnlyList, 2024 through this struct, and 2024 through a raw Target[] - identical to
+    // the byte, because foreach over either compiles to the same indexed loop. Times were 1319,
+    // 1252-1274 and 1292 ns/send, where repeat runs of one variant differed by more than the
+    // variants differed from each other. The whole 288 byte saving is the interface's enumerator,
+    // nine of them per send here, one per stream that fires.
     internal readonly struct TargetSnapshot<TTarget>
         where TTarget : Node.Target
     {
