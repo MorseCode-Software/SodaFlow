@@ -37,19 +37,19 @@ handlers, timers, and network callbacks; everything downstream stays pure.
 | `s.MapTo(v)` | `mapToS v s` | Replace each value with a constant. |
 | `s.Filter(pred)` | `filterS pred s` | Drop firings failing the predicate. |
 | `s.FilterMaybe()` | `filterOptionS s` | Unwrap `Maybe<T>` / `option`, dropping empties. |
-| `s.Merge(s2, f)` | `mergeS f s2 s` | Combine two streams; `f` resolves simultaneous firings. |
-| `s.OrElse(s2)` | `orElseS s2 s` | Combine two streams; on simultaneity the left wins. |
-| `streams.Merge(f)` | `mergeAll f streams` | Merge a collection of streams. |
-| `streams.OrElse()` | `orElseAll streams` | Left-biased merge of a collection. |
+| `s.Merge(s2, f)` | `mergeS f (s, s2)` | Combine two streams; `f` resolves simultaneous firings. |
+| `s.OrElse(s2)` | `orElseS (s, s2)` | Combine two streams; on simultaneity the left wins. |
+| `streams.Merge(f)` | `mergeAllS f streams` | Merge a collection of streams. |
+| `streams.OrElse()` | `orElseAllS streams` | Left-biased merge of a collection. |
 | `s.Hold(initial)` | `holdS initial s` | Turn into a cell remembering the latest value. |
 | `s.HoldLazy(lazy)` | `holdLazyS v s` | As above with a lazy initial value. |
 | `s.Snapshot(c)` | `snapshotAndTakeC c s` | On each firing, take the cell's value, discarding the stream's. |
 | `s.Snapshot(c, f)` | `snapshotC c f s` | On each firing, combine the stream value with the cell's. |
-| `s.Snapshot(c1, c2, f)` | `snapshot2C c1 c2 f s` | Same, over more cells (up to 8). |
+| `s.Snapshot(c1, c2, f)` | `snapshot2C c1 c2 f s` | Same, over more cells (up to 4). |
 | `s.Gate(c)` | `gateC c s` | Drop firings while a `Cell<bool>` is false. |
 | `s.Calm()` | `calmS s` | Suppress firings equal to the previous one. |
 | `s.Calm(comparer)` | `calmWithEqualityComparerS cmp s` | As above with an explicit comparer. |
-| `s.Accum(initial, f)` | `accumS initial f s` | Fold, emitting the new state each firing. |
+| `s.Accum(initial, f)` | `accumS initial f s` | Fold into a **cell** holding the accumulated state. |
 | `s.Collect(initial, f)` | `collectS initial f s` | Mealy machine: emit an output and a new state. |
 | `s.Once()` | `onceS s` | Only the next firing, then never again. |
 | `s.Listen(handler)` | `listenS handler s` | Subscribe. Returns `IStrongListener`. |
@@ -68,8 +68,8 @@ with a constant. Reach for the specific one — it reads better and does less wo
 | `c.Sample()` | `sampleC c` | Read the current value *now*. An imperative escape hatch. |
 | `c.SampleLazy()` | `sampleLazyC c` | Read on demand, for use inside loops. |
 | `c.Map(f)` | `mapC f c` | Transform the value. |
-| `c.Lift(c2, f)` | `lift2C c2 f c` | Combine two cells. Overloads to 6 in C#, 8 in F#. |
-| `cells.Lift()` | `liftAllC cells` | Combine a collection into `Cell<IReadOnlyList<T>>`. |
+| `c.Lift(c2, f)` | `lift2C f (c, c2)` | Combine two cells. Overloads to 6 in C#, 8 in F#. |
+| `cells.Lift()` | `liftAllC id cells` | Combine a collection into `Cell<IReadOnlyList<T>>`. F#'s `liftAllC` always takes a combining function; C# also has `cells.Lift(f)`. |
 | `c.Apply(cf)` | `applyC cf c` | Apply a function held in a cell. The primitive `Lift` is built from. |
 | `c.Calm()` | `calmC c` | Suppress updates equal to the previous value. |
 | `c.Updates()` | `updatesC c` | The stream of changes. Does **not** fire on subscribe. |
@@ -104,7 +104,7 @@ that and needs none of the ceremony.
 | --- | --- | --- |
 | `b.Sample()` | `sampleB b` | Read the current value. |
 | `b.Map(f)` | `mapB f b` | Transform the value. |
-| `b.Lift(b2, f)` | `lift2B b2 f b` | Combine behaviors. |
+| `b.Lift(b2, f)` | `lift2B f (b, b2)` | Combine behaviors. |
 | `b.Apply(bf)` | `applyB bf b` | Apply a function held in a behavior. |
 | `bb.SwitchB()` | `switchBB bb` | Flatten `Behavior<Behavior<T>>`. |
 

@@ -79,13 +79,16 @@ see that firing. You will see it from the next transaction onward.
 
 ## Resource lifetime
 
-`Switch` is where FRP graphs start allocating and releasing at runtime, so it is also where
-listener lifetime stops being automatic. When the outer cell moves off an inner value, the
-listeners inside the discarded branch need to go too.
+`Switch` is where FRP graphs start allocating and releasing at runtime. Its own wiring is
+handled for you: the subscription to the outer cell and the subscription to the currently
+selected inner value are both tied to the lifetime of the stream or cell `Switch` returns, so
+they are released when the result is.
 
-The library handles the internal wiring, but listeners *you* attached inside a branch are yours
-to manage. `AttachListener` is the usual tool — tie the listener to the stream it belongs to,
-so tearing down the branch tears down the listener with it. See
+What `Switch` does *not* do is unlisten anything you created. A subscription you make inside a
+branch follows the ordinary rules — `Listen` roots it in the source's keep-alive set, so it
+outlives the branch and keeps firing; `ListenWeak` lives as long as you hold the reference. The
+outer cell moving off a branch does not release it. If a subscription should not survive its
+branch, its lifetime has to be tied to something that ends with the branch. See
 [Listener lifetimes](lifetimes.md).
 
 ## When not to reach for it

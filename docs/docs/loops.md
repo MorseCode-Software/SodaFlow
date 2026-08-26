@@ -89,7 +89,7 @@ Transaction.RunVoid(() =>
 });
 ```
 
-Three rules apply, and the library enforces all three with exceptions:
+Four rules apply, and the library enforces all four with exceptions:
 
 | Mistake | Message |
 | --- | --- |
@@ -116,7 +116,7 @@ Accumulators are the common case, and `Accum` and `Collect` are loops with the p
 done:
 
 ```csharp
-Stream<int> total   = s.Accum(0, (v, acc) => v + acc);
+Cell<int> total     = s.Accum(0, (v, acc) => v + acc);
 Stream<string> outp = s.Collect(0, (v, st) => (ReturnValue: $"#{st}", State: st + 1));
 ```
 

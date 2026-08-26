@@ -51,18 +51,6 @@ lastName.Send("Lovelace"); // downstream fires again
 
 Wrap them, and downstream sees one:
 
-```csharp
-Transaction.RunVoid(() =>
-{
-    firstName.Send("Ada");
-    lastName.Send("Lovelace");
-});
-```
-
-Anything lifted from both cells now fires exactly once, with both new values. This matters
-whenever a pair of values must never be observed half-changed — coordinates, ranges,
-credentials, a selection and its context.
-
 # [C#](#tab/csharp)
 
 ```csharp
@@ -82,6 +70,10 @@ runT (fun () ->
 ```
 
 ---
+
+Anything lifted from both cells now fires exactly once, with both new values. This matters
+whenever a pair of values must never be observed half-changed — coordinates, ranges,
+credentials, a selection and its context.
 
 ### Building a graph that must be observed from its first moment
 
@@ -107,9 +99,11 @@ be called from inside a handler. If you need that, `Post` it.
 IListener l = s.Listen(v => Transaction.Post(() => other.Send(v)));
 ```
 
-`Transaction.OnStart(action)` runs an action whenever any transaction begins. It is a
-diagnostic and instrumentation hook — counting transactions, logging, asserting invariants in
-tests — not something application logic should depend on.
+`Transaction.OnStart(action)` runs an action whenever any transaction begins. Its stated
+purpose is implementing a time or alarm system, and that is what `TimerSystem` uses it for:
+the hook is where a clock advances itself in step with transactions. An action registered here
+may start transactions of its own without the hooks recursing. Instrumentation is a reasonable
+secondary use, but this is a low-level integration point rather than a debugging aid.
 
 `Transaction.IsActive()` reports whether a transaction is currently running, which is
 occasionally useful in library code that must behave differently depending on its caller.
