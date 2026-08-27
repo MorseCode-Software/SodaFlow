@@ -27,7 +27,7 @@ glitches, no ordering bugs, and no manual subscription bookkeeping.
 All libraries target `net472`, `net60`, and `netstandard2.0`.
 
 NOTE: `Sodium.Functional` is only needed by the C# libraries, as it provides types that are built-in to F#.  Whereas C# uses `Maybe`, `Either`, and `Unit` from this package,
-the F# libraries simply use the built-in types `option`, discrimnated unions, and `unit` respectively.
+the F# libraries simply use the built-in types `option`, discriminated unions, and `unit` respectively.
 
 ## Building
 
