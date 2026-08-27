@@ -29,7 +29,17 @@ namespace SodaFlow
         // Built on first use rather than held in a Lazy. A Lazy plus the closure it needs is three
         // objects allocated for every cell - and cells are created for every Hold, Map and Lift -
         // where most never have Updates or Calm called on them at all.
-        private Stream<T> updates;
+        //
+        // Volatile because the fast path below reads this outside any transaction and so under no
+        // lock at all, while the write happens under the transaction lock. A release with no matching
+        // acquire establishes nothing for that reader: it could see the reference published here and
+        // then read the Stream's own fields from stale cache - ordinary double-checked locking. x86
+        // and x64 forbid the reordering that would expose it, but arm64 does not, and net60 and
+        // netstandard2.0 consumers run there.
+        //
+        // Reading a stale null is harmless on its own; that just takes the slow path and gets the
+        // same answer. It is the half-built Stream that volatile rules out.
+        private volatile Stream<T> updates;
 
         internal Cell(Behavior<T> behavior) => this.BehaviorImpl = behavior;
 

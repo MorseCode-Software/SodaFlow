@@ -97,6 +97,14 @@ namespace SodaFlow
 
         // Created on demand like the rest, but via CompareExchange rather than a plain null check,
         // since there is no other lock available to guard creating this one.
+        //
+        // Deliberately not volatile, unlike Cell.updates, which is the same shape of lazy read. What
+        // volatile buys there is safe publication of an object with fields: a reader must not see the
+        // reference before the object's own state. This publishes a bare object() with no state at
+        // all, used only for its identity as a monitor, so there is nothing to observe half-built.
+        // CompareExchange settles which one wins, and every caller then reads the same winner.
+        //
+        // Do not copy this pattern to a field holding something with state without adding volatile.
         private object AttachListenerLock
         {
             get
