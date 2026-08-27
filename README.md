@@ -1,3 +1,7 @@
+[![Build status](https://ci.appveyor.com/api/projects/status/ydsbwm9udk9yd1mk/branch/main?svg=true)](https://ci.appveyor.com/project/jam40jeff/sodaflow/branch/main)
+[![Total Downloads](https://img.shields.io/nuget/dt/SodaFlow.Core.svg)](http://www.nuget.org/packages/SodaFlow.Core/)
+[![Latest Stable Version](https://img.shields.io/nuget/v/SodaFlow.Core.svg)](http://www.nuget.org/packages/SodaFlow.Core/)
+
 # SodaFlow
 
 Functional Reactive Programming for .NET, in C# and F#.
