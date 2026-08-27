@@ -66,8 +66,10 @@
         accepted tradeoff here, not an oversight: tag on release, and don't rely on the prerelease
         version to reflect "there are unreleased changes."
 
-        Guarded on UsingMicrosoftNETSdk because four of the C# test projects here are legacy,
-        non-SDK projects using packages.config, which cannot consume a PackageReference.
+        The UsingMicrosoftNETSdk guards below are vestigial. They were added when four of the
+        C# test projects were still non-SDK and using packages.config, which cannot consume a
+        PackageReference; "Update to SDK style projects" converted the last of those later the
+        same day, so the condition is now always true.
     -->
     <ItemGroup Condition="'$(UsingMicrosoftNETSdk)' == 'true'">
         <PackageReference Include="MinVer" Version="6.1.0" PrivateAssets="all" />

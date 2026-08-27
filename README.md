@@ -28,10 +28,6 @@ dotnet build src/SodaFlow.sln
 dotnet test  src/CSharp/SodaFlow.Tests/SodaFlow.Tests.csproj
 ```
 
-The solution also contains legacy non-SDK test projects that use
-`packages.config`; those need MSBuild and `nuget restore` rather than
-`dotnet restore`.
-
 ## Documentation
 
 Reference documentation is generated with DocFX from `docs/`:
