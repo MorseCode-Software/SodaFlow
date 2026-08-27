@@ -434,7 +434,13 @@ namespace SodaFlow
             }
             catch
             {
-                this.sendQueue?.Clear();
+                // Null rather than Clear for all of these: the transaction is being abandoned, so the
+                // point is to let go of the queues, not to empty them for reuse. Clear leaves the list
+                // or queue and its backing array alive at whatever capacity the failed transaction grew
+                // it to, and a nested transaction is held by its parent's scope until that unwinds.
+                // Null is already the canonical empty state here - every one of these is allocated
+                // lazily and every reader guards for it - so nothing downstream can trip over it.
+                this.sendQueue = null;
 
                 while (!prioritizedQueue.IsEmpty())
                 {
@@ -445,9 +451,9 @@ namespace SodaFlow
 
                 this.sampleQueue = null;
 
-                this.lastQueue?.Clear();
+                this.lastQueue = null;
 
-                this.postQueue?.Clear();
+                this.postQueue = null;
 
                 this.splitQueue = null;
 
