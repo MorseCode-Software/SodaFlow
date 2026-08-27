@@ -19,12 +19,15 @@ glitches, no ordering bugs, and no manual subscription bookkeeping.
 | `SodaFlow` | The C# API. Start here. |
 | `SodaFlow.FSharp` | The idiomatic F# API. |
 | `SodaFlow.Core` | Shared engine both language APIs build on. |
-| `SodaFlow.Functional` | `Maybe`, `Either`, and `Unit` used across the API. |
+| `SodaFlow.Functional` | `Maybe`, `Either`, and `Unit` used across the C# API. |
 | `SodaFlow.Async` | `async`/`Task` integration for C#. |
 | `SodaFlow.FSharp.Async` | `async`/`Task` integration for F#. |
 | `SodaFlow.Async.Core` | Shared engine for the async packages. |
 
-Libraries target `net472`, `net60`, and `netstandard2.0`.
+All libraries target `net472`, `net60`, and `netstandard2.0`.
+
+NOTE: `Sodium.Functional` is only needed by the C# libraries, as it provides types that are built-in to F#.  Whereas C# uses `Maybe`, `Either`, and `Unit` from this package,
+the F# libraries simply use the built-in types `option`, discrimnated unions, and `unit` respectively.
 
 ## Building
 
