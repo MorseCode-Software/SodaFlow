@@ -26,10 +26,9 @@ environment:
   SOLUTION: src\SodaFlow.sln
   NUGET_API_KEY:
     secure: wJnjNcFPeKed+NXnE+IjPM5sAlJxY1Q3noeEdWi1E070zGc/E+pm6Dx1f8s7gNHB
-  # Coveralls repo token. Encrypt it under this AppVeyor account - a value encrypted elsewhere
-  # will not decrypt here - with `appveyor encrypt -t <token>`, or via Settings > Encrypt YAML,
-  # then uncomment. While it is absent the upload logs and skips rather than failing, which is
-  # also what happens on pull requests from forks, where AppVeyor withholds secure variables.
+  # Coveralls repo token, encrypted under this AppVeyor account - a value encrypted elsewhere
+  # would not decrypt here. Secure variables are withheld from pull requests raised on forks,
+  # so the upload step logs and skips when it finds this unset rather than failing the build.
   COVERALLS_REPO_TOKEN:
     secure: J8UbS6aD6zFAKrkcSaALGcJnn0lYAzKjLNxPtisZczH+FD0/Vhp1eB6lFwZtaLvi
 
