@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    Settings for the Microsoft Code Coverage collector, passed to the `dotnet test` runs in
+    appveyor.yml alongside the Code Coverage collector.
+
+    Cobertura because that is what the Coveralls Universal Coverage Reporter accepts; its formats
+    are lcov, simplecov, cobertura, jacoco, gcov, luacov, golang, coveralls, python and clover.
+
+    Without the module filters the collector instruments everything the tests load, FSharp.Core and
+    the test assemblies included, which inflated one F# run from roughly 2,300 relevant lines to
+    21,686. Only the shipping assemblies are of interest.
+
+    JetBrainsAnnotations.cs is excluded because it is vendored MIT third party code compiled into
+    SodaFlow and SodaFlow.Functional (see NOTICE), and counting it would report coverage against
+    source this project does not own.
+-->
+<RunSettings>
+  <DataCollectionRunSettings>
+    <DataCollectors>
+      <DataCollector friendlyName="Code Coverage">
+        <Configuration>
+          <Format>Cobertura</Format>
+          <CodeCoverage>
+            <ModulePaths>
+              <Include>
+                <ModulePath>.*\\SodaFlow\.dll$</ModulePath>
+                <ModulePath>.*\\SodaFlow\.Core\.dll$</ModulePath>
+                <ModulePath>.*\\SodaFlow\.Functional\.dll$</ModulePath>
+                <ModulePath>.*\\SodaFlow\.FSharp\.dll$</ModulePath>
+                <ModulePath>.*\\SodaFlow\.Core\.Async\.dll$</ModulePath>
+                <ModulePath>.*\\SodaFlow\.Async\.dll$</ModulePath>
+                <ModulePath>.*\\SodaFlow\.FSharp\.Async\.dll$</ModulePath>
+              </Include>
+            </ModulePaths>
+            <Sources>
+              <Exclude>
+                <Source>.*\\JetBrainsAnnotations\.cs$</Source>
+              </Exclude>
+            </Sources>
+          </CodeCoverage>
+        </Configuration>
+      </DataCollector>
+    </DataCollectors>
+  </DataCollectionRunSettings>
+</RunSettings>
