@@ -26,6 +26,24 @@ environment:
   SOLUTION: src\SodaFlow.sln
   NUGET_API_KEY:
     secure: wJnjNcFPeKed+NXnE+IjPM5sAlJxY1Q3noeEdWi1E070zGc/E+pm6Dx1f8s7gNHB
+  # Coveralls repo token. Encrypt it under this AppVeyor account - a value encrypted elsewhere
+  # will not decrypt here - with `appveyor encrypt -t <token>`, or via Settings > Encrypt YAML,
+  # then uncomment. While it is absent the upload logs and skips rather than failing, which is
+  # also what happens on pull requests from forks, where AppVeyor withholds secure variables.
+  COVERALLS_REPO_TOKEN:
+    secure: J8UbS6aD6zFAKrkcSaALGcJnn0lYAzKjLNxPtisZczH+FD0/Vhp1eB6lFwZtaLvi
+
+# Coverage toolchain, versions pinned where the tool allows it.
+#
+# OpenCover and the NUnit console runner come from NuGet rather than Chocolatey so the versions are
+# explicit. ReportGenerator converts OpenCover XML to Cobertura, which is the bridge this pipeline
+# needs: the Coveralls Universal Coverage Reporter accepts lcov, simplecov, cobertura, jacoco,
+# gcov, luacov, golang, coveralls, python and clover, and OpenCover XML is not among them.
+install:
+  - nuget install OpenCover -Version 4.7.1221 -OutputDirectory tools -ExcludeVersion
+  - nuget install NUnit.ConsoleRunner -Version 3.16.3 -OutputDirectory tools -ExcludeVersion
+  - dotnet tool install -g dotnet-reportgenerator-globaltool
+  - ps: Invoke-WebRequest -Uri "https://github.com/coverallsapp/coverage-reporter/releases/latest/download/coveralls-windows.exe" -OutFile "tools\coveralls.exe"
 
 # Every project in the solution is SDK-style now (the last legacy, packages.config holdouts —
 # SodaFlow.Tests, .Tests.Internal, .Tests.Memory, .Tests.Performance — were converted alongside
@@ -58,15 +76,60 @@ build_script:
 # weak references, the node's listener set, and the manager's registry count, so they do run here.
 # Keep it that way: they are the only automated cover for stream/listener cleanup, and each one has
 # been checked to fail when the cleanup it guards is broken.
+# Tests run under OpenCover driving the NUnit console runner over the built assemblies, rather
+# than under dotnet test.
+#
+# Two things forced that, both measured rather than assumed:
+#
+#   OpenCover cannot profile through dotnet test. It profiles the process it starts and the
+#   children that inherit its profiler environment; dotnet test starts a separate testhost, and
+#   profiling through it hung outright - OpenCover sat at 0.9 seconds of CPU while the child
+#   dotnet burned over 2,000 with no output and no coverage file.
+#
+#   Coverlet, which does work with dotnet test, breaks the F# suite here. Its instrumentation does
+#   not honour the FSharp.Core binding redirect these projects rely on - the assemblies compile
+#   against 4.5.0.0 while 10.0.0.0 is deployed - so 150 of 153 F# tests fail to load FSharp.Core.
+#   Pinning FSharp.Core explicitly does not dislodge the SDK's implicit reference, and pinning it
+#   up to 10.x would raise the published dependency floor of SodaFlow.FSharp 1.0.0.
+#
+# nunit3-console takes every assembly in a single pass, so it profiles cleanly and there is one
+# coverage file rather than eight to merge. Every test project here is net472 and NUnit, which is
+# what that runner and that profiler were built for. Verified locally: the F# suite alone reports
+# 153 passed, 0 failed under OpenCover.
+#
+# -returntargetcode makes a failing test fail the build; without it OpenCover reports its own exit
+# code and a red test run goes green. The filter keeps coverage to the shipping assemblies and
+# drops the test ones, and JetBrainsAnnotations.cs is excluded because it is vendored MIT
+# third-party code compiled into SodaFlow and SodaFlow.Functional - see NOTICE.
 test_script:
-  - dotnet test src\CSharp\SodaFlow.Tests\SodaFlow.Tests.csproj -c %CONFIGURATION% --no-build
-  - dotnet test src\CSharp\SodaFlow.Tests.Internal\SodaFlow.Tests.Internal.csproj -c %CONFIGURATION% --no-build
-  - dotnet test src\CSharp\SodaFlow.Tests.Memory\SodaFlow.Tests.Memory.csproj -c %CONFIGURATION% --no-build
-  - dotnet test src\FSharp\SodaFlow.FSharp.Tests\SodaFlow.FSharp.Tests.fsproj -c %CONFIGURATION% --no-build
-  - dotnet test src\FSharp\SodaFlow.FSharp.Tests.Internal\SodaFlow.FSharp.Tests.Internal.fsproj -c %CONFIGURATION% --no-build
-  - dotnet test src\Async\FSharp\SodaFlow.FSharp.Async.Tests\SodaFlow.FSharp.Async.Tests.fsproj -c %CONFIGURATION% --no-build
-  - dotnet test src\Async\SodaFlow.Core.Async.Tests\SodaFlow.Core.Async.Tests.csproj -c %CONFIGURATION% --no-build
-  - dotnet test src\Async\CSharp\SodaFlow.Async.Tests\SodaFlow.Async.Tests.csproj -c %CONFIGURATION% --no-build
+  - ps: |
+      $openCover = "tools\OpenCover\tools\OpenCover.Console.exe"
+      $nunit = "tools\NUnit.ConsoleRunner\tools\nunit3-console.exe"
+      $assemblies = @(
+          "src\CSharp\SodaFlow.Tests\bin\$env:CONFIGURATION\net472\SodaFlow.Tests.dll"
+          "src\CSharp\SodaFlow.Tests.Internal\bin\$env:CONFIGURATION\net472\SodaFlow.Tests.Internal.dll"
+          "src\CSharp\SodaFlow.Tests.Memory\bin\$env:CONFIGURATION\net472\SodaFlow.Tests.Memory.dll"
+          "src\FSharp\SodaFlow.FSharp.Tests\bin\$env:CONFIGURATION\net472\SodaFlow.FSharp.Tests.dll"
+          "src\FSharp\SodaFlow.FSharp.Tests.Internal\bin\$env:CONFIGURATION\net472\SodaFlow.FSharp.Tests.Internal.dll"
+          "src\Async\FSharp\SodaFlow.FSharp.Async.Tests\bin\$env:CONFIGURATION\net472\SodaFlow.FSharp.Async.Tests.dll"
+          "src\Async\SodaFlow.Core.Async.Tests\bin\$env:CONFIGURATION\net472\SodaFlow.Core.Async.Tests.dll"
+          "src\Async\CSharp\SodaFlow.Async.Tests\bin\$env:CONFIGURATION\net472\SodaFlow.Async.Tests.dll"
+      )
+      & $openCover `
+          -target:"$nunit" `
+          -targetargs:"$($assemblies -join ' ') --result=TestResult.xml" `
+          -register:user `
+          -filter:"+[SodaFlow*]* -[*Tests*]*" `
+          -excludebyfile:"*JetBrainsAnnotations.cs" `
+          -output:"coverage.opencover.xml" `
+          -returntargetcode
+      if ($LASTEXITCODE -ne 0) { throw "Tests failed (exit $LASTEXITCODE)." }
+
+      # dotnet test reported results to AppVeyor by itself. The NUnit runner does not, so push its
+      # result file explicitly or the build page shows no tests at all.
+      (New-Object System.Net.WebClient).UploadFile(
+          "https://ci.appveyor.com/api/testresults/nunit3/$env:APPVEYOR_JOB_ID",
+          (Resolve-Path .\TestResult.xml))
 
 # One dotnet pack over the whole solution now, rather than one invocation per packable project:
 # the previous per-project list existed only to route around dotnet pack failing outright
@@ -80,12 +143,50 @@ test_script:
 # Confirmed locally: produces the same seven packages the old per-project list did, nothing more,
 # exit code 0.
 after_test:
+  # Convert to Cobertura, then hand it to Coveralls.
+  #
+  # AppVeyor is not one of the CI services the reporter auto-detects - that list is CircleCI,
+  # GitHub Actions, Travis, Jenkins, GitLab, Semaphore, Wercker, Codeship, Drone, Buildkite,
+  # Xcode Cloud and RWX - so every piece of build metadata is supplied explicitly. Without it the
+  # upload would land with no job, branch or commit attached.
+  #
+  # This runs before the pack step so publishing coverage and producing packages cannot block one
+  # another.
+  - ps: |
+      reportgenerator -reports:coverage.opencover.xml -targetdir:coverage -reporttypes:Cobertura
+      if ($LASTEXITCODE -ne 0) { throw "ReportGenerator failed (exit $LASTEXITCODE)." }
+
+      if (-not $env:COVERALLS_REPO_TOKEN) {
+          Write-Host "COVERALLS_REPO_TOKEN is not set - skipping the coverage upload."
+      } else {
+          $arguments = @(
+              "report"
+              "coverage\Cobertura.xml"
+              "--format=cobertura"
+              "--repo-token=$env:COVERALLS_REPO_TOKEN"
+              "--base-path=$env:APPVEYOR_BUILD_FOLDER"
+              "--service-name=appveyor"
+              "--service-job-id=$env:APPVEYOR_JOB_ID"
+              "--service-branch=$env:APPVEYOR_REPO_BRANCH"
+              "--service-build-url=https://ci.appveyor.com/project/$env:APPVEYOR_ACCOUNT_NAME/$env:APPVEYOR_PROJECT_SLUG/builds/$env:APPVEYOR_BUILD_ID"
+          )
+          if ($env:APPVEYOR_PULL_REQUEST_NUMBER) {
+              $arguments += "--service-pull-request=$env:APPVEYOR_PULL_REQUEST_NUMBER"
+          }
+          & "tools\coveralls.exe" @arguments
+          if ($LASTEXITCODE -ne 0) { throw "Coveralls upload failed (exit $LASTEXITCODE)." }
+      }
   - dotnet pack %SOLUTION% -c %CONFIGURATION% -o artifacts
   - ps: Get-ChildItem artifacts\*.nupkg | Sort-Object Name | ForEach-Object { Write-Host $_.Name }
 
 artifacts:
   - path: artifacts\*.nupkg
     name: packages
+  # Kept so a build whose upload was skipped or rejected can still be inspected.
+  - path: coverage.opencover.xml
+    name: coverage-opencover
+  - path: coverage\Cobertura.xml
+    name: coverage-cobertura
 
 # Publishing is gated on a tag, which is what makes the release schedule per-package: MinVer gives a
 # tagged build a stable version and every other build a prerelease one, so only deliberate tags can
