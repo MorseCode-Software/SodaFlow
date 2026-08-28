@@ -353,75 +353,34 @@ namespace SodaFlow
         ///     Suppresses firings equal to the last one that got through.
         /// </summary>
         /// <remarks>
-        ///     Written directly rather than on top of CollectLazyImpl. Going through Collect meant a
-        ///     looped stream, a behavior to hold the state, a snapshot and two maps, plus a filter on
-        ///     the way out - six streams to remember one value.
+        ///     Expressed over CarryState, whose state protocol this needs exactly: the last value let
+        ///     through, carried between firings and committed at the transaction boundary. It used to
+        ///     keep its own copy of that protocol, which meant a fix to one could silently miss the
+        ///     other - and the deferral is subtle enough that the duplication was a real hazard rather
+        ///     than a stylistic one.
         ///
-        ///     The state is kept in two fields rather than one, which is what Collect got for free by
-        ///     holding it in a behavior: a snapshot reads a behavior with SampleNoTransaction, so every
-        ///     firing within a transaction compared against the value the behavior had when that
-        ///     transaction opened, and the behavior then committed whatever the final firing produced.
-        ///     A single field updated in place would instead let an earlier firing in the same
-        ///     transaction be seen by a later one, which is a different stream.
+        ///     What kept it separate was cost. Going through CollectLazyImpl meant a looped stream, a
+        ///     behavior to hold the state, a snapshot and two maps, plus a filter on the way out - six
+        ///     streams to remember one value. Sharing CarryState instead costs nothing: the emit flag
+        ///     suppresses in place, so this is still one output stream.
+        ///
+        ///     The state is MaybeInternal rather than T because there may be no previous value yet, and
+        ///     None is also a legitimate initial value - which is why CarryState needs its own
+        ///     initialised flag rather than reading emptiness as "not started".
         /// </remarks>
         internal Stream<T> Calm(Lazy<MaybeInternal<T>> init, Func<T, T, bool> areEqual) =>
             TransactionInternal.Apply(
-                (trans1, _) =>
-                {
-                    Stream<T> @out = new Stream<T>(this.KeepListenersAlive);
-
-                    MaybeInternal<T> committed = MaybeInternal.None;
-                    bool committedIsSet = false;
-                    MaybeInternal<T> pending = MaybeInternal.None;
-                    bool hasPending = false;
-
-                    void EnsureCommittedIsSet()
+                (trans1, _) => this.CarryState<MaybeInternal<T>, T>(
+                    trans1,
+                    init,
+                    (a, last) =>
                     {
-                        if (!committedIsSet)
-                        {
-                            committed = init.Value;
-                            committedIsSet = true;
-                        }
-                    }
+                        bool emit = !(last.TryGetValue(out T previous) && areEqual(previous, a));
 
-                    // Forced in the sample phase as well as on demand, because the behavior this
-                    // replaces forced its lazy initial value there whether or not anything fired.
-                    trans1.Sample(EnsureCommittedIsSet);
-
-                    IListener l = this.Listen(
-                        @out.Node,
-                        trans1,
-                        (trans2, a) =>
-                        {
-                            EnsureCommittedIsSet();
-
-                            bool emit = !(committed.TryGetValue(out T last) && areEqual(last, a));
-
-                            if (!hasPending)
-                            {
-                                hasPending = true;
-                                trans2.Last(
-                                    () =>
-                                    {
-                                        committed = pending;
-                                        hasPending = false;
-                                    });
-                            }
-
-                            // Assigned on every firing, not just the ones that get through: Collect
-                            // fed its state back for suppressed firings too, carrying the unchanged
-                            // value forward.
-                            pending = emit ? MaybeInternal.Some(a) : committed;
-
-                            if (emit)
-                            {
-                                @out.Send(trans2, a);
-                            }
-                        },
-                        false);
-
-                    return @out.UnsafeAttachListener(l);
-                });
+                        // The state carries forward unchanged for a suppressed firing rather than being
+                        // cleared, matching what feeding state back through Collect used to give.
+                        return (emit, a, emit ? MaybeInternal.Some(a) : last);
+                    }));
 
         internal Stream<TReturn> CollectImpl<TState, TReturn>(
             TState initialState,
@@ -431,7 +390,15 @@ namespace SodaFlow
         internal Stream<TReturn> CollectLazyImpl<TState, TReturn>(
             Lazy<TState> initialState,
             Func<T, TState, (TReturn ReturnValue, TState State)> f) =>
-            TransactionInternal.Apply((trans, _) => this.CarryState(trans, initialState, f));
+            TransactionInternal.Apply(
+                (trans, _) => this.CarryState(
+                    trans,
+                    initialState,
+                    (a, s) =>
+                    {
+                        (TReturn returnValue, TState state) = f(a, s);
+                        return (true, returnValue, state);
+                    }));
 
         internal Cell<TReturn> AccumImpl<TReturn>(TReturn initialState, Func<T, TReturn, TReturn> f) =>
             this.AccumLazyImpl(new Lazy<TReturn>(() => initialState), f);
@@ -444,14 +411,15 @@ namespace SodaFlow
                         (a, s) =>
                         {
                             TReturn next = f(a, s);
-                            return (next, next);
+                            return (true, next, next);
                         })
                     .HoldLazyImpl(initialState));
 
         /// <summary>
         ///     Runs <paramref name="f" /> over each firing with state carried between firings, sending
-        ///     whatever it returns for that firing. Collect and Accum differ only in what they do with
-        ///     the resulting stream.
+        ///     what it returns for that firing when it asks to. Collect and Accum always ask, and differ
+        ///     only in what they do with the resulting stream; Calm suppresses the firings it wants to
+        ///     swallow.
         /// </summary>
         /// <remarks>
         ///     This used to be assembled out of FRP primitives: a looped stream carrying the state back
@@ -464,12 +432,23 @@ namespace SodaFlow
         ///     state as of when that transaction opened, and the behavior committed whatever the final
         ///     firing produced. Keeping a single field updated in place would instead let an earlier
         ///     firing in the same transaction be seen by a later one - a different fold, and one the
-        ///     caller's f would notice. Same reasoning as Calm above.
+        ///     caller's f would notice.
+        ///
+        ///     What the deferral is actually observable through is failure. A transaction that throws
+        ///     drops its last queue, so a firing inside it never commits and the state is left as though
+        ///     it had not happened. That is the one behaviour distinguishing this from committing in
+        ///     place, and CalmTests.AFailedTransactionDoesNotCommitTheRememberedValue is what pins it -
+        ///     every other test passes either way.
+        ///
+        ///     The emit flag is what lets Calm share this. Returning a Maybe and filtering it out would
+        ///     cost a second stream and a node in the rank graph, which is the cost Calm was written
+        ///     directly to avoid in the first place; a bool in a tuple that is already a struct costs a
+        ///     branch that predicts perfectly.
         /// </remarks>
         private Stream<TReturn> CarryState<TState, TReturn>(
             TransactionInternal trans1,
             Lazy<TState> initialState,
-            Func<T, TState, (TReturn ReturnValue, TState State)> f)
+            Func<T, TState, (bool Emit, TReturn ReturnValue, TState State)> f)
         {
             Stream<TReturn> @out = new Stream<TReturn>(this.KeepListenersAlive);
 
@@ -498,7 +477,7 @@ namespace SodaFlow
                 {
                     EnsureCommittedIsSet();
 
-                    (TReturn returnValue, TState state) = f(a, committed);
+                    (bool emit, TReturn returnValue, TState state) = f(a, committed);
 
                     if (!hasPending)
                     {
@@ -513,7 +492,10 @@ namespace SodaFlow
 
                     pending = state;
 
-                    @out.Send(trans2, returnValue);
+                    if (emit)
+                    {
+                        @out.Send(trans2, returnValue);
+                    }
                 },
                 false);
 
