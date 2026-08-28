@@ -5,6 +5,16 @@ using System.Threading;
 
 namespace SodaFlow.Time
 {
+    /// <summary>
+    ///     A base for timer system implementations which supplies the scheduling, leaving a derived type
+    ///     to supply only the clock.
+    /// </summary>
+    /// <typeparam name="T">The type used to express a point in time.</typeparam>
+    /// <remarks>
+    ///     Derive from this and implement <see cref="Now" /> and <see cref="SubtractTimes" />; the
+    ///     ordering, waiting and firing of timers is handled here. <see cref="SystemClockTimerSystem" />
+    ///     and <see cref="SecondsTimerSystem" /> are the two implementations that ship.
+    /// </remarks>
     public abstract class TimerSystemImplementationBase<T> : ITimerSystemImplementation<T>
         where T : IComparable
     {
@@ -58,6 +68,19 @@ namespace SodaFlow.Time
             }
         }
 
+        /// <summary>
+        ///     Returns how much time separates two points on this implementation's clock.
+        /// </summary>
+        /// <param name="first">The later point in time.</param>
+        /// <param name="second">The earlier point in time.</param>
+        /// <returns>
+        ///     The interval from <paramref name="second" /> to <paramref name="first" />, negative if
+        ///     <paramref name="first" /> is the earlier of the two.
+        /// </returns>
+        /// <remarks>
+        ///     Used to work out how long to wait for the next timer, so it must return a real duration
+        ///     rather than a comparison result.
+        /// </remarks>
         protected abstract TimeSpan SubtractTimes(T first, T second);
 
         // A dedicated thread rather than Task.Run.
@@ -77,6 +100,18 @@ namespace SodaFlow.Time
         //
         // A background thread cannot be starved by pool work, and WaitOne serves as both the timed
         // wait and the wake. StreamListenerManager already takes this approach for its sweeper.
+        /// <summary>
+        ///     Starts the thread which waits for timers to come due and fires them.
+        /// </summary>
+        /// <param name="handleException">
+        ///     Called with any exception raised while waiting for or firing timers. The loop continues
+        ///     afterwards, so this should absorb rather than rethrow.
+        /// </param>
+        /// <remarks>
+        ///     Called once by the <see cref="TimerSystem{T}" /> constructor. The thread runs for the
+        ///     lifetime of the process and is a background thread, so it does not keep the process
+        ///     alive.
+        /// </remarks>
         public void Start(Action<Exception> handleException)
         {
             Thread timerThread = new Thread(
@@ -107,6 +142,18 @@ namespace SodaFlow.Time
             timerThread.Start();
         }
 
+        /// <summary>
+        ///     Schedules <paramref name="callback" /> to run once the clock reaches
+        ///     <paramref name="time" />.
+        /// </summary>
+        /// <param name="time">The time at which to run the callback.</param>
+        /// <param name="callback">The callback to run.</param>
+        /// <returns>A handle which can be used to cancel the timer before it fires.</returns>
+        /// <remarks>
+        ///     A time already in the past fires at the next opportunity rather than being dropped. The
+        ///     callback runs on the timer thread, or on whichever thread called
+        ///     <see cref="RunTimersTo" />, and never while this instance's internal lock is held.
+        /// </remarks>
         public ITimer SetTimer(T time, Action callback)
         {
             SimpleTimer timer = new SimpleTimer(this, time, callback);
@@ -123,8 +170,24 @@ namespace SodaFlow.Time
             return timer;
         }
 
+        /// <summary>
+        ///     Fires every timer scheduled at or before <paramref name="now" />, on the calling thread.
+        /// </summary>
+        /// <param name="now">The point in time to run timers up to.</param>
+        /// <remarks>
+        ///     Called from the transaction start hook, which is what lets alarms be delivered by a
+        ///     transaction that happens to start rather than only by the timer thread.
+        /// </remarks>
         public void RunTimersTo(T now) => this.TimeUntilNext(now);
 
+        /// <summary>
+        ///     Gets the current time according to this implementation's clock.
+        /// </summary>
+        /// <value>The current point in time.</value>
+        /// <remarks>
+        ///     Read frequently by the timer thread, so it should be cheap and must move forward
+        ///     monotonically enough that scheduled times are eventually reached.
+        /// </remarks>
         public abstract T Now { get; }
 
         private class SimpleTimer : ITimer, IComparable<SimpleTimer>

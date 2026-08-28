@@ -4,6 +4,17 @@ using System.Runtime.CompilerServices;
 
 namespace SodaFlow
 {
+    /// <summary>
+    ///     The operations available on a <see cref="Cell{T}" />.
+    /// </summary>
+    /// <remarks>
+    ///     A cell is a behavior which also exposes the stream of its own changes, so it supports
+    ///     everything in <see cref="BehaviorExtensionMethods" /> along with operations built on those
+    ///     updates.
+    ///
+    ///     Build the graph inside a <see cref="Transaction.Run{T}(System.Func{T})" /> so that no first
+    ///     firing is missed - particularly with <see cref="Values{T}" />, which always fires immediately.
+    /// </remarks>
     public static class CellExtensionMethods
     {
         /// <summary>

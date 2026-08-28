@@ -25,8 +25,7 @@ namespace SodaFlow
         public static StreamSink<T> CreateSink<T>() => StreamInternal.CreateSinkImpl<T>();
 
         /// <summary>
-        ///     Construct a StreamSink that uses
-        ///     <param name="coalesce" />
+        ///     Construct a StreamSink that uses <paramref name="coalesce" />
         ///     to combine values if <see cref="Stream{T}.Send" /> is called more than once per transaction.
         /// </summary>
         /// <param name="coalesce">

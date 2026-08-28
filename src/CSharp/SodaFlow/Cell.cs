@@ -36,8 +36,7 @@ namespace SodaFlow
         public static CellSink<T> CreateSink<T>(T initialValue) => CellInternal.CreateSinkImpl(initialValue);
 
         /// <summary>
-        ///     Construct a writable cell that uses
-        ///     <param name="coalesce" />
+        ///     Construct a writable cell that uses <paramref name="coalesce" />
         ///     to combine values if <see cref="CellSinkExtensionMethods.Send{T}(CellSink{T}, T)" /> is called more than once per transaction.
         /// </summary>
         /// <typeparam name="T">The type of the value in the cell sink.</typeparam>
@@ -61,8 +60,7 @@ namespace SodaFlow
         public static CellStreamSink<T> CreateStreamSink<T>() => CellInternal.CreateStreamSinkImpl<T>();
 
         /// <summary>
-        ///     Construct a writable cell stream sink that uses
-        ///     <param name="coalesce" />
+        ///     Construct a writable cell stream sink that uses <paramref name="coalesce" />
         ///     to combine values if <see cref="StreamSinkExtensionMethods.Send{T}(StreamSink{T}, T)" /> is called more than once per transaction.
         ///     This stream sink is meant to be turned into a <see cref="Cell{T}" /> through the use of
         ///     <see cref="StreamExtensionMethods.Hold{T}(Stream{T}, T)" />.

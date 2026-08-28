@@ -14,6 +14,21 @@ namespace SodaFlow
         private readonly object isLoopedLock = new object();
         private bool isLooped;
 
+        /// <summary>
+        ///     Initializes a new instance of the <see cref="StreamLoop{T}" /> class, a forward reference to a
+        ///     stream that has not been defined yet.
+        /// </summary>
+        /// <exception cref="InvalidOperationException">
+        ///     Thrown if there is no explicit transaction running, or, at the end of that transaction,
+        ///     if <see cref="Loop" /> was never called on this instance.
+        /// </exception>
+        /// <remarks>
+        ///     A loop only makes sense within a single transaction, so one must be running - create it
+        ///     with <see cref="Transaction.Run{T}(Func{T})" /> or
+        ///     <see cref="Transaction.RunVoid(Action)" />. Resolve the loop by calling
+        ///     <see cref="Loop" /> before that transaction ends; a loop left unresolved is a bug rather
+        ///     than a no-op, so it is reported as one.
+        /// </remarks>
         [MethodImpl(MethodImplOptions.NoInlining)]
         public StreamLoop()
         {

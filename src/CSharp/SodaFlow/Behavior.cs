@@ -36,8 +36,7 @@ namespace SodaFlow
         public static BehaviorSink<T> CreateSink<T>(T initialValue) => BehaviorInternal.CreateSinkImpl(initialValue);
 
         /// <summary>
-        ///     Creates a writable behavior that uses
-        ///     <param name="coalesce" />
+        ///     Creates a writable behavior that uses <paramref name="coalesce" />
         ///     to combine values if <see cref="BehaviorSinkExtensionMethods.Send{T}" /> is called more than once per transaction.
         /// </summary>
         /// <param name="initialValue">The initial value of the behavior.</param>

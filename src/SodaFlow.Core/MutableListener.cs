@@ -1,5 +1,15 @@
 namespace SodaFlow
 {
+    /// <summary>
+    ///     A listener whose target can be replaced while the handle itself stays the same.
+    /// </summary>
+    /// <remarks>
+    ///     Intended for a long-lived object subscribing to a succession of short-lived sources: one
+    ///     field, one lifetime, a changing target. Point it at a listener with
+    ///     <c>SetListener</c>, release the current one with
+    ///     <c>ClearListener</c>, and stop listening entirely
+    ///     with <c>Unlisten</c>.
+    /// </remarks>
     public class MutableListener : IListener
     {
         private readonly WeakMutableListener weakMutableListener = new WeakMutableListener();

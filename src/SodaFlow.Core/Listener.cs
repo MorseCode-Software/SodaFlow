@@ -10,6 +10,12 @@ namespace SodaFlow
     /// </summary>
     public interface IListenerWithWeakReference
     {
+        /// <summary>
+        ///     Stops listening.
+        /// </summary>
+        /// <remarks>
+        ///     Safe to call more than once; subsequent calls do nothing.
+        /// </remarks>
         void Unlisten();
     }
 
@@ -19,8 +25,21 @@ namespace SodaFlow
     /// </summary>
     public interface IListener
     {
+        /// <summary>
+        ///     Stops listening.
+        /// </summary>
+        /// <remarks>
+        ///     Safe to call more than once; subsequent calls do nothing.
+        /// </remarks>
         void Unlisten();
 
+        /// <summary>
+        ///     Gets a view of this listener which does not keep the stream it listens to alive.
+        /// </summary>
+        /// <returns>
+        ///     A listener which can still be used to <see cref="IListenerWithWeakReference.Unlisten" />,
+        ///     but which will not by itself prevent the observed stream from being garbage collected.
+        /// </returns>
         IListenerWithWeakReference GetListenerWithWeakReference();
     }
 

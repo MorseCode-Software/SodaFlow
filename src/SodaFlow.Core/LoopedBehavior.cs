@@ -26,6 +26,15 @@ namespace SodaFlow
             this.lazyInitialValue = b.SampleLazy(trans);
         }
 
+        /// <summary>
+        ///     Releases the deferred initial value once this behavior has a value of its own.
+        /// </summary>
+        /// <remarks>
+        ///     A looped behavior takes its initial value lazily from whatever the loop is closed with,
+        ///     since that is not known when the loop is created. Once a value has been assigned, that
+        ///     deferred value can never be needed again, so it is dropped rather than kept alive for the
+        ///     lifetime of the behavior.
+        /// </remarks>
         protected override void NotUsingInitialValue()
         {
             base.NotUsingInitialValue();
