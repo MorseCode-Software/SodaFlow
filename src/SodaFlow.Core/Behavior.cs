@@ -142,10 +142,14 @@ namespace SodaFlow
         {
             Stream<T> @out = new Stream<T>(this.stream.KeepListenersAlive);
 
+            // This will always run first since it has Rank = 0.
             trans1.Prioritized(new Node<UnitInternal>(), trans2 => @out.Send(trans2, this.SampleNoTransaction()));
 
+            // This listener will queue an action that will always run after the previous one since,
+            // even if this.Updates() has Rank = 0, the listener attached to it will have Rank > 0.
             IListener l = this.Updates().Listen(@out.Node, trans1, (trans2, v) => @out.Send(trans2, v), false);
 
+            // The order is assured without having to link the first node and the second node.
             return @out.UnsafeAttachListener(l).Coalesce(trans1, (left, right) => right);
         }
 

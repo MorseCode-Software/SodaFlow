@@ -136,6 +136,34 @@ namespace SodaFlow.Tests
             CollectionAssert.AreEqual(new[] { 9, 2, 7 }, @out);
         }
 
+        [Test]
+        public void TestValuesAttachedLate()
+        {
+            CellSink<int> c = Cell.CreateSink(9);
+            List<int> @out = new List<int>();
+
+            IListener l2 = null;
+
+            IListener l =
+                Transaction.Run(() =>
+                {
+                    c.Send(5);
+                    return c.Values().Listen(_ =>
+                    {
+                        if (l2 == null)
+                        {
+                            l2 = c.Values().Listen(@out.Add);
+                        }
+                    });
+                });
+
+            c.Send(2);
+            c.Send(7);
+            l.Unlisten();
+            l2?.Unlisten();
+            CollectionAssert.AreEqual(new[] { 5, 2, 7 }, @out);
+        }
+
         private class TestObject
         {
             private readonly StreamSink<Unit> removeStreamSink;

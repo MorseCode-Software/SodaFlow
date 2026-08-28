@@ -281,6 +281,29 @@ type ``Behavior Tests``() =
         c |> sendC 7
         l |> unlistenL
         CollectionAssert.AreEqual([9;2;7], out)
+
+    // A Values stream obtained inside a transaction that has already sent fires with the value sent
+    // in that transaction, not the one the cell held when it opened - and a second Values obtained
+    // from within the first one's handler must see the same thing, rather than missing it for
+    // having been attached partway through.
+    [<Test>]
+    member __.``Test Values Attached Late``() =
+        let c = sinkC 9
+        let out = List<_>()
+        let mutable l2 = None
+
+        let l =
+            runT (fun () ->
+                c |> sendC 5
+                c |> valuesC |> listenS (fun _ ->
+                    if l2.IsNone then
+                        l2 <- Some (c |> valuesC |> listenS out.Add)))
+
+        c |> sendC 2
+        c |> sendC 7
+        l |> unlistenL
+        l2 |> Option.iter unlistenL
+        CollectionAssert.AreEqual([5;2;7], out)
     
     [<Test>]
     member __.``Test Cell Values No Transaction``() =
