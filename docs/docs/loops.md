@@ -27,7 +27,7 @@ StreamSink<int> s = Stream.CreateSink<int>();
 Stream<int> total = Stream.Loop<int>()
     .WithoutCaptures(l => s.Snapshot(l.Hold(0), (n, o) => n + o));
 
-using (total.Listen(Console.WriteLine))
+using (total.ListenStrong(Console.WriteLine))
 {
     s.Send(1);   // 1
     s.Send(2);   // 3
@@ -44,7 +44,7 @@ let s = sinkS<int> ()
 let total =
     loopWithNoCapturesS (fun l -> s |> snapshotC (l |> holdS 0) (+))
 
-use _ = total |> listenS (printfn "%d")
+use _ = total |> listenStrongS (printfn "%d")
 s |> sendS 1   // 1
 s |> sendS 2   // 3
 s |> sendS 3   // 6

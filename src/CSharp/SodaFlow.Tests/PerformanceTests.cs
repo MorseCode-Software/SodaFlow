@@ -47,7 +47,7 @@ namespace SodaFlow.Tests
                     var cell9 = s1.Snapshot(cellLocal, (left, right) => left + right).Filter(v => v > 5).OrElse(s.Snapshot(s1.Hold(0).Lift(s2.Hold(1), (left, right) => left + right)).Map(v => v + 1)).Hold(3);
 
                     this.currentValue = cellLocal.SampleLazy();
-                    var lLocal = cellLocal.Updates().Listen(v => this.CurrentValue = v);
+                    var lLocal = cellLocal.Updates().ListenStrong(v => this.CurrentValue = v);
 
                     return (cellLocal, lLocal);
                 });
@@ -118,7 +118,7 @@ namespace SodaFlow.Tests
             List<int> @out = new List<int>();
             using (Transaction.Run(
                 () => objectsAndIsSelected.Map(oo => oo.Count(o => o.IsSelected))
-                    .Values().Listen(@out.Add)))
+                    .Values().ListenStrong(@out.Add)))
             {
                 Transaction.Run(() =>
                 {

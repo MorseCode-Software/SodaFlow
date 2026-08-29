@@ -153,12 +153,12 @@ let asBehavior (cell : Cell<_>) = cell.BehaviorImpl
 ///     The listener stops on its own once the cell is collected, which makes this the right choice
 ///     where there is no clean moment to stop listening: hold the returned handle as a field of the
 ///     object doing the listening, and the two go away together. Where the cell should be kept
-///     alive for as long as something is listening, use <c>listen</c>.
+///     alive for as long as something is listening, use <c>listenStrong</c>.
 ///
 ///     Fires the current value immediately, in the transaction this is called in.
 /// </remarks>
 [<MethodImpl(MethodImplOptions.NoInlining)>]
-let listenWeak handler (cell : Cell<_>) = cell.ListenWeakImpl (Action<_> handler)
+let listen handler (cell : Cell<_>) = cell.ListenImpl (Action<_> handler)
 
 /// <summary>
 ///     Listens for changes, keeping the cell alive while the listener lives.
@@ -170,14 +170,14 @@ let listenWeak handler (cell : Cell<_>) = cell.ListenWeakImpl (Action<_> handler
 /// </returns>
 /// <remarks>
 ///     The listener roots the cell, so the graph behind it stays alive for as long as the returned
-///     handle is reachable. Keep the handle and stop it when finished, or use <c>listenWeak</c>
+///     handle is reachable. Keep the handle and stop it when finished, or use <c>listen</c>
 ///     where there is no good moment to do that.
 ///
 ///     Fires the current value immediately, in the transaction this is called in. The handler runs
 ///     under the transaction lock, so it should return promptly.
 /// </remarks>
 [<MethodImpl(MethodImplOptions.NoInlining)>]
-let listen handler (cell : Cell<_>) = cell.ListenImpl (Action<_> handler)
+let listenStrong handler (cell : Cell<_>) = cell.ListenStrongImpl (Action<_> handler)
 
 /// <summary>
 ///     Transforms a cell with a function.

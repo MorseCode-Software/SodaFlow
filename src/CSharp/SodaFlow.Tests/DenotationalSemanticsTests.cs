@@ -11,7 +11,7 @@ namespace SodaFlow.Tests
         [Test]
         public void Test_Never_TestCase()
         {
-            List<int> @out = RunSimulation<int>(Stream.Never<int>().Listen);
+            List<int> @out = RunSimulation<int>(Stream.Never<int>().ListenStrong);
             CollectionAssert.AreEqual(new int[0], @out);
         }
 
@@ -19,7 +19,7 @@ namespace SodaFlow.Tests
         public void Test_MapS_TestCase()
         {
             (Stream<int> s, Dictionary<int, Action> sf) = MkStream(new Dictionary<int, int> { { 0, 5 }, { 1, 10 }, { 2, 12 } });
-            List<int> @out = RunSimulation<int>(s.Map(x => x + 1).Listen, new[] { sf });
+            List<int> @out = RunSimulation<int>(s.Map(x => x + 1).ListenStrong, new[] { sf });
             CollectionAssert.AreEqual(new[] { 6, 11, 13 }, @out);
         }
 
@@ -29,7 +29,7 @@ namespace SodaFlow.Tests
             (Stream<char> s1, Dictionary<int, Action> s1F) = MkStream(new Dictionary<int, char> { { 0, 'a' }, { 3, 'b' }, { 5, 'c' } });
             (Stream<int> s2, Dictionary<int, Action> s2F) = MkStream(new Dictionary<int, int> { { 1, 4 }, { 5, 7 } });
             Cell<int> c = s2.Hold(3);
-            List<int> @out = RunSimulation<int>(s1.Snapshot(c).Listen, new[] { s1F, s2F });
+            List<int> @out = RunSimulation<int>(s1.Snapshot(c).ListenStrong, new[] { s1F, s2F });
             CollectionAssert.AreEqual(new[] { 3, 4, 4 }, @out);
         }
 
@@ -38,7 +38,7 @@ namespace SodaFlow.Tests
         {
             (Stream<int> s1, Dictionary<int, Action> s1F) = MkStream(new Dictionary<int, int> { { 0, 0 }, { 2, 2 } });
             (Stream<int> s2, Dictionary<int, Action> s2F) = MkStream(new Dictionary<int, int> { { 1, 10 }, { 2, 20 }, { 3, 30 } });
-            List<int> @out = RunSimulation<int>(s1.Merge(s2, (x, y) => x + y).Listen, new[] { s1F, s2F });
+            List<int> @out = RunSimulation<int>(s1.Merge(s2, (x, y) => x + y).ListenStrong, new[] { s1F, s2F });
             CollectionAssert.AreEqual(new[] { 0, 10, 22, 30 }, @out);
         }
 
@@ -46,7 +46,7 @@ namespace SodaFlow.Tests
         public void Test_Filter_TestCase()
         {
             (Stream<int> s, Dictionary<int, Action> sf) = MkStream(new Dictionary<int, int> { { 0, 5 }, { 1, 6 }, { 2, 7 } });
-            List<int> @out = RunSimulation<int>(s.Filter(x => x % 2 != 0).Listen, new[] { sf });
+            List<int> @out = RunSimulation<int>(s.Filter(x => x % 2 != 0).ListenStrong, new[] { sf });
             CollectionAssert.AreEqual(new[] { 5, 7 }, @out);
         }
 
@@ -68,7 +68,7 @@ namespace SodaFlow.Tests
                         (Name: "switcher", Firings: switcherF)
                     };
 
-                    return createFiringsListAndListener(firings, c.SwitchS().Listen);
+                    return createFiringsListAndListener(firings, c.SwitchS().ListenStrong);
                 },
                 @out => CollectionAssert.AreEqual(new[] { 'a', 'b', 'Y', 'Z' }, @out));
         }
@@ -78,7 +78,7 @@ namespace SodaFlow.Tests
         {
             (Stream<char> s, Dictionary<int, Action> sf) = MkStream(new Dictionary<int, char> { { 1, 'b' }, { 3, 'c' } });
             Cell<char> c = s.Hold('a');
-            List<char> @out = RunSimulation<char>(c.Updates().Listen, new[] { sf });
+            List<char> @out = RunSimulation<char>(c.Updates().ListenStrong, new[] { sf });
             CollectionAssert.AreEqual(new[] { 'b', 'c' }, @out);
         }
 
@@ -87,7 +87,7 @@ namespace SodaFlow.Tests
         {
             (Stream<char> s, Dictionary<int, Action> sf) = MkStream(new Dictionary<int, char> { { 1, 'b' }, { 3, 'c' } });
             Cell<char> c = s.Hold('a');
-            List<char> @out = RunSimulation<char>(h => Transaction.Run(() => c.Values().Listen(h)), new[] { sf });
+            List<char> @out = RunSimulation<char>(h => Transaction.Run(() => c.Values().ListenStrong(h)), new[] { sf });
             CollectionAssert.AreEqual(new[] { 'a', 'b', 'c' }, @out);
         }
 
@@ -96,7 +96,7 @@ namespace SodaFlow.Tests
         {
             (Stream<char> s, Dictionary<int, Action> sf) = MkStream(new Dictionary<int, char> { { 0, 'b' }, { 1, 'c' }, { 3, 'd' } });
             Cell<char> c = s.Hold('a');
-            List<char> @out = RunSimulation<char>(h => Transaction.Run(() => c.Values().Listen(h)), new[] { sf });
+            List<char> @out = RunSimulation<char>(h => Transaction.Run(() => c.Values().ListenStrong(h)), new[] { sf });
             CollectionAssert.AreEqual(new[] { 'b', 'c', 'd' }, @out);
         }
 
@@ -105,7 +105,7 @@ namespace SodaFlow.Tests
         {
             (Stream<char> s, Dictionary<int, Action> sf) = MkStream(new Dictionary<int, char> { { 1, 'b' }, { 3, 'c' } });
             Cell<char> c = s.Hold('a');
-            List<char> @out = RunSimulation<char>(c.Listen, new[] { sf });
+            List<char> @out = RunSimulation<char>(c.ListenStrong, new[] { sf });
             CollectionAssert.AreEqual(new[] { 'a', 'b', 'c' }, @out);
         }
 
@@ -114,7 +114,7 @@ namespace SodaFlow.Tests
         {
             (Stream<char> s, Dictionary<int, Action> sf) = MkStream(new Dictionary<int, char> { { 0, 'b' }, { 1, 'c' }, { 3, 'd' } });
             Cell<char> c = s.Hold('a');
-            List<char> @out = RunSimulation<char>(c.Listen, new[] { sf });
+            List<char> @out = RunSimulation<char>(c.ListenStrong, new[] { sf });
             CollectionAssert.AreEqual(new[] { 'b', 'c', 'd' }, @out);
         }
 
@@ -129,7 +129,7 @@ namespace SodaFlow.Tests
                     (Time: 1, Value: new[] { 'd', 'e' })
                 },
                 (x, y) => x.Concat(y).ToArray());
-            List<char> @out = RunSimulation<char>(Operational.Split<char, IReadOnlyList<char>>(s).Listen, new[] { sf });
+            List<char> @out = RunSimulation<char>(Operational.Split<char, IReadOnlyList<char>>(s).ListenStrong, new[] { sf });
             CollectionAssert.AreEqual(new[] { 'a', 'b', 'c', 'd', 'e' }, @out);
         }
 
@@ -137,7 +137,7 @@ namespace SodaFlow.Tests
         public void Test_Constant_TestCase()
         {
             Cell<char> c = Cell.Constant('a');
-            List<char> @out = RunSimulation<char>(c.Listen);
+            List<char> @out = RunSimulation<char>(c.ListenStrong);
             CollectionAssert.AreEqual(new[] { 'a' }, @out);
         }
 
@@ -145,7 +145,7 @@ namespace SodaFlow.Tests
         public void Test_ConstantLazy_TestCase()
         {
             Cell<char> c = Cell.ConstantLazy(new Lazy<char>(() => 'a'));
-            List<char> @out = RunSimulation<char>(c.Listen);
+            List<char> @out = RunSimulation<char>(c.ListenStrong);
             CollectionAssert.AreEqual(new[] { 'a' }, @out);
         }
 
@@ -154,7 +154,7 @@ namespace SodaFlow.Tests
         {
             (Stream<char> s, Dictionary<int, Action> sf) = MkStream(new Dictionary<int, char> { { 1, 'b' }, { 3, 'c' } });
             Cell<char> c = s.Hold('a');
-            List<char> @out = RunSimulation<char>(c.Listen, new[] { sf });
+            List<char> @out = RunSimulation<char>(c.ListenStrong, new[] { sf });
             CollectionAssert.AreEqual(new[] { 'a', 'b', 'c' }, @out);
         }
 
@@ -163,7 +163,7 @@ namespace SodaFlow.Tests
         {
             (Stream<int> s, Dictionary<int, Action> sf) = MkStream(new Dictionary<int, int> { { 2, 3 }, { 3, 5 } });
             Cell<int> c = s.Hold(0);
-            List<int> @out = RunSimulation<int>(c.Map(x => x + 1).Listen, new[] { sf });
+            List<int> @out = RunSimulation<int>(c.Map(x => x + 1).ListenStrong, new[] { sf });
             CollectionAssert.AreEqual(new[] { 1, 4, 6 }, @out);
         }
 
@@ -174,7 +174,7 @@ namespace SodaFlow.Tests
             Cell<int> ca = s1.Hold(100);
             (Stream<Func<int, int>> s2, Dictionary<int, Action> s2F) = MkStream(new Dictionary<int, Func<int, int>> { { 1, x => x + 5 }, { 3, x => x + 6 } });
             Cell<Func<int, int>> cf = s2.Hold(x => x + 0);
-            List<int> @out = RunSimulation<int>(ca.Apply(cf).Listen, new[] { s1F, s2F });
+            List<int> @out = RunSimulation<int>(ca.Apply(cf).ListenStrong, new[] { s1F, s2F });
             CollectionAssert.AreEqual(new[] { 100, 205, 305, 306, 406 }, @out);
         }
 
@@ -197,7 +197,7 @@ namespace SodaFlow.Tests
                         (Name: "switcher", Firings: switcherF)
                     };
 
-                    return createFiringsListAndListener(firings, c.SwitchC().Listen);
+                    return createFiringsListAndListener(firings, c.SwitchC().ListenStrong);
                 },
                 @out => CollectionAssert.AreEqual(new[] { 'b', 'X', 'Y', 'Z' }, @out));
         }
@@ -221,7 +221,7 @@ namespace SodaFlow.Tests
                         (Name: "switcher", Firings: switcherF)
                     };
 
-                    return createFiringsListAndListener(firings, c.SwitchC().Listen);
+                    return createFiringsListAndListener(firings, c.SwitchC().ListenStrong);
                 },
                 @out => CollectionAssert.AreEqual(new[] { 'b', 'X', 'Y', 'Z' }, @out));
         }
@@ -245,7 +245,7 @@ namespace SodaFlow.Tests
                         (Name: "switcher", Firings: switcherF)
                     };
 
-                    return createFiringsListAndListener(firings, c.SwitchC().Listen);
+                    return createFiringsListAndListener(firings, c.SwitchC().ListenStrong);
                 },
                 @out => CollectionAssert.AreEqual(new[] { 'b', 'X', 'Y', 'Z' }, @out));
         }
@@ -272,7 +272,7 @@ namespace SodaFlow.Tests
                         (Name: "switcher", Firings: switcherF)
                     };
 
-                    return createFiringsListAndListener(firings, c.SwitchC().Listen);
+                    return createFiringsListAndListener(firings, c.SwitchC().ListenStrong);
                 },
                 @out => CollectionAssert.AreEqual(new[] { 'b', 'X', 'Y', '5' }, @out));
         }
@@ -325,12 +325,12 @@ namespace SodaFlow.Tests
             return (Stream: returnStream, Firings: f);
         }
 
-        private static List<T> RunSimulation<T>(Func<Action<T>, IListener> listen, IReadOnlyList<Dictionary<int, Action>> firings)
+        private static List<T> RunSimulation<T>(Func<Action<T>, IListener> listenStrong, IReadOnlyList<Dictionary<int, Action>> firings)
         {
-            return RunSimulation(listen, firings.Select(f => f.ToLookup(p => p.Key, p => p.Value)).ToArray());
+            return RunSimulation(listenStrong, firings.Select(f => f.ToLookup(p => p.Key, p => p.Value)).ToArray());
         }
 
-        private static List<T> RunSimulation<T>(Func<Action<T>, IListener> listen, IReadOnlyList<ILookup<int, Action>> firings = null)
+        private static List<T> RunSimulation<T>(Func<Action<T>, IListener> listenStrong, IReadOnlyList<ILookup<int, Action>> firings = null)
         {
             int maxKey = firings?.SelectMany(d => d.Select(g => g.Key)).DefaultIfEmpty(-1).Max() ?? -1;
             List<T> @out = new List<T>();
@@ -352,7 +352,7 @@ namespace SodaFlow.Tests
                 {
                     l = Transaction.Run(() =>
                     {
-                        IListener lLocal = listen(@out.Add);
+                        IListener lLocal = listenStrong(@out.Add);
                         Run(0);
                         return lLocal;
                     });
@@ -365,7 +365,7 @@ namespace SodaFlow.Tests
                 }
                 else
                 {
-                    l = listen(@out.Add);
+                    l = listenStrong(@out.Add);
                 }
             }
             finally
@@ -375,14 +375,14 @@ namespace SodaFlow.Tests
             return @out;
         }
 
-        private static void RunPermutations<T>(Func<Func<IReadOnlyList<(string Name, Dictionary<int, Action> Firings)>, Func<Action<T>, IListener>, (IReadOnlyList<(string Name, Dictionary<int, Action> Firings)> FiringsList, Func<Action<T>, IListener> Listen)>, (IReadOnlyList<(string Name, Dictionary<int, Action> Firings)> FiringsList, Func<Action<T>, IListener> Listen)> createListAndListener, Action<IReadOnlyList<T>> assert)
+        private static void RunPermutations<T>(Func<Func<IReadOnlyList<(string Name, Dictionary<int, Action> Firings)>, Func<Action<T>, IListener>, (IReadOnlyList<(string Name, Dictionary<int, Action> Firings)> FiringsList, Func<Action<T>, IListener> ListenStrong)>, (IReadOnlyList<(string Name, Dictionary<int, Action> Firings)> FiringsList, Func<Action<T>, IListener> ListenStrong)> createListAndListener, Action<IReadOnlyList<T>> assert)
         {
-            IReadOnlyList<int> indexes = Enumerable.Range(0, createListAndListener((fl, l) => (FiringsList: fl, Listen: l)).FiringsList.Count).ToArray();
+            IReadOnlyList<int> indexes = Enumerable.Range(0, createListAndListener((fl, l) => (FiringsList: fl, ListenStrong: l)).FiringsList.Count).ToArray();
             foreach ((IReadOnlyList<(string Name, Dictionary<int, Action> Firings)> firingsList, Func<Action<T>, IListener> listener) in
                 GetPermutations(indexes).Select(ii =>
                 {
-                    (IReadOnlyList<(string Name, Dictionary<int, Action> Firings)> firingsList, Func<Action<T>, IListener> listen) = createListAndListener((fl, l) => (FiringsList: fl, Listen: l));
-                    return (FiringsList: ii.Select(i => firingsList[i]).ToArray(), Listen: listen);
+                    (IReadOnlyList<(string Name, Dictionary<int, Action> Firings)> firingsList, Func<Action<T>, IListener> listenStrong) = createListAndListener((fl, l) => (FiringsList: fl, ListenStrong: l));
+                    return (FiringsList: ii.Select(i => firingsList[i]).ToArray(), ListenStrong: listenStrong);
                 }))
             {
                 try

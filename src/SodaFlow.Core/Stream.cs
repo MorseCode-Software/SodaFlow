@@ -56,9 +56,9 @@ namespace SodaFlow
             this.trackedListeners = new StreamListenerManager.StreamListeners(this);
         }
 
-        internal IStrongListener ListenImpl(Action<T> handler)
+        internal IStrongListener ListenStrongImpl(Action<T> handler)
         {
-            IWeakListener innerListener = this.ListenWeakImpl(handler);
+            IWeakListener innerListener = this.ListenImpl(handler);
             StrongListener listener = null;
             listener = new StrongListener(
                 () =>
@@ -85,7 +85,7 @@ namespace SodaFlow
             return listener;
         }
 
-        internal IWeakListener ListenWeakImpl(Action<T> handler) => this.Listen(Node<T>.Null, (trans2, a) => handler(a));
+        internal IWeakListener ListenImpl(Action<T> handler) => this.Listen(Node<T>.Null, (trans2, a) => handler(a));
 
         internal Stream<T> AttachListenerImpl(IListener listener)
         {
@@ -124,7 +124,7 @@ namespace SodaFlow
         {
             IStrongListener listener = null;
             bool unlistenEarly = false;
-            listener = this.ListenImpl(
+            listener = this.ListenStrongImpl(
                 a =>
                 {
                     // ReSharper disable once AccessToModifiedClosure
@@ -161,7 +161,7 @@ namespace SodaFlow
             Node<T>.Target nodeTarget = this.Node.Link(trans, action, target);
 
             // Only snapshot the firings when they are actually going to be replayed - the copy
-            // used to be taken unconditionally, on every listen, including the overwhelmingly
+            // used to be taken unconditionally, on every listenStrong, including the overwhelmingly
             // common case of a stream that has not fired in this transaction.
             if (!suppressEarlierFirings && this.firings != null && this.firings.Count > 0)
             {
@@ -173,7 +173,7 @@ namespace SodaFlow
                     trans2 =>
                     {
                         // Anything sent already in this transaction must be sent now so that
-                        // there's no order dependency between send and listen.
+                        // there's no order dependency between send and listenStrong.
                         foreach (T a in firings)
                         {
                             trans2.InCallback++;

@@ -76,10 +76,10 @@ let loopWithNoCaptures f =
 ///     The listener stops on its own once the stream is collected, which makes this the right
 ///     choice where there is no clean moment to stop listening: hold the returned handle as a field
 ///     of the object doing the listening, and the two go away together. Where the stream should be
-///     kept alive for as long as something is listening, use <c>listen</c>.
+///     kept alive for as long as something is listening, use <c>listenStrong</c>.
 /// </remarks>
 [<MethodImpl(MethodImplOptions.NoInlining)>]
-let listenWeak handler (stream : Stream<_>) = stream.ListenWeakImpl (Action<_> handler)
+let listen handler (stream : Stream<_>) = stream.ListenImpl (Action<_> handler)
 
 /// <summary>
 ///     Listens for firings, keeping the stream alive while the listener lives.
@@ -92,13 +92,13 @@ let listenWeak handler (stream : Stream<_>) = stream.ListenWeakImpl (Action<_> h
 /// <remarks>
 ///     The listener roots the stream, so the graph behind it stays alive for as long as the
 ///     returned handle is reachable. Keep the handle and stop it when finished, or use
-///     <c>listenWeak</c> where there is no good moment to do that.
+///     <c>listen</c> where there is no good moment to do that.
 ///
 ///     The handler runs under the transaction lock, so it should return promptly; hand
 ///     long-running or blocking work to another thread.
 /// </remarks>
 [<MethodImpl(MethodImplOptions.NoInlining)>]
-let listen handler (stream : Stream<_>) = stream.ListenImpl (Action<_> handler)
+let listenStrong handler (stream : Stream<_>) = stream.ListenStrongImpl (Action<_> handler)
 
 /// <summary>
 ///     Ties a listener to the lifetime of a stream, so the listener lives while the stream does.
@@ -148,7 +148,7 @@ let listenOnceAsync stream =
 #endif
     let mutable listenerOption = None
     let mutable unlistenEarly = false
-    let listener = stream |> listen (fun a ->
+    let listener = stream |> listenStrong (fun a ->
         match listenerOption with
             | None -> unlistenEarly <- true
             | Some listener -> listener |> Listener.unlisten

@@ -23,8 +23,8 @@ namespace SodaFlow.Tests
 
             List<int> output1 = new List<int>();
             List<int> output2 = new List<int>();
-            IListener l = c.Listen(output1.Add);
-            IListener l2 = c.Updates().Listen(output2.Add);
+            IListener l = c.ListenStrong(output1.Add);
+            IListener l2 = c.Updates().ListenStrong(output2.Add);
 
             s.Send(5);
             s.Send(7);
@@ -42,7 +42,7 @@ namespace SodaFlow.Tests
             List<int> @out = new List<int>();
             CellSink<int> cellSink = Cell.CreateSink(1);
             Cell<int> cell = cellSink.Map(v => 2 * v);
-            IListener l = cellSink.Lift(cell, (x, y) => x + y).Updates().Listen(@out.Add);
+            IListener l = cellSink.Lift(cell, (x, y) => x + y).Updates().ListenStrong(@out.Add);
 
             cellSink.Send(2);
             cellSink.Send(7);
@@ -63,10 +63,10 @@ namespace SodaFlow.Tests
             Cell<IReadOnlyList<int>> c = v.Map(oo => oo.Select(o => o.Value).Lift()).SwitchC();
 
             List<IReadOnlyList<int>> streamOutput = new List<IReadOnlyList<int>>();
-            IListener l = c.Updates().Listen(streamOutput.Add);
+            IListener l = c.Updates().ListenStrong(streamOutput.Add);
 
             List<IReadOnlyList<int>> cellOutput = new List<IReadOnlyList<int>>();
-            IListener l2 = c.Listen(cellOutput.Add);
+            IListener l2 = c.ListenStrong(cellOutput.Add);
 
             list1[2].Value.Send(12);
             list2[1].Value.Send(16);
@@ -108,10 +108,10 @@ namespace SodaFlow.Tests
             Cell<IReadOnlyList<int>> c = v.Map(oo => oo.Select(o => o.Value).Lift()).Map(o => o).SwitchC();
 
             List<IReadOnlyList<int>> streamOutput = new List<IReadOnlyList<int>>();
-            IListener l = c.Updates().Listen(streamOutput.Add);
+            IListener l = c.Updates().ListenStrong(streamOutput.Add);
 
             List<IReadOnlyList<int>> cellOutput = new List<IReadOnlyList<int>>();
-            IListener l2 = c.Listen(cellOutput.Add);
+            IListener l2 = c.ListenStrong(cellOutput.Add);
 
             list1[2].Value.Send(12);
             list2[1].Value.Send(16);
@@ -159,7 +159,7 @@ namespace SodaFlow.Tests
             CellSink<int> s = Cell.CreateSink(0);
             Cell<Cell<int>> c = Cell.Constant(Cell.Constant(1));
             Cell<Cell<int>> r = c.Map(c2 => c2.Lift(s, (v1, v2) => v1 + v2));
-            IListener l = r.SwitchC().Listen(@out.Add);
+            IListener l = r.SwitchC().ListenStrong(@out.Add);
             s.Send(2);
             s.Send(4);
             l.Unlisten();
@@ -173,7 +173,7 @@ namespace SodaFlow.Tests
             StreamSink<int> s = Stream.CreateSink<int>();
             Cell<Cell<int>> c = Cell.Constant(1).Map(_ => s.Hold(0));
             s.Send(1);
-            IListener l = c.SwitchC().Listen(@out.Add);
+            IListener l = c.SwitchC().ListenStrong(@out.Add);
             s.Send(3);
             s.Send(5);
             l.Unlisten();
@@ -193,7 +193,7 @@ namespace SodaFlow.Tests
                         .Snapshot(c, (n, o) => (Current: n, Previous: Maybe.Some(o)))
                         .OrElse(
                             Cell.ConstantLazy(c.SampleLazy()).Values().Map(v => (Current: v, Previous: Maybe<int>.None)));
-                    return r.Listen(@out.Add);
+                    return r.ListenStrong(@out.Add);
                 }))
             {
                 s.Send(1);
@@ -228,7 +228,7 @@ namespace SodaFlow.Tests
                         .OrElse(
                             Cell.ConstantLazy(c.SampleLazy()).Values().Map(v => (Current: v, Previous: Maybe<int>.None)));
                     s.Send(1);
-                    return r.Listen(@out.Add);
+                    return r.ListenStrong(@out.Add);
                 }))
             {
                 s.Send(2);
@@ -290,7 +290,7 @@ namespace SodaFlow.Tests
                         });
 
             List<int> @out = new List<int>();
-            using (resultCell.Listen(@out.Add))
+            using (resultCell.ListenStrong(@out.Add))
             {
                 innerCell.Sample().S.Send(5);
                 innerStreamSink.Send(new Inner(resultCell.SampleLazy().Map(v => v - 1)));

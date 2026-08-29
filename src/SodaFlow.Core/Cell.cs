@@ -70,11 +70,11 @@ namespace SodaFlow
 
         internal Behavior<T> BehaviorImpl { get; }
 
-        internal IStrongListener ListenImpl(Action<T> handler) => TransactionInternal.Apply(
-            (trans, _) => this.BehaviorImpl.Value(trans).ListenImpl(handler));
+        internal IStrongListener ListenStrongImpl(Action<T> handler) => TransactionInternal.Apply(
+            (trans, _) => this.BehaviorImpl.Value(trans).ListenStrongImpl(handler));
 
-        internal IWeakListener ListenWeakImpl(Action<T> handler) => TransactionInternal.Apply(
-            (trans, _) => this.BehaviorImpl.Value(trans).ListenWeakImpl(handler));
+        internal IWeakListener ListenImpl(Action<T> handler) => TransactionInternal.Apply(
+            (trans, _) => this.BehaviorImpl.Value(trans).ListenImpl(handler));
 
         internal Cell<TResult> MapImpl<TResult>(Func<T, TResult> f) =>
             new Cell<TResult>(this.BehaviorImpl.MapImpl(f));

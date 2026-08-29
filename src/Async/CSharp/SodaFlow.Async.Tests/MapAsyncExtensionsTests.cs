@@ -17,7 +17,7 @@ namespace SodaFlow.Async.Tests
             StreamSink<string> results = Stream.CreateSink<string>();
             StreamSink<Exception> errors = Stream.CreateSink<Exception>();
             List<string> received = new();
-            IListener l = results.Listen(received.Add);
+            IListener l = results.ListenStrong(received.Add);
 
             AsyncMapStatus<string> status =
                 source.MapAsync(
@@ -41,7 +41,7 @@ namespace SodaFlow.Async.Tests
             StreamSink<string> results = Stream.CreateSink<string>();
             StreamSink<Exception> errors = Stream.CreateSink<Exception>();
             List<string> received = new();
-            IListener l = results.Listen(received.Add);
+            IListener l = results.ListenStrong(received.Add);
             Dog dog = new();
             AlwaysStartStrategy<Animal, Unit> strategy = new();
 
@@ -69,7 +69,7 @@ namespace SodaFlow.Async.Tests
             StreamSink<string> results = Stream.CreateSink<string>();
             StreamSink<Exception> errors = Stream.CreateSink<Exception>();
             List<string> received = new();
-            IListener l = results.Listen(received.Add);
+            IListener l = results.ListenStrong(received.Add);
             AlwaysStartStrategy<int, Unit> strategy = new();
 
             AsyncMapStatus<string> status =
@@ -97,7 +97,7 @@ namespace SodaFlow.Async.Tests
             StreamSink<Dog> results = Stream.CreateSink<Dog>();
             StreamSink<Exception> errors = Stream.CreateSink<Exception>();
             List<Dog> received = new();
-            IListener l = results.Listen(received.Add);
+            IListener l = results.ListenStrong(received.Add);
             Dog dog = new();
 
             AsyncMapStatus<string> status =
@@ -122,7 +122,7 @@ namespace SodaFlow.Async.Tests
             StreamSink<string> results = Stream.CreateSink<string>();
             StreamSink<Exception> errors = Stream.CreateSink<Exception>();
             List<string> received = new();
-            IListener l = results.Listen(received.Add);
+            IListener l = results.ListenStrong(received.Add);
             AlwaysStartStrategy<Unit, int> strategy = new();
 
             AsyncMapStatus<string> status =
@@ -150,7 +150,7 @@ namespace SodaFlow.Async.Tests
             StreamSink<Dog> results = Stream.CreateSink<Dog>();
             StreamSink<Exception> errors = Stream.CreateSink<Exception>();
             List<Dog> received = new();
-            IListener l = results.Listen(received.Add);
+            IListener l = results.ListenStrong(received.Add);
             Dog dog = new();
 
             AsyncMapStatus<Dog> status =
@@ -175,7 +175,7 @@ namespace SodaFlow.Async.Tests
             StreamSink<Dog> results = Stream.CreateSink<Dog>();
             StreamSink<Exception> errors = Stream.CreateSink<Exception>();
             List<Dog> received = new();
-            IListener l = results.Listen(received.Add);
+            IListener l = results.ListenStrong(received.Add);
             Dog dog = new();
             AlwaysStartStrategy<int, Animal> strategy = new();
 
@@ -204,7 +204,7 @@ namespace SodaFlow.Async.Tests
             StreamSink<string> results = Stream.CreateSink<string>();
             StreamSink<Exception> errors = Stream.CreateSink<Exception>();
             List<string> received = new();
-            IListener l = results.Listen(received.Add);
+            IListener l = results.ListenStrong(received.Add);
             Dog dog = new();
             AlwaysStartStrategy<Animal, int> strategy = new();
 
@@ -233,7 +233,7 @@ namespace SodaFlow.Async.Tests
             StreamSink<string> results = Stream.CreateSink<string>();
             StreamSink<Exception> errors = Stream.CreateSink<Exception>();
             List<string> received = new();
-            IListener l = results.Listen(received.Add);
+            IListener l = results.ListenStrong(received.Add);
             AlwaysStartStrategy<int, bool> strategy = new();
 
             // TStrategyInput (int, a length) and TStrategyResult (bool, "is long") are both
@@ -267,7 +267,7 @@ namespace SodaFlow.Async.Tests
             StreamSink<Unit> cancelAll = Stream.CreateSink<Unit>();
             ControlledOperation<string, string> op = new();
             List<string> received = new();
-            IListener l = results.Listen(received.Add);
+            IListener l = results.ListenStrong(received.Add);
 
             AsyncMapStatus<string> status =
                 source.MapAsync(
@@ -303,7 +303,7 @@ namespace SodaFlow.Async.Tests
             StreamSink<IReadOnlyCollection<string>> cancelMatching = Stream.CreateSink<IReadOnlyCollection<string>>();
             ControlledOperation<string, string> op = new();
             List<string> received = new();
-            IListener l = results.Listen(received.Add);
+            IListener l = results.ListenStrong(received.Add);
 
             AsyncMapStatus<string> status =
                 source.MapAsync(
@@ -337,7 +337,7 @@ namespace SodaFlow.Async.Tests
             StreamSink<Exception> errors = Stream.CreateSink<Exception>();
             ControlledOperation<string, string> op = new();
             List<string> received = new();
-            IListener l = results.Listen(received.Add);
+            IListener l = results.ListenStrong(received.Add);
 
             AsyncMapStatus<string> status =
                 source.MapAsync(
@@ -366,7 +366,7 @@ namespace SodaFlow.Async.Tests
             StreamSink<Exception> errors = Stream.CreateSink<Exception>();
             ControlledOperation<string, string> op = new();
             List<string> received = new();
-            IListener l = results.Listen(received.Add);
+            IListener l = results.ListenStrong(received.Add);
 
             AsyncMapStatus<string> status =
                 source.MapAsync(
@@ -396,7 +396,7 @@ namespace SodaFlow.Async.Tests
             StreamSink<Exception> errors = Stream.CreateSink<Exception>();
             InvalidOperationException thrown = new("boom");
             List<Exception> received = new();
-            IListener l = errors.Listen(received.Add);
+            IListener l = errors.ListenStrong(received.Add);
 
             AsyncMapStatus<string> status =
                 source.MapAsync(

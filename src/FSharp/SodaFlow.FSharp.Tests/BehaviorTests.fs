@@ -36,7 +36,7 @@ type ``Behavior Tests``() =
         let s = sinkS ()
         let c = s |> holdS 0
         let out = List<_>()
-        let l = c |> listenC out.Add
+        let l = c |> listenStrongC out.Add
         s |> sendS 2
         s |> sendS 9
         l |> unlistenL
@@ -46,7 +46,7 @@ type ``Behavior Tests``() =
     member __.``Test Send Null``() =
         let c = sinkC ""
         let out = List<_>()
-        let l = c |> listenC out.Add
+        let l = c |> listenStrongC out.Add
         c |> sendC "0"
         c |> sendC null
         c |> sendC "1"
@@ -58,7 +58,7 @@ type ``Behavior Tests``() =
         let s = sinkS ()
         let c = s |> holdS 0
         let out = List<_>()
-        let l = c |> updatesC |> listenS out.Add
+        let l = c |> updatesC |> listenStrongS out.Add
         s |> sendS 2
         s |> sendS 9
         l |> unlistenL
@@ -69,7 +69,7 @@ type ``Behavior Tests``() =
         let b = sinkB 0
         let trigger = sinkS ()
         let out = List<_>()
-        let l = trigger |> snapshotB b (fun x y -> (string x) + " " + (string y)) |> listenS out.Add
+        let l = trigger |> snapshotB b (fun x y -> (string x) + " " + (string y)) |> listenStrongS out.Add
         trigger |> sendS 100L
         b |> sendB 2
         trigger |> sendS 200L
@@ -80,10 +80,10 @@ type ``Behavior Tests``() =
         CollectionAssert.AreEqual(["100 0";"200 2";"300 1"], out)
         
     [<Test>]
-    member __.``Test Listen``() =
+    member __.``Test ListenStrong``() =
         let c = sinkC 9
         let out = List<_>()
-        let l = c |> listenC out.Add
+        let l = c |> listenStrongC out.Add
         c |> sendC 2
         c |> sendC 7
         l |> unlistenL
@@ -123,7 +123,7 @@ type ``Behavior Tests``() =
     member __.``Test Updates``() =
         let c = sinkC 9
         let out = List<_>()
-        let l = c |> updatesC |> listenS out.Add
+        let l = c |> updatesC |> listenStrongS out.Add
         c |> sendC 2
         c |> sendC 7
         CollectionAssert.AreEqual([2;7], out)
@@ -132,7 +132,7 @@ type ``Behavior Tests``() =
     member __.``Test Values``() =
         let c = sinkC 9
         let out = List<_>()
-        let l = runT (fun () -> c |> valuesC |> listenS out.Add)
+        let l = runT (fun () -> c |> valuesC |> listenStrongS out.Add)
         c |> sendC 2
         c |> sendC 7
         CollectionAssert.AreEqual([9;2;7], out)
@@ -153,15 +153,15 @@ type ``Behavior Tests``() =
                 |> snapshotC listCell (fun f c -> f c)
                 |> holdS Array.empty)
         let l2 = runT (fun () ->
-            listCell |> valuesC |> listenS (fun c -> postT (fun () ->
+            listCell |> valuesC |> listenStrongS (fun c -> postT (fun () ->
                 if c.Length > 0 then
                     let (n1, n2) = (c |> Array.last).BothNumbersCell |> sampleC
                     if n1 = 9 && n2 = 9 then addItemStreamSink |> sendS (0, 0))))
         let yo = Seq.map (fun (o : TestObject) -> o.RemoveStream |> mapToS [|o|]) >> mergeAllS Array.append
-        let l3 = runT (fun () -> listCell |> mapC (Seq.map (fun o -> o.RemoveStream |> mapToS [|o|]) >> mergeAllS Array.append) |> switchS |> listenS (fun o -> postT (fun () -> removeItemsStreamSink |> sendS o)))
-        let l4 = runT (fun () -> listCell |> mapC (fun c -> if c.Length > 0 then ((c |> Array.last).Number1Cell, (c |> Array.last).Number2Cell) |> lift2C (fun x y -> x = 9 && y = 9) |> updatesC else neverS ()) |> switchS |> filterS id |> listenS (fun _ -> postT (fun () -> addItemStreamSink |> sendS (0, 0))))
+        let l3 = runT (fun () -> listCell |> mapC (Seq.map (fun o -> o.RemoveStream |> mapToS [|o|]) >> mergeAllS Array.append) |> switchS |> listenStrongS (fun o -> postT (fun () -> removeItemsStreamSink |> sendS o)))
+        let l4 = runT (fun () -> listCell |> mapC (fun c -> if c.Length > 0 then ((c |> Array.last).Number1Cell, (c |> Array.last).Number2Cell) |> lift2C (fun x y -> x = 9 && y = 9) |> updatesC else neverS ()) |> switchS |> filterS id |> listenStrongS (fun _ -> postT (fun () -> addItemStreamSink |> sendS (0, 0))))
         let out = List<_>()
-        let l = listCell |> mapC (fun c -> c |> Seq.map (fun o -> (o.Number1Cell, o.Number2Cell) |> lift2C (fun x y -> x, y)) |> liftAllC id) |> switchC |> listenC out.Add
+        let l = listCell |> mapC (fun c -> c |> Seq.map (fun o -> (o.Number1Cell, o.Number2Cell) |> lift2C (fun x y -> x, y)) |> liftAllC id) |> switchC |> listenStrongC out.Add
         addItemStreamSink |> sendS (5, 2)
         addItemStreamSink |> sendS (9, 2)
         (listCell |> sampleC |> (fun o -> o.[0])).Remove ()
@@ -211,7 +211,7 @@ type ``Behavior Tests``() =
         let s = sinkS ()
         let cell = loopWithNoCapturesC (fun cell -> s |> snapshotC cell (+) |> holdS 1)
         let out = List<_> ()
-        let l = cell |> listenC out.Add
+        let l = cell |> listenStrongC out.Add
         s |> sendS 3
         s |> sendS 4
         s |> sendS 7
@@ -226,7 +226,7 @@ type ``Behavior Tests``() =
                 let s = sinkS ()
                 let cell = loopWithNoCapturesC (fun cell -> (cell |> updatesC |> filterS (fun v -> v % 2 = 0) |> mapS ((+) 1), s) |> mergeS (fun l r -> r) |> holdS 1)
                 let out = List<_> ()
-                let l = cell |> listenC out.Add
+                let l = cell |> listenStrongC out.Add
                 s |> sendS 3
                 s |> sendS 4
                 s |> sendS 7
@@ -255,7 +255,7 @@ type ``Behavior Tests``() =
                 |> snapshotC cell (<|)
                 |> holdS Array.empty)
         let out = List<_> ()
-        let l = cell |> listenC (out.Add << Array.length)
+        let l = cell |> listenStrongC (out.Add << Array.length)
         let t1 = TestObject (1, 1)
         addStreamSink |> sendS t1
         let t2 = TestObject (2, 2)
@@ -276,7 +276,7 @@ type ``Behavior Tests``() =
     member __.``Test Cell Values``() =
         let c = sinkC 9
         let out = List<_>()
-        let l = runT (fun () -> c |> valuesC |> listenS out.Add)
+        let l = runT (fun () -> c |> valuesC |> listenStrongS out.Add)
         c |> sendC 2
         c |> sendC 7
         l |> unlistenL
@@ -295,9 +295,9 @@ type ``Behavior Tests``() =
         let l =
             runT (fun () ->
                 c |> sendC 5
-                c |> valuesC |> listenS (fun _ ->
+                c |> valuesC |> listenStrongS (fun _ ->
                     if l2.IsNone then
-                        l2 <- Some (c |> valuesC |> listenS out.Add)))
+                        l2 <- Some (c |> valuesC |> listenStrongS out.Add)))
 
         c |> sendC 2
         c |> sendC 7
@@ -309,7 +309,7 @@ type ``Behavior Tests``() =
     member __.``Test Cell Values No Transaction``() =
         let c = sinkC 9
         let out = List<_>()
-        let l = c |> valuesC |> listenS out.Add
+        let l = c |> valuesC |> listenStrongS out.Add
         c |> sendC 2
         c |> sendC 7
         l |> unlistenL
@@ -319,7 +319,7 @@ type ``Behavior Tests``() =
     member __.``Test Value Then Map``() =
         let b = sinkB 9
         let out = List<_>()
-        let l = runT (fun () -> b |> Operational.value |> mapS ((+) 100) |> listenS out.Add)
+        let l = runT (fun () -> b |> Operational.value |> mapS ((+) 100) |> listenStrongS out.Add)
         b |> sendB 2
         b |> sendB 7
         l |> unlistenL
@@ -329,7 +329,7 @@ type ``Behavior Tests``() =
     member __.``Test Cell Values Then Map``() =
         let c = sinkC 9
         let out = List<_>()
-        let l = runT (fun () -> c |> valuesC |> mapS ((+) 100) |> listenS out.Add)
+        let l = runT (fun () -> c |> valuesC |> mapS ((+) 100) |> listenStrongS out.Add)
         c |> sendC 2
         c |> sendC 7
         l |> unlistenL
@@ -340,7 +340,7 @@ type ``Behavior Tests``() =
         let b1 = sinkB 9
         let b2 = sinkB 2
         let out = List<_>()
-        let l = runT (fun () -> (b1 |> Operational.value, b2 |> Operational.value) |> mergeS (+) |> listenS out.Add)
+        let l = runT (fun () -> (b1 |> Operational.value, b2 |> Operational.value) |> mergeS (+) |> listenStrongS out.Add)
         b1 |> sendB 1
         b2 |> sendB 4
         runT (fun () ->
@@ -354,7 +354,7 @@ type ``Behavior Tests``() =
         let c1 = sinkC 9
         let c2 = sinkC 2
         let out = List<_>()
-        let l = runT (fun () -> (c1 |> valuesC, c2 |> valuesC) |> mergeS (+) |> listenS out.Add)
+        let l = runT (fun () -> (c1 |> valuesC, c2 |> valuesC) |> mergeS (+) |> listenStrongS out.Add)
         c1 |> sendC 1
         c2 |> sendC 4
         runT (fun () ->
@@ -367,7 +367,7 @@ type ``Behavior Tests``() =
     member __.``Test Value Then Filter``() =
         let b = sinkB 9
         let out = List<_>()
-        let l = runT (fun () -> b |> Operational.value |> filterS (fun x -> x % 2 <> 0) |> listenS out.Add)
+        let l = runT (fun () -> b |> Operational.value |> filterS (fun x -> x % 2 <> 0) |> listenStrongS out.Add)
         b |> sendB 2
         b |> sendB 7
         l |> unlistenL
@@ -377,7 +377,7 @@ type ``Behavior Tests``() =
     member __.``Test Cell Values Then Filter``() =
         let c = sinkC 9
         let out = List<_>()
-        let l = runT (fun () -> c |> valuesC |> filterS (fun x -> x % 2 <> 0) |> listenS out.Add)
+        let l = runT (fun () -> c |> valuesC |> filterS (fun x -> x % 2 <> 0) |> listenStrongS out.Add)
         c |> sendC 2
         c |> sendC 7
         l |> unlistenL
@@ -387,7 +387,7 @@ type ``Behavior Tests``() =
     member __.``Test Value Then Once``() =
         let b = sinkB 9
         let out = List<_>()
-        let l = runT (fun () -> b |> Operational.value |> onceS |> listenS out.Add)
+        let l = runT (fun () -> b |> Operational.value |> onceS |> listenStrongS out.Add)
         b |> sendB 2
         b |> sendB 7
         l |> unlistenL
@@ -397,31 +397,31 @@ type ``Behavior Tests``() =
     member __.``Test Cell Values Then Once``() =
         let c = sinkC 9
         let out = List<_>()
-        let l = runT (fun () -> c |> valuesC |> onceS |> listenS out.Add)
+        let l = runT (fun () -> c |> valuesC |> onceS |> listenStrongS out.Add)
         c |> sendC 2
         c |> sendC 7
         l |> unlistenL
         CollectionAssert.AreEqual([9], out)
 
     [<Test>]
-    member __.``Test Value Then Late Listen``() =
+    member __.``Test Value Then Late ListenStrong``() =
         let b = sinkB 9
         let out = List<_>()
         let value = b |> Operational.value
         b |> sendB 8
-        let l = value |> listenS out.Add
+        let l = value |> listenStrongS out.Add
         b |> sendB 2
         b |> sendB 7
         l |> unlistenL
         CollectionAssert.AreEqual([2;7], out)
 
     [<Test>]
-    member __.``Test Cell Values Then Late Listen``() =
+    member __.``Test Cell Values Then Late ListenStrong``() =
         let c = sinkC 9
         let out = List<_>()
         let value = c |> valuesC
         c |> sendC 8
-        let l = value |> listenS out.Add
+        let l = value |> listenStrongS out.Add
         c |> sendC 2
         c |> sendC 7
         l |> unlistenL
@@ -431,18 +431,18 @@ type ``Behavior Tests``() =
     member __.``Test Map``() =
         let c = sinkC 6
         let out = List<_>()
-        let l = c |> mapC string |> listenC out.Add
+        let l = c |> mapC string |> listenStrongC out.Add
         c |> sendC 8
         l |> unlistenL
         CollectionAssert.AreEqual(["6";"8"], out)
 
     [<Test>]
-    member __.``Test Map Late Listen``() =
+    member __.``Test Map Late ListenStrong``() =
         let c = sinkC 6
         let out = List<_>()
         let cm = c |> mapC string
         c |> sendC 2
-        let l = cm |> listenC out.Add
+        let l = cm |> listenStrongC out.Add
         c |> sendC 8
         l |> unlistenL
         CollectionAssert.AreEqual(["2";"8"], out)
@@ -451,7 +451,7 @@ type ``Behavior Tests``() =
     member __.``Test Calm``() =
         let c = sinkC 2
         let out = List<_>()
-        let l = c |> calmC |> listenC out.Add
+        let l = c |> calmC |> listenStrongC out.Add
         c |> sendC 2
         c |> sendC 2
         c |> sendC 4
@@ -467,7 +467,7 @@ type ``Behavior Tests``() =
     member __.``Test Calm 2``() =
         let c = sinkC 2
         let out = List<_>()
-        let l = c |> calmC |> listenC out.Add
+        let l = c |> calmC |> listenStrongC out.Add
         c |> sendC 4
         c |> sendC 2
         c |> sendC 4
@@ -482,7 +482,7 @@ type ``Behavior Tests``() =
         let cf = sinkC (fun x -> "1 " + string x)
         let ca = sinkC 5L
         let out = List<_>()
-        let l = ca |> applyC cf |> listenC out.Add
+        let l = ca |> applyC cf |> listenStrongC out.Add
         cf |> sendC (fun x -> "12 " + string x)
         ca |> sendC 6L
         l |> unlistenL
@@ -493,7 +493,7 @@ type ``Behavior Tests``() =
         let c1 = sinkC 1
         let c2 = sinkC 5L
         let out = List<_>()
-        let l = (c1, c2) |> lift2C (fun x y -> string x + " " + string y) |> listenC out.Add
+        let l = (c1, c2) |> lift2C (fun x y -> string x + " " + string y) |> listenStrongC out.Add
         c1 |> sendC 12
         c2 |> sendC 6L
         l |> unlistenL
@@ -506,7 +506,7 @@ type ``Behavior Tests``() =
         let c5 = c1 |> mapC ((*) 5)
         let c = (c3, c5) |> lift2C (fun x y -> string x + " " + string y)
         let out = List<_>()
-        let l = c |> listenC out.Add
+        let l = c |> listenStrongC out.Add
         c1 |> sendC 2
         l |> unlistenL
         CollectionAssert.AreEqual(["3 5";"6 10"], out)
@@ -519,7 +519,7 @@ type ``Behavior Tests``() =
             c2 |> sendC 7
             (c1, c2))
         let out = List<_>()
-        let l = (c1, c2) |> lift2C (+) |> listenC out.Add
+        let l = (c1, c2) |> lift2C (+) |> listenStrongC out.Add
         l |> unlistenL
         CollectionAssert.AreEqual([10], out)
 
@@ -529,7 +529,7 @@ type ``Behavior Tests``() =
         let h = s |> holdS 0
         let pair = s |> snapshotC h (fun a b -> string a + " " + string b)
         let out = List<_>()
-        let l = pair |> listenS out.Add
+        let l = pair |> listenStrongS out.Add
         s |> sendS 2
         s |> sendS 3
         l |> unlistenL
@@ -543,7 +543,7 @@ type ``Behavior Tests``() =
         let csw = ssc |> mapS (fun s -> s.sw) |> filterOptionS |> holdS ca
         let co = csw |> switchC
         let out = List<_>()
-        let l = co |> listenC out.Add
+        let l = co |> listenStrongC out.Add
         ssc |> sendS { a = Option.Some 'B'; b = Option.Some 'b'; sw = Option.None }
         ssc |> sendS { a = Option.Some 'C'; b = Option.Some 'c'; sw = Option.Some cb }
         ssc |> sendS { a = Option.Some 'D'; b = Option.Some 'd'; sw = Option.None }
@@ -563,7 +563,7 @@ type ``Behavior Tests``() =
         let csc = sinkC sc1
         let co = csc |> mapC (fun b -> b.c) |> switchC
         let out = List<_>()
-        let l = co |> listenC out.Add
+        let l = co |> listenStrongC out.Add
         let sc2 = { c = sinkC 3 }
         let sc3 = { c = sinkC 4 }
         let sc4 = { c = sinkC 7 }
@@ -592,7 +592,7 @@ type ``Behavior Tests``() =
         let csw = sss |> mapS (fun s -> s.sw) |> filterOptionS |> holdS sa
         let so = csw |> switchS
         let out = List<_>()
-        let l = so |> listenS out.Add
+        let l = so |> listenStrongS out.Add
         sss |> sendS { a = 'A'; b = 'a'; sw = Option.None }
         sss |> sendS { a = 'B'; b = 'b'; sw = Option.None }
         sss |> sendS { a = 'C'; b = 'c'; sw = Option.Some sb }
@@ -611,7 +611,7 @@ type ``Behavior Tests``() =
         let css = sinkB ss1
         let so = css |> mapB (fun b -> b.s) |> switchSB
         let out = List<_>()
-        let l = so |> listenS out.Add
+        let l = so |> listenStrongS out.Add
         let ss2 = { s = sinkS () }
         let ss3 = { s = sinkS () }
         let ss4 = { s = sinkS () }
@@ -641,7 +641,7 @@ type ``Behavior Tests``() =
         let sum = cellSinks |> liftAllC Seq.sum
         let out = List<_>()
         (
-            use _l = sum |> listenC out.Add
+            use _l = sum |> listenStrongC out.Add
             cellSinks.[4] |> sendC 5
             cellSinks.[5] |> sendC 5
             runT (fun () ->
@@ -672,7 +672,7 @@ type ``Behavior Tests``() =
                 struct (s1, (c, s |> Array.append [|s1|])))
             struct (c, s))
         let out = List<_>()
-        let l = c |> listenC out.Add
+        let l = c |> listenStrongC out.Add
         s.[2] |> sendC 5
         s.[3] |> sendC 5
         runT (fun () ->
@@ -686,7 +686,7 @@ type ``Behavior Tests``() =
         let cellSinks = List.init 500 (fun _ -> sinkC 1)
         let sum = cellSinks |> liftAllC Seq.sum
         let out = List<_>()
-        let l = sum |> listenC out.Add
+        let l = sum |> listenStrongC out.Add
         cellSinks.[4] |> sendC 5
         cellSinks.[5] |> sendC 5
         runT (fun () ->
@@ -702,7 +702,7 @@ type ``Behavior Tests``() =
         let cellSinks = List.init 500 (fun _ -> sinkC 1)
         let sum = cellSinks |> liftAllC Seq.sum
         let out = List<_>()
-        let l = sum |> listenC out.Add
+        let l = sum |> listenStrongC out.Add
         for i = 0 to 99 do
             cellSinks.[i * 5] |> sendC 5
             cellSinks.[i * 5 + 1] |> sendC 5
@@ -721,7 +721,7 @@ type ``Behavior Tests``() =
         let out = List<_>()
         let l = runT (fun () ->
             cellSinks.[4] |> sendC 5
-            let l = sum |> listenC out.Add
+            let l = sum |> listenStrongC out.Add
             cellSinks.[5] |> sendC 5
             l)
         cellSinks.[9] |> sendC 5
@@ -741,7 +741,7 @@ type ``Behavior Tests``() =
             let s = sinkC (c1 :> Cell<_>)
             struct (s, (c, c1, c2, s)))
         let out = List<_>()
-        let l = c |> listenC out.Add
+        let l = c |> listenStrongC out.Add
         c1 |> sendC 2
         c2 |> sendC 12
         runT (fun () ->
@@ -762,7 +762,7 @@ type ``Behavior Tests``() =
             let s = sinkB (b1 :> Stream<_>)
             struct (s, (b, b1, b2, s)))
         let out = List<_>()
-        let l = b |> listenS out.Add
+        let l = b |> listenStrongS out.Add
         b1 |> sendS 2
         b2 |> sendS 12
         runT (fun () ->
@@ -785,7 +785,7 @@ type ``Behavior Tests``() =
             c1 |> sendC 2
             c2 |> sendC 12
             s |> sendB (upcast c2)
-            let l = c |> listenC out.Add
+            let l = c |> listenStrongC out.Add
             (c1, c2, s, l))
         c1 |> sendC 3
         c2 |> sendC 13
@@ -809,7 +809,7 @@ type ``Behavior Tests``() =
             c1 |> sendS 2
             c2 |> sendS 12
             s |> sendB (upcast c2)
-            let l = c |> listenS out.Add
+            let l = c |> listenStrongS out.Add
             (c1, c2, s, l))
         c1 |> sendS 3
         c2 |> sendS 13
@@ -833,7 +833,7 @@ type ``Behavior Tests``() =
             c2 |> sendS 12
             s |> sendB (upcast c2)
             let c = s |> switchSB
-            let l = c |> listenS out.Add
+            let l = c |> listenStrongS out.Add
             (c1, c2, s, l))
         c1 |> sendS 3
         c2 |> sendS 13
@@ -853,9 +853,9 @@ type ``Behavior Tests``() =
         let v = sinkB list1
         let c = v |> mapB ((Seq.map (fun o -> o.Value)) >> liftAllB id) |> switchBB
         let streamOutput = List<_>()
-        let l = c |> Operational.updates |> listenS streamOutput.Add
+        let l = c |> Operational.updates |> listenStrongS streamOutput.Add
         let cellOutput = List<_>()
-        let l2 = runT (fun () -> c |> Operational.value |> listenS cellOutput.Add)
+        let l2 = runT (fun () -> c |> Operational.value |> listenStrongS cellOutput.Add)
         list1.[2].Value |> sendB 12
         list2.[1].Value |> sendB 16
         list1.[4].Value |> sendB 14
@@ -886,9 +886,9 @@ type ``Behavior Tests``() =
         let v = sinkB list1
         let c = v |> mapB ((Seq.map (fun o -> o.Value)) >> liftAllB id) |> mapB id |> switchBB
         let streamOutput = List<_>()
-        let l = c |> Operational.updates |> listenS streamOutput.Add
+        let l = c |> Operational.updates |> listenStrongS streamOutput.Add
         let cellOutput = List<_>()
-        let l2 = runT (fun () -> c |> Operational.value |> listenS cellOutput.Add)
+        let l2 = runT (fun () -> c |> Operational.value |> listenStrongS cellOutput.Add)
         list1.[2].Value |> sendB 12
         list2.[1].Value |> sendB 16
         list1.[4].Value |> sendB 14

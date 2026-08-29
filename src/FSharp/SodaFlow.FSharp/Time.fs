@@ -166,7 +166,7 @@ type TimerSystem<'T when 'T : comparison> (implementation : 'T ITimerSystemImple
         member __.At t =
             let alarm = StreamSink.create ()
             let mutable currentTimer : ITimer option = None
-            let listener = t |> Cell.listen (fun o ->
+            let listener = t |> Cell.listenStrong (fun o ->
                 currentTimer |> Option.iter (fun timer -> timer.Cancel ())
                 currentTimer <-
                     o |>

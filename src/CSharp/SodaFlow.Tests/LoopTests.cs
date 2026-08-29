@@ -25,7 +25,7 @@ namespace SodaFlow.Tests
                 });
 
             List<int> @out = new List<int>();
-            using (result.Listen(@out.Add))
+            using (result.ListenStrong(@out.Add))
             {
                 s.Send(1);
                 s.Send(2);
@@ -149,7 +149,7 @@ namespace SodaFlow.Tests
             Stream<int> result = Stream.Loop<int>().WithoutCaptures(l => s.Snapshot(l.Hold(0), (n, o) => n + o));
 
             List<int> @out = new List<int>();
-            using (result.Listen(@out.Add))
+            using (result.ListenStrong(@out.Add))
             {
                 s.Send(1);
                 s.Send(2);
@@ -168,8 +168,8 @@ namespace SodaFlow.Tests
 
             List<int> @out = new List<int>();
             List<int> out2 = new List<int>();
-            using (result.Listen(@out.Add))
-            using (s2.Listen(out2.Add))
+            using (result.ListenStrong(@out.Add))
+            using (s2.ListenStrong(out2.Add))
 
             {
                 s.Send(1);
@@ -199,7 +199,7 @@ namespace SodaFlow.Tests
                 });
 
             List<int> @out = new List<int>();
-            using (Transaction.Run(() => Operational.Value(result).Listen(@out.Add)))
+            using (Transaction.Run(() => Operational.Value(result).ListenStrong(@out.Add)))
             {
                 s.Send(1);
                 s.Send(2);
@@ -323,7 +323,7 @@ namespace SodaFlow.Tests
             Behavior<int> result = Behavior.Loop<int>().WithoutCaptures(l => Operational.Updates(s).Snapshot(l, (n, o) => n + o).Hold(0).AsBehavior());
 
             List<int> @out = new List<int>();
-            using (Transaction.Run(() => Operational.Value(result).Listen(@out.Add)))
+            using (Transaction.Run(() => Operational.Value(result).ListenStrong(@out.Add)))
             {
                 s.Send(1);
                 s.Send(2);
@@ -342,8 +342,8 @@ namespace SodaFlow.Tests
 
             List<int> @out = new List<int>();
             List<int> out2 = new List<int>();
-            using (Transaction.Run(() => Operational.Value(result).Listen(@out.Add)))
-            using (Transaction.Run(() => Operational.Value(s2).Listen(out2.Add)))
+            using (Transaction.Run(() => Operational.Value(result).ListenStrong(@out.Add)))
+            using (Transaction.Run(() => Operational.Value(s2).ListenStrong(out2.Add)))
 
             {
                 s.Send(1);
@@ -373,7 +373,7 @@ namespace SodaFlow.Tests
                 });
 
             List<int> @out = new List<int>();
-            using (Transaction.Run(() => result.Values().Listen(@out.Add)))
+            using (Transaction.Run(() => result.Values().ListenStrong(@out.Add)))
             {
                 s.Send(1);
                 s.Send(2);
@@ -497,7 +497,7 @@ namespace SodaFlow.Tests
             Cell<int> result = Cell.Loop<int>().WithoutCaptures(l => s.Updates().Snapshot(l, (n, o) => n + o).Hold(0));
 
             List<int> @out = new List<int>();
-            using (Transaction.Run(() => result.Listen(@out.Add)))
+            using (Transaction.Run(() => result.ListenStrong(@out.Add)))
             {
                 s.Send(1);
                 s.Send(2);
@@ -516,8 +516,8 @@ namespace SodaFlow.Tests
 
             List<int> @out = new List<int>();
             List<int> out2 = new List<int>();
-            using (Transaction.Run(() => result.Listen(@out.Add)))
-            using (Transaction.Run(() => s2.Listen(out2.Add)))
+            using (Transaction.Run(() => result.ListenStrong(@out.Add)))
+            using (Transaction.Run(() => s2.ListenStrong(out2.Add)))
 
             {
                 s.Send(1);
@@ -581,7 +581,7 @@ namespace SodaFlow.Tests
 
                     List<int> objectCounts = new List<int>();
                     objectCounts.Add(-1);
-                    cell.Listen(vv => objectCounts.Add(vv.Count));
+                    cell.ListenStrong(vv => objectCounts.Add(vv.Count));
                     objectCounts.Add(-1);
                     cell.Sample()[2].Input1.Send(1);
                     objectCounts.Add(-1);
@@ -624,7 +624,7 @@ namespace SodaFlow.Tests
 
                 List<int> objectCounts = new List<int>();
                 objectCounts.Add(-1);
-                cell.Listen(vv => objectCounts.Add(vv.Count));
+                cell.ListenStrong(vv => objectCounts.Add(vv.Count));
                 objectCounts.Add(-1);
                 cell.Sample()[2].Input1.Send(1);
                 objectCounts.Add(-1);
@@ -664,7 +664,7 @@ namespace SodaFlow.Tests
 
                 List<int> objectCounts = new List<int>();
                 objectCounts.Add(-1);
-                cell.Listen(vv => objectCounts.Add(vv.Count));
+                cell.ListenStrong(vv => objectCounts.Add(vv.Count));
                 objectCounts.Add(-1);
                 cell.Sample()[2].Input1.Send(1);
                 objectCounts.Add(-1);
@@ -703,7 +703,7 @@ namespace SodaFlow.Tests
 
                 List<int> objectCounts = new List<int>();
                 objectCounts.Add(-1);
-                cell.Listen(vv => objectCounts.Add(vv.Count));
+                cell.ListenStrong(vv => objectCounts.Add(vv.Count));
                 objectCounts.Add(-1);
                 cell.Sample()[2].Input1.Send(1);
                 objectCounts.Add(-1);

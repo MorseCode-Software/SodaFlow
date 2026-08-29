@@ -15,7 +15,7 @@ namespace SodaFlow.Async.Tests
             StreamSink<Exception> errors = Stream.CreateSink<Exception>();
             ControlledOperation<string, string> op = new();
             List<string> received = new();
-            IListener l = results.Listen(received.Add);
+            IListener l = results.ListenStrong(received.Add);
 
             AsyncMapStatus<string> status = source.MapAsyncImpl(
                 results: results,
@@ -51,7 +51,7 @@ namespace SodaFlow.Async.Tests
             StreamSink<Exception> errors = Stream.CreateSink<Exception>();
             ControlledOperation<string, string> op = new();
             List<string> received = new();
-            IListener l = results.Listen(received.Add);
+            IListener l = results.ListenStrong(received.Add);
 
             AsyncMapStatus<string> status = source.MapAsyncImpl(
                 results: results,
@@ -93,7 +93,7 @@ namespace SodaFlow.Async.Tests
             StreamSink<Exception> errors = Stream.CreateSink<Exception>();
             ControlledOperation<string, string> op = new();
             List<string> received = new();
-            IListener l = results.Listen(received.Add);
+            IListener l = results.ListenStrong(received.Add);
 
             // Group is the character before the hyphen: "g1-a"/"g1-b" share a group, "g2-a" doesn't.
             string GetGroup(string v) => v.Split('-')[0];
@@ -135,7 +135,7 @@ namespace SodaFlow.Async.Tests
             StreamSink<Exception> errors = Stream.CreateSink<Exception>();
             ControlledOperation<string, string> op = new();
             List<string> received = new();
-            IListener l = results.Listen(received.Add);
+            IListener l = results.ListenStrong(received.Add);
 
             AsyncMapStatus<string> status = source.MapAsyncImpl(
                 results: results,
@@ -175,14 +175,14 @@ namespace SodaFlow.Async.Tests
             StreamSink<Exception> errors1 = Stream.CreateSink<Exception>();
             ControlledOperation<string, string> op1 = new();
             List<string> received1 = new();
-            IListener l1 = results1.Listen(received1.Add);
+            IListener l1 = results1.ListenStrong(received1.Add);
 
             StreamSink<string> source2 = Stream.CreateSink<string>();
             StreamSink<string> results2 = Stream.CreateSink<string>();
             StreamSink<Exception> errors2 = Stream.CreateSink<Exception>();
             ControlledOperation<string, string> op2 = new();
             List<string> received2 = new();
-            IListener l2 = results2.Listen(received2.Add);
+            IListener l2 = results2.ListenStrong(received2.Add);
 
             AsyncMapStatus<string> status1 = source1.MapAsyncImpl(
                 results: results1,

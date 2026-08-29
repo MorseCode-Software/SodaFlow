@@ -36,7 +36,7 @@ namespace SodaFlow.Tests.Internal
                             return MaybeInternal.None;
                         });
 
-                    return Calm(s, init).Listen(v => { });
+                    return Calm(s, init).ListenStrong(v => { });
                 });
 
             Assert.AreEqual(1, forcings, "the initial value should be forced once, in the sample phase");
@@ -64,7 +64,7 @@ namespace SodaFlow.Tests.Internal
                             return MaybeInternal.None;
                         });
 
-                    return Calm(s, init).Listen(@out.Add);
+                    return Calm(s, init).ListenStrong(@out.Add);
                 });
 
             s.Send(1);
@@ -94,7 +94,7 @@ namespace SodaFlow.Tests.Internal
 
             IListener l = TransactionInternal.Apply(
                 (trans, _) => Calm(s, new Lazy<MaybeInternal<int>>(() => MaybeInternal.Some(7)))
-                    .Listen(@out.Add));
+                    .ListenStrong(@out.Add));
 
             s.Send(7);
             s.Send(8);
@@ -116,7 +116,7 @@ namespace SodaFlow.Tests.Internal
 
             IListener l = TransactionInternal.Apply(
                 (trans, _) => Calm(s, new Lazy<MaybeInternal<int>>(() => MaybeInternal.None))
-                    .Listen(@out.Add));
+                    .ListenStrong(@out.Add));
 
             s.Send(1);
             s.Send(1);
@@ -149,8 +149,8 @@ namespace SodaFlow.Tests.Internal
             Stream<int> calmed = TransactionInternal.Apply(
                 (trans, _) => Calm(s, new Lazy<MaybeInternal<int>>(() => MaybeInternal.None)));
 
-            IListener good = calmed.Listen(@out.Add);
-            IListener boom = calmed.Listen(v => throw new InvalidOperationException("abort"));
+            IListener good = calmed.ListenStrong(@out.Add);
+            IListener boom = calmed.ListenStrong(v => throw new InvalidOperationException("abort"));
 
             Assert.Throws<InvalidOperationException>(() => s.Send(1));
 
@@ -180,7 +180,7 @@ namespace SodaFlow.Tests.Internal
 
             IListener l = TransactionInternal.Apply(
                 (trans, _) => Calm(merged, new Lazy<MaybeInternal<int>>(() => MaybeInternal.None))
-                    .Listen(@out.Add));
+                    .ListenStrong(@out.Add));
 
             Transaction.RunVoid(
                 () =>

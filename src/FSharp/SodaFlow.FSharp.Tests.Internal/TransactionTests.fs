@@ -51,7 +51,7 @@ type ``Transaction Tests``() =
                     re.WaitOne () |> ignore
                     let sink2 = sinkS ()
                     let _ = (
-                        use _l = sink2 |> listenS (fun _ -> cts.Cancel ())
+                        use _l = sink2 |> listenStrongS (fun _ -> cts.Cancel ())
                         sink2 |> sendS ()
                     )
                     try

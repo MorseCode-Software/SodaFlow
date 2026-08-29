@@ -19,7 +19,7 @@ the code exactly. Pick a namespace from the sidebar, or start with the types you
 
 `SodaFlow.Core` declares the types you hold — `Stream<T>`, `Cell<T>`, `Behavior<T>` and
 friends. `SodaFlow` layers the **C#-facing surface** on top of them, and almost all of it is
-extension methods: `Map`, `Hold`, `Snapshot`, `Filter`, `Merge`, `Listen` and the rest live in
+extension methods: `Map`, `Hold`, `Snapshot`, `Filter`, `Merge`, `ListenStrong` and the rest live in
 @SodaFlow.StreamExtensionMethods, @SodaFlow.CellExtensionMethods and
 @SodaFlow.BehaviorExtensionMethods rather than on the types themselves.
 

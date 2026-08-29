@@ -24,7 +24,7 @@ namespace SodaFlow.Tests
                     Stream<DateTime> a2 = ts.At(Cell.Constant(Maybe.Some(now.AddMilliseconds(100))));
                     Stream<DateTime> a3 = ts.At(Cell.Constant(Maybe.Some(now.AddMilliseconds(100))));
                     Stream<DateTime> m = a1.OrElse(a2).OrElse(a3);
-                    m.Listen(v => { lock (l) { l.Add(v); } });
+                    m.ListenStrong(v => { lock (l) { l.Add(v); } });
                 });
 
             // Wait for the alarms rather than assuming a fixed window is long enough. The alarms

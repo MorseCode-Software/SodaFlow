@@ -14,7 +14,9 @@ namespace SodaFlow
     {
         /// <summary>
         ///     Send a value, modifying the value of the behavior.  This method may not be called from inside handlers registered with
-        ///     <see cref="StreamExtensionMethods.Listen{T}(Stream{T}, Action{T})" /> or <see cref="CellExtensionMethods.Listen{T}(Cell{T}, Action{T})" />.
+        ///     <see cref="StreamExtensionMethods.Listen{T}(Stream{T}, Action{T})" />,
+        ///     <see cref="StreamExtensionMethods.ListenStrong{T}(Stream{T}, Action{T})" /> or either of their cell
+        ///     equivalents.
         ///     An exception will be thrown, because sinks are for interfacing I/O to FRP only.  They are not meant to be used to
         ///     define new primitives.
         /// </summary>

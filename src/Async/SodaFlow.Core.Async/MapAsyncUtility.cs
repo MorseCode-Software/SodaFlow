@@ -1023,7 +1023,7 @@ namespace SodaFlow.Async
         private readonly IStateManager<TStrategyInput, TStrategyResult> stateManager;
 
         // Carries edits (add/promote/remove) to the tracked-items list. Always sent from either
-        // Map's transform (not a registered Listen() callback — see Attach) or from well outside
+        // Map's transform (not a registered listener callback — see Attach) or from well outside
         // any SodaFlow callback (background-thread continuations) — send() is legal in both cases.
         private readonly StreamSink<Mutation> mutations =
             StreamInternal.CreateSinkImpl<Mutation>(CombineMutations);
@@ -1045,8 +1045,8 @@ namespace SodaFlow.Async
         // own thread-safe check via Interlocked rather than relying on SodaFlow's serialization.
         private int disposeState;
 
-        // These hold the strong reference each ListenWeak subscription needs to stay attached
-        // (ListenWeak only keeps a weak reference on the source-stream side — see Attach for
+        // These hold the strong reference each Listen subscription needs to stay attached
+        // (Listen only keeps a weak reference on the source-stream side — see Attach for
         // why). As long as this execution manager itself is reachable, these fields keep the
         // subscriptions alive; once nothing references it, these go with it and the
         // subscriptions lapse on their own. Dispose additionally Unlistens them explicitly, for
@@ -1098,7 +1098,7 @@ namespace SodaFlow.Async
                 {
                     LoopedCell<Dictionary<Guid, Entry>> entryByIdCellLoop = new();
 
-                    // Map runs as ordinary transaction-processing code, not a registered Listen()
+                    // Map runs as ordinary transaction-processing code, not a registered listener
                     // callback, so it isn't subject to SodaFlow's "no send() inside a callback"
                     // restriction — and it fires in the SAME transaction as the source. Every admitted
                     // value is tracked from this moment on: it's added as Queued, then immediately
@@ -1195,18 +1195,18 @@ namespace SodaFlow.Async
             // Snapshot pairs each cancellation-trigger firing with `tracked`'s value from the
             // start of that same transaction, so cancelling and admitting a value in the exact
             // same transaction can't race each other. Cancel() itself is a plain BCL call, not
-            // a SodaFlow send(), so it's unrestricted inside a Listen() callback. This reaches
+            // a SodaFlow send(), so it's unrestricted inside a listener callback. This reaches
             // queued items exactly the same way as running ones, since every tracked entry —
             // regardless of status — already has its own CancellationTokenSource from the
             // moment it was admitted.
             //
-            // ListenWeak, not Listen: cancelAll/cancelMatching are supplied by the caller and
+            // Listen, not ListenStrong: cancelAll/cancelMatching are supplied by the caller and
             // may well outlive any single MapAsync call (e.g. a "Cancel" stream shared across a
-            // whole view). A strong Listen would mean the source stream holds this pipeline
+            // whole view). ListenStrong would mean the source stream holds this pipeline
             // (this execution manager, the result/error sinks, everything reachable from
             // `tracked`) alive forever, whether or not the caller still references
             // IsRunning/Items — Dispose would become the ONLY way to ever release it. With
-            // ListenWeak, the subscription only survives as long as something else keeps this
+            // Listen, the subscription only survives as long as something else keeps this
             // execution manager reachable (normally the caller holding onto IsRunning/Items);
             // once nothing does, the whole thing becomes collectible together, and this callback
             // simply stops firing. This is a safety net for a forgotten Dispose, not a
@@ -1218,7 +1218,7 @@ namespace SodaFlow.Async
                 this.cancelAllListener =
                     this.cancelAll
                         .SnapshotImpl(c: trackedCell, f: (_, entries) => entries)
-                        .ListenWeakImpl(entries =>
+                        .ListenImpl(entries =>
                         {
                             foreach (Entry e in entries)
                             {
@@ -1232,7 +1232,7 @@ namespace SodaFlow.Async
                 this.cancelMatchingListener =
                     this.cancelMatching
                         .SnapshotImpl(c: trackedCell, f: (toCancel, entries) => (ToCancel: toCancel, Entries: entries))
-                        .ListenWeakImpl(pair =>
+                        .ListenImpl(pair =>
                         {
                             if (pair.ToCancel.Count == 0)
                             {
@@ -1256,15 +1256,15 @@ namespace SodaFlow.Async
             }
 
             // Always wired, regardless of whether the caller passed their own cancelAll — this
-            // is what a Dispose() with cancelOnDispose: true fires into. ListenWeak here too, for
+            // is what a Dispose() with cancelOnDispose: true fires into. Listen here too, for
             // uniformity, though it's less load-bearing: disposeCancelTrigger is our own field,
             // so this pair was always part of the same reference graph as this execution manager
-            // either way, and .NET's GC collects unreachable cycles regardless of Listen vs
-            // ListenWeak.
+            // either way, and .NET's GC collects unreachable cycles regardless of ListenStrong vs
+            // Listen.
             this.disposeCancelListener =
                 this.disposeCancelTrigger
                     .SnapshotImpl(c: trackedCell, f: (_, entries) => entries)
-                    .ListenWeakImpl(entries =>
+                    .ListenImpl(entries =>
                     {
                         foreach (Entry e in entries)
                         {

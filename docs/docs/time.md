@@ -35,7 +35,7 @@ SecondsTimerSystem timers = new SecondsTimerSystem(ex => Log.Error(ex));
 Behavior<double> now = timers.Time;
 ```
 
-Being a behavior, it has no `Listen` and no `Updates` — you cannot subscribe to "every moment",
+Being a behavior, it has no `ListenStrong` and no `Updates` — you cannot subscribe to "every moment",
 which is exactly right, since there is no such discrete sequence. You use it by sampling it
 when something else happens, and `Snapshot` has behavior overloads for precisely this:
 
@@ -68,7 +68,7 @@ SecondsTimerSystem timers = new SecondsTimerSystem(ex => Log.Error(ex));
 double target = timers.Time.Sample() + 5.0;
 CellSink<Maybe<double>> alarm = Cell.CreateSink(Maybe.Some(target));
 
-IListener l = timers.At(alarm).Listen(t => Console.WriteLine($"fired at {t}"));
+IListener l = timers.At(alarm).ListenStrong(t => Console.WriteLine($"fired at {t}"));
 
 // Cancel it before it fires.
 alarm.Send(Maybe.None);
@@ -86,7 +86,7 @@ let timers = SecondsTimerSystem (fun ex -> Log.Error ex) :> ITimerSystem<float>
 let target = (timers.Time |> sampleB) + 5.0
 let alarm = sinkC (Some target)
 
-let l = timers.At alarm |> listenS (printfn "fired at %f")
+let l = timers.At alarm |> listenStrongS (printfn "fired at %f")
 
 // Cancel it before it fires.
 alarm |> sendC None

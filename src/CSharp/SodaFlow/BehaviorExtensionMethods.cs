@@ -35,7 +35,7 @@ namespace SodaFlow
         ///     <para>
         ///         It can be best to use this method inside an explicit transaction (using
         ///         <see cref="Transaction.Run{T}(Func{T})" /> or <see cref="Transaction.RunVoid(Action)" />).
-        ///         For example, a b.Sample() inside an explicit transaction along with a b.Updates().Listen(...) will capture the
+        ///         For example, a b.Sample() inside an explicit transaction along with a b.Updates().ListenStrong(...) will capture the
         ///         current value and any updates without risk of missing any in between.
         ///     </para>
         /// </remarks>

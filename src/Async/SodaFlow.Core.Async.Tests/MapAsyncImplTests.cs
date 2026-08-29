@@ -17,7 +17,7 @@ namespace SodaFlow.Async.Tests
             StreamSink<string> results = Stream.CreateSink<string>();
             StreamSink<Exception> errors = Stream.CreateSink<Exception>();
             List<string> received = new();
-            IListener l = results.Listen(received.Add);
+            IListener l = results.ListenStrong(received.Add);
 
             AsyncMapStatus<string> status = source.MapAsyncImpl(
                 results: results,
@@ -44,7 +44,7 @@ namespace SodaFlow.Async.Tests
             StreamSink<Exception> errors = Stream.CreateSink<Exception>();
             InvalidOperationException thrown = new("boom");
             List<Exception> received = new();
-            IListener l = errors.Listen(received.Add);
+            IListener l = errors.ListenStrong(received.Add);
 
             AsyncMapStatus<string> status = source.MapAsyncImpl(
                 results: results,
@@ -71,7 +71,7 @@ namespace SodaFlow.Async.Tests
             StreamSink<Exception> errors = Stream.CreateSink<Exception>();
             RecordingStrategy<int, int> strategy = new();
             List<string> received = new();
-            IListener l = results.Listen(received.Add);
+            IListener l = results.ListenStrong(received.Add);
 
             // TStrategyInput/TStrategyResult (int, a length) are unrelated by inheritance to
             // TInput/TResult (string) — exactly the case only this fully general overload permits.
@@ -105,7 +105,7 @@ namespace SodaFlow.Async.Tests
             StreamSink<Exception> errors = Stream.CreateSink<Exception>();
             RejectNegativeStrategy strategy = new();
             List<int> received = new();
-            IListener l = results.Listen(received.Add);
+            IListener l = results.ListenStrong(received.Add);
 
             AsyncMapStatus<int> status = source.MapAsyncImpl(
                 results: results,
@@ -157,7 +157,7 @@ namespace SodaFlow.Async.Tests
             StreamSink<int> results = Stream.CreateSink<int>();
             StreamSink<Exception> errors = Stream.CreateSink<Exception>();
             List<int> received = new();
-            IListener l = results.Listen(received.Add);
+            IListener l = results.ListenStrong(received.Add);
 
             AsyncMapStatus<int> status = source.MapAsyncImpl(
                 results: results,
@@ -186,7 +186,7 @@ namespace SodaFlow.Async.Tests
             StreamSink<string> results = Stream.CreateSink<string>();
             StreamSink<Exception> errors = Stream.CreateSink<Exception>();
             List<string> received = new();
-            IListener l = results.Listen(received.Add);
+            IListener l = results.ListenStrong(received.Add);
 
             AsyncMapStatus<string> status = source.MapAsyncImpl(
                 results: results,
@@ -213,7 +213,7 @@ namespace SodaFlow.Async.Tests
             StreamSink<Exception> errors = Stream.CreateSink<Exception>();
             ControlledOperation<string, string> op = new();
             List<string> received = new();
-            IListener l = results.Listen(received.Add);
+            IListener l = results.ListenStrong(received.Add);
 
             AsyncMapStatus<string> status = source.MapAsyncImpl(
                 results: results,
@@ -243,7 +243,7 @@ namespace SodaFlow.Async.Tests
             StreamSink<Exception> errors = Stream.CreateSink<Exception>();
             ControlledOperation<string, string> op = new();
             List<string> received = new();
-            IListener l = results.Listen(received.Add);
+            IListener l = results.ListenStrong(received.Add);
 
             AsyncMapStatus<string> status = source.MapAsyncImpl(
                 results: results,

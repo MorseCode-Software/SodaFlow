@@ -45,7 +45,7 @@ module Issue151 =
                     if neu >= t && alt < t then Some neu else None) |> filterOptionS
                 struct ((inputByAdded, inputBySatisfaction) |> mergeS max, pool))
             let submissions = List<_>()
-            let l = input |> listenS submissions.Add
+            let l = input |> listenStrongS submissions.Add
             addPoolSink |> sendS 10
             l |> unlistenL
             Assert.AreEqual (1, submissions.Count)
@@ -136,7 +136,7 @@ module Issue138 =
                     |> holdS (List.init 10 (fun _ -> TestObject.create ())))
             let objectCounts = List<_>()
             objectCounts.Add -1
-            let l = cell |> listenC (objectCounts.Add << List.length)
+            let l = cell |> listenStrongC (objectCounts.Add << List.length)
             objectCounts.Add -1
             (cell |> sampleC).[2].Input1 |> sendS 1
             objectCounts.Add -1
@@ -179,7 +179,7 @@ module Issue138 =
                     |> holdS (List.init 10 (fun _ -> TestObject.create ())))
             let objectCounts = List<_>()
             objectCounts.Add -1
-            let l = cell |> listenC (objectCounts.Add << List.length)
+            let l = cell |> listenStrongC (objectCounts.Add << List.length)
             objectCounts.Add -1
             (cell |> sampleC).[2].Input1 |> sendS 1
             objectCounts.Add -1
@@ -220,7 +220,7 @@ module Issue138 =
                     |> holdS (List.init 10 (fun _ -> TestObject.create ())))
             let objectCounts = List<_>()
             objectCounts.Add -1
-            let l = cell |> listenC (objectCounts.Add << List.length)
+            let l = cell |> listenStrongC (objectCounts.Add << List.length)
             objectCounts.Add -1
             (cell |> sampleC).[2].Input1 |> sendS 1
             objectCounts.Add -1

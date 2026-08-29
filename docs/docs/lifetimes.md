@@ -10,25 +10,38 @@ that never die leak, also silently. Neither throws.
 
 ## Strong and weak
 
-`Listen` returns an `IStrongListener`. It keeps the graph it observes alive, and it implements
+`ListenStrong` returns an `IStrongListener`. It keeps the graph it observes alive, and it implements
 `IDisposable`. Hold it for as long as you need to be able to *end* the subscription, then
 `Unlisten()` or `Dispose()` it — they do the same thing. Dropping the handle does not end the
-subscription; see [below](#dropping-the-listener-listen-returns).
+subscription; see [below](#dropping-the-listener-listenstrong-returns).
 
-`ListenWeak` returns an `IWeakListener`. It does **not** keep the graph alive. Use it when
+`Listen` returns an `IWeakListener`. It does **not** keep the graph alive. Use it when
 something else already owns the lifetime and you do not want the subscription extending it.
+
+> **The short name is the weak one.** `Listen` does not root what it observes; `ListenStrong`
+> does. If you are used to an API where the unqualified name is the strong one, this is the
+> opposite way round, and nothing in the name will remind you.
+>
+> **Upgrading:** these two methods were previously named `Listen` (strong) and `ListenWeak`
+> (weak). The names swapped, the behaviour did not. Existing code that calls `Listen` and
+> assigns the result to an `IStrongListener` stops compiling and is easy to find. Code that
+> discards the result, or holds it in a `var` or an `IListener`, keeps compiling and silently
+> becomes a weak subscription — which fails only later, as listeners that quietly stop firing.
+> Rename every pre-existing `Listen` call to `ListenStrong` first, then choose which of them
+> genuinely want to be weak. In F# the same applies to `Stream.listen`/`Cell.listen` and their
+> `listenS`/`listenC` aliases.
 
 `ListenOnce` unsubscribes itself after the first firing. `ListenOnceAsync` gives you the same
 thing as a `Task<T>`, with an optional `CancellationToken`.
 
-## Dropping the listener `Listen` returns
+## Dropping the listener `ListenStrong` returns
 
 ```csharp
 // Keeps firing — but nothing can stop it any more.
-s.Map(x => x * 2).Listen(Console.WriteLine);
+s.Map(x => x * 2).ListenStrong(Console.WriteLine);
 ```
 
-`Listen` roots the listener in the stream's keep-alive set, so discarding the return value
+`ListenStrong` roots the listener in the stream's keep-alive set, so discarding the return value
 does **not** stop delivery. The handler keeps running until the stream itself is disposed or
 collected. What you have lost is the handle: there is no longer any way to `Unlisten()`, so
 the subscription overstays rather than dying quietly.
@@ -39,13 +52,13 @@ tests — a listener that silently stopped firing would be the worse failure of 
 Keep the listener whenever you need to be able to stop it:
 
 ```csharp
-this.listener = s.Map(x => x * 2).Listen(Console.WriteLine);
+this.listener = s.Map(x => x * 2).ListenStrong(Console.WriteLine);
 ```
 
 In a scoped context, `using` is the clearer form and is what the test suite uses throughout:
 
 ```csharp
-using (result.Listen(@out.Add))
+using (result.ListenStrong(@out.Add))
 {
     s.Send(1);
     s.Send(2);
@@ -54,19 +67,19 @@ using (result.Listen(@out.Add))
 
 ## The mistake that does fail silently
 
-`ListenWeak` is the one where dropping the reference stops delivery:
+`Listen` is the one where dropping the reference stops delivery:
 
 ```csharp
 // Wrong: nothing holds the weak listener, so it can be collected and stop firing.
-s.Map(x => x * 2).ListenWeak(Console.WriteLine);
+s.Map(x => x * 2).Listen(Console.WriteLine);
 ```
 
 This compiles, runs, and works — until a garbage collection happens, after which it silently
 stops. The node holds your handler through a `WeakReference`, and the returned
-`IWeakListener` is the only thing keeping it alive — `ListenWeak` deliberately does not root
+`IWeakListener` is the only thing keeping it alive — `Listen` deliberately does not root
 that listener anywhere. Drop it and the handler becomes collectable.
 
-Use `ListenWeak` only when something else owns the lifetime, and hold that reference for
+Use `Listen` only when something else owns the lifetime, and hold that reference for
 exactly as long as you want the subscription to live.
 
 ## When the framework gives you no teardown hook
@@ -75,7 +88,7 @@ Some UI frameworks discard a view without ever calling anything you can hook. A 
 `UserControl` is the usual case: it goes out of use and is simply dropped, with no `Dispose`,
 and `Unloaded` is unreliable enough that you cannot hang teardown off it.
 
-Here `Listen` is not merely awkward, it is the bug. It roots the listener in the source
+Here `ListenStrong` is not merely awkward, it is the bug. It roots the listener in the source
 stream's keep-alive set, so a view model that outlives the control ends up holding it:
 
 ```
@@ -84,7 +97,7 @@ ViewModel → stream → keep-alive set → listener → handler → captured `t
 
 Nothing ever breaks that chain, and the control leaks for the lifetime of the view model.
 
-`ListenWeak`, with the listener held in a field, inverts it:
+`Listen`, with the listener held in a field, inverts it:
 
 ```csharp
 public partial class RateView : UserControl
@@ -95,7 +108,7 @@ public partial class RateView : UserControl
     public RateView(RateViewModel vm)
     {
         this.InitializeComponent();
-        this.listener = vm.Rate.ListenWeak(r => this.RateText.Text = r.ToString());
+        this.listener = vm.Rate.Listen(r => this.RateText.Text = r.ToString());
     }
 }
 ```
@@ -117,14 +130,14 @@ handles lifetime correctly.
 
 ## Do not `Send` from inside a handler
 
-The XML documentation on `Listen` is explicit: neither `StreamSinkExtensionMethods.Send` nor
+The XML documentation on `ListenStrong` is explicit: neither `StreamSinkExtensionMethods.Send` nor
 `CellSinkExtensionMethods.Send` may be called from a handler, and doing so **throws** — the
-reason given is that `Listen` is not meant to be used to build new primitives.
+reason given is that `ListenStrong` is not meant to be used to build new primitives.
 
 When you need a handler to feed another sink, defer it past the transaction boundary:
 
 ```csharp
-IListener l = s.Listen(v => Transaction.Post(() => other.Send(v)));
+IListener l = s.ListenStrong(v => Transaction.Post(() => other.Send(v)));
 ```
 
 Handlers also carry no thread guarantee — the docs say to make no assumptions about which
@@ -137,14 +150,14 @@ library can build its own primitives. `Operational`, `LoopedStream`, `TimerSyste
 `Switch` implementations all use them; nothing in the test suite uses them the way an
 application would.
 
-For ordinary subscriptions you do not need any of them. `Listen` already ties the listener's
+For ordinary subscriptions you do not need any of them. `ListenStrong` already ties the listener's
 lifetime to the stream's: it roots the listener in the stream's keep-alive set, and the
 listener holds the stream in turn, so the two form a cycle that the collector reclaims together
 once you drop your handle. A listener never permanently roots a stream by itself.
 
 What `AttachListener` adds is the ability to bind *some other* listener to *a chosen* stream's
 lifetime, and to have it actively unlistened — disconnecting its node from upstream — when that
-stream is collected, rather than merely becoming unreachable. The XML documentation on `Listen`
+stream is collected, rather than merely becoming unreachable. The XML documentation on `ListenStrong`
 points here for that case.
 
 Internally that is how a combinator keeps its own wiring alive. [`Switch`](switch.md) subscribes

@@ -21,7 +21,7 @@ type ``Timer Tests``() =
             let a2 = ts.At(Cell.constant(Some(now.AddMilliseconds(100.0))))
             let a3 = ts.At(Cell.constant(Some(now.AddMilliseconds(100.0))))
             let m = Stream.orElseAll [a1;a2;a3]
-            m |> Stream.listen (fun v -> lock l (fun () -> l.Add v)) |> ignore)
+            m |> Stream.listenStrong (fun v -> lock l (fun () -> l.Add v)) |> ignore)
 
         // Wait for the alarms rather than assuming a fixed window is long enough. The alarms are
         // 99ms and 100ms out, so a flat 200ms sleep left about 100ms of slack, and a loaded CI

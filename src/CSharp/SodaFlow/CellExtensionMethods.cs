@@ -33,13 +33,13 @@ namespace SodaFlow
         ///         <see cref="StreamExtensionMethods.Merge{T}(Stream{T}, Stream{T}, Func{T, T, T})" />
         ///     </para>
         ///     <para>
-        ///         It should generally be avoided in favor of <see cref="Listen{T}(Cell{T}, Action{T})" />
+        ///         It should generally be avoided in favor of <see cref="ListenStrong{T}(Cell{T}, Action{T})" />
         ///         so updates aren't missed, but in many circumstances it makes sense.
         ///     </para>
         ///     <para>
         ///         It can be best to use this method inside an explicit transaction (using
         ///         <see cref="Transaction.Run{T}(Func{T})" /> or <see cref="Transaction.RunVoid(Action)" />).
-        ///         For example, a c.Sample() inside an explicit transaction along with a c.Updates().Listen(...) will capture the
+        ///         For example, a c.Sample() inside an explicit transaction along with a c.Updates().ListenStrong(...) will capture the
         ///         current value and any updates without risk of missing any in between.
         ///     </para>
         /// </remarks>
@@ -97,7 +97,8 @@ namespace SodaFlow
         public static Behavior<T> AsBehavior<T>(this Cell<T> c) => c.BehaviorImpl;
 
         /// <summary>
-        ///     Listen for updates to the value of this cell.  The returned <see cref="IListener" /> may be
+        ///     Listen for updates to the value of this cell, keeping the cell alive for as long as the returned
+        ///     listener is reachable.  The returned <see cref="IListener" /> may be
         ///     disposed to stop listening.  This is an OPERATIONAL mechanism for interfacing between
         ///     the world of I/O and FRP.
         /// </summary>
@@ -116,12 +117,17 @@ namespace SodaFlow
         ///         If the <see cref="IListener" /> is not disposed, it will continue to listen until this cell is either
         ///         disposed or garbage collected.
         ///     </para>
+        ///     <para>
+        ///         This roots the cell: the graph behind it cannot be collected while the returned listener is
+        ///         reachable.  Use <see cref="Listen{T}(Cell{T}, Action{T})" /> where that is not wanted.
+        ///     </para>
         /// </remarks>
         [MethodImpl(MethodImplOptions.NoInlining)]
-        public static IStrongListener Listen<T>(this Cell<T> c, Action<T> handler) => c.ListenImpl(handler);
+        public static IStrongListener ListenStrong<T>(this Cell<T> c, Action<T> handler) => c.ListenStrongImpl(handler);
 
         /// <summary>
-        ///     Listen for updates to the value of this cell.  The returned <see cref="IListener" /> may be
+        ///     Listen for updates to the value of this cell, without keeping the cell alive.  The returned
+        ///     <see cref="IListener" /> may be
         ///     disposed to stop listening, or it will automatically stop listening when it is garbage collected.
         ///     This is an OPERATIONAL mechanism for interfacing between the world of I/O and FRP.
         /// </summary>
@@ -140,9 +146,14 @@ namespace SodaFlow
         ///         If the <see cref="IListener" /> is not disposed, it will continue to listen until this cell is either
         ///         disposed or garbage collected or the listener itself is garbage collected.
         ///     </para>
+        ///     <para>
+        ///         This does not root the cell.  Nothing here keeps the observed graph alive, so listening stops
+        ///         of its own accord once the cell is collected - hold the returned listener where that matters,
+        ///         or use <see cref="ListenStrong{T}(Cell{T}, Action{T})" /> to keep the cell alive instead.
+        ///     </para>
         /// </remarks>
         [MethodImpl(MethodImplOptions.NoInlining)]
-        public static IWeakListener ListenWeak<T>(this Cell<T> c, Action<T> handler) => c.ListenWeakImpl(handler);
+        public static IWeakListener Listen<T>(this Cell<T> c, Action<T> handler) => c.ListenImpl(handler);
 
         /// <summary>
         ///     Transform the cell values according to the supplied function, so the returned

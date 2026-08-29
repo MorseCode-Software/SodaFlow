@@ -16,7 +16,7 @@ type ``Transaction Tests``() =
             let sink = sinkS ()
             sink |> sendS 4
             let s = sink |> mapS ((*) 2)
-            let l = s |> listenS out.Add
+            let l = s |> listenStrongS out.Add
             struct (sink, l))
         sink |> sendS 5
         sink |> sendS 6
@@ -37,7 +37,7 @@ type ``Transaction Tests``() =
                         Thread.Sleep 500
                         sink |> sendS 4
                         let s = sink |> mapS ((*) 2)
-                        let l2 = s |> listenS out.Add
+                        let l2 = s |> listenStrongS out.Add
                         Thread.Sleep 500
                         l2)
                 } |> Async.StartChild
@@ -64,7 +64,7 @@ type ``Transaction Tests``() =
                         Thread.Sleep 500
                         sink |> sendS 4
                         let s = runT (fun () -> sink |> mapS ((*) 2))
-                        let l2 = s |> listenS out.Add
+                        let l2 = s |> listenStrongS out.Add
                         Thread.Sleep 500
                         l2)
                 } |> Async.StartChild

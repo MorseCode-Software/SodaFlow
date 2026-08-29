@@ -72,7 +72,7 @@ namespace SodaFlow.Tests.Internal
                 re.WaitOne();
 
                 StreamSink<Unit> sink2 = Stream.CreateSink<Unit>();
-                sink2.Listen(_ => cts.Cancel());
+                sink2.ListenStrong(_ => cts.Cancel());
                 sink2.Send(Unit.Value);
 
                 try

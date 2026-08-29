@@ -89,14 +89,14 @@ spend that firing:
 // Wrong: obtaining Values opened an implicit transaction and the initial
 // firing happened inside it, before anything was listening.
 Stream<int> v = c.Values();
-IListener l = v.Listen(Console.WriteLine);   // current value already missed
+IListener l = v.ListenStrong(Console.WriteLine);   // current value already missed
 ```
 
 Obtain it and subscribe in the same transaction, and the firing has somewhere to go:
 
 ```csharp
 // Right.
-IListener l = Transaction.Run(() => c.Values().Listen(Console.WriteLine));
+IListener l = Transaction.Run(() => c.Values().ListenStrong(Console.WriteLine));
 ```
 
 The failure is silent — you still receive every later change, so the stream looks like it works
@@ -121,7 +121,7 @@ Loops are the other case that requires an explicit transaction: one must be crea
 inside a single transaction, which is exactly what the functional form (`Stream.Loop`,
 `Cell.Loop`, `Behavior.Loop`) handles for you.
 
-If all you need is "the current value, then every change", `Listen` on a cell already delivers
+If all you need is "the current value, then every change", `ListenStrong` on a cell already delivers
 the current value first and needs none of this.
 
 ### Reading a consistent snapshot
@@ -135,12 +135,12 @@ can straddle an update and give you an inconsistent picture; inside one, they ca
 immediately if there is no current transaction. Use it for side effects that must not run
 inside the propagation: touching UI, writing to disk, sending into another sink.
 
-Sending into a sink from inside a listener is the classic mistake. The XML docs on `Listen` say
+Sending into a sink from inside a listener is the classic mistake. The XML docs on `ListenStrong` say
 it directly: neither `StreamSinkExtensionMethods.Send` nor `CellSinkExtensionMethods.Send` may
 be called from inside a handler. If you need that, `Post` it.
 
 ```csharp
-IListener l = s.Listen(v => Transaction.Post(() => other.Send(v)));
+IListener l = s.ListenStrong(v => Transaction.Post(() => other.Send(v)));
 ```
 
 `Transaction.OnStart(action)` runs an action whenever any transaction begins. Its stated

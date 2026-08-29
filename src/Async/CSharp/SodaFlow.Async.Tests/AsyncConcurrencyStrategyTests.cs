@@ -18,7 +18,7 @@ namespace SodaFlow.Async.Tests
             StreamSink<Exception> errors = Stream.CreateSink<Exception>();
             ControlledOperation<string, string> op = new();
             List<string> received = new();
-            IListener l = results.Listen(received.Add);
+            IListener l = results.ListenStrong(received.Add);
 
             AsyncMapStatus<string> status =
                 source.MapAsync(
@@ -51,7 +51,7 @@ namespace SodaFlow.Async.Tests
             StreamSink<Exception> errors = Stream.CreateSink<Exception>();
             ControlledOperation<string, string> op = new();
             List<string> received = new();
-            IListener l = results.Listen(received.Add);
+            IListener l = results.ListenStrong(received.Add);
 
             AsyncMapStatus<string> status =
                 source.MapAsync(
@@ -85,7 +85,7 @@ namespace SodaFlow.Async.Tests
             StreamSink<Exception> errors = Stream.CreateSink<Exception>();
             ControlledOperation<string, string> op = new();
             List<string> received = new();
-            IListener l = results.Listen(received.Add);
+            IListener l = results.ListenStrong(received.Add);
 
             AsyncConcurrencyStrategyBase<string, Unit> strategy =
                 AsyncConcurrencyStrategy.QueuePerGroup<string>().Create(v => v.Split('-')[0]);
@@ -125,7 +125,7 @@ namespace SodaFlow.Async.Tests
             StreamSink<Exception> errors = Stream.CreateSink<Exception>();
             ControlledOperation<string, string> op = new();
             List<string> received = new();
-            IListener l = results.Listen(received.Add);
+            IListener l = results.ListenStrong(received.Add);
 
             AsyncMapStatus<string> status =
                 source.MapAsync(
@@ -170,7 +170,7 @@ namespace SodaFlow.Async.Tests
             StreamSink<Unit> results = Stream.CreateSink<Unit>();
             StreamSink<Exception> errors = Stream.CreateSink<Exception>();
             List<Unit> received = new();
-            IListener l = results.Listen(received.Add);
+            IListener l = results.ListenStrong(received.Add);
 
             CountingStrategy strategy = new();
 
