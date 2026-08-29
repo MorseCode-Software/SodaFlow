@@ -30,7 +30,7 @@ namespace SodaFlow.Bindable.ObjectModel
     ///     <see cref="IOneWayToSourceBindableValue{T}" />, so a helper that only needs to push a value
     ///     into the graph can accept either.
     /// </summary>
-    public interface IWritableBindableValue<T> : IDisposable
+    public interface IWritableBindableValue<T> : IBindable
     {
         /// <summary>Gets the current value, or writes a new one into the FRP graph.</summary>
         T Value { get; set; }
