@@ -91,10 +91,10 @@ initial firing has nowhere to happen, and you silently get `Updates` behaviour i
 
 ```csharp
 // Correct: the initial firing has a transaction to happen in.
-IListener l = Transaction.Run(() => c.Values().ListenStrong(Console.WriteLine));
+IListener l = Transaction.Run(() => c.Values().Listen(Console.WriteLine));
 ```
 
-If all you want is "current value, then changes", `ListenStrong` on the cell already does exactly
+If all you want is "current value, then changes", `Listen` on the cell already does exactly
 that and needs none of the ceremony.
 
 ## Behavior operations
@@ -109,7 +109,7 @@ that and needs none of the ceremony.
 | `b.Apply(bf)` | `applyB bf b` | Apply a function held in a behavior. |
 | `bb.SwitchB()` | `switchBB bb` | Flatten `Behavior<Behavior<T>>`. |
 
-Note what is **missing**: a behavior has no `ListenStrong`, no `Updates`, and no `Values`. That is
+Note what is **missing**: a behavior has no `Listen`, no `Updates`, and no `Values`. That is
 not an oversight. A behavior is defined at every point in time, so "the moments at which it
 changes" is not a question the model is willing to answer — answering it would let you detect
 steps that are meant to be invisible.

@@ -130,14 +130,14 @@ handles lifetime correctly.
 
 ## Do not `Send` from inside a handler
 
-The XML documentation on `ListenStrong` is explicit: neither `StreamSinkExtensionMethods.Send` nor
-`CellSinkExtensionMethods.Send` may be called from a handler, and doing so **throws** — the
-reason given is that `ListenStrong` is not meant to be used to build new primitives.
+The XML documentation on both listen methods is explicit: neither `StreamSinkExtensionMethods.Send`
+nor `CellSinkExtensionMethods.Send` may be called from a handler, and doing so **throws** — the
+reason given is that they are not meant to be used to build new primitives.
 
 When you need a handler to feed another sink, defer it past the transaction boundary:
 
 ```csharp
-IListener l = s.ListenStrong(v => Transaction.Post(() => other.Send(v)));
+IListener l = s.Listen(v => Transaction.Post(() => other.Send(v)));
 ```
 
 Handlers also carry no thread guarantee — the docs say to make no assumptions about which
@@ -150,14 +150,16 @@ library can build its own primitives. `Operational`, `LoopedStream`, `TimerSyste
 `Switch` implementations all use them; nothing in the test suite uses them the way an
 application would.
 
-For ordinary subscriptions you do not need any of them. `ListenStrong` already ties the listener's
-lifetime to the stream's: it roots the listener in the stream's keep-alive set, and the
-listener holds the stream in turn, so the two form a cycle that the collector reclaims together
-once you drop your handle. A listener never permanently roots a stream by itself.
+For ordinary subscriptions you do not need any of them. Both listen methods already tie the
+listener's lifetime to the stream's, from opposite ends. `Listen` gives you a handle that holds
+the stream, so the subscription lives exactly as long as you keep the handle. `ListenStrong`
+additionally roots the listener in the stream's keep-alive set, and the listener holds the stream
+in turn, so the two form a cycle that the collector reclaims together once you drop your handle.
+Neither permanently roots a stream by itself.
 
 What `AttachListener` adds is the ability to bind *some other* listener to *a chosen* stream's
 lifetime, and to have it actively unlistened — disconnecting its node from upstream — when that
-stream is collected, rather than merely becoming unreachable. The XML documentation on `ListenStrong`
+stream is collected, rather than merely becoming unreachable. The XML documentation on `Listen`
 points here for that case.
 
 Internally that is how a combinator keeps its own wiring alive. [`Switch`](switch.md) subscribes

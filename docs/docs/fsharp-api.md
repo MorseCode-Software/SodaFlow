@@ -31,11 +31,11 @@ Two spellings exist for every operation:
 ```fsharp
 // Qualified module functions.
 let c = s |> Stream.hold 0
-let l = c |> Cell.listenStrong (printfn "%d")
+let l = c |> Cell.listen (printfn "%d")
 
 // Suffixed aliases, from the [<AutoOpen>] module in Shorthand.fs.
 let c = s |> holdS 0
-let l = c |> listenStrongC (printfn "%d")
+let l = c |> listenC (printfn "%d")
 ```
 
 The suffix names the type operated on — `S` stream, `C` cell, `B` behavior, `L` listener,

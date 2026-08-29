@@ -19,7 +19,7 @@ you push into from imperative code with `Send`.
 ## Cell
 
 A `Cell<T>` holds a value that changes at discrete points in time. Unlike a stream it always
-has a current value, so `ListenStrong` on a cell fires immediately with that value and then again on
+has a current value, so `Listen` on a cell fires immediately with that value and then again on
 every change. Cells are what you bind UI to.
 
 Create one with `Cell.Constant(value)`, `Cell.CreateSink(initial)`, or — most often — by
@@ -35,7 +35,7 @@ A `Behavior<T>` is a value defined at *every* point in time, not just at discret
 and behaviors are two views of the same underlying idea: `Cell` is the discrete, stepwise one
 and `Behavior` the continuous one.
 
-The API surfaces this asymmetry deliberately. A cell has `Updates`, `Values`, and `ListenStrong`; a
+The API surfaces this asymmetry deliberately. A cell has `Updates`, `Values`, and `Listen`; a
 behavior has none of them. You cannot ask a behavior when it changed, because a continuous
 value does not have a well-defined set of change moments — and being able to detect them would
 break the model's guarantees. `c.AsBehavior()` converts freely in the direction that discards

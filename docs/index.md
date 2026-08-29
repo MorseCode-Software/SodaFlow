@@ -12,7 +12,7 @@ and no intermediate states that never logically existed.
 ```csharp
 StreamSink<int> s = Stream.CreateSink<int>();
 Cell<int> c = s.Hold(0);
-IListener l = c.ListenStrong(Console.WriteLine);
+IListener l = c.Listen(Console.WriteLine);
 
 s.Send(2);   // prints 2
 s.Send(9);   // prints 9

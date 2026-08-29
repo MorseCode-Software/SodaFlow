@@ -52,6 +52,10 @@ s |> sendS 3   // 6
 
 ---
 
+These samples use `ListenStrong` rather than `Listen` for one reason: `using` and `use` need
+`IDisposable`, and only `IStrongListener` implements it. Everywhere the handle is simply held in
+a variable, [`Listen`](lifetimes.md) is the one to reach for.
+
 Read the C# version inside out: `l` is the placeholder for the very stream being defined,
 `l.Hold(0)` turns it into a cell of the running total starting at zero, and each firing of `s`
 snapshots that cell and adds to it. The result *is* `l`, which is what `WithoutCaptures`
