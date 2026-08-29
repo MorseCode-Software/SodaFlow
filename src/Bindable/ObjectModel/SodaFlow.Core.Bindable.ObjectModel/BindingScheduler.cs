@@ -62,9 +62,20 @@ namespace SodaFlow.Bindable.ObjectModel
     }
 
     /// <summary>
-    ///     Runs everything inline. Intended for unit tests, where notifications should be observable
-    ///     synchronously and there is no UI thread to marshal to.
+    ///     Runs everything on the calling thread. Intended for unit tests, where notifications should
+    ///     be observable synchronously and there is no UI thread to marshal to.
     /// </summary>
+    /// <remarks>
+    ///     Inline, but not unconditionally. Running inline while a transaction is in flight is exactly
+    ///     what <see cref="IBindingScheduler.Post" /> forbids, and it is not a theoretical concern here:
+    ///     the source-changed handlers are invoked from a listener callback, so an unconditionally
+    ///     inline scheduler would raise <c>PropertyChanged</c> from inside the transaction and let a
+    ///     handler re-enter the graph. A dispatcher-backed scheduler cannot do that; a test scheduler
+    ///     that could would exercise an ordering the real one never produces.
+    ///
+    ///     Deferring to the end of the current transaction costs a test nothing, because the queued
+    ///     action still runs before the <c>Send</c> that produced it returns.
+    /// </remarks>
     public sealed class ImmediateBindingScheduler : IBindingScheduler
     {
         public static readonly ImmediateBindingScheduler Instance = new();
@@ -82,7 +93,9 @@ namespace SodaFlow.Bindable.ObjectModel
                 throw new ArgumentNullException(nameof(action));
             }
 
-            action();
+            // Immediately when no transaction is open - the common case in a test - and at the close
+            // of the current one otherwise. Never from inside a callback, either way.
+            TransactionInternal.PostImpl(action);
         }
     }
 
