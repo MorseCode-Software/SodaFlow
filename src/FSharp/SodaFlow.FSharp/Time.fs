@@ -4,7 +4,6 @@ open System
 open System.Linq
 open System.Collections.Generic
 open System.Threading
-open System.Threading.Tasks
 
 type ITimer =
     inherit IDisposable
@@ -79,8 +78,14 @@ type private WaitOrFire =
 type TimerSystemImplementationBase<'T when 'T : comparison>() as this =
     let lockObject = obj ()
     let timers = SortedSet<SimpleTimer<'T>> ()
-    let cancellationTokenSourceLock = obj ()
-    let mutable cancellationTokenSource = None
+
+    // Signalled whenever the timer set changes, to wake the timer thread so it can recompute how
+    // long to wait. An AutoResetEvent rather than a CancellationTokenSource: a signal raised while
+    // the thread is between computing its wait and entering it is latched, so the next wait returns
+    // immediately instead of sleeping through the change. The previous design allocated a fresh
+    // CancellationTokenSource on every iteration and never disposed one.
+    let timersChanged = new AutoResetEvent (false)
+
     let mutable nextSeq = 0
 
     let rec timeUntilNext now =
@@ -108,34 +113,44 @@ type TimerSystemImplementationBase<'T when 'T : comparison>() as this =
     abstract member Now : 'T
 
     interface 'T ITimerSystemImplementation with
+        // A dedicated thread rather than the thread pool.
+        //
+        // Nothing else fires alarms: the Transaction.onStart hook calls RunTimersTo, but only when
+        // some transaction happens to start, so an application that is merely waiting depends
+        // entirely on this loop. Running it with Async.Start made that dependency a liveness
+        // hazard - every iteration needed a pool thread, once to start and again for each
+        // Task.Delay continuation, and a cancellation only queued that continuation. With the pool
+        // saturated the loop simply never ran, and alarms were never fired at all.
+        //
+        // A background thread cannot be starved by pool work, and WaitOne serves as both the timed
+        // wait and the wake. This mirrors the C# implementation, where the same bug was diagnosed
+        // by saturating the pool: eight of eight runs delivered zero events after waiting two
+        // seconds for alarms a hundred milliseconds out, against zero of eight unstarved.
         member this.Start handleException =
-            let rec loop () =
-                async {
-                    try
-                        let waitTime = timeUntilNext this.Now
-                        if waitTime > TimeSpan.Zero then
+            let timerThread =
+                Thread (
+                    ThreadStart (fun () ->
+                        while true do
                             try
-                                try
-                                    let cts = new CancellationTokenSource ()
-                                    lock cancellationTokenSourceLock (fun () -> cancellationTokenSource <- Some cts)
-                                    do! Task.Delay(waitTime, cts.Token) |> Async.AwaitTask
-                                with
-                                    | :? OperationCanceledException -> ()
-                            finally
-                                lock cancellationTokenSourceLock (fun () -> cancellationTokenSource <- None)
-                    with
-                        | e -> handleException e
-                    return! loop ()
-                }
+                                let waitTime = timeUntilNext this.Now
+                                if waitTime > TimeSpan.Zero then
+                                    timersChanged.WaitOne waitTime |> ignore
+                            with
+                                | e -> handleException e),
+                    Name = "SodaFlow Timer Thread",
+                    IsBackground = true)
 
-            async { do! loop () } |> Async.Start
+            timerThread.Start ()
 
         member this.SetTimer time callback =
             let timer = new SimpleTimer<_> (this, time, callback)
-            lock lockObject (fun () ->
-                timers.Add(timer) |> ignore
-                lock cancellationTokenSourceLock (fun () ->
-                    cancellationTokenSource |> Option.iter (fun cts -> cts.Cancel ())))
+            lock lockObject (fun () -> timers.Add(timer) |> ignore)
+
+            // Signalled outside the lock. Cancelling the old token source was done while holding
+            // it, and cancellation runs its callbacks synchronously, so the waiting loop could
+            // resume inline on this thread and re-enter timeUntilNext while the caller still held
+            // the lock.
+            timersChanged.Set () |> ignore
             upcast timer
 
         member __.RunTimersTo now = timeUntilNext now |> ignore
@@ -153,6 +168,11 @@ and SimpleTimer<'T when 'T : comparison> (implementation : 'T TimerSystemImpleme
         if timeComparison <> 0 then timeComparison
         else compare x.Seq y.Seq
     
+    // Deliberately does not signal the timer thread. Waking it early to recompute a deadline that
+    // has only got later gains nothing, and with an AutoResetEvent it costs: the signal here
+    // releases the waiter, and the Set in whichever SetTimer replaces this timer latches for the
+    // next wait, so one replacement drives two recompute cycles where a stale wait replaced once
+    // would have done.
     let cancel () = lock implementation.LockObject (fun () -> implementation.Timers.Remove(this) |> ignore)
 
     member internal __.Seq = seq
