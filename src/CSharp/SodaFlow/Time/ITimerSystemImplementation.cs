@@ -8,6 +8,18 @@ namespace SodaFlow.Time
     /// <typeparam name="T">The underlying type of the timer's time values.</typeparam>
     public interface ITimerSystemImplementation<T>
     {
+        /// <summary>
+        ///     Starts whatever machinery this implementation uses to notice that a timer has come due.
+        /// </summary>
+        /// <param name="handleException">
+        ///     Called with any exception raised while waiting for or firing timers. It is expected to
+        ///     absorb the exception: the implementation is not required to keep running if this throws.
+        /// </param>
+        /// <remarks>
+        ///     Called once, from the <see cref="TimerSystem{T}" /> constructor. An implementation which
+        ///     waits should do so on a thread it owns rather than on the thread pool, since alarms
+        ///     stop being delivered entirely if that wait cannot be scheduled.
+        /// </remarks>
         void Start(Action<Exception> handleException);
 
         /// <summary>

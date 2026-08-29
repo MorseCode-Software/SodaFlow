@@ -2,6 +2,9 @@
 
 namespace SodaFlow
 {
+    /// <summary>
+    ///     The operations available on a <see cref="Cleanup" />.
+    /// </summary>
     public static class CleanupExtensionMethods
     {
         /// <summary>

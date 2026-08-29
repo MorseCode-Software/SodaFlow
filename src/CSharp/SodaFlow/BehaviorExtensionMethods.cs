@@ -4,6 +4,17 @@ using System.Runtime.CompilerServices;
 
 namespace SodaFlow
 {
+    /// <summary>
+    ///     The operations available on a <see cref="Behavior{T}" />.
+    /// </summary>
+    /// <remarks>
+    ///     A behavior is a continuously varying value. These are extension methods rather than instance
+    ///     members so that the combinators live outside the small assembly the FRP engine is built in;
+    ///     the effect at the call site is the same.
+    ///
+    ///     See <see cref="CellExtensionMethods" /> for the corresponding operations on cells, which are
+    ///     behaviors that also expose the stream of their changes.
+    /// </remarks>
     public static class BehaviorExtensionMethods
     {
         /// <summary>

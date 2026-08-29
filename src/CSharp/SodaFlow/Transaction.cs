@@ -72,7 +72,7 @@ namespace SodaFlow
         /// <summary>
         ///     Add an action that will be executed whenever a transaction is started.
         /// </summary>
-        /// <param name="action"></param>
+        /// <param name="action">The action to run at the start of every transaction.</param>
         /// <remarks>
         ///     The action may start transactions itself, which will not cause the hooks to execute recursively.
         ///     The main use case of this is for the implementation of a time/alarm system.

@@ -2,6 +2,13 @@
 
 namespace SodaFlow.Functional
 {
+    /// <summary>
+    ///     The operations available on a <see cref="Lazy{T}" />.
+    /// </summary>
+    /// <remarks>
+    ///     Everything here is itself lazy: the result is a <see cref="Lazy{T}" /> which forces its
+    ///     inputs only when the result is forced.
+    /// </remarks>
     public static class LazyExtensionMethods
     {
         /// <summary>

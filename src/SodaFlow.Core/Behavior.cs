@@ -81,6 +81,16 @@ namespace SodaFlow
 
         internal IKeepListenersAlive KeepListenersAlive => this.stream.KeepListenersAlive;
 
+        /// <summary>
+        ///     Gets or sets the value this behavior reports when sampled outside a transaction.
+        /// </summary>
+        /// <value>The behavior's current value.</value>
+        /// <remarks>
+        ///     Setting this clears <see cref="UsingInitialValue" />, because a behavior that has been
+        ///     given a value is no longer relying on the one it was constructed with. Derived types
+        ///     should assign through this property rather than the backing field so that flag stays
+        ///     accurate.
+        /// </remarks>
         protected T ValueProperty
         {
             get => this.valueProperty;
@@ -91,11 +101,28 @@ namespace SodaFlow
             }
         }
 
+        /// <summary>
+        ///     Records that this behavior no longer depends on the value it was constructed with.
+        /// </summary>
+        /// <remarks>
+        ///     Called when <see cref="ValueProperty" /> is assigned. Derived types override this to
+        ///     release anything they were holding only to produce that initial value; see
+        ///     <see cref="LoopedBehavior{T}" />, which drops its deferred initial value here so a closed
+        ///     loop does not keep it alive.
+        /// </remarks>
         protected virtual void NotUsingInitialValue()
         {
             this.UsingInitialValue = false;
         }
 
+        /// <summary>
+        ///     Gets a value indicating whether this behavior is still reporting the value it was
+        ///     constructed with, rather than one it has since been given.
+        /// </summary>
+        /// <value>
+        ///     <see langword="true" /> until <see cref="ValueProperty" /> is assigned, and
+        ///     <see langword="false" /> afterwards.
+        /// </value>
         protected bool UsingInitialValue { get; private set; }
 
         internal T SampleImpl() => TransactionInternal.Apply((trans, _) => this.SampleNoTransaction());

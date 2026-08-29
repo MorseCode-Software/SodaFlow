@@ -19,11 +19,19 @@
         where NuGet pack expects it when populating each lib folder, and where the DocFX site under
         docs/ picks it up when generating API reference.
 
-        The flag is on, but this assembly currently carries no /// comments, so the XML it emits is
-        empty. The DocFX site therefore generates API reference for the C# packages only - see
-        docs/docs/fsharp-api.md for why, and what it would take to change that.
+        The DocFX site still generates API reference for the C# packages only: DocFX reads compiled
+        metadata, which renders an F# assembly in its compiled shape rather than its F# one. See
+        docs/docs/fsharp-api.md.
     -->
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
+
+    <!--
+        F# has no equivalent of CS1591, so nothing reports a member that carries no documentation at
+        all. FS3390 is the next best thing and is off by default: it checks the comments that do
+        exist, catching a <param> naming an argument that does not exist and a documented function
+        with an argument left undocumented. Both are easy to introduce when a signature changes.
+    -->
+    <OtherFlags>$(OtherFlags) --warnon:3390</OtherFlags>
   </PropertyGroup>
 
   <ItemGroup>

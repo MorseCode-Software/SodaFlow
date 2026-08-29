@@ -7,6 +7,17 @@ using SodaFlow.Functional;
 
 namespace SodaFlow
 {
+    /// <summary>
+    ///     The operations available on a <see cref="Stream{T}" />.
+    /// </summary>
+    /// <remarks>
+    ///     A stream is a sequence of discrete firings. These are extension methods rather than instance
+    ///     members so that the combinators live outside the small assembly the FRP engine is built in;
+    ///     the effect at the call site is the same.
+    ///
+    ///     Build the graph inside a <see cref="Transaction.Run{T}(System.Func{T})" /> so that no first
+    ///     firing is missed.
+    /// </remarks>
     public static class StreamExtensionMethods
     {
         /// <summary>
@@ -85,7 +96,10 @@ namespace SodaFlow
         /// <typeparam name="T">The type of the stream.</typeparam>
         /// <param name="s">The stream.</param>
         /// <param name="handler">The handler to execute for values fired by this stream.</param>
-        /// <returns></returns>
+        /// <returns>
+        ///     An <see cref="IStrongListener" /> which may be disposed to stop listening before that first event
+        ///     arrives, if it is no longer wanted.
+        /// </returns>
         [MethodImpl(MethodImplOptions.NoInlining)]
         public static IStrongListener ListenOnce<T>(this Stream<T> s, Action<T> handler) => s.ListenOnceImpl(handler);
 
@@ -473,9 +487,7 @@ namespace SodaFlow
         ///     Apart from this the function must be pure.
         /// </param>
         /// <returns>
-        ///     A stream which is the combination of event values from this stream and stream
-        ///     <param name="s2" />
-        ///     .
+        ///     A stream which is the combination of event values from this stream and stream <paramref name="s2" />.
         /// </returns>
         /// <remarks>
         ///     If the events are simultaneous (that is, one event from this stream and one from <paramref name="s2" />
@@ -662,9 +674,7 @@ namespace SodaFlow
         ///     from this the function must be pure.
         /// </param>
         /// <returns>
-        ///     A stream which is the combination of event values from the collection of streams
-        ///     <param name="s" />
-        ///     .
+        ///     A stream which is the combination of event values from the collection of streams <paramref name="s" />.
         /// </returns>
         /// <remarks>
         ///     If the events are simultaneous (that is, one event from more than one stream

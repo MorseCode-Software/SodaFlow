@@ -3,6 +3,21 @@ using SodaFlow.Functional;
 
 namespace SodaFlow.Time
 {
+    /// <summary>
+    ///     A source of time, and of streams which fire at times drawn from it.
+    /// </summary>
+    /// <typeparam name="T">
+    ///     The type used to express a point in time, such as <see cref="DateTime" /> for
+    ///     <see cref="SystemClockTimerSystem" /> or <c>double</c> for
+    ///     <see cref="SecondsTimerSystem" />.
+    /// </typeparam>
+    /// <remarks>
+    ///     <see cref="TimerSystem{T}" /> is the implementation that ships;
+    ///     <see cref="SystemClockTimerSystem" /> and <see cref="SecondsTimerSystem" /> are ready-made
+    ///     ones over the system clock and over seconds elapsed. Alarms from <see cref="At" /> are
+    ///     delivered in their own transaction, so nothing is required of the application to receive
+    ///     them beyond listening.
+    /// </remarks>
     public interface ITimerSystem<T>
         where T : IComparable<T>
     {

@@ -12,6 +12,13 @@ namespace SodaFlow.Time
     /// </remarks>
     public interface ITimer : IDisposable
     {
+        /// <summary>
+        ///     Cancels the timer, so that it will not fire.
+        /// </summary>
+        /// <remarks>
+        ///     Has no effect if the timer has already fired or already been cancelled, so it is safe to
+        ///     call more than once. Disposing the timer does the same thing.
+        /// </remarks>
         void Cancel();
     }
 }

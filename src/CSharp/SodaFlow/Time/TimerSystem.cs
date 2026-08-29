@@ -4,6 +4,21 @@ using SodaFlow.Functional;
 
 namespace SodaFlow.Time
 {
+    /// <summary>
+    ///     A timer system built on an <see cref="ITimerSystemImplementation{T}" />, which supplies the
+    ///     clock and the waiting; this class supplies the FRP.
+    /// </summary>
+    /// <typeparam name="T">The type used to express a point in time.</typeparam>
+    /// <remarks>
+    ///     Alarms reach the graph through a <c>Transaction.OnStart</c> hook installed by the
+    ///     constructor. When a transaction starts, the hook reads the current time, runs any timer that
+    ///     has come due, and sends the resulting alarms; events which came due at the same time are
+    ///     delivered together, and events at different times in separate transactions.
+    ///
+    ///     Use <see cref="SystemClockTimerSystem" /> or <see cref="SecondsTimerSystem" /> unless you
+    ///     need a clock of your own, in which case derive from
+    ///     <see cref="TimerSystemImplementationBase{T}" /> and pass it here.
+    /// </remarks>
     public class TimerSystem<T> : ITimerSystem<T>
         where T : IComparable<T>
     {
@@ -11,6 +26,19 @@ namespace SodaFlow.Time
 
         private readonly Queue<Event> eventQueue = new Queue<Event>();
 
+        /// <summary>
+        ///     Initializes a new instance of the <see cref="TimerSystem{T}" /> class over the given
+        ///     implementation, starting it immediately.
+        /// </summary>
+        /// <param name="implementation">The clock and waiting mechanism to build on.</param>
+        /// <param name="handleException">
+        ///     Called with any exception raised while waiting for or firing timers.
+        /// </param>
+        /// <remarks>
+        ///     Constructing a timer system starts its implementation and installs a transaction hook
+        ///     which lives for the lifetime of the process, so these are meant to be created once rather
+        ///     than per unit of work.
+        /// </remarks>
         public TimerSystem(ITimerSystemImplementation<T> implementation, Action<Exception> handleException)
         {
             this.implementation = implementation;

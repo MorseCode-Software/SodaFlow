@@ -7,6 +7,13 @@ namespace SodaFlow.Time
     /// </summary>
     public sealed class SecondsTimerSystem : TimerSystem<double>
     {
+        /// <summary>
+        ///     Initializes a new instance of the <see cref="SecondsTimerSystem" /> class, measuring time
+        ///     as the number of seconds elapsed since this timer system was created.
+        /// </summary>
+        /// <param name="handleException">
+        ///     Called with any exception raised while waiting for or firing timers.
+        /// </param>
         public SecondsTimerSystem(Action<Exception> handleException)
             : base(new Implementation(), handleException)
         {

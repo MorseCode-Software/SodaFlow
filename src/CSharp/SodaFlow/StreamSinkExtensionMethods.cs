@@ -3,6 +3,13 @@ using System.Runtime.CompilerServices;
 
 namespace SodaFlow
 {
+    /// <summary>
+    ///     The operations available on a <see cref="StreamSink{T}" />.
+    /// </summary>
+    /// <remarks>
+    ///     A stream sink is how an event from outside the FRP graph is pushed into it. These operations
+    ///     are for interfacing I/O to FRP only, and throw if called from inside a listener handler.
+    /// </remarks>
     public static class StreamSinkExtensionMethods
     {
         /// <summary>

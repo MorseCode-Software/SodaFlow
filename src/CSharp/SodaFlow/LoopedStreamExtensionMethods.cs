@@ -1,5 +1,8 @@
 ﻿namespace SodaFlow
 {
+    /// <summary>
+    ///     The operations available on a <see cref="LoopedStream{T}" />.
+    /// </summary>
     public static class LoopedStreamExtensionMethods
     {
         /// <summary>
