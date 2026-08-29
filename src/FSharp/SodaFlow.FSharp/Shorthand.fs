@@ -213,14 +213,14 @@ let inline loopWithNoCapturesS f = Stream.loopWithNoCaptures f
 /// <param name="stream">The stream to listen to.</param>
 /// <returns>A weak listener, which may be stopped with <c>WeakListener.unlisten</c>.</returns>
 /// <remarks>
-/// Shorthand for <c>Stream.listenWeak</c>; see it for the full contract.
+/// Shorthand for <c>Stream.listen</c>; see it for the full contract.
 ///
 /// The listener stops on its own once the stream is collected, which makes this the right
 /// choice where there is no clean moment to stop listening: hold the returned handle as a field
 /// of the object doing the listening, and the two go away together. Where the stream should be
-/// kept alive for as long as something is listening, use <c>listen</c>.
+/// kept alive for as long as something is listening, use <c>listenStrong</c>.
 /// </remarks>
-let inline listenWeakS handler stream = Stream.listenWeak handler stream
+let inline listenS handler stream = Stream.listen handler stream
 /// <summary>
 /// Listens for firings, keeping the stream alive while the listener lives.
 /// </summary>
@@ -230,16 +230,16 @@ let inline listenWeakS handler stream = Stream.listenWeak handler stream
 /// A strong listener, which may be stopped with <c>StrongListener.unlisten</c> or disposed.
 /// </returns>
 /// <remarks>
-/// Shorthand for <c>Stream.listen</c>; see it for the full contract.
+/// Shorthand for <c>Stream.listenStrong</c>; see it for the full contract.
 ///
 /// The listener roots the stream, so the graph behind it stays alive for as long as the
 /// returned handle is reachable. Keep the handle and stop it when finished, or use
-/// <c>listenWeak</c> where there is no good moment to do that.
+/// <c>listen</c> where there is no good moment to do that.
 ///
 /// The handler runs under the transaction lock, so it should return promptly; hand
 /// long-running or blocking work to another thread.
 /// </remarks>
-let inline listenS handler stream = Stream.listen handler stream
+let inline listenStrongS handler stream = Stream.listenStrong handler stream
 /// <summary>
 /// Ties a listener to the lifetime of a stream, so the listener lives while the stream does.
 /// </summary>
@@ -1446,16 +1446,16 @@ let inline asBehaviorC cell = Cell.asBehavior cell
 /// <param name="cell">The cell to listen to.</param>
 /// <returns>A weak listener, which may be stopped with <c>WeakListener.unlisten</c>.</returns>
 /// <remarks>
-/// Shorthand for <c>Cell.listenWeak</c>; see it for the full contract.
+/// Shorthand for <c>Cell.listen</c>; see it for the full contract.
 ///
 /// The listener stops on its own once the cell is collected, which makes this the right choice
 /// where there is no clean moment to stop listening: hold the returned handle as a field of the
 /// object doing the listening, and the two go away together. Where the cell should be kept
-/// alive for as long as something is listening, use <c>listen</c>.
+/// alive for as long as something is listening, use <c>listenStrong</c>.
 ///
 /// Fires the current value immediately, in the transaction this is called in.
 /// </remarks>
-let inline listenWeakC handler cell = Cell.listenWeak handler cell
+let inline listenC handler cell = Cell.listen handler cell
 /// <summary>
 /// Listens for changes, keeping the cell alive while the listener lives.
 /// </summary>
@@ -1465,16 +1465,16 @@ let inline listenWeakC handler cell = Cell.listenWeak handler cell
 /// A strong listener, which may be stopped with <c>StrongListener.unlisten</c> or disposed.
 /// </returns>
 /// <remarks>
-/// Shorthand for <c>Cell.listen</c>; see it for the full contract.
+/// Shorthand for <c>Cell.listenStrong</c>; see it for the full contract.
 ///
 /// The listener roots the cell, so the graph behind it stays alive for as long as the returned
-/// handle is reachable. Keep the handle and stop it when finished, or use <c>listenWeak</c>
+/// handle is reachable. Keep the handle and stop it when finished, or use <c>listen</c>
 /// where there is no good moment to do that.
 ///
 /// Fires the current value immediately, in the transaction this is called in. The handler runs
 /// under the transaction lock, so it should return promptly.
 /// </remarks>
-let inline listenC handler cell = Cell.listen handler cell
+let inline listenStrongC handler cell = Cell.listenStrong handler cell
 /// <summary>
 /// Applies a cell of functions to a cell of values.
 /// </summary>

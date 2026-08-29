@@ -101,7 +101,7 @@ namespace SodaFlow.Tests.Memory
 
             Collect();
 
-            // This is deliberate, not an oversight: Listen roots the listener in the stream's
+            // This is deliberate, not an oversight: ListenStrong roots the listener in the stream's
             // keep-alive set precisely so that a caller which ignores the return value still
             // receives values. Losing this would make listeners silently stop firing.
             Assert.IsTrue(listener.IsAlive, "an active listener should stay alive even once the caller drops it");
@@ -161,7 +161,7 @@ namespace SodaFlow.Tests.Memory
             {
                 StreamSink<int> s = Stream.CreateSink<int>();
                 Stream<int> mapped = s.Map(v => v + 1);
-                IListener listener = mapped.Listen(_ => { });
+                IListener listener = mapped.ListenStrong(_ => { });
                 listener.Unlisten();
             }
         }
@@ -170,7 +170,7 @@ namespace SodaFlow.Tests.Memory
         private static WeakReference CreateMappedStreamAndUnlisten(StreamSink<int> s, List<string> @out)
         {
             Stream<string> mapped = s.Map(x => (x + 2).ToString());
-            IListener listener = mapped.Listen(@out.Add);
+            IListener listener = mapped.ListenStrong(@out.Add);
             s.Send(1);
             listener.Unlisten();
             return new WeakReference(mapped);
@@ -187,7 +187,7 @@ namespace SodaFlow.Tests.Memory
                 chain.Add(new WeakReference(current));
             }
 
-            IListener listener = current.Listen(_ => { });
+            IListener listener = current.ListenStrong(_ => { });
             listener.Unlisten();
             return chain.ToArray();
         }
@@ -195,14 +195,14 @@ namespace SodaFlow.Tests.Memory
         [MethodImpl(MethodImplOptions.NoInlining)]
         private static WeakReference CreateListenerAndDropTheReference(StreamSink<int> s, List<int> @out)
         {
-            IListener listener = s.Listen(@out.Add);
+            IListener listener = s.ListenStrong(@out.Add);
             return new WeakReference(listener);
         }
 
         [MethodImpl(MethodImplOptions.NoInlining)]
         private static WeakReference CreateListenerAndUnlisten(StreamSink<int> s, List<int> @out)
         {
-            IListener listener = s.Listen(@out.Add);
+            IListener listener = s.ListenStrong(@out.Add);
             listener.Unlisten();
             return new WeakReference(listener);
         }

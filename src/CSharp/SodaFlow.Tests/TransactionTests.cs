@@ -19,7 +19,7 @@ namespace SodaFlow.Tests
                 StreamSink<int> sink = Stream.CreateSink<int>();
                 sink.Send(4);
                 Stream<int> sLocal = sink.Map(v => v * 2);
-                IListener lLocal = sLocal.Listen(@out.Add);
+                IListener lLocal = sLocal.ListenStrong(@out.Add);
                 return (sink, lLocal);
             });
             s.Send(5);
@@ -42,7 +42,7 @@ namespace SodaFlow.Tests
                 Thread.Sleep(500);
                 sink.Send(4);
                 Stream<int> s = sink.Map(v => v * 2);
-                IListener l2 = s.Listen(@out.Add);
+                IListener l2 = s.ListenStrong(@out.Add);
                 Thread.Sleep(500);
                 return l2;
             }));
@@ -69,7 +69,7 @@ namespace SodaFlow.Tests
                 Thread.Sleep(500);
                 sink.Send(4);
                 Stream<int> s = Transaction.Run(() => sink.Map(v => v * 2));
-                IListener l2 = s.Listen(@out.Add);
+                IListener l2 = s.ListenStrong(@out.Add);
                 Thread.Sleep(500);
                 return l2;
             }));

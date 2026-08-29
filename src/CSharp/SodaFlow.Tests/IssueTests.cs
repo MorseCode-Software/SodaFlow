@@ -113,7 +113,7 @@ namespace SodaFlow.Tests
             });
 
             List<int> submissions = new List<int>();
-            using (input.Listen(submissions.Add))
+            using (input.ListenStrong(submissions.Add))
             {
                 // Add amount which can be immediately used based on threshold.
                 // Pool should remain zero after the transaction is complete.

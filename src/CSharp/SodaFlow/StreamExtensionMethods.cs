@@ -21,7 +21,8 @@ namespace SodaFlow
     public static class StreamExtensionMethods
     {
         /// <summary>
-        ///     Listen for events/firings on this stream.  The returned <see cref="IStrongListener" /> may be
+        ///     Listen for events/firings on this stream, keeping the stream alive for as long as the returned
+        ///     listener is reachable.  The returned <see cref="IStrongListener" /> may be
         ///     disposed to stop listening.  This is an OPERATIONAL mechanism for interfacing between
         ///     the world of I/O and FRP.
         /// </summary>
@@ -44,12 +45,17 @@ namespace SodaFlow
         ///         To ensure this <see cref="IStrongListener" /> is disposed as soon as the stream it is listening to is either
         ///         disposed or garbage collected, pass the returned listener to this stream's <see cref="AttachListener{T}" /> method.
         ///     </para>
+        ///     <para>
+        ///         This roots the stream: the graph behind it cannot be collected while the returned listener is
+        ///         reachable.  Use <see cref="Listen{T}(Stream{T}, Action{T})" /> where that is not wanted.
+        ///     </para>
         /// </remarks>
         [MethodImpl(MethodImplOptions.NoInlining)]
-        public static IStrongListener Listen<T>(this Stream<T> s, Action<T> handler) => s.ListenImpl(handler);
+        public static IStrongListener ListenStrong<T>(this Stream<T> s, Action<T> handler) => s.ListenStrongImpl(handler);
 
         /// <summary>
-        ///     Listen for events/firings on this stream.  The returned <see cref="IWeakListener" /> may be
+        ///     Listen for events/firings on this stream, without keeping the stream alive.  The returned
+        ///     <see cref="IWeakListener" /> may be
         ///     disposed to stop listening, or it will automatically stop listening when it is garbage collected.
         ///     This is an OPERATIONAL mechanism for interfacing between the world of I/O and FRP.
         /// </summary>
@@ -72,9 +78,14 @@ namespace SodaFlow
         ///         To ensure this <see cref="IWeakListener" /> is disposed as soon as the stream it is listening to is either
         ///         disposed or garbage collected, pass the returned listener to this stream's <see cref="AttachListener{T}" /> method.
         ///     </para>
+        ///     <para>
+        ///         This does not root the stream.  Nothing here keeps the observed graph alive, so listening stops
+        ///         of its own accord once the stream is collected - hold the returned listener where that matters,
+        ///         or use <see cref="ListenStrong{T}(Stream{T}, Action{T})" /> to keep the stream alive instead.
+        ///     </para>
         /// </remarks>
         [MethodImpl(MethodImplOptions.NoInlining)]
-        public static IWeakListener ListenWeak<T>(this Stream<T> s, Action<T> handler) => s.ListenWeakImpl(handler);
+        public static IWeakListener Listen<T>(this Stream<T> s, Action<T> handler) => s.ListenImpl(handler);
 
         /// <summary>
         ///     Attach a listener to this stream so it doesn't get garbage collected until this stream is garbage collected.
@@ -128,7 +139,7 @@ namespace SodaFlow
 
             IStrongListener listener = null;
             bool unlistenEarly = false;
-            listener = s.Listen(
+            listener = s.ListenStrong(
                 a =>
                 {
                     // ReSharper disable once AccessToModifiedClosure

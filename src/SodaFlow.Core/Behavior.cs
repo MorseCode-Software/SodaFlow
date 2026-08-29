@@ -153,7 +153,7 @@ namespace SodaFlow
         /// <remarks>
         ///     Both sources feed one output stream directly rather than going through a spark stream, a
         ///     snapshot of it and a merge - four streams where two will do. Value sits underneath
-        ///     Cell.Listen, Apply and the switches, so it was a large part of what each of those cost.
+        ///     Cell.ListenStrong, Apply and the switches, so it was a large part of what each of those cost.
         ///
         ///     The initial send is queued against a bare node of its own, exactly as the spark stream it
         ///     replaces was, and for the same reason: a fresh node ranks below everything, so the value

@@ -52,8 +52,8 @@ handlers, timers, and network callbacks; everything downstream stays pure.
 | `s.Accum(initial, f)` | `accumS initial f s` | Fold into a **cell** holding the accumulated state. |
 | `s.Collect(initial, f)` | `collectS initial f s` | Mealy machine: emit an output and a new state. |
 | `s.Once()` | `onceS s` | Only the next firing, then never again. |
-| `s.Listen(handler)` | `listenS handler s` | Subscribe. Returns `IStrongListener`. |
-| `s.ListenWeak(handler)` | `listenWeakS handler s` | Subscribe without keeping the graph alive. |
+| `s.Listen(handler)` | `listenS handler s` | Subscribe. Returns `IWeakListener`; does **not** keep the graph alive. |
+| `s.ListenStrong(handler)` | `listenStrongS handler s` | Subscribe and keep the graph alive. Returns `IStrongListener`. |
 | `s.ListenOnce(handler)` | `listenOnceS handler s` | Subscribe, then unsubscribe after one firing. |
 | `s.ListenOnceAsync()` | `listenOnceAsyncS s` | The next firing as a `Task<T>`. |
 | `s.AttachListener(l)` | `attachListenerS l s` | Tie a listener's lifetime to this stream. |
@@ -74,7 +74,8 @@ with a constant. Reach for the specific one — it reads better and does less wo
 | `c.Calm()` | `calmC c` | Suppress updates equal to the previous value. |
 | `c.Updates()` | `updatesC c` | The stream of changes. Does **not** fire on subscribe. |
 | `c.Values()` | `valuesC c` | Changes, **plus** one firing in the transaction it was obtained in. |
-| `c.Listen(handler)` | `listenC handler c` | Subscribe. Fires immediately with the current value. |
+| `c.Listen(handler)` | `listenC handler c` | Subscribe. Fires immediately with the current value. Does **not** keep the graph alive. |
+| `c.ListenStrong(handler)` | `listenStrongC handler c` | As above, and keeps the graph alive. |
 | `c.AsBehavior()` | `asBehaviorC c` | View this cell as a behavior. |
 | `cc.SwitchC()` | `switchC cc` | Flatten `Cell<Cell<T>>`. See [Switch](switch.md). |
 | `cs.SwitchS()` | `switchS cs` | Flatten `Cell<Stream<T>>`. |

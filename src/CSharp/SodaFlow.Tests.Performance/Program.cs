@@ -111,7 +111,7 @@ namespace SodaFlow.Tests.Performance
             });
 
             // ReSharper disable once UnusedVariable
-            IListener l = Transaction.Run(() => objectsAndIsSelected.Map(oo => oo.Count(o => o.IsSelected)).Updates().Listen(v => Console.WriteLine($"{v} selected")));
+            IListener l = Transaction.Run(() => objectsAndIsSelected.Map(oo => oo.Count(o => o.IsSelected)).Updates().ListenStrong(v => Console.WriteLine($"{v} selected")));
 
             Console.WriteLine("Press any key");
             Console.ReadKey();

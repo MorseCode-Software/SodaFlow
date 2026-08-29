@@ -131,7 +131,7 @@ namespace SodaFlow.Time
         {
             StreamSink<T> alarm = new StreamSink<T>();
             Maybe<ITimer> currentTimer = Maybe.None;
-            IListener l = t.Listen(
+            IListener l = t.ListenStrong(
                 m =>
                 {
                     currentTimer.MatchSome(timer => timer.Cancel());

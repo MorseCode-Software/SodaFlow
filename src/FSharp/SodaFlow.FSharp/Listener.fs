@@ -4,7 +4,7 @@ namespace SodaFlow
 ///     Stopping listeners, and combining several of them into one.
 /// </summary>
 /// <remarks>
-///     A listener is the handle returned by <c>Stream.listen</c>, <c>Stream.listenWeak</c> and
+///     A listener is the handle returned by <c>Stream.listen</c>, <c>Stream.listenStrong</c> and
 ///     their cell equivalents. This module works with the general <c>IListener</c>; see
 ///     <c>WeakListener</c> and <c>StrongListener</c> for the versions which preserve the more
 ///     specific type, and <c>MutableListener</c> for a handle whose target can be replaced.
@@ -37,7 +37,7 @@ module Listener =
     ///     prevent the observed stream from being garbage collected.
     /// </returns>
     /// <remarks>
-    ///     The listener returned by <c>Stream.listen</c> keeps the stream it observes alive for as long as the listener itself is reachable, so a graph fragment stays rooted while something is still listening to it. This hands back a handle that does not, for holding on to where keeping the
+    ///     The listener returned by <c>Stream.listenStrong</c> keeps the stream it observes alive for as long as the listener itself is reachable, so a graph fragment stays rooted while something is still listening to it. This hands back a handle that does not, for holding on to where keeping the
     ///     graph alive is not wanted.
     /// </remarks>
     let getListenerWithWeakReference (listener : IListener) = listener.GetListenerWithWeakReference ()
@@ -132,7 +132,7 @@ module Listener =
 ///     Stopping and combining weak listeners, preserving the <c>IWeakListener</c> type.
 /// </summary>
 /// <remarks>
-///     A weak listener - the handle from <c>Stream.listenWeak</c> - does not keep the stream it
+///     A weak listener - the handle from <c>Stream.listen</c> - does not keep the stream it
 ///     observes alive. It stops listening when that stream is collected, which is what makes it
 ///     the right choice where there is no clean moment to stop listening: hold the handle as a
 ///     field of the object doing the listening, and both go away together.
@@ -198,7 +198,7 @@ module WeakListener =
 ///     Stopping and combining strong listeners, preserving the <c>IStrongListener</c> type.
 /// </summary>
 /// <remarks>
-///     A strong listener - the handle from <c>Stream.listen</c> - keeps the stream it observes
+///     A strong listener - the handle from <c>Stream.listenStrong</c> - keeps the stream it observes
 ///     alive for as long as the handle itself is reachable, and is <c>IDisposable</c> so it can be
 ///     stopped with <c>use</c>.
 ///

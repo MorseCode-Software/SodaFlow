@@ -10,7 +10,7 @@ namespace SodaFlow.Tests.Memory
     {
         [Test]
         [Ignore("Requires dotMemory.")]
-        public void TestListen()
+        public void TestListenStrong()
         {
             int? listenerCount = null;
             int? listenerCount2 = null;
@@ -34,7 +34,7 @@ namespace SodaFlow.Tests.Memory
                 ((Action)(() =>
                 {
                     // ReSharper disable once UnusedVariable
-                    IListener listener = m.Listen(@out.Add);
+                    IListener listener = m.ListenStrong(@out.Add);
 
                     dotMemory.Check(memory => listenerCount2 = memory.GetObjects(where => where.Interface.Is<IListener>()).ObjectsCount);
                     dotMemory.Check(memory => duringListenerCount = memory.GetObjects(where => where.Type.Is<Stream<string>>()).ObjectsCount);
@@ -88,7 +88,7 @@ namespace SodaFlow.Tests.Memory
 
                 ((Action)(() =>
                 {
-                    IListener listener = m.Listen(@out.Add);
+                    IListener listener = m.ListenStrong(@out.Add);
 
                     listener.Unlisten();
 
@@ -142,7 +142,7 @@ namespace SodaFlow.Tests.Memory
                     Stream<string> m = s.Map(x => (x + 2).ToString());
                     List<string> @out = new List<string>();
 
-                    listener = m.Listen(@out.Add);
+                    listener = m.ListenStrong(@out.Add);
 
                     dotMemory.Check(memory => duringListenerCount = memory.GetObjects(where => where.Type.Is<Stream<string>>()).ObjectsCount);
                 }))();
@@ -178,7 +178,7 @@ namespace SodaFlow.Tests.Memory
 
             ((Action)(() =>
             {
-                IListener l = m.Listen(@out.Add);
+                IListener l = m.ListenStrong(@out.Add);
                 dotMemory.Check(memory => duringListenerCount = memory.GetObjects(where => where.Interface.Is<IListener>()).ObjectsCount);
                 s.Send(5);
                 s.Send(3);
@@ -216,7 +216,7 @@ namespace SodaFlow.Tests.Memory
             ((Action)(() =>
             {
                 Stream<string> m = s.Map(x => x + 2).Map(x => 2 * x).Map(x => x + 1).Map(x => x.ToString());
-                IListener l = m.Listen(@out.Add);
+                IListener l = m.ListenStrong(@out.Add);
                 dotMemory.Check(memory => duringStreamCount = memory.GetObjects(where => where.Type.Is<Stream<int>>()).ObjectsCount + memory.GetObjects(where => where.Type.Is<Stream<string>>()).ObjectsCount);
                 dotMemory.Check(memory => duringListenerCount = memory.GetObjects(where => where.Interface.Is<IListener>()).ObjectsCount);
                 s.Send(5);

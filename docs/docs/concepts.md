@@ -66,11 +66,11 @@ imperative code
       │ Map, Filter,       │
       │ Merge, Snapshot    │
       ▼                    │
-   Stream ── Hold ──────► Cell ── AsBehavior ──► Behavior
-      │                    │                        │
-      │ Listen             │ Listen, Lift, Calm     │ Sample, Lift
-      ▼                    ▼                        ▼
-  side effects         UI binding              continuous values
+   Stream ── Hold ──────────► Cell ── AsBehavior ──► Behavior
+      │                          │                        │
+      │ Listen                   │ Listen, Lift, Calm     │ Sample, Lift
+      ▼                          ▼                        ▼
+  side effects               UI binding              continuous values
 ```
 
 Streams carry events, `Hold` turns them into state, and `Snapshot` reads that state back when

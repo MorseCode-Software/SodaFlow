@@ -16,7 +16,7 @@ namespace SodaFlow.Tests
             StreamSink<int> s = Stream.CreateSink<int>();
             Cell<int> c = s.Hold(0);
             List<int> @out = new List<int>();
-            IListener l = c.Listen(@out.Add);
+            IListener l = c.ListenStrong(@out.Add);
             s.Send(2);
             s.Send(9);
             l.Unlisten();
@@ -28,7 +28,7 @@ namespace SodaFlow.Tests
         {
             CellSink<string> c = Cell.CreateSink(string.Empty);
             List<string> @out = new List<string>();
-            IListener l = c.Listen(@out.Add);
+            IListener l = c.ListenStrong(@out.Add);
             c.Send("0");
             c.Send(null);
             c.Send("1");
@@ -42,7 +42,7 @@ namespace SodaFlow.Tests
             StreamSink<int> s = Stream.CreateSink<int>();
             Cell<int> c = s.Hold(0);
             List<int> @out = new List<int>();
-            IListener l = c.Updates().Listen(@out.Add);
+            IListener l = c.Updates().ListenStrong(@out.Add);
             s.Send(2);
             s.Send(9);
             l.Unlisten();
@@ -55,7 +55,7 @@ namespace SodaFlow.Tests
             BehaviorSink<int> b = Behavior.CreateSink(0);
             StreamSink<long> trigger = Stream.CreateSink<long>();
             List<string> @out = new List<string>();
-            IListener l = trigger.Snapshot(b, (x, y) => x + " " + y).Listen(@out.Add);
+            IListener l = trigger.Snapshot(b, (x, y) => x + " " + y).ListenStrong(@out.Add);
             trigger.Send(100L);
             b.Send(2);
             trigger.Send(200L);
@@ -67,11 +67,11 @@ namespace SodaFlow.Tests
         }
 
         [Test]
-        public void TestListen()
+        public void TestListenStrong()
         {
             CellSink<int> c = Cell.CreateSink(9);
             List<int> @out = new List<int>();
-            IListener l = c.Listen(@out.Add);
+            IListener l = c.ListenStrong(@out.Add);
             c.Send(2);
             c.Send(7);
             l.Unlisten();
@@ -117,7 +117,7 @@ namespace SodaFlow.Tests
         {
             CellSink<int> c = Cell.CreateSink(9);
             List<int> @out = new List<int>();
-            IListener l = c.Updates().Listen(@out.Add);
+            IListener l = c.Updates().ListenStrong(@out.Add);
             c.Send(2);
             c.Send(7);
             l.Unlisten();
@@ -129,7 +129,7 @@ namespace SodaFlow.Tests
         {
             CellSink<int> c = Cell.CreateSink(9);
             List<int> @out = new List<int>();
-            IListener l = Transaction.Run(() => c.Values().Listen(@out.Add));
+            IListener l = Transaction.Run(() => c.Values().ListenStrong(@out.Add));
             c.Send(2);
             c.Send(7);
             l.Unlisten();
@@ -148,11 +148,11 @@ namespace SodaFlow.Tests
                 Transaction.Run(() =>
                 {
                     c.Send(5);
-                    return c.Values().Listen(_ =>
+                    return c.Values().ListenStrong(_ =>
                     {
                         if (l2 == null)
                         {
-                            l2 = c.Values().Listen(@out.Add);
+                            l2 = c.Values().ListenStrong(@out.Add);
                         }
                     });
                 });
@@ -223,7 +223,7 @@ namespace SodaFlow.Tests
             });
             IListener l2 = Transaction.Run(() =>
             {
-                return listCell.Values().Listen(c => Transaction.Post(() =>
+                return listCell.Values().ListenStrong(c => Transaction.Post(() =>
                 {
                     if (c.Any())
                     {
@@ -236,11 +236,11 @@ namespace SodaFlow.Tests
                 }));
             });
             IListener l3 = Transaction.Run(() =>
-                listCell.Map(c => c.Select(o => o.RemoveStream.MapTo(new[] { o })).Merge((x, y) => x.Concat(y).ToArray())).SwitchS().Listen(o => Transaction.Post(() => removeItemsStreamSink.Send(o))));
+                listCell.Map(c => c.Select(o => o.RemoveStream.MapTo(new[] { o })).Merge((x, y) => x.Concat(y).ToArray())).SwitchS().ListenStrong(o => Transaction.Post(() => removeItemsStreamSink.Send(o))));
             IListener l4 = Transaction.Run(() =>
-                listCell.Map(c => c.Any() ? c.Last().Number1Cell.Lift(c.Last().Number2Cell, (x, y) => x == 9 && y == 9).Updates() : Stream.Never<bool>()).SwitchS().Filter(v => v).Listen(_ => Transaction.Post(() => addItemStreamSink.Send((Number1: 0, Number2: 0)))));
+                listCell.Map(c => c.Any() ? c.Last().Number1Cell.Lift(c.Last().Number2Cell, (x, y) => x == 9 && y == 9).Updates() : Stream.Never<bool>()).SwitchS().Filter(v => v).ListenStrong(_ => Transaction.Post(() => addItemStreamSink.Send((Number1: 0, Number2: 0)))));
             List<IReadOnlyList<(int Number1, int Number2)>> @out = new List<IReadOnlyList<(int Number1, int Number2)>>();
-            IListener l = listCell.Map(c => c.Select(o => o.Number1Cell.Lift(o.Number2Cell, (number1, number2) => (Number1: number1, Number2: number2))).Lift()).SwitchC().Listen(@out.Add);
+            IListener l = listCell.Map(c => c.Select(o => o.Number1Cell.Lift(o.Number2Cell, (number1, number2) => (Number1: number1, Number2: number2))).Lift()).SwitchC().ListenStrong(@out.Add);
             addItemStreamSink.Send((Number1: 5, Number2: 2));
             addItemStreamSink.Send((Number1: 9, Number2: 2));
             listCell.Sample()[0].Remove();
@@ -303,7 +303,7 @@ namespace SodaFlow.Tests
                 return cellLocal;
             });
             List<int> @out = new List<int>();
-            IListener l = cell.Listen(@out.Add);
+            IListener l = cell.ListenStrong(@out.Add);
             s.Send(3);
             s.Send(4);
             s.Send(7);
@@ -331,7 +331,7 @@ namespace SodaFlow.Tests
                     return cellLocal;
                 });
                 List<int> @out = new List<int>();
-                IListener l = cell.Listen(@out.Add);
+                IListener l = cell.ListenStrong(@out.Add);
                 s.Send(3);
                 s.Send(4);
                 s.Send(7);
@@ -367,7 +367,7 @@ namespace SodaFlow.Tests
                 return cellLocal;
             });
             List<int> @out = new List<int>();
-            IListener l = cell.Listen(c => @out.Add(c.Count));
+            IListener l = cell.ListenStrong(c => @out.Add(c.Count));
             TestObject t1 = new TestObject(1, 1);
             addStreamSink.Send(t1);
             TestObject t2 = new TestObject(2, 2);
@@ -393,7 +393,7 @@ namespace SodaFlow.Tests
         {
             CellSink<int> c = Cell.CreateSink(9);
             List<int> @out = new List<int>();
-            IListener l = Transaction.Run(() => c.Values().Listen(@out.Add));
+            IListener l = Transaction.Run(() => c.Values().ListenStrong(@out.Add));
             c.Send(2);
             c.Send(7);
             l.Unlisten();
@@ -405,7 +405,7 @@ namespace SodaFlow.Tests
         {
             CellSink<int> c = Cell.CreateSink(9);
             List<int> @out = new List<int>();
-            IListener l = c.Values().Listen(@out.Add);
+            IListener l = c.Values().ListenStrong(@out.Add);
             c.Send(2);
             c.Send(7);
             l.Unlisten();
@@ -417,7 +417,7 @@ namespace SodaFlow.Tests
         {
             BehaviorSink<int> b = Behavior.CreateSink(9);
             List<int> @out = new List<int>();
-            IListener l = Transaction.Run(() => Operational.Value(b).Map(x => x + 100).Listen(@out.Add));
+            IListener l = Transaction.Run(() => Operational.Value(b).Map(x => x + 100).ListenStrong(@out.Add));
             b.Send(2);
             b.Send(7);
             l.Unlisten();
@@ -429,7 +429,7 @@ namespace SodaFlow.Tests
         {
             CellSink<int> c = Cell.CreateSink(9);
             List<int> @out = new List<int>();
-            IListener l = Transaction.Run(() => c.Values().Map(x => x + 100).Listen(@out.Add));
+            IListener l = Transaction.Run(() => c.Values().Map(x => x + 100).ListenStrong(@out.Add));
             c.Send(2);
             c.Send(7);
             l.Unlisten();
@@ -442,7 +442,7 @@ namespace SodaFlow.Tests
             BehaviorSink<int> b1 = Behavior.CreateSink(9);
             BehaviorSink<int> b2 = Behavior.CreateSink(2);
             List<int> @out = new List<int>();
-            IListener l = Transaction.Run(() => Operational.Value(b1).Merge(Operational.Value(b2), (x, y) => x + y).Listen(@out.Add));
+            IListener l = Transaction.Run(() => Operational.Value(b1).Merge(Operational.Value(b2), (x, y) => x + y).ListenStrong(@out.Add));
             b1.Send(1);
             b2.Send(4);
             Transaction.RunVoid(() =>
@@ -460,7 +460,7 @@ namespace SodaFlow.Tests
             CellSink<int> c1 = Cell.CreateSink(9);
             CellSink<int> c2 = Cell.CreateSink(2);
             List<int> @out = new List<int>();
-            IListener l = Transaction.Run(() => c1.Values().Merge(c2.Values(), (x, y) => x + y).Listen(@out.Add));
+            IListener l = Transaction.Run(() => c1.Values().Merge(c2.Values(), (x, y) => x + y).ListenStrong(@out.Add));
             c1.Send(1);
             c2.Send(4);
             Transaction.RunVoid(() =>
@@ -477,7 +477,7 @@ namespace SodaFlow.Tests
         {
             BehaviorSink<int> b = Behavior.CreateSink(9);
             List<int> @out = new List<int>();
-            IListener l = Transaction.Run(() => Operational.Value(b).Filter(x => x % 2 != 0).Listen(@out.Add));
+            IListener l = Transaction.Run(() => Operational.Value(b).Filter(x => x % 2 != 0).ListenStrong(@out.Add));
             b.Send(2);
             b.Send(7);
             l.Unlisten();
@@ -489,7 +489,7 @@ namespace SodaFlow.Tests
         {
             CellSink<int> c = Cell.CreateSink(9);
             List<int> @out = new List<int>();
-            IListener l = Transaction.Run(() => c.Values().Filter(x => x % 2 != 0).Listen(@out.Add));
+            IListener l = Transaction.Run(() => c.Values().Filter(x => x % 2 != 0).ListenStrong(@out.Add));
             c.Send(2);
             c.Send(7);
             l.Unlisten();
@@ -501,7 +501,7 @@ namespace SodaFlow.Tests
         {
             BehaviorSink<int> b = Behavior.CreateSink(9);
             List<int> @out = new List<int>();
-            IListener l = Transaction.Run(() => Operational.Value(b).Once().Listen(@out.Add));
+            IListener l = Transaction.Run(() => Operational.Value(b).Once().ListenStrong(@out.Add));
             b.Send(2);
             b.Send(7);
             l.Unlisten();
@@ -513,7 +513,7 @@ namespace SodaFlow.Tests
         {
             CellSink<int> c = Cell.CreateSink(9);
             List<int> @out = new List<int>();
-            IListener l = Transaction.Run(() => c.Values().Once().Listen(@out.Add));
+            IListener l = Transaction.Run(() => c.Values().Once().ListenStrong(@out.Add));
             c.Send(2);
             c.Send(7);
             l.Unlisten();
@@ -527,7 +527,7 @@ namespace SodaFlow.Tests
             List<int> @out = new List<int>();
             Stream<int> value = Operational.Value(b);
             b.Send(8);
-            IListener l = value.Listen(@out.Add);
+            IListener l = value.ListenStrong(@out.Add);
             b.Send(2);
             b.Send(7);
             l.Unlisten();
@@ -541,7 +541,7 @@ namespace SodaFlow.Tests
             List<int> @out = new List<int>();
             Stream<int> value = c.Values();
             c.Send(8);
-            IListener l = value.Listen(@out.Add);
+            IListener l = value.ListenStrong(@out.Add);
             c.Send(2);
             c.Send(7);
             l.Unlisten();
@@ -553,7 +553,7 @@ namespace SodaFlow.Tests
         {
             CellSink<int> c = Cell.CreateSink(6);
             List<string> @out = new List<string>();
-            IListener l = c.Map(x => x.ToString()).Listen(@out.Add);
+            IListener l = c.Map(x => x.ToString()).ListenStrong(@out.Add);
             c.Send(8);
             l.Unlisten();
             CollectionAssert.AreEqual(new[] { "6", "8" }, @out);
@@ -566,7 +566,7 @@ namespace SodaFlow.Tests
             List<string> @out = new List<string>();
             Cell<string> cm = c.Map(x => x.ToString());
             c.Send(2);
-            IListener l = cm.Listen(@out.Add);
+            IListener l = cm.ListenStrong(@out.Add);
             c.Send(8);
             l.Unlisten();
             CollectionAssert.AreEqual(new[] { "2", "8" }, @out);
@@ -577,7 +577,7 @@ namespace SodaFlow.Tests
         {
             CellSink<int> c = Cell.CreateSink(2);
             List<int> @out = new List<int>();
-            IListener l = Transaction.Run(() => c.Calm().Listen(@out.Add));
+            IListener l = Transaction.Run(() => c.Calm().ListenStrong(@out.Add));
             c.Send(2);
             c.Send(2);
             c.Send(4);
@@ -595,7 +595,7 @@ namespace SodaFlow.Tests
         {
             CellSink<int> c = Cell.CreateSink(2);
             List<int> @out = new List<int>();
-            IListener l = Transaction.Run(() => c.Calm().Listen(@out.Add));
+            IListener l = Transaction.Run(() => c.Calm().ListenStrong(@out.Add));
             c.Send(4);
             c.Send(2);
             c.Send(4);
@@ -612,7 +612,7 @@ namespace SodaFlow.Tests
             CellSink<Func<long, string>> cf = Cell.CreateSink<Func<long, string>>(x => "1 " + x);
             CellSink<long> ca = Cell.CreateSink(5L);
             List<string> @out = new List<string>();
-            IListener l = ca.Apply(cf).Listen(@out.Add);
+            IListener l = ca.Apply(cf).ListenStrong(@out.Add);
             cf.Send(x => "12 " + x);
             ca.Send(6L);
             l.Unlisten();
@@ -625,7 +625,7 @@ namespace SodaFlow.Tests
             CellSink<int> c1 = Cell.CreateSink(1);
             CellSink<long> c2 = Cell.CreateSink(5L);
             List<string> @out = new List<string>();
-            IListener l = c1.Lift(c2, (x, y) => x + " " + y).Listen(@out.Add);
+            IListener l = c1.Lift(c2, (x, y) => x + " " + y).ListenStrong(@out.Add);
             c1.Send(12);
             c2.Send(6L);
             l.Unlisten();
@@ -640,7 +640,7 @@ namespace SodaFlow.Tests
             Cell<int> c5 = c1.Map(x => x * 5);
             Cell<string> c = c3.Lift(c5, (x, y) => x + " " + y);
             List<string> @out = new List<string>();
-            IListener l = c.Listen(@out.Add);
+            IListener l = c.ListenStrong(@out.Add);
             c1.Send(2);
             l.Unlisten();
             CollectionAssert.AreEqual(new[] { "3 5", "6 10" }, @out);
@@ -657,7 +657,7 @@ namespace SodaFlow.Tests
                 return (localC1, localC2);
             });
             List<int> @out = new List<int>();
-            IListener l = c1.Lift(c2, (x, y) => x + y).Listen(@out.Add);
+            IListener l = c1.Lift(c2, (x, y) => x + y).ListenStrong(@out.Add);
             l.Unlisten();
             CollectionAssert.AreEqual(new[] { 10 }, @out);
         }
@@ -669,7 +669,7 @@ namespace SodaFlow.Tests
             Cell<int> h = s.Hold(0);
             Stream<string> pair = s.Snapshot(h, (a, b) => a + " " + b);
             List<string> @out = new List<string>();
-            IListener l = pair.Listen(@out.Add);
+            IListener l = pair.ListenStrong(@out.Add);
             s.Send(2);
             s.Send(3);
             l.Unlisten();
@@ -701,7 +701,7 @@ namespace SodaFlow.Tests
             Cell<Cell<char>> csw = ssc.Map(s => s.Sw).FilterMaybe().Hold(ca);
             Cell<char> co = csw.SwitchC();
             List<char> @out = new List<char>();
-            IListener l = co.Listen(@out.Add);
+            IListener l = co.ListenStrong(@out.Add);
             ssc.Send(new Sc(Maybe.Some('B'), Maybe.Some('b'), Maybe.None));
             ssc.Send(new Sc(Maybe.Some('C'), Maybe.Some('c'), Maybe.Some(cb)));
             ssc.Send(new Sc(Maybe.Some('D'), Maybe.Some('d'), Maybe.None));
@@ -733,7 +733,7 @@ namespace SodaFlow.Tests
             CellSink<Sc2> csc = Cell.CreateSink(sc1);
             Cell<int> co = csc.Map(b => b.C.AsCell()).SwitchC();
             List<int> @out = new List<int>();
-            IListener l = co.Listen(@out.Add);
+            IListener l = co.ListenStrong(@out.Add);
             Sc2 sc2 = new Sc2(3);
             Sc2 sc3 = new Sc2(4);
             Sc2 sc4 = new Sc2(7);
@@ -782,7 +782,7 @@ namespace SodaFlow.Tests
             Cell<Stream<char>> csw = sss.Map(s => s.Sw).FilterMaybe().Hold(sa);
             Stream<char> so = csw.SwitchS();
             List<char> @out = new List<char>();
-            IListener l = so.Listen(@out.Add);
+            IListener l = so.ListenStrong(@out.Add);
             sss.Send(new Ss('A', 'a', Maybe.None));
             sss.Send(new Ss('B', 'b', Maybe.None));
             sss.Send(new Ss('C', 'c', Maybe.Some(sb)));
@@ -808,7 +808,7 @@ namespace SodaFlow.Tests
             BehaviorSink<Ss2> bss = Behavior.CreateSink(ss1);
             Stream<int> so = bss.Map(b => b.S.AsStream()).SwitchS();
             List<int> @out = new List<int>();
-            IListener l = so.Listen(@out.Add);
+            IListener l = so.ListenStrong(@out.Add);
             Ss2 ss2 = new Ss2();
             Ss2 ss3 = new Ss2();
             Ss2 ss4 = new Ss2();
@@ -841,7 +841,7 @@ namespace SodaFlow.Tests
             IReadOnlyList<CellSink<int>> cellSinks = Enumerable.Range(0, 50).Select(_ => Cell.CreateSink(1)).ToArray();
             Cell<int> sum = cellSinks.Lift().Map(v => v.Sum());
             List<int> @out = new List<int>();
-            IListener l = sum.Listen(@out.Add);
+            IListener l = sum.ListenStrong(@out.Add);
             cellSinks[4].Send(5);
             cellSinks[5].Send(5);
             Transaction.RunVoid(() =>
@@ -869,7 +869,7 @@ namespace SodaFlow.Tests
             Cell<string> lifted = a.Lift(b, c, (x, y, z) => x + "/" + y + "/" + z);
 
             List<string> @out = new List<string>();
-            IListener l = lifted.Listen(@out.Add);
+            IListener l = lifted.ListenStrong(@out.Add);
 
             // All three at once: one firing, all new.
             Transaction.RunVoid(
@@ -909,7 +909,7 @@ namespace SodaFlow.Tests
             Cell<string> lifted = a.Lift(b, (x, y) => x + "/" + y);
 
             List<string> @out = new List<string>();
-            IListener l = lifted.Listen(@out.Add);
+            IListener l = lifted.ListenStrong(@out.Add);
 
             a.Send(2);
             b.Send(20);
@@ -934,7 +934,7 @@ namespace SodaFlow.Tests
                 Enumerable.Range(0, count).Select(_ => Cell.CreateSink(0)).ToArray();
             Cell<int> sum = cellSinks.Lift().Map(v => v.Sum());
             List<int> @out = new List<int>();
-            IListener l = sum.Listen(@out.Add);
+            IListener l = sum.ListenStrong(@out.Add);
 
             // Every cell at once.
             Transaction.RunVoid(
@@ -981,7 +981,7 @@ namespace SodaFlow.Tests
                 return (sum, cellSinks);
             });
             List<int> @out = new List<int>();
-            IListener l = c.Listen(@out.Add);
+            IListener l = c.ListenStrong(@out.Add);
             s[4].Send(5);
             s[5].Send(5);
             Transaction.RunVoid(() =>
@@ -1001,7 +1001,7 @@ namespace SodaFlow.Tests
             IReadOnlyList<CellSink<int>> cellSinks = Enumerable.Range(0, 500).Select(_ => Cell.CreateSink(1)).ToArray();
             Cell<int> sum = cellSinks.Lift().Map(v => v.Sum());
             List<int> @out = new List<int>();
-            IListener l = sum.Listen(@out.Add);
+            IListener l = sum.ListenStrong(@out.Add);
             cellSinks[4].Send(5);
             cellSinks[5].Send(5);
             Transaction.RunVoid(() =>
@@ -1021,7 +1021,7 @@ namespace SodaFlow.Tests
             IReadOnlyList<CellSink<int>> cellSinks = Enumerable.Range(0, 500).Select(_ => Cell.CreateSink(1)).ToArray();
             Cell<int> sum = cellSinks.Lift().Map(v => v.Sum());
             List<int> @out = new List<int>();
-            IListener l = sum.Listen(@out.Add);
+            IListener l = sum.ListenStrong(@out.Add);
             for (int i = 0; i < 100; i++)
             {
                 int n = i;
@@ -1048,7 +1048,7 @@ namespace SodaFlow.Tests
             IListener l = Transaction.Run(() =>
             {
                 cellSinks[4].Send(5);
-                IListener lLocal = sum.Listen(@out.Add);
+                IListener lLocal = sum.ListenStrong(@out.Add);
                 cellSinks[5].Send(5);
                 return lLocal;
             });
@@ -1078,7 +1078,7 @@ namespace SodaFlow.Tests
             });
 
             List<int> output = new List<int>();
-            IListener l = c.Listen(output.Add);
+            IListener l = c.ListenStrong(output.Add);
 
             c1.Send(2);
             c2.Send(12);
@@ -1113,7 +1113,7 @@ namespace SodaFlow.Tests
             });
 
             List<int> output = new List<int>();
-            IListener l = b.Listen(output.Add);
+            IListener l = b.ListenStrong(output.Add);
 
             b1.Send(2);
             b2.Send(12);
@@ -1149,7 +1149,7 @@ namespace SodaFlow.Tests
                 c2Local.Send(12);
                 sLocal.Send(c2Local);
 
-                IListener lLocal = cLocal.Listen(output.Add);
+                IListener lLocal = cLocal.ListenStrong(output.Add);
 
                 return (c1Local, c2Local, sLocal, lLocal);
             });
@@ -1188,7 +1188,7 @@ namespace SodaFlow.Tests
                 c2Local.Send(12);
                 sLocal.Send(c2Local);
 
-                IListener lLocal = cLocal.Listen(output.Add);
+                IListener lLocal = cLocal.ListenStrong(output.Add);
 
                 return (c1Local, c2Local, sLocal, lLocal);
             });
@@ -1228,7 +1228,7 @@ namespace SodaFlow.Tests
 
                 Stream<int> cLocal = sLocal.SwitchS();
 
-                IListener lLocal = cLocal.Listen(output.Add);
+                IListener lLocal = cLocal.ListenStrong(output.Add);
 
                 return (c1Local, c2Local, sLocal, lLocal);
             });
@@ -1262,10 +1262,10 @@ namespace SodaFlow.Tests
             Behavior<IReadOnlyList<int>> c = v.Map(oo => oo.Select(o => o.Value).Lift()).SwitchB();
 
             List<IReadOnlyList<int>> streamOutput = new List<IReadOnlyList<int>>();
-            IListener l = Operational.Updates(c).Listen(streamOutput.Add);
+            IListener l = Operational.Updates(c).ListenStrong(streamOutput.Add);
 
             List<IReadOnlyList<int>> behaviorOutput = new List<IReadOnlyList<int>>();
-            IListener l2 = Transaction.Run(() => Operational.Value(c).Listen(behaviorOutput.Add));
+            IListener l2 = Transaction.Run(() => Operational.Value(c).ListenStrong(behaviorOutput.Add));
 
             list1[2].Value.Send(12);
             list2[1].Value.Send(16);
@@ -1307,10 +1307,10 @@ namespace SodaFlow.Tests
             Behavior<IReadOnlyList<int>> c = v.Map(oo => oo.Select(o => o.Value).Lift()).Map(o => o).SwitchB();
 
             List<IReadOnlyList<int>> streamOutput = new List<IReadOnlyList<int>>();
-            IListener l = Operational.Updates(c).Listen(streamOutput.Add);
+            IListener l = Operational.Updates(c).ListenStrong(streamOutput.Add);
 
             List<IReadOnlyList<int>> behaviorOutput = new List<IReadOnlyList<int>>();
-            IListener l2 = Transaction.Run(() => Operational.Value(c).Listen(behaviorOutput.Add));
+            IListener l2 = Transaction.Run(() => Operational.Value(c).ListenStrong(behaviorOutput.Add));
 
             list1[2].Value.Send(12);
             list2[1].Value.Send(16);

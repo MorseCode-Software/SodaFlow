@@ -85,8 +85,8 @@ selected inner value are both tied to the lifetime of the stream or cell `Switch
 they are released when the result is.
 
 What `Switch` does *not* do is unlisten anything you created. A subscription you make inside a
-branch follows the ordinary rules — `Listen` roots it in the source's keep-alive set, so it
-outlives the branch and keeps firing; `ListenWeak` lives as long as you hold the reference. The
+branch follows the ordinary rules — `ListenStrong` roots it in the source's keep-alive set, so it
+outlives the branch and keeps firing; `Listen` lives as long as you hold the reference. The
 outer cell moving off a branch does not release it. If a subscription should not survive its
 branch, its lifetime has to be tied to something that ends with the branch. See
 [Listener lifetimes](lifetimes.md).

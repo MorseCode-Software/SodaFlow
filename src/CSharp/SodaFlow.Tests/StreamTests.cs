@@ -15,7 +15,7 @@ namespace SodaFlow.Tests
         {
             StreamSink<int> s = Stream.CreateSink<int>();
             List<int> @out = new List<int>();
-            IListener l = s.Listen(@out.Add);
+            IListener l = s.ListenStrong(@out.Add);
             s.Send(5);
             l.Unlisten();
             CollectionAssert.AreEqual(new[] { 5 }, @out);
@@ -30,7 +30,7 @@ namespace SodaFlow.Tests
 
             StreamSink<int> s = Stream.CreateSink<int>();
             StreamSink<int> s2 = Stream.CreateSink<int>();
-            using (s.Listen(s2.Send))
+            using (s.ListenStrong(s2.Send))
             {
                 try
                 {
@@ -59,7 +59,7 @@ namespace SodaFlow.Tests
                         s2.Send(v);
                         return Unit.Value;
                     })
-                .Listen(_ => { }))
+                .ListenStrong(_ => { }))
             {
                 try
                 {
@@ -90,7 +90,7 @@ namespace SodaFlow.Tests
                             s2.Send(v);
                             return Unit.Value;
                         })
-                    .Listen(_ => { }))
+                    .ListenStrong(_ => { }))
                 {
                 }
             }
@@ -120,7 +120,7 @@ namespace SodaFlow.Tests
                             s2.Send(5);
                             return Unit.Value;
                         })
-                    .Listen(_ => { }))
+                    .ListenStrong(_ => { }))
                 {
                 }
             }
@@ -148,7 +148,7 @@ namespace SodaFlow.Tests
                 });
             try
             {
-                using (c.Apply(c2).Listen(_ => { }))
+                using (c.Apply(c2).ListenStrong(_ => { }))
                 {
                 }
             }
@@ -167,7 +167,7 @@ namespace SodaFlow.Tests
             StreamSink<int> s = Stream.CreateSink<int>();
             Stream<string> m = s.Map(x => (x + 2).ToString());
             List<string> @out = new List<string>();
-            IListener l = m.Listen(@out.Add);
+            IListener l = m.ListenStrong(@out.Add);
             s.Send(5);
             s.Send(3);
             l.Unlisten();
@@ -180,7 +180,7 @@ namespace SodaFlow.Tests
             StreamSink<int> s1 = Stream.CreateSink<int>();
             StreamSink<int> s2 = Stream.CreateSink<int>();
             List<int> @out = new List<int>();
-            IListener l = s1.OrElse(s2).Listen(@out.Add);
+            IListener l = s1.OrElse(s2).ListenStrong(@out.Add);
             s1.Send(7);
             s2.Send(9);
             s1.Send(8);
@@ -194,7 +194,7 @@ namespace SodaFlow.Tests
             StreamSink<int> s1 = Stream.CreateSink<int>((_, r) => r);
             StreamSink<int> s2 = Stream.CreateSink<int>((_, r) => r);
             List<int> @out = new List<int>();
-            IListener l = s2.OrElse(s1).Listen(@out.Add);
+            IListener l = s2.OrElse(s1).ListenStrong(@out.Add);
             Transaction.RunVoid(() =>
             {
                 s1.Send(7);
@@ -235,7 +235,7 @@ namespace SodaFlow.Tests
             StreamSink<int> s = Stream.CreateSink<int>();
             Stream<int> s2 = s.Map(x => 2 * x);
             List<int> @out = new List<int>();
-            IListener l = s.OrElse(s2).Listen(@out.Add);
+            IListener l = s.OrElse(s2).ListenStrong(@out.Add);
             s.Send(7);
             s.Send(9);
             l.Unlisten();
@@ -248,7 +248,7 @@ namespace SodaFlow.Tests
             StreamSink<int> s = Stream.CreateSink<int>();
             Stream<int> s2 = s.Map(x => 2 * x);
             List<int> @out = new List<int>();
-            IListener l = s2.OrElse(s).Listen(@out.Add);
+            IListener l = s2.OrElse(s).ListenStrong(@out.Add);
             s.Send(7);
             s.Send(9);
             l.Unlisten();
@@ -261,7 +261,7 @@ namespace SodaFlow.Tests
             StreamSink<int> s1 = Stream.CreateSink<int>();
             StreamSink<int> s2 = Stream.CreateSink<int>();
             List<int> @out = new List<int>();
-            IListener l = s1.Merge(s2, (x, y) => x + y).Listen(@out.Add);
+            IListener l = s1.Merge(s2, (x, y) => x + y).ListenStrong(@out.Add);
             s1.Send(7);
             s2.Send(9);
             s1.Send(8);
@@ -275,7 +275,7 @@ namespace SodaFlow.Tests
             StreamSink<int> s = Stream.CreateSink<int>();
             Stream<int> s2 = s.Map(x => 2 * x);
             List<int> @out = new List<int>();
-            IListener l = s.Merge(s2, (x, y) => x + y).Listen(@out.Add);
+            IListener l = s.Merge(s2, (x, y) => x + y).ListenStrong(@out.Add);
             s.Send(7);
             s.Send(9);
             l.Unlisten();
@@ -287,7 +287,7 @@ namespace SodaFlow.Tests
         {
             StreamSink<int> s = Stream.CreateSink<int>((x, y) => x + y);
             List<int> @out = new List<int>();
-            IListener l = s.Listen(@out.Add);
+            IListener l = s.ListenStrong(@out.Add);
             Transaction.RunVoid(() =>
             {
                 s.Send(2);
@@ -306,7 +306,7 @@ namespace SodaFlow.Tests
         {
             StreamSink<int> s = Stream.CreateSink<int>((x, y) => x + y);
             List<int> @out = new List<int>();
-            IListener l = s.Listen(@out.Add);
+            IListener l = s.ListenStrong(@out.Add);
             Transaction.RunVoid(() =>
             {
                 s.Send(1);
@@ -332,7 +332,7 @@ namespace SodaFlow.Tests
         {
             StreamSink<char> s = Stream.CreateSink<char>();
             List<char> @out = new List<char>();
-            IListener l = s.Filter(char.IsUpper).Listen(@out.Add);
+            IListener l = s.Filter(char.IsUpper).ListenStrong(@out.Add);
             s.Send('H');
             s.Send('o');
             s.Send('I');
@@ -345,7 +345,7 @@ namespace SodaFlow.Tests
         {
             StreamSink<Maybe<string>> s = Stream.CreateSink<Maybe<string>>();
             List<string> @out = new List<string>();
-            IListener l = s.FilterMaybe().Listen(@out.Add);
+            IListener l = s.FilterMaybe().ListenStrong(@out.Add);
             s.Send(Maybe.Some("tomato"));
             s.Send(Maybe.None);
             s.Send(Maybe.Some("peach"));
@@ -370,9 +370,9 @@ namespace SodaFlow.Tests
             List<int> @out = new List<int>();
             List<int> out2 = new List<int>();
             List<int> out3 = new List<int>();
-            IListener l = sb.Listen(@out.Add);
-            IListener l2 = sb2.Listen(out2.Add);
-            IListener l3 = sc.Listen(out3.Add);
+            IListener l = sb.ListenStrong(@out.Add);
+            IListener l2 = sb2.ListenStrong(out2.Add);
+            IListener l3 = sc.ListenStrong(out3.Add);
             sa.Send(2);
             sa.Send(52);
             l3.Unlisten();
@@ -398,9 +398,9 @@ namespace SodaFlow.Tests
             List<int> @out = new List<int>();
             List<int> out2 = new List<int>();
             List<int> out3 = new List<int>();
-            IListener l = cb.Listen(@out.Add);
-            IListener l2 = cb2.Listen(out2.Add);
-            IListener l3 = cc.Listen(out3.Add);
+            IListener l = cb.ListenStrong(@out.Add);
+            IListener l2 = cb2.ListenStrong(out2.Add);
+            IListener l3 = cc.ListenStrong(out3.Add);
             ca.Send(2);
             ca.Send(52);
             l3.Unlisten();
@@ -417,7 +417,7 @@ namespace SodaFlow.Tests
             StreamSink<char?> sc = Stream.CreateSink<char?>();
             BehaviorSink<bool> cGate = Behavior.CreateSink(true);
             List<char?> @out = new List<char?>();
-            IListener l = sc.Gate(cGate).Listen(@out.Add);
+            IListener l = sc.Gate(cGate).ListenStrong(@out.Add);
             sc.Send('H');
             cGate.Send(false);
             sc.Send('O');
@@ -432,7 +432,7 @@ namespace SodaFlow.Tests
         {
             StreamSink<int> s = Stream.CreateSink<int>();
             List<int> @out = new List<int>();
-            IListener l = s.Calm().Listen(@out.Add);
+            IListener l = s.Calm().ListenStrong(@out.Add);
             s.Send(2);
             s.Send(2);
             s.Send(2);
@@ -487,7 +487,7 @@ namespace SodaFlow.Tests
         {
             StreamSink<int> s = Stream.CreateSink<int>();
             List<int> @out = new List<int>();
-            IListener l = s.Calm().Listen(@out.Add);
+            IListener l = s.Calm().ListenStrong(@out.Add);
             s.Send(2);
             s.Send(4);
             s.Send(2);
@@ -513,7 +513,7 @@ namespace SodaFlow.Tests
             Stream<int> merged = a.Merge(b, (x, y) => x + y);
 
             List<int> @out = new List<int>();
-            IListener l = merged.Calm().Listen(@out.Add);
+            IListener l = merged.Calm().ListenStrong(@out.Add);
 
             Transaction.RunVoid(
                 () =>
@@ -552,7 +552,7 @@ namespace SodaFlow.Tests
                 int outputValue = s.Value + (s.Test ? a * 3 : a);
                 return (ReturnValue: outputValue, State: (Value: outputValue, Test: outputValue % 2 == 0));
             });
-            IListener l = sum.Listen(@out.Add);
+            IListener l = sum.ListenStrong(@out.Add);
             sa.Send(5);
             sa.Send(7);
             sa.Send(1);
@@ -568,7 +568,7 @@ namespace SodaFlow.Tests
             StreamSink<int> sa = Stream.CreateSink<int>();
             List<int> @out = new List<int>();
             Cell<int> sum = sa.Accum(100, (a, s) => a + s);
-            IListener l = sum.Listen(@out.Add);
+            IListener l = sum.ListenStrong(@out.Add);
             sa.Send(5);
             sa.Send(7);
             sa.Send(1);
@@ -596,7 +596,7 @@ namespace SodaFlow.Tests
                     (Total: 0, Count: 0),
                     (v, s) => (ReturnValue: (s.Total + v) + "/" + (s.Count + 1),
                         State: (Total: s.Total + v, Count: s.Count + 1)))
-                .Listen(@out.Add);
+                .ListenStrong(@out.Add);
 
             Transaction.RunVoid(
                 () =>
@@ -628,7 +628,7 @@ namespace SodaFlow.Tests
             Stream<int> merged = a.Merge(b, (x, y) => x + y);
 
             List<int> @out = new List<int>();
-            IListener l = merged.Accum(0, (v, s) => s + v).Listen(@out.Add);
+            IListener l = merged.Accum(0, (v, s) => s + v).ListenStrong(@out.Add);
 
             Transaction.RunVoid(
                 () =>
@@ -656,7 +656,7 @@ namespace SodaFlow.Tests
         {
             StreamSink<char> s = Stream.CreateSink<char>();
             List<char> @out = new List<char>();
-            IListener l = s.Once().Listen(@out.Add);
+            IListener l = s.Once().ListenStrong(@out.Add);
             s.Send('A');
             s.Send('B');
             s.Send('C');
@@ -670,7 +670,7 @@ namespace SodaFlow.Tests
             StreamSink<char> s = Stream.CreateSink<char>();
             Cell<char> c = s.Hold(' ');
             List<char> @out = new List<char>();
-            IListener l = c.Listen(@out.Add);
+            IListener l = c.ListenStrong(@out.Add);
             s.Send('C');
             s.Send('B');
             s.Send('A');
@@ -684,7 +684,7 @@ namespace SodaFlow.Tests
             StreamSink<char> s = Stream.CreateSink<char>();
             Cell<char> c = s.Hold(' ');
             List<char> @out = new List<char>();
-            IListener l = s.Snapshot(c).Listen(@out.Add);
+            IListener l = s.Snapshot(c).ListenStrong(@out.Add);
             s.Send('C');
             s.Send('B');
             s.Send('A');
@@ -698,7 +698,7 @@ namespace SodaFlow.Tests
             StreamSink<char> s = Stream.CreateSink<char>();
             Cell<char> c = s.Hold(' ');
             List<char> @out = new List<char>();
-            IListener l = Operational.Defer(s).Snapshot(c).Listen(@out.Add);
+            IListener l = Operational.Defer(s).Snapshot(c).ListenStrong(@out.Add);
             s.Send('C');
             s.Send('B');
             s.Send('A');
@@ -707,7 +707,7 @@ namespace SodaFlow.Tests
         }
 
         [Test]
-        public void TestListenWeak()
+        public void TestListen()
         {
             StreamSink<int> s = Stream.CreateSink<int>();
 
@@ -716,7 +716,7 @@ namespace SodaFlow.Tests
             ((Action)(() =>
             {
                 // ReSharper disable once UnusedVariable
-                IWeakListener l = s.ListenWeak(@out.Add);
+                IWeakListener l = s.Listen(@out.Add);
 
                 s.Send(1);
                 s.Send(2);
@@ -730,7 +730,7 @@ namespace SodaFlow.Tests
         }
 
         [Test]
-        public void TestListenWeakWithMap()
+        public void TestListenWithMap()
         {
             StreamSink<int> s = Stream.CreateSink<int>();
 
@@ -743,7 +743,7 @@ namespace SodaFlow.Tests
                 ((Action)(() =>
                 {
                     // ReSharper disable once UnusedVariable
-                    IWeakListener l = s2.ListenWeak(@out.Add);
+                    IWeakListener l = s2.Listen(@out.Add);
 
                     s.Send(1);
                     s.Send(2);
@@ -754,7 +754,7 @@ namespace SodaFlow.Tests
                 ((Action)(() =>
                 {
                     // ReSharper disable once UnusedVariable
-                    IWeakListener l = s2.ListenWeak(@out.Add);
+                    IWeakListener l = s2.Listen(@out.Add);
 
                     s.Send(3);
                     s.Send(4);
@@ -779,7 +779,7 @@ namespace SodaFlow.Tests
             ((Action)(() =>
             {
                 // ReSharper disable once UnusedVariable
-                IStrongListener l = s.Listen(@out.Add);
+                IStrongListener l = s.ListenStrong(@out.Add);
 
                 s.Send(1);
 
@@ -804,7 +804,7 @@ namespace SodaFlow.Tests
             ((Action)(() =>
             {
                 // ReSharper disable once UnusedVariable
-                IWeakListener l = s.ListenWeak(@out.Add);
+                IWeakListener l = s.Listen(@out.Add);
 
                 s.Send(1);
 
@@ -829,7 +829,7 @@ namespace SodaFlow.Tests
             ((Action)(() =>
             {
                 // ReSharper disable once UnusedVariable
-                IStrongListener l = s.Listen(@out.Add);
+                IStrongListener l = s.ListenStrong(@out.Add);
 
                 s.Send(1);
 
@@ -857,7 +857,7 @@ namespace SodaFlow.Tests
             ((Action)(() =>
             {
                 // ReSharper disable once UnusedVariable
-                IWeakListener l = s.ListenWeak(@out.Add);
+                IWeakListener l = s.Listen(@out.Add);
 
                 s.Send(1);
 
@@ -959,7 +959,7 @@ namespace SodaFlow.Tests
                  CellLoop<int> calledLoop = Cell.CreateLoop<int>();
                  calledLoop.Loop(incrementStream.MapTo(1).Merge(decrementStream.MapTo(-1), (x, y) => x + y).Snapshot(calledLoop, (u, c) => c + u).Hold(0));
                  List<int> r = new List<int>();
-                 IListener lLocal = result.Listen(v =>
+                 IListener lLocal = result.ListenStrong(v =>
                  {
                      Task.Run(async () =>
                      {
@@ -972,7 +972,7 @@ namespace SodaFlow.Tests
              });
             // ReSharper disable once UnusedVariable
             List<int> calledResults = new List<int>();
-            IListener l2 = called.Listen(calledResults.Add);
+            IListener l2 = called.ListenStrong(calledResults.Add);
 
             await Task.Delay(500);
             a.Send(2);
@@ -997,7 +997,7 @@ namespace SodaFlow.Tests
                 return s2;
             });
             List<int> @out = new List<int>();
-            IListener l = s.Listen(@out.Add);
+            IListener l = s.ListenStrong(@out.Add);
             streamSink.Send(3);
             streamSink.Send(4);
             streamSink.Send(7);
@@ -1019,7 +1019,7 @@ namespace SodaFlow.Tests
                 return streamLocal;
             });
             List<int> @out = new List<int>();
-            IListener l = stream.Listen(@out.Add);
+            IListener l = stream.ListenStrong(@out.Add);
             streamSink.Send(2);
             l.Unlisten();
 
@@ -1044,7 +1044,7 @@ namespace SodaFlow.Tests
                 }
 
                 List<int> @out = new List<int>();
-                IListener l = stream.Listen(@out.Add);
+                IListener l = stream.ListenStrong(@out.Add);
                 s.Send(0);
                 l.Unlisten();
 
@@ -1053,7 +1053,7 @@ namespace SodaFlow.Tests
 
             StreamSink<int> shallowSink = Stream.CreateSink<int>();
             List<int> shallowOut = new List<int>();
-            IListener shallowListener = shallowSink.Map(v => v + 1).Listen(shallowOut.Add);
+            IListener shallowListener = shallowSink.Map(v => v + 1).ListenStrong(shallowOut.Add);
             shallowSink.Send(1);
             shallowListener.Unlisten();
 

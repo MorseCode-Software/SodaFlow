@@ -25,7 +25,7 @@ module private Types =
             let cell8 = createCell ()
             let cell9 = createCell ()
             currentValue <- cell |> sampleLazyC
-            let l = cell |> updatesC |> listenS (fun v -> this.CurrentValue <- v)
+            let l = cell |> updatesC |> listenStrongS (fun v -> this.CurrentValue <- v)
             (cell, l))
         member private __.L = l
         member __.Cell = cell
@@ -72,7 +72,7 @@ type ``Performance Tests``() =
             struct (allSelected, (objectsAndIsSelected, selectAllStream, objects)))
         let out = List<_>()
         (
-            use _l = runT (fun () -> objectsAndIsSelected |> mapC (Seq.where (fun (_, isSelected) -> isSelected) >> Seq.length) |> listenC out.Add)
+            use _l = runT (fun () -> objectsAndIsSelected |> mapC (Seq.where (fun (_, isSelected) -> isSelected) >> Seq.length) |> listenStrongC out.Add)
             runT (fun () -> objects |> sendC (List.init 20000 (fun n -> TestObject2 (n, n < 500, selectAllStream))))
         )
         CollectionAssert.AreEqual ([1500;500], out)
