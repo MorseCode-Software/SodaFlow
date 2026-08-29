@@ -78,13 +78,24 @@ namespace SodaFlow.Bindable.ObjectModel
 
                     PostWrite(() =>
                     {
-                        this.write(value);
-
-                        // Queued from inside the write rather than alongside it. If the write was
-                        // itself deferred, queuing the reconciliation here keeps it behind the
-                        // update the write produces — otherwise it could sample a stale cell and
-                        // revert the user's edit before the send had happened.
-                        this.ScheduleReconciliation();
+                        try
+                        {
+                            this.write(value);
+                        }
+                        finally
+                        {
+                            // Queued from inside the write rather than alongside it. If the write
+                            // was itself deferred, queuing the reconciliation here keeps it behind
+                            // the update the write produces — otherwise it could sample a stale
+                            // cell and revert the user's edit before the send had happened.
+                            //
+                            // In a finally, because the cached value was already updated
+                            // optimistically above. A write that throws would otherwise leave that
+                            // value standing with nothing to correct it, and the equality check in
+                            // the setter would then refuse to retry it — wedging the property for
+                            // good. Reconciling regardless puts the cell's value back on screen.
+                            this.ScheduleReconciliation();
+                        }
                     });
                 }
             }
