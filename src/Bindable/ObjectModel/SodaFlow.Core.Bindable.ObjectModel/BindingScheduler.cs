@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Threading;
 
 namespace SodaFlow.Bindable.ObjectModel
@@ -8,9 +8,6 @@ namespace SodaFlow.Bindable.ObjectModel
     /// </summary>
     public interface IBindingScheduler
     {
-        /// <summary>True when the calling thread is the binding thread.</summary>
-        bool IsOnBindingThread { get; }
-
         /// <summary>
         ///     Queues <paramref name="action" /> for execution on the binding thread. Implementations
         ///     MUST preserve FIFO ordering and MUST NOT execute the action synchronously while a Sodium
@@ -48,8 +45,6 @@ namespace SodaFlow.Bindable.ObjectModel
             return new SynchronizationContextBindingScheduler(context);
         }
 
-        public bool IsOnBindingThread => ReferenceEquals(objA: SynchronizationContext.Current, objB: this.context);
-
         public void Post(Action action)
         {
             if (action == null)
@@ -83,8 +78,6 @@ namespace SodaFlow.Bindable.ObjectModel
         private ImmediateBindingScheduler()
         {
         }
-
-        public bool IsOnBindingThread => true;
 
         public void Post(Action action)
         {
