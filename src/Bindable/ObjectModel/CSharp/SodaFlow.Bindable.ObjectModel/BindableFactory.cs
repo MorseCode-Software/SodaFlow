@@ -41,10 +41,14 @@ namespace SodaFlow.Bindable.ObjectModel
         public IBindableAction<T> ToBindableAction<T>(
             StreamSink<T> firingsStreamSink,
             Cell<bool>? isEnabledCell = null) =>
-            firingsStreamSink.ToBindableAction(isEnabledCell);
+            firingsStreamSink.ToBindableAction(
+                isEnabledCell: isEnabledCell,
+                scheduler: this.bindingScheduler);
 
         /// <inheritdoc />
         public IBindableAction ToBindableAction(StreamSink<Unit> firingsStreamSink, Cell<bool>? isEnabledCell = null) =>
-            firingsStreamSink.ToBindableAction(isEnabledCell);
+            firingsStreamSink.ToBindableAction(
+                isEnabledCell: isEnabledCell,
+                scheduler: this.bindingScheduler);
     }
 }
