@@ -105,8 +105,25 @@ namespace SodaFlow.Bindable.ObjectModel
                 }
 
                 this.listener.Unlisten();
+
+                bool wasExecutable = this.canExecute;
                 this.canExecute = false;
+
+                // Detached before the notification is raised, so a handler cannot resubscribe or be
+                // called twice; the local keeps the one send we still owe it.
+                EventHandler? handler = this.CanExecuteChanged;
                 this.CanExecuteChanged = null;
+
+                if (!wasExecutable || handler == null)
+                {
+                    return;
+                }
+
+                // A binding engine caches the last CanExecute result and only asks again when told
+                // to. Clearing the handlers without ever raising this left a disposed command
+                // looking enabled: still clickable, and silently doing nothing when clicked.
+                // Posted rather than raised inline because Dispose can be called from any thread.
+                this.scheduler.Post(() => handler(this, EventArgs.Empty));
             }
         }
     }
