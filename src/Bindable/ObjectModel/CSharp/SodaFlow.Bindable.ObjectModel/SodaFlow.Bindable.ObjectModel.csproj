@@ -1,0 +1,52 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <TargetFrameworks>net472;net60;netstandard2.0</TargetFrameworks>
+    </PropertyGroup>
+
+    <PropertyGroup>
+        <PackageId>SodaFlow.Bindable.ObjectModel</PackageId>
+        <MinVerTagPrefix>sodaflow-bindable-objectmodel-</MinVerTagPrefix>
+        <Product>SodaFlow Bindable Object Model for C#</Product>
+        <Title>SodaFlow Bindable Object Model for C#</Title>
+        <Description>SodaFlow Bindable Object Model library for C#.</Description>
+        <AssemblyName>SodaFlow.Bindable.ObjectModel</AssemblyName>
+        <RootNamespace>SodaFlow.Bindable.ObjectModel</RootNamespace>
+        <EnableDefaultItems>false</EnableDefaultItems>
+        <Nullable>enable</Nullable>
+        <LangVersion>10</LangVersion>
+        <!--
+            GenerateDocumentationFile rather than an explicit DocumentationFile path: this project
+            multi-targets, and a single hard-coded path would make all three target frameworks write
+            over one another's XML.
+        -->
+        <GenerateDocumentationFile>true</GenerateDocumentationFile>
+
+        <!--
+            Not packed until there is something to ship. MinVer versions a project with no tag of
+            its own prefix as 0.0.0-alpha.0, and appveyor.yml pushes every nupkg produced by a tag
+            build, so leaving this out would publish an empty package on the next release of
+            anything at all. Remove this line when the implementation lands, and push the first
+            sodaflow-bindable-objectmodel-x.y.z tag.
+        -->
+        <IsPackable>false</IsPackable>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <PackageReference Include="JetBrains.Annotations" Version="2026.2.0" />
+        <PackageReference Include="System.ValueTuple" Version="4.4.0"/>
+    </ItemGroup>
+
+    <ItemGroup>
+      <Compile Include="BindableAction.cs" />
+      <Compile Include="BindableExtensionMethods.cs" />
+      <Compile Include="BindableFactory.cs" />
+      <Compile Include="Interfaces.cs" />
+    </ItemGroup>
+
+    <ItemGroup>
+      <ProjectReference Include="..\..\SodaFlow.Core.Bindable.ObjectModel\SodaFlow.Core.Bindable.ObjectModel.csproj" />
+      <ProjectReference Include="..\..\..\..\CSharp\SodaFlow.Functional\SodaFlow.Functional.csproj" />
+    </ItemGroup>
+
+</Project>
