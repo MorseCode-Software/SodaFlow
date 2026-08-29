@@ -63,12 +63,40 @@ namespace SodaFlow.Bindable.ObjectModel
                     return;
                 }
 
+                // Validated here rather than inside the posted action. The type check is a
+                // diagnostic for the XAML author and has to be thrown where they can see it: with a
+                // transaction already in flight, PostWrite defers, and a throw from the deferred
+                // action escapes Transaction.Close instead - aborting a transaction that has
+                // nothing to do with this command and discarding whatever else it had queued.
+                this.ValidateParameter(parameter);
+
                 PostWrite(() => this.SendValue(streamSink: this.firingsStreamSink, value: parameter));
             }
 
             /// <summary>
             ///     Guards against a XAML author binding a <c>CommandParameter</c> to the wrong type.
-            ///     Throws an <see cref="InvalidOperationException" /> if the type is not correct.
+            ///     Runs before the send is queued, so the exception reaches the caller of
+            ///     <see cref="Execute" />.
+            /// </summary>
+            /// <param name="value">The command parameter, as the binding engine supplied it.</param>
+            /// <exception cref="InvalidOperationException">
+            ///     <paramref name="value" /> is neither a <typeparamref name="T" /> nor a null that
+            ///     <typeparamref name="T" /> can represent.
+            /// </exception>
+            protected virtual void ValidateParameter(object? value)
+            {
+                if (value is T || (value is null && default(T) == null))
+                {
+                    return;
+                }
+
+                throw new InvalidOperationException(
+                    "The command parameter must be of type " + typeof(T).FullName);
+            }
+
+            /// <summary>
+            ///     Sends the parameter into the stream. <see cref="ValidateParameter" /> has already
+            ///     accepted it, so the conversion here cannot fail.
             /// </summary>
             protected virtual void SendValue(StreamSink<T> streamSink, object? value) =>
                 streamSink.SendImpl(

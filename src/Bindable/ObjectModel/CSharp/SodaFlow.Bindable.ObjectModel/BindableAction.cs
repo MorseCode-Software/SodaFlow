@@ -19,6 +19,12 @@ namespace SodaFlow.Bindable.ObjectModel
             }
 
             /// <inheritdoc />
+            /// <remarks>A parameterless command ignores its parameter, so nothing can be mistyped.</remarks>
+            protected override void ValidateParameter(object? value)
+            {
+            }
+
+            /// <inheritdoc />
             protected override void SendValue(StreamSink<Unit> streamSink, object? value) =>
                 streamSink.SendImpl(Unit.Value);
         }

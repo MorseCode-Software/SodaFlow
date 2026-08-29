@@ -13,6 +13,9 @@ module Bindable =
             isEnabledCell |> Option.defaultValue null,
             scheduler |> Option.defaultValue null)
         
+        // A parameterless command ignores its parameter, so nothing can be mistyped.
+        override this.ValidateParameter(_) = ()
+
         override this.SendValue(streamSink, _) = streamSink.SendImpl()
         
         interface IBindableAction
