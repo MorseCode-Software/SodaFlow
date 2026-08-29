@@ -9,6 +9,15 @@ namespace SodaFlow.Bindable.ObjectModel
         ///     Projects a <see cref="Cell{T}" /> onto
         ///     <see cref="System.ComponentModel.INotifyPropertyChanged" />.
         /// </summary>
+        /// <remarks>
+        ///     Instances must be constructed on the binding thread, as
+        ///     <see cref="TwoWayBindableValue{T}" /> also requires. Every later write to
+        ///     <see cref="Value" /> is marshalled through the scheduler, but the initial sample is
+        ///     written directly by the constructor, and the field cannot be made volatile because
+        ///     <typeparamref name="T" /> may be a value type. Constructing elsewhere and handing the
+        ///     instance over without synchronizing the handover lets the binding thread read
+        ///     <see langword="default" /> instead of the sampled value.
+        /// </remarks>
         private sealed class OneWayBindableValue<T> : BindableValueBase, IOneWayBindableValue<T>
         {
             /// <summary>

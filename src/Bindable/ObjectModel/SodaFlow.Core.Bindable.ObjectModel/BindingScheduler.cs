@@ -103,10 +103,17 @@ namespace SodaFlow.Bindable.ObjectModel
     public static class BindingScheduler
     {
         /// <summary>
-        ///     An explicit process-wide scheduler. Set this during startup if your bindable values are not
-        ///     constructed on the UI thread. When null, each bindable captures the
+        ///     An explicit process-wide scheduler. Set this during startup when the binding thread has
+        ///     no <see cref="SynchronizationContext" /> of its own to capture — a custom UI framework,
+        ///     or a test host. When null, each bindable captures the
         ///     <see cref="SynchronizationContext" /> of the thread that constructed it.
         /// </summary>
+        /// <remarks>
+        ///     This does not make construction off the binding thread safe, and previously said it did.
+        ///     Every bindable samples its initial value on the constructing thread and writes it to an
+        ///     ordinary field; only later updates are marshalled. Construct them on the binding thread,
+        ///     or make sure the handover to it is synchronized.
+        /// </remarks>
         public static IBindingScheduler? Default { get; set; }
 
         /// <summary>Convenience for tests and headless hosts.</summary>

@@ -8,6 +8,11 @@ namespace SodaFlow.Bindable.ObjectModel
         /// <summary>
         ///     A command that carries the <c>CommandParameter</c> into the stream.
         /// </summary>
+        /// <remarks>
+        ///     Instances must be constructed on the binding thread, as the bindable values also
+        ///     require. Enablement changes are marshalled through the scheduler, but the initial
+        ///     sample is written directly by the constructor.
+        /// </remarks>
         internal class BindableAction<T> : IBindableAction<T>
         {
             private readonly StreamSink<T> firingsStreamSink;
