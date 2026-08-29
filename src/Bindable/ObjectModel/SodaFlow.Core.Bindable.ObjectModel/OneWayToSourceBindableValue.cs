@@ -46,7 +46,19 @@ namespace SodaFlow.Bindable.ObjectModel
                     }
 
                     this.value = value;
-                    PostWrite(() => this.write(value));
+
+                    // Checked again inside the post, not only here. PostWrite defers whenever a
+                    // transaction is already open, so a Dispose between the two would otherwise
+                    // still let this write reach the graph.
+                    PostWrite(() =>
+                    {
+                        if (Volatile.Read(ref this.disposed) != 0)
+                        {
+                            return;
+                        }
+
+                        this.write(value);
+                    });
                 }
             }
 

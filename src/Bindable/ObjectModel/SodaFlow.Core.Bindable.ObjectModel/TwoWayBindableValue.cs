@@ -78,6 +78,14 @@ namespace SodaFlow.Bindable.ObjectModel
 
                     PostWrite(() =>
                     {
+                        // Checked again here, not only by the ThrowIfDisposed above. PostWrite
+                        // defers whenever a transaction is already open, so a Dispose in between
+                        // would otherwise still let this write reach the graph.
+                        if (this.IsDisposed)
+                        {
+                            return;
+                        }
+
                         try
                         {
                             this.write(value);
