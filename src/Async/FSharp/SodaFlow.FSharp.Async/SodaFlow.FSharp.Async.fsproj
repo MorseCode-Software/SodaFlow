@@ -22,6 +22,14 @@
         is also where NuGet pack expects to find it when populating each lib folder.
     -->
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
+
+    <!--
+        F# has no equivalent of CS1591, so nothing reports a member that carries no documentation at
+        all. FS3390 is the next best thing and is off by default: it checks the comments that do
+        exist, catching a <param> naming an argument that does not exist and a documented function
+        with an argument left undocumented. Both are easy to introduce when a signature changes.
+    -->
+    <OtherFlags>$(OtherFlags) --warnon:3390</OtherFlags>
   </PropertyGroup>
 
   <ItemGroup>

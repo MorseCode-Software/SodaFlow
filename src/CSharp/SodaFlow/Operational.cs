@@ -12,8 +12,11 @@ namespace SodaFlow
         ///     A stream that gives the updates/steps for a behavior.
         /// </summary>
         /// <typeparam name="T">The type of the values in the behavior.</typeparam>
-        /// <param name="b"></param>
-        /// <returns></returns>
+        /// <param name="b">The behavior to observe.</param>
+        /// <returns>
+        ///     A stream which fires the updated value, in the transaction the update happened in. It does not fire
+        ///     for the behavior's initial value.
+        /// </returns>
         /// <remarks>
         ///     This is an OPERATIONAL primitive, which is not part of the main SodaFlow
         ///     API.  It breaks the property of non-detectability of behavior steps/updates.
@@ -28,8 +31,11 @@ namespace SodaFlow
         ///     value of a behavior, and thereafter gives the updates/steps for the behavior.
         /// </summary>
         /// <typeparam name="T">The type of the values in the behavior.</typeparam>
-        /// <param name="b"></param>
-        /// <returns></returns>
+        /// <param name="b">The behavior to observe.</param>
+        /// <returns>
+        ///     A stream which fires the current value in the transaction this is called in, and then the updated
+        ///     value on every change.
+        /// </returns>
         /// <remarks>
         ///     This is an OPERATIONAL primitive, which is not part of the main SodaFlow
         ///     API.  It breaks the property of non-detectability of behavior steps/updates.

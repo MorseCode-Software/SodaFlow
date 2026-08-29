@@ -1,13 +1,55 @@
+/// <summary>
+///     Creating stream sinks, and pushing values into them.
+/// </summary>
+/// <remarks>
+///     A stream sink is how an event from outside the FRP graph gets into it. These are for
+///     interfacing I/O to FRP only: <c>send</c> throws if called from inside a listener callback,
+///     because sinks are not meant to be used to define new primitives.
+/// </remarks>
 module SodaFlow.StreamSink
 
 open System
 open System.Runtime.CompilerServices
 
+/// <summary>
+///     Creates a stream sink which throws if <c>send</c> is called more than once in a transaction.
+/// </summary>
+/// <typeparam name="'a">The type of the values the stream sink fires.</typeparam>
+/// <returns>A new stream sink.</returns>
+/// <remarks>
+///     Two sends in one transaction is usually a mistake rather than an intent, so it is reported
+///     rather than silently resolved. Use <c>createWithCoalesce</c> where it is intended.
+/// </remarks>
 [<MethodImpl(MethodImplOptions.NoInlining)>]
 let create<'a> () = StreamInternal.CreateSinkImpl<'a> ()
 
+/// <summary>
+///     Creates a stream sink which combines values when <c>send</c> is called more than once in a
+///     single transaction.
+/// </summary>
+/// <param name="coalesce">
+///     Combines two values sent in the same transaction. Called with the value already
+///     accumulated and the value just sent, in that order.
+/// </param>
+/// <returns>A new stream sink.</returns>
+/// <remarks>
+///     A stream fires at most once per transaction, which is what this preserves: whatever is sent
+///     within one transaction is folded down to the single value that fires.
+/// </remarks>
 [<MethodImpl(MethodImplOptions.NoInlining)>]
 let createWithCoalesce coalesce = StreamInternal.CreateSinkImpl (Func<_,_,_> coalesce)
 
+/// <summary>
+///     Sends a value, firing the stream sink.
+/// </summary>
+/// <param name="a">The value to send.</param>
+/// <param name="streamSink">The stream sink to send it to.</param>
+/// <remarks>
+///     Must not be called from inside a listener callback; doing so throws. Sinks are for getting
+///     I/O into FRP, not for building new primitives out of.
+///
+///     Sending twice in one transaction throws unless the sink was created with
+///     <c>createWithCoalesce</c>.
+/// </remarks>
 [<MethodImpl(MethodImplOptions.NoInlining)>]
 let send a (streamSink : StreamSink<'T>) = streamSink.SendImpl a

@@ -1,12 +1,43 @@
+/// <summary>
+///     Creating behavior sinks, and pushing values into them.
+/// </summary>
+/// <remarks>
+///     A behavior sink is how a value from outside the FRP graph gets into it. These are for
+///     interfacing I/O to FRP only: <c>send</c> throws if called from inside a listener callback.
+/// </remarks>
 module SodaFlow.BehaviorSink
 
 open System.Runtime.CompilerServices
 
+/// <summary>
+///     Creates a behavior sink which keeps the last value sent when <c>send</c> is called more than
+///     once in a single transaction.
+/// </summary>
+/// <param name="initialValue">The value the behavior holds until something is sent.</param>
+/// <returns>A new behavior sink.</returns>
 [<MethodImpl(MethodImplOptions.NoInlining)>]
 let create initialValue = BehaviorInternal.CreateSinkImpl initialValue
 
+/// <summary>
+///     Creates a behavior sink which combines values when <c>send</c> is called more than once in a
+///     single transaction.
+/// </summary>
+/// <param name="initialValue">The value the behavior holds until something is sent.</param>
+/// <param name="coalesce">
+///     Combines two values sent in the same transaction. Called with the value already
+///     accumulated and the value just sent, in that order.
+/// </param>
+/// <returns>A new behavior sink.</returns>
 [<MethodImpl(MethodImplOptions.NoInlining)>]
 let createWithCoalesce initialValue coalesce = BehaviorInternal.CreateSinkImpl (initialValue, coalesce)
 
+/// <summary>
+///     Sends a value, changing what the behavior holds.
+/// </summary>
+/// <param name="a">The value to send.</param>
+/// <param name="behaviorSink">The behavior sink to send it to.</param>
+/// <remarks>
+///     Must not be called from inside a listener callback; doing so throws.
+/// </remarks>
 [<MethodImpl(MethodImplOptions.NoInlining)>]
 let send a (behaviorSink : BehaviorSink<'T>) = behaviorSink.SendImpl a
