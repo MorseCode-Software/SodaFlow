@@ -26,6 +26,11 @@ namespace SodaFlow.Bindable.ObjectModel
 
         private readonly SynchronizationContext context;
 
+        /// <summary>
+        ///     Initializes a new instance posting through the given synchronization context.
+        /// </summary>
+        /// <param name="context">The context to post to. Usually the UI thread's.</param>
+        /// <exception cref="ArgumentNullException"><paramref name="context" /> is null.</exception>
         public SynchronizationContextBindingScheduler(SynchronizationContext context) =>
             this.context = context ?? throw new ArgumentNullException(nameof(context));
 
@@ -45,6 +50,16 @@ namespace SodaFlow.Bindable.ObjectModel
             return new SynchronizationContextBindingScheduler(context);
         }
 
+        /// <summary>
+        ///     Posts through the captured context.
+        /// </summary>
+        /// <param name="action">The action to run on the binding thread.</param>
+        /// <exception cref="ArgumentNullException"><paramref name="action" /> is null.</exception>
+        /// <remarks>
+        ///     Always posted, never sent, even when the caller is already on the binding thread:
+        ///     running inline would breach the contract on <see cref="IBindingScheduler.Post" /> for a
+        ///     caller inside a transaction, and the handlers here are called from inside one.
+        /// </remarks>
         public void Post(Action action)
         {
             if (action == null)
@@ -73,12 +88,18 @@ namespace SodaFlow.Bindable.ObjectModel
     /// </remarks>
     public sealed class ImmediateBindingScheduler : IBindingScheduler
     {
+        /// <summary>The single instance. This type holds no state.</summary>
         public static readonly ImmediateBindingScheduler Instance = new();
 
         private ImmediateBindingScheduler()
         {
         }
 
+        /// <summary>
+        ///     Runs the action on the calling thread, once no transaction is in flight.
+        /// </summary>
+        /// <param name="action">The action to run.</param>
+        /// <exception cref="ArgumentNullException"><paramref name="action" /> is null.</exception>
         public void Post(Action action)
         {
             if (action == null)

@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 
 namespace SodaFlow.Bindable.ObjectModel
@@ -37,6 +37,12 @@ namespace SodaFlow.Bindable.ObjectModel
             /// <param name="write">
             ///     Receives values written by the view. Typically <c>sink.Send</c>. Invoked inside a
             ///     transaction opened by <c>Transaction.Post</c>, never from within a callback.
+            /// </param>
+            /// <param name="scheduler">
+            ///     Marshals notifications onto the binding thread. Null resolves one ambiently.
+            /// </param>
+            /// <param name="comparer">
+            ///     Decides whether a value has actually changed. Null uses the default comparer.
             /// </param>
             internal TwoWayBindableValue(
                 Cell<T> cell,

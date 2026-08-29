@@ -1,12 +1,25 @@
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using SodaFlow.Functional;
 
 namespace SodaFlow.Bindable.ObjectModel
 {
+    /// <summary>
+    ///     The default <see cref="IBindableFactory" />. Holds one scheduler and hands it to everything
+    ///     it creates, so a view model can take the factory through its constructor and a test can
+    ///     substitute <see cref="BindingScheduler.Immediate" /> for the real one.
+    /// </summary>
     public class BindableFactory : IBindableFactory
     {
         private readonly IBindingScheduler? bindingScheduler;
 
+        /// <summary>
+        ///     Initializes a new instance which builds bindables against the given scheduler.
+        /// </summary>
+        /// <param name="bindingScheduler">
+        ///     Marshals notifications onto the binding thread. Null leaves each bindable to resolve one
+        ///     ambiently, which is what an application constructing its view models on the UI thread
+        ///     wants; pass one explicitly from a test.
+        /// </param>
         public BindableFactory(IBindingScheduler? bindingScheduler) => this.bindingScheduler = bindingScheduler;
 
         /// <inheritdoc />

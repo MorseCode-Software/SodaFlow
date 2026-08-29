@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Threading;
 
@@ -18,9 +18,13 @@ namespace SodaFlow.Bindable.ObjectModel
             private T value;
             private int disposed;
 
+            /// <param name="write">Receives values written by the view. Typically <c>sink.Send</c>.</param>
             /// <param name="initialValue">
             ///     The value the graph sees before the view has written anything. The binding engine
             ///     typically writes the real value during the first layout pass.
+            /// </param>
+            /// <param name="comparer">
+            ///     Decides whether a value has actually changed. Null uses the default comparer.
             /// </param>
             internal OneWayToSourceBindableValue(Action<T> write, T initialValue, IEqualityComparer<T>? comparer)
             {
