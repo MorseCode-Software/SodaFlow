@@ -57,9 +57,29 @@ it and can be used on its own. F# already has `option`, `Result` and `unit`, whi
 ## Versioning
 
 Each package versions independently from its own git tag prefix, via
-[MinVer](https://github.com/adamralph/minver). Pushing `dotnet-async-csharp-1.1.0` releases
+[MinVer](https://github.com/adamralph/minver). Pushing `sodaflow-async-1.1.0` releases
 `SodaFlow.Async` at 1.1.0 and leaves every other package exactly where its own last tag put
 it. Do not expect the seven version numbers to move together — they are not meant to.
+
+| Package | Tag prefix |
+| --- | --- |
+| `SodaFlow` | `sodaflow-` |
+| `SodaFlow.Core` | `sodaflow-core-` |
+| `SodaFlow.Functional` | `sodaflow-functional-` |
+| `SodaFlow.FSharp` | `sodaflow-fsharp-` |
+| `SodaFlow.Async` | `sodaflow-async-` |
+| `SodaFlow.Async.Core` | `sodaflow-async-core-` |
+| `SodaFlow.FSharp.Async` | `sodaflow-fsharp-async-` |
+
+A package with no tag on the commit being built keeps the version its last tag gave it, so a
+release only publishes what actually moved.
+
+Independent numbering does not mean the packages are independently *installable*, though.
+`SodaFlow`, `SodaFlow.FSharp` and `SodaFlow.Async.Core` reach `SodaFlow.Core` through
+`InternalsVisibleTo`, so a change to those internals binds them to one particular core even
+when no public API moved. When that happens the whole group takes a major version together —
+the emitted NuGet dependency is a minimum version rather than a range, so nothing but the
+version number stops an old wrapper being resolved against a newer core.
 
 ## Supported frameworks
 
