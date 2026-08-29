@@ -79,4 +79,29 @@
         <MinVerIgnoreHeight>true</MinVerIgnoreHeight>
     </PropertyGroup>
 
+    <!--
+        PackageReleaseNotes read from a file rather than set as a literal in each project. Seven
+        packages would otherwise mean seven csproj edits per release, which is seven chances to
+        leave one of them describing the release before last.
+
+        The per-project file wins where it exists, and the repository-wide one covers the rest.
+        Both are needed: this release moved six packages to 2.0.0 for one reason and
+        SodaFlow.Functional to 1.0.1 for a different one, and giving Functional the breaking-change
+        notes would have been simply untrue. Where nothing is found, the releases page is a better
+        answer than an empty field.
+
+        Resolved in a target rather than a property group so the files are read only when packing,
+        and so a project that sets PackageReleaseNotes itself still wins.
+    -->
+    <Target Name="SetPackageReleaseNotesFromFile" BeforeTargets="GenerateNuspec">
+        <PropertyGroup>
+            <_ProjectReleaseNotes>$(MSBuildProjectDirectory)\PackageReleaseNotes.md</_ProjectReleaseNotes>
+            <_SharedReleaseNotes>$(MSBuildThisFileDirectory)..\PackageReleaseNotes.md</_SharedReleaseNotes>
+
+            <PackageReleaseNotes Condition="'$(PackageReleaseNotes)' == '' And Exists('$(_ProjectReleaseNotes)')">$([System.IO.File]::ReadAllText('$(_ProjectReleaseNotes)'))</PackageReleaseNotes>
+            <PackageReleaseNotes Condition="'$(PackageReleaseNotes)' == '' And Exists('$(_SharedReleaseNotes)')">$([System.IO.File]::ReadAllText('$(_SharedReleaseNotes)'))</PackageReleaseNotes>
+            <PackageReleaseNotes Condition="'$(PackageReleaseNotes)' == ''">https://github.com/MorseCode-Software/SodaFlow/releases</PackageReleaseNotes>
+        </PropertyGroup>
+    </Target>
+
 </Project>
