@@ -88,6 +88,9 @@ type ITimerSystemImplementation<'T> =
     /// <remarks>
     ///     Called once, from the <c>TimerSystem</c> constructor. The function passed in is called with
     ///     any exception raised while waiting for or firing timers, and is expected to absorb it.
+    ///
+    ///     An implementation which waits should do so on a thread it owns rather than on the thread
+    ///     pool, since alarms stop being delivered entirely if that wait cannot be scheduled.
     /// </remarks>
     abstract member Start : (exn -> unit) -> unit
     /// <summary>
@@ -187,10 +190,11 @@ type private WaitOrFire =
 ///     Override <c>Now</c> and <c>SubtractTimes</c>; the ordering, waiting and firing of timers is
 ///     handled here.
 ///
-///     The waiting loop runs on the thread pool. Nothing else fires alarms on its own - the
-///     transaction start hook only runs timers when some transaction happens to start - so an
-///     application that is merely waiting for an alarm depends on that loop being scheduled. The
-///     C# implementation of this class uses a dedicated thread for exactly that reason.
+///     The waiting is done on a dedicated background thread rather than on the thread pool.
+///     Nothing else fires alarms on its own - the transaction start hook only runs timers when some
+///     transaction happens to start - so an application that is merely waiting for an alarm depends
+///     entirely on that loop, and a loop that can be starved by pool work would stop delivering
+///     alarms altogether. The thread does not keep the process alive.
 /// </remarks>
 [<AbstractClass>]
 type TimerSystemImplementationBase<'T when 'T : comparison>() as this =
