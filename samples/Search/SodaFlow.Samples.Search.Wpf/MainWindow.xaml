@@ -1,0 +1,52 @@
+<Window x:Class="SodaFlow.Samples.Search.Wpf.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="SodaFlow Search (WPF)"
+        Width="440" Height="520"
+        WindowStartupLocation="CenterScreen">
+
+    <Window.Resources>
+        <BooleanToVisibilityConverter x:Key="BoolToVisibility" />
+    </Window.Resources>
+
+    <DockPanel Margin="16">
+
+        <StackPanel DockPanel.Dock="Top">
+            <TextBlock Text="Search a city. Type &quot;fail&quot; to see the error path."
+                       Foreground="Gray"
+                       Margin="0,0,0,6" />
+
+            <!--
+                UpdateSourceTrigger=PropertyChanged is what makes this search-as-you-type. Without
+                it WPF writes the source only when the box loses focus, and the graph would never
+                see a keystroke.
+            -->
+            <TextBox Text="{Binding Query.Value, UpdateSourceTrigger=PropertyChanged}"
+                     FontSize="16"
+                     Padding="6" />
+
+            <DockPanel Margin="0,8,0,0">
+                <Button DockPanel.Dock="Right"
+                        Content="Cancel"
+                        Command="{Binding Cancel}"
+                        Width="80"
+                        Height="26" />
+                <TextBlock Text="{Binding Summary.Value}"
+                           VerticalAlignment="Center"
+                           Foreground="Gray" />
+            </DockPanel>
+
+            <Border Background="#FFF4E5"
+                    BorderBrush="#E0A96D"
+                    BorderThickness="1"
+                    Padding="8"
+                    Margin="0,8,0,0"
+                    Visibility="{Binding HasError.Value, Converter={StaticResource BoolToVisibility}}">
+                <TextBlock Text="{Binding Error.Value}" TextWrapping="Wrap" />
+            </Border>
+        </StackPanel>
+
+        <ListBox ItemsSource="{Binding Results.Value}" Margin="0,12,0,0" />
+
+    </DockPanel>
+</Window>

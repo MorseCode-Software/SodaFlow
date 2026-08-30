@@ -1,0 +1,45 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        x:Class="SodaFlow.Samples.Search.AvaloniaUi.MainWindow"
+        Title="SodaFlow Search (Avalonia)"
+        Width="440" Height="520"
+        WindowStartupLocation="CenterScreen">
+
+    <DockPanel Margin="16">
+
+        <StackPanel DockPanel.Dock="Top">
+            <TextBlock Text="Search a city. Type &quot;fail&quot; to see the error path."
+                       Foreground="Gray"
+                       Margin="0,0,0,6" />
+
+            <!--
+                Avalonia writes the source on every keystroke by default, so unlike the WPF window
+                this needs no UpdateSourceTrigger. Same binding otherwise, same view model.
+            -->
+            <TextBox Text="{Binding Query.Value}" FontSize="16" Padding="6" />
+
+            <DockPanel Margin="0,8,0,0">
+                <Button DockPanel.Dock="Right"
+                        Content="Cancel"
+                        Command="{Binding Cancel}"
+                        Width="80" />
+                <TextBlock Text="{Binding Summary.Value}"
+                           VerticalAlignment="Center"
+                           Foreground="Gray" />
+            </DockPanel>
+
+            <!-- IsVisible takes the bool directly; no converter needed. -->
+            <Border Background="#FFF4E5"
+                    BorderBrush="#E0A96D"
+                    BorderThickness="1"
+                    Padding="8"
+                    Margin="0,8,0,0"
+                    IsVisible="{Binding HasError.Value}">
+                <TextBlock Text="{Binding Error.Value}" TextWrapping="Wrap" />
+            </Border>
+        </StackPanel>
+
+        <ListBox ItemsSource="{Binding Results.Value}" Margin="0,12,0,0" />
+
+    </DockPanel>
+</Window>

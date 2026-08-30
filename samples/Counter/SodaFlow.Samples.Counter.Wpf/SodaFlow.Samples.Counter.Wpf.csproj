@@ -1,0 +1,17 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <UseWPF>true</UseWPF>
+    <Nullable>enable</Nullable>
+    <LangVersion>10</LangVersion>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- The whole sample is in here. This project only draws it. -->
+    <ProjectReference Include="..\SodaFlow.Samples.Counter.ViewModels\SodaFlow.Samples.Counter.ViewModels.csproj" />
+  </ItemGroup>
+
+</Project>
