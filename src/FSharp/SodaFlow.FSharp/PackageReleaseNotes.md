@@ -12,10 +12,11 @@ function returning an option and fires only the values it produced. It is
 map f >> filterSome in one step, takes the stream last like everything else
 here, and is the counterpart of List.choose.
 
-Requires SodaFlow.Core 3.0.0 or newer. The internal helper this calls was
-renamed in step, so a 2.x core resolved against this package throws
-MissingMethodException. Upgrade SodaFlow, SodaFlow.FSharp and SodaFlow.Core
-together.
+Requires SodaFlow.Core 3.x. The internal helper this calls was renamed in step,
+so a 2.x core resolved against this package would throw
+MissingMethodException. This package's dependency on SodaFlow.Core is declared
+as a range bounded at the next major, so that pairing is refused at restore
+rather than discovered at runtime.
 
 2.0.1
 
@@ -46,7 +47,7 @@ shipped an empty XML documentation file despite having generation enabled, so
 IntelliSense had nothing to show for any of it. FS3390 is enabled, so the
 comments are checked at build time.
 
-Requires SodaFlow.Core 2.0.0 or newer. Do not mix 1.x and 2.x packages.
+Requires SodaFlow.Core 2.0.0 or newer.
 
 ---
 

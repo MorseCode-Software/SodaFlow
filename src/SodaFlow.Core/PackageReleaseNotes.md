@@ -12,12 +12,14 @@ public member would. A wrapper compiled against the old names throws
 MissingMethodException against this version.
 
 That is why this is a major version even though nothing changed for a caller
-outside those eight. It also keeps the "do not mix major versions" rule usable:
-on 2.x, SodaFlow 2.0.1 with SodaFlow.Core 2.2.0 would have been a legal pairing
-that failed in exactly that way, which is the trap the 2.0.0 notes warned
-about.
+outside those eight.
 
-Upgrade SodaFlow, SodaFlow.FSharp and SodaFlow.Core together.
+No one has to remember that. Every package here now declares the range of this
+one it was built against, bounded at the next major, so NuGet refuses a pairing
+that would fail rather than resolving it and leaving the failure until someone
+runs the code. SodaFlow and SodaFlow.FSharp ship alongside this release; the
+async and bindable object model packages follow with compatibility releases,
+each of which moves a dependency range and nothing else.
 
 2.1.1
 
