@@ -473,13 +473,13 @@ namespace SodaFlow.Functional
     ///     This is a struct, so <see langword="default" /> is a valid instance; it holds the
     ///     first case, with the default value of <typeparamref name="T1" />.
     /// </remarks>
-    public struct Either<T1, T2> : IEitherOfTwo
+    public struct Either<T1, T2> : IEitherOfTwo, IEquatable<Either<T1, T2>>
     {
         private readonly int valueType;
-        private readonly T1 value1;
-        private readonly T2 value2;
+        private readonly T1? value1;
+        private readonly T2? value2;
 
-        private Either(int valueType, T1 value1, T2 value2)
+        private Either(int valueType, T1? value1, T2? value2)
         {
             this.valueType = valueType;
             this.value1 = value1;
@@ -513,7 +513,7 @@ namespace SodaFlow.Functional
 
         #region Base Functionality
 
-        T IEitherOfTwo.Match<T>(Func<object, T> onFirst, Func<object, T> onSecond) =>
+        T IEitherOfTwo.Match<T>(Func<object?, T> onFirst, Func<object?, T> onSecond) =>
             this.Match(v => onFirst(v), v => onSecond(v));
 
         object IEither.GetValueAsObject() => Either.GetValueAs<object>().From(this);
@@ -534,7 +534,7 @@ namespace SodaFlow.Functional
         public T Match<T>(
             [JetBrains.Annotations.InstantHandle] Func<T1, T> onFirst,
             [JetBrains.Annotations.InstantHandle] Func<T2, T> onSecond) =>
-            this.valueType == 0 ? onFirst(this.value1) : onSecond(this.value2);
+            this.valueType == 0 ? onFirst(this.value1!) : onSecond(this.value2!);
 
         #endregion
 
@@ -612,6 +612,28 @@ namespace SodaFlow.Functional
             this.Match(Either<T1, T>.First, v2 => Either.Second(f(v2)));
 
         /// <summary>
+        ///     Exchanges the two cases, so that what was held first is held second and the other way
+        ///     round.
+        /// </summary>
+        /// <returns>
+        ///     An either of the two types in the opposite order, holding the same value in the other
+        ///     position.
+        /// </returns>
+        /// <remarks>
+        ///     For handing an either to something which names the same two types the other way round,
+        ///     and for reaching the first case with an operation that only addresses the second - or
+        ///     the reverse. Swapping twice gives back the original.
+        ///
+        ///     This exists only here, on the two-case either. With three or more cases there is no
+        ///     single exchange to make: what a swap would mean is a choice among several reorderings,
+        ///     and naming one of them <c>Swap</c> would make the others look unavailable rather than
+        ///     unnamed.
+        /// </remarks>
+        [JetBrains.Annotations.Pure]
+        public Either<T2, T1> Swap() =>
+            this.Match(Either<T2, T1>.Second, Either<T2, T1>.First);
+
+        /// <summary>
         ///     Gets the held value if this holds the first case.
         /// </summary>
         /// <returns>
@@ -663,14 +685,14 @@ namespace SodaFlow.Functional
         public bool IsSecond() =>
             this.Match(_ => false, _ => true);
 
-        void IEitherOfTwo.MatchVoid(Action<object> onFirst, Action<object> onSecond) =>
+        void IEitherOfTwo.MatchVoid(Action<object?> onFirst, Action<object?> onSecond) =>
             // ReSharper disable once ReturnValueOfPureMethodIsNotUsed
             this.Upcast<IEitherOfTwo>().Match(onFirst.ToFunc(), onSecond.ToFunc());
 
-        Task<T> IEitherOfTwo.MatchAsync<T>(Func<object, Task<T>> onFirst, Func<object, Task<T>> onSecond) =>
+        Task<T> IEitherOfTwo.MatchAsync<T>(Func<object?, Task<T>> onFirst, Func<object?, Task<T>> onSecond) =>
             this.Upcast<IEitherOfTwo>().Match(onFirst, onSecond);
 
-        Task IEitherOfTwo.MatchAsyncVoid(Func<object, Task> onFirst, Func<object, Task> onSecond) =>
+        Task IEitherOfTwo.MatchAsyncVoid(Func<object?, Task> onFirst, Func<object?, Task> onSecond) =>
             this.Upcast<IEitherOfTwo>().MatchAsync(onFirst.ToAsyncFunc(), onSecond.ToAsyncFunc());
 
         #endregion
@@ -685,8 +707,8 @@ namespace SodaFlow.Functional
         ///     <c>First</c>. A <see langword="null" /> marked value converts to an either holding a
         ///     default first value rather than throwing.
         /// </remarks>
-        public static implicit operator Either<T1, T2>(Either.EitherFirst<T1> value) =>
-            First(value == null ? default(T1) : value.Value);
+        public static implicit operator Either<T1, T2>(Either.EitherFirst<T1>? value) =>
+            First(value == null ? default(T1)! : value.Value);
 
         /// <summary>
         ///     Converts a value marked for the second position into an either of this type.
@@ -698,8 +720,8 @@ namespace SodaFlow.Functional
         ///     <c>Second</c>. A <see langword="null" /> marked value converts to an either holding a
         ///     default second value rather than throwing.
         /// </remarks>
-        public static implicit operator Either<T1, T2>(Either.EitherSecond<T2> value) =>
-            Second(value == null ? default(T2) : value.Value);
+        public static implicit operator Either<T1, T2>(Either.EitherSecond<T2>? value) =>
+            Second(value == null ? default(T2)! : value.Value);
 
         /// <summary>
         ///     Determines whether two instances hold the same case with equal values.
@@ -712,8 +734,8 @@ namespace SodaFlow.Functional
         /// </returns>
         public static bool operator ==(Either<T1, T2> x, Either<T1, T2> y) =>
             x.valueType == y.valueType
-            && EqualityComparer<T1>.Default.Equals(x.value1, y.value1)
-            && EqualityComparer<T2>.Default.Equals(x.value2, y.value2);
+            && EqualityComparer<T1>.Default.Equals(x.value1!, y.value1!)
+            && EqualityComparer<T2>.Default.Equals(x.value2!, y.value2!);
 
         /// <summary>
         ///     Determines whether two instances differ, by negating <see cref="op_Equality" />.
@@ -737,7 +759,21 @@ namespace SodaFlow.Functional
         /// <remarks>
         ///     An either is never equal to the bare value it holds, only to another either.
         /// </remarks>
-        public override bool Equals(object obj) => obj is Either<T1, T2> e && this == e;
+        public override bool Equals(object? obj) => obj is Either<T1, T2> e && this == e;
+
+        /// <summary>
+        ///     Determines whether the given instance is equal to this one.
+        /// </summary>
+        /// <param name="other">The instance to compare against.</param>
+        /// <returns>
+        ///     <see langword="true" /> if <see cref="op_Equality" /> considers the two equal.
+        /// </returns>
+        /// <remarks>
+        ///     The same comparison as <see cref="op_Equality" />, under the name
+        ///     <see cref="EqualityComparer{T}.Default" /> looks for, so that comparing these in a
+        ///     collection does not box both operands the way <see cref="Equals(object)" /> must.
+        /// </remarks>
+        public bool Equals(Either<T1, T2> other) => this == other;
 
         /// <summary>
         ///     Returns a hash code consistent with <see cref="op_Equality" />.
@@ -748,8 +784,8 @@ namespace SodaFlow.Functional
             unchecked
             {
                 int hashCode = this.valueType;
-                hashCode = (hashCode * 397) ^ EqualityComparer<T1>.Default.GetHashCode(this.value1);
-                hashCode = (hashCode * 397) ^ EqualityComparer<T2>.Default.GetHashCode(this.value2);
+                hashCode = (hashCode * 397) ^ EqualityComparer<T1>.Default.GetHashCode(this.value1!);
+                hashCode = (hashCode * 397) ^ EqualityComparer<T2>.Default.GetHashCode(this.value2!);
                 return hashCode;
             }
         }
@@ -778,14 +814,14 @@ namespace SodaFlow.Functional
     ///     This is a struct, so <see langword="default" /> is a valid instance; it holds the
     ///     first case, with the default value of <typeparamref name="T1" />.
     /// </remarks>
-    public struct Either<T1, T2, T3> : IEitherOfThree
+    public struct Either<T1, T2, T3> : IEitherOfThree, IEquatable<Either<T1, T2, T3>>
     {
         private readonly int valueType;
-        private readonly T1 value1;
-        private readonly T2 value2;
-        private readonly T3 value3;
+        private readonly T1? value1;
+        private readonly T2? value2;
+        private readonly T3? value3;
 
-        private Either(int valueType, T1 value1, T2 value2, T3 value3)
+        private Either(int valueType, T1? value1, T2? value2, T3? value3)
         {
             this.valueType = valueType;
             this.value1 = value1;
@@ -830,7 +866,7 @@ namespace SodaFlow.Functional
 
         #region Base Functionality
 
-        T IEitherOfThree.Match<T>(Func<object, T> onFirst, Func<object, T> onSecond, Func<object, T> onThird) =>
+        T IEitherOfThree.Match<T>(Func<object?, T> onFirst, Func<object?, T> onSecond, Func<object?, T> onThird) =>
             this.Match(v => onFirst(v), v => onSecond(v), v => onThird(v));
 
         object IEither.GetValueAsObject() => Either.GetValueAs<object>().From(this);
@@ -854,8 +890,8 @@ namespace SodaFlow.Functional
             [JetBrains.Annotations.InstantHandle] Func<T2, T> onSecond,
             [JetBrains.Annotations.InstantHandle] Func<T3, T> onThird) =>
             this.valueType == 0
-                ? onFirst(this.value1)
-                : (this.valueType == 1 ? onSecond(this.value2) : onThird(this.value3));
+                ? onFirst(this.value1!)
+                : (this.valueType == 1 ? onSecond(this.value2!) : onThird(this.value3!));
 
         #endregion
 
@@ -1035,20 +1071,20 @@ namespace SodaFlow.Functional
         public bool IsThird() =>
             this.Match(_ => false, _ => false, _ => true);
 
-        void IEitherOfThree.MatchVoid(Action<object> onFirst, Action<object> onSecond, Action<object> onThird) =>
+        void IEitherOfThree.MatchVoid(Action<object?> onFirst, Action<object?> onSecond, Action<object?> onThird) =>
             // ReSharper disable once ReturnValueOfPureMethodIsNotUsed
             this.Upcast<IEitherOfThree>().Match(onFirst.ToFunc(), onSecond.ToFunc(), onThird.ToFunc());
 
         Task<T> IEitherOfThree.MatchAsync<T>(
-            Func<object, Task<T>> onFirst,
-            Func<object, Task<T>> onSecond,
-            Func<object, Task<T>> onThird) =>
+            Func<object?, Task<T>> onFirst,
+            Func<object?, Task<T>> onSecond,
+            Func<object?, Task<T>> onThird) =>
             this.Upcast<IEitherOfThree>().Match(onFirst, onSecond, onThird);
 
         Task IEitherOfThree.MatchAsyncVoid(
-            Func<object, Task> onFirst,
-            Func<object, Task> onSecond,
-            Func<object, Task> onThird) =>
+            Func<object?, Task> onFirst,
+            Func<object?, Task> onSecond,
+            Func<object?, Task> onThird) =>
             this.Upcast<IEitherOfThree>()
                 .MatchAsync(onFirst.ToAsyncFunc(), onSecond.ToAsyncFunc(), onThird.ToAsyncFunc());
 
@@ -1064,8 +1100,8 @@ namespace SodaFlow.Functional
         ///     <c>First</c>. A <see langword="null" /> marked value converts to an either holding a
         ///     default first value rather than throwing.
         /// </remarks>
-        public static implicit operator Either<T1, T2, T3>(Either.EitherFirst<T1> value) =>
-            First(value == null ? default(T1) : value.Value);
+        public static implicit operator Either<T1, T2, T3>(Either.EitherFirst<T1>? value) =>
+            First(value == null ? default(T1)! : value.Value);
 
         /// <summary>
         ///     Converts a value marked for the second position into an either of this type.
@@ -1077,8 +1113,8 @@ namespace SodaFlow.Functional
         ///     <c>Second</c>. A <see langword="null" /> marked value converts to an either holding a
         ///     default second value rather than throwing.
         /// </remarks>
-        public static implicit operator Either<T1, T2, T3>(Either.EitherSecond<T2> value) =>
-            Second(value == null ? default(T2) : value.Value);
+        public static implicit operator Either<T1, T2, T3>(Either.EitherSecond<T2>? value) =>
+            Second(value == null ? default(T2)! : value.Value);
 
         /// <summary>
         ///     Converts a value marked for the third position into an either of this type.
@@ -1090,8 +1126,8 @@ namespace SodaFlow.Functional
         ///     <c>Third</c>. A <see langword="null" /> marked value converts to an either holding a
         ///     default third value rather than throwing.
         /// </remarks>
-        public static implicit operator Either<T1, T2, T3>(Either.EitherThird<T3> value) =>
-            Third(value == null ? default(T3) : value.Value);
+        public static implicit operator Either<T1, T2, T3>(Either.EitherThird<T3>? value) =>
+            Third(value == null ? default(T3)! : value.Value);
 
         /// <summary>
         ///     Determines whether two instances hold the same case with equal values.
@@ -1104,9 +1140,9 @@ namespace SodaFlow.Functional
         /// </returns>
         public static bool operator ==(Either<T1, T2, T3> x, Either<T1, T2, T3> y) =>
             x.valueType == y.valueType
-            && EqualityComparer<T1>.Default.Equals(x.value1, y.value1)
-            && EqualityComparer<T2>.Default.Equals(x.value2, y.value2)
-            && EqualityComparer<T3>.Default.Equals(x.value3, y.value3);
+            && EqualityComparer<T1>.Default.Equals(x.value1!, y.value1!)
+            && EqualityComparer<T2>.Default.Equals(x.value2!, y.value2!)
+            && EqualityComparer<T3>.Default.Equals(x.value3!, y.value3!);
 
         /// <summary>
         ///     Determines whether two instances differ, by negating <see cref="op_Equality" />.
@@ -1130,7 +1166,21 @@ namespace SodaFlow.Functional
         /// <remarks>
         ///     An either is never equal to the bare value it holds, only to another either.
         /// </remarks>
-        public override bool Equals(object obj) => obj is Either<T1, T2, T3> e && this == e;
+        public override bool Equals(object? obj) => obj is Either<T1, T2, T3> e && this == e;
+
+        /// <summary>
+        ///     Determines whether the given instance is equal to this one.
+        /// </summary>
+        /// <param name="other">The instance to compare against.</param>
+        /// <returns>
+        ///     <see langword="true" /> if <see cref="op_Equality" /> considers the two equal.
+        /// </returns>
+        /// <remarks>
+        ///     The same comparison as <see cref="op_Equality" />, under the name
+        ///     <see cref="EqualityComparer{T}.Default" /> looks for, so that comparing these in a
+        ///     collection does not box both operands the way <see cref="Equals(object)" /> must.
+        /// </remarks>
+        public bool Equals(Either<T1, T2, T3> other) => this == other;
 
         /// <summary>
         ///     Returns a hash code consistent with <see cref="op_Equality" />.
@@ -1141,9 +1191,9 @@ namespace SodaFlow.Functional
             unchecked
             {
                 int hashCode = this.valueType;
-                hashCode = (hashCode * 397) ^ EqualityComparer<T1>.Default.GetHashCode(this.value1);
-                hashCode = (hashCode * 397) ^ EqualityComparer<T2>.Default.GetHashCode(this.value2);
-                hashCode = (hashCode * 397) ^ EqualityComparer<T3>.Default.GetHashCode(this.value3);
+                hashCode = (hashCode * 397) ^ EqualityComparer<T1>.Default.GetHashCode(this.value1!);
+                hashCode = (hashCode * 397) ^ EqualityComparer<T2>.Default.GetHashCode(this.value2!);
+                hashCode = (hashCode * 397) ^ EqualityComparer<T3>.Default.GetHashCode(this.value3!);
                 return hashCode;
             }
         }
@@ -1176,15 +1226,15 @@ namespace SodaFlow.Functional
     ///     This is a struct, so <see langword="default" /> is a valid instance; it holds the
     ///     first case, with the default value of <typeparamref name="T1" />.
     /// </remarks>
-    public struct Either<T1, T2, T3, T4> : IEitherOfFour
+    public struct Either<T1, T2, T3, T4> : IEitherOfFour, IEquatable<Either<T1, T2, T3, T4>>
     {
         private readonly int valueType;
-        private readonly T1 value1;
-        private readonly T2 value2;
-        private readonly T3 value3;
-        private readonly T4 value4;
+        private readonly T1? value1;
+        private readonly T2? value2;
+        private readonly T3? value3;
+        private readonly T4? value4;
 
-        private Either(int valueType, T1 value1, T2 value2, T3 value3, T4 value4)
+        private Either(int valueType, T1? value1, T2? value2, T3? value3, T4? value4)
         {
             this.valueType = valueType;
             this.value1 = value1;
@@ -1248,10 +1298,10 @@ namespace SodaFlow.Functional
         #region Base Functionality
 
         T IEitherOfFour.Match<T>(
-            Func<object, T> onFirst,
-            Func<object, T> onSecond,
-            Func<object, T> onThird,
-            Func<object, T> onFourth) =>
+            Func<object?, T> onFirst,
+            Func<object?, T> onSecond,
+            Func<object?, T> onThird,
+            Func<object?, T> onFourth) =>
             this.Match(v => onFirst(v), v => onSecond(v), v => onThird(v), v => onFourth(v));
 
         object IEither.GetValueAsObject() => Either.GetValueAs<object>().From(this);
@@ -1277,10 +1327,10 @@ namespace SodaFlow.Functional
             [JetBrains.Annotations.InstantHandle] Func<T3, T> onThird,
             [JetBrains.Annotations.InstantHandle] Func<T4, T> onFourth) =>
             this.valueType == 0
-                ? onFirst(this.value1)
+                ? onFirst(this.value1!)
                 : (this.valueType == 1
-                    ? onSecond(this.value2)
-                    : (this.valueType == 2 ? onThird(this.value3) : onFourth(this.value4)));
+                    ? onSecond(this.value2!)
+                    : (this.valueType == 2 ? onThird(this.value3!) : onFourth(this.value4!)));
 
         #endregion
 
@@ -1530,26 +1580,26 @@ namespace SodaFlow.Functional
             this.Match(_ => false, _ => false, _ => false, _ => true);
 
         void IEitherOfFour.MatchVoid(
-            Action<object> onFirst,
-            Action<object> onSecond,
-            Action<object> onThird,
-            Action<object> onFourth) =>
+            Action<object?> onFirst,
+            Action<object?> onSecond,
+            Action<object?> onThird,
+            Action<object?> onFourth) =>
             // ReSharper disable once ReturnValueOfPureMethodIsNotUsed
             this.Upcast<IEitherOfFour>()
                 .Match(onFirst.ToFunc(), onSecond.ToFunc(), onThird.ToFunc(), onFourth.ToFunc());
 
         Task<T> IEitherOfFour.MatchAsync<T>(
-            Func<object, Task<T>> onFirst,
-            Func<object, Task<T>> onSecond,
-            Func<object, Task<T>> onThird,
-            Func<object, Task<T>> onFourth) =>
+            Func<object?, Task<T>> onFirst,
+            Func<object?, Task<T>> onSecond,
+            Func<object?, Task<T>> onThird,
+            Func<object?, Task<T>> onFourth) =>
             this.Upcast<IEitherOfFour>().Match(onFirst, onSecond, onThird, onFourth);
 
         Task IEitherOfFour.MatchAsyncVoid(
-            Func<object, Task> onFirst,
-            Func<object, Task> onSecond,
-            Func<object, Task> onThird,
-            Func<object, Task> onFourth) =>
+            Func<object?, Task> onFirst,
+            Func<object?, Task> onSecond,
+            Func<object?, Task> onThird,
+            Func<object?, Task> onFourth) =>
             this.Upcast<IEitherOfFour>()
                 .MatchAsync(
                     onFirst.ToAsyncFunc(),
@@ -1569,8 +1619,8 @@ namespace SodaFlow.Functional
         ///     <c>First</c>. A <see langword="null" /> marked value converts to an either holding a
         ///     default first value rather than throwing.
         /// </remarks>
-        public static implicit operator Either<T1, T2, T3, T4>(Either.EitherFirst<T1> value) =>
-            First(value == null ? default(T1) : value.Value);
+        public static implicit operator Either<T1, T2, T3, T4>(Either.EitherFirst<T1>? value) =>
+            First(value == null ? default(T1)! : value.Value);
 
         /// <summary>
         ///     Converts a value marked for the second position into an either of this type.
@@ -1582,8 +1632,8 @@ namespace SodaFlow.Functional
         ///     <c>Second</c>. A <see langword="null" /> marked value converts to an either holding a
         ///     default second value rather than throwing.
         /// </remarks>
-        public static implicit operator Either<T1, T2, T3, T4>(Either.EitherSecond<T2> value) =>
-            Second(value == null ? default(T2) : value.Value);
+        public static implicit operator Either<T1, T2, T3, T4>(Either.EitherSecond<T2>? value) =>
+            Second(value == null ? default(T2)! : value.Value);
 
         /// <summary>
         ///     Converts a value marked for the third position into an either of this type.
@@ -1595,8 +1645,8 @@ namespace SodaFlow.Functional
         ///     <c>Third</c>. A <see langword="null" /> marked value converts to an either holding a
         ///     default third value rather than throwing.
         /// </remarks>
-        public static implicit operator Either<T1, T2, T3, T4>(Either.EitherThird<T3> value) =>
-            Third(value == null ? default(T3) : value.Value);
+        public static implicit operator Either<T1, T2, T3, T4>(Either.EitherThird<T3>? value) =>
+            Third(value == null ? default(T3)! : value.Value);
 
         /// <summary>
         ///     Converts a value marked for the fourth position into an either of this type.
@@ -1608,8 +1658,8 @@ namespace SodaFlow.Functional
         ///     <c>Fourth</c>. A <see langword="null" /> marked value converts to an either holding a
         ///     default fourth value rather than throwing.
         /// </remarks>
-        public static implicit operator Either<T1, T2, T3, T4>(Either.EitherFourth<T4> value) =>
-            Fourth(value == null ? default(T4) : value.Value);
+        public static implicit operator Either<T1, T2, T3, T4>(Either.EitherFourth<T4>? value) =>
+            Fourth(value == null ? default(T4)! : value.Value);
 
         /// <summary>
         ///     Determines whether two instances hold the same case with equal values.
@@ -1622,10 +1672,10 @@ namespace SodaFlow.Functional
         /// </returns>
         public static bool operator ==(Either<T1, T2, T3, T4> x, Either<T1, T2, T3, T4> y) =>
             x.valueType == y.valueType
-            && EqualityComparer<T1>.Default.Equals(x.value1, y.value1)
-            && EqualityComparer<T2>.Default.Equals(x.value2, y.value2)
-            && EqualityComparer<T3>.Default.Equals(x.value3, y.value3)
-            && EqualityComparer<T4>.Default.Equals(x.value4, y.value4);
+            && EqualityComparer<T1>.Default.Equals(x.value1!, y.value1!)
+            && EqualityComparer<T2>.Default.Equals(x.value2!, y.value2!)
+            && EqualityComparer<T3>.Default.Equals(x.value3!, y.value3!)
+            && EqualityComparer<T4>.Default.Equals(x.value4!, y.value4!);
 
         /// <summary>
         ///     Determines whether two instances differ, by negating <see cref="op_Equality" />.
@@ -1649,7 +1699,21 @@ namespace SodaFlow.Functional
         /// <remarks>
         ///     An either is never equal to the bare value it holds, only to another either.
         /// </remarks>
-        public override bool Equals(object obj) => obj is Either<T1, T2, T3, T4> e && this == e;
+        public override bool Equals(object? obj) => obj is Either<T1, T2, T3, T4> e && this == e;
+
+        /// <summary>
+        ///     Determines whether the given instance is equal to this one.
+        /// </summary>
+        /// <param name="other">The instance to compare against.</param>
+        /// <returns>
+        ///     <see langword="true" /> if <see cref="op_Equality" /> considers the two equal.
+        /// </returns>
+        /// <remarks>
+        ///     The same comparison as <see cref="op_Equality" />, under the name
+        ///     <see cref="EqualityComparer{T}.Default" /> looks for, so that comparing these in a
+        ///     collection does not box both operands the way <see cref="Equals(object)" /> must.
+        /// </remarks>
+        public bool Equals(Either<T1, T2, T3, T4> other) => this == other;
 
         /// <summary>
         ///     Returns a hash code consistent with <see cref="op_Equality" />.
@@ -1660,10 +1724,10 @@ namespace SodaFlow.Functional
             unchecked
             {
                 int hashCode = this.valueType;
-                hashCode = (hashCode * 397) ^ EqualityComparer<T1>.Default.GetHashCode(this.value1);
-                hashCode = (hashCode * 397) ^ EqualityComparer<T2>.Default.GetHashCode(this.value2);
-                hashCode = (hashCode * 397) ^ EqualityComparer<T3>.Default.GetHashCode(this.value3);
-                hashCode = (hashCode * 397) ^ EqualityComparer<T4>.Default.GetHashCode(this.value4);
+                hashCode = (hashCode * 397) ^ EqualityComparer<T1>.Default.GetHashCode(this.value1!);
+                hashCode = (hashCode * 397) ^ EqualityComparer<T2>.Default.GetHashCode(this.value2!);
+                hashCode = (hashCode * 397) ^ EqualityComparer<T3>.Default.GetHashCode(this.value3!);
+                hashCode = (hashCode * 397) ^ EqualityComparer<T4>.Default.GetHashCode(this.value4!);
                 return hashCode;
             }
         }
@@ -1698,16 +1762,16 @@ namespace SodaFlow.Functional
     ///     This is a struct, so <see langword="default" /> is a valid instance; it holds the
     ///     first case, with the default value of <typeparamref name="T1" />.
     /// </remarks>
-    public struct Either<T1, T2, T3, T4, T5> : IEitherOfFive
+    public struct Either<T1, T2, T3, T4, T5> : IEitherOfFive, IEquatable<Either<T1, T2, T3, T4, T5>>
     {
         private readonly int valueType;
-        private readonly T1 value1;
-        private readonly T2 value2;
-        private readonly T3 value3;
-        private readonly T4 value4;
-        private readonly T5 value5;
+        private readonly T1? value1;
+        private readonly T2? value2;
+        private readonly T3? value3;
+        private readonly T4? value4;
+        private readonly T5? value5;
 
-        private Either(int valueType, T1 value1, T2 value2, T3 value3, T4 value4, T5 value5)
+        private Either(int valueType, T1? value1, T2? value2, T3? value3, T4? value4, T5? value5)
         {
             this.valueType = valueType;
             this.value1 = value1;
@@ -1809,11 +1873,11 @@ namespace SodaFlow.Functional
         #region Base Functionality
 
         T IEitherOfFive.Match<T>(
-            Func<object, T> onFirst,
-            Func<object, T> onSecond,
-            Func<object, T> onThird,
-            Func<object, T> onFourth,
-            Func<object, T> onFifth) =>
+            Func<object?, T> onFirst,
+            Func<object?, T> onSecond,
+            Func<object?, T> onThird,
+            Func<object?, T> onFourth,
+            Func<object?, T> onFifth) =>
             this.Match(v => onFirst(v), v => onSecond(v), v => onThird(v), v => onFourth(v), v => onFifth(v));
 
         object IEither.GetValueAsObject() => Either.GetValueAs<object>().From(this);
@@ -1841,12 +1905,12 @@ namespace SodaFlow.Functional
             [JetBrains.Annotations.InstantHandle] Func<T4, T> onFourth,
             [JetBrains.Annotations.InstantHandle] Func<T5, T> onFifth) =>
             this.valueType == 0
-                ? onFirst(this.value1)
+                ? onFirst(this.value1!)
                 : (this.valueType == 1
-                    ? onSecond(this.value2)
+                    ? onSecond(this.value2!)
                     : (this.valueType == 2
-                        ? onThird(this.value3)
-                        : (this.valueType == 3 ? onFourth(this.value4) : onFifth(this.value5))));
+                        ? onThird(this.value3!)
+                        : (this.valueType == 3 ? onFourth(this.value4!) : onFifth(this.value5!))));
 
         #endregion
 
@@ -2155,29 +2219,29 @@ namespace SodaFlow.Functional
             this.Match(_ => false, _ => false, _ => false, _ => false, _ => true);
 
         void IEitherOfFive.MatchVoid(
-            Action<object> onFirst,
-            Action<object> onSecond,
-            Action<object> onThird,
-            Action<object> onFourth,
-            Action<object> onFifth) =>
+            Action<object?> onFirst,
+            Action<object?> onSecond,
+            Action<object?> onThird,
+            Action<object?> onFourth,
+            Action<object?> onFifth) =>
             // ReSharper disable once ReturnValueOfPureMethodIsNotUsed
             this.Upcast<IEitherOfFive>()
                 .Match(onFirst.ToFunc(), onSecond.ToFunc(), onThird.ToFunc(), onFourth.ToFunc(), onFifth.ToFunc());
 
         Task<T> IEitherOfFive.MatchAsync<T>(
-            Func<object, Task<T>> onFirst,
-            Func<object, Task<T>> onSecond,
-            Func<object, Task<T>> onThird,
-            Func<object, Task<T>> onFourth,
-            Func<object, Task<T>> onFifth) =>
+            Func<object?, Task<T>> onFirst,
+            Func<object?, Task<T>> onSecond,
+            Func<object?, Task<T>> onThird,
+            Func<object?, Task<T>> onFourth,
+            Func<object?, Task<T>> onFifth) =>
             this.Upcast<IEitherOfFive>().Match(onFirst, onSecond, onThird, onFourth, onFifth);
 
         Task IEitherOfFive.MatchAsyncVoid(
-            Func<object, Task> onFirst,
-            Func<object, Task> onSecond,
-            Func<object, Task> onThird,
-            Func<object, Task> onFourth,
-            Func<object, Task> onFifth) =>
+            Func<object?, Task> onFirst,
+            Func<object?, Task> onSecond,
+            Func<object?, Task> onThird,
+            Func<object?, Task> onFourth,
+            Func<object?, Task> onFifth) =>
             this.Upcast<IEitherOfFive>()
                 .MatchAsync(
                     onFirst.ToAsyncFunc(),
@@ -2198,8 +2262,8 @@ namespace SodaFlow.Functional
         ///     <c>First</c>. A <see langword="null" /> marked value converts to an either holding a
         ///     default first value rather than throwing.
         /// </remarks>
-        public static implicit operator Either<T1, T2, T3, T4, T5>(Either.EitherFirst<T1> value) =>
-            First(value == null ? default(T1) : value.Value);
+        public static implicit operator Either<T1, T2, T3, T4, T5>(Either.EitherFirst<T1>? value) =>
+            First(value == null ? default(T1)! : value.Value);
 
         /// <summary>
         ///     Converts a value marked for the second position into an either of this type.
@@ -2211,8 +2275,8 @@ namespace SodaFlow.Functional
         ///     <c>Second</c>. A <see langword="null" /> marked value converts to an either holding a
         ///     default second value rather than throwing.
         /// </remarks>
-        public static implicit operator Either<T1, T2, T3, T4, T5>(Either.EitherSecond<T2> value) =>
-            Second(value == null ? default(T2) : value.Value);
+        public static implicit operator Either<T1, T2, T3, T4, T5>(Either.EitherSecond<T2>? value) =>
+            Second(value == null ? default(T2)! : value.Value);
 
         /// <summary>
         ///     Converts a value marked for the third position into an either of this type.
@@ -2224,8 +2288,8 @@ namespace SodaFlow.Functional
         ///     <c>Third</c>. A <see langword="null" /> marked value converts to an either holding a
         ///     default third value rather than throwing.
         /// </remarks>
-        public static implicit operator Either<T1, T2, T3, T4, T5>(Either.EitherThird<T3> value) =>
-            Third(value == null ? default(T3) : value.Value);
+        public static implicit operator Either<T1, T2, T3, T4, T5>(Either.EitherThird<T3>? value) =>
+            Third(value == null ? default(T3)! : value.Value);
 
         /// <summary>
         ///     Converts a value marked for the fourth position into an either of this type.
@@ -2237,8 +2301,8 @@ namespace SodaFlow.Functional
         ///     <c>Fourth</c>. A <see langword="null" /> marked value converts to an either holding a
         ///     default fourth value rather than throwing.
         /// </remarks>
-        public static implicit operator Either<T1, T2, T3, T4, T5>(Either.EitherFourth<T4> value) =>
-            Fourth(value == null ? default(T4) : value.Value);
+        public static implicit operator Either<T1, T2, T3, T4, T5>(Either.EitherFourth<T4>? value) =>
+            Fourth(value == null ? default(T4)! : value.Value);
 
         /// <summary>
         ///     Converts a value marked for the fifth position into an either of this type.
@@ -2250,8 +2314,8 @@ namespace SodaFlow.Functional
         ///     <c>Fifth</c>. A <see langword="null" /> marked value converts to an either holding a
         ///     default fifth value rather than throwing.
         /// </remarks>
-        public static implicit operator Either<T1, T2, T3, T4, T5>(Either.EitherFifth<T5> value) =>
-            Fifth(value == null ? default(T5) : value.Value);
+        public static implicit operator Either<T1, T2, T3, T4, T5>(Either.EitherFifth<T5>? value) =>
+            Fifth(value == null ? default(T5)! : value.Value);
 
         /// <summary>
         ///     Determines whether two instances hold the same case with equal values.
@@ -2264,11 +2328,11 @@ namespace SodaFlow.Functional
         /// </returns>
         public static bool operator ==(Either<T1, T2, T3, T4, T5> x, Either<T1, T2, T3, T4, T5> y) =>
             x.valueType == y.valueType
-            && EqualityComparer<T1>.Default.Equals(x.value1, y.value1)
-            && EqualityComparer<T2>.Default.Equals(x.value2, y.value2)
-            && EqualityComparer<T3>.Default.Equals(x.value3, y.value3)
-            && EqualityComparer<T4>.Default.Equals(x.value4, y.value4)
-            && EqualityComparer<T5>.Default.Equals(x.value5, y.value5);
+            && EqualityComparer<T1>.Default.Equals(x.value1!, y.value1!)
+            && EqualityComparer<T2>.Default.Equals(x.value2!, y.value2!)
+            && EqualityComparer<T3>.Default.Equals(x.value3!, y.value3!)
+            && EqualityComparer<T4>.Default.Equals(x.value4!, y.value4!)
+            && EqualityComparer<T5>.Default.Equals(x.value5!, y.value5!);
 
         /// <summary>
         ///     Determines whether two instances differ, by negating <see cref="op_Equality" />.
@@ -2292,7 +2356,21 @@ namespace SodaFlow.Functional
         /// <remarks>
         ///     An either is never equal to the bare value it holds, only to another either.
         /// </remarks>
-        public override bool Equals(object obj) => obj is Either<T1, T2, T3, T4, T5> e && this == e;
+        public override bool Equals(object? obj) => obj is Either<T1, T2, T3, T4, T5> e && this == e;
+
+        /// <summary>
+        ///     Determines whether the given instance is equal to this one.
+        /// </summary>
+        /// <param name="other">The instance to compare against.</param>
+        /// <returns>
+        ///     <see langword="true" /> if <see cref="op_Equality" /> considers the two equal.
+        /// </returns>
+        /// <remarks>
+        ///     The same comparison as <see cref="op_Equality" />, under the name
+        ///     <see cref="EqualityComparer{T}.Default" /> looks for, so that comparing these in a
+        ///     collection does not box both operands the way <see cref="Equals(object)" /> must.
+        /// </remarks>
+        public bool Equals(Either<T1, T2, T3, T4, T5> other) => this == other;
 
         /// <summary>
         ///     Returns a hash code consistent with <see cref="op_Equality" />.
@@ -2303,11 +2381,11 @@ namespace SodaFlow.Functional
             unchecked
             {
                 int hashCode = this.valueType;
-                hashCode = (hashCode * 397) ^ EqualityComparer<T1>.Default.GetHashCode(this.value1);
-                hashCode = (hashCode * 397) ^ EqualityComparer<T2>.Default.GetHashCode(this.value2);
-                hashCode = (hashCode * 397) ^ EqualityComparer<T3>.Default.GetHashCode(this.value3);
-                hashCode = (hashCode * 397) ^ EqualityComparer<T4>.Default.GetHashCode(this.value4);
-                hashCode = (hashCode * 397) ^ EqualityComparer<T5>.Default.GetHashCode(this.value5);
+                hashCode = (hashCode * 397) ^ EqualityComparer<T1>.Default.GetHashCode(this.value1!);
+                hashCode = (hashCode * 397) ^ EqualityComparer<T2>.Default.GetHashCode(this.value2!);
+                hashCode = (hashCode * 397) ^ EqualityComparer<T3>.Default.GetHashCode(this.value3!);
+                hashCode = (hashCode * 397) ^ EqualityComparer<T4>.Default.GetHashCode(this.value4!);
+                hashCode = (hashCode * 397) ^ EqualityComparer<T5>.Default.GetHashCode(this.value5!);
                 return hashCode;
             }
         }
@@ -2344,17 +2422,17 @@ namespace SodaFlow.Functional
     ///     This is a struct, so <see langword="default" /> is a valid instance; it holds the
     ///     first case, with the default value of <typeparamref name="T1" />.
     /// </remarks>
-    public struct Either<T1, T2, T3, T4, T5, T6> : IEitherOfSix
+    public struct Either<T1, T2, T3, T4, T5, T6> : IEitherOfSix, IEquatable<Either<T1, T2, T3, T4, T5, T6>>
     {
         private readonly int valueType;
-        private readonly T1 value1;
-        private readonly T2 value2;
-        private readonly T3 value3;
-        private readonly T4 value4;
-        private readonly T5 value5;
-        private readonly T6 value6;
+        private readonly T1? value1;
+        private readonly T2? value2;
+        private readonly T3? value3;
+        private readonly T4? value4;
+        private readonly T5? value5;
+        private readonly T6? value6;
 
-        internal Either(int valueType, T1 value1, T2 value2, T3 value3, T4 value4, T5 value5, T6 value6)
+        internal Either(int valueType, T1? value1, T2? value2, T3? value3, T4? value4, T5? value5, T6? value6)
         {
             this.valueType = valueType;
             this.value1 = value1;
@@ -2480,12 +2558,12 @@ namespace SodaFlow.Functional
         #region Base Functionality
 
         T IEitherOfSix.Match<T>(
-            Func<object, T> onFirst,
-            Func<object, T> onSecond,
-            Func<object, T> onThird,
-            Func<object, T> onFourth,
-            Func<object, T> onFifth,
-            Func<object, T> onSixth) =>
+            Func<object?, T> onFirst,
+            Func<object?, T> onSecond,
+            Func<object?, T> onThird,
+            Func<object?, T> onFourth,
+            Func<object?, T> onFifth,
+            Func<object?, T> onSixth) =>
             this.Match(
                 v => onFirst(v),
                 v => onSecond(v),
@@ -2521,14 +2599,14 @@ namespace SodaFlow.Functional
             [JetBrains.Annotations.InstantHandle] Func<T5, T> onFifth,
             [JetBrains.Annotations.InstantHandle] Func<T6, T> onSixth) =>
             this.valueType == 0
-                ? onFirst(this.value1)
+                ? onFirst(this.value1!)
                 : (this.valueType == 1
-                    ? onSecond(this.value2)
+                    ? onSecond(this.value2!)
                     : (this.valueType == 2
-                        ? onThird(this.value3)
+                        ? onThird(this.value3!)
                         : (this.valueType == 3
-                            ? onFourth(this.value4)
-                            : (this.valueType == 4 ? onFifth(this.value5) : onSixth(this.value6)))));
+                            ? onFourth(this.value4!)
+                            : (this.valueType == 4 ? onFifth(this.value5!) : onSixth(this.value6!)))));
 
         #endregion
 
@@ -2904,12 +2982,12 @@ namespace SodaFlow.Functional
             this.Match(_ => false, _ => false, _ => false, _ => false, _ => false, _ => true);
 
         void IEitherOfSix.MatchVoid(
-            Action<object> onFirst,
-            Action<object> onSecond,
-            Action<object> onThird,
-            Action<object> onFourth,
-            Action<object> onFifth,
-            Action<object> onSixth) =>
+            Action<object?> onFirst,
+            Action<object?> onSecond,
+            Action<object?> onThird,
+            Action<object?> onFourth,
+            Action<object?> onFifth,
+            Action<object?> onSixth) =>
             // ReSharper disable once ReturnValueOfPureMethodIsNotUsed
             this.Upcast<IEitherOfSix>()
                 .Match(
@@ -2921,21 +2999,21 @@ namespace SodaFlow.Functional
                     onSixth.ToFunc());
 
         Task<T> IEitherOfSix.MatchAsync<T>(
-            Func<object, Task<T>> onFirst,
-            Func<object, Task<T>> onSecond,
-            Func<object, Task<T>> onThird,
-            Func<object, Task<T>> onFourth,
-            Func<object, Task<T>> onFifth,
-            Func<object, Task<T>> onSixth) =>
+            Func<object?, Task<T>> onFirst,
+            Func<object?, Task<T>> onSecond,
+            Func<object?, Task<T>> onThird,
+            Func<object?, Task<T>> onFourth,
+            Func<object?, Task<T>> onFifth,
+            Func<object?, Task<T>> onSixth) =>
             this.Upcast<IEitherOfSix>().Match(onFirst, onSecond, onThird, onFourth, onFifth, onSixth);
 
         Task IEitherOfSix.MatchAsyncVoid(
-            Func<object, Task> onFirst,
-            Func<object, Task> onSecond,
-            Func<object, Task> onThird,
-            Func<object, Task> onFourth,
-            Func<object, Task> onFifth,
-            Func<object, Task> onSixth) =>
+            Func<object?, Task> onFirst,
+            Func<object?, Task> onSecond,
+            Func<object?, Task> onThird,
+            Func<object?, Task> onFourth,
+            Func<object?, Task> onFifth,
+            Func<object?, Task> onSixth) =>
             this.Upcast<IEitherOfSix>()
                 .MatchAsync(
                     onFirst.ToAsyncFunc(),
@@ -2957,8 +3035,8 @@ namespace SodaFlow.Functional
         ///     <c>First</c>. A <see langword="null" /> marked value converts to an either holding a
         ///     default first value rather than throwing.
         /// </remarks>
-        public static implicit operator Either<T1, T2, T3, T4, T5, T6>(Either.EitherFirst<T1> value) =>
-            First(value == null ? default(T1) : value.Value);
+        public static implicit operator Either<T1, T2, T3, T4, T5, T6>(Either.EitherFirst<T1>? value) =>
+            First(value == null ? default(T1)! : value.Value);
 
         /// <summary>
         ///     Converts a value marked for the second position into an either of this type.
@@ -2970,8 +3048,8 @@ namespace SodaFlow.Functional
         ///     <c>Second</c>. A <see langword="null" /> marked value converts to an either holding a
         ///     default second value rather than throwing.
         /// </remarks>
-        public static implicit operator Either<T1, T2, T3, T4, T5, T6>(Either.EitherSecond<T2> value) =>
-            Second(value == null ? default(T2) : value.Value);
+        public static implicit operator Either<T1, T2, T3, T4, T5, T6>(Either.EitherSecond<T2>? value) =>
+            Second(value == null ? default(T2)! : value.Value);
 
         /// <summary>
         ///     Converts a value marked for the third position into an either of this type.
@@ -2983,8 +3061,8 @@ namespace SodaFlow.Functional
         ///     <c>Third</c>. A <see langword="null" /> marked value converts to an either holding a
         ///     default third value rather than throwing.
         /// </remarks>
-        public static implicit operator Either<T1, T2, T3, T4, T5, T6>(Either.EitherThird<T3> value) =>
-            Third(value == null ? default(T3) : value.Value);
+        public static implicit operator Either<T1, T2, T3, T4, T5, T6>(Either.EitherThird<T3>? value) =>
+            Third(value == null ? default(T3)! : value.Value);
 
         /// <summary>
         ///     Converts a value marked for the fourth position into an either of this type.
@@ -2996,8 +3074,8 @@ namespace SodaFlow.Functional
         ///     <c>Fourth</c>. A <see langword="null" /> marked value converts to an either holding a
         ///     default fourth value rather than throwing.
         /// </remarks>
-        public static implicit operator Either<T1, T2, T3, T4, T5, T6>(Either.EitherFourth<T4> value) =>
-            Fourth(value == null ? default(T4) : value.Value);
+        public static implicit operator Either<T1, T2, T3, T4, T5, T6>(Either.EitherFourth<T4>? value) =>
+            Fourth(value == null ? default(T4)! : value.Value);
 
         /// <summary>
         ///     Converts a value marked for the fifth position into an either of this type.
@@ -3009,8 +3087,8 @@ namespace SodaFlow.Functional
         ///     <c>Fifth</c>. A <see langword="null" /> marked value converts to an either holding a
         ///     default fifth value rather than throwing.
         /// </remarks>
-        public static implicit operator Either<T1, T2, T3, T4, T5, T6>(Either.EitherFifth<T5> value) =>
-            Fifth(value == null ? default(T5) : value.Value);
+        public static implicit operator Either<T1, T2, T3, T4, T5, T6>(Either.EitherFifth<T5>? value) =>
+            Fifth(value == null ? default(T5)! : value.Value);
 
         /// <summary>
         ///     Converts a value marked for the sixth position into an either of this type.
@@ -3022,8 +3100,8 @@ namespace SodaFlow.Functional
         ///     <c>Sixth</c>. A <see langword="null" /> marked value converts to an either holding a
         ///     default sixth value rather than throwing.
         /// </remarks>
-        public static implicit operator Either<T1, T2, T3, T4, T5, T6>(Either.EitherSixth<T6> value) =>
-            Sixth(value == null ? default(T6) : value.Value);
+        public static implicit operator Either<T1, T2, T3, T4, T5, T6>(Either.EitherSixth<T6>? value) =>
+            Sixth(value == null ? default(T6)! : value.Value);
 
         /// <summary>
         ///     Determines whether two instances hold the same case with equal values.
@@ -3036,12 +3114,12 @@ namespace SodaFlow.Functional
         /// </returns>
         public static bool operator ==(Either<T1, T2, T3, T4, T5, T6> x, Either<T1, T2, T3, T4, T5, T6> y) =>
             x.valueType == y.valueType
-            && EqualityComparer<T1>.Default.Equals(x.value1, y.value1)
-            && EqualityComparer<T2>.Default.Equals(x.value2, y.value2)
-            && EqualityComparer<T3>.Default.Equals(x.value3, y.value3)
-            && EqualityComparer<T4>.Default.Equals(x.value4, y.value4)
-            && EqualityComparer<T5>.Default.Equals(x.value5, y.value5)
-            && EqualityComparer<T6>.Default.Equals(x.value6, y.value6);
+            && EqualityComparer<T1>.Default.Equals(x.value1!, y.value1!)
+            && EqualityComparer<T2>.Default.Equals(x.value2!, y.value2!)
+            && EqualityComparer<T3>.Default.Equals(x.value3!, y.value3!)
+            && EqualityComparer<T4>.Default.Equals(x.value4!, y.value4!)
+            && EqualityComparer<T5>.Default.Equals(x.value5!, y.value5!)
+            && EqualityComparer<T6>.Default.Equals(x.value6!, y.value6!);
 
         /// <summary>
         ///     Determines whether two instances differ, by negating <see cref="op_Equality" />.
@@ -3065,7 +3143,21 @@ namespace SodaFlow.Functional
         /// <remarks>
         ///     An either is never equal to the bare value it holds, only to another either.
         /// </remarks>
-        public override bool Equals(object obj) => obj is Either<T1, T2, T3, T4, T5, T6> e && this == e;
+        public override bool Equals(object? obj) => obj is Either<T1, T2, T3, T4, T5, T6> e && this == e;
+
+        /// <summary>
+        ///     Determines whether the given instance is equal to this one.
+        /// </summary>
+        /// <param name="other">The instance to compare against.</param>
+        /// <returns>
+        ///     <see langword="true" /> if <see cref="op_Equality" /> considers the two equal.
+        /// </returns>
+        /// <remarks>
+        ///     The same comparison as <see cref="op_Equality" />, under the name
+        ///     <see cref="EqualityComparer{T}.Default" /> looks for, so that comparing these in a
+        ///     collection does not box both operands the way <see cref="Equals(object)" /> must.
+        /// </remarks>
+        public bool Equals(Either<T1, T2, T3, T4, T5, T6> other) => this == other;
 
         /// <summary>
         ///     Returns a hash code consistent with <see cref="op_Equality" />.
@@ -3076,12 +3168,12 @@ namespace SodaFlow.Functional
             unchecked
             {
                 int hashCode = this.valueType;
-                hashCode = (hashCode * 397) ^ EqualityComparer<T1>.Default.GetHashCode(this.value1);
-                hashCode = (hashCode * 397) ^ EqualityComparer<T2>.Default.GetHashCode(this.value2);
-                hashCode = (hashCode * 397) ^ EqualityComparer<T3>.Default.GetHashCode(this.value3);
-                hashCode = (hashCode * 397) ^ EqualityComparer<T4>.Default.GetHashCode(this.value4);
-                hashCode = (hashCode * 397) ^ EqualityComparer<T5>.Default.GetHashCode(this.value5);
-                hashCode = (hashCode * 397) ^ EqualityComparer<T6>.Default.GetHashCode(this.value6);
+                hashCode = (hashCode * 397) ^ EqualityComparer<T1>.Default.GetHashCode(this.value1!);
+                hashCode = (hashCode * 397) ^ EqualityComparer<T2>.Default.GetHashCode(this.value2!);
+                hashCode = (hashCode * 397) ^ EqualityComparer<T3>.Default.GetHashCode(this.value3!);
+                hashCode = (hashCode * 397) ^ EqualityComparer<T4>.Default.GetHashCode(this.value4!);
+                hashCode = (hashCode * 397) ^ EqualityComparer<T5>.Default.GetHashCode(this.value5!);
+                hashCode = (hashCode * 397) ^ EqualityComparer<T6>.Default.GetHashCode(this.value6!);
                 return hashCode;
             }
         }
@@ -3120,18 +3212,18 @@ namespace SodaFlow.Functional
     ///     This is a struct, so <see langword="default" /> is a valid instance; it holds the
     ///     first case, with the default value of <typeparamref name="T1" />.
     /// </remarks>
-    public struct Either<T1, T2, T3, T4, T5, T6, T7> : IEitherOfSeven
+    public struct Either<T1, T2, T3, T4, T5, T6, T7> : IEitherOfSeven, IEquatable<Either<T1, T2, T3, T4, T5, T6, T7>>
     {
         private readonly int valueType;
-        private readonly T1 value1;
-        private readonly T2 value2;
-        private readonly T3 value3;
-        private readonly T4 value4;
-        private readonly T5 value5;
-        private readonly T6 value6;
-        private readonly T7 value7;
+        private readonly T1? value1;
+        private readonly T2? value2;
+        private readonly T3? value3;
+        private readonly T4? value4;
+        private readonly T5? value5;
+        private readonly T6? value6;
+        private readonly T7? value7;
 
-        internal Either(int valueType, T1 value1, T2 value2, T3 value3, T4 value4, T5 value5, T6 value6, T7 value7)
+        internal Either(int valueType, T1? value1, T2? value2, T3? value3, T4? value4, T5? value5, T6? value6, T7? value7)
         {
             this.valueType = valueType;
             this.value1 = value1;
@@ -3283,13 +3375,13 @@ namespace SodaFlow.Functional
         #region Base Functionality
 
         T IEitherOfSeven.Match<T>(
-            Func<object, T> onFirst,
-            Func<object, T> onSecond,
-            Func<object, T> onThird,
-            Func<object, T> onFourth,
-            Func<object, T> onFifth,
-            Func<object, T> onSixth,
-            Func<object, T> onSeventh) =>
+            Func<object?, T> onFirst,
+            Func<object?, T> onSecond,
+            Func<object?, T> onThird,
+            Func<object?, T> onFourth,
+            Func<object?, T> onFifth,
+            Func<object?, T> onSixth,
+            Func<object?, T> onSeventh) =>
             this.Match(
                 v => onFirst(v),
                 v => onSecond(v),
@@ -3328,16 +3420,16 @@ namespace SodaFlow.Functional
             [JetBrains.Annotations.InstantHandle] Func<T6, T> onSixth,
             [JetBrains.Annotations.InstantHandle] Func<T7, T> onSeventh) =>
             this.valueType == 0
-                ? onFirst(this.value1)
+                ? onFirst(this.value1!)
                 : (this.valueType == 1
-                    ? onSecond(this.value2)
+                    ? onSecond(this.value2!)
                     : (this.valueType == 2
-                        ? onThird(this.value3)
+                        ? onThird(this.value3!)
                         : (this.valueType == 3
-                            ? onFourth(this.value4)
+                            ? onFourth(this.value4!)
                             : (this.valueType == 4
-                                ? onFifth(this.value5)
-                                : (this.valueType == 5 ? onSixth(this.value6) : onSeventh(this.value7))))));
+                                ? onFifth(this.value5!)
+                                : (this.valueType == 5 ? onSixth(this.value6!) : onSeventh(this.value7!))))));
 
         #endregion
 
@@ -3826,13 +3918,13 @@ namespace SodaFlow.Functional
             this.Match(_ => false, _ => false, _ => false, _ => false, _ => false, _ => false, _ => true);
 
         void IEitherOfSeven.MatchVoid(
-            Action<object> onFirst,
-            Action<object> onSecond,
-            Action<object> onThird,
-            Action<object> onFourth,
-            Action<object> onFifth,
-            Action<object> onSixth,
-            Action<object> onSeventh) =>
+            Action<object?> onFirst,
+            Action<object?> onSecond,
+            Action<object?> onThird,
+            Action<object?> onFourth,
+            Action<object?> onFifth,
+            Action<object?> onSixth,
+            Action<object?> onSeventh) =>
             // ReSharper disable once ReturnValueOfPureMethodIsNotUsed
             this.Upcast<IEitherOfSeven>()
                 .Match(
@@ -3845,23 +3937,23 @@ namespace SodaFlow.Functional
                     onSeventh.ToFunc());
 
         Task<T> IEitherOfSeven.MatchAsync<T>(
-            Func<object, Task<T>> onFirst,
-            Func<object, Task<T>> onSecond,
-            Func<object, Task<T>> onThird,
-            Func<object, Task<T>> onFourth,
-            Func<object, Task<T>> onFifth,
-            Func<object, Task<T>> onSixth,
-            Func<object, Task<T>> onSeventh) =>
+            Func<object?, Task<T>> onFirst,
+            Func<object?, Task<T>> onSecond,
+            Func<object?, Task<T>> onThird,
+            Func<object?, Task<T>> onFourth,
+            Func<object?, Task<T>> onFifth,
+            Func<object?, Task<T>> onSixth,
+            Func<object?, Task<T>> onSeventh) =>
             this.Upcast<IEitherOfSeven>().Match(onFirst, onSecond, onThird, onFourth, onFifth, onSixth, onSeventh);
 
         Task IEitherOfSeven.MatchAsyncVoid(
-            Func<object, Task> onFirst,
-            Func<object, Task> onSecond,
-            Func<object, Task> onThird,
-            Func<object, Task> onFourth,
-            Func<object, Task> onFifth,
-            Func<object, Task> onSixth,
-            Func<object, Task> onSeventh) =>
+            Func<object?, Task> onFirst,
+            Func<object?, Task> onSecond,
+            Func<object?, Task> onThird,
+            Func<object?, Task> onFourth,
+            Func<object?, Task> onFifth,
+            Func<object?, Task> onSixth,
+            Func<object?, Task> onSeventh) =>
             this.Upcast<IEitherOfSeven>()
                 .MatchAsync(
                     onFirst.ToAsyncFunc(),
@@ -3884,8 +3976,8 @@ namespace SodaFlow.Functional
         ///     <c>First</c>. A <see langword="null" /> marked value converts to an either holding a
         ///     default first value rather than throwing.
         /// </remarks>
-        public static implicit operator Either<T1, T2, T3, T4, T5, T6, T7>(Either.EitherFirst<T1> value) =>
-            First(value == null ? default(T1) : value.Value);
+        public static implicit operator Either<T1, T2, T3, T4, T5, T6, T7>(Either.EitherFirst<T1>? value) =>
+            First(value == null ? default(T1)! : value.Value);
 
         /// <summary>
         ///     Converts a value marked for the second position into an either of this type.
@@ -3897,8 +3989,8 @@ namespace SodaFlow.Functional
         ///     <c>Second</c>. A <see langword="null" /> marked value converts to an either holding a
         ///     default second value rather than throwing.
         /// </remarks>
-        public static implicit operator Either<T1, T2, T3, T4, T5, T6, T7>(Either.EitherSecond<T2> value) =>
-            Second(value == null ? default(T2) : value.Value);
+        public static implicit operator Either<T1, T2, T3, T4, T5, T6, T7>(Either.EitherSecond<T2>? value) =>
+            Second(value == null ? default(T2)! : value.Value);
 
         /// <summary>
         ///     Converts a value marked for the third position into an either of this type.
@@ -3910,8 +4002,8 @@ namespace SodaFlow.Functional
         ///     <c>Third</c>. A <see langword="null" /> marked value converts to an either holding a
         ///     default third value rather than throwing.
         /// </remarks>
-        public static implicit operator Either<T1, T2, T3, T4, T5, T6, T7>(Either.EitherThird<T3> value) =>
-            Third(value == null ? default(T3) : value.Value);
+        public static implicit operator Either<T1, T2, T3, T4, T5, T6, T7>(Either.EitherThird<T3>? value) =>
+            Third(value == null ? default(T3)! : value.Value);
 
         /// <summary>
         ///     Converts a value marked for the fourth position into an either of this type.
@@ -3923,8 +4015,8 @@ namespace SodaFlow.Functional
         ///     <c>Fourth</c>. A <see langword="null" /> marked value converts to an either holding a
         ///     default fourth value rather than throwing.
         /// </remarks>
-        public static implicit operator Either<T1, T2, T3, T4, T5, T6, T7>(Either.EitherFourth<T4> value) =>
-            Fourth(value == null ? default(T4) : value.Value);
+        public static implicit operator Either<T1, T2, T3, T4, T5, T6, T7>(Either.EitherFourth<T4>? value) =>
+            Fourth(value == null ? default(T4)! : value.Value);
 
         /// <summary>
         ///     Converts a value marked for the fifth position into an either of this type.
@@ -3936,8 +4028,8 @@ namespace SodaFlow.Functional
         ///     <c>Fifth</c>. A <see langword="null" /> marked value converts to an either holding a
         ///     default fifth value rather than throwing.
         /// </remarks>
-        public static implicit operator Either<T1, T2, T3, T4, T5, T6, T7>(Either.EitherFifth<T5> value) =>
-            Fifth(value == null ? default(T5) : value.Value);
+        public static implicit operator Either<T1, T2, T3, T4, T5, T6, T7>(Either.EitherFifth<T5>? value) =>
+            Fifth(value == null ? default(T5)! : value.Value);
 
         /// <summary>
         ///     Converts a value marked for the sixth position into an either of this type.
@@ -3949,8 +4041,8 @@ namespace SodaFlow.Functional
         ///     <c>Sixth</c>. A <see langword="null" /> marked value converts to an either holding a
         ///     default sixth value rather than throwing.
         /// </remarks>
-        public static implicit operator Either<T1, T2, T3, T4, T5, T6, T7>(Either.EitherSixth<T6> value) =>
-            Sixth(value == null ? default(T6) : value.Value);
+        public static implicit operator Either<T1, T2, T3, T4, T5, T6, T7>(Either.EitherSixth<T6>? value) =>
+            Sixth(value == null ? default(T6)! : value.Value);
 
         /// <summary>
         ///     Converts a value marked for the seventh position into an either of this type.
@@ -3962,8 +4054,8 @@ namespace SodaFlow.Functional
         ///     <c>Seventh</c>. A <see langword="null" /> marked value converts to an either holding a
         ///     default seventh value rather than throwing.
         /// </remarks>
-        public static implicit operator Either<T1, T2, T3, T4, T5, T6, T7>(Either.EitherSeventh<T7> value) =>
-            Seventh(value == null ? default(T7) : value.Value);
+        public static implicit operator Either<T1, T2, T3, T4, T5, T6, T7>(Either.EitherSeventh<T7>? value) =>
+            Seventh(value == null ? default(T7)! : value.Value);
 
         /// <summary>
         ///     Determines whether two instances hold the same case with equal values.
@@ -3976,13 +4068,13 @@ namespace SodaFlow.Functional
         /// </returns>
         public static bool operator ==(Either<T1, T2, T3, T4, T5, T6, T7> x, Either<T1, T2, T3, T4, T5, T6, T7> y) =>
             x.valueType == y.valueType
-            && EqualityComparer<T1>.Default.Equals(x.value1, y.value1)
-            && EqualityComparer<T2>.Default.Equals(x.value2, y.value2)
-            && EqualityComparer<T3>.Default.Equals(x.value3, y.value3)
-            && EqualityComparer<T4>.Default.Equals(x.value4, y.value4)
-            && EqualityComparer<T5>.Default.Equals(x.value5, y.value5)
-            && EqualityComparer<T6>.Default.Equals(x.value6, y.value6)
-            && EqualityComparer<T7>.Default.Equals(x.value7, y.value7);
+            && EqualityComparer<T1>.Default.Equals(x.value1!, y.value1!)
+            && EqualityComparer<T2>.Default.Equals(x.value2!, y.value2!)
+            && EqualityComparer<T3>.Default.Equals(x.value3!, y.value3!)
+            && EqualityComparer<T4>.Default.Equals(x.value4!, y.value4!)
+            && EqualityComparer<T5>.Default.Equals(x.value5!, y.value5!)
+            && EqualityComparer<T6>.Default.Equals(x.value6!, y.value6!)
+            && EqualityComparer<T7>.Default.Equals(x.value7!, y.value7!);
 
         /// <summary>
         ///     Determines whether two instances differ, by negating <see cref="op_Equality" />.
@@ -4008,7 +4100,21 @@ namespace SodaFlow.Functional
         /// <remarks>
         ///     An either is never equal to the bare value it holds, only to another either.
         /// </remarks>
-        public override bool Equals(object obj) => obj is Either<T1, T2, T3, T4, T5, T6, T7> e && this == e;
+        public override bool Equals(object? obj) => obj is Either<T1, T2, T3, T4, T5, T6, T7> e && this == e;
+
+        /// <summary>
+        ///     Determines whether the given instance is equal to this one.
+        /// </summary>
+        /// <param name="other">The instance to compare against.</param>
+        /// <returns>
+        ///     <see langword="true" /> if <see cref="op_Equality" /> considers the two equal.
+        /// </returns>
+        /// <remarks>
+        ///     The same comparison as <see cref="op_Equality" />, under the name
+        ///     <see cref="EqualityComparer{T}.Default" /> looks for, so that comparing these in a
+        ///     collection does not box both operands the way <see cref="Equals(object)" /> must.
+        /// </remarks>
+        public bool Equals(Either<T1, T2, T3, T4, T5, T6, T7> other) => this == other;
 
         /// <summary>
         ///     Returns a hash code consistent with <see cref="op_Equality" />.
@@ -4019,13 +4125,13 @@ namespace SodaFlow.Functional
             unchecked
             {
                 int hashCode = this.valueType;
-                hashCode = (hashCode * 397) ^ EqualityComparer<T1>.Default.GetHashCode(this.value1);
-                hashCode = (hashCode * 397) ^ EqualityComparer<T2>.Default.GetHashCode(this.value2);
-                hashCode = (hashCode * 397) ^ EqualityComparer<T3>.Default.GetHashCode(this.value3);
-                hashCode = (hashCode * 397) ^ EqualityComparer<T4>.Default.GetHashCode(this.value4);
-                hashCode = (hashCode * 397) ^ EqualityComparer<T5>.Default.GetHashCode(this.value5);
-                hashCode = (hashCode * 397) ^ EqualityComparer<T6>.Default.GetHashCode(this.value6);
-                hashCode = (hashCode * 397) ^ EqualityComparer<T7>.Default.GetHashCode(this.value7);
+                hashCode = (hashCode * 397) ^ EqualityComparer<T1>.Default.GetHashCode(this.value1!);
+                hashCode = (hashCode * 397) ^ EqualityComparer<T2>.Default.GetHashCode(this.value2!);
+                hashCode = (hashCode * 397) ^ EqualityComparer<T3>.Default.GetHashCode(this.value3!);
+                hashCode = (hashCode * 397) ^ EqualityComparer<T4>.Default.GetHashCode(this.value4!);
+                hashCode = (hashCode * 397) ^ EqualityComparer<T5>.Default.GetHashCode(this.value5!);
+                hashCode = (hashCode * 397) ^ EqualityComparer<T6>.Default.GetHashCode(this.value6!);
+                hashCode = (hashCode * 397) ^ EqualityComparer<T7>.Default.GetHashCode(this.value7!);
                 return hashCode;
             }
         }
@@ -4066,28 +4172,28 @@ namespace SodaFlow.Functional
     ///     This is a struct, so <see langword="default" /> is a valid instance; it holds the
     ///     first case, with the default value of <typeparamref name="T1" />.
     /// </remarks>
-    public struct Either<T1, T2, T3, T4, T5, T6, T7, T8> : IEitherOfEight
+    public struct Either<T1, T2, T3, T4, T5, T6, T7, T8> : IEitherOfEight, IEquatable<Either<T1, T2, T3, T4, T5, T6, T7, T8>>
     {
         private readonly int valueType;
-        private readonly T1 value1;
-        private readonly T2 value2;
-        private readonly T3 value3;
-        private readonly T4 value4;
-        private readonly T5 value5;
-        private readonly T6 value6;
-        private readonly T7 value7;
-        private readonly T8 value8;
+        private readonly T1? value1;
+        private readonly T2? value2;
+        private readonly T3? value3;
+        private readonly T4? value4;
+        private readonly T5? value5;
+        private readonly T6? value6;
+        private readonly T7? value7;
+        private readonly T8? value8;
 
         internal Either(
             int valueType,
-            T1 value1,
-            T2 value2,
-            T3 value3,
-            T4 value4,
-            T5 value5,
-            T6 value6,
-            T7 value7,
-            T8 value8)
+            T1? value1,
+            T2? value2,
+            T3? value3,
+            T4? value4,
+            T5? value5,
+            T6? value6,
+            T7? value7,
+            T8? value8)
         {
             this.valueType = valueType;
             this.value1 = value1;
@@ -4275,14 +4381,14 @@ namespace SodaFlow.Functional
         #region Base Functionality
 
         T IEitherOfEight.Match<T>(
-            Func<object, T> onFirst,
-            Func<object, T> onSecond,
-            Func<object, T> onThird,
-            Func<object, T> onFourth,
-            Func<object, T> onFifth,
-            Func<object, T> onSixth,
-            Func<object, T> onSeventh,
-            Func<object, T> onEighth) =>
+            Func<object?, T> onFirst,
+            Func<object?, T> onSecond,
+            Func<object?, T> onThird,
+            Func<object?, T> onFourth,
+            Func<object?, T> onFifth,
+            Func<object?, T> onSixth,
+            Func<object?, T> onSeventh,
+            Func<object?, T> onEighth) =>
             this.Match(
                 v => onFirst(v),
                 v => onSecond(v),
@@ -4324,18 +4430,18 @@ namespace SodaFlow.Functional
             [JetBrains.Annotations.InstantHandle] Func<T7, T> onSeventh,
             [JetBrains.Annotations.InstantHandle] Func<T8, T> onEighth) =>
             this.valueType == 0
-                ? onFirst(this.value1)
+                ? onFirst(this.value1!)
                 : (this.valueType == 1
-                    ? onSecond(this.value2)
+                    ? onSecond(this.value2!)
                     : (this.valueType == 2
-                        ? onThird(this.value3)
+                        ? onThird(this.value3!)
                         : (this.valueType == 3
-                            ? onFourth(this.value4)
+                            ? onFourth(this.value4!)
                             : (this.valueType == 4
-                                ? onFifth(this.value5)
+                                ? onFifth(this.value5!)
                                 : (this.valueType == 5
-                                    ? onSixth(this.value6)
-                                    : (this.valueType == 6 ? onSeventh(this.value7) : onEighth(this.value8)))))));
+                                    ? onSixth(this.value6!)
+                                    : (this.valueType == 6 ? onSeventh(this.value7!) : onEighth(this.value8!)))))));
 
         #endregion
 
@@ -4905,14 +5011,14 @@ namespace SodaFlow.Functional
             this.Match(_ => false, _ => false, _ => false, _ => false, _ => false, _ => false, _ => false, _ => true);
 
         void IEitherOfEight.MatchVoid(
-            Action<object> onFirst,
-            Action<object> onSecond,
-            Action<object> onThird,
-            Action<object> onFourth,
-            Action<object> onFifth,
-            Action<object> onSixth,
-            Action<object> onSeventh,
-            Action<object> onEighth) =>
+            Action<object?> onFirst,
+            Action<object?> onSecond,
+            Action<object?> onThird,
+            Action<object?> onFourth,
+            Action<object?> onFifth,
+            Action<object?> onSixth,
+            Action<object?> onSeventh,
+            Action<object?> onEighth) =>
             // ReSharper disable once ReturnValueOfPureMethodIsNotUsed
             this.Upcast<IEitherOfEight>()
                 .Match(
@@ -4926,26 +5032,26 @@ namespace SodaFlow.Functional
                     onEighth.ToFunc());
 
         Task<T> IEitherOfEight.MatchAsync<T>(
-            Func<object, Task<T>> onFirst,
-            Func<object, Task<T>> onSecond,
-            Func<object, Task<T>> onThird,
-            Func<object, Task<T>> onFourth,
-            Func<object, Task<T>> onFifth,
-            Func<object, Task<T>> onSixth,
-            Func<object, Task<T>> onSeventh,
-            Func<object, Task<T>> onEighth) =>
+            Func<object?, Task<T>> onFirst,
+            Func<object?, Task<T>> onSecond,
+            Func<object?, Task<T>> onThird,
+            Func<object?, Task<T>> onFourth,
+            Func<object?, Task<T>> onFifth,
+            Func<object?, Task<T>> onSixth,
+            Func<object?, Task<T>> onSeventh,
+            Func<object?, Task<T>> onEighth) =>
             this.Upcast<IEitherOfEight>()
                 .Match(onFirst, onSecond, onThird, onFourth, onFifth, onSixth, onSeventh, onEighth);
 
         Task IEitherOfEight.MatchAsyncVoid(
-            Func<object, Task> onFirst,
-            Func<object, Task> onSecond,
-            Func<object, Task> onThird,
-            Func<object, Task> onFourth,
-            Func<object, Task> onFifth,
-            Func<object, Task> onSixth,
-            Func<object, Task> onSeventh,
-            Func<object, Task> onEighth) =>
+            Func<object?, Task> onFirst,
+            Func<object?, Task> onSecond,
+            Func<object?, Task> onThird,
+            Func<object?, Task> onFourth,
+            Func<object?, Task> onFifth,
+            Func<object?, Task> onSixth,
+            Func<object?, Task> onSeventh,
+            Func<object?, Task> onEighth) =>
             this.Upcast<IEitherOfEight>()
                 .MatchAsync(
                     onFirst.ToAsyncFunc(),
@@ -4969,8 +5075,8 @@ namespace SodaFlow.Functional
         ///     <c>First</c>. A <see langword="null" /> marked value converts to an either holding a
         ///     default first value rather than throwing.
         /// </remarks>
-        public static implicit operator Either<T1, T2, T3, T4, T5, T6, T7, T8>(Either.EitherFirst<T1> value) =>
-            First(value == null ? default(T1) : value.Value);
+        public static implicit operator Either<T1, T2, T3, T4, T5, T6, T7, T8>(Either.EitherFirst<T1>? value) =>
+            First(value == null ? default(T1)! : value.Value);
 
         /// <summary>
         ///     Converts a value marked for the second position into an either of this type.
@@ -4982,8 +5088,8 @@ namespace SodaFlow.Functional
         ///     <c>Second</c>. A <see langword="null" /> marked value converts to an either holding a
         ///     default second value rather than throwing.
         /// </remarks>
-        public static implicit operator Either<T1, T2, T3, T4, T5, T6, T7, T8>(Either.EitherSecond<T2> value) =>
-            Second(value == null ? default(T2) : value.Value);
+        public static implicit operator Either<T1, T2, T3, T4, T5, T6, T7, T8>(Either.EitherSecond<T2>? value) =>
+            Second(value == null ? default(T2)! : value.Value);
 
         /// <summary>
         ///     Converts a value marked for the third position into an either of this type.
@@ -4995,8 +5101,8 @@ namespace SodaFlow.Functional
         ///     <c>Third</c>. A <see langword="null" /> marked value converts to an either holding a
         ///     default third value rather than throwing.
         /// </remarks>
-        public static implicit operator Either<T1, T2, T3, T4, T5, T6, T7, T8>(Either.EitherThird<T3> value) =>
-            Third(value == null ? default(T3) : value.Value);
+        public static implicit operator Either<T1, T2, T3, T4, T5, T6, T7, T8>(Either.EitherThird<T3>? value) =>
+            Third(value == null ? default(T3)! : value.Value);
 
         /// <summary>
         ///     Converts a value marked for the fourth position into an either of this type.
@@ -5008,8 +5114,8 @@ namespace SodaFlow.Functional
         ///     <c>Fourth</c>. A <see langword="null" /> marked value converts to an either holding a
         ///     default fourth value rather than throwing.
         /// </remarks>
-        public static implicit operator Either<T1, T2, T3, T4, T5, T6, T7, T8>(Either.EitherFourth<T4> value) =>
-            Fourth(value == null ? default(T4) : value.Value);
+        public static implicit operator Either<T1, T2, T3, T4, T5, T6, T7, T8>(Either.EitherFourth<T4>? value) =>
+            Fourth(value == null ? default(T4)! : value.Value);
 
         /// <summary>
         ///     Converts a value marked for the fifth position into an either of this type.
@@ -5021,8 +5127,8 @@ namespace SodaFlow.Functional
         ///     <c>Fifth</c>. A <see langword="null" /> marked value converts to an either holding a
         ///     default fifth value rather than throwing.
         /// </remarks>
-        public static implicit operator Either<T1, T2, T3, T4, T5, T6, T7, T8>(Either.EitherFifth<T5> value) =>
-            Fifth(value == null ? default(T5) : value.Value);
+        public static implicit operator Either<T1, T2, T3, T4, T5, T6, T7, T8>(Either.EitherFifth<T5>? value) =>
+            Fifth(value == null ? default(T5)! : value.Value);
 
         /// <summary>
         ///     Converts a value marked for the sixth position into an either of this type.
@@ -5034,8 +5140,8 @@ namespace SodaFlow.Functional
         ///     <c>Sixth</c>. A <see langword="null" /> marked value converts to an either holding a
         ///     default sixth value rather than throwing.
         /// </remarks>
-        public static implicit operator Either<T1, T2, T3, T4, T5, T6, T7, T8>(Either.EitherSixth<T6> value) =>
-            Sixth(value == null ? default(T6) : value.Value);
+        public static implicit operator Either<T1, T2, T3, T4, T5, T6, T7, T8>(Either.EitherSixth<T6>? value) =>
+            Sixth(value == null ? default(T6)! : value.Value);
 
         /// <summary>
         ///     Converts a value marked for the seventh position into an either of this type.
@@ -5047,8 +5153,8 @@ namespace SodaFlow.Functional
         ///     <c>Seventh</c>. A <see langword="null" /> marked value converts to an either holding a
         ///     default seventh value rather than throwing.
         /// </remarks>
-        public static implicit operator Either<T1, T2, T3, T4, T5, T6, T7, T8>(Either.EitherSeventh<T7> value) =>
-            Seventh(value == null ? default(T7) : value.Value);
+        public static implicit operator Either<T1, T2, T3, T4, T5, T6, T7, T8>(Either.EitherSeventh<T7>? value) =>
+            Seventh(value == null ? default(T7)! : value.Value);
 
         /// <summary>
         ///     Converts a value marked for the eighth position into an either of this type.
@@ -5060,8 +5166,8 @@ namespace SodaFlow.Functional
         ///     <c>Eighth</c>. A <see langword="null" /> marked value converts to an either holding a
         ///     default eighth value rather than throwing.
         /// </remarks>
-        public static implicit operator Either<T1, T2, T3, T4, T5, T6, T7, T8>(Either.EitherEighth<T8> value) =>
-            Eighth(value == null ? default(T8) : value.Value);
+        public static implicit operator Either<T1, T2, T3, T4, T5, T6, T7, T8>(Either.EitherEighth<T8>? value) =>
+            Eighth(value == null ? default(T8)! : value.Value);
 
         /// <summary>
         ///     Determines whether two instances hold the same case with equal values.
@@ -5076,14 +5182,14 @@ namespace SodaFlow.Functional
             Either<T1, T2, T3, T4, T5, T6, T7, T8> x,
             Either<T1, T2, T3, T4, T5, T6, T7, T8> y) =>
             x.valueType == y.valueType
-            && EqualityComparer<T1>.Default.Equals(x.value1, y.value1)
-            && EqualityComparer<T2>.Default.Equals(x.value2, y.value2)
-            && EqualityComparer<T3>.Default.Equals(x.value3, y.value3)
-            && EqualityComparer<T4>.Default.Equals(x.value4, y.value4)
-            && EqualityComparer<T5>.Default.Equals(x.value5, y.value5)
-            && EqualityComparer<T6>.Default.Equals(x.value6, y.value6)
-            && EqualityComparer<T7>.Default.Equals(x.value7, y.value7)
-            && EqualityComparer<T8>.Default.Equals(x.value8, y.value8);
+            && EqualityComparer<T1>.Default.Equals(x.value1!, y.value1!)
+            && EqualityComparer<T2>.Default.Equals(x.value2!, y.value2!)
+            && EqualityComparer<T3>.Default.Equals(x.value3!, y.value3!)
+            && EqualityComparer<T4>.Default.Equals(x.value4!, y.value4!)
+            && EqualityComparer<T5>.Default.Equals(x.value5!, y.value5!)
+            && EqualityComparer<T6>.Default.Equals(x.value6!, y.value6!)
+            && EqualityComparer<T7>.Default.Equals(x.value7!, y.value7!)
+            && EqualityComparer<T8>.Default.Equals(x.value8!, y.value8!);
 
         /// <summary>
         ///     Determines whether two instances differ, by negating <see cref="op_Equality" />.
@@ -5110,7 +5216,21 @@ namespace SodaFlow.Functional
         /// <remarks>
         ///     An either is never equal to the bare value it holds, only to another either.
         /// </remarks>
-        public override bool Equals(object obj) => obj is Either<T1, T2, T3, T4, T5, T6, T7, T8> e && this == e;
+        public override bool Equals(object? obj) => obj is Either<T1, T2, T3, T4, T5, T6, T7, T8> e && this == e;
+
+        /// <summary>
+        ///     Determines whether the given instance is equal to this one.
+        /// </summary>
+        /// <param name="other">The instance to compare against.</param>
+        /// <returns>
+        ///     <see langword="true" /> if <see cref="op_Equality" /> considers the two equal.
+        /// </returns>
+        /// <remarks>
+        ///     The same comparison as <see cref="op_Equality" />, under the name
+        ///     <see cref="EqualityComparer{T}.Default" /> looks for, so that comparing these in a
+        ///     collection does not box both operands the way <see cref="Equals(object)" /> must.
+        /// </remarks>
+        public bool Equals(Either<T1, T2, T3, T4, T5, T6, T7, T8> other) => this == other;
 
         /// <summary>
         ///     Returns a hash code consistent with <see cref="op_Equality" />.
@@ -5121,14 +5241,14 @@ namespace SodaFlow.Functional
             unchecked
             {
                 int hashCode = this.valueType;
-                hashCode = (hashCode * 397) ^ EqualityComparer<T1>.Default.GetHashCode(this.value1);
-                hashCode = (hashCode * 397) ^ EqualityComparer<T2>.Default.GetHashCode(this.value2);
-                hashCode = (hashCode * 397) ^ EqualityComparer<T3>.Default.GetHashCode(this.value3);
-                hashCode = (hashCode * 397) ^ EqualityComparer<T4>.Default.GetHashCode(this.value4);
-                hashCode = (hashCode * 397) ^ EqualityComparer<T5>.Default.GetHashCode(this.value5);
-                hashCode = (hashCode * 397) ^ EqualityComparer<T6>.Default.GetHashCode(this.value6);
-                hashCode = (hashCode * 397) ^ EqualityComparer<T7>.Default.GetHashCode(this.value7);
-                hashCode = (hashCode * 397) ^ EqualityComparer<T8>.Default.GetHashCode(this.value8);
+                hashCode = (hashCode * 397) ^ EqualityComparer<T1>.Default.GetHashCode(this.value1!);
+                hashCode = (hashCode * 397) ^ EqualityComparer<T2>.Default.GetHashCode(this.value2!);
+                hashCode = (hashCode * 397) ^ EqualityComparer<T3>.Default.GetHashCode(this.value3!);
+                hashCode = (hashCode * 397) ^ EqualityComparer<T4>.Default.GetHashCode(this.value4!);
+                hashCode = (hashCode * 397) ^ EqualityComparer<T5>.Default.GetHashCode(this.value5!);
+                hashCode = (hashCode * 397) ^ EqualityComparer<T6>.Default.GetHashCode(this.value6!);
+                hashCode = (hashCode * 397) ^ EqualityComparer<T7>.Default.GetHashCode(this.value7!);
+                hashCode = (hashCode * 397) ^ EqualityComparer<T8>.Default.GetHashCode(this.value8!);
                 return hashCode;
             }
         }

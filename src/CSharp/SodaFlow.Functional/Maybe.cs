@@ -24,6 +24,184 @@ namespace SodaFlow.Functional
         public static Maybe<T> Some<T>(T value) => Maybe<T>.Some(value);
 
         /// <summary>
+        ///     Creates a <see cref="Maybe{T}" /> containing the given value if a condition holds,
+        ///     and one containing nothing if it does not.
+        /// </summary>
+        /// <typeparam name="T">The type of the value, inferred from <paramref name="value" />.</typeparam>
+        /// <param name="condition">Whether the value should be contained.</param>
+        /// <param name="value">The value to contain when <paramref name="condition" /> holds.</param>
+        /// <returns>
+        ///     A <see cref="Maybe{T}" /> containing <paramref name="value" /> if
+        ///     <paramref name="condition" /> is <see langword="true" />, and one containing no value
+        ///     otherwise.
+        /// </returns>
+        /// <remarks>
+        ///     This is the direct translation of an <c>if</c> which produces a value in one branch and
+        ///     has nothing to produce in the other. <paramref name="value" /> is evaluated either way,
+        ///     since it is an argument; where that is not wanted, use
+        ///     <see cref="SomeIf{T}(bool,System.Func{T})" />.
+        /// </remarks>
+        [JetBrains.Annotations.Pure]
+        public static Maybe<T> SomeIf<T>(bool condition, T value) => condition ? Some(value) : None;
+
+        /// <summary>
+        ///     Creates a <see cref="Maybe{T}" /> containing the result of the given function if a
+        ///     condition holds, and one containing nothing if it does not.
+        /// </summary>
+        /// <typeparam name="T">The type of the value, inferred from <paramref name="valueFactory" />.</typeparam>
+        /// <param name="condition">Whether a value should be produced and contained.</param>
+        /// <param name="valueFactory">Run to produce the value when <paramref name="condition" /> holds.</param>
+        /// <returns>
+        ///     A <see cref="Maybe{T}" /> containing the result of <paramref name="valueFactory" /> if
+        ///     <paramref name="condition" /> is <see langword="true" />, and one containing no value
+        ///     otherwise.
+        /// </returns>
+        /// <remarks>
+        ///     <paramref name="valueFactory" /> is run only when <paramref name="condition" /> holds, so
+        ///     this is the form to reach for when producing the value is expensive, or when producing it
+        ///     is only valid in that case.
+        /// </remarks>
+        [JetBrains.Annotations.Pure]
+        public static Maybe<T> SomeIf<T>(
+            bool condition,
+            [JetBrains.Annotations.InstantHandle] Func<T> valueFactory) =>
+            condition ? Some(valueFactory()) : None;
+
+        /// <summary>
+        ///     Creates a <see cref="Maybe{T}" /> containing the given reference, unless it is
+        ///     <see langword="null" />.
+        /// </summary>
+        /// <typeparam name="T">The type of the value, inferred from <paramref name="value" />.</typeparam>
+        /// <param name="value">The reference to contain if it is not <see langword="null" />.</param>
+        /// <returns>
+        ///     A <see cref="Maybe{T}" /> containing <paramref name="value" /> if it is not
+        ///     <see langword="null" />, and one containing no value otherwise.
+        /// </returns>
+        /// <remarks>
+        ///     This is the bridge from the older convention, where a <see langword="null" /> reference
+        ///     stands for the absence of a value. It is deliberately not what <see cref="Some{T}" />
+        ///     does: that contains <see langword="null" /> like any other value, which is what lets a
+        ///     <see cref="Maybe{T}" /> of a nullable type distinguish no value at all from a value
+        ///     which is <see langword="null" />.
+        /// </remarks>
+        [JetBrains.Annotations.Pure]
+        public static Maybe<T> SomeNotNull<T>(T? value)
+            where T : class => value == null ? None : Some(value);
+
+        /// <summary>
+        ///     Creates a <see cref="Maybe{T}" /> containing the value of the given
+        ///     <see cref="System.Nullable{T}" />, if it has one.
+        /// </summary>
+        /// <typeparam name="T">The underlying type of <paramref name="value" />.</typeparam>
+        /// <param name="value">The nullable value to convert.</param>
+        /// <returns>
+        ///     A <see cref="Maybe{T}" /> containing the value of <paramref name="value" /> if it has
+        ///     one, and one containing no value otherwise.
+        /// </returns>
+        [JetBrains.Annotations.Pure]
+        public static Maybe<T> SomeNotNull<T>(T? value)
+            where T : struct => value.HasValue ? Some(value.Value) : None;
+
+        /// <summary>
+        ///     Runs a method of the <c>bool Try...(out TResult)</c> shape and returns what it produced.
+        /// </summary>
+        /// <typeparam name="TResult">The type of the value the method produces.</typeparam>
+        /// <param name="tryGet">The method to run.</param>
+        /// <returns>
+        ///     A <see cref="Maybe{T}" /> containing the output of <paramref name="tryGet" /> if it
+        ///     returned <see langword="true" />, and one containing no value otherwise.
+        /// </returns>
+        /// <remarks>
+        ///     The wrappers this library ships - on <see cref="StringExtensionMethods" /> and
+        ///     <see cref="ReadOnlyDictionaryExtensionMethods" /> - cover the common cases. This is for
+        ///     the ones it does not know about: your own, or another library.
+        /// </remarks>
+        [JetBrains.Annotations.Pure]
+        public static Maybe<TResult> FromTryGet<TResult>(
+            [JetBrains.Annotations.InstantHandle] TryGet<TResult> tryGet)
+        {
+            TResult result;
+            return tryGet(out result) ? Some(result) : None;
+        }
+
+        /// <summary>
+        ///     Runs a method of the <c>bool Try...(T, out TResult)</c> shape against the given input and
+        ///     returns what it produced.
+        /// </summary>
+        /// <typeparam name="T">The type of the input.</typeparam>
+        /// <typeparam name="TResult">The type of the value the method produces.</typeparam>
+        /// <param name="value">The input to pass to <paramref name="tryGet" />.</param>
+        /// <param name="tryGet">The method to run.</param>
+        /// <returns>
+        ///     A <see cref="Maybe{T}" /> containing the output of <paramref name="tryGet" /> if it
+        ///     returned <see langword="true" />, and one containing no value otherwise.
+        /// </returns>
+        /// <remarks>
+        ///     Both type arguments have to be written out, since a method group carries no type of its
+        ///     own for them to be inferred from:
+        ///     <c>Maybe.FromTryGet&lt;string, int&gt;(s, int.TryParse)</c>.
+        /// </remarks>
+        [JetBrains.Annotations.Pure]
+        public static Maybe<TResult> FromTryGet<T, TResult>(
+            T value,
+            [JetBrains.Annotations.InstantHandle] TryGet<T, TResult> tryGet)
+        {
+            TResult result;
+            return tryGet(value, out result) ? Some(result) : None;
+        }
+
+        /// <summary>
+        ///     Runs a method of the <c>bool Try...(T1, T2, out TResult)</c> shape against the given
+        ///     inputs and returns what it produced.
+        /// </summary>
+        /// <typeparam name="T1">The type of the first input.</typeparam>
+        /// <typeparam name="T2">The type of the second input.</typeparam>
+        /// <typeparam name="TResult">The type of the value the method produces.</typeparam>
+        /// <param name="value1">The first input to pass to <paramref name="tryGet" />.</param>
+        /// <param name="value2">The second input to pass to <paramref name="tryGet" />.</param>
+        /// <param name="tryGet">The method to run.</param>
+        /// <returns>
+        ///     A <see cref="Maybe{T}" /> containing the output of <paramref name="tryGet" /> if it
+        ///     returned <see langword="true" />, and one containing no value otherwise.
+        /// </returns>
+        [JetBrains.Annotations.Pure]
+        public static Maybe<TResult> FromTryGet<T1, T2, TResult>(
+            T1 value1,
+            T2 value2,
+            [JetBrains.Annotations.InstantHandle] TryGet<T1, T2, TResult> tryGet)
+        {
+            TResult result;
+            return tryGet(value1, value2, out result) ? Some(result) : None;
+        }
+
+        /// <summary>
+        ///     Runs a method of the <c>bool Try...(T1, T2, T3, out TResult)</c> shape against the given
+        ///     inputs and returns what it produced.
+        /// </summary>
+        /// <typeparam name="T1">The type of the first input.</typeparam>
+        /// <typeparam name="T2">The type of the second input.</typeparam>
+        /// <typeparam name="T3">The type of the third input.</typeparam>
+        /// <typeparam name="TResult">The type of the value the method produces.</typeparam>
+        /// <param name="value1">The first input to pass to <paramref name="tryGet" />.</param>
+        /// <param name="value2">The second input to pass to <paramref name="tryGet" />.</param>
+        /// <param name="value3">The third input to pass to <paramref name="tryGet" />.</param>
+        /// <param name="tryGet">The method to run.</param>
+        /// <returns>
+        ///     A <see cref="Maybe{T}" /> containing the output of <paramref name="tryGet" /> if it
+        ///     returned <see langword="true" />, and one containing no value otherwise.
+        /// </returns>
+        [JetBrains.Annotations.Pure]
+        public static Maybe<TResult> FromTryGet<T1, T2, T3, TResult>(
+            T1 value1,
+            T2 value2,
+            T3 value3,
+            [JetBrains.Annotations.InstantHandle] TryGet<T1, T2, T3, TResult> tryGet)
+        {
+            TResult result;
+            return tryGet(value1, value2, value3, out result) ? Some(result) : None;
+        }
+
+        /// <summary>
         ///     The absence of a value, convertible to a <see cref="Maybe{T}" /> of any type.
         /// </summary>
         /// <remarks>
@@ -59,10 +237,10 @@ namespace SodaFlow.Functional
     ///     This is a struct, so <see langword="default" /> is a valid instance and contains nothing -
     ///     the same as <see cref="None" />.
     /// </remarks>
-    public struct Maybe<T> : IMaybe
+    public struct Maybe<T> : IMaybe, IEquatable<Maybe<T>>, IComparable<Maybe<T>>
     {
         private readonly bool hasValue;
-        private readonly T value;
+        private readonly T? value;
 
         private Maybe(T value)
         {
@@ -98,7 +276,7 @@ namespace SodaFlow.Functional
 
         #region Base Functionality
 
-        T1 IMaybe.Match<T1>(Func<object, T1> onSome, Func<T1> onNone) => this.Match(v => onSome(v), onNone);
+        T1 IMaybe.Match<T1>(Func<object?, T1> onSome, Func<T1> onNone) => this.Match(v => onSome(v), onNone);
 
         /// <summary>
         ///     Runs one of two functions depending on whether a value is present, and returns its result.
@@ -113,7 +291,7 @@ namespace SodaFlow.Functional
         ///     returns.
         /// </remarks>
         public TResult Match<TResult>(Func<T, TResult> onSome, Func<TResult> onNone) =>
-            this.hasValue ? onSome(this.value) : onNone();
+            this.hasValue ? onSome(this.value!) : onNone();
 
         #endregion
 
@@ -225,22 +403,22 @@ namespace SodaFlow.Functional
         public bool HasValue() => this.Match(v => true, () => false);
 
         // ReSharper disable once ReturnValueOfPureMethodIsNotUsed
-        void IMaybe.MatchVoid(Action<object> onSome, Action onNone) =>
+        void IMaybe.MatchVoid(Action<object?> onSome, Action onNone) =>
             this.Upcast<IMaybe>().Match(onSome.ToFunc(), onNone.ToFunc());
 
         // ReSharper disable once ReturnValueOfPureMethodIsNotUsed
-        void IMaybe.MatchSome(Action<object> onSome) => this.Upcast<IMaybe>().MatchVoid(onSome, () => { });
+        void IMaybe.MatchSome(Action<object?> onSome) => this.Upcast<IMaybe>().MatchVoid(onSome, () => { });
 
         // ReSharper disable once ReturnValueOfPureMethodIsNotUsed
         void IMaybe.MatchNone(Action onNone) => this.Upcast<IMaybe>().MatchVoid(_ => { }, onNone);
 
-        Task<TResult> IMaybe.MatchAsync<TResult>(Func<object, Task<TResult>> onSome, Func<Task<TResult>> onNone) =>
+        Task<TResult> IMaybe.MatchAsync<TResult>(Func<object?, Task<TResult>> onSome, Func<Task<TResult>> onNone) =>
             this.Upcast<IMaybe>().Match(onSome, onNone);
 
-        Task IMaybe.MatchAsyncVoid(Func<object, Task> onSome, Func<Task> onNone) =>
+        Task IMaybe.MatchAsyncVoid(Func<object?, Task> onSome, Func<Task> onNone) =>
             this.Upcast<IMaybe>().MatchAsync(onSome.ToAsyncFunc(), onNone.ToAsyncFunc());
 
-        Task IMaybe.MatchSomeAsync(Func<object, Task> onSome) =>
+        Task IMaybe.MatchSomeAsync(Func<object?, Task> onSome) =>
             this.Upcast<IMaybe>().MatchAsyncVoid(onSome, () => Task.FromResult(false));
 
         Task IMaybe.MatchNoneAsync(Func<Task> onNone) =>
@@ -270,7 +448,7 @@ namespace SodaFlow.Functional
         ///     <see cref="EqualityComparer{T}.Default" /> considers equal.
         /// </returns>
         public static bool operator ==(Maybe<T> x, Maybe<T> y) =>
-            x.hasValue == y.hasValue && EqualityComparer<T>.Default.Equals(x.value, y.value);
+            x.hasValue == y.hasValue && EqualityComparer<T>.Default.Equals(x.value!, y.value!);
 
         /// <summary>
         ///     Determines whether two instances differ, by negating <see cref="op_Equality" />.
@@ -296,14 +474,69 @@ namespace SodaFlow.Functional
         ///     A <see cref="Maybe{T}" /> is never equal to the bare value it contains, only to another
         ///     <see cref="Maybe{T}" />.
         /// </remarks>
-        public override bool Equals(object obj) => obj is Maybe<T> m && this == m;
+        public override bool Equals(object? obj) => obj is Maybe<T> m && this == m;
+
+        /// <summary>
+        ///     Determines whether the given instance is equal to this one.
+        /// </summary>
+        /// <param name="other">The instance to compare against.</param>
+        /// <returns>
+        ///     <see langword="true" /> if <see cref="op_Equality" /> considers the two equal.
+        /// </returns>
+        /// <remarks>
+        ///     The same comparison as <see cref="op_Equality" />, under the name
+        ///     <see cref="EqualityComparer{T}.Default" /> looks for. Without it, this being a struct
+        ///     which does not implement <see cref="IEquatable{T}" /> sends every comparison through
+        ///     <see cref="Equals(object)" /> instead, boxing both operands - on every
+        ///     <see cref="System.Linq.Enumerable.Distinct{TSource}(IEnumerable{TSource})" />,
+        ///     <see cref="System.Linq.Enumerable.Contains{TSource}(IEnumerable{TSource},TSource)" />,
+        ///     <see cref="List{T}.IndexOf(T)" /> and dictionary lookup. Being a struct is how this
+        ///     type avoids allocating; that made it allocate anyway, in exactly the
+        ///     collection-heavy code which would notice.
+        /// </remarks>
+        public bool Equals(Maybe<T> other) => this == other;
+
+        /// <summary>
+        ///     Orders this instance against another, with the absence of a value coming first.
+        /// </summary>
+        /// <param name="other">The instance to compare against.</param>
+        /// <returns>
+        ///     A negative number if this sorts before <paramref name="other" />, zero if neither
+        ///     sorts before the other, and a positive number if this sorts after it.
+        /// </returns>
+        /// <remarks>
+        ///     No value sorts before every value, which is how <see cref="System.Nullable{T}" /> is
+        ///     ordered under <see cref="Comparer{T}.Default" /> and so is the answer least likely to
+        ///     surprise. Two instances which both have values are ordered by
+        ///     <see cref="Comparer{T}.Default" /> for <typeparamref name="T" />, which throws if
+        ///     <typeparamref name="T" /> has no ordering - the same failure, at the same point, as
+        ///     ordering bare <typeparamref name="T" /> values would give.
+        ///
+        ///     Note that this reads <see cref="Comparer{T}.Default" /> where
+        ///     <see cref="op_Equality" /> reads <see cref="EqualityComparer{T}.Default" />. For a
+        ///     type whose ordering and equality disagree - <see cref="string" /> is one, being
+        ///     ordered by culture and compared for equality ordinally - a zero result here does not
+        ///     have to mean <see cref="op_Equality" /> is <see langword="true" />. That is inherited
+        ///     from those two comparers rather than introduced here, and is what ordering bare
+        ///     <typeparamref name="T" /> values already does.
+        ///
+        ///     There are deliberately no <c>&lt;</c> and <c>&gt;</c> operators to go with this.
+        ///     <see cref="System.Nullable{T}" /> has them, and they are a trap: they answer
+        ///     <see langword="false" /> in both directions when either side is absent, so
+        ///     <c>!(a &lt; b)</c> stops meaning <c>a &gt;= b</c>. Sorting is what an ordering is
+        ///     wanted for, and sorting goes through this method.
+        /// </remarks>
+        public int CompareTo(Maybe<T> other) =>
+            this.Match(
+                v => other.Match(otherValue => Comparer<T>.Default.Compare(v, otherValue), () => 1),
+                () => other.Match(_ => -1, () => 0));
 
         /// <summary>
         ///     Returns a hash code consistent with <see cref="op_Equality" />.
         /// </summary>
         /// <returns>A hash code for this instance.</returns>
         public override int GetHashCode() =>
-            (this.hasValue.GetHashCode() * 397) ^ EqualityComparer<T>.Default.GetHashCode(this.value);
+            (this.hasValue.GetHashCode() * 397) ^ EqualityComparer<T>.Default.GetHashCode(this.value!);
 
         /// <summary>
         ///     Returns a readable description of this instance, for diagnostics.

@@ -24,13 +24,18 @@
       <Compile Include="CommonTests.cs" />
       <Compile Include="DenotationalSemanticsTests.cs" />
       <Compile Include="EitherTests.cs" />
+      <Compile Include="EnumerableExtensionMethodsTests.cs" />
       <Compile Include="ForwardReferenceTests.cs" />
       <Compile Include="IssueTests.cs" />
       <Compile Include="LoopTests.cs" />
+      <Compile Include="MaybeAsyncExtensionMethodsTests.cs" />
       <Compile Include="MaybeExtensionMethodsTests.cs" />
+      <Compile Include="MaybeMonadTests.cs" />
       <Compile Include="MaybeTests.cs" />
       <Compile Include="PerformanceTests.cs" />
+      <Compile Include="ReadOnlyDictionaryExtensionMethodsTests.cs" />
       <Compile Include="StreamTests.cs" />
+      <Compile Include="StringExtensionMethodsTests.cs" />
       <Compile Include="TimerTests.cs" />
       <Compile Include="TransactionTests.cs" />
     </ItemGroup>

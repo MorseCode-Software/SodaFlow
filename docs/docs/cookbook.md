@@ -26,15 +26,19 @@ want.
 step:
 
 ```csharp
-Stream<int> numbers = input.Choose(s => int.TryParse(s, out int n) ? Maybe.Some(n) : Maybe.None);
+Stream<int> numbers = input.Choose(s => s.TryParseInt32());
 ```
+
+`TryParseInt32` is one of the [parsing helpers](functional.md) on `string`, which answer with a
+`Maybe<T>` instead of a `bool` and an `out` parameter. Written out by hand the selector would be
+`s => int.TryParse(s, out int n) ? Maybe.Some(n) : Maybe.None`.
 
 `Map` followed by `FilterSome` is the same thing spelled out, and is what to reach for when the
 intermediate `Stream<Maybe<T>>` is wanted for its own sake:
 
 ```csharp
 Stream<int> numbers = input
-    .Map(s => int.TryParse(s, out int n) ? Maybe.Some(n) : Maybe.None)
+    .Map(s => s.TryParseInt32())
     .FilterSome();
 ```
 

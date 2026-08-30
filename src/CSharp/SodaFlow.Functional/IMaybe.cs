@@ -26,7 +26,7 @@ namespace SodaFlow.Functional
         ///     This is the primitive the rest of the interface is expressed in terms of.
         /// </remarks>
         T Match<T>(
-            [JetBrains.Annotations.InstantHandle] Func<object, T> onSome,
+            [JetBrains.Annotations.InstantHandle] Func<object?, T> onSome,
             [JetBrains.Annotations.InstantHandle] Func<T> onNone);
         
         /// <summary>
@@ -35,14 +35,14 @@ namespace SodaFlow.Functional
         /// <param name="onSome">Run with the contained value when one is present.</param>
         /// <param name="onNone">Run when no value is present.</param>
         void MatchVoid(
-            [JetBrains.Annotations.InstantHandle] Action<object> onSome,
+            [JetBrains.Annotations.InstantHandle] Action<object?> onSome,
             [JetBrains.Annotations.InstantHandle] Action onNone);
         
         /// <summary>
         ///     Runs an action with the contained value if one is present, and otherwise does nothing.
         /// </summary>
         /// <param name="onSome">Run with the contained value when one is present.</param>
-        void MatchSome([JetBrains.Annotations.InstantHandle] Action<object> onSome);
+        void MatchSome([JetBrains.Annotations.InstantHandle] Action<object?> onSome);
 
         /// <summary>
         ///     Runs an action if no value is present, and otherwise does nothing.
@@ -63,7 +63,7 @@ namespace SodaFlow.Functional
         ///     failures surface as that task faulting rather than as an exception from this call.
         /// </remarks>
         Task<T> MatchAsync<T>(
-            [JetBrains.Annotations.InstantHandle] Func<object, Task<T>> onSome,
+            [JetBrains.Annotations.InstantHandle] Func<object?, Task<T>> onSome,
             [JetBrains.Annotations.InstantHandle] Func<Task<T>> onNone);
         
         /// <summary>
@@ -73,7 +73,7 @@ namespace SodaFlow.Functional
         /// <param name="onNone">Run when no value is present.</param>
         /// <returns>A task which completes when the selected action has completed.</returns>
         Task MatchAsyncVoid(
-            [JetBrains.Annotations.InstantHandle] Func<object, Task> onSome,
+            [JetBrains.Annotations.InstantHandle] Func<object?, Task> onSome,
             [JetBrains.Annotations.InstantHandle] Func<Task> onNone);
         
         /// <summary>
@@ -85,7 +85,7 @@ namespace SodaFlow.Functional
         ///     A task which completes when the action has completed, or an already completed task if no
         ///     value is present.
         /// </returns>
-        Task MatchSomeAsync([JetBrains.Annotations.InstantHandle] Func<object, Task> onSome);
+        Task MatchSomeAsync([JetBrains.Annotations.InstantHandle] Func<object?, Task> onSome);
 
         /// <summary>
         ///     Runs an asynchronous action if no value is present, and otherwise does nothing.
