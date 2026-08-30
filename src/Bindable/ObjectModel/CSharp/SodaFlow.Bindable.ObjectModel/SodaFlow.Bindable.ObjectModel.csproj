@@ -21,15 +21,6 @@
             over one another's XML.
         -->
         <GenerateDocumentationFile>true</GenerateDocumentationFile>
-
-        <!--
-            Not packed until there is something to ship. MinVer versions a project with no tag of
-            its own prefix as 0.0.0-alpha.0, and appveyor.yml pushes every nupkg produced by a tag
-            build, so leaving this out would publish an empty package on the next release of
-            anything at all. Remove this line when the implementation lands, and push the first
-            sodaflow-bindable-objectmodel-x.y.z tag.
-        -->
-        <IsPackable>false</IsPackable>
     </PropertyGroup>
 
     <ItemGroup>
