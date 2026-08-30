@@ -40,7 +40,7 @@ namespace SodaFlow.Functional
         /// </remarks>
         [JetBrains.Annotations.Pure]
         public static Maybe<TValue> TryGetValue<TKey, TValue>(
-            this IReadOnlyDictionary<TKey, TValue> dictionary,
+            this IReadOnlyDictionary<TKey, TValue>? dictionary,
             TKey key)
         {
             if (dictionary == null)
@@ -48,8 +48,10 @@ namespace SodaFlow.Functional
                 return Maybe.None;
             }
 
-            TValue value;
-            return dictionary.TryGetValue(key, out value) ? Maybe.Some(value) : Maybe.None;
+            // The output is declared nullable and read as not, rather than the other way round,
+            // because TryGetValue is annotated to leave it null on false only on net6.0; the
+            // net472 and netstandard2.0 reference assemblies carry no annotation at all.
+            return dictionary.TryGetValue(key, out TValue? value) ? Maybe.Some(value!) : Maybe.None;
         }
     }
 }

@@ -25,7 +25,7 @@
         /// <remarks>
         ///     There is only one value of this type, so any two instances are equal.
         /// </remarks>
-        public override bool Equals(object obj)
+        public override bool Equals(object? obj)
         {
             if (ReferenceEquals(null, obj))
             {

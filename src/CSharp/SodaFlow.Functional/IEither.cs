@@ -22,7 +22,7 @@ namespace SodaFlow.Functional
         ///     operations instead.
         /// </remarks>
         [JetBrains.Annotations.Pure]
-        object GetValueAsObject();
+        object? GetValueAsObject();
     }
 
     /// <summary>
@@ -50,8 +50,8 @@ namespace SodaFlow.Functional
         ///     before this method returns.
         /// </remarks>
         T Match<T>(
-            [JetBrains.Annotations.InstantHandle] Func<object, T> onFirst,
-            [JetBrains.Annotations.InstantHandle] Func<object, T> onSecond);
+            [JetBrains.Annotations.InstantHandle] Func<object?, T> onFirst,
+            [JetBrains.Annotations.InstantHandle] Func<object?, T> onSecond);
         
         /// <summary>
         ///     Runs one of the two actions depending on which case is held.
@@ -59,8 +59,8 @@ namespace SodaFlow.Functional
         /// <param name="onFirst">Run with the value when the first case is held.</param>
         /// <param name="onSecond">Run with the value when the second case is held.</param>
         void MatchVoid(
-            [JetBrains.Annotations.InstantHandle] Action<object> onFirst,
-            [JetBrains.Annotations.InstantHandle] Action<object> onSecond);
+            [JetBrains.Annotations.InstantHandle] Action<object?> onFirst,
+            [JetBrains.Annotations.InstantHandle] Action<object?> onSecond);
         
         /// <summary>
         ///     Runs one of the two asynchronous functions depending on which case is held, and
@@ -75,8 +75,8 @@ namespace SodaFlow.Functional
         ///     so failures surface as that task faulting rather than as an exception from this call.
         /// </remarks>
         Task<T> MatchAsync<T>(
-            [JetBrains.Annotations.InstantHandle] Func<object, Task<T>> onFirst,
-            [JetBrains.Annotations.InstantHandle] Func<object, Task<T>> onSecond);
+            [JetBrains.Annotations.InstantHandle] Func<object?, Task<T>> onFirst,
+            [JetBrains.Annotations.InstantHandle] Func<object?, Task<T>> onSecond);
         
         /// <summary>
         ///     Runs one of the two asynchronous actions depending on which case is held.
@@ -85,8 +85,8 @@ namespace SodaFlow.Functional
         /// <param name="onSecond">Run with the value when the second case is held.</param>
         /// <returns>A task which completes when the selected action has completed.</returns>
         Task MatchAsyncVoid(
-            [JetBrains.Annotations.InstantHandle] Func<object, Task> onFirst,
-            [JetBrains.Annotations.InstantHandle] Func<object, Task> onSecond);
+            [JetBrains.Annotations.InstantHandle] Func<object?, Task> onFirst,
+            [JetBrains.Annotations.InstantHandle] Func<object?, Task> onSecond);
     }
 
     /// <summary>
@@ -115,9 +115,9 @@ namespace SodaFlow.Functional
         ///     before this method returns.
         /// </remarks>
         T Match<T>(
-            [JetBrains.Annotations.InstantHandle] Func<object, T> onFirst,
-            [JetBrains.Annotations.InstantHandle] Func<object, T> onSecond,
-            [JetBrains.Annotations.InstantHandle] Func<object, T> onThird);
+            [JetBrains.Annotations.InstantHandle] Func<object?, T> onFirst,
+            [JetBrains.Annotations.InstantHandle] Func<object?, T> onSecond,
+            [JetBrains.Annotations.InstantHandle] Func<object?, T> onThird);
         
         /// <summary>
         ///     Runs one of the three actions depending on which case is held.
@@ -126,9 +126,9 @@ namespace SodaFlow.Functional
         /// <param name="onSecond">Run with the value when the second case is held.</param>
         /// <param name="onThird">Run with the value when the third case is held.</param>
         void MatchVoid(
-            [JetBrains.Annotations.InstantHandle] Action<object> onFirst,
-            [JetBrains.Annotations.InstantHandle] Action<object> onSecond,
-            [JetBrains.Annotations.InstantHandle] Action<object> onThird);
+            [JetBrains.Annotations.InstantHandle] Action<object?> onFirst,
+            [JetBrains.Annotations.InstantHandle] Action<object?> onSecond,
+            [JetBrains.Annotations.InstantHandle] Action<object?> onThird);
 
         /// <summary>
         ///     Runs one of the three asynchronous functions depending on which case is held, and
@@ -144,9 +144,9 @@ namespace SodaFlow.Functional
         ///     so failures surface as that task faulting rather than as an exception from this call.
         /// </remarks>
         Task<T> MatchAsync<T>(
-            [JetBrains.Annotations.InstantHandle] Func<object, Task<T>> onFirst,
-            [JetBrains.Annotations.InstantHandle] Func<object, Task<T>> onSecond,
-            [JetBrains.Annotations.InstantHandle] Func<object, Task<T>> onThird);
+            [JetBrains.Annotations.InstantHandle] Func<object?, Task<T>> onFirst,
+            [JetBrains.Annotations.InstantHandle] Func<object?, Task<T>> onSecond,
+            [JetBrains.Annotations.InstantHandle] Func<object?, Task<T>> onThird);
 
         /// <summary>
         ///     Runs one of the three asynchronous actions depending on which case is held.
@@ -156,9 +156,9 @@ namespace SodaFlow.Functional
         /// <param name="onThird">Run with the value when the third case is held.</param>
         /// <returns>A task which completes when the selected action has completed.</returns>
         Task MatchAsyncVoid(
-            [JetBrains.Annotations.InstantHandle] Func<object, Task> onFirst,
-            [JetBrains.Annotations.InstantHandle] Func<object, Task> onSecond,
-            [JetBrains.Annotations.InstantHandle] Func<object, Task> onThird);
+            [JetBrains.Annotations.InstantHandle] Func<object?, Task> onFirst,
+            [JetBrains.Annotations.InstantHandle] Func<object?, Task> onSecond,
+            [JetBrains.Annotations.InstantHandle] Func<object?, Task> onThird);
     }
 
     /// <summary>
@@ -188,10 +188,10 @@ namespace SodaFlow.Functional
         ///     before this method returns.
         /// </remarks>
         T Match<T>(
-            [JetBrains.Annotations.InstantHandle] Func<object, T> onFirst,
-            [JetBrains.Annotations.InstantHandle] Func<object, T> onSecond,
-            [JetBrains.Annotations.InstantHandle] Func<object, T> onThird,
-            [JetBrains.Annotations.InstantHandle] Func<object, T> onFourth);
+            [JetBrains.Annotations.InstantHandle] Func<object?, T> onFirst,
+            [JetBrains.Annotations.InstantHandle] Func<object?, T> onSecond,
+            [JetBrains.Annotations.InstantHandle] Func<object?, T> onThird,
+            [JetBrains.Annotations.InstantHandle] Func<object?, T> onFourth);
 
         /// <summary>
         ///     Runs one of the four actions depending on which case is held.
@@ -201,10 +201,10 @@ namespace SodaFlow.Functional
         /// <param name="onThird">Run with the value when the third case is held.</param>
         /// <param name="onFourth">Run with the value when the fourth case is held.</param>
         void MatchVoid(
-            [JetBrains.Annotations.InstantHandle] Action<object> onFirst,
-            [JetBrains.Annotations.InstantHandle] Action<object> onSecond,
-            [JetBrains.Annotations.InstantHandle] Action<object> onThird,
-            [JetBrains.Annotations.InstantHandle] Action<object> onFourth);
+            [JetBrains.Annotations.InstantHandle] Action<object?> onFirst,
+            [JetBrains.Annotations.InstantHandle] Action<object?> onSecond,
+            [JetBrains.Annotations.InstantHandle] Action<object?> onThird,
+            [JetBrains.Annotations.InstantHandle] Action<object?> onFourth);
 
         /// <summary>
         ///     Runs one of the four asynchronous functions depending on which case is held, and
@@ -221,10 +221,10 @@ namespace SodaFlow.Functional
         ///     so failures surface as that task faulting rather than as an exception from this call.
         /// </remarks>
         Task<T> MatchAsync<T>(
-            [JetBrains.Annotations.InstantHandle] Func<object, Task<T>> onFirst,
-            [JetBrains.Annotations.InstantHandle] Func<object, Task<T>> onSecond,
-            [JetBrains.Annotations.InstantHandle] Func<object, Task<T>> onThird,
-            [JetBrains.Annotations.InstantHandle] Func<object, Task<T>> onFourth);
+            [JetBrains.Annotations.InstantHandle] Func<object?, Task<T>> onFirst,
+            [JetBrains.Annotations.InstantHandle] Func<object?, Task<T>> onSecond,
+            [JetBrains.Annotations.InstantHandle] Func<object?, Task<T>> onThird,
+            [JetBrains.Annotations.InstantHandle] Func<object?, Task<T>> onFourth);
 
         /// <summary>
         ///     Runs one of the four asynchronous actions depending on which case is held.
@@ -235,10 +235,10 @@ namespace SodaFlow.Functional
         /// <param name="onFourth">Run with the value when the fourth case is held.</param>
         /// <returns>A task which completes when the selected action has completed.</returns>
         Task MatchAsyncVoid(
-            [JetBrains.Annotations.InstantHandle] Func<object, Task> onFirst,
-            [JetBrains.Annotations.InstantHandle] Func<object, Task> onSecond,
-            [JetBrains.Annotations.InstantHandle] Func<object, Task> onThird,
-            [JetBrains.Annotations.InstantHandle] Func<object, Task> onFourth);
+            [JetBrains.Annotations.InstantHandle] Func<object?, Task> onFirst,
+            [JetBrains.Annotations.InstantHandle] Func<object?, Task> onSecond,
+            [JetBrains.Annotations.InstantHandle] Func<object?, Task> onThird,
+            [JetBrains.Annotations.InstantHandle] Func<object?, Task> onFourth);
     }
 
     /// <summary>
@@ -269,11 +269,11 @@ namespace SodaFlow.Functional
         ///     before this method returns.
         /// </remarks>
         T Match<T>(
-            [JetBrains.Annotations.InstantHandle] Func<object, T> onFirst,
-            [JetBrains.Annotations.InstantHandle] Func<object, T> onSecond,
-            [JetBrains.Annotations.InstantHandle] Func<object, T> onThird,
-            [JetBrains.Annotations.InstantHandle] Func<object, T> onFourth,
-            [JetBrains.Annotations.InstantHandle] Func<object, T> onFifth);
+            [JetBrains.Annotations.InstantHandle] Func<object?, T> onFirst,
+            [JetBrains.Annotations.InstantHandle] Func<object?, T> onSecond,
+            [JetBrains.Annotations.InstantHandle] Func<object?, T> onThird,
+            [JetBrains.Annotations.InstantHandle] Func<object?, T> onFourth,
+            [JetBrains.Annotations.InstantHandle] Func<object?, T> onFifth);
 
         /// <summary>
         ///     Runs one of the five actions depending on which case is held.
@@ -284,11 +284,11 @@ namespace SodaFlow.Functional
         /// <param name="onFourth">Run with the value when the fourth case is held.</param>
         /// <param name="onFifth">Run with the value when the fifth case is held.</param>
         void MatchVoid(
-            [JetBrains.Annotations.InstantHandle] Action<object> onFirst,
-            [JetBrains.Annotations.InstantHandle] Action<object> onSecond,
-            [JetBrains.Annotations.InstantHandle] Action<object> onThird,
-            [JetBrains.Annotations.InstantHandle] Action<object> onFourth,
-            [JetBrains.Annotations.InstantHandle] Action<object> onFifth);
+            [JetBrains.Annotations.InstantHandle] Action<object?> onFirst,
+            [JetBrains.Annotations.InstantHandle] Action<object?> onSecond,
+            [JetBrains.Annotations.InstantHandle] Action<object?> onThird,
+            [JetBrains.Annotations.InstantHandle] Action<object?> onFourth,
+            [JetBrains.Annotations.InstantHandle] Action<object?> onFifth);
 
         /// <summary>
         ///     Runs one of the five asynchronous functions depending on which case is held, and
@@ -306,11 +306,11 @@ namespace SodaFlow.Functional
         ///     so failures surface as that task faulting rather than as an exception from this call.
         /// </remarks>
         Task<T> MatchAsync<T>(
-            [JetBrains.Annotations.InstantHandle] Func<object, Task<T>> onFirst,
-            [JetBrains.Annotations.InstantHandle] Func<object, Task<T>> onSecond,
-            [JetBrains.Annotations.InstantHandle] Func<object, Task<T>> onThird,
-            [JetBrains.Annotations.InstantHandle] Func<object, Task<T>> onFourth,
-            [JetBrains.Annotations.InstantHandle] Func<object, Task<T>> onFifth);
+            [JetBrains.Annotations.InstantHandle] Func<object?, Task<T>> onFirst,
+            [JetBrains.Annotations.InstantHandle] Func<object?, Task<T>> onSecond,
+            [JetBrains.Annotations.InstantHandle] Func<object?, Task<T>> onThird,
+            [JetBrains.Annotations.InstantHandle] Func<object?, Task<T>> onFourth,
+            [JetBrains.Annotations.InstantHandle] Func<object?, Task<T>> onFifth);
 
         /// <summary>
         ///     Runs one of the five asynchronous actions depending on which case is held.
@@ -322,11 +322,11 @@ namespace SodaFlow.Functional
         /// <param name="onFifth">Run with the value when the fifth case is held.</param>
         /// <returns>A task which completes when the selected action has completed.</returns>
         Task MatchAsyncVoid(
-            [JetBrains.Annotations.InstantHandle] Func<object, Task> onFirst,
-            [JetBrains.Annotations.InstantHandle] Func<object, Task> onSecond,
-            [JetBrains.Annotations.InstantHandle] Func<object, Task> onThird,
-            [JetBrains.Annotations.InstantHandle] Func<object, Task> onFourth,
-            [JetBrains.Annotations.InstantHandle] Func<object, Task> onFifth);
+            [JetBrains.Annotations.InstantHandle] Func<object?, Task> onFirst,
+            [JetBrains.Annotations.InstantHandle] Func<object?, Task> onSecond,
+            [JetBrains.Annotations.InstantHandle] Func<object?, Task> onThird,
+            [JetBrains.Annotations.InstantHandle] Func<object?, Task> onFourth,
+            [JetBrains.Annotations.InstantHandle] Func<object?, Task> onFifth);
     }
 
     /// <summary>
@@ -358,12 +358,12 @@ namespace SodaFlow.Functional
         ///     before this method returns.
         /// </remarks>
         T Match<T>(
-            [JetBrains.Annotations.InstantHandle] Func<object, T> onFirst,
-            [JetBrains.Annotations.InstantHandle] Func<object, T> onSecond,
-            [JetBrains.Annotations.InstantHandle] Func<object, T> onThird,
-            [JetBrains.Annotations.InstantHandle] Func<object, T> onFourth,
-            [JetBrains.Annotations.InstantHandle] Func<object, T> onFifth,
-            [JetBrains.Annotations.InstantHandle] Func<object, T> onSixth);
+            [JetBrains.Annotations.InstantHandle] Func<object?, T> onFirst,
+            [JetBrains.Annotations.InstantHandle] Func<object?, T> onSecond,
+            [JetBrains.Annotations.InstantHandle] Func<object?, T> onThird,
+            [JetBrains.Annotations.InstantHandle] Func<object?, T> onFourth,
+            [JetBrains.Annotations.InstantHandle] Func<object?, T> onFifth,
+            [JetBrains.Annotations.InstantHandle] Func<object?, T> onSixth);
 
         /// <summary>
         ///     Runs one of the six actions depending on which case is held.
@@ -375,12 +375,12 @@ namespace SodaFlow.Functional
         /// <param name="onFifth">Run with the value when the fifth case is held.</param>
         /// <param name="onSixth">Run with the value when the sixth case is held.</param>
         void MatchVoid(
-            [JetBrains.Annotations.InstantHandle] Action<object> onFirst,
-            [JetBrains.Annotations.InstantHandle] Action<object> onSecond,
-            [JetBrains.Annotations.InstantHandle] Action<object> onThird,
-            [JetBrains.Annotations.InstantHandle] Action<object> onFourth,
-            [JetBrains.Annotations.InstantHandle] Action<object> onFifth,
-            [JetBrains.Annotations.InstantHandle] Action<object> onSixth);
+            [JetBrains.Annotations.InstantHandle] Action<object?> onFirst,
+            [JetBrains.Annotations.InstantHandle] Action<object?> onSecond,
+            [JetBrains.Annotations.InstantHandle] Action<object?> onThird,
+            [JetBrains.Annotations.InstantHandle] Action<object?> onFourth,
+            [JetBrains.Annotations.InstantHandle] Action<object?> onFifth,
+            [JetBrains.Annotations.InstantHandle] Action<object?> onSixth);
 
         /// <summary>
         ///     Runs one of the six asynchronous functions depending on which case is held, and
@@ -399,12 +399,12 @@ namespace SodaFlow.Functional
         ///     so failures surface as that task faulting rather than as an exception from this call.
         /// </remarks>
         Task<T> MatchAsync<T>(
-            [JetBrains.Annotations.InstantHandle] Func<object, Task<T>> onFirst,
-            [JetBrains.Annotations.InstantHandle] Func<object, Task<T>> onSecond,
-            [JetBrains.Annotations.InstantHandle] Func<object, Task<T>> onThird,
-            [JetBrains.Annotations.InstantHandle] Func<object, Task<T>> onFourth,
-            [JetBrains.Annotations.InstantHandle] Func<object, Task<T>> onFifth,
-            [JetBrains.Annotations.InstantHandle] Func<object, Task<T>> onSixth);
+            [JetBrains.Annotations.InstantHandle] Func<object?, Task<T>> onFirst,
+            [JetBrains.Annotations.InstantHandle] Func<object?, Task<T>> onSecond,
+            [JetBrains.Annotations.InstantHandle] Func<object?, Task<T>> onThird,
+            [JetBrains.Annotations.InstantHandle] Func<object?, Task<T>> onFourth,
+            [JetBrains.Annotations.InstantHandle] Func<object?, Task<T>> onFifth,
+            [JetBrains.Annotations.InstantHandle] Func<object?, Task<T>> onSixth);
 
         /// <summary>
         ///     Runs one of the six asynchronous actions depending on which case is held.
@@ -417,12 +417,12 @@ namespace SodaFlow.Functional
         /// <param name="onSixth">Run with the value when the sixth case is held.</param>
         /// <returns>A task which completes when the selected action has completed.</returns>
         Task MatchAsyncVoid(
-            [JetBrains.Annotations.InstantHandle] Func<object, Task> onFirst,
-            [JetBrains.Annotations.InstantHandle] Func<object, Task> onSecond,
-            [JetBrains.Annotations.InstantHandle] Func<object, Task> onThird,
-            [JetBrains.Annotations.InstantHandle] Func<object, Task> onFourth,
-            [JetBrains.Annotations.InstantHandle] Func<object, Task> onFifth,
-            [JetBrains.Annotations.InstantHandle] Func<object, Task> onSixth);
+            [JetBrains.Annotations.InstantHandle] Func<object?, Task> onFirst,
+            [JetBrains.Annotations.InstantHandle] Func<object?, Task> onSecond,
+            [JetBrains.Annotations.InstantHandle] Func<object?, Task> onThird,
+            [JetBrains.Annotations.InstantHandle] Func<object?, Task> onFourth,
+            [JetBrains.Annotations.InstantHandle] Func<object?, Task> onFifth,
+            [JetBrains.Annotations.InstantHandle] Func<object?, Task> onSixth);
     }
 
     /// <summary>
@@ -455,13 +455,13 @@ namespace SodaFlow.Functional
         ///     before this method returns.
         /// </remarks>
         T Match<T>(
-            [JetBrains.Annotations.InstantHandle] Func<object, T> onFirst,
-            [JetBrains.Annotations.InstantHandle] Func<object, T> onSecond,
-            [JetBrains.Annotations.InstantHandle] Func<object, T> onThird,
-            [JetBrains.Annotations.InstantHandle] Func<object, T> onFourth,
-            [JetBrains.Annotations.InstantHandle] Func<object, T> onFifth,
-            [JetBrains.Annotations.InstantHandle] Func<object, T> onSixth,
-            [JetBrains.Annotations.InstantHandle] Func<object, T> onSeventh);
+            [JetBrains.Annotations.InstantHandle] Func<object?, T> onFirst,
+            [JetBrains.Annotations.InstantHandle] Func<object?, T> onSecond,
+            [JetBrains.Annotations.InstantHandle] Func<object?, T> onThird,
+            [JetBrains.Annotations.InstantHandle] Func<object?, T> onFourth,
+            [JetBrains.Annotations.InstantHandle] Func<object?, T> onFifth,
+            [JetBrains.Annotations.InstantHandle] Func<object?, T> onSixth,
+            [JetBrains.Annotations.InstantHandle] Func<object?, T> onSeventh);
 
         /// <summary>
         ///     Runs one of the seven actions depending on which case is held.
@@ -474,13 +474,13 @@ namespace SodaFlow.Functional
         /// <param name="onSixth">Run with the value when the sixth case is held.</param>
         /// <param name="onSeventh">Run with the value when the seventh case is held.</param>
         void MatchVoid(
-            [JetBrains.Annotations.InstantHandle] Action<object> onFirst,
-            [JetBrains.Annotations.InstantHandle] Action<object> onSecond,
-            [JetBrains.Annotations.InstantHandle] Action<object> onThird,
-            [JetBrains.Annotations.InstantHandle] Action<object> onFourth,
-            [JetBrains.Annotations.InstantHandle] Action<object> onFifth,
-            [JetBrains.Annotations.InstantHandle] Action<object> onSixth,
-            [JetBrains.Annotations.InstantHandle] Action<object> onSeventh);
+            [JetBrains.Annotations.InstantHandle] Action<object?> onFirst,
+            [JetBrains.Annotations.InstantHandle] Action<object?> onSecond,
+            [JetBrains.Annotations.InstantHandle] Action<object?> onThird,
+            [JetBrains.Annotations.InstantHandle] Action<object?> onFourth,
+            [JetBrains.Annotations.InstantHandle] Action<object?> onFifth,
+            [JetBrains.Annotations.InstantHandle] Action<object?> onSixth,
+            [JetBrains.Annotations.InstantHandle] Action<object?> onSeventh);
 
         /// <summary>
         ///     Runs one of the seven asynchronous functions depending on which case is held, and
@@ -500,13 +500,13 @@ namespace SodaFlow.Functional
         ///     so failures surface as that task faulting rather than as an exception from this call.
         /// </remarks>
         Task<T> MatchAsync<T>(
-            [JetBrains.Annotations.InstantHandle] Func<object, Task<T>> onFirst,
-            [JetBrains.Annotations.InstantHandle] Func<object, Task<T>> onSecond,
-            [JetBrains.Annotations.InstantHandle] Func<object, Task<T>> onThird,
-            [JetBrains.Annotations.InstantHandle] Func<object, Task<T>> onFourth,
-            [JetBrains.Annotations.InstantHandle] Func<object, Task<T>> onFifth,
-            [JetBrains.Annotations.InstantHandle] Func<object, Task<T>> onSixth,
-            [JetBrains.Annotations.InstantHandle] Func<object, Task<T>> onSeventh);
+            [JetBrains.Annotations.InstantHandle] Func<object?, Task<T>> onFirst,
+            [JetBrains.Annotations.InstantHandle] Func<object?, Task<T>> onSecond,
+            [JetBrains.Annotations.InstantHandle] Func<object?, Task<T>> onThird,
+            [JetBrains.Annotations.InstantHandle] Func<object?, Task<T>> onFourth,
+            [JetBrains.Annotations.InstantHandle] Func<object?, Task<T>> onFifth,
+            [JetBrains.Annotations.InstantHandle] Func<object?, Task<T>> onSixth,
+            [JetBrains.Annotations.InstantHandle] Func<object?, Task<T>> onSeventh);
 
         /// <summary>
         ///     Runs one of the seven asynchronous actions depending on which case is held.
@@ -520,13 +520,13 @@ namespace SodaFlow.Functional
         /// <param name="onSeventh">Run with the value when the seventh case is held.</param>
         /// <returns>A task which completes when the selected action has completed.</returns>
         Task MatchAsyncVoid(
-            [JetBrains.Annotations.InstantHandle] Func<object, Task> onFirst,
-            [JetBrains.Annotations.InstantHandle] Func<object, Task> onSecond,
-            [JetBrains.Annotations.InstantHandle] Func<object, Task> onThird,
-            [JetBrains.Annotations.InstantHandle] Func<object, Task> onFourth,
-            [JetBrains.Annotations.InstantHandle] Func<object, Task> onFifth,
-            [JetBrains.Annotations.InstantHandle] Func<object, Task> onSixth,
-            [JetBrains.Annotations.InstantHandle] Func<object, Task> onSeventh);
+            [JetBrains.Annotations.InstantHandle] Func<object?, Task> onFirst,
+            [JetBrains.Annotations.InstantHandle] Func<object?, Task> onSecond,
+            [JetBrains.Annotations.InstantHandle] Func<object?, Task> onThird,
+            [JetBrains.Annotations.InstantHandle] Func<object?, Task> onFourth,
+            [JetBrains.Annotations.InstantHandle] Func<object?, Task> onFifth,
+            [JetBrains.Annotations.InstantHandle] Func<object?, Task> onSixth,
+            [JetBrains.Annotations.InstantHandle] Func<object?, Task> onSeventh);
     }
 
     /// <summary>
@@ -560,14 +560,14 @@ namespace SodaFlow.Functional
         ///     before this method returns.
         /// </remarks>
         T Match<T>(
-            [JetBrains.Annotations.InstantHandle] Func<object, T> onFirst,
-            [JetBrains.Annotations.InstantHandle] Func<object, T> onSecond,
-            [JetBrains.Annotations.InstantHandle] Func<object, T> onThird,
-            [JetBrains.Annotations.InstantHandle] Func<object, T> onFourth,
-            [JetBrains.Annotations.InstantHandle] Func<object, T> onFifth,
-            [JetBrains.Annotations.InstantHandle] Func<object, T> onSixth,
-            [JetBrains.Annotations.InstantHandle] Func<object, T> onSeventh,
-            [JetBrains.Annotations.InstantHandle] Func<object, T> onEighth);
+            [JetBrains.Annotations.InstantHandle] Func<object?, T> onFirst,
+            [JetBrains.Annotations.InstantHandle] Func<object?, T> onSecond,
+            [JetBrains.Annotations.InstantHandle] Func<object?, T> onThird,
+            [JetBrains.Annotations.InstantHandle] Func<object?, T> onFourth,
+            [JetBrains.Annotations.InstantHandle] Func<object?, T> onFifth,
+            [JetBrains.Annotations.InstantHandle] Func<object?, T> onSixth,
+            [JetBrains.Annotations.InstantHandle] Func<object?, T> onSeventh,
+            [JetBrains.Annotations.InstantHandle] Func<object?, T> onEighth);
 
         /// <summary>
         ///     Runs one of the eight actions depending on which case is held.
@@ -581,14 +581,14 @@ namespace SodaFlow.Functional
         /// <param name="onSeventh">Run with the value when the seventh case is held.</param>
         /// <param name="onEighth">Run with the value when the eighth case is held.</param>
         void MatchVoid(
-            [JetBrains.Annotations.InstantHandle] Action<object> onFirst,
-            [JetBrains.Annotations.InstantHandle] Action<object> onSecond,
-            [JetBrains.Annotations.InstantHandle] Action<object> onThird,
-            [JetBrains.Annotations.InstantHandle] Action<object> onFourth,
-            [JetBrains.Annotations.InstantHandle] Action<object> onFifth,
-            [JetBrains.Annotations.InstantHandle] Action<object> onSixth,
-            [JetBrains.Annotations.InstantHandle] Action<object> onSeventh,
-            [JetBrains.Annotations.InstantHandle] Action<object> onEighth);
+            [JetBrains.Annotations.InstantHandle] Action<object?> onFirst,
+            [JetBrains.Annotations.InstantHandle] Action<object?> onSecond,
+            [JetBrains.Annotations.InstantHandle] Action<object?> onThird,
+            [JetBrains.Annotations.InstantHandle] Action<object?> onFourth,
+            [JetBrains.Annotations.InstantHandle] Action<object?> onFifth,
+            [JetBrains.Annotations.InstantHandle] Action<object?> onSixth,
+            [JetBrains.Annotations.InstantHandle] Action<object?> onSeventh,
+            [JetBrains.Annotations.InstantHandle] Action<object?> onEighth);
 
         /// <summary>
         ///     Runs one of the eight asynchronous functions depending on which case is held, and
@@ -609,14 +609,14 @@ namespace SodaFlow.Functional
         ///     so failures surface as that task faulting rather than as an exception from this call.
         /// </remarks>
         Task<T> MatchAsync<T>(
-            [JetBrains.Annotations.InstantHandle] Func<object, Task<T>> onFirst,
-            [JetBrains.Annotations.InstantHandle] Func<object, Task<T>> onSecond,
-            [JetBrains.Annotations.InstantHandle] Func<object, Task<T>> onThird,
-            [JetBrains.Annotations.InstantHandle] Func<object, Task<T>> onFourth,
-            [JetBrains.Annotations.InstantHandle] Func<object, Task<T>> onFifth,
-            [JetBrains.Annotations.InstantHandle] Func<object, Task<T>> onSixth,
-            [JetBrains.Annotations.InstantHandle] Func<object, Task<T>> onSeventh,
-            [JetBrains.Annotations.InstantHandle] Func<object, Task<T>> onEighth);
+            [JetBrains.Annotations.InstantHandle] Func<object?, Task<T>> onFirst,
+            [JetBrains.Annotations.InstantHandle] Func<object?, Task<T>> onSecond,
+            [JetBrains.Annotations.InstantHandle] Func<object?, Task<T>> onThird,
+            [JetBrains.Annotations.InstantHandle] Func<object?, Task<T>> onFourth,
+            [JetBrains.Annotations.InstantHandle] Func<object?, Task<T>> onFifth,
+            [JetBrains.Annotations.InstantHandle] Func<object?, Task<T>> onSixth,
+            [JetBrains.Annotations.InstantHandle] Func<object?, Task<T>> onSeventh,
+            [JetBrains.Annotations.InstantHandle] Func<object?, Task<T>> onEighth);
 
         /// <summary>
         ///     Runs one of the eight asynchronous actions depending on which case is held.
@@ -631,13 +631,13 @@ namespace SodaFlow.Functional
         /// <param name="onEighth">Run with the value when the eighth case is held.</param>
         /// <returns>A task which completes when the selected action has completed.</returns>
         Task MatchAsyncVoid(
-            [JetBrains.Annotations.InstantHandle] Func<object, Task> onFirst,
-            [JetBrains.Annotations.InstantHandle] Func<object, Task> onSecond,
-            [JetBrains.Annotations.InstantHandle] Func<object, Task> onThird,
-            [JetBrains.Annotations.InstantHandle] Func<object, Task> onFourth,
-            [JetBrains.Annotations.InstantHandle] Func<object, Task> onFifth,
-            [JetBrains.Annotations.InstantHandle] Func<object, Task> onSixth,
-            [JetBrains.Annotations.InstantHandle] Func<object, Task> onSeventh,
-            [JetBrains.Annotations.InstantHandle] Func<object, Task> onEighth);
+            [JetBrains.Annotations.InstantHandle] Func<object?, Task> onFirst,
+            [JetBrains.Annotations.InstantHandle] Func<object?, Task> onSecond,
+            [JetBrains.Annotations.InstantHandle] Func<object?, Task> onThird,
+            [JetBrains.Annotations.InstantHandle] Func<object?, Task> onFourth,
+            [JetBrains.Annotations.InstantHandle] Func<object?, Task> onFifth,
+            [JetBrains.Annotations.InstantHandle] Func<object?, Task> onSixth,
+            [JetBrains.Annotations.InstantHandle] Func<object?, Task> onSeventh,
+            [JetBrains.Annotations.InstantHandle] Func<object?, Task> onEighth);
     }
 }

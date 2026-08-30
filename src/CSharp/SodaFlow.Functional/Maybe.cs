@@ -85,7 +85,7 @@ namespace SodaFlow.Functional
         ///     which is <see langword="null" />.
         /// </remarks>
         [JetBrains.Annotations.Pure]
-        public static Maybe<T> SomeNotNull<T>(T value)
+        public static Maybe<T> SomeNotNull<T>(T? value)
             where T : class => value == null ? None : Some(value);
 
         /// <summary>
@@ -240,7 +240,7 @@ namespace SodaFlow.Functional
     public struct Maybe<T> : IMaybe, IEquatable<Maybe<T>>, IComparable<Maybe<T>>
     {
         private readonly bool hasValue;
-        private readonly T value;
+        private readonly T? value;
 
         private Maybe(T value)
         {
@@ -276,7 +276,7 @@ namespace SodaFlow.Functional
 
         #region Base Functionality
 
-        T1 IMaybe.Match<T1>(Func<object, T1> onSome, Func<T1> onNone) => this.Match(v => onSome(v), onNone);
+        T1 IMaybe.Match<T1>(Func<object?, T1> onSome, Func<T1> onNone) => this.Match(v => onSome(v), onNone);
 
         /// <summary>
         ///     Runs one of two functions depending on whether a value is present, and returns its result.
@@ -291,7 +291,7 @@ namespace SodaFlow.Functional
         ///     returns.
         /// </remarks>
         public TResult Match<TResult>(Func<T, TResult> onSome, Func<TResult> onNone) =>
-            this.hasValue ? onSome(this.value) : onNone();
+            this.hasValue ? onSome(this.value!) : onNone();
 
         #endregion
 
@@ -403,22 +403,22 @@ namespace SodaFlow.Functional
         public bool HasValue() => this.Match(v => true, () => false);
 
         // ReSharper disable once ReturnValueOfPureMethodIsNotUsed
-        void IMaybe.MatchVoid(Action<object> onSome, Action onNone) =>
+        void IMaybe.MatchVoid(Action<object?> onSome, Action onNone) =>
             this.Upcast<IMaybe>().Match(onSome.ToFunc(), onNone.ToFunc());
 
         // ReSharper disable once ReturnValueOfPureMethodIsNotUsed
-        void IMaybe.MatchSome(Action<object> onSome) => this.Upcast<IMaybe>().MatchVoid(onSome, () => { });
+        void IMaybe.MatchSome(Action<object?> onSome) => this.Upcast<IMaybe>().MatchVoid(onSome, () => { });
 
         // ReSharper disable once ReturnValueOfPureMethodIsNotUsed
         void IMaybe.MatchNone(Action onNone) => this.Upcast<IMaybe>().MatchVoid(_ => { }, onNone);
 
-        Task<TResult> IMaybe.MatchAsync<TResult>(Func<object, Task<TResult>> onSome, Func<Task<TResult>> onNone) =>
+        Task<TResult> IMaybe.MatchAsync<TResult>(Func<object?, Task<TResult>> onSome, Func<Task<TResult>> onNone) =>
             this.Upcast<IMaybe>().Match(onSome, onNone);
 
-        Task IMaybe.MatchAsyncVoid(Func<object, Task> onSome, Func<Task> onNone) =>
+        Task IMaybe.MatchAsyncVoid(Func<object?, Task> onSome, Func<Task> onNone) =>
             this.Upcast<IMaybe>().MatchAsync(onSome.ToAsyncFunc(), onNone.ToAsyncFunc());
 
-        Task IMaybe.MatchSomeAsync(Func<object, Task> onSome) =>
+        Task IMaybe.MatchSomeAsync(Func<object?, Task> onSome) =>
             this.Upcast<IMaybe>().MatchAsyncVoid(onSome, () => Task.FromResult(false));
 
         Task IMaybe.MatchNoneAsync(Func<Task> onNone) =>
@@ -448,7 +448,7 @@ namespace SodaFlow.Functional
         ///     <see cref="EqualityComparer{T}.Default" /> considers equal.
         /// </returns>
         public static bool operator ==(Maybe<T> x, Maybe<T> y) =>
-            x.hasValue == y.hasValue && EqualityComparer<T>.Default.Equals(x.value, y.value);
+            x.hasValue == y.hasValue && EqualityComparer<T>.Default.Equals(x.value!, y.value!);
 
         /// <summary>
         ///     Determines whether two instances differ, by negating <see cref="op_Equality" />.
@@ -474,7 +474,7 @@ namespace SodaFlow.Functional
         ///     A <see cref="Maybe{T}" /> is never equal to the bare value it contains, only to another
         ///     <see cref="Maybe{T}" />.
         /// </remarks>
-        public override bool Equals(object obj) => obj is Maybe<T> m && this == m;
+        public override bool Equals(object? obj) => obj is Maybe<T> m && this == m;
 
         /// <summary>
         ///     Determines whether the given instance is equal to this one.
@@ -536,7 +536,7 @@ namespace SodaFlow.Functional
         /// </summary>
         /// <returns>A hash code for this instance.</returns>
         public override int GetHashCode() =>
-            (this.hasValue.GetHashCode() * 397) ^ EqualityComparer<T>.Default.GetHashCode(this.value);
+            (this.hasValue.GetHashCode() * 397) ^ EqualityComparer<T>.Default.GetHashCode(this.value!);
 
         /// <summary>
         ///     Returns a readable description of this instance, for diagnostics.

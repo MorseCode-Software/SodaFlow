@@ -20,6 +20,13 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE. */
 
+// Vendored from JetBrains under the license above, so it is kept as close to the original as
+// possible and opted out of nullable reference types rather than annotated. Annotating it would
+// mean editing third-party source for no benefit: these are attribute declarations, none of them
+// appears in this package's own API surface, and the edits would have to be redone by hand every
+// time the file is refreshed from upstream.
+#nullable disable
+
 using System;
 // ReSharper disable InheritdocConsiderUsage
 

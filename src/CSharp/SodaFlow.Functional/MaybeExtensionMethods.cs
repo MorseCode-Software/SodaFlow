@@ -36,9 +36,9 @@ namespace SodaFlow.Functional
         ///     result is.
         /// </remarks>
         [JetBrains.Annotations.Pure]
-        public static IEnumerable<T> WhereSome<T>(this IEnumerable<Maybe<T>> o) =>
+        public static IEnumerable<T> WhereSome<T>(this IEnumerable<Maybe<T>>? o) =>
             (o ?? new Maybe<T>[0])
-            .Select(m => m.Match(v => new ValueAndHasValue<T>(v, true), () => new ValueAndHasValue<T>(default(T), false)))
+            .Select(m => m.Match(v => new ValueAndHasValue<T>(v, true), () => new ValueAndHasValue<T>(default(T)!, false)))
             .Where(p => p.HasValue)
             .Select(p => p.Value);
 
@@ -57,10 +57,10 @@ namespace SodaFlow.Functional
         ///     whether the result has a value at all cannot be known without reaching the end of it.
         /// </remarks>
         [JetBrains.Annotations.Pure]
-        public static Maybe<IEnumerable<T>> AllSomeOrNone<T>(this IEnumerable<Maybe<T>> o)
+        public static Maybe<IEnumerable<T>> AllSomeOrNone<T>(this IEnumerable<Maybe<T>>? o)
         {
             ValueAndHasValue<T>[] rr = (o ?? new Maybe<T>[0])
-                .Select(m => m.Match(v => new ValueAndHasValue<T>(v, true), () => new ValueAndHasValue<T>(default(T), false)))
+                .Select(m => m.Match(v => new ValueAndHasValue<T>(v, true), () => new ValueAndHasValue<T>(default(T)!, false)))
                 .ToArray();
 
             return rr.Any(r => !r.HasValue) ? Maybe.None : Maybe.Some(rr.Select(r => r.Value));
@@ -91,7 +91,7 @@ namespace SodaFlow.Functional
         /// </remarks>
         [JetBrains.Annotations.Pure]
         public static Maybe<IEnumerable<TResult>> AllSomeOrNone<T, TResult>(
-            this IEnumerable<T> o,
+            this IEnumerable<T>? o,
             [JetBrains.Annotations.InstantHandle] Func<T, Maybe<TResult>> f) =>
             (o ?? new T[0]).Select(f).AllSomeOrNone();
 
@@ -144,7 +144,7 @@ namespace SodaFlow.Functional
         ///     better at the end of a chain.
         /// </remarks>
         [JetBrains.Annotations.Pure]
-        public static Maybe<T> ToMaybe<T>(this T value)
+        public static Maybe<T> ToMaybe<T>(this T? value)
             where T : class => Maybe.SomeNotNull(value);
 
         /// <summary>
@@ -215,7 +215,7 @@ namespace SodaFlow.Functional
         ///     genuinely does not matter.
         /// </remarks>
         [JetBrains.Annotations.Pure]
-        public static T ValueOrDefault<T>(this Maybe<T> a) => a.ValueOr(default(T));
+        public static T? ValueOrDefault<T>(this Maybe<T> a) => a.Match<T?>(v => v, () => default(T));
 
         /// <summary>
         ///     Returns the contained value if there is one, and throws the exception produced by the

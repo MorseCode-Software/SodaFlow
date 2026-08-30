@@ -54,6 +54,25 @@ Enum.TryParse accepts; and TryGetValue on IReadOnlyDictionary<TKey, TValue>.
 Maybe.FromTryGet adapts any other method of that shape, including ones this
 package has never heard of, and the TryGet delegate types it takes are public.
 
+Nullable reference types are enabled. The annotations say what the members
+already documented: a null string parses as no value, a null sequence counts as
+empty, a null dictionary has no entry, a null comparer means the default one,
+and ValueOrDefault answers with something that may be null.
+
+SomeNotNull and ToMaybe now take T? for a reference type, which is the point of
+them - whether the reference is null is the question they are asked.
+
+Nullability is carried by the type argument, as it is for every other generic
+container. Maybe<string> cannot hold null and Maybe<string?> can; the same for
+each position of an Either. Some(null) still stores a null rather than
+collapsing to None, so the type argument has to be a nullable one to allow it,
+and Match hands back exactly what was stored.
+
+This can produce new warnings in code that has nullable enabled and was passing
+null where the annotations now say not to. It changes no behavior and no
+signature: nothing was made non-generic, nothing was renamed, and nothing that
+compiled without nullable enabled stops compiling.
+
 New on Either: Swap, on the two-case either only, which exchanges the cases.
 It is how an operation that only addresses the second case reaches the first,
 and swapping twice gives back the original. There is no Swap beyond two cases,

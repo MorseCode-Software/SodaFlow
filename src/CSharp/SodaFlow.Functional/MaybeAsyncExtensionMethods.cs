@@ -244,7 +244,7 @@ namespace SodaFlow.Functional
         ///     type whose default is itself a legitimate value, the answer cannot say which case it
         ///     got.
         /// </remarks>
-        public static async Task<T> ValueOrDefault<T>(this Task<Maybe<T>> a) =>
+        public static async Task<T?> ValueOrDefault<T>(this Task<Maybe<T>> a) =>
             (await a.ConfigureAwait(false)).ValueOrDefault();
 
         /// <summary>

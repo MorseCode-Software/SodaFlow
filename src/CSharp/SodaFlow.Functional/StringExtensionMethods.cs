@@ -37,7 +37,7 @@ namespace SodaFlow.Functional
         ///     <see cref="TryParseByte(string,NumberStyles,IFormatProvider)" /> to say otherwise.
         /// </remarks>
         [JetBrains.Annotations.Pure]
-        public static Maybe<byte> TryParseByte(this string value)
+        public static Maybe<byte> TryParseByte(this string? value)
         {
             byte result;
             return byte.TryParse(value, out result) ? Maybe.Some(result) : Maybe.None;
@@ -58,7 +58,7 @@ namespace SodaFlow.Functional
         ///     Wraps <see cref="byte.TryParse(string,NumberStyles,IFormatProvider,out byte)" />.
         /// </remarks>
         [JetBrains.Annotations.Pure]
-        public static Maybe<byte> TryParseByte(this string value, NumberStyles styles, IFormatProvider provider)
+        public static Maybe<byte> TryParseByte(this string? value, NumberStyles styles, IFormatProvider provider)
         {
             byte result;
             return byte.TryParse(value, styles, provider, out result) ? Maybe.Some(result) : Maybe.None;
@@ -78,7 +78,7 @@ namespace SodaFlow.Functional
         ///     <see cref="TryParseSByte(string,NumberStyles,IFormatProvider)" /> to say otherwise.
         /// </remarks>
         [JetBrains.Annotations.Pure]
-        public static Maybe<sbyte> TryParseSByte(this string value)
+        public static Maybe<sbyte> TryParseSByte(this string? value)
         {
             sbyte result;
             return sbyte.TryParse(value, out result) ? Maybe.Some(result) : Maybe.None;
@@ -99,7 +99,7 @@ namespace SodaFlow.Functional
         ///     Wraps <see cref="sbyte.TryParse(string,NumberStyles,IFormatProvider,out sbyte)" />.
         /// </remarks>
         [JetBrains.Annotations.Pure]
-        public static Maybe<sbyte> TryParseSByte(this string value, NumberStyles styles, IFormatProvider provider)
+        public static Maybe<sbyte> TryParseSByte(this string? value, NumberStyles styles, IFormatProvider provider)
         {
             sbyte result;
             return sbyte.TryParse(value, styles, provider, out result) ? Maybe.Some(result) : Maybe.None;
@@ -119,7 +119,7 @@ namespace SodaFlow.Functional
         ///     <see cref="TryParseInt16(string,NumberStyles,IFormatProvider)" /> to say otherwise.
         /// </remarks>
         [JetBrains.Annotations.Pure]
-        public static Maybe<short> TryParseInt16(this string value)
+        public static Maybe<short> TryParseInt16(this string? value)
         {
             short result;
             return short.TryParse(value, out result) ? Maybe.Some(result) : Maybe.None;
@@ -140,7 +140,7 @@ namespace SodaFlow.Functional
         ///     Wraps <see cref="short.TryParse(string,NumberStyles,IFormatProvider,out short)" />.
         /// </remarks>
         [JetBrains.Annotations.Pure]
-        public static Maybe<short> TryParseInt16(this string value, NumberStyles styles, IFormatProvider provider)
+        public static Maybe<short> TryParseInt16(this string? value, NumberStyles styles, IFormatProvider provider)
         {
             short result;
             return short.TryParse(value, styles, provider, out result) ? Maybe.Some(result) : Maybe.None;
@@ -160,7 +160,7 @@ namespace SodaFlow.Functional
         ///     <see cref="TryParseUInt16(string,NumberStyles,IFormatProvider)" /> to say otherwise.
         /// </remarks>
         [JetBrains.Annotations.Pure]
-        public static Maybe<ushort> TryParseUInt16(this string value)
+        public static Maybe<ushort> TryParseUInt16(this string? value)
         {
             ushort result;
             return ushort.TryParse(value, out result) ? Maybe.Some(result) : Maybe.None;
@@ -181,7 +181,7 @@ namespace SodaFlow.Functional
         ///     Wraps <see cref="ushort.TryParse(string,NumberStyles,IFormatProvider,out ushort)" />.
         /// </remarks>
         [JetBrains.Annotations.Pure]
-        public static Maybe<ushort> TryParseUInt16(this string value, NumberStyles styles, IFormatProvider provider)
+        public static Maybe<ushort> TryParseUInt16(this string? value, NumberStyles styles, IFormatProvider provider)
         {
             ushort result;
             return ushort.TryParse(value, styles, provider, out result) ? Maybe.Some(result) : Maybe.None;
@@ -201,7 +201,7 @@ namespace SodaFlow.Functional
         ///     <see cref="TryParseInt32(string,NumberStyles,IFormatProvider)" /> to say otherwise.
         /// </remarks>
         [JetBrains.Annotations.Pure]
-        public static Maybe<int> TryParseInt32(this string value)
+        public static Maybe<int> TryParseInt32(this string? value)
         {
             int result;
             return int.TryParse(value, out result) ? Maybe.Some(result) : Maybe.None;
@@ -222,7 +222,7 @@ namespace SodaFlow.Functional
         ///     Wraps <see cref="int.TryParse(string,NumberStyles,IFormatProvider,out int)" />.
         /// </remarks>
         [JetBrains.Annotations.Pure]
-        public static Maybe<int> TryParseInt32(this string value, NumberStyles styles, IFormatProvider provider)
+        public static Maybe<int> TryParseInt32(this string? value, NumberStyles styles, IFormatProvider provider)
         {
             int result;
             return int.TryParse(value, styles, provider, out result) ? Maybe.Some(result) : Maybe.None;
@@ -242,7 +242,7 @@ namespace SodaFlow.Functional
         ///     <see cref="TryParseUInt32(string,NumberStyles,IFormatProvider)" /> to say otherwise.
         /// </remarks>
         [JetBrains.Annotations.Pure]
-        public static Maybe<uint> TryParseUInt32(this string value)
+        public static Maybe<uint> TryParseUInt32(this string? value)
         {
             uint result;
             return uint.TryParse(value, out result) ? Maybe.Some(result) : Maybe.None;
@@ -263,7 +263,7 @@ namespace SodaFlow.Functional
         ///     Wraps <see cref="uint.TryParse(string,NumberStyles,IFormatProvider,out uint)" />.
         /// </remarks>
         [JetBrains.Annotations.Pure]
-        public static Maybe<uint> TryParseUInt32(this string value, NumberStyles styles, IFormatProvider provider)
+        public static Maybe<uint> TryParseUInt32(this string? value, NumberStyles styles, IFormatProvider provider)
         {
             uint result;
             return uint.TryParse(value, styles, provider, out result) ? Maybe.Some(result) : Maybe.None;
@@ -283,7 +283,7 @@ namespace SodaFlow.Functional
         ///     <see cref="TryParseInt64(string,NumberStyles,IFormatProvider)" /> to say otherwise.
         /// </remarks>
         [JetBrains.Annotations.Pure]
-        public static Maybe<long> TryParseInt64(this string value)
+        public static Maybe<long> TryParseInt64(this string? value)
         {
             long result;
             return long.TryParse(value, out result) ? Maybe.Some(result) : Maybe.None;
@@ -304,7 +304,7 @@ namespace SodaFlow.Functional
         ///     Wraps <see cref="long.TryParse(string,NumberStyles,IFormatProvider,out long)" />.
         /// </remarks>
         [JetBrains.Annotations.Pure]
-        public static Maybe<long> TryParseInt64(this string value, NumberStyles styles, IFormatProvider provider)
+        public static Maybe<long> TryParseInt64(this string? value, NumberStyles styles, IFormatProvider provider)
         {
             long result;
             return long.TryParse(value, styles, provider, out result) ? Maybe.Some(result) : Maybe.None;
@@ -324,7 +324,7 @@ namespace SodaFlow.Functional
         ///     <see cref="TryParseUInt64(string,NumberStyles,IFormatProvider)" /> to say otherwise.
         /// </remarks>
         [JetBrains.Annotations.Pure]
-        public static Maybe<ulong> TryParseUInt64(this string value)
+        public static Maybe<ulong> TryParseUInt64(this string? value)
         {
             ulong result;
             return ulong.TryParse(value, out result) ? Maybe.Some(result) : Maybe.None;
@@ -345,7 +345,7 @@ namespace SodaFlow.Functional
         ///     Wraps <see cref="ulong.TryParse(string,NumberStyles,IFormatProvider,out ulong)" />.
         /// </remarks>
         [JetBrains.Annotations.Pure]
-        public static Maybe<ulong> TryParseUInt64(this string value, NumberStyles styles, IFormatProvider provider)
+        public static Maybe<ulong> TryParseUInt64(this string? value, NumberStyles styles, IFormatProvider provider)
         {
             ulong result;
             return ulong.TryParse(value, styles, provider, out result) ? Maybe.Some(result) : Maybe.None;
@@ -365,7 +365,7 @@ namespace SodaFlow.Functional
         ///     <see cref="TryParseSingle(string,NumberStyles,IFormatProvider)" /> to say otherwise.
         /// </remarks>
         [JetBrains.Annotations.Pure]
-        public static Maybe<float> TryParseSingle(this string value)
+        public static Maybe<float> TryParseSingle(this string? value)
         {
             float result;
             return float.TryParse(value, out result) ? Maybe.Some(result) : Maybe.None;
@@ -386,7 +386,7 @@ namespace SodaFlow.Functional
         ///     Wraps <see cref="float.TryParse(string,NumberStyles,IFormatProvider,out float)" />.
         /// </remarks>
         [JetBrains.Annotations.Pure]
-        public static Maybe<float> TryParseSingle(this string value, NumberStyles styles, IFormatProvider provider)
+        public static Maybe<float> TryParseSingle(this string? value, NumberStyles styles, IFormatProvider provider)
         {
             float result;
             return float.TryParse(value, styles, provider, out result) ? Maybe.Some(result) : Maybe.None;
@@ -406,7 +406,7 @@ namespace SodaFlow.Functional
         ///     <see cref="TryParseDouble(string,NumberStyles,IFormatProvider)" /> to say otherwise.
         /// </remarks>
         [JetBrains.Annotations.Pure]
-        public static Maybe<double> TryParseDouble(this string value)
+        public static Maybe<double> TryParseDouble(this string? value)
         {
             double result;
             return double.TryParse(value, out result) ? Maybe.Some(result) : Maybe.None;
@@ -427,7 +427,7 @@ namespace SodaFlow.Functional
         ///     Wraps <see cref="double.TryParse(string,NumberStyles,IFormatProvider,out double)" />.
         /// </remarks>
         [JetBrains.Annotations.Pure]
-        public static Maybe<double> TryParseDouble(this string value, NumberStyles styles, IFormatProvider provider)
+        public static Maybe<double> TryParseDouble(this string? value, NumberStyles styles, IFormatProvider provider)
         {
             double result;
             return double.TryParse(value, styles, provider, out result) ? Maybe.Some(result) : Maybe.None;
@@ -447,7 +447,7 @@ namespace SodaFlow.Functional
         ///     <see cref="TryParseDecimal(string,NumberStyles,IFormatProvider)" /> to say otherwise.
         /// </remarks>
         [JetBrains.Annotations.Pure]
-        public static Maybe<decimal> TryParseDecimal(this string value)
+        public static Maybe<decimal> TryParseDecimal(this string? value)
         {
             decimal result;
             return decimal.TryParse(value, out result) ? Maybe.Some(result) : Maybe.None;
@@ -468,7 +468,7 @@ namespace SodaFlow.Functional
         ///     Wraps <see cref="decimal.TryParse(string,NumberStyles,IFormatProvider,out decimal)" />.
         /// </remarks>
         [JetBrains.Annotations.Pure]
-        public static Maybe<decimal> TryParseDecimal(this string value, NumberStyles styles, IFormatProvider provider)
+        public static Maybe<decimal> TryParseDecimal(this string? value, NumberStyles styles, IFormatProvider provider)
         {
             decimal result;
             return decimal.TryParse(value, styles, provider, out result) ? Maybe.Some(result) : Maybe.None;
@@ -489,7 +489,7 @@ namespace SodaFlow.Functional
         ///     culture-sensitive.
         /// </remarks>
         [JetBrains.Annotations.Pure]
-        public static Maybe<bool> TryParseBoolean(this string value)
+        public static Maybe<bool> TryParseBoolean(this string? value)
         {
             bool result;
             return bool.TryParse(value, out result) ? Maybe.Some(result) : Maybe.None;
@@ -509,7 +509,7 @@ namespace SodaFlow.Functional
         ///     and so gives no value.
         /// </remarks>
         [JetBrains.Annotations.Pure]
-        public static Maybe<char> TryParseChar(this string value)
+        public static Maybe<char> TryParseChar(this string? value)
         {
             char result;
             return char.TryParse(value, out result) ? Maybe.Some(result) : Maybe.None;
@@ -529,7 +529,7 @@ namespace SodaFlow.Functional
         ///     <see cref="TryParseGuidExact(string,string)" /> to insist on one of them.
         /// </remarks>
         [JetBrains.Annotations.Pure]
-        public static Maybe<Guid> TryParseGuid(this string value)
+        public static Maybe<Guid> TryParseGuid(this string? value)
         {
             Guid result;
             return Guid.TryParse(value, out result) ? Maybe.Some(result) : Maybe.None;
@@ -553,7 +553,7 @@ namespace SodaFlow.Functional
         ///     surrounding whitespace.
         /// </remarks>
         [JetBrains.Annotations.Pure]
-        public static Maybe<Guid> TryParseGuidExact(this string value, string format)
+        public static Maybe<Guid> TryParseGuidExact(this string? value, string format)
         {
             Guid result;
             return Guid.TryParseExact(value, format, out result) ? Maybe.Some(result) : Maybe.None;
@@ -575,7 +575,7 @@ namespace SodaFlow.Functional
         ///     typed by the user.
         /// </remarks>
         [JetBrains.Annotations.Pure]
-        public static Maybe<DateTime> TryParseDateTime(this string value)
+        public static Maybe<DateTime> TryParseDateTime(this string? value)
         {
             DateTime result;
             return DateTime.TryParse(value, out result) ? Maybe.Some(result) : Maybe.None;
@@ -646,7 +646,7 @@ namespace SodaFlow.Functional
         ///     the current culture.
         /// </remarks>
         [JetBrains.Annotations.Pure]
-        public static Maybe<DateTimeOffset> TryParseDateTimeOffset(this string value)
+        public static Maybe<DateTimeOffset> TryParseDateTimeOffset(this string? value)
         {
             DateTimeOffset result;
             return DateTimeOffset.TryParse(value, out result) ? Maybe.Some(result) : Maybe.None;
@@ -689,7 +689,7 @@ namespace SodaFlow.Functional
         ///     culture.
         /// </remarks>
         [JetBrains.Annotations.Pure]
-        public static Maybe<TimeSpan> TryParseTimeSpan(this string value)
+        public static Maybe<TimeSpan> TryParseTimeSpan(this string? value)
         {
             TimeSpan result;
             return TimeSpan.TryParse(value, out result) ? Maybe.Some(result) : Maybe.None;
@@ -708,7 +708,7 @@ namespace SodaFlow.Functional
         ///     Wraps <see cref="TimeSpan.TryParse(string,IFormatProvider,out TimeSpan)" />.
         /// </remarks>
         [JetBrains.Annotations.Pure]
-        public static Maybe<TimeSpan> TryParseTimeSpan(this string value, IFormatProvider provider)
+        public static Maybe<TimeSpan> TryParseTimeSpan(this string? value, IFormatProvider provider)
         {
             TimeSpan result;
             return TimeSpan.TryParse(value, provider, out result) ? Maybe.Some(result) : Maybe.None;
@@ -728,7 +728,7 @@ namespace SodaFlow.Functional
         ///     <see cref="TryParseUri(string,UriKind)" /> to accept a relative one.
         /// </remarks>
         [JetBrains.Annotations.Pure]
-        public static Maybe<Uri> TryParseUri(this string value) => value.TryParseUri(UriKind.Absolute);
+        public static Maybe<Uri> TryParseUri(this string? value) => value.TryParseUri(UriKind.Absolute);
 
         /// <summary>
         ///     Parses a <see cref="Uri" /> of the given kind from this string, if it holds one.
@@ -743,10 +743,9 @@ namespace SodaFlow.Functional
         ///     Wraps <see cref="Uri.TryCreate(string,UriKind,out Uri)" />.
         /// </remarks>
         [JetBrains.Annotations.Pure]
-        public static Maybe<Uri> TryParseUri(this string value, UriKind uriKind)
+        public static Maybe<Uri> TryParseUri(this string? value, UriKind uriKind)
         {
-            Uri result;
-            return Uri.TryCreate(value, uriKind, out result) ? Maybe.Some(result) : Maybe.None;
+            return Uri.TryCreate(value, uriKind, out Uri? result) ? Maybe.Some(result) : Maybe.None;
         }
 
         /// <summary>
@@ -767,7 +766,7 @@ namespace SodaFlow.Functional
         ///     <see cref="TryParseDefinedEnum{TEnum}(string)" /> where only a declared member will do.
         /// </remarks>
         [JetBrains.Annotations.Pure]
-        public static Maybe<TEnum> TryParseEnum<TEnum>(this string value)
+        public static Maybe<TEnum> TryParseEnum<TEnum>(this string? value)
             where TEnum : struct
         {
             TEnum result;
@@ -791,7 +790,7 @@ namespace SodaFlow.Functional
         ///     <see cref="TryParseDefinedEnum{TEnum}(string,bool)" />.
         /// </remarks>
         [JetBrains.Annotations.Pure]
-        public static Maybe<TEnum> TryParseEnum<TEnum>(this string value, bool ignoreCase)
+        public static Maybe<TEnum> TryParseEnum<TEnum>(this string? value, bool ignoreCase)
             where TEnum : struct
         {
             TEnum result;
@@ -819,7 +818,7 @@ namespace SodaFlow.Functional
         ///     Use <see cref="TryParseEnum{TEnum}(string)" /> for those.
         /// </remarks>
         [JetBrains.Annotations.Pure]
-        public static Maybe<TEnum> TryParseDefinedEnum<TEnum>(this string value)
+        public static Maybe<TEnum> TryParseDefinedEnum<TEnum>(this string? value)
             where TEnum : struct =>
             value.TryParseEnum<TEnum>().Where(v => Enum.IsDefined(typeof(TEnum), v));
 
@@ -839,7 +838,7 @@ namespace SodaFlow.Functional
         ///     <see cref="TryParseDefinedEnum{TEnum}(string)" />.
         /// </remarks>
         [JetBrains.Annotations.Pure]
-        public static Maybe<TEnum> TryParseDefinedEnum<TEnum>(this string value, bool ignoreCase)
+        public static Maybe<TEnum> TryParseDefinedEnum<TEnum>(this string? value, bool ignoreCase)
             where TEnum : struct =>
             value.TryParseEnum<TEnum>(ignoreCase).Where(v => Enum.IsDefined(typeof(TEnum), v));
     }

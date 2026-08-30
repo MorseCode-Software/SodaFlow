@@ -46,7 +46,7 @@ namespace SodaFlow.Functional
         /// </remarks>
         [JetBrains.Annotations.Pure]
         public static IEnumerable<TResult> Choose<T, TResult>(
-            this IEnumerable<T> source,
+            this IEnumerable<T>? source,
             Func<T, Maybe<TResult>> selector) =>
             (source ?? new T[0]).Select(selector).WhereSome();
 
@@ -70,7 +70,7 @@ namespace SodaFlow.Functional
         /// </remarks>
         [JetBrains.Annotations.Pure]
         public static IEnumerable<TResult> Choose<T, TResult>(
-            this IEnumerable<T> source,
+            this IEnumerable<T>? source,
             Func<T, int, Maybe<TResult>> selector) =>
             (source ?? new T[0]).Select(selector).WhereSome();
 
@@ -87,7 +87,7 @@ namespace SodaFlow.Functional
         ///     Reads at most one element of the source.
         /// </remarks>
         [JetBrains.Annotations.Pure]
-        public static Maybe<T> FirstOrNone<T>([JetBrains.Annotations.InstantHandle] this IEnumerable<T> source)
+        public static Maybe<T> FirstOrNone<T>([JetBrains.Annotations.InstantHandle] this IEnumerable<T>? source)
         {
             if (source == null)
             {
@@ -115,7 +115,7 @@ namespace SodaFlow.Functional
         /// </remarks>
         [JetBrains.Annotations.Pure]
         public static Maybe<T> FirstOrNone<T>(
-            [JetBrains.Annotations.InstantHandle] this IEnumerable<T> source,
+            [JetBrains.Annotations.InstantHandle] this IEnumerable<T>? source,
             [JetBrains.Annotations.InstantHandle] Func<T, bool> predicate) =>
             (source ?? new T[0]).Where(predicate).FirstOrNone();
 
@@ -133,14 +133,14 @@ namespace SodaFlow.Functional
         ///     end to find out what the last element was.
         /// </remarks>
         [JetBrains.Annotations.Pure]
-        public static Maybe<T> LastOrNone<T>([JetBrains.Annotations.InstantHandle] this IEnumerable<T> source)
+        public static Maybe<T> LastOrNone<T>([JetBrains.Annotations.InstantHandle] this IEnumerable<T>? source)
         {
             if (source == null)
             {
                 return Maybe.None;
             }
 
-            IReadOnlyList<T> list = source as IReadOnlyList<T>;
+            IReadOnlyList<T>? list = source as IReadOnlyList<T>;
             if (list != null)
             {
                 return list.Count > 0 ? Maybe.Some(list[list.Count - 1]) : Maybe.None;
@@ -167,7 +167,7 @@ namespace SodaFlow.Functional
         /// </returns>
         [JetBrains.Annotations.Pure]
         public static Maybe<T> LastOrNone<T>(
-            [JetBrains.Annotations.InstantHandle] this IEnumerable<T> source,
+            [JetBrains.Annotations.InstantHandle] this IEnumerable<T>? source,
             [JetBrains.Annotations.InstantHandle] Func<T, bool> predicate) =>
             (source ?? new T[0]).Where(predicate).LastOrNone();
 
@@ -193,7 +193,7 @@ namespace SodaFlow.Functional
         ///     Reads at most two elements of the source.
         /// </remarks>
         [JetBrains.Annotations.Pure]
-        public static Maybe<T> SingleOrNone<T>([JetBrains.Annotations.InstantHandle] this IEnumerable<T> source)
+        public static Maybe<T> SingleOrNone<T>([JetBrains.Annotations.InstantHandle] this IEnumerable<T>? source)
         {
             if (source == null)
             {
@@ -233,7 +233,7 @@ namespace SodaFlow.Functional
         /// </exception>
         [JetBrains.Annotations.Pure]
         public static Maybe<T> SingleOrNone<T>(
-            [JetBrains.Annotations.InstantHandle] this IEnumerable<T> source,
+            [JetBrains.Annotations.InstantHandle] this IEnumerable<T>? source,
             [JetBrains.Annotations.InstantHandle] Func<T, bool> predicate) =>
             (source ?? new T[0]).Where(predicate).SingleOrNone();
 
@@ -259,7 +259,7 @@ namespace SodaFlow.Functional
         /// </remarks>
         [JetBrains.Annotations.Pure]
         public static Maybe<T> AggregateOrNone<T>(
-            [JetBrains.Annotations.InstantHandle] this IEnumerable<T> source,
+            [JetBrains.Annotations.InstantHandle] this IEnumerable<T>? source,
             [JetBrains.Annotations.InstantHandle] Func<T, T, T> f)
         {
             if (source == null)
@@ -268,15 +268,15 @@ namespace SodaFlow.Functional
             }
 
             bool any = false;
-            T accumulated = default(T);
+            T? accumulated = default(T);
 
             foreach (T item in source)
             {
-                accumulated = any ? f(accumulated, item) : item;
+                accumulated = any ? f(accumulated!, item) : item;
                 any = true;
             }
 
-            return Maybe.SomeIf(any, accumulated);
+            return Maybe.SomeIf(any, accumulated!);
         }
 
         /// <summary>
@@ -296,7 +296,7 @@ namespace SodaFlow.Functional
         ///     result can say there was nothing to compare.
         /// </remarks>
         [JetBrains.Annotations.Pure]
-        public static Maybe<T> MinOrNone<T>([JetBrains.Annotations.InstantHandle] this IEnumerable<T> source) =>
+        public static Maybe<T> MinOrNone<T>([JetBrains.Annotations.InstantHandle] this IEnumerable<T>? source) =>
             source.MinOrNone(null);
 
         /// <summary>
@@ -313,8 +313,8 @@ namespace SodaFlow.Functional
         /// </returns>
         [JetBrains.Annotations.Pure]
         public static Maybe<T> MinOrNone<T>(
-            [JetBrains.Annotations.InstantHandle] this IEnumerable<T> source,
-            IComparer<T> comparer) =>
+            [JetBrains.Annotations.InstantHandle] this IEnumerable<T>? source,
+            IComparer<T>? comparer) =>
             source.ExtremeOrNone(comparer, false);
 
         /// <summary>
@@ -335,7 +335,7 @@ namespace SodaFlow.Functional
         /// </remarks>
         [JetBrains.Annotations.Pure]
         public static Maybe<TResult> MinOrNone<T, TResult>(
-            [JetBrains.Annotations.InstantHandle] this IEnumerable<T> source,
+            [JetBrains.Annotations.InstantHandle] this IEnumerable<T>? source,
             [JetBrains.Annotations.InstantHandle] Func<T, TResult> selector) =>
             (source ?? new T[0]).Select(selector).MinOrNone();
 
@@ -352,7 +352,7 @@ namespace SodaFlow.Functional
         ///     See <see cref="MinOrNone{T}(IEnumerable{T})" /> for why this exists.
         /// </remarks>
         [JetBrains.Annotations.Pure]
-        public static Maybe<T> MaxOrNone<T>([JetBrains.Annotations.InstantHandle] this IEnumerable<T> source) =>
+        public static Maybe<T> MaxOrNone<T>([JetBrains.Annotations.InstantHandle] this IEnumerable<T>? source) =>
             source.MaxOrNone(null);
 
         /// <summary>
@@ -369,8 +369,8 @@ namespace SodaFlow.Functional
         /// </returns>
         [JetBrains.Annotations.Pure]
         public static Maybe<T> MaxOrNone<T>(
-            [JetBrains.Annotations.InstantHandle] this IEnumerable<T> source,
-            IComparer<T> comparer) =>
+            [JetBrains.Annotations.InstantHandle] this IEnumerable<T>? source,
+            IComparer<T>? comparer) =>
             source.ExtremeOrNone(comparer, true);
 
         /// <summary>
@@ -390,7 +390,7 @@ namespace SodaFlow.Functional
         /// </remarks>
         [JetBrains.Annotations.Pure]
         public static Maybe<TResult> MaxOrNone<T, TResult>(
-            [JetBrains.Annotations.InstantHandle] this IEnumerable<T> source,
+            [JetBrains.Annotations.InstantHandle] this IEnumerable<T>? source,
             [JetBrains.Annotations.InstantHandle] Func<T, TResult> selector) =>
             (source ?? new T[0]).Select(selector).MaxOrNone();
 
@@ -415,7 +415,7 @@ namespace SodaFlow.Functional
         /// </remarks>
         [JetBrains.Annotations.Pure]
         public static Maybe<T> ElementAtOrNone<T>(
-            [JetBrains.Annotations.InstantHandle] this IEnumerable<T> source,
+            [JetBrains.Annotations.InstantHandle] this IEnumerable<T>? source,
             int index)
         {
             if (source == null || index < 0)
@@ -423,7 +423,7 @@ namespace SodaFlow.Functional
                 return Maybe.None;
             }
 
-            IReadOnlyList<T> list = source as IReadOnlyList<T>;
+            IReadOnlyList<T>? list = source as IReadOnlyList<T>;
             if (list != null)
             {
                 return index < list.Count ? Maybe.Some(list[index]) : Maybe.None;
@@ -458,7 +458,7 @@ namespace SodaFlow.Functional
         ///     The test is only made for types which can actually hold one; for a non-nullable value
         ///     type the branch is never taken and nothing is boxed.
         /// </remarks>
-        private static Maybe<T> ExtremeOrNone<T>(this IEnumerable<T> source, IComparer<T> comparer, bool wantLarger)
+        private static Maybe<T> ExtremeOrNone<T>(this IEnumerable<T>? source, IComparer<T>? comparer, bool wantLarger)
         {
             if (source == null)
             {
@@ -469,11 +469,11 @@ namespace SodaFlow.Functional
             bool canBeNull = !typeof(T).IsValueType || Nullable.GetUnderlyingType(typeof(T)) != null;
 
             bool any = false;
-            T best = default(T);
+            T? best = default(T);
 
             foreach (T item in source)
             {
-                if (canBeNull && (object)item == null)
+                if (canBeNull && (object?)item == null)
                 {
                     continue;
                 }
@@ -485,14 +485,14 @@ namespace SodaFlow.Functional
                     continue;
                 }
 
-                int comparison = c.Compare(item, best);
+                int comparison = c.Compare(item, best!);
                 if (wantLarger ? comparison > 0 : comparison < 0)
                 {
                     best = item;
                 }
             }
 
-            return Maybe.SomeIf(any, best);
+            return Maybe.SomeIf(any, best!);
         }
     }
 }

@@ -9,7 +9,13 @@ with. It contains no FRP at all and can be used on its own. F# already has `opti
 and `unit`, which is why `SodaFlow.FSharp` does not depend on it — the F# API uses the
 built-in types throughout.
 
-The package ships as `SodaFlow.Functional` and comes in automatically with `SodaFlow`.
+The package ships as `SodaFlow.Functional` and comes in automatically with `SodaFlow`. It is
+annotated for nullable reference types.
+
+Nullability is carried by the type argument, as it is for any other generic container:
+`Maybe<string>` cannot hold `null`, `Maybe<string?>` can. `Maybe.Some(null)` stores a null
+rather than collapsing to `None` — see [Building one](#building-one) — so the type argument has
+to admit one, and `Match` hands back exactly what was stored.
 
 ## `Maybe<T>`
 
