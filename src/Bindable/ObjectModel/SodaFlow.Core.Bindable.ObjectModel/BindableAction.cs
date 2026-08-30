@@ -11,7 +11,7 @@ namespace SodaFlow.Bindable.ObjectModel
         /// <remarks>
         ///     Safe to construct on any thread. Enablement is sampled by whichever thread builds the
         ///     instance and read by the binding thread, which is why the field holding it is volatile;
-        ///     every later change is marshalled through the scheduler.
+        ///     every later change is marshaled through the scheduler.
         /// </remarks>
         internal class BindableAction<T> : IBindableAction<T>
         {
