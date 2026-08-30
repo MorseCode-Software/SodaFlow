@@ -4,8 +4,8 @@
 # Compare the two before enabling "use YAML from repository".
 #
 # Package versions are NOT set here. Each packable project derives its own version from git tags
-# via MinVer (see src/Directory.Build.props), so pushing dotnet-async-csharp-1.1.0
-# releases only SodaFlow.Async and leaves every other package on its own last tag. Deliberately
+# via MinVer (see src/Directory.Build.props), so pushing sodaflow-async-2.1.0 releases only
+# SodaFlow.Async and leaves every other package on its own last tag. Deliberately
 # absent, therefore, is AppVeyor's dotnet_csproj patcher: it stamps every matched project with a
 # single shared version, which is the opposite of what this repository wants.
 
