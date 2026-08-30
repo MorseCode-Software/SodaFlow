@@ -46,6 +46,7 @@ Kotlin, TypeScript, and Rust live under the
 - [Listener lifetimes](docs/lifetimes.md) — the most common way to break a SodaFlow program.
 - [Time and timers](docs/time.md) — clocks, alarms, and deterministic tests.
 - [Asynchronous work](docs/async.md) — running tasks without breaking the model.
+- [Data binding](docs/bindable.md) — exposing a graph to XAML as properties and commands.
 - [Denotational semantics](docs/semantics.md) — SodaFlow implements Sodium's formal
   specification, and is tested against it.
 

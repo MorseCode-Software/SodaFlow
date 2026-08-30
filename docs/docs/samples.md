@@ -50,6 +50,8 @@ error left on screen after a later search succeeded. See
 
 ## Two things that trip people up
 
+See [Data binding](bindable.md) for the full model.
+
 **Bind to `SomeProperty.Value`, not `SomeProperty`.** A bindable property is an object that
 raises `PropertyChanged` for `"Value"`; binding to the property itself shows a type name.
 Commands are the exception — they are `ICommand` implementations, so `Command="{Binding Reset}"`

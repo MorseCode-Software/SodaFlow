@@ -17,7 +17,7 @@ install directly.
 Add an async package **only** if you need to run `Task`-based work from a stream — see
 [Asynchronous work](async.md). Add a bindable package **only** if you are writing a UI
 view model and want cells and streams to reach XAML as `INotifyPropertyChanged`
-properties and `ICommand`s — see [the samples](samples.md).
+properties and `ICommand`s — see [Data binding](bindable.md).
 
 | You also need | Install |
 | --- | --- |
