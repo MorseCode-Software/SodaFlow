@@ -46,7 +46,8 @@ so both APIs now say so.
 Requires SodaFlow.Core 3.0.0 or newer. The internal helper this calls was
 renamed in step, so a 2.x core resolved against this package throws
 MissingMethodException. Upgrade SodaFlow, SodaFlow.FSharp and SodaFlow.Core
-together.
+together; the async and bindable object model packages call none of the renamed
+members and do not have to move with them.
 
 2.0.1
 
@@ -75,7 +76,7 @@ Every public type and member is documented, and six comments that wrote
 <param name="x" /> where <paramref name="x" /> was meant are corrected - each
 had declared a second doc entry for the parameter and rendered as nothing.
 
-Requires SodaFlow.Core 2.0.0 or newer. Do not mix 1.x and 2.x packages.
+Requires SodaFlow.Core 2.0.0 or newer.
 
 ---
 

@@ -23,8 +23,9 @@ Every public type and member is now documented, in C# and F# alike.
 SodaFlow.FSharp previously shipped an empty XML documentation file despite
 having generation enabled.
 
-Do not mix 1.x and 2.x packages. SodaFlow.Core changed an internal method in
-place, so a 1.x wrapper resolved against a 2.x core either throws
-MissingMethodException or silently changes behavior. Upgrade them together.
+SodaFlow.Core changed an internal method in place, so a wrapper built against
+1.x either throws MissingMethodException or silently changes behavior once it
+resolves against a 2.x core. Upgrade a wrapper together with the core it calls;
+each package's own notes say which core version it needs.
 
 Full notes: https://github.com/MorseCode-Software/SodaFlow/releases/tag/sodaflow-2.0.0

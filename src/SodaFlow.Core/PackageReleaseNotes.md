@@ -12,12 +12,12 @@ public member would. A wrapper compiled against the old names throws
 MissingMethodException against this version.
 
 That is why this is a major version even though nothing changed for a caller
-outside those eight. It also keeps the "do not mix major versions" rule usable:
-on 2.x, SodaFlow 2.0.1 with SodaFlow.Core 2.2.0 would have been a legal pairing
-that failed in exactly that way, which is the trap the 2.0.0 notes warned
-about.
+outside those eight.
 
-Upgrade SodaFlow, SodaFlow.FSharp and SodaFlow.Core together.
+Upgrade SodaFlow, SodaFlow.FSharp and SodaFlow.Core together: those are the
+three that call the renamed members. The async and bindable object model
+packages call none of them, are unaffected by this release, and release on
+their own schedules rather than following this one.
 
 2.1.1
 
