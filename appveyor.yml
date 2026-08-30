@@ -163,27 +163,94 @@ artifacts:
 # tagged build a stable version and every other build a prerelease one, so only deliberate tags can
 # ever produce something publishable.
 #
-# Two details worth keeping:
+# A tag build publishes exactly one package: the one its own tag names. This matters because
+# AppVeyor starts a separate build per tag even when several are pushed together, and each of those
+# builds sees the same artifacts directory holding all ten packages. Pushing all of them from every
+# build made the publish order the order the builds happened to run in, which is not something a
+# release can control - so a package could reach nuget.org before the dependency it was built
+# against. Restricting each build to its own package is what makes pushing tags in dependency order
+# actually determine the publish order.
+#
+# Note what this does and does not do. It makes the order controllable; it does not impose one.
+# Push the tags in dependency order, and wait for each build to publish before pushing the next.
+#
+# Three details worth keeping:
+#   The tag prefix to package id map is read from the projects rather than written out here. Both
+#   halves already live in every packable project, as MinVerTagPrefix and PackageId, and a second
+#   copy in this file would be free to drift from them - which has happened before, in a comment.
 #   *.symbols.nupkg is excluded — these projects set IncludeSource/IncludeSymbols, which emits the
 #   legacy symbols format that nuget.org rejects.
 #   --skip-duplicate means re-running a build over an already published version is a no-op rather
-#   than a failure, so packages whose version did not move are simply left alone.
+#   than a failure, so re-running a tag build does not fail on the package it already pushed.
 deploy_script:
   - ps: |
       if ($env:APPVEYOR_REPO_TAG -ne "true") {
           Write-Host "Not a tag build - skipping NuGet push.  APPVEYOR_REPO_TAG = $($env:APPVEYOR_REPO_TAG)"
           return
       }
+
+      $tag = $env:APPVEYOR_REPO_TAG_NAME
+      if (-not $tag) {
+          throw "APPVEYOR_REPO_TAG is true but APPVEYOR_REPO_TAG_NAME is empty, so there is no way to tell which package this build releases."
+      }
+
       if (-not $env:NUGET_API_KEY) {
           throw "NUGET_API_KEY is not set. Add it as a secure variable in AppVeyor."
       }
-      $packages = Get-ChildItem artifacts\*.nupkg | Where-Object { $_.Name -notlike "*.symbols.nupkg" }
-      if (-not $packages) { throw "No packages found to push." }
-      foreach ($package in $packages) {
-          Write-Host "Pushing $($package.Name)"
-          dotnet nuget push $package.FullName `
-              --skip-duplicate `
-              --api-key $env:NUGET_API_KEY `
-              --source https://api.nuget.org/v3/index.json
-          if ($LASTEXITCODE -ne 0) { throw "Failed to push $($package.Name)" }
+
+      $packageIdByPrefix = @{}
+      Get-ChildItem -Path src -Recurse -Include *.csproj, *.fsproj |
+          Where-Object { $_.FullName -notmatch '\\(bin|obj)\\' } |
+          ForEach-Object {
+              $project = [xml](Get-Content -Path $_.FullName -Raw)
+              $prefix = $project.SelectSingleNode('//MinVerTagPrefix')
+              $id = $project.SelectSingleNode('//PackageId')
+              if ($prefix -and $id) { $packageIdByPrefix[$prefix.InnerText] = $id.InnerText }
+          }
+      if ($packageIdByPrefix.Count -eq 0) {
+          throw "Found no project under src declaring both MinVerTagPrefix and PackageId."
       }
+
+      # A tag belongs to the package whose prefix it starts with, the rest of it being the version.
+      # The rest has to start with a digit, or sodaflow- would claim sodaflow-core-3.0.0; the
+      # longest match wins as well, so that a prefix added later cannot reintroduce that ambiguity
+      # by ending in a digit.
+      $prefixes = @(
+          $packageIdByPrefix.Keys |
+              Where-Object {
+                  $tag.StartsWith($_, [StringComparison]::Ordinal) -and $tag.Substring($_.Length) -match '^\d'
+              } |
+              Sort-Object -Property Length -Descending
+      )
+
+      if ($prefixes.Count -eq 0) {
+          Write-Host "Tag '$tag' does not name a package in this repository - skipping NuGet push."
+          Write-Host "Known prefixes: $(($packageIdByPrefix.Keys | Sort-Object) -join ', ')"
+          return
+      }
+
+      $packageId = $packageIdByPrefix[$prefixes[0]]
+      Write-Host "Tag '$tag' releases $packageId."
+
+      # Matched by name rather than by glob: SodaFlow.* would also match SodaFlow.Core and every
+      # other package here. dotnet pack names a file Id.Version.nupkg, so what follows the id and
+      # its dot is the start of the version.
+      $package = @(
+          Get-ChildItem artifacts\*.nupkg |
+              Where-Object { $_.Name -notlike "*.symbols.nupkg" } |
+              Where-Object {
+                  $_.Name.StartsWith("$packageId.", [StringComparison]::OrdinalIgnoreCase) -and
+                  $_.Name.Substring($packageId.Length + 1) -match '^\d'
+              }
+      )
+
+      if ($package.Count -ne 1) {
+          throw "Expected exactly one $packageId package in artifacts, found $($package.Count)."
+      }
+
+      Write-Host "Pushing $($package[0].Name)"
+      dotnet nuget push $package[0].FullName `
+          --skip-duplicate `
+          --api-key $env:NUGET_API_KEY `
+          --source https://api.nuget.org/v3/index.json
+      if ($LASTEXITCODE -ne 0) { throw "Failed to push $($package[0].Name)" }
