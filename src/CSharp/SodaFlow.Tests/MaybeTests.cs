@@ -1,5 +1,7 @@
 ﻿using System;
 using System.Globalization;
+using System.Collections.Generic;
+using System.Linq;
 using NUnit.Framework;
 using SodaFlow.Functional;
 
@@ -188,6 +190,51 @@ namespace SodaFlow.Tests
                 });
 
             Assert.AreEqual(Maybe.Some(7), result);
+        }
+
+        [Test]
+        public void ImplementsIEquatable()
+        {
+            Assert.IsTrue(typeof(IEquatable<Maybe<int>>).IsAssignableFrom(typeof(Maybe<int>)));
+        }
+
+        [Test]
+        public void DefaultComparerDoesNotBox()
+        {
+            // A struct which does not implement IEquatable<T> gets ObjectEqualityComparer, which
+            // compares through Equals(object) and boxes both operands on every comparison.
+            Assert.AreNotEqual(
+                "ObjectEqualityComparer`1",
+                EqualityComparer<Maybe<int>>.Default.GetType().Name);
+        }
+
+        [Test]
+        public void TypedEqualsAgreesWithOperator()
+        {
+            Assert.IsTrue(Maybe.Some(2).Equals(Maybe.Some(2)));
+            Assert.IsFalse(Maybe.Some(2).Equals(Maybe.Some(3)));
+            Assert.IsFalse(Maybe.Some(2).Equals(Maybe<int>.None));
+            Assert.IsTrue(Maybe<int>.None.Equals(Maybe<int>.None));
+            Assert.IsTrue(Maybe.Some((string)null).Equals(Maybe<string>.Some(null)));
+            Assert.IsFalse(Maybe.Some((string)null).Equals(Maybe<string>.None));
+        }
+
+        [Test]
+        public void TypedEqualsWorksInCollections()
+        {
+            Maybe<int>[] source = { Maybe.Some(1), Maybe<int>.None, Maybe.Some(1), Maybe<int>.None };
+
+            CollectionAssert.AreEqual(new[] { Maybe.Some(1), Maybe<int>.None }, source.Distinct());
+            Assert.IsTrue(source.Contains(Maybe<int>.None));
+
+            Dictionary<Maybe<int>, string> d = new Dictionary<Maybe<int>, string>
+            {
+                { Maybe.Some(1), "one" },
+                { Maybe<int>.None, "none" }
+            };
+
+            Assert.AreEqual("one", d[Maybe.Some(1)]);
+            Assert.AreEqual("none", d[Maybe<int>.None]);
         }
     }
 }

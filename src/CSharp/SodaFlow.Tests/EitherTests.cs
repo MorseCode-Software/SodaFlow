@@ -1,4 +1,6 @@
 ﻿using System;
+using System.Collections.Generic;
+using System.Linq;
 using NUnit.Framework;
 using SodaFlow.Functional;
 
@@ -462,6 +464,49 @@ namespace SodaFlow.Tests
             int n = 0;
             e.MatchVoid(v1 => { n = 1; }, v2 => { n = 2; }, v3 => { n = 3; }, v4 => { n = 4; }, v5 => { n = 5; }, v6 => { n = 6; }, v7 => { n = 7; }, v8 => { n = 8; });
             return n;
+        }
+
+        [Test]
+        public void ImplementsIEquatable()
+        {
+            Assert.IsTrue(typeof(IEquatable<Either<int, string>>).IsAssignableFrom(typeof(Either<int, string>)));
+            Assert.IsTrue(
+                typeof(IEquatable<Either<int, string, bool, char, byte, long, short, uint>>).IsAssignableFrom(
+                    typeof(Either<int, string, bool, char, byte, long, short, uint>)));
+        }
+
+        [Test]
+        public void DefaultComparerDoesNotBox()
+        {
+            Assert.AreNotEqual(
+                "ObjectEqualityComparer`1",
+                EqualityComparer<Either<int, string>>.Default.GetType().Name);
+        }
+
+        [Test]
+        public void TypedEqualsAgreesWithOperator()
+        {
+            Either<int, string> a = Either.First(2);
+            Either<int, string> b = Either.First(2);
+            Either<int, string> c = Either.Second("2");
+
+            Assert.IsTrue(a.Equals(b));
+            Assert.IsFalse(a.Equals(c));
+            Assert.AreEqual(a == b, a.Equals(b));
+            Assert.AreEqual(a == c, a.Equals(c));
+        }
+
+        [Test]
+        public void TypedEqualsWorksInCollections()
+        {
+            Either<int, string>[] source =
+            {
+                Either.First(1), Either.Second("a"), Either.First(1), Either.Second("a")
+            };
+
+            CollectionAssert.AreEqual(
+                new Either<int, string>[] { Either.First(1), Either.Second("a") },
+                source.Distinct());
         }
     }
 }

@@ -237,7 +237,7 @@ namespace SodaFlow.Functional
     ///     This is a struct, so <see langword="default" /> is a valid instance and contains nothing -
     ///     the same as <see cref="None" />.
     /// </remarks>
-    public struct Maybe<T> : IMaybe
+    public struct Maybe<T> : IMaybe, IEquatable<Maybe<T>>
     {
         private readonly bool hasValue;
         private readonly T value;
@@ -475,6 +475,26 @@ namespace SodaFlow.Functional
         ///     <see cref="Maybe{T}" />.
         /// </remarks>
         public override bool Equals(object obj) => obj is Maybe<T> m && this == m;
+
+        /// <summary>
+        ///     Determines whether the given instance is equal to this one.
+        /// </summary>
+        /// <param name="other">The instance to compare against.</param>
+        /// <returns>
+        ///     <see langword="true" /> if <see cref="op_Equality" /> considers the two equal.
+        /// </returns>
+        /// <remarks>
+        ///     The same comparison as <see cref="op_Equality" />, under the name
+        ///     <see cref="EqualityComparer{T}.Default" /> looks for. Without it, this being a struct
+        ///     which does not implement <see cref="IEquatable{T}" /> sends every comparison through
+        ///     <see cref="Equals(object)" /> instead, boxing both operands - on every
+        ///     <see cref="System.Linq.Enumerable.Distinct{TSource}(IEnumerable{TSource})" />,
+        ///     <see cref="System.Linq.Enumerable.Contains{TSource}(IEnumerable{TSource},TSource)" />,
+        ///     <see cref="List{T}.IndexOf(T)" /> and dictionary lookup. Being a struct is how this
+        ///     type avoids allocating; that made it allocate anyway, in exactly the
+        ///     collection-heavy code which would notice.
+        /// </remarks>
+        public bool Equals(Maybe<T> other) => this == other;
 
         /// <summary>
         ///     Returns a hash code consistent with <see cref="op_Equality" />.

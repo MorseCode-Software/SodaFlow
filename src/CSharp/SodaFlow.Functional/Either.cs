@@ -473,7 +473,7 @@ namespace SodaFlow.Functional
     ///     This is a struct, so <see langword="default" /> is a valid instance; it holds the
     ///     first case, with the default value of <typeparamref name="T1" />.
     /// </remarks>
-    public struct Either<T1, T2> : IEitherOfTwo
+    public struct Either<T1, T2> : IEitherOfTwo, IEquatable<Either<T1, T2>>
     {
         private readonly int valueType;
         private readonly T1 value1;
@@ -740,6 +740,20 @@ namespace SodaFlow.Functional
         public override bool Equals(object obj) => obj is Either<T1, T2> e && this == e;
 
         /// <summary>
+        ///     Determines whether the given instance is equal to this one.
+        /// </summary>
+        /// <param name="other">The instance to compare against.</param>
+        /// <returns>
+        ///     <see langword="true" /> if <see cref="op_Equality" /> considers the two equal.
+        /// </returns>
+        /// <remarks>
+        ///     The same comparison as <see cref="op_Equality" />, under the name
+        ///     <see cref="EqualityComparer{T}.Default" /> looks for, so that comparing these in a
+        ///     collection does not box both operands the way <see cref="Equals(object)" /> must.
+        /// </remarks>
+        public bool Equals(Either<T1, T2> other) => this == other;
+
+        /// <summary>
         ///     Returns a hash code consistent with <see cref="op_Equality" />.
         /// </summary>
         /// <returns>A hash code for this instance.</returns>
@@ -778,7 +792,7 @@ namespace SodaFlow.Functional
     ///     This is a struct, so <see langword="default" /> is a valid instance; it holds the
     ///     first case, with the default value of <typeparamref name="T1" />.
     /// </remarks>
-    public struct Either<T1, T2, T3> : IEitherOfThree
+    public struct Either<T1, T2, T3> : IEitherOfThree, IEquatable<Either<T1, T2, T3>>
     {
         private readonly int valueType;
         private readonly T1 value1;
@@ -1133,6 +1147,20 @@ namespace SodaFlow.Functional
         public override bool Equals(object obj) => obj is Either<T1, T2, T3> e && this == e;
 
         /// <summary>
+        ///     Determines whether the given instance is equal to this one.
+        /// </summary>
+        /// <param name="other">The instance to compare against.</param>
+        /// <returns>
+        ///     <see langword="true" /> if <see cref="op_Equality" /> considers the two equal.
+        /// </returns>
+        /// <remarks>
+        ///     The same comparison as <see cref="op_Equality" />, under the name
+        ///     <see cref="EqualityComparer{T}.Default" /> looks for, so that comparing these in a
+        ///     collection does not box both operands the way <see cref="Equals(object)" /> must.
+        /// </remarks>
+        public bool Equals(Either<T1, T2, T3> other) => this == other;
+
+        /// <summary>
         ///     Returns a hash code consistent with <see cref="op_Equality" />.
         /// </summary>
         /// <returns>A hash code for this instance.</returns>
@@ -1176,7 +1204,7 @@ namespace SodaFlow.Functional
     ///     This is a struct, so <see langword="default" /> is a valid instance; it holds the
     ///     first case, with the default value of <typeparamref name="T1" />.
     /// </remarks>
-    public struct Either<T1, T2, T3, T4> : IEitherOfFour
+    public struct Either<T1, T2, T3, T4> : IEitherOfFour, IEquatable<Either<T1, T2, T3, T4>>
     {
         private readonly int valueType;
         private readonly T1 value1;
@@ -1652,6 +1680,20 @@ namespace SodaFlow.Functional
         public override bool Equals(object obj) => obj is Either<T1, T2, T3, T4> e && this == e;
 
         /// <summary>
+        ///     Determines whether the given instance is equal to this one.
+        /// </summary>
+        /// <param name="other">The instance to compare against.</param>
+        /// <returns>
+        ///     <see langword="true" /> if <see cref="op_Equality" /> considers the two equal.
+        /// </returns>
+        /// <remarks>
+        ///     The same comparison as <see cref="op_Equality" />, under the name
+        ///     <see cref="EqualityComparer{T}.Default" /> looks for, so that comparing these in a
+        ///     collection does not box both operands the way <see cref="Equals(object)" /> must.
+        /// </remarks>
+        public bool Equals(Either<T1, T2, T3, T4> other) => this == other;
+
+        /// <summary>
         ///     Returns a hash code consistent with <see cref="op_Equality" />.
         /// </summary>
         /// <returns>A hash code for this instance.</returns>
@@ -1698,7 +1740,7 @@ namespace SodaFlow.Functional
     ///     This is a struct, so <see langword="default" /> is a valid instance; it holds the
     ///     first case, with the default value of <typeparamref name="T1" />.
     /// </remarks>
-    public struct Either<T1, T2, T3, T4, T5> : IEitherOfFive
+    public struct Either<T1, T2, T3, T4, T5> : IEitherOfFive, IEquatable<Either<T1, T2, T3, T4, T5>>
     {
         private readonly int valueType;
         private readonly T1 value1;
@@ -2295,6 +2337,20 @@ namespace SodaFlow.Functional
         public override bool Equals(object obj) => obj is Either<T1, T2, T3, T4, T5> e && this == e;
 
         /// <summary>
+        ///     Determines whether the given instance is equal to this one.
+        /// </summary>
+        /// <param name="other">The instance to compare against.</param>
+        /// <returns>
+        ///     <see langword="true" /> if <see cref="op_Equality" /> considers the two equal.
+        /// </returns>
+        /// <remarks>
+        ///     The same comparison as <see cref="op_Equality" />, under the name
+        ///     <see cref="EqualityComparer{T}.Default" /> looks for, so that comparing these in a
+        ///     collection does not box both operands the way <see cref="Equals(object)" /> must.
+        /// </remarks>
+        public bool Equals(Either<T1, T2, T3, T4, T5> other) => this == other;
+
+        /// <summary>
         ///     Returns a hash code consistent with <see cref="op_Equality" />.
         /// </summary>
         /// <returns>A hash code for this instance.</returns>
@@ -2344,7 +2400,7 @@ namespace SodaFlow.Functional
     ///     This is a struct, so <see langword="default" /> is a valid instance; it holds the
     ///     first case, with the default value of <typeparamref name="T1" />.
     /// </remarks>
-    public struct Either<T1, T2, T3, T4, T5, T6> : IEitherOfSix
+    public struct Either<T1, T2, T3, T4, T5, T6> : IEitherOfSix, IEquatable<Either<T1, T2, T3, T4, T5, T6>>
     {
         private readonly int valueType;
         private readonly T1 value1;
@@ -3068,6 +3124,20 @@ namespace SodaFlow.Functional
         public override bool Equals(object obj) => obj is Either<T1, T2, T3, T4, T5, T6> e && this == e;
 
         /// <summary>
+        ///     Determines whether the given instance is equal to this one.
+        /// </summary>
+        /// <param name="other">The instance to compare against.</param>
+        /// <returns>
+        ///     <see langword="true" /> if <see cref="op_Equality" /> considers the two equal.
+        /// </returns>
+        /// <remarks>
+        ///     The same comparison as <see cref="op_Equality" />, under the name
+        ///     <see cref="EqualityComparer{T}.Default" /> looks for, so that comparing these in a
+        ///     collection does not box both operands the way <see cref="Equals(object)" /> must.
+        /// </remarks>
+        public bool Equals(Either<T1, T2, T3, T4, T5, T6> other) => this == other;
+
+        /// <summary>
         ///     Returns a hash code consistent with <see cref="op_Equality" />.
         /// </summary>
         /// <returns>A hash code for this instance.</returns>
@@ -3120,7 +3190,7 @@ namespace SodaFlow.Functional
     ///     This is a struct, so <see langword="default" /> is a valid instance; it holds the
     ///     first case, with the default value of <typeparamref name="T1" />.
     /// </remarks>
-    public struct Either<T1, T2, T3, T4, T5, T6, T7> : IEitherOfSeven
+    public struct Either<T1, T2, T3, T4, T5, T6, T7> : IEitherOfSeven, IEquatable<Either<T1, T2, T3, T4, T5, T6, T7>>
     {
         private readonly int valueType;
         private readonly T1 value1;
@@ -4011,6 +4081,20 @@ namespace SodaFlow.Functional
         public override bool Equals(object obj) => obj is Either<T1, T2, T3, T4, T5, T6, T7> e && this == e;
 
         /// <summary>
+        ///     Determines whether the given instance is equal to this one.
+        /// </summary>
+        /// <param name="other">The instance to compare against.</param>
+        /// <returns>
+        ///     <see langword="true" /> if <see cref="op_Equality" /> considers the two equal.
+        /// </returns>
+        /// <remarks>
+        ///     The same comparison as <see cref="op_Equality" />, under the name
+        ///     <see cref="EqualityComparer{T}.Default" /> looks for, so that comparing these in a
+        ///     collection does not box both operands the way <see cref="Equals(object)" /> must.
+        /// </remarks>
+        public bool Equals(Either<T1, T2, T3, T4, T5, T6, T7> other) => this == other;
+
+        /// <summary>
         ///     Returns a hash code consistent with <see cref="op_Equality" />.
         /// </summary>
         /// <returns>A hash code for this instance.</returns>
@@ -4066,7 +4150,7 @@ namespace SodaFlow.Functional
     ///     This is a struct, so <see langword="default" /> is a valid instance; it holds the
     ///     first case, with the default value of <typeparamref name="T1" />.
     /// </remarks>
-    public struct Either<T1, T2, T3, T4, T5, T6, T7, T8> : IEitherOfEight
+    public struct Either<T1, T2, T3, T4, T5, T6, T7, T8> : IEitherOfEight, IEquatable<Either<T1, T2, T3, T4, T5, T6, T7, T8>>
     {
         private readonly int valueType;
         private readonly T1 value1;
@@ -5111,6 +5195,20 @@ namespace SodaFlow.Functional
         ///     An either is never equal to the bare value it holds, only to another either.
         /// </remarks>
         public override bool Equals(object obj) => obj is Either<T1, T2, T3, T4, T5, T6, T7, T8> e && this == e;
+
+        /// <summary>
+        ///     Determines whether the given instance is equal to this one.
+        /// </summary>
+        /// <param name="other">The instance to compare against.</param>
+        /// <returns>
+        ///     <see langword="true" /> if <see cref="op_Equality" /> considers the two equal.
+        /// </returns>
+        /// <remarks>
+        ///     The same comparison as <see cref="op_Equality" />, under the name
+        ///     <see cref="EqualityComparer{T}.Default" /> looks for, so that comparing these in a
+        ///     collection does not box both operands the way <see cref="Equals(object)" /> must.
+        /// </remarks>
+        public bool Equals(Either<T1, T2, T3, T4, T5, T6, T7, T8> other) => this == other;
 
         /// <summary>
         ///     Returns a hash code consistent with <see cref="op_Equality" />.

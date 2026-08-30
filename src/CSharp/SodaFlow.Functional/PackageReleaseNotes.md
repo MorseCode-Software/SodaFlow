@@ -38,6 +38,15 @@ Enum.TryParse accepts; and TryGetValue on IReadOnlyDictionary<TKey, TValue>.
 Maybe.FromTryGet adapts any other method of that shape, including ones this
 package has never heard of, and the TryGet delegate types it takes are public.
 
+Fixed: Maybe<T> and all seven Either arities now implement IEquatable<T>.
+They are structs which did not, so EqualityComparer<T>.Default could not find a
+typed comparison and fell back to the one which compares through
+Equals(object), boxing both operands on every comparison - in Distinct,
+Contains, IndexOf, GroupBy and every dictionary lookup. Being structs is how
+these types avoid allocating, and this made them allocate anyway, in exactly
+the collection-heavy code which would notice. No behavior change: the new
+Equals is the same comparison the == operator already made.
+
 Apart from the removal above, everything here is new API, and nothing else that
 shipped in 1.0.x has changed behavior.
 
