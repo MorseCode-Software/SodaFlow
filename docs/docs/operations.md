@@ -36,7 +36,8 @@ handlers, timers, and network callbacks; everything downstream stays pure.
 | `s.Map(f)` | `mapS f s` | Transform each value. |
 | `s.MapTo(v)` | `mapToS v s` | Replace each value with a constant. |
 | `s.Filter(pred)` | `filterS pred s` | Drop firings failing the predicate. |
-| `s.FilterMaybe()` | `filterOptionS s` | Unwrap `Maybe<T>` / `option`, dropping empties. |
+| `s.FilterSome()` | `filterSomeS s` | Unwrap `Maybe<T>` / `option`, dropping empties. |
+| `s.Choose(f)` | `chooseS f s` | Map and filter in one step: fire only the values `f` produced. |
 | `s.Merge(s2, f)` | `mergeS f (s, s2)` | Combine two streams; `f` resolves simultaneous firings. |
 | `s.OrElse(s2)` | `orElseS (s, s2)` | Combine two streams; on simultaneity the left wins. |
 | `streams.Merge(f)` | `mergeAllS f streams` | Merge a collection of streams. |

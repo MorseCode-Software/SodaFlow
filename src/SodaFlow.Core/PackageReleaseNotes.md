@@ -1,3 +1,24 @@
+3.0.0
+
+BREAKING: FilterMaybeImpl and FilterMaybeInternal are renamed to FilterSomeImpl
+and FilterSomeInternal, following the rename in SodaFlow and SodaFlow.FSharp.
+
+These are declared internal, but internal is not private here. This assembly
+grants InternalsVisibleTo to eight shipping packages - SodaFlow,
+SodaFlow.FSharp, SodaFlow.Core.Async, SodaFlow.Async, SodaFlow.FSharp.Async and
+the three bindable object model packages - so anything internal is API as far
+as they are concerned, and renaming one breaks them exactly as renaming a
+public member would. A wrapper compiled against the old names throws
+MissingMethodException against this version.
+
+That is why this is a major version even though nothing changed for a caller
+outside those eight. It also keeps the "do not mix major versions" rule usable:
+on 2.x, SodaFlow 2.0.1 with SodaFlow.Core 2.2.0 would have been a legal pairing
+that failed in exactly that way, which is the trap the 2.0.0 notes warned
+about.
+
+Upgrade SodaFlow, SodaFlow.FSharp and SodaFlow.Core together.
+
 2.1.1
 
 Adds the release notes below. 2.1.0 shipped with the repository-wide notes

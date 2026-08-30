@@ -775,9 +775,23 @@ let inline filterS predicate stream = Stream.filter predicate stream
 /// <param name="stream">The stream of options to filter.</param>
 /// <returns>A stream firing the value inside each <c>Some</c>, and not firing for <c>None</c>.</returns>
 /// <remarks>
-/// Shorthand for <c>Stream.filterOption</c>; see it for the full contract.
+/// Shorthand for <c>Stream.filterSome</c>; see it for the full contract.
 /// </remarks>
-let inline filterOptionS stream = Stream.filterOption stream
+let inline filterSomeS stream = Stream.filterSome stream
+/// <summary>
+/// Transforms the firings with a function which may produce no value, and fires only the values it
+/// produced.
+/// </summary>
+/// <param name="f">Applied to each fired value; the firings it returns <c>None</c> for are dropped.</param>
+/// <param name="stream">The stream to transform.</param>
+/// <returns>
+/// A stream firing the value inside each <c>Some</c> that <paramref name="f" /> returned, and not
+/// firing for the values it returned <c>None</c> for.
+/// </returns>
+/// <remarks>
+/// Shorthand for <c>Stream.choose</c>; see it for the full contract.
+/// </remarks>
+let inline chooseS f stream = Stream.choose f stream
 /// <summary>
 /// Lets firings through only while a behavior holds true.
 /// </summary>

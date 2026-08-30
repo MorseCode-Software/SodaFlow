@@ -341,11 +341,11 @@ namespace SodaFlow.Tests
         }
 
         [Test]
-        public void TestFilterMaybe()
+        public void TestFilterSome()
         {
             StreamSink<Maybe<string>> s = Stream.CreateSink<Maybe<string>>();
             List<string> @out = new List<string>();
-            IListener l = s.FilterMaybe().ListenStrong(@out.Add);
+            IListener l = s.FilterSome().ListenStrong(@out.Add);
             s.Send(Maybe.Some("tomato"));
             s.Send(Maybe.None);
             s.Send(Maybe.Some("peach"));
@@ -353,6 +353,57 @@ namespace SodaFlow.Tests
             s.Send(Maybe.Some("pear"));
             l.Unlisten();
             CollectionAssert.AreEqual(new[] { "tomato", "peach", "pear" }, @out);
+        }
+
+        [Test]
+        public void TestChoose()
+        {
+            StreamSink<string> s = Stream.CreateSink<string>();
+            List<int> @out = new List<int>();
+            IListener l = s.Choose(v => int.TryParse(v, out int n) ? Maybe.Some(n) : Maybe.None)
+                .ListenStrong(@out.Add);
+            s.Send("1");
+            s.Send("tomato");
+            s.Send("2");
+            s.Send(string.Empty);
+            s.Send("3");
+            l.Unlisten();
+            CollectionAssert.AreEqual(new[] { 1, 2, 3 }, @out);
+        }
+
+        [Test]
+        public void TestChooseMatchesMapThenFilterSome()
+        {
+            StreamSink<string> s = Stream.CreateSink<string>();
+            List<int> chosen = new List<int>();
+            List<int> mapped = new List<int>();
+
+            Func<string, Maybe<int>> f = v => int.TryParse(v, out int n) ? Maybe.Some(n) : Maybe.None;
+
+            IListener l1 = s.Choose(f).ListenStrong(chosen.Add);
+            IListener l2 = s.Map(f).FilterSome().ListenStrong(mapped.Add);
+
+            s.Send("1");
+            s.Send("tomato");
+            s.Send("2");
+
+            l1.Unlisten();
+            l2.Unlisten();
+
+            CollectionAssert.AreEqual(mapped, chosen);
+            CollectionAssert.AreEqual(new[] { 1, 2 }, chosen);
+        }
+
+        [Test]
+        public void TestChooseNoneFiresNothing()
+        {
+            StreamSink<string> s = Stream.CreateSink<string>();
+            List<int> @out = new List<int>();
+            IListener l = s.Choose(v => Maybe<int>.None).ListenStrong(@out.Add);
+            s.Send("1");
+            s.Send("2");
+            l.Unlisten();
+            CollectionAssert.AreEqual(new int[0], @out);
         }
 
         [Test]
