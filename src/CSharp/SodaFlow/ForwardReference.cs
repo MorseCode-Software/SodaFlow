@@ -11,11 +11,14 @@ namespace SodaFlow
     ///     reference turned out to mean. This is that with the cell taken back out: the function
     ///     produces a single value rather than a cell of changing ones, and the loop it is handed
     ///     resolves to that value and never changes again.
+    ///     Both members here work the same way, by closing a cell loop with a constant cell. That is
+    ///     what makes this the single-valued case of a loop: the reference resolves to the value the
+    ///     function produced and has nothing further to say.
     ///     What it is for is the knot two objects tie when each needs the other at construction.
     ///     Ordinarily one of them has to be built half-formed and completed afterward, with a
     ///     settable member that has no business being settable once the graph is built:
     ///     <code>
-    ///     Node node = ForwardReference.WithoutCaptures&lt;Node&gt;(
+    ///     Node node = ForwardReference&lt;Node&gt;.WithoutCaptures(
     ///         reference =&gt; new Node(new Child(reference.AsCell())));
     ///     </code>
     ///     The child holds a <see cref="Cell{T}" /> which is empty of meaning until the call
@@ -45,9 +48,11 @@ namespace SodaFlow
         ///     The captures are for the parts built along the way which the value itself does not
         ///     expose - a sink to feed it, an inner cell to observe - and which would otherwise be
         ///     unreachable once the function has returned.
-        ///     Both type arguments have to be written out. <typeparamref name="TCaptures" /> could
-        ///     be inferred from the function, but <typeparamref name="T" /> cannot be inferred from
-        ///     a lambda, and C# does not allow only some of a method's type arguments to be given.
+        ///     <typeparamref name="TCaptures" /> is inferred from the function.
+        ///     <typeparamref name="T" /> is named on <see cref="ForwardReference{T}" /> itself,
+        ///     which is what leaves it free to be: a lambda gives type inference nothing to work
+        ///     from, and C# does not allow only some of a method's type arguments to be given, so
+        ///     naming both here would have meant writing both at every call.
         /// </remarks>
         [Pure]
         public static (T Value, TCaptures Captures) WithCaptures<TCaptures>(
@@ -56,10 +61,6 @@ namespace SodaFlow
                 .WithCaptures(reference =>
                 {
                     (T Value, TCaptures Captures) result = f(reference);
-
-                    // The loop is closed with a constant cell, which is what makes this the
-                    // single-valued case of a cell loop: the reference resolves to the value
-                    // the function produced and has nothing further to say.
                     return (Cell: Cell.Constant(result.Value), Captures: result);
                 })
                 .Captures;
@@ -73,7 +74,8 @@ namespace SodaFlow
         /// </param>
         /// <returns>The constructed value.</returns>
         /// <remarks>
-        ///     The type argument has to be written out, since it cannot be inferred from a lambda.
+        ///     <typeparamref name="T" /> is named on <see cref="ForwardReference{T}" /> itself,
+        ///     since a lambda gives type inference nothing to work from.
         /// </remarks>
         [Pure]
         public static T WithoutCaptures(Func<LoopedCell<T>, T> f) =>
@@ -81,10 +83,6 @@ namespace SodaFlow
                 .WithCaptures(reference =>
                 {
                     T value = f(reference);
-
-                    // The loop is closed with a constant cell, which is what makes this the
-                    // single-valued case of a cell loop: the reference resolves to the value
-                    // the function produced and has nothing further to say.
                     return (Cell: Cell.Constant(value), Captures: value);
                 })
                 .Captures;

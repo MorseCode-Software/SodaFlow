@@ -120,18 +120,20 @@ A loop lets a cell be referred to before it exists. `ForwardReference` is the sa
 cell taken back out — for when what has to refer to itself is one value, not a series of them:
 
 ```csharp
-Node node = ForwardReference.WithoutCaptures<Node>(
+Node node = ForwardReference<Node>.WithoutCaptures(
     reference => new Node(new Child(reference.AsCell())));
 ```
 
 The child is handed a `Cell<Node>` which means nothing until the call returns and holds the
 finished node from then on. It unties the knot two objects make when each needs the other at
 construction, which otherwise forces one of them to be built half-formed and completed
-afterwards — with a settable member that has no business being settable once the graph is up.
+afterward — with a settable member that has no business being settable once the graph is up.
 
 `WithCaptures` returns anything else worth keeping from the construction, the same way it does
-on a loop. Both type arguments have to be written out: `TCaptures` could be inferred, but `T`
-cannot be inferred from a lambda, and C# does not allow only some type arguments to be given.
+on a loop, and infers its capture type from the function. The value type sits on
+`ForwardReference<T>` rather than on the methods, which is what leaves the capture type free to
+be inferred — a lambda gives inference nothing to work from, and C# does not allow only some of
+a method's type arguments to be given.
 
 Internally this is a cell loop closed with a constant cell, so the rule above applies unchanged:
 reading the reference during construction asks a question that has no answer yet, and throws.
