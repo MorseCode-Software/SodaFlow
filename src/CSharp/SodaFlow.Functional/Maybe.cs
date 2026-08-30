@@ -237,7 +237,7 @@ namespace SodaFlow.Functional
     ///     This is a struct, so <see langword="default" /> is a valid instance and contains nothing -
     ///     the same as <see cref="None" />.
     /// </remarks>
-    public struct Maybe<T> : IMaybe, IEquatable<Maybe<T>>
+    public struct Maybe<T> : IMaybe, IEquatable<Maybe<T>>, IComparable<Maybe<T>>
     {
         private readonly bool hasValue;
         private readonly T value;
@@ -495,6 +495,41 @@ namespace SodaFlow.Functional
         ///     collection-heavy code which would notice.
         /// </remarks>
         public bool Equals(Maybe<T> other) => this == other;
+
+        /// <summary>
+        ///     Orders this instance against another, with the absence of a value coming first.
+        /// </summary>
+        /// <param name="other">The instance to compare against.</param>
+        /// <returns>
+        ///     A negative number if this sorts before <paramref name="other" />, zero if neither
+        ///     sorts before the other, and a positive number if this sorts after it.
+        /// </returns>
+        /// <remarks>
+        ///     No value sorts before every value, which is how <see cref="System.Nullable{T}" /> is
+        ///     ordered under <see cref="Comparer{T}.Default" /> and so is the answer least likely to
+        ///     surprise. Two instances which both have values are ordered by
+        ///     <see cref="Comparer{T}.Default" /> for <typeparamref name="T" />, which throws if
+        ///     <typeparamref name="T" /> has no ordering - the same failure, at the same point, as
+        ///     ordering bare <typeparamref name="T" /> values would give.
+        ///
+        ///     Note that this reads <see cref="Comparer{T}.Default" /> where
+        ///     <see cref="op_Equality" /> reads <see cref="EqualityComparer{T}.Default" />. For a
+        ///     type whose ordering and equality disagree - <see cref="string" /> is one, being
+        ///     ordered by culture and compared for equality ordinally - a zero result here does not
+        ///     have to mean <see cref="op_Equality" /> is <see langword="true" />. That is inherited
+        ///     from those two comparers rather than introduced here, and is what ordering bare
+        ///     <typeparamref name="T" /> values already does.
+        ///
+        ///     There are deliberately no <c>&lt;</c> and <c>&gt;</c> operators to go with this.
+        ///     <see cref="System.Nullable{T}" /> has them, and they are a trap: they answer
+        ///     <see langword="false" /> in both directions when either side is absent, so
+        ///     <c>!(a &lt; b)</c> stops meaning <c>a &gt;= b</c>. Sorting is what an ordering is
+        ///     wanted for, and sorting goes through this method.
+        /// </remarks>
+        public int CompareTo(Maybe<T> other) =>
+            this.Match(
+                v => other.Match(otherValue => Comparer<T>.Default.Compare(v, otherValue), () => 1),
+                () => other.Match(_ => -1, () => 0));
 
         /// <summary>
         ///     Returns a hash code consistent with <see cref="op_Equality" />.

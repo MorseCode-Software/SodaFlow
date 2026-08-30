@@ -59,6 +59,12 @@ It is how an operation that only addresses the second case reaches the first,
 and swapping twice gives back the original. There is no Swap beyond two cases,
 where there is no single exchange to make.
 
+Maybe<T> also implements IComparable<Maybe<T>>, ordering no value before every
+value, which is how Nullable<T> is ordered under Comparer<T>.Default. OrderBy
+and Array.Sort therefore work on it, and do so without boxing. No < and >
+operators come with it: Nullable<T> has them and they answer false in both
+directions when either side is absent, so !(a < b) stops meaning a >= b.
+
 Fixed: Maybe<T> and all seven Either arities now implement IEquatable<T>.
 They are structs which did not, so EqualityComparer<T>.Default could not find a
 typed comparison and fell back to the one which compares through

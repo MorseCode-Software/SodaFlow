@@ -45,6 +45,12 @@ The full set:
 `Maybe<T>` is a struct with value equality and `==` / `!=` defined, and `Maybe.None` converts
 implicitly to `Maybe<T>` for any `T`, so you rarely spell out the type argument.
 
+It also orders, with no value sorting before every value — the same order `Nullable<T>` gets from
+`Comparer<T>.Default`, so `OrderBy` and `Array.Sort` put the empties first and then sort the rest
+by `T`. There are deliberately no `<` and `>` operators to go with it: `Nullable<T>` has them, and
+they answer `false` in both directions when either side is absent, so `!(a < b)` stops meaning
+`a >= b`.
+
 ### Building one
 
 `Maybe.Some(v)` and `Maybe.None` are the two type constructors. A handful of helpers cover the
