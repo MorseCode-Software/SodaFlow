@@ -114,6 +114,28 @@ closed and there is something to read.
 The same reasoning is why `Hold` has a `HoldLazy` counterpart: when a loop's initial value
 itself depends on the loop, it must be deferred.
 
+## Forward references to a single value
+
+A loop lets a cell be referred to before it exists. `ForwardReference` is the same idea with the
+cell taken back out — for when what has to refer to itself is one value, not a series of them:
+
+```csharp
+Node node = ForwardReference.WithoutCaptures<Node>(
+    reference => new Node(new Child(reference.AsCell())));
+```
+
+The child is handed a `Cell<Node>` which means nothing until the call returns and holds the
+finished node from then on. It unties the knot two objects make when each needs the other at
+construction, which otherwise forces one of them to be built half-formed and completed
+afterwards — with a settable member that has no business being settable once the graph is up.
+
+`WithCaptures` returns anything else worth keeping from the construction, the same way it does
+on a loop. Both type arguments have to be written out: `TCaptures` could be inferred, but `T`
+cannot be inferred from a lambda, and C# does not allow only some type arguments to be given.
+
+Internally this is a cell loop closed with a constant cell, so the rule above applies unchanged:
+reading the reference during construction asks a question that has no answer yet, and throws.
+
 ## Where this shows up
 
 Accumulators are the common case, and `Accum` and `Collect` are loops with the plumbing already
