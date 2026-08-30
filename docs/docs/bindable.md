@@ -188,4 +188,7 @@ scheduler.
 
 > [!NOTE]
 > The generated [API reference](../api/index.md) carries the full parameter contract for every
-> overload.
+> C# overload. It does not cover `SodaFlow.FSharp.Bindable.ObjectModel`: DocFX renders an F#
+> assembly in its compiled shape, which misleads more than it helps, so the F# packages are
+> deliberately absent from it. See [F# and the API reference](fsharp-api.md). The F# functions
+> are documented in their own source.
