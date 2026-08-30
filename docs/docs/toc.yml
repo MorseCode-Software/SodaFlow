@@ -33,3 +33,6 @@
 
 - name: Cookbook
   href: cookbook.md
+
+- name: Sample applications
+  href: samples.md
