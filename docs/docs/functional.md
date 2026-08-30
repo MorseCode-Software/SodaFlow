@@ -229,7 +229,7 @@ it. See [Time and timers](time.md).
 `Stream<Maybe<T>>` is not wanted for its own sake:
 
 ```csharp
-Stream<int> parsed = input.Choose(s => int.TryParse(s, out int n) ? Maybe.Some(n) : Maybe.None);
+Stream<int> parsed = input.Choose(s => s.TryParseInt32());
 ```
 
 The F# equivalents are `filterSomeS` and `chooseS`, and they work on `option` rather than
