@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Threading;
 
 namespace SodaFlow.Bindable.ObjectModel
@@ -9,9 +9,9 @@ namespace SodaFlow.Bindable.ObjectModel
         ///     A command that carries the <c>CommandParameter</c> into the stream.
         /// </summary>
         /// <remarks>
-        ///     Instances must be constructed on the binding thread, as the bindable values also
-        ///     require. Enablement changes are marshalled through the scheduler, but the initial
-        ///     sample is written directly by the constructor.
+        ///     Safe to construct on any thread. Enablement is sampled by whichever thread builds the
+        ///     instance and read by the binding thread, which is why the field holding it is volatile;
+        ///     every later change is marshalled through the scheduler.
         /// </remarks>
         internal class BindableAction<T> : IBindableAction<T>
         {
@@ -25,7 +25,11 @@ namespace SodaFlow.Bindable.ObjectModel
 
             private readonly IBindingScheduler scheduler;
 
-            private bool canExecute;
+            /// <summary>
+            ///     Volatile because the constructor samples it on whichever thread built the command
+            ///     while the binding engine reads it on its own. A bool needs no box to do this.
+            /// </summary>
+            private volatile bool canExecute;
             private int disposed;
 
             internal BindableAction(

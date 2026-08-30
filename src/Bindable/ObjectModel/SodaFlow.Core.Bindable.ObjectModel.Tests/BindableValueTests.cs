@@ -1,6 +1,7 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.ComponentModel;
+using System.Threading;
 using NUnit.Framework;
 
 namespace SodaFlow.Bindable.ObjectModel.Tests
@@ -183,6 +184,110 @@ namespace SodaFlow.Bindable.ObjectModel.Tests
             b.Value = 3;
 
             Assert.AreEqual(0, c.Sample(), "a disposed sink accepts no further writes");
+        }
+
+        // A view model builds its bindables wherever it happens to be running and has no business
+        // knowing which thread the binding engine uses. These construct off the current thread, with
+        // no SynchronizationContext to capture, and check the sampled value survives the handover.
+        //
+        // A visibility bug would not fail this reliably - that is the nature of one - but the value
+        // being boxed behind a volatile reference is what makes the handover sound, and a change that
+        // reintroduced a same-thread requirement would fail here immediately.
+        private static TResult OnAnotherThread<TResult>(Func<TResult> f)
+        {
+            TResult result = default!;
+            Exception? failure = null;
+
+            Thread thread = new Thread(
+                () =>
+                {
+                    try
+                    {
+                        Assert.IsNull(
+                            SynchronizationContext.Current,
+                            "the point is a thread with no context of its own");
+
+                        result = f();
+                    }
+                    catch (Exception e)
+                    {
+                        failure = e;
+                    }
+                });
+
+            thread.Start();
+            Assert.IsTrue(thread.Join(TimeSpan.FromSeconds(10)), "construction should not block");
+
+            if (failure != null)
+            {
+                throw new AssertionException("construction threw on the other thread", failure);
+            }
+
+            return result;
+        }
+
+        [Test]
+        public void OneWayCanBeConstructedOffTheBindingThread()
+        {
+            CellSink<int> c = Cell.CreateSink(11);
+
+            using (IOneWayBindableValue<int> b = OnAnotherThread(() => OneWay<int>(c)))
+            {
+                Assert.AreEqual(11, b.Value, "the sample survived the handover");
+
+                c.Send(12);
+
+                Assert.AreEqual(12, b.Value, "and it keeps following afterwards");
+            }
+        }
+
+        [Test]
+        public void TwoWayCanBeConstructedOffTheBindingThread()
+        {
+            CellSink<int> c = Cell.CreateSink(11);
+
+            using (ITwoWayBindableValue<int> b = OnAnotherThread(() => TwoWay(c)))
+            {
+                Assert.AreEqual(11, b.Value);
+
+                b.Value = 13;
+
+                Assert.AreEqual(13, c.Sample());
+            }
+        }
+
+        [Test]
+        public void OneWayToSourceCanBeConstructedOffTheBindingThread()
+        {
+            CellSink<int> c = Cell.CreateSink(11);
+
+            using (IOneWayToSourceBindableValue<int> b = OnAnotherThread(() => c.ToOneWayToSourceImpl()))
+            {
+                Assert.AreEqual(11, b.Value);
+
+                b.Value = 13;
+
+                Assert.AreEqual(13, c.Sample());
+            }
+        }
+
+        [Test]
+        public void ACommandCanBeConstructedOffTheBindingThread()
+        {
+            CellSink<bool> enabled = Cell.CreateSink(true);
+
+            using (IBindableAction<int> a = OnAnotherThread(
+                       () => Stream.CreateSink<int>()
+                           .ToBindableActionImpl(
+                               isEnabledCell: enabled,
+                               scheduler: BindingScheduler.Immediate)))
+            {
+                Assert.IsTrue(a.CanExecute(null), "the sampled enablement survived the handover");
+
+                enabled.Send(false);
+
+                Assert.IsFalse(a.CanExecute(null));
+            }
         }
 
         // Every bindable is disposable through the one marker interface, which is what lets a view

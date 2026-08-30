@@ -10,13 +10,9 @@ namespace SodaFlow.Bindable.ObjectModel
         ///     <see cref="System.ComponentModel.INotifyPropertyChanged" />.
         /// </summary>
         /// <remarks>
-        ///     Instances must be constructed on the binding thread, as
-        ///     <see cref="TwoWayBindableValue{T}" /> also requires. Every later write to
-        ///     <see cref="Value" /> is marshalled through the scheduler, but the initial sample is
-        ///     written directly by the constructor, and the field cannot be made volatile because
-        ///     <typeparamref name="T" /> may be a value type. Constructing elsewhere and handing the
-        ///     instance over without synchronizing the handover lets the binding thread read
-        ///     <see langword="default" /> instead of the sampled value.
+        ///     Safe to construct on any thread. The initial value is sampled by whichever thread builds
+        ///     the instance and read by the binding thread; <see cref="ValueBox{T}" /> is what orders
+        ///     the two. Every later change is marshalled through the scheduler.
         /// </remarks>
         private sealed class OneWayBindableValue<T> : BindableValueBase, IOneWayBindableValue<T>
         {
@@ -28,6 +24,12 @@ namespace SodaFlow.Bindable.ObjectModel
 
             private readonly IEqualityComparer<T> comparer;
 
+            /// <summary>
+            ///     Boxed so the field can be volatile whatever <typeparamref name="T" /> is. See
+            ///     <see cref="ValueBox{T}" />.
+            /// </summary>
+            private volatile ValueBox<T> box;
+
             internal OneWayBindableValue(
                 Cell<T> cell,
                 IBindingScheduler? scheduler,
@@ -36,13 +38,16 @@ namespace SodaFlow.Bindable.ObjectModel
             {
                 this.Cell = cell ?? throw new ArgumentNullException(nameof(cell));
                 this.comparer = comparer ?? EqualityComparer<T>.Default;
-                this.Value = default!;
+                this.box = new ValueBox<T>(default!);
 
                 // Sample and subscribe inside one transaction so no update can slip through the gap.
+                // The sample is stored here rather than after the transaction for the same reason:
+                // once the listener is attached an update can arrive on another thread, and writing
+                // the initial value afterwards would overwrite it.
                 this.listener =
                     TransactionInternal.RunImpl(() =>
                     {
-                        this.Value = cell.SampleImpl();
+                        this.box = new ValueBox<T>(cell.SampleImpl());
                         return ListenToUpdates(cell: cell, handler: this.OnSourceChanged);
                     });
             }
@@ -51,7 +56,7 @@ namespace SodaFlow.Bindable.ObjectModel
             public Cell<T> Cell { get; }
 
             /// <inheritdoc />
-            public T Value { get; private set; }
+            public T Value => this.box.Value;
 
             /// <summary>
             ///     Applies an incoming update. Always posted rather than raised inline: the callback runs
@@ -66,12 +71,12 @@ namespace SodaFlow.Bindable.ObjectModel
                         return;
                     }
 
-                    if (this.comparer.Equals(x: this.Value, y: newValue))
+                    if (this.comparer.Equals(x: this.box.Value, y: newValue))
                     {
                         return;
                     }
 
-                    this.Value = newValue;
+                    this.box = new ValueBox<T>(newValue);
                     this.RaiseValueChanged();
                 });
 

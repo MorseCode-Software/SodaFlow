@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 
 namespace SodaFlow.Bindable.ObjectModel
@@ -17,7 +17,11 @@ namespace SodaFlow.Bindable.ObjectModel
         ///         corrects the cached value if the graph rejected or normalized the write — for example an
         ///         input mask that upper-cases text, or a validation rule that discards it.
         ///     </para>
-        ///     <para>Instances must be constructed on the binding thread.</para>
+        ///     <para>
+        ///         Safe to construct on any thread. The initial value is sampled by whichever thread
+        ///         builds the instance and read by the binding thread; <see cref="ValueBox{T}" /> is what
+        ///         orders the two. Every later change is marshalled through the scheduler.
+        ///     </para>
         /// </remarks>
         private sealed class TwoWayBindableValue<T> : BindableValueBase, ITwoWayBindableValue<T>
         {
@@ -31,7 +35,11 @@ namespace SodaFlow.Bindable.ObjectModel
 
             private readonly IEqualityComparer<T> comparer;
 
-            private T value;
+            /// <summary>
+            ///     Boxed so the field can be volatile whatever <typeparamref name="T" /> is. See
+            ///     <see cref="ValueBox{T}" />.
+            /// </summary>
+            private volatile ValueBox<T> box;
 
             /// <param name="cell">The authoritative value shown to the view.</param>
             /// <param name="write">
@@ -54,12 +62,12 @@ namespace SodaFlow.Bindable.ObjectModel
                 this.Cell = cell ?? throw new ArgumentNullException(nameof(cell));
                 this.write = write ?? throw new ArgumentNullException(nameof(write));
                 this.comparer = comparer ?? EqualityComparer<T>.Default;
-                this.value = default!;
+                this.box = new ValueBox<T>(default!);
 
                 this.listener =
                     TransactionInternal.RunImpl(() =>
                     {
-                        this.value = cell.SampleImpl();
+                        this.box = new ValueBox<T>(cell.SampleImpl());
                         return ListenToUpdates(cell: cell, handler: this.OnSourceChanged);
                     });
             }
@@ -70,17 +78,17 @@ namespace SodaFlow.Bindable.ObjectModel
             /// <inheritdoc />
             public T Value
             {
-                get => this.value;
+                get => this.box.Value;
                 set
                 {
                     this.ThrowIfDisposed();
 
-                    if (this.comparer.Equals(x: this.value, y: value))
+                    if (this.comparer.Equals(x: this.box.Value, y: value))
                     {
                         return;
                     }
 
-                    this.value = value;
+                    this.box = new ValueBox<T>(value);
 
                     PostWrite(() =>
                     {
@@ -122,12 +130,12 @@ namespace SodaFlow.Bindable.ObjectModel
                         return;
                     }
 
-                    if (this.comparer.Equals(x: this.value, y: newValue))
+                    if (this.comparer.Equals(x: this.box.Value, y: newValue))
                     {
                         return;
                     }
 
-                    this.value = newValue;
+                    this.box = new ValueBox<T>(newValue);
                     this.RaiseValueChanged();
                 });
 
@@ -146,12 +154,12 @@ namespace SodaFlow.Bindable.ObjectModel
 
                     T authoritative = this.Cell.SampleImpl();
 
-                    if (this.comparer.Equals(x: this.value, y: authoritative))
+                    if (this.comparer.Equals(x: this.box.Value, y: authoritative))
                     {
                         return;
                     }
 
-                    this.value = authoritative;
+                    this.box = new ValueBox<T>(authoritative);
                     this.RaiseValueChanged();
                 });
 

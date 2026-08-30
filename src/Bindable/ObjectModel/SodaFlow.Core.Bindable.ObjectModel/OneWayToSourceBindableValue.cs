@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Threading;
 
@@ -10,12 +10,22 @@ namespace SodaFlow.Bindable.ObjectModel
         ///     The entry point for values that originate in the view: control state such as selection,
         ///     scroll offset, or focus, pushed into the graph by a <c>OneWayToSource</c> binding.
         /// </summary>
+        /// <remarks>
+        ///     Safe to construct on any thread. The initial value is stored by whichever thread builds
+        ///     the instance and read by the binding thread; <see cref="ValueBox{T}" /> is what orders
+        ///     the two.
+        /// </remarks>
         private sealed class OneWayToSourceBindableValue<T> : IOneWayToSourceBindableValue<T>
         {
             private readonly Action<T> write;
             private readonly IEqualityComparer<T> comparer;
 
-            private T value;
+            /// <summary>
+            ///     Boxed so the field can be volatile whatever <typeparamref name="T" /> is. See
+            ///     <see cref="ValueBox{T}" />.
+            /// </summary>
+            private volatile ValueBox<T> box;
+
             private int disposed;
 
             /// <param name="write">Receives values written by the view. Typically <c>sink.Send</c>.</param>
@@ -29,14 +39,14 @@ namespace SodaFlow.Bindable.ObjectModel
             internal OneWayToSourceBindableValue(Action<T> write, T initialValue, IEqualityComparer<T>? comparer)
             {
                 this.comparer = comparer ?? EqualityComparer<T>.Default;
-                this.value = initialValue;
-                this.write = write;
+                this.box = new ValueBox<T>(initialValue);
+                this.write = write ?? throw new ArgumentNullException(nameof(write));
             }
 
             /// <inheritdoc />
             public T Value
             {
-                get => this.value;
+                get => this.box.Value;
                 set
                 {
                     if (Volatile.Read(ref this.disposed) != 0)
@@ -44,14 +54,14 @@ namespace SodaFlow.Bindable.ObjectModel
                         return;
                     }
 
-                    if (this.comparer.Equals(x: this.value, y: value))
+                    if (this.comparer.Equals(x: this.box.Value, y: value))
                     {
                         return;
                     }
 
-                    this.value = value;
+                    this.box = new ValueBox<T>(value);
 
-                    // Checked again inside the post, not only here. PostWrite defers whenever a
+                    // Checked again inside the post, not only above. PostWrite defers whenever a
                     // transaction is already open, so a Dispose between the two would otherwise
                     // still let this write reach the graph.
                     PostWrite(() =>

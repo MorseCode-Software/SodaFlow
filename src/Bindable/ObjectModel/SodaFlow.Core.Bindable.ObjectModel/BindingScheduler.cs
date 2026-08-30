@@ -123,10 +123,10 @@ namespace SodaFlow.Bindable.ObjectModel
         ///     <see cref="SynchronizationContext" /> of the thread that constructed it.
         /// </summary>
         /// <remarks>
-        ///     This does not make construction off the binding thread safe, and previously said it did.
-        ///     Every bindable samples its initial value on the constructing thread and writes it to an
-        ///     ordinary field; only later updates are marshalled. Construct them on the binding thread,
-        ///     or make sure the handover to it is synchronized.
+        ///     Bindables may be constructed on any thread, so a view model never needs to know which
+        ///     thread the binding engine uses. What it does need is for one of these to be resolvable:
+        ///     set this when the binding thread has no <see cref="SynchronizationContext" /> to capture,
+        ///     or when construction happens somewhere there is no context to capture from.
         /// </remarks>
         public static IBindingScheduler? Default { get; set; }
 
