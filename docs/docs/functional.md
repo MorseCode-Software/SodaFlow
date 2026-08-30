@@ -69,8 +69,8 @@ it. See [Time and timers](time.md).
 Stream<int> parsed = input.Choose(s => int.TryParse(s, out int n) ? Maybe.Some(n) : Maybe.None);
 ```
 
-The F# equivalent of `FilterSome` is `filterOptionS`, and it works on `option` rather than
-`Maybe`. There is no F# equivalent of `Choose` yet.
+The F# equivalents are `filterSomeS` and `chooseS`, and they work on `option` rather than
+`Maybe`.
 
 ## `Either<T1, T2>`
 

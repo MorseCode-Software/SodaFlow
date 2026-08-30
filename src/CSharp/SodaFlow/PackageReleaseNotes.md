@@ -14,14 +14,14 @@ deciding whether an event should pass is the same work as producing the value
 to pass on - parsing, looking up, narrowing a type. The spelled-out form is
 still there for when the intermediate Stream<Maybe<T>> is wanted for itself.
 
-Choose has no F# equivalent yet; filterOptionS remains the F# counterpart of
-FilterSome, and keeps its name, since F# names the type option rather than
-Maybe.
+SodaFlow.FSharp gets the same pair: filterOptionS is renamed to filterSomeS,
+and chooseS is added. Some names the case that has a value in both languages,
+so both APIs now say so.
 
-The internal FilterMaybeImpl and FilterMaybeInternal helpers in SodaFlow.Core
-keep their names. They are generic over whichever optional type is being
-unwrapped - Maybe<T> here, option from F#, MaybeInternal<T> inside the engine -
-so there "Maybe" names the type and not the case.
+Requires SodaFlow.Core 3.0.0 or newer. The internal helper this calls was
+renamed in step, so a 2.x core resolved against this package throws
+MissingMethodException. Upgrade SodaFlow, SodaFlow.FSharp and SodaFlow.Core
+together.
 
 2.0.1
 

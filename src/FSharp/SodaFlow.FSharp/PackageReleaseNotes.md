@@ -1,3 +1,22 @@
+3.0.0
+
+BREAKING: Stream.filterOption is renamed to Stream.filterSome, and the
+filterOptionS shorthand to filterSomeS. Nothing about the behavior changed.
+
+The old name described the type it consumed; the new one describes the case it
+keeps. Some names that case in F# as much as it does in C#, so the two APIs now
+agree, and the C# counterpart is FilterSome rather than FilterMaybe.
+
+New: Stream.choose, with the chooseS shorthand, transforms firings with a
+function returning an option and fires only the values it produced. It is
+map f >> filterSome in one step, takes the stream last like everything else
+here, and is the counterpart of List.choose.
+
+Requires SodaFlow.Core 3.0.0 or newer. The internal helper this calls was
+renamed in step, so a 2.x core resolved against this package throws
+MissingMethodException. Upgrade SodaFlow, SodaFlow.FSharp and SodaFlow.Core
+together.
+
 2.0.1
 
 Adds the release notes below. 2.0.0 shipped without any, because the mechanism

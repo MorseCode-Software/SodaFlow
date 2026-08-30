@@ -1,3 +1,19 @@
+3.0.0
+
+No public API change. The internal helpers FilterMaybeImpl and
+FilterMaybeInternal are renamed to FilterSomeImpl and FilterSomeInternal,
+following the public rename in SodaFlow and SodaFlow.FSharp.
+
+This is a major version despite the public surface being untouched, because
+the internal surface is the contract between this package and its wrappers.
+A wrapper compiled against the old names resolves them at runtime and throws
+MissingMethodException against this version. Leaving this on 2.x would have
+made SodaFlow 2.0.1 and SodaFlow.Core 2.2.0 an allowed pairing under the "do
+not mix major versions" rule while still failing that way, which is the exact
+trap the 2.0.0 notes warned about.
+
+Upgrade SodaFlow, SodaFlow.FSharp and SodaFlow.Core together.
+
 2.1.1
 
 Adds the release notes below. 2.1.0 shipped with the repository-wide notes

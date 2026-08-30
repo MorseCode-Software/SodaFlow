@@ -42,7 +42,7 @@ namespace SodaFlow
             return Merge(trans, e, start, mid, f).Merge(trans, Merge(trans, e, mid, end, f), f);
         }
 
-        internal static Stream<T> FilterMaybeImpl<T, TMaybe>(this Stream<TMaybe> s, Action<TMaybe, Action<T>> matchSome)
+        internal static Stream<T> FilterSomeImpl<T, TMaybe>(this Stream<TMaybe> s, Action<TMaybe, Action<T>> matchSome)
         {
             Stream<T> @out = new Stream<T>(s.KeepListenersAlive);
 
@@ -54,7 +54,7 @@ namespace SodaFlow
             return @out.UnsafeAttachListener(l);
         }
 
-        internal static Stream<T> FilterMaybeInternal<T>(this Stream<MaybeInternal<T>> s) =>
-            s.FilterMaybeImpl<T, MaybeInternal<T>>((m, a) => m.MatchSome(a));
+        internal static Stream<T> FilterSomeInternal<T>(this Stream<MaybeInternal<T>> s) =>
+            s.FilterSomeImpl<T, MaybeInternal<T>>((m, a) => m.MatchSome(a));
     }
 }

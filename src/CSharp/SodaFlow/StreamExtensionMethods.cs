@@ -708,7 +708,7 @@ namespace SodaFlow
         /// </returns>
         [MethodImpl(MethodImplOptions.NoInlining)]
         public static Stream<T> FilterSome<T>(this Stream<Maybe<T>> s) =>
-            s.FilterMaybeImpl<T, Maybe<T>>((m, a) => m.MatchSome(a));
+            s.FilterSomeImpl<T, Maybe<T>>((m, a) => m.MatchSome(a));
 
         /// <summary>
         ///     Transform the stream values with a function which may produce no value, and fire only the values it produced.
@@ -731,6 +731,6 @@ namespace SodaFlow
         /// </remarks>
         [MethodImpl(MethodImplOptions.NoInlining)]
         public static Stream<TResult> Choose<T, TResult>(this Stream<T> s, Func<T, Maybe<TResult>> f) =>
-            s.MapImpl(f).FilterMaybeImpl<TResult, Maybe<TResult>>((m, a) => m.MatchSome(a));
+            s.MapImpl(f).FilterSomeImpl<TResult, Maybe<TResult>>((m, a) => m.MatchSome(a));
     }
 }
