@@ -203,10 +203,10 @@ type ``Stream Tests``() =
         CollectionAssert.AreEqual (['H';'I'], out)
 
     [<Test>]
-    member __.``Test Filter Option``() =
+    member __.``Test Filter Some``() =
         let s = sinkS ()
         let out = List<_>()
-        let l = s |> filterOptionS |> listenStrongS out.Add
+        let l = s |> filterSomeS |> listenStrongS out.Add
         s |> sendS (Some "tomato")
         s |> sendS None
         s |> sendS (Some "peach")
@@ -214,6 +214,45 @@ type ``Stream Tests``() =
         s |> sendS (Some "pear")
         l |> unlistenL
         CollectionAssert.AreEqual (["tomato";"peach";"pear"], out)
+
+    [<Test>]
+    member __.``Test Choose``() =
+        let s = sinkS ()
+        let out = List<_>()
+        let l = s |> chooseS (fun (v : string) -> if v.Length > 4 then Some v.Length else None) |> listenStrongS out.Add
+        s |> sendS "tomato"
+        s |> sendS "fig"
+        s |> sendS "peach"
+        s |> sendS "yam"
+        s |> sendS "pear"
+        l |> unlistenL
+        CollectionAssert.AreEqual ([6;5], out)
+
+    [<Test>]
+    member __.``Test Choose Matches Map Then Filter Some``() =
+        let s = sinkS ()
+        let chosen = List<_>()
+        let mapped = List<_>()
+        let f (v : string) = if v.Length > 4 then Some v.Length else None
+        let l1 = s |> chooseS f |> listenStrongS chosen.Add
+        let l2 = s |> mapS f |> filterSomeS |> listenStrongS mapped.Add
+        s |> sendS "tomato"
+        s |> sendS "fig"
+        s |> sendS "peach"
+        l1 |> unlistenL
+        l2 |> unlistenL
+        CollectionAssert.AreEqual (mapped, chosen)
+        CollectionAssert.AreEqual ([6;5], chosen)
+
+    [<Test>]
+    member __.``Test Choose None Fires Nothing``() =
+        let s = sinkS ()
+        let out = List<_>()
+        let l = s |> chooseS (fun (_ : string) -> Option<int>.None) |> listenStrongS out.Add
+        s |> sendS "tomato"
+        s |> sendS "peach"
+        l |> unlistenL
+        CollectionAssert.AreEqual (List<int>(), out)
 
     [<Test>]
     member __.``Test Loop Stream``() =

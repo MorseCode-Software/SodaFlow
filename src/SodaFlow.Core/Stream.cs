@@ -344,7 +344,7 @@ namespace SodaFlow
 
         internal Stream<T> GateImpl(Cell<bool> c) => this.GateImpl(c.BehaviorImpl);
 
-        internal Stream<T> GateImpl(Behavior<bool> b) => this.SnapshotImpl(b, (a, pred) => pred ? MaybeInternal.Some(a) : MaybeInternal.None).FilterMaybeInternal();
+        internal Stream<T> GateImpl(Behavior<bool> b) => this.SnapshotImpl(b, (a, pred) => pred ? MaybeInternal.Some(a) : MaybeInternal.None).FilterSomeInternal();
 
         internal Stream<T> CalmImpl(Func<T, T, bool> areEqual) =>
             this.Calm(new Lazy<MaybeInternal<T>>(() => MaybeInternal.None), areEqual);

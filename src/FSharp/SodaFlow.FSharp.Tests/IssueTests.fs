@@ -21,9 +21,9 @@ module Issue151 =
                         let pool = (poolAddByInput, poolremoveByUsage) |> mergeS (>>) |> accumS 0 (<|)
                         let inputByAdded = poolAddByInput |> snapshot2C pool threshold (fun f x t ->
                             let r = f x
-                            if r >= t then Some r else None) |> filterOptionS
+                            if r >= t then Some r else None) |> filterSomeS
                         let inputBySatisfaction = pool |> updatesC |> snapshot2C pool threshold (fun neu alt t ->
-                            if neu >= t && alt < t then Some neu else None) |> filterOptionS
+                            if neu >= t && alt < t then Some neu else None) |> filterSomeS
                         struct ((inputByAdded, inputBySatisfaction) |> mergeS max, pool))
                     None
                 with
@@ -40,9 +40,9 @@ module Issue151 =
                 let pool = (poolAddByInput, poolremoveByUsage) |> mergeS (>>) |> accumS 0 (<|)
                 let inputByAdded = poolAddByInput |> snapshot2C pool threshold (fun f x t ->
                     let r = f x
-                    if r >= t then Some r else None) |> filterOptionS
+                    if r >= t then Some r else None) |> filterSomeS
                 let inputBySatisfaction = pool |> updatesC |> snapshot2C pool threshold (fun neu alt t ->
-                    if neu >= t && alt < t then Some neu else None) |> filterOptionS
+                    if neu >= t && alt < t then Some neu else None) |> filterSomeS
                 struct ((inputByAdded, inputBySatisfaction) |> mergeS max, pool))
             let submissions = List<_>()
             let l = input |> listenStrongS submissions.Add

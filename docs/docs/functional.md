@@ -212,20 +212,27 @@ friends — are public, so a method of that shape can be stored and passed aroun
 
 Two places, and both are worth knowing:
 
-`Stream.FilterMaybe()` turns a `Stream<Maybe<T>>` into a `Stream<T>`, dropping the empties. It
+`Stream.FilterSome()` turns a `Stream<Maybe<T>>` into a `Stream<T>`, dropping the empties. It
 is the idiomatic way to combine "compute something that might fail" with "only fire when it
 worked":
 
 ```csharp
 Stream<int> parsed = input
     .Map(s => s.TryParseInt32())
-    .FilterMaybe();
+    .FilterSome();
 ```
 
 `ITimerSystem<T>.At` takes a `Cell<Maybe<T>>`, where `Some` arms an alarm and `None` disarms
 it. See [Time and timers](time.md).
 
-The F# equivalent of `FilterMaybe` is `filterOptionS`, and it works on `option` rather than
+`Stream.Choose(f)` is `Map` and `FilterSome` in one step, for when the intermediate
+`Stream<Maybe<T>>` is not wanted for its own sake:
+
+```csharp
+Stream<int> parsed = input.Choose(s => int.TryParse(s, out int n) ? Maybe.Some(n) : Maybe.None);
+```
+
+The F# equivalents are `filterSomeS` and `chooseS`, and they work on `option` rather than
 `Maybe`.
 
 ## `Either<T1, T2>`

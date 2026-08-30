@@ -39,7 +39,7 @@ namespace SodaFlow.Tests
                                 (f, x, t) => f(x) >= t
                                     ? Maybe.Some(f(x))
                                     : Maybe.None)
-                            .FilterMaybe();
+                            .FilterSome();
 
                     // Simple rising edge on pool threshold satisfaction.
                     Stream<int> inputBySatisfaction =
@@ -50,7 +50,7 @@ namespace SodaFlow.Tests
                                 (neu, alt, t) => neu >= t && alt < t
                                     ? Maybe.Some(neu)
                                     : Maybe.None)
-                            .FilterMaybe();
+                            .FilterSome();
 
                     submitPooledAmount.Loop(inputByAdded.Merge(inputBySatisfaction, Math.Max));
 
@@ -94,7 +94,7 @@ namespace SodaFlow.Tests
                             (f, x, t) => f(x) >= t
                                 ? Maybe.Some(f(x))
                                 : Maybe.None)
-                        .FilterMaybe();
+                        .FilterSome();
 
                 // Simple rising edge on pool threshold satisfaction.
                 Stream<int> inputBySatisfaction =
@@ -105,7 +105,7 @@ namespace SodaFlow.Tests
                             (neu, alt, t) => neu >= t && alt < t
                                 ? Maybe.Some(neu)
                                 : Maybe.None)
-                        .FilterMaybe();
+                        .FilterSome();
 
                 submitPooledAmount.Loop(inputByAdded.Merge(inputBySatisfaction, Math.Max));
 

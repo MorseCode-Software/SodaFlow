@@ -664,8 +664,29 @@ let filter predicate (stream : Stream<_>) = stream.FilterImpl (Func<_,_> predica
 /// <param name="stream">The stream of options to filter.</param>
 /// <returns>A stream firing the value inside each <c>Some</c>, and not firing for <c>None</c>.</returns>
 [<MethodImpl(MethodImplOptions.NoInlining)>]
-let filterOption (stream : Stream<_>) =
-    StreamExtensionMethodsInternal.FilterMaybeImpl (stream, (Action<_,_> (fun o a -> o |> Option.iter a.Invoke)))
+let filterSome (stream : Stream<_>) =
+    StreamExtensionMethodsInternal.FilterSomeImpl (stream, (Action<_,_> (fun o a -> o |> Option.iter a.Invoke)))
+
+/// <summary>
+///     Transforms the firings with a function which may produce no value, and fires only the values
+///     it produced.
+/// </summary>
+/// <param name="f">Applied to each fired value; the firings it returns <c>None</c> for are dropped.</param>
+/// <param name="stream">The stream to transform.</param>
+/// <returns>
+///     A stream firing the value inside each <c>Some</c> that <paramref name="f" /> returned, and not
+///     firing for the values it returned <c>None</c> for.
+/// </returns>
+/// <remarks>
+///     Mapping and filtering in one step, for the common case where deciding whether a firing should
+///     pass is the same work as producing the value to pass on. The same thing as
+///     <c>map f >> filterSome</c>, and the counterpart of <c>List.choose</c>.
+/// </remarks>
+[<MethodImpl(MethodImplOptions.NoInlining)>]
+let choose f (stream : Stream<_>) =
+    StreamExtensionMethodsInternal.FilterSomeImpl (
+        stream.MapImpl (Func<_,_> f),
+        (Action<_,_> (fun o a -> o |> Option.iter a.Invoke)))
 
 /// <summary>
 ///     Lets firings through only while a behavior holds true.
