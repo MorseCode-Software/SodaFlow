@@ -36,6 +36,13 @@
 
     <ItemGroup>
       <ProjectReference Include="..\..\SodaFlow.Core.Async\SodaFlow.Core.Async.csproj" />
+      <!--
+          SodaFlow itself, so installing this package brings the C# API it extends. MapAsync
+          operates on a Stream<T> that only SodaFlow's operations can produce or consume usefully,
+          so a consumer needs both; declaring it here means they get both from one install rather
+          than discovering the second the first time they try to build a graph.
+      -->
+      <ProjectReference Include="..\..\..\CSharp\SodaFlow\SodaFlow.csproj" />
       <ProjectReference Include="..\..\..\CSharp\SodaFlow.Functional\SodaFlow.Functional.csproj" />
     </ItemGroup>
 

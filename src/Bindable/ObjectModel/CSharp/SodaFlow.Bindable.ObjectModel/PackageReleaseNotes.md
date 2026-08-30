@@ -27,7 +27,7 @@ never reach a sink from inside a callback.
 BindableFactory takes an IBindingScheduler by constructor injection, which is
 how a test substitutes BindingScheduler.Immediate for a real dispatcher.
 
-Depends on SodaFlow.Bindable.ObjectModel.Core and SodaFlow.Functional. Install
-SodaFlow alongside it for the FRP operations themselves.
+Depends on SodaFlow, SodaFlow.Bindable.ObjectModel.Core and SodaFlow.Functional,
+so installing this brings the FRP operations along with it.
 
 Full notes: https://github.com/MorseCode-Software/SodaFlow/releases

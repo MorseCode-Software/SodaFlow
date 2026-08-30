@@ -30,7 +30,7 @@ subscription, so a bindable that becomes unreachable without being disposed is
 collected rather than rooted for the lifetime of the sink it observes. Writes
 never reach a sink from inside a callback.
 
-Depends on SodaFlow.Bindable.ObjectModel.Core. Install SodaFlow.FSharp alongside
-it for the FRP operations themselves.
+Depends on SodaFlow.FSharp and SodaFlow.Bindable.ObjectModel.Core, so installing
+this brings the FRP operations along with it.
 
 Full notes: https://github.com/MorseCode-Software/SodaFlow/releases

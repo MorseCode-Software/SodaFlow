@@ -53,6 +53,13 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\SodaFlow.Core.Bindable.ObjectModel\SodaFlow.Core.Bindable.ObjectModel.csproj" />
+    <!--
+        SodaFlow.FSharp itself, so installing this package brings the F# API it extends. A bindable
+        is built from a Cell or a sink, and only those operations produce them, so a consumer needs
+        both; declaring it here means they get both from one install rather than discovering the
+        second the first time they try to build a graph.
+    -->
+    <ProjectReference Include="..\..\..\..\FSharp\SodaFlow.FSharp\SodaFlow.FSharp.fsproj" />
   </ItemGroup>
 
 </Project>
