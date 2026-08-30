@@ -28,7 +28,7 @@ namespace SodaFlow.Tests
         [Test]
         public void TestWithoutCapturesResolvesTheReference()
         {
-            Node node = ForwardReference.WithoutCaptures<Node>(reference => Node.WithChildHolding(reference.AsCell()));
+            Node node = ForwardReference<Node>.WithoutCaptures(reference => Node.WithChildHolding(reference.AsCell()));
 
             Assert.AreSame(node, node.Child.Parent.Sample());
         }
@@ -38,7 +38,7 @@ namespace SodaFlow.Tests
         {
             object produced = null;
 
-            object result = ForwardReference.WithoutCaptures<object>(
+            object result = ForwardReference<object>.WithoutCaptures(
                 _ =>
                 {
                     produced = new object();
@@ -53,7 +53,7 @@ namespace SodaFlow.Tests
         {
             int calls = 0;
 
-            ForwardReference.WithoutCaptures<int>(
+            ForwardReference<int>.WithoutCaptures(
                 _ =>
                 {
                     calls++;
@@ -67,7 +67,7 @@ namespace SodaFlow.Tests
         public void TestWithoutCapturesReferenceNeverChanges()
         {
             // The single-valued case of a cell loop: the reference resolves once and stays there.
-            Node node = ForwardReference.WithoutCaptures<Node>(reference => Node.WithChildHolding(reference.AsCell()));
+            Node node = ForwardReference<Node>.WithoutCaptures(reference => Node.WithChildHolding(reference.AsCell()));
 
             List<Node> @out = new List<Node>();
             using (node.Child.Parent.ListenStrong(@out.Add))
@@ -80,7 +80,7 @@ namespace SodaFlow.Tests
         [Test]
         public void TestWithCapturesResolvesTheReferenceAndReturnsTheCaptures()
         {
-            (Node node, StreamSink<int> sink) = ForwardReference.WithCaptures<Node, StreamSink<int>>(
+            (Node node, StreamSink<int> sink) = ForwardReference<Node>.WithCaptures(
                 reference => (Value: Node.WithChildHolding(reference.AsCell()), Captures: Stream.CreateSink<int>()));
 
             Assert.AreSame(node, node.Child.Parent.Sample());
@@ -92,7 +92,7 @@ namespace SodaFlow.Tests
         {
             int calls = 0;
 
-            ForwardReference.WithCaptures<int, int>(
+            ForwardReference<int>.WithCaptures(
                 _ =>
                 {
                     calls++;
@@ -106,7 +106,7 @@ namespace SodaFlow.Tests
         public void TestTwoObjectsCanReferToEachOther()
         {
             // Neither exists when the other is constructed, which is the knot this unties.
-            (Node node, Child child) = ForwardReference.WithCaptures<Node, Child>(
+            (Node node, Child child) = ForwardReference<Node>.WithCaptures(
                 reference =>
                 {
                     Child c = new Child(reference.AsCell());
@@ -121,7 +121,7 @@ namespace SodaFlow.Tests
         public void TestWorksInsideAnExistingTransaction()
         {
             Node node = Transaction.Run(
-                () => ForwardReference.WithoutCaptures<Node>(reference => Node.WithChildHolding(reference.AsCell())));
+                () => ForwardReference<Node>.WithoutCaptures(reference => Node.WithChildHolding(reference.AsCell())));
 
             Assert.AreSame(node, node.Child.Parent.Sample());
         }
@@ -132,7 +132,7 @@ namespace SodaFlow.Tests
             // The reference is a promise about what the value will be, not the value, so asking
             // for it before the constructing function has returned has no answer.
             Assert.Throws<InvalidOperationException>(
-                () => ForwardReference.WithoutCaptures<int>(reference => reference.Sample()));
+                () => ForwardReference<int>.WithoutCaptures(reference => reference.Sample()));
         }
     }
 }
