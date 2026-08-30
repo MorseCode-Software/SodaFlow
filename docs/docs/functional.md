@@ -250,6 +250,21 @@ string described = e.Match(
 Because every case must be supplied, adding an alternative later is a compile error at each
 consumption site rather than a silent fallthrough.
 
+`TryGetFirst()` through `TryGetEighth()` answer with a `Maybe<T>` for one case, `IsFirst()`
+through `IsEighth()` test which case is held without reaching the value, and `MapFirst(f)`
+through `MapEighth(f)` transform one case and pass the rest through.
+
+`Either<T1, T2>` also has `Swap()`, which exchanges the two cases. It is how you reach the first
+case with an operation that only addresses the second:
+
+```csharp
+Either<string, string> described = e.Swap().MapSecond(n => n.ToString()).Swap();
+```
+
+There is no `Swap` beyond two cases. With three or more there is no single exchange to make, and
+naming one of the several reorderings `Swap` would make the others look unavailable rather than
+unnamed.
+
 The shape is entirely regular across all eight arities, so the
 [API reference](../api/index.md) is the place to go for the full member list.
 

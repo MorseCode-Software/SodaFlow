@@ -54,6 +54,11 @@ Enum.TryParse accepts; and TryGetValue on IReadOnlyDictionary<TKey, TValue>.
 Maybe.FromTryGet adapts any other method of that shape, including ones this
 package has never heard of, and the TryGet delegate types it takes are public.
 
+New on Either: Swap, on the two-case either only, which exchanges the cases.
+It is how an operation that only addresses the second case reaches the first,
+and swapping twice gives back the original. There is no Swap beyond two cases,
+where there is no single exchange to make.
+
 Fixed: Maybe<T> and all seven Either arities now implement IEquatable<T>.
 They are structs which did not, so EqualityComparer<T>.Default could not find a
 typed comparison and fell back to the one which compares through

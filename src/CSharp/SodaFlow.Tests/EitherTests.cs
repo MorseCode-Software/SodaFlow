@@ -403,6 +403,37 @@ namespace SodaFlow.Tests
         {
         }
 
+
+        [Test]
+        public void SwapTest()
+        {
+            Either<int, string> first = Either.First(2);
+            Either<int, string> second = Either.Second("a");
+
+            Assert.AreEqual(Either<string, int>.Second(2), first.Swap());
+            Assert.AreEqual(Either<string, int>.First("a"), second.Swap());
+        }
+
+        [Test]
+        public void SwapTwiceIsIdentityTest()
+        {
+            Either<int, string> first = Either.First(2);
+            Either<int, string> second = Either.Second("a");
+
+            Assert.AreEqual(first, first.Swap().Swap());
+            Assert.AreEqual(second, second.Swap().Swap());
+        }
+
+        [Test]
+        public void SwapReachesTheOtherCaseTest()
+        {
+            // MapSecond only addresses the second case; swapping either side of it is how the
+            // first case is reached, and the second swap puts the result back where it started.
+            Either<int, string> e = Either.First(2);
+
+            Assert.AreEqual(Either<string, string>.First("2"), e.Swap().MapSecond(v => v.ToString()).Swap());
+        }
+
         private static int TestIt2(Either<Test1, Test2> e) => e.Match(v1 => 1, v2 => 2);
 
         private static int TestIt2Action(Either<Test1, Test2> e)

@@ -612,6 +612,28 @@ namespace SodaFlow.Functional
             this.Match(Either<T1, T>.First, v2 => Either.Second(f(v2)));
 
         /// <summary>
+        ///     Exchanges the two cases, so that what was held first is held second and the other way
+        ///     round.
+        /// </summary>
+        /// <returns>
+        ///     An either of the two types in the opposite order, holding the same value in the other
+        ///     position.
+        /// </returns>
+        /// <remarks>
+        ///     For handing an either to something which names the same two types the other way round,
+        ///     and for reaching the first case with an operation that only addresses the second - or
+        ///     the reverse. Swapping twice gives back the original.
+        ///
+        ///     This exists only here, on the two-case either. With three or more cases there is no
+        ///     single exchange to make: what a swap would mean is a choice among several reorderings,
+        ///     and naming one of them <c>Swap</c> would make the others look unavailable rather than
+        ///     unnamed.
+        /// </remarks>
+        [JetBrains.Annotations.Pure]
+        public Either<T2, T1> Swap() =>
+            this.Match(Either<T2, T1>.Second, Either<T2, T1>.First);
+
+        /// <summary>
         ///     Gets the held value if this holds the first case.
         /// </summary>
         /// <returns>
