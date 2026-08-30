@@ -25,6 +25,7 @@
       <Compile Include="DenotationalSemanticsTests.cs" />
       <Compile Include="EitherTests.cs" />
       <Compile Include="EnumerableExtensionMethodsTests.cs" />
+      <Compile Include="ForwardReferenceTests.cs" />
       <Compile Include="IssueTests.cs" />
       <Compile Include="LoopTests.cs" />
       <Compile Include="MaybeAsyncExtensionMethodsTests.cs" />

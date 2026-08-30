@@ -1,5 +1,30 @@
 3.0.0
 
+New: ForwardReference constructs a value which can refer to itself while it is
+being constructed.
+
+    Node node = ForwardReference<Node>.WithoutCaptures(
+        reference => new Node(new Child(reference.AsCell())));
+
+It is the single-valued case of a cell loop. A loop lets a cell be referred to
+before it exists and is closed with the cell the reference turned out to mean;
+this produces one value rather than a series of them, and closes the loop with
+a constant cell, so the reference resolves to that value and never changes.
+
+What it is for is the knot two objects tie when each needs the other at
+construction. Without it one of them has to be built half-formed and completed
+afterward, through a settable member that has no business being settable once
+the graph is up. Here nothing is mutable and no half-built object is reachable,
+because the reference cannot be read before the constructing function returns -
+doing so throws, as it does for any looped cell.
+
+WithCaptures returns whatever else the construction is worth keeping, as it
+does on a loop, and infers its capture type from the function. The value type
+is named on ForwardReference<T> rather than on the methods, which is what
+leaves the capture type free to be inferred.
+
+C# only for now; there is no F# counterpart yet.
+
 BREAKING: Stream.FilterMaybe is renamed to Stream.FilterSome. It does exactly
 what it always did; the old name said "stream of Maybe" where what the method
 actually selects is the case that has a value.
