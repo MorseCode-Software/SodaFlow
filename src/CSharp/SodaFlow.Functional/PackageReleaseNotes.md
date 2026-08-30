@@ -37,7 +37,11 @@ the repair would make the mistake easier to keep.
 Sequences: Choose to map and filter in one step, an AllSomeOrNone overload
 taking the mapping function, ToEnumerable, and FirstOrNone, LastOrNone,
 SingleOrNone and ElementAtOrNone for the LINQ operators whose OrDefault forms
-cannot say whether they found anything. SingleOrNone still throws when there is
+cannot say whether they found anything, and MinOrNone, MaxOrNone and
+AggregateOrNone for the ones which throw on an empty sequence rather than
+answer at all. MinOrNone and MaxOrNone skip nulls the way Min and Max do, since
+Comparer<T>.Default sorts null before everything; a sequence of nothing but
+nulls has nothing to compare and gives no value, where LINQ gives null. SingleOrNone still throws when there is
 more than one element, exactly as SingleOrDefault does: that is a contradicted
 assumption rather than a missing answer.
 

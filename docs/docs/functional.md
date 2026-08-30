@@ -138,6 +138,8 @@ mistake easier to keep.
 | `Choose(selector)` | Map and filter in one step, keeping what the selector produced. |
 | `AllSomeOrNone()` / `AllSomeOrNone(selector)` | All of the values, or nothing if any is missing. |
 | `FirstOrNone()`, `LastOrNone()`, `SingleOrNone()`, `ElementAtOrNone(i)` | The LINQ `OrDefault` operators, answering with a `Maybe<T>`. |
+| `MinOrNone()`, `MaxOrNone()` | The smallest or largest element, or nothing to compare. Overloads take a comparer or a selector. |
+| `AggregateOrNone(f)` | The seedless `Aggregate`, without throwing on an empty sequence. |
 
 ```csharp
 IEnumerable<int> numbers = lines.Choose(l => l.TryParseInt32());
@@ -147,9 +149,15 @@ IEnumerable<int> numbers = lines.Choose(l => l.TryParseInt32());
 produces nothing. Which you want depends on whether one bad line invalidates the rest.
 
 The `OrNone` operators exist because `FirstOrDefault` over an `IEnumerable<int>` returns zero
-both for an empty sequence and for one whose first element is zero. `SingleOrNone` still throws
-when there is more than one element, exactly as `SingleOrDefault` does: that is not a missing
-answer, it is a contradicted assumption.
+both for an empty sequence and for one whose first element is zero, and because `Min` and
+seedless `Aggregate` throw outright rather than answer. `SingleOrNone` still throws when there is
+more than one element, exactly as `SingleOrDefault` does: that is not a missing answer, it is a
+contradicted assumption.
+
+`MinOrNone` and `MaxOrNone` skip `null` elements, as `Min` and `Max` do — `Comparer<T>.Default`
+sorts `null` before everything, so otherwise one null element would be the answer for every
+sequence of a reference type. A sequence of nothing but nulls has nothing to compare and gives
+no value, where LINQ gives `null`.
 
 Every one of these treats a `null` sequence as empty, as the package already did.
 

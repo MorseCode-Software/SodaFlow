@@ -188,6 +188,117 @@ namespace SodaFlow.Tests
             Assert.AreEqual(2, read);
         }
 
+        [Test]
+        public void TestAggregateOrNone()
+        {
+            Assert.AreEqual(Maybe.Some(10), new[] { 1, 2, 3, 4 }.AggregateOrNone((a, b) => a + b));
+            Assert.AreEqual(Maybe.Some(7), new[] { 7 }.AggregateOrNone((a, b) => a + b));
+            Assert.AreEqual(Maybe<int>.None, new int[0].AggregateOrNone((a, b) => a + b));
+            Assert.AreEqual(Maybe<int>.None, ((IEnumerable<int>)null).AggregateOrNone((a, b) => a + b));
+        }
+
+        [Test]
+        public void TestAggregateOrNoneIsLeftAssociative()
+        {
+            Assert.AreEqual(
+                Maybe.Some("((a b) c)"),
+                new[] { "a", "b", "c" }.AggregateOrNone((a, b) => "(" + a + " " + b + ")"));
+        }
+
+        [Test]
+        public void TestAggregateOrNoneDoesNotRunFunctionForOneElement()
+        {
+            int calls = 0;
+
+            Maybe<int> result = new[] { 7 }.AggregateOrNone(
+                (a, b) =>
+                {
+                    calls++;
+                    return a + b;
+                });
+
+            Assert.AreEqual(Maybe.Some(7), result);
+            Assert.AreEqual(0, calls);
+        }
+
+        [Test]
+        public void TestMinOrNoneAndMaxOrNone()
+        {
+            int[] source = { 3, 1, 4, 1, 5 };
+
+            Assert.AreEqual(Maybe.Some(1), source.MinOrNone());
+            Assert.AreEqual(Maybe.Some(5), source.MaxOrNone());
+            Assert.AreEqual(Maybe<int>.None, new int[0].MinOrNone());
+            Assert.AreEqual(Maybe<int>.None, new int[0].MaxOrNone());
+            Assert.AreEqual(Maybe<int>.None, ((IEnumerable<int>)null).MinOrNone());
+            Assert.AreEqual(Maybe<int>.None, ((IEnumerable<int>)null).MaxOrNone());
+        }
+
+        [Test]
+        public void TestMinOrNoneKeepsZero()
+        {
+            // Min throws on an empty sequence precisely so it need not conflate it with this.
+            Assert.AreEqual(Maybe.Some(0), new[] { 0, 1 }.MinOrNone());
+        }
+
+        [Test]
+        public void TestMinOrNoneWithComparer()
+        {
+            string[] source = { "bbb", "a", "cc" };
+
+            Assert.AreEqual(Maybe.Some("a"), source.MinOrNone(Comparer<string>.Create((x, y) => x.Length - y.Length)));
+            Assert.AreEqual(Maybe.Some("bbb"), source.MaxOrNone(Comparer<string>.Create((x, y) => x.Length - y.Length)));
+        }
+
+        [Test]
+        public void TestMinOrNoneWithSelector()
+        {
+            string[] source = { "bbb", "a", "cc" };
+
+            Assert.AreEqual(Maybe.Some(1), source.MinOrNone(v => v.Length));
+            Assert.AreEqual(Maybe.Some(3), source.MaxOrNone(v => v.Length));
+            Assert.AreEqual(Maybe<int>.None, new string[0].MinOrNone(v => v.Length));
+        }
+
+        [Test]
+        public void TestMinOrNoneSkipsNulls()
+        {
+            // Comparer<string>.Default sorts null before everything, so without skipping them a
+            // single null would be the answer for every sequence of a reference type.
+            string[] source = { "b", null, "a" };
+
+            Assert.AreEqual(Maybe.Some("a"), source.MinOrNone());
+            Assert.AreEqual(Maybe.Some("b"), source.MaxOrNone());
+        }
+
+        [Test]
+        public void TestMinOrNoneSkipsNullsInNullableValueTypes()
+        {
+            int?[] source = { 3, null, 1 };
+
+            Assert.AreEqual(Maybe.Some((int?)1), source.MinOrNone());
+            Assert.AreEqual(Maybe.Some((int?)3), source.MaxOrNone());
+        }
+
+        [Test]
+        public void TestMinOrNoneOfNothingButNulls()
+        {
+            // LINQ answers null here, which cannot be told from a sequence whose minimum is null.
+            // There is genuinely nothing to compare, so this says so.
+            Assert.AreEqual(Maybe<string>.None, new string[] { null, null }.MinOrNone());
+            Assert.AreEqual(Maybe<int?>.None, new int?[] { null, null }.MaxOrNone());
+        }
+
+        [Test]
+        public void TestMinOrNoneOrdersByTheComparerIncludingNaN()
+        {
+            // Pinned rather than claimed: Comparer<double>.Default sorts NaN below everything.
+            double[] source = { 2.0, double.NaN, 1.0 };
+
+            Assert.AreEqual(Maybe.Some(double.NaN), source.MinOrNone());
+            Assert.AreEqual(Maybe.Some(2.0), source.MaxOrNone());
+        }
+
         private static IEnumerable<T> Yield<T>(params T[] items)
         {
             foreach (T item in items)

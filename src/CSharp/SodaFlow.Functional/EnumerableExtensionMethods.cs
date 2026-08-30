@@ -238,6 +238,163 @@ namespace SodaFlow.Functional
             (source ?? new T[0]).Where(predicate).SingleOrNone();
 
         /// <summary>
+        ///     Combines the elements of a sequence with a function, if it has any.
+        /// </summary>
+        /// <typeparam name="T">The type of the values in the sequence.</typeparam>
+        /// <param name="source">The sequence to fold. A <see langword="null" /> sequence is treated as empty.</param>
+        /// <param name="f">
+        ///     Applied to the result so far and the next element, starting with the first two elements.
+        /// </param>
+        /// <returns>
+        ///     A <see cref="Maybe{T}" /> containing the combined value, the single element if there
+        ///     was only one, and no value if the sequence was empty.
+        /// </returns>
+        /// <remarks>
+        ///     The seedless <see cref="Enumerable.Aggregate{TSource}(IEnumerable{TSource},Func{TSource,TSource,TSource})" />,
+        ///     which throws on an empty sequence because it has nothing to return. There is no such
+        ///     problem when the answer can say there was nothing to combine.
+        ///
+        ///     Where a seed exists, <see cref="Enumerable.Aggregate{TSource,TAccumulate}(IEnumerable{TSource},TAccumulate,Func{TAccumulate,TSource,TAccumulate})" />
+        ///     is already total and is the one to use.
+        /// </remarks>
+        [JetBrains.Annotations.Pure]
+        public static Maybe<T> AggregateOrNone<T>(
+            [JetBrains.Annotations.InstantHandle] this IEnumerable<T> source,
+            [JetBrains.Annotations.InstantHandle] Func<T, T, T> f)
+        {
+            if (source == null)
+            {
+                return Maybe.None;
+            }
+
+            bool any = false;
+            T accumulated = default(T);
+
+            foreach (T item in source)
+            {
+                accumulated = any ? f(accumulated, item) : item;
+                any = true;
+            }
+
+            return Maybe.SomeIf(any, accumulated);
+        }
+
+        /// <summary>
+        ///     Returns the smallest element of a sequence, if it has any.
+        /// </summary>
+        /// <typeparam name="T">The type of the values in the sequence.</typeparam>
+        /// <param name="source">The sequence to search. A <see langword="null" /> sequence is treated as empty.</param>
+        /// <returns>
+        ///     A <see cref="Maybe{T}" /> containing the smallest element by
+        ///     <see cref="Comparer{T}.Default" />, and no value if there is nothing to compare.
+        /// </returns>
+        /// <remarks>
+        ///     <see cref="Enumerable.Min{TSource}(IEnumerable{TSource})" /> throws on an empty sequence
+        ///     of a non-nullable type, and returns <see langword="null" /> on one of a nullable type -
+        ///     which is indistinguishable from a sequence whose smallest element is
+        ///     <see langword="null" />. Neither is a good answer, and neither is needed once the
+        ///     result can say there was nothing to compare.
+        /// </remarks>
+        [JetBrains.Annotations.Pure]
+        public static Maybe<T> MinOrNone<T>([JetBrains.Annotations.InstantHandle] this IEnumerable<T> source) =>
+            source.MinOrNone(null);
+
+        /// <summary>
+        ///     Returns the smallest element of a sequence by the given comparer, if it has any.
+        /// </summary>
+        /// <typeparam name="T">The type of the values in the sequence.</typeparam>
+        /// <param name="source">The sequence to search. A <see langword="null" /> sequence is treated as empty.</param>
+        /// <param name="comparer">
+        ///     The ordering to use. <see langword="null" /> means <see cref="Comparer{T}.Default" />.
+        /// </param>
+        /// <returns>
+        ///     A <see cref="Maybe{T}" /> containing the smallest element, and no value if there is
+        ///     nothing to compare.
+        /// </returns>
+        [JetBrains.Annotations.Pure]
+        public static Maybe<T> MinOrNone<T>(
+            [JetBrains.Annotations.InstantHandle] this IEnumerable<T> source,
+            IComparer<T> comparer) =>
+            source.ExtremeOrNone(comparer, false);
+
+        /// <summary>
+        ///     Returns the smallest value produced from a sequence, if it has any elements.
+        /// </summary>
+        /// <typeparam name="T">The type of the values in the sequence.</typeparam>
+        /// <typeparam name="TResult">The type of the values to compare.</typeparam>
+        /// <param name="source">The sequence to search. A <see langword="null" /> sequence is treated as empty.</param>
+        /// <param name="selector">Applied to each element to produce the value to compare.</param>
+        /// <returns>
+        ///     A <see cref="Maybe{T}" /> containing the smallest produced value by
+        ///     <see cref="Comparer{T}.Default" />, and no value if there is nothing to compare.
+        /// </returns>
+        /// <remarks>
+        ///     This returns the smallest value <paramref name="selector" /> produced, not the element
+        ///     which produced it. For the element, order by the key and take
+        ///     <see cref="FirstOrNone{T}(IEnumerable{T})" />.
+        /// </remarks>
+        [JetBrains.Annotations.Pure]
+        public static Maybe<TResult> MinOrNone<T, TResult>(
+            [JetBrains.Annotations.InstantHandle] this IEnumerable<T> source,
+            [JetBrains.Annotations.InstantHandle] Func<T, TResult> selector) =>
+            (source ?? new T[0]).Select(selector).MinOrNone();
+
+        /// <summary>
+        ///     Returns the largest element of a sequence, if it has any.
+        /// </summary>
+        /// <typeparam name="T">The type of the values in the sequence.</typeparam>
+        /// <param name="source">The sequence to search. A <see langword="null" /> sequence is treated as empty.</param>
+        /// <returns>
+        ///     A <see cref="Maybe{T}" /> containing the largest element by
+        ///     <see cref="Comparer{T}.Default" />, and no value if there is nothing to compare.
+        /// </returns>
+        /// <remarks>
+        ///     See <see cref="MinOrNone{T}(IEnumerable{T})" /> for why this exists.
+        /// </remarks>
+        [JetBrains.Annotations.Pure]
+        public static Maybe<T> MaxOrNone<T>([JetBrains.Annotations.InstantHandle] this IEnumerable<T> source) =>
+            source.MaxOrNone(null);
+
+        /// <summary>
+        ///     Returns the largest element of a sequence by the given comparer, if it has any.
+        /// </summary>
+        /// <typeparam name="T">The type of the values in the sequence.</typeparam>
+        /// <param name="source">The sequence to search. A <see langword="null" /> sequence is treated as empty.</param>
+        /// <param name="comparer">
+        ///     The ordering to use. <see langword="null" /> means <see cref="Comparer{T}.Default" />.
+        /// </param>
+        /// <returns>
+        ///     A <see cref="Maybe{T}" /> containing the largest element, and no value if there is
+        ///     nothing to compare.
+        /// </returns>
+        [JetBrains.Annotations.Pure]
+        public static Maybe<T> MaxOrNone<T>(
+            [JetBrains.Annotations.InstantHandle] this IEnumerable<T> source,
+            IComparer<T> comparer) =>
+            source.ExtremeOrNone(comparer, true);
+
+        /// <summary>
+        ///     Returns the largest value produced from a sequence, if it has any elements.
+        /// </summary>
+        /// <typeparam name="T">The type of the values in the sequence.</typeparam>
+        /// <typeparam name="TResult">The type of the values to compare.</typeparam>
+        /// <param name="source">The sequence to search. A <see langword="null" /> sequence is treated as empty.</param>
+        /// <param name="selector">Applied to each element to produce the value to compare.</param>
+        /// <returns>
+        ///     A <see cref="Maybe{T}" /> containing the largest produced value by
+        ///     <see cref="Comparer{T}.Default" />, and no value if there is nothing to compare.
+        /// </returns>
+        /// <remarks>
+        ///     This returns the largest value <paramref name="selector" /> produced, not the element
+        ///     which produced it.
+        /// </remarks>
+        [JetBrains.Annotations.Pure]
+        public static Maybe<TResult> MaxOrNone<T, TResult>(
+            [JetBrains.Annotations.InstantHandle] this IEnumerable<T> source,
+            [JetBrains.Annotations.InstantHandle] Func<T, TResult> selector) =>
+            (source ?? new T[0]).Select(selector).MaxOrNone();
+
+        /// <summary>
         ///     Returns the element at a given position in a sequence, if there is one there.
         /// </summary>
         /// <typeparam name="T">The type of the values in the sequence.</typeparam>
@@ -284,6 +441,58 @@ namespace SodaFlow.Functional
 
                 return Maybe.Some(enumerator.Current);
             }
+        }
+
+        /// <summary>
+        ///     The shared implementation of <see cref="MinOrNone{T}(IEnumerable{T},IComparer{T})" />
+        ///     and <see cref="MaxOrNone{T}(IEnumerable{T},IComparer{T})" />.
+        /// </summary>
+        /// <remarks>
+        ///     Elements which are <see langword="null" /> are skipped, which is what
+        ///     <see cref="Enumerable.Min{TSource}(IEnumerable{TSource})" /> does and is almost never
+        ///     what <see cref="Comparer{T}.Default" /> would do - it sorts <see langword="null" />
+        ///     before everything, so a single null element would otherwise be the answer for every
+        ///     sequence of a reference type. A sequence of nothing but nulls therefore has nothing to
+        ///     compare and gives no value, where LINQ would give <see langword="null" />.
+        ///
+        ///     The test is only made for types which can actually hold one; for a non-nullable value
+        ///     type the branch is never taken and nothing is boxed.
+        /// </remarks>
+        private static Maybe<T> ExtremeOrNone<T>(this IEnumerable<T> source, IComparer<T> comparer, bool wantLarger)
+        {
+            if (source == null)
+            {
+                return Maybe.None;
+            }
+
+            IComparer<T> c = comparer ?? Comparer<T>.Default;
+            bool canBeNull = !typeof(T).IsValueType || Nullable.GetUnderlyingType(typeof(T)) != null;
+
+            bool any = false;
+            T best = default(T);
+
+            foreach (T item in source)
+            {
+                if (canBeNull && (object)item == null)
+                {
+                    continue;
+                }
+
+                if (!any)
+                {
+                    best = item;
+                    any = true;
+                    continue;
+                }
+
+                int comparison = c.Compare(item, best);
+                if (wantLarger ? comparison > 0 : comparison < 0)
+                {
+                    best = item;
+                }
+            }
+
+            return Maybe.SomeIf(any, best);
         }
     }
 }
