@@ -707,7 +707,30 @@ namespace SodaFlow
         ///     discarding <see cref="Maybe.None" /> values.
         /// </returns>
         [MethodImpl(MethodImplOptions.NoInlining)]
-        public static Stream<T> FilterMaybe<T>(this Stream<Maybe<T>> s) =>
+        public static Stream<T> FilterSome<T>(this Stream<Maybe<T>> s) =>
             s.FilterMaybeImpl<T, Maybe<T>>((m, a) => m.MatchSome(a));
+
+        /// <summary>
+        ///     Transform the stream values with a function which may produce no value, and fire only the values it produced.
+        /// </summary>
+        /// <param name="s">The stream to transform.</param>
+        /// <param name="f">
+        ///     Function to apply to each value. It may construct FRP logic or use <see cref="CellExtensionMethods.Sample{T}" />.  Apart
+        ///     from this the function must be pure.
+        /// </param>
+        /// <typeparam name="T">The type of the values fired by the stream to transform.</typeparam>
+        /// <typeparam name="TResult">The type of the values fired by the returned stream.</typeparam>
+        /// <returns>
+        ///     A stream which fires the value produced by <paramref name="f" /> for each firing of <paramref name="s" /> it
+        ///     produced one for, and does not fire for the firings it did not.
+        /// </returns>
+        /// <remarks>
+        ///     Mapping and filtering in one step, for the common case where deciding whether an event should be let through is
+        ///     the same work as producing the value to let through - parsing, looking up, narrowing a type.  Exactly
+        ///     <c>s.Map(f).FilterSome()</c>, and the same transaction semantics.
+        /// </remarks>
+        [MethodImpl(MethodImplOptions.NoInlining)]
+        public static Stream<TResult> Choose<T, TResult>(this Stream<T> s, Func<T, Maybe<TResult>> f) =>
+            s.MapImpl(f).FilterMaybeImpl<TResult, Maybe<TResult>>((m, a) => m.MatchSome(a));
     }
 }

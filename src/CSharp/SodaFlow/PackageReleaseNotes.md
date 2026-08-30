@@ -1,3 +1,28 @@
+3.0.0
+
+BREAKING: Stream.FilterMaybe is renamed to Stream.FilterSome. It does exactly
+what it always did; the old name said "stream of Maybe" where what the method
+actually selects is the case that has a value.
+
+This one breaks loudly. There is no overload left under the old name, so every
+call site is a compile error naming the method, and the fix is a rename.
+Nothing about the behavior, the transaction semantics or the type changed.
+
+New: Stream.Choose(f) maps and filters in one step, firing only the values the
+function produced. It is exactly Map(f).FilterSome(), for the common case where
+deciding whether an event should pass is the same work as producing the value
+to pass on - parsing, looking up, narrowing a type. The spelled-out form is
+still there for when the intermediate Stream<Maybe<T>> is wanted for itself.
+
+Choose has no F# equivalent yet; filterOptionS remains the F# counterpart of
+FilterSome, and keeps its name, since F# names the type option rather than
+Maybe.
+
+The internal FilterMaybeImpl and FilterMaybeInternal helpers in SodaFlow.Core
+keep their names. They are generic over whichever optional type is being
+unwrapped - Maybe<T> here, option from F#, MaybeInternal<T> inside the engine -
+so there "Maybe" names the type and not the case.
+
 2.0.1
 
 Adds the release notes below. 2.0.0 shipped without any, because the mechanism

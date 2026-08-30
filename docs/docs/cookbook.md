@@ -22,13 +22,20 @@ want.
 
 ## Parse input, ignoring failures
 
-`Maybe` plus `FilterMaybe` expresses "compute something that might not work, and only fire
-when it did":
+`Choose` expresses "compute something that might not work, and only fire when it did" in one
+step:
+
+```csharp
+Stream<int> numbers = input.Choose(s => int.TryParse(s, out int n) ? Maybe.Some(n) : Maybe.None);
+```
+
+`Map` followed by `FilterSome` is the same thing spelled out, and is what to reach for when the
+intermediate `Stream<Maybe<T>>` is wanted for its own sake:
 
 ```csharp
 Stream<int> numbers = input
     .Map(s => int.TryParse(s, out int n) ? Maybe.Some(n) : Maybe.None)
-    .FilterMaybe();
+    .FilterSome();
 ```
 
 ## Enable a control conditionally

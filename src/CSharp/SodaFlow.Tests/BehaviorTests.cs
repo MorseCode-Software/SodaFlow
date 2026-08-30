@@ -696,9 +696,9 @@ namespace SodaFlow.Tests
             StreamSink<Sc> ssc = Stream.CreateSink<Sc>();
             // Split each field out of SB so we can update multiple behaviors in a
             // single transaction.
-            Cell<char> ca = ssc.Map(s => s.A).FilterMaybe().Hold('A');
-            Cell<char> cb = ssc.Map(s => s.B).FilterMaybe().Hold('a');
-            Cell<Cell<char>> csw = ssc.Map(s => s.Sw).FilterMaybe().Hold(ca);
+            Cell<char> ca = ssc.Map(s => s.A).FilterSome().Hold('A');
+            Cell<char> cb = ssc.Map(s => s.B).FilterSome().Hold('a');
+            Cell<Cell<char>> csw = ssc.Map(s => s.Sw).FilterSome().Hold(ca);
             Cell<char> co = csw.SwitchC();
             List<char> @out = new List<char>();
             IListener l = co.ListenStrong(@out.Add);
@@ -779,7 +779,7 @@ namespace SodaFlow.Tests
             // single transaction.
             Stream<char> sa = sss.Map(s => s.A);
             Stream<char> sb = sss.Map(s => s.B);
-            Cell<Stream<char>> csw = sss.Map(s => s.Sw).FilterMaybe().Hold(sa);
+            Cell<Stream<char>> csw = sss.Map(s => s.Sw).FilterSome().Hold(sa);
             Stream<char> so = csw.SwitchS();
             List<char> @out = new List<char>();
             IListener l = so.ListenStrong(@out.Add);
