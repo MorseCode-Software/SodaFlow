@@ -43,11 +43,11 @@ SodaFlow.FSharp gets the same pair: filterOptionS is renamed to filterSomeS,
 and chooseS is added. Some names the case that has a value in both languages,
 so both APIs now say so.
 
-Requires SodaFlow.Core 3.0.0 or newer. The internal helper this calls was
-renamed in step, so a 2.x core resolved against this package throws
-MissingMethodException. Upgrade SodaFlow, SodaFlow.FSharp and SodaFlow.Core
-together; the async and bindable object model packages call none of the renamed
-members and do not have to move with them.
+Requires SodaFlow.Core 3.x. The internal helper this calls was renamed in step,
+so a 2.x core resolved against this package would throw
+MissingMethodException. This package's dependency on SodaFlow.Core is declared
+as a range bounded at the next major, so that pairing is refused at restore
+rather than discovered at runtime.
 
 2.0.1
 

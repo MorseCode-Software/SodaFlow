@@ -14,10 +14,12 @@ MissingMethodException against this version.
 That is why this is a major version even though nothing changed for a caller
 outside those eight.
 
-Upgrade SodaFlow, SodaFlow.FSharp and SodaFlow.Core together: those are the
-three that call the renamed members. The async and bindable object model
-packages call none of them, are unaffected by this release, and release on
-their own schedules rather than following this one.
+No one has to remember that. Every package here now declares the range of this
+one it was built against, bounded at the next major, so NuGet refuses a pairing
+that would fail rather than resolving it and leaving the failure until someone
+runs the code. SodaFlow and SodaFlow.FSharp ship alongside this release; the
+async and bindable object model packages follow with compatibility releases,
+each of which moves a dependency range and nothing else.
 
 2.1.1
 

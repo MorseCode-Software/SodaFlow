@@ -93,6 +93,38 @@
         Resolved in a target rather than a property group so the files are read only when packing,
         and so a project that sets PackageReleaseNotes itself still wins.
     -->
+    <!--
+        Dependencies between these packages are emitted with an upper bound, so that NuGet refuses
+        an incompatible pairing rather than a release note asking people not to create one.
+
+        Pack writes a ProjectReference dependency as a bare version, which NuGet reads as a
+        minimum with no ceiling: SodaFlow 2.0.1 declared SodaFlow.Core >= 2.1.1, and would happily
+        resolve against SodaFlow.Core 3.0.0 - the one pairing that throws MissingMethodException,
+        because the core renamed internals these wrappers call. The constraint was real and only
+        prose expressed it, which is no constraint at all.
+
+        The ceiling is the next major of the dependency. That is exactly the promise a major
+        version carries here: SodaFlow.Core treats its internal surface as API precisely because
+        eight packages compile against it, so a wrapper built against 3.x works with any later 3.x
+        and is not promised anything about 4.0.0.
+
+        This works by rewriting the metadata NuGet has just collected. _GetProjectReferenceVersions
+        asks each referenced project for its PackageVersion and stores it as ProjectVersion
+        metadata; GenerateNuspec runs that target first and then reads the result, so a target
+        placed between the two can widen the value into a range without overriding anything NuGet
+        owns. The major is taken with a regular expression rather than System.Version.Parse, which
+        cannot read the prerelease versions MinVer produces for untagged commits.
+    -->
+    <Target Name="AddUpperBoundToProjectReferenceVersions"
+            AfterTargets="_GetProjectReferenceVersions"
+            Condition="'$(NuspecFile)' == ''">
+        <ItemGroup>
+            <_ProjectReferencesWithVersions Update="@(_ProjectReferencesWithVersions)">
+                <ProjectVersion>[%(ProjectVersion), $([MSBuild]::Add($([System.Text.RegularExpressions.Regex]::Match(%(ProjectVersion), `^[0-9]+`).Value), 1)).0.0)</ProjectVersion>
+            </_ProjectReferencesWithVersions>
+        </ItemGroup>
+    </Target>
+
     <Target Name="SetPackageReleaseNotesFromFile" BeforeTargets="GenerateNuspec">
         <PropertyGroup>
             <_ProjectReleaseNotes>$(MSBuildProjectDirectory)\PackageReleaseNotes.md</_ProjectReleaseNotes>

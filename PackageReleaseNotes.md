@@ -28,4 +28,8 @@ SodaFlow.Core changed an internal method in place, so a wrapper built against
 resolves against a 2.x core. Upgrade a wrapper together with the core it calls;
 each package's own notes say which core version it needs.
 
+These versions declare their dependencies with no upper bound, so nothing stops
+that pairing being installed. Packages published from the next release onward
+declare a range instead, and NuGet refuses it.
+
 Full notes: https://github.com/MorseCode-Software/SodaFlow/releases/tag/sodaflow-2.0.0
