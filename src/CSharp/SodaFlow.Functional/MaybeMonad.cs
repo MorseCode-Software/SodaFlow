@@ -104,6 +104,63 @@ namespace SodaFlow.Functional
                 });
         }
 
+        /// <summary>
+        ///     Implements the LINQ select operation for the <see cref="Maybe{T}" /> monad.
+        /// </summary>
+        /// <param name="value">
+        ///     The <see cref="Maybe{T}" /> value to transform.
+        /// </param>
+        /// <param name="transformation">
+        ///     The transformation function, which takes a value of type <typeparamref name="T" /> contained in the monad and
+        ///     transforms it into a value of type <typeparamref name="TResult" />.
+        /// </param>
+        /// <typeparam name="T">
+        ///     The type of the value contained in the monad to transform.
+        /// </typeparam>
+        /// <typeparam name="TResult">
+        ///     The type of the value contained in the resulting monad.
+        /// </typeparam>
+        /// <returns>
+        ///     The <see cref="Maybe{TResult}" /> which results from transforming <paramref name="value" /> using
+        ///     <paramref name="transformation" />.
+        /// </returns>
+        /// <remarks>
+        ///     The same operation as <see cref="Maybe{T}.Map{TResult}" />, under the name the compiler
+        ///     looks for. It is what lets a <see cref="Maybe{T}" /> be the source of a query
+        ///     expression, so that <c>from x in m select f(x)</c> compiles.
+        /// </remarks>
+        public static Maybe<TResult> Select<T, TResult>(
+            this Maybe<T> value,
+            [JetBrains.Annotations.InstantHandle] Func<T, TResult> transformation) =>
+            value.Map(transformation);
+
+        /// <summary>
+        ///     Implements the LINQ where operation for the <see cref="Maybe{T}" /> monad, keeping the
+        ///     contained value only if it satisfies a predicate.
+        /// </summary>
+        /// <param name="value">
+        ///     The <see cref="Maybe{T}" /> value to filter.
+        /// </param>
+        /// <param name="predicate">
+        ///     The predicate, which is run against the contained value if there is one.
+        /// </param>
+        /// <typeparam name="T">
+        ///     The type of the value contained in the monad to filter.
+        /// </typeparam>
+        /// <returns>
+        ///     <paramref name="value" /> if it contains a value which satisfies <paramref name="predicate" />, and a
+        ///     <see cref="Maybe{T}" /> containing no value otherwise.
+        /// </returns>
+        /// <remarks>
+        ///     <paramref name="predicate" /> is run only when there is a value, so this narrows a value
+        ///     which is already there rather than producing one. It is also what lets a query
+        ///     expression over a <see cref="Maybe{T}" /> carry a <c>where</c> clause.
+        /// </remarks>
+        public static Maybe<T> Where<T>(
+            this Maybe<T> value,
+            [JetBrains.Annotations.InstantHandle] Func<T, bool> predicate) =>
+            value.Bind(v => Maybe.SomeIf(predicate(v), v));
+
         #endregion
     }
 }

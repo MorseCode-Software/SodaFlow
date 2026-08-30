@@ -25,6 +25,7 @@
 
   <ItemGroup>
     <Compile Include="Either.cs" />
+    <Compile Include="EnumerableExtensionMethods.cs" />
     <Compile Include="IEither.cs" />
     <Compile Include="IMaybe.cs" />
     <Compile Include="JetBrainsAnnotations.cs" />
@@ -32,6 +33,9 @@
     <Compile Include="Maybe.cs" />
     <Compile Include="MaybeExtensionMethods.cs" />
     <Compile Include="MaybeMonad.cs" />
+    <Compile Include="ReadOnlyDictionaryExtensionMethods.cs" />
+    <Compile Include="StringExtensionMethods.cs" />
+    <Compile Include="TryGet.cs" />
     <Compile Include="Unit.cs" />
     <Compile Include="UnitExtensionMethods.cs" />
   </ItemGroup>

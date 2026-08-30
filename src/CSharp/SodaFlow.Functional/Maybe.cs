@@ -24,6 +24,184 @@ namespace SodaFlow.Functional
         public static Maybe<T> Some<T>(T value) => Maybe<T>.Some(value);
 
         /// <summary>
+        ///     Creates a <see cref="Maybe{T}" /> containing the given value if a condition holds,
+        ///     and one containing nothing if it does not.
+        /// </summary>
+        /// <typeparam name="T">The type of the value, inferred from <paramref name="value" />.</typeparam>
+        /// <param name="condition">Whether the value should be contained.</param>
+        /// <param name="value">The value to contain when <paramref name="condition" /> holds.</param>
+        /// <returns>
+        ///     A <see cref="Maybe{T}" /> containing <paramref name="value" /> if
+        ///     <paramref name="condition" /> is <see langword="true" />, and one containing no value
+        ///     otherwise.
+        /// </returns>
+        /// <remarks>
+        ///     This is the direct translation of an <c>if</c> which produces a value in one branch and
+        ///     has nothing to produce in the other. <paramref name="value" /> is evaluated either way,
+        ///     since it is an argument; where that is not wanted, use
+        ///     <see cref="SomeIf{T}(bool,System.Func{T})" />.
+        /// </remarks>
+        [JetBrains.Annotations.Pure]
+        public static Maybe<T> SomeIf<T>(bool condition, T value) => condition ? Some(value) : None;
+
+        /// <summary>
+        ///     Creates a <see cref="Maybe{T}" /> containing the result of the given function if a
+        ///     condition holds, and one containing nothing if it does not.
+        /// </summary>
+        /// <typeparam name="T">The type of the value, inferred from <paramref name="valueFactory" />.</typeparam>
+        /// <param name="condition">Whether a value should be produced and contained.</param>
+        /// <param name="valueFactory">Run to produce the value when <paramref name="condition" /> holds.</param>
+        /// <returns>
+        ///     A <see cref="Maybe{T}" /> containing the result of <paramref name="valueFactory" /> if
+        ///     <paramref name="condition" /> is <see langword="true" />, and one containing no value
+        ///     otherwise.
+        /// </returns>
+        /// <remarks>
+        ///     <paramref name="valueFactory" /> is run only when <paramref name="condition" /> holds, so
+        ///     this is the form to reach for when producing the value is expensive, or when producing it
+        ///     is only valid in that case.
+        /// </remarks>
+        [JetBrains.Annotations.Pure]
+        public static Maybe<T> SomeIf<T>(
+            bool condition,
+            [JetBrains.Annotations.InstantHandle] Func<T> valueFactory) =>
+            condition ? Some(valueFactory()) : None;
+
+        /// <summary>
+        ///     Creates a <see cref="Maybe{T}" /> containing the given reference, unless it is
+        ///     <see langword="null" />.
+        /// </summary>
+        /// <typeparam name="T">The type of the value, inferred from <paramref name="value" />.</typeparam>
+        /// <param name="value">The reference to contain if it is not <see langword="null" />.</param>
+        /// <returns>
+        ///     A <see cref="Maybe{T}" /> containing <paramref name="value" /> if it is not
+        ///     <see langword="null" />, and one containing no value otherwise.
+        /// </returns>
+        /// <remarks>
+        ///     This is the bridge from the older convention, where a <see langword="null" /> reference
+        ///     stands for the absence of a value. It is deliberately not what <see cref="Some{T}" />
+        ///     does: that contains <see langword="null" /> like any other value, which is what lets a
+        ///     <see cref="Maybe{T}" /> of a nullable type distinguish no value at all from a value
+        ///     which is <see langword="null" />.
+        /// </remarks>
+        [JetBrains.Annotations.Pure]
+        public static Maybe<T> SomeNotNull<T>(T value)
+            where T : class => value == null ? None : Some(value);
+
+        /// <summary>
+        ///     Creates a <see cref="Maybe{T}" /> containing the value of the given
+        ///     <see cref="System.Nullable{T}" />, if it has one.
+        /// </summary>
+        /// <typeparam name="T">The underlying type of <paramref name="value" />.</typeparam>
+        /// <param name="value">The nullable value to convert.</param>
+        /// <returns>
+        ///     A <see cref="Maybe{T}" /> containing the value of <paramref name="value" /> if it has
+        ///     one, and one containing no value otherwise.
+        /// </returns>
+        [JetBrains.Annotations.Pure]
+        public static Maybe<T> SomeNotNull<T>(T? value)
+            where T : struct => value.HasValue ? Some(value.Value) : None;
+
+        /// <summary>
+        ///     Runs a method of the <c>bool Try...(out TResult)</c> shape and returns what it produced.
+        /// </summary>
+        /// <typeparam name="TResult">The type of the value the method produces.</typeparam>
+        /// <param name="tryGet">The method to run.</param>
+        /// <returns>
+        ///     A <see cref="Maybe{T}" /> containing the output of <paramref name="tryGet" /> if it
+        ///     returned <see langword="true" />, and one containing no value otherwise.
+        /// </returns>
+        /// <remarks>
+        ///     The wrappers this library ships - on <see cref="StringExtensionMethods" /> and
+        ///     <see cref="ReadOnlyDictionaryExtensionMethods" /> - cover the common cases. This is for
+        ///     the ones it does not know about: your own, or another library.
+        /// </remarks>
+        [JetBrains.Annotations.Pure]
+        public static Maybe<TResult> FromTryGet<TResult>(
+            [JetBrains.Annotations.InstantHandle] TryGet<TResult> tryGet)
+        {
+            TResult result;
+            return tryGet(out result) ? Some(result) : None;
+        }
+
+        /// <summary>
+        ///     Runs a method of the <c>bool Try...(T, out TResult)</c> shape against the given input and
+        ///     returns what it produced.
+        /// </summary>
+        /// <typeparam name="T">The type of the input.</typeparam>
+        /// <typeparam name="TResult">The type of the value the method produces.</typeparam>
+        /// <param name="value">The input to pass to <paramref name="tryGet" />.</param>
+        /// <param name="tryGet">The method to run.</param>
+        /// <returns>
+        ///     A <see cref="Maybe{T}" /> containing the output of <paramref name="tryGet" /> if it
+        ///     returned <see langword="true" />, and one containing no value otherwise.
+        /// </returns>
+        /// <remarks>
+        ///     Both type arguments have to be written out, since a method group carries no type of its
+        ///     own for them to be inferred from:
+        ///     <c>Maybe.FromTryGet&lt;string, int&gt;(s, int.TryParse)</c>.
+        /// </remarks>
+        [JetBrains.Annotations.Pure]
+        public static Maybe<TResult> FromTryGet<T, TResult>(
+            T value,
+            [JetBrains.Annotations.InstantHandle] TryGet<T, TResult> tryGet)
+        {
+            TResult result;
+            return tryGet(value, out result) ? Some(result) : None;
+        }
+
+        /// <summary>
+        ///     Runs a method of the <c>bool Try...(T1, T2, out TResult)</c> shape against the given
+        ///     inputs and returns what it produced.
+        /// </summary>
+        /// <typeparam name="T1">The type of the first input.</typeparam>
+        /// <typeparam name="T2">The type of the second input.</typeparam>
+        /// <typeparam name="TResult">The type of the value the method produces.</typeparam>
+        /// <param name="value1">The first input to pass to <paramref name="tryGet" />.</param>
+        /// <param name="value2">The second input to pass to <paramref name="tryGet" />.</param>
+        /// <param name="tryGet">The method to run.</param>
+        /// <returns>
+        ///     A <see cref="Maybe{T}" /> containing the output of <paramref name="tryGet" /> if it
+        ///     returned <see langword="true" />, and one containing no value otherwise.
+        /// </returns>
+        [JetBrains.Annotations.Pure]
+        public static Maybe<TResult> FromTryGet<T1, T2, TResult>(
+            T1 value1,
+            T2 value2,
+            [JetBrains.Annotations.InstantHandle] TryGet<T1, T2, TResult> tryGet)
+        {
+            TResult result;
+            return tryGet(value1, value2, out result) ? Some(result) : None;
+        }
+
+        /// <summary>
+        ///     Runs a method of the <c>bool Try...(T1, T2, T3, out TResult)</c> shape against the given
+        ///     inputs and returns what it produced.
+        /// </summary>
+        /// <typeparam name="T1">The type of the first input.</typeparam>
+        /// <typeparam name="T2">The type of the second input.</typeparam>
+        /// <typeparam name="T3">The type of the third input.</typeparam>
+        /// <typeparam name="TResult">The type of the value the method produces.</typeparam>
+        /// <param name="value1">The first input to pass to <paramref name="tryGet" />.</param>
+        /// <param name="value2">The second input to pass to <paramref name="tryGet" />.</param>
+        /// <param name="value3">The third input to pass to <paramref name="tryGet" />.</param>
+        /// <param name="tryGet">The method to run.</param>
+        /// <returns>
+        ///     A <see cref="Maybe{T}" /> containing the output of <paramref name="tryGet" /> if it
+        ///     returned <see langword="true" />, and one containing no value otherwise.
+        /// </returns>
+        [JetBrains.Annotations.Pure]
+        public static Maybe<TResult> FromTryGet<T1, T2, T3, TResult>(
+            T1 value1,
+            T2 value2,
+            T3 value3,
+            [JetBrains.Annotations.InstantHandle] TryGet<T1, T2, T3, TResult> tryGet)
+        {
+            TResult result;
+            return tryGet(value1, value2, value3, out result) ? Some(result) : None;
+        }
+
+        /// <summary>
         ///     The absence of a value, convertible to a <see cref="Maybe{T}" /> of any type.
         /// </summary>
         /// <remarks>

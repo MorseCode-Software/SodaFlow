@@ -1,3 +1,46 @@
+2.0.0
+
+BREAKING: WhereMaybe and AllMaybeOrNone are gone, renamed to WhereSome and
+AllSomeOrNone. Both did exactly what the new names say, under old ones that
+named the type where every other member here names the case that has a value.
+Rename the calls; nothing else about either changed. These are renames and not
+deprecations because the package is days old and there is no installed base
+worth carrying the old names for.
+
+New: a Maybe<T> vocabulary large enough to use without falling back to Match
+for everything.
+
+Building one: Maybe.SomeIf(condition, value) and its lazy overload turn an
+if/then which produces a value in one branch and nothing in the other straight
+into a Maybe<T>. Maybe.SomeNotNull, and the ToMaybe / ToNullable extension
+methods, bridge to and from null references and Nullable<T>. SomeNotNull is
+deliberately not what Some does: Some(null) still contains null, which is what
+lets Maybe<string> tell no value apart from the value null.
+
+Working with one: ValueOr, ValueOrDefault, ValueOrThrow, OrElse, Where,
+Select, and Lift for two, three and four inputs. Select and Where complete the
+set the compiler looks for, so query syntax now works over a Maybe<T> - the
+SelectMany it needed was already there.
+
+Sequences: Choose to map and filter in one step, an AllSomeOrNone overload
+taking the mapping function, ToEnumerable, and FirstOrNone, LastOrNone,
+SingleOrNone and ElementAtOrNone for the LINQ operators whose OrDefault forms
+cannot say whether they found anything. SingleOrNone still throws when there is
+more than one element, exactly as SingleOrDefault does: that is a contradicted
+assumption rather than a missing answer.
+
+Parsing and lookup, replacing bool Try...(v, out result) with
+Maybe<TResult> Try...(v): TryParse for every numeric type, plus Boolean, Char,
+Guid, DateTime, DateTimeOffset, TimeSpan and Uri, on string; TryParseEnum and
+TryParseDefinedEnum, the second of which rejects the undeclared numbers
+Enum.TryParse accepts; and TryGetValue on IReadOnlyDictionary<TKey, TValue>.
+
+Maybe.FromTryGet adapts any other method of that shape, including ones this
+package has never heard of, and the TryGet delegate types it takes are public.
+
+Apart from the removal above, everything here is new API, and nothing else that
+shipped in 1.0.x has changed behavior.
+
 1.0.2
 
 Carries the release notes below, which 1.0.1 shipped without. No code change
