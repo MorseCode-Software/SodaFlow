@@ -100,6 +100,36 @@ Maybe<int> area = "12".TryParseInt32().Lift("7".TryParseInt32(), (w, h) => w * h
 failure. It still makes the caller answer for the empty case, by making them say what the
 failure is.
 
+### Across an `await`
+
+`Maybe<T>` already had `MatchAsync` for consuming a value asynchronously. `MapAsync`,
+`BindAsync` and `WhereAsync` are the composing side, for when the work itself is asynchronous:
+
+```csharp
+Maybe<User> user = await id.TryParseInt32().BindAsync(i => repository.FindAsync(i));
+```
+
+The same operators also exist on `Task<Maybe<T>>`, so a chain that starts asynchronously can be
+continued without awaiting in the middle of it and parenthesizing everything before:
+
+```csharp
+Maybe<string> name = await id.TryParseInt32()
+    .BindAsync(i => repository.FindAsync(i))
+    .Map(u => u.Name)
+    .Where(n => n.Length > 0);
+```
+
+The `Async` suffix marks the overload whose function returns a task; the unsuffixed ones take a
+plain function and only their *subject* is asynchronous. `Match`, `ValueOr`, `ValueOrDefault`,
+`ValueOrThrow` and `OrElse` are there on `Task<Maybe<T>>` too, for ending the chain.
+
+Nothing runs on the empty path, and it returns a single cached completed task per type rather
+than allocating one per miss.
+
+There is deliberately no conversion from `Maybe<Task<T>>` to `Task<Maybe<T>>`. That shape almost
+always means `Map` was used where `MapAsync` was meant, and offering the repair would make the
+mistake easier to keep.
+
 ### Sequences
 
 | Member | Purpose |

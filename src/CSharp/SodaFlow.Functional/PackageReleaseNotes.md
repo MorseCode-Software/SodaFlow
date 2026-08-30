@@ -22,6 +22,18 @@ Select, and Lift for two, three and four inputs. Select and Where complete the
 set the compiler looks for, so query syntax now works over a Maybe<T> - the
 SelectMany it needed was already there.
 
+Across an await: MapAsync, BindAsync and WhereAsync on Maybe<T>, for when the
+work is asynchronous, and the same operators on Task<Maybe<T>> - along with
+Map, Bind, Where, Match, OrElse, ValueOr, ValueOrDefault and ValueOrThrow - so
+a chain which starts asynchronously can be continued without awaiting in the
+middle of it. MatchAsync only ever covered the consuming side. Nothing runs on
+the empty path, which returns one cached completed task per type rather than
+allocating per miss.
+
+There is deliberately no Maybe<Task<T>> to Task<Maybe<T>> conversion: that
+shape almost always means Map was used where MapAsync was meant, and shipping
+the repair would make the mistake easier to keep.
+
 Sequences: Choose to map and filter in one step, an AllSomeOrNone overload
 taking the mapping function, ToEnumerable, and FirstOrNone, LastOrNone,
 SingleOrNone and ElementAtOrNone for the LINQ operators whose OrDefault forms

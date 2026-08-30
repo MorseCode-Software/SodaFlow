@@ -27,6 +27,7 @@
       <Compile Include="EnumerableExtensionMethodsTests.cs" />
       <Compile Include="IssueTests.cs" />
       <Compile Include="LoopTests.cs" />
+      <Compile Include="MaybeAsyncExtensionMethodsTests.cs" />
       <Compile Include="MaybeExtensionMethodsTests.cs" />
       <Compile Include="MaybeMonadTests.cs" />
       <Compile Include="MaybeTests.cs" />
