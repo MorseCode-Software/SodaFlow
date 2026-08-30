@@ -1,5 +1,7 @@
-# Auto detect text files and perform LF normalization
-* text=auto
+# Auto detect text files and perform LF normalization.
+# eol=lf additionally forces LF in the working tree on every platform, so a checkout is
+# byte-identical everywhere and a machine's core.autocrlf cannot make it disagree with the rest.
+* text=auto eol=lf
 
 # Custom for Visual Studio
 *.cs     diff=csharp

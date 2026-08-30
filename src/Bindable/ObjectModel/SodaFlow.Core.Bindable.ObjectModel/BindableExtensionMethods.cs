@@ -78,7 +78,7 @@ namespace SodaFlow.Bindable.ObjectModel
         /// </summary>
         /// <remarks>
         ///     For a <c>StreamSink&lt;Unit&gt;</c> the non-generic overload wins overload resolution.
-        ///     Write <c>ToBindableAction&lt;Unit&gt;(...)</c> explicitly if you want the parameterised
+        ///     Write <c>ToBindableAction&lt;Unit&gt;(...)</c> explicitly if you want the parameterized
         ///     form for a unit sink.
         /// </remarks>
         internal static IBindableAction<T> ToBindableActionImpl<T>(

@@ -12,7 +12,7 @@ namespace SodaFlow.Bindable.ObjectModel
         /// <remarks>
         ///     Safe to construct on any thread. The initial value is sampled by whichever thread builds
         ///     the instance and read by the binding thread; <see cref="ValueBox{T}" /> is what orders
-        ///     the two. Every later change is marshalled through the scheduler.
+        ///     the two. Every later change is marshaled through the scheduler.
         /// </remarks>
         private sealed class OneWayBindableValue<T> : BindableValueBase, IOneWayBindableValue<T>
         {

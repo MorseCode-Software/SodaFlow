@@ -26,6 +26,8 @@
       href: time.md
     - name: Asynchronous work
       href: async.md
+    - name: Data binding
+      href: bindable.md
     - name: Maybe, Either and Unit
       href: functional.md
     - name: F# and the API reference
@@ -33,3 +35,6 @@
 
 - name: Cookbook
   href: cookbook.md
+
+- name: Sample applications
+  href: samples.md
