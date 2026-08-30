@@ -12,7 +12,7 @@ The idea is simple even though the consequences are not. If you have a cell hold
 reactive value, `Switch` flattens it — and the result tracks whichever inner value the outer
 cell currently holds.
 
-## The three flavours
+## The three flavors
 
 | You have | Call | You get |
 | --- | --- | --- |

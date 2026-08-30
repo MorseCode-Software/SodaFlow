@@ -26,7 +26,7 @@ implementation. The model documented here — streams, cells, behaviors, and tra
 Sodium's — including its [denotational semantics](docs/semantics.md), which SodaFlow
 implements unchanged — and the credit for it belongs there. Sodium's implementations for Java, Scala, C++,
 Kotlin, TypeScript, and Rust live under the
-[SodiumFRP organisation](https://github.com/SodiumFRP).
+[SodiumFRP organization](https://github.com/SodiumFRP).
 
 ## Start here
 

@@ -34,7 +34,7 @@ namespace SodaFlow.Samples.Counter
         public CounterViewModel()
         {
             // One transaction for the whole graph. Nothing here fires during construction, so it
-            // changes no behaviour in this sample - but it is the habit worth having: a graph
+            // changes no behavior in this sample - but it is the habit worth having: a graph
             // containing a Values() stream loses its first firing without it, silently.
             var built = Transaction.Run(
                 () =>

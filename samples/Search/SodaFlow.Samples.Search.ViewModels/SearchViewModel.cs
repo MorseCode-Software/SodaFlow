@@ -17,7 +17,7 @@ namespace SodaFlow.Samples.Search
     ///         This is the case that is genuinely hard to write by hand. Typing faster than the
     ///         service responds means several searches are outstanding at once, and the usual bugs
     ///         are an older reply overwriting a newer one, a spinner that never stops because a
-    ///         cancelled request never decremented a counter, and a stale error left on screen
+    ///         canceled request never decremented a counter, and a stale error left on screen
     ///         after a later search succeeded. None of those are possible here: SwitchLatest
     ///         guarantees only the newest search can publish, IsRunning is derived rather than
     ///         counted, and the error is cleared by the same stream that starts a search.
@@ -59,7 +59,7 @@ namespace SodaFlow.Samples.Search
                     AsyncMapStatus<string> mapStatus = searches.MapAsync(
                         results: this.found,
                         errors: this.failed,
-                        operation: Catalogue.SearchAsync,
+                        operation: Catalog.SearchAsync,
 
                         // The whole concurrency policy, in one argument. A new keystroke
                         // supersedes the search in flight, and the superseded one can never

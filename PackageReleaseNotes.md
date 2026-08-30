@@ -25,6 +25,6 @@ having generation enabled.
 
 Do not mix 1.x and 2.x packages. SodaFlow.Core changed an internal method in
 place, so a 1.x wrapper resolved against a 2.x core either throws
-MissingMethodException or silently changes behaviour. Upgrade them together.
+MissingMethodException or silently changes behavior. Upgrade them together.
 
 Full notes: https://github.com/MorseCode-Software/SodaFlow/releases/tag/sodaflow-2.0.0

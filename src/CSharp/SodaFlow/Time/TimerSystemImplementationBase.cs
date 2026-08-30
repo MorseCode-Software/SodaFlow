@@ -21,7 +21,7 @@ namespace SodaFlow.Time
         private readonly object lockObject = new object();
         private readonly SortedSet<SimpleTimer> timers = new SortedSet<SimpleTimer>();
 
-        // Signalled whenever the timer set changes, to wake the timer thread so it can recompute
+        // Signaled whenever the timer set changes, to wake the timer thread so it can recompute
         // how long to wait. An AutoResetEvent rather than a CancellationTokenSource: a signal
         // raised while the thread is between computing its wait and entering it is latched, so the
         // next wait returns immediately instead of sleeping through the change. The previous
@@ -162,7 +162,7 @@ namespace SodaFlow.Time
                 this.timers.Add(timer);
             }
 
-            // Signalled outside the lock. Cancelling the old token source was done while holding
+            // Signaled outside the lock. Canceling the old token source was done while holding
             // it, and cancellation runs its callbacks synchronously, so the waiting loop could
             // resume inline on this thread and re-enter TimeUntilNext while the caller still held
             // the lock.

@@ -87,7 +87,7 @@ These differ in exactly one way, and it catches people out.
 
 `Updates` gives you changes only. `Values` gives you changes *plus* an initial firing — but
 only if you obtain and use it inside the same explicit transaction. Outside a transaction that
-initial firing has nowhere to happen, and you silently get `Updates` behaviour instead.
+initial firing has nowhere to happen, and you silently get `Updates` behavior instead.
 
 ```csharp
 // Correct: the initial firing has a transaction to happen in.

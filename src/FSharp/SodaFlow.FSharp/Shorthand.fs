@@ -279,7 +279,7 @@ let inline listenOnceS handler stream = Stream.listenOnce handler stream
 /// The listener is attached at once, before the async is run, so a firing between this call
 /// and the await is not missed.
 ///
-/// Cancelling the async stops listening and cancels the result. The value is produced on a
+/// Canceling the async stops listening and cancels the result. The value is produced on a
 /// thread other than the one that fired it, so awaiting this does not run continuations under
 /// the transaction lock.
 /// </remarks>

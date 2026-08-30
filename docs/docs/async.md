@@ -40,7 +40,7 @@ every exception arrives on `errors`. Nothing throws into the transaction.
 The interesting decision is what happens when a firing arrives while earlier work is still in
 flight. `AsyncConcurrencyStrategy` offers four answers:
 
-| Strategy | Behaviour |
+| Strategy | Behavior |
 | --- | --- |
 | `Parallel()` | Every firing starts its own operation immediately; results arrive in completion order. |
 | `Queue()` | At most one operation runs at a time; later firings queue and run in order. |

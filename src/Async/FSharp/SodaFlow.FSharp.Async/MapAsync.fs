@@ -271,9 +271,9 @@ let mapAsync
 ///     Converts each <c>'TInput</c> to the <c>'TStrategyInput</c> the strategy is written against,
 ///     before it's admitted.
 /// </param>
-/// <param name="cancelAll"><c>Some</c> stream cancelling every tracked operation, or <c>None</c>.</param>
+/// <param name="cancelAll"><c>Some</c> stream canceling every tracked operation, or <c>None</c>.</param>
 /// <param name="cancelMatching">
-///     <c>Some</c> stream cancelling tracked operations by input value, or <c>None</c>.
+///     <c>Some</c> stream canceling tracked operations by input value, or <c>None</c>.
 /// </param>
 /// <param name="cancelOnDispose">
 ///     Whether disposing the returned status also cancels everything tracked at that point.
@@ -321,9 +321,9 @@ let mapAsyncWithInputConverter
 ///     written against, before the strategy is told the item completed. Not called for a failed or
 ///     canceled run, which have no result to convert.
 /// </param>
-/// <param name="cancelAll"><c>Some</c> stream cancelling every tracked operation, or <c>None</c>.</param>
+/// <param name="cancelAll"><c>Some</c> stream canceling every tracked operation, or <c>None</c>.</param>
 /// <param name="cancelMatching">
-///     <c>Some</c> stream cancelling tracked operations by input value, or <c>None</c>.
+///     <c>Some</c> stream canceling tracked operations by input value, or <c>None</c>.
 /// </param>
 /// <param name="cancelOnDispose">
 ///     Whether disposing the returned status also cancels everything tracked at that point.
@@ -375,9 +375,9 @@ let mapAsyncWithResultConverter
 ///     Converts each successful <c>'TResult</c> to the <c>'TStrategyResult</c> the strategy is
 ///     written against, before the strategy is told the item completed.
 /// </param>
-/// <param name="cancelAll"><c>Some</c> stream cancelling every tracked operation, or <c>None</c>.</param>
+/// <param name="cancelAll"><c>Some</c> stream canceling every tracked operation, or <c>None</c>.</param>
 /// <param name="cancelMatching">
-///     <c>Some</c> stream cancelling tracked operations by input value, or <c>None</c>.
+///     <c>Some</c> stream canceling tracked operations by input value, or <c>None</c>.
 /// </param>
 /// <param name="cancelOnDispose">
 ///     Whether disposing the returned status also cancels everything tracked at that point.

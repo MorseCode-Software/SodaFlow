@@ -38,7 +38,7 @@ namespace SodaFlow.Tests
             // than being raced past.
             //
             // The lock is not incidental. l is written from the timer thread and read here, which
-            // the original fixed sleep left unsynchronised.
+            // the original fixed sleep left unsynchronized.
             SpinWait.SpinUntil(
                 () =>
                 {

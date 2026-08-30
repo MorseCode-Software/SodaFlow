@@ -8,11 +8,11 @@ namespace SodaFlow.Samples.Search
 {
     /// <summary>
     ///     Stands in for whatever a real application would call: a web service, a database, a
-    ///     process. It sleeps so the asynchronous behaviour is visible, and it honours its
+    ///     process. It sleeps so the asynchronous behavior is visible, and it honors its
     ///     cancellation token, which is what makes cancellation actually stop work rather than
     ///     merely discard its result.
     /// </summary>
-    public static class Catalogue
+    public static class Catalog
     {
         private static readonly string[] Entries =
         {
@@ -39,7 +39,7 @@ namespace SodaFlow.Samples.Search
 
             if (string.Equals(query.Trim(), "fail", StringComparison.OrdinalIgnoreCase))
             {
-                throw new InvalidOperationException("The catalogue is unavailable. Try again shortly.");
+                throw new InvalidOperationException("The catalog is unavailable. Try again shortly.");
             }
 
             return Entries

@@ -11,7 +11,7 @@ Typing faster than the service responds means several searches are outstanding a
 familiar failures are:
 
 - an older reply arriving last and overwriting a newer one
-- a spinner that never stops, because a cancelled request never decremented a counter
+- a spinner that never stops, because a canceled request never decremented a counter
 - a stale error left on screen after a later search succeeded
 
 None of them are reachable in
@@ -30,8 +30,8 @@ Cell<string> error = failed
 
 ## Cancellation
 
-`Catalogue.SearchAsync` honours its `CancellationToken`. That is what makes Cancel — and
+`Catalog.SearchAsync` honors its `CancellationToken`. That is what makes Cancel — and
 supersession — stop work rather than merely discard its result. An operation that ignores the
-token still runs to completion; cancelling then only means nothing is published.
+token still runs to completion; canceling then only means nothing is published.
 
 Run either `SodaFlow.Samples.Search.Wpf` or `SodaFlow.Samples.Search.Avalonia`.

@@ -366,7 +366,7 @@ namespace SodaFlow
         ///
         ///     The state is MaybeInternal rather than T because there may be no previous value yet, and
         ///     None is also a legitimate initial value - which is why CarryState needs its own
-        ///     initialised flag rather than reading emptiness as "not started".
+        ///     initialized flag rather than reading emptiness as "not started".
         /// </remarks>
         internal Stream<T> Calm(Lazy<MaybeInternal<T>> init, Func<T, T, bool> areEqual) =>
             TransactionInternal.Apply(
@@ -436,7 +436,7 @@ namespace SodaFlow
         ///
         ///     What the deferral is actually observable through is failure. A transaction that throws
         ///     drops its last queue, so a firing inside it never commits and the state is left as though
-        ///     it had not happened. That is the one behaviour distinguishing this from committing in
+        ///     it had not happened. That is the one behavior distinguishing this from committing in
         ///     place, and CalmTests.AFailedTransactionDoesNotCommitTheRememberedValue is what pins it -
         ///     every other test passes either way.
         ///

@@ -19,10 +19,10 @@ open System.Collections.Generic
 open System.Threading
 
 /// <summary>
-///     A handle for cancelling a timer that has been set.
+///     A handle for canceling a timer that has been set.
 /// </summary>
 /// <remarks>
-///     Disposing the timer does the same thing as cancelling it; only one of the two is needed.
+///     Disposing the timer does the same thing as canceling it; only one of the two is needed.
 ///     Apart from that, these do not need to be disposed.
 /// </remarks>
 type ITimer =
@@ -31,7 +31,7 @@ type ITimer =
     ///     Cancels the timer, so that it will not fire.
     /// </summary>
     /// <remarks>
-    ///     Has no effect if the timer has already fired or already been cancelled, so it is safe to
+    ///     Has no effect if the timer has already fired or already been canceled, so it is safe to
     ///     call more than once.
     /// </remarks>
     abstract member Cancel : unit -> unit
@@ -200,7 +200,7 @@ type TimerSystemImplementationBase<'T when 'T : comparison>() as this =
     let lockObject = obj ()
     let timers = SortedSet<SimpleTimer<'T>> ()
 
-    // Signalled whenever the timer set changes, to wake the timer thread so it can recompute how
+    // Signaled whenever the timer set changes, to wake the timer thread so it can recompute how
     // long to wait. An AutoResetEvent rather than a CancellationTokenSource: a signal raised while
     // the thread is between computing its wait and entering it is latched, so the next wait returns
     // immediately instead of sleeping through the change. The previous design allocated a fresh
@@ -285,7 +285,7 @@ type TimerSystemImplementationBase<'T when 'T : comparison>() as this =
             let timer = new SimpleTimer<_> (this, time, callback)
             lock lockObject (fun () -> timers.Add(timer) |> ignore)
 
-            // Signalled outside the lock. Cancelling the old token source was done while holding
+            // Signaled outside the lock. Canceling the old token source was done while holding
             // it, and cancellation runs its callbacks synchronously, so the waiting loop could
             // resume inline on this thread and re-enter timeUntilNext while the caller still held
             // the lock.

@@ -23,7 +23,7 @@ something else already owns the lifetime and you do not want the subscription ex
 > opposite way round, and nothing in the name will remind you.
 >
 > **Upgrading:** these two methods were previously named `Listen` (strong) and `ListenWeak`
-> (weak). The names swapped, the behaviour did not. Existing code that calls `Listen` and
+> (weak). The names swapped, the behavior did not. Existing code that calls `Listen` and
 > assigns the result to an `IStrongListener` stops compiling and is easy to find. Code that
 > discards the result, or holds it in a `var` or an `IListener`, keeps compiling and silently
 > becomes a weak subscription — which fails only later, as listeners that quietly stop firing.
@@ -182,7 +182,7 @@ rather than deterministic disposal, so it runs *eventually*.
 
 These invariants are enforced by `SodaFlow.Tests.Memory`, which asserts them using weak
 references, the node's listener set, and the manager's registry count — no profiler required
-for most of them. If you change cleanup behaviour, those tests are the specification.
+for most of them. If you change cleanup behavior, those tests are the specification.
 
 A separate set in the same project counts live objects with dotMemory. Those are tagged
 `[Ignore("Requires dotMemory.")]` so they skip on CI and run locally when you have it

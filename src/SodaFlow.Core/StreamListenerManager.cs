@@ -90,7 +90,7 @@ namespace SodaFlow
                 }
                 catch
                 {
-                    // A finalizer must never throw, and there is nothing useful to do if signalling
+                    // A finalizer must never throw, and there is nothing useful to do if signaling
                     // fails - the timed pass will pick the work up regardless.
                 }
                 finally

@@ -85,7 +85,7 @@ namespace SodaFlow.Tests.Internal
 
         // A non-None initial value seeds the comparison, so a first firing equal to it is suppressed.
         // This is the case a sentinel cannot express: None is a legitimate initial value, so
-        // "uninitialised" needs its own flag.
+        // "uninitialized" needs its own flag.
         [Test]
         public void NonEmptyInitialValueSuppressesAMatchingFirstFiring()
         {

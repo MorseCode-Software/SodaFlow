@@ -86,7 +86,7 @@ build_script:
 #   The NUnit console runner under OpenCover profiled cleanly, but on AppVeyor the run took close
 #   to ten minutes and some tests failed under it that pass under dotnet test.
 #
-#   Coverlet works with dotnet test but breaks the F# suite: its instrumentation does not honour
+#   Coverlet works with dotnet test but breaks the F# suite: its instrumentation does not honor
 #   the FSharp.Core binding redirect these projects rely on - the assemblies compile against
 #   4.5.0.0 while 10.0.0.0 is deployed - so 150 of 153 F# tests fail to load FSharp.Core. Pinning
 #   FSharp.Core does not dislodge the SDK's implicit reference, and pinning it up to 10.x would

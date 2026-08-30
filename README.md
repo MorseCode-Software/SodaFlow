@@ -45,7 +45,7 @@ dotnet tool install -g docfx
 docfx docs/docfx.json --serve
 ```
 
-## Licence and attribution
+## License and attribution
 
 SodaFlow is BSD 3-Clause licensed. See [LICENSE](LICENSE).
 
@@ -61,7 +61,7 @@ see `denotational/LICENSE`), and `DenotationalSemanticsTests` asserts
 conformance with 23 tests in C# and 23 in F#.
 
 Sodium is Copyright (c) 2012-2015 Stephen Blackheath and Anthony Jones. The
-BSD 3-Clause licence covering it applies to SodaFlow as well, and the LICENSE
+BSD 3-Clause license covering it applies to SodaFlow as well, and the LICENSE
 file must be retained in all source and binary redistributions. See
 [NOTICE](NOTICE) for the full derivation and third-party components.
 

@@ -10,7 +10,7 @@ SodaFlow inherits the model and is tested against it.
 
 ## Why this matters
 
-Most reactive libraries define their behaviour by what the code happens to do.
+Most reactive libraries define their behavior by what the code happens to do.
 Edge cases — simultaneous events, a stream that feeds itself, a `switch` that
 changes the graph mid-transaction — get whatever the implementation gives you,
 and the answer can change between releases.

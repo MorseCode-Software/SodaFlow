@@ -33,7 +33,7 @@ type ``Timer Tests``() =
         // so a third firing - a2 and a3 failing to coalesce - is caught rather than raced past.
         //
         // The lock is not incidental: l is written from the timer thread and read here, which the
-        // original fixed sleep left unsynchronised.
+        // original fixed sleep left unsynchronized.
         SpinWait.SpinUntil((fun () -> lock l (fun () -> l.Count >= 2)), TimeSpan.FromSeconds(10.0))
         |> ignore
         Thread.Sleep 100

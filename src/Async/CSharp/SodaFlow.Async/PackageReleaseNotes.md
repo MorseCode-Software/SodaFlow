@@ -28,7 +28,7 @@ the same transaction as whatever caused it to change; Items lists everything
 tracked with its status; disposing it tears the pipeline down.
 
 Operations are handed a CancellationToken combining the item's own cancellation
-with the strategy's. Honouring it is what makes cancellation take effect on work
+with the strategy's. Honoring it is what makes cancellation take effect on work
 already started - an operation that ignores it still runs to completion, and
 cancellation then only means its result goes unpublished.
 

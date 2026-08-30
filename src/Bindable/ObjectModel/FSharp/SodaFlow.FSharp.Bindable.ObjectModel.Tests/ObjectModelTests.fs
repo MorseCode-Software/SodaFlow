@@ -5,7 +5,7 @@ open NUnit.Framework
 open SodaFlow
 open SodaFlow.Bindable.ObjectModel
 
-// Covers the F# surface rather than the behaviour underneath it, which the Core tests already
+// Covers the F# surface rather than the behavior underneath it, which the Core tests already
 // pin. What is worth checking here is that each binding reaches the implementation it names and
 // carries its scheduler - the module is a wall of near-identical one-liners, so a copy-and-paste
 // slip between two of them would otherwise go unnoticed.

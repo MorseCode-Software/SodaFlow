@@ -598,7 +598,7 @@ namespace SodaFlow.Async
     ///     <see cref="Admit" /> nor <see cref="OnCompleted" /> can touch the result/error sinks or a
     ///     Task directly, or start one — they just describe what should happen and the execution
     ///     engine carries it out. The one imperative affordance is
-    ///     <see cref="AsyncMapBase.AsyncQueuedItem{TInput}.Cancel" />, for cancelling an item the
+    ///     <see cref="AsyncMapBase.AsyncQueuedItem{TInput}.Cancel" />, for canceling an item the
     ///     strategy is managing — it doesn't publish anything or start anything, it just routes into
     ///     the same cancellation path an external cancelAll stream uses, so the item still completes
     ///     through <see cref="OnCompleted" /> like any other. A completed item's identity is just the
@@ -971,7 +971,7 @@ namespace SodaFlow.Async
     /// <summary>
     ///     Runs one MapAsync pipeline: starting operations, catching exceptions, routing
     ///     results/errors, tracking queued/running items, wiring up external cancellation (including
-    ///     cancelling something before it ever starts), and managing transaction boundaries. This is
+    ///     canceling something before it ever starts), and managing transaction boundaries. This is
     ///     everything a <see cref="AsyncConcurrencyStrategy{TInput,TResult,TState}" /> is deliberately
     ///     not trusted with — a strategy only ever answers Admit/OnCompleted as data; this class is
     ///     what carries the answer out. One instance is created per MapAsync call (see
@@ -1193,7 +1193,7 @@ namespace SodaFlow.Async
                 });
 
             // Snapshot pairs each cancellation-trigger firing with `tracked`'s value from the
-            // start of that same transaction, so cancelling and admitting a value in the exact
+            // start of that same transaction, so canceling and admitting a value in the exact
             // same transaction can't race each other. Cancel() itself is a plain BCL call, not
             // a SodaFlow send(), so it's unrestricted inside a listener callback. This reaches
             // queued items exactly the same way as running ones, since every tracked entry —
