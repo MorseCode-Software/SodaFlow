@@ -31,10 +31,11 @@ Kotlin, TypeScript, and Rust live under the
 ## Start here
 
 - [Getting started](docs/getting-started.md) — install a package and run your first program.
-- [Which package do I install?](docs/packages.md) — there are seven; this page picks one for you.
+- [Which package do I install?](docs/packages.md) — there are ten; this page picks one for you.
 - [Core concepts](docs/concepts.md) — streams, cells, behaviors, and transactions.
 - [Operation reference](docs/operations.md) — every operation, C# and F# side by side.
 - [Cookbook](docs/cookbook.md) — recipes for the things that come up constantly.
+- [Sample applications](docs/samples.md) — two full WPF and Avalonia apps over a shared view model.
 - [API reference](api/index.md) — generated from the source.
 
 ## Going deeper
@@ -45,6 +46,7 @@ Kotlin, TypeScript, and Rust live under the
 - [Listener lifetimes](docs/lifetimes.md) — the most common way to break a SodaFlow program.
 - [Time and timers](docs/time.md) — clocks, alarms, and deterministic tests.
 - [Asynchronous work](docs/async.md) — running tasks without breaking the model.
+- [Data binding](docs/bindable.md) — exposing a graph to XAML as properties and commands.
 - [Denotational semantics](docs/semantics.md) — SodaFlow implements Sodium's formal
   specification, and is tested against it.
 

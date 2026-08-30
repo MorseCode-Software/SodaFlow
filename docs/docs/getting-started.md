@@ -131,3 +131,5 @@ See [Transactions](transactions.md).
 - [Cookbook](cookbook.md) — recipes for common problems.
 - [Listener lifetimes](lifetimes.md) — when to hold a listener and when to dispose it.
 - [Asynchronous work](async.md) — running tasks from a stream without breaking the model.
+- [Data binding](bindable.md) — exposing a graph to XAML as properties and commands.
+- [Sample applications](samples.md) — two full WPF and Avalonia apps to read end to end.
