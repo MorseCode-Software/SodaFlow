@@ -212,21 +212,30 @@ deploy_script:
       }
 
       # A tag belongs to the package whose prefix it starts with, the rest of it being the version.
-      # The rest has to start with a digit, or sodaflow- would claim sodaflow-core-3.0.0; the
-      # longest match wins as well, so that a prefix added later cannot reintroduce that ambiguity
-      # by ending in a digit.
+      # The rest has to start with a digit, or sodaflow- would claim sodaflow-core-3.0.0.
+      #
+      # More than one match is refused rather than tie-broken. It takes one prefix extending
+      # another by something starting with a digit, which none of these do, so this cannot fire
+      # today; if a prefix added later made it fire, picking a winner would mean guessing which
+      # package the tag meant. The costs of the two failures are not comparable. Throwing loses a
+      # release until someone renames a prefix, and the packages are still sitting in the build
+      # artifacts. Guessing wrong publishes the wrong package, and nuget.org does not allow a
+      # version to be deleted or reused - only unlisted.
       $prefixes = @(
           $packageIdByPrefix.Keys |
               Where-Object {
                   $tag.StartsWith($_, [StringComparison]::Ordinal) -and $tag.Substring($_.Length) -match '^\d'
-              } |
-              Sort-Object -Property Length -Descending
+              }
       )
 
       if ($prefixes.Count -eq 0) {
           Write-Host "Tag '$tag' does not name a package in this repository - skipping NuGet push."
           Write-Host "Known prefixes: $(($packageIdByPrefix.Keys | Sort-Object) -join ', ')"
           return
+      }
+
+      if ($prefixes.Count -gt 1) {
+          throw "Tag '$tag' matches more than one package prefix: $(($prefixes | Sort-Object) -join ', '). Rename one of them so that neither extends the other."
       }
 
       $packageId = $packageIdByPrefix[$prefixes[0]]
