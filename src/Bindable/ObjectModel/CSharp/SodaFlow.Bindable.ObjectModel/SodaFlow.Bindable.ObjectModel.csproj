@@ -21,6 +21,17 @@
             over one another's XML.
         -->
         <GenerateDocumentationFile>true</GenerateDocumentationFile>
+
+        <!--
+            Not packed until this package has a version to be packed at. MinVer versions a project
+            with no tag of its own prefix as 0.0.0-alpha.0, and appveyor.yml pushes every non-symbols
+            nupkg a tag build produces - so without this, the next tag for any package at all would
+            publish a 0.0.0-alpha.0 of this one. nuget.org unlists a version but never deletes it.
+
+            The implementation is here and tested; only the tag is missing. Push
+            sodaflow-bindable-objectmodel-x.y.z and remove this line in the same change.
+        -->
+        <IsPackable>false</IsPackable>
     </PropertyGroup>
 
     <ItemGroup>
