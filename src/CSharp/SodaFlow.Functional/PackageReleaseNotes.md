@@ -96,6 +96,13 @@ Equals is the same comparison the == operator already made.
 Apart from the removal above, everything here is new API, and nothing else that
 shipped in 1.0.x has changed behavior.
 
+This package depends on nothing, so it declares no ranges of its own. What it
+gains is a ceiling in everyone else's: the packages built on it - SodaFlow,
+SodaFlow.Async and SodaFlow.Bindable.ObjectModel - now declare it as a range
+bounded at the next major. A consumer on an older one of those cannot be moved
+onto this version by a restore that resolves cleanly and then fails on a method
+the rename took away.
+
 1.0.2
 
 Carries the release notes below, which 1.0.1 shipped without. No code change
