@@ -32,7 +32,7 @@ the F# libraries simply use the built-in types `option`, discriminated unions, a
 ## Building
 
 ```
-dotnet build src/SodaFlow.sln
+dotnet build src/SodaFlow.slnx
 dotnet test  src/CSharp/SodaFlow.Tests/SodaFlow.Tests.csproj
 ```
 

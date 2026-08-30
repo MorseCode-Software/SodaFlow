@@ -23,7 +23,7 @@ environment:
   DOTNET_CLI_TELEMETRY_OPTOUT: true
   DOTNET_NOLOGO: true
   DOTNET_SKIP_FIRST_TIME_EXPERIENCE: true
-  SOLUTION: src\SodaFlow.sln
+  SOLUTION: src\SodaFlow.slnx
   NUGET_API_KEY:
     secure: wJnjNcFPeKed+NXnE+IjPM5sAlJxY1Q3noeEdWi1E070zGc/E+pm6Dx1f8s7gNHB
   # Coveralls repo token, encrypted under this AppVeyor account - a value encrypted elsewhere
