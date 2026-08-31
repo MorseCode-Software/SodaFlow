@@ -43,7 +43,7 @@ namespace SodaFlow.Bindable.ObjectModel
                 // Sample and subscribe inside one transaction so no update can slip through the gap.
                 // The sample is stored here rather than after the transaction for the same reason:
                 // once the listener is attached an update can arrive on another thread, and writing
-                // the initial value afterwards would overwrite it.
+                // the initial value afterward would overwrite it.
                 this.listener =
                     TransactionInternal.RunImpl(() =>
                     {

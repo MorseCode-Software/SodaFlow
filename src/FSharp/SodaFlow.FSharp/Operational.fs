@@ -35,7 +35,7 @@ let updates behavior = OperationalInternal.UpdatesImpl behavior
 /// <remarks>
 ///     The immediate firing happens in the transaction this is called in, so this must be called
 ///     inside <c>Transaction.run</c> if that firing is to be observed - a listener attached
-///     afterwards, in a later transaction, has already missed it.
+///     afterward, in a later transaction, has already missed it.
 /// </remarks>
 [<MethodImpl(MethodImplOptions.NoInlining)>]
 let value behavior = OperationalInternal.ValueImpl behavior

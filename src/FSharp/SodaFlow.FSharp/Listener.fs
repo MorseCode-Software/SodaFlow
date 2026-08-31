@@ -294,7 +294,7 @@ module MutableListener =
     /// </summary>
     /// <param name="m">The mutable listener.</param>
     /// <remarks>
-    ///     The mutable listener stays usable and can be pointed at another listener afterwards. To
+    ///     The mutable listener stays usable and can be pointed at another listener afterward. To
     ///     finish with it entirely, use <c>unlisten</c>.
     /// </remarks>
     [<MethodImpl(MethodImplOptions.NoInlining)>]

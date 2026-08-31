@@ -33,7 +33,7 @@ namespace SodaFlow.Tests
             // number, which is a delayed timer thread, not a coalescing bug. Waiting on the
             // condition makes a slow machine take longer instead of failing.
             //
-            // The settle afterwards is what keeps the assertion meaningful: it still has to be
+            // The settle afterward is what keeps the assertion meaningful: it still has to be
             // exactly two, so a third firing - a2 and a3 failing to coalesce - is caught rather
             // than being raced past.
             //
