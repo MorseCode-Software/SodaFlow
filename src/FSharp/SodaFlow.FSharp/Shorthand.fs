@@ -1387,6 +1387,38 @@ let inline loopC f = Cell.loop f
 /// </remarks>
 let inline loopWithNoCapturesC f = Cell.loopWithNoCaptures f
 /// <summary>
+/// Builds a value which can refer to itself, along with anything else worth keeping from its
+/// construction.
+/// </summary>
+/// <param name="f">
+/// Given the forward reference, returns a struct tuple of the value it stands for and anything
+/// else the caller wants back out.
+/// </param>
+/// <returns>
+/// A struct tuple of the value the forward reference was closed with, and whatever
+/// <paramref name="f" /> returned alongside it.
+/// </returns>
+/// <remarks>
+/// Shorthand for <c>ForwardReference.create</c>; see it for the full contract.
+///
+/// The single-valued case of a cell loop: the loop handed to <paramref name="f" /> is closed with
+/// a constant cell, so the reference resolves to the value produced and never changes.
+///
+/// Use <c>forwardReferenceWithNoCaptures</c> where nothing but the value itself is needed.
+/// </remarks>
+let inline forwardReference f = ForwardReference.create f
+/// <summary>
+/// Builds a value which can refer to itself, where nothing but the value itself is wanted back.
+/// </summary>
+/// <param name="f">Given the forward reference, returns the value it stands for.</param>
+/// <returns>The value the forward reference was closed with.</returns>
+/// <remarks>
+/// Shorthand for <c>ForwardReference.createWithNoCaptures</c>; see it for the full contract.
+///
+/// <c>forwardReference</c> where something more than the value needs to escape the construction.
+/// </remarks>
+let inline forwardReferenceWithNoCaptures f = ForwardReference.createWithNoCaptures f
+/// <summary>
 /// Gets a cell's current value.
 /// </summary>
 /// <param name="cell">The cell to sample.</param>
