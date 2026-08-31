@@ -49,6 +49,7 @@
     <Compile Include="CellSink.fs" />
     <Compile Include="Behavior.fs" />
     <Compile Include="Cell.fs" />
+    <Compile Include="ForwardReference.fs" />
     <Compile Include="Stream.fs" />
     <Compile Include="Operational.fs" />
     <Compile Include="Time.fs" />

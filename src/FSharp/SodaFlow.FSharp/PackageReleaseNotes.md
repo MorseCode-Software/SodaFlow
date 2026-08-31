@@ -1,3 +1,30 @@
+3.1.0
+
+New: ForwardReference.create and ForwardReference.createWithNoCaptures build a
+value which can refer to itself while it is being constructed, with
+forwardReference and forwardReferenceWithNoCaptures as the shorthand aliases.
+This is the F# counterpart of the type SodaFlow 3.0.0 added, which shipped
+without one.
+
+    let node = forwardReferenceWithNoCaptures (fun reference -> Node (Child reference))
+
+It is the single-valued case of a cell loop. A loop lets a cell be referred to
+before it exists and is closed with the cell the reference turned out to mean;
+this produces one value rather than a series of them, and closes the loop with
+a constant cell, so the reference resolves to that value and never changes.
+
+The naming follows the loops already here rather than the C# type: create and
+createWithNoCaptures, as Cell.loop pairs with Cell.loopWithNoCaptures, taking
+and returning struct tuples the same way.
+
+Where C# has to be told the value type, because a lambda gives inference
+nothing to work from and only some of a method's type arguments cannot be
+given, F# infers both the value and the capture types from the function. Neither
+is ever written.
+
+Reading the reference before the constructing function returns throws, as it
+does for any looped cell.
+
 3.0.0
 
 BREAKING: Stream.filterOption is renamed to Stream.filterSome, and the
