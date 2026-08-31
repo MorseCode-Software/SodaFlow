@@ -29,7 +29,7 @@ type ``Timer Tests``() =
         // timer thread, not a coalescing bug. Waiting on the condition makes a slow machine take
         // longer instead of failing.
         //
-        // The settle afterwards keeps the assertion meaningful: it still has to be exactly two,
+        // The settle afterward keeps the assertion meaningful: it still has to be exactly two,
         // so a third firing - a2 and a3 failing to coalesce - is caught rather than raced past.
         //
         // The lock is not incidental: l is written from the timer thread and read here, which the

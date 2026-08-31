@@ -105,7 +105,7 @@ namespace SodaFlow.Time
         /// </summary>
         /// <param name="handleException">
         ///     Called with any exception raised while waiting for or firing timers. The loop continues
-        ///     afterwards, so this should absorb rather than rethrow.
+        ///     afterward, so this should absorb rather than rethrow.
         /// </param>
         /// <remarks>
         ///     Called once by the <see cref="TimerSystem{T}" /> constructor. The thread runs for the

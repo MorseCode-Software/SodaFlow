@@ -237,7 +237,7 @@ namespace SodaFlow.Bindable.ObjectModel.Tests
 
                 c.Send(12);
 
-                Assert.AreEqual(12, b.Value, "and it keeps following afterwards");
+                Assert.AreEqual(12, b.Value, "and it keeps following afterward");
             }
         }
 

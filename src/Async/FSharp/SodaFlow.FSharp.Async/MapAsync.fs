@@ -222,7 +222,7 @@ let private toUnitInternalStream (cancelAll : Stream<unit> option) : Stream<Unit
 ///     or running. Either way, disposing always, unconditionally, stops any further values from
 ///     ever being admitted. Note that disposing never gags the pipeline: whatever is still in
 ///     flight runs to completion and still publishes to <paramref name="results" /> or
-///     <paramref name="errors" /> afterwards.
+///     <paramref name="errors" /> afterward.
 /// </param>
 /// <param name="source">
 ///     The stream of inputs to run against. Every firing is offered to

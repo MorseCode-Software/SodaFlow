@@ -121,7 +121,7 @@ namespace SodaFlow
         /// </summary>
         /// <value>
         ///     <see langword="true" /> until <see cref="ValueProperty" /> is assigned, and
-        ///     <see langword="false" /> afterwards.
+        ///     <see langword="false" /> afterward.
         /// </value>
         protected bool UsingInitialValue { get; private set; }
 
@@ -193,7 +193,7 @@ namespace SodaFlow
         // recombines the inputs.
         //
         // Each input's new value is captured as it propagates rather than read back off the
-        // behavior afterwards. A behavior applies its update through a listener on Node<T>.Null,
+        // behavior afterward. A behavior applies its update through a listener on Node<T>.Null,
         // and the priority queue drains null-ranked entries only after every ranked one, so at the
         // point the map below runs the behaviors still hold their previous values. Rank ordering is
         // what makes capturing safe: every input links into pulse.Node, so pulse.Node outranks all
@@ -399,7 +399,7 @@ namespace SodaFlow
         ///     updated in this transaction, otherwise the behavior's current one.
         /// </summary>
         /// <remarks>
-        ///     Clearing the slot afterwards is hygiene rather than correctness. A slot left set would
+        ///     Clearing the slot afterward is hygiene rather than correctness. A slot left set would
         ///     still give the right answer, because by the time the next transaction reads it the
         ///     behavior has committed that same value - verified by removing the reset and finding no
         ///     test could tell. It is cleared so the closure does not hold a second reference to every

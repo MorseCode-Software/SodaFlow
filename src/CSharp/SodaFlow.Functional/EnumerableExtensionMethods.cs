@@ -35,7 +35,7 @@ namespace SodaFlow.Functional
         ///     Filtering and mapping in one step, for the common case where deciding whether to keep
         ///     an element is the same work as producing the value to keep - parsing, looking up,
         ///     narrowing a type. Written with LINQ alone that means either doing the work twice or
-        ///     mapping to a <see cref="Maybe{T}" /> and unwrapping afterwards, which is what this
+        ///     mapping to a <see cref="Maybe{T}" /> and unwrapping afterward, which is what this
         ///     does for you.
         ///
         ///     Lazy: neither the source nor <paramref name="selector" /> is touched until the result

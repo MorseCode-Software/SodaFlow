@@ -27,7 +27,7 @@ namespace SodaFlow
         /// </summary>
         /// <param name="m">The mutable listener.</param>
         /// <remarks>
-        ///     The mutable listener remains usable afterwards and can be pointed at another listener
+        ///     The mutable listener remains usable afterward and can be pointed at another listener
         ///     with <see cref="SetListener" />. To finish with it entirely, call <see cref="Unlisten" />
         ///     instead.
         /// </remarks>

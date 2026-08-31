@@ -1469,7 +1469,7 @@ let inline updatesC cell = Cell.updates cell
 ///
 /// The immediate firing happens in the transaction this is called in, so this must be called
 /// inside <c>Transaction.run</c> if that firing is to be observed at all - a listener attached
-/// afterwards, in a later transaction, has already missed it. This is the single most common
+/// afterward, in a later transaction, has already missed it. This is the single most common
 /// reason to wrap graph construction in a transaction.
 /// </remarks>
 let inline valuesC cell = Cell.values cell
