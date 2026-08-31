@@ -2,11 +2,11 @@ using Avalonia;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Markup.Xaml;
 
-namespace SodaFlow.Samples.Search.AvaloniaUi
+namespace SodaFlow.Samples.Search.Avalonia
 {
     // Namespace AvaloniaUi rather than Avalonia: a namespace whose last segment is Avalonia hides
     // the framework's own root namespace from anything written inside it.
-    public partial class App : Application
+    public class App : Application
     {
         public override void Initialize() => AvaloniaXamlLoader.Load(this);
 

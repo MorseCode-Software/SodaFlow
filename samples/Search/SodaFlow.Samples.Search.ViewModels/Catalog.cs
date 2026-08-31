@@ -4,7 +4,7 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 
-namespace SodaFlow.Samples.Search
+namespace SodaFlow.Samples.Search.ViewModels
 {
     /// <summary>
     ///     Stands in for whatever a real application would call: a web service, a database, a
@@ -42,7 +42,7 @@ namespace SodaFlow.Samples.Search
                 throw new InvalidOperationException("The catalog is unavailable. Try again shortly.");
             }
 
-            return Entries
+            return Catalog.Entries
                 .Where(e => e.IndexOf(query.Trim(), StringComparison.OrdinalIgnoreCase) >= 0)
                 .ToList();
         }

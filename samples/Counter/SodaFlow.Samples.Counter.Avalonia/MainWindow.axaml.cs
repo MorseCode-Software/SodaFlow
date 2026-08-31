@@ -1,8 +1,8 @@
 using Avalonia.Controls;
 using Avalonia.Markup.Xaml;
-using SodaFlow.Samples.Counter;
+using SodaFlow.Samples.Counter.ViewModels;
 
-namespace SodaFlow.Samples.Counter.AvaloniaUi
+namespace SodaFlow.Samples.Counter.Avalonia
 {
     /// <summary>
     ///     The entire Avalonia side of this sample. Compare it with the WPF window: different
@@ -10,7 +10,7 @@ namespace SodaFlow.Samples.Counter.AvaloniaUi
     /// </summary>
     public partial class MainWindow : Window
     {
-        private readonly CounterViewModel viewModel = new CounterViewModel();
+        private readonly CounterViewModel viewModel = CounterViewModel.Create();
 
         public MainWindow()
         {

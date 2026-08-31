@@ -2,7 +2,7 @@ using Avalonia;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Markup.Xaml;
 
-namespace SodaFlow.Samples.Counter.AvaloniaUi
+namespace SodaFlow.Samples.Counter.Avalonia
 {
     // Namespace AvaloniaUi rather than Avalonia: a namespace whose last segment is Avalonia hides
     // the framework's own root namespace from anything written inside it, which turns ordinary

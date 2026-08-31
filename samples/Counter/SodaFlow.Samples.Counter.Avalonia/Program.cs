@@ -1,6 +1,6 @@
 using Avalonia;
 
-namespace SodaFlow.Samples.Counter.AvaloniaUi
+namespace SodaFlow.Samples.Counter.Avalonia
 {
     public static class Program
     {

@@ -1,6 +1,6 @@
 <Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        x:Class="SodaFlow.Samples.Search.AvaloniaUi.MainWindow"
+        x:Class="SodaFlow.Samples.Search.Avalonia.MainWindow"
         Title="SodaFlow Search (Avalonia)"
         Width="440" Height="520"
         WindowStartupLocation="CenterScreen">

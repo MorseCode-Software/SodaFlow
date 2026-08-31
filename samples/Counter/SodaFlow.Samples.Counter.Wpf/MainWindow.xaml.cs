@@ -1,13 +1,13 @@
-using System.Windows;
+using SodaFlow.Samples.Counter.ViewModels;
 
 namespace SodaFlow.Samples.Counter.Wpf
 {
     /// <summary>
     ///     The entire WPF side of this sample: build the view model, bind to it, dispose it.
     /// </summary>
-    public partial class MainWindow : Window
+    public partial class MainWindow
     {
-        private readonly CounterViewModel viewModel = new CounterViewModel();
+        private readonly CounterViewModel viewModel = CounterViewModel.Create();
 
         public MainWindow()
         {
@@ -16,7 +16,7 @@ namespace SodaFlow.Samples.Counter.Wpf
             this.DataContext = this.viewModel;
 
             // The view model holds subscriptions into the FRP graph. Disposing it releases them.
-            this.Closed += (_, __) => this.viewModel.Dispose();
+            this.Closed += (_, _) => this.viewModel.Dispose();
         }
     }
 }

@@ -1,6 +1,6 @@
 <Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        x:Class="SodaFlow.Samples.Counter.AvaloniaUi.MainWindow"
+        x:Class="SodaFlow.Samples.Counter.Avalonia.MainWindow"
         Title="SodaFlow Counter (Avalonia)"
         Width="340" Height="240"
         WindowStartupLocation="CenterScreen">

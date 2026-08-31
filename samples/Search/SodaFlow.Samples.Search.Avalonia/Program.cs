@@ -1,6 +1,6 @@
 using Avalonia;
 
-namespace SodaFlow.Samples.Search.AvaloniaUi
+namespace SodaFlow.Samples.Search.Avalonia
 {
     public static class Program
     {

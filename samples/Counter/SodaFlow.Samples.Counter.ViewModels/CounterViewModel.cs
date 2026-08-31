@@ -4,7 +4,7 @@ using System.Globalization;
 using SodaFlow.Bindable.ObjectModel;
 using SodaFlow.Functional;
 
-namespace SodaFlow.Samples.Counter
+namespace SodaFlow.Samples.Counter.ViewModels
 {
     /// <summary>
     ///     A counter, in about twenty lines of graph.
@@ -23,57 +23,34 @@ namespace SodaFlow.Samples.Counter
     ///         PropertyChanged for "Value".
     ///     </para>
     /// </remarks>
-    public sealed class CounterViewModel : IDisposable
+    public sealed class CounterViewModel
+        : IDisposable
     {
-        private readonly StreamSink<Unit> increment = Stream.CreateSink<Unit>();
-        private readonly StreamSink<Unit> decrement = Stream.CreateSink<Unit>();
-        private readonly StreamSink<Unit> reset = Stream.CreateSink<Unit>();
-
         private readonly IReadOnlyList<IBindable> bindables;
 
-        public CounterViewModel()
+        #region Constructor
+        
+        private CounterViewModel(
+            in IOneWayBindableValue<int> count,
+            in IOneWayBindableValue<string> countText,
+            in IBindableAction increment,
+            in IBindableAction decrement,
+            in IBindableAction reset)
         {
-            // One transaction for the whole graph. Nothing here fires during construction, so it
-            // changes no behavior in this sample - but it is the habit worth having: a graph
-            // containing a Values() stream loses its first firing without it, silently.
-            var built = Transaction.Run(
-                () =>
+            this.Count = count;
+            this.CountText = countText;
+            this.Increment = increment;
+            this.Decrement = decrement;
+            this.Reset = reset;
+
+            this.bindables =
+                new IBindable[]
                 {
-                    // Each button contributes a function of the current count rather than a
-                    // number, which is what lets Reset join the same stream as the other two
-                    // instead of needing a mechanism of its own.
-                    Stream<Func<int, int>> edits =
-                        new[]
-                        {
-                            this.increment.MapTo<Unit, Func<int, int>>(n => n + 1),
-                            this.decrement.MapTo<Unit, Func<int, int>>(n => n - 1),
-                            this.reset.MapTo<Unit, Func<int, int>>(_ => 0)
-                        }.OrElse();
-
-                    Cell<int> count = edits.Accum(0, (edit, n) => edit(n));
-
-                    return (
-                        Count: count.ToOneWay(),
-                        CountText: count.Map(n => n.ToString(CultureInfo.CurrentCulture)).ToOneWay(),
-                        Increment: this.increment.ToBindableAction(),
-                        Decrement: this.decrement.ToBindableAction(),
-
-                        // Enablement is just another cell. Nothing raises CanExecuteChanged by
-                        // hand; the command follows the cell, and the cell follows the count.
-                        Reset: this.reset.ToBindableAction(count.Map(n => n != 0)));
-                });
-
-            this.Count = built.Count;
-            this.CountText = built.CountText;
-            this.Increment = built.Increment;
-            this.Decrement = built.Decrement;
-            this.Reset = built.Reset;
-
-            this.bindables = new IBindable[]
-            {
-                this.Count, this.CountText, this.Increment, this.Decrement, this.Reset
-            };
+                    count, countText, increment, decrement, reset
+                };
         }
+        
+        #endregion Constructor
 
         /// <summary>The current count, for anything that wants the number itself.</summary>
         public IOneWayBindableValue<int> Count { get; }
@@ -87,6 +64,41 @@ namespace SodaFlow.Samples.Counter
 
         /// <summary>Enabled only when the count is not already zero.</summary>
         public IBindableAction Reset { get; }
+
+        public static CounterViewModel Create() =>
+            // One transaction for the whole graph. Nothing here fires during construction, so it
+            // changes no behavior in this sample - but it is the habit worth having: a graph
+            // containing a Values() stream loses its first firing without it, silently.
+            Transaction.Run(
+                () =>
+                {
+                    StreamSink<Unit> increment = Stream.CreateSink<Unit>();
+                    StreamSink<Unit> decrement = Stream.CreateSink<Unit>();
+                    StreamSink<Unit> reset = Stream.CreateSink<Unit>();
+
+                    // Each button contributes a function of the current count rather than a
+                    // number, which is what lets Reset join the same stream as the other two
+                    // instead of needing a mechanism of its own.
+                    Stream<Func<int, int>> edits =
+                        new[]
+                        {
+                            increment.MapTo<Unit, Func<int, int>>(n => n + 1),
+                            decrement.MapTo<Unit, Func<int, int>>(n => n - 1),
+                            reset.MapTo<Unit, Func<int, int>>(_ => 0)
+                        }.OrElse();
+
+                    Cell<int> count = edits.Accum(0, (edit, n) => edit(n));
+
+                    return new CounterViewModel(
+                        count: count.ToOneWay(),
+                        countText: count.Map(n => n.ToString(CultureInfo.CurrentCulture)).ToOneWay(),
+                        increment: increment.ToBindableAction(),
+                        decrement: decrement.ToBindableAction(),
+
+                        // Enablement is just another cell. Nothing raises CanExecuteChanged by
+                        // hand; the command follows the cell, and the cell follows the count.
+                        reset: reset.ToBindableAction(count.Map(n => n != 0)));
+                });
 
         /// <summary>
         ///     Every bindable holds a subscription into the graph. Disposing them through the one

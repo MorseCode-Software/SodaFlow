@@ -1,8 +1,9 @@
 using Avalonia.Controls;
 using Avalonia.Markup.Xaml;
 using SodaFlow.Samples.Search;
+using SodaFlow.Samples.Search.ViewModels;
 
-namespace SodaFlow.Samples.Search.AvaloniaUi
+namespace SodaFlow.Samples.Search.Avalonia
 {
     /// <summary>
     ///     Compare with the WPF window: a different framework and a different XAML dialect, over
@@ -10,7 +11,7 @@ namespace SodaFlow.Samples.Search.AvaloniaUi
     /// </summary>
     public partial class MainWindow : Window
     {
-        private readonly SearchViewModel viewModel = new SearchViewModel();
+        private readonly SearchViewModel viewModel = SearchViewModel.Create();
 
         public MainWindow()
         {
