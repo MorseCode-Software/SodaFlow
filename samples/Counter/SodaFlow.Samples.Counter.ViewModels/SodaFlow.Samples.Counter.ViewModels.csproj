@@ -22,8 +22,8 @@
         SodaFlow arrives through SodaFlow.Bindable.ObjectModel anyway; it is named here because a
         sample should show what it depends on rather than rely on a transitive.
     -->
-    <PackageReference Include="SodaFlow" Version="2.0.0" />
-    <PackageReference Include="SodaFlow.Bindable.ObjectModel" Version="1.0.0" />
+    <PackageReference Include="SodaFlow" Version="3.0.0" />
+    <PackageReference Include="SodaFlow.Bindable.ObjectModel" Version="2.0.0" />
   </ItemGroup>
 
 </Project>

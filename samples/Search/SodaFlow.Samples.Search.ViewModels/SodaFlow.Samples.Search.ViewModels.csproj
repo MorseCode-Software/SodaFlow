@@ -18,9 +18,9 @@
         someone deliberately bumps a version here, which is also what a reader is going to write in
         their own application.
     -->
-    <PackageReference Include="SodaFlow" Version="2.0.0" />
-    <PackageReference Include="SodaFlow.Async" Version="2.1.0" />
-    <PackageReference Include="SodaFlow.Bindable.ObjectModel" Version="1.0.0" />
+    <PackageReference Include="SodaFlow" Version="3.0.0" />
+    <PackageReference Include="SodaFlow.Async" Version="3.0.0" />
+    <PackageReference Include="SodaFlow.Bindable.ObjectModel" Version="2.0.0" />
   </ItemGroup>
 
 </Project>
