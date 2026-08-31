@@ -1,26 +1,26 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
-  <PropertyGroup>
-    <!--
-        netstandard2.0, not a platform target. The whole sample is in this project; if it ever
-        needed a UI framework to compile, the point it is making would already be lost.
-    -->
-    <TargetFramework>netstandard2.0</TargetFramework>
-    <Nullable>enable</Nullable>
-    <LangVersion>10</LangVersion>
-    <IsPackable>false</IsPackable>
-  </PropertyGroup>
+    <PropertyGroup>
+        <!--
+            netstandard2.0, not a platform target. The whole sample is in this project; if it ever
+            needed a UI framework to compile, the point it is making would already be lost.
+        -->
+        <TargetFramework>netstandard2.0</TargetFramework>
+        <Nullable>enable</Nullable>
+        <LangVersion>10</LangVersion>
+        <IsPackable>false</IsPackable>
+    </PropertyGroup>
 
-  <ItemGroup>
-    <!--
-        Published packages rather than project references into src/. The samples then track
-        released versions, so work in progress on the libraries cannot break them: they move when
-        someone deliberately bumps a version here, which is also what a reader is going to write in
-        their own application.
-    -->
-    <PackageReference Include="SodaFlow" Version="3.0.0" />
-    <PackageReference Include="SodaFlow.Async" Version="3.0.0" />
-    <PackageReference Include="SodaFlow.Bindable.ObjectModel" Version="2.0.0" />
-  </ItemGroup>
+    <ItemGroup>
+        <!--
+            Published packages rather than project references into src/. The samples then track
+            released versions, so work in progress on the libraries cannot break them: they move when
+            someone deliberately bumps a version here, which is also what a reader is going to write in
+            their own application.
+        -->
+        <PackageReference Include="SodaFlow" Version="3.0.0"/>
+        <PackageReference Include="SodaFlow.Async" Version="3.0.0"/>
+        <PackageReference Include="SodaFlow.Bindable.ObjectModel" Version="2.0.0"/>
+    </ItemGroup>
 
 </Project>

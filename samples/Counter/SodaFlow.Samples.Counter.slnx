@@ -1,10 +1,10 @@
 <Solution>
-  <Configurations>
-    <Platform Name="Any CPU" />
-    <Platform Name="x64" />
-    <Platform Name="x86" />
-  </Configurations>
-  <Project Path="SodaFlow.Samples.Counter.Avalonia/SodaFlow.Samples.Counter.Avalonia.csproj" />
-  <Project Path="SodaFlow.Samples.Counter.ViewModels/SodaFlow.Samples.Counter.ViewModels.csproj" />
-  <Project Path="SodaFlow.Samples.Counter.Wpf/SodaFlow.Samples.Counter.Wpf.csproj" />
+    <Configurations>
+        <Platform Name="Any CPU"/>
+        <Platform Name="x64"/>
+        <Platform Name="x86"/>
+    </Configurations>
+    <Project Path="SodaFlow.Samples.Counter.Avalonia/SodaFlow.Samples.Counter.Avalonia.csproj"/>
+    <Project Path="SodaFlow.Samples.Counter.ViewModels/SodaFlow.Samples.Counter.ViewModels.csproj"/>
+    <Project Path="SodaFlow.Samples.Counter.Wpf/SodaFlow.Samples.Counter.Wpf.csproj"/>
 </Solution>

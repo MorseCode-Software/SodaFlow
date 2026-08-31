@@ -1,17 +1,25 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
-  <PropertyGroup>
-    <OutputType>WinExe</OutputType>
-    <TargetFramework>net8.0-windows</TargetFramework>
-    <UseWPF>true</UseWPF>
-    <Nullable>enable</Nullable>
-    <LangVersion>10</LangVersion>
-    <IsPackable>false</IsPackable>
-  </PropertyGroup>
+    <PropertyGroup>
+        <OutputType>WinExe</OutputType>
+        <TargetFramework>net8.0-windows</TargetFramework>
+        <UseWPF>true</UseWPF>
+        <Nullable>enable</Nullable>
+        <EnableDefaultItems>true</EnableDefaultItems>
+        <LangVersion>10</LangVersion>
+        <IsPackable>false</IsPackable>
+    </PropertyGroup>
 
-  <ItemGroup>
-    <!-- The whole sample is in here. This project only draws it. -->
-    <ProjectReference Include="..\SodaFlow.Samples.Counter.ViewModels\SodaFlow.Samples.Counter.ViewModels.csproj" />
-  </ItemGroup>
+    <ItemGroup>
+        <!-- The whole sample is in here. This project only draws it. -->
+        <ProjectReference Include="..\SodaFlow.Samples.Counter.ViewModels\SodaFlow.Samples.Counter.ViewModels.csproj"/>
+    </ItemGroup>
+
+    <!--<ItemGroup>
+        <ApplicationDefinition Include="App.xaml" />
+        <Compile Include="App.xaml.cs" />
+        <Page Include="MainWindow.xaml" />
+        <Compile Include="MainWindow.xaml.cs" />
+    </ItemGroup>-->
 
 </Project>

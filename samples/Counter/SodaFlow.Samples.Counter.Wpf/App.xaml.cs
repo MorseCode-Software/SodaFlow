@@ -1,6 +1,5 @@
-namespace SodaFlow.Samples.Counter.Wpf
+namespace SodaFlow.Samples.Counter.Wpf;
+
+public partial class App
 {
-    public partial class App
-    {
-    }
 }
