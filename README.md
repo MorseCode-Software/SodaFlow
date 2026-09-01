@@ -1,7 +1,7 @@
 [![Build status](https://ci.appveyor.com/api/projects/status/ydsbwm9udk9yd1mk/branch/main?svg=true)](https://ci.appveyor.com/project/jam40jeff/sodaflow/branch/main)
 [![Coverage Status](https://coveralls.io/repos/github/MorseCode-Software/SodaFlow/badge.svg)](https://coveralls.io/github/MorseCode-Software/SodaFlow)
 [![Total Downloads](https://img.shields.io/nuget/dt/SodaFlow.Core.svg)](http://www.nuget.org/packages/SodaFlow.Core/)
-[![Latest Stable Version](https://img.shields.io/nuget/v/SodaFlow.Core.svg)](http://www.nuget.org/packages/SodaFlow.Core/)
+[![Latest Stable Version](https://img.shields.io/nuget/v/SodaFlow.Core.svg)](http://www.nuget.org/packages/SodaFlow/)
 
 # SodaFlow
 
@@ -14,15 +14,12 @@ glitches, no ordering bugs, and no manual subscription bookkeeping.
 
 ## Packages
 
-| Package | Contents |
-| --- | --- |
-| `SodaFlow` | The C# API. Start here. |
-| `SodaFlow.FSharp` | The idiomatic F# API. |
-| `SodaFlow.Core` | Shared engine both language APIs build on. |
-| `SodaFlow.Functional` | `Maybe`, `Either`, and `Unit` used across the C# API. |
-| `SodaFlow.Async` | `async`/`Task` integration for C#. |
-| `SodaFlow.FSharp.Async` | `async`/`Task` integration for F#. |
-| `SodaFlow.Async.Core` | Shared engine for the async packages. |
+| C# Package | F# Package | Contents |
+| --- | --- | --- |
+| `SodaFlow`<br>[![Latest Stable Version](https://img.shields.io/nuget/v/SodaFlow.svg)](http://www.nuget.org/packages/SodaFlow/) | `SodaFlow.FSharp`<br>[![Latest Stable Version](https://img.shields.io/nuget/v/SodaFlow.FSharp.svg)](http://www.nuget.org/packages/SodaFlow.FSharp/) | The core FRP library. |
+| `SodaFlow.Functional`<br>[![Latest Stable Version](https://img.shields.io/nuget/v/SodaFlow.Functional.svg)](http://www.nuget.org/packages/SodaFlow.Functional/) | N/A | `Maybe`, `Either`, and `Unit` used across the C# API. |
+| `SodaFlow.Async`<br>[![Latest Stable Version](https://img.shields.io/nuget/v/SodaFlow.Async.svg)](http://www.nuget.org/packages/SodaFlow.Async/) | `SodaFlow.FSharp.Async`<br>[![Latest Stable Version](https://img.shields.io/nuget/v/SodaFlow.FSharp.Async.svg)](http://www.nuget.org/packages/SodaFlow.FSharp.Async/) | `async`/`Task` integration. |
+| `SodaFlow.Bindable.ObjectModel`<br>[![Latest Stable Version](https://img.shields.io/nuget/v/SodaFlow.Bindable.ObjectModel.svg)](http://www.nuget.org/packages/SodaFlow.Bindable.ObjectModel/) | `SodaFlow.FSharp.Bindable.ObjectModel`<br>[![Latest Stable Version](https://img.shields.io/nuget/v/SodaFlow.FSharp.Bindable.ObjectModel.svg)](http://www.nuget.org/packages/SodaFlow.FSharp.Bindable.ObjectModel/) | Bindable support for XAML UIs. |
 
 All libraries target `net472`, `net60`, and `netstandard2.0`.
 
