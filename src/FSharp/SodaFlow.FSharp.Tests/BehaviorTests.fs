@@ -12,12 +12,12 @@ type private TestObject (n1 : int, n2 : int) =
     let changeNumber2StreamSink = sinkS ()
     let number1Cell = changeNumber1StreamSink |> holdS n1
     let number2Cell = changeNumber2StreamSink |> holdS n2
-    
+
     member val RemoveStream : Stream<unit> = upcast removeStreamSink
     member __.Number1Cell = number1Cell
     member __.Number2Cell = number2Cell
     member val BothNumbersCell = (number1Cell, number2Cell) |> lift2C (fun n1 n2 -> (n1, n2))
-    
+
     member __.Remove () = removeStreamSink |> sendS ()
     member __.ChangeNumber1 n = changeNumber1StreamSink |> sendS n
     member __.ChangeNumber2 n = changeNumber2StreamSink |> sendS n
@@ -78,7 +78,7 @@ type ``Behavior Tests``() =
         trigger |> sendS 300L
         l |> unlistenL
         CollectionAssert.AreEqual(["100 0";"200 2";"300 1"], out)
-        
+
     [<Test>]
     member __.``Test ListenStrong``() =
         let c = sinkC 9
@@ -179,7 +179,7 @@ type ``Behavior Tests``() =
         l2 |> unlistenL
         l3 |> unlistenL
         l4 |> unlistenL
-        
+
         let expected =
             [|
                 Array.empty;
@@ -271,7 +271,7 @@ type ``Behavior Tests``() =
         addStreamSink |> sendS t5
         l |> unlistenL
         CollectionAssert.AreEqual ([0;1;2;3;2;2;3], out)
-    
+
     [<Test>]
     member __.``Test Cell Values``() =
         let c = sinkC 9
@@ -304,7 +304,7 @@ type ``Behavior Tests``() =
         l |> unlistenL
         l2 |> Option.iter unlistenL
         CollectionAssert.AreEqual([5;2;7], out)
-    
+
     [<Test>]
     member __.``Test Cell Values No Transaction``() =
         let c = sinkC 9

@@ -751,7 +751,7 @@ namespace SodaFlow.Async
             : AsyncConcurrencyStrategy<TUnit, TUnit, TUnit>
         {
             private readonly TUnit unitValue;
-            
+
             public ParallelStrategy(TUnit unitValue) => this.unitValue = unitValue;
 
             protected override TUnit CreateState() => this.unitValue;

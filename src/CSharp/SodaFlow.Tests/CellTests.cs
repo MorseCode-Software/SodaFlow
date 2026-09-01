@@ -270,7 +270,7 @@ namespace SodaFlow.Tests
             {
                 exception = e;
             }
-            
+
             Assert.IsNotNull(exception);
             Assert.AreEqual("ValueFactory attempted to access the Value property of this instance.", exception.Message);
         }

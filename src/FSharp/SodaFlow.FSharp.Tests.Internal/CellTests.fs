@@ -14,7 +14,7 @@ type ``Cell Tests``() =
             (fun trans _ ->
                 trans.Prioritized (Node<unit>.Null, fun trans -> calledBack <- true))
         Assert.IsTrue calledBack
-    
+
     [<Test>]
     member __.``Test Regen``() =
         let out = List<_>()

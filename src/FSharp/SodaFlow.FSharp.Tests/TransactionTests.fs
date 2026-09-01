@@ -148,17 +148,17 @@ type ``Transaction Tests``() =
                 Transaction.post (fun () -> value <- c |> sampleC))
             Assert.AreEqual (0, value))
         Assert.AreEqual (2, value)
-    
+
     [<Test>]
     member __.``Is Active``() =
         let isActive = runT Transaction.isActive
         Assert.IsTrue isActive
-    
+
     [<Test>]
     member __.``Is Not Active``() =
         let isActive = Transaction.isActive ()
         Assert.IsFalse isActive
-    
+
     [<Test>]
     member __.``Is Not Active Separate Thread``() =
         let mutable threadIsActive1 = None

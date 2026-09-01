@@ -1,0 +1,30 @@
+# Whitespace hygiene only. Formatting - indentation, brace placement, member ordering - stays
+# where it already lives, in the .DotSettings files beside each solution, so that this file and
+# ReSharper cannot disagree about the same thing.
+#
+# Both rules below were true of most of the repository already and false of the rest, which is
+# the state that produces diffs full of lines nobody meant to change. Stating them here is what
+# keeps an editor from reintroducing that on the next save.
+
+root = true
+
+[*]
+insert_final_newline = true
+trim_trailing_whitespace = true
+
+# Vendored third-party source, kept as close to upstream as possible so it can be refreshed
+# without replaying local edits. JetBrainsAnnotations.cs carries JetBrains' own MIT notice;
+# denotational/ is the Sodium semantics paper and its executable reference, imported with their
+# full history.
+[denotational/**]
+insert_final_newline = false
+trim_trailing_whitespace = false
+
+[**/JetBrainsAnnotations.cs]
+insert_final_newline = false
+trim_trailing_whitespace = false
+
+# Legal text, left byte-for-byte as adopted.
+[{LICENSE,NOTICE}]
+insert_final_newline = false
+trim_trailing_whitespace = false

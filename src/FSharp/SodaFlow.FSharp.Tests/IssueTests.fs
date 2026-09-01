@@ -8,7 +8,7 @@ module Issue151 =
 
     [<TestFixture>]
     type ``Issue 151 Tests``() =
-    
+
         [<Test>]
         member __.``Pool Double Subtraction: Broken``() =
             let actual =
@@ -29,7 +29,7 @@ module Issue151 =
                 with
                     | e -> Some e
             actual |> assertExceptionExists (fun e -> Assert.AreEqual ("A dependency cycle was detected.", e.Message))
-    
+
         [<Test>]
         member __.``Pool Double Subtraction: Fixed``() =
             let threshold = sinkC 10
@@ -57,7 +57,7 @@ module Issue138 =
 
     [<AutoOpen>]
     module private Types =
-    
+
         type TestObject = private { Input1' : StreamSink<int>; Input2' : StreamSink<int>; Output' : Cell<int> }
             with
                 static member create () =
@@ -70,13 +70,13 @@ module Issue138 =
                 member this.Input1 = this.Input1'
                 member this.Input2 = this.Input2'
                 member this.Output = this.Output'
-        
+
         [<RequireQualifiedAccess>]
         module TestObject =
             let input1 (o : TestObject) = o.Input1
             let input2 (o : TestObject) = o.Input2
             let output (o : TestObject) = o.Output
-    
+
     (*
      * Desired behavior:
      *     A list of items of type TestObject are held in a cell.  TestObject contains a cell of type int named Output, which is calculated from other values.
@@ -84,7 +84,7 @@ module Issue138 =
      *)
     [<TestFixture>]
     type ``Issue 138 Tests``() =
-    
+
         (*
          * Switch over the sum of the Output cells in the list.
          * This won't work because we would need to recurse to keep the list correct when the sum is very low (only one item can be added per transaction).
@@ -114,7 +114,7 @@ module Issue138 =
                         e.InnerExceptions |> Seq.tryFind (fun e -> e.Message = "A dependency cycle was detected.")
                     | e -> Some e
             actual |> assertExceptionExists (fun e -> Assert.AreEqual ("A dependency cycle was detected.", e.Message))
-    
+
         (*
          * Switch over the sum of the Output cell value streams in the list.
          * This won't work both because we miss the first Values stream event when the list changes and also because we would need to recurse to keep the list correct when the sum is very low (only one item can be added per transaction).
@@ -145,7 +145,7 @@ module Issue138 =
             streamSink |> sendS List.empty
             objectCounts.Add -1
             l |> unlistenL
-            
+
             // Ideal result, likely not achievable.
             //CollectionAssert.AreEquivalent ([-1;10;-1;11;-1;15;-1;10;-1], objectCounts)
 
@@ -154,7 +154,7 @@ module Issue138 =
 
             // Incorrect result we will see.
             CollectionAssert.AreEquivalent ([-1;10;-1;11;-1;12;-1;0;-1], objectCounts)
-    
+
         (*
          * Switch over the sum of the Output cells in the list, deferring the firings from the Values stream.
          * This will work because it allows the Values to recurse by firing each step in a new transaction immediately following the transaction for the previous step.
@@ -188,7 +188,7 @@ module Issue138 =
             streamSink |> sendS List.empty
             objectCounts.Add -1
             l |> unlistenL
-            
+
             // Ideal result, likely not achievable.
             //CollectionAssert.AreEquivalent ([-1;10;-1;11;-1;15;-1;10;-1], objectCounts)
 
@@ -229,7 +229,7 @@ module Issue138 =
             streamSink |> sendS List.empty
             objectCounts.Add -1
             l |> unlistenL
-            
+
             // Ideal result, likely not achievable.
             //CollectionAssert.AreEquivalent ([-1;10;-1;11;-1;15;-1;10;-1], objectCounts)
 

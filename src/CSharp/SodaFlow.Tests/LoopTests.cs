@@ -105,7 +105,7 @@ namespace SodaFlow.Tests
             InvalidOperationException actual = null;
 
             StreamLoop<int> l = null;
-            
+
             ManualResetEvent waitHandle = new ManualResetEvent(false);
 
             new Thread(
@@ -279,7 +279,7 @@ namespace SodaFlow.Tests
             InvalidOperationException actual = null;
 
             BehaviorLoop<int> l = null;
-            
+
             ManualResetEvent waitHandle = new ManualResetEvent(false);
 
             new Thread(
@@ -293,7 +293,7 @@ namespace SodaFlow.Tests
                         })).Start();
 
             waitHandle.WaitOne();
-            
+
             try
             {
                 BehaviorSink<int> s = Behavior.CreateSink(0);
@@ -453,7 +453,7 @@ namespace SodaFlow.Tests
             InvalidOperationException actual = null;
 
             CellLoop<int> l = null;
-            
+
             ManualResetEvent waitHandle = new ManualResetEvent(false);
 
             new Thread(
@@ -467,7 +467,7 @@ namespace SodaFlow.Tests
                         })).Start();
 
             waitHandle.WaitOne();
-            
+
             try
             {
                 CellSink<int> s = Cell.CreateSink(0);
