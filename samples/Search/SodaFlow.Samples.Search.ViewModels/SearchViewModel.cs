@@ -80,6 +80,15 @@ public sealed class SearchViewModel : IDisposable
     /// <summary>Enabled only while a search is running.</summary>
     public IBindableAction Cancel { get; }
 
+    /// <summary>
+    ///     Every entry holds a subscription into the graph, and disposing it is what releases
+    ///     that subscription.
+    /// </summary>
+    /// <remarks>
+    ///     This is the case the counter sample's remarks point at: the list holds the async
+    ///     pipeline's status alongside the bindables, which is why it is typed as
+    ///     <see cref="IDisposable" />. The constructor says what disposing that one does.
+    /// </remarks>
     public void Dispose()
     {
         foreach (IDisposable disposable in this.disposables)
