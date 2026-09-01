@@ -7,13 +7,13 @@ namespace SodaFlow
         internal static Action<TransactionInternal, T> Create<T>(Func<T, T, T> f, Stream<T> @out)
         {
             bool accumValid = false;
-            T accum = default(T);
+            T accum = default;
 
             return (trans1, a) =>
             {
                 if (accumValid)
                 {
-                    accum = f(accum, a);
+                    accum = f(arg1: accum, arg2: a);
                 }
                 else
                 {
@@ -21,13 +21,13 @@ namespace SodaFlow
                     accumValid = true;
 
                     trans1.Prioritized(
-                        @out.Node,
-                        trans2 =>
+                        node: @out.Node,
+                        action: trans2 =>
                         {
                             // ReSharper disable once AccessToModifiedClosure
-                            @out.Send(trans2, accum);
+                            @out.Send(trans: trans2, a: accum);
                             accumValid = false;
-                            accum = default(T);
+                            accum = default;
                         });
                 }
             };

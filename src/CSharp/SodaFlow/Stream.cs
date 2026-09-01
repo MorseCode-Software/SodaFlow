@@ -46,7 +46,7 @@ namespace SodaFlow
         ///     Creates a helper to loop over a stream for the specified type.
         /// </summary>
         /// <typeparam name="T">The type of the stream to loop.</typeparam>
-        /// <returns>A <see cref="StreamLooper{T}"/> which should be used to complete the loop.</returns>
+        /// <returns>A <see cref="StreamLooper{T}" /> which should be used to complete the loop.</returns>
         [Pure]
         public static StreamLooper<T> Loop<T>() => new StreamLooper<T>();
     }
@@ -61,20 +61,22 @@ namespace SodaFlow
         ///     Loop a stream and return a value tuple containing the resulting stream and captures.
         /// </summary>
         /// <typeparam name="TCaptures">The type of the captures to return.</typeparam>
-        /// <param name="f">A function which takes the stream loop and returns a value tuple containing the resulting stream and captures.</param>
+        /// <param name="f">
+        ///     A function which takes the stream loop and returns a value tuple containing the resulting stream and
+        ///     captures.
+        /// </param>
         /// <returns>A value tuple containing the resulting stream and captures.</returns>
         [Pure]
         [MethodImpl(MethodImplOptions.NoInlining)]
         public (Stream<T> Stream, TCaptures Captures) WithCaptures<TCaptures>(
             Func<LoopedStream<T>, (Stream<T> Stream, TCaptures Captures)> f) =>
-            TransactionInternal.Apply(
-                (trans, _) =>
-                {
-                    LoopedStream<T> loop = new LoopedStream<T>();
-                    (Stream<T> Stream, TCaptures Captures) result = f(loop);
-                    loop.Loop(trans, result.Stream);
-                    return result;
-                });
+            TransactionInternal.Apply((trans, _) =>
+            {
+                LoopedStream<T> loop = new LoopedStream<T>();
+                (Stream<T> Stream, TCaptures Captures) result = f(loop);
+                loop.Loop(trans: trans, stream: result.Stream);
+                return result;
+            });
 
         /// <summary>
         ///     Loop a stream and return the resulting stream.

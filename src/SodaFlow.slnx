@@ -1,41 +1,46 @@
 <Solution>
-  <Folder Name="/Async/">
-    <Project Path="Async/SodaFlow.Core.Async.Tests/SodaFlow.Core.Async.Tests.csproj" />
-    <Project Path="Async/SodaFlow.Core.Async/SodaFlow.Core.Async.csproj" />
-  </Folder>
-  <Folder Name="/Async/CSharp/">
-    <Project Path="Async/CSharp/SodaFlow.Async.Tests/SodaFlow.Async.Tests.csproj" />
-    <Project Path="Async/CSharp/SodaFlow.Async/SodaFlow.Async.csproj" />
-  </Folder>
-  <Folder Name="/Async/FSharp/">
-    <Project Path="Async/FSharp/SodaFlow.FSharp.Async.Tests/SodaFlow.FSharp.Async.Tests.fsproj" />
-    <Project Path="Async/FSharp/SodaFlow.FSharp.Async/SodaFlow.FSharp.Async.fsproj" />
-  </Folder>
-  <Folder Name="/Bindable/" />
-  <Folder Name="/Bindable/ObjectModel/">
-    <Project Path="Bindable/ObjectModel/SodaFlow.Core.Bindable.ObjectModel.Tests/SodaFlow.Core.Bindable.ObjectModel.Tests.csproj" />
-    <Project Path="Bindable/ObjectModel/SodaFlow.Core.Bindable.ObjectModel/SodaFlow.Core.Bindable.ObjectModel.csproj" />
-  </Folder>
-  <Folder Name="/Bindable/ObjectModel/CSharp/">
-    <Project Path="Bindable/ObjectModel/CSharp/SodaFlow.Bindable.ObjectModel.Tests/SodaFlow.Bindable.ObjectModel.Tests.csproj" />
-    <Project Path="Bindable/ObjectModel/CSharp/SodaFlow.Bindable.ObjectModel/SodaFlow.Bindable.ObjectModel.csproj" />
-  </Folder>
-  <Folder Name="/Bindable/ObjectModel/FSharp/">
-    <Project Path="Bindable/ObjectModel/FSharp/SodaFlow.FSharp.Bindable.ObjectModel.Tests/SodaFlow.FSharp.Bindable.ObjectModel.Tests.fsproj" />
-    <Project Path="Bindable/ObjectModel/FSharp/SodaFlow.FSharp.Bindable.ObjectModel/SodaFlow.FSharp.Bindable.ObjectModel.fsproj" />
-  </Folder>
-  <Folder Name="/CSharp/">
-    <Project Path="CSharp/SodaFlow.Functional/SodaFlow.Functional.csproj" />
-    <Project Path="CSharp/SodaFlow.Tests.Internal/SodaFlow.Tests.Internal.csproj" />
-    <Project Path="CSharp/SodaFlow.Tests.Memory/SodaFlow.Tests.Memory.csproj" />
-    <Project Path="CSharp/SodaFlow.Tests.Performance/SodaFlow.Tests.Performance.csproj" />
-    <Project Path="CSharp/SodaFlow.Tests/SodaFlow.Tests.csproj" />
-    <Project Path="CSharp/SodaFlow/SodaFlow.csproj" />
-  </Folder>
-  <Folder Name="/FSharp/">
-    <Project Path="FSharp/SodaFlow.FSharp.Tests.Internal/SodaFlow.FSharp.Tests.Internal.fsproj" />
-    <Project Path="FSharp/SodaFlow.FSharp.Tests/SodaFlow.FSharp.Tests.fsproj" />
-    <Project Path="FSharp/SodaFlow.FSharp/SodaFlow.FSharp.fsproj" />
-  </Folder>
-  <Project Path="SodaFlow.Core/SodaFlow.Core.csproj" />
+    <Folder Name="/Async/">
+        <Project Path="Async/SodaFlow.Core.Async.Tests/SodaFlow.Core.Async.Tests.csproj"/>
+        <Project Path="Async/SodaFlow.Core.Async/SodaFlow.Core.Async.csproj"/>
+    </Folder>
+    <Folder Name="/Async/CSharp/">
+        <Project Path="Async/CSharp/SodaFlow.Async.Tests/SodaFlow.Async.Tests.csproj"/>
+        <Project Path="Async/CSharp/SodaFlow.Async/SodaFlow.Async.csproj"/>
+    </Folder>
+    <Folder Name="/Async/FSharp/">
+        <Project Path="Async/FSharp/SodaFlow.FSharp.Async.Tests/SodaFlow.FSharp.Async.Tests.fsproj"/>
+        <Project Path="Async/FSharp/SodaFlow.FSharp.Async/SodaFlow.FSharp.Async.fsproj"/>
+    </Folder>
+    <Folder Name="/Bindable/"/>
+    <Folder Name="/Bindable/ObjectModel/">
+        <Project
+                Path="Bindable/ObjectModel/SodaFlow.Core.Bindable.ObjectModel.Tests/SodaFlow.Core.Bindable.ObjectModel.Tests.csproj"/>
+        <Project
+                Path="Bindable/ObjectModel/SodaFlow.Core.Bindable.ObjectModel/SodaFlow.Core.Bindable.ObjectModel.csproj"/>
+    </Folder>
+    <Folder Name="/Bindable/ObjectModel/CSharp/">
+        <Project
+                Path="Bindable/ObjectModel/CSharp/SodaFlow.Bindable.ObjectModel.Tests/SodaFlow.Bindable.ObjectModel.Tests.csproj"/>
+        <Project Path="Bindable/ObjectModel/CSharp/SodaFlow.Bindable.ObjectModel/SodaFlow.Bindable.ObjectModel.csproj"/>
+    </Folder>
+    <Folder Name="/Bindable/ObjectModel/FSharp/">
+        <Project
+                Path="Bindable/ObjectModel/FSharp/SodaFlow.FSharp.Bindable.ObjectModel.Tests/SodaFlow.FSharp.Bindable.ObjectModel.Tests.fsproj"/>
+        <Project
+                Path="Bindable/ObjectModel/FSharp/SodaFlow.FSharp.Bindable.ObjectModel/SodaFlow.FSharp.Bindable.ObjectModel.fsproj"/>
+    </Folder>
+    <Folder Name="/CSharp/">
+        <Project Path="CSharp/SodaFlow.Functional/SodaFlow.Functional.csproj"/>
+        <Project Path="CSharp/SodaFlow.Tests.Internal/SodaFlow.Tests.Internal.csproj"/>
+        <Project Path="CSharp/SodaFlow.Tests.Memory/SodaFlow.Tests.Memory.csproj"/>
+        <Project Path="CSharp/SodaFlow.Tests.Performance/SodaFlow.Tests.Performance.csproj"/>
+        <Project Path="CSharp/SodaFlow.Tests/SodaFlow.Tests.csproj"/>
+        <Project Path="CSharp/SodaFlow/SodaFlow.csproj"/>
+    </Folder>
+    <Folder Name="/FSharp/">
+        <Project Path="FSharp/SodaFlow.FSharp.Tests.Internal/SodaFlow.FSharp.Tests.Internal.fsproj"/>
+        <Project Path="FSharp/SodaFlow.FSharp.Tests/SodaFlow.FSharp.Tests.fsproj"/>
+        <Project Path="FSharp/SodaFlow.FSharp/SodaFlow.FSharp.fsproj"/>
+    </Folder>
+    <Project Path="SodaFlow.Core/SodaFlow.Core.csproj"/>
 </Solution>

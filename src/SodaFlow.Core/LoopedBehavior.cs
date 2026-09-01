@@ -3,7 +3,8 @@ using System;
 namespace SodaFlow
 {
     /// <summary>
-    ///     A forward reference for a <see cref="Behavior{T}" /> equivalent to the <see cref="Behavior{T}" /> that is referenced.
+    ///     A forward reference for a <see cref="Behavior{T}" /> equivalent to the <see cref="Behavior{T}" /> that is
+    ///     referenced.
     /// </summary>
     /// <typeparam name="T">The type of values in the behavior loop.</typeparam>
     public class LoopedBehavior<T> : Behavior<T>
@@ -18,11 +19,12 @@ namespace SodaFlow
         }
 
         private LoopedBehavior(LoopedStream<T> streamLoop)
-            : base(streamLoop, default(T)) => this.streamLoop = streamLoop;
+            : base(stream: streamLoop, initialValue: default) =>
+            this.streamLoop = streamLoop;
 
         internal void Loop(TransactionInternal trans, Behavior<T> b)
         {
-            this.streamLoop.Loop(trans, b.Updates());
+            this.streamLoop.Loop(trans: trans, stream: b.Updates());
             this.lazyInitialValue = b.SampleLazy(trans);
         }
 

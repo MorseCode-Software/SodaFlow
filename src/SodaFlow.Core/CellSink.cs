@@ -14,22 +14,23 @@ namespace SodaFlow
         private readonly CellStreamSink<T> streamSink;
 
         internal CellSink(T initialValue)
-            : this(new CellStreamSink<T>(), initialValue)
+            : this(streamSink: new CellStreamSink<T>(), initialValue: initialValue)
         {
         }
 
         internal CellSink(T initialValue, Func<T, T, T> coalesce)
-            : this(new CellStreamSink<T>(coalesce), initialValue)
+            : this(streamSink: new CellStreamSink<T>(coalesce), initialValue: initialValue)
         {
         }
 
         private CellSink(CellStreamSink<T> streamSink, T initialValue)
-            : this(streamSink, new Behavior<T>(streamSink, initialValue))
+            : this(streamSink: streamSink, behavior: new Behavior<T>(stream: streamSink, initialValue: initialValue))
         {
         }
 
         private CellSink(CellStreamSink<T> streamSink, Behavior<T> behavior)
-            : base(behavior) => this.streamSink = streamSink;
+            : base(behavior) =>
+            this.streamSink = streamSink;
 
         internal void SendImpl(T a) => this.streamSink.SendImpl(a);
     }

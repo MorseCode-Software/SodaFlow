@@ -6,12 +6,15 @@ namespace SodaFlow
 {
     internal static class StreamExtensionMethodsInternal
     {
-        internal static Stream<T> OrElseImpl<T, T2>(this IEnumerable<T2> s) where T2 : Stream<T> => s.MergeImpl<T, T2>((left, right) => left);
+        internal static Stream<T> OrElseImpl<T, T2>(this IEnumerable<T2> s)
+            where T2 : Stream<T> =>
+            s.MergeImpl<T, T2>((left, right) => left);
 
-        internal static Stream<T> MergeImpl<T, T2>(this IEnumerable<T2> s, Func<T, T, T> f) where T2 : Stream<T>
+        internal static Stream<T> MergeImpl<T, T2>(this IEnumerable<T2> s, Func<T, T, T> f)
+            where T2 : Stream<T>
         {
             IReadOnlyList<Stream<T>> v = s.ToArray();
-            return TransactionInternal.Apply((trans, _) => Merge(trans, v, 0, v.Count, f));
+            return TransactionInternal.Apply((trans, _) => Merge(trans: trans, e: v, start: 0, end: v.Count, f: f));
         }
 
         private static Stream<T> Merge<T>(
@@ -35,11 +38,13 @@ namespace SodaFlow
 
             if (n == 2)
             {
-                return e[start].Merge(trans, e[start + 1], f);
+                return e[start].Merge(trans: trans, s: e[start + 1], f: f);
             }
 
             int mid = (start + end) / 2;
-            return Merge(trans, e, start, mid, f).Merge(trans, Merge(trans, e, mid, end, f), f);
+
+            return Merge(trans: trans, e: e, start: start, end: mid, f: f)
+                .Merge(trans: trans, s: Merge(trans: trans, e: e, start: mid, end: end, f: f), f: f);
         }
 
         internal static Stream<T> FilterSomeImpl<T, TMaybe>(this Stream<TMaybe> s, Action<TMaybe, Action<T>> matchSome)
@@ -48,8 +53,8 @@ namespace SodaFlow
 
             IListener l =
                 s.Listen(
-                    @out.Node,
-                    (trans2, a) => matchSome(a, v => @out.Send(trans2, v)));
+                    target: @out.Node,
+                    action: (trans2, a) => matchSome(arg1: a, arg2: v => @out.Send(trans: trans2, a: v)));
 
             return @out.UnsafeAttachListener(l);
         }

@@ -2,8 +2,8 @@
 using System.Collections.Generic;
 using System.Threading;
 using NUnit.Framework;
-using SodaFlow.Time;
 using SodaFlow.Functional;
+using SodaFlow.Time;
 
 namespace SodaFlow.Tests
 {
@@ -13,19 +13,30 @@ namespace SodaFlow.Tests
         [Test]
         public void SimultaneousTimerEvents()
         {
-            TimerSystem<DateTime> ts = new SystemClockTimerSystem(e => { });
+            TimerSystem<DateTime> ts =
+                new SystemClockTimerSystem(e =>
+                {
+                });
+
             Behavior<DateTime> time = ts.Time;
             List<DateTime> l = new List<DateTime>();
-            Transaction.RunVoid(
-                () =>
+
+            Transaction.RunVoid(() =>
+            {
+                DateTime now = time.Sample();
+                Stream<DateTime> a1 = ts.At(Cell.Constant(Maybe.Some(now.AddMilliseconds(99))));
+                Stream<DateTime> a2 = ts.At(Cell.Constant(Maybe.Some(now.AddMilliseconds(100))));
+                Stream<DateTime> a3 = ts.At(Cell.Constant(Maybe.Some(now.AddMilliseconds(100))));
+                Stream<DateTime> m = a1.OrElse(a2).OrElse(a3);
+
+                m.ListenStrong(v =>
                 {
-                    DateTime now = time.Sample();
-                    Stream<DateTime> a1 = ts.At(Cell.Constant(Maybe.Some(now.AddMilliseconds(99))));
-                    Stream<DateTime> a2 = ts.At(Cell.Constant(Maybe.Some(now.AddMilliseconds(100))));
-                    Stream<DateTime> a3 = ts.At(Cell.Constant(Maybe.Some(now.AddMilliseconds(100))));
-                    Stream<DateTime> m = a1.OrElse(a2).OrElse(a3);
-                    m.ListenStrong(v => { lock (l) { l.Add(v); } });
+                    lock (l)
+                    {
+                        l.Add(v);
+                    }
                 });
+            });
 
             // Wait for the alarms rather than assuming a fixed window is long enough. The alarms
             // are 99ms and 100ms out, so a flat 200ms sleep left about 100ms of slack, and a
@@ -40,19 +51,20 @@ namespace SodaFlow.Tests
             // The lock is not incidental. l is written from the timer thread and read here, which
             // the original fixed sleep left unsynchronized.
             SpinWait.SpinUntil(
-                () =>
+                condition: () =>
                 {
                     lock (l)
                     {
                         return l.Count >= 2;
                     }
                 },
-                TimeSpan.FromSeconds(10));
+                timeout: TimeSpan.FromSeconds(10));
+
             Thread.Sleep(100);
 
             lock (l)
             {
-                Assert.That(l.Count, Is.EqualTo(2));
+                Assert.That(actual: l.Count, expression: Is.EqualTo(2));
             }
         }
     }

@@ -27,7 +27,8 @@ namespace SodaFlow
         public static Behavior<T> ConstantLazy<T>(Lazy<T> value) => BehaviorInternal.ConstantLazyImpl(value);
 
         /// <summary>
-        ///     Creates a writable behavior that uses the last value if <see cref="BehaviorSinkExtensionMethods.Send{T}" /> is called more than once per
+        ///     Creates a writable behavior that uses the last value if <see cref="BehaviorSinkExtensionMethods.Send{T}" /> is
+        ///     called more than once per
         ///     transaction.
         /// </summary>
         /// <param name="initialValue">The initial value of the behavior.</param>
@@ -46,7 +47,8 @@ namespace SodaFlow
         /// </param>
         /// <typeparam name="T">The type of values in the behavior sink.</typeparam>
         [MethodImpl(MethodImplOptions.NoInlining)]
-        public static BehaviorSink<T> CreateSink<T>(T initialValue, Func<T, T, T> coalesce) => BehaviorInternal.CreateSinkImpl(initialValue, coalesce);
+        public static BehaviorSink<T> CreateSink<T>(T initialValue, Func<T, T, T> coalesce) =>
+            BehaviorInternal.CreateSinkImpl(initialValue: initialValue, coalesce: coalesce);
 
         /// <summary>
         ///     Creates a <see cref="BehaviorLoop{T}" />.  This must be called and looped from within the same transaction.
@@ -58,7 +60,7 @@ namespace SodaFlow
         ///     Creates a helper to loop over a behavior for the specified type.
         /// </summary>
         /// <typeparam name="T">The type of the behavior to loop.</typeparam>
-        /// <returns>A <see cref="BehaviorLooper{T}"/> which should be used to complete the loop.</returns>
+        /// <returns>A <see cref="BehaviorLooper{T}" /> which should be used to complete the loop.</returns>
         [Pure]
         public static BehaviorLooper<T> Loop<T>() => new BehaviorLooper<T>();
     }
@@ -73,20 +75,22 @@ namespace SodaFlow
         ///     Loop a behavior and return a value tuple containing the resulting behavior and captures.
         /// </summary>
         /// <typeparam name="TCaptures">The type of the captures to return.</typeparam>
-        /// <param name="f">A function which takes the behavior loop and returns a value tuple containing the resulting behavior and captures.</param>
+        /// <param name="f">
+        ///     A function which takes the behavior loop and returns a value tuple containing the resulting behavior
+        ///     and captures.
+        /// </param>
         /// <returns>A value tuple containing the resulting behavior and captures.</returns>
         [Pure]
         [MethodImpl(MethodImplOptions.NoInlining)]
         public (Behavior<T> Behavior, TCaptures Captures) WithCaptures<TCaptures>(
             Func<LoopedBehavior<T>, (Behavior<T> Behavior, TCaptures Captures)> f) =>
-            TransactionInternal.Apply(
-                (trans, _) =>
-                {
-                    LoopedBehavior<T> loop = new LoopedBehavior<T>();
-                    (Behavior<T> Behavior, TCaptures Captures) result = f(loop);
-                    loop.Loop(trans, result.Behavior);
-                    return result;
-                });
+            TransactionInternal.Apply((trans, _) =>
+            {
+                LoopedBehavior<T> loop = new LoopedBehavior<T>();
+                (Behavior<T> Behavior, TCaptures Captures) result = f(loop);
+                loop.Loop(trans: trans, b: result.Behavior);
+                return result;
+            });
 
         /// <summary>
         ///     Loop a behavior and return the resulting behavior.

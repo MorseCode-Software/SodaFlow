@@ -8,10 +8,11 @@ type ``Node Tests``() =
 
     [<Test>]
     member __.``Test Node``() =
-        let a = Node<int> ()
-        let b = Node<int> ()
-        TransactionInternal.Apply
-            (fun trans _ ->
-                a.Link (trans, (fun _ _ -> ()), b) |> ignore
-                trans.Prioritized (a, (fun _ -> ())))
-        Assert.That (a.Rank, Is.LessThan b.Rank)
+        let a = Node<int>()
+        let b = Node<int>()
+
+        TransactionInternal.Apply(fun trans _ ->
+            a.Link(trans, (fun _ _ -> ()), b) |> ignore
+            trans.Prioritized(a, (fun _ -> ())))
+
+        Assert.That(a.Rank, Is.LessThan b.Rank)

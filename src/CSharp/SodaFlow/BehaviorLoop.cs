@@ -4,15 +4,15 @@ using System.Runtime.CompilerServices;
 namespace SodaFlow
 {
     /// <summary>
-    ///     A forward reference for a <see cref="Behavior{T}" /> equivalent to the <see cref="Behavior{T}" /> that is referenced.
+    ///     A forward reference for a <see cref="Behavior{T}" /> equivalent to the <see cref="Behavior{T}" /> that is
+    ///     referenced.
     /// </summary>
     /// <typeparam name="T">The type of values in the behavior loop.</typeparam>
     public class BehaviorLoop<T> : LoopedBehavior<T>
     {
-        private TransactionInternal transaction;
-
         private readonly object isLoopedLock = new object();
         private bool isLooped;
+        private TransactionInternal transaction;
 
         /// <summary>
         ///     Initializes a new instance of the <see cref="BehaviorLoop{T}" /> class, a forward reference to a
@@ -39,16 +39,15 @@ namespace SodaFlow
                 throw new InvalidOperationException("Loop must be created within an explicit transaction.");
             }
 
-            this.transaction.Last(
-                () =>
+            this.transaction.Last(() =>
+            {
+                if (this.transaction != null)
                 {
-                    if (this.transaction != null)
-                    {
-                        this.transaction = null;
+                    this.transaction = null;
 
-                        throw new InvalidOperationException("Loop was not looped.");
-                    }
-                });
+                    throw new InvalidOperationException("Loop was not looped.");
+                }
+            });
         }
 
         /// <summary>
@@ -61,32 +60,31 @@ namespace SodaFlow
         /// <param name="b">The behavior that was forward referenced.</param>
         [MethodImpl(MethodImplOptions.NoInlining)]
         public void Loop(Behavior<T> b) =>
-            TransactionInternal.Apply(
-                (trans, _) =>
+            TransactionInternal.Apply((trans, _) =>
+            {
+                lock (this.isLoopedLock)
                 {
-                    lock (this.isLoopedLock)
+                    if (this.isLooped)
                     {
-                        if (this.isLooped)
-                        {
-                            throw new InvalidOperationException("Loop was looped more than once.");
-                        }
-
-                        this.isLooped = true;
+                        throw new InvalidOperationException("Loop was looped more than once.");
                     }
 
-                    if (trans != this.transaction)
-                    {
-                        this.transaction = null;
+                    this.isLooped = true;
+                }
 
-                        throw new InvalidOperationException(
-                            "Loop must be looped in the same transaction that it was created in.");
-                    }
-
+                if (trans != this.transaction)
+                {
                     this.transaction = null;
 
-                    this.Loop(trans, b);
+                    throw new InvalidOperationException(
+                        "Loop must be looped in the same transaction that it was created in.");
+                }
 
-                    return UnitInternal.Value;
-                });
+                this.transaction = null;
+
+                this.Loop(trans: trans, b: b);
+
+                return UnitInternal.Value;
+            });
     }
 }

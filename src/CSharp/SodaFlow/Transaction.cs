@@ -49,12 +49,11 @@ namespace SodaFlow
         /// </remarks>
         [MethodImpl(MethodImplOptions.NoInlining)]
         public static void RunVoid(Action action) =>
-            TransactionInternal.RunImpl(
-                () =>
-                {
-                    action();
-                    return Unit.Value;
-                });
+            TransactionInternal.RunImpl(() =>
+            {
+                action();
+                return Unit.Value;
+            });
 
         /// <summary>
         ///     Execute the specified function inside a single transaction.

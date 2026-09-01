@@ -25,17 +25,17 @@
     </PropertyGroup>
 
     <ItemGroup>
-        <PackageReference Include="JetBrains.Annotations" Version="2026.2.0" />
+        <PackageReference Include="JetBrains.Annotations" Version="2026.2.0"/>
         <PackageReference Include="System.ValueTuple" Version="4.4.0"/>
     </ItemGroup>
 
     <ItemGroup>
-      <Compile Include="AssemblyInfo.cs" />
-      <Compile Include="MapAsyncUtility.cs" />
+        <Compile Include="AssemblyInfo.cs"/>
+        <Compile Include="MapAsyncUtility.cs"/>
     </ItemGroup>
 
     <ItemGroup>
-      <ProjectReference Include="..\..\SodaFlow.Core\SodaFlow.Core.csproj" />
+        <ProjectReference Include="..\..\SodaFlow.Core\SodaFlow.Core.csproj"/>
     </ItemGroup>
 
 </Project>

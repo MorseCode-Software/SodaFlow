@@ -37,7 +37,8 @@ namespace SodaFlow
 
         /// <summary>
         ///     Construct a writable cell that uses <paramref name="coalesce" />
-        ///     to combine values if <see cref="CellSinkExtensionMethods.Send{T}(CellSink{T}, T)" /> is called more than once per transaction.
+        ///     to combine values if <see cref="CellSinkExtensionMethods.Send{T}(CellSink{T}, T)" /> is called more than once per
+        ///     transaction.
         /// </summary>
         /// <typeparam name="T">The type of the value in the cell sink.</typeparam>
         /// <param name="initialValue">The initial value of the cell.</param>
@@ -47,7 +48,7 @@ namespace SodaFlow
         /// </param>
         [MethodImpl(MethodImplOptions.NoInlining)]
         public static CellSink<T> CreateSink<T>(T initialValue, Func<T, T, T> coalesce) =>
-            CellInternal.CreateSinkImpl(initialValue, coalesce);
+            CellInternal.CreateSinkImpl(initialValue: initialValue, coalesce: coalesce);
 
         /// <summary>
         ///     Construct a writable cell stream sink that uses the last value if <see cref="CellSinkExtensionMethods.Send{T}" />
@@ -61,7 +62,8 @@ namespace SodaFlow
 
         /// <summary>
         ///     Construct a writable cell stream sink that uses <paramref name="coalesce" />
-        ///     to combine values if <see cref="StreamSinkExtensionMethods.Send{T}(StreamSink{T}, T)" /> is called more than once per transaction.
+        ///     to combine values if <see cref="StreamSinkExtensionMethods.Send{T}(StreamSink{T}, T)" /> is called more than once
+        ///     per transaction.
         ///     This stream sink is meant to be turned into a <see cref="Cell{T}" /> through the use of
         ///     <see cref="StreamExtensionMethods.Hold{T}(Stream{T}, T)" />.
         /// </summary>
@@ -85,7 +87,7 @@ namespace SodaFlow
         ///     Creates a helper to loop over a cell for the specified type.
         /// </summary>
         /// <typeparam name="T">The type of the cell to loop.</typeparam>
-        /// <returns>A <see cref="CellLooper{T}"/> which should be used to complete the loop.</returns>
+        /// <returns>A <see cref="CellLooper{T}" /> which should be used to complete the loop.</returns>
         [Pure]
         public static CellLooper<T> Loop<T>() => new CellLooper<T>();
     }
@@ -100,20 +102,22 @@ namespace SodaFlow
         ///     Loop a cell and return a value tuple containing the resulting cell and captures.
         /// </summary>
         /// <typeparam name="TCaptures">The type of the captures to return.</typeparam>
-        /// <param name="f">A function which takes the cell loop and returns a value tuple containing the resulting cell and captures.</param>
+        /// <param name="f">
+        ///     A function which takes the cell loop and returns a value tuple containing the resulting cell and
+        ///     captures.
+        /// </param>
         /// <returns>A value tuple containing the resulting cell and captures.</returns>
         [Pure]
         [MethodImpl(MethodImplOptions.NoInlining)]
         public (Cell<T> Cell, TCaptures Captures) WithCaptures<TCaptures>(
             Func<LoopedCell<T>, (Cell<T> Cell, TCaptures Captures)> f) =>
-            TransactionInternal.Apply(
-                (trans, _) =>
-                {
-                    LoopedCell<T> loop = new LoopedCell<T>();
-                    (Cell<T> Cell, TCaptures Captures) result = f(loop);
-                    loop.Loop(trans, result.Cell);
-                    return result;
-                });
+            TransactionInternal.Apply((trans, _) =>
+            {
+                LoopedCell<T> loop = new LoopedCell<T>();
+                (Cell<T> Cell, TCaptures Captures) result = f(loop);
+                loop.Loop(trans: trans, c: result.Cell);
+                return result;
+            });
 
         /// <summary>
         ///     Loop a cell and return the resulting cell.

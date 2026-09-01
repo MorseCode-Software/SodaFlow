@@ -12,12 +12,13 @@ namespace SodaFlow.Tests.Internal
         public void TestTransaction()
         {
             bool calledBack = false;
-            TransactionInternal.Apply(
-                (trans, _) =>
-                {
-                    trans.Prioritized(Node<Unit>.Null, trans2 => calledBack = true);
-                    return UnitInternal.Value;
-                });
+
+            TransactionInternal.Apply((trans, _) =>
+            {
+                trans.Prioritized(node: Node<Unit>.Null, action: trans2 => calledBack = true);
+                return UnitInternal.Value;
+            });
+
             Assert.IsTrue(calledBack);
         }
 
@@ -26,26 +27,25 @@ namespace SodaFlow.Tests.Internal
         {
             List<int> @out = new List<int>();
 
-            TransactionInternal.Apply(
-                (trans, _) =>
-                {
-                    SetNeedsRegeneratingAndPrioritized(() => @out.Add(1));
-                    SetNeedsRegeneratingAndPrioritized(() => SetNeedsRegeneratingAndPrioritized(() => @out.Add(4)));
-                    SetNeedsRegeneratingAndPrioritized(() => @out.Add(2));
-                    SetNeedsRegeneratingAndPrioritized(
-                        () => SetNeedsRegeneratingAndPrioritized(
-                            () => SetNeedsRegeneratingAndPrioritized(() => @out.Add(6))));
-                    SetNeedsRegeneratingAndPrioritized(() => SetNeedsRegeneratingAndPrioritized(() => @out.Add(5)));
-                    trans.Prioritized(new Node<Unit>(), trans2 => @out.Add(3));
+            TransactionInternal.Apply((trans, _) =>
+            {
+                SetNeedsRegeneratingAndPrioritized(() => @out.Add(1));
+                SetNeedsRegeneratingAndPrioritized(() => SetNeedsRegeneratingAndPrioritized(() => @out.Add(4)));
+                SetNeedsRegeneratingAndPrioritized(() => @out.Add(2));
 
-                    return UnitInternal.Value;
+                SetNeedsRegeneratingAndPrioritized(() =>
+                    SetNeedsRegeneratingAndPrioritized(() => SetNeedsRegeneratingAndPrioritized(() => @out.Add(6))));
 
-                    void SetNeedsRegeneratingAndPrioritized(Action action)
-                    {
-                        trans.Prioritized(new Node<Unit>(), __ => action());
-                    }
-                });
-            CollectionAssert.AreEqual(new[] { 1, 2, 3, 4, 5, 6 }, @out);
+                SetNeedsRegeneratingAndPrioritized(() => SetNeedsRegeneratingAndPrioritized(() => @out.Add(5)));
+                trans.Prioritized(node: new Node<Unit>(), action: trans2 => @out.Add(3));
+
+                return UnitInternal.Value;
+
+                void SetNeedsRegeneratingAndPrioritized(Action action) =>
+                    trans.Prioritized(node: new Node<Unit>(), action: __ => action());
+            });
+
+            CollectionAssert.AreEqual(expected: new[] { 1, 2, 3, 4, 5, 6 }, actual: @out);
         }
     }
 }

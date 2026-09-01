@@ -10,12 +10,12 @@
 
         public override bool Equals(object obj)
         {
-            if (ReferenceEquals(null, obj))
+            if (ReferenceEquals(objA: null, objB: obj))
             {
                 return false;
             }
 
-            if (ReferenceEquals(this, obj))
+            if (ReferenceEquals(objA: this, objB: obj))
             {
                 return true;
             }
@@ -30,8 +30,10 @@
 
         public override int GetHashCode() => 1;
 
-        public static bool operator ==(UnitInternal x, UnitInternal y) => ReferenceEquals(x, null) == ReferenceEquals(y, null);
+        public static bool operator ==(UnitInternal x, UnitInternal y) =>
+            ReferenceEquals(objA: x, objB: null) == ReferenceEquals(objA: y, objB: null);
 
-        public static bool operator !=(UnitInternal x, UnitInternal y) => ReferenceEquals(x, null) != ReferenceEquals(y, null);
+        public static bool operator !=(UnitInternal x, UnitInternal y) =>
+            ReferenceEquals(objA: x, objB: null) != ReferenceEquals(objA: y, objB: null);
     }
 }

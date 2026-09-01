@@ -15,7 +15,7 @@ namespace SodaFlow.Tests.Internal
     public class CalmTests
     {
         private static Stream<int> Calm(Stream<int> source, Lazy<MaybeInternal<int>> init) =>
-            source.Calm(init, (x, y) => x == y);
+            source.Calm(init: init, areEqual: (x, y) => x == y);
 
         // The initial value is forced in the sample phase whether or not anything fires, matching the
         // behavior Calm replaced. Nothing observable depends on the value here - only on it having been
@@ -26,20 +26,26 @@ namespace SodaFlow.Tests.Internal
             int forcings = 0;
             StreamSink<int> s = Stream.CreateSink<int>();
 
-            IListener l = TransactionInternal.Apply(
-                (trans, _) =>
+            IListener l =
+                TransactionInternal.Apply((trans, _) =>
                 {
-                    Lazy<MaybeInternal<int>> init = new Lazy<MaybeInternal<int>>(
-                        () =>
+                    Lazy<MaybeInternal<int>> init =
+                        new Lazy<MaybeInternal<int>>(() =>
                         {
                             forcings++;
                             return MaybeInternal.None;
                         });
 
-                    return Calm(s, init).ListenStrong(v => { });
+                    return Calm(source: s, init: init)
+                        .ListenStrong(v =>
+                        {
+                        });
                 });
 
-            Assert.AreEqual(1, forcings, "the initial value should be forced once, in the sample phase");
+            Assert.AreEqual(
+                expected: 1,
+                actual: forcings,
+                message: "the initial value should be forced once, in the sample phase");
 
             l.Unlisten();
         }
@@ -54,17 +60,17 @@ namespace SodaFlow.Tests.Internal
             StreamSink<int> s = Stream.CreateSink<int>();
             List<int> @out = new List<int>();
 
-            IListener l = TransactionInternal.Apply(
-                (trans, _) =>
+            IListener l =
+                TransactionInternal.Apply((trans, _) =>
                 {
-                    Lazy<MaybeInternal<int>> init = new Lazy<MaybeInternal<int>>(
-                        () =>
+                    Lazy<MaybeInternal<int>> init =
+                        new Lazy<MaybeInternal<int>>(() =>
                         {
                             forcings++;
                             return MaybeInternal.None;
                         });
 
-                    return Calm(s, init).ListenStrong(@out.Add);
+                    return Calm(source: s, init: init).ListenStrong(@out.Add);
                 });
 
             s.Send(1);
@@ -75,12 +81,13 @@ namespace SodaFlow.Tests.Internal
 
             l.Unlisten();
 
-            Assert.AreEqual(1, forcings, "the initial value should be forced exactly once");
+            Assert.AreEqual(expected: 1, actual: forcings, message: "the initial value should be forced exactly once");
+
             CollectionAssert.AreEqual(
-                new[] { 1, 2, 1 },
-                @out,
-                "re-reading the initial value per firing would reset the remembered value and let " +
-                "duplicates through");
+                expected: new[] { 1, 2, 1 },
+                actual: @out,
+                message: "re-reading the initial value per firing would reset the remembered value and let " +
+                         "duplicates through");
         }
 
         // A non-None initial value seeds the comparison, so a first firing equal to it is suppressed.
@@ -92,9 +99,10 @@ namespace SodaFlow.Tests.Internal
             StreamSink<int> s = Stream.CreateSink<int>();
             List<int> @out = new List<int>();
 
-            IListener l = TransactionInternal.Apply(
-                (trans, _) => Calm(s, new Lazy<MaybeInternal<int>>(() => MaybeInternal.Some(7)))
-                    .ListenStrong(@out.Add));
+            IListener l =
+                TransactionInternal.Apply((trans, _) =>
+                    Calm(source: s, init: new Lazy<MaybeInternal<int>>(() => MaybeInternal.Some(7)))
+                        .ListenStrong(@out.Add));
 
             s.Send(7);
             s.Send(8);
@@ -103,7 +111,10 @@ namespace SodaFlow.Tests.Internal
 
             l.Unlisten();
 
-            CollectionAssert.AreEqual(new[] { 8, 7 }, @out, "the first 7 matches the initial value");
+            CollectionAssert.AreEqual(
+                expected: new[] { 8, 7 },
+                actual: @out,
+                message: "the first 7 matches the initial value");
         }
 
         // A suppressed firing must carry the remembered value forward rather than clearing it, which is
@@ -114,9 +125,10 @@ namespace SodaFlow.Tests.Internal
             StreamSink<int> s = Stream.CreateSink<int>();
             List<int> @out = new List<int>();
 
-            IListener l = TransactionInternal.Apply(
-                (trans, _) => Calm(s, new Lazy<MaybeInternal<int>>(() => MaybeInternal.None))
-                    .ListenStrong(@out.Add));
+            IListener l =
+                TransactionInternal.Apply((trans, _) =>
+                    Calm(source: s, init: new Lazy<MaybeInternal<int>>(() => MaybeInternal.None))
+                        .ListenStrong(@out.Add));
 
             s.Send(1);
             s.Send(1);
@@ -127,9 +139,9 @@ namespace SodaFlow.Tests.Internal
             l.Unlisten();
 
             CollectionAssert.AreEqual(
-                new[] { 1, 2 },
-                @out,
-                "a run of suppressed firings must not clear what was remembered");
+                expected: new[] { 1, 2 },
+                actual: @out,
+                message: "a run of suppressed firings must not clear what was remembered");
         }
 
         // A transaction that fails must not leave the remembered value updated. Calm defers the
@@ -146,8 +158,9 @@ namespace SodaFlow.Tests.Internal
             StreamSink<int> s = Stream.CreateSink<int>();
             List<int> @out = new List<int>();
 
-            Stream<int> calmed = TransactionInternal.Apply(
-                (trans, _) => Calm(s, new Lazy<MaybeInternal<int>>(() => MaybeInternal.None)));
+            Stream<int> calmed =
+                TransactionInternal.Apply((trans, _) =>
+                    Calm(source: s, init: new Lazy<MaybeInternal<int>>(() => MaybeInternal.None)));
 
             IListener good = calmed.ListenStrong(@out.Add);
             IListener boom = calmed.ListenStrong(v => throw new InvalidOperationException("abort"));
@@ -162,9 +175,9 @@ namespace SodaFlow.Tests.Internal
             good.Unlisten();
 
             CollectionAssert.AreEqual(
-                new[] { 1, 1 },
-                @out,
-                "the firing from the failed transaction must not suppress the retry");
+                expected: new[] { 1, 1 },
+                actual: @out,
+                message: "the firing from the failed transaction must not suppress the retry");
         }
 
         // The remembered value is committed at the end of the transaction, so simultaneous sources
@@ -175,35 +188,34 @@ namespace SodaFlow.Tests.Internal
         {
             StreamSink<int> a = Stream.CreateSink<int>();
             StreamSink<int> b = Stream.CreateSink<int>();
-            Stream<int> merged = a.Merge(b, (x, y) => x + y);
+            Stream<int> merged = a.Merge(s2: b, f: (x, y) => x + y);
             List<int> @out = new List<int>();
 
-            IListener l = TransactionInternal.Apply(
-                (trans, _) => Calm(merged, new Lazy<MaybeInternal<int>>(() => MaybeInternal.None))
-                    .ListenStrong(@out.Add));
+            IListener l =
+                TransactionInternal.Apply((trans, _) =>
+                    Calm(source: merged, init: new Lazy<MaybeInternal<int>>(() => MaybeInternal.None))
+                        .ListenStrong(@out.Add));
 
-            Transaction.RunVoid(
-                () =>
-                {
-                    a.Send(1);
-                    b.Send(1);
-                });
+            Transaction.RunVoid(() =>
+            {
+                a.Send(1);
+                b.Send(1);
+            });
 
             a.Send(2);
             a.Send(3);
 
-            Transaction.RunVoid(
-                () =>
-                {
-                    a.Send(1);
-                    b.Send(2);
-                });
+            Transaction.RunVoid(() =>
+            {
+                a.Send(1);
+                b.Send(2);
+            });
 
             a.Send(3);
 
             l.Unlisten();
 
-            CollectionAssert.AreEqual(new[] { 2, 3 }, @out);
+            CollectionAssert.AreEqual(expected: new[] { 2, 3 }, actual: @out);
         }
     }
 }

@@ -9,22 +9,22 @@ namespace SodaFlow.Tests
     [TestFixture]
     public class LoopTests
     {
-        #region StreamLoop
-
         [Test]
         public void ImperativeStreamLoop()
         {
             StreamSink<int> s = Stream.CreateSink<int>();
-            Stream<int> result = Transaction.Run(
-                () =>
+
+            Stream<int> result =
+                Transaction.Run(() =>
                 {
                     StreamLoop<int> l = new StreamLoop<int>();
-                    Stream<int> resultLocal = s.Snapshot(l.Hold(0), (n, o) => n + o);
+                    Stream<int> resultLocal = s.Snapshot(c: l.Hold(0), f: (n, o) => n + o);
                     l.Loop(resultLocal);
                     return resultLocal;
                 });
 
             List<int> @out = new List<int>();
+
             using (result.ListenStrong(@out.Add))
             {
                 s.Send(1);
@@ -32,7 +32,7 @@ namespace SodaFlow.Tests
                 s.Send(3);
             }
 
-            CollectionAssert.AreEqual(new[] { 1, 3, 6 }, @out);
+            CollectionAssert.AreEqual(expected: new[] { 1, 3, 6 }, actual: @out);
         }
 
         [Test]
@@ -43,14 +43,14 @@ namespace SodaFlow.Tests
             try
             {
                 StreamSink<int> s = Stream.CreateSink<int>();
-                Transaction.RunVoid(
-                    () =>
-                    {
-                        StreamLoop<int> l = new StreamLoop<int>();
-                        Stream<int> resultLocal = s.Snapshot(l.Hold(0), (n, o) => n + o);
-                        l.Loop(resultLocal);
-                        l.Loop(resultLocal);
-                    });
+
+                Transaction.RunVoid(() =>
+                {
+                    StreamLoop<int> l = new StreamLoop<int>();
+                    Stream<int> resultLocal = s.Snapshot(c: l.Hold(0), f: (n, o) => n + o);
+                    l.Loop(resultLocal);
+                    l.Loop(resultLocal);
+                });
             }
             catch (InvalidOperationException e)
             {
@@ -58,7 +58,7 @@ namespace SodaFlow.Tests
             }
 
             Assert.IsNotNull(actual);
-            Assert.AreEqual("Loop was looped more than once.", actual.Message);
+            Assert.AreEqual(expected: "Loop was looped more than once.", actual: actual.Message);
         }
 
         [Test]
@@ -77,7 +77,7 @@ namespace SodaFlow.Tests
             }
 
             Assert.IsNotNull(actual);
-            Assert.AreEqual("Loop must be created within an explicit transaction.", actual.Message);
+            Assert.AreEqual(expected: "Loop must be created within an explicit transaction.", actual: actual.Message);
         }
 
         [Test]
@@ -96,7 +96,7 @@ namespace SodaFlow.Tests
             }
 
             Assert.IsNotNull(actual);
-            Assert.AreEqual("Loop was not looped.", actual.Message);
+            Assert.AreEqual(expected: "Loop was not looped.", actual: actual.Message);
         }
 
         [Test]
@@ -105,31 +105,29 @@ namespace SodaFlow.Tests
             InvalidOperationException actual = null;
 
             StreamLoop<int> l = null;
-            
+
             ManualResetEvent waitHandle = new ManualResetEvent(false);
 
-            new Thread(
-                () =>
-                    Transaction.RunVoid(
-                        () =>
-                        {
-                            l = new StreamLoop<int>();
-                            waitHandle.Set();
-                            Thread.Sleep(500);
-                        })).Start();
+            new Thread(() =>
+                Transaction.RunVoid(() =>
+                {
+                    l = new StreamLoop<int>();
+                    waitHandle.Set();
+                    Thread.Sleep(500);
+                })).Start();
 
             waitHandle.WaitOne();
 
             try
             {
                 StreamSink<int> s = Stream.CreateSink<int>();
-                Transaction.RunVoid(
-                    () =>
-                    {
-                        Thread.Sleep(250);
-                        Stream<int> resultLocal = s.Snapshot(l.Hold(0), (n, o) => n + o);
-                        l.Loop(resultLocal);
-                    });
+
+                Transaction.RunVoid(() =>
+                {
+                    Thread.Sleep(250);
+                    Stream<int> resultLocal = s.Snapshot(c: l.Hold(0), f: (n, o) => n + o);
+                    l.Loop(resultLocal);
+                });
             }
             catch (InvalidOperationException e)
             {
@@ -139,16 +137,20 @@ namespace SodaFlow.Tests
             Thread.Sleep(500);
 
             Assert.IsNotNull(actual);
-            Assert.AreEqual("Loop must be looped in the same transaction that it was created in.", actual.Message);
+
+            Assert.AreEqual(
+                expected: "Loop must be looped in the same transaction that it was created in.",
+                actual: actual.Message);
         }
 
         [Test]
         public void FunctionalStreamLoop()
         {
             StreamSink<int> s = Stream.CreateSink<int>();
-            Stream<int> result = Stream.Loop<int>().WithoutCaptures(l => s.Snapshot(l.Hold(0), (n, o) => n + o));
+            Stream<int> result = Stream.Loop<int>().WithoutCaptures(l => s.Snapshot(c: l.Hold(0), f: (n, o) => n + o));
 
             List<int> @out = new List<int>();
+
             using (result.ListenStrong(@out.Add))
             {
                 s.Send(1);
@@ -156,18 +158,22 @@ namespace SodaFlow.Tests
                 s.Send(3);
             }
 
-            CollectionAssert.AreEqual(new[] { 1, 3, 6 }, @out);
+            CollectionAssert.AreEqual(expected: new[] { 1, 3, 6 }, actual: @out);
         }
 
         [Test]
         public void FunctionalStreamLoopWithCaptures()
         {
             StreamSink<int> s = Stream.CreateSink<int>();
-            (Stream<int> result, Stream<int> s2) = Stream.Loop<int>()
-                .WithCaptures(l => (Stream: s.Snapshot(l.Hold(0), (n, o) => n + o), Captures: s.Map(v => 2 * v)));
+
+            (Stream<int> result, Stream<int> s2) =
+                Stream.Loop<int>()
+                    .WithCaptures(l =>
+                        (Stream: s.Snapshot(c: l.Hold(0), f: (n, o) => n + o), Captures: s.Map(v => 2 * v)));
 
             List<int> @out = new List<int>();
             List<int> out2 = new List<int>();
+
             using (result.ListenStrong(@out.Add))
             using (s2.ListenStrong(out2.Add))
 
@@ -177,28 +183,29 @@ namespace SodaFlow.Tests
                 s.Send(3);
             }
 
-            CollectionAssert.AreEqual(new[] { 1, 3, 6 }, @out);
-            CollectionAssert.AreEqual(new[] { 2, 4, 6 }, out2);
+            CollectionAssert.AreEqual(expected: new[] { 1, 3, 6 }, actual: @out);
+            CollectionAssert.AreEqual(expected: new[] { 2, 4, 6 }, actual: out2);
         }
-
-        #endregion StreamLoop
-
-        #region BehaviorLoop
 
         [Test]
         public void ImperativeBehaviorLoop()
         {
             BehaviorSink<int> s = Behavior.CreateSink(0);
-            Behavior<int> result = Transaction.Run(
-                () =>
+
+            Behavior<int> result =
+                Transaction.Run(() =>
                 {
                     BehaviorLoop<int> l = new BehaviorLoop<int>();
-                    Behavior<int> resultLocal = Operational.Updates(s).Snapshot(l, (n, o) => n + o).Hold(0).AsBehavior();
+
+                    Behavior<int> resultLocal =
+                        Operational.Updates(s).Snapshot(b: l, f: (n, o) => n + o).Hold(0).AsBehavior();
+
                     l.Loop(resultLocal);
                     return resultLocal;
                 });
 
             List<int> @out = new List<int>();
+
             using (Transaction.Run(() => Operational.Value(result).ListenStrong(@out.Add)))
             {
                 s.Send(1);
@@ -206,7 +213,7 @@ namespace SodaFlow.Tests
                 s.Send(3);
             }
 
-            CollectionAssert.AreEqual(new[] { 0, 1, 3, 6 }, @out);
+            CollectionAssert.AreEqual(expected: new[] { 0, 1, 3, 6 }, actual: @out);
         }
 
         [Test]
@@ -217,14 +224,17 @@ namespace SodaFlow.Tests
             try
             {
                 BehaviorSink<int> s = Behavior.CreateSink(0);
-                Transaction.RunVoid(
-                    () =>
-                    {
-                        BehaviorLoop<int> l = new BehaviorLoop<int>();
-                        Behavior<int> resultLocal = Operational.Updates(s).Snapshot(l, (n, o) => n + o).Hold(0).AsBehavior();
-                        l.Loop(resultLocal);
-                        l.Loop(resultLocal);
-                    });
+
+                Transaction.RunVoid(() =>
+                {
+                    BehaviorLoop<int> l = new BehaviorLoop<int>();
+
+                    Behavior<int> resultLocal =
+                        Operational.Updates(s).Snapshot(b: l, f: (n, o) => n + o).Hold(0).AsBehavior();
+
+                    l.Loop(resultLocal);
+                    l.Loop(resultLocal);
+                });
             }
             catch (InvalidOperationException e)
             {
@@ -232,7 +242,7 @@ namespace SodaFlow.Tests
             }
 
             Assert.IsNotNull(actual);
-            Assert.AreEqual("Loop was looped more than once.", actual.Message);
+            Assert.AreEqual(expected: "Loop was looped more than once.", actual: actual.Message);
         }
 
         [Test]
@@ -251,7 +261,7 @@ namespace SodaFlow.Tests
             }
 
             Assert.IsNotNull(actual);
-            Assert.AreEqual("Loop must be created within an explicit transaction.", actual.Message);
+            Assert.AreEqual(expected: "Loop must be created within an explicit transaction.", actual: actual.Message);
         }
 
         [Test]
@@ -270,7 +280,7 @@ namespace SodaFlow.Tests
             }
 
             Assert.IsNotNull(actual);
-            Assert.AreEqual("Loop was not looped.", actual.Message);
+            Assert.AreEqual(expected: "Loop was not looped.", actual: actual.Message);
         }
 
         [Test]
@@ -279,31 +289,32 @@ namespace SodaFlow.Tests
             InvalidOperationException actual = null;
 
             BehaviorLoop<int> l = null;
-            
+
             ManualResetEvent waitHandle = new ManualResetEvent(false);
 
-            new Thread(
-                () =>
-                    Transaction.RunVoid(
-                        () =>
-                        {
-                            l = new BehaviorLoop<int>();
-                            waitHandle.Set();
-                            Thread.Sleep(500);
-                        })).Start();
+            new Thread(() =>
+                Transaction.RunVoid(() =>
+                {
+                    l = new BehaviorLoop<int>();
+                    waitHandle.Set();
+                    Thread.Sleep(500);
+                })).Start();
 
             waitHandle.WaitOne();
-            
+
             try
             {
                 BehaviorSink<int> s = Behavior.CreateSink(0);
-                Transaction.RunVoid(
-                    () =>
-                    {
-                        Thread.Sleep(250);
-                        Behavior<int> resultLocal = Operational.Updates(s).Snapshot(l, (n, o) => n + o).Hold(0).AsBehavior();
-                        l.Loop(resultLocal);
-                    });
+
+                Transaction.RunVoid(() =>
+                {
+                    Thread.Sleep(250);
+
+                    Behavior<int> resultLocal =
+                        Operational.Updates(s).Snapshot(b: l, f: (n, o) => n + o).Hold(0).AsBehavior();
+
+                    l.Loop(resultLocal);
+                });
             }
             catch (InvalidOperationException e)
             {
@@ -313,16 +324,24 @@ namespace SodaFlow.Tests
             Thread.Sleep(500);
 
             Assert.IsNotNull(actual);
-            Assert.AreEqual("Loop must be looped in the same transaction that it was created in.", actual.Message);
+
+            Assert.AreEqual(
+                expected: "Loop must be looped in the same transaction that it was created in.",
+                actual: actual.Message);
         }
 
         [Test]
         public void FunctionalBehaviorLoop()
         {
             BehaviorSink<int> s = Behavior.CreateSink(0);
-            Behavior<int> result = Behavior.Loop<int>().WithoutCaptures(l => Operational.Updates(s).Snapshot(l, (n, o) => n + o).Hold(0).AsBehavior());
+
+            Behavior<int> result =
+                Behavior.Loop<int>()
+                    .WithoutCaptures(l =>
+                        Operational.Updates(s).Snapshot(b: l, f: (n, o) => n + o).Hold(0).AsBehavior());
 
             List<int> @out = new List<int>();
+
             using (Transaction.Run(() => Operational.Value(result).ListenStrong(@out.Add)))
             {
                 s.Send(1);
@@ -330,18 +349,23 @@ namespace SodaFlow.Tests
                 s.Send(3);
             }
 
-            CollectionAssert.AreEqual(new[] { 0, 1, 3, 6 }, @out);
+            CollectionAssert.AreEqual(expected: new[] { 0, 1, 3, 6 }, actual: @out);
         }
 
         [Test]
         public void FunctionalBehaviorLoopWithCaptures()
         {
             BehaviorSink<int> s = Behavior.CreateSink(0);
-            (Behavior<int> result, Behavior<int> s2) = Behavior.Loop<int>()
-                .WithCaptures(l => (Behavior: Operational.Updates(s).Snapshot(l, (n, o) => n + o).Hold(0).AsBehavior(), Captures: s.Map(v => 2 * v)));
+
+            (Behavior<int> result, Behavior<int> s2) =
+                Behavior.Loop<int>()
+                    .WithCaptures(l =>
+                        (Behavior: Operational.Updates(s).Snapshot(b: l, f: (n, o) => n + o).Hold(0).AsBehavior(),
+                            Captures: s.Map(v => 2 * v)));
 
             List<int> @out = new List<int>();
             List<int> out2 = new List<int>();
+
             using (Transaction.Run(() => Operational.Value(result).ListenStrong(@out.Add)))
             using (Transaction.Run(() => Operational.Value(s2).ListenStrong(out2.Add)))
 
@@ -351,28 +375,26 @@ namespace SodaFlow.Tests
                 s.Send(3);
             }
 
-            CollectionAssert.AreEqual(new[] { 0, 1, 3, 6 }, @out);
-            CollectionAssert.AreEqual(new[] { 0, 2, 4, 6 }, out2);
+            CollectionAssert.AreEqual(expected: new[] { 0, 1, 3, 6 }, actual: @out);
+            CollectionAssert.AreEqual(expected: new[] { 0, 2, 4, 6 }, actual: out2);
         }
-
-        #endregion BehaviorLoop
-
-        #region CellLoop
 
         [Test]
         public void ImperativeCellLoop()
         {
             CellSink<int> s = Cell.CreateSink(0);
-            Cell<int> result = Transaction.Run(
-                () =>
+
+            Cell<int> result =
+                Transaction.Run(() =>
                 {
                     CellLoop<int> l = new CellLoop<int>();
-                    Cell<int> resultLocal = s.Updates().Snapshot(l, (n, o) => n + o).Hold(0);
+                    Cell<int> resultLocal = s.Updates().Snapshot(c: l, f: (n, o) => n + o).Hold(0);
                     l.Loop(resultLocal);
                     return resultLocal;
                 });
 
             List<int> @out = new List<int>();
+
             using (Transaction.Run(() => result.Values().ListenStrong(@out.Add)))
             {
                 s.Send(1);
@@ -380,7 +402,7 @@ namespace SodaFlow.Tests
                 s.Send(3);
             }
 
-            CollectionAssert.AreEqual(new[] { 0, 1, 3, 6 }, @out);
+            CollectionAssert.AreEqual(expected: new[] { 0, 1, 3, 6 }, actual: @out);
         }
 
         [Test]
@@ -391,14 +413,14 @@ namespace SodaFlow.Tests
             try
             {
                 CellSink<int> s = Cell.CreateSink(0);
-                Transaction.RunVoid(
-                    () =>
-                    {
-                        CellLoop<int> l = new CellLoop<int>();
-                        Cell<int> resultLocal = s.Updates().Snapshot(l, (n, o) => n + o).Hold(0);
-                        l.Loop(resultLocal);
-                        l.Loop(resultLocal);
-                    });
+
+                Transaction.RunVoid(() =>
+                {
+                    CellLoop<int> l = new CellLoop<int>();
+                    Cell<int> resultLocal = s.Updates().Snapshot(c: l, f: (n, o) => n + o).Hold(0);
+                    l.Loop(resultLocal);
+                    l.Loop(resultLocal);
+                });
             }
             catch (InvalidOperationException e)
             {
@@ -406,7 +428,7 @@ namespace SodaFlow.Tests
             }
 
             Assert.IsNotNull(actual);
-            Assert.AreEqual("Loop was looped more than once.", actual.Message);
+            Assert.AreEqual(expected: "Loop was looped more than once.", actual: actual.Message);
         }
 
         [Test]
@@ -425,7 +447,7 @@ namespace SodaFlow.Tests
             }
 
             Assert.IsNotNull(actual);
-            Assert.AreEqual("Loop must be created within an explicit transaction.", actual.Message);
+            Assert.AreEqual(expected: "Loop must be created within an explicit transaction.", actual: actual.Message);
         }
 
         [Test]
@@ -444,7 +466,7 @@ namespace SodaFlow.Tests
             }
 
             Assert.IsNotNull(actual);
-            Assert.AreEqual("Loop was not looped.", actual.Message);
+            Assert.AreEqual(expected: "Loop was not looped.", actual: actual.Message);
         }
 
         [Test]
@@ -453,31 +475,29 @@ namespace SodaFlow.Tests
             InvalidOperationException actual = null;
 
             CellLoop<int> l = null;
-            
+
             ManualResetEvent waitHandle = new ManualResetEvent(false);
 
-            new Thread(
-                () =>
-                    Transaction.RunVoid(
-                        () =>
-                        {
-                            l = new CellLoop<int>();
-                            waitHandle.Set();
-                            Thread.Sleep(500);
-                        })).Start();
+            new Thread(() =>
+                Transaction.RunVoid(() =>
+                {
+                    l = new CellLoop<int>();
+                    waitHandle.Set();
+                    Thread.Sleep(500);
+                })).Start();
 
             waitHandle.WaitOne();
-            
+
             try
             {
                 CellSink<int> s = Cell.CreateSink(0);
-                Transaction.RunVoid(
-                    () =>
-                    {
-                        Thread.Sleep(250);
-                        Cell<int> resultLocal = s.Updates().Snapshot(l, (n, o) => n + o).Hold(0);
-                        l.Loop(resultLocal);
-                    });
+
+                Transaction.RunVoid(() =>
+                {
+                    Thread.Sleep(250);
+                    Cell<int> resultLocal = s.Updates().Snapshot(c: l, f: (n, o) => n + o).Hold(0);
+                    l.Loop(resultLocal);
+                });
             }
             catch (InvalidOperationException e)
             {
@@ -487,16 +507,22 @@ namespace SodaFlow.Tests
             Thread.Sleep(500);
 
             Assert.IsNotNull(actual);
-            Assert.AreEqual("Loop must be looped in the same transaction that it was created in.", actual.Message);
+
+            Assert.AreEqual(
+                expected: "Loop must be looped in the same transaction that it was created in.",
+                actual: actual.Message);
         }
 
         [Test]
         public void FunctionalCellLoop()
         {
             CellSink<int> s = Cell.CreateSink(0);
-            Cell<int> result = Cell.Loop<int>().WithoutCaptures(l => s.Updates().Snapshot(l, (n, o) => n + o).Hold(0));
+
+            Cell<int> result =
+                Cell.Loop<int>().WithoutCaptures(l => s.Updates().Snapshot(c: l, f: (n, o) => n + o).Hold(0));
 
             List<int> @out = new List<int>();
+
             using (Transaction.Run(() => result.ListenStrong(@out.Add)))
             {
                 s.Send(1);
@@ -504,18 +530,22 @@ namespace SodaFlow.Tests
                 s.Send(3);
             }
 
-            CollectionAssert.AreEqual(new[] { 0, 1, 3, 6 }, @out);
+            CollectionAssert.AreEqual(expected: new[] { 0, 1, 3, 6 }, actual: @out);
         }
 
         [Test]
         public void FunctionalCellLoopWithCaptures()
         {
             CellSink<int> s = Cell.CreateSink(0);
-            (Cell<int> result, Cell<int> s2) = Cell.Loop<int>()
-                .WithCaptures(l => (Cell: s.Updates().Snapshot(l, (n, o) => n + o).Hold(0), Captures: s.Map(v => 2 * v)));
+
+            (Cell<int> result, Cell<int> s2) =
+                Cell.Loop<int>()
+                    .WithCaptures(l =>
+                        (Cell: s.Updates().Snapshot(c: l, f: (n, o) => n + o).Hold(0), Captures: s.Map(v => 2 * v)));
 
             List<int> @out = new List<int>();
             List<int> out2 = new List<int>();
+
             using (Transaction.Run(() => result.ListenStrong(@out.Add)))
             using (Transaction.Run(() => s2.ListenStrong(out2.Add)))
 
@@ -525,11 +555,9 @@ namespace SodaFlow.Tests
                 s.Send(3);
             }
 
-            CollectionAssert.AreEqual(new[] { 0, 1, 3, 6 }, @out);
-            CollectionAssert.AreEqual(new[] { 0, 2, 4, 6 }, out2);
+            CollectionAssert.AreEqual(expected: new[] { 0, 1, 3, 6 }, actual: @out);
+            CollectionAssert.AreEqual(expected: new[] { 0, 2, 4, 6 }, actual: out2);
         }
-
-        #endregion CellLoop
 
         /*
          * Desired behavior:
@@ -538,24 +566,6 @@ namespace SodaFlow.Tests
          */
         private class DependencyCycleTest
         {
-            private class TestObject
-            {
-                public TestObject()
-                {
-                    this.Input1 = Cell.CreateStreamSink<int>();
-                    Cell<int> input1Cell = this.Input1.Hold(3);
-
-                    this.Input2 = Cell.CreateStreamSink<int>();
-                    Cell<int> input2Cell = this.Input2.Hold(2);
-
-                    this.Output = input1Cell.Lift(input2Cell, (i1, i2) => i1 + i2);
-                }
-
-                public StreamSink<int> Input1 { get; }
-                public StreamSink<int> Input2 { get; }
-                public Cell<int> Output { get; }
-            }
-
             /*
              * Switch over the sum of the Output cells in the list.
              * This won't work because we would need to recurse to keep the list correct when the sum is very low (only one item can be added per transaction).
@@ -565,19 +575,36 @@ namespace SodaFlow.Tests
             public void TestSwitchCLoop()
             {
                 Exception actual = null;
+
                 try
                 {
-                    CellStreamSink<IReadOnlyList<TestObject>> streamSink = Cell.CreateStreamSink<IReadOnlyList<TestObject>>();
-                    Cell<IReadOnlyList<TestObject>> cell = Transaction.Run(() =>
-                    {
-                        CellLoop<IReadOnlyList<TestObject>> cellLoop = new CellLoop<IReadOnlyList<TestObject>>();
-                        Cell<IReadOnlyList<TestObject>> cellLocal = streamSink.Map(v => (Func<IReadOnlyList<TestObject>, IReadOnlyList<TestObject>>)(_ => v))
-                            .Merge(cellLoop.Map(oo => oo.Select(o => o.Output).Lift(vv => vv.Sum())).SwitchC().Updates().Filter(sum => sum < 50).MapTo((Func<IReadOnlyList<TestObject>, IReadOnlyList<TestObject>>)(v => v.Concat(new[] { new TestObject() }).ToArray())), (f, g) => v => g(f(v)))
-                            .Snapshot(cellLoop, (f, v) => f(v))
-                            .Hold(Enumerable.Range(1, 10).Select(_ => new TestObject()).ToArray());
-                        cellLoop.Loop(cellLocal);
-                        return cellLocal;
-                    });
+                    CellStreamSink<IReadOnlyList<TestObject>> streamSink =
+                        Cell.CreateStreamSink<IReadOnlyList<TestObject>>();
+
+                    Cell<IReadOnlyList<TestObject>> cell =
+                        Transaction.Run(() =>
+                        {
+                            CellLoop<IReadOnlyList<TestObject>> cellLoop = new CellLoop<IReadOnlyList<TestObject>>();
+
+                            Cell<IReadOnlyList<TestObject>> cellLocal =
+                                streamSink
+                                    .Map(v => (Func<IReadOnlyList<TestObject>, IReadOnlyList<TestObject>>)(_ => v))
+                                    .Merge(
+                                        s2: cellLoop.Map(oo => oo.Select(o => o.Output).Lift(vv => vv.Sum()))
+                                            .SwitchC()
+                                            .Updates()
+                                            .Filter(sum => sum < 50)
+                                            .MapTo(
+                                                (Func<IReadOnlyList<TestObject>, IReadOnlyList<TestObject>>)(v =>
+                                                    v.Concat(new[] { new TestObject() }).ToArray())),
+                                        f: (f, g) => v => g(f(v)))
+                                    .Snapshot(c: cellLoop, f: (f, v) => f(v))
+                                    .Hold(
+                                        Enumerable.Range(start: 1, count: 10).Select(_ => new TestObject()).ToArray());
+
+                            cellLoop.Loop(cellLocal);
+                            return cellLocal;
+                        });
 
                     List<int> objectCounts = new List<int>();
                     objectCounts.Add(-1);
@@ -600,7 +627,7 @@ namespace SodaFlow.Tests
                 }
 
                 Assert.IsNotNull(actual);
-                Assert.AreEqual("A dependency cycle was detected.", actual.Message);
+                Assert.AreEqual(expected: "A dependency cycle was detected.", actual: actual.Message);
             }
 
             /*
@@ -610,17 +637,30 @@ namespace SodaFlow.Tests
             [Test]
             public void TestSwitchSValuesLoop()
             {
-                CellStreamSink<IReadOnlyList<TestObject>> streamSink = Cell.CreateStreamSink<IReadOnlyList<TestObject>>();
-                Cell<IReadOnlyList<TestObject>> cell = Transaction.Run(() =>
-                {
-                    CellLoop<IReadOnlyList<TestObject>> cellLoop = new CellLoop<IReadOnlyList<TestObject>>();
-                    Cell<IReadOnlyList<TestObject>> cellLocal = streamSink.Map(v => (Func<IReadOnlyList<TestObject>, IReadOnlyList<TestObject>>)(_ => v))
-                        .Merge(cellLoop.Map(oo => oo.Select(o => o.Output).Lift(vv => vv.Sum()).Values()).SwitchS().Filter(sum => sum < 50).MapTo((Func<IReadOnlyList<TestObject>, IReadOnlyList<TestObject>>)(v => v.Concat(new[] { new TestObject() }).ToArray())), (f, g) => v => g(f(v)))
-                        .Snapshot(cellLoop, (f, v) => f(v))
-                        .Hold(Enumerable.Range(1, 10).Select(_ => new TestObject()).ToArray());
-                    cellLoop.Loop(cellLocal);
-                    return cellLocal;
-                });
+                CellStreamSink<IReadOnlyList<TestObject>> streamSink =
+                    Cell.CreateStreamSink<IReadOnlyList<TestObject>>();
+
+                Cell<IReadOnlyList<TestObject>> cell =
+                    Transaction.Run(() =>
+                    {
+                        CellLoop<IReadOnlyList<TestObject>> cellLoop = new CellLoop<IReadOnlyList<TestObject>>();
+
+                        Cell<IReadOnlyList<TestObject>> cellLocal =
+                            streamSink.Map(v => (Func<IReadOnlyList<TestObject>, IReadOnlyList<TestObject>>)(_ => v))
+                                .Merge(
+                                    s2: cellLoop.Map(oo => oo.Select(o => o.Output).Lift(vv => vv.Sum()).Values())
+                                        .SwitchS()
+                                        .Filter(sum => sum < 50)
+                                        .MapTo(
+                                            (Func<IReadOnlyList<TestObject>, IReadOnlyList<TestObject>>)(v =>
+                                                v.Concat(new[] { new TestObject() }).ToArray())),
+                                    f: (f, g) => v => g(f(v)))
+                                .Snapshot(c: cellLoop, f: (f, v) => f(v))
+                                .Hold(Enumerable.Range(start: 1, count: 10).Select(_ => new TestObject()).ToArray());
+
+                        cellLoop.Loop(cellLocal);
+                        return cellLocal;
+                    });
 
                 List<int> objectCounts = new List<int>();
                 objectCounts.Add(-1);
@@ -640,7 +680,9 @@ namespace SodaFlow.Tests
                 //CollectionAssert.AreEquivalent(new[] { -1, 10, -1, 11, -1, 12, 13, 14, 15, -1, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, -1 }, objectCounts);
 
                 // Incorrect result we will see.
-                CollectionAssert.AreEquivalent(new[] { -1, 10, -1, 11, -1, 12, -1, 0, -1 }, objectCounts);
+                CollectionAssert.AreEquivalent(
+                    expected: new[] { -1, 10, -1, 11, -1, 12, -1, 0, -1 },
+                    actual: objectCounts);
             }
 
             /*
@@ -651,16 +693,33 @@ namespace SodaFlow.Tests
             [Test]
             public void TestSwitchCDeferredLoop()
             {
-                CellStreamSink<IReadOnlyList<TestObject>> streamSink = Cell.CreateStreamSink<IReadOnlyList<TestObject>>();
-                Cell<IReadOnlyList<TestObject>> cell = Transaction.Run(() =>
-                {
-                    CellLoop<IReadOnlyList<TestObject>> cellLoop = new CellLoop<IReadOnlyList<TestObject>>();
-                    Cell<IReadOnlyList<TestObject>> cellLocal = streamSink
-                        .OrElse(Operational.Defer(cellLoop.Map(oo => oo.Select(o => o.Output).Lift(vv => vv.Sum())).SwitchC().Values()).Filter(sum => sum < 50).Snapshot(cellLoop, (_, items) => (IReadOnlyList<TestObject>)items.Concat(new[] { new TestObject() }).ToArray()))
-                        .Hold(Enumerable.Range(1, 10).Select(_ => new TestObject()).ToArray());
-                    cellLoop.Loop(cellLocal);
-                    return cellLocal;
-                });
+                CellStreamSink<IReadOnlyList<TestObject>> streamSink =
+                    Cell.CreateStreamSink<IReadOnlyList<TestObject>>();
+
+                Cell<IReadOnlyList<TestObject>> cell =
+                    Transaction.Run(() =>
+                    {
+                        CellLoop<IReadOnlyList<TestObject>> cellLoop = new CellLoop<IReadOnlyList<TestObject>>();
+
+                        Cell<IReadOnlyList<TestObject>> cellLocal =
+                            streamSink
+                                .OrElse(
+                                    Operational
+                                        .Defer(
+                                            cellLoop.Map(oo => oo.Select(o => o.Output).Lift(vv => vv.Sum()))
+                                                .SwitchC()
+                                                .Values())
+                                        .Filter(sum => sum < 50)
+                                        .Snapshot(
+                                            c: cellLoop,
+                                            f: (_, items) =>
+                                                (IReadOnlyList<TestObject>)items.Concat(new[] { new TestObject() })
+                                                    .ToArray()))
+                                .Hold(Enumerable.Range(start: 1, count: 10).Select(_ => new TestObject()).ToArray());
+
+                        cellLoop.Loop(cellLocal);
+                        return cellLocal;
+                    });
 
                 List<int> objectCounts = new List<int>();
                 objectCounts.Add(-1);
@@ -677,7 +736,9 @@ namespace SodaFlow.Tests
                 //CollectionAssert.AreEquivalent(new[] { -1, 10, -1, 11, -1, 15, -1, 10, -1 }, objectCounts);
 
                 // Glitchy result, but correct otherwise.
-                CollectionAssert.AreEquivalent(new[] { -1, 10, -1, 11, -1, 12, 13, 14, 15, -1, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, -1 }, objectCounts);
+                CollectionAssert.AreEquivalent(
+                    expected: new[] { -1, 10, -1, 11, -1, 12, 13, 14, 15, -1, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, -1 },
+                    actual: objectCounts);
             }
 
             /*
@@ -690,16 +751,30 @@ namespace SodaFlow.Tests
             [Test]
             public void TestSwitchCDeferredLoopWithBetterApi()
             {
-                CellStreamSink<IReadOnlyList<TestObject>> streamSink = Cell.CreateStreamSink<IReadOnlyList<TestObject>>();
-                Cell<IReadOnlyList<TestObject>> cell = Transaction.Run(() =>
-                {
-                    CellLoop<IReadOnlyList<TestObject>> cellLoop = new CellLoop<IReadOnlyList<TestObject>>();
-                    Cell<IReadOnlyList<TestObject>> cellLocal = streamSink
-                        .OrElse(cellLoop.Map(oo => oo.Select(o => o.Output).Lift(vv => vv.Sum())).SwitchCWithDeferredValues().Filter(sum => sum < 50).Snapshot(cellLoop, (_, items) => (IReadOnlyList<TestObject>)items.Concat(new[] { new TestObject() }).ToArray()))
-                        .Hold(Enumerable.Range(1, 10).Select(_ => new TestObject()).ToArray());
-                    cellLoop.Loop(cellLocal);
-                    return cellLocal;
-                });
+                CellStreamSink<IReadOnlyList<TestObject>> streamSink =
+                    Cell.CreateStreamSink<IReadOnlyList<TestObject>>();
+
+                Cell<IReadOnlyList<TestObject>> cell =
+                    Transaction.Run(() =>
+                    {
+                        CellLoop<IReadOnlyList<TestObject>> cellLoop = new CellLoop<IReadOnlyList<TestObject>>();
+
+                        Cell<IReadOnlyList<TestObject>> cellLocal =
+                            streamSink
+                                .OrElse(
+                                    cellLoop.Map(oo => oo.Select(o => o.Output).Lift(vv => vv.Sum()))
+                                        .SwitchCWithDeferredValues()
+                                        .Filter(sum => sum < 50)
+                                        .Snapshot(
+                                            c: cellLoop,
+                                            f: (_, items) =>
+                                                (IReadOnlyList<TestObject>)items.Concat(new[] { new TestObject() })
+                                                    .ToArray()))
+                                .Hold(Enumerable.Range(start: 1, count: 10).Select(_ => new TestObject()).ToArray());
+
+                        cellLoop.Loop(cellLocal);
+                        return cellLocal;
+                    });
 
                 List<int> objectCounts = new List<int>();
                 objectCounts.Add(-1);
@@ -716,21 +791,37 @@ namespace SodaFlow.Tests
                 //CollectionAssert.AreEquivalent(new[] { -1, 10, -1, 11, -1, 15, -1, 10, -1 }, objectCounts);
 
                 // Glitchy result, but correct otherwise.
-                CollectionAssert.AreEquivalent(new[] { -1, 10, -1, 11, -1, 12, 13, 14, 15, -1, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, -1 }, objectCounts);
+                CollectionAssert.AreEquivalent(
+                    expected: new[] { -1, 10, -1, 11, -1, 12, 13, 14, 15, -1, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, -1 },
+                    actual: objectCounts);
+            }
+
+            private class TestObject
+            {
+                public TestObject()
+                {
+                    this.Input1 = Cell.CreateStreamSink<int>();
+                    Cell<int> input1Cell = this.Input1.Hold(3);
+
+                    this.Input2 = Cell.CreateStreamSink<int>();
+                    Cell<int> input2Cell = this.Input2.Hold(2);
+
+                    this.Output = input1Cell.Lift(c2: input2Cell, f: (i1, i2) => i1 + i2);
+                }
+
+                public StreamSink<int> Input1 { get; }
+                public StreamSink<int> Input2 { get; }
+                public Cell<int> Output { get; }
             }
         }
     }
 
     public static class TestExtensions
     {
-        public static Stream<T> SwitchCWithDeferredUpdates<T>(this Cell<Cell<T>> cca)
-        {
-            return Operational.Defer(cca.SwitchC().Updates());
-        }
+        public static Stream<T> SwitchCWithDeferredUpdates<T>(this Cell<Cell<T>> cca) =>
+            Operational.Defer(cca.SwitchC().Updates());
 
-        public static Stream<T> SwitchCWithDeferredValues<T>(this Cell<Cell<T>> cca)
-        {
-            return Operational.Defer(cca.SwitchC().Values());
-        }
+        public static Stream<T> SwitchCWithDeferredValues<T>(this Cell<Cell<T>> cca) =>
+            Operational.Defer(cca.SwitchC().Values());
     }
 }

@@ -16,7 +16,7 @@ namespace SodaFlow.Tests
 
             Maybe<int> result = m.Flatten();
 
-            Assert.AreEqual(Maybe<int>.None, result);
+            Assert.AreEqual(expected: Maybe<int>.None, actual: result);
         }
 
         [Test]
@@ -26,7 +26,7 @@ namespace SodaFlow.Tests
 
             Maybe<int> result = m.Flatten();
 
-            Assert.AreEqual(Maybe<int>.None, result);
+            Assert.AreEqual(expected: Maybe<int>.None, actual: result);
         }
 
         [Test]
@@ -36,7 +36,7 @@ namespace SodaFlow.Tests
 
             Maybe<int> result = m.Flatten();
 
-            Assert.AreEqual(Maybe.Some(5), result);
+            Assert.AreEqual(expected: Maybe.Some(5), actual: result);
         }
 
         [Test]
@@ -46,7 +46,7 @@ namespace SodaFlow.Tests
 
             IEnumerable<int> result = m.WhereSome();
 
-            CollectionAssert.AreEqual(new int[0], result);
+            CollectionAssert.AreEqual(expected: new int[0], actual: result);
         }
 
         [Test]
@@ -56,7 +56,7 @@ namespace SodaFlow.Tests
 
             IEnumerable<int> result = m.WhereSome();
 
-            CollectionAssert.AreEqual(new[] { 2, 5, 7 }, result);
+            CollectionAssert.AreEqual(expected: new[] { 2, 5, 7 }, actual: result);
         }
 
         [Test]
@@ -66,7 +66,7 @@ namespace SodaFlow.Tests
 
             IEnumerable<int> result = m.WhereSome();
 
-            CollectionAssert.AreEqual(new[] { 3, 2, 5, 4, 7 }, result);
+            CollectionAssert.AreEqual(expected: new[] { 3, 2, 5, 4, 7 }, actual: result);
         }
 
         [Test]
@@ -76,7 +76,7 @@ namespace SodaFlow.Tests
 
             Maybe<IEnumerable<int>> result = m.AllSomeOrNone();
 
-            Assert.AreEqual(Maybe<IEnumerable<int>>.None, result);
+            Assert.AreEqual(expected: Maybe<IEnumerable<int>>.None, actual: result);
         }
 
         [Test]
@@ -86,7 +86,7 @@ namespace SodaFlow.Tests
 
             Maybe<IEnumerable<int>> result = m.AllSomeOrNone();
 
-            Assert.AreEqual(Maybe<IEnumerable<int>>.None, result);
+            Assert.AreEqual(expected: Maybe<IEnumerable<int>>.None, actual: result);
         }
 
         [Test]
@@ -96,16 +96,16 @@ namespace SodaFlow.Tests
 
             Maybe<IEnumerable<int>> result = m.AllSomeOrNone();
 
-            IEnumerable<int> r = result.Match(v => v, () => null);
+            IEnumerable<int> r = result.Match(onSome: v => v, onNone: () => null);
             Assert.IsNotNull(r);
-            CollectionAssert.AreEqual(new[] { 3, 2, 5, 4, 7 }, r);
+            CollectionAssert.AreEqual(expected: new[] { 3, 2, 5, 4, 7 }, actual: r);
         }
 
         [Test]
         public void TestWhereSomeEmptyAndNullSource()
         {
-            CollectionAssert.AreEqual(new int[0], new Maybe<int>[0].WhereSome());
-            CollectionAssert.AreEqual(new int[0], ((IEnumerable<Maybe<int>>)null).WhereSome());
+            CollectionAssert.AreEqual(expected: new int[0], actual: new Maybe<int>[0].WhereSome());
+            CollectionAssert.AreEqual(expected: new int[0], actual: ((IEnumerable<Maybe<int>>)null).WhereSome());
         }
 
         [Test]
@@ -113,7 +113,7 @@ namespace SodaFlow.Tests
         {
             Maybe<int>[] m = { Maybe.Some(0), Maybe<int>.None, Maybe.Some(0) };
 
-            CollectionAssert.AreEqual(new[] { 0, 0 }, m.WhereSome());
+            CollectionAssert.AreEqual(expected: new[] { 0, 0 }, actual: m.WhereSome());
         }
 
         [Test]
@@ -123,7 +123,9 @@ namespace SodaFlow.Tests
 
             Maybe<IEnumerable<int>> result = source.AllSomeOrNone(s => s.TryParseInt32());
 
-            CollectionAssert.AreEqual(new[] { 1, 2, 3 }, result.Match(v => v, () => null));
+            CollectionAssert.AreEqual(
+                expected: new[] { 1, 2, 3 },
+                actual: result.Match(onSome: v => v, onNone: () => null));
         }
 
         [Test]
@@ -133,7 +135,7 @@ namespace SodaFlow.Tests
 
             Maybe<IEnumerable<int>> result = source.AllSomeOrNone(s => s.TryParseInt32());
 
-            Assert.AreEqual(Maybe<IEnumerable<int>>.None, result);
+            Assert.AreEqual(expected: Maybe<IEnumerable<int>>.None, actual: result);
         }
 
         [Test]
@@ -141,14 +143,14 @@ namespace SodaFlow.Tests
         {
             Maybe<IEnumerable<int>> result = new string[0].AllSomeOrNone(s => s.TryParseInt32());
 
-            CollectionAssert.AreEqual(new int[0], result.Match(v => v, () => null));
+            CollectionAssert.AreEqual(expected: new int[0], actual: result.Match(onSome: v => v, onNone: () => null));
         }
 
         [Test]
         public void TestToEnumerable()
         {
-            CollectionAssert.AreEqual(new[] { 2 }, Maybe.Some(2).ToEnumerable());
-            CollectionAssert.AreEqual(new int[0], Maybe<int>.None.ToEnumerable());
+            CollectionAssert.AreEqual(expected: new[] { 2 }, actual: Maybe.Some(2).ToEnumerable());
+            CollectionAssert.AreEqual(expected: new int[0], actual: Maybe<int>.None.ToEnumerable());
         }
 
         [Test]
@@ -158,42 +160,42 @@ namespace SodaFlow.Tests
 
             IEnumerable<int> result = source.SelectMany(s => s.TryParseInt32().ToEnumerable());
 
-            CollectionAssert.AreEqual(new[] { 1, 3 }, result);
+            CollectionAssert.AreEqual(expected: new[] { 1, 3 }, actual: result);
         }
 
         [Test]
         public void TestToNullable()
         {
-            Assert.AreEqual((int?)2, Maybe.Some(2).ToNullable());
-            Assert.AreEqual((int?)null, Maybe<int>.None.ToNullable());
+            Assert.AreEqual(expected: (int?)2, actual: Maybe.Some(2).ToNullable());
+            Assert.AreEqual(expected: null, actual: Maybe<int>.None.ToNullable());
         }
 
         [Test]
         public void TestToMaybeReference()
         {
-            Assert.AreEqual(Maybe.Some("a"), "a".ToMaybe());
-            Assert.AreEqual(Maybe<string>.None, ((string)null).ToMaybe());
+            Assert.AreEqual(expected: Maybe.Some("a"), actual: "a".ToMaybe());
+            Assert.AreEqual(expected: Maybe<string>.None, actual: ((string)null).ToMaybe());
         }
 
         [Test]
         public void TestToMaybeNullable()
         {
-            Assert.AreEqual(Maybe.Some(2), ((int?)2).ToMaybe());
-            Assert.AreEqual(Maybe<int>.None, ((int?)null).ToMaybe());
+            Assert.AreEqual(expected: Maybe.Some(2), actual: ((int?)2).ToMaybe());
+            Assert.AreEqual(expected: Maybe<int>.None, actual: ((int?)null).ToMaybe());
         }
 
         [Test]
         public void TestToMaybeAndToNullableRoundTrip()
         {
-            Assert.AreEqual((int?)2, ((int?)2).ToMaybe().ToNullable());
-            Assert.AreEqual((int?)null, ((int?)null).ToMaybe().ToNullable());
+            Assert.AreEqual(expected: (int?)2, actual: ((int?)2).ToMaybe().ToNullable());
+            Assert.AreEqual(expected: null, actual: ((int?)null).ToMaybe().ToNullable());
         }
 
         [Test]
         public void TestValueOr()
         {
-            Assert.AreEqual(2, Maybe.Some(2).ValueOr(9));
-            Assert.AreEqual(9, Maybe<int>.None.ValueOr(9));
+            Assert.AreEqual(expected: 2, actual: Maybe.Some(2).ValueOr(9));
+            Assert.AreEqual(expected: 9, actual: Maybe<int>.None.ValueOr(9));
         }
 
         [Test]
@@ -201,38 +203,56 @@ namespace SodaFlow.Tests
         {
             int calls = 0;
 
-            Assert.AreEqual(2, Maybe.Some(2).ValueOr(() => { calls++; return 9; }));
-            Assert.AreEqual(0, calls);
+            Assert.AreEqual(
+                expected: 2,
+                actual: Maybe.Some(2)
+                    .ValueOr(() =>
+                    {
+                        calls++;
+                        return 9;
+                    }));
 
-            Assert.AreEqual(9, Maybe<int>.None.ValueOr(() => { calls++; return 9; }));
-            Assert.AreEqual(1, calls);
+            Assert.AreEqual(expected: 0, actual: calls);
+
+            Assert.AreEqual(
+                expected: 9,
+                actual: Maybe<int>.None.ValueOr(() =>
+                {
+                    calls++;
+                    return 9;
+                }));
+
+            Assert.AreEqual(expected: 1, actual: calls);
         }
 
         [Test]
         public void TestValueOrDefault()
         {
-            Assert.AreEqual(2, Maybe.Some(2).ValueOrDefault());
-            Assert.AreEqual(0, Maybe<int>.None.ValueOrDefault());
-            Assert.AreEqual(null, Maybe<string>.None.ValueOrDefault());
+            Assert.AreEqual(expected: 2, actual: Maybe.Some(2).ValueOrDefault());
+            Assert.AreEqual(expected: 0, actual: Maybe<int>.None.ValueOrDefault());
+            Assert.AreEqual(expected: null, actual: Maybe<string>.None.ValueOrDefault());
         }
 
         [Test]
         public void TestValueOrThrow()
         {
-            Assert.AreEqual(2, Maybe.Some(2).ValueOrThrow(() => new InvalidOperationException("no value")));
+            Assert.AreEqual(
+                expected: 2,
+                actual: Maybe.Some(2).ValueOrThrow(() => new InvalidOperationException("no value")));
 
-            InvalidOperationException e = Assert.Throws<InvalidOperationException>(
-                () => Maybe<int>.None.ValueOrThrow(() => new InvalidOperationException("no value")));
+            InvalidOperationException e =
+                Assert.Throws<InvalidOperationException>(() =>
+                    Maybe<int>.None.ValueOrThrow(() => new InvalidOperationException("no value")));
 
-            Assert.AreEqual("no value", e.Message);
+            Assert.AreEqual(expected: "no value", actual: e.Message);
         }
 
         [Test]
         public void TestOrElse()
         {
-            Assert.AreEqual(Maybe.Some(2), Maybe.Some(2).OrElse(Maybe.Some(9)));
-            Assert.AreEqual(Maybe.Some(9), Maybe<int>.None.OrElse(Maybe.Some(9)));
-            Assert.AreEqual(Maybe<int>.None, Maybe<int>.None.OrElse(Maybe<int>.None));
+            Assert.AreEqual(expected: Maybe.Some(2), actual: Maybe.Some(2).OrElse(Maybe.Some(9)));
+            Assert.AreEqual(expected: Maybe.Some(9), actual: Maybe<int>.None.OrElse(Maybe.Some(9)));
+            Assert.AreEqual(expected: Maybe<int>.None, actual: Maybe<int>.None.OrElse(Maybe<int>.None));
         }
 
         [Test]
@@ -240,11 +260,26 @@ namespace SodaFlow.Tests
         {
             int calls = 0;
 
-            Assert.AreEqual(Maybe.Some(2), Maybe.Some(2).OrElse(() => { calls++; return Maybe.Some(9); }));
-            Assert.AreEqual(0, calls);
+            Assert.AreEqual(
+                expected: Maybe.Some(2),
+                actual: Maybe.Some(2)
+                    .OrElse(() =>
+                    {
+                        calls++;
+                        return Maybe.Some(9);
+                    }));
 
-            Assert.AreEqual(Maybe.Some(9), Maybe<int>.None.OrElse(() => { calls++; return Maybe.Some(9); }));
-            Assert.AreEqual(1, calls);
+            Assert.AreEqual(expected: 0, actual: calls);
+
+            Assert.AreEqual(
+                expected: Maybe.Some(9),
+                actual: Maybe<int>.None.OrElse(() =>
+                {
+                    calls++;
+                    return Maybe.Some(9);
+                }));
+
+            Assert.AreEqual(expected: 1, actual: calls);
         }
 
         [Test]
@@ -252,15 +287,21 @@ namespace SodaFlow.Tests
         {
             Maybe<int> result = Maybe<int>.None.OrElse(Maybe<int>.None).OrElse(Maybe.Some(3));
 
-            Assert.AreEqual(Maybe.Some(3), result);
+            Assert.AreEqual(expected: Maybe.Some(3), actual: result);
         }
 
         [Test]
         public void TestLift2()
         {
-            Assert.AreEqual(Maybe.Some(5), Maybe.Some(2).Lift(Maybe.Some(3), (a, b) => a + b));
-            Assert.AreEqual(Maybe<int>.None, Maybe<int>.None.Lift(Maybe.Some(3), (a, b) => a + b));
-            Assert.AreEqual(Maybe<int>.None, Maybe.Some(2).Lift(Maybe<int>.None, (a, b) => a + b));
+            Assert.AreEqual(expected: Maybe.Some(5), actual: Maybe.Some(2).Lift(b: Maybe.Some(3), f: (a, b) => a + b));
+
+            Assert.AreEqual(
+                expected: Maybe<int>.None,
+                actual: Maybe<int>.None.Lift(b: Maybe.Some(3), f: (a, b) => a + b));
+
+            Assert.AreEqual(
+                expected: Maybe<int>.None,
+                actual: Maybe.Some(2).Lift(b: Maybe<int>.None, f: (a, b) => a + b));
         }
 
         [Test]
@@ -268,38 +309,44 @@ namespace SodaFlow.Tests
         {
             int calls = 0;
 
-            Maybe<int> result = Maybe.Some(2).Lift(
-                Maybe<int>.None,
-                (a, b) =>
-                {
-                    calls++;
-                    return a + b;
-                });
+            Maybe<int> result =
+                Maybe.Some(2)
+                    .Lift(
+                        b: Maybe<int>.None,
+                        f: (a, b) =>
+                        {
+                            calls++;
+                            return a + b;
+                        });
 
-            Assert.AreEqual(Maybe<int>.None, result);
-            Assert.AreEqual(0, calls);
+            Assert.AreEqual(expected: Maybe<int>.None, actual: result);
+            Assert.AreEqual(expected: 0, actual: calls);
         }
 
         [Test]
         public void TestLift3()
         {
             Assert.AreEqual(
-                Maybe.Some(9),
-                Maybe.Some(2).Lift(Maybe.Some(3), Maybe.Some(4), (a, b, c) => a + b + c));
+                expected: Maybe.Some(9),
+                actual: Maybe.Some(2).Lift(b: Maybe.Some(3), c: Maybe.Some(4), f: (a, b, c) => a + b + c));
+
             Assert.AreEqual(
-                Maybe<int>.None,
-                Maybe.Some(2).Lift(Maybe<int>.None, Maybe.Some(4), (a, b, c) => a + b + c));
+                expected: Maybe<int>.None,
+                actual: Maybe.Some(2).Lift(b: Maybe<int>.None, c: Maybe.Some(4), f: (a, b, c) => a + b + c));
         }
 
         [Test]
         public void TestLift4()
         {
             Assert.AreEqual(
-                Maybe.Some(14),
-                Maybe.Some(2).Lift(Maybe.Some(3), Maybe.Some(4), Maybe.Some(5), (a, b, c, d) => a + b + c + d));
+                expected: Maybe.Some(14),
+                actual: Maybe.Some(2)
+                    .Lift(b: Maybe.Some(3), c: Maybe.Some(4), d: Maybe.Some(5), f: (a, b, c, d) => a + b + c + d));
+
             Assert.AreEqual(
-                Maybe<int>.None,
-                Maybe.Some(2).Lift(Maybe.Some(3), Maybe.Some(4), Maybe<int>.None, (a, b, c, d) => a + b + c + d));
+                expected: Maybe<int>.None,
+                actual: Maybe.Some(2)
+                    .Lift(b: Maybe.Some(3), c: Maybe.Some(4), d: Maybe<int>.None, f: (a, b, c, d) => a + b + c + d));
         }
     }
 }

@@ -12,6 +12,7 @@ namespace SodaFlow.Tests
         public void Issue151_PoolDoubleSubtraction_Broken()
         {
             Exception actual = null;
+
             try
             {
                 CellSink<int> threshold = Cell.CreateSink(10);
@@ -23,36 +24,41 @@ namespace SodaFlow.Tests
 
                     // Ways that the pool is modified.
                     Stream<Func<int, int>> poolAddByInput = addPoolSink.Map(i => (Func<int, int>)(x => x + i));
-                    Stream<Func<int, int>> poolRemoveByUsage = submitPooledAmount.Map(i => (Func<int, int>)(x => x - i));
+
+                    Stream<Func<int, int>>
+                        poolRemoveByUsage = submitPooledAmount.Map(i => (Func<int, int>)(x => x - i));
 
                     // The current level of the pool
-                    Cell<int> poolLocal = poolAddByInput
-                        .Merge(poolRemoveByUsage, (f, g) => x => g(f(x)))
-                        .Accum(0, (f, x) => f(x));
+                    Cell<int> poolLocal =
+                        poolAddByInput
+                            .Merge(s2: poolRemoveByUsage, f: (f, g) => x => g(f(x)))
+                            .Accum(initialState: 0, f: (f, x) => f(x));
 
                     // The current input changes combined with the pool as a stream
                     Stream<int> inputByAdded =
                         poolAddByInput
                             .Snapshot(
-                                poolLocal,
-                                threshold,
-                                (f, x, t) => f(x) >= t
-                                    ? Maybe.Some(f(x))
-                                    : Maybe.None)
+                                c1: poolLocal,
+                                c2: threshold,
+                                f: (f, x, t) =>
+                                    f(x) >= t
+                                        ? Maybe.Some(f(x))
+                                        : Maybe.None)
                             .FilterSome();
 
                     // Simple rising edge on pool threshold satisfaction.
                     Stream<int> inputBySatisfaction =
                         poolLocal.Updates()
                             .Snapshot(
-                                poolLocal,
-                                threshold,
-                                (neu, alt, t) => neu >= t && alt < t
-                                    ? Maybe.Some(neu)
-                                    : Maybe.None)
+                                c1: poolLocal,
+                                c2: threshold,
+                                f: (neu, alt, t) =>
+                                    neu >= t && alt < t
+                                        ? Maybe.Some(neu)
+                                        : Maybe.None)
                             .FilterSome();
 
-                    submitPooledAmount.Loop(inputByAdded.Merge(inputBySatisfaction, Math.Max));
+                    submitPooledAmount.Loop(inputByAdded.Merge(s2: inputBySatisfaction, f: Math.Max));
 
                     return (submitPooledAmount, poolLocal);
                 });
@@ -63,7 +69,7 @@ namespace SodaFlow.Tests
             }
 
             Assert.IsNotNull(actual);
-            Assert.AreEqual("A dependency cycle was detected.", actual.Message);
+            Assert.AreEqual(expected: "A dependency cycle was detected.", actual: actual.Message);
         }
 
         [Test]
@@ -72,47 +78,54 @@ namespace SodaFlow.Tests
             CellSink<int> threshold = Cell.CreateSink(10);
             StreamSink<int> addPoolSink = Stream.CreateSink<int>();
 
-            (Stream<int> input, Cell<int> pool) = Transaction.Run(() =>
-            {
-                StreamLoop<int> submitPooledAmount = new StreamLoop<int>();
+            (Stream<int> input, Cell<int> pool) =
+                Transaction.Run(() =>
+                {
+                    StreamLoop<int> submitPooledAmount = new StreamLoop<int>();
 
-                // Ways that the pool is modified.
-                Stream<Func<int, int>> poolAddByInput = addPoolSink.Map(i => (Func<int, int>)(x => x + i));
-                Stream<Func<int, int>> poolRemoveByUsage = Operational.Defer(submitPooledAmount.Map(i => (Func<int, int>)(x => x - i)));
+                    // Ways that the pool is modified.
+                    Stream<Func<int, int>> poolAddByInput = addPoolSink.Map(i => (Func<int, int>)(x => x + i));
 
-                // The current level of the pool
-                Cell<int> poolLocal = poolAddByInput
-                    .Merge(poolRemoveByUsage, (f, g) => x => g(f(x)))
-                    .Accum(0, (f, x) => f(x));
+                    Stream<Func<int, int>> poolRemoveByUsage =
+                        Operational.Defer(submitPooledAmount.Map(i => (Func<int, int>)(x => x - i)));
 
-                // The current input changes combined with the pool as a stream
-                Stream<int> inputByAdded =
-                    poolAddByInput
-                        .Snapshot(
-                            poolLocal,
-                            threshold,
-                            (f, x, t) => f(x) >= t
-                                ? Maybe.Some(f(x))
-                                : Maybe.None)
-                        .FilterSome();
+                    // The current level of the pool
+                    Cell<int> poolLocal =
+                        poolAddByInput
+                            .Merge(s2: poolRemoveByUsage, f: (f, g) => x => g(f(x)))
+                            .Accum(initialState: 0, f: (f, x) => f(x));
 
-                // Simple rising edge on pool threshold satisfaction.
-                Stream<int> inputBySatisfaction =
-                    poolLocal.Updates()
-                        .Snapshot(
-                            poolLocal,
-                            threshold,
-                            (neu, alt, t) => neu >= t && alt < t
-                                ? Maybe.Some(neu)
-                                : Maybe.None)
-                        .FilterSome();
+                    // The current input changes combined with the pool as a stream
+                    Stream<int> inputByAdded =
+                        poolAddByInput
+                            .Snapshot(
+                                c1: poolLocal,
+                                c2: threshold,
+                                f: (f, x, t) =>
+                                    f(x) >= t
+                                        ? Maybe.Some(f(x))
+                                        : Maybe.None)
+                            .FilterSome();
 
-                submitPooledAmount.Loop(inputByAdded.Merge(inputBySatisfaction, Math.Max));
+                    // Simple rising edge on pool threshold satisfaction.
+                    Stream<int> inputBySatisfaction =
+                        poolLocal.Updates()
+                            .Snapshot(
+                                c1: poolLocal,
+                                c2: threshold,
+                                f: (neu, alt, t) =>
+                                    neu >= t && alt < t
+                                        ? Maybe.Some(neu)
+                                        : Maybe.None)
+                            .FilterSome();
 
-                return (submitPooledAmount, poolLocal);
-            });
+                    submitPooledAmount.Loop(inputByAdded.Merge(s2: inputBySatisfaction, f: Math.Max));
+
+                    return (submitPooledAmount, poolLocal);
+                });
 
             List<int> submissions = new List<int>();
+
             using (input.ListenStrong(submissions.Add))
             {
                 // Add amount which can be immediately used based on threshold.
@@ -120,9 +133,9 @@ namespace SodaFlow.Tests
                 addPoolSink.Send(10);
             }
 
-            Assert.AreEqual(1, submissions.Count);
-            Assert.AreEqual(10, submissions[0]);
-            Assert.AreEqual(0, pool.Sample());
+            Assert.AreEqual(expected: 1, actual: submissions.Count);
+            Assert.AreEqual(expected: 10, actual: submissions[0]);
+            Assert.AreEqual(expected: 0, actual: pool.Sample());
         }
     }
 }

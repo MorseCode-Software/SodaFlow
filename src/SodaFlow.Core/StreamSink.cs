@@ -12,28 +12,25 @@ namespace SodaFlow
         private readonly Action<TransactionInternal, T> coalescer;
 
         internal StreamSink()
-            : this(
-                (left, right) => throw new InvalidOperationException(
+            : this((left, right) =>
+                throw new InvalidOperationException(
                     "Send was called more than once in a transaction, which isn't allowed.  To combine the streams, pass a coalescing function to the StreamSink constructor."))
         {
         }
 
-        internal StreamSink(Func<T, T, T> coalesce) => this.coalescer = CoalesceHandler.Create(coalesce, this);
+        internal StreamSink(Func<T, T, T> coalesce) => this.coalescer = CoalesceHandler.Create(f: coalesce, @out: this);
 
-        internal void SendImpl(T a)
-        {
-            TransactionInternal.Apply(
-                (trans, _) =>
+        internal void SendImpl(T a) =>
+            TransactionInternal.Apply((trans, _) =>
+            {
+                if (trans.InCallback > 0)
                 {
-                    if (trans.InCallback > 0)
-                    {
-                        throw new InvalidOperationException("Send may not be called inside a callback.");
-                    }
+                    throw new InvalidOperationException("Send may not be called inside a callback.");
+                }
 
-                    trans.Send(t => this.coalescer(t, a));
+                trans.Send(t => this.coalescer(arg1: t, arg2: a));
 
-                    return UnitInternal.Value;
-                });
-        }
+                return UnitInternal.Value;
+            });
     }
 }

@@ -18,9 +18,9 @@ namespace SodaFlow.Tests
             IListener l = s.ListenStrong(@out.Add);
             s.Send(5);
             l.Unlisten();
-            CollectionAssert.AreEqual(new[] { 5 }, @out);
+            CollectionAssert.AreEqual(expected: new[] { 5 }, actual: @out);
             s.Send(6);
-            CollectionAssert.AreEqual(new[] { 5 }, @out);
+            CollectionAssert.AreEqual(expected: new[] { 5 }, actual: @out);
         }
 
         [Test]
@@ -30,6 +30,7 @@ namespace SodaFlow.Tests
 
             StreamSink<int> s = Stream.CreateSink<int>();
             StreamSink<int> s2 = Stream.CreateSink<int>();
+
             using (s.ListenStrong(s2.Send))
             {
                 try
@@ -43,7 +44,7 @@ namespace SodaFlow.Tests
             }
 
             Assert.IsNotNull(actual);
-            Assert.AreEqual("Send may not be called inside a callback.", actual.Message);
+            Assert.AreEqual(expected: "Send may not be called inside a callback.", actual: actual.Message);
         }
 
         [Test]
@@ -53,13 +54,15 @@ namespace SodaFlow.Tests
 
             StreamSink<int> s = Stream.CreateSink<int>();
             StreamSink<int> s2 = Stream.CreateSink<int>();
-            using (s.Map(
-                    v =>
-                    {
-                        s2.Send(v);
-                        return Unit.Value;
-                    })
-                .ListenStrong(_ => { }))
+
+            using (s.Map(v =>
+                       {
+                           s2.Send(v);
+                           return Unit.Value;
+                       })
+                       .ListenStrong(_ =>
+                       {
+                       }))
             {
                 try
                 {
@@ -72,7 +75,7 @@ namespace SodaFlow.Tests
             }
 
             Assert.IsNotNull(actual);
-            Assert.AreEqual("Send may not be called inside a callback.", actual.Message);
+            Assert.AreEqual(expected: "Send may not be called inside a callback.", actual: actual.Message);
         }
 
         [Test]
@@ -82,15 +85,17 @@ namespace SodaFlow.Tests
 
             CellSink<int> c = Cell.CreateSink(5);
             StreamSink<int> s2 = Stream.CreateSink<int>();
+
             try
             {
-                using (c.Map(
-                        v =>
-                        {
-                            s2.Send(v);
-                            return Unit.Value;
-                        })
-                    .ListenStrong(_ => { }))
+                using (c.Map(v =>
+                           {
+                               s2.Send(v);
+                               return Unit.Value;
+                           })
+                           .ListenStrong(_ =>
+                           {
+                           }))
                 {
                 }
             }
@@ -100,7 +105,7 @@ namespace SodaFlow.Tests
             }
 
             Assert.IsNotNull(actual);
-            Assert.AreEqual("Send may not be called inside a callback.", actual.Message);
+            Assert.AreEqual(expected: "Send may not be called inside a callback.", actual: actual.Message);
         }
 
         [Test]
@@ -111,16 +116,19 @@ namespace SodaFlow.Tests
             Cell<int> c = Cell.Constant(5);
             Cell<int> c2 = Cell.Constant(7);
             StreamSink<int> s2 = Stream.CreateSink<int>();
+
             try
             {
                 using (c.Lift(
-                        c2,
-                        (_, __) =>
-                        {
-                            s2.Send(5);
-                            return Unit.Value;
-                        })
-                    .ListenStrong(_ => { }))
+                               c2: c2,
+                               f: (_, __) =>
+                               {
+                                   s2.Send(5);
+                                   return Unit.Value;
+                               })
+                           .ListenStrong(_ =>
+                           {
+                           }))
                 {
                 }
             }
@@ -130,7 +138,7 @@ namespace SodaFlow.Tests
             }
 
             Assert.IsNotNull(actual);
-            Assert.AreEqual("Send may not be called inside a callback.", actual.Message);
+            Assert.AreEqual(expected: "Send may not be called inside a callback.", actual: actual.Message);
         }
 
         [Test]
@@ -140,15 +148,20 @@ namespace SodaFlow.Tests
 
             Cell<int> c = Cell.Constant(5);
             StreamSink<int> s2 = Stream.CreateSink<int>();
-            Cell<Func<int, Unit>> c2 = Cell.Constant<Func<int, Unit>>(
-                _ =>
+
+            Cell<Func<int, Unit>> c2 =
+                Cell.Constant<Func<int, Unit>>(_ =>
                 {
                     s2.Send(5);
                     return Unit.Value;
                 });
+
             try
             {
-                using (c.Apply(c2).ListenStrong(_ => { }))
+                using (c.Apply(c2)
+                           .ListenStrong(_ =>
+                           {
+                           }))
                 {
                 }
             }
@@ -158,7 +171,7 @@ namespace SodaFlow.Tests
             }
 
             Assert.IsNotNull(actual);
-            Assert.AreEqual("Send may not be called inside a callback.", actual.Message);
+            Assert.AreEqual(expected: "Send may not be called inside a callback.", actual: actual.Message);
         }
 
         [Test]
@@ -171,7 +184,7 @@ namespace SodaFlow.Tests
             s.Send(5);
             s.Send(3);
             l.Unlisten();
-            CollectionAssert.AreEqual(new[] { "7", "5" }, @out);
+            CollectionAssert.AreEqual(expected: new[] { "7", "5" }, actual: @out);
         }
 
         [Test]
@@ -185,7 +198,7 @@ namespace SodaFlow.Tests
             s2.Send(9);
             s1.Send(8);
             l.Unlisten();
-            CollectionAssert.AreEqual(new[] { 7, 9, 8 }, @out);
+            CollectionAssert.AreEqual(expected: new[] { 7, 9, 8 }, actual: @out);
         }
 
         [Test]
@@ -195,15 +208,18 @@ namespace SodaFlow.Tests
             StreamSink<int> s2 = Stream.CreateSink<int>((_, r) => r);
             List<int> @out = new List<int>();
             IListener l = s2.OrElse(s1).ListenStrong(@out.Add);
+
             Transaction.RunVoid(() =>
             {
                 s1.Send(7);
                 s2.Send(60);
             });
+
             Transaction.RunVoid(() =>
             {
                 s1.Send(9);
             });
+
             Transaction.RunVoid(() =>
             {
                 s1.Send(7);
@@ -211,6 +227,7 @@ namespace SodaFlow.Tests
                 s2.Send(8);
                 s2.Send(90);
             });
+
             Transaction.RunVoid(() =>
             {
                 s2.Send(8);
@@ -218,6 +235,7 @@ namespace SodaFlow.Tests
                 s1.Send(7);
                 s1.Send(60);
             });
+
             Transaction.RunVoid(() =>
             {
                 s2.Send(8);
@@ -225,8 +243,9 @@ namespace SodaFlow.Tests
                 s2.Send(90);
                 s1.Send(60);
             });
+
             l.Unlisten();
-            CollectionAssert.AreEqual(new[] { 60, 9, 90, 90, 90 }, @out);
+            CollectionAssert.AreEqual(expected: new[] { 60, 9, 90, 90, 90 }, actual: @out);
         }
 
         [Test]
@@ -239,7 +258,7 @@ namespace SodaFlow.Tests
             s.Send(7);
             s.Send(9);
             l.Unlisten();
-            CollectionAssert.AreEqual(new[] { 7, 9 }, @out);
+            CollectionAssert.AreEqual(expected: new[] { 7, 9 }, actual: @out);
         }
 
         [Test]
@@ -252,7 +271,7 @@ namespace SodaFlow.Tests
             s.Send(7);
             s.Send(9);
             l.Unlisten();
-            CollectionAssert.AreEqual(new[] { 14, 18 }, @out);
+            CollectionAssert.AreEqual(expected: new[] { 14, 18 }, actual: @out);
         }
 
         [Test]
@@ -261,12 +280,12 @@ namespace SodaFlow.Tests
             StreamSink<int> s1 = Stream.CreateSink<int>();
             StreamSink<int> s2 = Stream.CreateSink<int>();
             List<int> @out = new List<int>();
-            IListener l = s1.Merge(s2, (x, y) => x + y).ListenStrong(@out.Add);
+            IListener l = s1.Merge(s2: s2, f: (x, y) => x + y).ListenStrong(@out.Add);
             s1.Send(7);
             s2.Send(9);
             s1.Send(8);
             l.Unlisten();
-            CollectionAssert.AreEqual(new[] { 7, 9, 8 }, @out);
+            CollectionAssert.AreEqual(expected: new[] { 7, 9, 8 }, actual: @out);
         }
 
         [Test]
@@ -275,11 +294,11 @@ namespace SodaFlow.Tests
             StreamSink<int> s = Stream.CreateSink<int>();
             Stream<int> s2 = s.Map(x => 2 * x);
             List<int> @out = new List<int>();
-            IListener l = s.Merge(s2, (x, y) => x + y).ListenStrong(@out.Add);
+            IListener l = s.Merge(s2: s2, f: (x, y) => x + y).ListenStrong(@out.Add);
             s.Send(7);
             s.Send(9);
             l.Unlisten();
-            CollectionAssert.AreEqual(new[] { 21, 27 }, @out);
+            CollectionAssert.AreEqual(expected: new[] { 21, 27 }, actual: @out);
         }
 
         [Test]
@@ -288,17 +307,20 @@ namespace SodaFlow.Tests
             StreamSink<int> s = Stream.CreateSink<int>((x, y) => x + y);
             List<int> @out = new List<int>();
             IListener l = s.ListenStrong(@out.Add);
+
             Transaction.RunVoid(() =>
             {
                 s.Send(2);
             });
+
             Transaction.RunVoid(() =>
             {
                 s.Send(8);
                 s.Send(40);
             });
+
             l.Unlisten();
-            CollectionAssert.AreEqual(new[] { 2, 48 }, @out.ToArray());
+            CollectionAssert.AreEqual(expected: new[] { 2, 48 }, actual: @out.ToArray());
         }
 
         [Test]
@@ -307,6 +329,7 @@ namespace SodaFlow.Tests
             StreamSink<int> s = Stream.CreateSink<int>((x, y) => x + y);
             List<int> @out = new List<int>();
             IListener l = s.ListenStrong(@out.Add);
+
             Transaction.RunVoid(() =>
             {
                 s.Send(1);
@@ -315,6 +338,7 @@ namespace SodaFlow.Tests
                 s.Send(4);
                 s.Send(5);
             });
+
             Transaction.RunVoid(() =>
             {
                 s.Send(6);
@@ -323,8 +347,9 @@ namespace SodaFlow.Tests
                 s.Send(9);
                 s.Send(10);
             });
+
             l.Unlisten();
-            CollectionAssert.AreEqual(new[] { 15, 40 }, @out.ToArray());
+            CollectionAssert.AreEqual(expected: new[] { 15, 40 }, actual: @out.ToArray());
         }
 
         [Test]
@@ -337,7 +362,7 @@ namespace SodaFlow.Tests
             s.Send('o');
             s.Send('I');
             l.Unlisten();
-            CollectionAssert.AreEqual(new[] { 'H', 'I' }, @out);
+            CollectionAssert.AreEqual(expected: new[] { 'H', 'I' }, actual: @out);
         }
 
         [Test]
@@ -352,7 +377,7 @@ namespace SodaFlow.Tests
             s.Send(Maybe.None);
             s.Send(Maybe.Some("pear"));
             l.Unlisten();
-            CollectionAssert.AreEqual(new[] { "tomato", "peach", "pear" }, @out);
+            CollectionAssert.AreEqual(expected: new[] { "tomato", "peach", "pear" }, actual: @out);
         }
 
         [Test]
@@ -360,15 +385,18 @@ namespace SodaFlow.Tests
         {
             StreamSink<string> s = Stream.CreateSink<string>();
             List<int> @out = new List<int>();
-            IListener l = s.Choose(v => int.TryParse(v, out int n) ? Maybe.Some(n) : Maybe.None)
-                .ListenStrong(@out.Add);
+
+            IListener l =
+                s.Choose(v => int.TryParse(s: v, result: out int n) ? Maybe.Some(n) : Maybe.None)
+                    .ListenStrong(@out.Add);
+
             s.Send("1");
             s.Send("tomato");
             s.Send("2");
             s.Send(string.Empty);
             s.Send("3");
             l.Unlisten();
-            CollectionAssert.AreEqual(new[] { 1, 2, 3 }, @out);
+            CollectionAssert.AreEqual(expected: new[] { 1, 2, 3 }, actual: @out);
         }
 
         [Test]
@@ -378,7 +406,7 @@ namespace SodaFlow.Tests
             List<int> chosen = new List<int>();
             List<int> mapped = new List<int>();
 
-            Func<string, Maybe<int>> f = v => int.TryParse(v, out int n) ? Maybe.Some(n) : Maybe.None;
+            Func<string, Maybe<int>> f = v => int.TryParse(s: v, result: out int n) ? Maybe.Some(n) : Maybe.None;
 
             IListener l1 = s.Choose(f).ListenStrong(chosen.Add);
             IListener l2 = s.Map(f).FilterSome().ListenStrong(mapped.Add);
@@ -390,8 +418,8 @@ namespace SodaFlow.Tests
             l1.Unlisten();
             l2.Unlisten();
 
-            CollectionAssert.AreEqual(mapped, chosen);
-            CollectionAssert.AreEqual(new[] { 1, 2 }, chosen);
+            CollectionAssert.AreEqual(expected: mapped, actual: chosen);
+            CollectionAssert.AreEqual(expected: new[] { 1, 2 }, actual: chosen);
         }
 
         [Test]
@@ -403,21 +431,24 @@ namespace SodaFlow.Tests
             s.Send("1");
             s.Send("2");
             l.Unlisten();
-            CollectionAssert.AreEqual(new int[0], @out);
+            CollectionAssert.AreEqual(expected: new int[0], actual: @out);
         }
 
         [Test]
         public void TestLoopStream()
         {
             StreamSink<int> sa = Stream.CreateSink<int>();
-            (StreamLoop<int> sb, Stream<int> sb2, Stream<int> sc) = Transaction.Run(() =>
-            {
-                StreamLoop<int> sbLocal = Stream.CreateLoop<int>();
-                Stream<int> scLocal = sa.Map(x => x % 10).Merge(sbLocal, (x, y) => x * y);
-                Stream<int> sbOut = sa.Map(x => x / 10).Filter(x => x != 0);
-                sbLocal.Loop(sbOut);
-                return (sbLocal, sbOut, scLocal);
-            });
+
+            (StreamLoop<int> sb, Stream<int> sb2, Stream<int> sc) =
+                Transaction.Run(() =>
+                {
+                    StreamLoop<int> sbLocal = Stream.CreateLoop<int>();
+                    Stream<int> scLocal = sa.Map(x => x % 10).Merge(s2: sbLocal, f: (x, y) => x * y);
+                    Stream<int> sbOut = sa.Map(x => x / 10).Filter(x => x != 0);
+                    sbLocal.Loop(sbOut);
+                    return (sbLocal, sbOut, scLocal);
+                });
+
             List<int> @out = new List<int>();
             List<int> out2 = new List<int>();
             List<int> out3 = new List<int>();
@@ -429,23 +460,26 @@ namespace SodaFlow.Tests
             l3.Unlisten();
             l2.Unlisten();
             l.Unlisten();
-            CollectionAssert.AreEqual(new[] { 5 }, @out.ToArray());
-            CollectionAssert.AreEqual(new[] { 5 }, out2.ToArray());
-            CollectionAssert.AreEqual(new[] { 2, 10 }, out3.ToArray());
+            CollectionAssert.AreEqual(expected: new[] { 5 }, actual: @out.ToArray());
+            CollectionAssert.AreEqual(expected: new[] { 5 }, actual: out2.ToArray());
+            CollectionAssert.AreEqual(expected: new[] { 2, 10 }, actual: out3.ToArray());
         }
 
         [Test]
         public void TestLoopCell()
         {
             CellSink<int> ca = Cell.CreateSink(22);
-            (CellLoop<int> cb, Cell<int> cb2, Cell<int> cc) = Transaction.Run(() =>
-            {
-                CellLoop<int> cbLocal = Cell.CreateLoop<int>();
-                Cell<int> ccLocal = ca.Map(x => x % 10).Lift(cbLocal, (x, y) => x * y);
-                Cell<int> cbOut = ca.Map(x => x / 10);
-                cbLocal.Loop(cbOut);
-                return (cbLocal, cbOut, ccLocal);
-            });
+
+            (CellLoop<int> cb, Cell<int> cb2, Cell<int> cc) =
+                Transaction.Run(() =>
+                {
+                    CellLoop<int> cbLocal = Cell.CreateLoop<int>();
+                    Cell<int> ccLocal = ca.Map(x => x % 10).Lift(c2: cbLocal, f: (x, y) => x * y);
+                    Cell<int> cbOut = ca.Map(x => x / 10);
+                    cbLocal.Loop(cbOut);
+                    return (cbLocal, cbOut, ccLocal);
+                });
+
             List<int> @out = new List<int>();
             List<int> out2 = new List<int>();
             List<int> out3 = new List<int>();
@@ -457,9 +491,9 @@ namespace SodaFlow.Tests
             l3.Unlisten();
             l2.Unlisten();
             l.Unlisten();
-            CollectionAssert.AreEqual(new[] { 2, 0, 5 }, @out.ToArray());
-            CollectionAssert.AreEqual(new[] { 2, 0, 5 }, out2.ToArray());
-            CollectionAssert.AreEqual(new[] { 4, 0, 10 }, out3.ToArray());
+            CollectionAssert.AreEqual(expected: new[] { 2, 0, 5 }, actual: @out.ToArray());
+            CollectionAssert.AreEqual(expected: new[] { 2, 0, 5 }, actual: out2.ToArray());
+            CollectionAssert.AreEqual(expected: new[] { 4, 0, 10 }, actual: out3.ToArray());
         }
 
         [Test]
@@ -475,7 +509,7 @@ namespace SodaFlow.Tests
             cGate.Send(true);
             sc.Send('I');
             l.Unlisten();
-            CollectionAssert.AreEqual(new[] { 'H', 'I' }, @out);
+            CollectionAssert.AreEqual(expected: new[] { 'H', 'I' }, actual: @out);
         }
 
         [Test]
@@ -530,7 +564,10 @@ namespace SodaFlow.Tests
             s.Send(2);
             s.Send(2);
             l.Unlisten();
-            CollectionAssert.AreEqual(new[] { 2, 4, 2, 4, 2, 4, 2, 4, 2, 4, 2, 4, 2, 4, 2, 4, 2, 4, 2, 4, 2 }, @out);
+
+            CollectionAssert.AreEqual(
+                expected: new[] { 2, 4, 2, 4, 2, 4, 2, 4, 2, 4, 2, 4, 2, 4, 2, 4, 2, 4, 2, 4, 2 },
+                actual: @out);
         }
 
         [Test]
@@ -547,7 +584,7 @@ namespace SodaFlow.Tests
             s.Send(2);
             s.Send(2);
             l.Unlisten();
-            CollectionAssert.AreEqual(new[] { 2, 4, 2, 4, 2 }, @out);
+            CollectionAssert.AreEqual(expected: new[] { 2, 4, 2, 4, 2 }, actual: @out);
         }
 
         // Calm remembers the last value it let through, and that memory has to survive the end of a
@@ -561,27 +598,25 @@ namespace SodaFlow.Tests
         {
             StreamSink<int> a = Stream.CreateSink<int>();
             StreamSink<int> b = Stream.CreateSink<int>();
-            Stream<int> merged = a.Merge(b, (x, y) => x + y);
+            Stream<int> merged = a.Merge(s2: b, f: (x, y) => x + y);
 
             List<int> @out = new List<int>();
             IListener l = merged.Calm().ListenStrong(@out.Add);
 
-            Transaction.RunVoid(
-                () =>
-                {
-                    a.Send(1);
-                    b.Send(1);
-                });
+            Transaction.RunVoid(() =>
+            {
+                a.Send(1);
+                b.Send(1);
+            });
 
             // 2 again, from a single source this time - must be suppressed.
             a.Send(2);
 
-            Transaction.RunVoid(
-                () =>
-                {
-                    a.Send(1);
-                    b.Send(2);
-                });
+            Transaction.RunVoid(() =>
+            {
+                a.Send(1);
+                b.Send(2);
+            });
 
             // 3 again - suppressed.
             a.Send(3);
@@ -590,7 +625,7 @@ namespace SodaFlow.Tests
 
             l.Unlisten();
 
-            CollectionAssert.AreEqual(new[] { 2, 3, 4 }, @out);
+            CollectionAssert.AreEqual(expected: new[] { 2, 3, 4 }, actual: @out);
         }
 
         [Test]
@@ -598,11 +633,16 @@ namespace SodaFlow.Tests
         {
             StreamSink<int> sa = Stream.CreateSink<int>();
             List<int> @out = new List<int>();
-            Stream<int> sum = sa.Collect((Value: 100, Test: true), (a, s) =>
-            {
-                int outputValue = s.Value + (s.Test ? a * 3 : a);
-                return (ReturnValue: outputValue, State: (Value: outputValue, Test: outputValue % 2 == 0));
-            });
+
+            Stream<int> sum =
+                sa.Collect(
+                    initialState: (Value: 100, Test: true),
+                    f: (a, s) =>
+                    {
+                        int outputValue = s.Value + (s.Test ? a * 3 : a);
+                        return (ReturnValue: outputValue, State: (Value: outputValue, Test: outputValue % 2 == 0));
+                    });
+
             IListener l = sum.ListenStrong(@out.Add);
             sa.Send(5);
             sa.Send(7);
@@ -610,7 +650,7 @@ namespace SodaFlow.Tests
             sa.Send(2);
             sa.Send(3);
             l.Unlisten();
-            CollectionAssert.AreEqual(new[] { 115, 122, 125, 127, 130 }, @out);
+            CollectionAssert.AreEqual(expected: new[] { 115, 122, 125, 127, 130 }, actual: @out);
         }
 
         [Test]
@@ -618,7 +658,7 @@ namespace SodaFlow.Tests
         {
             StreamSink<int> sa = Stream.CreateSink<int>();
             List<int> @out = new List<int>();
-            Cell<int> sum = sa.Accum(100, (a, s) => a + s);
+            Cell<int> sum = sa.Accum(initialState: 100, f: (a, s) => a + s);
             IListener l = sum.ListenStrong(@out.Add);
             sa.Send(5);
             sa.Send(7);
@@ -626,7 +666,7 @@ namespace SodaFlow.Tests
             sa.Send(2);
             sa.Send(3);
             l.Unlisten();
-            CollectionAssert.AreEqual(new[] { 100, 105, 112, 113, 115, 118 }, @out);
+            CollectionAssert.AreEqual(expected: new[] { 100, 105, 112, 113, 115, 118 }, actual: @out);
         }
 
         // Collect carries state between firings, and that state has to survive the end of a
@@ -639,35 +679,36 @@ namespace SodaFlow.Tests
         {
             StreamSink<int> a = Stream.CreateSink<int>();
             StreamSink<int> b = Stream.CreateSink<int>();
-            Stream<int> merged = a.Merge(b, (x, y) => x + y);
+            Stream<int> merged = a.Merge(s2: b, f: (x, y) => x + y);
 
             List<string> @out = new List<string>();
-            IListener l = merged
-                .Collect(
-                    (Total: 0, Count: 0),
-                    (v, s) => (ReturnValue: (s.Total + v) + "/" + (s.Count + 1),
-                        State: (Total: s.Total + v, Count: s.Count + 1)))
-                .ListenStrong(@out.Add);
 
-            Transaction.RunVoid(
-                () =>
-                {
-                    a.Send(1);
-                    b.Send(2);
-                });
+            IListener l =
+                merged
+                    .Collect(
+                        initialState: (Total: 0, Count: 0),
+                        f: (v, s) =>
+                            (ReturnValue: s.Total + v + "/" + (s.Count + 1),
+                                State: (Total: s.Total + v, Count: s.Count + 1)))
+                    .ListenStrong(@out.Add);
+
+            Transaction.RunVoid(() =>
+            {
+                a.Send(1);
+                b.Send(2);
+            });
 
             a.Send(10);
 
-            Transaction.RunVoid(
-                () =>
-                {
-                    a.Send(1);
-                    b.Send(1);
-                });
+            Transaction.RunVoid(() =>
+            {
+                a.Send(1);
+                b.Send(1);
+            });
 
             l.Unlisten();
 
-            CollectionAssert.AreEqual(new[] { "3/1", "13/2", "15/3" }, @out);
+            CollectionAssert.AreEqual(expected: new[] { "3/1", "13/2", "15/3" }, actual: @out);
         }
 
         // Accum shares Collect's state carrying, so the same boundary applies to it.
@@ -676,30 +717,28 @@ namespace SodaFlow.Tests
         {
             StreamSink<int> a = Stream.CreateSink<int>();
             StreamSink<int> b = Stream.CreateSink<int>();
-            Stream<int> merged = a.Merge(b, (x, y) => x + y);
+            Stream<int> merged = a.Merge(s2: b, f: (x, y) => x + y);
 
             List<int> @out = new List<int>();
-            IListener l = merged.Accum(0, (v, s) => s + v).ListenStrong(@out.Add);
+            IListener l = merged.Accum(initialState: 0, f: (v, s) => s + v).ListenStrong(@out.Add);
 
-            Transaction.RunVoid(
-                () =>
-                {
-                    a.Send(1);
-                    b.Send(2);
-                });
+            Transaction.RunVoid(() =>
+            {
+                a.Send(1);
+                b.Send(2);
+            });
 
             a.Send(10);
 
-            Transaction.RunVoid(
-                () =>
-                {
-                    a.Send(1);
-                    b.Send(1);
-                });
+            Transaction.RunVoid(() =>
+            {
+                a.Send(1);
+                b.Send(1);
+            });
 
             l.Unlisten();
 
-            CollectionAssert.AreEqual(new[] { 0, 3, 13, 15 }, @out);
+            CollectionAssert.AreEqual(expected: new[] { 0, 3, 13, 15 }, actual: @out);
         }
 
         [Test]
@@ -712,7 +751,7 @@ namespace SodaFlow.Tests
             s.Send('B');
             s.Send('C');
             l.Unlisten();
-            CollectionAssert.AreEqual(new[] { 'A' }, @out);
+            CollectionAssert.AreEqual(expected: new[] { 'A' }, actual: @out);
         }
 
         [Test]
@@ -726,7 +765,7 @@ namespace SodaFlow.Tests
             s.Send('B');
             s.Send('A');
             l.Unlisten();
-            CollectionAssert.AreEqual(new[] { ' ', 'C', 'B', 'A' }, @out);
+            CollectionAssert.AreEqual(expected: new[] { ' ', 'C', 'B', 'A' }, actual: @out);
         }
 
         [Test]
@@ -740,7 +779,7 @@ namespace SodaFlow.Tests
             s.Send('B');
             s.Send('A');
             l.Unlisten();
-            CollectionAssert.AreEqual(new[] { ' ', 'C', 'B' }, @out);
+            CollectionAssert.AreEqual(expected: new[] { ' ', 'C', 'B' }, actual: @out);
         }
 
         [Test]
@@ -754,7 +793,7 @@ namespace SodaFlow.Tests
             s.Send('B');
             s.Send('A');
             l.Unlisten();
-            CollectionAssert.AreEqual(new[] { 'C', 'B', 'A' }, @out);
+            CollectionAssert.AreEqual(expected: new[] { 'C', 'B', 'A' }, actual: @out);
         }
 
         [Test]
@@ -773,11 +812,11 @@ namespace SodaFlow.Tests
                 s.Send(2);
             }))();
 
-            GC.Collect(0, GCCollectionMode.Forced);
+            GC.Collect(generation: 0, mode: GCCollectionMode.Forced);
             s.Send(3);
             s.Send(4);
 
-            Assert.AreEqual(2, @out.Count);
+            Assert.AreEqual(expected: 2, actual: @out.Count);
         }
 
         [Test]
@@ -800,7 +839,7 @@ namespace SodaFlow.Tests
                     s.Send(2);
                 }))();
 
-                GC.Collect(0, GCCollectionMode.Forced);
+                GC.Collect(generation: 0, mode: GCCollectionMode.Forced);
 
                 ((Action)(() =>
                 {
@@ -813,11 +852,11 @@ namespace SodaFlow.Tests
                 }))();
             }))();
 
-            GC.Collect(0, GCCollectionMode.Forced);
+            GC.Collect(generation: 0, mode: GCCollectionMode.Forced);
             s.Send(6);
             s.Send(7);
 
-            Assert.AreEqual(5, @out.Count);
+            Assert.AreEqual(expected: 5, actual: @out.Count);
         }
 
         [Test]
@@ -842,7 +881,7 @@ namespace SodaFlow.Tests
             s.Send(3);
             s.Send(4);
 
-            Assert.AreEqual(1, @out.Count);
+            Assert.AreEqual(expected: 1, actual: @out.Count);
         }
 
         [Test]
@@ -867,7 +906,7 @@ namespace SodaFlow.Tests
             s.Send(3);
             s.Send(4);
 
-            Assert.AreEqual(1, @out.Count);
+            Assert.AreEqual(expected: 1, actual: @out.Count);
         }
 
         [Test]
@@ -895,7 +934,7 @@ namespace SodaFlow.Tests
             s.Send(3);
             s.Send(4);
 
-            Assert.AreEqual(1, @out.Count);
+            Assert.AreEqual(expected: 1, actual: @out.Count);
         }
 
         [Test]
@@ -923,7 +962,7 @@ namespace SodaFlow.Tests
             s.Send(3);
             s.Send(4);
 
-            Assert.AreEqual(1, @out.Count);
+            Assert.AreEqual(expected: 1, actual: @out.Count);
         }
 
         [Test]
@@ -936,13 +975,14 @@ namespace SodaFlow.Tests
             s.Send('B');
             s.Send('C');
             l.Unlisten();
-            CollectionAssert.AreEqual(new[] { 'A' }, @out);
+            CollectionAssert.AreEqual(expected: new[] { 'A' }, actual: @out);
         }
 
         [Test]
         public async Task TestListenOnceAsync()
         {
             StreamSink<char> s = Stream.CreateSink<char>();
+
             new Thread(() =>
             {
                 Thread.Sleep(250);
@@ -950,14 +990,16 @@ namespace SodaFlow.Tests
                 s.Send('B');
                 s.Send('C');
             }).Start();
+
             char r = await s.ListenOnceAsync();
-            Assert.AreEqual('A', r);
+            Assert.AreEqual(expected: 'A', actual: r);
         }
 
         [Test]
         public async Task TestListenOnceAsyncWithCleanup()
         {
             StreamSink<char> s = Stream.CreateSink<char>();
+
             new Thread(() =>
             {
                 Thread.Sleep(250);
@@ -965,10 +1007,11 @@ namespace SodaFlow.Tests
                 s.Send('B');
                 s.Send('C');
             }).Start();
+
             Task<char> t = s.ListenOnceAsync();
-            GC.Collect(0, GCCollectionMode.Forced);
+            GC.Collect(generation: 0, mode: GCCollectionMode.Forced);
             char r = await t;
-            Assert.AreEqual('A', r);
+            Assert.AreEqual(expected: 'A', actual: r);
         }
 
         [Test]
@@ -980,7 +1023,7 @@ namespace SodaFlow.Tests
             s.Send('B');
             s.Send('C');
             char r = await t;
-            Assert.AreEqual('A', r);
+            Assert.AreEqual(expected: 'A', actual: r);
         }
 
         [Test]
@@ -988,12 +1031,12 @@ namespace SodaFlow.Tests
         {
             StreamSink<char> s = Stream.CreateSink<char>();
             Task<char> t = s.ListenOnceAsync();
-            GC.Collect(0, GCCollectionMode.Forced);
+            GC.Collect(generation: 0, mode: GCCollectionMode.Forced);
             s.Send('A');
             s.Send('B');
             s.Send('C');
             char r = await t;
-            Assert.AreEqual('A', r);
+            Assert.AreEqual(expected: 'A', actual: r);
         }
 
         [Test]
@@ -1002,25 +1045,37 @@ namespace SodaFlow.Tests
             CellSink<int> a = Cell.CreateSink(1);
             Cell<int> a1 = a.Map(x => x + 1);
             Cell<int> a2 = a.Map(x => x * 2);
-            (List<int> results, CellLoop<int> called, IListener l) = Transaction.Run(() =>
-             {
-                 Cell<int> result = a1.Lift(a2, (x, y) => x + y);
-                 Stream<Unit> incrementStream = result.Values().MapTo(Unit.Value);
-                 StreamSink<Unit> decrementStream = Stream.CreateSink<Unit>();
-                 CellLoop<int> calledLoop = Cell.CreateLoop<int>();
-                 calledLoop.Loop(incrementStream.MapTo(1).Merge(decrementStream.MapTo(-1), (x, y) => x + y).Snapshot(calledLoop, (u, c) => c + u).Hold(0));
-                 List<int> r = new List<int>();
-                 IListener lLocal = result.ListenStrong(v =>
-                 {
-                     Task.Run(async () =>
-                     {
-                         await Task.Delay(900);
-                         r.Add(v);
-                         decrementStream.Send(Unit.Value);
-                     });
-                 });
-                 return (r, calledLoop, lLocal);
-             });
+
+            (List<int> results, CellLoop<int> called, IListener l) =
+                Transaction.Run(() =>
+                {
+                    Cell<int> result = a1.Lift(c2: a2, f: (x, y) => x + y);
+                    Stream<Unit> incrementStream = result.Values().MapTo(Unit.Value);
+                    StreamSink<Unit> decrementStream = Stream.CreateSink<Unit>();
+                    CellLoop<int> calledLoop = Cell.CreateLoop<int>();
+
+                    calledLoop.Loop(
+                        incrementStream.MapTo(1)
+                            .Merge(s2: decrementStream.MapTo(-1), f: (x, y) => x + y)
+                            .Snapshot(c: calledLoop, f: (u, c) => c + u)
+                            .Hold(0));
+
+                    List<int> r = new List<int>();
+
+                    IListener lLocal =
+                        result.ListenStrong(v =>
+                        {
+                            Task.Run(async () =>
+                            {
+                                await Task.Delay(900);
+                                r.Add(v);
+                                decrementStream.Send(Unit.Value);
+                            });
+                        });
+
+                    return (r, calledLoop, lLocal);
+                });
+
             // ReSharper disable once UnusedVariable
             List<int> calledResults = new List<int>();
             IListener l2 = called.ListenStrong(calledResults.Add);
@@ -1039,14 +1094,17 @@ namespace SodaFlow.Tests
         public void TestStreamLoop()
         {
             StreamSink<int> streamSink = Stream.CreateSink<int>();
-            Stream<int> s = Transaction.Run(() =>
-            {
-                StreamLoop<int> sl = new StreamLoop<int>();
-                Cell<int> c = sl.Map(v => v + 2).Hold(0);
-                Stream<int> s2 = streamSink.Snapshot(c, (x, y) => x + y);
-                sl.Loop(s2);
-                return s2;
-            });
+
+            Stream<int> s =
+                Transaction.Run(() =>
+                {
+                    StreamLoop<int> sl = new StreamLoop<int>();
+                    Cell<int> c = sl.Map(v => v + 2).Hold(0);
+                    Stream<int> s2 = streamSink.Snapshot(c: c, f: (x, y) => x + y);
+                    sl.Loop(s2);
+                    return s2;
+                });
+
             List<int> @out = new List<int>();
             IListener l = s.ListenStrong(@out.Add);
             streamSink.Send(3);
@@ -1055,26 +1113,32 @@ namespace SodaFlow.Tests
             streamSink.Send(8);
             l.Unlisten();
 
-            CollectionAssert.AreEqual(new[] { 3, 9, 18, 28 }, @out);
+            CollectionAssert.AreEqual(expected: new[] { 3, 9, 18, 28 }, actual: @out);
         }
 
         [Test]
         public void TestStreamLoopDefer()
         {
             StreamSink<int> streamSink = Stream.CreateSink<int>();
-            Stream<int> stream = Transaction.Run(() =>
-            {
-                StreamLoop<int> streamLoop = new StreamLoop<int>();
-                Stream<int> streamLocal = Operational.Defer(streamSink.OrElse(streamLoop).Filter(v => v < 5).Map(v => v + 1));
-                streamLoop.Loop(streamLocal);
-                return streamLocal;
-            });
+
+            Stream<int> stream =
+                Transaction.Run(() =>
+                {
+                    StreamLoop<int> streamLoop = new StreamLoop<int>();
+
+                    Stream<int> streamLocal =
+                        Operational.Defer(streamSink.OrElse(streamLoop).Filter(v => v < 5).Map(v => v + 1));
+
+                    streamLoop.Loop(streamLocal);
+                    return streamLocal;
+                });
+
             List<int> @out = new List<int>();
             IListener l = stream.ListenStrong(@out.Add);
             streamSink.Send(2);
             l.Unlisten();
 
-            CollectionAssert.AreEqual(new[] { 3, 4, 5 }, @out);
+            CollectionAssert.AreEqual(expected: new[] { 3, 4, 5 }, actual: @out);
         }
 
         // Node ranks index directly into the prioritized queue's backing array, which starts at
@@ -1089,6 +1153,7 @@ namespace SodaFlow.Tests
             {
                 StreamSink<int> s = Stream.CreateSink<int>();
                 Stream<int> stream = s;
+
                 for (int i = 0; i < depth; i++)
                 {
                     stream = stream.Map(v => v + 1);
@@ -1099,7 +1164,11 @@ namespace SodaFlow.Tests
                 s.Send(0);
                 l.Unlisten();
 
-                CollectionAssert.AreEqual(new[] { depth }, @out, "chain of depth {0}", depth);
+                CollectionAssert.AreEqual(
+                    expected: new[] { depth },
+                    actual: @out,
+                    message: "chain of depth {0}",
+                    depth);
             }
 
             StreamSink<int> shallowSink = Stream.CreateSink<int>();
@@ -1108,7 +1177,7 @@ namespace SodaFlow.Tests
             shallowSink.Send(1);
             shallowListener.Unlisten();
 
-            CollectionAssert.AreEqual(new[] { 2 }, shallowOut);
+            CollectionAssert.AreEqual(expected: new[] { 2 }, actual: shallowOut);
         }
     }
 }

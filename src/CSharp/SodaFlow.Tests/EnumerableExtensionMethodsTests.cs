@@ -16,7 +16,7 @@ namespace SodaFlow.Tests
 
             IEnumerable<int> result = source.Choose(s => s.TryParseInt32());
 
-            CollectionAssert.AreEqual(new[] { 1, 3, 5 }, result);
+            CollectionAssert.AreEqual(expected: new[] { 1, 3, 5 }, actual: result);
         }
 
         [Test]
@@ -26,7 +26,7 @@ namespace SodaFlow.Tests
 
             IEnumerable<int> result = source.Choose(s => s.TryParseInt32());
 
-            CollectionAssert.AreEqual(new int[0], result);
+            CollectionAssert.AreEqual(expected: new int[0], actual: result);
         }
 
         [Test]
@@ -36,7 +36,7 @@ namespace SodaFlow.Tests
 
             IEnumerable<int> result = source.Choose(s => s.TryParseInt32());
 
-            CollectionAssert.AreEqual(new int[0], result);
+            CollectionAssert.AreEqual(expected: new int[0], actual: result);
         }
 
         [Test]
@@ -44,18 +44,18 @@ namespace SodaFlow.Tests
         {
             int calls = 0;
 
-            IEnumerable<int> result = new[] { 1, 2, 3 }.Choose(
-                v =>
+            IEnumerable<int> result =
+                new[] { 1, 2, 3 }.Choose(v =>
                 {
                     calls++;
                     return Maybe.Some(v);
                 });
 
-            Assert.AreEqual(0, calls);
+            Assert.AreEqual(expected: 0, actual: calls);
 
             result.ToArray();
 
-            Assert.AreEqual(3, calls);
+            Assert.AreEqual(expected: 3, actual: calls);
         }
 
         [Test]
@@ -63,96 +63,92 @@ namespace SodaFlow.Tests
         {
             string[] source = { "a", "b", "c", "d" };
 
-            IEnumerable<string> result = source.Choose((v, i) => Maybe.SomeIf(i % 2 == 0, v + i));
+            IEnumerable<string> result = source.Choose((v, i) => Maybe.SomeIf(condition: i % 2 == 0, value: v + i));
 
-            CollectionAssert.AreEqual(new[] { "a0", "c2" }, result);
+            CollectionAssert.AreEqual(expected: new[] { "a0", "c2" }, actual: result);
         }
 
         [Test]
         public void TestFirstOrNone()
         {
-            Assert.AreEqual(Maybe.Some(1), new[] { 1, 2, 3 }.FirstOrNone());
-            Assert.AreEqual(Maybe<int>.None, new int[0].FirstOrNone());
-            Assert.AreEqual(Maybe<int>.None, ((IEnumerable<int>)null).FirstOrNone());
+            Assert.AreEqual(expected: Maybe.Some(1), actual: new[] { 1, 2, 3 }.FirstOrNone());
+            Assert.AreEqual(expected: Maybe<int>.None, actual: new int[0].FirstOrNone());
+            Assert.AreEqual(expected: Maybe<int>.None, actual: ((IEnumerable<int>)null).FirstOrNone());
         }
 
         [Test]
-        public void TestFirstOrNoneKeepsDefaultValue()
-        {
-            Assert.AreEqual(Maybe.Some(0), new[] { 0, 1 }.FirstOrNone());
-        }
+        public void TestFirstOrNoneKeepsDefaultValue() =>
+            Assert.AreEqual(expected: Maybe.Some(0), actual: new[] { 0, 1 }.FirstOrNone());
 
         [Test]
         public void TestFirstOrNoneReadsOneElement()
         {
             int read = 0;
 
-            Maybe<int> result = Counted(new[] { 1, 2, 3 }, () => read++).FirstOrNone();
+            Maybe<int> result = Counted(source: new[] { 1, 2, 3 }, onRead: () => read++).FirstOrNone();
 
-            Assert.AreEqual(Maybe.Some(1), result);
-            Assert.AreEqual(1, read);
+            Assert.AreEqual(expected: Maybe.Some(1), actual: result);
+            Assert.AreEqual(expected: 1, actual: read);
         }
 
         [Test]
         public void TestFirstOrNoneWithPredicate()
         {
-            Assert.AreEqual(Maybe.Some(2), new[] { 1, 2, 3, 4 }.FirstOrNone(v => v % 2 == 0));
-            Assert.AreEqual(Maybe<int>.None, new[] { 1, 3 }.FirstOrNone(v => v % 2 == 0));
-            Assert.AreEqual(Maybe<int>.None, ((IEnumerable<int>)null).FirstOrNone(v => true));
+            Assert.AreEqual(expected: Maybe.Some(2), actual: new[] { 1, 2, 3, 4 }.FirstOrNone(v => v % 2 == 0));
+            Assert.AreEqual(expected: Maybe<int>.None, actual: new[] { 1, 3 }.FirstOrNone(v => v % 2 == 0));
+            Assert.AreEqual(expected: Maybe<int>.None, actual: ((IEnumerable<int>)null).FirstOrNone(v => true));
         }
 
         [Test]
         public void TestLastOrNoneIndexable()
         {
-            Assert.AreEqual(Maybe.Some(3), new[] { 1, 2, 3 }.LastOrNone());
-            Assert.AreEqual(Maybe<int>.None, new int[0].LastOrNone());
-            Assert.AreEqual(Maybe<int>.None, ((IEnumerable<int>)null).LastOrNone());
+            Assert.AreEqual(expected: Maybe.Some(3), actual: new[] { 1, 2, 3 }.LastOrNone());
+            Assert.AreEqual(expected: Maybe<int>.None, actual: new int[0].LastOrNone());
+            Assert.AreEqual(expected: Maybe<int>.None, actual: ((IEnumerable<int>)null).LastOrNone());
         }
 
         [Test]
         public void TestLastOrNoneNotIndexable()
         {
-            Assert.AreEqual(Maybe.Some(3), Yield(1, 2, 3).LastOrNone());
-            Assert.AreEqual(Maybe<int>.None, Yield<int>().LastOrNone());
+            Assert.AreEqual(expected: Maybe.Some(3), actual: Yield(1, 2, 3).LastOrNone());
+            Assert.AreEqual(expected: Maybe<int>.None, actual: Yield<int>().LastOrNone());
         }
 
         [Test]
         public void TestLastOrNoneWithPredicate()
         {
-            Assert.AreEqual(Maybe.Some(4), new[] { 1, 2, 3, 4, 5 }.LastOrNone(v => v % 2 == 0));
-            Assert.AreEqual(Maybe<int>.None, new[] { 1, 3 }.LastOrNone(v => v % 2 == 0));
+            Assert.AreEqual(expected: Maybe.Some(4), actual: new[] { 1, 2, 3, 4, 5 }.LastOrNone(v => v % 2 == 0));
+            Assert.AreEqual(expected: Maybe<int>.None, actual: new[] { 1, 3 }.LastOrNone(v => v % 2 == 0));
         }
 
         [Test]
         public void TestSingleOrNone()
         {
-            Assert.AreEqual(Maybe.Some(1), new[] { 1 }.SingleOrNone());
-            Assert.AreEqual(Maybe<int>.None, new int[0].SingleOrNone());
-            Assert.AreEqual(Maybe<int>.None, ((IEnumerable<int>)null).SingleOrNone());
+            Assert.AreEqual(expected: Maybe.Some(1), actual: new[] { 1 }.SingleOrNone());
+            Assert.AreEqual(expected: Maybe<int>.None, actual: new int[0].SingleOrNone());
+            Assert.AreEqual(expected: Maybe<int>.None, actual: ((IEnumerable<int>)null).SingleOrNone());
         }
 
         [Test]
-        public void TestSingleOrNoneThrowsOnMoreThanOne()
-        {
+        public void TestSingleOrNoneThrowsOnMoreThanOne() =>
             Assert.Throws<InvalidOperationException>(() => new[] { 1, 2 }.SingleOrNone());
-        }
 
         [Test]
         public void TestSingleOrNoneReadsTwoElements()
         {
             int read = 0;
 
-            Maybe<int> result = Counted(new[] { 1 }, () => read++).SingleOrNone();
+            Maybe<int> result = Counted(source: new[] { 1 }, onRead: () => read++).SingleOrNone();
 
-            Assert.AreEqual(Maybe.Some(1), result);
-            Assert.AreEqual(1, read);
+            Assert.AreEqual(expected: Maybe.Some(1), actual: result);
+            Assert.AreEqual(expected: 1, actual: read);
         }
 
         [Test]
         public void TestSingleOrNoneWithPredicate()
         {
-            Assert.AreEqual(Maybe.Some(2), new[] { 1, 2, 3 }.SingleOrNone(v => v % 2 == 0));
-            Assert.AreEqual(Maybe<int>.None, new[] { 1, 3 }.SingleOrNone(v => v % 2 == 0));
+            Assert.AreEqual(expected: Maybe.Some(2), actual: new[] { 1, 2, 3 }.SingleOrNone(v => v % 2 == 0));
+            Assert.AreEqual(expected: Maybe<int>.None, actual: new[] { 1, 3 }.SingleOrNone(v => v % 2 == 0));
             Assert.Throws<InvalidOperationException>(() => new[] { 2, 4 }.SingleOrNone(v => v % 2 == 0));
         }
 
@@ -161,20 +157,20 @@ namespace SodaFlow.Tests
         {
             int[] source = { 1, 2, 3 };
 
-            Assert.AreEqual(Maybe.Some(1), source.ElementAtOrNone(0));
-            Assert.AreEqual(Maybe.Some(3), source.ElementAtOrNone(2));
-            Assert.AreEqual(Maybe<int>.None, source.ElementAtOrNone(3));
-            Assert.AreEqual(Maybe<int>.None, source.ElementAtOrNone(-1));
-            Assert.AreEqual(Maybe<int>.None, ((IEnumerable<int>)null).ElementAtOrNone(0));
+            Assert.AreEqual(expected: Maybe.Some(1), actual: source.ElementAtOrNone(0));
+            Assert.AreEqual(expected: Maybe.Some(3), actual: source.ElementAtOrNone(2));
+            Assert.AreEqual(expected: Maybe<int>.None, actual: source.ElementAtOrNone(3));
+            Assert.AreEqual(expected: Maybe<int>.None, actual: source.ElementAtOrNone(-1));
+            Assert.AreEqual(expected: Maybe<int>.None, actual: ((IEnumerable<int>)null).ElementAtOrNone(0));
         }
 
         [Test]
         public void TestElementAtOrNoneNotIndexable()
         {
-            Assert.AreEqual(Maybe.Some(1), Yield(1, 2, 3).ElementAtOrNone(0));
-            Assert.AreEqual(Maybe.Some(3), Yield(1, 2, 3).ElementAtOrNone(2));
-            Assert.AreEqual(Maybe<int>.None, Yield(1, 2, 3).ElementAtOrNone(3));
-            Assert.AreEqual(Maybe<int>.None, Yield(1, 2, 3).ElementAtOrNone(-1));
+            Assert.AreEqual(expected: Maybe.Some(1), actual: Yield(1, 2, 3).ElementAtOrNone(0));
+            Assert.AreEqual(expected: Maybe.Some(3), actual: Yield(1, 2, 3).ElementAtOrNone(2));
+            Assert.AreEqual(expected: Maybe<int>.None, actual: Yield(1, 2, 3).ElementAtOrNone(3));
+            Assert.AreEqual(expected: Maybe<int>.None, actual: Yield(1, 2, 3).ElementAtOrNone(-1));
         }
 
         [Test]
@@ -182,43 +178,44 @@ namespace SodaFlow.Tests
         {
             int read = 0;
 
-            Maybe<int> result = Counted(new[] { 1, 2, 3, 4, 5 }, () => read++).ElementAtOrNone(1);
+            Maybe<int> result = Counted(source: new[] { 1, 2, 3, 4, 5 }, onRead: () => read++).ElementAtOrNone(1);
 
-            Assert.AreEqual(Maybe.Some(2), result);
-            Assert.AreEqual(2, read);
+            Assert.AreEqual(expected: Maybe.Some(2), actual: result);
+            Assert.AreEqual(expected: 2, actual: read);
         }
 
         [Test]
         public void TestAggregateOrNone()
         {
-            Assert.AreEqual(Maybe.Some(10), new[] { 1, 2, 3, 4 }.AggregateOrNone((a, b) => a + b));
-            Assert.AreEqual(Maybe.Some(7), new[] { 7 }.AggregateOrNone((a, b) => a + b));
-            Assert.AreEqual(Maybe<int>.None, new int[0].AggregateOrNone((a, b) => a + b));
-            Assert.AreEqual(Maybe<int>.None, ((IEnumerable<int>)null).AggregateOrNone((a, b) => a + b));
+            Assert.AreEqual(expected: Maybe.Some(10), actual: new[] { 1, 2, 3, 4 }.AggregateOrNone((a, b) => a + b));
+            Assert.AreEqual(expected: Maybe.Some(7), actual: new[] { 7 }.AggregateOrNone((a, b) => a + b));
+            Assert.AreEqual(expected: Maybe<int>.None, actual: new int[0].AggregateOrNone((a, b) => a + b));
+
+            Assert.AreEqual(
+                expected: Maybe<int>.None,
+                actual: ((IEnumerable<int>)null).AggregateOrNone((a, b) => a + b));
         }
 
         [Test]
-        public void TestAggregateOrNoneIsLeftAssociative()
-        {
+        public void TestAggregateOrNoneIsLeftAssociative() =>
             Assert.AreEqual(
-                Maybe.Some("((a b) c)"),
-                new[] { "a", "b", "c" }.AggregateOrNone((a, b) => "(" + a + " " + b + ")"));
-        }
+                expected: Maybe.Some("((a b) c)"),
+                actual: new[] { "a", "b", "c" }.AggregateOrNone((a, b) => "(" + a + " " + b + ")"));
 
         [Test]
         public void TestAggregateOrNoneDoesNotRunFunctionForOneElement()
         {
             int calls = 0;
 
-            Maybe<int> result = new[] { 7 }.AggregateOrNone(
-                (a, b) =>
+            Maybe<int> result =
+                new[] { 7 }.AggregateOrNone((a, b) =>
                 {
                     calls++;
                     return a + b;
                 });
 
-            Assert.AreEqual(Maybe.Some(7), result);
-            Assert.AreEqual(0, calls);
+            Assert.AreEqual(expected: Maybe.Some(7), actual: result);
+            Assert.AreEqual(expected: 0, actual: calls);
         }
 
         [Test]
@@ -226,28 +223,31 @@ namespace SodaFlow.Tests
         {
             int[] source = { 3, 1, 4, 1, 5 };
 
-            Assert.AreEqual(Maybe.Some(1), source.MinOrNone());
-            Assert.AreEqual(Maybe.Some(5), source.MaxOrNone());
-            Assert.AreEqual(Maybe<int>.None, new int[0].MinOrNone());
-            Assert.AreEqual(Maybe<int>.None, new int[0].MaxOrNone());
-            Assert.AreEqual(Maybe<int>.None, ((IEnumerable<int>)null).MinOrNone());
-            Assert.AreEqual(Maybe<int>.None, ((IEnumerable<int>)null).MaxOrNone());
+            Assert.AreEqual(expected: Maybe.Some(1), actual: source.MinOrNone());
+            Assert.AreEqual(expected: Maybe.Some(5), actual: source.MaxOrNone());
+            Assert.AreEqual(expected: Maybe<int>.None, actual: new int[0].MinOrNone());
+            Assert.AreEqual(expected: Maybe<int>.None, actual: new int[0].MaxOrNone());
+            Assert.AreEqual(expected: Maybe<int>.None, actual: ((IEnumerable<int>)null).MinOrNone());
+            Assert.AreEqual(expected: Maybe<int>.None, actual: ((IEnumerable<int>)null).MaxOrNone());
         }
 
         [Test]
-        public void TestMinOrNoneKeepsZero()
-        {
+        public void TestMinOrNoneKeepsZero() =>
             // Min throws on an empty sequence precisely so it need not conflate it with this.
-            Assert.AreEqual(Maybe.Some(0), new[] { 0, 1 }.MinOrNone());
-        }
+            Assert.AreEqual(expected: Maybe.Some(0), actual: new[] { 0, 1 }.MinOrNone());
 
         [Test]
         public void TestMinOrNoneWithComparer()
         {
             string[] source = { "bbb", "a", "cc" };
 
-            Assert.AreEqual(Maybe.Some("a"), source.MinOrNone(Comparer<string>.Create((x, y) => x.Length - y.Length)));
-            Assert.AreEqual(Maybe.Some("bbb"), source.MaxOrNone(Comparer<string>.Create((x, y) => x.Length - y.Length)));
+            Assert.AreEqual(
+                expected: Maybe.Some("a"),
+                actual: source.MinOrNone(Comparer<string>.Create((x, y) => x.Length - y.Length)));
+
+            Assert.AreEqual(
+                expected: Maybe.Some("bbb"),
+                actual: source.MaxOrNone(Comparer<string>.Create((x, y) => x.Length - y.Length)));
         }
 
         [Test]
@@ -255,9 +255,9 @@ namespace SodaFlow.Tests
         {
             string[] source = { "bbb", "a", "cc" };
 
-            Assert.AreEqual(Maybe.Some(1), source.MinOrNone(v => v.Length));
-            Assert.AreEqual(Maybe.Some(3), source.MaxOrNone(v => v.Length));
-            Assert.AreEqual(Maybe<int>.None, new string[0].MinOrNone(v => v.Length));
+            Assert.AreEqual(expected: Maybe.Some(1), actual: source.MinOrNone(v => v.Length));
+            Assert.AreEqual(expected: Maybe.Some(3), actual: source.MaxOrNone(v => v.Length));
+            Assert.AreEqual(expected: Maybe<int>.None, actual: new string[0].MinOrNone(v => v.Length));
         }
 
         [Test]
@@ -267,8 +267,8 @@ namespace SodaFlow.Tests
             // single null would be the answer for every sequence of a reference type.
             string[] source = { "b", null, "a" };
 
-            Assert.AreEqual(Maybe.Some("a"), source.MinOrNone());
-            Assert.AreEqual(Maybe.Some("b"), source.MaxOrNone());
+            Assert.AreEqual(expected: Maybe.Some("a"), actual: source.MinOrNone());
+            Assert.AreEqual(expected: Maybe.Some("b"), actual: source.MaxOrNone());
         }
 
         [Test]
@@ -276,8 +276,8 @@ namespace SodaFlow.Tests
         {
             int?[] source = { 3, null, 1 };
 
-            Assert.AreEqual(Maybe.Some((int?)1), source.MinOrNone());
-            Assert.AreEqual(Maybe.Some((int?)3), source.MaxOrNone());
+            Assert.AreEqual(expected: Maybe.Some((int?)1), actual: source.MinOrNone());
+            Assert.AreEqual(expected: Maybe.Some((int?)3), actual: source.MaxOrNone());
         }
 
         [Test]
@@ -285,8 +285,8 @@ namespace SodaFlow.Tests
         {
             // LINQ answers null here, which cannot be told from a sequence whose minimum is null.
             // There is genuinely nothing to compare, so this says so.
-            Assert.AreEqual(Maybe<string>.None, new string[] { null, null }.MinOrNone());
-            Assert.AreEqual(Maybe<int?>.None, new int?[] { null, null }.MaxOrNone());
+            Assert.AreEqual(expected: Maybe<string>.None, actual: new string[] { null, null }.MinOrNone());
+            Assert.AreEqual(expected: Maybe<int?>.None, actual: new int?[] { null, null }.MaxOrNone());
         }
 
         [Test]
@@ -295,8 +295,8 @@ namespace SodaFlow.Tests
             // Pinned rather than claimed: Comparer<double>.Default sorts NaN below everything.
             double[] source = { 2.0, double.NaN, 1.0 };
 
-            Assert.AreEqual(Maybe.Some(double.NaN), source.MinOrNone());
-            Assert.AreEqual(Maybe.Some(2.0), source.MaxOrNone());
+            Assert.AreEqual(expected: Maybe.Some(double.NaN), actual: source.MinOrNone());
+            Assert.AreEqual(expected: Maybe.Some(2.0), actual: source.MaxOrNone());
         }
 
         private static IEnumerable<T> Yield<T>(params T[] items)

@@ -4,10 +4,11 @@ namespace SodaFlow
 {
     internal static class OperationalInternal
     {
-        internal static Stream<T> UpdatesImpl<T>(Behavior<T> b) => TransactionInternal.Apply(
-            (trans, _) => b.Updates().Coalesce(trans, (left, right) => right));
+        internal static Stream<T> UpdatesImpl<T>(Behavior<T> b) =>
+            TransactionInternal.Apply((trans, _) => b.Updates().Coalesce(trans1: trans, f: (left, right) => right));
 
-        internal static Stream<T> ValueImpl<T>(Behavior<T> b) => TransactionInternal.Apply((trans, _) => b.Value(trans));
+        internal static Stream<T> ValueImpl<T>(Behavior<T> b) =>
+            TransactionInternal.Apply((trans, _) => b.Value(trans));
 
         internal static Stream<T> DeferImpl<T>(Stream<T> s) => SplitImpl<T, T[]>(s.MapImpl(a => new[] { a }));
 
@@ -15,17 +16,21 @@ namespace SodaFlow
             where TCollection : IEnumerable<T>
         {
             Stream<T> @out = new Stream<T>(s.KeepListenersAlive);
-            IListener l1 = s.Listen(
-                new Node<T>(),
-                (trans, aa) =>
-                {
-                    int childIx = 0;
-                    foreach (T a in aa)
+
+            IListener l1 =
+                s.Listen(
+                    target: new Node<T>(),
+                    action: (trans, aa) =>
                     {
-                        trans.Split(childIx, trans1 => @out.Send(trans1, a));
-                        childIx++;
-                    }
-                });
+                        int childIx = 0;
+
+                        foreach (T a in aa)
+                        {
+                            trans.Split(index: childIx, action: trans1 => @out.Send(trans: trans1, a: a));
+                            childIx++;
+                        }
+                    });
+
             return @out.UnsafeAttachListener(l1);
         }
     }

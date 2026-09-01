@@ -16,7 +16,7 @@ namespace SodaFlow.Tests
             s.Send("a");
             s.Send("b");
             l.Unlisten();
-            CollectionAssert.AreEqual(new[] { "a", "b" }, @out);
+            CollectionAssert.AreEqual(expected: new[] { "a", "b" }, actual: @out);
         }
 
         [Test]
@@ -28,7 +28,7 @@ namespace SodaFlow.Tests
             IListener l = b.ListenStrong(@out.Add);
             a.Send(new List<string> { "a", "b" });
             l.Unlisten();
-            CollectionAssert.AreEqual(new[] { "a", "b" }, @out);
+            CollectionAssert.AreEqual(expected: new[] { "a", "b" }, actual: @out);
         }
 
         [Test]
@@ -40,12 +40,12 @@ namespace SodaFlow.Tests
             IListener l = b.ListenStrong(@out.Add);
             a.Send("a");
             l.Unlisten();
-            CollectionAssert.AreEqual(new[] { "a" }, @out);
+            CollectionAssert.AreEqual(expected: new[] { "a" }, actual: @out);
             List<string> out2 = new List<string>();
             IListener l2 = b.ListenStrong(out2.Add);
             a.Send("b");
             l2.Unlisten();
-            CollectionAssert.AreEqual(new[] { "b" }, out2);
+            CollectionAssert.AreEqual(expected: new[] { "b" }, actual: out2);
         }
 
         [Test]
@@ -58,16 +58,18 @@ namespace SodaFlow.Tests
             IListener l = c.ListenStrong(@out.Add);
             a.Send("a");
             l.Unlisten();
-            CollectionAssert.AreEqual(new[] { "a" }, @out);
+            CollectionAssert.AreEqual(expected: new[] { "a" }, actual: @out);
             List<string> out2 = new List<string>();
             IListener l2 = c.ListenStrong(out2.Add);
+
             Transaction.RunVoid(() =>
             {
                 a.Send("b");
                 b.Send("B");
             });
+
             l2.Unlisten();
-            CollectionAssert.AreEqual(new[] { "B", "b" }, out2);
+            CollectionAssert.AreEqual(expected: new[] { "B", "b" }, actual: out2);
         }
 
         [Test]
@@ -80,26 +82,28 @@ namespace SodaFlow.Tests
             IListener l = c.ListenStrong(@out.Add);
             a.Send(0);
             l.Unlisten();
-            CollectionAssert.AreEqual(new[] { 0 }, @out);
+            CollectionAssert.AreEqual(expected: new[] { 0 }, actual: @out);
             List<int> out2 = new List<int>();
             IListener l2 = c.ListenStrong(out2.Add);
             b.Send(10);
             l2.Unlisten();
-            CollectionAssert.AreEqual(new[] { 10 }, out2);
+            CollectionAssert.AreEqual(expected: new[] { 10 }, actual: out2);
             List<int> out3 = new List<int>();
             IListener l3 = c.ListenStrong(out3.Add);
+
             Transaction.RunVoid(() =>
             {
                 a.Send(2);
                 b.Send(20);
             });
+
             l3.Unlisten();
-            CollectionAssert.AreEqual(new[] { 2 }, out3);
+            CollectionAssert.AreEqual(expected: new[] { 2 }, actual: out3);
             List<int> out4 = new List<int>();
             IListener l4 = c.ListenStrong(out4.Add);
             b.Send(30);
             l4.Unlisten();
-            CollectionAssert.AreEqual(new[] { 30 }, out4);
+            CollectionAssert.AreEqual(expected: new[] { 30 }, actual: out4);
         }
 
         [Test]
@@ -112,16 +116,18 @@ namespace SodaFlow.Tests
             IListener l = c.ListenStrong(@out.Add);
             b.Send("A");
             l.Unlisten();
-            CollectionAssert.AreEqual(new[] { "A" }, @out);
+            CollectionAssert.AreEqual(expected: new[] { "A" }, actual: @out);
             List<string> out2 = new List<string>();
             IListener l2 = c.ListenStrong(out2.Add);
+
             Transaction.RunVoid(() =>
             {
                 a.Send("b");
                 b.Send("B");
             });
+
             l2.Unlisten();
-            CollectionAssert.AreEqual(new[] { "b" }, out2);
+            CollectionAssert.AreEqual(expected: new[] { "b" }, actual: out2);
         }
 
         [Test]

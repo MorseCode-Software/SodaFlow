@@ -5,14 +5,14 @@ open System.Collections.Generic
 open NUnit.Framework
 open SodaFlow
 
-type Node (child : Child) =
+type Node(child: Child) =
     member __.Child = child
 
-and Child (parent : Cell<Node>) =
+and Child(parent: Cell<Node>) =
     member __.Parent = parent
 
 /// Builds the node whose child holds a reference back to it, which is the knot under test.
-let private nodeHolding reference = Node (Child reference)
+let private nodeHolding reference = Node(Child reference)
 
 [<TestFixture>]
 type ``Forward Reference Tests``() =

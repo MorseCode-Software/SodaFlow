@@ -9,10 +9,9 @@ namespace SodaFlow
     /// <typeparam name="T">The type of values fired by the stream loop.</typeparam>
     public class StreamLoop<T> : LoopedStream<T>
     {
-        private TransactionInternal transaction;
-
         private readonly object isLoopedLock = new object();
         private bool isLooped;
+        private TransactionInternal transaction;
 
         /// <summary>
         ///     Initializes a new instance of the <see cref="StreamLoop{T}" /> class, a forward reference to a
@@ -39,16 +38,15 @@ namespace SodaFlow
                 throw new InvalidOperationException("Loop must be created within an explicit transaction.");
             }
 
-            this.transaction.Last(
-                () =>
+            this.transaction.Last(() =>
+            {
+                if (this.transaction != null)
                 {
-                    if (this.transaction != null)
-                    {
-                        this.transaction = null;
+                    this.transaction = null;
 
-                        throw new InvalidOperationException("Loop was not looped.");
-                    }
-                });
+                    throw new InvalidOperationException("Loop was not looped.");
+                }
+            });
         }
 
         /// <summary>
@@ -61,32 +59,31 @@ namespace SodaFlow
         /// <param name="stream">The stream that was forward referenced.</param>
         [MethodImpl(MethodImplOptions.NoInlining)]
         public void Loop(Stream<T> stream) =>
-            TransactionInternal.Apply(
-                (trans, _) =>
+            TransactionInternal.Apply((trans, _) =>
+            {
+                lock (this.isLoopedLock)
                 {
-                    lock (this.isLoopedLock)
+                    if (this.isLooped)
                     {
-                        if (this.isLooped)
-                        {
-                            throw new InvalidOperationException("Loop was looped more than once.");
-                        }
-
-                        this.isLooped = true;
+                        throw new InvalidOperationException("Loop was looped more than once.");
                     }
 
-                    if (trans != this.transaction)
-                    {
-                        this.transaction = null;
+                    this.isLooped = true;
+                }
 
-                        throw new InvalidOperationException(
-                            "Loop must be looped in the same transaction that it was created in.");
-                    }
-
+                if (trans != this.transaction)
+                {
                     this.transaction = null;
 
-                    this.Loop(trans, stream);
+                    throw new InvalidOperationException(
+                        "Loop must be looped in the same transaction that it was created in.");
+                }
 
-                    return UnitInternal.Value;
-                });
+                this.transaction = null;
+
+                this.Loop(trans: trans, stream: stream);
+
+                return UnitInternal.Value;
+            });
     }
 }

@@ -5,8 +5,8 @@ namespace SodaFlow
 {
     internal static class MaybeInternal
     {
-        public static MaybeInternal<T> Some<T>(T value) => MaybeInternal<T>.Some(value);
         public static readonly NoneType None = new NoneType();
+        public static MaybeInternal<T> Some<T>(T value) => MaybeInternal<T>.Some(value);
 
         internal struct NoneType
         {
@@ -85,7 +85,7 @@ namespace SodaFlow
         public static implicit operator MaybeInternal<T>(MaybeInternal.NoneType _) => None;
 
         public static bool operator ==(MaybeInternal<T> x, MaybeInternal<T> y) =>
-            x.hasValue == y.hasValue && EqualityComparer<T>.Default.Equals(x.value, y.value);
+            x.hasValue == y.hasValue && EqualityComparer<T>.Default.Equals(x: x.value, y: y.value);
 
         public static bool operator !=(MaybeInternal<T> x, MaybeInternal<T> y) => !(x == y);
         public override bool Equals(object obj) => obj is MaybeInternal<T> m && this == m;
@@ -93,6 +93,6 @@ namespace SodaFlow
         public override int GetHashCode() =>
             (this.hasValue.GetHashCode() * 397) ^ EqualityComparer<T>.Default.GetHashCode(this.value);
 
-        public override string ToString() => this.Match(v => $"{{Some: {v}}}", () => "{None}");
+        public override string ToString() => this.Match(onSome: v => $"{{Some: {v}}}", onNone: () => "{None}");
     }
 }

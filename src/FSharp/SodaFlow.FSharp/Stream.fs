@@ -25,7 +25,7 @@ open System.Runtime.CompilerServices
 ///     The identity for <c>orElse</c>, and what to return from a branch which has nothing to fire.
 /// </remarks>
 [<MethodImpl(MethodImplOptions.NoInlining)>]
-let never<'a> () = StreamInternal.NeverImpl<'a> ()
+let never<'a> () = StreamInternal.NeverImpl<'a>()
 
 /// <summary>
 ///     Builds a stream which refers to itself, closing the loop within one transaction.
@@ -47,12 +47,11 @@ let never<'a> () = StreamInternal.NeverImpl<'a> ()
 /// </remarks>
 [<MethodImpl(MethodImplOptions.NoInlining)>]
 let loop f =
-    TransactionInternal.Apply
-        (fun transaction _ ->
-            let l = LoopedStream ()
-            let struct (s, r) = f l
-            l.Loop (transaction, s)
-            struct (s, r))
+    TransactionInternal.Apply(fun transaction _ ->
+        let l = LoopedStream()
+        let struct (s, r) = f l
+        l.Loop(transaction, s)
+        struct (s, r))
 
 /// <summary>
 ///     Builds a self-referential stream where nothing but the stream itself is wanted back.
@@ -79,7 +78,7 @@ let loopWithNoCaptures f =
 ///     kept alive for as long as something is listening, use <c>listenStrong</c>.
 /// </remarks>
 [<MethodImpl(MethodImplOptions.NoInlining)>]
-let listen handler (stream : Stream<_>) = stream.ListenImpl (Action<_> handler)
+let listen handler (stream: Stream<_>) = stream.ListenImpl(Action<_> handler)
 
 /// <summary>
 ///     Listens for firings, keeping the stream alive while the listener lives.
@@ -98,7 +97,8 @@ let listen handler (stream : Stream<_>) = stream.ListenImpl (Action<_> handler)
 ///     long-running or blocking work to another thread.
 /// </remarks>
 [<MethodImpl(MethodImplOptions.NoInlining)>]
-let listenStrong handler (stream : Stream<_>) = stream.ListenStrongImpl (Action<_> handler)
+let listenStrong handler (stream: Stream<_>) =
+    stream.ListenStrongImpl(Action<_> handler)
 
 /// <summary>
 ///     Ties a listener to the lifetime of a stream, so the listener lives while the stream does.
@@ -113,7 +113,7 @@ let listenStrong handler (stream : Stream<_>) = stream.ListenStrongImpl (Action<
 ///     quietly stops firing.
 /// </remarks>
 [<MethodImpl(MethodImplOptions.NoInlining)>]
-let attachListener listener (stream : Stream<_>) = stream.AttachListenerImpl listener
+let attachListener listener (stream: Stream<_>) = stream.AttachListenerImpl listener
 
 /// <summary>
 ///     Listens for the next firing only, then stops.
@@ -125,7 +125,8 @@ let attachListener listener (stream : Stream<_>) = stream.AttachListenerImpl lis
 ///     wanted.
 /// </returns>
 [<MethodImpl(MethodImplOptions.NoInlining)>]
-let listenOnce handler (stream : Stream<_>) = stream.ListenOnceImpl (Action<_> handler)
+let listenOnce handler (stream: Stream<_>) =
+    stream.ListenOnceImpl(Action<_> handler)
 
 /// <summary>
 ///     Waits asynchronously for the next firing.
@@ -144,26 +145,36 @@ let listenOnceAsync stream =
 #if NETSTANDARD2_0_OR_GREATER || NET461_OR_GREATER || NET
     let tcs = TaskCompletionSource<_> TaskCreationOptions.RunContinuationsAsynchronously
 #else
-    let tcs = TaskCompletionSource<_> ()
+    let tcs = TaskCompletionSource<_>()
 #endif
     let mutable listenerOption = None
     let mutable unlistenEarly = false
-    let listener = stream |> listenStrong (fun a ->
-        match listenerOption with
+
+    let listener =
+        stream
+        |> listenStrong (fun a ->
+            match listenerOption with
             | None -> unlistenEarly <- true
             | Some listener -> listener |> Listener.unlisten
-        tcs.TrySetResult(a) |> ignore)
+
+            tcs.TrySetResult(a) |> ignore)
+
     listenerOption <- Some listener
-    if unlistenEarly then listener |> Listener.unlisten
+
+    if unlistenEarly then
+        listener |> Listener.unlisten
+
     async {
         let! ct = Async.CancellationToken
-        ct.Register (fun () ->
+
+        ct.Register(fun () ->
             Listener.unlisten listener
-            tcs.TrySetCanceled () |> ignore) |> ignore
+            tcs.TrySetCanceled() |> ignore)
+        |> ignore
 #if NETSTANDARD2_0_OR_GREATER || NET461_OR_GREATER || NET
         return! Async.AwaitTask tcs.Task
 #else
-        let execute (tcs : TaskCompletionSource<_>) =
+        let execute (tcs: TaskCompletionSource<_>) =
             async {
                 let! result = Async.AwaitTask tcs.Task
                 do! Utilities.Yield() |> Async.AwaitTask
@@ -185,7 +196,7 @@ let listenOnceAsync stream =
 ///     that it must be pure.
 /// </remarks>
 [<MethodImpl(MethodImplOptions.NoInlining)>]
-let map f (stream : Stream<_>) = stream.MapImpl (Func<_,_> f)
+let map f (stream: Stream<_>) = stream.MapImpl(Func<_, _> f)
 
 /// <summary>
 ///     Replaces every fired value with a constant.
@@ -197,7 +208,7 @@ let map f (stream : Stream<_>) = stream.MapImpl (Func<_,_> f)
 ///     For when only the fact that something happened matters, not what it carried.
 /// </remarks>
 [<MethodImpl(MethodImplOptions.NoInlining)>]
-let mapTo value (stream : Stream<_>) = stream.MapToImpl value
+let mapTo value (stream: Stream<_>) = stream.MapToImpl value
 
 /// <summary>
 ///     Holds the most recently fired value in a cell.
@@ -211,7 +222,7 @@ let mapTo value (stream : Stream<_>) = stream.MapToImpl value
 ///     rather than circular.
 /// </remarks>
 [<MethodImpl(MethodImplOptions.NoInlining)>]
-let hold initialValue (stream : Stream<_>) = stream.HoldImpl initialValue
+let hold initialValue (stream: Stream<_>) = stream.HoldImpl initialValue
 
 /// <summary>
 ///     Holds the most recently fired value in a cell, with an initial value computed on first use.
@@ -225,7 +236,7 @@ let hold initialValue (stream : Stream<_>) = stream.HoldImpl initialValue
 ///     exactly what this takes.
 /// </remarks>
 [<MethodImpl(MethodImplOptions.NoInlining)>]
-let holdLazy initialValue (stream : Stream<_>) = stream.HoldLazyImpl initialValue
+let holdLazy initialValue (stream: Stream<_>) = stream.HoldLazyImpl initialValue
 
 /// <summary>
 ///     Samples a behavior when the stream fires, and fires the combination.
@@ -244,7 +255,8 @@ let holdLazy initialValue (stream : Stream<_>) = stream.HoldLazyImpl initialValu
 ///     the order the graph happens to be evaluated in.
 /// </remarks>
 [<MethodImpl(MethodImplOptions.NoInlining)>]
-let snapshotB (behavior : Behavior<_>) f (stream : Stream<_>) = stream.SnapshotImpl (behavior, (Func<_,_,_> f))
+let snapshotB (behavior: Behavior<_>) f (stream: Stream<_>) =
+    stream.SnapshotImpl(behavior, (Func<_, _, _> f))
 
 /// <summary>
 ///     Samples a cell when the stream fires, and fires the combination.
@@ -263,7 +275,8 @@ let snapshotB (behavior : Behavior<_>) f (stream : Stream<_>) = stream.SnapshotI
 ///     the order the graph happens to be evaluated in.
 /// </remarks>
 [<MethodImpl(MethodImplOptions.NoInlining)>]
-let snapshot (cell : Cell<_>) f (stream : Stream<_>) = stream.SnapshotImpl (cell, (Func<_,_,_> f))
+let snapshot (cell: Cell<_>) f (stream: Stream<_>) =
+    stream.SnapshotImpl(cell, (Func<_, _, _> f))
 
 /// <summary>
 ///     Samples a behavior when the stream fires, and fires the behavior's value, discarding the
@@ -279,7 +292,7 @@ let snapshot (cell : Cell<_>) f (stream : Stream<_>) = stream.SnapshotImpl (cell
 ///     the order the graph happens to be evaluated in.
 /// </remarks>
 [<MethodImpl(MethodImplOptions.NoInlining)>]
-let snapshotAndTakeB (behavior : Behavior<_>) (stream : Stream<_>) = stream.SnapshotImpl behavior
+let snapshotAndTakeB (behavior: Behavior<_>) (stream: Stream<_>) = stream.SnapshotImpl behavior
 
 /// <summary>
 ///     Samples a cell when the stream fires, and fires the cell's value, discarding the stream's own.
@@ -294,7 +307,7 @@ let snapshotAndTakeB (behavior : Behavior<_>) (stream : Stream<_>) = stream.Snap
 ///     the order the graph happens to be evaluated in.
 /// </remarks>
 [<MethodImpl(MethodImplOptions.NoInlining)>]
-let snapshotAndTake (cell : Cell<_>) (stream : Stream<_>) = stream.SnapshotImpl cell
+let snapshotAndTake (cell: Cell<_>) (stream: Stream<_>) = stream.SnapshotImpl cell
 
 /// <summary>
 ///     Samples two behaviors when the stream fires, and fires the combination.
@@ -314,7 +327,8 @@ let snapshotAndTake (cell : Cell<_>) (stream : Stream<_>) = stream.SnapshotImpl 
 ///     the order the graph happens to be evaluated in.
 /// </remarks>
 [<MethodImpl(MethodImplOptions.NoInlining)>]
-let snapshot2B (behavior1 : Behavior<_>) behavior2 f (stream : Stream<_>) = stream.SnapshotImpl (behavior1, behavior2, (Func<_,_,_,_> f))
+let snapshot2B (behavior1: Behavior<_>) behavior2 f (stream: Stream<_>) =
+    stream.SnapshotImpl(behavior1, behavior2, (Func<_, _, _, _> f))
 
 /// <summary>
 ///     Samples two cells when the stream fires, and fires the combination.
@@ -334,7 +348,8 @@ let snapshot2B (behavior1 : Behavior<_>) behavior2 f (stream : Stream<_>) = stre
 ///     the order the graph happens to be evaluated in.
 /// </remarks>
 [<MethodImpl(MethodImplOptions.NoInlining)>]
-let snapshot2 (cell1 : Cell<_>) cell2 f (stream : Stream<_>) = stream.SnapshotImpl (cell1, cell2, (Func<_,_,_,_> f))
+let snapshot2 (cell1: Cell<_>) cell2 f (stream: Stream<_>) =
+    stream.SnapshotImpl(cell1, cell2, (Func<_, _, _, _> f))
 
 /// <summary>
 ///     Samples three behaviors when the stream fires, and fires the combination.
@@ -355,7 +370,8 @@ let snapshot2 (cell1 : Cell<_>) cell2 f (stream : Stream<_>) = stream.SnapshotIm
 ///     the order the graph happens to be evaluated in.
 /// </remarks>
 [<MethodImpl(MethodImplOptions.NoInlining)>]
-let snapshot3B (behavior1 : Behavior<_>) behavior2 behavior3 f (stream : Stream<_>) = stream.SnapshotImpl (behavior1, behavior2, behavior3, (Func<_,_,_,_,_> f))
+let snapshot3B (behavior1: Behavior<_>) behavior2 behavior3 f (stream: Stream<_>) =
+    stream.SnapshotImpl(behavior1, behavior2, behavior3, (Func<_, _, _, _, _> f))
 
 /// <summary>
 ///     Samples three cells when the stream fires, and fires the combination.
@@ -376,7 +392,8 @@ let snapshot3B (behavior1 : Behavior<_>) behavior2 behavior3 f (stream : Stream<
 ///     the order the graph happens to be evaluated in.
 /// </remarks>
 [<MethodImpl(MethodImplOptions.NoInlining)>]
-let snapshot3 (cell1 : Cell<_>) cell2 cell3 f (stream : Stream<_>) = stream.SnapshotImpl (cell1, cell2, cell3, (Func<_,_,_,_,_> f))
+let snapshot3 (cell1: Cell<_>) cell2 cell3 f (stream: Stream<_>) =
+    stream.SnapshotImpl(cell1, cell2, cell3, (Func<_, _, _, _, _> f))
 
 /// <summary>
 ///     Samples four behaviors when the stream fires, and fires the combination.
@@ -398,7 +415,8 @@ let snapshot3 (cell1 : Cell<_>) cell2 cell3 f (stream : Stream<_>) = stream.Snap
 ///     the order the graph happens to be evaluated in.
 /// </remarks>
 [<MethodImpl(MethodImplOptions.NoInlining)>]
-let snapshot4B (behavior1 : Behavior<_>) behavior2 behavior3 behavior4 f (stream : Stream<_>) = stream.SnapshotImpl (behavior1, behavior2, behavior3, behavior4, (Func<_,_,_,_,_,_> f))
+let snapshot4B (behavior1: Behavior<_>) behavior2 behavior3 behavior4 f (stream: Stream<_>) =
+    stream.SnapshotImpl(behavior1, behavior2, behavior3, behavior4, (Func<_, _, _, _, _, _> f))
 
 /// <summary>
 ///     Samples four cells when the stream fires, and fires the combination.
@@ -420,7 +438,8 @@ let snapshot4B (behavior1 : Behavior<_>) behavior2 behavior3 behavior4 f (stream
 ///     the order the graph happens to be evaluated in.
 /// </remarks>
 [<MethodImpl(MethodImplOptions.NoInlining)>]
-let snapshot4 (cell1 : Cell<_>) cell2 cell3 cell4 f (stream : Stream<_>) = stream.SnapshotImpl (cell1, cell2, cell3, cell4, (Func<_,_,_,_,_,_> f))
+let snapshot4 (cell1: Cell<_>) cell2 cell3 cell4 f (stream: Stream<_>) =
+    stream.SnapshotImpl(cell1, cell2, cell3, cell4, (Func<_, _, _, _, _, _> f))
 
 /// <summary>
 ///     Samples five behaviors when the stream fires, and fires the combination.
@@ -443,7 +462,9 @@ let snapshot4 (cell1 : Cell<_>) cell2 cell3 cell4 f (stream : Stream<_>) = strea
 ///     the order the graph happens to be evaluated in.
 /// </remarks>
 let snapshot5B behavior1 behavior2 behavior3 behavior4 behavior5 f stream =
-    stream |> snapshot4B behavior1 behavior2 behavior3 behavior4 tuple5S |> snapshotB behavior5 (fun struct (a, b, c, d, e) f' -> f a b c d e f')
+    stream
+    |> snapshot4B behavior1 behavior2 behavior3 behavior4 tuple5S
+    |> snapshotB behavior5 (fun struct (a, b, c, d, e) f' -> f a b c d e f')
 
 /// <summary>
 ///     Samples five cells when the stream fires, and fires the combination.
@@ -466,7 +487,14 @@ let snapshot5B behavior1 behavior2 behavior3 behavior4 behavior5 f stream =
 ///     the order the graph happens to be evaluated in.
 /// </remarks>
 let snapshot5 cell1 cell2 cell3 cell4 cell5 f stream =
-    stream |> snapshot5B (cell1 |> Cell.asBehavior) (cell2 |> Cell.asBehavior) (cell3 |> Cell.asBehavior) (cell4 |> Cell.asBehavior) (cell5 |> Cell.asBehavior) f
+    stream
+    |> snapshot5B
+        (cell1 |> Cell.asBehavior)
+        (cell2 |> Cell.asBehavior)
+        (cell3 |> Cell.asBehavior)
+        (cell4 |> Cell.asBehavior)
+        (cell5 |> Cell.asBehavior)
+        f
 
 /// <summary>
 ///     Samples six behaviors when the stream fires, and fires the combination.
@@ -490,7 +518,9 @@ let snapshot5 cell1 cell2 cell3 cell4 cell5 f stream =
 ///     the order the graph happens to be evaluated in.
 /// </remarks>
 let snapshot6B behavior1 behavior2 behavior3 behavior4 behavior5 behavior6 f stream =
-    stream |> snapshot4B behavior1 behavior2 behavior3 behavior4 tuple5S |> snapshot2B behavior5 behavior6 (fun struct (a, b, c, d, e) f' g -> f a b c d e f' g)
+    stream
+    |> snapshot4B behavior1 behavior2 behavior3 behavior4 tuple5S
+    |> snapshot2B behavior5 behavior6 (fun struct (a, b, c, d, e) f' g -> f a b c d e f' g)
 
 /// <summary>
 ///     Samples six cells when the stream fires, and fires the combination.
@@ -514,7 +544,15 @@ let snapshot6B behavior1 behavior2 behavior3 behavior4 behavior5 behavior6 f str
 ///     the order the graph happens to be evaluated in.
 /// </remarks>
 let snapshot6 cell1 cell2 cell3 cell4 cell5 cell6 f stream =
-    stream |> snapshot6B (cell1 |> Cell.asBehavior) (cell2 |> Cell.asBehavior) (cell3 |> Cell.asBehavior) (cell4 |> Cell.asBehavior) (cell5 |> Cell.asBehavior) (cell6 |> Cell.asBehavior) f
+    stream
+    |> snapshot6B
+        (cell1 |> Cell.asBehavior)
+        (cell2 |> Cell.asBehavior)
+        (cell3 |> Cell.asBehavior)
+        (cell4 |> Cell.asBehavior)
+        (cell5 |> Cell.asBehavior)
+        (cell6 |> Cell.asBehavior)
+        f
 
 /// <summary>
 ///     Samples seven behaviors when the stream fires, and fires the combination.
@@ -539,7 +577,9 @@ let snapshot6 cell1 cell2 cell3 cell4 cell5 cell6 f stream =
 ///     the order the graph happens to be evaluated in.
 /// </remarks>
 let snapshot7B behavior1 behavior2 behavior3 behavior4 behavior5 behavior6 behavior7 f stream =
-    stream |> snapshot4B behavior1 behavior2 behavior3 behavior4 tuple5S |> snapshot3B behavior5 behavior6 behavior7 (fun struct (a, b, c, d, e) f' g h -> f a b c d e f' g h)
+    stream
+    |> snapshot4B behavior1 behavior2 behavior3 behavior4 tuple5S
+    |> snapshot3B behavior5 behavior6 behavior7 (fun struct (a, b, c, d, e) f' g h -> f a b c d e f' g h)
 
 /// <summary>
 ///     Samples seven cells when the stream fires, and fires the combination.
@@ -564,7 +604,16 @@ let snapshot7B behavior1 behavior2 behavior3 behavior4 behavior5 behavior6 behav
 ///     the order the graph happens to be evaluated in.
 /// </remarks>
 let snapshot7 cell1 cell2 cell3 cell4 cell5 cell6 cell7 f stream =
-    stream |> snapshot7B (cell1 |> Cell.asBehavior) (cell2 |> Cell.asBehavior) (cell3 |> Cell.asBehavior) (cell4 |> Cell.asBehavior) (cell5 |> Cell.asBehavior) (cell6 |> Cell.asBehavior) (cell7 |> Cell.asBehavior) f
+    stream
+    |> snapshot7B
+        (cell1 |> Cell.asBehavior)
+        (cell2 |> Cell.asBehavior)
+        (cell3 |> Cell.asBehavior)
+        (cell4 |> Cell.asBehavior)
+        (cell5 |> Cell.asBehavior)
+        (cell6 |> Cell.asBehavior)
+        (cell7 |> Cell.asBehavior)
+        f
 
 /// <summary>
 ///     Samples eight behaviors when the stream fires, and fires the combination.
@@ -590,7 +639,9 @@ let snapshot7 cell1 cell2 cell3 cell4 cell5 cell6 cell7 f stream =
 ///     the order the graph happens to be evaluated in.
 /// </remarks>
 let snapshot8B behavior1 behavior2 behavior3 behavior4 behavior5 behavior6 behavior7 behavior8 f stream =
-    stream |> snapshot4B behavior1 behavior2 behavior3 behavior4 tuple5S |> snapshot4B behavior5 behavior6 behavior7 behavior8 (fun struct (a, b, c, d, e) f' g h i -> f a b c d e f' g h i)
+    stream
+    |> snapshot4B behavior1 behavior2 behavior3 behavior4 tuple5S
+    |> snapshot4B behavior5 behavior6 behavior7 behavior8 (fun struct (a, b, c, d, e) f' g h i -> f a b c d e f' g h i)
 
 /// <summary>
 ///     Samples eight cells when the stream fires, and fires the combination.
@@ -616,7 +667,17 @@ let snapshot8B behavior1 behavior2 behavior3 behavior4 behavior5 behavior6 behav
 ///     the order the graph happens to be evaluated in.
 /// </remarks>
 let snapshot8 cell1 cell2 cell3 cell4 cell5 cell6 cell7 cell8 f stream =
-    stream |> snapshot8B (cell1 |> Cell.asBehavior) (cell2 |> Cell.asBehavior) (cell3 |> Cell.asBehavior) (cell4 |> Cell.asBehavior) (cell5 |> Cell.asBehavior) (cell6 |> Cell.asBehavior) (cell7 |> Cell.asBehavior) (cell8 |> Cell.asBehavior) f
+    stream
+    |> snapshot8B
+        (cell1 |> Cell.asBehavior)
+        (cell2 |> Cell.asBehavior)
+        (cell3 |> Cell.asBehavior)
+        (cell4 |> Cell.asBehavior)
+        (cell5 |> Cell.asBehavior)
+        (cell6 |> Cell.asBehavior)
+        (cell7 |> Cell.asBehavior)
+        (cell8 |> Cell.asBehavior)
+        f
 
 /// <summary>
 ///     Merges two streams, combining the values where both fire in one transaction.
@@ -634,7 +695,8 @@ let snapshot8 cell1 cell2 cell3 cell4 cell5 cell6 cell7 cell8 f stream =
 ///     to take the first instead of combining.
 /// </remarks>
 [<MethodImpl(MethodImplOptions.NoInlining)>]
-let merge f (stream : Stream<_>, stream2) = stream.MergeImpl (stream2, (Func<_,_,_> f))
+let merge f (stream: Stream<_>, stream2) =
+    stream.MergeImpl(stream2, (Func<_, _, _> f))
 
 /// <summary>
 ///     Merges two streams, preferring the first where both fire in one transaction.
@@ -647,7 +709,7 @@ let merge f (stream : Stream<_>, stream2) = stream.MergeImpl (stream2, (Func<_,_
 ///     value is gone, not deferred - use <c>merge</c> where both matter.
 /// </remarks>
 [<MethodImpl(MethodImplOptions.NoInlining)>]
-let orElse (stream : Stream<_>, stream2) = stream.OrElseImpl stream2
+let orElse (stream: Stream<_>, stream2) = stream.OrElseImpl stream2
 
 /// <summary>
 ///     Keeps only the firings whose value satisfies a predicate.
@@ -656,7 +718,7 @@ let orElse (stream : Stream<_>, stream2) = stream.OrElseImpl stream2
 /// <param name="stream">The stream to filter.</param>
 /// <returns>A stream firing only the values <paramref name="predicate" /> accepted.</returns>
 [<MethodImpl(MethodImplOptions.NoInlining)>]
-let filter predicate (stream : Stream<_>) = stream.FilterImpl (Func<_,_> predicate)
+let filter predicate (stream: Stream<_>) = stream.FilterImpl(Func<_, _> predicate)
 
 /// <summary>
 ///     Keeps only the firings which carried <c>Some</c>, and unwraps them.
@@ -664,8 +726,8 @@ let filter predicate (stream : Stream<_>) = stream.FilterImpl (Func<_,_> predica
 /// <param name="stream">The stream of options to filter.</param>
 /// <returns>A stream firing the value inside each <c>Some</c>, and not firing for <c>None</c>.</returns>
 [<MethodImpl(MethodImplOptions.NoInlining)>]
-let filterSome (stream : Stream<_>) =
-    StreamExtensionMethodsInternal.FilterSomeImpl (stream, (Action<_,_> (fun o a -> o |> Option.iter a.Invoke)))
+let filterSome (stream: Stream<_>) =
+    StreamExtensionMethodsInternal.FilterSomeImpl(stream, (Action<_, _>(fun o a -> o |> Option.iter a.Invoke)))
 
 /// <summary>
 ///     Transforms the firings with a function which may produce no value, and fires only the values
@@ -683,10 +745,11 @@ let filterSome (stream : Stream<_>) =
 ///     <c>map f >> filterSome</c>, and the counterpart of <c>List.choose</c>.
 /// </remarks>
 [<MethodImpl(MethodImplOptions.NoInlining)>]
-let choose f (stream : Stream<_>) =
-    StreamExtensionMethodsInternal.FilterSomeImpl (
-        stream.MapImpl (Func<_,_> f),
-        (Action<_,_> (fun o a -> o |> Option.iter a.Invoke)))
+let choose f (stream: Stream<_>) =
+    StreamExtensionMethodsInternal.FilterSomeImpl(
+        stream.MapImpl(Func<_, _> f),
+        (Action<_, _>(fun o a -> o |> Option.iter a.Invoke))
+    )
 
 /// <summary>
 ///     Lets firings through only while a behavior holds true.
@@ -699,7 +762,7 @@ let choose f (stream : Stream<_>) =
 ///     at the start of the transaction the firing belongs to.
 /// </remarks>
 [<MethodImpl(MethodImplOptions.NoInlining)>]
-let gateB (behavior : Behavior<_>) (stream : Stream<_>) = stream.GateImpl behavior
+let gateB (behavior: Behavior<_>) (stream: Stream<_>) = stream.GateImpl behavior
 
 /// <summary>
 ///     Lets firings through only while a cell holds true.
@@ -712,7 +775,7 @@ let gateB (behavior : Behavior<_>) (stream : Stream<_>) = stream.GateImpl behavi
 ///     the start of the transaction the firing belongs to.
 /// </remarks>
 [<MethodImpl(MethodImplOptions.NoInlining)>]
-let gate (cell : Cell<_>) (stream : Stream<_>) = stream.GateImpl cell
+let gate (cell: Cell<_>) (stream: Stream<_>) = stream.GateImpl cell
 
 /// <summary>
 ///     Folds state across firings, firing a value derived from each step, with an initial state
@@ -733,7 +796,8 @@ let gate (cell : Cell<_>) (stream : Stream<_>) = stream.GateImpl cell
 ///     This is the lazy form, for closing a loop where the initial state is not yet available.
 /// </remarks>
 [<MethodImpl(MethodImplOptions.NoInlining)>]
-let collectLazy initialState (f : 'a -> 'TState -> struct ('b * 'TState)) (stream : Stream<_>) = stream.CollectLazyImpl (initialState, (Func<_,_,_> f))
+let collectLazy initialState (f: 'a -> 'TState -> struct ('b * 'TState)) (stream: Stream<_>) =
+    stream.CollectLazyImpl(initialState, (Func<_, _, _> f))
 
 /// <summary>
 ///     Folds state across firings, firing a value derived from each step.
@@ -753,7 +817,8 @@ let collectLazy initialState (f : 'a -> 'TState -> struct ('b * 'TState)) (strea
 ///     Use <c>accum</c> where the state itself is what should be published.
 /// </remarks>
 [<MethodImpl(MethodImplOptions.NoInlining)>]
-let collect initialState (f : 'a -> 'TState -> struct ('b * 'TState)) (stream : Stream<_>) = stream.CollectImpl (initialState, (Func<_,_,_> f))
+let collect initialState (f: 'a -> 'TState -> struct ('b * 'TState)) (stream: Stream<_>) =
+    stream.CollectImpl(initialState, (Func<_, _, _> f))
 
 /// <summary>
 ///     Suppresses firings whose value the given comparison considers equal to the last one that got
@@ -767,7 +832,7 @@ let collect initialState (f : 'a -> 'TState -> struct ('b * 'TState)) (stream : 
 ///     the value that was suppressed, not against the last one that got through.
 /// </remarks>
 [<MethodImpl(MethodImplOptions.NoInlining)>]
-let calmWithCompare compare (stream : Stream<_>) = stream.CalmImpl (Func<_,_,_> compare)
+let calmWithCompare compare (stream: Stream<_>) = stream.CalmImpl(Func<_, _, _> compare)
 
 /// <summary>
 ///     Suppresses firings whose value the given comparer considers equal to the last one that got
@@ -781,7 +846,8 @@ let calmWithCompare compare (stream : Stream<_>) = stream.CalmImpl (Func<_,_,_> 
 ///     the value that was suppressed, not against the last one that got through.
 /// </remarks>
 [<MethodImpl(MethodImplOptions.NoInlining)>]
-let calmWithEqualityComparer (equalityComparer : IEqualityComparer<_>) (stream : Stream<_>) = stream.CalmImpl (Func<_,_,_> (fun x y -> equalityComparer.Equals (x, y)))
+let calmWithEqualityComparer (equalityComparer: IEqualityComparer<_>) (stream: Stream<_>) =
+    stream.CalmImpl(Func<_, _, _>(fun x y -> equalityComparer.Equals(x, y)))
 
 /// <summary>
 ///     Suppresses firings equal, by F#'s structural equality, to the last one that got through.
@@ -796,7 +862,7 @@ let calmWithEqualityComparer (equalityComparer : IEqualityComparer<_>) (stream :
 ///     <c>calmWithCompare</c> instead.
 /// </remarks>
 [<MethodImpl(MethodImplOptions.NoInlining)>]
-let calm (stream : Stream<_>) = stream.CalmImpl (Func<_,_,_> (=))
+let calm (stream: Stream<_>) = stream.CalmImpl(Func<_, _, _> (=))
 
 /// <summary>
 ///     Folds state across firings into a cell, with an initial state computed on first use.
@@ -809,7 +875,8 @@ let calm (stream : Stream<_>) = stream.CalmImpl (Func<_,_,_> (=))
 ///     This is the lazy form, for closing a loop where the initial state is not yet available.
 /// </remarks>
 [<MethodImpl(MethodImplOptions.NoInlining)>]
-let accumLazy initialState f (stream : Stream<_>) = stream.AccumLazyImpl (initialState, (Func<_,_,_> f))
+let accumLazy initialState f (stream: Stream<_>) =
+    stream.AccumLazyImpl(initialState, (Func<_, _, _> f))
 
 /// <summary>
 ///     Folds state across firings into a cell.
@@ -823,7 +890,8 @@ let accumLazy initialState f (stream : Stream<_>) = stream.AccumLazyImpl (initia
 ///     <c>collect</c> where the published value differs from the state carried forward.
 /// </remarks>
 [<MethodImpl(MethodImplOptions.NoInlining)>]
-let accum initialState f (stream : Stream<_>) = stream.AccumImpl (initialState, (Func<_,_,_> f))
+let accum initialState f (stream: Stream<_>) =
+    stream.AccumImpl(initialState, (Func<_, _, _> f))
 
 /// <summary>
 ///     Keeps only the first firing.
@@ -831,7 +899,7 @@ let accum initialState f (stream : Stream<_>) = stream.AccumImpl (initialState, 
 /// <param name="stream">The stream to take from.</param>
 /// <returns>A stream firing the first value the input fires, and never again.</returns>
 [<MethodImpl(MethodImplOptions.NoInlining)>]
-let once (stream : Stream<_>) = stream.OnceImpl ()
+let once (stream: Stream<_>) = stream.OnceImpl()
 
 /// <summary>
 ///     Merges any number of streams, combining the values where several fire in one transaction.
@@ -843,7 +911,8 @@ let once (stream : Stream<_>) = stream.OnceImpl ()
 /// <param name="streams">The streams to merge.</param>
 /// <returns>A stream firing whenever any input does, at most once per transaction.</returns>
 [<MethodImpl(MethodImplOptions.NoInlining)>]
-let mergeAll f (streams : seq<_>) = StreamExtensionMethodsInternal.MergeImpl (streams, (Func<_,_,_> f))
+let mergeAll f (streams: seq<_>) =
+    StreamExtensionMethodsInternal.MergeImpl(streams, (Func<_, _, _> f))
 
 /// <summary>
 ///     Merges any number of streams, preferring the earliest where several fire in one transaction.
@@ -855,4 +924,5 @@ let mergeAll f (streams : seq<_>) = StreamExtensionMethodsInternal.MergeImpl (st
 ///     streams are dropped rather than deferred.
 /// </remarks>
 [<MethodImpl(MethodImplOptions.NoInlining)>]
-let orElseAll (streams : seq<_>) = StreamExtensionMethodsInternal.OrElseImpl streams
+let orElseAll (streams: seq<_>) =
+    StreamExtensionMethodsInternal.OrElseImpl streams

@@ -19,7 +19,7 @@ module Listener =
     /// <remarks>
     ///     Safe to call more than once; later calls do nothing.
     /// </remarks>
-    let unlistenWeak (listener : IListenerWithWeakReference) = listener.Unlisten ()
+    let unlistenWeak (listener: IListenerWithWeakReference) = listener.Unlisten()
     /// <summary>
     ///     Stops listening.
     /// </summary>
@@ -27,7 +27,7 @@ module Listener =
     /// <remarks>
     ///     Safe to call more than once; later calls do nothing.
     /// </remarks>
-    let unlisten (listener : IListener) = listener.Unlisten ()
+    let unlisten (listener: IListener) = listener.Unlisten()
     /// <summary>
     ///     Gets a view of a listener which does not keep the stream it observes alive.
     /// </summary>
@@ -40,7 +40,7 @@ module Listener =
     ///     The listener returned by <c>Stream.listenStrong</c> keeps the stream it observes alive for as long as the listener itself is reachable, so a graph fragment stays rooted while something is still listening to it. This hands back a handle that does not, for holding on to where keeping the
     ///     graph alive is not wanted.
     /// </remarks>
-    let getListenerWithWeakReference (listener : IListener) = listener.GetListenerWithWeakReference ()
+    let getListenerWithWeakReference (listener: IListener) = listener.GetListenerWithWeakReference()
 
     /// <summary>
     ///     A listener which is not listening to anything, and whose <c>unlisten</c> does nothing.
@@ -61,7 +61,8 @@ module Listener =
     ///     The list is captured as it is; it is not watched for later changes.
     /// </remarks>
     [<MethodImpl(MethodImplOptions.NoInlining)>]
-    let fromList listeners = ListenerInternal.CreateCompositeImpl listeners
+    let fromList listeners =
+        ListenerInternal.CreateCompositeImpl listeners
 
     /// <summary>
     ///     Combines a list of weak listeners into one weak listener which stops all of them.
@@ -72,7 +73,8 @@ module Listener =
     ///     Like the listeners it combines, the result does not keep the observed streams alive.
     /// </remarks>
     [<MethodImpl(MethodImplOptions.NoInlining)>]
-    let fromWeakList listeners = ListenerInternal.CreateWeakCompositeImpl listeners
+    let fromWeakList listeners =
+        ListenerInternal.CreateWeakCompositeImpl listeners
 
     /// <summary>
     ///     Combines a list of strong listeners into one strong listener which stops all of them.
@@ -87,7 +89,8 @@ module Listener =
     ///     stopped or disposed.
     /// </remarks>
     [<MethodImpl(MethodImplOptions.NoInlining)>]
-    let fromStrongList listeners = ListenerInternal.CreateStrongCompositeImpl listeners
+    let fromStrongList listeners =
+        ListenerInternal.CreateStrongCompositeImpl listeners
 
     /// <summary>
     ///     Combines a sequence of listeners into one which stops all of them.
@@ -126,7 +129,7 @@ module Listener =
     /// <remarks>
     ///     A convenience over <c>fromList</c> for the two-listener case.
     /// </remarks>
-    let append l1 l2 = fromList (l1::l2::[])
+    let append l1 l2 = fromList (l1 :: l2 :: [])
 
 /// <summary>
 ///     Stopping and combining weak listeners, preserving the <c>IWeakListener</c> type.
@@ -150,7 +153,7 @@ module WeakListener =
     /// <remarks>
     ///     Safe to call more than once; later calls do nothing.
     /// </remarks>
-    let unlisten (listener : IWeakListener) = listener.Unlisten ()
+    let unlisten (listener: IWeakListener) = listener.Unlisten()
     /// <summary>
     ///     Gets a view of a weak listener which does not keep the stream it observes alive.
     /// </summary>
@@ -160,7 +163,7 @@ module WeakListener =
     ///     A weak listener already does not root the streams it observes, so this is here for
     ///     uniformity with <c>Listener</c> rather than because it changes what is kept alive.
     /// </remarks>
-    let getListenerWithWeakReference (listener : IWeakListener) = listener.GetListenerWithWeakReference ()
+    let getListenerWithWeakReference (listener: IWeakListener) = listener.GetListenerWithWeakReference()
 
     /// <summary>
     ///     A weak listener which is not listening to anything, and whose <c>unlisten</c> does nothing.
@@ -174,7 +177,8 @@ module WeakListener =
     /// <param name="listeners">The listeners to combine.</param>
     /// <returns>A weak listener whose <c>unlisten</c> stops every listener in the list.</returns>
     [<MethodImpl(MethodImplOptions.NoInlining)>]
-    let fromList listeners = ListenerInternal.CreateWeakCompositeImpl listeners
+    let fromList listeners =
+        ListenerInternal.CreateWeakCompositeImpl listeners
 
     /// <summary>
     ///     Combines a sequence of weak listeners into one weak listener which stops all of them.
@@ -192,7 +196,7 @@ module WeakListener =
     /// <param name="l1">The first listener.</param>
     /// <param name="l2">The second listener.</param>
     /// <returns>A weak listener which stops both of the given listeners.</returns>
-    let append l1 l2 = fromList (l1::l2::[])
+    let append l1 l2 = fromList (l1 :: l2 :: [])
 
 /// <summary>
 ///     Stopping and combining strong listeners, preserving the <c>IStrongListener</c> type.
@@ -216,7 +220,7 @@ module StrongListener =
     ///     Safe to call more than once; later calls do nothing. Disposing the listener does the same
     ///     thing.
     /// </remarks>
-    let unlisten (listener : IStrongListener) = listener.Unlisten ()
+    let unlisten (listener: IStrongListener) = listener.Unlisten()
     /// <summary>
     ///     Gets a view of a strong listener which does not keep the stream it observes alive.
     /// </summary>
@@ -229,7 +233,7 @@ module StrongListener =
     ///     The original strong listener still roots the stream; this only gives a second handle which
     ///     does not.
     /// </remarks>
-    let getListenerWithWeakReference (listener : IStrongListener) = listener.GetListenerWithWeakReference ()
+    let getListenerWithWeakReference (listener: IStrongListener) = listener.GetListenerWithWeakReference()
 
     /// <summary>
     ///     A strong listener which is not listening to anything, and whose <c>unlisten</c> does nothing.
@@ -246,7 +250,8 @@ module StrongListener =
     ///     disposed to the same effect.
     /// </returns>
     [<MethodImpl(MethodImplOptions.NoInlining)>]
-    let fromList listeners = ListenerInternal.CreateStrongCompositeImpl listeners
+    let fromList listeners =
+        ListenerInternal.CreateStrongCompositeImpl listeners
 
     /// <summary>
     ///     Combines a sequence of strong listeners into one strong listener which stops all of them.
@@ -264,7 +269,7 @@ module StrongListener =
     /// <param name="l1">The first listener.</param>
     /// <param name="l2">The second listener.</param>
     /// <returns>A strong listener which stops both of the given listeners.</returns>
-    let append l1 l2 = fromList (l1::l2::[])
+    let append l1 l2 = fromList (l1 :: l2 :: [])
 
 /// <summary>
 ///     Pointing a mutable listener at a listener, and clearing or stopping it.
@@ -287,7 +292,7 @@ module MutableListener =
     ///     does the next <c>setListener</c> or <c>clearListener</c>.
     /// </remarks>
     [<MethodImpl(MethodImplOptions.NoInlining)>]
-    let setListener l (m : MutableListener) = m.SetListenerImpl l
+    let setListener l (m: MutableListener) = m.SetListenerImpl l
 
     /// <summary>
     ///     Stops whatever a mutable listener currently points at, leaving it pointing at nothing.
@@ -298,7 +303,7 @@ module MutableListener =
     ///     finish with it entirely, use <c>unlisten</c>.
     /// </remarks>
     [<MethodImpl(MethodImplOptions.NoInlining)>]
-    let clearListener (m : MutableListener) = m.ClearListenerImpl ()
+    let clearListener (m: MutableListener) = m.ClearListenerImpl()
 
     /// <summary>
     ///     Stops listening, stopping whatever the mutable listener currently points at.
@@ -307,7 +312,7 @@ module MutableListener =
     /// <remarks>
     ///     Safe to call more than once; later calls do nothing.
     /// </remarks>
-    let unlisten (m : MutableListener) = Listener.unlisten m
+    let unlisten (m: MutableListener) = Listener.unlisten m
     /// <summary>
     ///     Gets a view of a mutable listener which does not keep the streams it observes alive.
     /// </summary>
@@ -316,4 +321,4 @@ module MutableListener =
     ///     A handle which can still be used to stop listening, but which will not by itself prevent
     ///     the observed streams from being garbage collected.
     /// </returns>
-    let getListenerWithWeakReference (m : MutableListener) = Listener.getListenerWithWeakReference m
+    let getListenerWithWeakReference (m: MutableListener) = Listener.getListenerWithWeakReference m

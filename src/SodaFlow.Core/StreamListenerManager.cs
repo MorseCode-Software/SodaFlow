@@ -53,16 +53,29 @@ namespace SodaFlow
 
         static StreamListenerManager()
         {
-            Thread cleanupThread = new Thread(SodaFlowCleanup)
-            {
-                Name = "SodaFlow Cleanup Thread",
-                IsBackground = true
-            };
+            Thread cleanupThread =
+                new Thread(SodaFlowCleanup) { Name = "SodaFlow Cleanup Thread", IsBackground = true };
+
             cleanupThread.Start();
 
             // Deliberately not stored anywhere: it has to be unreachable for its finalizer to run.
             // ReSharper disable once ObjectCreationAsStatement
             new GcSweepTrigger();
+        }
+
+        /// <summary>
+        ///     How many streams the registry is currently tracking. For tests; the number is only
+        ///     meaningful straight after a <see cref="Sweep" />.
+        /// </summary>
+        internal static int RegistryCount
+        {
+            get
+            {
+                lock (RegistryLock)
+                {
+                    return Registry.Count;
+                }
+            }
         }
 
         private static void SodaFlowCleanup()
@@ -74,6 +87,62 @@ namespace SodaFlow
                 Sweep();
             }
             // ReSharper disable once FunctionNeverReturns
+        }
+
+        /// <summary>
+        ///     Internal rather than private so that tests can drive a sweep directly instead of
+        ///     waiting on the background thread's interval.
+        /// </summary>
+        internal static void Sweep()
+        {
+            List<StreamListeners> collected = null;
+
+            lock (RegistryLock)
+            {
+                // Backwards, swapping the last entry into each gap. Everything swapped in comes from
+                // a position already passed, so nothing is skipped and nothing is checked twice.
+                for (int i = Registry.Count - 1; i >= 0; i--)
+                {
+                    StreamListeners entry = Registry[i];
+
+                    if (entry.IsStreamAlive)
+                    {
+                        continue;
+                    }
+
+                    int last = Registry.Count - 1;
+
+                    if (i != last)
+                    {
+                        Registry[i] = Registry[last];
+                    }
+
+                    Registry.RemoveAt(last);
+
+                    if (collected == null)
+                    {
+                        collected = new List<StreamListeners>();
+                    }
+
+                    collected.Add(entry);
+                }
+
+                // A List keeps its backing array after removals, so reclaim it once a spike has drained.
+                if (Registry.Capacity > 100 && Registry.Count < Registry.Capacity / 2)
+                {
+                    Registry.TrimExcess();
+                }
+            }
+
+            // Released outside the registry lock: unlistening takes node locks, and running arbitrary
+            // listener teardown while holding the registry would invite a lock ordering problem.
+            if (collected != null)
+            {
+                foreach (StreamListeners entry in collected)
+                {
+                    entry.Release();
+                }
+            }
         }
 
         /// <summary>
@@ -108,76 +177,6 @@ namespace SodaFlow
             }
         }
 
-        /// <summary>
-        ///     How many streams the registry is currently tracking. For tests; the number is only
-        ///     meaningful straight after a <see cref="Sweep" />.
-        /// </summary>
-        internal static int RegistryCount
-        {
-            get
-            {
-                lock (RegistryLock)
-                {
-                    return Registry.Count;
-                }
-            }
-        }
-
-        /// <summary>
-        ///     Internal rather than private so that tests can drive a sweep directly instead of
-        ///     waiting on the background thread's interval.
-        /// </summary>
-        internal static void Sweep()
-        {
-            List<StreamListeners> collected = null;
-
-            lock (RegistryLock)
-            {
-                // Backwards, swapping the last entry into each gap. Everything swapped in comes from
-                // a position already passed, so nothing is skipped and nothing is checked twice.
-                for (int i = Registry.Count - 1; i >= 0; i--)
-                {
-                    StreamListeners entry = Registry[i];
-
-                    if (entry.IsStreamAlive)
-                    {
-                        continue;
-                    }
-
-                    int last = Registry.Count - 1;
-                    if (i != last)
-                    {
-                        Registry[i] = Registry[last];
-                    }
-
-                    Registry.RemoveAt(last);
-
-                    if (collected == null)
-                    {
-                        collected = new List<StreamListeners>();
-                    }
-
-                    collected.Add(entry);
-                }
-
-                // A List keeps its backing array after removals, so reclaim it once a spike has drained.
-                if (Registry.Capacity > 100 && Registry.Count < Registry.Capacity / 2)
-                {
-                    Registry.TrimExcess();
-                }
-            }
-
-            // Released outside the registry lock: unlistening takes node locks, and running arbitrary
-            // listener teardown while holding the registry would invite a lock ordering problem.
-            if (collected != null)
-            {
-                foreach (StreamListeners entry in collected)
-                {
-                    entry.Release();
-                }
-            }
-        }
-
         internal class StreamListeners
         {
             private readonly List<IListenerWithWeakReference> listeners = new List<IListenerWithWeakReference>();
@@ -187,7 +186,7 @@ namespace SodaFlow
 
             public StreamListeners(object stream)
             {
-                this.streamHandle = GCHandle.Alloc(stream, GCHandleType.Weak);
+                this.streamHandle = GCHandle.Alloc(value: stream, type: GCHandleType.Weak);
 
                 lock (RegistryLock)
                 {

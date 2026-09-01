@@ -21,7 +21,7 @@ open System.Runtime.CompilerServices
 ///     rather than silently resolved. Use <c>createWithCoalesce</c> where it is intended.
 /// </remarks>
 [<MethodImpl(MethodImplOptions.NoInlining)>]
-let create<'a> () = StreamInternal.CreateSinkImpl<'a> ()
+let create<'a> () = StreamInternal.CreateSinkImpl<'a>()
 
 /// <summary>
 ///     Creates a stream sink which combines values when <c>send</c> is called more than once in a
@@ -37,7 +37,8 @@ let create<'a> () = StreamInternal.CreateSinkImpl<'a> ()
 ///     within one transaction is folded down to the single value that fires.
 /// </remarks>
 [<MethodImpl(MethodImplOptions.NoInlining)>]
-let createWithCoalesce coalesce = StreamInternal.CreateSinkImpl (Func<_,_,_> coalesce)
+let createWithCoalesce coalesce =
+    StreamInternal.CreateSinkImpl(Func<_, _, _> coalesce)
 
 /// <summary>
 ///     Sends a value, firing the stream sink.
@@ -52,4 +53,4 @@ let createWithCoalesce coalesce = StreamInternal.CreateSinkImpl (Func<_,_,_> coa
 ///     <c>createWithCoalesce</c>.
 /// </remarks>
 [<MethodImpl(MethodImplOptions.NoInlining)>]
-let send a (streamSink : StreamSink<'T>) = streamSink.SendImpl a
+let send a (streamSink: StreamSink<'T>) = streamSink.SendImpl a

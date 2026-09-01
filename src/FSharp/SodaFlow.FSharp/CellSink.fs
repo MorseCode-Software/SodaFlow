@@ -17,7 +17,8 @@ open System.Runtime.CompilerServices
 /// <param name="initialValue">The value the cell holds until something is sent.</param>
 /// <returns>A new cell sink.</returns>
 [<MethodImpl(MethodImplOptions.NoInlining)>]
-let create initialValue = CellInternal.CreateSinkImpl initialValue
+let create initialValue =
+    CellInternal.CreateSinkImpl initialValue
 
 /// <summary>
 ///     Creates a cell sink which combines values when <c>send</c> is called more than once in a
@@ -30,7 +31,8 @@ let create initialValue = CellInternal.CreateSinkImpl initialValue
 /// </param>
 /// <returns>A new cell sink.</returns>
 [<MethodImpl(MethodImplOptions.NoInlining)>]
-let createWithCoalesce initialValue coalesce = CellInternal.CreateSinkImpl (initialValue, Func<_,_,_> coalesce)
+let createWithCoalesce initialValue coalesce =
+    CellInternal.CreateSinkImpl(initialValue, Func<_, _, _> coalesce)
 
 /// <summary>
 ///     Sends a value, changing what the cell holds.
@@ -41,4 +43,4 @@ let createWithCoalesce initialValue coalesce = CellInternal.CreateSinkImpl (init
 ///     Must not be called from inside a listener callback; doing so throws.
 /// </remarks>
 [<MethodImpl(MethodImplOptions.NoInlining)>]
-let send a (cellSink : CellSink<'T>) = cellSink.SendImpl a
+let send a (cellSink: CellSink<'T>) = cellSink.SendImpl a

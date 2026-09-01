@@ -15,12 +15,13 @@ type ``Timer Tests``() =
         let ts = SystemClockTimerSystem(fun e -> ()) :> ITimerSystem<DateTime>
         let time = ts.Time
         let l = List<DateTime>()
-        Transaction.run(fun () ->
+
+        Transaction.run (fun () ->
             let now = time |> Behavior.sample
-            let a1 = ts.At(Cell.constant(Some(now.AddMilliseconds(99.0))))
-            let a2 = ts.At(Cell.constant(Some(now.AddMilliseconds(100.0))))
-            let a3 = ts.At(Cell.constant(Some(now.AddMilliseconds(100.0))))
-            let m = Stream.orElseAll [a1;a2;a3]
+            let a1 = ts.At(Cell.constant (Some(now.AddMilliseconds(99.0))))
+            let a2 = ts.At(Cell.constant (Some(now.AddMilliseconds(100.0))))
+            let a3 = ts.At(Cell.constant (Some(now.AddMilliseconds(100.0))))
+            let m = Stream.orElseAll [ a1; a2; a3 ]
             m |> Stream.listenStrong (fun v -> lock l (fun () -> l.Add v)) |> ignore)
 
         // Wait for the alarms rather than assuming a fixed window is long enough. The alarms are
@@ -36,6 +37,7 @@ type ``Timer Tests``() =
         // original fixed sleep left unsynchronized.
         SpinWait.SpinUntil((fun () -> lock l (fun () -> l.Count >= 2)), TimeSpan.FromSeconds(10.0))
         |> ignore
+
         Thread.Sleep 100
 
         lock l (fun () -> Assert.That(l.Count, Is.EqualTo(2)))

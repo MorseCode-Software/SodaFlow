@@ -18,6 +18,7 @@ namespace SodaFlow
             : base(behaviorLoop) =>
             this.behaviorLoop = behaviorLoop;
 
-        internal void Loop(TransactionInternal trans, Cell<T> c) => this.behaviorLoop.Loop(trans, c.BehaviorImpl);
+        internal void Loop(TransactionInternal trans, Cell<T> c) =>
+            this.behaviorLoop.Loop(trans: trans, b: c.BehaviorImpl);
     }
 }

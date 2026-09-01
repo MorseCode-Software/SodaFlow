@@ -11,8 +11,11 @@ namespace SodaFlow.Tests
         [Test]
         public async Task TestMapAsync()
         {
-            Assert.AreEqual(Maybe.Some(4), await Maybe.Some(2).MapAsync(v => Task.FromResult(v * 2)));
-            Assert.AreEqual(Maybe<int>.None, await Maybe<int>.None.MapAsync(v => Task.FromResult(v * 2)));
+            Assert.AreEqual(expected: Maybe.Some(4), actual: await Maybe.Some(2).MapAsync(v => Task.FromResult(v * 2)));
+
+            Assert.AreEqual(
+                expected: Maybe<int>.None,
+                actual: await Maybe<int>.None.MapAsync(v => Task.FromResult(v * 2)));
         }
 
         [Test]
@@ -20,162 +23,190 @@ namespace SodaFlow.Tests
         {
             int calls = 0;
 
-            Maybe<int> result = await Maybe<int>.None.MapAsync(
-                v =>
+            Maybe<int> result =
+                await Maybe<int>.None.MapAsync(v =>
                 {
                     calls++;
                     return Task.FromResult(v);
                 });
 
-            Assert.AreEqual(Maybe<int>.None, result);
-            Assert.AreEqual(0, calls);
+            Assert.AreEqual(expected: Maybe<int>.None, actual: result);
+            Assert.AreEqual(expected: 0, actual: calls);
         }
 
         [Test]
         public async Task TestBindAsync()
         {
             Assert.AreEqual(
-                Maybe.Some(4),
-                await Maybe.Some(2).BindAsync(v => Task.FromResult(Maybe.Some(v * 2))));
+                expected: Maybe.Some(4),
+                actual: await Maybe.Some(2).BindAsync(v => Task.FromResult(Maybe.Some(v * 2))));
+
             Assert.AreEqual(
-                Maybe<int>.None,
-                await Maybe.Some(2).BindAsync(v => Task.FromResult(Maybe<int>.None)));
+                expected: Maybe<int>.None,
+                actual: await Maybe.Some(2).BindAsync(v => Task.FromResult(Maybe<int>.None)));
+
             Assert.AreEqual(
-                Maybe<int>.None,
-                await Maybe<int>.None.BindAsync(v => Task.FromResult(Maybe.Some(v * 2))));
+                expected: Maybe<int>.None,
+                actual: await Maybe<int>.None.BindAsync(v => Task.FromResult(Maybe.Some(v * 2))));
         }
 
         [Test]
         public async Task TestWhereAsync()
         {
-            Assert.AreEqual(Maybe.Some(2), await Maybe.Some(2).WhereAsync(v => Task.FromResult(v % 2 == 0)));
-            Assert.AreEqual(Maybe<int>.None, await Maybe.Some(3).WhereAsync(v => Task.FromResult(v % 2 == 0)));
-            Assert.AreEqual(Maybe<int>.None, await Maybe<int>.None.WhereAsync(v => Task.FromResult(true)));
+            Assert.AreEqual(
+                expected: Maybe.Some(2),
+                actual: await Maybe.Some(2).WhereAsync(v => Task.FromResult(v % 2 == 0)));
+
+            Assert.AreEqual(
+                expected: Maybe<int>.None,
+                actual: await Maybe.Some(3).WhereAsync(v => Task.FromResult(v % 2 == 0)));
+
+            Assert.AreEqual(
+                expected: Maybe<int>.None,
+                actual: await Maybe<int>.None.WhereAsync(v => Task.FromResult(true)));
         }
 
         [Test]
         public async Task TestMapOnTask()
         {
-            Assert.AreEqual(Maybe.Some(4), await SomeAsync(2).Map(v => v * 2));
-            Assert.AreEqual(Maybe<int>.None, await NoneAsync<int>().Map(v => v * 2));
+            Assert.AreEqual(expected: Maybe.Some(4), actual: await SomeAsync(2).Map(v => v * 2));
+            Assert.AreEqual(expected: Maybe<int>.None, actual: await NoneAsync<int>().Map(v => v * 2));
         }
 
         [Test]
         public async Task TestMapAsyncOnTask()
         {
-            Assert.AreEqual(Maybe.Some(4), await SomeAsync(2).MapAsync(v => Task.FromResult(v * 2)));
-            Assert.AreEqual(Maybe<int>.None, await NoneAsync<int>().MapAsync(v => Task.FromResult(v * 2)));
+            Assert.AreEqual(expected: Maybe.Some(4), actual: await SomeAsync(2).MapAsync(v => Task.FromResult(v * 2)));
+
+            Assert.AreEqual(
+                expected: Maybe<int>.None,
+                actual: await NoneAsync<int>().MapAsync(v => Task.FromResult(v * 2)));
         }
 
         [Test]
         public async Task TestBindOnTask()
         {
-            Assert.AreEqual(Maybe.Some(4), await SomeAsync(2).Bind(v => Maybe.Some(v * 2)));
-            Assert.AreEqual(Maybe<int>.None, await SomeAsync(2).Bind(v => Maybe<int>.None));
-            Assert.AreEqual(Maybe<int>.None, await NoneAsync<int>().Bind(v => Maybe.Some(v * 2)));
+            Assert.AreEqual(expected: Maybe.Some(4), actual: await SomeAsync(2).Bind(v => Maybe.Some(v * 2)));
+            Assert.AreEqual(expected: Maybe<int>.None, actual: await SomeAsync(2).Bind(v => Maybe<int>.None));
+            Assert.AreEqual(expected: Maybe<int>.None, actual: await NoneAsync<int>().Bind(v => Maybe.Some(v * 2)));
         }
 
         [Test]
         public async Task TestBindAsyncOnTask()
         {
             Assert.AreEqual(
-                Maybe.Some(4),
-                await SomeAsync(2).BindAsync(v => Task.FromResult(Maybe.Some(v * 2))));
+                expected: Maybe.Some(4),
+                actual: await SomeAsync(2).BindAsync(v => Task.FromResult(Maybe.Some(v * 2))));
+
             Assert.AreEqual(
-                Maybe<int>.None,
-                await NoneAsync<int>().BindAsync(v => Task.FromResult(Maybe.Some(v * 2))));
+                expected: Maybe<int>.None,
+                actual: await NoneAsync<int>().BindAsync(v => Task.FromResult(Maybe.Some(v * 2))));
         }
 
         [Test]
         public async Task TestWhereOnTask()
         {
-            Assert.AreEqual(Maybe.Some(2), await SomeAsync(2).Where(v => v % 2 == 0));
-            Assert.AreEqual(Maybe<int>.None, await SomeAsync(3).Where(v => v % 2 == 0));
+            Assert.AreEqual(expected: Maybe.Some(2), actual: await SomeAsync(2).Where(v => v % 2 == 0));
+            Assert.AreEqual(expected: Maybe<int>.None, actual: await SomeAsync(3).Where(v => v % 2 == 0));
         }
 
         [Test]
         public async Task TestWhereAsyncOnTask()
         {
-            Assert.AreEqual(Maybe.Some(2), await SomeAsync(2).WhereAsync(v => Task.FromResult(v % 2 == 0)));
-            Assert.AreEqual(Maybe<int>.None, await SomeAsync(3).WhereAsync(v => Task.FromResult(v % 2 == 0)));
+            Assert.AreEqual(
+                expected: Maybe.Some(2),
+                actual: await SomeAsync(2).WhereAsync(v => Task.FromResult(v % 2 == 0)));
+
+            Assert.AreEqual(
+                expected: Maybe<int>.None,
+                actual: await SomeAsync(3).WhereAsync(v => Task.FromResult(v % 2 == 0)));
         }
 
         [Test]
         public async Task TestOrElseOnTask()
         {
-            Assert.AreEqual(Maybe.Some(2), await SomeAsync(2).OrElse(Maybe.Some(9)));
-            Assert.AreEqual(Maybe.Some(9), await NoneAsync<int>().OrElse(Maybe.Some(9)));
+            Assert.AreEqual(expected: Maybe.Some(2), actual: await SomeAsync(2).OrElse(Maybe.Some(9)));
+            Assert.AreEqual(expected: Maybe.Some(9), actual: await NoneAsync<int>().OrElse(Maybe.Some(9)));
         }
 
         [Test]
         public async Task TestMatchOnTask()
         {
-            Assert.AreEqual("2", await SomeAsync(2).Match(v => v.ToString(), () => "none"));
-            Assert.AreEqual("none", await NoneAsync<int>().Match(v => v.ToString(), () => "none"));
+            Assert.AreEqual(
+                expected: "2",
+                actual: await SomeAsync(2).Match(onSome: v => v.ToString(), onNone: () => "none"));
+
+            Assert.AreEqual(
+                expected: "none",
+                actual: await NoneAsync<int>().Match(onSome: v => v.ToString(), onNone: () => "none"));
         }
 
         [Test]
         public async Task TestValueOrOnTask()
         {
-            Assert.AreEqual(2, await SomeAsync(2).ValueOr(9));
-            Assert.AreEqual(9, await NoneAsync<int>().ValueOr(9));
-            Assert.AreEqual(2, await SomeAsync(2).ValueOrDefault());
-            Assert.AreEqual(0, await NoneAsync<int>().ValueOrDefault());
+            Assert.AreEqual(expected: 2, actual: await SomeAsync(2).ValueOr(9));
+            Assert.AreEqual(expected: 9, actual: await NoneAsync<int>().ValueOr(9));
+            Assert.AreEqual(expected: 2, actual: await SomeAsync(2).ValueOrDefault());
+            Assert.AreEqual(expected: 0, actual: await NoneAsync<int>().ValueOrDefault());
         }
 
         [Test]
         public async Task TestValueOrThrowOnTask()
         {
-            Assert.AreEqual(2, await SomeAsync(2).ValueOrThrow(() => new InvalidOperationException("no value")));
+            Assert.AreEqual(
+                expected: 2,
+                actual: await SomeAsync(2).ValueOrThrow(() => new InvalidOperationException("no value")));
 
-            InvalidOperationException e = Assert.ThrowsAsync<InvalidOperationException>(
-                async () => await NoneAsync<int>().ValueOrThrow(() => new InvalidOperationException("no value")));
+            InvalidOperationException e =
+                Assert.ThrowsAsync<InvalidOperationException>(async () =>
+                    await NoneAsync<int>().ValueOrThrow(() => new InvalidOperationException("no value")));
 
-            Assert.AreEqual("no value", e.Message);
+            Assert.AreEqual(expected: "no value", actual: e.Message);
         }
 
         [Test]
         public async Task TestChainWithoutAwaitingInTheMiddle()
         {
-            Maybe<string> found = await "7".TryParseInt32()
-                .BindAsync(LookUpAsync)
-                .Map(v => v.ToUpperInvariant())
-                .Where(v => v.Length > 0);
+            Maybe<string> found =
+                await "7".TryParseInt32()
+                    .BindAsync(LookUpAsync)
+                    .Map(v => v.ToUpperInvariant())
+                    .Where(v => v.Length > 0);
 
-            Assert.AreEqual(Maybe.Some("SEVEN"), found);
+            Assert.AreEqual(expected: Maybe.Some("SEVEN"), actual: found);
 
-            Maybe<string> missing = await "8".TryParseInt32()
-                .BindAsync(LookUpAsync)
-                .Map(v => v.ToUpperInvariant())
-                .Where(v => v.Length > 0);
+            Maybe<string> missing =
+                await "8".TryParseInt32()
+                    .BindAsync(LookUpAsync)
+                    .Map(v => v.ToUpperInvariant())
+                    .Where(v => v.Length > 0);
 
-            Assert.AreEqual(Maybe<string>.None, missing);
+            Assert.AreEqual(expected: Maybe<string>.None, actual: missing);
 
-            Maybe<string> unparseable = await "x".TryParseInt32()
-                .BindAsync(LookUpAsync)
-                .Map(v => v.ToUpperInvariant())
-                .Where(v => v.Length > 0);
+            Maybe<string> unparseable =
+                await "x".TryParseInt32()
+                    .BindAsync(LookUpAsync)
+                    .Map(v => v.ToUpperInvariant())
+                    .Where(v => v.Length > 0);
 
-            Assert.AreEqual(Maybe<string>.None, unparseable);
+            Assert.AreEqual(expected: Maybe<string>.None, actual: unparseable);
         }
 
         [Test]
-        public void TestEmptyPathDoesNotAllocateANewTask()
-        {
+        public void TestEmptyPathDoesNotAllocateANewTask() =>
             // The completed task giving no value is the same one every time, so a lookup which
             // misses costs nothing beyond the miss itself.
             Assert.AreSame(
-                Maybe<int>.None.MapAsync(v => Task.FromResult(v)),
-                Maybe<int>.None.MapAsync(v => Task.FromResult(v)));
-        }
+                expected: Maybe<int>.None.MapAsync(v => Task.FromResult(v)),
+                actual: Maybe<int>.None.MapAsync(v => Task.FromResult(v)));
 
         [Test]
         public async Task TestBindAsyncReturnsTheFunctionsOwnTask()
         {
             Task<Maybe<int>> inner = Task.FromResult(Maybe.Some(3));
 
-            Assert.AreSame(inner, Maybe.Some(2).BindAsync(v => inner));
-            Assert.AreEqual(Maybe.Some(3), await inner);
+            Assert.AreSame(expected: inner, actual: Maybe.Some(2).BindAsync(v => inner));
+            Assert.AreEqual(expected: Maybe.Some(3), actual: await inner);
         }
 
         private static Task<Maybe<T>> SomeAsync<T>(T value) => Task.FromResult(Maybe.Some(value));

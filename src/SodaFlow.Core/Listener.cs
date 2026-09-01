@@ -77,7 +77,8 @@ namespace SodaFlow
 
         internal static IListener CreateFromAction(Action unlisten) => new ActionListener(unlisten);
 
-        internal static IListener CreateCompositeImpl<T>(IReadOnlyList<T> listeners) where T : IListener =>
+        internal static IListener CreateCompositeImpl<T>(IReadOnlyList<T> listeners)
+            where T : IListener =>
             new CompositeListener<T>(listeners);
 
         internal static IWeakListener CreateWeakCompositeImpl(IReadOnlyList<IWeakListener> listeners) =>
@@ -137,11 +138,8 @@ namespace SodaFlow
                 }
             }
 
-            public IListenerWithWeakReference GetListenerWithWeakReference()
-            {
-                return new CompositeWeakListener(
-                    this.listeners.Select(l => l.GetListenerWithWeakReference()).ToArray());
-            }
+            public IListenerWithWeakReference GetListenerWithWeakReference() =>
+                new CompositeWeakListener(this.listeners.Select(l => l.GetListenerWithWeakReference()).ToArray());
 
             private class CompositeWeakListener : IListenerWithWeakReference
             {
@@ -167,10 +165,7 @@ namespace SodaFlow
             {
             }
 
-            public void Dispose()
-            {
-                this.Unlisten();
-            }
+            public void Dispose() => this.Unlisten();
         }
 
         private class CompositeWeakListener : CompositeListener<IWeakListener>, IWeakListener

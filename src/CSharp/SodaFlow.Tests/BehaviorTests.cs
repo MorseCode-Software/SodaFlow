@@ -20,7 +20,7 @@ namespace SodaFlow.Tests
             s.Send(2);
             s.Send(9);
             l.Unlisten();
-            CollectionAssert.AreEqual(new[] { 0, 2, 9 }, @out);
+            CollectionAssert.AreEqual(expected: new[] { 0, 2, 9 }, actual: @out);
         }
 
         [Test]
@@ -33,7 +33,7 @@ namespace SodaFlow.Tests
             c.Send(null);
             c.Send("1");
             l.Unlisten();
-            CollectionAssert.AreEqual(new[] { string.Empty, "0", null, "1" }, @out);
+            CollectionAssert.AreEqual(expected: new[] { string.Empty, "0", null, "1" }, actual: @out);
         }
 
         [Test]
@@ -46,7 +46,7 @@ namespace SodaFlow.Tests
             s.Send(2);
             s.Send(9);
             l.Unlisten();
-            CollectionAssert.AreEqual(new[] { 2, 9 }, @out);
+            CollectionAssert.AreEqual(expected: new[] { 2, 9 }, actual: @out);
         }
 
         [Test]
@@ -55,7 +55,7 @@ namespace SodaFlow.Tests
             BehaviorSink<int> b = Behavior.CreateSink(0);
             StreamSink<long> trigger = Stream.CreateSink<long>();
             List<string> @out = new List<string>();
-            IListener l = trigger.Snapshot(b, (x, y) => x + " " + y).ListenStrong(@out.Add);
+            IListener l = trigger.Snapshot(b: b, f: (x, y) => x + " " + y).ListenStrong(@out.Add);
             trigger.Send(100L);
             b.Send(2);
             trigger.Send(200L);
@@ -63,7 +63,7 @@ namespace SodaFlow.Tests
             b.Send(1);
             trigger.Send(300L);
             l.Unlisten();
-            CollectionAssert.AreEqual(new[] { "100 0", "200 2", "300 1" }, @out);
+            CollectionAssert.AreEqual(expected: new[] { "100 0", "200 2", "300 1" }, actual: @out);
         }
 
         [Test]
@@ -75,7 +75,7 @@ namespace SodaFlow.Tests
             c.Send(2);
             c.Send(7);
             l.Unlisten();
-            CollectionAssert.AreEqual(new[] { 9, 2, 7 }, @out);
+            CollectionAssert.AreEqual(expected: new[] { 9, 2, 7 }, actual: @out);
         }
 
         [Test]
@@ -87,7 +87,7 @@ namespace SodaFlow.Tests
             c.Send(2);
             c.Send(7);
             l.Unlisten();
-            CollectionAssert.AreEqual(new[] { 9 }, @out);
+            CollectionAssert.AreEqual(expected: new[] { 9 }, actual: @out);
         }
 
         [Test]
@@ -99,7 +99,7 @@ namespace SodaFlow.Tests
             c.Send(2);
             c.Send(7);
             l.Unlisten();
-            CollectionAssert.AreEqual(new[] { 2 }, @out);
+            CollectionAssert.AreEqual(expected: new[] { 2 }, actual: @out);
         }
 
         [Test]
@@ -109,7 +109,7 @@ namespace SodaFlow.Tests
             int result = await Transaction.Run(() => c.Values().ListenOnceAsync());
             c.Send(2);
             c.Send(7);
-            Assert.AreEqual(9, result);
+            Assert.AreEqual(expected: 9, actual: result);
         }
 
         [Test]
@@ -121,7 +121,7 @@ namespace SodaFlow.Tests
             c.Send(2);
             c.Send(7);
             l.Unlisten();
-            CollectionAssert.AreEqual(new[] { 2, 7 }, @out);
+            CollectionAssert.AreEqual(expected: new[] { 2, 7 }, actual: @out);
         }
 
         [Test]
@@ -133,7 +133,7 @@ namespace SodaFlow.Tests
             c.Send(2);
             c.Send(7);
             l.Unlisten();
-            CollectionAssert.AreEqual(new[] { 9, 2, 7 }, @out);
+            CollectionAssert.AreEqual(expected: new[] { 9, 2, 7 }, actual: @out);
         }
 
         [Test]
@@ -148,27 +148,29 @@ namespace SodaFlow.Tests
                 Transaction.Run(() =>
                 {
                     c.Send(5);
-                    return c.Values().ListenStrong(_ =>
-                    {
-                        if (l2 == null)
+
+                    return c.Values()
+                        .ListenStrong(_ =>
                         {
-                            l2 = c.Values().ListenStrong(@out.Add);
-                        }
-                    });
+                            if (l2 == null)
+                            {
+                                l2 = c.Values().ListenStrong(@out.Add);
+                            }
+                        });
                 });
 
             c.Send(2);
             c.Send(7);
             l.Unlisten();
             l2?.Unlisten();
-            CollectionAssert.AreEqual(new[] { 5, 2, 7 }, @out);
+            CollectionAssert.AreEqual(expected: new[] { 5, 2, 7 }, actual: @out);
         }
 
         private class TestObject
         {
-            private readonly StreamSink<Unit> removeStreamSink;
             private readonly StreamSink<int> changeNumber1StreamSink;
             private readonly StreamSink<int> changeNumber2StreamSink;
+            private readonly StreamSink<Unit> removeStreamSink;
 
             public TestObject(int n1, int n2)
             {
@@ -179,7 +181,13 @@ namespace SodaFlow.Tests
                 this.Number1Cell = this.changeNumber1StreamSink.Hold(n1);
                 this.changeNumber2StreamSink = Stream.CreateSink<int>();
                 this.Number2Cell = this.changeNumber2StreamSink.Hold(n2);
-                this.BothNumbersCell = this.Number1Cell.Lift(this.Number2Cell, (number1, number2) => (Number1: number1, Number2: number2)).Values().Hold((Number1: 99, Number2: 99));
+
+                this.BothNumbersCell =
+                    this.Number1Cell.Lift(
+                            c2: this.Number2Cell,
+                            f: (number1, number2) => (Number1: number1, Number2: number2))
+                        .Values()
+                        .Hold((Number1: 99, Number2: 99));
             }
 
             public Stream<Unit> RemoveStream { get; }
@@ -187,20 +195,11 @@ namespace SodaFlow.Tests
             public Cell<int> Number2Cell { get; }
             public Cell<(int Number1, int Number2)> BothNumbersCell { get; }
 
-            public void Remove()
-            {
-                this.removeStreamSink.Send(Unit.Value);
-            }
+            public void Remove() => this.removeStreamSink.Send(Unit.Value);
 
-            public void ChangeNumber1(int n)
-            {
-                this.changeNumber1StreamSink.Send(n);
-            }
+            public void ChangeNumber1(int n) => this.changeNumber1StreamSink.Send(n);
 
-            public void ChangeNumber2(int n)
-            {
-                this.changeNumber2StreamSink.Send(n);
-            }
+            public void ChangeNumber2(int n) => this.changeNumber2StreamSink.Send(n);
         }
 
         [Test]
@@ -208,39 +207,85 @@ namespace SodaFlow.Tests
         {
             StreamSink<int> s = Stream.CreateSink<int>();
             StreamSink<(int Number1, int Number2)> addItemStreamSink = Stream.CreateSink<(int Number1, int Number2)>();
-            StreamSink<IReadOnlyList<TestObject>> removeItemsStreamSink = Stream.CreateSink<IReadOnlyList<TestObject>>();
-            Cell<IReadOnlyList<TestObject>> listCell = Transaction.Run(() =>
-            {
-                CellLoop<IReadOnlyList<TestObject>> listCellLoop = new CellLoop<IReadOnlyList<TestObject>>();
-                Cell<IReadOnlyList<TestObject>> listCellLocal =
-                    addItemStreamSink.OrElse(s.Map(v => (Number1: v, Number2: v)))
-                        .Map(o => (Func<IReadOnlyList<TestObject>, IReadOnlyList<TestObject>>)(c => c.Concat(new[] { new TestObject(o.Number1, o.Number2) }).ToArray()))
-                        .Merge(removeItemsStreamSink.Map(o => (Func<IReadOnlyList<TestObject>, IReadOnlyList<TestObject>>)(c => c.Except(o).ToArray())), (f, g) => c => g(f(c)))
-                        .Snapshot(listCellLoop, (f, c) => f(c))
-                        .Hold(new TestObject[0]);
-                listCellLoop.Loop(listCellLocal);
-                return listCellLocal;
-            });
-            IListener l2 = Transaction.Run(() =>
-            {
-                return listCell.Values().ListenStrong(c => Transaction.Post(() =>
+
+            StreamSink<IReadOnlyList<TestObject>>
+                removeItemsStreamSink = Stream.CreateSink<IReadOnlyList<TestObject>>();
+
+            Cell<IReadOnlyList<TestObject>> listCell =
+                Transaction.Run(() =>
                 {
-                    if (c.Any())
-                    {
-                        (int n1, int n2) = c.Last().BothNumbersCell.Sample();
-                        if (n1 == 9 && n2 == 9)
-                        {
-                            addItemStreamSink.Send((Number1: 0, Number2: 0));
-                        }
-                    }
-                }));
-            });
-            IListener l3 = Transaction.Run(() =>
-                listCell.Map(c => c.Select(o => o.RemoveStream.MapTo(new[] { o })).Merge((x, y) => x.Concat(y).ToArray())).SwitchS().ListenStrong(o => Transaction.Post(() => removeItemsStreamSink.Send(o))));
-            IListener l4 = Transaction.Run(() =>
-                listCell.Map(c => c.Any() ? c.Last().Number1Cell.Lift(c.Last().Number2Cell, (x, y) => x == 9 && y == 9).Updates() : Stream.Never<bool>()).SwitchS().Filter(v => v).ListenStrong(_ => Transaction.Post(() => addItemStreamSink.Send((Number1: 0, Number2: 0)))));
-            List<IReadOnlyList<(int Number1, int Number2)>> @out = new List<IReadOnlyList<(int Number1, int Number2)>>();
-            IListener l = listCell.Map(c => c.Select(o => o.Number1Cell.Lift(o.Number2Cell, (number1, number2) => (Number1: number1, Number2: number2))).Lift()).SwitchC().ListenStrong(@out.Add);
+                    CellLoop<IReadOnlyList<TestObject>> listCellLoop = new CellLoop<IReadOnlyList<TestObject>>();
+
+                    Cell<IReadOnlyList<TestObject>> listCellLocal =
+                        addItemStreamSink.OrElse(s.Map(v => (Number1: v, Number2: v)))
+                            .Map(o =>
+                                (Func<IReadOnlyList<TestObject>, IReadOnlyList<TestObject>>)(c =>
+                                    c.Concat(new[] { new TestObject(n1: o.Number1, n2: o.Number2) }).ToArray()))
+                            .Merge(
+                                s2: removeItemsStreamSink.Map(o =>
+                                    (Func<IReadOnlyList<TestObject>, IReadOnlyList<TestObject>>)(c =>
+                                        c.Except(o).ToArray())),
+                                f: (f, g) => c => g(f(c)))
+                            .Snapshot(c: listCellLoop, f: (f, c) => f(c))
+                            .Hold(new TestObject[0]);
+
+                    listCellLoop.Loop(listCellLocal);
+                    return listCellLocal;
+                });
+
+            IListener l2 =
+                Transaction.Run(() =>
+                {
+                    return listCell.Values()
+                        .ListenStrong(c =>
+                            Transaction.Post(() =>
+                            {
+                                if (c.Any())
+                                {
+                                    (int n1, int n2) = c.Last().BothNumbersCell.Sample();
+
+                                    if (n1 == 9 && n2 == 9)
+                                    {
+                                        addItemStreamSink.Send((Number1: 0, Number2: 0));
+                                    }
+                                }
+                            }));
+                });
+
+            IListener l3 =
+                Transaction.Run(() =>
+                    listCell
+                        .Map(c =>
+                            c.Select(o => o.RemoveStream.MapTo(new[] { o })).Merge((x, y) => x.Concat(y).ToArray()))
+                        .SwitchS()
+                        .ListenStrong(o => Transaction.Post(() => removeItemsStreamSink.Send(o))));
+
+            IListener l4 =
+                Transaction.Run(() =>
+                    listCell
+                        .Map(c =>
+                            c.Any()
+                                ? c.Last()
+                                    .Number1Cell.Lift(c2: c.Last().Number2Cell, f: (x, y) => x == 9 && y == 9)
+                                    .Updates()
+                                : Stream.Never<bool>())
+                        .SwitchS()
+                        .Filter(v => v)
+                        .ListenStrong(_ => Transaction.Post(() => addItemStreamSink.Send((Number1: 0, Number2: 0)))));
+
+            List<IReadOnlyList<(int Number1, int Number2)>>
+                @out = new List<IReadOnlyList<(int Number1, int Number2)>>();
+
+            IListener l =
+                listCell.Map(c =>
+                        c.Select(o =>
+                                o.Number1Cell.Lift(
+                                    c2: o.Number2Cell,
+                                    f: (number1, number2) => (Number1: number1, Number2: number2)))
+                            .Lift())
+                    .SwitchC()
+                    .ListenStrong(@out.Add);
+
             addItemStreamSink.Send((Number1: 5, Number2: 2));
             addItemStreamSink.Send((Number1: 9, Number2: 2));
             listCell.Sample()[0].Remove();
@@ -249,11 +294,13 @@ namespace SodaFlow.Tests
             addItemStreamSink.Send((Number1: 9, Number2: 9));
             s.Send(5);
             s.Send(9);
+
             Transaction.RunVoid(() =>
             {
                 addItemStreamSink.Send((Number1: 5, Number2: 5));
                 s.Send(5);
             });
+
             listCell.Sample()[8].ChangeNumber2(9);
             listCell.Sample()[8].ChangeNumber1(9);
             l.Unlisten();
@@ -270,23 +317,111 @@ namespace SodaFlow.Tests
                 new[] { (Number1: 9, Number2: 2), (Number1: 2, Number2: 9) },
                 new[] { (Number1: 9, Number2: 2), (Number1: 9, Number2: 9) },
                 new[] { (Number1: 9, Number2: 2), (Number1: 9, Number2: 9), (Number1: 0, Number2: 0) },
-                new[] { (Number1: 9, Number2: 2), (Number1: 9, Number2: 9), (Number1: 0, Number2: 0), (Number1: 9, Number2: 9) },
-                new[] { (Number1: 9, Number2: 2), (Number1: 9, Number2: 9), (Number1: 0, Number2: 0), (Number1: 9, Number2: 9), (Number1: 0, Number2: 0) },
-                new[] { (Number1: 9, Number2: 2), (Number1: 9, Number2: 9), (Number1: 0, Number2: 0), (Number1: 9, Number2: 9), (Number1: 0, Number2: 0), (Number1: 5, Number2: 5) },
-                new[] { (Number1: 9, Number2: 2), (Number1: 9, Number2: 9), (Number1: 0, Number2: 0), (Number1: 9, Number2: 9), (Number1: 0, Number2: 0), (Number1: 5, Number2: 5), (Number1: 9, Number2: 9) },
-                new[] { (Number1: 9, Number2: 2), (Number1: 9, Number2: 9), (Number1: 0, Number2: 0), (Number1: 9, Number2: 9), (Number1: 0, Number2: 0), (Number1: 5, Number2: 5), (Number1: 9, Number2: 9), (Number1: 0, Number2: 0) },
-                new[] { (Number1: 9, Number2: 2), (Number1: 9, Number2: 9), (Number1: 0, Number2: 0), (Number1: 9, Number2: 9), (Number1: 0, Number2: 0), (Number1: 5, Number2: 5), (Number1: 9, Number2: 9), (Number1: 0, Number2: 0), (Number1: 5, Number2: 5) },
-                new[] { (Number1: 9, Number2: 2), (Number1: 9, Number2: 9), (Number1: 0, Number2: 0), (Number1: 9, Number2: 9), (Number1: 0, Number2: 0), (Number1: 5, Number2: 5), (Number1: 9, Number2: 9), (Number1: 0, Number2: 0), (Number1: 5, Number2: 9) },
-                new[] { (Number1: 9, Number2: 2), (Number1: 9, Number2: 9), (Number1: 0, Number2: 0), (Number1: 9, Number2: 9), (Number1: 0, Number2: 0), (Number1: 5, Number2: 5), (Number1: 9, Number2: 9), (Number1: 0, Number2: 0), (Number1: 9, Number2: 9) },
-                new[] { (Number1: 9, Number2: 2), (Number1: 9, Number2: 9), (Number1: 0, Number2: 0), (Number1: 9, Number2: 9), (Number1: 0, Number2: 0), (Number1: 5, Number2: 5), (Number1: 9, Number2: 9), (Number1: 0, Number2: 0), (Number1: 9, Number2: 9), (Number1: 0, Number2: 0) }
+                new[]
+                {
+                    (Number1: 9, Number2: 2),
+                    (Number1: 9, Number2: 9),
+                    (Number1: 0, Number2: 0),
+                    (Number1: 9, Number2: 9)
+                },
+                new[]
+                {
+                    (Number1: 9, Number2: 2),
+                    (Number1: 9, Number2: 9),
+                    (Number1: 0, Number2: 0),
+                    (Number1: 9, Number2: 9),
+                    (Number1: 0, Number2: 0)
+                },
+                new[]
+                {
+                    (Number1: 9, Number2: 2),
+                    (Number1: 9, Number2: 9),
+                    (Number1: 0, Number2: 0),
+                    (Number1: 9, Number2: 9),
+                    (Number1: 0, Number2: 0),
+                    (Number1: 5, Number2: 5)
+                },
+                new[]
+                {
+                    (Number1: 9, Number2: 2),
+                    (Number1: 9, Number2: 9),
+                    (Number1: 0, Number2: 0),
+                    (Number1: 9, Number2: 9),
+                    (Number1: 0, Number2: 0),
+                    (Number1: 5, Number2: 5),
+                    (Number1: 9, Number2: 9)
+                },
+                new[]
+                {
+                    (Number1: 9, Number2: 2),
+                    (Number1: 9, Number2: 9),
+                    (Number1: 0, Number2: 0),
+                    (Number1: 9, Number2: 9),
+                    (Number1: 0, Number2: 0),
+                    (Number1: 5, Number2: 5),
+                    (Number1: 9, Number2: 9),
+                    (Number1: 0, Number2: 0)
+                },
+                new[]
+                {
+                    (Number1: 9, Number2: 2),
+                    (Number1: 9, Number2: 9),
+                    (Number1: 0, Number2: 0),
+                    (Number1: 9, Number2: 9),
+                    (Number1: 0, Number2: 0),
+                    (Number1: 5, Number2: 5),
+                    (Number1: 9, Number2: 9),
+                    (Number1: 0, Number2: 0),
+                    (Number1: 5, Number2: 5)
+                },
+                new[]
+                {
+                    (Number1: 9, Number2: 2),
+                    (Number1: 9, Number2: 9),
+                    (Number1: 0, Number2: 0),
+                    (Number1: 9, Number2: 9),
+                    (Number1: 0, Number2: 0),
+                    (Number1: 5, Number2: 5),
+                    (Number1: 9, Number2: 9),
+                    (Number1: 0, Number2: 0),
+                    (Number1: 5, Number2: 9)
+                },
+                new[]
+                {
+                    (Number1: 9, Number2: 2),
+                    (Number1: 9, Number2: 9),
+                    (Number1: 0, Number2: 0),
+                    (Number1: 9, Number2: 9),
+                    (Number1: 0, Number2: 0),
+                    (Number1: 5, Number2: 5),
+                    (Number1: 9, Number2: 9),
+                    (Number1: 0, Number2: 0),
+                    (Number1: 9, Number2: 9)
+                },
+                new[]
+                {
+                    (Number1: 9, Number2: 2),
+                    (Number1: 9, Number2: 9),
+                    (Number1: 0, Number2: 0),
+                    (Number1: 9, Number2: 9),
+                    (Number1: 0, Number2: 0),
+                    (Number1: 5, Number2: 5),
+                    (Number1: 9, Number2: 9),
+                    (Number1: 0, Number2: 0),
+                    (Number1: 9, Number2: 9),
+                    (Number1: 0, Number2: 0)
+                }
             };
-            Assert.AreEqual(expected.Length, @out.Count);
+
+            Assert.AreEqual(expected: expected.Length, actual: @out.Count);
+
             for (int i = 0; i < 16; i++)
             {
-                Assert.AreEqual(expected[i].Length, @out[i].Count);
+                Assert.AreEqual(expected: expected[i].Length, actual: @out[i].Count);
+
                 for (int j = 0; j < expected[i].Length; j++)
                 {
-                    Assert.AreEqual(expected[i][j], @out[i][j]);
+                    Assert.AreEqual(expected: expected[i][j], actual: @out[i][j]);
                 }
             }
         }
@@ -295,13 +430,16 @@ namespace SodaFlow.Tests
         public void TestCellLoop()
         {
             StreamSink<int> s = Stream.CreateSink<int>();
-            Cell<int> cell = Transaction.Run(() =>
-            {
-                CellLoop<int> cellLoop = new CellLoop<int>();
-                Cell<int> cellLocal = s.Snapshot(cellLoop, (x, y) => x + y).Hold(1);
-                cellLoop.Loop(cellLocal);
-                return cellLocal;
-            });
+
+            Cell<int> cell =
+                Transaction.Run(() =>
+                {
+                    CellLoop<int> cellLoop = new CellLoop<int>();
+                    Cell<int> cellLocal = s.Snapshot(c: cellLoop, f: (x, y) => x + y).Hold(1);
+                    cellLoop.Loop(cellLocal);
+                    return cellLocal;
+                });
+
             List<int> @out = new List<int>();
             IListener l = cell.ListenStrong(@out.Add);
             s.Send(3);
@@ -310,7 +448,7 @@ namespace SodaFlow.Tests
             s.Send(8);
             l.Unlisten();
 
-            CollectionAssert.AreEqual(new[] { 1, 4, 8, 15, 23 }, @out);
+            CollectionAssert.AreEqual(expected: new[] { 1, 4, 8, 15, 23 }, actual: @out);
         }
 
         [Test]
@@ -323,13 +461,23 @@ namespace SodaFlow.Tests
             try
             {
                 StreamSink<int> s = Stream.CreateSink<int>();
-                Cell<int> cell = Transaction.Run(() =>
-                {
-                    CellLoop<int> cellLoop = new CellLoop<int>();
-                    Cell<int> cellLocal = cellLoop.Updates().Filter(v => v % 2 == 0).Map(v => v + 1).Merge(s, (_, r) => r).Hold(1);
-                    cellLoop.Loop(cellLocal);
-                    return cellLocal;
-                });
+
+                Cell<int> cell =
+                    Transaction.Run(() =>
+                    {
+                        CellLoop<int> cellLoop = new CellLoop<int>();
+
+                        Cell<int> cellLocal =
+                            cellLoop.Updates()
+                                .Filter(v => v % 2 == 0)
+                                .Map(v => v + 1)
+                                .Merge(s2: s, f: (_, r) => r)
+                                .Hold(1);
+
+                        cellLoop.Loop(cellLocal);
+                        return cellLocal;
+                    });
+
                 List<int> @out = new List<int>();
                 IListener l = cell.ListenStrong(@out.Add);
                 s.Send(3);
@@ -348,44 +496,62 @@ namespace SodaFlow.Tests
             }
 
             Assert.IsNotNull(actual);
-            Assert.AreEqual("A dependency cycle was detected.", actual.Message);
+            Assert.AreEqual(expected: "A dependency cycle was detected.", actual: actual.Message);
         }
 
         [Test]
         public void TestCellLoopSwitchS()
         {
             StreamSink<TestObject> addStreamSink = Stream.CreateSink<TestObject>();
-            Cell<IReadOnlyList<TestObject>> cell = Transaction.Run(() =>
-            {
-                CellLoop<IReadOnlyList<TestObject>> cellLoop = new CellLoop<IReadOnlyList<TestObject>>();
-                Cell<IReadOnlyList<TestObject>> cellLocal =
-                    cellLoop.Map(oo => oo.Select(o => o.RemoveStream.MapTo(new[] { o })).Merge((x, y) => x.Concat(y).ToArray())).SwitchS().Map(o => (Func<IReadOnlyList<TestObject>, IReadOnlyList<TestObject>>)(c => c.Except(o).ToArray()))
-                        .Merge(addStreamSink.Map(o => (Func<IReadOnlyList<TestObject>, IReadOnlyList<TestObject>>)(c => c.Concat(new[] { o }).ToArray())), (f, g) => c => g(f(c)))
-                        .Snapshot(cellLoop, (f, c) => f(c))
-                        .Hold(new TestObject[0]);
-                cellLoop.Loop(cellLocal);
-                return cellLocal;
-            });
+
+            Cell<IReadOnlyList<TestObject>> cell =
+                Transaction.Run(() =>
+                {
+                    CellLoop<IReadOnlyList<TestObject>> cellLoop = new CellLoop<IReadOnlyList<TestObject>>();
+
+                    Cell<IReadOnlyList<TestObject>> cellLocal =
+                        cellLoop
+                            .Map(oo =>
+                                oo.Select(o => o.RemoveStream.MapTo(new[] { o }))
+                                    .Merge((x, y) => x.Concat(y).ToArray()))
+                            .SwitchS()
+                            .Map(o =>
+                                (Func<IReadOnlyList<TestObject>, IReadOnlyList<TestObject>>)(c =>
+                                    c.Except(o).ToArray()))
+                            .Merge(
+                                s2: addStreamSink.Map(o =>
+                                    (Func<IReadOnlyList<TestObject>, IReadOnlyList<TestObject>>)(c =>
+                                        c.Concat(new[] { o }).ToArray())),
+                                f: (f, g) => c => g(f(c)))
+                            .Snapshot(c: cellLoop, f: (f, c) => f(c))
+                            .Hold(new TestObject[0]);
+
+                    cellLoop.Loop(cellLocal);
+                    return cellLocal;
+                });
+
             List<int> @out = new List<int>();
             IListener l = cell.ListenStrong(c => @out.Add(c.Count));
-            TestObject t1 = new TestObject(1, 1);
+            TestObject t1 = new TestObject(n1: 1, n2: 1);
             addStreamSink.Send(t1);
-            TestObject t2 = new TestObject(2, 2);
+            TestObject t2 = new TestObject(n1: 2, n2: 2);
             addStreamSink.Send(t2);
-            TestObject t3 = new TestObject(3, 3);
+            TestObject t3 = new TestObject(n1: 3, n2: 3);
             addStreamSink.Send(t3);
             t2.Remove();
-            TestObject t4 = new TestObject(4, 4);
+            TestObject t4 = new TestObject(n1: 4, n2: 4);
+
             Transaction.RunVoid(() =>
             {
                 addStreamSink.Send(t4);
                 t3.Remove();
             });
-            TestObject t5 = new TestObject(5, 5);
+
+            TestObject t5 = new TestObject(n1: 5, n2: 5);
             addStreamSink.Send(t5);
             l.Unlisten();
 
-            CollectionAssert.AreEqual(new[] { 0, 1, 2, 3, 2, 2, 3 }, @out);
+            CollectionAssert.AreEqual(expected: new[] { 0, 1, 2, 3, 2, 2, 3 }, actual: @out);
         }
 
         [Test]
@@ -397,7 +563,7 @@ namespace SodaFlow.Tests
             c.Send(2);
             c.Send(7);
             l.Unlisten();
-            CollectionAssert.AreEqual(new[] { 9, 2, 7 }, @out);
+            CollectionAssert.AreEqual(expected: new[] { 9, 2, 7 }, actual: @out);
         }
 
         [Test]
@@ -409,7 +575,7 @@ namespace SodaFlow.Tests
             c.Send(2);
             c.Send(7);
             l.Unlisten();
-            CollectionAssert.AreEqual(new[] { 2, 7 }, @out);
+            CollectionAssert.AreEqual(expected: new[] { 2, 7 }, actual: @out);
         }
 
         [Test]
@@ -421,7 +587,7 @@ namespace SodaFlow.Tests
             b.Send(2);
             b.Send(7);
             l.Unlisten();
-            CollectionAssert.AreEqual(new[] { 109, 102, 107 }, @out);
+            CollectionAssert.AreEqual(expected: new[] { 109, 102, 107 }, actual: @out);
         }
 
         [Test]
@@ -433,7 +599,7 @@ namespace SodaFlow.Tests
             c.Send(2);
             c.Send(7);
             l.Unlisten();
-            CollectionAssert.AreEqual(new[] { 109, 102, 107 }, @out);
+            CollectionAssert.AreEqual(expected: new[] { 109, 102, 107 }, actual: @out);
         }
 
         [Test]
@@ -442,16 +608,22 @@ namespace SodaFlow.Tests
             BehaviorSink<int> b1 = Behavior.CreateSink(9);
             BehaviorSink<int> b2 = Behavior.CreateSink(2);
             List<int> @out = new List<int>();
-            IListener l = Transaction.Run(() => Operational.Value(b1).Merge(Operational.Value(b2), (x, y) => x + y).ListenStrong(@out.Add));
+
+            IListener l =
+                Transaction.Run(() =>
+                    Operational.Value(b1).Merge(s2: Operational.Value(b2), f: (x, y) => x + y).ListenStrong(@out.Add));
+
             b1.Send(1);
             b2.Send(4);
+
             Transaction.RunVoid(() =>
             {
                 b1.Send(7);
                 b2.Send(5);
             });
+
             l.Unlisten();
-            CollectionAssert.AreEqual(new[] { 11, 1, 4, 12 }, @out);
+            CollectionAssert.AreEqual(expected: new[] { 11, 1, 4, 12 }, actual: @out);
         }
 
         [Test]
@@ -460,16 +632,21 @@ namespace SodaFlow.Tests
             CellSink<int> c1 = Cell.CreateSink(9);
             CellSink<int> c2 = Cell.CreateSink(2);
             List<int> @out = new List<int>();
-            IListener l = Transaction.Run(() => c1.Values().Merge(c2.Values(), (x, y) => x + y).ListenStrong(@out.Add));
+
+            IListener l =
+                Transaction.Run(() => c1.Values().Merge(s2: c2.Values(), f: (x, y) => x + y).ListenStrong(@out.Add));
+
             c1.Send(1);
             c2.Send(4);
+
             Transaction.RunVoid(() =>
             {
                 c1.Send(7);
                 c2.Send(5);
             });
+
             l.Unlisten();
-            CollectionAssert.AreEqual(new[] { 11, 1, 4, 12 }, @out);
+            CollectionAssert.AreEqual(expected: new[] { 11, 1, 4, 12 }, actual: @out);
         }
 
         [Test]
@@ -481,7 +658,7 @@ namespace SodaFlow.Tests
             b.Send(2);
             b.Send(7);
             l.Unlisten();
-            CollectionAssert.AreEqual(new[] { 9, 7 }, @out);
+            CollectionAssert.AreEqual(expected: new[] { 9, 7 }, actual: @out);
         }
 
         [Test]
@@ -493,7 +670,7 @@ namespace SodaFlow.Tests
             c.Send(2);
             c.Send(7);
             l.Unlisten();
-            CollectionAssert.AreEqual(new[] { 9, 7 }, @out);
+            CollectionAssert.AreEqual(expected: new[] { 9, 7 }, actual: @out);
         }
 
         [Test]
@@ -505,7 +682,7 @@ namespace SodaFlow.Tests
             b.Send(2);
             b.Send(7);
             l.Unlisten();
-            CollectionAssert.AreEqual(new[] { 9 }, @out);
+            CollectionAssert.AreEqual(expected: new[] { 9 }, actual: @out);
         }
 
         [Test]
@@ -517,7 +694,7 @@ namespace SodaFlow.Tests
             c.Send(2);
             c.Send(7);
             l.Unlisten();
-            CollectionAssert.AreEqual(new[] { 9 }, @out);
+            CollectionAssert.AreEqual(expected: new[] { 9 }, actual: @out);
         }
 
         [Test]
@@ -531,7 +708,7 @@ namespace SodaFlow.Tests
             b.Send(2);
             b.Send(7);
             l.Unlisten();
-            CollectionAssert.AreEqual(new[] { 2, 7 }, @out);
+            CollectionAssert.AreEqual(expected: new[] { 2, 7 }, actual: @out);
         }
 
         [Test]
@@ -545,7 +722,7 @@ namespace SodaFlow.Tests
             c.Send(2);
             c.Send(7);
             l.Unlisten();
-            CollectionAssert.AreEqual(new[] { 2, 7 }, @out);
+            CollectionAssert.AreEqual(expected: new[] { 2, 7 }, actual: @out);
         }
 
         [Test]
@@ -556,7 +733,7 @@ namespace SodaFlow.Tests
             IListener l = c.Map(x => x.ToString()).ListenStrong(@out.Add);
             c.Send(8);
             l.Unlisten();
-            CollectionAssert.AreEqual(new[] { "6", "8" }, @out);
+            CollectionAssert.AreEqual(expected: new[] { "6", "8" }, actual: @out);
         }
 
         [Test]
@@ -569,7 +746,7 @@ namespace SodaFlow.Tests
             IListener l = cm.ListenStrong(@out.Add);
             c.Send(8);
             l.Unlisten();
-            CollectionAssert.AreEqual(new[] { "2", "8" }, @out);
+            CollectionAssert.AreEqual(expected: new[] { "2", "8" }, actual: @out);
         }
 
         [Test]
@@ -587,7 +764,7 @@ namespace SodaFlow.Tests
             c.Send(2);
             c.Send(2);
             l.Unlisten();
-            CollectionAssert.AreEqual(new[] { 2, 4, 2, 4, 2 }, @out);
+            CollectionAssert.AreEqual(expected: new[] { 2, 4, 2, 4, 2 }, actual: @out);
         }
 
         [Test]
@@ -603,7 +780,7 @@ namespace SodaFlow.Tests
             c.Send(2);
             c.Send(2);
             l.Unlisten();
-            CollectionAssert.AreEqual(new[] { 2, 4, 2, 4, 2 }, @out);
+            CollectionAssert.AreEqual(expected: new[] { 2, 4, 2, 4, 2 }, actual: @out);
         }
 
         [Test]
@@ -616,7 +793,7 @@ namespace SodaFlow.Tests
             cf.Send(x => "12 " + x);
             ca.Send(6L);
             l.Unlisten();
-            CollectionAssert.AreEqual(new[] { "1 5", "12 5", "12 6" }, @out);
+            CollectionAssert.AreEqual(expected: new[] { "1 5", "12 5", "12 6" }, actual: @out);
         }
 
         [Test]
@@ -625,11 +802,11 @@ namespace SodaFlow.Tests
             CellSink<int> c1 = Cell.CreateSink(1);
             CellSink<long> c2 = Cell.CreateSink(5L);
             List<string> @out = new List<string>();
-            IListener l = c1.Lift(c2, (x, y) => x + " " + y).ListenStrong(@out.Add);
+            IListener l = c1.Lift(c2: c2, f: (x, y) => x + " " + y).ListenStrong(@out.Add);
             c1.Send(12);
             c2.Send(6L);
             l.Unlisten();
-            CollectionAssert.AreEqual(new[] { "1 5", "12 5", "12 6" }, @out);
+            CollectionAssert.AreEqual(expected: new[] { "1 5", "12 5", "12 6" }, actual: @out);
         }
 
         [Test]
@@ -638,28 +815,30 @@ namespace SodaFlow.Tests
             CellSink<int> c1 = Cell.CreateSink(1);
             Cell<int> c3 = c1.Map(x => x * 3);
             Cell<int> c5 = c1.Map(x => x * 5);
-            Cell<string> c = c3.Lift(c5, (x, y) => x + " " + y);
+            Cell<string> c = c3.Lift(c2: c5, f: (x, y) => x + " " + y);
             List<string> @out = new List<string>();
             IListener l = c.ListenStrong(@out.Add);
             c1.Send(2);
             l.Unlisten();
-            CollectionAssert.AreEqual(new[] { "3 5", "6 10" }, @out);
+            CollectionAssert.AreEqual(expected: new[] { "3 5", "6 10" }, actual: @out);
         }
 
         [Test]
         public void TestLiftFromSimultaneous()
         {
-            (CellSink<int> c1, CellSink<int> c2) = Transaction.Run(() =>
-            {
-                CellSink<int> localC1 = Cell.CreateSink(3);
-                CellSink<int> localC2 = Cell.CreateSink(5);
-                localC2.Send(7);
-                return (localC1, localC2);
-            });
+            (CellSink<int> c1, CellSink<int> c2) =
+                Transaction.Run(() =>
+                {
+                    CellSink<int> localC1 = Cell.CreateSink(3);
+                    CellSink<int> localC2 = Cell.CreateSink(5);
+                    localC2.Send(7);
+                    return (localC1, localC2);
+                });
+
             List<int> @out = new List<int>();
-            IListener l = c1.Lift(c2, (x, y) => x + y).ListenStrong(@out.Add);
+            IListener l = c1.Lift(c2: c2, f: (x, y) => x + y).ListenStrong(@out.Add);
             l.Unlisten();
-            CollectionAssert.AreEqual(new[] { 10 }, @out);
+            CollectionAssert.AreEqual(expected: new[] { 10 }, actual: @out);
         }
 
         [Test]
@@ -667,13 +846,13 @@ namespace SodaFlow.Tests
         {
             StreamSink<int> s = Stream.CreateSink<int>();
             Cell<int> h = s.Hold(0);
-            Stream<string> pair = s.Snapshot(h, (a, b) => a + " " + b);
+            Stream<string> pair = s.Snapshot(c: h, f: (a, b) => a + " " + b);
             List<string> @out = new List<string>();
             IListener l = pair.ListenStrong(@out.Add);
             s.Send(2);
             s.Send(3);
             l.Unlisten();
-            CollectionAssert.AreEqual(new[] { "2 0", "3 2" }, @out);
+            CollectionAssert.AreEqual(expected: new[] { "2 0", "3 2" }, actual: @out);
         }
 
         private class Sc
@@ -702,28 +881,28 @@ namespace SodaFlow.Tests
             Cell<char> co = csw.SwitchC();
             List<char> @out = new List<char>();
             IListener l = co.ListenStrong(@out.Add);
-            ssc.Send(new Sc(Maybe.Some('B'), Maybe.Some('b'), Maybe.None));
-            ssc.Send(new Sc(Maybe.Some('C'), Maybe.Some('c'), Maybe.Some(cb)));
-            ssc.Send(new Sc(Maybe.Some('D'), Maybe.Some('d'), Maybe.None));
-            ssc.Send(new Sc(Maybe.Some('E'), Maybe.Some('e'), Maybe.Some(ca)));
-            ssc.Send(new Sc(Maybe.Some('F'), Maybe.Some('f'), Maybe.None));
-            ssc.Send(new Sc(Maybe.None, Maybe.None, Maybe.Some(cb)));
-            ssc.Send(new Sc(Maybe.None, Maybe.None, Maybe.Some(ca)));
-            ssc.Send(new Sc(Maybe.Some('G'), Maybe.Some('g'), Maybe.Some(cb)));
-            ssc.Send(new Sc(Maybe.Some('H'), Maybe.Some('h'), Maybe.Some(ca)));
-            ssc.Send(new Sc(Maybe.Some('I'), Maybe.Some('i'), Maybe.Some(ca)));
+            ssc.Send(new Sc(a: Maybe.Some('B'), b: Maybe.Some('b'), sw: Maybe.None));
+            ssc.Send(new Sc(a: Maybe.Some('C'), b: Maybe.Some('c'), sw: Maybe.Some(cb)));
+            ssc.Send(new Sc(a: Maybe.Some('D'), b: Maybe.Some('d'), sw: Maybe.None));
+            ssc.Send(new Sc(a: Maybe.Some('E'), b: Maybe.Some('e'), sw: Maybe.Some(ca)));
+            ssc.Send(new Sc(a: Maybe.Some('F'), b: Maybe.Some('f'), sw: Maybe.None));
+            ssc.Send(new Sc(a: Maybe.None, b: Maybe.None, sw: Maybe.Some(cb)));
+            ssc.Send(new Sc(a: Maybe.None, b: Maybe.None, sw: Maybe.Some(ca)));
+            ssc.Send(new Sc(a: Maybe.Some('G'), b: Maybe.Some('g'), sw: Maybe.Some(cb)));
+            ssc.Send(new Sc(a: Maybe.Some('H'), b: Maybe.Some('h'), sw: Maybe.Some(ca)));
+            ssc.Send(new Sc(a: Maybe.Some('I'), b: Maybe.Some('i'), sw: Maybe.Some(ca)));
             l.Unlisten();
-            CollectionAssert.AreEqual(new[] { 'A', 'B', 'c', 'd', 'E', 'F', 'f', 'F', 'g', 'H', 'I' }, @out);
+
+            CollectionAssert.AreEqual(
+                expected: new[] { 'A', 'B', 'c', 'd', 'E', 'F', 'f', 'F', 'g', 'H', 'I' },
+                actual: @out);
         }
 
         private class Sc2
         {
             public readonly CellSink<int> C;
 
-            public Sc2(int initialValue)
-            {
-                this.C = Cell.CreateSink(initialValue);
-            }
+            public Sc2(int initialValue) => this.C = Cell.CreateSink(initialValue);
         }
 
         [Test]
@@ -746,15 +925,17 @@ namespace SodaFlow.Tests
             csc.Send(sc3);
             sc3.C.Send(6);
             sc3.C.Send(7);
+
             Transaction.RunVoid(() =>
             {
                 sc3.C.Send(2);
                 csc.Send(sc4);
                 sc4.C.Send(8);
             });
+
             sc4.C.Send(9);
             l.Unlisten();
-            CollectionAssert.AreEqual(new[] { 0, 1, 2, 3, 4, 5, 6, 7, 8, 9 }, @out);
+            CollectionAssert.AreEqual(expected: new[] { 0, 1, 2, 3, 4, 5, 6, 7, 8, 9 }, actual: @out);
         }
 
         private class Ss
@@ -783,17 +964,17 @@ namespace SodaFlow.Tests
             Stream<char> so = csw.SwitchS();
             List<char> @out = new List<char>();
             IListener l = so.ListenStrong(@out.Add);
-            sss.Send(new Ss('A', 'a', Maybe.None));
-            sss.Send(new Ss('B', 'b', Maybe.None));
-            sss.Send(new Ss('C', 'c', Maybe.Some(sb)));
-            sss.Send(new Ss('D', 'd', Maybe.None));
-            sss.Send(new Ss('E', 'e', Maybe.Some(sa)));
-            sss.Send(new Ss('F', 'f', Maybe.None));
-            sss.Send(new Ss('G', 'g', Maybe.Some(sb)));
-            sss.Send(new Ss('H', 'h', Maybe.Some(sa)));
-            sss.Send(new Ss('I', 'i', Maybe.Some(sa)));
+            sss.Send(new Ss(a: 'A', b: 'a', sw: Maybe.None));
+            sss.Send(new Ss(a: 'B', b: 'b', sw: Maybe.None));
+            sss.Send(new Ss(a: 'C', b: 'c', sw: Maybe.Some(sb)));
+            sss.Send(new Ss(a: 'D', b: 'd', sw: Maybe.None));
+            sss.Send(new Ss(a: 'E', b: 'e', sw: Maybe.Some(sa)));
+            sss.Send(new Ss(a: 'F', b: 'f', sw: Maybe.None));
+            sss.Send(new Ss(a: 'G', b: 'g', sw: Maybe.Some(sb)));
+            sss.Send(new Ss(a: 'H', b: 'h', sw: Maybe.Some(sa)));
+            sss.Send(new Ss(a: 'I', b: 'i', sw: Maybe.Some(sa)));
             l.Unlisten();
-            CollectionAssert.AreEqual(new[] { 'A', 'B', 'C', 'd', 'e', 'F', 'G', 'h', 'I' }, @out);
+            CollectionAssert.AreEqual(expected: new[] { 'A', 'B', 'C', 'd', 'e', 'F', 'G', 'h', 'I' }, actual: @out);
         }
 
         private class Ss2
@@ -824,26 +1005,31 @@ namespace SodaFlow.Tests
             ss3.S.Send(5);
             ss3.S.Send(6);
             ss3.S.Send(7);
+
             Transaction.RunVoid(() =>
             {
                 ss3.S.Send(8);
                 bss.Send(ss4);
                 ss4.S.Send(2);
             });
+
             ss4.S.Send(9);
             l.Unlisten();
-            CollectionAssert.AreEqual(new[] { 0, 1, 2, 3, 4, 5, 6, 7, 8, 9 }, @out);
+            CollectionAssert.AreEqual(expected: new[] { 0, 1, 2, 3, 4, 5, 6, 7, 8, 9 }, actual: @out);
         }
 
         [Test]
         public void TestLiftList()
         {
-            IReadOnlyList<CellSink<int>> cellSinks = Enumerable.Range(0, 50).Select(_ => Cell.CreateSink(1)).ToArray();
+            IReadOnlyList<CellSink<int>> cellSinks =
+                Enumerable.Range(start: 0, count: 50).Select(_ => Cell.CreateSink(1)).ToArray();
+
             Cell<int> sum = cellSinks.Lift().Map(v => v.Sum());
             List<int> @out = new List<int>();
             IListener l = sum.ListenStrong(@out.Add);
             cellSinks[4].Send(5);
             cellSinks[5].Send(5);
+
             Transaction.RunVoid(() =>
             {
                 cellSinks[9].Send(5);
@@ -851,8 +1037,9 @@ namespace SodaFlow.Tests
                 cellSinks[41].Send(5);
                 cellSinks[48].Send(5);
             });
+
             l.Unlisten();
-            CollectionAssert.AreEqual(new[] { 50, 54, 58, 74 }, @out);
+            CollectionAssert.AreEqual(expected: new[] { 50, 54, 58, 74 }, actual: @out);
         }
 
         // Lift builds one pulse stream that every input feeds, coalesced so a transaction produces a
@@ -866,27 +1053,25 @@ namespace SodaFlow.Tests
             CellSink<int> b = Cell.CreateSink(10);
             CellSink<int> c = Cell.CreateSink(100);
 
-            Cell<string> lifted = a.Lift(b, c, (x, y, z) => x + "/" + y + "/" + z);
+            Cell<string> lifted = a.Lift(c2: b, c3: c, f: (x, y, z) => x + "/" + y + "/" + z);
 
             List<string> @out = new List<string>();
             IListener l = lifted.ListenStrong(@out.Add);
 
             // All three at once: one firing, all new.
-            Transaction.RunVoid(
-                () =>
-                {
-                    a.Send(2);
-                    b.Send(20);
-                    c.Send(200);
-                });
+            Transaction.RunVoid(() =>
+            {
+                a.Send(2);
+                b.Send(20);
+                c.Send(200);
+            });
 
             // A subset: one firing, mixing new values with the untouched one.
-            Transaction.RunVoid(
-                () =>
-                {
-                    a.Send(3);
-                    c.Send(300);
-                });
+            Transaction.RunVoid(() =>
+            {
+                a.Send(3);
+                c.Send(300);
+            });
 
             // A single input on its own.
             b.Send(30);
@@ -894,8 +1079,8 @@ namespace SodaFlow.Tests
             l.Unlisten();
 
             CollectionAssert.AreEqual(
-                new[] { "1/10/100", "2/20/200", "3/20/300", "3/30/300" },
-                @out);
+                expected: new[] { "1/10/100", "2/20/200", "3/20/300", "3/30/300" },
+                actual: @out);
         }
 
         // Inputs updating one at a time across separate transactions: each firing has to pair the
@@ -906,7 +1091,7 @@ namespace SodaFlow.Tests
             CellSink<int> a = Cell.CreateSink(1);
             CellSink<int> b = Cell.CreateSink(10);
 
-            Cell<string> lifted = a.Lift(b, (x, y) => x + "/" + y);
+            Cell<string> lifted = a.Lift(c2: b, f: (x, y) => x + "/" + y);
 
             List<string> @out = new List<string>();
             IListener l = lifted.ListenStrong(@out.Add);
@@ -918,7 +1103,7 @@ namespace SodaFlow.Tests
 
             l.Unlisten();
 
-            CollectionAssert.AreEqual(new[] { "1/10", "2/10", "2/20", "3/20", "3/30" }, @out);
+            CollectionAssert.AreEqual(expected: new[] { "1/10", "2/10", "2/20", "3/20", "3/30" }, actual: @out);
         }
 
         // Lift links every one of the input behaviors to a single output node, so updating them
@@ -931,30 +1116,29 @@ namespace SodaFlow.Tests
             const int count = 200;
 
             IReadOnlyList<CellSink<int>> cellSinks =
-                Enumerable.Range(0, count).Select(_ => Cell.CreateSink(0)).ToArray();
+                Enumerable.Range(start: 0, count: count).Select(_ => Cell.CreateSink(0)).ToArray();
+
             Cell<int> sum = cellSinks.Lift().Map(v => v.Sum());
             List<int> @out = new List<int>();
             IListener l = sum.ListenStrong(@out.Add);
 
             // Every cell at once.
-            Transaction.RunVoid(
-                () =>
+            Transaction.RunVoid(() =>
+            {
+                foreach (CellSink<int> cellSink in cellSinks)
                 {
-                    foreach (CellSink<int> cellSink in cellSinks)
-                    {
-                        cellSink.Send(1);
-                    }
-                });
+                    cellSink.Send(1);
+                }
+            });
 
             // Every other cell, so the entries drain from a partially populated node.
-            Transaction.RunVoid(
-                () =>
+            Transaction.RunVoid(() =>
+            {
+                for (int i = 0; i < count; i += 2)
                 {
-                    for (int i = 0; i < count; i += 2)
-                    {
-                        cellSinks[i].Send(3);
-                    }
-                });
+                    cellSinks[i].Send(3);
+                }
+            });
 
             // A single cell, back down to one entry.
             cellSinks[count - 1].Send(5);
@@ -963,27 +1147,36 @@ namespace SodaFlow.Tests
 
             int afterAll = count;
             int afterEvens = count / 2 * 3 + count / 2;
-            CollectionAssert.AreEqual(new[] { 0, afterAll, afterEvens, afterEvens + 4 }, @out);
+            CollectionAssert.AreEqual(expected: new[] { 0, afterAll, afterEvens, afterEvens + 4 }, actual: @out);
         }
 
         [Test]
         public void TestLiftLoopList()
         {
-            (Cell<int> c, IReadOnlyList<CellSink<int>> s) = Transaction.Run(() =>
-            {
-                IReadOnlyList<CellLoop<int>> cellLoops = Enumerable.Range(0, 50).Select(_ => Cell.CreateLoop<int>()).ToArray();
-                Cell<int> sum = cellLoops.Lift().Map(v => v.Sum());
-                IReadOnlyList<CellSink<int>> cellSinks = Enumerable.Range(0, 50).Select(_ => Cell.CreateSink(1)).ToArray();
-                for (int i = 0; i < 50; i++)
+            (Cell<int> c, IReadOnlyList<CellSink<int>> s) =
+                Transaction.Run(() =>
                 {
-                    cellLoops[i].Loop(cellSinks[i]);
-                }
-                return (sum, cellSinks);
-            });
+                    IReadOnlyList<CellLoop<int>> cellLoops =
+                        Enumerable.Range(start: 0, count: 50).Select(_ => Cell.CreateLoop<int>()).ToArray();
+
+                    Cell<int> sum = cellLoops.Lift().Map(v => v.Sum());
+
+                    IReadOnlyList<CellSink<int>> cellSinks =
+                        Enumerable.Range(start: 0, count: 50).Select(_ => Cell.CreateSink(1)).ToArray();
+
+                    for (int i = 0; i < 50; i++)
+                    {
+                        cellLoops[i].Loop(cellSinks[i]);
+                    }
+
+                    return (sum, cellSinks);
+                });
+
             List<int> @out = new List<int>();
             IListener l = c.ListenStrong(@out.Add);
             s[4].Send(5);
             s[5].Send(5);
+
             Transaction.RunVoid(() =>
             {
                 s[9].Send(5);
@@ -991,19 +1184,23 @@ namespace SodaFlow.Tests
                 s[41].Send(5);
                 s[48].Send(5);
             });
+
             l.Unlisten();
-            CollectionAssert.AreEqual(new[] { 50, 54, 58, 74 }, @out);
+            CollectionAssert.AreEqual(expected: new[] { 50, 54, 58, 74 }, actual: @out);
         }
 
         [Test]
         public void TestLiftListLarge()
         {
-            IReadOnlyList<CellSink<int>> cellSinks = Enumerable.Range(0, 500).Select(_ => Cell.CreateSink(1)).ToArray();
+            IReadOnlyList<CellSink<int>> cellSinks =
+                Enumerable.Range(start: 0, count: 500).Select(_ => Cell.CreateSink(1)).ToArray();
+
             Cell<int> sum = cellSinks.Lift().Map(v => v.Sum());
             List<int> @out = new List<int>();
             IListener l = sum.ListenStrong(@out.Add);
             cellSinks[4].Send(5);
             cellSinks[5].Send(5);
+
             Transaction.RunVoid(() =>
             {
                 cellSinks[9].Send(5);
@@ -1011,22 +1208,27 @@ namespace SodaFlow.Tests
                 cellSinks[41].Send(5);
                 cellSinks[48].Send(5);
             });
+
             l.Unlisten();
-            CollectionAssert.AreEqual(new[] { 500, 504, 508, 524 }, @out);
+            CollectionAssert.AreEqual(expected: new[] { 500, 504, 508, 524 }, actual: @out);
         }
 
         [Test]
         public void TestLiftListLargeManyUpdates()
         {
-            IReadOnlyList<CellSink<int>> cellSinks = Enumerable.Range(0, 500).Select(_ => Cell.CreateSink(1)).ToArray();
+            IReadOnlyList<CellSink<int>> cellSinks =
+                Enumerable.Range(start: 0, count: 500).Select(_ => Cell.CreateSink(1)).ToArray();
+
             Cell<int> sum = cellSinks.Lift().Map(v => v.Sum());
             List<int> @out = new List<int>();
             IListener l = sum.ListenStrong(@out.Add);
+
             for (int i = 0; i < 100; i++)
             {
                 int n = i;
                 cellSinks[n * 5].Send(5);
                 cellSinks[n * 5 + 1].Send(5);
+
                 Transaction.RunVoid(() =>
                 {
                     cellSinks[n * 5 + 2].Send(5);
@@ -1034,48 +1236,63 @@ namespace SodaFlow.Tests
                     cellSinks[n * 5 + 4].Send(5);
                 });
             }
+
             l.Unlisten();
-            IReadOnlyList<int> expected = new[] { 500 }.Concat(Enumerable.Range(0, 100).SelectMany(n => new[] { 500 + 20 * n + 4, 500 + 20 * n + 8, 500 + 20 * n + 20 })).ToArray();
-            CollectionAssert.AreEqual(expected, @out);
+
+            IReadOnlyList<int> expected =
+                new[] { 500 }.Concat(
+                        Enumerable.Range(start: 0, count: 100)
+                            .SelectMany(n => new[] { 500 + 20 * n + 4, 500 + 20 * n + 8, 500 + 20 * n + 20 }))
+                    .ToArray();
+
+            CollectionAssert.AreEqual(expected: expected, actual: @out);
         }
 
         [Test]
         public void TestLiftListChangesWhileListening()
         {
-            IReadOnlyList<CellSink<int>> cellSinks = Enumerable.Range(0, 50).Select(_ => Cell.CreateSink(1)).ToArray();
+            IReadOnlyList<CellSink<int>> cellSinks =
+                Enumerable.Range(start: 0, count: 50).Select(_ => Cell.CreateSink(1)).ToArray();
+
             Cell<int> sum = cellSinks.Lift().Map(v => v.Sum());
             List<int> @out = new List<int>();
-            IListener l = Transaction.Run(() =>
-            {
-                cellSinks[4].Send(5);
-                IListener lLocal = sum.ListenStrong(@out.Add);
-                cellSinks[5].Send(5);
-                return lLocal;
-            });
+
+            IListener l =
+                Transaction.Run(() =>
+                {
+                    cellSinks[4].Send(5);
+                    IListener lLocal = sum.ListenStrong(@out.Add);
+                    cellSinks[5].Send(5);
+                    return lLocal;
+                });
+
             cellSinks[9].Send(5);
+
             Transaction.RunVoid(() =>
             {
                 cellSinks[17].Send(5);
                 cellSinks[41].Send(5);
                 cellSinks[48].Send(5);
             });
+
             l.Unlisten();
-            CollectionAssert.AreEqual(new[] { 58, 62, 74 }, @out);
+            CollectionAssert.AreEqual(expected: new[] { 58, 62, 74 }, actual: @out);
         }
 
         [Test]
         public void SwitchCOnCellLoop()
         {
-            (Cell<int> c, CellSink<int> c1, CellSink<int> c2, CellSink<Cell<int>> s) = Transaction.Run(() =>
-            {
-                CellLoop<Cell<int>> loop = Cell.CreateLoop<Cell<int>>();
-                CellSink<int> c1Local = Cell.CreateSink(1);
-                CellSink<int> c2Local = Cell.CreateSink(11);
-                Cell<int> cLocal = loop.SwitchC();
-                CellSink<Cell<int>> sLocal = Cell.CreateSink(c1Local.AsCell());
-                loop.Loop(sLocal);
-                return (cLocal, c1Local, c2Local, sLocal);
-            });
+            (Cell<int> c, CellSink<int> c1, CellSink<int> c2, CellSink<Cell<int>> s) =
+                Transaction.Run(() =>
+                {
+                    CellLoop<Cell<int>> loop = Cell.CreateLoop<Cell<int>>();
+                    CellSink<int> c1Local = Cell.CreateSink(1);
+                    CellSink<int> c2Local = Cell.CreateSink(11);
+                    Cell<int> cLocal = loop.SwitchC();
+                    CellSink<Cell<int>> sLocal = Cell.CreateSink(c1Local.AsCell());
+                    loop.Loop(sLocal);
+                    return (cLocal, c1Local, c2Local, sLocal);
+                });
 
             List<int> output = new List<int>();
             IListener l = c.ListenStrong(output.Add);
@@ -1095,22 +1312,23 @@ namespace SodaFlow.Tests
 
             l.Unlisten();
 
-            CollectionAssert.AreEqual(new[] { 1, 2, 13, 14 }, output);
+            CollectionAssert.AreEqual(expected: new[] { 1, 2, 13, 14 }, actual: output);
         }
 
         [Test]
         public void SwitchSOnBehaviorLoop()
         {
-            (Stream<int> b, StreamSink<int> b1, StreamSink<int> b2, BehaviorSink<Stream<int>> s) = Transaction.Run(() =>
-            {
-                BehaviorLoop<Stream<int>> loop = Behavior.CreateLoop<Stream<int>>();
-                StreamSink<int> b1Local = Stream.CreateSink<int>();
-                StreamSink<int> b2Local = Stream.CreateSink<int>();
-                Stream<int> bLocal = loop.SwitchS();
-                BehaviorSink<Stream<int>> sLocal = Behavior.CreateSink(b1Local.AsStream());
-                loop.Loop(sLocal);
-                return (bLocal, b1Local, b2Local, sLocal);
-            });
+            (Stream<int> b, StreamSink<int> b1, StreamSink<int> b2, BehaviorSink<Stream<int>> s) =
+                Transaction.Run(() =>
+                {
+                    BehaviorLoop<Stream<int>> loop = Behavior.CreateLoop<Stream<int>>();
+                    StreamSink<int> b1Local = Stream.CreateSink<int>();
+                    StreamSink<int> b2Local = Stream.CreateSink<int>();
+                    Stream<int> bLocal = loop.SwitchS();
+                    BehaviorSink<Stream<int>> sLocal = Behavior.CreateSink(b1Local.AsStream());
+                    loop.Loop(sLocal);
+                    return (bLocal, b1Local, b2Local, sLocal);
+                });
 
             List<int> output = new List<int>();
             IListener l = b.ListenStrong(output.Add);
@@ -1130,7 +1348,7 @@ namespace SodaFlow.Tests
 
             l.Unlisten();
 
-            CollectionAssert.AreEqual(new[] { 2, 3, 14 }, output);
+            CollectionAssert.AreEqual(expected: new[] { 2, 3, 14 }, actual: output);
         }
 
         [Test]
@@ -1138,21 +1356,22 @@ namespace SodaFlow.Tests
         {
             List<int> output = new List<int>();
 
-            (CellSink<int> c1, CellSink<int> c2, CellSink<Cell<int>> s, IListener l) = Transaction.Run(() =>
-            {
-                CellSink<int> c1Local = Cell.CreateSink(1);
-                CellSink<int> c2Local = Cell.CreateSink(11);
-                CellSink<Cell<int>> sLocal = Cell.CreateSink(c1Local.AsCell());
-                Cell<int> cLocal = sLocal.SwitchC();
+            (CellSink<int> c1, CellSink<int> c2, CellSink<Cell<int>> s, IListener l) =
+                Transaction.Run(() =>
+                {
+                    CellSink<int> c1Local = Cell.CreateSink(1);
+                    CellSink<int> c2Local = Cell.CreateSink(11);
+                    CellSink<Cell<int>> sLocal = Cell.CreateSink(c1Local.AsCell());
+                    Cell<int> cLocal = sLocal.SwitchC();
 
-                c1Local.Send(2);
-                c2Local.Send(12);
-                sLocal.Send(c2Local);
+                    c1Local.Send(2);
+                    c2Local.Send(12);
+                    sLocal.Send(c2Local);
 
-                IListener lLocal = cLocal.ListenStrong(output.Add);
+                    IListener lLocal = cLocal.ListenStrong(output.Add);
 
-                return (c1Local, c2Local, sLocal, lLocal);
-            });
+                    return (c1Local, c2Local, sLocal, lLocal);
+                });
 
             c1.Send(3);
             c2.Send(13);
@@ -1169,7 +1388,7 @@ namespace SodaFlow.Tests
 
             l.Unlisten();
 
-            CollectionAssert.AreEqual(new[] { 12, 13, 4, 5 }, output);
+            CollectionAssert.AreEqual(expected: new[] { 12, 13, 4, 5 }, actual: output);
         }
 
         [Test]
@@ -1177,21 +1396,22 @@ namespace SodaFlow.Tests
         {
             List<int> output = new List<int>();
 
-            (StreamSink<int> c1, StreamSink<int> c2, BehaviorSink<Stream<int>> s, IListener l) = Transaction.Run(() =>
-            {
-                StreamSink<int> c1Local = Stream.CreateSink<int>();
-                StreamSink<int> c2Local = Stream.CreateSink<int>();
-                BehaviorSink<Stream<int>> sLocal = Behavior.CreateSink(c1Local.AsStream());
-                Stream<int> cLocal = sLocal.SwitchS();
+            (StreamSink<int> c1, StreamSink<int> c2, BehaviorSink<Stream<int>> s, IListener l) =
+                Transaction.Run(() =>
+                {
+                    StreamSink<int> c1Local = Stream.CreateSink<int>();
+                    StreamSink<int> c2Local = Stream.CreateSink<int>();
+                    BehaviorSink<Stream<int>> sLocal = Behavior.CreateSink(c1Local.AsStream());
+                    Stream<int> cLocal = sLocal.SwitchS();
 
-                c1Local.Send(2);
-                c2Local.Send(12);
-                sLocal.Send(c2Local);
+                    c1Local.Send(2);
+                    c2Local.Send(12);
+                    sLocal.Send(c2Local);
 
-                IListener lLocal = cLocal.ListenStrong(output.Add);
+                    IListener lLocal = cLocal.ListenStrong(output.Add);
 
-                return (c1Local, c2Local, sLocal, lLocal);
-            });
+                    return (c1Local, c2Local, sLocal, lLocal);
+                });
 
             c1.Send(3);
             c2.Send(13);
@@ -1208,7 +1428,7 @@ namespace SodaFlow.Tests
 
             l.Unlisten();
 
-            CollectionAssert.AreEqual(new[] { 2, 13, 14, 5 }, output);
+            CollectionAssert.AreEqual(expected: new[] { 2, 13, 14, 5 }, actual: output);
         }
 
         [Test]
@@ -1216,22 +1436,23 @@ namespace SodaFlow.Tests
         {
             List<int> output = new List<int>();
 
-            (StreamSink<int> c1, StreamSink<int> c2, BehaviorSink<Stream<int>> s, IListener l) = Transaction.Run(() =>
-            {
-                StreamSink<int> c1Local = Stream.CreateSink<int>();
-                StreamSink<int> c2Local = Stream.CreateSink<int>();
-                BehaviorSink<Stream<int>> sLocal = Behavior.CreateSink(c1Local.AsStream());
+            (StreamSink<int> c1, StreamSink<int> c2, BehaviorSink<Stream<int>> s, IListener l) =
+                Transaction.Run(() =>
+                {
+                    StreamSink<int> c1Local = Stream.CreateSink<int>();
+                    StreamSink<int> c2Local = Stream.CreateSink<int>();
+                    BehaviorSink<Stream<int>> sLocal = Behavior.CreateSink(c1Local.AsStream());
 
-                c1Local.Send(2);
-                c2Local.Send(12);
-                sLocal.Send(c2Local);
+                    c1Local.Send(2);
+                    c2Local.Send(12);
+                    sLocal.Send(c2Local);
 
-                Stream<int> cLocal = sLocal.SwitchS();
+                    Stream<int> cLocal = sLocal.SwitchS();
 
-                IListener lLocal = cLocal.ListenStrong(output.Add);
+                    IListener lLocal = cLocal.ListenStrong(output.Add);
 
-                return (c1Local, c2Local, sLocal, lLocal);
-            });
+                    return (c1Local, c2Local, sLocal, lLocal);
+                });
 
             c1.Send(3);
             c2.Send(13);
@@ -1248,7 +1469,7 @@ namespace SodaFlow.Tests
 
             l.Unlisten();
 
-            CollectionAssert.AreEqual(new[] { 2, 13, 14, 5 }, output);
+            CollectionAssert.AreEqual(expected: new[] { 2, 13, 14, 5 }, actual: output);
         }
 
         [Test]
@@ -1270,30 +1491,32 @@ namespace SodaFlow.Tests
             list1[2].Value.Send(12);
             list2[1].Value.Send(16);
             list1[4].Value.Send(14);
+
             Transaction.RunVoid(() =>
             {
                 list2[2].Value.Send(17);
                 list1[0].Value.Send(10);
                 v.Send(list2);
             });
+
             list1[3].Value.Send(13);
             list2[3].Value.Send(18);
 
             l2.Unlisten();
             l.Unlisten();
 
-            Assert.AreEqual(4, streamOutput.Count);
-            Assert.AreEqual(5, behaviorOutput.Count);
+            Assert.AreEqual(expected: 4, actual: streamOutput.Count);
+            Assert.AreEqual(expected: 5, actual: behaviorOutput.Count);
 
-            CollectionAssert.AreEqual(new[] { 0, 1, 2, 3, 4 }, behaviorOutput[0]);
-            CollectionAssert.AreEqual(new[] { 0, 1, 12, 3, 4 }, streamOutput[0]);
-            CollectionAssert.AreEqual(new[] { 0, 1, 12, 3, 4 }, behaviorOutput[1]);
-            CollectionAssert.AreEqual(new[] { 0, 1, 12, 3, 14 }, streamOutput[1]);
-            CollectionAssert.AreEqual(new[] { 0, 1, 12, 3, 14 }, behaviorOutput[2]);
-            CollectionAssert.AreEqual(new[] { 5, 16, 17, 8, 9 }, streamOutput[2]);
-            CollectionAssert.AreEqual(new[] { 5, 16, 17, 8, 9 }, behaviorOutput[3]);
-            CollectionAssert.AreEqual(new[] { 5, 16, 17, 18, 9 }, streamOutput[3]);
-            CollectionAssert.AreEqual(new[] { 5, 16, 17, 18, 9 }, behaviorOutput[4]);
+            CollectionAssert.AreEqual(expected: new[] { 0, 1, 2, 3, 4 }, actual: behaviorOutput[0]);
+            CollectionAssert.AreEqual(expected: new[] { 0, 1, 12, 3, 4 }, actual: streamOutput[0]);
+            CollectionAssert.AreEqual(expected: new[] { 0, 1, 12, 3, 4 }, actual: behaviorOutput[1]);
+            CollectionAssert.AreEqual(expected: new[] { 0, 1, 12, 3, 14 }, actual: streamOutput[1]);
+            CollectionAssert.AreEqual(expected: new[] { 0, 1, 12, 3, 14 }, actual: behaviorOutput[2]);
+            CollectionAssert.AreEqual(expected: new[] { 5, 16, 17, 8, 9 }, actual: streamOutput[2]);
+            CollectionAssert.AreEqual(expected: new[] { 5, 16, 17, 8, 9 }, actual: behaviorOutput[3]);
+            CollectionAssert.AreEqual(expected: new[] { 5, 16, 17, 18, 9 }, actual: streamOutput[3]);
+            CollectionAssert.AreEqual(expected: new[] { 5, 16, 17, 18, 9 }, actual: behaviorOutput[4]);
         }
 
         [Test]
@@ -1315,38 +1538,37 @@ namespace SodaFlow.Tests
             list1[2].Value.Send(12);
             list2[1].Value.Send(16);
             list1[4].Value.Send(14);
+
             Transaction.RunVoid(() =>
             {
                 list2[2].Value.Send(17);
                 list1[0].Value.Send(10);
                 v.Send(list2);
             });
+
             list1[3].Value.Send(13);
             list2[3].Value.Send(18);
 
             l2.Unlisten();
             l.Unlisten();
 
-            Assert.AreEqual(4, streamOutput.Count);
-            Assert.AreEqual(5, behaviorOutput.Count);
+            Assert.AreEqual(expected: 4, actual: streamOutput.Count);
+            Assert.AreEqual(expected: 5, actual: behaviorOutput.Count);
 
-            CollectionAssert.AreEqual(new[] { 0, 1, 2, 3, 4 }, behaviorOutput[0]);
-            CollectionAssert.AreEqual(new[] { 0, 1, 12, 3, 4 }, streamOutput[0]);
-            CollectionAssert.AreEqual(new[] { 0, 1, 12, 3, 4 }, behaviorOutput[1]);
-            CollectionAssert.AreEqual(new[] { 0, 1, 12, 3, 14 }, streamOutput[1]);
-            CollectionAssert.AreEqual(new[] { 0, 1, 12, 3, 14 }, behaviorOutput[2]);
-            CollectionAssert.AreEqual(new[] { 5, 16, 17, 8, 9 }, streamOutput[2]);
-            CollectionAssert.AreEqual(new[] { 5, 16, 17, 8, 9 }, behaviorOutput[3]);
-            CollectionAssert.AreEqual(new[] { 5, 16, 17, 18, 9 }, streamOutput[3]);
-            CollectionAssert.AreEqual(new[] { 5, 16, 17, 18, 9 }, behaviorOutput[4]);
+            CollectionAssert.AreEqual(expected: new[] { 0, 1, 2, 3, 4 }, actual: behaviorOutput[0]);
+            CollectionAssert.AreEqual(expected: new[] { 0, 1, 12, 3, 4 }, actual: streamOutput[0]);
+            CollectionAssert.AreEqual(expected: new[] { 0, 1, 12, 3, 4 }, actual: behaviorOutput[1]);
+            CollectionAssert.AreEqual(expected: new[] { 0, 1, 12, 3, 14 }, actual: streamOutput[1]);
+            CollectionAssert.AreEqual(expected: new[] { 0, 1, 12, 3, 14 }, actual: behaviorOutput[2]);
+            CollectionAssert.AreEqual(expected: new[] { 5, 16, 17, 8, 9 }, actual: streamOutput[2]);
+            CollectionAssert.AreEqual(expected: new[] { 5, 16, 17, 8, 9 }, actual: behaviorOutput[3]);
+            CollectionAssert.AreEqual(expected: new[] { 5, 16, 17, 18, 9 }, actual: streamOutput[3]);
+            CollectionAssert.AreEqual(expected: new[] { 5, 16, 17, 18, 9 }, actual: behaviorOutput[4]);
         }
 
         public class Test
         {
-            public Test(int initialValue)
-            {
-                this.Value = Behavior.CreateSink(initialValue);
-            }
+            public Test(int initialValue) => this.Value = Behavior.CreateSink(initialValue);
 
             public BehaviorSink<int> Value { get; }
         }

@@ -8,11 +8,13 @@ namespace SodaFlow
             new Cell<T>(StreamInternal.NeverImpl<T>().HoldInternal(value));
 
         internal static Cell<T> ConstantLazyImpl<T>(Lazy<T> value) =>
-            TransactionInternal.Apply((trans, _) => new Cell<T>(StreamInternal.NeverImpl<T>().HoldLazyInternal(trans, value)));
+            TransactionInternal.Apply((trans, _) =>
+                new Cell<T>(StreamInternal.NeverImpl<T>().HoldLazyInternal(trans: trans, initialValue: value)));
 
         internal static CellSink<T> CreateSinkImpl<T>(T initialValue) => new CellSink<T>(initialValue);
 
-        internal static CellSink<T> CreateSinkImpl<T>(T initialValue, Func<T, T, T> coalesce) => new CellSink<T>(initialValue, coalesce);
+        internal static CellSink<T> CreateSinkImpl<T>(T initialValue, Func<T, T, T> coalesce) =>
+            new CellSink<T>(initialValue: initialValue, coalesce: coalesce);
 
         internal static CellStreamSink<T> CreateStreamSinkImpl<T>() => new CellStreamSink<T>();
 
@@ -43,15 +45,12 @@ namespace SodaFlow
 
         internal Cell(Behavior<T> behavior) => this.BehaviorImpl = behavior;
 
-        internal T SampleImpl() => this.BehaviorImpl.SampleImpl();
-
-        internal Lazy<T> SampleLazyImpl() => this.BehaviorImpl.SampleLazyImpl();
-
         internal Stream<T> UpdatesImpl
         {
             get
             {
                 Stream<T> existing = this.updates;
+
                 if (existing != null)
                 {
                     return existing;
@@ -60,9 +59,9 @@ namespace SodaFlow
                 // Creating it inside the transaction is what makes the check-and-set safe without a
                 // lock of its own: transactions are serialized process-wide, so only one thread can
                 // be in here at a time. See the remarks on SodaFlow.Transaction.
-                return TransactionInternal.Apply(
-                    (trans, _) => this.updates ??
-                        (this.updates = this.BehaviorImpl.Updates().Coalesce(trans, (left, right) => right)));
+                return TransactionInternal.Apply((trans, _) =>
+                    this.updates ??
+                    (this.updates = this.BehaviorImpl.Updates().Coalesce(trans1: trans, f: (left, right) => right)));
             }
         }
 
@@ -70,30 +69,34 @@ namespace SodaFlow
 
         internal Behavior<T> BehaviorImpl { get; }
 
-        internal IStrongListener ListenStrongImpl(Action<T> handler) => TransactionInternal.Apply(
-            (trans, _) => this.BehaviorImpl.Value(trans).ListenStrongImpl(handler));
+        internal T SampleImpl() => this.BehaviorImpl.SampleImpl();
 
-        internal IWeakListener ListenImpl(Action<T> handler) => TransactionInternal.Apply(
-            (trans, _) => this.BehaviorImpl.Value(trans).ListenImpl(handler));
+        internal Lazy<T> SampleLazyImpl() => this.BehaviorImpl.SampleLazyImpl();
 
-        internal Cell<TResult> MapImpl<TResult>(Func<T, TResult> f) =>
-            new Cell<TResult>(this.BehaviorImpl.MapImpl(f));
+        internal IStrongListener ListenStrongImpl(Action<T> handler) =>
+            TransactionInternal.Apply((trans, _) => this.BehaviorImpl.Value(trans).ListenStrongImpl(handler));
+
+        internal IWeakListener ListenImpl(Action<T> handler) =>
+            TransactionInternal.Apply((trans, _) => this.BehaviorImpl.Value(trans).ListenImpl(handler));
+
+        internal Cell<TResult> MapImpl<TResult>(Func<T, TResult> f) => new Cell<TResult>(this.BehaviorImpl.MapImpl(f));
 
         internal Cell<TResult> LiftImpl<T2, TResult>(Cell<T2> b2, Func<T, T2, TResult> f) =>
-            new Cell<TResult>(this.BehaviorImpl.LiftImpl(b2.BehaviorImpl, f));
+            new Cell<TResult>(this.BehaviorImpl.LiftImpl(b2: b2.BehaviorImpl, f: f));
 
         internal Cell<TResult> LiftImpl<T2, T3, TResult>(
             Cell<T2> b2,
             Cell<T3> b3,
             Func<T, T2, T3, TResult> f) =>
-            new Cell<TResult>(this.BehaviorImpl.LiftImpl(b2.BehaviorImpl, b3.BehaviorImpl, f));
+            new Cell<TResult>(this.BehaviorImpl.LiftImpl(b2: b2.BehaviorImpl, b3: b3.BehaviorImpl, f: f));
 
         internal Cell<TResult> LiftImpl<T2, T3, T4, TResult>(
             Cell<T2> b2,
             Cell<T3> b3,
             Cell<T4> b4,
             Func<T, T2, T3, T4, TResult> f) =>
-            new Cell<TResult>(this.BehaviorImpl.LiftImpl(b2.BehaviorImpl, b3.BehaviorImpl, b4.BehaviorImpl, f));
+            new Cell<TResult>(
+                this.BehaviorImpl.LiftImpl(b2: b2.BehaviorImpl, b3: b3.BehaviorImpl, b4: b4.BehaviorImpl, f: f));
 
         internal Cell<TResult> LiftImpl<T2, T3, T4, T5, TResult>(
             Cell<T2> b2,
@@ -101,7 +104,13 @@ namespace SodaFlow
             Cell<T4> b4,
             Cell<T5> b5,
             Func<T, T2, T3, T4, T5, TResult> f) =>
-            new Cell<TResult>(this.BehaviorImpl.LiftImpl(b2.BehaviorImpl, b3.BehaviorImpl, b4.BehaviorImpl, b5.BehaviorImpl, f));
+            new Cell<TResult>(
+                this.BehaviorImpl.LiftImpl(
+                    b2: b2.BehaviorImpl,
+                    b3: b3.BehaviorImpl,
+                    b4: b4.BehaviorImpl,
+                    b5: b5.BehaviorImpl,
+                    f: f));
 
         internal Cell<TResult> LiftImpl<T2, T3, T4, T5, T6, TResult>(
             Cell<T2> b2,
@@ -110,7 +119,14 @@ namespace SodaFlow
             Cell<T5> b5,
             Cell<T6> b6,
             Func<T, T2, T3, T4, T5, T6, TResult> f) =>
-            new Cell<TResult>(this.BehaviorImpl.LiftImpl(b2.BehaviorImpl, b3.BehaviorImpl, b4.BehaviorImpl, b5.BehaviorImpl, b6.BehaviorImpl, f));
+            new Cell<TResult>(
+                this.BehaviorImpl.LiftImpl(
+                    b2: b2.BehaviorImpl,
+                    b3: b3.BehaviorImpl,
+                    b4: b4.BehaviorImpl,
+                    b5: b5.BehaviorImpl,
+                    b6: b6.BehaviorImpl,
+                    f: f));
 
         internal Cell<TResult> ApplyImpl<TResult>(Cell<Func<T, TResult>> bf) =>
             new Cell<TResult>(this.BehaviorImpl.ApplyImpl(bf.BehaviorImpl));
@@ -119,7 +135,7 @@ namespace SodaFlow
         {
             Lazy<T> initA = this.BehaviorImpl.SampleLazyImpl();
             Lazy<MaybeInternal<T>> mInitA = initA.MapImpl(MaybeInternal.Some);
-            return this.UpdatesImpl.Calm(mInitA, areEqual).HoldLazyImpl(initA);
+            return this.UpdatesImpl.Calm(init: mInitA, areEqual: areEqual).HoldLazyImpl(initA);
         }
     }
 }

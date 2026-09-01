@@ -22,7 +22,8 @@ open System.Runtime.CompilerServices
 ///     initial value as a firing too.
 /// </remarks>
 [<MethodImpl(MethodImplOptions.NoInlining)>]
-let updates behavior = OperationalInternal.UpdatesImpl behavior
+let updates behavior =
+    OperationalInternal.UpdatesImpl behavior
 
 /// <summary>
 ///     Gets a stream firing the behavior's current value at once, and its new value on every change.
@@ -50,7 +51,7 @@ let value behavior = OperationalInternal.ValueImpl behavior
 ///     in, in the order the collection yields them.
 /// </remarks>
 [<MethodImpl(MethodImplOptions.NoInlining)>]
-let split (stream : Stream<#seq<_>>) = OperationalInternal.SplitImpl stream
+let split (stream: Stream<#seq<_>>) = OperationalInternal.SplitImpl stream
 
 /// <summary>
 ///     Gets a stream which re-fires each value in a later transaction.

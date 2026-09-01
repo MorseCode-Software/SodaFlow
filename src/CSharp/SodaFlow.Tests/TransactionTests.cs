@@ -14,21 +14,24 @@ namespace SodaFlow.Tests
         public void RunConstruct()
         {
             List<int> @out = new List<int>();
-            (StreamSink<int> s, IListener l) = Transaction.Run(() =>
-            {
-                StreamSink<int> sink = Stream.CreateSink<int>();
-                sink.Send(4);
-                Stream<int> sLocal = sink.Map(v => v * 2);
-                IListener lLocal = sLocal.ListenStrong(@out.Add);
-                return (sink, lLocal);
-            });
+
+            (StreamSink<int> s, IListener l) =
+                Transaction.Run(() =>
+                {
+                    StreamSink<int> sink = Stream.CreateSink<int>();
+                    sink.Send(4);
+                    Stream<int> sLocal = sink.Map(v => v * 2);
+                    IListener lLocal = sLocal.ListenStrong(@out.Add);
+                    return (sink, lLocal);
+                });
+
             s.Send(5);
             s.Send(6);
             s.Send(7);
             l.Unlisten();
             s.Send(8);
 
-            CollectionAssert.AreEqual(new[] { 8, 10, 12, 14 }, @out);
+            CollectionAssert.AreEqual(expected: new[] { 8, 10, 12, 14 }, actual: @out);
         }
 
         [Test]
@@ -37,15 +40,19 @@ namespace SodaFlow.Tests
         {
             List<int> @out = new List<int>();
             StreamSink<int> sink = Stream.CreateSink<int>();
-            Task<IListener> t = Task.Run(() => Transaction.Run(() =>
-            {
-                Thread.Sleep(500);
-                sink.Send(4);
-                Stream<int> s = sink.Map(v => v * 2);
-                IListener l2 = s.ListenStrong(@out.Add);
-                Thread.Sleep(500);
-                return l2;
-            }));
+
+            Task<IListener> t =
+                Task.Run(() =>
+                    Transaction.Run(() =>
+                    {
+                        Thread.Sleep(500);
+                        sink.Send(4);
+                        Stream<int> s = sink.Map(v => v * 2);
+                        IListener l2 = s.ListenStrong(@out.Add);
+                        Thread.Sleep(500);
+                        return l2;
+                    }));
+
             await Task.Delay(250);
             sink.Send(5);
             await Task.Delay(500);
@@ -55,7 +62,7 @@ namespace SodaFlow.Tests
             l.Unlisten();
             sink.Send(8);
 
-            CollectionAssert.AreEqual(new[] { 8, 12, 14 }, @out);
+            CollectionAssert.AreEqual(expected: new[] { 8, 12, 14 }, actual: @out);
         }
 
         [Test]
@@ -64,15 +71,19 @@ namespace SodaFlow.Tests
         {
             List<int> @out = new List<int>();
             StreamSink<int> sink = Stream.CreateSink<int>();
-            Task<IListener> t = Task.Run(() => Transaction.Run(() =>
-            {
-                Thread.Sleep(500);
-                sink.Send(4);
-                Stream<int> s = Transaction.Run(() => sink.Map(v => v * 2));
-                IListener l2 = s.ListenStrong(@out.Add);
-                Thread.Sleep(500);
-                return l2;
-            }));
+
+            Task<IListener> t =
+                Task.Run(() =>
+                    Transaction.Run(() =>
+                    {
+                        Thread.Sleep(500);
+                        sink.Send(4);
+                        Stream<int> s = Transaction.Run(() => sink.Map(v => v * 2));
+                        IListener l2 = s.ListenStrong(@out.Add);
+                        Thread.Sleep(500);
+                        return l2;
+                    }));
+
             await Task.Delay(250);
             sink.Send(5);
             await Task.Delay(500);
@@ -82,96 +93,108 @@ namespace SodaFlow.Tests
             l.Unlisten();
             sink.Send(8);
 
-            CollectionAssert.AreEqual(new[] { 8, 12, 14 }, @out);
+            CollectionAssert.AreEqual(expected: new[] { 8, 12, 14 }, actual: @out);
         }
 
         [Test]
         public void Post()
         {
-            Cell<int> cell = Transaction.Run(() =>
-            {
-                StreamSink<int> s = Stream.CreateSink<int>();
-                s.Send(2);
-                return s.Hold(1);
-            });
+            Cell<int> cell =
+                Transaction.Run(() =>
+                {
+                    StreamSink<int> s = Stream.CreateSink<int>();
+                    s.Send(2);
+                    return s.Hold(1);
+                });
+
             int value = 0;
             Transaction.Post(() => value = cell.Sample());
 
-            Assert.AreEqual(2, value);
+            Assert.AreEqual(expected: 2, actual: value);
         }
 
         [Test]
         public void NestedPost()
         {
-            Cell<int> cell = Transaction.Run(() =>
-            {
-                StreamSink<int> s = Stream.CreateSink<int>();
-                s.Send(2);
-                Transaction.Post(() =>
+            Cell<int> cell =
+                Transaction.Run(() =>
                 {
-                    s.Send(3);
-                    Transaction.Post(() => s.Send(5));
-                });
-                Transaction.Post(() => s.Send(4));
-                return s.Hold(1);
-            });
+                    StreamSink<int> s = Stream.CreateSink<int>();
+                    s.Send(2);
 
-            Assert.AreEqual(5, cell.Sample());
+                    Transaction.Post(() =>
+                    {
+                        s.Send(3);
+                        Transaction.Post(() => s.Send(5));
+                    });
+
+                    Transaction.Post(() => s.Send(4));
+                    return s.Hold(1);
+                });
+
+            Assert.AreEqual(expected: 5, actual: cell.Sample());
         }
 
         [Test]
         public void PostInTransaction()
         {
             int value = 0;
+
             Transaction.RunVoid(() =>
             {
                 StreamSink<int> s = Stream.CreateSink<int>();
                 s.Send(2);
                 Cell<int> c = s.Hold(1);
                 Transaction.Post(() => value = c.Sample());
-                Assert.AreEqual(0, value);
+                Assert.AreEqual(expected: 0, actual: value);
             });
 
-            Assert.AreEqual(2, value);
+            Assert.AreEqual(expected: 2, actual: value);
         }
 
         [Test]
         public void PostInNestedTransaction()
         {
             int value = 0;
+
             Transaction.RunVoid(() =>
             {
                 StreamSink<int> s = Stream.CreateSink<int>();
                 s.Send(2);
+
                 Transaction.RunVoid(() =>
                 {
                     Cell<int> c = s.Hold(1);
                     Transaction.Post(() => value = c.Sample());
                 });
-                Assert.AreEqual(0, value);
+
+                Assert.AreEqual(expected: 0, actual: value);
             });
 
-            Assert.AreEqual(2, value);
+            Assert.AreEqual(expected: 2, actual: value);
         }
 
         [Test]
         public void PostInNestedTransaction2()
         {
             int value = 0;
+
             Transaction.RunVoid(() =>
             {
                 StreamSink<int> s = Stream.CreateSink<int>();
                 s.Send(2);
+
                 Transaction.Run(() =>
                 {
                     Cell<int> c = s.Hold(1);
                     Transaction.Post(() => value = c.Sample());
                     return Unit.Value;
                 });
-                Assert.AreEqual(0, value);
+
+                Assert.AreEqual(expected: 0, actual: value);
             });
 
-            Assert.AreEqual(2, value);
+            Assert.AreEqual(expected: 2, actual: value);
         }
 
         [Test]
@@ -179,17 +202,18 @@ namespace SodaFlow.Tests
         public void PostInConstructTransaction()
         {
             int value = 0;
+
             Transaction.Run(() =>
             {
                 StreamSink<int> s = Stream.CreateSink<int>();
                 s.Send(2);
                 Cell<int> c = s.Hold(1);
                 Transaction.Post(() => value = c.Sample());
-                Assert.AreEqual(0, value);
+                Assert.AreEqual(expected: 0, actual: value);
                 return Unit.Value;
             });
 
-            Assert.AreEqual(2, value);
+            Assert.AreEqual(expected: 2, actual: value);
         }
 
         [Test]
@@ -197,20 +221,23 @@ namespace SodaFlow.Tests
         public void PostInNestedConstructTransaction()
         {
             int value = 0;
+
             Transaction.Run(() =>
             {
                 StreamSink<int> s = Stream.CreateSink<int>();
                 s.Send(2);
+
                 Transaction.RunVoid(() =>
                 {
                     Cell<int> c = s.Hold(1);
                     Transaction.Post(() => value = c.Sample());
                 });
-                Assert.AreEqual(0, value);
+
+                Assert.AreEqual(expected: 0, actual: value);
                 return Unit.Value;
             });
 
-            Assert.AreEqual(2, value);
+            Assert.AreEqual(expected: 2, actual: value);
         }
 
         [Test]
@@ -218,21 +245,24 @@ namespace SodaFlow.Tests
         public void PostInNestedConstructTransaction2()
         {
             int value = 0;
+
             Transaction.Run(() =>
             {
                 StreamSink<int> s = Stream.CreateSink<int>();
                 s.Send(2);
+
                 Transaction.Run(() =>
                 {
                     Cell<int> c = s.Hold(1);
                     Transaction.Post(() => value = c.Sample());
                     return Unit.Value;
                 });
-                Assert.AreEqual(0, value);
+
+                Assert.AreEqual(expected: 0, actual: value);
                 return Unit.Value;
             });
 
-            Assert.AreEqual(2, value);
+            Assert.AreEqual(expected: 2, actual: value);
         }
 
         [Test]
@@ -259,17 +289,20 @@ namespace SodaFlow.Tests
             bool? threadIsActive3 = null;
             bool? threadIsActive4 = null;
             bool? threadIsActive5 = null;
+
             new Thread(() =>
             {
                 threadIsActive1 = Transaction.IsActive();
                 Thread.Sleep(500);
                 threadIsActive2 = Transaction.IsActive();
+
                 Transaction.RunVoid(() =>
                 {
                     threadIsActive3 = Transaction.IsActive();
                     Thread.Sleep(500);
                     threadIsActive4 = Transaction.IsActive();
                 });
+
                 threadIsActive5 = Transaction.IsActive();
             }).Start();
 
@@ -296,9 +329,13 @@ namespace SodaFlow.Tests
         {
             int startHooksCount = 0;
             Transaction.OnStart(() => startHooksCount++);
-            Transaction.RunVoid(() => Transaction.RunVoid(() => { }));
 
-            Assert.That(startHooksCount, Is.EqualTo(1));
+            Transaction.RunVoid(() =>
+                Transaction.RunVoid(() =>
+                {
+                }));
+
+            Assert.That(actual: startHooksCount, expression: Is.EqualTo(1));
         }
 
         [Test]
@@ -309,7 +346,7 @@ namespace SodaFlow.Tests
             Transaction.OnStart(() => startHooksCount++);
             Transaction.RunVoid(() => Transaction.RunVoid(() => cell.Sample()));
 
-            Assert.That(startHooksCount, Is.EqualTo(1));
+            Assert.That(actual: startHooksCount, expression: Is.EqualTo(1));
         }
     }
 }

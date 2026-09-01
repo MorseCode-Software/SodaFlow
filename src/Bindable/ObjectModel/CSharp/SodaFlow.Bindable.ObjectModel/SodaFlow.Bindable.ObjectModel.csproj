@@ -24,27 +24,27 @@
     </PropertyGroup>
 
     <ItemGroup>
-        <PackageReference Include="JetBrains.Annotations" Version="2026.2.0" />
+        <PackageReference Include="JetBrains.Annotations" Version="2026.2.0"/>
         <PackageReference Include="System.ValueTuple" Version="4.4.0"/>
     </ItemGroup>
 
     <ItemGroup>
-      <Compile Include="BindableAction.cs" />
-      <Compile Include="BindableExtensionMethods.cs" />
-      <Compile Include="BindableFactory.cs" />
-      <Compile Include="Interfaces.cs" />
+        <Compile Include="BindableAction.cs"/>
+        <Compile Include="BindableExtensionMethods.cs"/>
+        <Compile Include="BindableFactory.cs"/>
+        <Compile Include="Interfaces.cs"/>
     </ItemGroup>
 
     <ItemGroup>
-      <ProjectReference Include="..\..\SodaFlow.Core.Bindable.ObjectModel\SodaFlow.Core.Bindable.ObjectModel.csproj" />
-      <!--
-          SodaFlow itself, so installing this package brings the C# API it extends. A bindable is
-          built from a Cell or a sink, and only SodaFlow's operations produce those, so a consumer
-          needs both; declaring it here means they get both from one install rather than
-          discovering the second the first time they try to build a graph.
-      -->
-      <ProjectReference Include="..\..\..\..\CSharp\SodaFlow\SodaFlow.csproj" />
-      <ProjectReference Include="..\..\..\..\CSharp\SodaFlow.Functional\SodaFlow.Functional.csproj" />
+        <ProjectReference Include="..\..\SodaFlow.Core.Bindable.ObjectModel\SodaFlow.Core.Bindable.ObjectModel.csproj"/>
+        <!--
+            SodaFlow itself, so installing this package brings the C# API it extends. A bindable is
+            built from a Cell or a sink, and only SodaFlow's operations produce those, so a consumer
+            needs both; declaring it here means they get both from one install rather than
+            discovering the second the first time they try to build a graph.
+        -->
+        <ProjectReference Include="..\..\..\..\CSharp\SodaFlow\SodaFlow.csproj"/>
+        <ProjectReference Include="..\..\..\..\CSharp\SodaFlow.Functional\SodaFlow.Functional.csproj"/>
     </ItemGroup>
 
 </Project>

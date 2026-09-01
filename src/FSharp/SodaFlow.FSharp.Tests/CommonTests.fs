@@ -9,13 +9,13 @@ type ``Common Tests``() =
 
     [<Test>]
     member __.``Test Base Send 1``() =
-         let s = sinkS ()
-         let out = List<_>()
-         let l = s |> listenStrongS out.Add
-         s |> sendS "a"
-         s |> sendS "b"
-         l |> unlistenL
-         CollectionAssert.AreEqual (["a";"b"], out)
+        let s = sinkS ()
+        let out = List<_>()
+        let l = s |> listenStrongS out.Add
+        s |> sendS "a"
+        s |> sendS "b"
+        l |> unlistenL
+        CollectionAssert.AreEqual([ "a"; "b" ], out)
 
     [<Test>]
     member __.``Test Operational Split``() =
@@ -23,9 +23,9 @@ type ``Common Tests``() =
         let b = a |> Operational.split
         let out = List<_>()
         let l = b |> listenStrongS out.Add
-        a |> sendS [|"a";"b"|]
+        a |> sendS [| "a"; "b" |]
         l |> unlistenL
-        CollectionAssert.AreEqual (["a";"b"], out)
+        CollectionAssert.AreEqual([ "a"; "b" ], out)
 
     [<Test>]
     member __.``Test Operational Defer 1``() =
@@ -35,12 +35,12 @@ type ``Common Tests``() =
         let l = b |> listenStrongS out.Add
         a |> sendS "a"
         l |> unlistenL
-        CollectionAssert.AreEqual (["a"], out)
+        CollectionAssert.AreEqual([ "a" ], out)
         let out = List<_>()
         let l = b |> listenStrongS out.Add
         a |> sendS "b"
         l |> unlistenL
-        CollectionAssert.AreEqual (["b"], out)
+        CollectionAssert.AreEqual([ "b" ], out)
 
     [<Test>]
     member __.``Test Operational Defer 2``() =
@@ -51,14 +51,16 @@ type ``Common Tests``() =
         let l = c |> listenStrongS out.Add
         a |> sendS "a"
         l |> unlistenL
-        CollectionAssert.AreEqual (["a"], out)
+        CollectionAssert.AreEqual([ "a" ], out)
         let out = List<_>()
         let l = c |> listenStrongS out.Add
+
         runT (fun () ->
             a |> sendS "b"
             b |> sendS "B")
+
         l |> unlistenL
-        CollectionAssert.AreEqual (["B";"b"], out)
+        CollectionAssert.AreEqual([ "B"; "b" ], out)
 
     [<Test>]
     member __.``Test Stream OrElse 1``() =
@@ -69,24 +71,26 @@ type ``Common Tests``() =
         let l = c |> listenStrongS out.Add
         a |> sendS 0
         l |> unlistenL
-        CollectionAssert.AreEqual ([0], out)
+        CollectionAssert.AreEqual([ 0 ], out)
         let out = List<_>()
         let l = c |> listenStrongS out.Add
         b |> sendS 10
         l |> unlistenL
-        CollectionAssert.AreEqual ([10], out)
+        CollectionAssert.AreEqual([ 10 ], out)
         let out = List<_>()
         let l = c |> listenStrongS out.Add
+
         runT (fun () ->
             a |> sendS 2
             b |> sendS 20)
+
         l |> unlistenL
-        CollectionAssert.AreEqual ([2], out)
+        CollectionAssert.AreEqual([ 2 ], out)
         let out = List<_>()
         let l = c |> listenStrongS out.Add
         b |> sendS 30
         l |> unlistenL
-        CollectionAssert.AreEqual ([30], out)
+        CollectionAssert.AreEqual([ 30 ], out)
 
     [<Test>]
     member __.``Test Operational Defer Simultaneous``() =
@@ -97,11 +101,13 @@ type ``Common Tests``() =
         let l = c |> listenStrongS out.Add
         a |> sendS "A"
         l |> unlistenL
-        CollectionAssert.AreEqual (["A"], out)
+        CollectionAssert.AreEqual([ "A" ], out)
         let out = List<_>()
         let l = c |> listenStrongS out.Add
+
         runT (fun () ->
             a |> sendS "b"
             b |> sendS "B")
+
         l |> unlistenL
-        CollectionAssert.AreEqual (["b"], out)
+        CollectionAssert.AreEqual([ "b" ], out)

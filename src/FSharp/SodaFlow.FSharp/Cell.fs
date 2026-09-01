@@ -57,12 +57,11 @@ let constantLazy value = CellInternal.ConstantLazyImpl value
 /// </remarks>
 [<MethodImpl(MethodImplOptions.NoInlining)>]
 let loop f =
-    TransactionInternal.Apply
-        (fun transaction _ ->
-            let l = LoopedCell ()
-            let struct (s, r) = f l
-            l.Loop (transaction, s)
-            struct (s, r))
+    TransactionInternal.Apply(fun transaction _ ->
+        let l = LoopedCell()
+        let struct (s, r) = f l
+        l.Loop(transaction, s)
+        struct (s, r))
 
 /// <summary>
 ///     Builds a self-referential cell where nothing but the cell itself is wanted back.
@@ -87,7 +86,7 @@ let loopWithNoCaptures f =
 ///     value read is never a half-updated one.
 /// </remarks>
 [<MethodImpl(MethodImplOptions.NoInlining)>]
-let sample (cell : Cell<_>) = cell.SampleImpl ()
+let sample (cell: Cell<_>) = cell.SampleImpl()
 
 /// <summary>
 ///     Gets a cell's value as of now, without forcing it yet.
@@ -100,7 +99,7 @@ let sample (cell : Cell<_>) = cell.SampleImpl ()
 ///     taken from already is.
 /// </remarks>
 [<MethodImpl(MethodImplOptions.NoInlining)>]
-let sampleLazy (cell : Cell<_>) = cell.SampleLazyImpl ()
+let sampleLazy (cell: Cell<_>) = cell.SampleLazyImpl()
 
 /// <summary>
 ///     Gets a stream firing the new value of a cell each time it changes.
@@ -112,7 +111,7 @@ let sampleLazy (cell : Cell<_>) = cell.SampleLazyImpl ()
 ///     get that initial value as a firing too.
 /// </remarks>
 [<MethodImpl(MethodImplOptions.NoInlining)>]
-let updates (cell : Cell<_>) = cell.UpdatesImpl
+let updates (cell: Cell<_>) = cell.UpdatesImpl
 
 /// <summary>
 ///     Gets a stream firing the cell's current value at once, and its new value on every change.
@@ -129,7 +128,7 @@ let updates (cell : Cell<_>) = cell.UpdatesImpl
 ///     reason to wrap graph construction in a transaction.
 /// </remarks>
 [<MethodImpl(MethodImplOptions.NoInlining)>]
-let values (cell : Cell<_>) = cell.ValuesImpl
+let values (cell: Cell<_>) = cell.ValuesImpl
 
 /// <summary>
 ///     Views a cell as a behavior.
@@ -141,7 +140,7 @@ let values (cell : Cell<_>) = cell.ValuesImpl
 ///     is for passing one to something written against <c>Behavior</c>.
 /// </remarks>
 [<MethodImpl(MethodImplOptions.NoInlining)>]
-let asBehavior (cell : Cell<_>) = cell.BehaviorImpl
+let asBehavior (cell: Cell<_>) = cell.BehaviorImpl
 
 /// <summary>
 ///     Listens for changes without keeping the cell alive.
@@ -158,7 +157,7 @@ let asBehavior (cell : Cell<_>) = cell.BehaviorImpl
 ///     Fires the current value immediately, in the transaction this is called in.
 /// </remarks>
 [<MethodImpl(MethodImplOptions.NoInlining)>]
-let listen handler (cell : Cell<_>) = cell.ListenImpl (Action<_> handler)
+let listen handler (cell: Cell<_>) = cell.ListenImpl(Action<_> handler)
 
 /// <summary>
 ///     Listens for changes, keeping the cell alive while the listener lives.
@@ -177,7 +176,8 @@ let listen handler (cell : Cell<_>) = cell.ListenImpl (Action<_> handler)
 ///     under the transaction lock, so it should return promptly.
 /// </remarks>
 [<MethodImpl(MethodImplOptions.NoInlining)>]
-let listenStrong handler (cell : Cell<_>) = cell.ListenStrongImpl (Action<_> handler)
+let listenStrong handler (cell: Cell<_>) =
+    cell.ListenStrongImpl(Action<_> handler)
 
 /// <summary>
 ///     Transforms a cell with a function.
@@ -190,7 +190,7 @@ let listenStrong handler (cell : Cell<_>) = cell.ListenStrongImpl (Action<_> han
 ///     that it must be pure, since it may be called more than once for one input.
 /// </remarks>
 [<MethodImpl(MethodImplOptions.NoInlining)>]
-let map f (cell : Cell<_>) = cell.MapImpl (Func<_,_> f)
+let map f (cell: Cell<_>) = cell.MapImpl(Func<_, _> f)
 
 /// <summary>
 ///     Applies a cell of functions to a cell of values.
@@ -206,7 +206,8 @@ let map f (cell : Cell<_>) = cell.MapImpl (Func<_,_> f)
 ///     its siblings first; this is for the cases they do not cover.
 /// </remarks>
 [<MethodImpl(MethodImplOptions.NoInlining)>]
-let apply f (cell : Cell<_>) = cell.ApplyImpl (f |> map (fun f -> Func<_,_> f))
+let apply f (cell: Cell<_>) =
+    cell.ApplyImpl(f |> map (fun f -> Func<_, _> f))
 
 /// <summary>
 ///     Combines two cells into one whose value is a function of all of theirs.
@@ -223,7 +224,7 @@ let apply f (cell : Cell<_>) = cell.ApplyImpl (f |> map (fun f -> Func<_,_> f))
 ///     once, with all of the new values, rather than once per input.
 /// </remarks>
 [<MethodImpl(MethodImplOptions.NoInlining)>]
-let lift2 f ((cell : Cell<_>), cell2) = cell.LiftImpl (cell2, Func<_,_,_> f)
+let lift2 f ((cell: Cell<_>), cell2) = cell.LiftImpl(cell2, Func<_, _, _> f)
 
 /// <summary>
 ///     Combines three cells into one whose value is a function of all of theirs.
@@ -241,7 +242,8 @@ let lift2 f ((cell : Cell<_>), cell2) = cell.LiftImpl (cell2, Func<_,_,_> f)
 ///     once, with all of the new values, rather than once per input.
 /// </remarks>
 [<MethodImpl(MethodImplOptions.NoInlining)>]
-let lift3 f ((cell : Cell<_>), cell2, cell3) = cell.LiftImpl (cell2, cell3, Func<_,_,_,_> f)
+let lift3 f ((cell: Cell<_>), cell2, cell3) =
+    cell.LiftImpl(cell2, cell3, Func<_, _, _, _> f)
 
 /// <summary>
 ///     Combines four cells into one whose value is a function of all of theirs.
@@ -260,7 +262,8 @@ let lift3 f ((cell : Cell<_>), cell2, cell3) = cell.LiftImpl (cell2, cell3, Func
 ///     once, with all of the new values, rather than once per input.
 /// </remarks>
 [<MethodImpl(MethodImplOptions.NoInlining)>]
-let lift4 f ((cell : Cell<_>), cell2, cell3, cell4) = cell.LiftImpl (cell2, cell3, cell4, Func<_,_,_,_,_> f)
+let lift4 f ((cell: Cell<_>), cell2, cell3, cell4) =
+    cell.LiftImpl(cell2, cell3, cell4, Func<_, _, _, _, _> f)
 
 /// <summary>
 ///     Combines five cells into one whose value is a function of all of theirs.
@@ -280,7 +283,8 @@ let lift4 f ((cell : Cell<_>), cell2, cell3, cell4) = cell.LiftImpl (cell2, cell
 ///     once, with all of the new values, rather than once per input.
 /// </remarks>
 [<MethodImpl(MethodImplOptions.NoInlining)>]
-let lift5 f ((cell : Cell<_>), cell2, cell3, cell4, cell5) = cell.LiftImpl (cell2, cell3, cell4, cell5, Func<_,_,_,_,_,_> f)
+let lift5 f ((cell: Cell<_>), cell2, cell3, cell4, cell5) =
+    cell.LiftImpl(cell2, cell3, cell4, cell5, Func<_, _, _, _, _, _> f)
 
 /// <summary>
 ///     Combines six cells into one whose value is a function of all of theirs.
@@ -301,7 +305,8 @@ let lift5 f ((cell : Cell<_>), cell2, cell3, cell4, cell5) = cell.LiftImpl (cell
 ///     once, with all of the new values, rather than once per input.
 /// </remarks>
 [<MethodImpl(MethodImplOptions.NoInlining)>]
-let lift6 f ((cell : Cell<_>), cell2, cell3, cell4, cell5, cell6) = cell.LiftImpl (cell2, cell3, cell4, cell5, cell6, Func<_,_,_,_,_,_,_> f)
+let lift6 f ((cell: Cell<_>), cell2, cell3, cell4, cell5, cell6) =
+    cell.LiftImpl(cell2, cell3, cell4, cell5, cell6, Func<_, _, _, _, _, _, _> f)
 
 /// <summary>
 ///     Combines seven cells into one whose value is a function of all of theirs.
@@ -323,7 +328,8 @@ let lift6 f ((cell : Cell<_>), cell2, cell3, cell4, cell5, cell6) = cell.LiftImp
 ///     once, with all of the new values, rather than once per input.
 /// </remarks>
 let lift7 f (cell, cell2, cell3, cell4, cell5, cell6, cell7) =
-    ((cell, cell2, cell3, cell4, cell5, cell6) |> lift6 tuple6S, cell7) |> lift2 (fun struct (a, b, c, d, e, f') g -> f a b c d e f' g)
+    ((cell, cell2, cell3, cell4, cell5, cell6) |> lift6 tuple6S, cell7)
+    |> lift2 (fun struct (a, b, c, d, e, f') g -> f a b c d e f' g)
 
 /// <summary>
 ///     Combines eight cells into one whose value is a function of all of theirs.
@@ -346,7 +352,8 @@ let lift7 f (cell, cell2, cell3, cell4, cell5, cell6, cell7) =
 ///     once, with all of the new values, rather than once per input.
 /// </remarks>
 let lift8 f (cell, cell2, cell3, cell4, cell5, cell6, cell7, cell8) =
-    ((cell, cell2, cell3, cell4, cell5, cell6) |> lift6 tuple6S, cell7, cell8) |> lift3 (fun struct (a, b, c, d, e, f') g h -> f a b c d e f' g h)
+    ((cell, cell2, cell3, cell4, cell5, cell6) |> lift6 tuple6S, cell7, cell8)
+    |> lift3 (fun struct (a, b, c, d, e, f') g h -> f a b c d e f' g h)
 
 /// <summary>
 ///     Suppresses updates whose value the given comparison considers equal to the last one that got
@@ -360,7 +367,7 @@ let lift8 f (cell, cell2, cell3, cell4, cell5, cell6, cell7, cell8) =
 ///     and the next comparison is made against the last value that got through.
 /// </remarks>
 [<MethodImpl(MethodImplOptions.NoInlining)>]
-let calmWithCompare compare (cell : Cell<_>) = cell.CalmImpl (Func<_,_,_> compare)
+let calmWithCompare compare (cell: Cell<_>) = cell.CalmImpl(Func<_, _, _> compare)
 
 /// <summary>
 ///     Suppresses updates whose value the given comparer considers equal to the last one that got
@@ -374,7 +381,8 @@ let calmWithCompare compare (cell : Cell<_>) = cell.CalmImpl (Func<_,_,_> compar
 ///     and the next comparison is made against the last value that got through.
 /// </remarks>
 [<MethodImpl(MethodImplOptions.NoInlining)>]
-let calmWithEqualityComparer (equalityComparer : IEqualityComparer<_>) (cell : Cell<_>) = cell.CalmImpl (Func<_,_,_> (fun x y -> equalityComparer.Equals (x, y)))
+let calmWithEqualityComparer (equalityComparer: IEqualityComparer<_>) (cell: Cell<_>) =
+    cell.CalmImpl(Func<_, _, _>(fun x y -> equalityComparer.Equals(x, y)))
 
 /// <summary>
 ///     Suppresses updates equal, by F#'s structural equality, to the last one that got through.
@@ -389,13 +397,15 @@ let calmWithEqualityComparer (equalityComparer : IEqualityComparer<_>) (cell : C
 ///     <c>calmWithCompare</c> instead.
 /// </remarks>
 [<MethodImpl(MethodImplOptions.NoInlining)>]
-let calm (cell : Cell<_>) = cell.CalmImpl (Func<_,_,_> (=))
+let calm (cell: Cell<_>) = cell.CalmImpl(Func<_, _, _> (=))
 
 [<MethodImpl(MethodImplOptions.NoInlining)>]
-let private liftAllCollection f (cells : IReadOnlyCollection<'Cell>) = CellExtensionMethodsInternal.LiftCellsImpl (cells, (Func<_,_> f))
+let private liftAllCollection f (cells: IReadOnlyCollection<'Cell>) =
+    CellExtensionMethodsInternal.LiftCellsImpl(cells, (Func<_, _> f))
 
 [<MethodImpl(MethodImplOptions.NoInlining)>]
-let private liftAllSeq f (cells : seq<'Cell>) = CellExtensionMethodsInternal.LiftCellsImpl (cells, (Func<_,_> f))
+let private liftAllSeq f (cells: seq<'Cell>) =
+    CellExtensionMethodsInternal.LiftCellsImpl(cells, (Func<_, _> f))
 
 /// <summary>
 ///     Combines any number of cells into one whose value is a function of all of theirs.
@@ -408,7 +418,7 @@ let private liftAllSeq f (cells : seq<'Cell>) = CellExtensionMethodsInternal.Lif
 ///     in the same way: however many of the inputs change in one transaction, the result updates
 ///     once.
 /// </remarks>
-let liftAll f (cells : seq<'Cell>) =
+let liftAll f (cells: seq<'Cell>) =
     match cells with
     | :? IReadOnlyCollection<'Cell> as cells -> liftAllCollection f cells
     | cells -> liftAllSeq f cells
@@ -419,7 +429,8 @@ let liftAll f (cells : seq<'Cell>) =
 /// <param name="cell">The cell holding a behavior.</param>
 /// <returns>A behavior whose value is the current value of the currently held behavior.</returns>
 [<MethodImpl(MethodImplOptions.NoInlining)>]
-let switchB cell = CellExtensionMethodsInternal.SwitchBImpl cell
+let switchB cell =
+    CellExtensionMethodsInternal.SwitchBImpl cell
 
 /// <summary>
 ///     Unwraps a cell of cells into a cell which follows whichever one is current.
@@ -431,7 +442,8 @@ let switchB cell = CellExtensionMethodsInternal.SwitchBImpl cell
 ///     being followed.
 /// </remarks>
 [<MethodImpl(MethodImplOptions.NoInlining)>]
-let switchC cell = CellExtensionMethodsInternal.SwitchCImpl cell
+let switchC cell =
+    CellExtensionMethodsInternal.SwitchCImpl cell
 
 /// <summary>
 ///     Unwraps a cell of streams into a stream which fires whatever the current one fires.
@@ -443,4 +455,5 @@ let switchC cell = CellExtensionMethodsInternal.SwitchCImpl cell
 ///     at the start of that transaction, not the newly selected one.
 /// </remarks>
 [<MethodImpl(MethodImplOptions.NoInlining)>]
-let switchS cell = CellExtensionMethodsInternal.SwitchSImpl cell
+let switchS cell =
+    CellExtensionMethodsInternal.SwitchSImpl cell

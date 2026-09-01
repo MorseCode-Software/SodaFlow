@@ -33,15 +33,18 @@ namespace SodaFlow.Tests.Memory
             StreamSink<int> s = Stream.CreateSink<int>();
             List<string> @out = new List<string>();
 
-            WeakReference mapped = CreateMappedStreamAndUnlisten(s, @out);
+            WeakReference mapped = CreateMappedStreamAndUnlisten(s: s, @out: @out);
 
-            CollectionAssert.AreEqual(new[] { "3" }, @out, "the mapped stream should have fired while it was listening");
+            CollectionAssert.AreEqual(
+                expected: new[] { "3" },
+                actual: @out,
+                message: "the mapped stream should have fired while it was listening");
 
             Collect();
 
             Assert.IsFalse(
-                mapped.IsAlive,
-                "nothing should still root a mapped stream after the caller drops it and unlistens");
+                condition: mapped.IsAlive,
+                message: "nothing should still root a mapped stream after the caller drops it and unlistens");
         }
 
         [Test]
@@ -50,22 +53,25 @@ namespace SodaFlow.Tests.Memory
             StreamSink<int> s = Stream.CreateSink<int>();
             List<string> @out = new List<string>();
 
-            Assert.AreEqual(0, s.Node.GetListenersCopy().Count, "a fresh sink has no listeners");
+            Assert.AreEqual(
+                expected: 0,
+                actual: s.Node.GetListenersCopy().Count,
+                message: "a fresh sink has no listeners");
 
-            WeakReference mapped = CreateMappedStreamAndUnlisten(s, @out);
+            WeakReference mapped = CreateMappedStreamAndUnlisten(s: s, @out: @out);
 
             Collect();
 
-            Assert.IsFalse(mapped.IsAlive, "the mapped stream should have been collected");
+            Assert.IsFalse(condition: mapped.IsAlive, message: "the mapped stream should have been collected");
 
             // Sending is what makes this deterministic: either the cleanup thread already unhooked
             // the node, or this send prunes the target whose weak reference has died.
             s.Send(2);
 
             Assert.AreEqual(
-                0,
-                s.Node.GetListenersCopy().Count,
-                "the source node should no longer be linked to a collected downstream stream");
+                expected: 0,
+                actual: s.Node.GetListenersCopy().Count,
+                message: "the source node should no longer be linked to a collected downstream stream");
         }
 
         [Test]
@@ -74,21 +80,24 @@ namespace SodaFlow.Tests.Memory
             const int depth = 10;
 
             StreamSink<int> s = Stream.CreateSink<int>();
-            WeakReference[] chain = CreateChainAndUnlisten(s, depth);
+            WeakReference[] chain = CreateChainAndUnlisten(s: s, depth: depth);
 
             Collect();
 
             for (int i = 0; i < chain.Length; i++)
             {
-                Assert.IsFalse(chain[i].IsAlive, "stream at depth {0} should have been collected", i);
+                Assert.IsFalse(
+                    condition: chain[i].IsAlive,
+                    message: "stream at depth {0} should have been collected",
+                    i);
             }
 
             s.Send(1);
 
             Assert.AreEqual(
-                0,
-                s.Node.GetListenersCopy().Count,
-                "the source node should be disconnected once the whole chain is gone");
+                expected: 0,
+                actual: s.Node.GetListenersCopy().Count,
+                message: "the source node should be disconnected once the whole chain is gone");
         }
 
         [Test]
@@ -97,18 +106,23 @@ namespace SodaFlow.Tests.Memory
             StreamSink<int> s = Stream.CreateSink<int>();
             List<int> @out = new List<int>();
 
-            WeakReference listener = CreateListenerAndDropTheReference(s, @out);
+            WeakReference listener = CreateListenerAndDropTheReference(s: s, @out: @out);
 
             Collect();
 
             // This is deliberate, not an oversight: ListenStrong roots the listener in the stream's
             // keep-alive set precisely so that a caller which ignores the return value still
             // receives values. Losing this would make listeners silently stop firing.
-            Assert.IsTrue(listener.IsAlive, "an active listener should stay alive even once the caller drops it");
+            Assert.IsTrue(
+                condition: listener.IsAlive,
+                message: "an active listener should stay alive even once the caller drops it");
 
             s.Send(5);
 
-            CollectionAssert.AreEqual(new[] { 5 }, @out, "a rooted listener should still be firing");
+            CollectionAssert.AreEqual(
+                expected: new[] { 5 },
+                actual: @out,
+                message: "a rooted listener should still be firing");
         }
 
         [Test]
@@ -117,15 +131,17 @@ namespace SodaFlow.Tests.Memory
             StreamSink<int> s = Stream.CreateSink<int>();
             List<int> @out = new List<int>();
 
-            WeakReference listener = CreateListenerAndUnlisten(s, @out);
+            WeakReference listener = CreateListenerAndUnlisten(s: s, @out: @out);
 
             Collect();
 
-            Assert.IsFalse(listener.IsAlive, "Unlisten should stop the listener being rooted by the stream");
+            Assert.IsFalse(
+                condition: listener.IsAlive,
+                message: "Unlisten should stop the listener being rooted by the stream");
 
             s.Send(5);
 
-            CollectionAssert.IsEmpty(@out, "an unlistened listener should not fire");
+            CollectionAssert.IsEmpty(collection: @out, message: "an unlistened listener should not fire");
         }
 
         [Test]
@@ -146,9 +162,9 @@ namespace SodaFlow.Tests.Memory
             int after = StreamListenerManager.RegistryCount;
 
             Assert.That(
-                after,
-                Is.LessThanOrEqualTo(before),
-                "the registry should be back to its previous size once the streams it tracked are collected");
+                actual: after,
+                expression: Is.LessThanOrEqualTo(before),
+                message: "the registry should be back to its previous size once the streams it tracked are collected");
         }
 
         // Each of these runs in its own non-inlined method so the locals are certainly out of scope
@@ -161,7 +177,12 @@ namespace SodaFlow.Tests.Memory
             {
                 StreamSink<int> s = Stream.CreateSink<int>();
                 Stream<int> mapped = s.Map(v => v + 1);
-                IListener listener = mapped.ListenStrong(_ => { });
+
+                IListener listener =
+                    mapped.ListenStrong(_ =>
+                    {
+                    });
+
                 listener.Unlisten();
             }
         }
@@ -181,13 +202,18 @@ namespace SodaFlow.Tests.Memory
         {
             List<WeakReference> chain = new List<WeakReference>();
             Stream<int> current = s;
+
             for (int i = 0; i < depth; i++)
             {
                 current = current.Map(v => v + 1);
                 chain.Add(new WeakReference(current));
             }
 
-            IListener listener = current.ListenStrong(_ => { });
+            IListener listener =
+                current.ListenStrong(_ =>
+                {
+                });
+
             listener.Unlisten();
             return chain.ToArray();
         }

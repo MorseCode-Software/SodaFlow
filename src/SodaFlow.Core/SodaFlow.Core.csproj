@@ -1,63 +1,63 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
-  <PropertyGroup>
-    <TargetFrameworks>net472;net60;netstandard2.0</TargetFrameworks>
-  </PropertyGroup>
+    <PropertyGroup>
+        <TargetFrameworks>net472;net60;netstandard2.0</TargetFrameworks>
+    </PropertyGroup>
 
-  <PropertyGroup>
-    <PackageId>SodaFlow.Core</PackageId>
-    <MinVerTagPrefix>sodaflow-core-</MinVerTagPrefix>
-    <Product>SodaFlow Core for .NET</Product>
-    <Title>SodaFlow Core for .NET</Title>
-    <Description>SodaFlow - Functional Reactive Programming (FRP) library for .NET core library.</Description>
-    <AssemblyName>SodaFlow.Core</AssemblyName>
-    <RootNamespace>SodaFlow</RootNamespace>
-    <EnableDefaultItems>false</EnableDefaultItems>
-    <!--
-        This package ships as SodaFlow.Core and had no documentation file at all. The types a
-        consumer actually holds through the C# and F# wrappers - Stream, Cell, Behavior,
-        Transaction and friends - are declared here, so without this both IntelliSense and the
-        generated API reference show them bare.
+    <PropertyGroup>
+        <PackageId>SodaFlow.Core</PackageId>
+        <MinVerTagPrefix>sodaflow-core-</MinVerTagPrefix>
+        <Product>SodaFlow Core for .NET</Product>
+        <Title>SodaFlow Core for .NET</Title>
+        <Description>SodaFlow - Functional Reactive Programming (FRP) library for .NET core library.</Description>
+        <AssemblyName>SodaFlow.Core</AssemblyName>
+        <RootNamespace>SodaFlow</RootNamespace>
+        <EnableDefaultItems>false</EnableDefaultItems>
+        <!--
+            This package ships as SodaFlow.Core and had no documentation file at all. The types a
+            consumer actually holds through the C# and F# wrappers - Stream, Cell, Behavior,
+            Transaction and friends - are declared here, so without this both IntelliSense and the
+            generated API reference show them bare.
+    
+            GenerateDocumentationFile rather than an explicit path: this project multi-targets, and one
+            hard-coded path would make all three target frameworks write over one another's XML.
+        -->
+        <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    </PropertyGroup>
 
-        GenerateDocumentationFile rather than an explicit path: this project multi-targets, and one
-        hard-coded path would make all three target frameworks write over one another's XML.
-    -->
-    <GenerateDocumentationFile>true</GenerateDocumentationFile>
-  </PropertyGroup>
+    <ItemGroup>
+        <PackageReference Include="System.ValueTuple" Version="4.4.0"/>
+    </ItemGroup>
 
-  <ItemGroup>
-    <PackageReference Include="System.ValueTuple" Version="4.4.0" />
-  </ItemGroup>
-
-  <ItemGroup>
-    <Compile Include="AssemblyInfo.cs" />
-    <Compile Include="Behavior.cs" />
-    <Compile Include="BehaviorExtensionMethods.cs" />
-    <Compile Include="BehaviorSink.cs" />
-    <Compile Include="Cell.cs" />
-    <Compile Include="CellExtensionMethods.cs" />
-    <Compile Include="CellSink.cs" />
-    <Compile Include="CellStreamSink.cs" />
-    <Compile Include="Cleanup.cs" />
-    <Compile Include="CoalesceHandler.cs" />
-    <Compile Include="EntryPriorityQueue.cs" />
-    <Compile Include="LazyBehavior.cs" />
-    <Compile Include="LazyExtensionMethods.cs" />
-    <Compile Include="Listener.cs" />
-    <Compile Include="LoopedBehavior.cs" />
-    <Compile Include="LoopedCell.cs" />
-    <Compile Include="LoopedStream.cs" />
-    <Compile Include="Maybe.cs" />
-    <Compile Include="MutableListener.cs" />
-    <Compile Include="Node.cs" />
-    <Compile Include="Operational.cs" />
-    <Compile Include="Stream.cs" />
-    <Compile Include="StreamExtensionMethods.cs" />
-    <Compile Include="StreamListenerManager.cs" />
-    <Compile Include="StreamSink.cs" />
-    <Compile Include="Transaction.cs" />
-    <Compile Include="Unit.cs" />
-    <Compile Include="Utilities.cs" />
-  </ItemGroup>
+    <ItemGroup>
+        <Compile Include="AssemblyInfo.cs"/>
+        <Compile Include="Behavior.cs"/>
+        <Compile Include="BehaviorExtensionMethods.cs"/>
+        <Compile Include="BehaviorSink.cs"/>
+        <Compile Include="Cell.cs"/>
+        <Compile Include="CellExtensionMethods.cs"/>
+        <Compile Include="CellSink.cs"/>
+        <Compile Include="CellStreamSink.cs"/>
+        <Compile Include="Cleanup.cs"/>
+        <Compile Include="CoalesceHandler.cs"/>
+        <Compile Include="EntryPriorityQueue.cs"/>
+        <Compile Include="LazyBehavior.cs"/>
+        <Compile Include="LazyExtensionMethods.cs"/>
+        <Compile Include="Listener.cs"/>
+        <Compile Include="LoopedBehavior.cs"/>
+        <Compile Include="LoopedCell.cs"/>
+        <Compile Include="LoopedStream.cs"/>
+        <Compile Include="Maybe.cs"/>
+        <Compile Include="MutableListener.cs"/>
+        <Compile Include="Node.cs"/>
+        <Compile Include="Operational.cs"/>
+        <Compile Include="Stream.cs"/>
+        <Compile Include="StreamExtensionMethods.cs"/>
+        <Compile Include="StreamListenerManager.cs"/>
+        <Compile Include="StreamSink.cs"/>
+        <Compile Include="Transaction.cs"/>
+        <Compile Include="Unit.cs"/>
+        <Compile Include="Utilities.cs"/>
+    </ItemGroup>
 
 </Project>

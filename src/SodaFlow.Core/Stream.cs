@@ -20,7 +20,12 @@ namespace SodaFlow
     /// <typeparam name="T">The type of values fired by the stream.</typeparam>
     public class Stream<T>
     {
+        internal readonly IKeepListenersAlive KeepListenersAlive;
         internal readonly Node<T> Node;
+
+        private readonly StreamListenerManager.StreamListeners trackedListeners;
+
+        private object attachListenerLock;
 
         // Everything below is allocated on first use. Streams are created in bulk - a single
         // two-cell Lift builds around twenty of them - and a stream that is only ever an
@@ -31,15 +36,10 @@ namespace SodaFlow
         // ReSharper disable once CollectionNeverQueried.Local
         private List<IListener> attachedListeners;
 
-        private readonly StreamListenerManager.StreamListeners trackedListeners;
-        private List<T> firings;
-
         // Cached alongside firings because a method group conversion allocates a fresh delegate
         // each time, and Send hands this to trans.Last on the first firing of every transaction.
         private Action clearFirings;
-        internal readonly IKeepListenersAlive KeepListenersAlive;
-
-        private object attachListenerLock;
+        private List<T> firings;
 
         internal Stream()
             : this(new KeepListenersAliveImplementation())
@@ -54,45 +54,6 @@ namespace SodaFlow
             // Last, so nothing half-built is reachable from the registry. The registry only ever
             // holds this stream through a weak handle, so registering here does not keep it alive.
             this.trackedListeners = new StreamListenerManager.StreamListeners(this);
-        }
-
-        internal IStrongListener ListenStrongImpl(Action<T> handler)
-        {
-            IWeakListener innerListener = this.ListenImpl(handler);
-            StrongListener listener = null;
-            listener = new StrongListener(
-                () =>
-                {
-                    innerListener.Unlisten();
-
-                    // ReSharper disable AccessToModifiedClosure
-                    if (listener != null)
-                    {
-                        lock (this.KeepListenersAlive)
-                        {
-                            this.KeepListenersAlive.StopKeepingListenerAlive(listener);
-                        }
-                    }
-                    // ReSharper restore AccessToModifiedClosure
-                },
-                innerListener);
-
-            lock (this.KeepListenersAlive)
-            {
-                this.KeepListenersAlive.KeepListenerAlive(listener);
-            }
-
-            return listener;
-        }
-
-        internal IWeakListener ListenImpl(Action<T> handler) => this.Listen(Node<T>.Null, (trans2, a) => handler(a));
-
-        internal Stream<T> AttachListenerImpl(IListener listener)
-        {
-            lock (this.AttachListenerLock)
-            {
-                return this.UnsafeAttachListener(listener);
-            }
         }
 
         // Created on demand like the rest, but via CompareExchange rather than a plain null check,
@@ -110,13 +71,60 @@ namespace SodaFlow
             get
             {
                 object existing = this.attachListenerLock;
+
                 if (existing != null)
                 {
                     return existing;
                 }
 
-                Interlocked.CompareExchange(ref this.attachListenerLock, new object(), null);
+                Interlocked.CompareExchange(
+                    location1: ref this.attachListenerLock,
+                    value: new object(),
+                    comparand: null);
+
                 return this.attachListenerLock;
+            }
+        }
+
+        internal IStrongListener ListenStrongImpl(Action<T> handler)
+        {
+            IWeakListener innerListener = this.ListenImpl(handler);
+            StrongListener listener = null;
+
+            listener =
+                new StrongListener(
+                    unlisten: () =>
+                    {
+                        innerListener.Unlisten();
+
+                        // ReSharper disable AccessToModifiedClosure
+                        if (listener != null)
+                        {
+                            lock (this.KeepListenersAlive)
+                            {
+                                this.KeepListenersAlive.StopKeepingListenerAlive(listener);
+                            }
+                        }
+                        // ReSharper restore AccessToModifiedClosure
+                    },
+                    listener: innerListener);
+
+            lock (this.KeepListenersAlive)
+            {
+                this.KeepListenersAlive.KeepListenerAlive(listener);
+            }
+
+            return listener;
+        }
+
+        internal IWeakListener ListenImpl(Action<T> handler) =>
+            this.Listen(target: Node<T>.Null, action: (trans2, a) => handler(a));
+
+        internal Stream<T> AttachListenerImpl(IListener listener)
+        {
+            lock (this.AttachListenerLock)
+            {
+                return this.UnsafeAttachListener(listener);
             }
         }
 
@@ -124,8 +132,9 @@ namespace SodaFlow
         {
             IStrongListener listener = null;
             bool unlistenEarly = false;
-            listener = this.ListenStrongImpl(
-                a =>
+
+            listener =
+                this.ListenStrongImpl(a =>
                 {
                     // ReSharper disable once AccessToModifiedClosure
                     if (listener == null)
@@ -141,16 +150,19 @@ namespace SodaFlow
 
                     handler(a);
                 });
+
             if (unlistenEarly)
             {
                 listener.Unlisten();
                 listener = null;
             }
+
             return listener;
         }
 
-        internal IWeakListener Listen(Node target, Action<TransactionInternal, T> action) => TransactionInternal.Apply(
-            (trans1, _) => this.Listen(target, trans1, action, false));
+        internal IWeakListener Listen(Node target, Action<TransactionInternal, T> action) =>
+            TransactionInternal.Apply((trans1, _) =>
+                this.Listen(target: target, trans: trans1, action: action, suppressEarlierFirings: false));
 
         internal IWeakListener Listen(
             Node target,
@@ -158,7 +170,7 @@ namespace SodaFlow
             Action<TransactionInternal, T> action,
             bool suppressEarlierFirings)
         {
-            Node<T>.Target nodeTarget = this.Node.Link(trans, action, target);
+            Node<T>.Target nodeTarget = this.Node.Link(trans: trans, action: action, target: target);
 
             // Only snapshot the firings when they are actually going to be replayed - the copy
             // used to be taken unconditionally, on every listenStrong, including the overwhelmingly
@@ -169,19 +181,20 @@ namespace SodaFlow
                 List<T> firings = this.firings.ToList();
 
                 trans.Prioritized(
-                    target,
-                    trans2 =>
+                    node: target,
+                    action: trans2 =>
                     {
                         // Anything sent already in this transaction must be sent now so that
                         // there's no order dependency between send and listenStrong.
                         foreach (T a in firings)
                         {
                             trans2.InCallback++;
+
                             try
                             {
                                 // Don't allow transactions to interfere with SodaFlow
                                 // internals.
-                                action(trans2, a);
+                                action(arg1: trans2, arg2: a);
                             }
                             finally
                             {
@@ -191,13 +204,13 @@ namespace SodaFlow
                     });
             }
 
-            return new ListenerImplementation(this, action, nodeTarget);
+            return new ListenerImplementation(stream: this, action: action, target: nodeTarget);
         }
 
         internal Stream<TResult> MapImpl<TResult>(Func<T, TResult> f)
         {
             Stream<TResult> @out = new Stream<TResult>(this.KeepListenersAlive);
-            IListener l = this.Listen(@out.Node, (trans2, a) => @out.Send(trans2, f(a)));
+            IListener l = this.Listen(target: @out.Node, action: (trans2, a) => @out.Send(trans: trans2, a: f(a)));
             return @out.UnsafeAttachListener(l);
         }
 
@@ -205,39 +218,55 @@ namespace SodaFlow
 
         internal Cell<T> HoldImpl(T initialValue) => new Cell<T>(this.HoldInternal(initialValue));
 
-        internal Behavior<T> HoldInternal(T initialValue) => new Behavior<T>(this, initialValue);
+        internal Behavior<T> HoldInternal(T initialValue) => new Behavior<T>(stream: this, initialValue: initialValue);
 
         internal Cell<T> HoldLazyImpl(Lazy<T> initialValue) =>
-            TransactionInternal.Apply((trans, _) => new Cell<T>(this.HoldLazyInternal(trans, initialValue)));
+            TransactionInternal.Apply((trans, _) =>
+                new Cell<T>(this.HoldLazyInternal(trans: trans, initialValue: initialValue)));
 
         internal Behavior<T> HoldLazyInternal(TransactionInternal trans, Lazy<T> initialValue) =>
-            new LazyBehavior<T>(trans, this, initialValue);
+            new LazyBehavior<T>(trans: trans, stream: this, lazyInitialValue: initialValue);
 
         internal Stream<TResult> SnapshotImpl<TResult>(Cell<TResult> c) => this.SnapshotImpl(c.BehaviorImpl);
 
-        internal Stream<TResult> SnapshotImpl<TResult>(Behavior<TResult> b) => this.SnapshotImpl(b, (_, a) => a);
+        internal Stream<TResult> SnapshotImpl<TResult>(Behavior<TResult> b) => this.SnapshotImpl(b: b, f: (_, a) => a);
 
         internal Stream<TResult> SnapshotImpl<T1, TResult>(Cell<T1> c, Func<T, T1, TResult> f) =>
-            this.SnapshotImpl(c.BehaviorImpl, f);
+            this.SnapshotImpl(b: c.BehaviorImpl, f: f);
 
         internal Stream<TResult> SnapshotImpl<T1, TResult>(Behavior<T1> b, Func<T, T1, TResult> f)
         {
             Stream<TResult> @out = new Stream<TResult>(this.KeepListenersAlive);
-            IListener l = this.Listen(@out.Node, (trans2, a) => @out.Send(trans2, f(a, b.SampleNoTransaction())));
+
+            IListener l =
+                this.Listen(
+                    target: @out.Node,
+                    action: (trans2, a) => @out.Send(trans: trans2, a: f(arg1: a, arg2: b.SampleNoTransaction())));
+
             return @out.UnsafeAttachListener(l);
         }
 
         internal Stream<TResult> SnapshotImpl<T1, T2, TResult>(
             Cell<T1> c1,
             Cell<T2> c2,
-            Func<T, T1, T2, TResult> f) => this.SnapshotImpl(c1.BehaviorImpl, c2.BehaviorImpl, f);
+            Func<T, T1, T2, TResult> f) =>
+            this.SnapshotImpl(b1: c1.BehaviorImpl, b2: c2.BehaviorImpl, f: f);
 
-        internal Stream<TResult> SnapshotImpl<T1, T2, TResult>(Behavior<T1> b1, Behavior<T2> b2, Func<T, T1, T2, TResult> f)
+        internal Stream<TResult> SnapshotImpl<T1, T2, TResult>(
+            Behavior<T1> b1,
+            Behavior<T2> b2,
+            Func<T, T1, T2, TResult> f)
         {
             Stream<TResult> @out = new Stream<TResult>(this.KeepListenersAlive);
-            IListener l = this.Listen(
-                @out.Node,
-                (trans2, a) => @out.Send(trans2, f(a, b1.SampleNoTransaction(), b2.SampleNoTransaction())));
+
+            IListener l =
+                this.Listen(
+                    target: @out.Node,
+                    action: (trans2, a) =>
+                        @out.Send(
+                            trans: trans2,
+                            a: f(arg1: a, arg2: b1.SampleNoTransaction(), arg3: b2.SampleNoTransaction())));
+
             return @out.UnsafeAttachListener(l);
         }
 
@@ -245,7 +274,8 @@ namespace SodaFlow
             Cell<T1> c1,
             Cell<T2> c2,
             Cell<T3> c3,
-            Func<T, T1, T2, T3, TResult> f) => this.SnapshotImpl(c1.BehaviorImpl, c2.BehaviorImpl, c3.BehaviorImpl, f);
+            Func<T, T1, T2, T3, TResult> f) =>
+            this.SnapshotImpl(b1: c1.BehaviorImpl, b2: c2.BehaviorImpl, b3: c3.BehaviorImpl, f: f);
 
         internal Stream<TResult> SnapshotImpl<T1, T2, T3, TResult>(
             Behavior<T1> b1,
@@ -254,11 +284,19 @@ namespace SodaFlow
             Func<T, T1, T2, T3, TResult> f)
         {
             Stream<TResult> @out = new Stream<TResult>(this.KeepListenersAlive);
-            IListener l = this.Listen(
-                @out.Node,
-                (trans2, a) => @out.Send(
-                    trans2,
-                    f(a, b1.SampleNoTransaction(), b2.SampleNoTransaction(), b3.SampleNoTransaction())));
+
+            IListener l =
+                this.Listen(
+                    target: @out.Node,
+                    action: (trans2, a) =>
+                        @out.Send(
+                            trans: trans2,
+                            a: f(
+                                arg1: a,
+                                arg2: b1.SampleNoTransaction(),
+                                arg3: b2.SampleNoTransaction(),
+                                arg4: b3.SampleNoTransaction())));
+
             return @out.UnsafeAttachListener(l);
         }
 
@@ -267,7 +305,8 @@ namespace SodaFlow
             Cell<T2> c2,
             Cell<T3> c3,
             Cell<T4> c4,
-            Func<T, T1, T2, T3, T4, TResult> f) => this.SnapshotImpl(c1.BehaviorImpl, c2.BehaviorImpl, c3.BehaviorImpl, c4.BehaviorImpl, f);
+            Func<T, T1, T2, T3, T4, TResult> f) =>
+            this.SnapshotImpl(b1: c1.BehaviorImpl, b2: c2.BehaviorImpl, b3: c3.BehaviorImpl, b4: c4.BehaviorImpl, f: f);
 
         internal Stream<TResult> SnapshotImpl<T1, T2, T3, T4, TResult>(
             Behavior<T1> b1,
@@ -277,46 +316,59 @@ namespace SodaFlow
             Func<T, T1, T2, T3, T4, TResult> f)
         {
             Stream<TResult> @out = new Stream<TResult>(this.KeepListenersAlive);
-            IListener l = this.Listen(
-                @out.Node,
-                (trans2, a) => @out.Send(
-                    trans2,
-                    f(
-                        a,
-                        b1.SampleNoTransaction(),
-                        b2.SampleNoTransaction(),
-                        b3.SampleNoTransaction(),
-                        b4.SampleNoTransaction())));
+
+            IListener l =
+                this.Listen(
+                    target: @out.Node,
+                    action: (trans2, a) =>
+                        @out.Send(
+                            trans: trans2,
+                            a: f(
+                                arg1: a,
+                                arg2: b1.SampleNoTransaction(),
+                                arg3: b2.SampleNoTransaction(),
+                                arg4: b3.SampleNoTransaction(),
+                                arg5: b4.SampleNoTransaction())));
+
             return @out.UnsafeAttachListener(l);
         }
 
-        internal Stream<T> OrElseImpl(Stream<T> s) => this.MergeImpl(s, (left, right) => left);
+        internal Stream<T> OrElseImpl(Stream<T> s) => this.MergeImpl(s: s, f: (left, right) => left);
 
         private Stream<T> Merge(TransactionInternal trans, Stream<T> s)
         {
             Stream<T> @out = new Stream<T>(this.KeepListenersAlive);
             Node<T> left = new Node<T>();
             Node<T> right = @out.Node;
-            Node<T>.Target nodeTarget = left.Link(trans, (t, v) => { }, right);
+
+            Node<T>.Target nodeTarget =
+                left.Link(
+                    trans: trans,
+                    action: (t, v) =>
+                    {
+                    },
+                    target: right);
 
             Action<TransactionInternal, T> h = @out.Send;
-            IListener l1 = this.Listen(left, h);
-            IListener l2 = s.Listen(right, h);
+            IListener l1 = this.Listen(target: left, action: h);
+            IListener l2 = s.Listen(target: right, action: h);
+
             return @out.UnsafeAttachListener(l1)
                 .UnsafeAttachListener(l2)
-                .UnsafeAttachListener(ListenerInternal.CreateFromNodeAndTarget(left, nodeTarget));
+                .UnsafeAttachListener(ListenerInternal.CreateFromNodeAndTarget(node: left, target: nodeTarget));
         }
 
-        internal Stream<T> MergeImpl(Stream<T> s, Func<T, T, T> f) => TransactionInternal.Apply((trans, _) => this.Merge(trans, s, f));
+        internal Stream<T> MergeImpl(Stream<T> s, Func<T, T, T> f) =>
+            TransactionInternal.Apply((trans, _) => this.Merge(trans: trans, s: s, f: f));
 
         internal Stream<T> Merge(TransactionInternal trans, Stream<T> s, Func<T, T, T> f) =>
-            this.Merge(trans, s).Coalesce(trans, f);
+            this.Merge(trans: trans, s: s).Coalesce(trans1: trans, f: f);
 
         internal Stream<T> Coalesce(TransactionInternal trans1, Func<T, T, T> f)
         {
             Stream<T> @out = new Stream<T>(this.KeepListenersAlive);
-            Action<TransactionInternal, T> h = CoalesceHandler.Create(f, @out);
-            IListener l = this.Listen(@out.Node, trans1, h, false);
+            Action<TransactionInternal, T> h = CoalesceHandler.Create(f: f, @out: @out);
+            IListener l = this.Listen(target: @out.Node, trans: trans1, action: h, suppressEarlierFirings: false);
             return @out.UnsafeAttachListener(l);
         }
 
@@ -325,29 +377,35 @@ namespace SodaFlow
         /// </summary>
         /// <param name="trans">The transaction to get the last firing from.</param>
         /// <returns>A stream containing only the last event firing from the specified transaction.</returns>
-        internal Stream<T> LastFiringOnly(TransactionInternal trans) => this.Coalesce(trans, (first, second) => second);
+        internal Stream<T> LastFiringOnly(TransactionInternal trans) =>
+            this.Coalesce(trans1: trans, f: (first, second) => second);
 
         internal Stream<T> FilterImpl(Func<T, bool> predicate)
         {
             Stream<T> @out = new Stream<T>(this.KeepListenersAlive);
-            IListener l = this.Listen(
-                @out.Node,
-                (trans2, a) =>
-                {
-                    if (predicate(a))
+
+            IListener l =
+                this.Listen(
+                    target: @out.Node,
+                    action: (trans2, a) =>
                     {
-                        @out.Send(trans2, a);
-                    }
-                });
+                        if (predicate(a))
+                        {
+                            @out.Send(trans: trans2, a: a);
+                        }
+                    });
+
             return @out.UnsafeAttachListener(l);
         }
 
         internal Stream<T> GateImpl(Cell<bool> c) => this.GateImpl(c.BehaviorImpl);
 
-        internal Stream<T> GateImpl(Behavior<bool> b) => this.SnapshotImpl(b, (a, pred) => pred ? MaybeInternal.Some(a) : MaybeInternal.None).FilterSomeInternal();
+        internal Stream<T> GateImpl(Behavior<bool> b) =>
+            this.SnapshotImpl(b: b, f: (a, pred) => pred ? MaybeInternal.Some(a) : MaybeInternal.None)
+                .FilterSomeInternal();
 
         internal Stream<T> CalmImpl(Func<T, T, bool> areEqual) =>
-            this.Calm(new Lazy<MaybeInternal<T>>(() => MaybeInternal.None), areEqual);
+            this.Calm(init: new Lazy<MaybeInternal<T>>(() => MaybeInternal.None), areEqual: areEqual);
 
         /// <summary>
         ///     Suppresses firings equal to the last one that got through.
@@ -358,24 +416,22 @@ namespace SodaFlow
         ///     keep its own copy of that protocol, which meant a fix to one could silently miss the
         ///     other - and the deferral is subtle enough that the duplication was a real hazard rather
         ///     than a stylistic one.
-        ///
         ///     What kept it separate was cost. Going through CollectLazyImpl meant a looped stream, a
         ///     behavior to hold the state, a snapshot and two maps, plus a filter on the way out - six
         ///     streams to remember one value. Sharing CarryState instead costs nothing: the emit flag
         ///     suppresses in place, so this is still one output stream.
-        ///
         ///     The state is MaybeInternal rather than T because there may be no previous value yet, and
         ///     None is also a legitimate initial value - which is why CarryState needs its own
         ///     initialized flag rather than reading emptiness as "not started".
         /// </remarks>
         internal Stream<T> Calm(Lazy<MaybeInternal<T>> init, Func<T, T, bool> areEqual) =>
-            TransactionInternal.Apply(
-                (trans1, _) => this.CarryState<MaybeInternal<T>, T>(
-                    trans1,
-                    init,
-                    (a, last) =>
+            TransactionInternal.Apply((trans1, _) =>
+                this.CarryState(
+                    trans1: trans1,
+                    initialState: init,
+                    f: (a, last) =>
                     {
-                        bool emit = !(last.TryGetValue(out T previous) && areEqual(previous, a));
+                        bool emit = !(last.TryGetValue(out T previous) && areEqual(arg1: previous, arg2: a));
 
                         // The state carries forward unchanged for a suppressed firing rather than being
                         // cleared, matching what feeding state back through Collect used to give.
@@ -385,32 +441,32 @@ namespace SodaFlow
         internal Stream<TReturn> CollectImpl<TState, TReturn>(
             TState initialState,
             Func<T, TState, (TReturn ReturnValue, TState State)> f) =>
-            this.CollectLazyImpl(new Lazy<TState>(() => initialState), f);
+            this.CollectLazyImpl(initialState: new Lazy<TState>(() => initialState), f: f);
 
         internal Stream<TReturn> CollectLazyImpl<TState, TReturn>(
             Lazy<TState> initialState,
             Func<T, TState, (TReturn ReturnValue, TState State)> f) =>
-            TransactionInternal.Apply(
-                (trans, _) => this.CarryState(
-                    trans,
-                    initialState,
-                    (a, s) =>
+            TransactionInternal.Apply((trans, _) =>
+                this.CarryState(
+                    trans1: trans,
+                    initialState: initialState,
+                    f: (a, s) =>
                     {
-                        (TReturn returnValue, TState state) = f(a, s);
+                        (TReturn returnValue, TState state) = f(arg1: a, arg2: s);
                         return (true, returnValue, state);
                     }));
 
         internal Cell<TReturn> AccumImpl<TReturn>(TReturn initialState, Func<T, TReturn, TReturn> f) =>
-            this.AccumLazyImpl(new Lazy<TReturn>(() => initialState), f);
+            this.AccumLazyImpl(initialState: new Lazy<TReturn>(() => initialState), f: f);
 
         internal Cell<TReturn> AccumLazyImpl<TReturn>(Lazy<TReturn> initialState, Func<T, TReturn, TReturn> f) =>
-            TransactionInternal.Apply(
-                (trans, _) => this.CarryState<TReturn, TReturn>(
-                        trans,
-                        initialState,
-                        (a, s) =>
+            TransactionInternal.Apply((trans, _) =>
+                this.CarryState(
+                        trans1: trans,
+                        initialState: initialState,
+                        f: (a, s) =>
                         {
-                            TReturn next = f(a, s);
+                            TReturn next = f(arg1: a, arg2: s);
                             return (true, next, next);
                         })
                     .HoldLazyImpl(initialState));
@@ -426,20 +482,17 @@ namespace SodaFlow
         ///     round, a behavior holding it, a snapshot to read it, and a map per output - four streams
         ///     for Collect, two for Accum, to carry one value between firings. It is now a single output
         ///     stream and two fields.
-        ///
         ///     Those two fields are what the behavior used to provide, and the split matters. A snapshot
         ///     reads a behavior with SampleNoTransaction, so every firing within a transaction saw the
         ///     state as of when that transaction opened, and the behavior committed whatever the final
         ///     firing produced. Keeping a single field updated in place would instead let an earlier
         ///     firing in the same transaction be seen by a later one - a different fold, and one the
         ///     caller's f would notice.
-        ///
         ///     What the deferral is actually observable through is failure. A transaction that throws
         ///     drops its last queue, so a firing inside it never commits and the state is left as though
         ///     it had not happened. That is the one behavior distinguishing this from committing in
         ///     place, and CalmTests.AFailedTransactionDoesNotCommitTheRememberedValue is what pins it -
         ///     every other test passes either way.
-        ///
         ///     The emit flag is what lets Calm share this. Returning a Maybe and filtering it out would
         ///     cost a second stream and a node in the rank graph, which is the cost Calm was written
         ///     directly to avoid in the first place; a bool in a tuple that is already a struct costs a
@@ -452,9 +505,9 @@ namespace SodaFlow
         {
             Stream<TReturn> @out = new Stream<TReturn>(this.KeepListenersAlive);
 
-            TState committed = default(TState);
+            TState committed = default;
             bool committedIsSet = false;
-            TState pending = default(TState);
+            TState pending = default;
             bool hasPending = false;
 
             void EnsureCommittedIsSet()
@@ -470,34 +523,35 @@ namespace SodaFlow
             // forced its lazy initial value there whether or not anything fired.
             trans1.Sample(EnsureCommittedIsSet);
 
-            IListener l = this.Listen(
-                @out.Node,
-                trans1,
-                (trans2, a) =>
-                {
-                    EnsureCommittedIsSet();
-
-                    (bool emit, TReturn returnValue, TState state) = f(a, committed);
-
-                    if (!hasPending)
+            IListener l =
+                this.Listen(
+                    target: @out.Node,
+                    trans: trans1,
+                    action: (trans2, a) =>
                     {
-                        hasPending = true;
-                        trans2.Last(
-                            () =>
+                        EnsureCommittedIsSet();
+
+                        (bool emit, TReturn returnValue, TState state) = f(arg1: a, arg2: committed);
+
+                        if (!hasPending)
+                        {
+                            hasPending = true;
+
+                            trans2.Last(() =>
                             {
                                 committed = pending;
                                 hasPending = false;
                             });
-                    }
+                        }
 
-                    pending = state;
+                        pending = state;
 
-                    if (emit)
-                    {
-                        @out.Send(trans2, returnValue);
-                    }
-                },
-                false);
+                        if (emit)
+                        {
+                            @out.Send(trans: trans2, a: returnValue);
+                        }
+                    },
+                    suppressEarlierFirings: false);
 
             return @out.UnsafeAttachListener(l);
         }
@@ -509,29 +563,32 @@ namespace SodaFlow
             Stream<T> @out = new Stream<T>(this.KeepListenersAlive);
             IListener listener = null;
             bool unlistenEarly = false;
-            listener = this.Listen(
-                @out.Node,
-                (trans, a) =>
-                {
-                    // ReSharper disable AccessToModifiedClosure
-                    if (listener != null)
-                    {
-                        @out.Send(trans, a);
 
-                        // ReSharper disable once AccessToModifiedClosure
-                        if (listener == null)
+            listener =
+                this.Listen(
+                    target: @out.Node,
+                    action: (trans, a) =>
+                    {
+                        // ReSharper disable AccessToModifiedClosure
+                        if (listener != null)
                         {
-                            unlistenEarly = true;
-                        }
-                        else
-                        {
+                            @out.Send(trans: trans, a: a);
+
                             // ReSharper disable once AccessToModifiedClosure
-                            listener.Unlisten();
-                            listener = null;
+                            if (listener == null)
+                            {
+                                unlistenEarly = true;
+                            }
+                            else
+                            {
+                                // ReSharper disable once AccessToModifiedClosure
+                                listener.Unlisten();
+                                listener = null;
+                            }
                         }
-                    }
-                    // ReSharper restore AccessToModifiedClosure
-                });
+                        // ReSharper restore AccessToModifiedClosure
+                    });
+
             if (unlistenEarly)
             {
                 listener.Unlisten();
@@ -580,7 +637,7 @@ namespace SodaFlow
                 // and a closure here costs a display class and a delegate on top of the queue
                 // entry that has to be allocated anyway. Carrying the three captured values as
                 // fields on the entry collapses that to a single allocation.
-                trans.Prioritized(new SendEntry(this, target, a));
+                trans.Prioritized(new SendEntry(stream: this, target: target, value: a));
             }
         }
 
@@ -601,6 +658,7 @@ namespace SodaFlow
             public override void Execute(TransactionInternal trans)
             {
                 trans.InCallback++;
+
                 try
                 {
                     // Don't allow transactions to interfere with SodaFlow
@@ -611,7 +669,7 @@ namespace SodaFlow
                         // If it hasn't been garbage collected, call it.
                         if (this.target.IsActivated)
                         {
-                            action(trans, this.value);
+                            action(arg1: trans, arg2: this.value);
                         }
                     }
                     else
@@ -629,8 +687,8 @@ namespace SodaFlow
 
         private class StrongListener : IStrongListener
         {
-            private readonly Action unlisten;
             private readonly IListener listener;
+            private readonly Action unlisten;
 
             public StrongListener(Action unlisten, IListener listener)
             {
@@ -660,18 +718,18 @@ namespace SodaFlow
 
             private readonly WeakListener weakListener;
 
-            public ListenerImplementation(Stream<T> stream, Action<TransactionInternal, T> action, Node<T>.Target target)
+            public ListenerImplementation(
+                Stream<T> stream,
+                Action<TransactionInternal, T> action,
+                Node<T>.Target target)
             {
                 this.stream = stream;
                 this.action = action;
 
-                this.weakListener = new WeakListener(stream?.Node, target);
+                this.weakListener = new WeakListener(node: stream?.Node, target: target);
             }
 
-            public void Unlisten()
-            {
-                this.weakListener.Unlisten();
-            }
+            public void Unlisten() => this.weakListener.Unlisten();
 
             public IListenerWithWeakReference GetListenerWithWeakReference() => this.weakListener;
         }
@@ -687,20 +745,17 @@ namespace SodaFlow
                 this.target = target;
             }
 
-            public void Unlisten()
-            {
-                this.node?.Unlink(this.target);
-            }
+            public void Unlisten() => this.node?.Unlink(this.target);
         }
 
         private class KeepListenersAliveImplementation : IKeepListenersAlive
         {
+            // ReSharper disable once CollectionNeverQueried.Local
+            private List<IKeepListenersAlive> childKeepListenersAliveList;
+
             // One of these exists per root stream, and plenty of streams are never listened to at
             // all, so both collections wait until something actually needs them.
             private HashSet<IListener> listeners;
-
-            // ReSharper disable once CollectionNeverQueried.Local
-            private List<IKeepListenersAlive> childKeepListenersAliveList;
 
             public void KeepListenerAlive(IListener listener)
             {
@@ -712,10 +767,7 @@ namespace SodaFlow
                 this.listeners.Add(listener);
             }
 
-            public void StopKeepingListenerAlive(IListener listener)
-            {
-                this.listeners?.Remove(listener);
-            }
+            public void StopKeepingListenerAlive(IListener listener) => this.listeners?.Remove(listener);
 
             public void Use(IKeepListenersAlive childKeepListenersAlive)
             {

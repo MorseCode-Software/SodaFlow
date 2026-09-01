@@ -19,6 +19,7 @@ namespace SodaFlow.Tests.Performance
             ((Action)(() =>
             {
                 List<Cell<bool>> cc = new List<Cell<bool>>();
+
                 for (int i = 0; i < 5000; i++)
                 {
                     cc.Add(c.Map(v => !v));
@@ -39,17 +40,21 @@ namespace SodaFlow.Tests.Performance
 
             //CellSink<IReadOnlyList<SmallTestObject>> s = ((Func<CellSink<IReadOnlyList<SmallTestObject>>>)(() =>
             //   new CellSink<IReadOnlyList<SmallTestObject>>(new SmallTestObject[0])))();
-            CellSink<IReadOnlyList<SmallTestObject>> s = ((Func<CellSink<IReadOnlyList<SmallTestObject>>>)(() =>
-                Cell.CreateSink<IReadOnlyList<SmallTestObject>>(Enumerable.Range(0, 500).Select(_ => new SmallTestObject()).ToArray())))();
+            CellSink<IReadOnlyList<SmallTestObject>> s =
+                ((Func<CellSink<IReadOnlyList<SmallTestObject>>>)(() =>
+                    Cell.CreateSink<IReadOnlyList<SmallTestObject>>(
+                        Enumerable.Range(start: 0, count: 500).Select(_ => new SmallTestObject()).ToArray())))();
+
             Cell<IReadOnlyList<bool>> s2 = s.Map(oo => oo.Select(o => o.S).Lift()).SwitchC();
 
             ((Action)(() =>
             {
                 for (int i = 0; i < 5; i++)
                 {
-                    s.Send(Enumerable.Range(0, 500).Select(_ => new SmallTestObject()).ToArray());
+                    s.Send(Enumerable.Range(start: 0, count: 500).Select(_ => new SmallTestObject()).ToArray());
                 }
             }))();
+
             s.Send(new SmallTestObject[0]);
 
             Console.WriteLine("Press any key");
@@ -59,7 +64,7 @@ namespace SodaFlow.Tests.Performance
             {
                 for (int i = 0; i < 5; i++)
                 {
-                    s.Send(Enumerable.Range(0, 500).Select(_ => new SmallTestObject()).ToArray());
+                    s.Send(Enumerable.Range(start: 0, count: 500).Select(_ => new SmallTestObject()).ToArray());
                 }
             }))();
 
@@ -67,16 +72,6 @@ namespace SodaFlow.Tests.Performance
 
             Console.WriteLine("Press any key");
             Console.ReadKey();
-        }
-
-        private class SmallTestObject
-        {
-            public SmallTestObject()
-            {
-                this.S = Cell.CreateSink(false);
-            }
-
-            public CellSink<bool> S { get; }
         }
 
         public static void Main(string[] args)
@@ -84,34 +79,52 @@ namespace SodaFlow.Tests.Performance
             Console.WriteLine("Press any key");
             Console.ReadKey();
 
-            var (toggleAllSelectedStream, objectsAndIsSelected, selectAllStream, objects) = Transaction.Run(() =>
-            {
-                CellLoop<bool?> allSelectedCellLoop = Cell.CreateLoop<bool?>();
-                StreamSink<Unit> toggleAllSelectedStreamLocal = Stream.CreateSink<Unit>();
-                Stream<bool> selectAllStreamLocal = toggleAllSelectedStreamLocal.Snapshot(allSelectedCellLoop).Map(a => a != true);
+            (var toggleAllSelectedStream, var objectsAndIsSelected, var selectAllStream, var objects) =
+                Transaction.Run(() =>
+                {
+                    CellLoop<bool?> allSelectedCellLoop = Cell.CreateLoop<bool?>();
+                    StreamSink<Unit> toggleAllSelectedStreamLocal = Stream.CreateSink<Unit>();
 
-                IReadOnlyList<TestObject> o2 = Enumerable.Range(0, 10000).Select(n => new TestObject(n, selectAllStreamLocal)).ToArray();
-                CellSink<IReadOnlyList<TestObject>> objectsLocal =
-                    Cell.CreateSink((IReadOnlyList<TestObject>)new TestObject[0]);
+                    Stream<bool> selectAllStreamLocal =
+                        toggleAllSelectedStreamLocal.Snapshot(allSelectedCellLoop).Map(a => a != true);
 
-                var objectsAndIsSelectedLocal = objectsLocal.Map(oo => oo.Select(o => o.IsSelected.Map(s => new { Object = o, IsSelected = s })).Lift()).SwitchC();
+                    IReadOnlyList<TestObject> o2 =
+                        Enumerable.Range(start: 0, count: 10000)
+                            .Select(n => new TestObject(id: n, selectAllStream: selectAllStreamLocal))
+                            .ToArray();
 
-                bool defaultValue = o2.Count < 1;
-                Cell<bool?> allSelected =
-                    objectsAndIsSelectedLocal.Map(
-                        oo =>
+                    CellSink<IReadOnlyList<TestObject>> objectsLocal =
+                        Cell.CreateSink((IReadOnlyList<TestObject>)new TestObject[0]);
+
+                    var objectsAndIsSelectedLocal =
+                        objectsLocal
+                            .Map(oo => oo.Select(o => o.IsSelected.Map(s => new { Object = o, IsSelected = s })).Lift())
+                            .SwitchC();
+
+                    bool defaultValue = o2.Count < 1;
+
+                    Cell<bool?> allSelected =
+                        objectsAndIsSelectedLocal.Map(oo =>
                             !oo.Any()
                                 ? defaultValue
-                                : (oo.All(o => o.IsSelected)
+                                : oo.All(o => o.IsSelected)
                                     ? true
-                                    : (oo.All(o => !o.IsSelected) ? (bool?)false : null)));
-                allSelectedCellLoop.Loop(allSelected);
+                                    : oo.All(o => !o.IsSelected)
+                                        ? (bool?)false
+                                        : null);
 
-                return (toggleAllSelectedStreamLocal, objectsAndIsSelectedLocal, selectAllStreamLocal, objectsLocal);
-            });
+                    allSelectedCellLoop.Loop(allSelected);
+
+                    return (toggleAllSelectedStreamLocal, objectsAndIsSelectedLocal, selectAllStreamLocal,
+                        objectsLocal);
+                });
 
             // ReSharper disable once UnusedVariable
-            IListener l = Transaction.Run(() => objectsAndIsSelected.Map(oo => oo.Count(o => o.IsSelected)).Updates().ListenStrong(v => Console.WriteLine($"{v} selected")));
+            IListener l =
+                Transaction.Run(() =>
+                    objectsAndIsSelected.Map(oo => oo.Count(o => o.IsSelected))
+                        .Updates()
+                        .ListenStrong(v => Console.WriteLine($"{v} selected")));
 
             Console.WriteLine("Press any key");
             Console.ReadKey();
@@ -122,66 +135,73 @@ namespace SodaFlow.Tests.Performance
             toggleAllSelectedStream.Send(Unit.Value);
             toggleAllSelectedStream.Send(Unit.Value);
             toggleAllSelectedStream.Send(Unit.Value);
-            SendMore(objects, selectAllStream);
+            SendMore(cellSink: objects, selectAllStream: selectAllStream);
             Thread.Sleep(500);
-            SendMore(objects, selectAllStream);
+            SendMore(cellSink: objects, selectAllStream: selectAllStream);
             Thread.Sleep(500);
-            SendMore(objects, selectAllStream);
+            SendMore(cellSink: objects, selectAllStream: selectAllStream);
             Thread.Sleep(500);
-            SendMore(objects, selectAllStream);
+            SendMore(cellSink: objects, selectAllStream: selectAllStream);
             Thread.Sleep(500);
-            SendMore(objects, selectAllStream);
+            SendMore(cellSink: objects, selectAllStream: selectAllStream);
             Thread.Sleep(500);
-            SendMore(objects, selectAllStream);
+            SendMore(cellSink: objects, selectAllStream: selectAllStream);
             Thread.Sleep(500);
-            SendMore(objects, selectAllStream);
+            SendMore(cellSink: objects, selectAllStream: selectAllStream);
             Thread.Sleep(500);
-            SendMore(objects, selectAllStream);
+            SendMore(cellSink: objects, selectAllStream: selectAllStream);
             Thread.Sleep(500);
-            SendMore(objects, selectAllStream);
+            SendMore(cellSink: objects, selectAllStream: selectAllStream);
             Thread.Sleep(500);
-            SendMore(objects, selectAllStream);
+            SendMore(cellSink: objects, selectAllStream: selectAllStream);
             Thread.Sleep(500);
-            SendMore(objects, selectAllStream);
+            SendMore(cellSink: objects, selectAllStream: selectAllStream);
             Thread.Sleep(500);
-            SendMore(objects, selectAllStream);
+            SendMore(cellSink: objects, selectAllStream: selectAllStream);
             Thread.Sleep(500);
-            SendMore(objects, selectAllStream);
+            SendMore(cellSink: objects, selectAllStream: selectAllStream);
             Thread.Sleep(500);
-            SendMore(objects, selectAllStream);
+            SendMore(cellSink: objects, selectAllStream: selectAllStream);
             Thread.Sleep(500);
-            SendMore(objects, selectAllStream);
+            SendMore(cellSink: objects, selectAllStream: selectAllStream);
             Thread.Sleep(500);
-            SendMore(objects, selectAllStream);
+            SendMore(cellSink: objects, selectAllStream: selectAllStream);
             Thread.Sleep(500);
-            SendMore(objects, selectAllStream);
+            SendMore(cellSink: objects, selectAllStream: selectAllStream);
             Thread.Sleep(500);
-            SendMore(objects, selectAllStream);
+            SendMore(cellSink: objects, selectAllStream: selectAllStream);
             Thread.Sleep(500);
-            SendMore(objects, selectAllStream);
+            SendMore(cellSink: objects, selectAllStream: selectAllStream);
             Thread.Sleep(500);
-            SendMore(objects, selectAllStream);
+            SendMore(cellSink: objects, selectAllStream: selectAllStream);
             Thread.Sleep(500);
-            SendMore(objects, selectAllStream);
+            SendMore(cellSink: objects, selectAllStream: selectAllStream);
             Thread.Sleep(500);
-            SendMore(objects, selectAllStream);
+            SendMore(cellSink: objects, selectAllStream: selectAllStream);
             Thread.Sleep(500);
-            SendMore(objects, selectAllStream);
+            SendMore(cellSink: objects, selectAllStream: selectAllStream);
             Thread.Sleep(500);
-            SendMore(objects, selectAllStream);
+            SendMore(cellSink: objects, selectAllStream: selectAllStream);
             Thread.Sleep(500);
-            SendMore(objects, selectAllStream);
+            SendMore(cellSink: objects, selectAllStream: selectAllStream);
             objects.Sample()[2].IsSelectedStreamSink.Send(true);
+
             Transaction.RunVoid(() =>
             {
                 objects.Sample()[3].IsSelectedStreamSink.Send(true);
                 objects.Sample()[4].IsSelectedStreamSink.Send(true);
             });
+
             Transaction.RunVoid(() =>
             {
-                objects.Send(Enumerable.Range(0, 2500).Select(n => new TestObject(n, selectAllStream)).ToArray());
+                objects.Send(
+                    Enumerable.Range(start: 0, count: 2500)
+                        .Select(n => new TestObject(id: n, selectAllStream: selectAllStream))
+                        .ToArray());
+
                 toggleAllSelectedStream.Send(Unit.Value);
             });
+
             toggleAllSelectedStream.Send(Unit.Value);
             toggleAllSelectedStream.Send(Unit.Value);
             toggleAllSelectedStream.Send(Unit.Value);
@@ -239,7 +259,18 @@ namespace SodaFlow.Tests.Performance
         }
 
         private static void SendMore(CellSink<IReadOnlyList<TestObject>> cellSink, Stream<bool> selectAllStream) =>
-            Transaction.RunVoid(() => cellSink.Send(Enumerable.Range(0, 20000).Select(n => new TestObject(n, selectAllStream)).ToArray()));
+            Transaction.RunVoid(() =>
+                cellSink.Send(
+                    Enumerable.Range(start: 0, count: 20000)
+                        .Select(n => new TestObject(id: n, selectAllStream: selectAllStream))
+                        .ToArray()));
+
+        private class SmallTestObject
+        {
+            public SmallTestObject() => this.S = Cell.CreateSink(false);
+
+            public CellSink<bool> S { get; }
+        }
 
         private class TestObject
         {

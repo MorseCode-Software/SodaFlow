@@ -11,7 +11,6 @@ namespace SodaFlow
     ///     A behavior is a continuously varying value. These are extension methods rather than instance
     ///     members so that the combinators live outside the small assembly the FRP engine is built in;
     ///     the effect at the call site is the same.
-    ///
     ///     See <see cref="CellExtensionMethods" /> for the corresponding operations on cells, which are
     ///     behaviors that also expose the stream of their changes.
     /// </remarks>
@@ -26,7 +25,8 @@ namespace SodaFlow
         /// <remarks>
         ///     <para>
         ///         This method may be used inside the functions passed to primitives that apply them to streams,
-        ///         including <see cref="StreamExtensionMethods.Map{T, TResult}(Stream{T}, Func{T, TResult})" /> in which case it is equivalent to
+        ///         including <see cref="StreamExtensionMethods.Map{T, TResult}(Stream{T}, Func{T,TResult})" /> in which case it is
+        ///         equivalent to
         ///         snapshotting the behavior,
         ///         <see cref=" StreamExtensionMethods.Snapshot{T, T2, TResult}(Stream{T}, Behavior{T2}, Func{T, T2, TResult})" />,
         ///         <see cref="StreamExtensionMethods.Filter{T}(Stream{T}, Func{T, bool})" />, and
@@ -35,7 +35,8 @@ namespace SodaFlow
         ///     <para>
         ///         It can be best to use this method inside an explicit transaction (using
         ///         <see cref="Transaction.Run{T}(Func{T})" /> or <see cref="Transaction.RunVoid(Action)" />).
-        ///         For example, a b.Sample() inside an explicit transaction along with a b.Updates().ListenStrong(...) will capture the
+        ///         For example, a b.Sample() inside an explicit transaction along with a b.Updates().ListenStrong(...) will
+        ///         capture the
         ///         current value and any updates without risk of missing any in between.
         ///     </para>
         /// </remarks>
@@ -51,7 +52,8 @@ namespace SodaFlow
         /// <remarks>
         ///     This is a variant of <see cref="Sample{T}" /> that works with the <see cref="BehaviorLoop{T}" /> class
         ///     when the behavior loop has not yet been looped.  It should be used in any code that is general
-        ///     enough that it may be passed a <see cref="BehaviorLoop{T}" />.  See <see cref="StreamExtensionMethods.HoldLazy{T}(Stream{T}, Lazy{T})" />.
+        ///     enough that it may be passed a <see cref="BehaviorLoop{T}" />.  See
+        ///     <see cref="StreamExtensionMethods.HoldLazy{T}(Stream{T}, Lazy{T})" />.
         /// </remarks>
         [MethodImpl(MethodImplOptions.NoInlining)]
         public static Lazy<T> SampleLazy<T>(this Behavior<T> b) => b.SampleLazyImpl();
@@ -68,11 +70,11 @@ namespace SodaFlow
         /// </param>
         /// <returns>An behavior which fires values transformed by <paramref name="f" /> for each value fired by this behavior.</returns>
         [MethodImpl(MethodImplOptions.NoInlining)]
-        public static Behavior<TResult> Map<T, TResult>(this Behavior<T> b, Func<T, TResult> f) =>
-            b.MapImpl(f);
+        public static Behavior<TResult> Map<T, TResult>(this Behavior<T> b, Func<T, TResult> f) => b.MapImpl(f);
 
         /// <summary>
-        ///     Lift a binary function into behaviors, so the returned behavior always reflects the specified function applied to the input
+        ///     Lift a binary function into behaviors, so the returned behavior always reflects the specified function applied to
+        ///     the input
         ///     behaviors' values.
         /// </summary>
         /// <typeparam name="T">The type of the behavior.</typeparam>
@@ -83,11 +85,15 @@ namespace SodaFlow
         /// <param name="f">The binary function to lift into the behaviors.</param>
         /// <returns>A behavior containing values resulting from the binary function applied to the input behaviors' values.</returns>
         [MethodImpl(MethodImplOptions.NoInlining)]
-        public static Behavior<TResult> Lift<T, T2, TResult>(this Behavior<T> b, Behavior<T2> b2, Func<T, T2, TResult> f) =>
-            b.LiftImpl(b2, f);
+        public static Behavior<TResult> Lift<T, T2, TResult>(
+            this Behavior<T> b,
+            Behavior<T2> b2,
+            Func<T, T2, TResult> f) =>
+            b.LiftImpl(b2: b2, f: f);
 
         /// <summary>
-        ///     Lift a ternary function into behaviors, so the returned behavior always reflects the specified function applied to the
+        ///     Lift a ternary function into behaviors, so the returned behavior always reflects the specified function applied to
+        ///     the
         ///     input behaviors' values.
         /// </summary>
         /// <typeparam name="T">The type of the behavior.</typeparam>
@@ -104,10 +110,12 @@ namespace SodaFlow
             this Behavior<T> b,
             Behavior<T2> b2,
             Behavior<T3> b3,
-            Func<T, T2, T3, TResult> f) => b.LiftImpl(b2, b3, f);
+            Func<T, T2, T3, TResult> f) =>
+            b.LiftImpl(b2: b2, b3: b3, f: f);
 
         /// <summary>
-        ///     Lift a quaternary function into behaviors, so the returned behavior always reflects the specified function applied to the
+        ///     Lift a quaternary function into behaviors, so the returned behavior always reflects the specified function applied
+        ///     to the
         ///     input behaviors' values.
         /// </summary>
         /// <typeparam name="T">The type of the behavior.</typeparam>
@@ -127,10 +135,12 @@ namespace SodaFlow
             Behavior<T2> b2,
             Behavior<T3> b3,
             Behavior<T4> b4,
-            Func<T, T2, T3, T4, TResult> f) => b.LiftImpl(b2, b3, b4, f);
+            Func<T, T2, T3, T4, TResult> f) =>
+            b.LiftImpl(b2: b2, b3: b3, b4: b4, f: f);
 
         /// <summary>
-        ///     Lift a 5-argument function into behaviors, so the returned behavior always reflects the specified function applied to the
+        ///     Lift a 5-argument function into behaviors, so the returned behavior always reflects the specified function applied
+        ///     to the
         ///     input behaviors' values.
         /// </summary>
         /// <typeparam name="T">The type of the behavior.</typeparam>
@@ -153,10 +163,12 @@ namespace SodaFlow
             Behavior<T3> b3,
             Behavior<T4> b4,
             Behavior<T5> b5,
-            Func<T, T2, T3, T4, T5, TResult> f) => b.LiftImpl(b2, b3, b4, b5, f);
+            Func<T, T2, T3, T4, T5, TResult> f) =>
+            b.LiftImpl(b2: b2, b3: b3, b4: b4, b5: b5, f: f);
 
         /// <summary>
-        ///     Lift a 6-argument function into behaviors, so the returned behavior always reflects the specified function applied to the
+        ///     Lift a 6-argument function into behaviors, so the returned behavior always reflects the specified function applied
+        ///     to the
         ///     input behaviors' values.
         /// </summary>
         /// <typeparam name="T">The type of the behavior.</typeparam>
@@ -182,7 +194,8 @@ namespace SodaFlow
             Behavior<T4> b4,
             Behavior<T5> b5,
             Behavior<T6> b6,
-            Func<T, T2, T3, T4, T5, T6, TResult> f) => b.LiftImpl(b2, b3, b4, b5, b6, f);
+            Func<T, T2, T3, T4, T5, T6, TResult> f) =>
+            b.LiftImpl(b2: b2, b3: b3, b4: b4, b5: b5, b6: b6, f: f);
 
         /// <summary>
         ///     Apply a value inside a behavior to a function inside a behavior.  This is the primitive for all function lifting.
@@ -219,7 +232,8 @@ namespace SodaFlow
 
         /// <summary>
         ///     Unwrap a stream inside a behavior to give a time-varying stream implementation.
-        ///     When the behavior changes value, the output stream will fire the simultaneous firing (if one exists) from the stream
+        ///     When the behavior changes value, the output stream will fire the simultaneous firing (if one exists) from the
+        ///     stream
         ///     which the behavior held at the beginning of the transaction.
         /// </summary>
         /// <typeparam name="T">The type of the stream.</typeparam>
@@ -229,7 +243,8 @@ namespace SodaFlow
         public static Stream<T> SwitchS<T>(this Behavior<Stream<T>> bsa) => bsa.SwitchSImpl<T, Stream<T>>();
 
         /// <summary>
-        ///     Lift a function into an enumerable of behaviors, so the returned behavior always reflects the specified function applied to
+        ///     Lift a function into an enumerable of behaviors, so the returned behavior always reflects the specified function
+        ///     applied to
         ///     the
         ///     input behaviors' values.
         /// </summary>
@@ -245,7 +260,8 @@ namespace SodaFlow
             b.LiftBehaviorsImpl(f);
 
         /// <summary>
-        ///     Lift a function into a collection of behaviors, so the returned behavior always reflects the specified function applied to
+        ///     Lift a function into a collection of behaviors, so the returned behavior always reflects the specified function
+        ///     applied to
         ///     the
         ///     input behaviors' values.
         /// </summary>
@@ -257,10 +273,12 @@ namespace SodaFlow
         [MethodImpl(MethodImplOptions.NoInlining)]
         public static Behavior<TResult> Lift<T, TResult>(
             this IReadOnlyCollection<Behavior<T>> b,
-            Func<IReadOnlyList<T>, TResult> f) => b.LiftBehaviorsImpl(f);
+            Func<IReadOnlyList<T>, TResult> f) =>
+            b.LiftBehaviorsImpl(f);
 
         /// <summary>
-        ///     Lift into an enumerable of behaviors, so the returned behavior always reflects a list of the input behaviors' values.
+        ///     Lift into an enumerable of behaviors, so the returned behavior always reflects a list of the input behaviors'
+        ///     values.
         /// </summary>
         /// <typeparam name="T">The type of the behaviors.</typeparam>
         /// <param name="b">The enumerable of behaviors.</param>
@@ -270,7 +288,8 @@ namespace SodaFlow
             b.LiftBehaviorsImpl<T, Behavior<T>, IReadOnlyList<T>>(v => v);
 
         /// <summary>
-        ///     Lift into a collection of behaviors, so the returned behavior always reflects a list of the input behaviors' values.
+        ///     Lift into a collection of behaviors, so the returned behavior always reflects a list of the input behaviors'
+        ///     values.
         /// </summary>
         /// <typeparam name="T">The type of the behaviors.</typeparam>
         /// <param name="b">The collection of behaviors.</param>

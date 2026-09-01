@@ -7,66 +7,80 @@ namespace SodaFlow
     internal static class BehaviorExtensionMethodsInternal
     {
         internal static Behavior<T> SwitchBImpl<T, T2>(this Behavior<T2> bba)
-            where T2 : Behavior<T>
-        {
-            return TransactionInternal.Apply(
-                (trans1, _) =>
+            where T2 : Behavior<T> =>
+            TransactionInternal.Apply((trans1, _) =>
+            {
+                Lazy<T> za = bba.SampleLazyImpl().MapImpl(ba => ba.SampleImpl());
+                Stream<T> @out = new Stream<T>(bba.KeepListenersAlive);
+                MutableListener currentListener = new MutableListener();
+
+                void H(TransactionInternal trans2, Behavior<T> ba)
                 {
-                    Lazy<T> za = bba.SampleLazyImpl().MapImpl(ba => ba.SampleImpl());
-                    Stream<T> @out = new Stream<T>(bba.KeepListenersAlive);
-                    MutableListener currentListener = new MutableListener();
+                    IListener cl = currentListener;
+                    cl.Unlisten();
 
-                    void H(TransactionInternal trans2, Behavior<T> ba)
-                    {
-                        IListener cl = currentListener;
-                        cl.Unlisten();
+                    currentListener.SetListenerImpl(
+                        ba.Value(trans2)
+                            .Listen(
+                                target: @out.Node,
+                                trans: trans2,
+                                action: @out.Send,
+                                suppressEarlierFirings: false));
+                }
 
-                        currentListener.SetListenerImpl(ba.Value(trans2).Listen(@out.Node, trans2, @out.Send, false));
-                    }
+                IListener l1 =
+                    bba.Value(trans1)
+                        .Listen(target: @out.Node, trans: trans1, action: H, suppressEarlierFirings: false);
 
-                    IListener l1 = bba.Value(trans1).Listen(@out.Node, trans1, H, false);
-                    return @out.UnsafeAttachListener(l1)
-                        .UnsafeAttachListener(currentListener)
-                        .HoldLazyInternal(trans1, za);
-                });
-        }
+                return @out.UnsafeAttachListener(l1)
+                    .UnsafeAttachListener(currentListener)
+                    .HoldLazyInternal(trans: trans1, initialValue: za);
+            });
 
-        internal static Cell<T> SwitchCImpl<T, T2>(this Behavior<T2> bca) where T2 : Cell<T> =>
+        internal static Cell<T> SwitchCImpl<T, T2>(this Behavior<T2> bca)
+            where T2 : Cell<T> =>
             new Cell<T>(bca.MapImpl(c => c.BehaviorImpl).SwitchBImpl<T, Behavior<T>>());
 
-        internal static Stream<T> SwitchSImpl<T, T2>(this Behavior<T2> bsa) where T2 : Stream<T>
-        {
-            return TransactionInternal.Apply(
-                (trans1, _) =>
-                {
-                    Stream<T> @out = new Stream<T>(bsa.KeepListenersAlive);
-                    MutableListener currentListener = new MutableListener();
+        internal static Stream<T> SwitchSImpl<T, T2>(this Behavior<T2> bsa)
+            where T2 : Stream<T> =>
+            TransactionInternal.Apply((trans1, _) =>
+            {
+                Stream<T> @out = new Stream<T>(bsa.KeepListenersAlive);
+                MutableListener currentListener = new MutableListener();
 
-                    void HInitial(TransactionInternal trans2, Stream<T> sa)
+                void HInitial(TransactionInternal trans2, Stream<T> sa)
+                {
+                    IListener cl = currentListener;
+                    cl.Unlisten();
+
+                    currentListener.SetListenerImpl(
+                        sa.Listen(target: @out.Node, trans: trans2, action: @out.Send, suppressEarlierFirings: false));
+                }
+
+                void H(TransactionInternal trans2, Stream<T> sa) =>
+                    trans2.Last(() =>
                     {
                         IListener cl = currentListener;
                         cl.Unlisten();
 
-                        currentListener.SetListenerImpl(sa.Listen(@out.Node, trans2, @out.Send, false));
-                    }
+                        currentListener.SetListenerImpl(
+                            sa.Listen(
+                                target: @out.Node,
+                                trans: trans2,
+                                action: @out.Send,
+                                suppressEarlierFirings: true));
+                    });
 
-                    void H(TransactionInternal trans2, Stream<T> sa)
-                    {
-                        trans2.Last(
-                            () =>
-                            {
-                                IListener cl = currentListener;
-                                cl.Unlisten();
+                trans1.Prioritized(
+                    node: new Node<T>(),
+                    action: trans2 => HInitial(trans2: trans2, sa: bsa.SampleNoTransaction()));
 
-                                currentListener.SetListenerImpl(sa.Listen(@out.Node, trans2, @out.Send, true));
-                            });
-                    }
+                IListener l1 =
+                    bsa.Updates()
+                        .Listen(target: new Node<T>(), trans: trans1, action: H, suppressEarlierFirings: false);
 
-                    trans1.Prioritized(new Node<T>(), trans2 => HInitial(trans2, bsa.SampleNoTransaction()));
-                    IListener l1 = bsa.Updates().Listen(new Node<T>(), trans1, H, false);
-                    return @out.UnsafeAttachListener(l1).UnsafeAttachListener(currentListener);
-                });
-        }
+                return @out.UnsafeAttachListener(l1).UnsafeAttachListener(currentListener);
+            });
 
         internal static Behavior<TResult> LiftBehaviorsImpl<T, T2, TResult>(
             this IEnumerable<T2> b,
@@ -77,35 +91,36 @@ namespace SodaFlow
         internal static Behavior<TResult> LiftBehaviorsImpl<T, T2, TResult>(
             this IReadOnlyCollection<T2> b,
             Func<IReadOnlyList<T>, TResult> f)
-            where T2 : Behavior<T>
-        {
-            return TransactionInternal.Apply(
-                (trans1, _) =>
-                {
-                    Stream<Action<T[]>> @out = new Stream<Action<T[]>>(
+            where T2 : Behavior<T> =>
+            TransactionInternal.Apply((trans1, _) =>
+            {
+                Stream<Action<T[]>> @out =
+                    new Stream<Action<T[]>>(
                         new FanOutKeepListenersAlive(b.Select(behavior => behavior.KeepListenersAlive)));
-                    Lazy<TResult> initialValue =
-                        new Lazy<TResult>(() => f(b.Select(behavior => behavior.SampleNoTransaction()).ToArray()));
-                    IReadOnlyList<IListener> listeners = b.Select(
-                            (behavior, i) => behavior.Updates()
+
+                Lazy<TResult> initialValue =
+                    new Lazy<TResult>(() => f(b.Select(behavior => behavior.SampleNoTransaction()).ToArray()));
+
+                IReadOnlyList<IListener> listeners =
+                    b.Select((behavior, i) =>
+                            behavior.Updates()
                                 .Listen(
-                                    @out.Node,
-                                    trans1,
-                                    (trans2, v) => @out.Send(trans2, vv => vv[i] = v),
-                                    false))
+                                    target: @out.Node,
+                                    trans: trans1,
+                                    action: (trans2, v) => @out.Send(trans: trans2, a: vv => vv[i] = v),
+                                    suppressEarlierFirings: false))
                         .ToArray();
-                    return @out.Coalesce(trans1, (x, y) => x + y)
-                        .MapImpl(
-                            a =>
-                            {
-                                T[] values = b.Select(behavior => behavior.SampleNoTransaction()).ToArray();
-                                a(values);
-                                return f(values);
-                            })
-                        .UnsafeAttachListener(ListenerInternal.CreateCompositeImpl(listeners))
-                        .HoldLazyInternal(trans1, initialValue);
-                });
-        }
+
+                return @out.Coalesce(trans1: trans1, f: (x, y) => x + y)
+                    .MapImpl(a =>
+                    {
+                        T[] values = b.Select(behavior => behavior.SampleNoTransaction()).ToArray();
+                        a(values);
+                        return f(values);
+                    })
+                    .UnsafeAttachListener(ListenerInternal.CreateCompositeImpl(listeners))
+                    .HoldLazyInternal(trans: trans1, initialValue: initialValue);
+            });
 
         private class FanOutKeepListenersAlive : IKeepListenersAlive
         {

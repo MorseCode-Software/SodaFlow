@@ -1,68 +1,68 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
-  <PropertyGroup>
-    <TargetFrameworks>net472;net60;netstandard2.0</TargetFrameworks>
-  </PropertyGroup>
+    <PropertyGroup>
+        <TargetFrameworks>net472;net60;netstandard2.0</TargetFrameworks>
+    </PropertyGroup>
 
-  <PropertyGroup>
-    <PackageId>SodaFlow</PackageId>
-    <MinVerTagPrefix>sodaflow-</MinVerTagPrefix>
-    <Product>SodaFlow for .NET</Product>
-    <Title>SodaFlow for .NET</Title>
-    <Description>SodaFlow - Functional Reactive Programming (FRP) library for .NET.</Description>
-    <AssemblyName>SodaFlow</AssemblyName>
-    <RootNamespace>SodaFlow</RootNamespace>
-    <EnableDefaultItems>false</EnableDefaultItems>
-    <!--
-        GenerateDocumentationFile rather than a per-configuration DocumentationFile path: this project
-        multi-targets, and a single hard-coded path made all three target frameworks write over one
-        another's XML. This emits one file per target framework, next to its own assembly, which is
-        where NuGet pack expects it when populating each lib folder, and where the DocFX site under
-        docs/ picks it up when generating API reference.
-    -->
-    <GenerateDocumentationFile>true</GenerateDocumentationFile>
-  </PropertyGroup>
+    <PropertyGroup>
+        <PackageId>SodaFlow</PackageId>
+        <MinVerTagPrefix>sodaflow-</MinVerTagPrefix>
+        <Product>SodaFlow for .NET</Product>
+        <Title>SodaFlow for .NET</Title>
+        <Description>SodaFlow - Functional Reactive Programming (FRP) library for .NET.</Description>
+        <AssemblyName>SodaFlow</AssemblyName>
+        <RootNamespace>SodaFlow</RootNamespace>
+        <EnableDefaultItems>false</EnableDefaultItems>
+        <!--
+            GenerateDocumentationFile rather than a per-configuration DocumentationFile path: this project
+            multi-targets, and a single hard-coded path made all three target frameworks write over one
+            another's XML. This emits one file per target framework, next to its own assembly, which is
+            where NuGet pack expects it when populating each lib folder, and where the DocFX site under
+            docs/ picks it up when generating API reference.
+        -->
+        <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    </PropertyGroup>
 
-  <ItemGroup>
-    <PackageReference Include="System.ValueTuple" Version="4.4.0" />
-  </ItemGroup>
+    <ItemGroup>
+        <PackageReference Include="System.ValueTuple" Version="4.4.0"/>
+    </ItemGroup>
 
-  <ItemGroup>
-    <Compile Include="Behavior.cs" />
-    <Compile Include="BehaviorExtensionMethods.cs" />
-    <Compile Include="BehaviorLoop.cs" />
-    <Compile Include="BehaviorSinkExtensionMethods.cs" />
-    <Compile Include="Cell.cs" />
-    <Compile Include="CellExtensionMethods.cs" />
-    <Compile Include="CellLoop.cs" />
-    <Compile Include="CellSinkExtensionMethods.cs" />
-    <Compile Include="CellStreamSinkExtensionMethods.cs" />
-    <Compile Include="CleanupExtensionMethods.cs" />
-    <Compile Include="ForwardReference.cs" />
-    <Compile Include="JetBrainsAnnotations.cs" />
-    <Compile Include="Listener.cs" />
-    <Compile Include="LoopedBehaviorExtensionMethods.cs" />
-    <Compile Include="LoopedCellExtensionMethods.cs" />
-    <Compile Include="LoopedStreamExtensionMethods.cs" />
-    <Compile Include="MutableListenerExtensionMethods.cs" />
-    <Compile Include="Operational.cs" />
-    <Compile Include="Stream.cs" />
-    <Compile Include="StreamExtensionMethods.cs" />
-    <Compile Include="StreamLoop.cs" />
-    <Compile Include="StreamSinkExtensionMethods.cs" />
-    <Compile Include="Transaction.cs" />
-    <Compile Include="Time\ITimer.cs" />
-    <Compile Include="Time\ITimerSystem.cs" />
-    <Compile Include="Time\ITimerSystemImplementation.cs" />
-    <Compile Include="Time\SecondsTimerSystem.cs" />
-    <Compile Include="Time\SystemClockTimerSystem.cs" />
-    <Compile Include="Time\TimerSystem.cs" />
-    <Compile Include="Time\TimerSystemImplementationBase.cs" />
-  </ItemGroup>
+    <ItemGroup>
+        <Compile Include="Behavior.cs"/>
+        <Compile Include="BehaviorExtensionMethods.cs"/>
+        <Compile Include="BehaviorLoop.cs"/>
+        <Compile Include="BehaviorSinkExtensionMethods.cs"/>
+        <Compile Include="Cell.cs"/>
+        <Compile Include="CellExtensionMethods.cs"/>
+        <Compile Include="CellLoop.cs"/>
+        <Compile Include="CellSinkExtensionMethods.cs"/>
+        <Compile Include="CellStreamSinkExtensionMethods.cs"/>
+        <Compile Include="CleanupExtensionMethods.cs"/>
+        <Compile Include="ForwardReference.cs"/>
+        <Compile Include="JetBrainsAnnotations.cs"/>
+        <Compile Include="Listener.cs"/>
+        <Compile Include="LoopedBehaviorExtensionMethods.cs"/>
+        <Compile Include="LoopedCellExtensionMethods.cs"/>
+        <Compile Include="LoopedStreamExtensionMethods.cs"/>
+        <Compile Include="MutableListenerExtensionMethods.cs"/>
+        <Compile Include="Operational.cs"/>
+        <Compile Include="Stream.cs"/>
+        <Compile Include="StreamExtensionMethods.cs"/>
+        <Compile Include="StreamLoop.cs"/>
+        <Compile Include="StreamSinkExtensionMethods.cs"/>
+        <Compile Include="Transaction.cs"/>
+        <Compile Include="Time\ITimer.cs"/>
+        <Compile Include="Time\ITimerSystem.cs"/>
+        <Compile Include="Time\ITimerSystemImplementation.cs"/>
+        <Compile Include="Time\SecondsTimerSystem.cs"/>
+        <Compile Include="Time\SystemClockTimerSystem.cs"/>
+        <Compile Include="Time\TimerSystem.cs"/>
+        <Compile Include="Time\TimerSystemImplementationBase.cs"/>
+    </ItemGroup>
 
-  <ItemGroup>
-    <ProjectReference Include="..\..\SodaFlow.Core\SodaFlow.Core.csproj" />
-    <ProjectReference Include="..\SodaFlow.Functional\SodaFlow.Functional.csproj" />
-  </ItemGroup>
+    <ItemGroup>
+        <ProjectReference Include="..\..\SodaFlow.Core\SodaFlow.Core.csproj"/>
+        <ProjectReference Include="..\SodaFlow.Functional\SodaFlow.Functional.csproj"/>
+    </ItemGroup>
 
 </Project>

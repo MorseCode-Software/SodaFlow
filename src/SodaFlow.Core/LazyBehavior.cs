@@ -7,9 +7,9 @@ namespace SodaFlow
         internal Lazy<T> LazyInitialValue;
 
         internal LazyBehavior(TransactionInternal trans, Stream<T> stream, Lazy<T> lazyInitialValue)
-            : base(stream, default(T))
+            : base(stream: stream, initialValue: default)
         {
-            this.LazyInitialValue = new Lazy<T>(() => GuardAgainstSend(trans, lazyInitialValue));
+            this.LazyInitialValue = new Lazy<T>(() => GuardAgainstSend(trans: trans, v: lazyInitialValue));
 
             trans.Sample(this.EnsureValueIsCreated);
         }
@@ -17,6 +17,7 @@ namespace SodaFlow
         private static T GuardAgainstSend(TransactionInternal trans, Lazy<T> v)
         {
             trans.InCallback++;
+
             try
             {
                 // Don't allow transactions to interfere with SodaFlow

@@ -15,14 +15,14 @@ namespace SodaFlow.Time
         ///     Called with any exception raised while waiting for or firing timers.
         /// </param>
         public SystemClockTimerSystem(Action<Exception> handleException)
-            : base(new Implementation(), handleException)
+            : base(implementation: new Implementation(), handleException: handleException)
         {
         }
 
         internal class Implementation : TimerSystemImplementationBase<DateTime>
         {
-            protected override TimeSpan SubtractTimes(DateTime first, DateTime second) => first - second;
             public override DateTime Now => DateTime.Now;
+            protected override TimeSpan SubtractTimes(DateTime first, DateTime second) => first - second;
         }
     }
 }

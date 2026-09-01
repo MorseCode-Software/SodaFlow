@@ -12,14 +12,15 @@ namespace SodaFlow.Tests
         [Test]
         public void TestLoop()
         {
-            (Cell<int> c, CellStreamSink<int> s) = Transaction.Run(() =>
-             {
-                 CellLoop<int> loop = Cell.CreateLoop<int>();
-                 Cell<int> cLocal = loop.Map(v => v * 5);
-                 CellStreamSink<int> sLocal = Cell.CreateStreamSink<int>();
-                 loop.Loop(sLocal.Hold(3));
-                 return (cLocal, sLocal);
-             });
+            (Cell<int> c, CellStreamSink<int> s) =
+                Transaction.Run(() =>
+                {
+                    CellLoop<int> loop = Cell.CreateLoop<int>();
+                    Cell<int> cLocal = loop.Map(v => v * 5);
+                    CellStreamSink<int> sLocal = Cell.CreateStreamSink<int>();
+                    loop.Loop(sLocal.Hold(3));
+                    return (cLocal, sLocal);
+                });
 
             List<int> output1 = new List<int>();
             List<int> output2 = new List<int>();
@@ -32,8 +33,8 @@ namespace SodaFlow.Tests
             l2.Unlisten();
             l.Unlisten();
 
-            CollectionAssert.AreEqual(new[] { 15, 25, 35 }, output1);
-            CollectionAssert.AreEqual(new[] { 25, 35 }, output2);
+            CollectionAssert.AreEqual(expected: new[] { 15, 25, 35 }, actual: output1);
+            CollectionAssert.AreEqual(expected: new[] { 25, 35 }, actual: output2);
         }
 
         [Test]
@@ -42,14 +43,14 @@ namespace SodaFlow.Tests
             List<int> @out = new List<int>();
             CellSink<int> cellSink = Cell.CreateSink(1);
             Cell<int> cell = cellSink.Map(v => 2 * v);
-            IListener l = cellSink.Lift(cell, (x, y) => x + y).Updates().ListenStrong(@out.Add);
+            IListener l = cellSink.Lift(c2: cell, f: (x, y) => x + y).Updates().ListenStrong(@out.Add);
 
             cellSink.Send(2);
             cellSink.Send(7);
 
             l.Unlisten();
 
-            CollectionAssert.AreEqual(new[] { 6, 21 }, @out);
+            CollectionAssert.AreEqual(expected: new[] { 6, 21 }, actual: @out);
         }
 
         [Test]
@@ -71,30 +72,32 @@ namespace SodaFlow.Tests
             list1[2].Value.Send(12);
             list2[1].Value.Send(16);
             list1[4].Value.Send(14);
+
             Transaction.RunVoid(() =>
             {
                 list2[2].Value.Send(17);
                 list1[0].Value.Send(10);
                 v.Send(list2);
             });
+
             list1[3].Value.Send(13);
             list2[3].Value.Send(18);
 
             l2.Unlisten();
             l.Unlisten();
 
-            Assert.AreEqual(4, streamOutput.Count);
-            Assert.AreEqual(5, cellOutput.Count);
+            Assert.AreEqual(expected: 4, actual: streamOutput.Count);
+            Assert.AreEqual(expected: 5, actual: cellOutput.Count);
 
-            CollectionAssert.AreEqual(new[] { 0, 1, 2, 3, 4 }, cellOutput[0]);
-            CollectionAssert.AreEqual(new[] { 0, 1, 12, 3, 4 }, streamOutput[0]);
-            CollectionAssert.AreEqual(new[] { 0, 1, 12, 3, 4 }, cellOutput[1]);
-            CollectionAssert.AreEqual(new[] { 0, 1, 12, 3, 14 }, streamOutput[1]);
-            CollectionAssert.AreEqual(new[] { 0, 1, 12, 3, 14 }, cellOutput[2]);
-            CollectionAssert.AreEqual(new[] { 5, 16, 17, 8, 9 }, streamOutput[2]);
-            CollectionAssert.AreEqual(new[] { 5, 16, 17, 8, 9 }, cellOutput[3]);
-            CollectionAssert.AreEqual(new[] { 5, 16, 17, 18, 9 }, streamOutput[3]);
-            CollectionAssert.AreEqual(new[] { 5, 16, 17, 18, 9 }, cellOutput[4]);
+            CollectionAssert.AreEqual(expected: new[] { 0, 1, 2, 3, 4 }, actual: cellOutput[0]);
+            CollectionAssert.AreEqual(expected: new[] { 0, 1, 12, 3, 4 }, actual: streamOutput[0]);
+            CollectionAssert.AreEqual(expected: new[] { 0, 1, 12, 3, 4 }, actual: cellOutput[1]);
+            CollectionAssert.AreEqual(expected: new[] { 0, 1, 12, 3, 14 }, actual: streamOutput[1]);
+            CollectionAssert.AreEqual(expected: new[] { 0, 1, 12, 3, 14 }, actual: cellOutput[2]);
+            CollectionAssert.AreEqual(expected: new[] { 5, 16, 17, 8, 9 }, actual: streamOutput[2]);
+            CollectionAssert.AreEqual(expected: new[] { 5, 16, 17, 8, 9 }, actual: cellOutput[3]);
+            CollectionAssert.AreEqual(expected: new[] { 5, 16, 17, 18, 9 }, actual: streamOutput[3]);
+            CollectionAssert.AreEqual(expected: new[] { 5, 16, 17, 18, 9 }, actual: cellOutput[4]);
         }
 
         [Test]
@@ -116,38 +119,37 @@ namespace SodaFlow.Tests
             list1[2].Value.Send(12);
             list2[1].Value.Send(16);
             list1[4].Value.Send(14);
+
             Transaction.RunVoid(() =>
             {
                 list2[2].Value.Send(17);
                 list1[0].Value.Send(10);
                 v.Send(list2);
             });
+
             list1[3].Value.Send(13);
             list2[3].Value.Send(18);
 
             l2.Unlisten();
             l.Unlisten();
 
-            Assert.AreEqual(4, streamOutput.Count);
-            Assert.AreEqual(5, cellOutput.Count);
+            Assert.AreEqual(expected: 4, actual: streamOutput.Count);
+            Assert.AreEqual(expected: 5, actual: cellOutput.Count);
 
-            CollectionAssert.AreEqual(new[] { 0, 1, 2, 3, 4 }, cellOutput[0]);
-            CollectionAssert.AreEqual(new[] { 0, 1, 12, 3, 4 }, streamOutput[0]);
-            CollectionAssert.AreEqual(new[] { 0, 1, 12, 3, 4 }, cellOutput[1]);
-            CollectionAssert.AreEqual(new[] { 0, 1, 12, 3, 14 }, streamOutput[1]);
-            CollectionAssert.AreEqual(new[] { 0, 1, 12, 3, 14 }, cellOutput[2]);
-            CollectionAssert.AreEqual(new[] { 5, 16, 17, 8, 9 }, streamOutput[2]);
-            CollectionAssert.AreEqual(new[] { 5, 16, 17, 8, 9 }, cellOutput[3]);
-            CollectionAssert.AreEqual(new[] { 5, 16, 17, 18, 9 }, streamOutput[3]);
-            CollectionAssert.AreEqual(new[] { 5, 16, 17, 18, 9 }, cellOutput[4]);
+            CollectionAssert.AreEqual(expected: new[] { 0, 1, 2, 3, 4 }, actual: cellOutput[0]);
+            CollectionAssert.AreEqual(expected: new[] { 0, 1, 12, 3, 4 }, actual: streamOutput[0]);
+            CollectionAssert.AreEqual(expected: new[] { 0, 1, 12, 3, 4 }, actual: cellOutput[1]);
+            CollectionAssert.AreEqual(expected: new[] { 0, 1, 12, 3, 14 }, actual: streamOutput[1]);
+            CollectionAssert.AreEqual(expected: new[] { 0, 1, 12, 3, 14 }, actual: cellOutput[2]);
+            CollectionAssert.AreEqual(expected: new[] { 5, 16, 17, 8, 9 }, actual: streamOutput[2]);
+            CollectionAssert.AreEqual(expected: new[] { 5, 16, 17, 8, 9 }, actual: cellOutput[3]);
+            CollectionAssert.AreEqual(expected: new[] { 5, 16, 17, 18, 9 }, actual: streamOutput[3]);
+            CollectionAssert.AreEqual(expected: new[] { 5, 16, 17, 18, 9 }, actual: cellOutput[4]);
         }
 
         public class Test
         {
-            public Test(int initialValue)
-            {
-                this.Value = Cell.CreateSink(initialValue);
-            }
+            public Test(int initialValue) => this.Value = Cell.CreateSink(initialValue);
 
             public CellSink<int> Value { get; }
         }
@@ -158,12 +160,12 @@ namespace SodaFlow.Tests
             List<int> @out = new List<int>();
             CellSink<int> s = Cell.CreateSink(0);
             Cell<Cell<int>> c = Cell.Constant(Cell.Constant(1));
-            Cell<Cell<int>> r = c.Map(c2 => c2.Lift(s, (v1, v2) => v1 + v2));
+            Cell<Cell<int>> r = c.Map(c2 => c2.Lift(c2: s, f: (v1, v2) => v1 + v2));
             IListener l = r.SwitchC().ListenStrong(@out.Add);
             s.Send(2);
             s.Send(4);
             l.Unlisten();
-            CollectionAssert.AreEqual(new[] { 1, 3, 5 }, @out);
+            CollectionAssert.AreEqual(expected: new[] { 1, 3, 5 }, actual: @out);
         }
 
         [Test]
@@ -177,7 +179,7 @@ namespace SodaFlow.Tests
             s.Send(3);
             s.Send(5);
             l.Unlisten();
-            CollectionAssert.AreEqual(new[] { 1, 3, 5 }, @out);
+            CollectionAssert.AreEqual(expected: new[] { 1, 3, 5 }, actual: @out);
         }
 
         [Test]
@@ -186,15 +188,19 @@ namespace SodaFlow.Tests
             StreamSink<int> s = Stream.CreateSink<int>();
             Cell<int> c = s.Hold(0);
             List<(int Current, Maybe<int> Previous)> @out = new List<(int Current, Maybe<int> Previous)>();
-            using (Transaction.Run(
-                () =>
-                {
-                    Stream<(int Current, Maybe<int> Previous)> r = c.Updates()
-                        .Snapshot(c, (n, o) => (Current: n, Previous: Maybe.Some(o)))
-                        .OrElse(
-                            Cell.ConstantLazy(c.SampleLazy()).Values().Map(v => (Current: v, Previous: Maybe<int>.None)));
-                    return r.ListenStrong(@out.Add);
-                }))
+
+            using (Transaction.Run(() =>
+                   {
+                       Stream<(int Current, Maybe<int> Previous)> r =
+                           c.Updates()
+                               .Snapshot(c: c, f: (n, o) => (Current: n, Previous: Maybe.Some(o)))
+                               .OrElse(
+                                   Cell.ConstantLazy(c.SampleLazy())
+                                       .Values()
+                                       .Map(v => (Current: v, Previous: Maybe<int>.None)));
+
+                       return r.ListenStrong(@out.Add);
+                   }))
             {
                 s.Send(1);
                 s.Send(2);
@@ -203,15 +209,15 @@ namespace SodaFlow.Tests
             }
 
             CollectionAssert.AreEqual(
-                new[]
-                {
-                    (Current: 0, Previous: Maybe.None),
-                    (Current: 1, Previous: Maybe.Some(0)),
-                    (Current: 2, Previous: Maybe.Some(1)),
-                    (Current: 3, Previous: Maybe.Some(2)),
-                    (Current: 4, Previous: Maybe.Some(3))
-                },
-                @out);
+                expected: new[]
+                          {
+                              (Current: 0, Previous: Maybe.None),
+                              (Current: 1, Previous: Maybe.Some(0)),
+                              (Current: 2, Previous: Maybe.Some(1)),
+                              (Current: 3, Previous: Maybe.Some(2)),
+                              (Current: 4, Previous: Maybe.Some(3))
+                          },
+                actual: @out);
         }
 
         [Test]
@@ -220,16 +226,20 @@ namespace SodaFlow.Tests
             StreamSink<int> s = Stream.CreateSink<int>();
             Cell<int> c = s.Hold(0);
             List<(int Current, Maybe<int> Previous)> @out = new List<(int Current, Maybe<int> Previous)>();
-            using (Transaction.Run(
-                () =>
-                {
-                    Stream<(int Current, Maybe<int> Previous)> r = c.Updates()
-                        .Snapshot(c, (n, o) => (Current: n, Previous: Maybe.Some(o)))
-                        .OrElse(
-                            Cell.ConstantLazy(c.SampleLazy()).Values().Map(v => (Current: v, Previous: Maybe<int>.None)));
-                    s.Send(1);
-                    return r.ListenStrong(@out.Add);
-                }))
+
+            using (Transaction.Run(() =>
+                   {
+                       Stream<(int Current, Maybe<int> Previous)> r =
+                           c.Updates()
+                               .Snapshot(c: c, f: (n, o) => (Current: n, Previous: Maybe.Some(o)))
+                               .OrElse(
+                                   Cell.ConstantLazy(c.SampleLazy())
+                                       .Values()
+                                       .Map(v => (Current: v, Previous: Maybe<int>.None)));
+
+                       s.Send(1);
+                       return r.ListenStrong(@out.Add);
+                   }))
             {
                 s.Send(2);
                 s.Send(3);
@@ -238,41 +248,44 @@ namespace SodaFlow.Tests
             }
 
             CollectionAssert.AreEqual(
-                new[]
-                {
-                    (Current: 1, Previous: Maybe.Some(0)),
-                    (Current: 2, Previous: Maybe.Some(1)),
-                    (Current: 3, Previous: Maybe.Some(2)),
-                    (Current: 4, Previous: Maybe.Some(3)),
-                    (Current: 5, Previous: Maybe.Some(4))
-                },
-                @out);
+                expected: new[]
+                          {
+                              (Current: 1, Previous: Maybe.Some(0)),
+                              (Current: 2, Previous: Maybe.Some(1)),
+                              (Current: 3, Previous: Maybe.Some(2)),
+                              (Current: 4, Previous: Maybe.Some(3)),
+                              (Current: 5, Previous: Maybe.Some(4))
+                          },
+                actual: @out);
         }
 
         [Test]
         public void TestLoopAndSwitchCError()
         {
             InvalidOperationException exception = null;
+
             try
             {
                 Cell.Loop<int>()
                     // ReSharper disable once ReturnValueOfPureMethodIsNotUsed
-                    .WithoutCaptures(
-                        l =>
-                        {
-                            StreamSink<Inner> s = Stream.CreateSink<Inner>();
-                            Cell<Inner> cc = s.Hold(new Inner(l.SampleLazy()));
-                            Cell<int> c = cc.Map(o => o.C).SwitchC();
-                            return c;
-                        });
+                    .WithoutCaptures(l =>
+                    {
+                        StreamSink<Inner> s = Stream.CreateSink<Inner>();
+                        Cell<Inner> cc = s.Hold(new Inner(l.SampleLazy()));
+                        Cell<int> c = cc.Map(o => o.C).SwitchC();
+                        return c;
+                    });
             }
             catch (InvalidOperationException e)
             {
                 exception = e;
             }
-            
+
             Assert.IsNotNull(exception);
-            Assert.AreEqual("ValueFactory attempted to access the Value property of this instance.", exception.Message);
+
+            Assert.AreEqual(
+                expected: "ValueFactory attempted to access the Value property of this instance.",
+                actual: exception.Message);
         }
 
         [Test]
@@ -280,16 +293,16 @@ namespace SodaFlow.Tests
         {
             (Cell<int> resultCell, (Cell<Inner> innerCell, StreamSink<Inner> innerStreamSink)) =
                 Cell.Loop<int>()
-                    .WithCaptures(
-                        l =>
-                        {
-                            StreamSink<Inner> s = Stream.CreateSink<Inner>();
-                            Cell<Inner> cc = s.Hold(new Inner(l.SampleLazy()));
-                            Cell<int> c = cc.Map(o => o.C).SwitchC().Values().Hold(3);
-                            return (Cell: c, Captures: (cc, s));
-                        });
+                    .WithCaptures(l =>
+                    {
+                        StreamSink<Inner> s = Stream.CreateSink<Inner>();
+                        Cell<Inner> cc = s.Hold(new Inner(l.SampleLazy()));
+                        Cell<int> c = cc.Map(o => o.C).SwitchC().Values().Hold(3);
+                        return (Cell: c, Captures: (cc, s));
+                    });
 
             List<int> @out = new List<int>();
+
             using (resultCell.ListenStrong(@out.Add))
             {
                 innerCell.Sample().S.Send(5);
@@ -297,7 +310,7 @@ namespace SodaFlow.Tests
                 innerCell.Sample().S.Send(7);
             }
 
-            CollectionAssert.AreEqual(new[] { 3, 5, 4, 7 }, @out);
+            CollectionAssert.AreEqual(expected: new[] { 3, 5, 4, 7 }, actual: @out);
         }
 
         private class Inner

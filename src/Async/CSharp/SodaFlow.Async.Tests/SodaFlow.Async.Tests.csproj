@@ -21,25 +21,25 @@
     </PropertyGroup>
 
     <ItemGroup>
-        <PackageReference Include="JetBrains.Annotations" Version="2026.2.0" />
-        <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.11.1" />
-        <PackageReference Include="NUnit" Version="3.11.0" />
-        <PackageReference Include="NUnit3TestAdapter" Version="3.10.0" />
-        <PackageReference Include="System.ValueTuple" Version="4.4.0" />
+        <PackageReference Include="JetBrains.Annotations" Version="2026.2.0"/>
+        <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.11.1"/>
+        <PackageReference Include="NUnit" Version="3.11.0"/>
+        <PackageReference Include="NUnit3TestAdapter" Version="3.10.0"/>
+        <PackageReference Include="System.ValueTuple" Version="4.4.0"/>
     </ItemGroup>
 
     <ItemGroup>
-      <Compile Include="AsyncConcurrencyStrategyTests.cs" />
-      <Compile Include="MapAsyncExtensionsTests.cs" />
-      <Compile Include="TestUtil.cs" />
+        <Compile Include="AsyncConcurrencyStrategyTests.cs"/>
+        <Compile Include="MapAsyncExtensionsTests.cs"/>
+        <Compile Include="TestUtil.cs"/>
     </ItemGroup>
 
     <ItemGroup>
-      <ProjectReference Include="..\..\..\SodaFlow.Core\SodaFlow.Core.csproj" />
-      <ProjectReference Include="..\..\..\CSharp\SodaFlow\SodaFlow.csproj" />
-      <ProjectReference Include="..\..\..\CSharp\SodaFlow.Functional\SodaFlow.Functional.csproj" />
-      <ProjectReference Include="..\SodaFlow.Async\SodaFlow.Async.csproj" />
-      <ProjectReference Include="..\..\SodaFlow.Core.Async\SodaFlow.Core.Async.csproj" />
+        <ProjectReference Include="..\..\..\SodaFlow.Core\SodaFlow.Core.csproj"/>
+        <ProjectReference Include="..\..\..\CSharp\SodaFlow\SodaFlow.csproj"/>
+        <ProjectReference Include="..\..\..\CSharp\SodaFlow.Functional\SodaFlow.Functional.csproj"/>
+        <ProjectReference Include="..\SodaFlow.Async\SodaFlow.Async.csproj"/>
+        <ProjectReference Include="..\..\SodaFlow.Core.Async\SodaFlow.Core.Async.csproj"/>
     </ItemGroup>
 
 </Project>

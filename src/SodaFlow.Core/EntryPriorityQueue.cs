@@ -1,5 +1,4 @@
 ﻿using System;
-using System.Collections.Generic;
 
 namespace SodaFlow
 {
@@ -7,32 +6,21 @@ namespace SodaFlow
     {
         private const bool SanityChecks = false;
 
-        private class HeadAndTail
-        {
-            public TransactionInternal.Entry Head;
-            public TransactionInternal.Entry Tail;
-
-            public HeadAndTail(TransactionInternal.Entry head, TransactionInternal.Entry tail)
-            {
-                this.Head = head;
-                this.Tail = tail;
-            }
-        }
+        private readonly HeadAndTail last = new HeadAndTail(head: null, tail: null);
 
         private HeadAndTail[] entries = new HeadAndTail[1000];
 
         private int entriesSize = 1000;
-
-        private HeadAndTail last = new HeadAndTail(null, null);
-
-        private int minRank = 0;
         private int maxRank = -1;
+
+        private int minRank;
 
         private void CheckQueue()
         {
             for (int i = 0; i < this.entries.Length; i++)
             {
                 HeadAndTail e = this.entries[i];
+
                 if (e == null)
                 {
                     continue;
@@ -51,6 +39,7 @@ namespace SodaFlow
                 }
 
                 TransactionInternal.Entry current = e.Head;
+
                 while (current != null)
                 {
                     if (current.PqRank != expectedPqRank)
@@ -93,6 +82,7 @@ namespace SodaFlow
             if (e.PqRank != Node.NullRank && e.PqRank >= this.entriesSize)
             {
                 int newSize = this.entriesSize;
+
                 while (newSize <= e.PqRank)
                 {
                     if (newSize > int.MaxValue / 2)
@@ -104,7 +94,7 @@ namespace SodaFlow
                     newSize *= 2;
                 }
 
-                Array.Resize(ref this.entries, newSize);
+                Array.Resize(array: ref this.entries, newSize: newSize);
                 this.entriesSize = newSize;
             }
 
@@ -137,7 +127,7 @@ namespace SodaFlow
 
                 if (entry == null)
                 {
-                    this.entries[e.PqRank] = new HeadAndTail(e, e);
+                    this.entries[e.PqRank] = new HeadAndTail(head: e, tail: e);
 
                     if (SanityChecks)
                     {
@@ -239,7 +229,8 @@ namespace SodaFlow
                             {
                                 if (current.PqRank < result.PqRank)
                                 {
-                                    throw new Exception("Priority queue contains less than the expected number of elements.");
+                                    throw new Exception(
+                                        "Priority queue contains less than the expected number of elements.");
                                 }
 
                                 current = current.PqNext;
@@ -316,6 +307,18 @@ namespace SodaFlow
             this.Remove(e);
             e.PqRank = newRank;
             this.Enqueue(e);
+        }
+
+        private class HeadAndTail
+        {
+            public TransactionInternal.Entry Head;
+            public TransactionInternal.Entry Tail;
+
+            public HeadAndTail(TransactionInternal.Entry head, TransactionInternal.Entry tail)
+            {
+                this.Head = head;
+                this.Tail = tail;
+            }
         }
     }
 }

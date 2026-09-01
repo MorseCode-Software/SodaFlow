@@ -38,7 +38,7 @@ namespace SodaFlow
                 this.isAssigned = true;
             }
 
-            this.AttachListenerImpl(stream.Listen(this.Node, this.Send));
+            this.AttachListenerImpl(stream.Listen(target: this.Node, action: this.Send));
 
             lock (stream.KeepListenersAlive)
             {

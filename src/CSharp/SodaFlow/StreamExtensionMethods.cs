@@ -14,7 +14,6 @@ namespace SodaFlow
     ///     A stream is a sequence of discrete firings. These are extension methods rather than instance
     ///     members so that the combinators live outside the small assembly the FRP engine is built in;
     ///     the effect at the call site is the same.
-    ///
     ///     Build the graph inside a <see cref="Transaction.Run{T}(System.Func{T})" /> so that no first
     ///     firing is missed.
     /// </remarks>
@@ -33,7 +32,8 @@ namespace SodaFlow
         /// <remarks>
         ///     <para>
         ///         No assumptions should be made about what thread the handler is called on and it should not block.
-        ///         Neither <see cref="StreamSinkExtensionMethods.Send{T}" /> nor <see cref="CellSinkExtensionMethods.Send{T}" /> may be called from the
+        ///         Neither <see cref="StreamSinkExtensionMethods.Send{T}" /> nor <see cref="CellSinkExtensionMethods.Send{T}" />
+        ///         may be called from the
         ///         handler.
         ///         They will throw an exception because this method is not meant to be used to create new primitives.
         ///     </para>
@@ -43,7 +43,8 @@ namespace SodaFlow
         ///     </para>
         ///     <para>
         ///         To ensure this <see cref="IStrongListener" /> is disposed as soon as the stream it is listening to is either
-        ///         disposed or garbage collected, pass the returned listener to this stream's <see cref="AttachListener{T}" /> method.
+        ///         disposed or garbage collected, pass the returned listener to this stream's <see cref="AttachListener{T}" />
+        ///         method.
         ///     </para>
         ///     <para>
         ///         This roots the stream: the graph behind it cannot be collected while the returned listener is
@@ -51,7 +52,8 @@ namespace SodaFlow
         ///     </para>
         /// </remarks>
         [MethodImpl(MethodImplOptions.NoInlining)]
-        public static IStrongListener ListenStrong<T>(this Stream<T> s, Action<T> handler) => s.ListenStrongImpl(handler);
+        public static IStrongListener ListenStrong<T>(this Stream<T> s, Action<T> handler) =>
+            s.ListenStrongImpl(handler);
 
         /// <summary>
         ///     Listen for events/firings on this stream, without keeping the stream alive.  The returned
@@ -66,7 +68,8 @@ namespace SodaFlow
         /// <remarks>
         ///     <para>
         ///         No assumptions should be made about what thread the handler is called on and it should not block.
-        ///         Neither <see cref="StreamSinkExtensionMethods.Send{T}" /> nor <see cref="CellSinkExtensionMethods.Send{T}" /> may be called from the
+        ///         Neither <see cref="StreamSinkExtensionMethods.Send{T}" /> nor <see cref="CellSinkExtensionMethods.Send{T}" />
+        ///         may be called from the
         ///         handler.
         ///         They will throw an exception because this method is not meant to be used to create new primitives.
         ///     </para>
@@ -76,7 +79,8 @@ namespace SodaFlow
         ///     </para>
         ///     <para>
         ///         To ensure this <see cref="IWeakListener" /> is disposed as soon as the stream it is listening to is either
-        ///         disposed or garbage collected, pass the returned listener to this stream's <see cref="AttachListener{T}" /> method.
+        ///         disposed or garbage collected, pass the returned listener to this stream's <see cref="AttachListener{T}" />
+        ///         method.
         ///     </para>
         ///     <para>
         ///         This does not root the stream.  Nothing here keeps the observed graph alive, so listening stops
@@ -132,15 +136,17 @@ namespace SodaFlow
         public static Task<T> ListenOnceAsync<T>(this Stream<T> s, CancellationToken token)
         {
 #if NETSTANDARD2_0_OR_GREATER || NET461_OR_GREATER || NET
-            TaskCompletionSource<T> tcs = new TaskCompletionSource<T>(TaskCreationOptions.RunContinuationsAsynchronously);
+            TaskCompletionSource<T> tcs =
+                new TaskCompletionSource<T>(TaskCreationOptions.RunContinuationsAsynchronously);
 #else
             TaskCompletionSource<T> tcs = new TaskCompletionSource<T>();
 #endif
 
             IStrongListener listener = null;
             bool unlistenEarly = false;
-            listener = s.ListenStrong(
-                a =>
+
+            listener =
+                s.ListenStrong(a =>
                 {
                     // ReSharper disable once AccessToModifiedClosure
                     if (listener == null)
@@ -163,14 +169,13 @@ namespace SodaFlow
                 listener = null;
             }
 
-            token.Register(
-                () =>
-                {
-                    listener?.Unlisten();
-                    listener = null;
+            token.Register(() =>
+            {
+                listener?.Unlisten();
+                listener = null;
 
-                    tcs.TrySetCanceled();
-                });
+                tcs.TrySetCanceled();
+            });
 
 #if NETSTANDARD2_0_OR_GREATER || NET461_OR_GREATER || NET
             return tcs.Task;
@@ -194,8 +199,10 @@ namespace SodaFlow
         /// <typeparam name="TResult">The type of values fired by the returned stream.</typeparam>
         /// <param name="s">The stream.</param>
         /// <param name="f">
-        ///     Function to apply to convert the values.  It may construct FRP logic or use <see cref="CellExtensionMethods.Sample{T}(Cell{T})" />,
-        ///     in which case it is equivalent to calling <see cref="Snapshot{T, TResult}(Stream{T}, Cell{TResult})" /> on the cell.
+        ///     Function to apply to convert the values.  It may construct FRP logic or use
+        ///     <see cref="CellExtensionMethods.Sample{T}(Cell{T})" />,
+        ///     in which case it is equivalent to calling <see cref="Snapshot{T, TResult}(Stream{T}, Cell{TResult})" /> on the
+        ///     cell.
         ///     Other than this, the function must be a pure function.
         /// </param>
         /// <returns>A stream which fires values transformed by <paramref name="f" /> for each value fired by this stream.</returns>
@@ -227,7 +234,8 @@ namespace SodaFlow
         ///     visible as the cell's current value as viewed by
         ///     <see cref="StreamExtensionMethods.Snapshot{T, T2, TResult}(Stream{T}, Cell{T2}, Func{T, T2, TResult})" />
         ///     until the following transaction. To put this another way,
-        ///     <see cref="StreamExtensionMethods.Snapshot{T, T2, TResult}(Stream{T}, Cell{T2}, Func{T, T2, TResult})" /> always sees the value of a cell as
+        ///     <see cref="StreamExtensionMethods.Snapshot{T, T2, TResult}(Stream{T}, Cell{T2}, Func{T, T2, TResult})" /> always
+        ///     sees the value of a cell as
         ///     it was before
         ///     any state changes from the current transaction.
         /// </remarks>
@@ -282,7 +290,7 @@ namespace SodaFlow
         /// </returns>
         [MethodImpl(MethodImplOptions.NoInlining)]
         public static Stream<TResult> Snapshot<T, T1, TResult>(this Stream<T> s, Cell<T1> c, Func<T, T1, TResult> f) =>
-            s.SnapshotImpl(c, f);
+            s.SnapshotImpl(c: c, f: f);
 
         /// <summary>
         ///     Return a stream whose events are the result of the combination using the specified
@@ -302,7 +310,8 @@ namespace SodaFlow
         public static Stream<TResult> Snapshot<T, T1, TResult>(
             this Stream<T> s,
             Behavior<T1> b,
-            Func<T, T1, TResult> f) => s.SnapshotImpl(b, f);
+            Func<T, T1, TResult> f) =>
+            s.SnapshotImpl(b: b, f: f);
 
         /// <summary>
         ///     Return a stream whose events are the result of the combination using the specified
@@ -325,7 +334,8 @@ namespace SodaFlow
             this Stream<T> s,
             Cell<T1> c1,
             Cell<T2> c2,
-            Func<T, T1, T2, TResult> f) => s.SnapshotImpl(c1, c2, f);
+            Func<T, T1, T2, TResult> f) =>
+            s.SnapshotImpl(c1: c1, c2: c2, f: f);
 
         /// <summary>
         ///     Return a stream whose events are the result of the combination using the specified
@@ -348,7 +358,8 @@ namespace SodaFlow
             this Stream<T> s,
             Behavior<T1> b1,
             Behavior<T2> b2,
-            Func<T, T1, T2, TResult> f) => s.SnapshotImpl(b1, b2, f);
+            Func<T, T1, T2, TResult> f) =>
+            s.SnapshotImpl(b1: b1, b2: b2, f: f);
 
         /// <summary>
         ///     Return a stream whose events are the result of the combination using the specified
@@ -374,7 +385,8 @@ namespace SodaFlow
             Cell<T1> c1,
             Cell<T2> c2,
             Cell<T3> c3,
-            Func<T, T1, T2, T3, TResult> f) => s.SnapshotImpl(c1, c2, c3, f);
+            Func<T, T1, T2, T3, TResult> f) =>
+            s.SnapshotImpl(c1: c1, c2: c2, c3: c3, f: f);
 
         /// <summary>
         ///     Return a stream whose events are the result of the combination using the specified
@@ -400,7 +412,8 @@ namespace SodaFlow
             Behavior<T1> b1,
             Behavior<T2> b2,
             Behavior<T3> b3,
-            Func<T, T1, T2, T3, TResult> f) => s.SnapshotImpl(b1, b2, b3, f);
+            Func<T, T1, T2, T3, TResult> f) =>
+            s.SnapshotImpl(b1: b1, b2: b2, b3: b3, f: f);
 
         /// <summary>
         ///     Return a stream whose events are the result of the combination using the specified
@@ -429,7 +442,8 @@ namespace SodaFlow
             Cell<T2> c2,
             Cell<T3> c3,
             Cell<T4> c4,
-            Func<T, T1, T2, T3, T4, TResult> f) => s.SnapshotImpl(c1, c2, c3, c4, f);
+            Func<T, T1, T2, T3, T4, TResult> f) =>
+            s.SnapshotImpl(c1: c1, c2: c2, c3: c3, c4: c4, f: f);
 
         /// <summary>
         ///     Return a stream whose events are the result of the combination using the specified
@@ -458,7 +472,8 @@ namespace SodaFlow
             Behavior<T2> b2,
             Behavior<T3> b3,
             Behavior<T4> b4,
-            Func<T, T1, T2, T3, T4, TResult> f) => s.SnapshotImpl(b1, b2, b3, b4, f);
+            Func<T, T1, T2, T3, T4, TResult> f) =>
+            s.SnapshotImpl(b1: b1, b2: b2, b3: b3, b4: b4, f: f);
 
         /// <summary>
         ///     Merges this stream with another stream and drops the other stream's value in the simultaneous case.
@@ -475,7 +490,8 @@ namespace SodaFlow
         ///         In the case where two stream events are simultaneous (i.e. both
         ///         within the same transaction), the event value from this stream will take precedence, and
         ///         the event value from <paramref name="s2" /> will be dropped.
-        ///         To specify a custom combining function, use <see cref="StreamExtensionMethods.Merge{T}(Stream{T}, Stream{T}, Func{T, T, T})" />.
+        ///         To specify a custom combining function, use
+        ///         <see cref="StreamExtensionMethods.Merge{T}(Stream{T}, Stream{T}, Func{T, T, T})" />.
         ///         s1.OrElse(s2) is equivalent to s1.Merge(s2, (l, r) =&gt; l).
         ///     </para>
         ///     <para>
@@ -508,7 +524,7 @@ namespace SodaFlow
         ///     the event from <paramref name="s2" /> will appear at the right.
         /// </remarks>
         [MethodImpl(MethodImplOptions.NoInlining)]
-        public static Stream<T> Merge<T>(this Stream<T> s, Stream<T> s2, Func<T, T, T> f) => s.MergeImpl(s2, f);
+        public static Stream<T> Merge<T>(this Stream<T> s, Stream<T> s2, Func<T, T, T> f) => s.MergeImpl(s: s2, f: f);
 
         /// <summary>
         ///     Return a stream that only outputs events for which the predicate returns <code>true</code>.
@@ -532,13 +548,17 @@ namespace SodaFlow
         public static Stream<T> Gate<T>(this Stream<T> s, Cell<bool> c) => s.GateImpl(c);
 
         /// <summary>
-        ///     Return a stream that only outputs events from the input stream when the specified behavior's value is <code>true</code>
+        ///     Return a stream that only outputs events from the input stream when the specified behavior's value is
+        ///     <code>true</code>
         ///     .
         /// </summary>
         /// <typeparam name="T">The type of the stream.</typeparam>
         /// <param name="s">The stream.</param>
         /// <param name="b">The behavior that acts as a gate.</param>
-        /// <returns>A stream that only outputs events from the input stream when the specified behavior's value is <code>true</code>.</returns>
+        /// <returns>
+        ///     A stream that only outputs events from the input stream when the specified behavior's value is
+        ///     <code>true</code>.
+        /// </returns>
         [MethodImpl(MethodImplOptions.NoInlining)]
         public static Stream<T> Gate<T>(this Stream<T> s, Behavior<bool> b) => s.GateImpl(b);
 
@@ -590,7 +610,8 @@ namespace SodaFlow
         public static Stream<TReturn> Collect<T, TState, TReturn>(
             this Stream<T> s,
             TState initialState,
-            Func<T, TState, (TReturn ReturnValue, TState State)> f) => s.CollectImpl(initialState, f);
+            Func<T, TState, (TReturn ReturnValue, TState State)> f) =>
+            s.CollectImpl(initialState: initialState, f: f);
 
         /// <summary>
         ///     Transform a stream with a generalized state loop (a Mealy machine) using a lazily evaluated initial state.
@@ -611,7 +632,8 @@ namespace SodaFlow
         public static Stream<TReturn> CollectLazy<T, TState, TReturn>(
             this Stream<T> s,
             Lazy<TState> initialState,
-            Func<T, TState, (TReturn ReturnValue, TState State)> f) => s.CollectLazyImpl(initialState, f);
+            Func<T, TState, (TReturn ReturnValue, TState State)> f) =>
+            s.CollectLazyImpl(initialState: initialState, f: f);
 
         /// <summary>
         ///     Accumulate on this stream, outputting the new state each time an event fires.
@@ -630,10 +652,12 @@ namespace SodaFlow
         public static Cell<TReturn> Accum<T, TReturn>(
             this Stream<T> s,
             TReturn initialState,
-            Func<T, TReturn, TReturn> f) => s.AccumImpl(initialState, f);
+            Func<T, TReturn, TReturn> f) =>
+            s.AccumImpl(initialState: initialState, f: f);
 
         /// <summary>
-        ///     Accumulate on this stream, outputting the new state each time an event fires using a lazily evaluated initial state.
+        ///     Accumulate on this stream, outputting the new state each time an event fires using a lazily evaluated initial
+        ///     state.
         /// </summary>
         /// <typeparam name="T">The type of the stream.</typeparam>
         /// <typeparam name="TReturn">The type of the accumulated state.</typeparam>
@@ -649,7 +673,8 @@ namespace SodaFlow
         public static Cell<TReturn> AccumLazy<T, TReturn>(
             this Stream<T> s,
             Lazy<TReturn> initialState,
-            Func<T, TReturn, TReturn> f) => s.AccumLazyImpl(initialState, f);
+            Func<T, TReturn, TReturn> f) =>
+            s.AccumLazyImpl(initialState: initialState, f: f);
 
         /// <summary>
         ///     Return a stream that outputs only one value: the next event of the input stream starting from the transaction in
@@ -681,7 +706,8 @@ namespace SodaFlow
         /// </summary>
         /// <param name="s">The collection of streams to merge.</param>
         /// <param name="f">
-        ///     Function to combine the values. It may construct FRP logic or use <see cref="CellExtensionMethods.Sample{T}" />.  Apart
+        ///     Function to combine the values. It may construct FRP logic or use <see cref="CellExtensionMethods.Sample{T}" />.
+        ///     Apart
         ///     from this the function must be pure.
         /// </param>
         /// <returns>
@@ -715,7 +741,8 @@ namespace SodaFlow
         /// </summary>
         /// <param name="s">The stream to transform.</param>
         /// <param name="f">
-        ///     Function to apply to each value. It may construct FRP logic or use <see cref="CellExtensionMethods.Sample{T}" />.  Apart
+        ///     Function to apply to each value. It may construct FRP logic or use <see cref="CellExtensionMethods.Sample{T}" />.
+        ///     Apart
         ///     from this the function must be pure.
         /// </param>
         /// <typeparam name="T">The type of the values fired by the stream to transform.</typeparam>

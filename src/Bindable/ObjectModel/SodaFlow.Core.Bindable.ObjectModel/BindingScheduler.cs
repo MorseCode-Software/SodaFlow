@@ -1,155 +1,153 @@
 ﻿using System;
 using System.Threading;
 
-namespace SodaFlow.Bindable.ObjectModel
+namespace SodaFlow.Bindable.ObjectModel;
+
+/// <summary>
+///     Marshals notifications onto the thread the binding engine requires.
+/// </summary>
+public interface IBindingScheduler
 {
     /// <summary>
-    ///     Marshals notifications onto the thread the binding engine requires.
+    ///     Queues <paramref name="action" /> for execution on the binding thread. Implementations
+    ///     MUST preserve FIFO ordering and MUST NOT execute the action synchronously while a Sodium
+    ///     transaction is in flight.
     /// </summary>
-    public interface IBindingScheduler
+    void Post(Action action);
+}
+
+/// <summary>
+///     Posts through a captured <see cref="SynchronizationContext" />. Works unmodified for WPF
+///     (<c>DispatcherSynchronizationContext</c>) and Avalonia (<c>AvaloniaSynchronizationContext</c>).
+/// </summary>
+public sealed class SynchronizationContextBindingScheduler : IBindingScheduler
+{
+    private static readonly SendOrPostCallback Callback = state => ((Action)state!)();
+
+    private readonly SynchronizationContext context;
+
+    /// <summary>
+    ///     Initializes a new instance posting through the given synchronization context.
+    /// </summary>
+    /// <param name="context">The context to post to. Usually the UI thread's.</param>
+    /// <exception cref="ArgumentNullException"><paramref name="context" /> is null.</exception>
+    public SynchronizationContextBindingScheduler(SynchronizationContext context) =>
+        this.context = context ?? throw new ArgumentNullException(nameof(context));
+
+    /// <summary>
+    ///     Posts through the captured context.
+    /// </summary>
+    /// <param name="action">The action to run on the binding thread.</param>
+    /// <exception cref="ArgumentNullException"><paramref name="action" /> is null.</exception>
+    /// <remarks>
+    ///     Always posted, never sent, even when the caller is already on the binding thread:
+    ///     running inline would breach the contract on <see cref="IBindingScheduler.Post" /> for a
+    ///     caller inside a transaction, and the handlers here are called from inside one.
+    /// </remarks>
+    public void Post(Action action)
     {
-        /// <summary>
-        ///     Queues <paramref name="action" /> for execution on the binding thread. Implementations
-        ///     MUST preserve FIFO ordering and MUST NOT execute the action synchronously while a Sodium
-        ///     transaction is in flight.
-        /// </summary>
-        void Post(Action action);
+        if (action == null)
+        {
+            throw new ArgumentNullException(nameof(action));
+        }
+
+        this.context.Post(d: Callback, state: action);
+    }
+
+    /// <summary>Captures the current thread's synchronization context.</summary>
+    /// <exception cref="InvalidOperationException">No context is installed on this thread.</exception>
+    public static SynchronizationContextBindingScheduler Capture()
+    {
+        SynchronizationContext? context = SynchronizationContext.Current;
+
+        if (context == null)
+        {
+            throw new InvalidOperationException(
+                "No SynchronizationContext is installed on the current thread. Capture the scheduler " +
+                "from the UI thread, or supply an explicit IBindingScheduler.");
+        }
+
+        return new SynchronizationContextBindingScheduler(context);
+    }
+}
+
+/// <summary>
+///     Runs everything on the calling thread. Intended for unit tests, where notifications should
+///     be observable synchronously and there is no UI thread to marshal to.
+/// </summary>
+/// <remarks>
+///     Inline, but not unconditionally. Running inline while a transaction is in flight is exactly
+///     what <see cref="IBindingScheduler.Post" /> forbids, and it is not a theoretical concern here:
+///     the source-changed handlers are invoked from a listener callback, so an unconditionally
+///     inline scheduler would raise <c>PropertyChanged</c> from inside the transaction and let a
+///     handler re-enter the graph. A dispatcher-backed scheduler cannot do that; a test scheduler
+///     that could would exercise an ordering the real one never produces.
+///     Deferring to the end of the current transaction costs a test nothing, because the queued
+///     action still runs before the <c>Send</c> that produced it returns.
+/// </remarks>
+public sealed class ImmediateBindingScheduler : IBindingScheduler
+{
+    /// <summary>The single instance. This type holds no state.</summary>
+    public static readonly ImmediateBindingScheduler Instance = new();
+
+    private ImmediateBindingScheduler()
+    {
     }
 
     /// <summary>
-    ///     Posts through a captured <see cref="SynchronizationContext" />. Works unmodified for WPF
-    ///     (<c>DispatcherSynchronizationContext</c>) and Avalonia (<c>AvaloniaSynchronizationContext</c>).
+    ///     Runs the action on the calling thread, once no transaction is in flight.
     /// </summary>
-    public sealed class SynchronizationContextBindingScheduler : IBindingScheduler
+    /// <param name="action">The action to run.</param>
+    /// <exception cref="ArgumentNullException"><paramref name="action" /> is null.</exception>
+    public void Post(Action action)
     {
-        private static readonly SendOrPostCallback Callback = state => ((Action)state!)();
-
-        private readonly SynchronizationContext context;
-
-        /// <summary>
-        ///     Initializes a new instance posting through the given synchronization context.
-        /// </summary>
-        /// <param name="context">The context to post to. Usually the UI thread's.</param>
-        /// <exception cref="ArgumentNullException"><paramref name="context" /> is null.</exception>
-        public SynchronizationContextBindingScheduler(SynchronizationContext context) =>
-            this.context = context ?? throw new ArgumentNullException(nameof(context));
-
-        /// <summary>Captures the current thread's synchronization context.</summary>
-        /// <exception cref="InvalidOperationException">No context is installed on this thread.</exception>
-        public static SynchronizationContextBindingScheduler Capture()
+        if (action == null)
         {
-            SynchronizationContext? context = SynchronizationContext.Current;
-
-            if (context == null)
-            {
-                throw new InvalidOperationException(
-                    "No SynchronizationContext is installed on the current thread. Capture the scheduler " +
-                    "from the UI thread, or supply an explicit IBindingScheduler.");
-            }
-
-            return new SynchronizationContextBindingScheduler(context);
+            throw new ArgumentNullException(nameof(action));
         }
 
-        /// <summary>
-        ///     Posts through the captured context.
-        /// </summary>
-        /// <param name="action">The action to run on the binding thread.</param>
-        /// <exception cref="ArgumentNullException"><paramref name="action" /> is null.</exception>
-        /// <remarks>
-        ///     Always posted, never sent, even when the caller is already on the binding thread:
-        ///     running inline would breach the contract on <see cref="IBindingScheduler.Post" /> for a
-        ///     caller inside a transaction, and the handlers here are called from inside one.
-        /// </remarks>
-        public void Post(Action action)
-        {
-            if (action == null)
-            {
-                throw new ArgumentNullException(nameof(action));
-            }
-
-            this.context.Post(d: Callback, state: action);
-        }
+        // Immediately when no transaction is open - the common case in a test - and at the close
+        // of the current one otherwise. Never from inside a callback, either way.
+        TransactionInternal.PostImpl(action);
     }
+}
 
+/// <summary>Ambient scheduler resolution.</summary>
+public static class BindingScheduler
+{
     /// <summary>
-    ///     Runs everything on the calling thread. Intended for unit tests, where notifications should
-    ///     be observable synchronously and there is no UI thread to marshal to.
+    ///     An explicit process-wide scheduler. Set this during startup when the binding thread has
+    ///     no <see cref="SynchronizationContext" /> of its own to capture — a custom UI framework,
+    ///     or a test host. When null, each bindable captures the
+    ///     <see cref="SynchronizationContext" /> of the thread that constructed it.
     /// </summary>
     /// <remarks>
-    ///     Inline, but not unconditionally. Running inline while a transaction is in flight is exactly
-    ///     what <see cref="IBindingScheduler.Post" /> forbids, and it is not a theoretical concern here:
-    ///     the source-changed handlers are invoked from a listener callback, so an unconditionally
-    ///     inline scheduler would raise <c>PropertyChanged</c> from inside the transaction and let a
-    ///     handler re-enter the graph. A dispatcher-backed scheduler cannot do that; a test scheduler
-    ///     that could would exercise an ordering the real one never produces.
-    ///
-    ///     Deferring to the end of the current transaction costs a test nothing, because the queued
-    ///     action still runs before the <c>Send</c> that produced it returns.
+    ///     Bindables may be constructed on any thread, so a view model never needs to know which
+    ///     thread the binding engine uses. What it does need is for one of these to be resolvable:
+    ///     set this when the binding thread has no <see cref="SynchronizationContext" /> to capture,
+    ///     or when construction happens somewhere there is no context to capture from.
     /// </remarks>
-    public sealed class ImmediateBindingScheduler : IBindingScheduler
+    public static IBindingScheduler? Default { get; set; }
+
+    /// <summary>Convenience for tests and headless hosts.</summary>
+    public static IBindingScheduler Immediate => ImmediateBindingScheduler.Instance;
+
+    internal static IBindingScheduler Resolve(IBindingScheduler? scheduler)
     {
-        /// <summary>The single instance. This type holds no state.</summary>
-        public static readonly ImmediateBindingScheduler Instance = new();
-
-        private ImmediateBindingScheduler()
+        if (scheduler != null)
         {
+            return scheduler;
         }
 
-        /// <summary>
-        ///     Runs the action on the calling thread, once no transaction is in flight.
-        /// </summary>
-        /// <param name="action">The action to run.</param>
-        /// <exception cref="ArgumentNullException"><paramref name="action" /> is null.</exception>
-        public void Post(Action action)
+        if (Default != null)
         {
-            if (action == null)
-            {
-                throw new ArgumentNullException(nameof(action));
-            }
-
-            // Immediately when no transaction is open - the common case in a test - and at the close
-            // of the current one otherwise. Never from inside a callback, either way.
-            TransactionInternal.PostImpl(action);
+            return Default;
         }
-    }
 
-    /// <summary>Ambient scheduler resolution.</summary>
-    public static class BindingScheduler
-    {
-        /// <summary>
-        ///     An explicit process-wide scheduler. Set this during startup when the binding thread has
-        ///     no <see cref="SynchronizationContext" /> of its own to capture — a custom UI framework,
-        ///     or a test host. When null, each bindable captures the
-        ///     <see cref="SynchronizationContext" /> of the thread that constructed it.
-        /// </summary>
-        /// <remarks>
-        ///     Bindables may be constructed on any thread, so a view model never needs to know which
-        ///     thread the binding engine uses. What it does need is for one of these to be resolvable:
-        ///     set this when the binding thread has no <see cref="SynchronizationContext" /> to capture,
-        ///     or when construction happens somewhere there is no context to capture from.
-        /// </remarks>
-        public static IBindingScheduler? Default { get; set; }
+        SynchronizationContext? context = SynchronizationContext.Current;
 
-        /// <summary>Convenience for tests and headless hosts.</summary>
-        public static IBindingScheduler Immediate => ImmediateBindingScheduler.Instance;
-
-        internal static IBindingScheduler Resolve(IBindingScheduler? scheduler)
-        {
-            if (scheduler != null)
-            {
-                return scheduler;
-            }
-
-            if (Default != null)
-            {
-                return Default;
-            }
-
-            SynchronizationContext? context = SynchronizationContext.Current;
-
-            return context != null
-                ? new SynchronizationContextBindingScheduler(context)
-                : ImmediateBindingScheduler.Instance;
-        }
+        return context != null
+            ? new SynchronizationContextBindingScheduler(context)
+            : ImmediateBindingScheduler.Instance;
     }
 }

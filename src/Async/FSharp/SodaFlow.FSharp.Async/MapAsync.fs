@@ -130,9 +130,7 @@ let switchLatestStrategy () : AsyncConcurrencyStrategyBase<unit, unit> = switchL
 ///     <c>parallelStrategy</c>.
 /// </returns>
 [<MethodImpl(MethodImplOptions.NoInlining)>]
-let queuePerGroupStrategyWithComparer
-    (groupComparer : IEqualityComparer<'TGroup>)
-    (getGroup : 'TInput -> 'TGroup) =
+let queuePerGroupStrategyWithComparer (groupComparer: IEqualityComparer<'TGroup>) (getGroup: 'TInput -> 'TGroup) =
     AsyncConcurrencyStrategyFactory.QueuePerGroup<unit, _, _>(getGroup, groupComparer)
 
 /// <summary>
@@ -149,7 +147,7 @@ let queuePerGroupStrategyWithComparer
 ///     <c>parallelStrategy</c>.
 /// </returns>
 [<MethodImpl(MethodImplOptions.NoInlining)>]
-let queuePerGroupStrategy (getGroup : 'TInput -> 'TGroup) =
+let queuePerGroupStrategy (getGroup: 'TInput -> 'TGroup) =
     getGroup |> queuePerGroupStrategyWithComparer EqualityComparer<'TGroup>.Default
 
 // Core's MapAsyncImpl takes its cancelAll as a Stream<UnitInternal>, since Core has no "don't
@@ -157,9 +155,9 @@ let queuePerGroupStrategy (getGroup : 'TInput -> 'TGroup) =
 // internal to SodaFlow.Core and so unnameable by anyone consuming this library — out of every
 // signature in this module. `null` for None: Core's parameter is a plain nullable reference.
 [<MethodImpl(MethodImplOptions.NoInlining)>]
-let private toUnitInternalStream (cancelAll : Stream<unit> option) : Stream<UnitInternal> =
+let private toUnitInternalStream (cancelAll: Stream<unit> option) : Stream<UnitInternal> =
     match cancelAll with
-    | Some s -> s.MapImpl(Func<_, _>(fun (_ : unit) -> UnitInternal.Value))
+    | Some s -> s.MapImpl(Func<_, _>(fun (_: unit) -> UnitInternal.Value))
     | None -> null
 
 // The four mapAsync functions below differ only in how this call's own 'TInput/'TResult reach the
@@ -237,25 +235,27 @@ let private toUnitInternalStream (cancelAll : Stream<unit> option) : Stream<Unit
 /// </returns>
 [<MethodImpl(MethodImplOptions.NoInlining)>]
 let mapAsync
-    (results : StreamSink<'TResult>)
-    (errors : StreamSink<exn>)
-    (operation : 'TInput -> CancellationToken -> Task<'TResult>)
-    (strategy : AsyncConcurrencyStrategyBase<unit, unit>)
-    (cancelAll : Stream<unit> option)
-    (cancelMatching : Stream<IReadOnlyCollection<'TInput>> option)
-    (cancelOnDispose : bool)
-    (source : Stream<'TInput>) : AsyncMapStatus<'TInput> =
-    AsyncStreamUtility.MapAsyncImpl<'TInput, 'TResult, unit, unit> (
+    (results: StreamSink<'TResult>)
+    (errors: StreamSink<exn>)
+    (operation: 'TInput -> CancellationToken -> Task<'TResult>)
+    (strategy: AsyncConcurrencyStrategyBase<unit, unit>)
+    (cancelAll: Stream<unit> option)
+    (cancelMatching: Stream<IReadOnlyCollection<'TInput>> option)
+    (cancelOnDispose: bool)
+    (source: Stream<'TInput>)
+    : AsyncMapStatus<'TInput> =
+    AsyncStreamUtility.MapAsyncImpl<'TInput, 'TResult, unit, unit>(
         source,
         results,
         errors,
         Func<_, _, _> operation,
         strategy,
-        Func<_, _>(fun (_ : 'TInput) -> ()),
-        Func<_, _>(fun (_ : 'TResult) -> ()),
+        Func<_, _>(fun (_: 'TInput) -> ()),
+        Func<_, _>(fun (_: 'TResult) -> ()),
         (cancelAll |> toUnitInternalStream),
         (cancelMatching |> Option.toObj),
-        cancelOnDispose)
+        cancelOnDispose
+    )
 
 /// <summary>
 ///     As <c>mapAsync</c>, but for a strategy that inspects the input — <c>queuePerGroupStrategy</c>
@@ -285,26 +285,28 @@ let mapAsync
 /// </returns>
 [<MethodImpl(MethodImplOptions.NoInlining)>]
 let mapAsyncWithInputConverter
-    (results : StreamSink<'TResult>)
-    (errors : StreamSink<exn>)
-    (operation : 'TInput -> CancellationToken -> Task<'TResult>)
-    (strategy : AsyncConcurrencyStrategyBase<'TStrategyInput, unit>)
-    (inputConverter : 'TInput -> 'TStrategyInput)
-    (cancelAll : Stream<unit> option)
-    (cancelMatching : Stream<IReadOnlyCollection<'TInput>> option)
-    (cancelOnDispose : bool)
-    (source : Stream<'TInput>) : AsyncMapStatus<'TInput> =
-    AsyncStreamUtility.MapAsyncImpl<'TInput, 'TResult, 'TStrategyInput, unit> (
+    (results: StreamSink<'TResult>)
+    (errors: StreamSink<exn>)
+    (operation: 'TInput -> CancellationToken -> Task<'TResult>)
+    (strategy: AsyncConcurrencyStrategyBase<'TStrategyInput, unit>)
+    (inputConverter: 'TInput -> 'TStrategyInput)
+    (cancelAll: Stream<unit> option)
+    (cancelMatching: Stream<IReadOnlyCollection<'TInput>> option)
+    (cancelOnDispose: bool)
+    (source: Stream<'TInput>)
+    : AsyncMapStatus<'TInput> =
+    AsyncStreamUtility.MapAsyncImpl<'TInput, 'TResult, 'TStrategyInput, unit>(
         source,
         results,
         errors,
         Func<_, _, _> operation,
         strategy,
         Func<_, _> inputConverter,
-        Func<_, _>(fun (_ : 'TResult) -> ()),
+        Func<_, _>(fun (_: 'TResult) -> ()),
         (cancelAll |> toUnitInternalStream),
         (cancelMatching |> Option.toObj),
-        cancelOnDispose)
+        cancelOnDispose
+    )
 
 /// <summary>
 ///     As <c>mapAsync</c>, but for a strategy that inspects the result rather than the input.
@@ -335,26 +337,28 @@ let mapAsyncWithInputConverter
 /// </returns>
 [<MethodImpl(MethodImplOptions.NoInlining)>]
 let mapAsyncWithResultConverter
-    (results : StreamSink<'TResult>)
-    (errors : StreamSink<exn>)
-    (operation : 'TInput -> CancellationToken -> Task<'TResult>)
-    (strategy : AsyncConcurrencyStrategyBase<unit, 'TStrategyResult>)
-    (resultConverter : 'TResult -> 'TStrategyResult)
-    (cancelAll : Stream<unit> option)
-    (cancelMatching : Stream<IReadOnlyCollection<'TInput>> option)
-    (cancelOnDispose : bool)
-    (source : Stream<'TInput>) : AsyncMapStatus<'TInput> =
-    AsyncStreamUtility.MapAsyncImpl<'TInput, 'TResult, unit, 'TStrategyResult> (
+    (results: StreamSink<'TResult>)
+    (errors: StreamSink<exn>)
+    (operation: 'TInput -> CancellationToken -> Task<'TResult>)
+    (strategy: AsyncConcurrencyStrategyBase<unit, 'TStrategyResult>)
+    (resultConverter: 'TResult -> 'TStrategyResult)
+    (cancelAll: Stream<unit> option)
+    (cancelMatching: Stream<IReadOnlyCollection<'TInput>> option)
+    (cancelOnDispose: bool)
+    (source: Stream<'TInput>)
+    : AsyncMapStatus<'TInput> =
+    AsyncStreamUtility.MapAsyncImpl<'TInput, 'TResult, unit, 'TStrategyResult>(
         source,
         results,
         errors,
         Func<_, _, _> operation,
         strategy,
-        Func<_, _>(fun (_ : 'TInput) -> ()),
+        Func<_, _>(fun (_: 'TInput) -> ()),
         Func<_, _> resultConverter,
         (cancelAll |> toUnitInternalStream),
         (cancelMatching |> Option.toObj),
-        cancelOnDispose)
+        cancelOnDispose
+    )
 
 /// <summary>
 ///     As <c>mapAsync</c>, but for a strategy that inspects both the input and the result. The
@@ -389,17 +393,18 @@ let mapAsyncWithResultConverter
 /// </returns>
 [<MethodImpl(MethodImplOptions.NoInlining)>]
 let mapAsyncWithConverters
-    (results : StreamSink<'TResult>)
-    (errors : StreamSink<exn>)
-    (operation : 'TInput -> CancellationToken -> Task<'TResult>)
-    (strategy : AsyncConcurrencyStrategyBase<'TStrategyInput, 'TStrategyResult>)
-    (inputConverter : 'TInput -> 'TStrategyInput)
-    (resultConverter : 'TResult -> 'TStrategyResult)
-    (cancelAll : Stream<unit> option)
-    (cancelMatching : Stream<IReadOnlyCollection<'TInput>> option)
-    (cancelOnDispose : bool)
-    (source : Stream<'TInput>) : AsyncMapStatus<'TInput> =
-    AsyncStreamUtility.MapAsyncImpl<'TInput, 'TResult, 'TStrategyInput, 'TStrategyResult> (
+    (results: StreamSink<'TResult>)
+    (errors: StreamSink<exn>)
+    (operation: 'TInput -> CancellationToken -> Task<'TResult>)
+    (strategy: AsyncConcurrencyStrategyBase<'TStrategyInput, 'TStrategyResult>)
+    (inputConverter: 'TInput -> 'TStrategyInput)
+    (resultConverter: 'TResult -> 'TStrategyResult)
+    (cancelAll: Stream<unit> option)
+    (cancelMatching: Stream<IReadOnlyCollection<'TInput>> option)
+    (cancelOnDispose: bool)
+    (source: Stream<'TInput>)
+    : AsyncMapStatus<'TInput> =
+    AsyncStreamUtility.MapAsyncImpl<'TInput, 'TResult, 'TStrategyInput, 'TStrategyResult>(
         source,
         results,
         errors,
@@ -409,4 +414,5 @@ let mapAsyncWithConverters
         Func<_, _> resultConverter,
         (cancelAll |> toUnitInternalStream),
         (cancelMatching |> Option.toObj),
-        cancelOnDispose)
+        cancelOnDispose
+    )

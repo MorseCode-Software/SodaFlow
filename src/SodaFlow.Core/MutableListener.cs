@@ -15,6 +15,9 @@ namespace SodaFlow
         private readonly WeakMutableListener weakMutableListener = new WeakMutableListener();
         private IListener listener;
 
+        void IListener.Unlisten() => this.listener?.Unlisten();
+        IListenerWithWeakReference IListener.GetListenerWithWeakReference() => this.weakMutableListener;
+
         internal void SetListenerImpl(IListener listener)
         {
             this.listener = listener;
@@ -26,9 +29,6 @@ namespace SodaFlow
             this.listener = null;
             this.weakMutableListener.WeakListener = null;
         }
-
-        void IListener.Unlisten() => this.listener?.Unlisten();
-        IListenerWithWeakReference IListener.GetListenerWithWeakReference() => this.weakMutableListener;
 
         private class WeakMutableListener : IListenerWithWeakReference
         {

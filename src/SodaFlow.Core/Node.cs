@@ -72,11 +72,17 @@ namespace SodaFlow
 
         internal static readonly object NodeRanksLock = new object();
 
-        internal int Rank;
-
         // Allocated on first use: every stream owns a node, but a node only needs this once work is
         // actually queued against it, and the terminal node of a chain never has any.
         internal List<TransactionInternal.Entry> Entries;
+
+        internal int Rank;
+
+        internal Node()
+        {
+        }
+
+        protected Node(int rank) => this.Rank = rank;
 
         internal int AddEntry(TransactionInternal.Entry entry)
         {
@@ -89,12 +95,6 @@ namespace SodaFlow
             this.Entries.Add(entry);
             return index;
         }
-
-        internal Node()
-        {
-        }
-
-        protected Node(int rank) => this.Rank = rank;
 
         protected static void EnsureBiggerThan(TransactionInternal trans, Node node, int limit)
         {
@@ -117,15 +117,19 @@ namespace SodaFlow
             {
                 foreach (Target t in node.GetListenerTargetsUnsafe())
                 {
-                    EnsureBiggerThanRecursive(trans, node, t.Node, node.Rank);
+                    EnsureBiggerThanRecursive(trans: trans, originalNode: node, node: t.Node, limit: node.Rank);
                 }
             }
         }
 
         // ReSharper disable once ParameterOnlyUsedForPreconditionCheck.Local
-        private static void EnsureBiggerThanRecursive(TransactionInternal trans, Node originalNode, Node node, int limit)
+        private static void EnsureBiggerThanRecursive(
+            TransactionInternal trans,
+            Node originalNode,
+            Node node,
+            int limit)
         {
-            if (ReferenceEquals(originalNode, node))
+            if (ReferenceEquals(objA: originalNode, objB: node))
             {
                 throw new Exception("A dependency cycle was detected.");
             }
@@ -147,7 +151,7 @@ namespace SodaFlow
 
             foreach (Target t in node.GetListenerTargetsUnsafe())
             {
-                EnsureBiggerThanRecursive(trans, originalNode, t.Node, node.Rank);
+                EnsureBiggerThanRecursive(trans: trans, originalNode: originalNode, node: t.Node, limit: node.Rank);
             }
         }
 
@@ -216,11 +220,13 @@ namespace SodaFlow
         /// </returns>
         internal Target Link(TransactionInternal trans, Action<TransactionInternal, T> action, Node target)
         {
-            Target t = new Target(action, target, trans.ActivatedTargets);
+            Target t = new Target(action: action, node: target, isActivated: trans.ActivatedTargets);
+
             if (!trans.ActivatedTargets)
             {
                 trans.AddTargetToActivate(t);
             }
+
             lock (ListenersLock)
             {
                 if (this.listeners == null)
@@ -232,25 +238,16 @@ namespace SodaFlow
                 this.listenersCapacity++;
                 this.listenersSnapshot = default;
             }
+
             lock (NodeRanksLock)
             {
-                EnsureBiggerThan(trans, target, this.Rank);
+                EnsureBiggerThan(trans: trans, node: target, limit: this.Rank);
             }
+
             return t;
         }
 
-        internal void Unlink(Target target)
-        {
-            this.RemoveListener(target);
-        }
-
-        public new class Target : Node.Target
-        {
-            public readonly WeakReference<Action<TransactionInternal, T>> Action;
-
-            public Target(Action<TransactionInternal, T> action, Node node, bool isActivated)
-                : base(node, isActivated) => this.Action = new WeakReference<Action<TransactionInternal, T>>(action);
-        }
+        internal void Unlink(Target target) => this.RemoveListener(target);
 
         internal TargetSnapshot<Target> GetListenersCopy()
         {
@@ -271,6 +268,7 @@ namespace SodaFlow
 
                 this.listeners.Remove(target);
                 this.listenersSnapshot = default;
+
                 // HashSet does not reclaim space after items are removed, so we will create a new one if we can reclaim a substantial amount of space
                 if (this.listenersCapacity > 100 && this.listeners.Count < this.listenersCapacity / 2)
                 {
@@ -305,5 +303,14 @@ namespace SodaFlow
 
         protected override TargetSnapshot<Node.Target> GetListenerTargetsUnsafe() =>
             this.GetListenersSnapshotUnsafe().AsBaseTargets();
+
+        public new class Target : Node.Target
+        {
+            public readonly WeakReference<Action<TransactionInternal, T>> Action;
+
+            public Target(Action<TransactionInternal, T> action, Node node, bool isActivated)
+                : base(node: node, isActivated: isActivated) =>
+                this.Action = new WeakReference<Action<TransactionInternal, T>>(action);
+        }
     }
 }

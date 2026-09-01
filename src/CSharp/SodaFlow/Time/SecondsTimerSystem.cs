@@ -15,7 +15,7 @@ namespace SodaFlow.Time
         ///     Called with any exception raised while waiting for or firing timers.
         /// </param>
         public SecondsTimerSystem(Action<Exception> handleException)
-            : base(new Implementation(), handleException)
+            : base(implementation: new Implementation(), handleException: handleException)
         {
         }
 
@@ -25,10 +25,10 @@ namespace SodaFlow.Time
 
             public Implementation() => this.startTime = DateTime.Now;
 
+            public override double Now => (DateTime.Now - this.startTime).TotalSeconds;
+
             protected override TimeSpan SubtractTimes(double first, double second) =>
                 TimeSpan.FromSeconds(first - second);
-
-            public override double Now => (DateTime.Now - this.startTime).TotalSeconds;
         }
     }
 }

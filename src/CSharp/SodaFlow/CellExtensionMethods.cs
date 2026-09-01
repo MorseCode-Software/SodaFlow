@@ -11,7 +11,6 @@ namespace SodaFlow
     ///     A cell is a behavior which also exposes the stream of its own changes, so it supports
     ///     everything in <see cref="BehaviorExtensionMethods" /> along with operations built on those
     ///     updates.
-    ///
     ///     Build the graph inside a <see cref="Transaction.Run{T}(System.Func{T})" /> so that no first
     ///     firing is missed - particularly with <see cref="Values{T}" />, which always fires immediately.
     /// </remarks>
@@ -26,7 +25,8 @@ namespace SodaFlow
         /// <remarks>
         ///     <para>
         ///         This method may be used inside the functions passed to primitives that apply them to streams,
-        ///         including <see cref="StreamExtensionMethods.Map{T, TResult}(Stream{T}, Func{T, TResult})" /> in which case it is equivalent to
+        ///         including <see cref="StreamExtensionMethods.Map{T, TResult}(Stream{T}, Func{T,TResult})" /> in which case it is
+        ///         equivalent to
         ///         snapshotting the cell,
         ///         <see cref=" StreamExtensionMethods.Snapshot{T, T2, TResult}(Stream{T}, Cell{T2}, Func{T, T2, TResult})" />,
         ///         <see cref="StreamExtensionMethods.Filter{T}(Stream{T}, Func{T, bool})" />, and
@@ -39,7 +39,8 @@ namespace SodaFlow
         ///     <para>
         ///         It can be best to use this method inside an explicit transaction (using
         ///         <see cref="Transaction.Run{T}(Func{T})" /> or <see cref="Transaction.RunVoid(Action)" />).
-        ///         For example, a c.Sample() inside an explicit transaction along with a c.Updates().ListenStrong(...) will capture the
+        ///         For example, a c.Sample() inside an explicit transaction along with a c.Updates().ListenStrong(...) will
+        ///         capture the
         ///         current value and any updates without risk of missing any in between.
         ///     </para>
         /// </remarks>
@@ -55,7 +56,8 @@ namespace SodaFlow
         /// <remarks>
         ///     This is a variant of <see cref="Sample{T}" /> that works with the <see cref="CellLoop{T}" /> class
         ///     when the cell loop has not yet been looped.  It should be used in any code that is general
-        ///     enough that it may be passed a <see cref="CellLoop{T}" />.  See <see cref="StreamExtensionMethods.HoldLazy{T}(Stream{T}, Lazy{T})" />.
+        ///     enough that it may be passed a <see cref="CellLoop{T}" />.  See
+        ///     <see cref="StreamExtensionMethods.HoldLazy{T}(Stream{T}, Lazy{T})" />.
         /// </remarks>
         [MethodImpl(MethodImplOptions.NoInlining)]
         public static Lazy<T> SampleLazy<T>(this Cell<T> c) => c.SampleLazyImpl();
@@ -109,7 +111,8 @@ namespace SodaFlow
         /// <remarks>
         ///     <para>
         ///         No assumptions should be made about what thread the handler is called on and it should not block.
-        ///         Neither <see cref="StreamSinkExtensionMethods.Send{T}" /> nor <see cref="CellSinkExtensionMethods.Send{T}" /> may be called from the
+        ///         Neither <see cref="StreamSinkExtensionMethods.Send{T}" /> nor <see cref="CellSinkExtensionMethods.Send{T}" />
+        ///         may be called from the
         ///         handler.
         ///         They will throw an exception because this method is not meant to be used to create new primitives.
         ///     </para>
@@ -138,7 +141,8 @@ namespace SodaFlow
         /// <remarks>
         ///     <para>
         ///         No assumptions should be made about what thread the handler is called on and it should not block.
-        ///         Neither <see cref="StreamSinkExtensionMethods.Send{T}" /> nor <see cref="CellSinkExtensionMethods.Send{T}" /> may be called from the
+        ///         Neither <see cref="StreamSinkExtensionMethods.Send{T}" /> nor <see cref="CellSinkExtensionMethods.Send{T}" />
+        ///         may be called from the
         ///         handler.
         ///         They will throw an exception because this method is not meant to be used to create new primitives.
         ///     </para>
@@ -182,7 +186,7 @@ namespace SodaFlow
         /// <returns>A cell containing values resulting from the binary function applied to the input cells' values.</returns>
         [MethodImpl(MethodImplOptions.NoInlining)]
         public static Cell<TResult> Lift<T, T2, TResult>(this Cell<T> c, Cell<T2> c2, Func<T, T2, TResult> f) =>
-            c.LiftImpl(c2, f);
+            c.LiftImpl(b2: c2, f: f);
 
         /// <summary>
         ///     Lift a ternary function into cells, so the returned cell always reflects the specified function applied to the
@@ -202,7 +206,8 @@ namespace SodaFlow
             this Cell<T> c,
             Cell<T2> c2,
             Cell<T3> c3,
-            Func<T, T2, T3, TResult> f) => c.LiftImpl(c2, c3, f);
+            Func<T, T2, T3, TResult> f) =>
+            c.LiftImpl(b2: c2, b3: c3, f: f);
 
         /// <summary>
         ///     Lift a quaternary function into cells, so the returned cell always reflects the specified function applied to the
@@ -225,7 +230,8 @@ namespace SodaFlow
             Cell<T2> c2,
             Cell<T3> c3,
             Cell<T4> c4,
-            Func<T, T2, T3, T4, TResult> f) => c.LiftImpl(c2, c3, c4, f);
+            Func<T, T2, T3, T4, TResult> f) =>
+            c.LiftImpl(b2: c2, b3: c3, b4: c4, f: f);
 
         /// <summary>
         ///     Lift a 5-argument function into cells, so the returned cell always reflects the specified function applied to the
@@ -251,7 +257,8 @@ namespace SodaFlow
             Cell<T3> c3,
             Cell<T4> c4,
             Cell<T5> c5,
-            Func<T, T2, T3, T4, T5, TResult> f) => c.LiftImpl(c2, c3, c4, c5, f);
+            Func<T, T2, T3, T4, T5, TResult> f) =>
+            c.LiftImpl(b2: c2, b3: c3, b4: c4, b5: c5, f: f);
 
         /// <summary>
         ///     Lift a 6-argument function into cells, so the returned cell always reflects the specified function applied to the
@@ -280,7 +287,8 @@ namespace SodaFlow
             Cell<T4> c4,
             Cell<T5> c5,
             Cell<T6> c6,
-            Func<T, T2, T3, T4, T5, T6, TResult> f) => c.LiftImpl(c2, c3, c4, c5, c6, f);
+            Func<T, T2, T3, T4, T5, T6, TResult> f) =>
+            c.LiftImpl(b2: c2, b3: c3, b4: c4, b5: c5, b6: c6, f: f);
 
         /// <summary>
         ///     Apply a value inside a cell to a function inside a cell.  This is the primitive for all function lifting.
@@ -367,7 +375,8 @@ namespace SodaFlow
         [MethodImpl(MethodImplOptions.NoInlining)]
         public static Cell<TResult> Lift<T, TResult>(
             this IEnumerable<Cell<T>> c,
-            Func<IReadOnlyList<T>, TResult> f) => c.LiftCellsImpl(f);
+            Func<IReadOnlyList<T>, TResult> f) =>
+            c.LiftCellsImpl(f);
 
         /// <summary>
         ///     Lift a function into a collection of cells, so the returned cell always reflects the specified function applied to
@@ -382,7 +391,8 @@ namespace SodaFlow
         [MethodImpl(MethodImplOptions.NoInlining)]
         public static Cell<TResult> Lift<T, TResult>(
             this IReadOnlyCollection<Cell<T>> c,
-            Func<IReadOnlyList<T>, TResult> f) => c.LiftCellsImpl(f);
+            Func<IReadOnlyList<T>, TResult> f) =>
+            c.LiftCellsImpl(f);
 
         /// <summary>
         ///     Lift into an enumerable of cells, so the returned cell always reflects a list of the input cells' values.

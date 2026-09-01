@@ -46,7 +46,7 @@ type private AlwaysStartStrategy<'TStrategyInput, 'TStrategyResult>() =
 
     override _.CreateState() = EmptyState
 
-    override _.Admit(_state : EmptyState, incoming : AsyncMapBase.AsyncQueuedItem<'TStrategyInput>) =
+    override _.Admit(_state: EmptyState, incoming: AsyncMapBase.AsyncQueuedItem<'TStrategyInput>) =
         // The protected-internal item's members can't be read from inside a closure — read the
         // value out to a plain local first, then close over that instead.
         let v = incoming.Value
@@ -54,10 +54,12 @@ type private AlwaysStartStrategy<'TStrategyInput, 'TStrategyResult>() =
         let toStart = AsyncMapBase.AsyncToStart<'TStrategyInput>(incoming)
         [| toStart |] :> IReadOnlyList<_>
 
-    override _.OnCompleted(
-        _state : EmptyState,
-        _item : AsyncMapBase.AsyncQueuedItem<'TStrategyInput>,
-        outcome : AsyncMapBase.AsyncOutcome<'TStrategyResult>) =
+    override _.OnCompleted
+        (
+            _state: EmptyState,
+            _item: AsyncMapBase.AsyncQueuedItem<'TStrategyInput>,
+            outcome: AsyncMapBase.AsyncOutcome<'TStrategyResult>
+        ) =
         let mutable captured = Unchecked.defaultof<'TStrategyResult>
         outcome.MatchVoid(Action<'TStrategyResult>(fun v -> captured <- v), null, null)
         lock completedResults (fun () -> completedResults.Add(captured))
@@ -75,15 +77,14 @@ type private CountingStrategy() =
 
     override _.CreateState() = EmptyState
 
-    override _.Admit(_state : EmptyState, incoming : AsyncMapBase.AsyncQueuedItem<unit>) =
+    override _.Admit(_state: EmptyState, incoming: AsyncMapBase.AsyncQueuedItem<unit>) =
         count <- count + 1
         let toStart = AsyncMapBase.AsyncToStart<unit>(incoming)
         [| toStart |] :> IReadOnlyList<_>
 
-    override _.OnCompleted(
-        _state : EmptyState,
-        _item : AsyncMapBase.AsyncQueuedItem<unit>,
-        _outcome : AsyncMapBase.AsyncOutcome<unit>) =
+    override _.OnCompleted
+        (_state: EmptyState, _item: AsyncMapBase.AsyncQueuedItem<unit>, _outcome: AsyncMapBase.AsyncOutcome<unit>)
+        =
         AsyncMapBase.AsyncStrategyResult<unit>(true, AsyncMapBase.AsyncStrategyResult<unit>.None)
 
 [<TestFixture>]
@@ -99,7 +100,8 @@ type ``MapAsync Tests``() =
         let l = results |> listenStrongS received.Add
 
         let status =
-            source |> mapAsync results errors op.Operation (parallelStrategy ()) None None true
+            source
+            |> mapAsync results errors op.Operation (parallelStrategy ()) None None true
 
         source |> sendS "a"
         source |> sendS "b"
@@ -154,7 +156,8 @@ type ``MapAsync Tests``() =
         let l = results |> listenStrongS received.Add
 
         let status =
-            source |> mapAsync results errors op.Operation (switchLatestStrategy ()) None None true
+            source
+            |> mapAsync results errors op.Operation (switchLatestStrategy ()) None None true
 
         source |> sendS "a"
         waitUntil (fun () -> op.HasStarted "a")
@@ -180,11 +183,12 @@ type ``MapAsync Tests``() =
         let received = List<string>()
         let l = results |> listenStrongS received.Add
 
-        let getGroup (v : string) = v.Split('-').[0]
+        let getGroup (v: string) = v.Split('-').[0]
         let strategy = queuePerGroupStrategy getGroup
 
         let status =
-            source |> mapAsyncWithInputConverter results errors op.Operation strategy id None None true
+            source
+            |> mapAsyncWithInputConverter results errors op.Operation strategy id None None true
 
         source |> sendS "g1-a"
         source |> sendS "g1-b"
@@ -215,11 +219,14 @@ type ``MapAsync Tests``() =
         let l = results |> listenStrongS received.Add
 
         // Case-insensitive grouping: "A-1" and "a-2" share a group despite differing case.
-        let getGroup (v : string) = v.Split('-').[0]
-        let strategy = queuePerGroupStrategyWithComparer StringComparer.OrdinalIgnoreCase getGroup
+        let getGroup (v: string) = v.Split('-').[0]
+
+        let strategy =
+            queuePerGroupStrategyWithComparer StringComparer.OrdinalIgnoreCase getGroup
 
         let status =
-            source |> mapAsyncWithInputConverter results errors op.Operation strategy id None None true
+            source
+            |> mapAsyncWithInputConverter results errors op.Operation strategy id None None true
 
         source |> sendS "A-1"
         source |> sendS "a-2"
@@ -246,11 +253,19 @@ type ``MapAsync Tests``() =
         let l = results |> listenStrongS received.Add
         let strategy = AlwaysStartStrategy<unit, int>()
 
-        let operation (v : string) (_ : CancellationToken) = Task.FromResult(v.ToUpperInvariant())
+        let operation (v: string) (_: CancellationToken) = Task.FromResult(v.ToUpperInvariant())
 
         let status =
             source
-            |> mapAsyncWithResultConverter results errors operation strategy (fun (v : string) -> v.Length) None None true
+            |> mapAsyncWithResultConverter
+                results
+                errors
+                operation
+                strategy
+                (fun (v: string) -> v.Length)
+                None
+                None
+                true
 
         source |> sendS "hello"
         waitUntil (fun () -> received.Count = 1)
@@ -270,17 +285,22 @@ type ``MapAsync Tests``() =
         let l = results |> listenStrongS received.Add
         let strategy = AlwaysStartStrategy<int, bool>()
 
-        let operation (v : string) (_ : CancellationToken) = Task.FromResult(v.ToUpperInvariant())
+        let operation (v: string) (_: CancellationToken) = Task.FromResult(v.ToUpperInvariant())
 
         // 'TStrategyInput (int, a length) and 'TStrategyResult (bool, "is long") are both unrelated
         // by inheritance to 'TInput/'TResult (string) — only this overload permits that.
         let status =
             source
             |> mapAsyncWithConverters
-                results errors operation strategy
-                (fun (v : string) -> v.Length)
-                (fun (v : string) -> v.Length > 3)
-                None None true
+                results
+                errors
+                operation
+                strategy
+                (fun (v: string) -> v.Length)
+                (fun (v: string) -> v.Length > 3)
+                None
+                None
+                true
 
         source |> sendS "hello"
         waitUntil (fun () -> received.Count = 1)
@@ -301,10 +321,9 @@ type ``MapAsync Tests``() =
         let l = results |> listenStrongS received.Add
         let strategy = CountingStrategy()
 
-        let operation (_ : string) (_ : CancellationToken) = Task.FromResult(())
+        let operation (_: string) (_: CancellationToken) = Task.FromResult(())
 
-        let status =
-            source |> mapAsync results errors operation strategy None None true
+        let status = source |> mapAsync results errors operation strategy None None true
 
         source |> sendS "a"
         source |> sendS "b"
@@ -380,7 +399,8 @@ type ``MapAsync Tests``() =
         let l = results |> listenStrongS received.Add
 
         let status =
-            source |> mapAsync results errors op.Operation (parallelStrategy ()) None None true
+            source
+            |> mapAsync results errors op.Operation (parallelStrategy ()) None None true
 
         source |> sendS "a"
         waitUntil (fun () -> op.HasStarted "a")
@@ -402,7 +422,8 @@ type ``MapAsync Tests``() =
         let l = results |> listenStrongS received.Add
 
         let status =
-            source |> mapAsync results errors op.Operation (parallelStrategy ()) None None false
+            source
+            |> mapAsync results errors op.Operation (parallelStrategy ()) None None false
 
         source |> sendS "a"
         waitUntil (fun () -> op.HasStarted "a")
@@ -424,7 +445,7 @@ type ``MapAsync Tests``() =
         let received = List<exn>()
         let l = errors |> listenStrongS received.Add
 
-        let operation (_ : string) (_ : CancellationToken) : Task<string> = Task.FromException<string>(thrown)
+        let operation (_: string) (_: CancellationToken) : Task<string> = Task.FromException<string>(thrown)
 
         let status =
             source |> mapAsync results errors operation (parallelStrategy ()) None None true

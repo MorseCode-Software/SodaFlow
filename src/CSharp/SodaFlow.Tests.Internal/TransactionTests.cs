@@ -14,20 +14,20 @@ namespace SodaFlow.Tests.Internal
         {
             OperationCanceledException actual = null;
             AutoResetEvent re = new AutoResetEvent(false);
+
             using (CancellationTokenSource cts = new CancellationTokenSource())
             {
-                Task task = Task.Run(
-                    () =>
+                Task task =
+                    Task.Run(() =>
                     {
-                        Transaction.Post(
-                            () =>
-                            {
-                                re.Set();
+                        Transaction.Post(() =>
+                        {
+                            re.Set();
 
-                                Thread.Sleep(5000);
+                            Thread.Sleep(5000);
 
-                                cts.Token.ThrowIfCancellationRequested();
-                            });
+                            cts.Token.ThrowIfCancellationRequested();
+                        });
                     });
 
                 re.WaitOne();
@@ -53,20 +53,20 @@ namespace SodaFlow.Tests.Internal
         {
             OperationCanceledException actual = null;
             AutoResetEvent re = new AutoResetEvent(false);
+
             using (CancellationTokenSource cts = new CancellationTokenSource())
             {
-                Task task = Task.Run(
-                    () =>
+                Task task =
+                    Task.Run(() =>
                     {
-                        Transaction.Post(
-                            () =>
-                            {
-                                re.Set();
+                        Transaction.Post(() =>
+                        {
+                            re.Set();
 
-                                Thread.Sleep(5000);
+                            Thread.Sleep(5000);
 
-                                cts.Token.ThrowIfCancellationRequested();
-                            });
+                            cts.Token.ThrowIfCancellationRequested();
+                        });
                     });
 
                 re.WaitOne();

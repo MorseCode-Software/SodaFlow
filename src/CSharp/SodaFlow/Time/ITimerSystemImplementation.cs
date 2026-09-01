@@ -9,6 +9,11 @@ namespace SodaFlow.Time
     public interface ITimerSystemImplementation<T>
     {
         /// <summary>
+        ///     Return the current clock time.
+        /// </summary>
+        T Now { get; }
+
+        /// <summary>
         ///     Starts whatever machinery this implementation uses to notice that a timer has come due.
         /// </summary>
         /// <param name="handleException">
@@ -34,10 +39,5 @@ namespace SodaFlow.Time
         ///     Run all pending timers scheduled for up to and including the specified time.
         /// </summary>
         void RunTimersTo(T t);
-
-        /// <summary>
-        ///     Return the current clock time.
-        /// </summary>
-        T Now { get; }
     }
 }
