@@ -65,9 +65,15 @@ public sealed class CounterViewModel
     public IBindableAction Reset { get; }
 
     /// <summary>
-    ///     Every bindable holds a subscription into the graph. Disposing them through the one
-    ///     IBindable interface is what that interface is for.
+    ///     Every entry holds a subscription into the graph, and disposing it is what releases
+    ///     that subscription.
     /// </summary>
+    /// <remarks>
+    ///     The list is of <see cref="IDisposable" /> rather than of bindables because a view
+    ///     model's disposables are not all bindables in general - a graph using MapAsync also
+    ///     holds an AsyncMapStatus, as the search sample does - and disposal is the only thing
+    ///     being asked of any of them here.
+    /// </remarks>
     public void Dispose()
     {
         foreach (IDisposable disposable in this.disposables)

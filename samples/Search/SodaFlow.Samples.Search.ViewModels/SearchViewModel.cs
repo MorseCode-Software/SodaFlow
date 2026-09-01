@@ -53,6 +53,9 @@ public sealed class SearchViewModel : IDisposable
         this.IsBusy = isBusy;
         this.Cancel = cancel;
 
+        // The bindables each hold a subscription into the graph, and status is the async
+        // pipeline itself: disposing it tears that down and cancels anything still in flight.
+        // They differ in kind but not in what disposal asks of them, so one list holds both.
         this.disposables = new IDisposable[] { query, results, summary, error, hasError, isBusy, cancel, status };
     }
 

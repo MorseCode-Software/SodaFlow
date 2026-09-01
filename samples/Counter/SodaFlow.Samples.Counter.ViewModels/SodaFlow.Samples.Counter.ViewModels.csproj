@@ -19,7 +19,7 @@
             released versions, so work in progress on the libraries cannot break them: they move when
             someone deliberately bumps a version here, which is also what a reader is going to write in
             their own application.
-    
+
             SodaFlow arrives through SodaFlow.Bindable.ObjectModel anyway; it is named here because a
             sample should show what it depends on rather than rely on a transitive.
         -->
@@ -30,5 +30,5 @@
     <ItemGroup>
         <Compile Include="CounterViewModel.cs"/>
     </ItemGroup>
-    
+
 </Project>
