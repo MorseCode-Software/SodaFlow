@@ -1,3 +1,14 @@
+3.0.0
+
+No API change of its own. This release moves to
+SodaFlow.Bindable.ObjectModel.Core 3.x, and is a major because taking it
+obliges a consumer to take that.
+
+Worth reading that package's notes rather than skipping this: Execute now
+rejects null for every type argument, and being a behavior change behind an
+unchanged signature, it is the kind that surfaces at runtime rather than at
+compile time.
+
 2.0.0
 
 No code change. This release exists to move a dependency, and is a major

@@ -1,3 +1,18 @@
+3.0.0
+
+BREAKING: IBindableAction.Execute rejects null whatever the action's type
+argument, where it previously accepted null for a type which could represent
+one.
+
+Passing null to an action over a reference type used to fire its stream with
+null; it now throws InvalidOperationException, which is what it always did
+for a value type. One rule instead of two, and the rule the nullable
+annotations already stated. Code relying on a null firing has to send it
+another way - the sink is still there - or stop.
+
+This one is quiet. The signature is unchanged, so nothing stops compiling;
+the exception arrives at runtime, from a call which used to work.
+
 2.0.0
 
 No code change. This release exists to move a dependency, and is a major
