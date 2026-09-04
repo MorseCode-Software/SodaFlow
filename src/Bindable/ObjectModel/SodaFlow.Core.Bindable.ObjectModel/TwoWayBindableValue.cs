@@ -83,10 +83,18 @@ public static partial class BindableCoreExtensionMethods
             this.write = write ?? throw new ArgumentNullException(nameof(write));
             this.comparer = comparer ?? EqualityComparer<T>.Default;
 
-            // ReSharper disable once NullableWarningSuppressionIsUsed - This value will be replaced with a non-null
-            // value in the transaction below when the cell is sampled, which happens before the constructor completes
-            // and before the listener is attached, so nothing has a chance of modifying it before then.
+            // ReSharper disable once NullableWarningSuppressionIsUsed - Replaced with the sampled value
+            // in the transaction below, which happens before the constructor completes and before the
+            // listener is attached.
             this.cachedValue = default!;
+
+            // Attaching the listener publishes this object into the graph before the constructor
+            // has returned, so the listener can fire while the constructor is still running - which
+            // it does when this is constructed inside a transaction that goes on to update the same
+            // cell. That is safe for a structural reason rather than a timing one: OnSourceChanged
+            // does not touch the cached value at all, it only posts to the scheduler. Nothing the
+            // listener can do writes over the sample being taken here; the scheduled work runs
+            // afterward, on the binding thread, and a newer update correctly wins.
 
             this.listener =
                 TransactionInternal.RunImpl(() =>

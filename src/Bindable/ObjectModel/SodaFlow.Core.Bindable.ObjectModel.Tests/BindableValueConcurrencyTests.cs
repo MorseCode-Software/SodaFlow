@@ -211,4 +211,48 @@ public class BindableValueConcurrencyTests
             actual: c.Sample(),
             "a write is not dropped for matching a cached value the graph had already left behind");
     }
+
+    // The constructor samples the cell and attaches its listener inside one transaction, and the
+    // sample is stored before the attach. Constructing from inside a transaction which then goes
+    // on to update that same cell is the case where the listener can fire before the constructor
+    // has returned - so it is the one worth pinning down. The update must win, because it is
+    // newer than the sample; losing it would mean an update had slipped through the gap between
+    // sampling and subscribing, and reporting it as the value before the sample landed would mean
+    // the constructor had overwritten it.
+    [Test]
+    public void OneWayConstructedInsideATransactionWhichThenFires()
+    {
+        CellSink<int> c = Cell.CreateSink(0);
+
+        using IOneWayBindableValue<int> b = Transaction.Run(() =>
+        {
+            IOneWayBindableValue<int> created = c.ToOneWayImpl(scheduler: BindingScheduler.Immediate);
+
+            c.Send(5);
+
+            return created;
+        });
+
+        Assert.AreEqual(
+            expected: 5,
+            actual: b.Value,
+            message: "the update fired after the listener was attached and is newer than the sample");
+    }
+
+    [Test]
+    public void TwoWayConstructedInsideATransactionWhichThenFires()
+    {
+        CellSink<int> c = Cell.CreateSink(0);
+
+        using ITwoWayBindableValue<int> b = Transaction.Run(() =>
+        {
+            ITwoWayBindableValue<int> created = c.ToTwoWayImpl(scheduler: BindingScheduler.Immediate);
+
+            c.Send(5);
+
+            return created;
+        });
+
+        Assert.AreEqual(expected: 5, actual: b.Value);
+    }
 }
