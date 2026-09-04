@@ -1,63 +1,56 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
-  <PropertyGroup>
-    <TargetFrameworks>net472;net60;netstandard2.0</TargetFrameworks>
-    <!--
-        LangVersion is pinned because nullable reference types need C# 8 and this project's
-        default was not. The default follows the target framework, so net60 was already getting
-        C# 10 while net472 and netstandard2.0 were getting 7.3 - which is why the nullable syntax
-        would not have compiled for two of the three. 10 matches the other projects here that have
-        nullable enabled, and has the side benefit that all three targets now compile the same
-        language rather than one of them silently accepting more than the others.
+    <PropertyGroup>
+        <TargetFrameworks>net472;net60;netstandard2.0</TargetFrameworks>
+        <!--
+            Nullable annotations are missing from the net472 and netstandard2.0 reference assemblies,
+            which is why a few calls carry a suppression that reads as unnecessary against net6.0
+            alone. EqualityComparer<T>.Equals is the one to know: on net6.0 it is annotated to accept
+            nulls, on the other two it is not annotated at all, so the equality operators in Either.cs
+            suppress at every one of them.
+        -->
+        <LangVersion>latest</LangVersion>
+        <Nullable>enable</Nullable>
+    </PropertyGroup>
 
-        Nullable annotations are missing from the net472 and netstandard2.0 reference assemblies,
-        which is why a few calls carry a suppression that reads as unnecessary against net6.0
-        alone. EqualityComparer<T>.Equals is the one to know: on net6.0 it is annotated to accept
-        nulls, on the other two it is not annotated at all, so the equality operators in Either.cs
-        suppress at every one of them.
+    <PropertyGroup>
+        <PackageId>SodaFlow.Functional</PackageId>
+        <MinVerTagPrefix>sodaflow-functional-</MinVerTagPrefix>
+        <Product>SodaFlow Functional for C#</Product>
+        <Title>SodaFlow Functional for C#</Title>
+        <Description>SodaFlow Functional - Functional constructs for C#.</Description>
+        <AssemblyName>SodaFlow.Functional</AssemblyName>
+        <RootNamespace>SodaFlow.Functional</RootNamespace>
+        <EnableDefaultItems>false</EnableDefaultItems>
+        <!--
+            GenerateDocumentationFile rather than a per-configuration DocumentationFile path: this project
+            multi-targets, and a single hard-coded path made all three target frameworks write over one
+            another's XML. This emits one file per target framework, next to its own assembly, which is
+            where NuGet pack expects it when populating each lib folder, and where the DocFX site under
+            docs/ picks it up when generating API reference.
+        -->
+        <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    </PropertyGroup>
 
-        JetBrainsAnnotations.cs is vendored third-party source and opts itself out with
-        #nullable disable rather than being annotated; see the note at the top of that file.
-    -->
-    <LangVersion>10</LangVersion>
-    <Nullable>enable</Nullable>
-  </PropertyGroup>
+    <ItemGroup>
+        <Compile Include="Either.cs"/>
+        <Compile Include="EnumerableExtensionMethods.cs"/>
+        <Compile Include="IEither.cs"/>
+        <Compile Include="IMaybe.cs"/>
+        <Compile Include="LazyExtensionMethods.cs"/>
+        <Compile Include="Maybe.cs"/>
+        <Compile Include="MaybeAsyncExtensionMethods.cs"/>
+        <Compile Include="MaybeExtensionMethods.cs"/>
+        <Compile Include="MaybeMonad.cs"/>
+        <Compile Include="ReadOnlyDictionaryExtensionMethods.cs"/>
+        <Compile Include="StringExtensionMethods.cs"/>
+        <Compile Include="TryGet.cs"/>
+        <Compile Include="Unit.cs"/>
+        <Compile Include="UnitExtensionMethods.cs"/>
+    </ItemGroup>
 
-  <PropertyGroup>
-    <PackageId>SodaFlow.Functional</PackageId>
-    <MinVerTagPrefix>sodaflow-functional-</MinVerTagPrefix>
-    <Product>SodaFlow Functional for C#</Product>
-    <Title>SodaFlow Functional for C#</Title>
-    <Description>SodaFlow Functional - Functional constructs for C#.</Description>
-    <AssemblyName>SodaFlow.Functional</AssemblyName>
-    <RootNamespace>SodaFlow.Functional</RootNamespace>
-    <EnableDefaultItems>false</EnableDefaultItems>
-    <!--
-        GenerateDocumentationFile rather than a per-configuration DocumentationFile path: this project
-        multi-targets, and a single hard-coded path made all three target frameworks write over one
-        another's XML. This emits one file per target framework, next to its own assembly, which is
-        where NuGet pack expects it when populating each lib folder, and where the DocFX site under
-        docs/ picks it up when generating API reference.
-    -->
-    <GenerateDocumentationFile>true</GenerateDocumentationFile>
-  </PropertyGroup>
-
-  <ItemGroup>
-    <Compile Include="Either.cs" />
-    <Compile Include="EnumerableExtensionMethods.cs" />
-    <Compile Include="IEither.cs" />
-    <Compile Include="IMaybe.cs" />
-    <Compile Include="JetBrainsAnnotations.cs" />
-    <Compile Include="LazyExtensionMethods.cs" />
-    <Compile Include="Maybe.cs" />
-    <Compile Include="MaybeAsyncExtensionMethods.cs" />
-    <Compile Include="MaybeExtensionMethods.cs" />
-    <Compile Include="MaybeMonad.cs" />
-    <Compile Include="ReadOnlyDictionaryExtensionMethods.cs" />
-    <Compile Include="StringExtensionMethods.cs" />
-    <Compile Include="TryGet.cs" />
-    <Compile Include="Unit.cs" />
-    <Compile Include="UnitExtensionMethods.cs" />
-  </ItemGroup>
+    <ItemGroup>
+        <PackageReference Include="JetBrains.Annotations" Version="2026.2.0" PrivateAssets="all"/>
+    </ItemGroup>
 
 </Project>

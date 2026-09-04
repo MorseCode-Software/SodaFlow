@@ -146,6 +146,7 @@ let inline sinkWithCoalesceS coalesce = StreamSink.createWithCoalesce coalesce
 /// Shorthand for <c>CellStreamSink.create</c>; see it for the full contract.
 /// </remarks>
 let inline sinkCS<'a> () = CellStreamSink.create<'a> ()
+
 /// <summary>
 /// Creates a cell stream sink which combines values when <c>StreamSink.send</c> is called more
 /// than once in a single transaction.
@@ -158,7 +159,9 @@ let inline sinkCS<'a> () = CellStreamSink.create<'a> ()
 /// <remarks>
 /// Shorthand for <c>CellStreamSink.createWithCoalesce</c>; see it for the full contract.
 /// </remarks>
-let inline sinkWithCoalesceCS coalesce = CellStreamSink.createWithCoalesce coalesce
+let inline sinkWithCoalesceCS coalesce =
+    CellStreamSink.createWithCoalesce coalesce
+
 /// <summary>
 /// Sends a value, firing the stream sink.
 /// </summary>
@@ -406,6 +409,7 @@ let inline snapshotAndTakeB behavior stream = Stream.snapshotAndTakeB behavior s
 /// the order the graph happens to be evaluated in.
 /// </remarks>
 let inline snapshotAndTakeC cell stream = Stream.snapshotAndTake cell stream
+
 /// <summary>
 /// Samples two behaviors when the stream fires, and fires the combination.
 /// </summary>
@@ -425,7 +429,9 @@ let inline snapshotAndTakeC cell stream = Stream.snapshotAndTake cell stream
 /// transaction is therefore seen with its old value, which is what keeps the result independent of
 /// the order the graph happens to be evaluated in.
 /// </remarks>
-let inline snapshot2B behavior1 behavior2 f stream = Stream.snapshot2B behavior1 behavior2 f stream
+let inline snapshot2B behavior1 behavior2 f stream =
+    Stream.snapshot2B behavior1 behavior2 f stream
+
 /// <summary>
 /// Samples two cells when the stream fires, and fires the combination.
 /// </summary>
@@ -446,6 +452,7 @@ let inline snapshot2B behavior1 behavior2 f stream = Stream.snapshot2B behavior1
 /// the order the graph happens to be evaluated in.
 /// </remarks>
 let inline snapshot2C cell1 cell2 f stream = Stream.snapshot2 cell1 cell2 f stream
+
 /// <summary>
 /// Samples three behaviors when the stream fires, and fires the combination.
 /// </summary>
@@ -466,7 +473,9 @@ let inline snapshot2C cell1 cell2 f stream = Stream.snapshot2 cell1 cell2 f stre
 /// transaction is therefore seen with its old value, which is what keeps the result independent of
 /// the order the graph happens to be evaluated in.
 /// </remarks>
-let inline snapshot3B behavior1 behavior2 behavior3 f stream = Stream.snapshot3B behavior1 behavior2 behavior3 f stream
+let inline snapshot3B behavior1 behavior2 behavior3 f stream =
+    Stream.snapshot3B behavior1 behavior2 behavior3 f stream
+
 /// <summary>
 /// Samples three cells when the stream fires, and fires the combination.
 /// </summary>
@@ -487,7 +496,9 @@ let inline snapshot3B behavior1 behavior2 behavior3 f stream = Stream.snapshot3B
 /// transaction is therefore seen with its old value, which is what keeps the result independent of
 /// the order the graph happens to be evaluated in.
 /// </remarks>
-let inline snapshot3C cell1 cell2 cell3 f stream = Stream.snapshot3 cell1 cell2 cell3 f stream
+let inline snapshot3C cell1 cell2 cell3 f stream =
+    Stream.snapshot3 cell1 cell2 cell3 f stream
+
 /// <summary>
 /// Samples four behaviors when the stream fires, and fires the combination.
 /// </summary>
@@ -509,7 +520,9 @@ let inline snapshot3C cell1 cell2 cell3 f stream = Stream.snapshot3 cell1 cell2 
 /// transaction is therefore seen with its old value, which is what keeps the result independent of
 /// the order the graph happens to be evaluated in.
 /// </remarks>
-let inline snapshot4B behavior1 behavior2 behavior3 behavior4 f stream = Stream.snapshot4B behavior1 behavior2 behavior3 behavior4 f stream
+let inline snapshot4B behavior1 behavior2 behavior3 behavior4 f stream =
+    Stream.snapshot4B behavior1 behavior2 behavior3 behavior4 f stream
+
 /// <summary>
 /// Samples four cells when the stream fires, and fires the combination.
 /// </summary>
@@ -531,7 +544,9 @@ let inline snapshot4B behavior1 behavior2 behavior3 behavior4 f stream = Stream.
 /// transaction is therefore seen with its old value, which is what keeps the result independent of
 /// the order the graph happens to be evaluated in.
 /// </remarks>
-let inline snapshot4C cell1 cell2 cell3 cell4 f stream = Stream.snapshot4 cell1 cell2 cell3 cell4 f stream
+let inline snapshot4C cell1 cell2 cell3 cell4 f stream =
+    Stream.snapshot4 cell1 cell2 cell3 cell4 f stream
+
 /// <summary>
 /// Samples five behaviors when the stream fires, and fires the combination.
 /// </summary>
@@ -554,7 +569,9 @@ let inline snapshot4C cell1 cell2 cell3 cell4 f stream = Stream.snapshot4 cell1 
 /// transaction is therefore seen with its old value, which is what keeps the result independent of
 /// the order the graph happens to be evaluated in.
 /// </remarks>
-let inline snapshot5B behavior1 behavior2 behavior3 behavior4 behavior5 f stream = Stream.snapshot5B behavior1 behavior2 behavior3 behavior4 behavior5 f stream
+let inline snapshot5B behavior1 behavior2 behavior3 behavior4 behavior5 f stream =
+    Stream.snapshot5B behavior1 behavior2 behavior3 behavior4 behavior5 f stream
+
 /// <summary>
 /// Samples five cells when the stream fires, and fires the combination.
 /// </summary>
@@ -577,7 +594,9 @@ let inline snapshot5B behavior1 behavior2 behavior3 behavior4 behavior5 f stream
 /// transaction is therefore seen with its old value, which is what keeps the result independent of
 /// the order the graph happens to be evaluated in.
 /// </remarks>
-let inline snapshot5C cell1 cell2 cell3 cell4 cell5 f stream = Stream.snapshot5 cell1 cell2 cell3 cell4 cell5 f stream
+let inline snapshot5C cell1 cell2 cell3 cell4 cell5 f stream =
+    Stream.snapshot5 cell1 cell2 cell3 cell4 cell5 f stream
+
 /// <summary>
 /// Samples six behaviors when the stream fires, and fires the combination.
 /// </summary>
@@ -601,7 +620,9 @@ let inline snapshot5C cell1 cell2 cell3 cell4 cell5 f stream = Stream.snapshot5 
 /// transaction is therefore seen with its old value, which is what keeps the result independent of
 /// the order the graph happens to be evaluated in.
 /// </remarks>
-let inline snapshot6B behavior1 behavior2 behavior3 behavior4 behavior5 behavior6 f stream = Stream.snapshot6B behavior1 behavior2 behavior3 behavior4 behavior5 behavior6 f stream
+let inline snapshot6B behavior1 behavior2 behavior3 behavior4 behavior5 behavior6 f stream =
+    Stream.snapshot6B behavior1 behavior2 behavior3 behavior4 behavior5 behavior6 f stream
+
 /// <summary>
 /// Samples six cells when the stream fires, and fires the combination.
 /// </summary>
@@ -625,7 +646,9 @@ let inline snapshot6B behavior1 behavior2 behavior3 behavior4 behavior5 behavior
 /// transaction is therefore seen with its old value, which is what keeps the result independent of
 /// the order the graph happens to be evaluated in.
 /// </remarks>
-let inline snapshot6C cell1 cell2 cell3 cell4 cell5 cell6 f stream = Stream.snapshot6 cell1 cell2 cell3 cell4 cell5 cell6 f stream
+let inline snapshot6C cell1 cell2 cell3 cell4 cell5 cell6 f stream =
+    Stream.snapshot6 cell1 cell2 cell3 cell4 cell5 cell6 f stream
+
 /// <summary>
 /// Samples seven behaviors when the stream fires, and fires the combination.
 /// </summary>
@@ -650,7 +673,9 @@ let inline snapshot6C cell1 cell2 cell3 cell4 cell5 cell6 f stream = Stream.snap
 /// transaction is therefore seen with its old value, which is what keeps the result independent of
 /// the order the graph happens to be evaluated in.
 /// </remarks>
-let inline snapshot7B behavior1 behavior2 behavior3 behavior4 behavior5 behavior6 behavior7 f stream = Stream.snapshot7B behavior1 behavior2 behavior3 behavior4 behavior5 behavior6 behavior7 f stream
+let inline snapshot7B behavior1 behavior2 behavior3 behavior4 behavior5 behavior6 behavior7 f stream =
+    Stream.snapshot7B behavior1 behavior2 behavior3 behavior4 behavior5 behavior6 behavior7 f stream
+
 /// <summary>
 /// Samples seven cells when the stream fires, and fires the combination.
 /// </summary>
@@ -675,7 +700,9 @@ let inline snapshot7B behavior1 behavior2 behavior3 behavior4 behavior5 behavior
 /// transaction is therefore seen with its old value, which is what keeps the result independent of
 /// the order the graph happens to be evaluated in.
 /// </remarks>
-let inline snapshot7C cell1 cell2 cell3 cell4 cell5 cell6 cell7 f stream = Stream.snapshot7 cell1 cell2 cell3 cell4 cell5 cell6 cell7 f stream
+let inline snapshot7C cell1 cell2 cell3 cell4 cell5 cell6 cell7 f stream =
+    Stream.snapshot7 cell1 cell2 cell3 cell4 cell5 cell6 cell7 f stream
+
 /// <summary>
 /// Samples eight behaviors when the stream fires, and fires the combination.
 /// </summary>
@@ -701,7 +728,9 @@ let inline snapshot7C cell1 cell2 cell3 cell4 cell5 cell6 cell7 f stream = Strea
 /// transaction is therefore seen with its old value, which is what keeps the result independent of
 /// the order the graph happens to be evaluated in.
 /// </remarks>
-let inline snapshot8B behavior1 behavior2 behavior3 behavior4 behavior5 behavior6 behavior7 behavior8 f stream = Stream.snapshot8B behavior1 behavior2 behavior3 behavior4 behavior5 behavior6 behavior7 behavior8 f stream
+let inline snapshot8B behavior1 behavior2 behavior3 behavior4 behavior5 behavior6 behavior7 behavior8 f stream =
+    Stream.snapshot8B behavior1 behavior2 behavior3 behavior4 behavior5 behavior6 behavior7 behavior8 f stream
+
 /// <summary>
 /// Samples eight cells when the stream fires, and fires the combination.
 /// </summary>
@@ -727,7 +756,9 @@ let inline snapshot8B behavior1 behavior2 behavior3 behavior4 behavior5 behavior
 /// transaction is therefore seen with its old value, which is what keeps the result independent of
 /// the order the graph happens to be evaluated in.
 /// </remarks>
-let inline snapshot8C cell1 cell2 cell3 cell4 cell5 cell6 cell7 cell8 f stream = Stream.snapshot8 cell1 cell2 cell3 cell4 cell5 cell6 cell7 cell8 f stream
+let inline snapshot8C cell1 cell2 cell3 cell4 cell5 cell6 cell7 cell8 f stream =
+    Stream.snapshot8 cell1 cell2 cell3 cell4 cell5 cell6 cell7 cell8 f stream
+
 /// <summary>
 /// Merges two streams, combining the values where both fire in one transaction.
 /// </summary>
@@ -818,6 +849,7 @@ let inline gateB behavior stream = Stream.gateB behavior stream
 /// the start of the transaction the firing belongs to.
 /// </remarks>
 let inline gateC cell stream = Stream.gate cell stream
+
 /// <summary>
 /// Folds state across firings, firing a value derived from each step, with an initial state
 /// computed on first use.
@@ -838,7 +870,9 @@ let inline gateC cell stream = Stream.gate cell stream
 ///
 /// This is the lazy form, for closing a loop where the initial state is not yet available.
 /// </remarks>
-let inline collectLazyS initialState f stream = Stream.collectLazy initialState f stream
+let inline collectLazyS initialState f stream =
+    Stream.collectLazy initialState f stream
+
 /// <summary>
 /// Folds state across firings, firing a value derived from each step.
 /// </summary>
@@ -873,6 +907,7 @@ let inline collectS initialState f stream = Stream.collect initialState f stream
 /// the value that was suppressed, not against the last one that got through.
 /// </remarks>
 let inline calmWithCompareS compare stream = Stream.calmWithCompare compare stream
+
 /// <summary>
 /// Suppresses firings whose value the given comparer considers equal to the last one that got
 /// through.
@@ -886,7 +921,9 @@ let inline calmWithCompareS compare stream = Stream.calmWithCompare compare stre
 /// Suppressing a firing is not the same as it not happening: the next comparison is made against
 /// the value that was suppressed, not against the last one that got through.
 /// </remarks>
-let inline calmWithEqualityComparerS equalityComparer stream = Stream.calmWithEqualityComparer equalityComparer stream
+let inline calmWithEqualityComparerS equalityComparer stream =
+    Stream.calmWithEqualityComparer equalityComparer stream
+
 /// <summary>
 /// Suppresses firings equal, by F#'s structural equality, to the last one that got through.
 /// </summary>
@@ -995,6 +1032,7 @@ let inline constantLazyB value = Behavior.constantLazy value
 /// Shorthand for <c>BehaviorSink.create</c>; see it for the full contract.
 /// </remarks>
 let inline sinkB initialValue = BehaviorSink.create initialValue
+
 /// <summary>
 /// Creates a behavior sink which combines values when <c>send</c> is called more than once in a
 /// single transaction.
@@ -1008,7 +1046,9 @@ let inline sinkB initialValue = BehaviorSink.create initialValue
 /// <remarks>
 /// Shorthand for <c>BehaviorSink.createWithCoalesce</c>; see it for the full contract.
 /// </remarks>
-let inline sinkWithCoalesceB initialValue coalesce = BehaviorSink.createWithCoalesce initialValue coalesce
+let inline sinkWithCoalesceB initialValue coalesce =
+    BehaviorSink.createWithCoalesce initialValue coalesce
+
 /// <summary>
 /// Sends a value, changing what the behavior holds.
 /// </summary>
@@ -1127,6 +1167,7 @@ let inline mapB f behavior = Behavior.map f behavior
 /// once, with all of the new values, rather than once per input.
 /// </remarks>
 let inline lift2B f (behavior, behavior2) = Behavior.lift2 f (behavior, behavior2)
+
 /// <summary>
 /// Combines three behaviors into one whose value is a function of all of theirs.
 /// </summary>
@@ -1144,7 +1185,9 @@ let inline lift2B f (behavior, behavior2) = Behavior.lift2 f (behavior, behavior
 /// Glitch-free: when several of the inputs change in one transaction, the result updates
 /// once, with all of the new values, rather than once per input.
 /// </remarks>
-let inline lift3B f (behavior, behavior2, behavior3) = Behavior.lift3 f (behavior, behavior2, behavior3)
+let inline lift3B f (behavior, behavior2, behavior3) =
+    Behavior.lift3 f (behavior, behavior2, behavior3)
+
 /// <summary>
 /// Combines four behaviors into one whose value is a function of all of theirs.
 /// </summary>
@@ -1163,7 +1206,9 @@ let inline lift3B f (behavior, behavior2, behavior3) = Behavior.lift3 f (behavio
 /// Glitch-free: when several of the inputs change in one transaction, the result updates
 /// once, with all of the new values, rather than once per input.
 /// </remarks>
-let inline lift4B f (behavior, behavior2, behavior3, behavior4) = Behavior.lift4 f (behavior, behavior2, behavior3, behavior4)
+let inline lift4B f (behavior, behavior2, behavior3, behavior4) =
+    Behavior.lift4 f (behavior, behavior2, behavior3, behavior4)
+
 /// <summary>
 /// Combines five behaviors into one whose value is a function of all of theirs.
 /// </summary>
@@ -1183,7 +1228,9 @@ let inline lift4B f (behavior, behavior2, behavior3, behavior4) = Behavior.lift4
 /// Glitch-free: when several of the inputs change in one transaction, the result updates
 /// once, with all of the new values, rather than once per input.
 /// </remarks>
-let inline lift5B f (behavior, behavior2, behavior3, behavior4, behavior5) = Behavior.lift5 f (behavior, behavior2, behavior3, behavior4, behavior5)
+let inline lift5B f (behavior, behavior2, behavior3, behavior4, behavior5) =
+    Behavior.lift5 f (behavior, behavior2, behavior3, behavior4, behavior5)
+
 /// <summary>
 /// Combines six behaviors into one whose value is a function of all of theirs.
 /// </summary>
@@ -1204,7 +1251,9 @@ let inline lift5B f (behavior, behavior2, behavior3, behavior4, behavior5) = Beh
 /// Glitch-free: when several of the inputs change in one transaction, the result updates
 /// once, with all of the new values, rather than once per input.
 /// </remarks>
-let inline lift6B f (behavior, behavior2, behavior3, behavior4, behavior5, behavior6) = Behavior.lift6 f (behavior, behavior2, behavior3, behavior4, behavior5, behavior6)
+let inline lift6B f (behavior, behavior2, behavior3, behavior4, behavior5, behavior6) =
+    Behavior.lift6 f (behavior, behavior2, behavior3, behavior4, behavior5, behavior6)
+
 /// <summary>
 /// Combines seven behaviors into one whose value is a function of all of theirs.
 /// </summary>
@@ -1226,7 +1275,9 @@ let inline lift6B f (behavior, behavior2, behavior3, behavior4, behavior5, behav
 /// Glitch-free: when several of the inputs change in one transaction, the result updates
 /// once, with all of the new values, rather than once per input.
 /// </remarks>
-let inline lift7B f (behavior, behavior2, behavior3, behavior4, behavior5, behavior6, behavior7) = Behavior.lift7 f (behavior, behavior2, behavior3, behavior4, behavior5, behavior6, behavior7)
+let inline lift7B f (behavior, behavior2, behavior3, behavior4, behavior5, behavior6, behavior7) =
+    Behavior.lift7 f (behavior, behavior2, behavior3, behavior4, behavior5, behavior6, behavior7)
+
 /// <summary>
 /// Combines eight behaviors into one whose value is a function of all of theirs.
 /// </summary>
@@ -1249,7 +1300,9 @@ let inline lift7B f (behavior, behavior2, behavior3, behavior4, behavior5, behav
 /// Glitch-free: when several of the inputs change in one transaction, the result updates
 /// once, with all of the new values, rather than once per input.
 /// </remarks>
-let inline lift8B f (behavior, behavior2, behavior3, behavior4, behavior5, behavior6, behavior7, behavior8) = Behavior.lift8 f (behavior, behavior2, behavior3, behavior4, behavior5, behavior6, behavior7, behavior8)
+let inline lift8B f (behavior, behavior2, behavior3, behavior4, behavior5, behavior6, behavior7, behavior8) =
+    Behavior.lift8 f (behavior, behavior2, behavior3, behavior4, behavior5, behavior6, behavior7, behavior8)
+
 /// <summary>
 /// Combines any number of behaviors into one whose value is a function of all of theirs.
 /// </summary>
@@ -1329,6 +1382,7 @@ let inline constantLazyC value = Cell.constantLazy value
 /// Shorthand for <c>CellSink.create</c>; see it for the full contract.
 /// </remarks>
 let inline sinkC initialValue = CellSink.create initialValue
+
 /// <summary>
 /// Creates a cell sink which combines values when <c>send</c> is called more than once in a
 /// single transaction.
@@ -1342,7 +1396,9 @@ let inline sinkC initialValue = CellSink.create initialValue
 /// <remarks>
 /// Shorthand for <c>CellSink.createWithCoalesce</c>; see it for the full contract.
 /// </remarks>
-let inline sinkWithCoalesceC initialValue coalesce = CellSink.createWithCoalesce initialValue coalesce
+let inline sinkWithCoalesceC initialValue coalesce =
+    CellSink.createWithCoalesce initialValue coalesce
+
 /// <summary>
 /// Sends a value, changing what the cell holds.
 /// </summary>
@@ -1585,6 +1641,7 @@ let inline lift2C f (cell, cell2) = Cell.lift2 f (cell, cell2)
 /// once, with all of the new values, rather than once per input.
 /// </remarks>
 let inline lift3C f (cell, cell2, cell3) = Cell.lift3 f (cell, cell2, cell3)
+
 /// <summary>
 /// Combines four cells into one whose value is a function of all of theirs.
 /// </summary>
@@ -1603,7 +1660,9 @@ let inline lift3C f (cell, cell2, cell3) = Cell.lift3 f (cell, cell2, cell3)
 /// Glitch-free: when several of the inputs change in one transaction, the result updates
 /// once, with all of the new values, rather than once per input.
 /// </remarks>
-let inline lift4C f (cell, cell2, cell3, cell4) = Cell.lift4 f (cell, cell2, cell3, cell4)
+let inline lift4C f (cell, cell2, cell3, cell4) =
+    Cell.lift4 f (cell, cell2, cell3, cell4)
+
 /// <summary>
 /// Combines five cells into one whose value is a function of all of theirs.
 /// </summary>
@@ -1623,7 +1682,9 @@ let inline lift4C f (cell, cell2, cell3, cell4) = Cell.lift4 f (cell, cell2, cel
 /// Glitch-free: when several of the inputs change in one transaction, the result updates
 /// once, with all of the new values, rather than once per input.
 /// </remarks>
-let inline lift5C f (cell, cell2, cell3, cell4, cell5) = Cell.lift5 f (cell, cell2, cell3, cell4, cell5)
+let inline lift5C f (cell, cell2, cell3, cell4, cell5) =
+    Cell.lift5 f (cell, cell2, cell3, cell4, cell5)
+
 /// <summary>
 /// Combines six cells into one whose value is a function of all of theirs.
 /// </summary>
@@ -1644,7 +1705,9 @@ let inline lift5C f (cell, cell2, cell3, cell4, cell5) = Cell.lift5 f (cell, cel
 /// Glitch-free: when several of the inputs change in one transaction, the result updates
 /// once, with all of the new values, rather than once per input.
 /// </remarks>
-let inline lift6C f (cell, cell2, cell3, cell4, cell5, cell6) = Cell.lift6 f (cell, cell2, cell3, cell4, cell5, cell6)
+let inline lift6C f (cell, cell2, cell3, cell4, cell5, cell6) =
+    Cell.lift6 f (cell, cell2, cell3, cell4, cell5, cell6)
+
 /// <summary>
 /// Combines seven cells into one whose value is a function of all of theirs.
 /// </summary>
@@ -1666,7 +1729,9 @@ let inline lift6C f (cell, cell2, cell3, cell4, cell5, cell6) = Cell.lift6 f (ce
 /// Glitch-free: when several of the inputs change in one transaction, the result updates
 /// once, with all of the new values, rather than once per input.
 /// </remarks>
-let inline lift7C f (cell, cell2, cell3, cell4, cell5, cell6, cell7) = Cell.lift7 f (cell, cell2, cell3, cell4, cell5, cell6, cell7)
+let inline lift7C f (cell, cell2, cell3, cell4, cell5, cell6, cell7) =
+    Cell.lift7 f (cell, cell2, cell3, cell4, cell5, cell6, cell7)
+
 /// <summary>
 /// Combines eight cells into one whose value is a function of all of theirs.
 /// </summary>
@@ -1689,7 +1754,9 @@ let inline lift7C f (cell, cell2, cell3, cell4, cell5, cell6, cell7) = Cell.lift
 /// Glitch-free: when several of the inputs change in one transaction, the result updates
 /// once, with all of the new values, rather than once per input.
 /// </remarks>
-let inline lift8C f (cell, cell2, cell3, cell4, cell5, cell6, cell7, cell8) = Cell.lift8 f (cell, cell2, cell3, cell4, cell5, cell6, cell7, cell8)
+let inline lift8C f (cell, cell2, cell3, cell4, cell5, cell6, cell7, cell8) =
+    Cell.lift8 f (cell, cell2, cell3, cell4, cell5, cell6, cell7, cell8)
+
 /// <summary>
 /// Suppresses updates whose value the given comparison considers equal to the last one that got
 /// through.
@@ -1704,6 +1771,7 @@ let inline lift8C f (cell, cell2, cell3, cell4, cell5, cell6, cell7, cell8) = Ce
 /// and the next comparison is made against the last value that got through.
 /// </remarks>
 let inline calmWithCompareC compare cell = Cell.calmWithCompare compare cell
+
 /// <summary>
 /// Suppresses updates whose value the given comparer considers equal to the last one that got
 /// through.
@@ -1717,7 +1785,9 @@ let inline calmWithCompareC compare cell = Cell.calmWithCompare compare cell
 /// Suppressing an update is not the same as it not happening: the cell still takes the new value,
 /// and the next comparison is made against the last value that got through.
 /// </remarks>
-let inline calmWithEqualityComparerC equalityComparer cell = Cell.calmWithEqualityComparer equalityComparer cell
+let inline calmWithEqualityComparerC equalityComparer cell =
+    Cell.calmWithEqualityComparer equalityComparer cell
+
 /// <summary>
 /// Suppresses updates equal, by F#'s structural equality, to the last one that got through.
 /// </summary>

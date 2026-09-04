@@ -2,90 +2,51 @@
 using System.Threading;
 using System.Threading.Tasks;
 using NUnit.Framework;
-using SodaFlow.Functional;
 
-namespace SodaFlow.Tests.Internal
+namespace SodaFlow.Tests.Internal;
+
+[TestFixture]
+public class TransactionTests
 {
-    [TestFixture]
-    public class TransactionTests
+    [Test]
+    public async Task PostSeeOutside()
     {
-        [Test]
-        public async Task PostSeeOutside()
+        OperationCanceledException? actual = null;
+        AutoResetEvent re = new(false);
+
+        using (CancellationTokenSource cts = new())
         {
-            OperationCanceledException actual = null;
-            AutoResetEvent re = new AutoResetEvent(false);
-            using (CancellationTokenSource cts = new CancellationTokenSource())
-            {
-                Task task = Task.Run(
-                    () =>
+            Task task =
+                // ReSharper disable once MethodSupportsCancellation - We want to observe cancellation within the
+                // running task.
+                Task.Run(() =>
+                {
+                    Transaction.Post(() =>
                     {
-                        Transaction.Post(
-                            () =>
-                            {
-                                re.Set();
+                        re.Set();
 
-                                Thread.Sleep(5000);
+                        Thread.Sleep(5000);
 
-                                cts.Token.ThrowIfCancellationRequested();
-                            });
+                        // ReSharper disable once AccessToDisposedClosure - Disposable will happen after this is
+                        // reached.
+                        cts.Token.ThrowIfCancellationRequested();
                     });
+                });
 
-                re.WaitOne();
+            re.WaitOne();
 
-                cts.Cancel();
+            cts.Cancel();
 
-                try
-                {
-                    await task;
-                }
-                catch (OperationCanceledException e)
-                {
-                    actual = e;
-                }
+            try
+            {
+                await task;
             }
-
-            Assert.IsNotNull(actual);
+            catch (OperationCanceledException e)
+            {
+                actual = e;
+            }
         }
 
-        [Test]
-        [Ignore("There is no longer a construct phase for transactions.")]
-        public async Task PostSeeInside()
-        {
-            OperationCanceledException actual = null;
-            AutoResetEvent re = new AutoResetEvent(false);
-            using (CancellationTokenSource cts = new CancellationTokenSource())
-            {
-                Task task = Task.Run(
-                    () =>
-                    {
-                        Transaction.Post(
-                            () =>
-                            {
-                                re.Set();
-
-                                Thread.Sleep(5000);
-
-                                cts.Token.ThrowIfCancellationRequested();
-                            });
-                    });
-
-                re.WaitOne();
-
-                StreamSink<Unit> sink2 = Stream.CreateSink<Unit>();
-                sink2.ListenStrong(_ => cts.Cancel());
-                sink2.Send(Unit.Value);
-
-                try
-                {
-                    await task;
-                }
-                catch (OperationCanceledException e)
-                {
-                    actual = e;
-                }
-            }
-
-            Assert.IsNotNull(actual);
-        }
+        Assert.IsNotNull(actual);
     }
 }

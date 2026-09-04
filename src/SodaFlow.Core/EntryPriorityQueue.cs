@@ -1,321 +1,337 @@
 ﻿using System;
-using System.Collections.Generic;
 
-namespace SodaFlow
+namespace SodaFlow;
+
+internal sealed class EntryPriorityQueue
 {
-    internal class EntryPriorityQueue
+    private const bool SanityChecks = false;
+
+    private readonly HeadAndTail last = new(head: null, tail: null);
+
+    private HeadAndTail?[] entries = new HeadAndTail?[1000];
+
+    private int entriesSize = 1000;
+    private int maxRank = -1;
+
+    private int minRank;
+
+    private void CheckQueue()
     {
-        private const bool SanityChecks = false;
-
-        private class HeadAndTail
+        for (int i = 0; i < this.entries.Length; i++)
         {
-            public TransactionInternal.Entry Head;
-            public TransactionInternal.Entry Tail;
+            HeadAndTail? e = this.entries[i];
 
-            public HeadAndTail(TransactionInternal.Entry head, TransactionInternal.Entry tail)
+            if (e == null)
             {
-                this.Head = head;
-                this.Tail = tail;
+                continue;
+            }
+
+            if (e.Head?.PqPrev != null)
+            {
+                throw new Exception("Head cannot have a previous entry.");
+            }
+
+            if (e.Tail?.PqNext != null)
+            {
+                throw new Exception("Tail cannot have a next entry.");
+            }
+
+            TransactionInternal.Entry? current = e.Head;
+
+            while (current != null)
+            {
+                if (current.PqRank != i)
+                {
+                    throw new Exception("Rank was not the expected value.");
+                }
+
+                if (!current.InPq)
+                {
+                    throw new Exception("Entry was not marked as being in a priority queue.");
+                }
+
+                current = current.PqNext;
             }
         }
+    }
 
-        private HeadAndTail[] entries = new HeadAndTail[1000];
-
-        private int entriesSize = 1000;
-
-        private HeadAndTail last = new HeadAndTail(null, null);
-
-        private int minRank = 0;
-        private int maxRank = -1;
-
-        private void CheckQueue()
+    internal bool IsEmpty()
+    {
+        if (this.minRank <= this.maxRank)
         {
-            for (int i = 0; i < this.entries.Length; i++)
-            {
-                HeadAndTail e = this.entries[i];
-                if (e == null)
-                {
-                    continue;
-                }
-
-                int expectedPqRank = i;
-
-                if (e.Head != null && e.Head.PqPrev != null)
-                {
-                    throw new Exception("Head cannot have a previous entry.");
-                }
-
-                if (e.Tail != null && e.Tail.PqNext != null)
-                {
-                    throw new Exception("Tail cannot have a next entry.");
-                }
-
-                TransactionInternal.Entry current = e.Head;
-                while (current != null)
-                {
-                    if (current.PqRank != expectedPqRank)
-                    {
-                        throw new Exception("Rank was not the expected value.");
-                    }
-
-                    if (!current.InPq)
-                    {
-                        throw new Exception("Entry was not marked as being in a priority queue.");
-                    }
-
-                    current = current.PqNext;
-                }
-            }
+            return false;
         }
 
-        internal bool IsEmpty()
-        {
-            if (this.minRank <= this.maxRank)
-            {
-                return false;
-            }
+        this.minRank = 0;
+        this.maxRank = -1;
+        return this.last.Head == null;
+    }
 
-            this.minRank = 0;
-            this.maxRank = -1;
-            return this.last.Head == null;
+    internal void Enqueue(TransactionInternal.Entry e)
+    {
+        if (e.PqRank != e.Node.Rank)
+        {
+            throw new Exception("Enqueue requires ranks to agree.");
         }
 
-        internal void Enqueue(TransactionInternal.Entry e)
+        // Ranks index directly into entries, so the array has to be strictly longer than the
+        // rank being stored - hence >=, not >. Doubling also has to repeat until the rank
+        // actually fits, since a single doubling is not enough for a rank well past the end.
+        if (e.PqRank != Node.NullRank && e.PqRank >= this.entriesSize)
         {
-            if (e.PqRank != e.Node.Rank)
-            {
-                throw new Exception("Enqueue requires ranks to agree.");
-            }
+            int newSize = this.entriesSize;
 
-            // Ranks index directly into entries, so the array has to be strictly longer than the
-            // rank being stored - hence >=, not >. Doubling also has to repeat until the rank
-            // actually fits, since a single doubling is not enough for a rank well past the end.
-            if (e.PqRank != Node.NullRank && e.PqRank >= this.entriesSize)
+            while (newSize <= e.PqRank)
             {
-                int newSize = this.entriesSize;
-                while (newSize <= e.PqRank)
+                if (newSize > int.MaxValue / 2)
                 {
-                    if (newSize > int.MaxValue / 2)
-                    {
-                        newSize = int.MaxValue;
-                        break;
-                    }
-
-                    newSize *= 2;
+                    newSize = int.MaxValue;
+                    break;
                 }
 
-                Array.Resize(ref this.entries, newSize);
-                this.entriesSize = newSize;
+                newSize *= 2;
             }
 
-            if (e.InPq)
+            Array.Resize(array: ref this.entries, newSize: newSize);
+            this.entriesSize = newSize;
+        }
+
+        if (e.InPq)
+        {
+            return;
+        }
+
+        e.InPq = true;
+
+        HeadAndTail? entry;
+
+        if (e.PqRank == Node.NullRank)
+        {
+            entry = this.last;
+        }
+        else
+        {
+            if (e.PqRank < this.minRank)
             {
-                return;
+                this.minRank = e.PqRank;
             }
 
-            e.InPq = true;
-
-            HeadAndTail entry;
-
-            if (e.PqRank == Node.NullRank)
+            if (e.PqRank > this.maxRank)
             {
-                entry = this.last;
-            }
-            else
-            {
-                if (e.PqRank < this.minRank)
-                {
-                    this.minRank = e.PqRank;
-                }
-
-                if (e.PqRank > this.maxRank)
-                {
-                    this.maxRank = e.PqRank;
-                }
-
-                entry = this.entries[e.PqRank];
-
-                if (entry == null)
-                {
-                    this.entries[e.PqRank] = new HeadAndTail(e, e);
-
-                    if (SanityChecks)
-                    {
-                        this.CheckQueue();
-                    }
-
-                    return;
-                }
+                this.maxRank = e.PqRank;
             }
 
-            if (entry.Head == null)
+            entry = this.entries[e.PqRank];
+
+            if (entry == null)
             {
-                entry.Head = entry.Tail = e;
+                this.entries[e.PqRank] = new HeadAndTail(head: e, tail: e);
 
                 if (SanityChecks)
+#pragma warning disable CS0162 // Unreachable code detected
+                    // ReSharper disable HeuristicUnreachableCode
                 {
                     this.CheckQueue();
                 }
+                // ReSharper restore HeuristicUnreachableCode
+#pragma warning restore CS0162 // Unreachable code detected
 
                 return;
             }
+        }
 
-            entry.Tail.PqNext = e;
-            e.PqPrev = entry.Tail;
-            entry.Tail = e;
+        if (entry.Head == null)
+        {
+            entry.Head = entry.Tail = e;
 
             if (SanityChecks)
+#pragma warning disable CS0162 // Unreachable code detected
+                // ReSharper disable HeuristicUnreachableCode
             {
                 this.CheckQueue();
             }
+            // ReSharper restore HeuristicUnreachableCode
+#pragma warning restore CS0162 // Unreachable code detected
+
+            return;
         }
 
-        public TransactionInternal.Entry Dequeue()
+        // ReSharper disable once NullableWarningSuppressionIsUsed - entry.Tail can only be null when entry.Head is
+        // also null.  In that case, both are set to a nun-null value above.
+        entry.Tail!.PqNext = e;
+        e.PqPrev = entry.Tail;
+        entry.Tail = e;
+
+        if (SanityChecks)
+#pragma warning disable CS0162 // Unreachable code detected
+            // ReSharper disable HeuristicUnreachableCode
         {
-            while (true)
+            this.CheckQueue();
+        }
+        // ReSharper restore HeuristicUnreachableCode
+#pragma warning restore CS0162 // Unreachable code detected
+    }
+
+    public TransactionInternal.Entry? Dequeue()
+    {
+        while (true)
+        {
+            if (this.minRank > this.maxRank)
             {
-                if (this.minRank > this.maxRank)
+                this.minRank = 0;
+                this.maxRank = -1;
+
+                if (this.last.Head != null)
                 {
-                    this.minRank = 0;
-                    this.maxRank = -1;
-
-                    if (this.last.Head != null)
-                    {
-                        TransactionInternal.Entry result1 = this.last.Head;
-                        this.Remove(result1);
-                        return result1;
-                    }
-
-                    if (SanityChecks)
-                    {
-                        this.CheckQueue();
-                    }
-
-                    return null;
+                    TransactionInternal.Entry result1 = this.last.Head;
+                    this.Remove(result1);
+                    return result1;
                 }
 
-                HeadAndTail entry = this.entries[this.minRank];
+                if (SanityChecks)
+#pragma warning disable CS0162 // Unreachable code detected
+                    // ReSharper disable HeuristicUnreachableCode
+                {
+                    this.CheckQueue();
+                }
+                // ReSharper restore HeuristicUnreachableCode
+#pragma warning restore CS0162 // Unreachable code detected
+
+                return null;
+            }
+
+            HeadAndTail? entry = this.entries[this.minRank];
+
+            if (entry?.Head == null)
+            {
+                this.minRank++;
+                continue;
+            }
+
+            TransactionInternal.Entry result = entry.Head;
+            this.Remove(result);
+
+            while (true)
+            {
+                entry = this.entries[this.minRank];
 
                 if (entry?.Head == null)
                 {
                     this.minRank++;
+
+                    if (this.minRank > this.maxRank)
+                    {
+                        this.minRank = 0;
+                        this.maxRank = -1;
+                        break;
+                    }
+
                     continue;
                 }
 
-                TransactionInternal.Entry result = entry.Head;
-                this.Remove(result);
-
-                while (true)
-                {
-                    entry = this.entries[this.minRank];
-
-                    if (entry?.Head == null)
-                    {
-                        this.minRank++;
-
-                        if (this.minRank > this.maxRank)
-                        {
-                            this.minRank = 0;
-                            this.maxRank = -1;
-                            break;
-                        }
-
-                        continue;
-                    }
-
-                    break;
-                }
-
-                if (SanityChecks)
-                {
-                    // sanity check, find it there is something else with a smaller rank
-                    foreach (HeadAndTail entry2 in this.entries)
-                    {
-                        if (entry2 != null)
-                        {
-                            TransactionInternal.Entry current = entry2.Head;
-
-                            while (current != null)
-                            {
-                                if (current.PqRank < result.PqRank)
-                                {
-                                    throw new Exception("Priority queue contains less than the expected number of elements.");
-                                }
-
-                                current = current.PqNext;
-                            }
-                        }
-                    }
-
-                    this.CheckQueue();
-                }
-
-                return result;
+                break;
             }
-        }
-
-        private void Remove(TransactionInternal.Entry e)
-        {
-            if (!e.InPq)
-            {
-                return;
-            }
-
-            e.InPq = false;
-
-            HeadAndTail entry = e.PqRank == Node.NullRank ? this.last : this.entries[e.PqRank];
-
-            if (e.PqPrev != null)
-            {
-                e.PqPrev.PqNext = e.PqNext;
-            }
-
-            if (e.PqNext != null)
-            {
-                e.PqNext.PqPrev = e.PqPrev;
-            }
-
-            if (entry.Head == e)
-            {
-                entry.Head = entry.Head.PqNext;
-            }
-
-            if (entry.Tail == e)
-            {
-                entry.Tail = entry.Tail.PqPrev;
-            }
-
-            if (entry.Head == null)
-            {
-                entry.Tail = null;
-            }
-
-            e.PqNext = null;
-            e.PqPrev = null;
 
             if (SanityChecks)
+#pragma warning disable CS0162 // Unreachable code detected
+                // ReSharper disable HeuristicUnreachableCode
             {
-                this.CheckQueue();
-
-                TransactionInternal.Entry current = entry.Head;
-
-                while (current != null)
+                // sanity check, find it there is something else with a smaller rank
+                // ReSharper disable once LoopCanBePartlyConvertedToQuery
+                foreach (HeadAndTail entry2 in this.entries)
                 {
-                    if (!current.InPq)
+                    if (entry2 != null)
                     {
-                        throw new Exception("Entry was expected to be in the priority queue.");
-                    }
+                        TransactionInternal.Entry current = entry2.Head;
 
-                    current = current.PqNext;
+                        while (current != null)
+                        {
+                            if (current.PqRank < result.PqRank)
+                            {
+                                throw new Exception(
+                                    "Priority queue contains less than the expected number of elements.");
+                            }
+
+                            current = current.PqNext;
+                        }
+                    }
                 }
+
+                this.CheckQueue();
+            }
+            // ReSharper restore HeuristicUnreachableCode
+#pragma warning restore CS0162 // Unreachable code detected
+
+            return result;
+        }
+    }
+
+    private void Remove(TransactionInternal.Entry e)
+    {
+        if (!e.InPq)
+        {
+            return;
+        }
+
+        e.InPq = false;
+
+        // ReSharper disable once NullableWarningSuppressionIsUsed - e.InPq would be false if the entry was not able
+        // to be found in the queue.
+        HeadAndTail entry = e.PqRank == Node.NullRank ? this.last : this.entries[e.PqRank]!;
+
+        e.PqPrev?.PqNext = e.PqNext;
+        e.PqNext?.PqPrev = e.PqPrev;
+
+        if (entry.Head == e)
+        {
+            entry.Head = entry.Head.PqNext;
+        }
+
+        if (entry.Tail == e)
+        {
+            entry.Tail = entry.Tail.PqPrev;
+        }
+
+        if (entry.Head == null)
+        {
+            entry.Tail = null;
+        }
+
+        e.PqNext = null;
+        e.PqPrev = null;
+
+        if (SanityChecks)
+#pragma warning disable CS0162 // Unreachable code detected
+            // ReSharper disable HeuristicUnreachableCode
+        {
+            this.CheckQueue();
+
+            TransactionInternal.Entry current = entry.Head;
+
+            while (current != null)
+            {
+                if (!current.InPq)
+                {
+                    throw new Exception("Entry was expected to be in the priority queue.");
+                }
+
+                current = current.PqNext;
             }
         }
+        // ReSharper restore HeuristicUnreachableCode
+#pragma warning restore CS0162 // Unreachable code detected
+    }
 
-        public void ChangeRank(TransactionInternal.Entry e, int newRank)
-        {
-            this.Remove(e);
-            e.PqRank = newRank;
-            this.Enqueue(e);
-        }
+    public void ChangeRank(TransactionInternal.Entry e, int newRank)
+    {
+        this.Remove(e);
+        e.PqRank = newRank;
+        this.Enqueue(e);
+    }
+
+    private sealed class HeadAndTail(TransactionInternal.Entry? head, TransactionInternal.Entry? tail)
+    {
+        public TransactionInternal.Entry? Head = head;
+        public TransactionInternal.Entry? Tail = tail;
     }
 }

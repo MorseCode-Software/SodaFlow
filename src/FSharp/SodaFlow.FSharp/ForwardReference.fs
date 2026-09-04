@@ -43,11 +43,10 @@ open System.Runtime.CompilerServices
 [<MethodImpl(MethodImplOptions.NoInlining)>]
 let create f =
     let struct (_, result) =
-        Cell.loop
-            (fun reference ->
-                let result = f reference
-                let struct (value, _) = result
-                struct (Cell.constant value, result))
+        Cell.loop (fun reference ->
+            let result = f reference
+            let struct (value, _) = result
+            struct (Cell.constant value, result))
 
     result
 

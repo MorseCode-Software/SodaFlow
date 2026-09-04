@@ -1,67 +1,98 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Linq;
 using System.Threading;
+using JetBrains.Annotations;
 
-namespace SodaFlow
+namespace SodaFlow;
+
+internal static class StreamInternal
 {
-    internal static class StreamInternal
+    internal static Stream<T> NeverImpl<T>() => new();
+    internal static StreamSink<T> CreateSinkImpl<T>() => new();
+    internal static StreamSink<T> CreateSinkImpl<T>(Func<T, T, T> coalesce) => new(coalesce);
+}
+
+/// <summary>
+///     Represents a stream of discrete events/firings.
+/// </summary>
+/// <typeparam name="T">The type of values fired by the stream.</typeparam>
+[PublicAPI]
+public class Stream<T>
+{
+    internal readonly IKeepListenersAlive KeepListenersAlive;
+    internal readonly Node<T> Node;
+
+    private readonly StreamListenerManager.StreamListeners trackedListeners;
+
+    private object? attachListenerLock;
+
+    // Everything below is allocated on first use. Streams are created in bulk - a single
+    // two-cell Lift builds around twenty of them - and a stream that is only ever an
+    // intermediate step in a chain never sends, never has a listener attached, and never has
+    // AttachListener called on it, so eagerly allocating for all three was most of what a
+    // stream cost to construct.
+
+    // ReSharper disable once CollectionNeverQueried.Local
+    private List<IListener>? attachedListeners;
+
+    // Cached alongside firings because a method group conversion allocates a fresh delegate
+    // each time, and Send hands this to trans.Last on the first firing of every transaction.
+    private Action? clearFirings;
+    private List<T>? firings;
+
+    internal Stream()
+        : this(new KeepListenersAliveImplementation())
     {
-        internal static Stream<T> NeverImpl<T>() => new Stream<T>();
-
-        internal static StreamSink<T> CreateSinkImpl<T>() => new StreamSink<T>();
-
-        internal static StreamSink<T> CreateSinkImpl<T>(Func<T, T, T> coalesce) => new StreamSink<T>(coalesce);
     }
 
-    /// <summary>
-    ///     Represents a stream of discrete events/firings.
-    /// </summary>
-    /// <typeparam name="T">The type of values fired by the stream.</typeparam>
-    public class Stream<T>
+    internal Stream(IKeepListenersAlive keepListenersAlive)
     {
-        internal readonly Node<T> Node;
+        this.KeepListenersAlive = keepListenersAlive;
+        this.Node = new Node<T>();
 
-        // Everything below is allocated on first use. Streams are created in bulk - a single
-        // two-cell Lift builds around twenty of them - and a stream that is only ever an
-        // intermediate step in a chain never sends, never has a listener attached, and never has
-        // AttachListener called on it, so eagerly allocating for all three was most of what a
-        // stream cost to construct.
+        // Last, so nothing half-built is reachable from the registry. The registry only ever
+        // holds this stream through a weak handle, so registering here does not keep it alive.
+        this.trackedListeners = new StreamListenerManager.StreamListeners(this);
+    }
 
-        // ReSharper disable once CollectionNeverQueried.Local
-        private List<IListener> attachedListeners;
-
-        private readonly StreamListenerManager.StreamListeners trackedListeners;
-        private List<T> firings;
-
-        // Cached alongside firings because a method group conversion allocates a fresh delegate
-        // each time, and Send hands this to trans.Last on the first firing of every transaction.
-        private Action clearFirings;
-        internal readonly IKeepListenersAlive KeepListenersAlive;
-
-        private object attachListenerLock;
-
-        internal Stream()
-            : this(new KeepListenersAliveImplementation())
+    // Created on demand like the rest, but via CompareExchange rather than a plain null check,
+    // since there is no other lock available to guard creating this one.
+    //
+    // Deliberately not volatile, unlike Cell.updates, which is the same shape of lazy read. What
+    // volatile buys there is safe publication of an object with fields: a reader must not see the
+    // reference before the object's own state. This publishes a bare object() with no state at
+    // all, used only for its identity as a monitor, so there is nothing to observe half-built.
+    // CompareExchange settles which one wins, and every caller then reads the same winner.
+    //
+    // Do not copy this pattern to a field holding something with state without adding volatile.
+    private object AttachListenerLock
+    {
+        get
         {
+            object? existing = this.attachListenerLock;
+
+            if (existing != null)
+            {
+                return existing;
+            }
+
+            Interlocked.CompareExchange(
+                location1: ref this.attachListenerLock,
+                value: new object(),
+                comparand: null);
+
+            return this.attachListenerLock;
         }
+    }
 
-        internal Stream(IKeepListenersAlive keepListenersAlive)
-        {
-            this.KeepListenersAlive = keepListenersAlive;
-            this.Node = new Node<T>();
+    internal IStrongListener ListenStrongImpl(Action<T> handler)
+    {
+        IWeakListener innerListener = this.ListenImpl(handler);
+        StrongListener? listener = null;
 
-            // Last, so nothing half-built is reachable from the registry. The registry only ever
-            // holds this stream through a weak handle, so registering here does not keep it alive.
-            this.trackedListeners = new StreamListenerManager.StreamListeners(this);
-        }
-
-        internal IStrongListener ListenStrongImpl(Action<T> handler)
-        {
-            IWeakListener innerListener = this.ListenImpl(handler);
-            StrongListener listener = null;
-            listener = new StrongListener(
-                () =>
+        listener =
+            new StrongListener(
+                unlisten: () =>
                 {
                     innerListener.Unlisten();
 
@@ -75,657 +106,670 @@ namespace SodaFlow
                     }
                     // ReSharper restore AccessToModifiedClosure
                 },
-                innerListener);
+                listener: innerListener);
 
-            lock (this.KeepListenersAlive)
-            {
-                this.KeepListenersAlive.KeepListenerAlive(listener);
-            }
-
-            return listener;
+        lock (this.KeepListenersAlive)
+        {
+            this.KeepListenersAlive.KeepListenerAlive(listener);
         }
 
-        internal IWeakListener ListenImpl(Action<T> handler) => this.Listen(Node<T>.Null, (trans2, a) => handler(a));
+        return listener;
+    }
 
-        internal Stream<T> AttachListenerImpl(IListener listener)
+    internal IWeakListener ListenImpl(Action<T> handler) =>
+        this.Listen(target: Node<T>.Null, action: (_, a) => handler(a));
+
+    internal Stream<T> AttachListenerImpl(IListener listener)
+    {
+        lock (this.AttachListenerLock)
         {
-            lock (this.AttachListenerLock)
-            {
-                return this.UnsafeAttachListener(listener);
-            }
+            return this.UnsafeAttachListener(listener);
         }
+    }
 
-        // Created on demand like the rest, but via CompareExchange rather than a plain null check,
-        // since there is no other lock available to guard creating this one.
-        //
-        // Deliberately not volatile, unlike Cell.updates, which is the same shape of lazy read. What
-        // volatile buys there is safe publication of an object with fields: a reader must not see the
-        // reference before the object's own state. This publishes a bare object() with no state at
-        // all, used only for its identity as a monitor, so there is nothing to observe half-built.
-        // CompareExchange settles which one wins, and every caller then reads the same winner.
-        //
-        // Do not copy this pattern to a field holding something with state without adding volatile.
-        private object AttachListenerLock
-        {
-            get
+    internal IStrongListener ListenOnceImpl(Action<T> handler)
+    {
+        IStrongListener? listener = null;
+        bool unlistenEarly = false;
+
+        IStrongListener listenerToReturn =
+            this.ListenStrongImpl(a =>
             {
-                object existing = this.attachListenerLock;
-                if (existing != null)
+                // ReSharper disable once AccessToModifiedClosure
+                IListener? listenerLocal = listener;
+
+                if (listenerLocal == null)
                 {
-                    return existing;
+                    unlistenEarly = true;
+                }
+                else
+                {
+                    listenerLocal.Unlisten();
+                    listener = null;
                 }
 
-                Interlocked.CompareExchange(ref this.attachListenerLock, new object(), null);
-                return this.attachListenerLock;
-            }
+                handler(a);
+            });
+
+        listener = listenerToReturn;
+
+        if (unlistenEarly)
+        {
+            listenerToReturn.Unlisten();
+            listenerToReturn = NoListener.Value;
+            listener = null;
         }
 
-        internal IStrongListener ListenOnceImpl(Action<T> handler)
+        return listenerToReturn;
+    }
+
+    internal IWeakListener Listen(Node target, Action<TransactionInternal, T> action) =>
+        TransactionInternal.Apply((trans1, _) =>
+            this.Listen(target: target, trans: trans1, action: action, suppressEarlierFirings: false));
+
+    internal IWeakListener Listen(
+        Node target,
+        TransactionInternal trans,
+        Action<TransactionInternal, T> action,
+        bool suppressEarlierFirings)
+    {
+        Node<T>.Target nodeTarget = this.Node.Link(trans: trans, action: action, target: target);
+
+        // Only snapshot the firings when they are actually going to be replayed - the copy
+        // used to be taken unconditionally, on every listenStrong, including the overwhelmingly
+        // common case of a stream that has not fired in this transaction.
+        if (!suppressEarlierFirings && this.firings is { Count: > 0 })
         {
-            IStrongListener listener = null;
-            bool unlistenEarly = false;
-            listener = this.ListenStrongImpl(
-                a =>
+            // ReSharper disable once LocalVariableHidesMember
+            List<T> firings = [.. this.firings];
+
+            trans.Prioritized(
+                node: target,
+                action: trans2 =>
                 {
-                    // ReSharper disable once AccessToModifiedClosure
-                    if (listener == null)
+                    // Anything sent already in this transaction must be sent now so that
+                    // there's no order dependency between send and listenStrong.
+                    foreach (T a in firings)
                     {
-                        unlistenEarly = true;
-                    }
-                    else
-                    {
-                        // ReSharper disable once AccessToModifiedClosure
-                        listener.Unlisten();
-                        listener = null;
-                    }
+                        trans2.InCallback++;
 
-                    handler(a);
-                });
-            if (unlistenEarly)
-            {
-                listener.Unlisten();
-                listener = null;
-            }
-            return listener;
-        }
-
-        internal IWeakListener Listen(Node target, Action<TransactionInternal, T> action) => TransactionInternal.Apply(
-            (trans1, _) => this.Listen(target, trans1, action, false));
-
-        internal IWeakListener Listen(
-            Node target,
-            TransactionInternal trans,
-            Action<TransactionInternal, T> action,
-            bool suppressEarlierFirings)
-        {
-            Node<T>.Target nodeTarget = this.Node.Link(trans, action, target);
-
-            // Only snapshot the firings when they are actually going to be replayed - the copy
-            // used to be taken unconditionally, on every listenStrong, including the overwhelmingly
-            // common case of a stream that has not fired in this transaction.
-            if (!suppressEarlierFirings && this.firings != null && this.firings.Count > 0)
-            {
-                // ReSharper disable once LocalVariableHidesMember
-                List<T> firings = this.firings.ToList();
-
-                trans.Prioritized(
-                    target,
-                    trans2 =>
-                    {
-                        // Anything sent already in this transaction must be sent now so that
-                        // there's no order dependency between send and listenStrong.
-                        foreach (T a in firings)
+                        try
                         {
-                            trans2.InCallback++;
-                            try
-                            {
-                                // Don't allow transactions to interfere with SodaFlow
-                                // internals.
-                                action(trans2, a);
-                            }
-                            finally
-                            {
-                                trans2.InCallback--;
-                            }
+                            // Don't allow transactions to interfere with SodaFlow
+                            // internals.
+                            action(arg1: trans2, arg2: a);
                         }
-                    });
-            }
-
-            return new ListenerImplementation(this, action, nodeTarget);
+                        finally
+                        {
+                            trans2.InCallback--;
+                        }
+                    }
+                });
         }
 
-        internal Stream<TResult> MapImpl<TResult>(Func<T, TResult> f)
-        {
-            Stream<TResult> @out = new Stream<TResult>(this.KeepListenersAlive);
-            IListener l = this.Listen(@out.Node, (trans2, a) => @out.Send(trans2, f(a)));
-            return @out.UnsafeAttachListener(l);
-        }
+        return new ListenerImplementation(stream: this, action: action, target: nodeTarget);
+    }
 
-        internal Stream<TResult> MapToImpl<TResult>(TResult value) => this.MapImpl(_ => value);
+    internal Stream<TResult> MapImpl<TResult>(Func<T, TResult> f)
+    {
+        Stream<TResult> @out = new(this.KeepListenersAlive);
+        IListener l = this.Listen(target: @out.Node, action: (trans2, a) => @out.Send(trans: trans2, a: f(a)));
+        return @out.UnsafeAttachListener(l);
+    }
 
-        internal Cell<T> HoldImpl(T initialValue) => new Cell<T>(this.HoldInternal(initialValue));
+    internal Stream<TResult> MapToImpl<TResult>(TResult value) => this.MapImpl(_ => value);
 
-        internal Behavior<T> HoldInternal(T initialValue) => new Behavior<T>(this, initialValue);
+    internal Cell<T> HoldImpl(T initialValue) => new(this.HoldInternal(initialValue));
 
-        internal Cell<T> HoldLazyImpl(Lazy<T> initialValue) =>
-            TransactionInternal.Apply((trans, _) => new Cell<T>(this.HoldLazyInternal(trans, initialValue)));
+    internal Behavior<T> HoldInternal(T initialValue) => new(stream: this, initialValue: initialValue);
 
-        internal Behavior<T> HoldLazyInternal(TransactionInternal trans, Lazy<T> initialValue) =>
-            new LazyBehavior<T>(trans, this, initialValue);
+    internal Cell<T> HoldLazyImpl(Lazy<T> initialValue) =>
+        TransactionInternal.Apply((trans, _) =>
+            new Cell<T>(this.HoldLazyInternal(trans: trans, initialValue: initialValue)));
 
-        internal Stream<TResult> SnapshotImpl<TResult>(Cell<TResult> c) => this.SnapshotImpl(c.BehaviorImpl);
+    internal Behavior<T> HoldLazyInternal(TransactionInternal trans, Lazy<T> initialValue) =>
+        new LazyBehavior<T>(trans: trans, stream: this, lazyInitialValue: initialValue);
 
-        internal Stream<TResult> SnapshotImpl<TResult>(Behavior<TResult> b) => this.SnapshotImpl(b, (_, a) => a);
+    internal Stream<TResult> SnapshotImpl<TResult>(Cell<TResult> c) => this.SnapshotImpl(c.BehaviorImpl);
 
-        internal Stream<TResult> SnapshotImpl<T1, TResult>(Cell<T1> c, Func<T, T1, TResult> f) =>
-            this.SnapshotImpl(c.BehaviorImpl, f);
+    internal Stream<TResult> SnapshotImpl<TResult>(Behavior<TResult> b) =>
+        this.SnapshotImpl(b: b, f: static (_, a) => a);
 
-        internal Stream<TResult> SnapshotImpl<T1, TResult>(Behavior<T1> b, Func<T, T1, TResult> f)
-        {
-            Stream<TResult> @out = new Stream<TResult>(this.KeepListenersAlive);
-            IListener l = this.Listen(@out.Node, (trans2, a) => @out.Send(trans2, f(a, b.SampleNoTransaction())));
-            return @out.UnsafeAttachListener(l);
-        }
+    internal Stream<TResult> SnapshotImpl<T1, TResult>(Cell<T1> c, Func<T, T1, TResult> f) =>
+        this.SnapshotImpl(b: c.BehaviorImpl, f: f);
 
-        internal Stream<TResult> SnapshotImpl<T1, T2, TResult>(
-            Cell<T1> c1,
-            Cell<T2> c2,
-            Func<T, T1, T2, TResult> f) => this.SnapshotImpl(c1.BehaviorImpl, c2.BehaviorImpl, f);
+    internal Stream<TResult> SnapshotImpl<T1, TResult>(Behavior<T1> b, Func<T, T1, TResult> f)
+    {
+        Stream<TResult> @out = new(this.KeepListenersAlive);
 
-        internal Stream<TResult> SnapshotImpl<T1, T2, TResult>(Behavior<T1> b1, Behavior<T2> b2, Func<T, T1, T2, TResult> f)
-        {
-            Stream<TResult> @out = new Stream<TResult>(this.KeepListenersAlive);
-            IListener l = this.Listen(
-                @out.Node,
-                (trans2, a) => @out.Send(trans2, f(a, b1.SampleNoTransaction(), b2.SampleNoTransaction())));
-            return @out.UnsafeAttachListener(l);
-        }
+        IListener l =
+            this.Listen(
+                target: @out.Node,
+                action: (trans2, a) => @out.Send(trans: trans2, a: f(arg1: a, arg2: b.SampleNoTransaction())));
 
-        internal Stream<TResult> SnapshotImpl<T1, T2, T3, TResult>(
-            Cell<T1> c1,
-            Cell<T2> c2,
-            Cell<T3> c3,
-            Func<T, T1, T2, T3, TResult> f) => this.SnapshotImpl(c1.BehaviorImpl, c2.BehaviorImpl, c3.BehaviorImpl, f);
+        return @out.UnsafeAttachListener(l);
+    }
 
-        internal Stream<TResult> SnapshotImpl<T1, T2, T3, TResult>(
-            Behavior<T1> b1,
-            Behavior<T2> b2,
-            Behavior<T3> b3,
-            Func<T, T1, T2, T3, TResult> f)
-        {
-            Stream<TResult> @out = new Stream<TResult>(this.KeepListenersAlive);
-            IListener l = this.Listen(
-                @out.Node,
-                (trans2, a) => @out.Send(
-                    trans2,
-                    f(a, b1.SampleNoTransaction(), b2.SampleNoTransaction(), b3.SampleNoTransaction())));
-            return @out.UnsafeAttachListener(l);
-        }
+    internal Stream<TResult> SnapshotImpl<T1, T2, TResult>(
+        Cell<T1> c1,
+        Cell<T2> c2,
+        Func<T, T1, T2, TResult> f) =>
+        this.SnapshotImpl(b1: c1.BehaviorImpl, b2: c2.BehaviorImpl, f: f);
 
-        internal Stream<TResult> SnapshotImpl<T1, T2, T3, T4, TResult>(
-            Cell<T1> c1,
-            Cell<T2> c2,
-            Cell<T3> c3,
-            Cell<T4> c4,
-            Func<T, T1, T2, T3, T4, TResult> f) => this.SnapshotImpl(c1.BehaviorImpl, c2.BehaviorImpl, c3.BehaviorImpl, c4.BehaviorImpl, f);
+    internal Stream<TResult> SnapshotImpl<T1, T2, TResult>(
+        Behavior<T1> b1,
+        Behavior<T2> b2,
+        Func<T, T1, T2, TResult> f)
+    {
+        Stream<TResult> @out = new(this.KeepListenersAlive);
 
-        internal Stream<TResult> SnapshotImpl<T1, T2, T3, T4, TResult>(
-            Behavior<T1> b1,
-            Behavior<T2> b2,
-            Behavior<T3> b3,
-            Behavior<T4> b4,
-            Func<T, T1, T2, T3, T4, TResult> f)
-        {
-            Stream<TResult> @out = new Stream<TResult>(this.KeepListenersAlive);
-            IListener l = this.Listen(
-                @out.Node,
-                (trans2, a) => @out.Send(
-                    trans2,
-                    f(
-                        a,
-                        b1.SampleNoTransaction(),
-                        b2.SampleNoTransaction(),
-                        b3.SampleNoTransaction(),
-                        b4.SampleNoTransaction())));
-            return @out.UnsafeAttachListener(l);
-        }
+        IListener l =
+            this.Listen(
+                target: @out.Node,
+                action: (trans2, a) =>
+                    @out.Send(
+                        trans: trans2,
+                        a: f(arg1: a, arg2: b1.SampleNoTransaction(), arg3: b2.SampleNoTransaction())));
 
-        internal Stream<T> OrElseImpl(Stream<T> s) => this.MergeImpl(s, (left, right) => left);
+        return @out.UnsafeAttachListener(l);
+    }
 
-        private Stream<T> Merge(TransactionInternal trans, Stream<T> s)
-        {
-            Stream<T> @out = new Stream<T>(this.KeepListenersAlive);
-            Node<T> left = new Node<T>();
-            Node<T> right = @out.Node;
-            Node<T>.Target nodeTarget = left.Link(trans, (t, v) => { }, right);
+    internal Stream<TResult> SnapshotImpl<T1, T2, T3, TResult>(
+        Cell<T1> c1,
+        Cell<T2> c2,
+        Cell<T3> c3,
+        Func<T, T1, T2, T3, TResult> f) =>
+        this.SnapshotImpl(b1: c1.BehaviorImpl, b2: c2.BehaviorImpl, b3: c3.BehaviorImpl, f: f);
 
-            Action<TransactionInternal, T> h = @out.Send;
-            IListener l1 = this.Listen(left, h);
-            IListener l2 = s.Listen(right, h);
-            return @out.UnsafeAttachListener(l1)
-                .UnsafeAttachListener(l2)
-                .UnsafeAttachListener(ListenerInternal.CreateFromNodeAndTarget(left, nodeTarget));
-        }
+    internal Stream<TResult> SnapshotImpl<T1, T2, T3, TResult>(
+        Behavior<T1> b1,
+        Behavior<T2> b2,
+        Behavior<T3> b3,
+        Func<T, T1, T2, T3, TResult> f)
+    {
+        Stream<TResult> @out = new(this.KeepListenersAlive);
 
-        internal Stream<T> MergeImpl(Stream<T> s, Func<T, T, T> f) => TransactionInternal.Apply((trans, _) => this.Merge(trans, s, f));
+        IListener l =
+            this.Listen(
+                target: @out.Node,
+                action: (trans2, a) =>
+                    @out.Send(
+                        trans: trans2,
+                        a: f(
+                            arg1: a,
+                            arg2: b1.SampleNoTransaction(),
+                            arg3: b2.SampleNoTransaction(),
+                            arg4: b3.SampleNoTransaction())));
 
-        internal Stream<T> Merge(TransactionInternal trans, Stream<T> s, Func<T, T, T> f) =>
-            this.Merge(trans, s).Coalesce(trans, f);
+        return @out.UnsafeAttachListener(l);
+    }
 
-        internal Stream<T> Coalesce(TransactionInternal trans1, Func<T, T, T> f)
-        {
-            Stream<T> @out = new Stream<T>(this.KeepListenersAlive);
-            Action<TransactionInternal, T> h = CoalesceHandler.Create(f, @out);
-            IListener l = this.Listen(@out.Node, trans1, h, false);
-            return @out.UnsafeAttachListener(l);
-        }
+    internal Stream<TResult> SnapshotImpl<T1, T2, T3, T4, TResult>(
+        Cell<T1> c1,
+        Cell<T2> c2,
+        Cell<T3> c3,
+        Cell<T4> c4,
+        Func<T, T1, T2, T3, T4, TResult> f) =>
+        this.SnapshotImpl(b1: c1.BehaviorImpl, b2: c2.BehaviorImpl, b3: c3.BehaviorImpl, b4: c4.BehaviorImpl, f: f);
 
-        /// <summary>
-        ///     Clean up the output by discarding any firing other than the last one.
-        /// </summary>
-        /// <param name="trans">The transaction to get the last firing from.</param>
-        /// <returns>A stream containing only the last event firing from the specified transaction.</returns>
-        internal Stream<T> LastFiringOnly(TransactionInternal trans) => this.Coalesce(trans, (first, second) => second);
+    internal Stream<TResult> SnapshotImpl<T1, T2, T3, T4, TResult>(
+        Behavior<T1> b1,
+        Behavior<T2> b2,
+        Behavior<T3> b3,
+        Behavior<T4> b4,
+        Func<T, T1, T2, T3, T4, TResult> f)
+    {
+        Stream<TResult> @out = new(this.KeepListenersAlive);
 
-        internal Stream<T> FilterImpl(Func<T, bool> predicate)
-        {
-            Stream<T> @out = new Stream<T>(this.KeepListenersAlive);
-            IListener l = this.Listen(
-                @out.Node,
-                (trans2, a) =>
+        IListener l =
+            this.Listen(
+                target: @out.Node,
+                action: (trans2, a) =>
+                    @out.Send(
+                        trans: trans2,
+                        a: f(
+                            arg1: a,
+                            arg2: b1.SampleNoTransaction(),
+                            arg3: b2.SampleNoTransaction(),
+                            arg4: b3.SampleNoTransaction(),
+                            arg5: b4.SampleNoTransaction())));
+
+        return @out.UnsafeAttachListener(l);
+    }
+
+    internal Stream<T> OrElseImpl(Stream<T> s) => this.MergeImpl(s: s, f: static (left, _) => left);
+
+    private Stream<T> Merge(TransactionInternal trans, Stream<T> s)
+    {
+        Stream<T> @out = new(this.KeepListenersAlive);
+        Node<T> left = new();
+        Node<T> right = @out.Node;
+
+        Node<T>.Target nodeTarget =
+            left.Link(
+                trans: trans,
+                action: static (_, _) =>
+                {
+                },
+                target: right);
+
+        Action<TransactionInternal, T> h = @out.Send;
+        IListener l1 = this.Listen(target: left, action: h);
+        IListener l2 = s.Listen(target: right, action: h);
+
+        return @out.UnsafeAttachListener(l1)
+            .UnsafeAttachListener(l2)
+            .UnsafeAttachListener(ListenerInternal.CreateFromNodeAndTarget(node: left, target: nodeTarget));
+    }
+
+    internal Stream<T> MergeImpl(Stream<T> s, Func<T, T, T> f) =>
+        TransactionInternal.Apply((trans, _) => this.Merge(trans: trans, s: s, f: f));
+
+    internal Stream<T> Merge(TransactionInternal trans, Stream<T> s, Func<T, T, T> f) =>
+        this.Merge(trans: trans, s: s).Coalesce(trans1: trans, f: f);
+
+    internal Stream<T> Coalesce(TransactionInternal trans1, Func<T, T, T> f)
+    {
+        Stream<T> @out = new(this.KeepListenersAlive);
+        Action<TransactionInternal, T> h = CoalesceHandler.Create(f: f, @out: @out);
+        IListener l = this.Listen(target: @out.Node, trans: trans1, action: h, suppressEarlierFirings: false);
+        return @out.UnsafeAttachListener(l);
+    }
+
+    /// <summary>
+    ///     Clean up the output by discarding any firing other than the last one.
+    /// </summary>
+    /// <param name="trans">The transaction to get the last firing from.</param>
+    /// <returns>A stream containing only the last event firing from the specified transaction.</returns>
+    internal Stream<T> LastFiringOnly(TransactionInternal trans) =>
+        this.Coalesce(trans1: trans, f: static (_, second) => second);
+
+    internal Stream<T> FilterImpl(Func<T, bool> predicate)
+    {
+        Stream<T> @out = new(this.KeepListenersAlive);
+
+        IListener l =
+            this.Listen(
+                target: @out.Node,
+                action: (trans2, a) =>
                 {
                     if (predicate(a))
                     {
-                        @out.Send(trans2, a);
+                        @out.Send(trans: trans2, a: a);
                     }
                 });
-            return @out.UnsafeAttachListener(l);
-        }
 
-        internal Stream<T> GateImpl(Cell<bool> c) => this.GateImpl(c.BehaviorImpl);
+        return @out.UnsafeAttachListener(l);
+    }
 
-        internal Stream<T> GateImpl(Behavior<bool> b) => this.SnapshotImpl(b, (a, pred) => pred ? MaybeInternal.Some(a) : MaybeInternal.None).FilterSomeInternal();
+    internal Stream<T> GateImpl(Cell<bool> c) => this.GateImpl(c.BehaviorImpl);
 
-        internal Stream<T> CalmImpl(Func<T, T, bool> areEqual) =>
-            this.Calm(new Lazy<MaybeInternal<T>>(() => MaybeInternal.None), areEqual);
+    internal Stream<T> GateImpl(Behavior<bool> b) =>
+        this.SnapshotImpl(b: b, f: static (a, pred) => pred ? MaybeInternal.Some(a) : MaybeInternal<T>.None)
+            .FilterSomeInternal();
 
-        /// <summary>
-        ///     Suppresses firings equal to the last one that got through.
-        /// </summary>
-        /// <remarks>
-        ///     Expressed over CarryState, whose state protocol this needs exactly: the last value let
-        ///     through, carried between firings and committed at the transaction boundary. It used to
-        ///     keep its own copy of that protocol, which meant a fix to one could silently miss the
-        ///     other - and the deferral is subtle enough that the duplication was a real hazard rather
-        ///     than a stylistic one.
-        ///
-        ///     What kept it separate was cost. Going through CollectLazyImpl meant a looped stream, a
-        ///     behavior to hold the state, a snapshot and two maps, plus a filter on the way out - six
-        ///     streams to remember one value. Sharing CarryState instead costs nothing: the emit flag
-        ///     suppresses in place, so this is still one output stream.
-        ///
-        ///     The state is MaybeInternal rather than T because there may be no previous value yet, and
-        ///     None is also a legitimate initial value - which is why CarryState needs its own
-        ///     initialized flag rather than reading emptiness as "not started".
-        /// </remarks>
-        internal Stream<T> Calm(Lazy<MaybeInternal<T>> init, Func<T, T, bool> areEqual) =>
-            TransactionInternal.Apply(
-                (trans1, _) => this.CarryState<MaybeInternal<T>, T>(
-                    trans1,
-                    init,
-                    (a, last) =>
-                    {
-                        bool emit = !(last.TryGetValue(out T previous) && areEqual(previous, a));
+    internal Stream<T> CalmImpl(Func<T, T, bool> areEqual) =>
+        this.Calm(init: new Lazy<MaybeInternal<T>>(static () => MaybeInternal<T>.None), areEqual: areEqual);
 
-                        // The state carries forward unchanged for a suppressed firing rather than being
-                        // cleared, matching what feeding state back through Collect used to give.
-                        return (emit, a, emit ? MaybeInternal.Some(a) : last);
-                    }));
-
-        internal Stream<TReturn> CollectImpl<TState, TReturn>(
-            TState initialState,
-            Func<T, TState, (TReturn ReturnValue, TState State)> f) =>
-            this.CollectLazyImpl(new Lazy<TState>(() => initialState), f);
-
-        internal Stream<TReturn> CollectLazyImpl<TState, TReturn>(
-            Lazy<TState> initialState,
-            Func<T, TState, (TReturn ReturnValue, TState State)> f) =>
-            TransactionInternal.Apply(
-                (trans, _) => this.CarryState(
-                    trans,
-                    initialState,
-                    (a, s) =>
-                    {
-                        (TReturn returnValue, TState state) = f(a, s);
-                        return (true, returnValue, state);
-                    }));
-
-        internal Cell<TReturn> AccumImpl<TReturn>(TReturn initialState, Func<T, TReturn, TReturn> f) =>
-            this.AccumLazyImpl(new Lazy<TReturn>(() => initialState), f);
-
-        internal Cell<TReturn> AccumLazyImpl<TReturn>(Lazy<TReturn> initialState, Func<T, TReturn, TReturn> f) =>
-            TransactionInternal.Apply(
-                (trans, _) => this.CarryState<TReturn, TReturn>(
-                        trans,
-                        initialState,
-                        (a, s) =>
-                        {
-                            TReturn next = f(a, s);
-                            return (true, next, next);
-                        })
-                    .HoldLazyImpl(initialState));
-
-        /// <summary>
-        ///     Runs <paramref name="f" /> over each firing with state carried between firings, sending
-        ///     what it returns for that firing when it asks to. Collect and Accum always ask, and differ
-        ///     only in what they do with the resulting stream; Calm suppresses the firings it wants to
-        ///     swallow.
-        /// </summary>
-        /// <remarks>
-        ///     This used to be assembled out of FRP primitives: a looped stream carrying the state back
-        ///     round, a behavior holding it, a snapshot to read it, and a map per output - four streams
-        ///     for Collect, two for Accum, to carry one value between firings. It is now a single output
-        ///     stream and two fields.
-        ///
-        ///     Those two fields are what the behavior used to provide, and the split matters. A snapshot
-        ///     reads a behavior with SampleNoTransaction, so every firing within a transaction saw the
-        ///     state as of when that transaction opened, and the behavior committed whatever the final
-        ///     firing produced. Keeping a single field updated in place would instead let an earlier
-        ///     firing in the same transaction be seen by a later one - a different fold, and one the
-        ///     caller's f would notice.
-        ///
-        ///     What the deferral is actually observable through is failure. A transaction that throws
-        ///     drops its last queue, so a firing inside it never commits and the state is left as though
-        ///     it had not happened. That is the one behavior distinguishing this from committing in
-        ///     place, and CalmTests.AFailedTransactionDoesNotCommitTheRememberedValue is what pins it -
-        ///     every other test passes either way.
-        ///
-        ///     The emit flag is what lets Calm share this. Returning a Maybe and filtering it out would
-        ///     cost a second stream and a node in the rank graph, which is the cost Calm was written
-        ///     directly to avoid in the first place; a bool in a tuple that is already a struct costs a
-        ///     branch that predicts perfectly.
-        /// </remarks>
-        private Stream<TReturn> CarryState<TState, TReturn>(
-            TransactionInternal trans1,
-            Lazy<TState> initialState,
-            Func<T, TState, (bool Emit, TReturn ReturnValue, TState State)> f)
-        {
-            Stream<TReturn> @out = new Stream<TReturn>(this.KeepListenersAlive);
-
-            TState committed = default(TState);
-            bool committedIsSet = false;
-            TState pending = default(TState);
-            bool hasPending = false;
-
-            void EnsureCommittedIsSet()
-            {
-                if (!committedIsSet)
+    /// <summary>
+    ///     Suppresses firings equal to the last one that got through.
+    /// </summary>
+    /// <remarks>
+    ///     Expressed over CarryState, whose state protocol this needs exactly: the last value let
+    ///     through, carried between firings and committed at the transaction boundary. It used to
+    ///     keep its own copy of that protocol, which meant a fix to one could silently miss the
+    ///     other - and the deferral is subtle enough that the duplication was a real hazard rather
+    ///     than a stylistic one.
+    ///     What kept it separate was cost. Going through CollectLazyImpl meant a looped stream, a
+    ///     behavior to hold the state, a snapshot and two maps, plus a filter on the way out - six
+    ///     streams to remember one value. Sharing CarryState instead costs nothing: the emit flag
+    ///     suppresses in place, so this is still one output stream.
+    ///     The state is MaybeInternal rather than T because there may be no previous value yet, and
+    ///     None is also a legitimate initial value - which is why CarryState needs its own
+    ///     initialized flag rather than reading emptiness as "not started".
+    /// </remarks>
+    internal Stream<T> Calm(Lazy<MaybeInternal<T>> init, Func<T, T, bool> areEqual) =>
+        TransactionInternal.Apply((trans1, _) =>
+            this.CarryState(
+                trans1: trans1,
+                initialState: init,
+                f: (a, last) =>
                 {
-                    committed = initialState.Value;
-                    committedIsSet = true;
-                }
-            }
+                    bool emit = !(last.TryGetValue(out T previous) && areEqual(arg1: previous, arg2: a));
 
-            // Forced in the sample phase as well as on demand, because the behavior this replaces
-            // forced its lazy initial value there whether or not anything fired.
-            trans1.Sample(EnsureCommittedIsSet);
+                    // The state carries forward unchanged for a suppressed firing rather than being
+                    // cleared, matching what feeding state back through Collect used to give.
+                    return (emit, a, emit ? MaybeInternal.Some(a) : last);
+                }));
 
-            IListener l = this.Listen(
-                @out.Node,
-                trans1,
-                (trans2, a) =>
+    internal Stream<TReturn> CollectImpl<TState, TReturn>(
+        TState initialState,
+        Func<T, TState, (TReturn ReturnValue, TState State)> f) =>
+        this.CollectLazyImpl(initialState: new Lazy<TState>(() => initialState), f: f);
+
+    internal Stream<TReturn> CollectLazyImpl<TState, TReturn>(
+        Lazy<TState> initialState,
+        Func<T, TState, (TReturn ReturnValue, TState State)> f) =>
+        TransactionInternal.Apply((trans, _) =>
+            this.CarryState(
+                trans1: trans,
+                initialState: initialState,
+                f: (a, s) =>
+                {
+                    (TReturn returnValue, TState state) = f(arg1: a, arg2: s);
+                    return (true, returnValue, state);
+                }));
+
+    internal Cell<TReturn> AccumImpl<TReturn>(TReturn initialState, Func<T, TReturn, TReturn> f) =>
+        this.AccumLazyImpl(initialState: new Lazy<TReturn>(() => initialState), f: f);
+
+    internal Cell<TReturn> AccumLazyImpl<TReturn>(Lazy<TReturn> initialState, Func<T, TReturn, TReturn> f) =>
+        TransactionInternal.Apply((trans, _) =>
+            this.CarryState(
+                    trans1: trans,
+                    initialState: initialState,
+                    f: (a, s) =>
+                    {
+                        TReturn next = f(arg1: a, arg2: s);
+                        return (true, next, next);
+                    })
+                .HoldLazyImpl(initialState));
+
+    /// <summary>
+    ///     Runs <paramref name="f" /> over each firing with state carried between firings, sending
+    ///     what it returns for that firing when it asks. Collect and Accum always ask, and differ
+    ///     only in what they do with the resulting stream; Calm suppresses the firings it wants to
+    ///     swallow.
+    /// </summary>
+    /// <remarks>
+    ///     This used to be assembled out of FRP primitives: a looped stream carrying the state back
+    ///     round, a behavior holding it, a snapshot to read it, and a map per output - four streams
+    ///     for Collect, two for Accum, to carry one value between firings. It is now a single output
+    ///     stream and two fields.
+    ///     Those two fields are what the behavior used to provide, and the split matters. A snapshot
+    ///     reads a behavior with SampleNoTransaction, so every firing within a transaction saw the
+    ///     state as of when that transaction opened, and the behavior committed whatever the final
+    ///     firing produced. Keeping a single field updated in place would instead let an earlier
+    ///     firing in the same transaction be seen by a later one - a different fold, and one the
+    ///     caller's f would notice.
+    ///     What the deferral is actually observable through is failure. A transaction that throws
+    ///     drops its last queue, so a firing inside it never commits and the state is left as though
+    ///     it had not happened. That is the one behavior distinguishing this from committing in
+    ///     place, and CalmTests.AFailedTransactionDoesNotCommitTheRememberedValue is what pins it -
+    ///     every other test passes either way.
+    ///     The emit flag is what lets Calm share this. Returning a Maybe and filtering it out would
+    ///     cost a second stream and a node in the rank graph, which is the cost Calm was written
+    ///     directly to avoid in the first place; a bool in a tuple that is already a struct costs a
+    ///     branch that predicts perfectly.
+    /// </remarks>
+    private Stream<TReturn> CarryState<TState, TReturn>(
+        TransactionInternal trans1,
+        Lazy<TState> initialState,
+        Func<T, TState, (bool Emit, TReturn ReturnValue, TState State)> f)
+    {
+        Stream<TReturn> @out = new(this.KeepListenersAlive);
+
+        TState? committed = default;
+        bool committedIsSet = false;
+        TState? pending = default;
+        bool hasPending = false;
+
+        // Forced in the sample phase as well as on demand, because the behavior this replaces
+        // forced its lazy initial value there whether or not anything fired.
+        trans1.Sample(EnsureCommittedIsSet);
+
+        IListener l =
+            this.Listen(
+                target: @out.Node,
+                trans: trans1,
+                action: (trans2, a) =>
                 {
                     EnsureCommittedIsSet();
 
-                    (bool emit, TReturn returnValue, TState state) = f(a, committed);
+                    // ReSharper disable once NullableWarningSuppressionIsUsed - After EnsureCommittedIsSet() is called
+                    // committed will be non-null.
+                    (bool emit, TReturn returnValue, TState state) = f(arg1: a, arg2: committed!);
 
                     if (!hasPending)
                     {
                         hasPending = true;
-                        trans2.Last(
-                            () =>
-                            {
-                                committed = pending;
-                                hasPending = false;
-                            });
+
+                        trans2.Last(() =>
+                        {
+                            // ReSharper disable once AccessToModifiedClosure - We want to use the latest value of
+                            // pending here.
+                            committed = pending;
+                            hasPending = false;
+                        });
                     }
 
                     pending = state;
 
                     if (emit)
                     {
-                        @out.Send(trans2, returnValue);
+                        @out.Send(trans: trans2, a: returnValue);
                     }
                 },
-                false);
+                suppressEarlierFirings: false);
 
-            return @out.UnsafeAttachListener(l);
-        }
+        return @out.UnsafeAttachListener(l);
 
-        internal Stream<T> OnceImpl()
+        void EnsureCommittedIsSet()
         {
-            // This is a bit long-winded but it's efficient because it unregisters
-            // the listener.
-            Stream<T> @out = new Stream<T>(this.KeepListenersAlive);
-            IListener listener = null;
-            bool unlistenEarly = false;
-            listener = this.Listen(
-                @out.Node,
-                (trans, a) =>
+            if (!committedIsSet)
+            {
+                committed = initialState.Value;
+                committedIsSet = true;
+            }
+        }
+    }
+
+    internal Stream<T> OnceImpl()
+    {
+        // This is a bit long-winded, but it's efficient because it unregisters the listener.
+        Stream<T> @out = new(this.KeepListenersAlive);
+        IWeakListener? listener = null;
+        bool unlistenEarly = false;
+
+        IWeakListener listenerToReturn =
+            this.Listen(
+                target: @out.Node,
+                action: (trans, a) =>
                 {
                     // ReSharper disable AccessToModifiedClosure
                     if (listener != null)
                     {
-                        @out.Send(trans, a);
+                        @out.Send(trans: trans, a: a);
 
-                        // ReSharper disable once AccessToModifiedClosure
-                        if (listener == null)
+                        IWeakListener? listenerLocal = listener;
+
+                        if (listenerLocal == null)
                         {
                             unlistenEarly = true;
                         }
                         else
                         {
-                            // ReSharper disable once AccessToModifiedClosure
-                            listener.Unlisten();
+                            listenerLocal.Unlisten();
                             listener = null;
                         }
                     }
                     // ReSharper restore AccessToModifiedClosure
                 });
-            if (unlistenEarly)
-            {
-                listener.Unlisten();
-                listener = null;
-            }
 
-            return @out.UnsafeAttachListener(listener);
+        listener = listenerToReturn;
+
+        if (unlistenEarly)
+        {
+            listenerToReturn.Unlisten();
+            listener = null;
+            return @out;
         }
 
-        // This is not thread-safe, so one of these two conditions must apply:
-        // 1. We are within a transaction, since in the current implementation
-        //    a transaction locks out all other threads.
-        // 2. The object on which this is being called was created has not yet
-        //    been returned from the method where it was created, so it can't
-        //    be shared between threads.
-        internal Stream<T> UnsafeAttachListener(IListener cleanup)
-        {
-            if (this.attachedListeners == null)
-            {
-                this.attachedListeners = new List<IListener>();
-            }
+        return @out.UnsafeAttachListener(listenerToReturn);
+    }
 
-            this.attachedListeners.Add(cleanup);
-            this.trackedListeners.AddListener(cleanup.GetListenerWithWeakReference());
-            return this;
+    // This is not thread-safe, so one of these two conditions must apply:
+    // 1. We are within a transaction, since in the current implementation
+    //    a transaction locks out all other threads.
+    // 2. The object on which this is being called was created has not yet
+    //    been returned from the method where it was created, so it can't
+    //    be shared between threads.
+    internal Stream<T> UnsafeAttachListener(IListener cleanup)
+    {
+        this.attachedListeners ??= [];
+        this.attachedListeners.Add(cleanup);
+        this.trackedListeners.AddListener(cleanup.GetListenerWithWeakReference());
+        return this;
+    }
+
+    internal void Send(TransactionInternal trans, T a)
+    {
+        if (this.firings == null)
+        {
+            this.firings = [];
+            this.clearFirings = this.firings.Clear;
         }
 
-        internal void Send(TransactionInternal trans, T a)
+        if (this.firings.Count < 1)
         {
-            if (this.firings == null)
-            {
-                this.firings = new List<T>();
-                this.clearFirings = this.firings.Clear;
-            }
-
-            if (this.firings.Count < 1)
-            {
-                trans.Last(this.clearFirings);
-            }
-
-            this.firings.Add(a);
-
-            foreach (Node<T>.Target target in this.Node.GetListenersCopy())
-            {
-                // SendEntry rather than a lambda: this runs for every target of every firing,
-                // and a closure here costs a display class and a delegate on top of the queue
-                // entry that has to be allocated anyway. Carrying the three captured values as
-                // fields on the entry collapses that to a single allocation.
-                trans.Prioritized(new SendEntry(this, target, a));
-            }
+            // ReSharper disable once NullableWarningSuppressionIsUsed - this.clearFirings will be non-null when
+            // this.firings is non-null.
+            trans.Last(this.clearFirings!);
         }
 
-        private sealed class SendEntry : TransactionInternal.Entry
+        this.firings.Add(a);
+
+        foreach (Node<T>.Target target in this.Node.GetListenersCopy())
         {
-            private readonly Stream<T> stream;
-            private readonly Node<T>.Target target;
-            private readonly T value;
+            // SendEntry rather than a lambda: this runs for every target of every firing,
+            // and a closure here costs a display class and a delegate on top of the queue
+            // entry that has to be allocated anyway. Carrying the three captured values as
+            // fields on the entry collapses that to a single allocation.
+            trans.Prioritized(new SendEntry(stream: this, target: target, value: a));
+        }
+    }
 
-            public SendEntry(Stream<T> stream, Node<T>.Target target, T value)
-                : base(target.Node)
-            {
-                this.stream = stream;
-                this.target = target;
-                this.value = value;
-            }
+    private sealed class SendEntry(Stream<T> stream, Node<T>.Target target, T value)
+        : TransactionInternal.Entry(target.Node)
+    {
+        // ReSharper disable once ReplaceWithPrimaryConstructorParameter - This field is needed so action is not
+        // captured into a mutable variable.
+        private readonly Stream<T> stream = stream;
 
-            public override void Execute(TransactionInternal trans)
+        // ReSharper disable once ReplaceWithPrimaryConstructorParameter - This field is needed so action is not
+        // captured into a mutable variable.
+        private readonly Node<T>.Target target = target;
+
+        // ReSharper disable once ReplaceWithPrimaryConstructorParameter - This field is needed so action is not
+        // captured into a mutable variable.
+        private readonly T value = value;
+
+        public override void Execute(TransactionInternal trans)
+        {
+            trans.InCallback++;
+
+            try
             {
-                trans.InCallback++;
-                try
+                // Don't allow transactions to interfere with SodaFlow
+                // internals.
+                // Dereference the weak reference
+                if (this.target.Action.TryGetTarget(out Action<TransactionInternal, T>? action))
                 {
-                    // Don't allow transactions to interfere with SodaFlow
-                    // internals.
-                    // Dereference the weak reference
-                    if (this.target.Action.TryGetTarget(out Action<TransactionInternal, T> action))
+                    // If it hasn't been garbage collected, call it.
+                    if (this.target.IsActivated)
                     {
-                        // If it hasn't been garbage collected, call it.
-                        if (this.target.IsActivated)
-                        {
-                            action(trans, this.value);
-                        }
-                    }
-                    else
-                    {
-                        // If it has been garbage collected, remove it.
-                        this.stream.Node.RemoveListener(this.target);
+                        action(arg1: trans, arg2: this.value);
                     }
                 }
-                finally
+                else
                 {
-                    trans.InCallback--;
+                    // If it has been garbage collected, remove it.
+                    this.stream.Node.RemoveListener(this.target);
                 }
             }
-        }
-
-        private class StrongListener : IStrongListener
-        {
-            private readonly Action unlisten;
-            private readonly IListener listener;
-
-            public StrongListener(Action unlisten, IListener listener)
+            finally
             {
-                this.unlisten = unlisten;
-                this.listener = listener;
-            }
-
-            public void Unlisten() => this.unlisten();
-
-            public IListenerWithWeakReference GetListenerWithWeakReference() =>
-                this.listener.GetListenerWithWeakReference();
-
-            public void Dispose() => this.Unlisten();
-        }
-
-        private class ListenerImplementation : IWeakListener
-        {
-            // It's essential that we keep the action alive, since the node uses
-            // a weak reference.
-            // ReSharper disable once NotAccessedField.Local
-            private readonly Action<TransactionInternal, T> action;
-
-            // It's essential that we keep the listener alive while the caller holds
-            // the Listener, so that the garbage collector doesn't get triggered.
-            // ReSharper disable once NotAccessedField.Local
-            private readonly Stream<T> stream;
-
-            private readonly WeakListener weakListener;
-
-            public ListenerImplementation(Stream<T> stream, Action<TransactionInternal, T> action, Node<T>.Target target)
-            {
-                this.stream = stream;
-                this.action = action;
-
-                this.weakListener = new WeakListener(stream?.Node, target);
-            }
-
-            public void Unlisten()
-            {
-                this.weakListener.Unlisten();
-            }
-
-            public IListenerWithWeakReference GetListenerWithWeakReference() => this.weakListener;
-        }
-
-        private class WeakListener : IListenerWithWeakReference
-        {
-            private readonly Node<T> node;
-            private readonly Node<T>.Target target;
-
-            public WeakListener(Node<T> node, Node<T>.Target target)
-            {
-                this.node = node;
-                this.target = target;
-            }
-
-            public void Unlisten()
-            {
-                this.node?.Unlink(this.target);
+                trans.InCallback--;
             }
         }
+    }
 
-        private class KeepListenersAliveImplementation : IKeepListenersAlive
+    private sealed class StrongListener(Action unlisten, IListener listener) : IStrongListener
+    {
+        // ReSharper disable once ReplaceWithPrimaryConstructorParameter - This field is needed so action is not
+        // captured into a mutable variable.
+        private readonly IListener listener = listener;
+
+        // ReSharper disable once ReplaceWithPrimaryConstructorParameter - This field is needed so action is not
+        // captured into a mutable variable.
+        private readonly Action unlisten = unlisten;
+
+        public void Unlisten() => this.unlisten();
+
+        public IListenerWithWeakReference GetListenerWithWeakReference() =>
+            this.listener.GetListenerWithWeakReference();
+
+        public void Dispose() => this.Unlisten();
+    }
+
+    private sealed class ListenerImplementation(
+        Stream<T> stream,
+        Action<TransactionInternal, T> action,
+        Node<T>.Target target)
+        : IWeakListener
+    {
+        // It's essential that we keep the action alive, since the node uses
+        // a weak reference.
+        // ReSharper disable once UnusedMember.Local
+        private readonly Action<TransactionInternal, T> action = action;
+
+        // It's essential that we keep the listener alive while the caller holds
+        // the Listener, so that the garbage collector doesn't get triggered.
+        // ReSharper disable once UnusedMember.Local
+        private readonly Stream<T> stream = stream;
+
+        private readonly WeakListener weakListener = new(node: stream.Node, target: target);
+
+        public void Unlisten() => this.weakListener.Unlisten();
+
+        public IListenerWithWeakReference GetListenerWithWeakReference() => this.weakListener;
+    }
+
+    private sealed class WeakListener(Node<T> node, Node<T>.Target target) : IListenerWithWeakReference
+    {
+        // ReSharper disable once ReplaceWithPrimaryConstructorParameter - This field is needed so action is not
+        // captured into a mutable variable.
+        private readonly Node<T> node = node;
+
+        // ReSharper disable once ReplaceWithPrimaryConstructorParameter - This field is needed so action is not
+        // captured into a mutable variable.
+        private readonly Node<T>.Target target = target;
+
+        public void Unlisten() => this.node.Unlink(this.target);
+    }
+
+    private sealed class KeepListenersAliveImplementation : IKeepListenersAlive
+    {
+        // ReSharper disable once CollectionNeverQueried.Local
+        private List<IKeepListenersAlive>? childKeepListenersAliveList;
+
+        // One of these exists per root stream, and plenty of streams are never listened to at
+        // all, so both collections wait until something actually needs them.
+        // ReSharper disable once CollectionNeverQueried.Local
+        private HashSet<IListener>? listeners;
+
+        public void KeepListenerAlive(IListener listener)
         {
-            // One of these exists per root stream, and plenty of streams are never listened to at
-            // all, so both collections wait until something actually needs them.
-            private HashSet<IListener> listeners;
+            this.listeners ??= [];
+            this.listeners.Add(listener);
+        }
 
-            // ReSharper disable once CollectionNeverQueried.Local
-            private List<IKeepListenersAlive> childKeepListenersAliveList;
+        public void StopKeepingListenerAlive(IListener listener) => this.listeners?.Remove(listener);
 
-            public void KeepListenerAlive(IListener listener)
-            {
-                if (this.listeners == null)
-                {
-                    this.listeners = new HashSet<IListener>();
-                }
-
-                this.listeners.Add(listener);
-            }
-
-            public void StopKeepingListenerAlive(IListener listener)
-            {
-                this.listeners?.Remove(listener);
-            }
-
-            public void Use(IKeepListenersAlive childKeepListenersAlive)
-            {
-                if (this.childKeepListenersAliveList == null)
-                {
-                    this.childKeepListenersAliveList = new List<IKeepListenersAlive>();
-                }
-
-                this.childKeepListenersAliveList.Add(childKeepListenersAlive);
-            }
+        public void Use(IKeepListenersAlive childKeepListenersAlive)
+        {
+            this.childKeepListenersAliveList ??= [];
+            this.childKeepListenersAliveList.Add(childKeepListenersAlive);
         }
     }
 }

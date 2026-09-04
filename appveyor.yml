@@ -11,7 +11,7 @@
 
 version: '{build}'
 
-image: Visual Studio 2022
+image: Visual Studio 2026
 
 # MinVer reads the full commit graph and every tag. A shallow clone yields wrong versions, or none.
 shallow_clone: false

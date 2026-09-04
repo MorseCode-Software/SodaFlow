@@ -1,3 +1,26 @@
+3.0.0
+
+BREAKING: Unit is a readonly struct rather than a sealed class. It is a type
+with exactly one value, so a struct is what it should always have been:
+nothing to allocate, nothing to be null, and nothing to reference-compare.
+It now implements IEquatable<Unit>, IComparable<Unit>, IStructuralEquatable
+and IStructuralComparable, and ToString returns "()".
+
+This breaks in both directions. In source, Unit u = null no longer compiles,
+and neither does anything else which treated it as a reference. In binary, a
+generic instantiated over Unit - Stream<Unit>, StreamSink<Unit>, Func<Unit>
+- is a different type at runtime once Unit is a struct, so an assembly
+compiled against the old one will not bind against this. Recompile rather
+than mix.
+
+The == operator no longer asks whether either side is null, because neither
+side can be. Two Units are equal, and that is the whole of it.
+
+Everything else here is a cleanup with no effect on behavior: nullable
+annotations completed, the build made warning-free, and the vendored
+JetBrains annotations replaced by a reference to the package they came from,
+which is not redistributed.
+
 2.0.0
 
 BREAKING: WhereMaybe and AllMaybeOrNone are gone, renamed to WhereSome and

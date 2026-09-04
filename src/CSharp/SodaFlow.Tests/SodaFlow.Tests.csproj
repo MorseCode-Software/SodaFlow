@@ -2,6 +2,8 @@
 
     <PropertyGroup>
         <TargetFramework>net472</TargetFramework>
+        <LangVersion>latest</LangVersion>
+        <Nullable>enable</Nullable>
     </PropertyGroup>
 
     <PropertyGroup>
@@ -9,41 +11,44 @@
         <RootNamespace>SodaFlow.Tests</RootNamespace>
         <EnableDefaultItems>false</EnableDefaultItems>
         <IsPackable>false</IsPackable>
+        <LangVersion>latest</LangVersion>
+        <Nullable>enable</Nullable>
     </PropertyGroup>
 
     <ItemGroup>
-        <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.11.1" />
-        <PackageReference Include="NUnit" Version="3.11.0" />
-        <PackageReference Include="NUnit3TestAdapter" Version="3.10.0" />
-        <PackageReference Include="System.ValueTuple" Version="4.4.0" />
+        <PackageReference Include="JetBrains.Annotations" Version="2026.2.0" PrivateAssets="all"/>
+        <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.11.1"/>
+        <PackageReference Include="NUnit" Version="3.11.0"/>
+        <PackageReference Include="NUnit3TestAdapter" Version="3.10.0"/>
+        <PackageReference Include="System.ValueTuple" Version="4.4.0"/>
     </ItemGroup>
 
     <ItemGroup>
-      <Compile Include="BehaviorTests.cs" />
-      <Compile Include="CellTests.cs" />
-      <Compile Include="CommonTests.cs" />
-      <Compile Include="DenotationalSemanticsTests.cs" />
-      <Compile Include="EitherTests.cs" />
-      <Compile Include="EnumerableExtensionMethodsTests.cs" />
-      <Compile Include="ForwardReferenceTests.cs" />
-      <Compile Include="IssueTests.cs" />
-      <Compile Include="LoopTests.cs" />
-      <Compile Include="MaybeAsyncExtensionMethodsTests.cs" />
-      <Compile Include="MaybeExtensionMethodsTests.cs" />
-      <Compile Include="MaybeMonadTests.cs" />
-      <Compile Include="MaybeTests.cs" />
-      <Compile Include="PerformanceTests.cs" />
-      <Compile Include="ReadOnlyDictionaryExtensionMethodsTests.cs" />
-      <Compile Include="StreamTests.cs" />
-      <Compile Include="StringExtensionMethodsTests.cs" />
-      <Compile Include="TimerTests.cs" />
-      <Compile Include="TransactionTests.cs" />
+        <Compile Include="BehaviorTests.cs"/>
+        <Compile Include="CellTests.cs"/>
+        <Compile Include="CommonTests.cs"/>
+        <Compile Include="DenotationalSemanticsTests.cs"/>
+        <Compile Include="EitherTests.cs"/>
+        <Compile Include="EnumerableExtensionMethodsTests.cs"/>
+        <Compile Include="ForwardReferenceTests.cs"/>
+        <Compile Include="IssueTests.cs"/>
+        <Compile Include="LoopTests.cs"/>
+        <Compile Include="MaybeAsyncExtensionMethodsTests.cs"/>
+        <Compile Include="MaybeExtensionMethodsTests.cs"/>
+        <Compile Include="MaybeMonadTests.cs"/>
+        <Compile Include="MaybeTests.cs"/>
+        <Compile Include="PerformanceTests.cs"/>
+        <Compile Include="ReadOnlyDictionaryExtensionMethodsTests.cs"/>
+        <Compile Include="StreamTests.cs"/>
+        <Compile Include="StringExtensionMethodsTests.cs"/>
+        <Compile Include="TimerTests.cs"/>
+        <Compile Include="TransactionTests.cs"/>
     </ItemGroup>
 
     <ItemGroup>
-      <ProjectReference Include="..\..\SodaFlow.Core\SodaFlow.Core.csproj" />
-      <ProjectReference Include="..\SodaFlow\SodaFlow.csproj" />
-      <ProjectReference Include="..\SodaFlow.Functional\SodaFlow.Functional.csproj" />
+        <ProjectReference Include="..\..\SodaFlow.Core\SodaFlow.Core.csproj"/>
+        <ProjectReference Include="..\SodaFlow\SodaFlow.csproj"/>
+        <ProjectReference Include="..\SodaFlow.Functional\SodaFlow.Functional.csproj"/>
     </ItemGroup>
 
 </Project>

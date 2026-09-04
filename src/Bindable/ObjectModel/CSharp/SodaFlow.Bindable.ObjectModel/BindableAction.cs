@@ -1,32 +1,70 @@
+using System;
+using JetBrains.Annotations;
 using SodaFlow.Functional;
 
-namespace SodaFlow.Bindable.ObjectModel
+namespace SodaFlow.Bindable.ObjectModel;
+
+[PublicAPI]
+public static partial class BindableExtensionMethods
 {
-    public static partial class BindableExtensionMethods
+    internal sealed class BindableAction : BindableCoreExtensionMethods.BindableAction<Unit>, IBindableAction
     {
-        /// <summary>
-        ///     An <see cref="System.Windows.Input.ICommand" /> whose enablement is a
-        ///     <see cref="Cell{T}" /> and whose invocations are a <see cref="Stream{T}" />.
-        /// </summary>
-        internal sealed class BindableAction : BindableCoreExtensionMethods.BindableAction<Unit>, IBindableAction
+        internal BindableAction(
+            StreamSink<Unit> firingsStreamSink,
+            Cell<bool>? isEnabledCell,
+            IBindingScheduler? scheduler)
+            : base(firingsStreamSink: firingsStreamSink, isEnabledCell: isEnabledCell, scheduler: scheduler)
         {
-            internal BindableAction(
-                StreamSink<Unit> firingsStreamSink,
-                Cell<bool>? isEnabledCell,
-                IBindingScheduler? scheduler)
-                : base(firingsStreamSink: firingsStreamSink, isEnabledCell: isEnabledCell, scheduler: scheduler)
-            {
-            }
-
-            /// <inheritdoc />
-            /// <remarks>A parameterless command ignores its parameter, so nothing can be mistyped.</remarks>
-            protected override void ValidateParameter(object? value)
-            {
-            }
-
-            /// <inheritdoc />
-            protected override void SendValue(StreamSink<Unit> streamSink, object? value) =>
-                streamSink.SendImpl(Unit.Value);
         }
+
+        /// <inheritdoc />
+        /// <remarks>A parameterless command ignores its parameter, so nothing can be mistyped.</remarks>
+        protected override void ValidateParameter(object? value)
+        {
+        }
+
+        /// <inheritdoc />
+        protected override void SendValue(StreamSink<Unit> streamSink, object? value) =>
+            streamSink.SendImpl(Unit.Value);
+    }
+
+    internal sealed class BindableMaybeAction<T> : BindableCoreExtensionMethods.BindableAction<Maybe<T>>
+        where T : notnull
+    {
+        internal BindableMaybeAction(
+            StreamSink<Maybe<T>> firingsStreamSink,
+            Cell<bool>? isEnabledCell,
+            IBindingScheduler? scheduler)
+            : base(firingsStreamSink: firingsStreamSink, isEnabledCell: isEnabledCell, scheduler: scheduler)
+        {
+        }
+
+        private static Exception GetInvalidTypeException() =>
+            new InvalidOperationException(
+                "The command parameter must be of type " + typeof(T).FullName + ", " + typeof(Maybe<T>).FullName +
+                ", or null.");
+
+        /// <inheritdoc />
+        /// <remarks>A parameterless command ignores its parameter, so nothing can be mistyped.</remarks>
+        protected override void ValidateParameter(object? value)
+        {
+            if (value is null or T or Maybe<T>)
+            {
+                return;
+            }
+
+            throw GetInvalidTypeException();
+        }
+
+        /// <inheritdoc />
+        protected override void SendValue(StreamSink<Maybe<T>> streamSink, object? value) =>
+            streamSink.SendImpl(
+                value switch
+                {
+                    Maybe<T> typedMaybeValue => typedMaybeValue,
+                    T typedValue => Maybe.Some(typedValue),
+                    null => Maybe.None,
+                    _ => throw GetInvalidTypeException()
+                });
     }
 }

@@ -28,7 +28,7 @@ open System.Runtime.CompilerServices
 /// </summary>
 /// <returns><c>true</c> if there is a current transaction, and <c>false</c> otherwise.</returns>
 [<MethodImpl(MethodImplOptions.NoInlining)>]
-let isActive () = TransactionInternal.IsActiveImpl ()
+let isActive () = TransactionInternal.IsActiveImpl()
 
 /// <summary>
 ///     Runs a function inside a single transaction and returns its result.
@@ -45,7 +45,7 @@ let isActive () = TransactionInternal.IsActiveImpl ()
 ///     closed within one transaction.
 /// </remarks>
 [<MethodImpl(MethodImplOptions.NoInlining)>]
-let run f = TransactionInternal.RunImpl (Func<_> f)
+let run f = TransactionInternal.RunImpl(Func<_> f)
 
 /// <summary>
 ///     Registers an action to run whenever a transaction starts.
@@ -57,7 +57,8 @@ let run f = TransactionInternal.RunImpl (Func<_> f)
 ///     rarely what application code wants.
 /// </remarks>
 [<MethodImpl(MethodImplOptions.NoInlining)>]
-let onStart a = TransactionInternal.OnStartImpl (Action a)
+let onStart a =
+    TransactionInternal.OnStartImpl(Action a)
 
 /// <summary>
 ///     Runs an action once the current transaction has closed, or immediately if none is running.
@@ -68,4 +69,4 @@ let onStart a = TransactionInternal.OnStartImpl (Action a)
 ///     is subject to the same guidance as a listener callback: return promptly.
 /// </remarks>
 [<MethodImpl(MethodImplOptions.NoInlining)>]
-let post a = TransactionInternal.PostImpl (Action a)
+let post a = TransactionInternal.PostImpl(Action a)

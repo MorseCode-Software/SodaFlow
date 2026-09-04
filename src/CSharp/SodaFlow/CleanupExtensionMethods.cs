@@ -1,17 +1,18 @@
 ﻿using System.Runtime.CompilerServices;
+using JetBrains.Annotations;
 
-namespace SodaFlow
+namespace SodaFlow;
+
+/// <summary>
+///     The operations available on a <see cref="Cleanup" />.
+/// </summary>
+[PublicAPI]
+public static class CleanupExtensionMethods
 {
     /// <summary>
-    ///     The operations available on a <see cref="Cleanup" />.
+    ///     Force the cleanup to happen now rather than waiting for this object to be garbage collected.
     /// </summary>
-    public static class CleanupExtensionMethods
-    {
-        /// <summary>
-        ///     Force the cleanup to happen now rather than waiting for this object to be garbage collected.
-        /// </summary>
-        /// <param name="c">The cleanup object.</param>
-        [MethodImpl(MethodImplOptions.NoInlining)]
-        public static void CleanupNow(this Cleanup c) => c.CleanupNowImpl();
-    }
+    /// <param name="c">The cleanup object.</param>
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    public static void CleanupNow(this Cleanup c) => c.CleanupNowImpl();
 }

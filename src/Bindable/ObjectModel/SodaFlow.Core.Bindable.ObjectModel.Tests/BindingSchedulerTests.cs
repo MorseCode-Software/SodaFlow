@@ -2,82 +2,80 @@ using System;
 using System.Collections.Generic;
 using NUnit.Framework;
 
-namespace SodaFlow.Bindable.ObjectModel.Tests
+namespace SodaFlow.Bindable.ObjectModel.Tests;
+
+/// <summary>
+///     Covers the one rule <see cref="IBindingScheduler.Post" /> states: an action must never run
+///     synchronously while a transaction is in flight. A dispatcher-backed scheduler satisfies it by
+///     construction; the immediate one has to be careful, and it is the one tests run against, so
+///     everything else in this assembly depends on it getting this right.
+/// </summary>
+[TestFixture]
+public class BindingSchedulerTests
 {
-    /// <summary>
-    ///     Covers the one rule <see cref="IBindingScheduler.Post" /> states: an action must never run
-    ///     synchronously while a transaction is in flight. A dispatcher-backed scheduler satisfies it by
-    ///     construction; the immediate one has to be careful, and it is the one tests run against, so
-    ///     everything else in this assembly depends on it getting this right.
-    /// </summary>
-    [TestFixture]
-    public class BindingSchedulerTests
+    [Test]
+    public void ImmediateRunsInlineWhenNoTransactionIsOpen()
     {
-        [Test]
-        public void ImmediateRunsInlineWhenNoTransactionIsOpen()
+        bool ran = false;
+
+        BindingScheduler.Immediate.Post(() => ran = true);
+
+        Assert.IsTrue(condition: ran, message: "with nothing in flight there is nothing to wait for");
+    }
+
+    [Test]
+    public void ImmediateDefersUntilTheTransactionCloses()
+    {
+        bool ranInside = false;
+
+        Transaction.RunVoid(() =>
         {
-            bool ran = false;
+            BindingScheduler.Immediate.Post(() => ranInside = true);
 
-            BindingScheduler.Immediate.Post(() => ran = true);
+            Assert.IsFalse(condition: ranInside, message: "running here would be inside the transaction");
+        });
 
-            Assert.IsTrue(ran, "with nothing in flight there is nothing to wait for");
+        Assert.IsTrue(condition: ranInside, message: "and it still runs, once the transaction has closed");
+    }
+
+    [Test]
+    public void ImmediatePreservesOrdering()
+    {
+        List<int> order = new();
+
+        Transaction.RunVoid(() =>
+        {
+            BindingScheduler.Immediate.Post(() => order.Add(1));
+            BindingScheduler.Immediate.Post(() => order.Add(2));
+            BindingScheduler.Immediate.Post(() => order.Add(3));
+        });
+
+        CollectionAssert.AreEqual(expected: new[] { 1, 2, 3 }, actual: order);
+    }
+
+    [Test]
+    public void ImmediateRejectsANullAction() =>
+        // ReSharper disable once NullableWarningSuppressionIsUsed - Testing for exception on null.
+        Assert.Throws<ArgumentNullException>(static () => BindingScheduler.Immediate.Post(null!));
+
+    // The reason the rule exists. A notification raised from inside the transaction would leave a
+    // handler unable to send into another sink - which is an ordinary thing for a view model to do,
+    // and something a real dispatcher would never have prevented.
+    [Test]
+    public void AHandlerCanSendIntoAnotherSink()
+    {
+        CellSink<int> source = Cell.CreateSink(0);
+        CellSink<int> other = Cell.CreateSink(0);
+
+        using (IOneWayBindableValue<int> b = source.ToOneWayImpl(scheduler: BindingScheduler.Immediate))
+        {
+            // ReSharper disable once AccessToDisposedClosure - Used before disposal because the binding scheduler being
+            // used is BindingScheduler.Immediate.
+            b.PropertyChanged += (_, _) => other.Send(b.Value * 2);
+
+            Assert.DoesNotThrow(() => source.Send(21));
         }
 
-        [Test]
-        public void ImmediateDefersUntilTheTransactionCloses()
-        {
-            bool ranInside = false;
-
-            Transaction.RunVoid(
-                () =>
-                {
-                    BindingScheduler.Immediate.Post(() => ranInside = true);
-
-                    Assert.IsFalse(ranInside, "running here would be inside the transaction");
-                });
-
-            Assert.IsTrue(ranInside, "and it still runs, once the transaction has closed");
-        }
-
-        [Test]
-        public void ImmediatePreservesOrdering()
-        {
-            List<int> order = new List<int>();
-
-            Transaction.RunVoid(
-                () =>
-                {
-                    BindingScheduler.Immediate.Post(() => order.Add(1));
-                    BindingScheduler.Immediate.Post(() => order.Add(2));
-                    BindingScheduler.Immediate.Post(() => order.Add(3));
-                });
-
-            CollectionAssert.AreEqual(new[] { 1, 2, 3 }, order);
-        }
-
-        [Test]
-        public void ImmediateRejectsANullAction()
-        {
-            Assert.Throws<ArgumentNullException>(() => BindingScheduler.Immediate.Post(null!));
-        }
-
-        // The reason the rule exists. A notification raised from inside the transaction would leave a
-        // handler unable to send into another sink - which is an ordinary thing for a view model to do,
-        // and something a real dispatcher would never have prevented.
-        [Test]
-        public void AHandlerCanSendIntoAnotherSink()
-        {
-            CellSink<int> source = Cell.CreateSink(0);
-            CellSink<int> other = Cell.CreateSink(0);
-
-            using (IOneWayBindableValue<int> b = source.ToOneWayImpl(scheduler: BindingScheduler.Immediate))
-            {
-                b.PropertyChanged += (_, __) => other.Send(b.Value * 2);
-
-                Assert.DoesNotThrow(() => source.Send(21));
-            }
-
-            Assert.AreEqual(42, other.Sample());
-        }
+        Assert.AreEqual(expected: 42, actual: other.Sample());
     }
 }

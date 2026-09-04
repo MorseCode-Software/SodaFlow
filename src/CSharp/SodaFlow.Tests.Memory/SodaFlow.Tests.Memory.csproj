@@ -2,6 +2,8 @@
 
     <PropertyGroup>
         <TargetFramework>net472</TargetFramework>
+        <LangVersion>latest</LangVersion>
+        <Nullable>enable</Nullable>
     </PropertyGroup>
 
     <PropertyGroup>
@@ -12,21 +14,21 @@
     </PropertyGroup>
 
     <ItemGroup>
-        <PackageReference Include="JetBrains.dotMemoryUnit" Version="3.0.20171219.105559" />
-        <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.11.1" />
-        <PackageReference Include="NUnit" Version="3.11.0" />
-        <PackageReference Include="NUnit3TestAdapter" Version="3.10.0" />
-        <PackageReference Include="OptimizedPriorityQueue" Version="4.1.1" />
+        <PackageReference Include="JetBrains.Annotations" Version="2026.2.0" PrivateAssets="all"/>
+        <PackageReference Include="JetBrains.dotMemoryUnit" Version="3.0.20171219.105559"/>
+        <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.11.1"/>
+        <PackageReference Include="NUnit" Version="3.11.0"/>
+        <PackageReference Include="NUnit3TestAdapter" Version="3.10.0"/>
     </ItemGroup>
 
     <ItemGroup>
-      <Compile Include="GarbageCollectionTests.cs" />
-      <Compile Include="StreamTests.cs" />
+        <Compile Include="GarbageCollectionTests.cs"/>
+        <Compile Include="StreamTests.cs"/>
     </ItemGroup>
 
     <ItemGroup>
-      <ProjectReference Include="..\..\SodaFlow.Core\SodaFlow.Core.csproj" />
-      <ProjectReference Include="..\SodaFlow\SodaFlow.csproj" />
+        <ProjectReference Include="..\..\SodaFlow.Core\SodaFlow.Core.csproj"/>
+        <ProjectReference Include="..\SodaFlow\SodaFlow.csproj"/>
     </ItemGroup>
 
 </Project>

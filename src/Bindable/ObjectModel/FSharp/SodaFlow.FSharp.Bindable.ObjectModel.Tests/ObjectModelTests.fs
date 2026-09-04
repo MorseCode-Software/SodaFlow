@@ -58,7 +58,10 @@ type ``Object Model Tests``() =
     member __.``an action with a value carries its parameter``() =
         let sink = sinkS<int> ()
         let fired = List<int>()
-        use a = Bindable.toBindableActionWithValueAndScheduler sink BindingScheduler.Immediate
+
+        use a =
+            Bindable.toBindableActionWithValueAndScheduler sink BindingScheduler.Immediate
+
         use _ = a.FiringsStream |> listenStrongS fired.Add
         a.Execute 42
         CollectionAssert.AreEqual([ 42 ], fired)

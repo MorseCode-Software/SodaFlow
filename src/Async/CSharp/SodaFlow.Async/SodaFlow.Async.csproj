@@ -2,6 +2,8 @@
 
     <PropertyGroup>
         <TargetFrameworks>net472;net60;netstandard2.0</TargetFrameworks>
+        <LangVersion>latest</LangVersion>
+        <Nullable>enable</Nullable>
     </PropertyGroup>
 
     <PropertyGroup>
@@ -25,25 +27,25 @@
     </PropertyGroup>
 
     <ItemGroup>
-        <PackageReference Include="JetBrains.Annotations" Version="2026.2.0" />
+        <PackageReference Include="JetBrains.Annotations" Version="2026.2.0" PrivateAssets="all"/>
         <PackageReference Include="System.ValueTuple" Version="4.4.0"/>
     </ItemGroup>
 
     <ItemGroup>
-      <Compile Include="AsyncConcurrencyStrategy.cs" />
-      <Compile Include="MapAsyncExtensions.cs" />
+        <Compile Include="AsyncConcurrencyStrategy.cs"/>
+        <Compile Include="MapAsyncExtensions.cs"/>
     </ItemGroup>
 
     <ItemGroup>
-      <ProjectReference Include="..\..\SodaFlow.Core.Async\SodaFlow.Core.Async.csproj" />
-      <!--
-          SodaFlow itself, so installing this package brings the C# API it extends. MapAsync
-          operates on a Stream<T> that only SodaFlow's operations can produce or consume usefully,
-          so a consumer needs both; declaring it here means they get both from one install rather
-          than discovering the second the first time they try to build a graph.
-      -->
-      <ProjectReference Include="..\..\..\CSharp\SodaFlow\SodaFlow.csproj" />
-      <ProjectReference Include="..\..\..\CSharp\SodaFlow.Functional\SodaFlow.Functional.csproj" />
+        <ProjectReference Include="..\..\SodaFlow.Core.Async\SodaFlow.Core.Async.csproj"/>
+        <!--
+            SodaFlow itself, so installing this package brings the C# API it extends. MapAsync
+            operates on a Stream<T> that only SodaFlow's operations can produce or consume usefully,
+            so a consumer needs both; declaring it here means they get both from one install rather
+            than discovering the second the first time they try to build a graph.
+        -->
+        <ProjectReference Include="..\..\..\CSharp\SodaFlow\SodaFlow.csproj"/>
+        <ProjectReference Include="..\..\..\CSharp\SodaFlow.Functional\SodaFlow.Functional.csproj"/>
     </ItemGroup>
 
 </Project>

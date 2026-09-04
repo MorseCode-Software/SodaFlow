@@ -72,7 +72,7 @@
         same day, so the condition is now always true.
     -->
     <ItemGroup Condition="'$(UsingMicrosoftNETSdk)' == 'true'">
-        <PackageReference Include="MinVer" Version="6.1.0" PrivateAssets="all" />
+        <PackageReference Include="MinVer" Version="6.1.0" PrivateAssets="all"/>
     </ItemGroup>
 
     <PropertyGroup Condition="'$(UsingMicrosoftNETSdk)' == 'true'">

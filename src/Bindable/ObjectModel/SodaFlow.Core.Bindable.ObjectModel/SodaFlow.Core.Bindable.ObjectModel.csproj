@@ -2,6 +2,8 @@
 
     <PropertyGroup>
         <TargetFrameworks>net472;net60;netstandard2.0</TargetFrameworks>
+        <LangVersion>latest</LangVersion>
+        <Nullable>enable</Nullable>
     </PropertyGroup>
 
     <PropertyGroup>
@@ -24,25 +26,25 @@
     </PropertyGroup>
 
     <ItemGroup>
-        <PackageReference Include="JetBrains.Annotations" Version="2026.2.0" />
+        <PackageReference Include="JetBrains.Annotations" Version="2026.2.0" PrivateAssets="all"/>
         <PackageReference Include="System.ValueTuple" Version="4.4.0"/>
     </ItemGroup>
 
     <ItemGroup>
-      <Compile Include="AssemblyInfo.cs" />
-      <Compile Include="BindableExtensionMethods.cs" />
-      <Compile Include="BindableAction.cs" />
-      <Compile Include="BindableValueBase.cs" />
-      <Compile Include="BindingScheduler.cs" />
-      <Compile Include="Interfaces.cs" />
-      <Compile Include="OneWayBindableValue.cs" />
-      <Compile Include="OneWayToSourceBindableValue.cs" />
-      <Compile Include="TwoWayBindableValue.cs" />
-      <Compile Include="ValueBox.cs" />
+        <Compile Include="AssemblyInfo.cs"/>
+        <Compile Include="BindableExtensionMethods.cs"/>
+        <Compile Include="BindableAction.cs"/>
+        <Compile Include="BindableValueBase.cs"/>
+        <Compile Include="BindingScheduler.cs"/>
+        <Compile Include="Interfaces.cs"/>
+        <Compile Include="OneWayBindableValue.cs"/>
+        <Compile Include="OneWayToSourceBindableValue.cs"/>
+        <Compile Include="TwoWayBindableValue.cs"/>
+        <Compile Include="ValueBox.cs"/>
     </ItemGroup>
 
     <ItemGroup>
-      <ProjectReference Include="..\..\..\SodaFlow.Core\SodaFlow.Core.csproj" />
+        <ProjectReference Include="..\..\..\SodaFlow.Core\SodaFlow.Core.csproj"/>
     </ItemGroup>
 
 </Project>

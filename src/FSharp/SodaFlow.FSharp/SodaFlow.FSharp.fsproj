@@ -1,63 +1,64 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
-  <PropertyGroup>
-    <AssemblyName>SodaFlow.FSharp</AssemblyName>
-    <RootNamespace>SodaFlow</RootNamespace>
-    <TargetFrameworks>net472;net60;netstandard2.0</TargetFrameworks>
-  </PropertyGroup>
+    <PropertyGroup>
+        <AssemblyName>SodaFlow.FSharp</AssemblyName>
+        <RootNamespace>SodaFlow</RootNamespace>
+        <TargetFrameworks>net472;net60;netstandard2.0</TargetFrameworks>
+    </PropertyGroup>
 
-  <PropertyGroup>
-    <PackageId>SodaFlow.FSharp</PackageId>
-    <MinVerTagPrefix>sodaflow-fsharp-</MinVerTagPrefix>
-    <Product>SodaFlow for F#</Product>
-    <Title>SodaFlow for F#</Title>
-    <Description>SodaFlow - Functional Reactive Programming (FRP) library for F#.</Description>
-    <!--
-        GenerateDocumentationFile rather than a per-configuration DocumentationFile path: this project
-        multi-targets, and a single hard-coded path made all three target frameworks write over one
-        another's XML. This emits one file per target framework, next to its own assembly, which is
-        where NuGet pack expects it when populating each lib folder, and where the DocFX site under
-        docs/ picks it up when generating API reference.
+    <PropertyGroup>
+        <PackageId>SodaFlow.FSharp</PackageId>
+        <MinVerTagPrefix>sodaflow-fsharp-</MinVerTagPrefix>
+        <Product>SodaFlow for F#</Product>
+        <Title>SodaFlow for F#</Title>
+        <Description>SodaFlow - Functional Reactive Programming (FRP) library for F#.</Description>
+        <!--
+            GenerateDocumentationFile rather than a per-configuration DocumentationFile path: this project
+            multi-targets, and a single hard-coded path made all three target frameworks write over one
+            another's XML. This emits one file per target framework, next to its own assembly, which is
+            where NuGet pack expects it when populating each lib folder, and where the DocFX site under
+            docs/ picks it up when generating API reference.
+    
+            The DocFX site still generates API reference for the C# packages only: DocFX reads compiled
+            metadata, which renders an F# assembly in its compiled shape rather than its F# one. See
+            docs/docs/fsharp-api.md.
+        -->
+        <GenerateDocumentationFile>true</GenerateDocumentationFile>
 
-        The DocFX site still generates API reference for the C# packages only: DocFX reads compiled
-        metadata, which renders an F# assembly in its compiled shape rather than its F# one. See
-        docs/docs/fsharp-api.md.
-    -->
-    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+        <!--
+            F# has no equivalent of CS1591, so nothing reports a member that carries no documentation at
+            all. FS3390 is the next best thing and is off by default: it checks the comments that do
+            exist, catching a <param> naming an argument that does not exist and a documented function
+            with an argument left undocumented. Both are easy to introduce when a signature changes.
+        -->
+        <OtherFlags>$(OtherFlags) --warnon:3390</OtherFlags>
+    </PropertyGroup>
 
-    <!--
-        F# has no equivalent of CS1591, so nothing reports a member that carries no documentation at
-        all. FS3390 is the next best thing and is off by default: it checks the comments that do
-        exist, catching a <param> naming an argument that does not exist and a documented function
-        with an argument left undocumented. Both are easy to introduce when a signature changes.
-    -->
-    <OtherFlags>$(OtherFlags) --warnon:3390</OtherFlags>
-  </PropertyGroup>
+    <ItemGroup>
+        <PackageReference Update="FSharp.Core" Version="4.5.2"/>
+        <PackageReference Include="JetBrains.Annotations" Version="2026.2.0" PrivateAssets="all"/>
+    </ItemGroup>
 
-  <ItemGroup>
-    <PackageReference Update="FSharp.Core" Version="4.5.2" />
-  </ItemGroup>
+    <ItemGroup>
+        <Compile Include="Utils.fs"/>
+        <Compile Include="Transaction.fs"/>
+        <Compile Include="Listener.fs"/>
+        <Compile Include="StreamSink.fs"/>
+        <Compile Include="Cleanup.fs"/>
+        <Compile Include="BehaviorSink.fs"/>
+        <Compile Include="CellStreamSink.fs"/>
+        <Compile Include="CellSink.fs"/>
+        <Compile Include="Behavior.fs"/>
+        <Compile Include="Cell.fs"/>
+        <Compile Include="ForwardReference.fs"/>
+        <Compile Include="Stream.fs"/>
+        <Compile Include="Operational.fs"/>
+        <Compile Include="Time.fs"/>
+        <Compile Include="Shorthand.fs"/>
+    </ItemGroup>
 
-  <ItemGroup>
-    <Compile Include="Utils.fs" />
-    <Compile Include="Transaction.fs" />
-    <Compile Include="Listener.fs" />
-    <Compile Include="StreamSink.fs" />
-    <Compile Include="Cleanup.fs" />
-    <Compile Include="BehaviorSink.fs" />
-    <Compile Include="CellStreamSink.fs" />
-    <Compile Include="CellSink.fs" />
-    <Compile Include="Behavior.fs" />
-    <Compile Include="Cell.fs" />
-    <Compile Include="ForwardReference.fs" />
-    <Compile Include="Stream.fs" />
-    <Compile Include="Operational.fs" />
-    <Compile Include="Time.fs" />
-    <Compile Include="Shorthand.fs" />
-  </ItemGroup>
-
-  <ItemGroup>
-    <ProjectReference Include="..\..\SodaFlow.Core\SodaFlow.Core.csproj" />
-  </ItemGroup>
+    <ItemGroup>
+        <ProjectReference Include="..\..\SodaFlow.Core\SodaFlow.Core.csproj"/>
+    </ItemGroup>
 
 </Project>

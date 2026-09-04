@@ -1,54 +1,55 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
-  <PropertyGroup>
-    <AssemblyName>SodaFlow.FSharp.Async</AssemblyName>
-    <RootNamespace>SodaFlow.Async</RootNamespace>
-    <TargetFrameworks>net472;net60;netstandard2.0</TargetFrameworks>
-  </PropertyGroup>
+    <PropertyGroup>
+        <AssemblyName>SodaFlow.FSharp.Async</AssemblyName>
+        <RootNamespace>SodaFlow.Async</RootNamespace>
+        <TargetFrameworks>net472;net60;netstandard2.0</TargetFrameworks>
+    </PropertyGroup>
 
-  <PropertyGroup>
-    <PackageId>SodaFlow.FSharp.Async</PackageId>
-    <MinVerTagPrefix>sodaflow-fsharp-async-</MinVerTagPrefix>
-    <Product>SodaFlow Async Extensions for F#</Product>
-    <Title>SodaFlow Async Extensions for F#</Title>
-    <Description>SodaFlow Async Extensions library for F#.</Description>
-  </PropertyGroup>
+    <PropertyGroup>
+        <PackageId>SodaFlow.FSharp.Async</PackageId>
+        <MinVerTagPrefix>sodaflow-fsharp-async-</MinVerTagPrefix>
+        <Product>SodaFlow Async Extensions for F#</Product>
+        <Title>SodaFlow Async Extensions for F#</Title>
+        <Description>SodaFlow Async Extensions library for F#.</Description>
+    </PropertyGroup>
 
-  <PropertyGroup>
-    <!--
-        GenerateDocumentationFile rather than an explicit DocumentationFile path: this project
-        multi-targets, and a single hard-coded path would make all three target frameworks write over
-        one another's XML. This emits one file per target framework, next to its own assembly, which
-        is also where NuGet pack expects to find it when populating each lib folder.
-    -->
-    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <PropertyGroup>
+        <!--
+            GenerateDocumentationFile rather than an explicit DocumentationFile path: this project
+            multi-targets, and a single hard-coded path would make all three target frameworks write over
+            one another's XML. This emits one file per target framework, next to its own assembly, which
+            is also where NuGet pack expects to find it when populating each lib folder.
+        -->
+        <GenerateDocumentationFile>true</GenerateDocumentationFile>
 
-    <!--
-        F# has no equivalent of CS1591, so nothing reports a member that carries no documentation at
-        all. FS3390 is the next best thing and is off by default: it checks the comments that do
-        exist, catching a <param> naming an argument that does not exist and a documented function
-        with an argument left undocumented. Both are easy to introduce when a signature changes.
-    -->
-    <OtherFlags>$(OtherFlags) --warnon:3390</OtherFlags>
-  </PropertyGroup>
+        <!--
+            F# has no equivalent of CS1591, so nothing reports a member that carries no documentation at
+            all. FS3390 is the next best thing and is off by default: it checks the comments that do
+            exist, catching a <param> naming an argument that does not exist and a documented function
+            with an argument left undocumented. Both are easy to introduce when a signature changes.
+        -->
+        <OtherFlags>$(OtherFlags) --warnon:3390</OtherFlags>
+    </PropertyGroup>
 
-  <ItemGroup>
-    <PackageReference Update="FSharp.Core" Version="4.5.2" />
-  </ItemGroup>
+    <ItemGroup>
+        <PackageReference Update="FSharp.Core" Version="4.5.2"/>
+        <PackageReference Include="JetBrains.Annotations" Version="2026.2.0" PrivateAssets="all"/>
+    </ItemGroup>
 
-  <ItemGroup>
-    <Compile Include="MapAsync.fs" />
-  </ItemGroup>
+    <ItemGroup>
+        <Compile Include="MapAsync.fs"/>
+    </ItemGroup>
 
-  <ItemGroup>
-    <ProjectReference Include="..\..\SodaFlow.Core.Async\SodaFlow.Core.Async.csproj" />
-    <!--
-        SodaFlow.FSharp itself, so installing this package brings the F# API it extends. mapAsync
-        operates on a Stream<'T> that only those operations can produce or consume usefully, so a
-        consumer needs both; declaring it here means they get both from one install rather than
-        discovering the second the first time they try to build a graph.
-    -->
-    <ProjectReference Include="..\..\..\FSharp\SodaFlow.FSharp\SodaFlow.FSharp.fsproj" />
-  </ItemGroup>
+    <ItemGroup>
+        <ProjectReference Include="..\..\SodaFlow.Core.Async\SodaFlow.Core.Async.csproj"/>
+        <!--
+            SodaFlow.FSharp itself, so installing this package brings the F# API it extends. mapAsync
+            operates on a Stream<'T> that only those operations can produce or consume usefully, so a
+            consumer needs both; declaring it here means they get both from one install rather than
+            discovering the second the first time they try to build a graph.
+        -->
+        <ProjectReference Include="..\..\..\FSharp\SodaFlow.FSharp\SodaFlow.FSharp.fsproj"/>
+    </ItemGroup>
 
 </Project>

@@ -1,26 +1,27 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
-  <PropertyGroup>
-    <AssemblyName>SodaFlow.FSharp.Tests.Internal</AssemblyName>
-    <RootNamespace>SodaFlow.Tests.Internal</RootNamespace>
-    <TargetFramework>net472</TargetFramework>
-  </PropertyGroup>
+    <PropertyGroup>
+        <AssemblyName>SodaFlow.FSharp.Tests.Internal</AssemblyName>
+        <RootNamespace>SodaFlow.Tests.Internal</RootNamespace>
+        <TargetFramework>net472</TargetFramework>
+    </PropertyGroup>
 
-  <ItemGroup>
-    <Compile Include="TestUtils.fs" />
-    <Compile Include="CellTests.fs" />
-    <Compile Include="NodeTests.fs" />
-    <Compile Include="TransactionTests.fs" />
-  </ItemGroup>
+    <ItemGroup>
+        <Compile Include="TestUtils.fs"/>
+        <Compile Include="CellTests.fs"/>
+        <Compile Include="NodeTests.fs"/>
+        <Compile Include="TransactionTests.fs"/>
+    </ItemGroup>
 
-  <ItemGroup>
-    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.11.1" />
-    <PackageReference Include="NUnit" Version="3.11.0" />
-    <PackageReference Include="NUnit3TestAdapter" Version="3.10.0" />
-  </ItemGroup>
+    <ItemGroup>
+        <PackageReference Include="JetBrains.Annotations" Version="2026.2.0" PrivateAssets="all"/>
+        <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.11.1"/>
+        <PackageReference Include="NUnit" Version="3.11.0"/>
+        <PackageReference Include="NUnit3TestAdapter" Version="3.10.0"/>
+    </ItemGroup>
 
-  <ItemGroup>
-    <ProjectReference Include="..\SodaFlow.FSharp\SodaFlow.FSharp.fsproj" />
-  </ItemGroup>
+    <ItemGroup>
+        <ProjectReference Include="..\SodaFlow.FSharp\SodaFlow.FSharp.fsproj"/>
+    </ItemGroup>
 
 </Project>

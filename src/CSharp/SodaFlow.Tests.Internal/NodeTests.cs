@@ -1,71 +1,81 @@
 ﻿using NUnit.Framework;
 using SodaFlow.Functional;
 
-namespace SodaFlow.Tests.Internal
+namespace SodaFlow.Tests.Internal;
+
+[TestFixture]
+public class NodeTests
 {
-    [TestFixture]
-    public class NodeTests
+    [Test]
+    public void TestNode()
     {
-        [Test]
-        public void TestNode()
+        Node<int> a = new();
+        Node<int> b = new();
+
+        TransactionInternal.Apply((trans, _) =>
         {
-            Node<int> a = new Node<int>();
-            Node<int> b = new Node<int>();
-            TransactionInternal.Apply(
-                (trans, _) =>
+            a.Link(
+                trans: trans,
+                action: static (_, _) =>
                 {
-                    a.Link(trans, (t, v) => { }, b);
-                    trans.Prioritized(a, t => { });
-                    return UnitInternal.Value;
+                },
+                target: b);
+
+            trans.Prioritized(
+                node: a,
+                action: static _ =>
+                {
                 });
-            Assert.That(a.Rank, Is.LessThan(b.Rank));
-        }
 
-        [Test]
-        public void TestDependency()
-        {
-            StreamSink<int> streamSink = Stream.CreateSink<int>();
-            Stream<int> stream = streamSink.Map(v => v * 2);
+            return UnitInternal.Value;
+        });
 
-            Assert.That(streamSink.Node.Rank, Is.LessThan(stream.Node.Rank));
-        }
+        Assert.That(actual: a.Rank, expression: Is.LessThan(b.Rank));
+    }
 
-        [Test]
-        public void TestSnapshot()
-        {
-            CellSink<int> cellSink = Cell.CreateSink(0);
-            StreamSink<Unit> streamSink = Stream.CreateSink<Unit>();
+    [Test]
+    public void TestDependency()
+    {
+        StreamSink<int> streamSink = Stream.CreateSink<int>();
+        Stream<int> stream = streamSink.Map(static v => v * 2);
 
-            Cell<int> cell =
-                cellSink.Map(
-                        n =>
+        Assert.That(actual: streamSink.Node.Rank, expression: Is.LessThan(stream.Node.Rank));
+    }
+
+    [Test]
+    public void TestSnapshot()
+    {
+        CellSink<int> cellSink = Cell.CreateSink(0);
+        StreamSink<Unit> streamSink = Stream.CreateSink<Unit>();
+
+        Cell<int> cell =
+            cellSink.Map(n =>
+                {
+                    Cell<int> c = Cell.Constant(0);
+
+                    if (n > 0)
+                    {
+                        for (int i = 0; i < 50; i++)
                         {
-                            Cell<int> c = Cell.Constant(0);
+                            c = c.Map(static v => v);
+                        }
+                    }
 
-                            if (n > 0)
-                            {
-                                for (int i = 0; i < 50; i++)
-                                {
-                                    c = c.Map(v => v);
-                                }
-                            }
+                    return n > 1 ? c : streamSink.Snapshot(c).Hold(0);
+                })
+                .SwitchC();
 
-                            return n > 1 ? c : streamSink.Snapshot(c).Hold(0);
-                        })
-                    .SwitchC();
+        long rank1 = cell.UpdatesImpl.Node.Rank;
 
-            long rank1 = cell.UpdatesImpl.Node.Rank;
+        cellSink.Send(1);
 
-            cellSink.Send(1);
+        long rank2 = cell.UpdatesImpl.Node.Rank;
 
-            long rank2 = cell.UpdatesImpl.Node.Rank;
+        cellSink.Send(2);
 
-            cellSink.Send(2);
+        long rank3 = cell.UpdatesImpl.Node.Rank;
 
-            long rank3 = cell.UpdatesImpl.Node.Rank;
-
-            Assert.That(rank1, Is.EqualTo(rank2));
-            Assert.That(rank2, Is.LessThan(rank3));
-        }
+        Assert.That(actual: rank1, expression: Is.EqualTo(rank2));
+        Assert.That(actual: rank2, expression: Is.LessThan(rank3));
     }
 }

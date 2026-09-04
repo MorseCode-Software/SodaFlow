@@ -34,7 +34,7 @@ type ITimer =
     ///     Has no effect if the timer has already fired or already been canceled, so it is safe to
     ///     call more than once.
     /// </remarks>
-    abstract member Cancel : unit -> unit
+    abstract member Cancel: unit -> unit
 
 /// <summary>
 ///     A source of time, and of streams which fire at times drawn from it.
@@ -47,7 +47,7 @@ type ITimer =
 ///     <c>TimerSystem</c> is the implementation that ships. Alarms from <c>At</c> arrive in a
 ///     transaction of their own, so nothing is required of the application beyond listening.
 /// </remarks>
-type ITimerSystem<'T when 'T : comparison> =
+type ITimerSystem<'T when 'T: comparison> =
     /// <summary>
     ///     A behavior giving the current clock time.
     /// </summary>
@@ -55,7 +55,7 @@ type ITimerSystem<'T when 'T : comparison> =
     ///     Updated as alarms are delivered rather than continuously, so it moves in the steps the
     ///     timers make it take, not with every tick of the underlying clock.
     /// </remarks>
-    abstract member Time : Behavior<'T>
+    abstract member Time: Behavior<'T>
     /// <summary>
     ///     A stream which fires at the time held in a cell.
     /// </summary>
@@ -69,7 +69,7 @@ type ITimerSystem<'T when 'T : comparison> =
     ///     called off. A time already in the past fires at the next opportunity rather than being
     ///     dropped.
     /// </remarks>
-    abstract member At : Cell<'T option> -> Stream<'T>
+    abstract member At: Cell<'T option> -> Stream<'T>
 
 /// <summary>
 ///     The clock and the waiting behind a <c>TimerSystem</c>.
@@ -91,7 +91,7 @@ type ITimerSystemImplementation<'T> =
     ///     An implementation which waits should do so on a thread it owns rather than on the thread
     ///     pool, since alarms stop being delivered entirely if that wait cannot be scheduled.
     /// </remarks>
-    abstract member Start : (exn -> unit) -> unit
+    abstract member Start: (exn -> unit) -> unit
     /// <summary>
     ///     Schedules a callback to run once the clock reaches the given time.
     /// </summary>
@@ -99,7 +99,7 @@ type ITimerSystemImplementation<'T> =
     /// <remarks>
     ///     A time already in the past fires at the next opportunity rather than being dropped.
     /// </remarks>
-    abstract member SetTimer : 'T -> (unit -> unit) -> ITimer
+    abstract member SetTimer: 'T -> (unit -> unit) -> ITimer
     /// <summary>
     ///     Fires every timer scheduled at or before the given time, on the calling thread.
     /// </summary>
@@ -107,10 +107,10 @@ type ITimerSystemImplementation<'T> =
     ///     Called from the transaction start hook, which is what lets alarms be delivered by a
     ///     transaction that happens to start rather than only by the implementation itself.
     /// </remarks>
-    abstract member RunTimersTo : 'T -> unit
-    abstract member Now : 'T
+    abstract member RunTimersTo: 'T -> unit
+    abstract member Now: 'T
 
-type private Event<'T> = { Time : 'T; Alarm : StreamSink<'T> }
+type private Event<'T> = { Time: 'T; Alarm: StreamSink<'T> }
 
 /// <summary>
 ///     A timer system built on an <c>ITimerSystemImplementation</c>, which supplies the clock and
@@ -127,53 +127,71 @@ type private Event<'T> = { Time : 'T; Alarm : StreamSink<'T> }
 ///     Use <c>SystemClockTimerSystem</c> or <c>SecondsTimerSystem</c> unless a clock of your own
 ///     is needed.
 /// </remarks>
-type TimerSystem<'T when 'T : comparison> (implementation : 'T ITimerSystemImplementation, handleException : exn -> unit) =
+type TimerSystem<'T when 'T: comparison>(implementation: 'T ITimerSystemImplementation, handleException: exn -> unit) =
     let eventQueue = Queue<Event<'T>>()
-    let time = (fun () ->
-        implementation.Start handleException
-        let timeSink = BehaviorSink.create implementation.Now
-        Transaction.onStart (fun () ->
-            let t = implementation.Now
-            implementation.RunTimersTo t
-            let events = List<Event<'T>>()
-            let rec processEvents () =
-                lock eventQueue (fun () ->
-                    if eventQueue.Count > 0 then
-                        let event = eventQueue.Peek()
-                        if event.Time <= t then
-                            events.Add(eventQueue.Dequeue())
-                            let timeToCheck = event.Time
-                            let rec findMoreEvents() =
-                                if eventQueue.Count > 0 then
-                                    let event = eventQueue.Peek()
-                                    if event.Time = timeToCheck then
-                                        events.Add(eventQueue.Dequeue())
-                                        findMoreEvents()
-                            findMoreEvents())
-                if events.Count > 0 then
-                    timeSink |> BehaviorSink.send events.[0].Time
-                    Transaction.run(fun () ->
-                        events |> Seq.iter (fun event ->
-                            event.Alarm |> StreamSink.send event.Time))
-                    events.Clear()
-                    processEvents()
-            processEvents ()
-            timeSink |> BehaviorSink.send t)
-        timeSink :> 'T Behavior) ()
+
+    let time =
+        (fun () ->
+            implementation.Start handleException
+            let timeSink = BehaviorSink.create implementation.Now
+
+            Transaction.onStart (fun () ->
+                let t = implementation.Now
+                implementation.RunTimersTo t
+                let events = List<Event<'T>>()
+
+                let rec processEvents () =
+                    lock eventQueue (fun () ->
+                        if eventQueue.Count > 0 then
+                            let event = eventQueue.Peek()
+
+                            if event.Time <= t then
+                                events.Add(eventQueue.Dequeue())
+                                let timeToCheck = event.Time
+
+                                let rec findMoreEvents () =
+                                    if eventQueue.Count > 0 then
+                                        let event = eventQueue.Peek()
+
+                                        if event.Time = timeToCheck then
+                                            events.Add(eventQueue.Dequeue())
+                                            findMoreEvents ()
+
+                                findMoreEvents ())
+
+                    if events.Count > 0 then
+                        timeSink |> BehaviorSink.send events[0].Time
+
+                        Transaction.run (fun () ->
+                            events |> Seq.iter (fun event -> event.Alarm |> StreamSink.send event.Time))
+
+                        events.Clear()
+                        processEvents ()
+
+                processEvents ()
+                timeSink |> BehaviorSink.send t)
+
+            timeSink :> 'T Behavior) ()
 
     interface 'T ITimerSystem with
-        member __.Time = time
-        member __.At t =
+        member _.Time = time
+
+        member _.At t =
             let alarm = StreamSink.create ()
-            let mutable currentTimer : ITimer option = None
-            let listener = t |> Cell.listenStrong (fun o ->
-                currentTimer |> Option.iter (fun timer -> timer.Cancel ())
-                currentTimer <-
-                    o |>
-                        Option.map (fun time ->
+            let mutable currentTimer: ITimer option = None
+
+            let listener =
+                t
+                |> Cell.listenStrong (fun o ->
+                    currentTimer |> Option.iter (fun timer -> timer.Cancel())
+
+                    currentTimer <-
+                        o
+                        |> Option.map (fun time ->
                             implementation.SetTimer time (fun () ->
                                 lock eventQueue (fun () -> eventQueue.Enqueue { Time = time; Alarm = alarm })
                                 Transaction.run id)))
+
             alarm |> Stream.attachListener listener
 
 type private WaitOrFire =
@@ -196,37 +214,42 @@ type private WaitOrFire =
 ///     alarms altogether. The thread does not keep the process alive.
 /// </remarks>
 [<AbstractClass>]
-type TimerSystemImplementationBase<'T when 'T : comparison>() as this =
+type TimerSystemImplementationBase<'T when 'T: comparison>() as this =
     let lockObject = obj ()
-    let timers = SortedSet<SimpleTimer<'T>> ()
+    let timers = SortedSet<SimpleTimer<'T>>()
 
     // Signaled whenever the timer set changes, to wake the timer thread so it can recompute how
     // long to wait. An AutoResetEvent rather than a CancellationTokenSource: a signal raised while
     // the thread is between computing its wait and entering it is latched, so the next wait returns
     // immediately instead of sleeping through the change. The previous design allocated a fresh
     // CancellationTokenSource on every iteration and never disposed one.
-    let timersChanged = new AutoResetEvent (false)
+    let timersChanged = new AutoResetEvent(false)
 
     let mutable nextSeq = 0
 
     let rec timeUntilNext now =
-        let waitOrFire = lock lockObject (fun () ->
-            if timers.Count < 1 then Wait (TimeSpan.FromSeconds (1000.0))
-            else
-                let timer = timers.First ()
-                let waitTime = this.SubtractTimes timer.Time now
-                if waitTime <= TimeSpan.Zero then
-                    timers.Remove(timer) |> ignore
-                    Fire timer.Callback
-                else Wait waitTime)
-        match waitOrFire with
-            | Wait waitTime -> waitTime
-            | Fire callback ->
-                callback()
-                timeUntilNext now
+        let waitOrFire =
+            lock lockObject (fun () ->
+                if timers.Count < 1 then
+                    Wait(TimeSpan.FromSeconds(1000.0))
+                else
+                    let timer = timers.First()
+                    let waitTime = this.SubtractTimes timer.Time now
 
-    member internal __.LockObject = lockObject
-    member internal __.Timers = timers
+                    if waitTime <= TimeSpan.Zero then
+                        timers.Remove(timer) |> ignore
+                        Fire timer.Callback
+                    else
+                        Wait waitTime)
+
+        match waitOrFire with
+        | Wait waitTime -> waitTime
+        | Fire callback ->
+            callback ()
+            timeUntilNext now
+
+    member internal _.LockObject = lockObject
+    member internal _.Timers = timers
     member val internal NextSeq = nextSeq with get, set
 
     /// <summary>
@@ -240,7 +263,7 @@ type TimerSystemImplementationBase<'T when 'T : comparison>() as this =
     ///     Used to work out how long to wait for the next timer, so it must return a real duration
     ///     rather than a comparison result.
     /// </remarks>
-    abstract member SubtractTimes : 'T -> 'T -> TimeSpan
+    abstract member SubtractTimes: 'T -> 'T -> TimeSpan
 
     /// <summary>
     ///     The current time according to this implementation's clock.
@@ -249,7 +272,7 @@ type TimerSystemImplementationBase<'T when 'T : comparison>() as this =
     ///     Read on every pass of the waiting loop, so it should be cheap, and it must move forward
     ///     monotonically enough that scheduled times are eventually reached.
     /// </remarks>
-    abstract member Now : 'T
+    abstract member Now: 'T
 
     interface 'T ITimerSystemImplementation with
         // A dedicated thread rather than the thread pool.
@@ -267,32 +290,34 @@ type TimerSystemImplementationBase<'T when 'T : comparison>() as this =
         // seconds for alarms a hundred milliseconds out, against zero of eight unstarved.
         member this.Start handleException =
             let timerThread =
-                Thread (
-                    ThreadStart (fun () ->
+                Thread(
+                    ThreadStart(fun () ->
                         while true do
                             try
                                 let waitTime = timeUntilNext this.Now
+
                                 if waitTime > TimeSpan.Zero then
                                     timersChanged.WaitOne waitTime |> ignore
-                            with
-                                | e -> handleException e),
+                            with e ->
+                                handleException e),
                     Name = "SodaFlow Timer Thread",
-                    IsBackground = true)
+                    IsBackground = true
+                )
 
-            timerThread.Start ()
+            timerThread.Start()
 
         member this.SetTimer time callback =
-            let timer = new SimpleTimer<_> (this, time, callback)
+            let timer = new SimpleTimer<_>(this, time, callback)
             lock lockObject (fun () -> timers.Add(timer) |> ignore)
 
             // Signaled outside the lock. Canceling the old token source was done while holding
             // it, and cancellation runs its callbacks synchronously, so the waiting loop could
             // resume inline on this thread and re-enter timeUntilNext while the caller still held
             // the lock.
-            timersChanged.Set () |> ignore
+            timersChanged.Set() |> ignore
             upcast timer
 
-        member __.RunTimersTo now = timeUntilNext now |> ignore
+        member _.RunTimersTo now = timeUntilNext now |> ignore
 
         member this.Now = this.Now
 
@@ -308,30 +333,36 @@ type TimerSystemImplementationBase<'T when 'T : comparison>() as this =
 ///     directly. Ordered by time, and by creation order where two share a time, so that timers set
 ///     for the same instant fire in the order they were set.
 /// </remarks>
-and SimpleTimer<'T when 'T : comparison> (implementation : 'T TimerSystemImplementationBase, time : 'T, callback : unit -> unit) as this =
-    let seq = lock implementation.LockObject (fun () ->
-        let seq = implementation.NextSeq
-        implementation.NextSeq <- implementation.NextSeq + 1
-        seq)
+and SimpleTimer<'T when 'T: comparison>
+    (implementation: 'T TimerSystemImplementationBase, time: 'T, callback: unit -> unit) as this =
+    let seq =
+        lock implementation.LockObject (fun () ->
+            let seq = implementation.NextSeq
+            implementation.NextSeq <- implementation.NextSeq + 1
+            seq)
 
-    let compareEntries (x : 'T SimpleTimer) (y : 'T SimpleTimer) =
+    let compareEntries (x: 'T SimpleTimer) (y: 'T SimpleTimer) =
         let timeComparison = compare x.Time y.Time
-        if timeComparison <> 0 then timeComparison
-        else compare x.Seq y.Seq
+
+        if timeComparison <> 0 then
+            timeComparison
+        else
+            compare x.Seq y.Seq
 
     // Deliberately does not signal the timer thread. Waking it early to recompute a deadline that
     // has only got later gains nothing, and with an AutoResetEvent it costs: the signal here
     // releases the waiter, and the Set in whichever SetTimer replaces this timer latches for the
     // next wait, so one replacement drives two recompute cycles where a stale wait replaced once
     // would have done.
-    let cancel () = lock implementation.LockObject (fun () -> implementation.Timers.Remove(this) |> ignore)
+    let cancel () =
+        lock implementation.LockObject (fun () -> implementation.Timers.Remove(this) |> ignore)
 
-    member internal __.Seq = seq
-    member internal __.Time = time
-    member internal __.Callback = callback
+    member internal _.Seq = seq
+    member internal _.Time = time
+    member internal _.Callback = callback
 
     interface ITimer with
-        member this.Cancel () = cancel ()
+        member this.Cancel() = cancel ()
 
     /// <summary>
     ///     Determines whether another object is the same scheduled timer.
@@ -361,12 +392,12 @@ and SimpleTimer<'T when 'T : comparison> (implementation : 'T TimerSystemImpleme
             | _ -> invalidArg "other" "Cannot compare values of different types."
 
     interface IDisposable with
-        member this.Dispose () = cancel ()
+        member this.Dispose() = cancel ()
 
 type private SystemClockTimerSystemImplementation() =
     inherit TimerSystemImplementationBase<DateTime>()
-    override __.SubtractTimes first second = first - second
-    override __.Now = DateTime.Now
+    override _.SubtractTimes first second = first - second
+    override _.Now = DateTime.Now
 
 /// <summary>
 ///     A timer system measuring time with the system clock.
@@ -377,14 +408,14 @@ type private SystemClockTimerSystemImplementation() =
 ///     directly. Note that the clock can move backwards - a manual change, or a daylight saving
 ///     adjustment - and an alarm set past such a jump waits until the clock reaches it again.
 /// </remarks>
-type SystemClockTimerSystem(handleException : exn -> unit) =
+type SystemClockTimerSystem(handleException: exn -> unit) =
     inherit TimerSystem<DateTime>(SystemClockTimerSystemImplementation(), handleException)
 
 type private SecondsTimerSystemImplementation() =
     inherit TimerSystemImplementationBase<float>()
     let startTime = DateTime.Now
-    override __.SubtractTimes first second = TimeSpan.FromSeconds(first - second)
-    override __.Now = (DateTime.Now - startTime).TotalSeconds
+    override _.SubtractTimes first second = TimeSpan.FromSeconds(first - second)
+    override _.Now = (DateTime.Now - startTime).TotalSeconds
 
 /// <summary>
 ///     A timer system measuring time as the number of seconds elapsed since it was created.
@@ -394,5 +425,5 @@ type private SecondsTimerSystemImplementation() =
 ///     Times are <c>float</c> seconds. Convenient where alarms are naturally expressed as delays
 ///     rather than as points in time.
 /// </remarks>
-type SecondsTimerSystem(handleException : exn -> unit) =
+type SecondsTimerSystem(handleException: exn -> unit) =
     inherit TimerSystem<float>(SecondsTimerSystemImplementation(), handleException)

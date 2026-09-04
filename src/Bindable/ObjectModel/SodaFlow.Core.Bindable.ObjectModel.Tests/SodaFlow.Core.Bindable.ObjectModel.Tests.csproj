@@ -6,11 +6,13 @@
             concrete assembly to run, and net472 is what matches the rest of this solution.
         -->
         <TargetFramework>net472</TargetFramework>
+        <LangVersion>latest</LangVersion>
+        <Nullable>enable</Nullable>
     </PropertyGroup>
 
     <PropertyGroup>
         <AssemblyName>SodaFlow.Core.Bindable.ObjectModel.Tests</AssemblyName>
-        <RootNamespace>SodaFlow.Core.Bindable.ObjectModel.Tests</RootNamespace>
+        <RootNamespace>SodaFlow.Bindable.ObjectModel.Tests</RootNamespace>
         <EnableDefaultItems>false</EnableDefaultItems>
         <Nullable>enable</Nullable>
         <LangVersion>10</LangVersion>
@@ -19,23 +21,23 @@
     </PropertyGroup>
 
     <ItemGroup>
-        <PackageReference Include="JetBrains.Annotations" Version="2026.2.0" />
-        <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.11.1" />
-        <PackageReference Include="NUnit" Version="3.11.0" />
-        <PackageReference Include="NUnit3TestAdapter" Version="3.10.0" />
-        <PackageReference Include="System.ValueTuple" Version="4.4.0" />
+        <PackageReference Include="JetBrains.Annotations" Version="2026.2.0" PrivateAssets="all"/>
+        <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.11.1"/>
+        <PackageReference Include="NUnit" Version="3.11.0"/>
+        <PackageReference Include="NUnit3TestAdapter" Version="3.10.0"/>
+        <PackageReference Include="System.ValueTuple" Version="4.4.0"/>
     </ItemGroup>
 
     <ItemGroup>
-      <Compile Include="BindableActionTests.cs" />
-      <Compile Include="BindableValueTests.cs" />
-      <Compile Include="BindingSchedulerTests.cs" />
+        <Compile Include="BindableActionTests.cs"/>
+        <Compile Include="BindableValueTests.cs"/>
+        <Compile Include="BindingSchedulerTests.cs"/>
     </ItemGroup>
 
     <ItemGroup>
-      <ProjectReference Include="..\..\..\SodaFlow.Core\SodaFlow.Core.csproj" />
-      <ProjectReference Include="..\..\..\CSharp\SodaFlow\SodaFlow.csproj" />
-      <ProjectReference Include="..\SodaFlow.Core.Bindable.ObjectModel\SodaFlow.Core.Bindable.ObjectModel.csproj" />
+        <ProjectReference Include="..\..\..\SodaFlow.Core\SodaFlow.Core.csproj"/>
+        <ProjectReference Include="..\..\..\CSharp\SodaFlow\SodaFlow.csproj"/>
+        <ProjectReference Include="..\SodaFlow.Core.Bindable.ObjectModel\SodaFlow.Core.Bindable.ObjectModel.csproj"/>
     </ItemGroup>
 
 </Project>

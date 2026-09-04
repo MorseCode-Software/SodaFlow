@@ -1,3 +1,20 @@
+4.0.0
+
+BREAKING: requires SodaFlow.Functional 3.x, where it required 2.x. Unit is a
+struct there now, and this package's surface is full of Stream<Unit> and its
+relatives, so the two move together. Nothing in this package's own API
+changed shape.
+
+BREAKING: the JetBrains annotation attributes which were compiled into the
+SodaFlow namespace - SodaFlow.PureAttribute, SodaFlow.NotNullAttribute and
+fifty more - are gone. They were a vendored copy, public by accident rather
+than by intent, and are replaced by a reference to the JetBrains.Annotations
+package which is not redistributed with this one. Nothing here was meant to
+be consumed through them.
+
+The build is warning-free, which it was not: the unreachable-code warnings
+in the priority queue are gone.
+
 3.0.0
 
 New: ForwardReference constructs a value which can refer to itself while it is
