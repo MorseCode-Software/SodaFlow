@@ -353,12 +353,11 @@ Task("Inspect-Code")
         {
             AppVeyor.AddMessage(
                 Describe(issue),
-                // Categorised by what it does to the build rather than by what inspectcode called
-                // it. Every issue here fails the build, and a failure filed as Information is one
-                // nobody scrolls to.
-                issue.Priority >= (int)IssuePriority.Error
-                    ? AppVeyorMessageCategoryType.Error
-                    : AppVeyorMessageCategoryType.Warning,
+                // Error for all of them, whatever JetBrains graded them. The category says what
+                // the issue did to this build, and what every one of them did to this build was
+                // fail it; a suggestion filed as a warning reads as something to get to later,
+                // which is the opposite of what a zero threshold means.
+                AppVeyorMessageCategoryType.Error,
                 // The severity as reported survives here, along with the rule's documentation,
                 // which is the part that says what to actually do about it.
                 $"{issue.PriorityName}. {issue.RuleUrl}".Trim());
