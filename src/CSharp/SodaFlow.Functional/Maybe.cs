@@ -132,7 +132,7 @@ public static class Maybe
     ///     the ones it does not know about: your own, or another library.
     /// </remarks>
     [Pure]
-    public static Maybe<TResult> FromTryGet<TResult>([InstantHandle] TryGetDelegate<TResult> tryGet) =>
+    public static Maybe<TResult> FromTryGet<TResult>([InstantHandle] TryGet<TResult> tryGet) =>
         tryGet(out TResult result) ? Some(result) : None;
 
     /// <summary>

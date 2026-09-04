@@ -21,7 +21,7 @@ namespace SodaFlow.Functional;
 ///     <see cref="Maybe{T}" />, including ones this library knows nothing about.
 /// </remarks>
 [PublicAPI]
-public delegate bool TryGetDelegate<TResult>(out TResult result);
+public delegate bool TryGet<TResult>(out TResult result);
 
 /// <summary>
 ///     A method which produces a value from one input if it can, reporting whether it did
