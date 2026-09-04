@@ -371,37 +371,21 @@ public class EitherTests
         Assert.IsTrue(e1 != e2);
     }
 
-    private sealed class Test1
-    {
-    }
+    private sealed class Test1;
 
-    private sealed class Test2
-    {
-    }
+    private sealed class Test2;
 
-    private sealed class Test3
-    {
-    }
+    private sealed class Test3;
 
-    private sealed class Test4
-    {
-    }
+    private sealed class Test4;
 
-    private sealed class Test5
-    {
-    }
+    private sealed class Test5;
 
-    private sealed class Test6
-    {
-    }
+    private sealed class Test6;
 
-    private sealed class Test7
-    {
-    }
+    private sealed class Test7;
 
-    private sealed class Test8
-    {
-    }
+    private sealed class Test8;
 
     [Test]
     public void SwapTest()

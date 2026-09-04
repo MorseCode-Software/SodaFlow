@@ -67,6 +67,9 @@ internal sealed class TransactionInternal
     // deferredOwner rather than holding their own.
     private TransactionInternal DeferredOwner => field ?? this;
 
+    // Called from F#: SodaFlow.FSharp's Transaction.isActive is the only caller. inspectcode
+    // reads the C# projects, so an internal member reached only from F# reads as dead to it.
+    // ReSharper disable once UnusedMember.Global
     internal static bool IsActiveImpl() => HasCurrentTransaction();
 
     /// <summary>

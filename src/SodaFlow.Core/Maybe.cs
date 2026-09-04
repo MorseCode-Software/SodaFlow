@@ -32,31 +32,11 @@ internal readonly struct MaybeInternal<T>
     internal TResult Match<TResult>(Func<T, TResult> onSome, Func<TResult> onNone) =>
         this.hasValue ? onSome(this.value) : onNone();
 
-    internal void MatchVoid(Action<T> onSome, Action onNone)
-    {
-        if (this.hasValue)
-        {
-            onSome(this.value);
-        }
-        else
-        {
-            onNone();
-        }
-    }
-
     internal void MatchSome(Action<T> onSome)
     {
         if (this.hasValue)
         {
             onSome(this.value);
-        }
-    }
-
-    internal void MatchNone(Action onNone)
-    {
-        if (!this.hasValue)
-        {
-            onNone();
         }
     }
 

@@ -374,15 +374,9 @@ public static class MaybeExtensionMethods
         [InstantHandle] Func<T1, T2, T3, T4, TResult> f) =>
         a.Bind(v1 => b.Bind(v2 => c.Bind(v3 => d.Map(v4 => f(arg1: v1, arg2: v2, arg3: v3, arg4: v4)))));
 
-    private struct ValueAndHasValue<T>
+    private struct ValueAndHasValue<T>(T? value, bool hasValue)
     {
-        public ValueAndHasValue(T? value, bool hasValue)
-        {
-            this.Value = value;
-            this.HasValue = hasValue;
-        }
-
-        public T? Value { get; }
-        public bool HasValue { get; }
+        public T? Value { get; } = value;
+        public bool HasValue { get; } = hasValue;
     }
 }

@@ -10,7 +10,7 @@ namespace SodaFlow.Tests.Performance;
 internal static class Program
 {
     // ReSharper disable once UnusedMember.Global
-    public static void Main3(string[] args)
+    public static void Main3()
     {
         CellSink<bool> c = Cell.CreateSink(false);
 
@@ -36,7 +36,7 @@ internal static class Program
     }
 
     // ReSharper disable once UnusedMember.Global
-    public static void Main2(string[] args)
+    public static void Main2()
     {
         Console.WriteLine("Press any key");
         Console.ReadKey();
@@ -78,7 +78,7 @@ internal static class Program
         Console.ReadKey();
     }
 
-    public static void Main(string[] args)
+    public static void Main()
     {
         Console.WriteLine("Press any key");
         Console.ReadKey();

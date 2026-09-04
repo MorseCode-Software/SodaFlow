@@ -207,9 +207,7 @@ public static class Maybe
     ///     The type of <see cref="Maybe.None" />: a value carrying no information, whose only
     ///     purpose is to convert to a <see cref="Maybe{T}" /> containing nothing.
     /// </summary>
-    public struct NoneType
-    {
-    }
+    public struct NoneType;
 }
 
 /// <summary>
