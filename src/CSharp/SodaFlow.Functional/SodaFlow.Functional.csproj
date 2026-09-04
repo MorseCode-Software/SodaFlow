@@ -44,7 +44,7 @@
         <Compile Include="MaybeMonad.cs"/>
         <Compile Include="ReadOnlyDictionaryExtensionMethods.cs"/>
         <Compile Include="StringExtensionMethods.cs"/>
-        <Compile Include="TryGet.cs" />
+        <Compile Include="TryGet.cs"/>
         <Compile Include="Unit.cs"/>
         <Compile Include="UnitExtensionMethods.cs"/>
     </ItemGroup>
