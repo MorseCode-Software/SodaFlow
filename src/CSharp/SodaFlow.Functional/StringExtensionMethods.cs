@@ -550,7 +550,7 @@ public static class StringExtensionMethods
     /// </remarks>
     [Pure]
     public static Maybe<DateTime> TryParseDateTime(
-        this string value,
+        this string? value,
         IFormatProvider provider,
         DateTimeStyles styles) =>
         DateTime.TryParse(s: value, provider: provider, styles: styles, result: out DateTime result)
@@ -574,7 +574,7 @@ public static class StringExtensionMethods
     /// </remarks>
     [Pure]
     public static Maybe<DateTime> TryParseDateTimeExact(
-        this string value,
+        this string? value,
         string format,
         IFormatProvider provider,
         DateTimeStyles styles) =>
@@ -614,7 +614,7 @@ public static class StringExtensionMethods
     /// </remarks>
     [Pure]
     public static Maybe<DateTimeOffset> TryParseDateTimeOffset(
-        this string value,
+        this string? value,
         IFormatProvider provider,
         DateTimeStyles styles) =>
         DateTimeOffset.TryParse(

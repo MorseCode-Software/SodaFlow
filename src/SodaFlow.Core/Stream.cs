@@ -64,7 +64,7 @@ public class Stream<T>
     //
     // Do not copy this pattern to a field holding something with state without adding volatile,
     // which means declaring the field explicitly again: the backing field the field keyword
-    // synthesises cannot be marked volatile.
+    // synthesizes cannot be marked volatile.
     private object AttachListenerLock
     {
         get

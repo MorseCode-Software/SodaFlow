@@ -32,11 +32,33 @@ internal readonly struct MaybeInternal<T>
     internal TResult Match<TResult>(Func<T, TResult> onSome, Func<TResult> onNone) =>
         this.hasValue ? onSome(this.value) : onNone();
 
+    // ReSharper disable once UnusedMember.Global - Left for parity with C# Maybe<T> implementation.
+    internal void MatchVoid(Action<T> onSome, Action onNone)
+    {
+        if (this.hasValue)
+        {
+            onSome(this.value);
+        }
+        else
+        {
+            onNone();
+        }
+    }
+
     internal void MatchSome(Action<T> onSome)
     {
         if (this.hasValue)
         {
             onSome(this.value);
+        }
+    }
+
+    // ReSharper disable once UnusedMember.Global - Left for parity with C# Maybe<T> implementation.
+    internal void MatchNone(Action onNone)
+    {
+        if (!this.hasValue)
+        {
+            onNone();
         }
     }
 
