@@ -43,7 +43,7 @@ public interface IReadableBindableValue<T> : IBindable
 ///     <para>
 ///         <see cref="Value" /> exists for the binding engine to read and write, and for nothing
 ///         else. Reaching for it from application code is a procedural way around the graph: the
-///         value it reports is one the graph already holds, and a value pushed into it is one a
+///         value it reports is a value the graph already holds, and a value pushed into it is a value a
 ///         sink can be sent directly. Compose cells and streams instead.
 ///     </para>
 ///     <para>

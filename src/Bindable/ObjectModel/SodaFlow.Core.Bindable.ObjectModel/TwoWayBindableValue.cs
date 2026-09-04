@@ -57,7 +57,7 @@ public static partial class BindableCoreExtensionMethods
         /// <summary>
         ///     How many refreshes have been queued and not yet run. Non-zero means the cached value
         ///     is not known to agree with the cell, which is what the setter's equality check needs
-        ///     to know before it can treat a write as redundant.
+        ///     to know before it can treat a write operation as redundant.
         /// </summary>
         private int pendingRefreshes;
 

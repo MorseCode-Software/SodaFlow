@@ -71,13 +71,15 @@ public class BindableValueConcurrencyTests
         using IOneWayBindableValue<int> b = c.ToOneWayImpl(scheduler: BindingScheduler.Immediate);
 
         List<int> observed = new();
-        b.PropertyChanged += (sender, _) =>
-        {
-            if (sender is IOneWayBindableValue<int> notified)
+
+        b.PropertyChanged +=
+            (sender, _) =>
             {
-                observed.Add(notified.Value);
-            }
-        };
+                if (sender is IOneWayBindableValue<int> notified)
+                {
+                    observed.Add(notified.Value);
+                }
+            };
 
         c.Send(1);
 
@@ -104,15 +106,12 @@ public class BindableValueConcurrencyTests
         TaskCompletionSource<bool> release = new();
 
         Thread holder =
-            new(() => Transaction.RunVoid(() =>
-            {
-                holding.TrySetResult(true);
-                release.Task.Wait();
-            }))
-            {
-                IsBackground = true,
-                Name = "transaction holder",
-            };
+            new(() =>
+                Transaction.RunVoid(() =>
+                {
+                    holding.TrySetResult(true);
+                    release.Task.Wait();
+                })) { IsBackground = true, Name = "transaction holder" };
 
         Thread setter =
             new(static state =>
@@ -121,11 +120,7 @@ public class BindableValueConcurrencyTests
                 {
                     target.Value = 5;
                 }
-            })
-            {
-                IsBackground = true,
-                Name = "setter",
-            };
+            }) { IsBackground = true, Name = "setter" };
 
         try
         {
@@ -135,14 +130,14 @@ public class BindableValueConcurrencyTests
             setter.Start(b);
 
             Assert.IsFalse(
-                setter.Join(200),
-                "the setter cannot complete while another thread holds the transaction open");
+                condition: setter.Join(200),
+                message: "the setter cannot complete while another thread holds the transaction open");
 
             release.TrySetResult(true);
 
             Assert.IsTrue(
-                setter.Join(TimeSpan.FromSeconds(30)),
-                "and completes once that transaction closes");
+                condition: setter.Join(TimeSpan.FromSeconds(30)),
+                message: "and completes once that transaction closes");
 
             Assert.AreEqual(expected: 5, actual: c.Sample(), message: "the write reached the graph");
         }
@@ -169,13 +164,15 @@ public class BindableValueConcurrencyTests
         using ITwoWayBindableValue<int> b = c.ToTwoWayImpl(scheduler: scheduler);
 
         List<int> observed = new();
-        b.PropertyChanged += (sender, _) =>
-        {
-            if (sender is ITwoWayBindableValue<int> notified)
+
+        b.PropertyChanged +=
+            (sender, _) =>
             {
-                observed.Add(notified.Value);
-            }
-        };
+                if (sender is ITwoWayBindableValue<int> notified)
+                {
+                    observed.Add(notified.Value);
+                }
+            };
 
         b.Value = 1;
         b.Value = 2;
@@ -183,9 +180,9 @@ public class BindableValueConcurrencyTests
         scheduler.RunAll();
 
         CollectionAssert.DoesNotContain(
-            observed,
-            1,
-            "the view is never told to go back to a value the caller has already replaced");
+            collection: observed,
+            actual: 1,
+            message: "the view is never told to go back to a value the caller has already replaced");
 
         Assert.AreEqual(expected: 2, actual: b.Value);
         Assert.AreEqual(expected: 2, actual: c.Sample());
@@ -208,7 +205,10 @@ public class BindableValueConcurrencyTests
         // still reads 0 - true a moment ago, not true now.
         c.Send(1);
 
-        Assume.That(b.Value, Is.EqualTo(0), "precondition: the refresh has not been delivered yet");
+        Assume.That(
+            actual: b.Value,
+            expression: Is.EqualTo(0),
+            message: "precondition: the refresh has not been delivered yet");
 
         // Something asks for the value the property still reports. The graph does not hold it.
         b.Value = 0;
@@ -218,11 +218,11 @@ public class BindableValueConcurrencyTests
         Assert.AreEqual(
             expected: 0,
             actual: c.Sample(),
-            "a write is not dropped for matching a cached value the graph had already left behind");
+            message: "a write is not dropped for matching a cached value the graph had already left behind");
     }
 
     // The constructor samples the cell and attaches its listener inside one transaction, and the
-    // sample is stored before the attach. Constructing from inside a transaction which then goes
+    // sample is stored before attaching. Constructing from inside a transaction which then goes
     // on to update that same cell is the case where the listener can fire before the constructor
     // has returned - so it is the one worth pinning down. The update must win, because it is
     // newer than the sample; losing it would mean an update had slipped through the gap between
@@ -233,14 +233,15 @@ public class BindableValueConcurrencyTests
     {
         CellSink<int> c = Cell.CreateSink(0);
 
-        using IOneWayBindableValue<int> b = Transaction.Run(() =>
-        {
-            IOneWayBindableValue<int> created = c.ToOneWayImpl(scheduler: BindingScheduler.Immediate);
+        using IOneWayBindableValue<int> b =
+            Transaction.Run(() =>
+            {
+                IOneWayBindableValue<int> created = c.ToOneWayImpl(scheduler: BindingScheduler.Immediate);
 
-            c.Send(5);
+                c.Send(5);
 
-            return created;
-        });
+                return created;
+            });
 
         Assert.AreEqual(
             expected: 5,
@@ -253,14 +254,15 @@ public class BindableValueConcurrencyTests
     {
         CellSink<int> c = Cell.CreateSink(0);
 
-        using ITwoWayBindableValue<int> b = Transaction.Run(() =>
-        {
-            ITwoWayBindableValue<int> created = c.ToTwoWayImpl(scheduler: BindingScheduler.Immediate);
+        using ITwoWayBindableValue<int> b =
+            Transaction.Run(() =>
+            {
+                ITwoWayBindableValue<int> created = c.ToTwoWayImpl(scheduler: BindingScheduler.Immediate);
 
-            c.Send(5);
+                c.Send(5);
 
-            return created;
-        });
+                return created;
+            });
 
         Assert.AreEqual(expected: 5, actual: b.Value);
     }
@@ -283,11 +285,7 @@ public class BindableValueConcurrencyTests
                 {
                     caught = e;
                 }
-            })
-            {
-                IsBackground = true,
-                Name = "off the binding thread",
-            };
+            }) { IsBackground = true, Name = "off the binding thread" };
 
         thread.Start(state);
         thread.Join();
@@ -311,19 +309,20 @@ public class BindableValueConcurrencyTests
             actual: b.Value,
             message: "the constructing thread is the binding thread for this scheduler");
 
-        Exception? caught = CaughtOffTheBindingThread(
-            b,
-            static state =>
-            {
-                if (state is IOneWayBindableValue<int> target)
+        Exception? caught =
+            CaughtOffTheBindingThread(
+                state: b,
+                body: static state =>
                 {
-                    _ = target.Value;
-                }
-            });
+                    if (state is IOneWayBindableValue<int> target)
+                    {
+                        _ = target.Value;
+                    }
+                });
 
         Assert.IsInstanceOf<InvalidOperationException>(
-            caught,
-            "reading from another thread is caught rather than left to return a stale value");
+            actual: caught,
+            message: "reading from another thread is caught rather than left to return a stale value");
     }
 
     [Test]
@@ -333,15 +332,16 @@ public class BindableValueConcurrencyTests
 
         using ITwoWayBindableValue<int> b = c.ToTwoWayImpl(scheduler: AffineScheduler());
 
-        Exception? caught = CaughtOffTheBindingThread(
-            b,
-            static state =>
-            {
-                if (state is ITwoWayBindableValue<int> target)
+        Exception? caught =
+            CaughtOffTheBindingThread(
+                state: b,
+                body: static state =>
                 {
-                    target.Value = 5;
-                }
-            });
+                    if (state is ITwoWayBindableValue<int> target)
+                    {
+                        target.Value = 5;
+                    }
+                });
 
         Assert.IsInstanceOf<InvalidOperationException>(caught);
         Assert.AreEqual(expected: 0, actual: c.Sample(), message: "and the write never reached the graph");
@@ -356,15 +356,16 @@ public class BindableValueConcurrencyTests
         using IOneWayToSourceBindableValue<int> b =
             c.ToOneWayToSourceImpl(scheduler: AffineScheduler());
 
-        Exception? caught = CaughtOffTheBindingThread(
-            b,
-            static state =>
-            {
-                if (state is IOneWayToSourceBindableValue<int> target)
+        Exception? caught =
+            CaughtOffTheBindingThread(
+                state: b,
+                body: static state =>
                 {
-                    target.Value = 5;
-                }
-            });
+                    if (state is IOneWayToSourceBindableValue<int> target)
+                    {
+                        target.Value = 5;
+                    }
+                });
 
         Assert.IsInstanceOf<InvalidOperationException>(caught);
         Assert.AreEqual(expected: 0, actual: c.Sample());
@@ -379,17 +380,18 @@ public class BindableValueConcurrencyTests
 
         using ITwoWayBindableValue<int> b = c.ToTwoWayImpl(scheduler: BindingScheduler.Immediate);
 
-        Exception? caught = CaughtOffTheBindingThread(
-            b,
-            static state =>
-            {
-                if (state is ITwoWayBindableValue<int> target)
+        Exception? caught =
+            CaughtOffTheBindingThread(
+                state: b,
+                body: static state =>
                 {
-                    target.Value = 5;
-                }
-            });
+                    if (state is ITwoWayBindableValue<int> target)
+                    {
+                        target.Value = 5;
+                    }
+                });
 
-        Assert.IsNull(caught, "the immediate scheduler runs work wherever it is called");
+        Assert.IsNull(anObject: caught, message: "the immediate scheduler runs work wherever it is called");
         Assert.AreEqual(expected: 5, actual: c.Sample());
     }
 
@@ -405,13 +407,15 @@ public class BindableValueConcurrencyTests
         using ITwoWayBindableValue<int> b = c.ToTwoWayImpl(scheduler: scheduler);
 
         List<int> observed = new();
-        b.PropertyChanged += (sender, _) =>
-        {
-            if (sender is ITwoWayBindableValue<int> notified)
+
+        b.PropertyChanged +=
+            (sender, _) =>
             {
-                observed.Add(notified.Value);
-            }
-        };
+                if (sender is ITwoWayBindableValue<int> notified)
+                {
+                    observed.Add(notified.Value);
+                }
+            };
 
         c.Send(1);
         c.Send(2);

@@ -28,7 +28,8 @@ open System.Runtime.CompilerServices
 /// </summary>
 /// <returns><c>true</c> if there is a current transaction, and <c>false</c> otherwise.</returns>
 [<MethodImpl(MethodImplOptions.NoInlining)>]
-let isActive () = TransactionInternal.HasCurrentTransaction()
+let isActive () =
+    TransactionInternal.HasCurrentTransaction()
 
 /// <summary>
 ///     Runs a function inside a single transaction and returns its result.

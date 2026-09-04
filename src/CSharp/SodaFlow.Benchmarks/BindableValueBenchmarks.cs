@@ -21,7 +21,7 @@ namespace SodaFlow.Benchmarks;
 ///         The unguarded read is the baseline, so the ratio column reads directly as what the
 ///         check costs. The two <c>IsOnBindingThread</c> benchmarks isolate it further, and the
 ///         two <c>Value</c> benchmarks are what a binding engine pays per refresh - though not
-///         what a binding costs, since neither includes the reflection or compiled accessor the
+///         what a binding costs, since neither includes the reflection nor compiled accessor the
 ///         engine reaches the property through.
 ///     </para>
 ///     <para>
@@ -50,13 +50,14 @@ namespace SodaFlow.Benchmarks;
 // ReSharper disable once MemberCanBeFileLocal
 public class BindableValueBenchmarks
 {
-    private readonly IBindingScheduler affineScheduler =
-        new SynchronizationContextBindingScheduler(new SynchronizationContext());
+    private readonly SynchronizationContextBindingScheduler affineScheduler =
+        new(new SynchronizationContext());
 
     private readonly IBindingScheduler immediateScheduler = BindingScheduler.Immediate;
 
     private readonly IOneWayBindableValue<int> valueWithAffineScheduler =
-        Cell.CreateSink(1).ToOneWay(scheduler: new SynchronizationContextBindingScheduler(new SynchronizationContext()));
+        Cell.CreateSink(1)
+            .ToOneWay(scheduler: new SynchronizationContextBindingScheduler(new SynchronizationContext()));
 
     private readonly IOneWayBindableValue<int> valueWithImmediateScheduler =
         Cell.CreateSink(1).ToOneWay(scheduler: BindingScheduler.Immediate);

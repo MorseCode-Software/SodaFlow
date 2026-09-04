@@ -40,27 +40,6 @@ namespace SodaFlow.Benchmarks;
 // ReSharper disable once MemberCanBeFileLocal
 public class BindableRefreshBenchmarks
 {
-    /// <summary>Queues like a dispatcher, and runs only when asked.</summary>
-    // ReSharper disable once InheritdocConsiderUsage
-    private sealed class ManualScheduler : IBindingScheduler
-    {
-        private readonly Queue<Action> queue = new();
-
-        /// <inheritdoc />
-        public bool IsOnBindingThread => true;
-
-        /// <inheritdoc />
-        public void Post(Action action) => this.queue.Enqueue(action);
-
-        internal void Drain()
-        {
-            while (this.queue.Count > 0)
-            {
-                this.queue.Dequeue()();
-            }
-        }
-    }
-
     private readonly IOneWayBindableValue<int> oneWay;
 
     private readonly CellSink<int> oneWayCell = Cell.CreateSink(0);
@@ -124,11 +103,32 @@ public class BindableRefreshBenchmarks
     [Benchmark(Description = "empty transaction")]
     public int EmptyTransaction() => Transaction.Run(static () => 0);
 
-    /// <summary>Keeps the bindables from being collected, and their listeners with them.</summary>
+    /// <summary>Keeps the bindable objects from being collected, and their listeners with them.</summary>
     [GlobalCleanup]
     public void Cleanup()
     {
         this.oneWay.Dispose();
         this.twoWay.Dispose();
+    }
+
+    /// <summary>Queues like a dispatcher, and runs only when asked.</summary>
+    // ReSharper disable once InheritdocConsiderUsage
+    private sealed class ManualScheduler : IBindingScheduler
+    {
+        private readonly Queue<Action> queue = new();
+
+        /// <inheritdoc />
+        public bool IsOnBindingThread => true;
+
+        /// <inheritdoc />
+        public void Post(Action action) => this.queue.Enqueue(action);
+
+        internal void Drain()
+        {
+            while (this.queue.Count > 0)
+            {
+                this.queue.Dequeue()();
+            }
+        }
     }
 }

@@ -11,29 +11,6 @@ namespace SodaFlow.Bindable.ObjectModel;
 public interface IBindingScheduler
 {
     /// <summary>
-    ///     Queues <paramref name="action" /> for execution on the binding thread. Implementations
-    ///     MUST preserve FIFO ordering and MUST NOT execute the action synchronously while a Sodium
-    ///     transaction is in flight.
-    /// </summary>
-    /// <param name="action">The action to run.</param>
-    /// <remarks>
-    ///     <para>
-    ///         MUST NOT wait for the action to finish, either. This is called from inside a
-    ///         transaction, and a transaction holds a process-wide lock for its whole duration.
-    ///         An implementation that hands the action to the binding thread and blocks until it
-    ///         returns deadlocks: the binding thread reaches this library through setters which
-    ///         open transactions of their own, so it may already be waiting for the very lock the
-    ///         caller of this method is holding. Queue and return — do not send and wait.
-    ///     </para>
-    ///     <para>
-    ///         An implementation over a message loop gets this for nothing, since a dispatcher's
-    ///         post is asynchronous by nature. It is a hand-written scheduler, or one built on a
-    ///         send-and-wait primitive, that has to take care.
-    ///     </para>
-    /// </remarks>
-    void Post(Action action);
-
-    /// <summary>
     ///     Whether the calling thread is the one this scheduler posts to.
     /// </summary>
     /// <remarks>
@@ -50,6 +27,29 @@ public interface IBindingScheduler
     ///     </para>
     /// </remarks>
     bool IsOnBindingThread { get; }
+
+    /// <summary>
+    ///     Queues <paramref name="action" /> for execution on the binding thread. Implementations
+    ///     MUST preserve FIFO ordering and MUST NOT execute the action synchronously while a Sodium
+    ///     transaction is in flight.
+    /// </summary>
+    /// <param name="action">The action to run.</param>
+    /// <remarks>
+    ///     <para>
+    ///         MUST NOT wait for the action to finish, either. This is called from inside a
+    ///         transaction, and a transaction holds a process-wide lock for its whole duration.
+    ///         An implementation that hands the action to the binding thread and blocks until it
+    ///         returns deadlocks: the binding thread reaches this library through setters which
+    ///         open transactions of their own, so it may already be waiting for the very lock the
+    ///         caller of this method is holding. Queue and return — do not send and wait.
+    ///     </para>
+    ///     <para>
+    ///         An implementation over a message loop gets this for nothing, since a dispatcher's
+    ///         post is asynchronous by nature. It is a handwritten scheduler, or one built on a
+    ///         send-and-wait primitive, that has to take care.
+    ///     </para>
+    /// </remarks>
+    void Post(Action action);
 }
 
 /// <summary>
@@ -70,14 +70,14 @@ public sealed class SynchronizationContextBindingScheduler : IBindingScheduler
             a?.Invoke();
         };
 
-    private readonly SynchronizationContext context;
-
     // Captured alongside the context because the two identify the binding thread in different
     // ways and neither is reliable alone. Taken from the constructing thread, which Capture and
     // the ambient resolution both call from the binding thread; a caller which passes a context
     // belonging to some other thread makes this the wrong id, and the check correspondingly
     // permissive - the harmless direction.
     private readonly int bindingThreadId;
+
+    private readonly SynchronizationContext context;
 
     /// <summary>
     ///     Initializes a new instance posting through the given synchronization context.
