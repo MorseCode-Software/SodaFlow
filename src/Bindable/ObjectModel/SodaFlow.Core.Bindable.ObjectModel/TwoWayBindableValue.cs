@@ -177,10 +177,32 @@ public static partial class BindableCoreExtensionMethods
         ///     Brings the cached value back in line with the cell.
         /// </summary>
         /// <remarks>
-        ///     Every path that can leave the cache disagreeing with the cell ends here, and because
-        ///     it samples rather than carrying a value, the order these run in does not matter: any
-        ///     one of them arriving last leaves the same answer. That is what makes the queue safe
-        ///     without reasoning about how a write interleaves with the update it produces.
+        ///     <para>
+        ///         Every path that can leave the cache disagreeing with the cell ends here, and
+        ///         because it samples rather than carrying a value, the order these run in does not
+        ///         matter: any one of them arriving last leaves the same answer. That is what makes
+        ///         the queue safe without reasoning about how a write interleaves with the update
+        ///         it produces.
+        ///     </para>
+        ///     <para>
+        ///         The sample is not free, and the cost is worth knowing before anyone tries to
+        ///         remove it. Posted work runs after the sending transaction has closed, so there
+        ///         is none to join and this opens one — measured at 45ns on .NET 8 and 62ns on
+        ///         .NET Framework, which is almost exactly what an empty transaction costs there:
+        ///         the price is the transaction, not the sampling. Against a whole update
+        ///         delivered to a two-way value, 492ns and 696ns respectively, it is about a tenth.
+        ///         One-way values do not sample, and pay none of it.
+        ///     </para>
+        ///     <para>
+        ///         What it does double is how often an update takes the process-wide transaction
+        ///         lock: once to send, and now once more to sample. That is a latency exposure
+        ///         under contention rather than a throughput cost, and it is the reason to leave
+        ///         this alone unless a profile says otherwise. If one ever does, the cheaper move
+        ///         is to stop queuing a refresh when one is already pending — pendingRefreshes
+        ///         already knows — which collapses a burst of updates into a single sample rather
+        ///         than making each sample faster. See BindableRefreshBenchmarks in
+        ///         SodaFlow.Benchmarks.
+        ///     </para>
         /// </remarks>
         private void ScheduleRefreshFromCell()
         {

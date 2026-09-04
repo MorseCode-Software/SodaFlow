@@ -27,6 +27,7 @@
     </ItemGroup>
 
     <ItemGroup>
+        <Compile Include="BindableRefreshBenchmarks.cs"/>
         <Compile Include="BindableValueBenchmarks.cs"/>
         <Compile Include="Program.cs"/>
     </ItemGroup>
