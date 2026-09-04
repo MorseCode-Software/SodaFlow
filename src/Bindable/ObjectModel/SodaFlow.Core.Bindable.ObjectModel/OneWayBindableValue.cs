@@ -28,6 +28,12 @@ public static partial class BindableCoreExtensionMethods
         /// </summary>
         private readonly IListener listener;
 
+        /// <summary>
+        ///     The value the binding engine last saw. Written only by scheduled work after
+        ///     construction, which is to say only on the binding thread.
+        /// </summary>
+        private T cachedValue;
+
         internal OneWayBindableValue(
             Cell<T> cell,
             IBindingScheduler? scheduler,
@@ -40,7 +46,7 @@ public static partial class BindableCoreExtensionMethods
             // ReSharper disable once NullableWarningSuppressionIsUsed - Replaced with the sampled value
             // in the transaction below, which happens before the constructor completes and before the
             // listener is attached.
-            this.Value = default!;
+            this.cachedValue = default!;
 
             // Sample and subscribe inside one transaction so no update can slip through the gap.
             // The sample is stored here rather than after the transaction for the same reason:
@@ -57,7 +63,7 @@ public static partial class BindableCoreExtensionMethods
             this.listener =
                 TransactionInternal.RunImpl(() =>
                 {
-                    this.Value = cell.SampleImpl();
+                    this.cachedValue = cell.SampleImpl();
                     return ListenToUpdates(cell: cell, handler: this.OnSourceChanged);
                 });
         }
@@ -66,7 +72,15 @@ public static partial class BindableCoreExtensionMethods
         public Cell<T> Cell { get; }
 
         /// <inheritdoc />
-        public T Value { get; private set; }
+        public T Value
+        {
+            get
+            {
+                VerifyOnBindingThread(scheduler: this.Scheduler, member: "IOneWayBindableValue<T>.Value");
+
+                return this.cachedValue;
+            }
+        }
 
         /// <summary>
         ///     Applies an incoming update. Always posted rather than raised inline: the callback runs
@@ -81,12 +95,12 @@ public static partial class BindableCoreExtensionMethods
                     return;
                 }
 
-                if (this.comparer.Equals(x: this.Value, y: newValue))
+                if (this.comparer.Equals(x: this.cachedValue, y: newValue))
                 {
                     return;
                 }
 
-                this.Value = newValue;
+                this.cachedValue = newValue;
                 this.RaiseValueChanged();
             });
 

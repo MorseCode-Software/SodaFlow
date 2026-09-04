@@ -107,7 +107,7 @@ module Bindable =
         BindableCoreExtensionMethods.ToTwoWayImpl(cellSink, scheduler, comparer)
 
     [<MethodImpl(MethodImplOptions.NoInlining)>]
-    let oneWayToSource editsStreamSink initialValue =
+    let oneWayToSource (editsStreamSink: StreamSink<'T>) initialValue =
         BindableCoreExtensionMethods.ToOneWayToSourceImpl(editsStreamSink, initialValue)
 
     [<MethodImpl(MethodImplOptions.NoInlining)>]
@@ -119,7 +119,7 @@ module Bindable =
         BindableCoreExtensionMethods.ToOneWayToSourceImpl cellSink
 
     [<MethodImpl(MethodImplOptions.NoInlining)>]
-    let oneWayToSourceCSWithComparer cellSink comparer =
+    let oneWayToSourceCSWithComparer (cellSink: CellSink<'T>) comparer =
         BindableCoreExtensionMethods.ToOneWayToSourceImpl(cellSink, comparer)
 
     [<MethodImpl(MethodImplOptions.NoInlining)>]

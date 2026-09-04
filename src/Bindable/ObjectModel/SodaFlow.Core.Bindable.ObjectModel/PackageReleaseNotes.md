@@ -48,6 +48,37 @@ work over and blocks until it finishes can deadlock against a binding
 thread already waiting for that lock. Anything built on a dispatcher is
 fine; a hand-written scheduler needs the care.
 
+BREAKING: IBindingScheduler gains IsOnBindingThread, so a scheduler
+written outside this package has to implement it. It answers whether the
+calling thread is the one the scheduler posts to, and it is deliberately
+biased: an implementation which cannot tell MUST return true. A wrong
+true gives up a diagnostic that was never promised; a wrong false throws
+on correct code.
+
+What it buys: a bindable's Value now throws InvalidOperationException
+when it is read or written from anywhere but the binding thread, instead
+of quietly returning a stale value - or, for a large struct, a torn one.
+Only raised where the scheduler is certain, so nothing is accused that
+cannot be proven. ImmediateBindingScheduler answers true
+unconditionally, having no thread of its own, so tests and headless
+hosts are unaffected.
+
+This will turn code that has been working by luck into code that throws.
+That is the point, but it is worth knowing before upgrading rather than
+after.
+
+ToOneWayToSource takes an optional scheduler now. It had none - nothing
+flows back out to the view, so there was nothing to marshal - which also
+left it the one bindable whose Value could not be checked. It still
+schedules nothing; the scheduler is there to say which thread is the
+right one.
+
+The check costs a few nanoseconds per access, having first cost about
+thirteen: reading SynchronizationContext.Current is not the cheap
+thread-local fetch it looks like on .NET Framework, so the thread id is
+compared first and the context only if that fails. See
+BindableValueGuardBenchmark, which is what found it.
+
 2.0.0
 
 No code change. This release exists to move a dependency, and is a major

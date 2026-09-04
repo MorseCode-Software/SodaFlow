@@ -23,6 +23,13 @@ public static partial class BindableCoreExtensionMethods
     private sealed class OneWayToSourceBindableValue<T> : IOneWayToSourceBindableValue<T>
     {
         private readonly IEqualityComparer<T> comparer;
+
+        /// <summary>
+        ///     Held only to answer which thread the binding engine is on. Nothing is posted through
+        ///     it - nothing flows back out to the view - so it schedules no work here.
+        /// </summary>
+        private readonly IBindingScheduler scheduler;
+
         private readonly Action<T> write;
 
         /// <summary>
@@ -42,9 +49,19 @@ public static partial class BindableCoreExtensionMethods
         /// <param name="comparer">
         ///     Decides whether a value has actually changed. Null uses the default comparer.
         /// </param>
-        internal OneWayToSourceBindableValue(Action<T> write, T initialValue, IEqualityComparer<T>? comparer)
+        /// <param name="scheduler">
+        ///     Identifies the binding thread, so that touching <see cref="Value" /> from elsewhere
+        ///     is caught rather than left to corrupt the cached value quietly. Null resolves one
+        ///     ambiently, as everywhere else.
+        /// </param>
+        internal OneWayToSourceBindableValue(
+            Action<T> write,
+            T initialValue,
+            IEqualityComparer<T>? comparer,
+            IBindingScheduler? scheduler)
         {
             this.comparer = comparer ?? EqualityComparer<T>.Default;
+            this.scheduler = BindingScheduler.Resolve(scheduler);
             this.cachedValue = initialValue;
             this.write = write ?? throw new ArgumentNullException(nameof(write));
         }
@@ -52,9 +69,21 @@ public static partial class BindableCoreExtensionMethods
         /// <inheritdoc />
         public T Value
         {
-            get => this.cachedValue;
+            get
+            {
+                VerifyOnBindingThread(
+                    scheduler: this.scheduler,
+                    member: "IOneWayToSourceBindableValue<T>.Value");
+
+                return this.cachedValue;
+            }
+
             set
             {
+                VerifyOnBindingThread(
+                    scheduler: this.scheduler,
+                    member: "IOneWayToSourceBindableValue<T>.Value");
+
                 if (Volatile.Read(ref this.disposed) != 0)
                 {
                     return;

@@ -110,9 +110,16 @@ public static partial class BindableCoreExtensionMethods
         /// <inheritdoc />
         public T Value
         {
-            get => this.cachedValue;
+            get
+            {
+                VerifyOnBindingThread(scheduler: this.Scheduler, member: "ITwoWayBindableValue<T>.Value");
+
+                return this.cachedValue;
+            }
+
             set
             {
+                VerifyOnBindingThread(scheduler: this.Scheduler, member: "ITwoWayBindableValue<T>.Value");
                 this.ThrowIfDisposed();
 
                 // Skipping the write because the cached value already matches is only sound while

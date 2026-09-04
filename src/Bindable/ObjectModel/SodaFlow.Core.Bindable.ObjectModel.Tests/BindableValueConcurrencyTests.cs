@@ -40,6 +40,9 @@ public class BindableValueConcurrencyTests
         private readonly Queue<Action> queue = new();
 
         /// <inheritdoc />
+        public bool IsOnBindingThread => true;
+
+        /// <inheritdoc />
         public void Post(Action action) => this.queue.Enqueue(action);
 
         /// <summary>Runs everything queued, including anything queued while draining.</summary>
@@ -254,5 +257,133 @@ public class BindableValueConcurrencyTests
         });
 
         Assert.AreEqual(expected: 5, actual: b.Value);
+    }
+
+    /// <summary>
+    ///     Runs <paramref name="body" /> on another thread and returns whatever it threw.
+    /// </summary>
+    private static Exception? CaughtOffTheBindingThread(object state, Action<object?> body)
+    {
+        Exception? caught = null;
+
+        Thread thread =
+            new(s =>
+            {
+                try
+                {
+                    body(s);
+                }
+                catch (Exception e)
+                {
+                    caught = e;
+                }
+            })
+            {
+                IsBackground = true,
+                Name = "off the binding thread",
+            };
+
+        thread.Start(state);
+        thread.Join();
+
+        return caught;
+    }
+
+    // A context is enough to establish affinity; it does not have to be installed as Current,
+    // because the scheduler captures the constructing thread alongside it.
+    private static SynchronizationContextBindingScheduler AffineScheduler() => new(new SynchronizationContext());
+
+    [Test]
+    public void ReadingOneWayOffTheBindingThreadThrows()
+    {
+        CellSink<int> c = Cell.CreateSink(0);
+
+        using IOneWayBindableValue<int> b = c.ToOneWayImpl(scheduler: AffineScheduler());
+
+        Assert.AreEqual(
+            expected: 0,
+            actual: b.Value,
+            message: "the constructing thread is the binding thread for this scheduler");
+
+        Exception? caught = CaughtOffTheBindingThread(
+            b,
+            static state =>
+            {
+                if (state is IOneWayBindableValue<int> target)
+                {
+                    _ = target.Value;
+                }
+            });
+
+        Assert.IsInstanceOf<InvalidOperationException>(
+            caught,
+            "reading from another thread is caught rather than left to return a stale value");
+    }
+
+    [Test]
+    public void WritingTwoWayOffTheBindingThreadThrows()
+    {
+        CellSink<int> c = Cell.CreateSink(0);
+
+        using ITwoWayBindableValue<int> b = c.ToTwoWayImpl(scheduler: AffineScheduler());
+
+        Exception? caught = CaughtOffTheBindingThread(
+            b,
+            static state =>
+            {
+                if (state is ITwoWayBindableValue<int> target)
+                {
+                    target.Value = 5;
+                }
+            });
+
+        Assert.IsInstanceOf<InvalidOperationException>(caught);
+        Assert.AreEqual(expected: 0, actual: c.Sample(), message: "and the write never reached the graph");
+    }
+
+    // The one that had no scheduler before, and so no way to be checked at all.
+    [Test]
+    public void WritingOneWayToSourceOffTheBindingThreadThrows()
+    {
+        CellSink<int> c = Cell.CreateSink(0);
+
+        using IOneWayToSourceBindableValue<int> b =
+            c.ToOneWayToSourceImpl(scheduler: AffineScheduler());
+
+        Exception? caught = CaughtOffTheBindingThread(
+            b,
+            static state =>
+            {
+                if (state is IOneWayToSourceBindableValue<int> target)
+                {
+                    target.Value = 5;
+                }
+            });
+
+        Assert.IsInstanceOf<InvalidOperationException>(caught);
+        Assert.AreEqual(expected: 0, actual: c.Sample());
+    }
+
+    // Nothing changes for a scheduler with no affinity, which is what keeps every existing test
+    // and every headless host working unchanged.
+    [Test]
+    public void TheImmediateSchedulerNeverRejectsAThread()
+    {
+        CellSink<int> c = Cell.CreateSink(0);
+
+        using ITwoWayBindableValue<int> b = c.ToTwoWayImpl(scheduler: BindingScheduler.Immediate);
+
+        Exception? caught = CaughtOffTheBindingThread(
+            b,
+            static state =>
+            {
+                if (state is ITwoWayBindableValue<int> target)
+                {
+                    target.Value = 5;
+                }
+            });
+
+        Assert.IsNull(caught, "the immediate scheduler runs work wherever it is called");
+        Assert.AreEqual(expected: 5, actual: c.Sample());
     }
 }

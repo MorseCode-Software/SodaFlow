@@ -32,6 +32,24 @@ public interface IBindingScheduler
     ///     </para>
     /// </remarks>
     void Post(Action action);
+
+    /// <summary>
+    ///     Whether the calling thread is the one this scheduler posts to.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         Best-effort, and deliberately biased. An implementation which cannot tell MUST
+    ///         return <see langword="true" />. A wrong <see langword="true" /> costs nothing - it
+    ///         gives up a diagnostic that was never guaranteed - while a wrong
+    ///         <see langword="false" /> throws on correct code. Never answer
+    ///         <see langword="false" /> unless the thread is known to be the wrong one.
+    ///     </para>
+    ///     <para>
+    ///         A scheduler with no thread affinity of its own, one which runs work wherever it is
+    ///         called, answers <see langword="true" /> unconditionally.
+    ///     </para>
+    /// </remarks>
+    bool IsOnBindingThread { get; }
 }
 
 /// <summary>
@@ -54,6 +72,13 @@ public sealed class SynchronizationContextBindingScheduler : IBindingScheduler
 
     private readonly SynchronizationContext context;
 
+    // Captured alongside the context because the two identify the binding thread in different
+    // ways and neither is reliable alone. Taken from the constructing thread, which Capture and
+    // the ambient resolution both call from the binding thread; a caller which passes a context
+    // belonging to some other thread makes this the wrong id, and the check correspondingly
+    // permissive - the harmless direction.
+    private readonly int bindingThreadId;
+
     /// <summary>
     ///     Initializes a new instance posting through the given synchronization context.
     /// </summary>
@@ -64,8 +89,38 @@ public sealed class SynchronizationContextBindingScheduler : IBindingScheduler
     ///     not in parallel, and that their Post() method does not ever run the SendOrPostCallback delegate
     ///     directly, in which case it would become re-entrant.
     /// </remarks>
-    public SynchronizationContextBindingScheduler(SynchronizationContext context) =>
+    public SynchronizationContextBindingScheduler(SynchronizationContext context)
+    {
         this.context = context ?? throw new ArgumentNullException(nameof(context));
+        this.bindingThreadId = Environment.CurrentManagedThreadId;
+    }
+
+    // ReSharper disable once InheritdocConsiderUsage
+    /// <summary>
+    ///     Whether the calling thread is the one this scheduler posts to.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         Two ways to answer yes, and both have to fail before this says no. A dispatcher hands
+    ///         out the same context instance on its own thread in the ordinary case, but not in
+    ///         every one — a nested message pump or a priority-carrying copy can substitute another
+    ///         — so the thread captured alongside it is the second answer. Erring toward yes is the
+    ///         contract: see <see cref="IBindingScheduler.IsOnBindingThread" />.
+    ///     </para>
+    ///     <para>
+    ///         The thread is compared first, and the order is load-bearing rather than incidental.
+    ///         Reading <see cref="SynchronizationContext.Current" /> is not the cheap thread-local
+    ///         fetch it looks like — on .NET Framework it goes through the execution context — and
+    ///         measured at roughly 13ns against under 2ns for the thread id, which is most of what
+    ///         a checked read of a bindable's value costs. Asking the cheap question first means
+    ///         the answer is usually yes before the expensive one is reached, and the expensive one
+    ///         is left for the case it exists to cover: a dispatcher which moved its work to
+    ///         another thread. See BindableValueGuardBenchmark.
+    ///     </para>
+    /// </remarks>
+    public bool IsOnBindingThread =>
+        Environment.CurrentManagedThreadId == this.bindingThreadId
+        || ReferenceEquals(objA: SynchronizationContext.Current, objB: this.context);
 
     /// <summary>
     ///     Posts through the captured context.
@@ -131,6 +186,13 @@ public sealed class ImmediateBindingScheduler : IBindingScheduler
     private ImmediateBindingScheduler()
     {
     }
+
+    // ReSharper disable once InheritdocConsiderUsage
+    /// <remarks>
+    ///     Always true. This scheduler runs work on whichever thread hands it over, so every
+    ///     thread is its binding thread and there is nothing to be wrong about.
+    /// </remarks>
+    public bool IsOnBindingThread => true;
 
     /// <summary>
     ///     Runs the action on the calling thread, once no transaction is in flight.

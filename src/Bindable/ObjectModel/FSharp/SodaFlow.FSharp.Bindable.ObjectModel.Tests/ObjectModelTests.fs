@@ -20,6 +20,10 @@ type private RecordingScheduler() =
             posts <- posts + 1
             BindingScheduler.Immediate.Post action
 
+        /// True throughout, as for the immediate scheduler this delegates to: it runs work on
+        /// whichever thread hands it over, so every thread is its binding thread.
+        member __.IsOnBindingThread = true
+
 [<TestFixture>]
 type ``Object Model Tests``() =
 

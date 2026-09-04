@@ -1,5 +1,12 @@
 3.0.0
 
+ToOneWayToSource takes an optional scheduler, matching the other three.
+It schedules nothing - nothing flows back out to the view - but it
+identifies the binding thread, which is what lets Value throw when it is
+touched from another one. BindableFactory passes its own scheduler
+through. See SodaFlow.Bindable.ObjectModel.Core for what the check does
+and what it costs.
+
 BREAKING: the factory methods are renamed from To to Create, on both
 BindableFactory and IBindableFactory: ToBindableAction, ToOneWay,
 ToOneWayToSource and ToTwoWay become CreateBindableAction, CreateOneWay,

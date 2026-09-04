@@ -20,6 +20,9 @@ public class BindableFactoryTests
     // ReSharper disable once InheritdocConsiderUsage
     private sealed class RecordingScheduler : IBindingScheduler
     {
+        /// <inheritdoc />
+        public bool IsOnBindingThread => true;
+
         public int Posts { get; private set; }
 
         public void Post(Action action)
