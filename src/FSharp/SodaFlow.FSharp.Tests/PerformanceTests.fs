@@ -6,7 +6,7 @@ open SodaFlow
 
 [<AutoOpen>]
 module private Types =
-    
+
     type TestObject (s : Stream<bool>, s1 : Stream<int>, s2 : Stream<int>) as this =
         let mutable currentValue = lazy 0
         let (cell, l) = runT (fun () ->
@@ -30,7 +30,7 @@ module private Types =
         member private __.L = l
         member __.Cell = cell
         member __.CurrentValue with get () = currentValue.Value and set value = currentValue <- lazy value
-    
+
     type TestObject2 (id : int, initialIsSelected : bool, selectAllStream : Stream<bool>) =
         let isSelectedStreamSink = sinkS ()
         let isSelected = (selectAllStream, isSelectedStreamSink) |> orElseS |> holdS initialIsSelected
@@ -51,14 +51,14 @@ type ``Performance Tests``() =
             struct (s |> snapshotAndTakeC (l |> Seq.map (fun o -> o.Cell) |> liftAllC id) |> mapS (Seq.forall (fun v -> v = 0)), l))
         let values = obj |> Array.map (fun o -> o.CurrentValue)
         CollectionAssert.AreEqual (Seq.init 5000 (fun _ -> 0), values)
-    
+
     [<Test>]
     member __.``Test Run Construct``() =
         let objects = runT (fun () ->
             let o2 = List.init 10000 (fun n -> TestObject2 (n, n < 1500, neverS ()))
             sinkC o2)
         runT (fun () -> objects |> sendC (List.init 20000 (fun n -> TestObject2 (n, n < 500, neverS ()))))
-    
+
     [<Test>]
     member __.``Test Run Construct 2``() =
         let struct (_, (objectsAndIsSelected, selectAllStream, objects)) = loopC (fun allSelected ->

@@ -303,7 +303,7 @@ type ``Stream Tests``() =
         sc |> sendS 'I'
         l |> unlistenL
         CollectionAssert.AreEqual (['H';'I'], out)
-    
+
     [<Test>]
     member __.``Test Calm``() =
         let s = sinkS ()
@@ -356,7 +356,7 @@ type ``Stream Tests``() =
         s |> sendS 2
         l |> unlistenL
         CollectionAssert.AreEqual ([2;4;2;4;2;4;2;4;2;4;2;4;2;4;2;4;2;4;2;4;2], out)
-    
+
     [<Test>]
     member __.``Test Calm 2``() =
         let s = sinkS ()
@@ -371,7 +371,7 @@ type ``Stream Tests``() =
         s |> sendS 2
         l |> unlistenL
         CollectionAssert.AreEqual ([2;4;2;4;2], out)
-    
+
     [<Test>]
     member __.``Test Collect``() =
         let sa = sinkS ()
@@ -387,7 +387,7 @@ type ``Stream Tests``() =
         sa |> sendS 3
         l |> unlistenL
         CollectionAssert.AreEqual ([115;122;125;127;130], out)
-    
+
     [<Test>]
     member __.``Test Accum``() =
         let sa = sinkS ()
@@ -401,7 +401,7 @@ type ``Stream Tests``() =
         sa |> sendS 3
         l |> unlistenL
         CollectionAssert.AreEqual ([100;105;112;113;115;118], out)
-    
+
     [<Test>]
     member __.``Test Once``() =
         let s = sinkS ()
@@ -412,7 +412,7 @@ type ``Stream Tests``() =
         s |> sendS 'C'
         l |> unlistenL
         CollectionAssert.AreEqual (['A'], out)
-    
+
     [<Test>]
     member __.``Test Hold``() =
         let s = sinkS ()
@@ -424,7 +424,7 @@ type ``Stream Tests``() =
         s |> sendS 'A'
         l |> unlistenL
         CollectionAssert.AreEqual ([' ';'C';'B';'A'], out)
-    
+
     [<Test>]
     member __.``Test Hold Implicit Delay``() =
         let s = sinkS ()
@@ -436,7 +436,7 @@ type ``Stream Tests``() =
         s |> sendS 'A'
         l |> unlistenL
         CollectionAssert.AreEqual ([' ';'C';'B'], out)
-    
+
     [<Test>]
     member __.``Test Defer``() =
         let s = sinkS ()
@@ -448,7 +448,7 @@ type ``Stream Tests``() =
         s |> sendS 'A'
         l |> unlistenL
         CollectionAssert.AreEqual (['C';'B';'A'], out)
-    
+
     [<Test>]
     member __.``Test Listen``() =
         let s = sinkS ()
@@ -463,7 +463,7 @@ type ``Stream Tests``() =
         s |> sendS 3
         s |> sendS 4
         Assert.AreEqual (2, out.Count)
-    
+
     [<Test>]
     member __.``Test Listen With Map``() =
         let s = sinkS ()
@@ -489,7 +489,7 @@ type ``Stream Tests``() =
         s |> sendS 6
         s |> sendS 7
         Assert.AreEqual (5, out.Count)
-    
+
     [<Test>]
     member __.``Test Unlisten``() =
         let s = sinkS ()
@@ -503,7 +503,7 @@ type ``Stream Tests``() =
         s |> sendS 3
         s |> sendS 4
         Assert.AreEqual (1, out.Count)
-    
+
     [<Test>]
     member __.``Test Unlisten Weak``() =
         let s = sinkS ()
@@ -517,7 +517,7 @@ type ``Stream Tests``() =
         s |> sendS 3
         s |> sendS 4
         Assert.AreEqual (1, out.Count)
-    
+
     [<Test>]
     member __.``Test Multiple Unlisten``() =
         let s = sinkS ()
@@ -533,7 +533,7 @@ type ``Stream Tests``() =
         s |> sendS 3
         s |> sendS 4
         Assert.AreEqual (1, out.Count)
-    
+
     [<Test>]
     member __.``Test Multiple Unlisten Weak``() =
         let s = sinkS ()
@@ -549,7 +549,7 @@ type ``Stream Tests``() =
         s |> sendS 3
         s |> sendS 4
         Assert.AreEqual (1, out.Count)
-    
+
     [<Test>]
     member __.``Test ListenOnce``() =
         let s = sinkS ()
@@ -560,7 +560,7 @@ type ``Stream Tests``() =
         s |> sendS 'C'
         l |> unlistenL
         CollectionAssert.AreEqual (['A'], out)
-    
+
     [<Test>]
     member __.``Test ListenOnceAsync``() =
         async {
@@ -585,7 +585,7 @@ type ``Stream Tests``() =
             let! r = r'
             Assert.AreEqual ('A', r)
         } |> Async.StartAsVoidTask
-    
+
     [<Test>]
     member __.``Test ListenStrong Async``() =
         async {
@@ -615,7 +615,7 @@ type ``Stream Tests``() =
             l2 |> unlistenL
             l |> unlistenL
         } |> Async.StartAsVoidTask
-    
+
     [<Test>]
     member __.``Test Stream Loop``() =
         let streamSink = sinkS ()
@@ -630,7 +630,7 @@ type ``Stream Tests``() =
         streamSink |> sendS 8
         l |> unlistenL
         CollectionAssert.AreEqual ([3;9;18;28], out)
-    
+
     [<Test>]
     member __.``Test Stream Loop Defer``() =
         let streamSink = sinkS ()

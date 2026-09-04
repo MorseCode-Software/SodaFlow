@@ -83,7 +83,7 @@ namespace SodaFlow.Time
                         if (events.Count > 0)
                         {
                             timeSink.Send(events[0].Time);
-                            
+
                             Transaction.RunVoid(
                                 () =>
                                 {

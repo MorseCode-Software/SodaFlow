@@ -52,7 +52,7 @@ namespace SodaFlow.Functional
         T Match<T>(
             [JetBrains.Annotations.InstantHandle] Func<object?, T> onFirst,
             [JetBrains.Annotations.InstantHandle] Func<object?, T> onSecond);
-        
+
         /// <summary>
         ///     Runs one of the two actions depending on which case is held.
         /// </summary>
@@ -61,7 +61,7 @@ namespace SodaFlow.Functional
         void MatchVoid(
             [JetBrains.Annotations.InstantHandle] Action<object?> onFirst,
             [JetBrains.Annotations.InstantHandle] Action<object?> onSecond);
-        
+
         /// <summary>
         ///     Runs one of the two asynchronous functions depending on which case is held, and
         ///     returns its result.
@@ -77,7 +77,7 @@ namespace SodaFlow.Functional
         Task<T> MatchAsync<T>(
             [JetBrains.Annotations.InstantHandle] Func<object?, Task<T>> onFirst,
             [JetBrains.Annotations.InstantHandle] Func<object?, Task<T>> onSecond);
-        
+
         /// <summary>
         ///     Runs one of the two asynchronous actions depending on which case is held.
         /// </summary>
@@ -118,7 +118,7 @@ namespace SodaFlow.Functional
             [JetBrains.Annotations.InstantHandle] Func<object?, T> onFirst,
             [JetBrains.Annotations.InstantHandle] Func<object?, T> onSecond,
             [JetBrains.Annotations.InstantHandle] Func<object?, T> onThird);
-        
+
         /// <summary>
         ///     Runs one of the three actions depending on which case is held.
         /// </summary>

@@ -363,7 +363,7 @@ namespace SodaFlow.Functional
         /// </returns>
         public Task MatchSomeAsync([JetBrains.Annotations.InstantHandle] Func<T, Task> onSome) =>
             this.MatchAsyncVoid(onSome, () => Task.FromResult(false));
-        
+
         /// <summary>
         ///     Runs an asynchronous action if no value is present, and otherwise does nothing.
         /// </summary>

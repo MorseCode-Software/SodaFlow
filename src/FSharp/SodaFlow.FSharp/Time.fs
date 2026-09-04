@@ -318,7 +318,7 @@ and SimpleTimer<'T when 'T : comparison> (implementation : 'T TimerSystemImpleme
         let timeComparison = compare x.Time y.Time
         if timeComparison <> 0 then timeComparison
         else compare x.Seq y.Seq
-    
+
     // Deliberately does not signal the timer thread. Waking it early to recompute a deadline that
     // has only got later gains nothing, and with an AutoResetEvent it costs: the signal here
     // releases the waiter, and the Set in whichever SetTimer replaces this timer latches for the
@@ -379,7 +379,7 @@ type private SystemClockTimerSystemImplementation() =
 /// </remarks>
 type SystemClockTimerSystem(handleException : exn -> unit) =
     inherit TimerSystem<DateTime>(SystemClockTimerSystemImplementation(), handleException)
-    
+
 type private SecondsTimerSystemImplementation() =
     inherit TimerSystemImplementationBase<float>()
     let startTime = DateTime.Now

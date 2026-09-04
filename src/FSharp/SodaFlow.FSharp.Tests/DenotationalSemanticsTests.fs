@@ -6,7 +6,7 @@ open SodaFlow
 
 [<TestFixture>]
 type ``Denotational Semantics Tests``() =
-    
+
     let runSimulationWithSimultaneousFirings listenStrong firings =
         let maxKey =
             match firings with
@@ -47,7 +47,7 @@ type ``Denotational Semantics Tests``() =
         | None -> ()
         | Some _ -> invalidOp "All firings must occur at T >= 0."
         (s :> 'a Stream, f)
-    
+
     let rec getPermutationsInternal list length =
         if length = 1
         then list |> List.map (fun o -> [o])

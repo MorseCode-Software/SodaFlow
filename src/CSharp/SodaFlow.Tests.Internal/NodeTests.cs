@@ -57,11 +57,11 @@ namespace SodaFlow.Tests.Internal
             long rank1 = cell.UpdatesImpl.Node.Rank;
 
             cellSink.Send(1);
-            
+
             long rank2 = cell.UpdatesImpl.Node.Rank;
-            
+
             cellSink.Send(2);
-            
+
             long rank3 = cell.UpdatesImpl.Node.Rank;
 
             Assert.That(rank1, Is.EqualTo(rank2));

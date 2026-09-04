@@ -28,7 +28,7 @@ namespace SodaFlow.Functional
         T Match<T>(
             [JetBrains.Annotations.InstantHandle] Func<object?, T> onSome,
             [JetBrains.Annotations.InstantHandle] Func<T> onNone);
-        
+
         /// <summary>
         ///     Runs one of two actions depending on whether a value is present.
         /// </summary>
@@ -37,7 +37,7 @@ namespace SodaFlow.Functional
         void MatchVoid(
             [JetBrains.Annotations.InstantHandle] Action<object?> onSome,
             [JetBrains.Annotations.InstantHandle] Action onNone);
-        
+
         /// <summary>
         ///     Runs an action with the contained value if one is present, and otherwise does nothing.
         /// </summary>
@@ -49,7 +49,7 @@ namespace SodaFlow.Functional
         /// </summary>
         /// <param name="onNone">Run when no value is present.</param>
         void MatchNone([JetBrains.Annotations.InstantHandle] Action onNone);
-        
+
         /// <summary>
         ///     Runs one of two asynchronous functions depending on whether a value is present, and
         ///     returns its result.
@@ -65,7 +65,7 @@ namespace SodaFlow.Functional
         Task<T> MatchAsync<T>(
             [JetBrains.Annotations.InstantHandle] Func<object?, Task<T>> onSome,
             [JetBrains.Annotations.InstantHandle] Func<Task<T>> onNone);
-        
+
         /// <summary>
         ///     Runs one of two asynchronous actions depending on whether a value is present.
         /// </summary>
@@ -75,7 +75,7 @@ namespace SodaFlow.Functional
         Task MatchAsyncVoid(
             [JetBrains.Annotations.InstantHandle] Func<object?, Task> onSome,
             [JetBrains.Annotations.InstantHandle] Func<Task> onNone);
-        
+
         /// <summary>
         ///     Runs an asynchronous action with the contained value if one is present, and otherwise
         ///     does nothing.
