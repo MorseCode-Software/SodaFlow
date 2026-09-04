@@ -428,4 +428,45 @@ public class BindableValueConcurrencyTests
 
         Assert.AreEqual(expected: 3, actual: b.Value);
     }
+
+    // The deliberate asymmetry with the two-way value above, and the reason a one-way value was
+    // left carrying the update's value rather than sampling like its neighbour: with no setter
+    // racing it, the cache is written only by posted work, in order, so the last update to run
+    // leaves the cell's current value behind. Sampling would be sound too - and would collapse
+    // this to a single notification carrying only the final value.
+    [Test]
+    public void ABurstOfUpdatesReachesAOneWayValueOneAtATime()
+    {
+        QueueingScheduler scheduler = new();
+        CellSink<int> c = Cell.CreateSink(0);
+
+        using IOneWayBindableValue<int> b = c.ToOneWayImpl(scheduler: scheduler);
+
+        List<int> observed = new();
+        b.PropertyChanged += (sender, _) =>
+        {
+            if (sender is IOneWayBindableValue<int> notified)
+            {
+                observed.Add(notified.Value);
+            }
+        };
+
+        c.Send(1);
+        c.Send(2);
+        c.Send(3);
+
+        int ran = scheduler.RunAll();
+
+        Assert.AreEqual(expected: 3, actual: ran, message: "one delivery queued per update");
+
+        CollectionAssert.AreEqual(
+            expected: new[] { 1, 2, 3 },
+            actual: observed,
+            message: "each value the cell held is reported, in the order it held them");
+
+        Assert.AreEqual(
+            expected: 3,
+            actual: b.Value,
+            message: "and the last one delivered agrees with the cell");
+    }
 }
