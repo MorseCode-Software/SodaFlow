@@ -13,6 +13,23 @@ another way - the sink is still there - or stop.
 This one is quiet. The signature is unchanged, so nothing stops compiling;
 the exception arrives at runtime, from a call which used to work.
 
+Fixed: a two-way bindable no longer puts a value back on screen that the
+caller has already replaced, and no longer discards a write.
+
+The update handler wrote back the value the update carried. Running
+later, on the binding thread, after a setter had moved the cached value
+on, that put the older value up and then raised a second notification to
+take it away again - visible in a text box as a flicker back to what was
+just typed over. It samples the cell instead, so an update arriving late
+says what is true rather than what was true when it fired.
+
+The setter skips a write whose value matches the cached one. That reads
+the cache as a statement about the graph, when it is only a statement
+about the last time the two were compared: between an update and the
+refresh it queues, they disagree, and a write matching the stale cache
+was dropped even though the graph never held that value. The check now
+stands down while a refresh is outstanding and lets the write through.
+
 2.0.0
 
 No code change. This release exists to move a dependency, and is a major
