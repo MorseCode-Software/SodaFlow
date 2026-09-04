@@ -3,11 +3,17 @@
 # NOTE: committing this file supersedes the configuration currently held in the AppVeyor UI.
 # Compare the two before enabling "use YAML from repository".
 #
+# The steps themselves live in build.cake, not here. What is left in this file is the part that is
+# genuinely AppVeyor's: which image to run on, what the environment holds, what to keep as an
+# artifact, and when to invoke the build. Anything describing what the build *does* belongs next to
+# the code that does it, where it can be run locally with `dotnet cake` and where a change to a step
+# and a change to its explanation are the same edit.
+#
 # Package versions are NOT set here. Each packable project derives its own version from git tags
 # via MinVer (see src/Directory.Build.props), so pushing sodaflow-async-2.1.0 releases only
-# SodaFlow.Async and leaves every other package on its own last tag. Deliberately
-# absent, therefore, is AppVeyor's dotnet_csproj patcher: it stamps every matched project with a
-# single shared version, which is the opposite of what this repository wants.
+# SodaFlow.Async and leaves every other package on its own last tag. Deliberately absent, therefore,
+# is AppVeyor's dotnet_csproj patcher: it stamps every matched project with a single shared version,
+# which is the opposite of what this repository wants.
 
 version: '{build}'
 
@@ -23,7 +29,6 @@ environment:
   DOTNET_CLI_TELEMETRY_OPTOUT: true
   DOTNET_NOLOGO: true
   DOTNET_SKIP_FIRST_TIME_EXPERIENCE: true
-  SOLUTION: src\SodaFlow.slnx
   NUGET_API_KEY:
     secure: wJnjNcFPeKed+NXnE+IjPM5sAlJxY1Q3noeEdWi1E070zGc/E+pm6Dx1f8s7gNHB
   # Coveralls repo token, encrypted under this AppVeyor account - a value encrypted elsewhere
@@ -32,125 +37,20 @@ environment:
   COVERALLS_REPO_TOKEN:
     secure: J8UbS6aD6zFAKrkcSaALGcJnn0lYAzKjLNxPtisZczH+FD0/Vhp1eB6lFwZtaLvi
 
-# The only coverage tool that needs installing is the uploader. Collection is done by the
-# Microsoft Code Coverage collector that ships inside Microsoft.NET.Test.Sdk, and it writes
-# Cobertura directly, so there is nothing to convert and nothing to merge.
+# Cake and docfx are both local tools, pinned in .config/dotnet-tools.json, so the agent runs the
+# same versions a developer does. The Coveralls reporter is no longer downloaded here: build.cake
+# fetches it only when it is about to upload, which keeps a local run from pulling a Windows
+# executable it will never invoke.
 install:
-  - ps: Invoke-WebRequest -Uri "https://github.com/coverallsapp/coverage-reporter/releases/latest/download/coveralls-windows.exe" -OutFile "coveralls.exe"
+  - dotnet tool restore
 
-# Every project in the solution is SDK-style now (the last legacy, packages.config holdouts —
-# SodaFlow.Tests, .Tests.Internal, .Tests.Memory, .Tests.Performance — were converted alongside
-# this file), so plain dotnet restore covers all of it. Confirmed locally: restores all sixteen
-# projects with nothing left for nuget.exe to handle that this doesn't.
-before_build:
-  - dotnet --info
-  - dotnet restore %SOLUTION%
-
-# dotnet build, not msbuild: with no legacy projects left, there's no longer a reason to reach for
-# the one tool that could build both — confirmed locally that dotnet build handles the whole
-# solution, console benchmark included.
+# One invocation covers restore, build, test with coverage, the coverage upload, and pack. The
+# phases AppVeyor offers - before_build, build_script, test_script, after_test - are deliberately
+# collapsed into this one: Cake already sequences those steps and knows the dependencies between
+# them, and splitting them across phases would mean either four Cake startups or four targets whose
+# dependency chains re-run each other's work.
 build_script:
-  - dotnet build %SOLUTION% -c %CONFIGURATION%
-
-# Every test project is SDK-style with Microsoft.NET.Test.Sdk + NUnit3TestAdapter now, so dotnet
-# test runs all eight: the three original C# ones (SodaFlow.Tests, .Tests.Internal, .Tests.Memory
-# — converted from legacy, packages.config projects specifically so they could pick up the test
-# adapter), the two C# async ones converted the same way earlier, and the three F# ones (always
-# SDK-style). SodaFlow.Tests.Performance is deliberately absent from this list — it is a console
-# benchmark (OutputType Exe, no NUnit reference, no [Test] attributes), not a test project; dotnet
-# test would just report "no test is available" for it.
-#
-# Confirmed locally against a Debug build of this solution: 240, 7, 6+5, 153+5, 4+1, 14, 19 and 21
-# tests respectively — 0 failed anywhere.
-#
-# The 6+5 is SodaFlow.Tests.Memory. Its original StreamTests count live objects with dotMemory,
-# which isn't installed on a CI agent, so those five are tagged [Ignore("Requires dotMemory.")] and
-# skip. The others are GarbageCollectionTests, which assert the same lifetime invariants using only
-# weak references, the node's listener set, and the manager's registry count, so they do run here.
-# Keep it that way: they are the only automated cover for stream/listener cleanup, and each one has
-# been checked to fail when the cleanup it guards is broken.
-# One dotnet test over the solution, collecting coverage as it runs.
-#
-# The Microsoft Code Coverage collector ships inside Microsoft.NET.Test.Sdk and writes Cobertura
-# directly, which is the format the Coveralls reporter accepts, so nothing has to be converted and
-# nothing merged: a solution-level run produces a single report covering all seven shipping
-# assemblies. Scoping and exclusions live in coverage.runsettings.
-#
-# This needed Microsoft.NET.Test.Sdk moved from 15.9.0 to 17.11.1 across the test projects. The
-# 2018-era collector predates Cobertura output and fails with a VanguardException ("Running event
-# not received from CodeCoverage.exe") when asked for it. That bump is confined to test projects
-# and changes nothing the packages declare.
-#
-# Three earlier approaches are recorded so they are not retried blindly:
-#
-#   The NUnit console runner under OpenCover profiled cleanly, but on AppVeyor the run took close
-#   to ten minutes and some tests failed under it that pass under dotnet test.
-#
-#   Coverlet works with dotnet test but breaks the F# suite: its instrumentation does not honor
-#   the FSharp.Core binding redirect these projects rely on - the assemblies compile against
-#   4.5.0.0 while 10.0.0.0 is deployed - so 150 of 153 F# tests fail to load FSharp.Core. Pinning
-#   FSharp.Core does not dislodge the SDK's implicit reference, and pinning it up to 10.x would
-#   raise the published dependency floor of SodaFlow.FSharp 1.0.0.
-#
-#   OpenCover wrapped around dotnet test hangs, at least locally: it sat at 0.9 seconds of CPU
-#   while the child dotnet burned over 2,000 with no output. dotnet.exe is a CoreCLR host and
-#   OpenCover's profiler is a .NET Framework CLR profiler.
-#
-# Verified locally against a Debug build: 457 passed, 0 failed across all eight suites in a single
-# run, producing one report at 65% line coverage. SodaFlow.Tests.Performance sits in the solution
-# and contributes no tests; the run does not mind.
-test_script:
-  - dotnet test %SOLUTION% -c %CONFIGURATION% --no-build --collect:"Code Coverage" --settings coverage.runsettings --results-directory coverage
-# One dotnet pack over the whole solution now, rather than one invocation per packable project:
-# the previous per-project list existed only to route around dotnet pack failing outright
-# (MSB4057, "the target Pack does not exist") on the legacy test projects. With those gone, dotnet
-# pack on the solution just packs the seven publishable projects and skips the nine test/benchmark
-# ones. Eight of those nine reference Microsoft.NET.Test.Sdk, which the SDK reads as IsTestProject
-# and defaults IsPackable to false for accordingly — no explicit opt-out needed, confirmed via
-# dotnet msbuild -getProperty:IsPackable/-getProperty:IsTestProject. The ninth,
-# SodaFlow.Tests.Performance, is a console benchmark with no test adapter reference at all, so it
-# never gets that automatic IsTestProject treatment; it sets IsPackable false explicitly instead.
-# Confirmed locally: produces the same seven packages the old per-project list did, nothing more,
-# exit code 0.
-after_test:
-  # Convert to Cobertura, then hand it to Coveralls.
-  #
-  # AppVeyor is not one of the CI services the reporter auto-detects - that list is CircleCI,
-  # GitHub Actions, Travis, Jenkins, GitLab, Semaphore, Wercker, Codeship, Drone, Buildkite,
-  # Xcode Cloud and RWX - so every piece of build metadata is supplied explicitly. Without it the
-  # upload would land with no job, branch or commit attached.
-  #
-  # This runs before the pack step so publishing coverage and producing packages cannot block one
-  # another.
-  - ps: |
-      # The collector names the report after the machine and timestamp and puts it in a GUID
-      # subdirectory, so it has to be found rather than assumed.
-      $report = Get-ChildItem -Path coverage -Recurse -Filter *.cobertura.xml | Select-Object -First 1
-      if (-not $report) { throw "No Cobertura report was produced." }
-      Write-Host "Coverage report: $($report.FullName)"
-
-      if (-not $env:COVERALLS_REPO_TOKEN) {
-          Write-Host "COVERALLS_REPO_TOKEN is not set - skipping the coverage upload."
-      } else {
-          $arguments = @(
-              "report"
-              $report.FullName
-              "--format=cobertura"
-              "--repo-token=$env:COVERALLS_REPO_TOKEN"
-              "--base-path=$env:APPVEYOR_BUILD_FOLDER"
-              "--service-name=appveyor"
-              "--service-job-id=$env:APPVEYOR_JOB_ID"
-              "--service-branch=$env:APPVEYOR_REPO_BRANCH"
-              "--service-build-url=https://ci.appveyor.com/project/$env:APPVEYOR_ACCOUNT_NAME/$env:APPVEYOR_PROJECT_SLUG/builds/$env:APPVEYOR_BUILD_ID"
-          )
-          if ($env:APPVEYOR_PULL_REQUEST_NUMBER) {
-              $arguments += "--service-pull-request=$env:APPVEYOR_PULL_REQUEST_NUMBER"
-          }
-          & ".\coveralls.exe" @arguments
-          if ($LASTEXITCODE -ne 0) { throw "Coveralls upload failed (exit $LASTEXITCODE)." }
-      }
-  - dotnet pack %SOLUTION% -c %CONFIGURATION% -o artifacts
-  - ps: Get-ChildItem artifacts\*.nupkg | Sort-Object Name | ForEach-Object { Write-Host $_.Name }
+  - dotnet cake --configuration=%CONFIGURATION%
 
 artifacts:
   - path: artifacts\*.nupkg
@@ -159,107 +59,8 @@ artifacts:
   - path: coverage
     name: coverage
 
-# Publishing is gated on a tag, which is what makes the release schedule per-package: MinVer gives a
-# tagged build a stable version and every other build a prerelease one, so only deliberate tags can
-# ever produce something publishable.
-#
-# A tag build publishes exactly one package: the one its own tag names. This matters because
-# AppVeyor starts a separate build per tag even when several are pushed together, and each of those
-# builds sees the same artifacts directory holding all ten packages. Pushing all of them from every
-# build made the publish order the order the builds happened to run in, which is not something a
-# release can control - so a package could reach nuget.org before the dependency it was built
-# against. Restricting each build to its own package is what makes pushing tags in dependency order
-# actually determine the publish order.
-#
-# Note what this does and does not do. It makes the order controllable; it does not impose one.
-# Push the tags in dependency order, and wait for each build to publish before pushing the next.
-#
-# Three details worth keeping:
-#   The tag prefix to package id map is read from the projects rather than written out here. Both
-#   halves already live in every packable project, as MinVerTagPrefix and PackageId, and a second
-#   copy in this file would be free to drift from them - which has happened before, in a comment.
-#   *.symbols.nupkg is excluded — these projects set IncludeSource/IncludeSymbols, which emits the
-#   legacy symbols format that nuget.org rejects.
-#   --skip-duplicate means re-running a build over an already published version is a no-op rather
-#   than a failure, so re-running a tag build does not fail on the package it already pushed.
+# Publishing stays in its own phase rather than joining the target above, because this is the phase
+# AppVeyor runs after the artifacts are collected and only when everything before it succeeded.
+# Which package a tag publishes, and why exactly one, is explained in build.cake.
 deploy_script:
-  - ps: |
-      if ($env:APPVEYOR_REPO_TAG -ne "true") {
-          Write-Host "Not a tag build - skipping NuGet push.  APPVEYOR_REPO_TAG = $($env:APPVEYOR_REPO_TAG)"
-          return
-      }
-
-      $tag = $env:APPVEYOR_REPO_TAG_NAME
-      if (-not $tag) {
-          throw "APPVEYOR_REPO_TAG is true but APPVEYOR_REPO_TAG_NAME is empty, so there is no way to tell which package this build releases."
-      }
-
-      if (-not $env:NUGET_API_KEY) {
-          throw "NUGET_API_KEY is not set. Add it as a secure variable in AppVeyor."
-      }
-
-      $packageIdByPrefix = @{}
-      Get-ChildItem -Path src -Recurse -Include *.csproj, *.fsproj |
-          Where-Object { $_.FullName -notmatch '\\(bin|obj)\\' } |
-          ForEach-Object {
-              $project = [xml](Get-Content -Path $_.FullName -Raw)
-              $prefix = $project.SelectSingleNode('//MinVerTagPrefix')
-              $id = $project.SelectSingleNode('//PackageId')
-              if ($prefix -and $id) { $packageIdByPrefix[$prefix.InnerText] = $id.InnerText }
-          }
-      if ($packageIdByPrefix.Count -eq 0) {
-          throw "Found no project under src declaring both MinVerTagPrefix and PackageId."
-      }
-
-      # A tag belongs to the package whose prefix it starts with, the rest of it being the version.
-      # The rest has to start with a digit, or sodaflow- would claim sodaflow-core-3.0.0.
-      #
-      # More than one match is refused rather than tie-broken. It takes one prefix extending
-      # another by something starting with a digit, which none of these do, so this cannot fire
-      # today; if a prefix added later made it fire, picking a winner would mean guessing which
-      # package the tag meant. The costs of the two failures are not comparable. Throwing loses a
-      # release until someone renames a prefix, and the packages are still sitting in the build
-      # artifacts. Guessing wrong publishes the wrong package, and nuget.org does not allow a
-      # version to be deleted or reused - only unlisted.
-      $prefixes = @(
-          $packageIdByPrefix.Keys |
-              Where-Object {
-                  $tag.StartsWith($_, [StringComparison]::Ordinal) -and $tag.Substring($_.Length) -match '^\d'
-              }
-      )
-
-      if ($prefixes.Count -eq 0) {
-          Write-Host "Tag '$tag' does not name a package in this repository - skipping NuGet push."
-          Write-Host "Known prefixes: $(($packageIdByPrefix.Keys | Sort-Object) -join ', ')"
-          return
-      }
-
-      if ($prefixes.Count -gt 1) {
-          throw "Tag '$tag' matches more than one package prefix: $(($prefixes | Sort-Object) -join ', '). Rename one of them so that neither extends the other."
-      }
-
-      $packageId = $packageIdByPrefix[$prefixes[0]]
-      Write-Host "Tag '$tag' releases $packageId."
-
-      # Matched by name rather than by glob: SodaFlow.* would also match SodaFlow.Core and every
-      # other package here. dotnet pack names a file Id.Version.nupkg, so what follows the id and
-      # its dot is the start of the version.
-      $package = @(
-          Get-ChildItem artifacts\*.nupkg |
-              Where-Object { $_.Name -notlike "*.symbols.nupkg" } |
-              Where-Object {
-                  $_.Name.StartsWith("$packageId.", [StringComparison]::OrdinalIgnoreCase) -and
-                  $_.Name.Substring($packageId.Length + 1) -match '^\d'
-              }
-      )
-
-      if ($package.Count -ne 1) {
-          throw "Expected exactly one $packageId package in artifacts, found $($package.Count)."
-      }
-
-      Write-Host "Pushing $($package[0].Name)"
-      dotnet nuget push $package[0].FullName `
-          --skip-duplicate `
-          --api-key $env:NUGET_API_KEY `
-          --source https://api.nuget.org/v3/index.json
-      if ($LASTEXITCODE -ne 0) { throw "Failed to push $($package[0].Name)" }
+  - dotnet cake --target=Publish --configuration=%CONFIGURATION%

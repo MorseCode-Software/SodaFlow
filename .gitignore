@@ -254,5 +254,7 @@ Desktop.ini
 # appveyor.yml packs to artifacts/ and writes coverage to coverage/; docfx.json builds to _site.
 artifacts/
 coverage/
+# build.cake downloads this when it is about to upload coverage.
+coveralls.exe
 _site/
 [Tt]est[Rr]esults/
