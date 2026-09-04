@@ -44,13 +44,25 @@ environment:
 install:
   - dotnet tool restore
 
-# One invocation covers restore, build, test with coverage, the coverage upload, and pack. The
-# phases AppVeyor offers - before_build, build_script, test_script, after_test - are deliberately
-# collapsed into this one: Cake already sequences those steps and knows the dependencies between
-# them, and splitting them across phases would mean either four Cake startups or four targets whose
-# dependency chains re-run each other's work.
+# The build is driven one phase at a time so that AppVeyor attributes a failure to the phase it
+# happened in: a failing test reads as a failed test phase, not as a failed build.
+#
+# --exclusive runs the named task without its dependencies, because the dependencies belong to
+# phases that have already run. The chain in build.cake is still the truth for a local `dotnet
+# cake`; here AppVeyor provides the sequencing and Cake is asked for one step at a time. The cost is
+# a Cake startup per phase, which is seconds against a build measured in minutes.
 build_script:
-  - dotnet cake --configuration=%CONFIGURATION%
+  - dotnet cake --target=Build --configuration=%CONFIGURATION%
+
+# Separate from the build so the Tests tab and the phase status mean what they say. build.cake also
+# hands the trx files to AppVeyor's API here, which is what populates that tab with individual
+# tests rather than a pass or fail for the whole run.
+test_script:
+  - dotnet cake --target=Test --exclusive --configuration=%CONFIGURATION%
+
+after_test:
+  - dotnet cake --target=Upload-Coverage --exclusive --configuration=%CONFIGURATION%
+  - dotnet cake --target=Pack --exclusive --configuration=%CONFIGURATION%
 
 artifacts:
   - path: artifacts\*.nupkg

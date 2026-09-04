@@ -11,6 +11,11 @@
 // which restores, builds, tests with coverage, and packs. Publishing is deliberately not part of
 // the default target; see the Publish task.
 //
+// On AppVeyor the tasks are driven one phase at a time, with --exclusive, so that a failure is
+// attributed to the phase it happened in rather than all of them reading as a build failure. The
+// dependencies below are therefore what a local run follows, not what CI relies on; keep them
+// accurate anyway, since `dotnet cake --target=Pack` on a clean tree has to work.
+//
 // Package versions are NOT set here. Each packable project derives its own version from git tags
 // via MinVer (see src/Directory.Build.props), so pushing sodaflow-async-2.1.0 releases only
 // SodaFlow.Async and leaves every other package on its own last tag.
@@ -126,8 +131,24 @@ Task("Test")
             NoBuild = true,
             Settings = File("./coverage.runsettings"),
             ResultsDirectory = coverageDirectory,
+            Loggers = new[] { "trx" },
             ArgumentCustomization = args => args.Append("--collect:\"Code Coverage\""),
         });
+
+    // AppVeyor shows a Tests tab only for results handed to its API; a passing or failing phase on
+    // its own says how many suites ran, not which test failed. The trx logger writes one file per
+    // test project and AppVeyor reads that format as MSTest.
+    //
+    // Uploaded here rather than in a later task because a failing test run stops the build, and the
+    // results of the run that failed are exactly the ones worth having.
+    if (BuildSystem.IsRunningOnAppVeyor)
+    {
+        foreach (var results in GetFiles($"{coverageDirectory.Path}/**/*.trx"))
+        {
+            Information("Uploading {0}", results.GetFilename());
+            AppVeyor.UploadTestResults(results, AppVeyorTestResultsType.MSTest);
+        }
+    }
 });
 
 Task("Upload-Coverage")
