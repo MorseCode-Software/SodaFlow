@@ -30,6 +30,7 @@
                 Path="Bindable/ObjectModel/FSharp/SodaFlow.FSharp.Bindable.ObjectModel/SodaFlow.FSharp.Bindable.ObjectModel.fsproj"/>
     </Folder>
     <Folder Name="/CSharp/">
+        <Project Path="CSharp/SodaFlow.Benchmarks/SodaFlow.Benchmarks.csproj"/>
         <Project Path="CSharp/SodaFlow.Functional/SodaFlow.Functional.csproj"/>
         <Project Path="CSharp/SodaFlow.Tests.Internal/SodaFlow.Tests.Internal.csproj"/>
         <Project Path="CSharp/SodaFlow.Tests.Memory/SodaFlow.Tests.Memory.csproj"/>

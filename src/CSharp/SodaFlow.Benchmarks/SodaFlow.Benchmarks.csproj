@@ -1,0 +1,43 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <OutputType>Exe</OutputType>
+        <!-- Both, because the libraries support both and some of what is measured here differs
+             sharply between them. Benchmarks declare the runtimes they run on as jobs, so a
+             single run reports each; this pair is what those jobs are built from.
+             net8.0 rather than net60: a project reference resolves to the libraries' net60
+             assets either way, so the assembly measured is the one a consumer gets, while the
+             runtime running it is one still in support. Targeting net60 here costs six warnings -
+             its own end-of-life notice, and BenchmarkDotNet's dependencies declining to claim
+             support for it. -->
+        <TargetFrameworks>net472;net8.0</TargetFrameworks>
+        <LangVersion>latest</LangVersion>
+        <Nullable>enable</Nullable>
+    </PropertyGroup>
+
+    <PropertyGroup>
+        <AssemblyName>SodaFlow.Benchmarks</AssemblyName>
+        <RootNamespace>SodaFlow.Benchmarks</RootNamespace>
+        <EnableDefaultItems>false</EnableDefaultItems>
+        <IsPackable>false</IsPackable>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <PackageReference Include="BenchmarkDotNet" Version="0.15.8"/>
+    </ItemGroup>
+
+    <ItemGroup>
+        <Compile Include="BindableValueBenchmarks.cs"/>
+        <Compile Include="Program.cs"/>
+    </ItemGroup>
+
+    <ItemGroup>
+        <ProjectReference
+                Include="..\..\Bindable\ObjectModel\CSharp\SodaFlow.Bindable.ObjectModel\SodaFlow.Bindable.ObjectModel.csproj"/>
+        <ProjectReference
+                Include="..\..\Bindable\ObjectModel\SodaFlow.Core.Bindable.ObjectModel\SodaFlow.Core.Bindable.ObjectModel.csproj"/>
+        <ProjectReference Include="..\..\SodaFlow.Core\SodaFlow.Core.csproj"/>
+        <ProjectReference Include="..\SodaFlow\SodaFlow.csproj"/>
+    </ItemGroup>
+
+</Project>

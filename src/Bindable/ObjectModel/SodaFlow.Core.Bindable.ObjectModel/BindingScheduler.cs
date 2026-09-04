@@ -110,12 +110,19 @@ public sealed class SynchronizationContextBindingScheduler : IBindingScheduler
     ///     <para>
     ///         The thread is compared first, and the order is load-bearing rather than incidental.
     ///         Reading <see cref="SynchronizationContext.Current" /> is not the cheap thread-local
-    ///         fetch it looks like — on .NET Framework it goes through the execution context — and
-    ///         measured at roughly 13ns against under 2ns for the thread id, which is most of what
-    ///         a checked read of a bindable's value costs. Asking the cheap question first means
-    ///         the answer is usually yes before the expensive one is reached, and the expensive one
-    ///         is left for the case it exists to cover: a dispatcher which moved its work to
-    ///         another thread. See BindableValueGuardBenchmark.
+    ///         fetch it looks like: on .NET Framework it goes through the execution context, and
+    ///         this check measures 13.0ns with the context asked first against 3.1ns with the
+    ///         thread id asked first — most of what a checked read of a bindable's value costs
+    ///         there, 18.3ns against 6.4ns. The same reordering on .NET 8 is 2.3ns against 1.3ns,
+    ///         so the case for it is made almost entirely by the older runtime, which the
+    ///         libraries still support.
+    ///     </para>
+    ///     <para>
+    ///         Asking the cheap question first means the answer is usually yes before the
+    ///         expensive one is reached, and leaves the expensive one for the case it exists to
+    ///         cover: a dispatcher which moved its work to another thread. Both numbers come from
+    ///         BindableValueBenchmarks in SodaFlow.Benchmarks, which runs on both runtimes for
+    ///         exactly this reason.
     ///     </para>
     /// </remarks>
     public bool IsOnBindingThread =>

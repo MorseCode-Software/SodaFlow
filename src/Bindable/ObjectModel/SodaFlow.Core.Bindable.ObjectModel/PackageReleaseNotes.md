@@ -73,11 +73,15 @@ left it the one bindable whose Value could not be checked. It still
 schedules nothing; the scheduler is there to say which thread is the
 right one.
 
-The check costs a few nanoseconds per access, having first cost about
-thirteen: reading SynchronizationContext.Current is not the cheap
-thread-local fetch it looks like on .NET Framework, so the thread id is
-compared first and the context only if that fails. See
-BindableValueGuardBenchmark, which is what found it.
+The check adds about 2ns to reading Value on .NET 8, and about 2.3ns on
+.NET Framework, allocating nothing. It cost far more before the two
+halves were reordered: reading SynchronizationContext.Current is not the
+cheap thread-local fetch it looks like, and on .NET Framework asking it
+first made the check 13.0ns rather than 3.1ns, and the whole read 18.3ns
+rather than 6.4ns. The thread id is compared first, and the context only
+if that fails. See SodaFlow.Benchmarks, which found it and which runs on
+both runtimes because this is the kind of thing that differs between
+them.
 
 2.0.0
 

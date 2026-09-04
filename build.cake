@@ -139,11 +139,6 @@ Task("Test")
             Configuration = configuration,
             NoBuild = true,
             Settings = File("./coverage.runsettings"),
-            // Benchmarks measure rather than assert, so they have nothing to say to a build which
-            // gates on failure - and timing under a loaded CI agent is exactly the kind of thing
-            // that makes a gate flaky. Run them by naming the category:
-            // dotnet test src/SodaFlow.slnx --filter TestCategory=Benchmark
-            Filter = "TestCategory!=Benchmark",
             ResultsDirectory = coverageDirectory,
             Loggers = new[] { "trx" },
             ArgumentCustomization = args => args.Append("--collect:\"Code Coverage\""),
