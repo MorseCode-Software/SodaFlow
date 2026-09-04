@@ -60,9 +60,10 @@ build_script:
 test_script:
   - dotnet cake --target=Test --exclusive --configuration=%CONFIGURATION%
 
-# Inspect-Code is last of these deliberately. It reports rather than gates, so nothing else should
-# be waiting behind it, and the coverage upload in particular is worth having even on a build where
-# the inspection tool itself falls over.
+# Inspect-Code is last of these deliberately. It fails the build on anything it finds, and a build
+# failed by the inspection should still have uploaded its coverage and collected its packages -
+# those are what tell you whether the run was otherwise sound. Failing here still stops the deploy
+# phase, which only runs when everything before it succeeded.
 after_test:
   - dotnet cake --target=Upload-Coverage --exclusive --configuration=%CONFIGURATION%
   - dotnet cake --target=Pack --exclusive --configuration=%CONFIGURATION%

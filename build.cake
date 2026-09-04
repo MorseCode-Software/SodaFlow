@@ -339,15 +339,30 @@ Task("Inspect-Code")
             issue.MessageText);
     }
 
-    // Reported, not enforced: nothing here fails the build. The set is currently 22 suggestions,
-    // and a gate that is red on the day it is added gets switched off rather than fixed. Turning
-    // this into a threshold once the list is empty is a one-line change.
+    // Reported before the throw below, not after, because a build that fails on the inspection is
+    // exactly the build that needs to say what the inspection found.
     if (BuildSystem.IsRunningOnAppVeyor && issues.Count > 0)
     {
         ReportIssuesToPullRequest(
             issues,
             AppVeyorBuilds(),
             Context.Environment.WorkingDirectory);
+    }
+
+    // Anything at all fails the build, suggestions included - inspectcode reports SUGGESTION and
+    // above by default, so this gates on everything it is willing to say. The threshold is zero
+    // rather than a count because a count is a number that only ever goes up: it has to be raised
+    // to land the change that raised it, and raising it is easier than fixing the thing.
+    //
+    // The way to make an inspection stop failing the build, other than fixing it, is to turn the
+    // rule off or lower it in src/SodaFlow.sln.DotSettings, where Rider will then agree with CI.
+    // Silencing something here would put CI and the editor into disagreement, which is the problem
+    // this whole task exists to avoid.
+    if (issues.Count > 0)
+    {
+        throw new Exception(
+            $"InspectCode found {issues.Count} issue(s), listed above. Fix them, or change the rule "
+            + "in src/SodaFlow.sln.DotSettings.");
     }
 });
 
@@ -483,7 +498,8 @@ Task("Publish")
 
 // Inspect-Code depends on Build, which is the truth, rather than being chained behind Pack the way
 // the rest of these are. It is listed second here so that a default run still packs first: the
-// inspection reports, it does not gate, and nothing downstream should wait on it.
+// inspection fails the build, and leaving the packages and the coverage from the run behind is
+// worth more than failing a few seconds earlier.
 Task("Default")
     .Description("Restore, build, test with coverage, pack, and inspect.")
     .IsDependentOn("Pack")
