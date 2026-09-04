@@ -30,6 +30,22 @@ refresh it queues, they disagree, and a write matching the stale cache
 was dropped even though the graph never held that value. The check now
 stands down while a refresh is outstanding and lets the write through.
 
+Documented, rather than changed: writes belong on the binding thread. A
+bindable can be constructed on any thread and its value read from any
+thread, but the setter updates the cached value on the calling thread
+without synchronizing against the notifications the scheduler delivers,
+so writing from elsewhere races them. A binding engine already calls
+from the right thread; this is worth checking in application code which
+sets these from a background task.
+
+Also documented: an IBindingScheduler must not wait for the action it is
+given. Post is called from inside a transaction, which holds a
+process-wide lock, and the binding thread reaches this library through
+setters that open transactions of their own - so a scheduler which hands
+work over and blocks until it finishes can deadlock against a binding
+thread already waiting for that lock. Anything built on a dispatcher is
+fine; a hand-written scheduler needs the care.
+
 2.0.0
 
 No code change. This release exists to move a dependency, and is a major

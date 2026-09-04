@@ -23,6 +23,14 @@ public static partial class BindableCoreExtensionMethods
     ///         builds the instance and read by the binding thread; <see cref="ValueBox{T}" /> is what
     ///         orders the two. Every later change is marshaled through the scheduler.
     ///     </para>
+    ///     <para>
+    ///         The setter is the exception, and the reason writes belong on the binding thread. It
+    ///         updates the cached value on the calling thread — it has to, since the whole point of
+    ///         the optimistic update is that the binding engine reads back what it just wrote,
+    ///         without a trip through the scheduler in between. That leaves it writing the same
+    ///         field the scheduled work writes, unsynchronized, so a caller on another thread races
+    ///         the notifications. See <see cref="IWritableBindableValue{T}" />.
+    ///     </para>
     /// </remarks>
     // ReSharper disable once InheritdocConsiderUsage
     private sealed class TwoWayBindableValue<T> : BindableValueBase, ITwoWayBindableValue<T>

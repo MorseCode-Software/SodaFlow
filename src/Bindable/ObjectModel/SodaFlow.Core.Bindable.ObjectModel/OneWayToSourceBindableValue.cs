@@ -14,6 +14,10 @@ public static partial class BindableCoreExtensionMethods
     ///     Safe to construct on any thread. The initial value is stored by whichever thread builds
     ///     the instance and read by the binding thread; <see cref="ValueBox{T}" /> is what orders
     ///     the two.
+    ///     Writes belong on the binding thread. There is no scheduler here — nothing flows back out
+    ///     to the view, so there is nothing to marshal — and the setter updates the cached value
+    ///     directly, which makes two threads setting concurrently a race over that value and over
+    ///     the order their writes reach the graph. See <see cref="IWritableBindableValue{T}" />.
     /// </remarks>
     // ReSharper disable once InheritdocConsiderUsage
     private sealed class OneWayToSourceBindableValue<T> : IOneWayToSourceBindableValue<T>

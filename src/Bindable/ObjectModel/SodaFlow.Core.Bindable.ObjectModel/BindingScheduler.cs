@@ -16,6 +16,21 @@ public interface IBindingScheduler
     ///     transaction is in flight.
     /// </summary>
     /// <param name="action">The action to run.</param>
+    /// <remarks>
+    ///     <para>
+    ///         MUST NOT wait for the action to finish, either. This is called from inside a
+    ///         transaction, and a transaction holds a process-wide lock for its whole duration.
+    ///         An implementation that hands the action to the binding thread and blocks until it
+    ///         returns deadlocks: the binding thread reaches this library through setters which
+    ///         open transactions of their own, so it may already be waiting for the very lock the
+    ///         caller of this method is holding. Queue and return — do not send and wait.
+    ///     </para>
+    ///     <para>
+    ///         An implementation over a message loop gets this for nothing, since a dispatcher's
+    ///         post is asynchronous by nature. It is a hand-written scheduler, or one built on a
+    ///         send-and-wait primitive, that has to take care.
+    ///     </para>
+    /// </remarks>
     void Post(Action action);
 }
 
@@ -60,7 +75,9 @@ public sealed class SynchronizationContextBindingScheduler : IBindingScheduler
     /// <remarks>
     ///     Always posted, never sent, even when the caller is already on the binding thread:
     ///     running inline would breach the contract on <see cref="IBindingScheduler.Post" /> for a
-    ///     caller inside a transaction, and the handlers here are called from inside one.
+    ///     caller inside a transaction, and the handlers here are called from inside one. Posting
+    ///     is also what keeps this off the wrong side of the deadlock described there, since
+    ///     <see cref="SynchronizationContext.Post" /> returns without waiting.
     /// </remarks>
     // ReSharper disable once InheritdocConsiderUsage
     public void Post(Action action)
@@ -120,6 +137,15 @@ public sealed class ImmediateBindingScheduler : IBindingScheduler
     /// </summary>
     /// <param name="action">The action to run.</param>
     /// <exception cref="ArgumentNullException"><paramref name="action" /> is null.</exception>
+    /// <remarks>
+    ///     Deferring to the close of the current transaction means running while that transaction
+    ///     still holds the process-wide lock. Anything reached this way — a
+    ///     <see cref="System.ComponentModel.INotifyPropertyChanged.PropertyChanged" /> subscriber,
+    ///     most likely — therefore must not wait on another thread opening a transaction, because
+    ///     that thread cannot open one until this one has closed. A dispatcher-backed scheduler
+    ///     runs its actions after the transaction has released the lock and has no such
+    ///     constraint, which is one more reason to keep this one to tests.
+    /// </remarks>
     // ReSharper disable once InheritdocConsiderUsage
     public void Post(Action action)
     {
