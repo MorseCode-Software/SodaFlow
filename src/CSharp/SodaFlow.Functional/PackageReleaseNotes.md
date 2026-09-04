@@ -16,11 +16,6 @@ than mix.
 The == operator no longer asks whether either side is null, because neither
 side can be. Two Units are equal, and that is the whole of it.
 
-BREAKING: the delegate TryGet<TResult>, the one taking no input, is renamed
-TryGetDelegate<TResult>. The one-, two- and three-input overloads keep the
-name TryGet, so the family now answers to two names; only calls naming the
-no-input one have to change.
-
 Everything else here is a cleanup with no effect on behavior: nullable
 annotations completed, the build made warning-free, and the vendored
 JetBrains annotations replaced by a reference to the package they came from,
