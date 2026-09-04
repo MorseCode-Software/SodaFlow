@@ -67,8 +67,6 @@ internal sealed class TransactionInternal
     // deferredOwner rather than holding their own.
     private TransactionInternal DeferredOwner => field ?? this;
 
-    internal static bool IsActiveImpl() => HasCurrentTransaction();
-
     /// <summary>
     ///     Return whether there is a current transaction.
     /// </summary>

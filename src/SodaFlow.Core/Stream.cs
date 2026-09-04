@@ -24,8 +24,6 @@ public class Stream<T>
 
     private readonly StreamListenerManager.StreamListeners trackedListeners;
 
-    private object? attachListenerLock;
-
     // Everything below is allocated on first use. Streams are created in bulk - a single
     // two-cell Lift builds around twenty of them - and a stream that is only ever an
     // intermediate step in a chain never sends, never has a listener attached, and never has
@@ -64,12 +62,14 @@ public class Stream<T>
     // all, used only for its identity as a monitor, so there is nothing to observe half-built.
     // CompareExchange settles which one wins, and every caller then reads the same winner.
     //
-    // Do not copy this pattern to a field holding something with state without adding volatile.
+    // Do not copy this pattern to a field holding something with state without adding volatile,
+    // which means declaring the field explicitly again: the backing field the field keyword
+    // synthesizes cannot be marked volatile.
     private object AttachListenerLock
     {
         get
         {
-            object? existing = this.attachListenerLock;
+            object? existing = field;
 
             if (existing != null)
             {
@@ -77,11 +77,11 @@ public class Stream<T>
             }
 
             Interlocked.CompareExchange(
-                location1: ref this.attachListenerLock,
+                location1: ref field,
                 value: new object(),
                 comparand: null);
 
-            return this.attachListenerLock;
+            return field;
         }
     }
 

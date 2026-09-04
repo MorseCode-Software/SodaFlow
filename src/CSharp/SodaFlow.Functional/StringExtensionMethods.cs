@@ -2,6 +2,18 @@
 using System.Globalization;
 using JetBrains.Annotations;
 
+// Every method here is an extension on a string, and ReSharper offers to gather them into
+// extension blocks. Declined for the file rather than method by method, because the reason applies
+// to all of them and to any added later.
+//
+// The block form emits an identical public API - the same static methods, with the same signatures
+// and the same ExtensionAttribute - but it rewrites the documentation, which is most of what this
+// file is. Each public method is left holding an <inheritdoc /> pointing at a compiler-generated
+// type whose name is a hash, and its summary, parameters and returns move under that name.
+// Anything reading the XML without resolving inheritdoc - IntelliSense over a package reference
+// included - then shows nothing at all for a method which is documented here in full.
+// ReSharper disable ConvertToExtensionBlock
+
 namespace SodaFlow.Functional;
 
 /// <summary>
@@ -538,7 +550,7 @@ public static class StringExtensionMethods
     /// </remarks>
     [Pure]
     public static Maybe<DateTime> TryParseDateTime(
-        this string value,
+        this string? value,
         IFormatProvider provider,
         DateTimeStyles styles) =>
         DateTime.TryParse(s: value, provider: provider, styles: styles, result: out DateTime result)
@@ -562,7 +574,7 @@ public static class StringExtensionMethods
     /// </remarks>
     [Pure]
     public static Maybe<DateTime> TryParseDateTimeExact(
-        this string value,
+        this string? value,
         string format,
         IFormatProvider provider,
         DateTimeStyles styles) =>
@@ -602,7 +614,7 @@ public static class StringExtensionMethods
     /// </remarks>
     [Pure]
     public static Maybe<DateTimeOffset> TryParseDateTimeOffset(
-        this string value,
+        this string? value,
         IFormatProvider provider,
         DateTimeStyles styles) =>
         DateTimeOffset.TryParse(

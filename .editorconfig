@@ -24,6 +24,12 @@ trim_trailing_whitespace = false
 insert_final_newline = false
 trim_trailing_whitespace = false
 
+# Written by `dotnet tool install`, which ends the file at the closing brace. The rule is exempted
+# rather than enforced because the tool would undo it on the next tool added, and a file that
+# reverts every time it is touched teaches people to ignore the rule rather than the file.
+[.config/dotnet-tools.json]
+insert_final_newline = false
+
 # Legal text, left byte-for-byte as adopted.
 [{LICENSE,NOTICE}]
 insert_final_newline = false

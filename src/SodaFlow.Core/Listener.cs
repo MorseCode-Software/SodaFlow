@@ -52,9 +52,7 @@ public interface IListener
 /// </summary>
 [PublicAPI]
 // ReSharper disable once InheritdocConsiderUsage
-public interface IStrongListener : IListener, IDisposable
-{
-}
+public interface IStrongListener : IListener, IDisposable;
 
 /// <summary>
 ///     An interface representing a stream event listener which may be garbage collected when it goes out of scope.
@@ -62,9 +60,7 @@ public interface IStrongListener : IListener, IDisposable
 /// </summary>
 [PublicAPI]
 // ReSharper disable once InheritdocConsiderUsage
-public interface IWeakListener : IListener
-{
-}
+public interface IWeakListener : IListener;
 
 internal interface IKeepListenersAlive
 {
