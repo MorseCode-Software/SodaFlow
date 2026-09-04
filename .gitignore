@@ -254,6 +254,10 @@ Desktop.ini
 # appveyor.yml packs to artifacts/ and writes coverage to coverage/; docfx.json builds to _site.
 artifacts/
 coverage/
+# build.cake writes the InspectCode SARIF here.
+inspection/
+# Where Cake caches the addins its #addin directives resolve.
+tools/
 # build.cake downloads this when it is about to upload coverage.
 coveralls.exe
 _site/

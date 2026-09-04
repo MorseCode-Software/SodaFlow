@@ -8,8 +8,8 @@
 //     dotnet tool restore
 //     dotnet cake
 //
-// which restores, builds, tests with coverage, and packs. Publishing is deliberately not part of
-// the default target; see the Publish task.
+// which restores, builds, tests with coverage, packs, and runs the inspection. Publishing is
+// deliberately not part of the default target; see the Publish task.
 //
 // On AppVeyor the tasks are driven one phase at a time, with --exclusive, so that a failure is
 // attributed to the phase it happened in rather than all of them reading as a build failure. The
@@ -20,6 +20,16 @@
 // via MinVer (see src/Directory.Build.props), so pushing sodaflow-async-2.1.0 releases only
 // SodaFlow.Async and leaves every other package on its own last tag.
 
+// The Cake.Issues family is pinned to 5.9.1 rather than the current 6.0.0 because
+// Cake.Issues.PullRequests.AppVeyor - the piece that does the actual reporting - has no 6.x release,
+// and the four have to agree on a version. Under Cake 6 they log one informational line apiece
+// saying they were built against Cake.Core 5.0.0; they load and work regardless. Move the whole set
+// to 6.x once the AppVeyor one ships.
+#addin nuget:?package=Cake.Issues&version=5.9.1
+#addin nuget:?package=Cake.Issues.Sarif&version=5.9.1
+#addin nuget:?package=Cake.Issues.PullRequests&version=5.9.1
+#addin nuget:?package=Cake.Issues.PullRequests.AppVeyor&version=5.9.1
+
 using System.Xml.Linq;
 
 var target = Argument("target", "Default");
@@ -28,6 +38,8 @@ var configuration = Argument("configuration", "Release");
 var solution = File("./src/SodaFlow.slnx");
 var artifactsDirectory = Directory("./artifacts");
 var coverageDirectory = Directory("./coverage");
+var inspectionDirectory = Directory("./inspection");
+var inspectionSettings = File("./src/SodaFlow.sln.DotSettings");
 var coverallsExecutable = File("./coveralls.exe");
 
 const string CoverallsDownloadUrl =
@@ -267,6 +279,78 @@ Task("Pack")
     }
 });
 
+Task("Inspect-Code")
+    .Description("Runs JetBrains InspectCode over the solution and reports what it finds.")
+    .IsDependentOn("Build")
+    .Does(() =>
+{
+    CleanDirectory(inspectionDirectory);
+
+    var report = inspectionDirectory + File("inspectcode.sarif");
+
+    // inspectcode comes from the jetbrains.resharper.globaltools local tool, pinned alongside Cake
+    // in .config/dotnet-tools.json, so the agent inspects with the version a developer does. There
+    // is no Cake alias for it; a process call is the whole of the integration.
+    var arguments = new ProcessArgumentBuilder()
+        .Append("jb")
+        .Append("inspectcode")
+        .AppendQuoted(MakeAbsolute(solution.Path).FullPath)
+        .AppendSwitchQuoted("--output", "=", MakeAbsolute(report.Path).FullPath)
+        .Append("--format=Sarif")
+        // The same settings Rider applies, named explicitly rather than left to inspectcode's
+        // lookup: that lookup pairs a .DotSettings file with a solution of the same name, and this
+        // solution is SodaFlow.slnx while the settings are SodaFlow.sln.DotSettings.
+        .AppendSwitchQuoted("--settings", "=", MakeAbsolute(inspectionSettings.Path).FullPath)
+        // Absolute paths in the SARIF, which is what lets the issues be reported against paths from
+        // the repository root. Left relative, they come out relative to the solution directory -
+        // CSharp/SodaFlow/Foo.cs for a file that lives at src/CSharp/SodaFlow/Foo.cs - because the
+        // reader takes the URI as written rather than rebasing it.
+        .Append("--absolute-paths")
+        // The solution was built by the Build task this depends on. Building it again would double
+        // the cost of the phase for no gain, so tell inspectcode which configuration it is looking
+        // at instead of letting it pick one and build it.
+        .Append("--no-build")
+        .Append($"--properties:Configuration={configuration}")
+        .Append("--verbosity=WARN");
+
+    var exitCode = StartProcess("dotnet", new ProcessSettings { Arguments = arguments });
+    if (exitCode != 0)
+    {
+        throw new Exception($"inspectcode failed (exit {exitCode}).");
+    }
+
+    var issues = ReadIssues(
+            SarifIssuesFromFilePath(report),
+            Context.Environment.WorkingDirectory)
+        .OrderBy(i => i.AffectedFileRelativePath?.FullPath ?? string.Empty, StringComparer.Ordinal)
+        .ThenBy(i => i.Line ?? 0)
+        .ToList();
+
+    // Logged as well as reported. The AppVeyor messages tab is the readable form, but it is only
+    // populated on AppVeyor, and a local run should not have to guess what was found.
+    Information("InspectCode found {0} issue(s).", issues.Count);
+    foreach (var issue in issues)
+    {
+        Information(
+            "  {0}({1}): {2}: {3}",
+            issue.AffectedFileRelativePath?.FullPath ?? "<solution>",
+            issue.Line?.ToString() ?? "-",
+            issue.RuleId,
+            issue.MessageText);
+    }
+
+    // Reported, not enforced: nothing here fails the build. The set is currently 22 suggestions,
+    // and a gate that is red on the day it is added gets switched off rather than fixed. Turning
+    // this into a threshold once the list is empty is a one-line change.
+    if (BuildSystem.IsRunningOnAppVeyor && issues.Count > 0)
+    {
+        ReportIssuesToPullRequest(
+            issues,
+            AppVeyorBuilds(),
+            Context.Environment.WorkingDirectory);
+    }
+});
+
 Task("Publish")
     .Description("Pushes the one package this build's tag names to nuget.org.")
     .Does(() =>
@@ -397,8 +481,12 @@ Task("Publish")
         });
 });
 
+// Inspect-Code depends on Build, which is the truth, rather than being chained behind Pack the way
+// the rest of these are. It is listed second here so that a default run still packs first: the
+// inspection reports, it does not gate, and nothing downstream should wait on it.
 Task("Default")
-    .Description("Restore, build, test with coverage, and pack.")
-    .IsDependentOn("Pack");
+    .Description("Restore, build, test with coverage, pack, and inspect.")
+    .IsDependentOn("Pack")
+    .IsDependentOn("Inspect-Code");
 
 RunTarget(target);

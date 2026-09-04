@@ -60,9 +60,13 @@ build_script:
 test_script:
   - dotnet cake --target=Test --exclusive --configuration=%CONFIGURATION%
 
+# Inspect-Code is last of these deliberately. It reports rather than gates, so nothing else should
+# be waiting behind it, and the coverage upload in particular is worth having even on a build where
+# the inspection tool itself falls over.
 after_test:
   - dotnet cake --target=Upload-Coverage --exclusive --configuration=%CONFIGURATION%
   - dotnet cake --target=Pack --exclusive --configuration=%CONFIGURATION%
+  - dotnet cake --target=Inspect-Code --exclusive --configuration=%CONFIGURATION%
 
 artifacts:
   - path: artifacts\*.nupkg
@@ -70,6 +74,9 @@ artifacts:
   # Kept so a build whose upload was skipped or rejected can still be inspected.
   - path: coverage
     name: coverage
+  # The raw SARIF, for opening in a viewer rather than reading off the messages tab.
+  - path: inspection
+    name: inspection
 
 # Publishing stays in its own phase rather than joining the target above, because this is the phase
 # AppVeyor runs after the artifacts are collected and only when everything before it succeeded.
