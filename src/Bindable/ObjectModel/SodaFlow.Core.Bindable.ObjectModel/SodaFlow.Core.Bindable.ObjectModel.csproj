@@ -40,7 +40,6 @@
         <Compile Include="OneWayBindableValue.cs"/>
         <Compile Include="OneWayToSourceBindableValue.cs"/>
         <Compile Include="TwoWayBindableValue.cs"/>
-        <Compile Include="ValueBox.cs"/>
     </ItemGroup>
 
     <ItemGroup>

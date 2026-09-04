@@ -22,7 +22,11 @@ public interface IBindable : IDisposable
 // ReSharper disable once InheritdocConsiderUsage
 public interface IReadableBindableValue<T> : IBindable
 {
-    /// <summary>The current value. Safe to read from any thread.</summary>
+    /// <summary>
+    ///     The current value, for the binding engine to read. Not an accessor for application
+    ///     code: see the remarks on <see cref="IWritableBindableValue{T}" />, which apply to
+    ///     reading as much as to writing.
+    /// </summary>
     T Value { get; }
 
     /// <summary>The cell backing this value, for further composition in the FRP graph.</summary>
@@ -37,12 +41,18 @@ public interface IReadableBindableValue<T> : IBindable
 /// </summary>
 /// <remarks>
 ///     <para>
-///         Write from the binding thread. A bindable may be constructed on any thread and read
-///         from any thread, but the setter is the one operation that is not marshaled: it updates
-///         the cached value on the calling thread, and the notifications the scheduler delivers
-///         update that same value on the binding thread. Writing from anywhere else races them.
-///         This constrains application code rather than the view — a binding engine is already
-///         calling from the thread in question.
+///         <see cref="Value" /> exists for the binding engine to read and write, and for nothing
+///         else. Reaching for it from application code is a procedural way around the graph: the
+///         value it reports is one the graph already holds, and a value pushed into it is one a
+///         sink can be sent directly. Compose cells and streams instead.
+///     </para>
+///     <para>
+///         The thread rule follows from that. A bindable may be constructed on any thread, but
+///         the property is touched on the binding thread only, which is where a binding engine
+///         calls from — so the cached value behind it is an ordinary field, with no
+///         synchronization and no allocation per change. Read or write it from somewhere else and
+///         that assumption is gone, quietly: a stale value at best, and a torn one where
+///         <typeparamref name="T" /> is a large struct.
 ///     </para>
 ///     <para>
 ///         A write reaches the graph inside a transaction, and transactions are serialized
@@ -57,8 +67,8 @@ public interface IReadableBindableValue<T> : IBindable
 public interface IWritableBindableValue<T> : IBindable
 {
     /// <summary>
-    ///     Gets the current value, or writes a new one into the FRP graph. Write from the binding
-    ///     thread; see the remarks on this interface.
+    ///     Gets the current value, or writes a new one into the FRP graph. For the binding engine,
+    ///     on the binding thread; see the remarks on this interface.
     /// </summary>
     T Value { get; set; }
 }

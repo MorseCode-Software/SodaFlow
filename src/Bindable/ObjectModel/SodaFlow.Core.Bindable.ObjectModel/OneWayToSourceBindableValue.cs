@@ -12,12 +12,12 @@ public static partial class BindableCoreExtensionMethods
     /// </summary>
     /// <remarks>
     ///     Safe to construct on any thread. The initial value is stored by whichever thread builds
-    ///     the instance and read by the binding thread; <see cref="ValueBox{T}" /> is what orders
-    ///     the two.
-    ///     Writes belong on the binding thread. There is no scheduler here — nothing flows back out
-    ///     to the view, so there is nothing to marshal — and the setter updates the cached value
-    ///     directly, which makes two threads setting concurrently a race over that value and over
-    ///     the order their writes reach the graph. See <see cref="IWritableBindableValue{T}" />.
+    ///     the instance; nothing orders that against the binding thread beyond whatever publishes
+    ///     the instance to it, which has to order them anyway for <c>comparer</c> and
+    ///     <c>write</c>.
+    ///     There is no scheduler here, because nothing flows back out to the view and so there is
+    ///     nothing to marshal. The cached value is read and written by the binding engine, on the
+    ///     binding thread, and by nothing else — see <see cref="IWritableBindableValue{T}" />.
     /// </remarks>
     // ReSharper disable once InheritdocConsiderUsage
     private sealed class OneWayToSourceBindableValue<T> : IOneWayToSourceBindableValue<T>
@@ -26,10 +26,11 @@ public static partial class BindableCoreExtensionMethods
         private readonly Action<T> write;
 
         /// <summary>
-        ///     Boxed so the field can be volatile whatever <typeparamref name="T" /> is. See
-        ///     <see cref="ValueBox{T}" />.
+        ///     The value the binding engine last saw. Read and written on the binding thread only,
+        ///     which is what lets it be an ordinary field: see <see cref="IWritableBindableValue{T}" />
+        ///     for why nothing else touches it.
         /// </summary>
-        private volatile ValueBox<T> box;
+        private T cachedValue;
 
         private int disposed;
 
@@ -44,14 +45,14 @@ public static partial class BindableCoreExtensionMethods
         internal OneWayToSourceBindableValue(Action<T> write, T initialValue, IEqualityComparer<T>? comparer)
         {
             this.comparer = comparer ?? EqualityComparer<T>.Default;
-            this.box = new ValueBox<T>(initialValue);
+            this.cachedValue = initialValue;
             this.write = write ?? throw new ArgumentNullException(nameof(write));
         }
 
         /// <inheritdoc />
         public T Value
         {
-            get => this.box.Value;
+            get => this.cachedValue;
             set
             {
                 if (Volatile.Read(ref this.disposed) != 0)
@@ -59,12 +60,12 @@ public static partial class BindableCoreExtensionMethods
                     return;
                 }
 
-                if (this.comparer.Equals(x: this.box.Value, y: value))
+                if (this.comparer.Equals(x: this.cachedValue, y: value))
                 {
                     return;
                 }
 
-                this.box = new ValueBox<T>(value);
+                this.cachedValue = value;
 
                 // Checked again inside the post, not only above. PostWrite defers whenever a
                 // transaction is already open, so a Dispose between the two would otherwise

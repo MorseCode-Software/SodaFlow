@@ -30,12 +30,14 @@ refresh it queues, they disagree, and a write matching the stale cache
 was dropped even though the graph never held that value. The check now
 stands down while a refresh is outstanding and lets the write through.
 
-Documented, rather than changed: writes belong on the binding thread. A
-bindable can be constructed on any thread and its value read from any
-thread, but the setter updates the cached value on the calling thread
-without synchronizing against the notifications the scheduler delivers,
-so writing from elsewhere races them. A binding engine already calls
-from the right thread; this is worth checking in application code which
+Documented, rather than changed: a bindable's Value belongs to the
+binding engine. The instance can be constructed on any thread, but the
+property is read and written on the binding thread and nowhere else.
+Reaching for it from application code is a procedural way around the
+graph anyway - the value it reports is one the graph already holds, and
+a value pushed into it is one a sink can be sent directly - so this
+costs nothing that was worth having. A binding engine already calls from
+the right thread; it is worth a look at application code which reads or
 sets these from a background task.
 
 Also documented: an IBindingScheduler must not wait for the action it is

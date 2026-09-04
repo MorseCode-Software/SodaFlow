@@ -20,16 +20,18 @@ public static partial class BindableCoreExtensionMethods
     ///     </para>
     ///     <para>
     ///         Safe to construct on any thread. The initial value is sampled by whichever thread
-    ///         builds the instance and read by the binding thread; <see cref="ValueBox{T}" /> is what
-    ///         orders the two. Every later change is marshaled through the scheduler.
+    ///         builds the instance, and every later change is marshaled through the scheduler.
+    ///         Nothing orders the constructing thread against the binding thread beyond whatever
+    ///         publishes the instance to it — and that has to order them anyway, since
+    ///         <c>comparer</c>, <c>listener</c> and <c>write</c> are ordinary fields a reader needs
+    ///         just as much.
     ///     </para>
     ///     <para>
-    ///         The setter is the exception, and the reason writes belong on the binding thread. It
-    ///         updates the cached value on the calling thread — it has to, since the whole point of
-    ///         the optimistic update is that the binding engine reads back what it just wrote,
-    ///         without a trip through the scheduler in between. That leaves it writing the same
-    ///         field the scheduled work writes, unsynchronized, so a caller on another thread races
-    ///         the notifications. See <see cref="IWritableBindableValue{T}" />.
+    ///         The setter writes the cached value on the calling thread rather than through the
+    ///         scheduler, which it has to: the point of the optimistic update is that the binding
+    ///         engine reads back what it just wrote, without a round trip in between. That is
+    ///         sound because <see cref="Value" /> belongs to the binding engine and is read and
+    ///         written there and nowhere else — see <see cref="IWritableBindableValue{T}" />.
     ///     </para>
     /// </remarks>
     // ReSharper disable once InheritdocConsiderUsage
@@ -46,10 +48,11 @@ public static partial class BindableCoreExtensionMethods
         private readonly Action<T> write;
 
         /// <summary>
-        ///     Boxed so the field can be volatile whatever <typeparamref name="T" /> is. See
-        ///     <see cref="ValueBox{T}" />.
+        ///     The value the binding engine last saw. Read and written on the binding thread only,
+        ///     which is what lets it be an ordinary field: see <see cref="IWritableBindableValue{T}" />
+        ///     for why nothing else touches it.
         /// </summary>
-        private volatile ValueBox<T> box;
+        private T cachedValue;
 
         /// <summary>
         ///     How many refreshes have been queued and not yet run. Non-zero means the cached value
@@ -82,13 +85,13 @@ public static partial class BindableCoreExtensionMethods
 
             // ReSharper disable once NullableWarningSuppressionIsUsed - This value will be replaced with a non-null
             // value in the transaction below when the cell is sampled, which happens before the constructor completes
-            // and before the listener is attached, so nothing has a chance of modifying this.box before then.
-            this.box = new ValueBox<T>(default!);
+            // and before the listener is attached, so nothing has a chance of modifying it before then.
+            this.cachedValue = default!;
 
             this.listener =
                 TransactionInternal.RunImpl(() =>
                 {
-                    this.box = new ValueBox<T>(cell.SampleImpl());
+                    this.cachedValue = cell.SampleImpl();
                     return ListenToUpdates(cell: cell, handler: this.OnSourceChanged);
                 });
         }
@@ -99,7 +102,7 @@ public static partial class BindableCoreExtensionMethods
         /// <inheritdoc />
         public T Value
         {
-            get => this.box.Value;
+            get => this.cachedValue;
             set
             {
                 this.ThrowIfDisposed();
@@ -110,12 +113,12 @@ public static partial class BindableCoreExtensionMethods
                 // disagree - and a write matching the stale one would be dropped although the graph
                 // never had it. While anything is queued, send and let the refresh behind it decide.
                 if (Volatile.Read(ref this.pendingRefreshes) == 0
-                    && this.comparer.Equals(x: this.box.Value, y: value))
+                    && this.comparer.Equals(x: this.cachedValue, y: value))
                 {
                     return;
                 }
 
-                this.box = new ValueBox<T>(value);
+                this.cachedValue = value;
 
                 PostWrite(() =>
                 {
@@ -181,12 +184,12 @@ public static partial class BindableCoreExtensionMethods
 
                     T authoritative = this.Cell.SampleImpl();
 
-                    if (this.comparer.Equals(x: this.box.Value, y: authoritative))
+                    if (this.comparer.Equals(x: this.cachedValue, y: authoritative))
                     {
                         return;
                     }
 
-                    this.box = new ValueBox<T>(authoritative);
+                    this.cachedValue = authoritative;
                     this.RaiseValueChanged();
                 }
                 finally
