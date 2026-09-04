@@ -197,11 +197,23 @@ public static partial class BindableCoreExtensionMethods
         ///         What it does double is how often an update takes the process-wide transaction
         ///         lock: once to send, and now once more to sample. That is a latency exposure
         ///         under contention rather than a throughput cost, and it is the reason to leave
-        ///         this alone unless a profile says otherwise. If one ever does, the cheaper move
-        ///         is to stop queuing a refresh when one is already pending — pendingRefreshes
-        ///         already knows — which collapses a burst of updates into a single sample rather
-        ///         than making each sample faster. See BindableRefreshBenchmarks in
+        ///         this alone unless a profile says otherwise. See BindableRefreshBenchmarks in
         ///         SodaFlow.Benchmarks.
+        ///     </para>
+        ///     <para>
+        ///         The move that would pay, if one ever does, is to stop queuing a refresh while
+        ///         one is already pending: the queued refreshes are idempotent - they all sample
+        ///         the same settled cell, so the first does the work and the rest find nothing -
+        ///         so collapsing a burst into one sample changes no notification and no value.
+        ///         It is worth knowing why that has not been done. It cannot be hung off
+        ///         pendingRefreshes, which means "the cache may not agree with the cell" and not
+        ///         "a post is outstanding"; the two differ exactly where a refresh has run and a
+        ///         newer update has arrived, and every naive gate there either drops that update
+        ///         and leaves the cache stale for good, or clears the count early and lets the
+        ///         setter discard a write again. Doing it properly needs a generation compared
+        ///         across the body, which is a second concurrent invariant sitting on the field
+        ///         the setter's correctness already depends on - for a saving that is nothing at
+        ///         all unless updates arrive in bursts within one turn of the dispatcher.
         ///     </para>
         /// </remarks>
         private void ScheduleRefreshFromCell()

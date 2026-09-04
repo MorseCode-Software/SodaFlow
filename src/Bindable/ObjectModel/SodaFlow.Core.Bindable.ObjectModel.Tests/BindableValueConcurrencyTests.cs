@@ -46,12 +46,18 @@ public class BindableValueConcurrencyTests
         public void Post(Action action) => this.queue.Enqueue(action);
 
         /// <summary>Runs everything queued, including anything queued while draining.</summary>
-        internal void RunAll()
+        /// <returns>How many actions ran.</returns>
+        internal int RunAll()
         {
+            int ran = 0;
+
             while (this.queue.Count > 0)
             {
                 this.queue.Dequeue()();
+                ran++;
             }
+
+            return ran;
         }
     }
 
@@ -385,5 +391,41 @@ public class BindableValueConcurrencyTests
 
         Assert.IsNull(caught, "the immediate scheduler runs work wherever it is called");
         Assert.AreEqual(expected: 5, actual: c.Sample());
+    }
+
+    // What a burst costs and what it produces, which is the question to answer before trying to
+    // coalesce the refreshes: every queued refresh sees the same cell, so the first one to run
+    // does the work and the rest find nothing to do.
+    [Test]
+    public void ABurstOfUpdatesQueuesARefreshEachButNotifiesOnce()
+    {
+        QueueingScheduler scheduler = new();
+        CellSink<int> c = Cell.CreateSink(0);
+
+        using ITwoWayBindableValue<int> b = c.ToTwoWayImpl(scheduler: scheduler);
+
+        List<int> observed = new();
+        b.PropertyChanged += (sender, _) =>
+        {
+            if (sender is ITwoWayBindableValue<int> notified)
+            {
+                observed.Add(notified.Value);
+            }
+        };
+
+        c.Send(1);
+        c.Send(2);
+        c.Send(3);
+
+        int ran = scheduler.RunAll();
+
+        Assert.AreEqual(expected: 3, actual: ran, message: "one refresh queued per update");
+
+        CollectionAssert.AreEqual(
+            expected: new[] { 3 },
+            actual: observed,
+            message: "but only one notification, because they all sample the same settled cell");
+
+        Assert.AreEqual(expected: 3, actual: b.Value);
     }
 }
