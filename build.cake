@@ -123,8 +123,8 @@ Task("Test")
     // Coveralls reporter accepts - so nothing has to be converted and nothing merged. Scoping and
     // exclusions live in coverage.runsettings.
     //
-    // SodaFlow.Tests.Performance contributes no tests: it is a console benchmark, not a test
-    // project, and the run does not mind.
+    // SodaFlow.Benchmarks contributes no tests: it is a console application driving
+    // BenchmarkDotNet, not a test project, and the run does not mind.
     //
     // Three earlier approaches are recorded so they are not retried blindly. The NUnit console
     // runner under OpenCover profiled cleanly but took close to ten minutes here and failed tests
@@ -260,8 +260,8 @@ Task("Pack")
 
     // One pack over the whole solution. It packs the publishable projects and skips the test and
     // benchmark ones: the test projects reference Microsoft.NET.Test.Sdk, which the SDK reads as
-    // IsTestProject and defaults IsPackable to false for, and SodaFlow.Tests.Performance sets
-    // IsPackable false explicitly because it has no test adapter reference to be read that way.
+    // IsTestProject and defaults IsPackable to false for, and SodaFlow.Benchmarks sets IsPackable
+    // false explicitly because it has no test adapter reference to be read that way.
     DotNetPack(
         solution,
         new DotNetPackSettings

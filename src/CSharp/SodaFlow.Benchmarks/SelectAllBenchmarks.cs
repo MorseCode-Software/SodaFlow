@@ -15,10 +15,12 @@ namespace SodaFlow.Benchmarks;
 ///     <para>
 ///         This is the shape the library exists for and the one that stresses it: a loop, a lift
 ///         over every element, and a switch that rebuilds the lift whenever the collection changes.
-///         It came from SodaFlow.Tests.Performance, where it was timed by a stopwatch around a
-///         sequence which included twenty-five half-second sleeps — so the number it printed was
-///         mostly sleep. What is measured here is one operation at a time, which is the thing worth
-///         knowing and the thing that can be compared between runs.
+///         It came from SodaFlow.Tests.Performance, a console harness deleted once this replaced
+///         it, where the graph was timed by a stopwatch around a sequence which included
+///         twenty-five half-second sleeps — so the number it printed was mostly sleep, and reading
+///         it meant running a program and pressing keys at it. What is measured here is one
+///         operation at a time, which is the thing worth knowing and the thing that can be
+///         compared between runs.
 ///     </para>
 ///     <para>
 ///         Element count is a parameter because how these scale is the question. A toggle touches
