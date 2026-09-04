@@ -30,6 +30,7 @@
         <Compile Include="BindableRefreshBenchmarks.cs"/>
         <Compile Include="BindableValueBenchmarks.cs"/>
         <Compile Include="Program.cs"/>
+        <Compile Include="SelectAllBenchmarks.cs"/>
     </ItemGroup>
 
     <ItemGroup>
@@ -38,6 +39,7 @@
         <ProjectReference
                 Include="..\..\Bindable\ObjectModel\SodaFlow.Core.Bindable.ObjectModel\SodaFlow.Core.Bindable.ObjectModel.csproj"/>
         <ProjectReference Include="..\..\SodaFlow.Core\SodaFlow.Core.csproj"/>
+        <ProjectReference Include="..\SodaFlow.Functional\SodaFlow.Functional.csproj"/>
         <ProjectReference Include="..\SodaFlow\SodaFlow.csproj"/>
     </ItemGroup>
 
