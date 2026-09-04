@@ -156,15 +156,29 @@ Task("Upload-Coverage")
     .IsDependentOn("Test")
     .Does(() =>
 {
-    // The collector names the report after the machine and timestamp and puts it in a GUID
-    // subdirectory, so it has to be found rather than assumed.
-    var report = GetFiles($"{coverageDirectory.Path}/**/*.cobertura.xml").FirstOrDefault();
-    if (report == null)
+    // The collector names each report after the machine and timestamp and puts it in a GUID
+    // subdirectory, so they have to be found rather than assumed.
+    //
+    // There is more than one. A solution-level run writes a report per test project, each covering
+    // only the assemblies that project touched - eight of them here, ranging from two assemblies to
+    // seven. Sending the first, which is what this did until now, uploaded a partial view, and
+    // which partial view depended on the order the filesystem happened to return those GUID
+    // directories in. The reporter takes several files in one invocation and merges them, so all of
+    // them go up as a single submission.
+    var reports = GetFiles($"{coverageDirectory.Path}/**/*.cobertura.xml")
+        .OrderBy(r => r.FullPath, StringComparer.Ordinal)
+        .ToList();
+
+    if (reports.Count == 0)
     {
         throw new Exception("No Cobertura report was produced.");
     }
 
-    Information("Coverage report: {0}", report.FullPath);
+    Information("Coverage reports ({0}):", reports.Count);
+    foreach (var report in reports)
+    {
+        Information("  {0}", report.FullPath);
+    }
 
     if (!BuildSystem.IsRunningOnAppVeyor)
     {
@@ -193,9 +207,14 @@ Task("Upload-Coverage")
         $"https://ci.appveyor.com/project/{EnvironmentVariable("APPVEYOR_ACCOUNT_NAME")}" +
         $"/{EnvironmentVariable("APPVEYOR_PROJECT_SLUG")}/builds/{EnvironmentVariable("APPVEYOR_BUILD_ID")}";
 
-    var arguments = new ProcessArgumentBuilder()
-        .Append("report")
-        .AppendQuoted(report.FullPath)
+    var arguments = new ProcessArgumentBuilder().Append("report");
+
+    foreach (var report in reports)
+    {
+        arguments.AppendQuoted(report.FullPath);
+    }
+
+    arguments
         .Append("--format=cobertura")
         .AppendSwitchQuotedSecret("--repo-token", "=", repoToken)
         .AppendSwitchQuoted("--base-path", "=", Context.Environment.WorkingDirectory.FullPath)
@@ -211,6 +230,10 @@ Task("Upload-Coverage")
             "=",
             AppVeyor.Environment.PullRequest.Number.ToString());
     }
+
+    // RenderSafe rather than Render: the repo token is appended as a secret and comes back
+    // redacted, so this is safe to leave in a public build log.
+    Verbose("coveralls {0}", arguments.RenderSafe());
 
     var exitCode = StartProcess(coverallsExecutable, new ProcessSettings { Arguments = arguments });
     if (exitCode != 0)
