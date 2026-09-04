@@ -20,15 +20,12 @@
 // via MinVer (see src/Directory.Build.props), so pushing sodaflow-async-2.1.0 releases only
 // SodaFlow.Async and leaves every other package on its own last tag.
 
-// The Cake.Issues family is pinned to 5.9.1 rather than the current 6.0.0 because
-// Cake.Issues.PullRequests.AppVeyor - the piece that does the actual reporting - has no 6.x release,
-// and the four have to agree on a version. Under Cake 6 they log one informational line apiece
-// saying they were built against Cake.Core 5.0.0; they load and work regardless. Move the whole set
-// to 6.x once the AppVeyor one ships.
-#addin nuget:?package=Cake.Issues&version=5.9.1
-#addin nuget:?package=Cake.Issues.Sarif&version=5.9.1
-#addin nuget:?package=Cake.Issues.PullRequests&version=5.9.1
-#addin nuget:?package=Cake.Issues.PullRequests.AppVeyor&version=5.9.1
+// Reading the SARIF only. Reporting what was read is done through Cake's own AppVeyor provider,
+// not through Cake.Issues.PullRequests.AppVeyor - see the Inspect-Code task for why - which is what
+// lets these two track the Cake version instead of being held at 5.9.1 to agree with an addin that
+// has no Cake 6 release.
+#addin nuget:?package=Cake.Issues&version=6.0.0
+#addin nuget:?package=Cake.Issues.Sarif&version=6.0.0
 
 using System.Xml.Linq;
 
@@ -279,6 +276,12 @@ Task("Pack")
     }
 });
 
+// compiler(line): RuleId: text - the shape a compiler error takes, because it is the shape an
+// editor, a log reader and a person all already know how to scan.
+string Describe(IIssue issue) =>
+    $"{issue.AffectedFileRelativePath?.FullPath ?? "<solution>"}"
+    + $"({issue.Line?.ToString() ?? "-"}): {issue.RuleId}: {issue.MessageText}";
+
 Task("Inspect-Code")
     .Description("Runs JetBrains InspectCode over the solution and reports what it finds.")
     .IsDependentOn("Build")
@@ -331,22 +334,35 @@ Task("Inspect-Code")
     Information("InspectCode found {0} issue(s).", issues.Count);
     foreach (var issue in issues)
     {
-        Information(
-            "  {0}({1}): {2}: {3}",
-            issue.AffectedFileRelativePath?.FullPath ?? "<solution>",
-            issue.Line?.ToString() ?? "-",
-            issue.RuleId,
-            issue.MessageText);
+        Information("  {0}", Describe(issue));
     }
 
     // Reported before the throw below, not after, because a build that fails on the inspection is
     // exactly the build that needs to say what the inspection found.
-    if (BuildSystem.IsRunningOnAppVeyor && issues.Count > 0)
+    //
+    // Cake's own AppVeyor provider rather than Cake.Issues.PullRequests.AppVeyor, which is the
+    // obvious choice and does not work: it has no release built against Cake 6, and under Cake 6 it
+    // dies with MissingMethodException on Spectre.Console.Text..ctor(String, Style) as soon as it
+    // formats anything. That break is invisible locally, because IsRunningOnAppVeyor is the only
+    // thing standing between a local run and this code. Keeping the addin would have meant holding
+    // the entire build at Cake 5 to satisfy one package; AddMessage is the API it was reaching for
+    // anyway.
+    if (BuildSystem.IsRunningOnAppVeyor)
     {
-        ReportIssuesToPullRequest(
-            issues,
-            AppVeyorBuilds(),
-            Context.Environment.WorkingDirectory);
+        foreach (var issue in issues)
+        {
+            AppVeyor.AddMessage(
+                Describe(issue),
+                // Categorised by what it does to the build rather than by what inspectcode called
+                // it. Every issue here fails the build, and a failure filed as Information is one
+                // nobody scrolls to.
+                issue.Priority >= (int)IssuePriority.Error
+                    ? AppVeyorMessageCategoryType.Error
+                    : AppVeyorMessageCategoryType.Warning,
+                // The severity as reported survives here, along with the rule's documentation,
+                // which is the part that says what to actually do about it.
+                $"{issue.PriorityName}. {issue.RuleUrl}".Trim());
+        }
     }
 
     // Anything at all fails the build, suggestions included - inspectcode reports SUGGESTION and
