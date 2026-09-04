@@ -256,3 +256,8 @@ artifacts/
 coverage/
 _site/
 [Tt]est[Rr]esults/
+
+# Backups a merge tool leaves behind when a conflict is resolved. A hundred of these were
+# committed once already, by a git add that swept the working tree after a large merge.
+*.orig
+*.rej
