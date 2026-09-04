@@ -10,7 +10,7 @@ module private Types =
     type TestObject(s: Stream<bool>, s1: Stream<int>, s2: Stream<int>) as this =
         let mutable currentValue = lazy 0
 
-        let (cell, l) =
+        let cell, l =
             runT (fun () ->
                 let cell =
                     ((s |> mapS (fun v -> if v then 1 else 0), s1) |> orElseS, s2)
@@ -25,22 +25,22 @@ module private Types =
                     |> orElseS
                     |> holdS 3
 
-                let cell2 = createCell ()
-                let cell3 = createCell ()
-                let cell4 = createCell ()
-                let cell5 = createCell ()
-                let cell6 = createCell ()
-                let cell7 = createCell ()
-                let cell8 = createCell ()
-                let cell9 = createCell ()
+                let _cell2 = createCell ()
+                let _cell3 = createCell ()
+                let _cell4 = createCell ()
+                let _cell5 = createCell ()
+                let _cell6 = createCell ()
+                let _cell7 = createCell ()
+                let _cell8 = createCell ()
+                let _cell9 = createCell ()
                 currentValue <- cell |> sampleLazyC
                 let l = cell |> updatesC |> listenStrongS (fun v -> this.CurrentValue <- v)
                 (cell, l))
 
-        member private __.L = l
-        member __.Cell = cell
+        member private _.L = l
+        member _.Cell = cell
 
-        member __.CurrentValue
+        member _.CurrentValue
             with get () = currentValue.Value
             and set value = currentValue <- lazy value
 
@@ -50,15 +50,15 @@ module private Types =
         let isSelected =
             (selectAllStream, isSelectedStreamSink) |> orElseS |> holdS initialIsSelected
 
-        member __.Id = id
-        member __.IsSelectedStreamSink = isSelectedStreamSink
-        member __.IsSelected = isSelected
+        member _.Id = id
+        member _.IsSelectedStreamSink = isSelectedStreamSink
+        member _.IsSelected = isSelected
 
 [<TestFixture>]
 type ``Performance Tests``() =
 
     [<Test>]
-    member __.``Test Merge``() =
+    member _.``Test Merge``() =
         let s = sinkS<unit> ()
 
         let struct (_, obj) =
@@ -76,7 +76,7 @@ type ``Performance Tests``() =
         CollectionAssert.AreEqual(Seq.init 5000 (fun _ -> 0), values)
 
     [<Test>]
-    member __.``Test Run Construct``() =
+    member _.``Test Run Construct``() =
         let objects =
             runT (fun () ->
                 let o2 = List.init 10000 (fun n -> TestObject2(n, n < 1500, neverS ()))
@@ -85,7 +85,7 @@ type ``Performance Tests``() =
         runT (fun () -> objects |> sendC (List.init 20000 (fun n -> TestObject2(n, n < 500, neverS ()))))
 
     [<Test>]
-    member __.``Test Run Construct 2``() =
+    member _.``Test Run Construct 2``() =
         let struct (_, (objectsAndIsSelected, selectAllStream, objects)) =
             loopC (fun allSelected ->
                 let toggleAllSelectedStream = sinkS ()
@@ -112,7 +112,7 @@ type ``Performance Tests``() =
                     objectsAndIsSelected
                     |> mapC (fun oo ->
                         if oo.Count > 0 then
-                            (if oo |> Seq.forall (fun (_, isSelected) -> isSelected) then
+                            (if oo |> Seq.forall snd then
                                  Some true
                              else
                                  (if oo |> Seq.forall (fun (_, isSelected) -> not isSelected) then
@@ -129,7 +129,7 @@ type ``Performance Tests``() =
         (use _l =
             runT (fun () ->
                 objectsAndIsSelected
-                |> mapC (Seq.where (fun (_, isSelected) -> isSelected) >> Seq.length)
+                |> mapC (Seq.where snd >> Seq.length)
                 |> listenStrongC out.Add)
 
          runT (fun () ->

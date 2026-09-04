@@ -8,13 +8,13 @@ open SodaFlow
 type ``Cell Tests``() =
 
     [<Test>]
-    member __.``Test Transaction``() =
+    member _.``Test Transaction``() =
         let mutable calledBack = false
         TransactionInternal.Apply(fun trans _ -> trans.Prioritized(Node<unit>.Null, fun trans -> calledBack <- true))
         Assert.IsTrue calledBack
 
     [<Test>]
-    member __.``Test Regen``() =
+    member _.``Test Regen``() =
         let out = List<_>()
 
         TransactionInternal.Apply(fun trans _ ->

@@ -7,7 +7,7 @@ open SodaFlow
 type ``Node Tests``() =
 
     [<Test>]
-    member __.``Test Node``() =
+    member _.``Test Node``() =
         let a = Node<int>()
         let b = Node<int>()
 

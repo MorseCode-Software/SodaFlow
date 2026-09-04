@@ -49,7 +49,6 @@ module Listener =
     ///     The identity for <c>append</c>, and what to return from a branch which has nothing to
     ///     unsubscribe.
     /// </remarks>
-    [<MethodImpl(MethodImplOptions.NoInlining)>]
     let empty = ListenerInternal.EmptyImpl
 
     /// <summary>
@@ -168,7 +167,6 @@ module WeakListener =
     /// <summary>
     ///     A weak listener which is not listening to anything, and whose <c>unlisten</c> does nothing.
     /// </summary>
-    [<MethodImpl(MethodImplOptions.NoInlining)>]
     let empty = ListenerInternal.EmptyWeakImpl
 
     /// <summary>
@@ -238,7 +236,6 @@ module StrongListener =
     /// <summary>
     ///     A strong listener which is not listening to anything, and whose <c>unlisten</c> does nothing.
     /// </summary>
-    [<MethodImpl(MethodImplOptions.NoInlining)>]
     let empty = ListenerInternal.EmptyStrongImpl
 
     /// <summary>

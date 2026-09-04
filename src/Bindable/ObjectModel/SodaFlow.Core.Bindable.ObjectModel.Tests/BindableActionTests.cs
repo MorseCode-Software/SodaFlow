@@ -8,16 +8,16 @@ namespace SodaFlow.Bindable.ObjectModel.Tests;
 [TestFixture]
 public class BindableActionTests
 {
-    private static IBindableAction<T> Action<T>(StreamSink<T> sink, Cell<bool>? isEnabled = null) =>
+    private static IBindableAction<T> Action<T>(StreamSink<T> sink, Cell<bool>? isEnabled = null)
+        where T : notnull =>
         sink.ToBindableActionImpl(isEnabledCell: isEnabled, scheduler: BindingScheduler.Immediate);
 
     [Test]
     public void IsExecutableByDefault()
     {
-        using (IBindableAction<int> a = Action(Stream.CreateSink<int>()))
-        {
-            Assert.IsTrue(condition: a.CanExecute(null), message: "no enablement cell means always enabled");
-        }
+        using IBindableAction<int> a = Action(Stream.CreateSink<int>());
+
+        Assert.IsTrue(condition: a.CanExecute(null), message: "no enablement cell means always enabled");
     }
 
     [Test]
@@ -25,18 +25,17 @@ public class BindableActionTests
     {
         CellSink<bool> enabled = Cell.CreateSink(false);
 
-        using (IBindableAction<int> a = Action(sink: Stream.CreateSink<int>(), isEnabled: enabled))
-        {
-            Assert.IsFalse(condition: a.CanExecute(null), message: "the constructor samples the cell");
+        using IBindableAction<int> a = Action(sink: Stream.CreateSink<int>(), isEnabled: enabled);
 
-            int notifications = 0;
-            a.CanExecuteChanged += (_, __) => notifications++;
+        Assert.IsFalse(condition: a.CanExecute(null), message: "the constructor samples the cell");
 
-            enabled.Send(true);
+        int notifications = 0;
+        a.CanExecuteChanged += (_, _) => notifications++;
 
-            Assert.IsTrue(a.CanExecute(null));
-            Assert.AreEqual(expected: 1, actual: notifications);
-        }
+        enabled.Send(true);
+
+        Assert.IsTrue(a.CanExecute(null));
+        Assert.AreEqual(expected: 1, actual: notifications);
     }
 
     [Test]
@@ -45,7 +44,8 @@ public class BindableActionTests
         StreamSink<int> sink = Stream.CreateSink<int>();
         List<int> fired = new();
 
-        using (IBindableAction<int> a = Action(sink))
+        using IBindableAction<int> a = Action(sink);
+
         using (a.FiringsStream.ListenStrong(fired.Add))
         {
             a.Execute(42);
@@ -60,7 +60,8 @@ public class BindableActionTests
         StreamSink<int> sink = Stream.CreateSink<int>();
         List<int> fired = new();
 
-        using (IBindableAction<int> a = Action(sink: sink, isEnabled: Cell.Constant(false)))
+        using IBindableAction<int> a = Action(sink: sink, isEnabled: Cell.Constant(false));
+
         using (a.FiringsStream.ListenStrong(fired.Add))
         {
             a.Execute(1);
@@ -74,35 +75,25 @@ public class BindableActionTests
     [Test]
     public void RejectsAMistypedParameterAtTheCallSite()
     {
-        using (IBindableAction<int> a = Action(Stream.CreateSink<int>()))
-        {
-            Assert.Throws<InvalidOperationException>(() => a.Execute("not an int"));
-        }
+        using IBindableAction<int> a = Action(Stream.CreateSink<int>());
+
+        Assert.Throws<InvalidOperationException>(() => a.Execute("not an int"));
     }
 
     [Test]
-    public void AcceptsNullForATypeThatCanRepresentIt()
+    public void RejectsNullForAReferenceType()
     {
-        StreamSink<string> sink = Stream.CreateSink<string>();
-        List<string> fired = new();
+        using IBindableAction<string> a = Action(Stream.CreateSink<string>());
 
-        using (IBindableAction<string> a = Action(sink))
-        using (a.FiringsStream.ListenStrong(fired.Add))
-        {
-            a.Execute(null);
-
-            Assert.AreEqual(expected: 1, actual: fired.Count);
-            Assert.IsNull(fired[0]);
-        }
+        Assert.Throws<InvalidOperationException>(() => a.Execute(null));
     }
 
     [Test]
-    public void RejectsNullForATypeThatCannot()
+    public void RejectsNullForAValueType()
     {
-        using (IBindableAction<int> a = Action(Stream.CreateSink<int>()))
-        {
-            Assert.Throws<InvalidOperationException>(() => a.Execute(null));
-        }
+        using IBindableAction<int> a = Action(Stream.CreateSink<int>());
+
+        Assert.Throws<InvalidOperationException>(() => a.Execute(null));
     }
 
     [Test]
@@ -130,7 +121,7 @@ public class BindableActionTests
     {
         IBindableAction<int> a = Action(Stream.CreateSink<int>());
         int notifications = 0;
-        a.CanExecuteChanged += (_, __) => notifications++;
+        a.CanExecuteChanged += (_, _) => notifications++;
 
         a.Dispose();
 
@@ -142,7 +133,7 @@ public class BindableActionTests
     {
         IBindableAction<int> a = Action(sink: Stream.CreateSink<int>(), isEnabled: Cell.Constant(false));
         int notifications = 0;
-        a.CanExecuteChanged += (_, __) => notifications++;
+        a.CanExecuteChanged += (_, _) => notifications++;
 
         a.Dispose();
 
@@ -156,7 +147,7 @@ public class BindableActionTests
 
         a.Dispose();
         int notifications = 0;
-        a.CanExecuteChanged += (_, __) => notifications++;
+        a.CanExecuteChanged += (_, _) => notifications++;
         a.Dispose();
 
         Assert.AreEqual(expected: 0, actual: notifications, message: "the second dispose does nothing at all");

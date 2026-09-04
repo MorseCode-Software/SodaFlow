@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
+using JetBrains.Annotations;
 
 namespace SodaFlow.Functional;
 
@@ -14,6 +15,7 @@ namespace SodaFlow.Functional;
 ///     return a small value marked with the position it belongs in, which converts
 ///     implicitly into whichever either is being assigned or returned.
 /// </remarks>
+[PublicAPI]
 public static class Either
 {
     /// <summary>
@@ -176,6 +178,7 @@ public static class Either
     ///     Has nothing usable of its own. It exists to be converted implicitly into an either
     ///     which has this type in its first position.
     /// </remarks>
+    [PublicAPI]
     public sealed class EitherFirst<T>
     {
         internal EitherFirst(T value) => this.Value = value;
@@ -192,6 +195,7 @@ public static class Either
     ///     Has nothing usable of its own. It exists to be converted implicitly into an either
     ///     which has this type in its second position.
     /// </remarks>
+    [PublicAPI]
     public sealed class EitherSecond<T>
     {
         internal EitherSecond(T value) => this.Value = value;
@@ -208,6 +212,7 @@ public static class Either
     ///     Has nothing usable of its own. It exists to be converted implicitly into an either
     ///     which has this type in its third position.
     /// </remarks>
+    [PublicAPI]
     public sealed class EitherThird<T>
     {
         internal EitherThird(T value) => this.Value = value;
@@ -224,6 +229,7 @@ public static class Either
     ///     Has nothing usable of its own. It exists to be converted implicitly into an either
     ///     which has this type in its fourth position.
     /// </remarks>
+    [PublicAPI]
     public sealed class EitherFourth<T>
     {
         internal EitherFourth(T value) => this.Value = value;
@@ -240,6 +246,7 @@ public static class Either
     ///     Has nothing usable of its own. It exists to be converted implicitly into an either
     ///     which has this type in its fifth position.
     /// </remarks>
+    [PublicAPI]
     public sealed class EitherFifth<T>
     {
         internal EitherFifth(T value) => this.Value = value;
@@ -256,6 +263,7 @@ public static class Either
     ///     Has nothing usable of its own. It exists to be converted implicitly into an either
     ///     which has this type in its sixth position.
     /// </remarks>
+    [PublicAPI]
     public sealed class EitherSixth<T>
     {
         internal EitherSixth(T value) => this.Value = value;
@@ -272,6 +280,7 @@ public static class Either
     ///     Has nothing usable of its own. It exists to be converted implicitly into an either
     ///     which has this type in its seventh position.
     /// </remarks>
+    [PublicAPI]
     public sealed class EitherSeventh<T>
     {
         internal EitherSeventh(T value) => this.Value = value;
@@ -288,6 +297,7 @@ public static class Either
     ///     Has nothing usable of its own. It exists to be converted implicitly into an either
     ///     which has this type in its eighth position.
     /// </remarks>
+    [PublicAPI]
     public sealed class EitherEighth<T>
     {
         internal EitherEighth(T value) => this.Value = value;
@@ -300,6 +310,7 @@ public static class Either
     ///     do the collapsing.
     /// </summary>
     /// <typeparam name="T">The common type every case of the either is to be viewed as.</typeparam>
+    [PublicAPI]
     public class GetValueAsHelper<T>
     {
         internal static readonly GetValueAsHelper<T> Instance = new();
@@ -322,7 +333,7 @@ public static class Either
         public T From<T1, T2>(Either<T1, T2> a)
             where T1 : T
             where T2 : T =>
-            a.Match<T>(onFirst: v1 => v1, onSecond: v2 => v2);
+            a.Match<T>(onFirst: static v1 => v1, onSecond: static v2 => v2);
 
         /// <summary>
         ///     Collapses an either into the single common type all of its cases derive from.
@@ -340,7 +351,7 @@ public static class Either
             where T1 : T
             where T2 : T
             where T3 : T =>
-            a.Match<T>(onFirst: v1 => v1, onSecond: v2 => v2, onThird: v3 => v3);
+            a.Match<T>(onFirst: static v1 => v1, onSecond: static v2 => v2, onThird: static v3 => v3);
 
         /// <summary>
         ///     Collapses an either into the single common type all of its cases derive from.
@@ -360,7 +371,11 @@ public static class Either
             where T2 : T
             where T3 : T
             where T4 : T =>
-            a.Match<T>(onFirst: v1 => v1, onSecond: v2 => v2, onThird: v3 => v3, onFourth: v4 => v4);
+            a.Match<T>(
+                onFirst: static v1 => v1,
+                onSecond: static v2 => v2,
+                onThird: static v3 => v3,
+                onFourth: static v4 => v4);
 
         /// <summary>
         ///     Collapses an either into the single common type all of its cases derive from.
@@ -382,7 +397,12 @@ public static class Either
             where T3 : T
             where T4 : T
             where T5 : T =>
-            a.Match<T>(onFirst: v1 => v1, onSecond: v2 => v2, onThird: v3 => v3, onFourth: v4 => v4, onFifth: v5 => v5);
+            a.Match<T>(
+                onFirst: static v1 => v1,
+                onSecond: static v2 => v2,
+                onThird: static v3 => v3,
+                onFourth: static v4 => v4,
+                onFifth: static v5 => v5);
 
         /// <summary>
         ///     Collapses an either into the single common type all of its cases derive from.
@@ -407,12 +427,12 @@ public static class Either
             where T5 : T
             where T6 : T =>
             a.Match<T>(
-                onFirst: v1 => v1,
-                onSecond: v2 => v2,
-                onThird: v3 => v3,
-                onFourth: v4 => v4,
-                onFifth: v5 => v5,
-                onSixth: v6 => v6);
+                onFirst: static v1 => v1,
+                onSecond: static v2 => v2,
+                onThird: static v3 => v3,
+                onFourth: static v4 => v4,
+                onFifth: static v5 => v5,
+                onSixth: static v6 => v6);
 
         /// <summary>
         ///     Collapses an either into the single common type all of its cases derive from.
@@ -439,13 +459,13 @@ public static class Either
             where T6 : T
             where T7 : T =>
             a.Match<T>(
-                onFirst: v1 => v1,
-                onSecond: v2 => v2,
-                onThird: v3 => v3,
-                onFourth: v4 => v4,
-                onFifth: v5 => v5,
-                onSixth: v6 => v6,
-                onSeventh: v7 => v7);
+                onFirst: static v1 => v1,
+                onSecond: static v2 => v2,
+                onThird: static v3 => v3,
+                onFourth: static v4 => v4,
+                onFifth: static v5 => v5,
+                onSixth: static v6 => v6,
+                onSeventh: static v7 => v7);
 
         /// <summary>
         ///     Collapses an either into the single common type all of its cases derive from.
@@ -474,14 +494,14 @@ public static class Either
             where T7 : T
             where T8 : T =>
             a.Match<T>(
-                onFirst: v1 => v1,
-                onSecond: v2 => v2,
-                onThird: v3 => v3,
-                onFourth: v4 => v4,
-                onFifth: v5 => v5,
-                onSixth: v6 => v6,
-                onSeventh: v7 => v7,
-                onEighth: v8 => v8);
+                onFirst: static v1 => v1,
+                onSecond: static v2 => v2,
+                onThird: static v3 => v3,
+                onFourth: static v4 => v4,
+                onFifth: static v5 => v5,
+                onSixth: static v6 => v6,
+                onSeventh: static v7 => v7,
+                onEighth: static v8 => v8);
     }
 }
 
@@ -499,6 +519,8 @@ public static class Either
 ///     This is a struct, so <see langword="default" /> is a valid instance; it holds the
 ///     first case, with the default value of <typeparamref name="T1" />.
 /// </remarks>
+[PublicAPI]
+// ReSharper disable once InheritdocConsiderUsage
 public struct Either<T1, T2> : IEitherOfTwo, IEquatable<Either<T1, T2>>
 {
     private readonly int valueType;
@@ -559,9 +581,11 @@ public struct Either<T1, T2> : IEitherOfTwo, IEquatable<Either<T1, T2>>
     ///     before this method returns.
     /// </remarks>
     public T Match<T>(
-        [JetBrains.Annotations.InstantHandle] Func<T1, T> onFirst,
-        [JetBrains.Annotations.InstantHandle] Func<T2, T> onSecond) =>
+        [InstantHandle] Func<T1, T> onFirst,
+        [InstantHandle] Func<T2, T> onSecond) =>
+        // ReSharper disable NullableWarningSuppressionIsUsed
         this.valueType == 0 ? onFirst(this.value1!) : onSecond(this.value2!);
+    // ReSharper restore NullableWarningSuppressionIsUsed
 
     #endregion
 
@@ -589,8 +613,8 @@ public struct Either<T1, T2> : IEitherOfTwo, IEquatable<Either<T1, T2>>
     ///     so failures surface as that task faulting rather than as an exception from this call.
     /// </remarks>
     public Task<T> MatchAsync<T>(
-        [JetBrains.Annotations.InstantHandle] Func<T1, Task<T>> onFirst,
-        [JetBrains.Annotations.InstantHandle] Func<T2, Task<T>> onSecond) =>
+        [InstantHandle] Func<T1, Task<T>> onFirst,
+        [InstantHandle] Func<T2, Task<T>> onSecond) =>
         this.Match(onFirst: onFirst, onSecond: onSecond);
 
     /// <summary>
@@ -600,8 +624,8 @@ public struct Either<T1, T2> : IEitherOfTwo, IEquatable<Either<T1, T2>>
     /// <param name="onSecond">Run with the value when the second case is held.</param>
     /// <returns>A task which completes when the selected action has completed.</returns>
     public Task MatchAsyncVoid(
-        [JetBrains.Annotations.InstantHandle] Func<T1, Task> onFirst,
-        [JetBrains.Annotations.InstantHandle] Func<T2, Task> onSecond) =>
+        [InstantHandle] Func<T1, Task> onFirst,
+        [InstantHandle] Func<T2, Task> onSecond) =>
         this.MatchAsync(onFirst: onFirst.ToAsyncFunc(), onSecond: onSecond.ToAsyncFunc());
 
     /// <summary>
@@ -618,8 +642,8 @@ public struct Either<T1, T2> : IEitherOfTwo, IEquatable<Either<T1, T2>>
     /// <remarks>
     ///     <paramref name="f" /> is called only when this holds the first case.
     /// </remarks>
-    public Either<T, T2> MapFirst<T>([JetBrains.Annotations.InstantHandle] Func<T1, T> f) =>
-        this.Match(onFirst: v1 => Either<T, T2>.First(f(v1)), onSecond: v2 => Either.Second(v2));
+    public Either<T, T2> MapFirst<T>([InstantHandle] Func<T1, T> f) =>
+        this.Match(onFirst: v1 => Either<T, T2>.First(f(v1)), onSecond: static v2 => Either.Second(v2));
 
     /// <summary>
     ///     Transforms the value if this holds the second case, and passes every other case
@@ -635,7 +659,7 @@ public struct Either<T1, T2> : IEitherOfTwo, IEquatable<Either<T1, T2>>
     /// <remarks>
     ///     <paramref name="f" /> is called only when this holds the second case.
     /// </remarks>
-    public Either<T1, T> MapSecond<T>([JetBrains.Annotations.InstantHandle] Func<T2, T> f) =>
+    public Either<T1, T> MapSecond<T>([InstantHandle] Func<T2, T> f) =>
         this.Match(onFirst: Either<T1, T>.First, onSecond: v2 => Either.Second(f(v2)));
 
     /// <summary>
@@ -655,7 +679,7 @@ public struct Either<T1, T2> : IEitherOfTwo, IEquatable<Either<T1, T2>>
     ///     and naming one of them <c>Swap</c> would make the others look unavailable rather than
     ///     unnamed.
     /// </remarks>
-    [JetBrains.Annotations.Pure]
+    [Pure]
     public Either<T2, T1> Swap() => this.Match(onFirst: Either<T2, T1>.Second, onSecond: Either<T2, T1>.First);
 
     /// <summary>
@@ -665,8 +689,8 @@ public struct Either<T1, T2> : IEitherOfTwo, IEquatable<Either<T1, T2>>
     ///     A <see cref="Maybe{T}" /> containing the value if this holds the first case, and
     ///     containing nothing otherwise.
     /// </returns>
-    [JetBrains.Annotations.Pure]
-    public Maybe<T1> TryGetFirst() => this.Match(onFirst: Maybe.Some, onSecond: _ => Maybe.None);
+    [Pure]
+    public Maybe<T1> TryGetFirst() => this.Match(onFirst: Maybe.Some, onSecond: static _ => Maybe.None);
 
     /// <summary>
     ///     Gets the held value if this holds the second case.
@@ -675,8 +699,8 @@ public struct Either<T1, T2> : IEitherOfTwo, IEquatable<Either<T1, T2>>
     ///     A <see cref="Maybe{T}" /> containing the value if this holds the second case, and
     ///     containing nothing otherwise.
     /// </returns>
-    [JetBrains.Annotations.Pure]
-    public Maybe<T2> TryGetSecond() => this.Match(onFirst: _ => Maybe.None, onSecond: Maybe.Some);
+    [Pure]
+    public Maybe<T2> TryGetSecond() => this.Match(onFirst: static _ => Maybe.None, onSecond: Maybe.Some);
 
     /// <summary>
     ///     Returns whether this holds the first case.
@@ -689,8 +713,8 @@ public struct Either<T1, T2> : IEitherOfTwo, IEquatable<Either<T1, T2>>
     ///     To get at the value as well, use <see cref="TryGetFirst" />, or <c>Match</c> to handle
     ///     every case.
     /// </remarks>
-    [JetBrains.Annotations.Pure]
-    public bool IsFirst() => this.Match(onFirst: _ => true, onSecond: _ => false);
+    [Pure]
+    public bool IsFirst() => this.Match(onFirst: static _ => true, onSecond: static _ => false);
 
     /// <summary>
     ///     Returns whether this holds the second case.
@@ -703,8 +727,8 @@ public struct Either<T1, T2> : IEitherOfTwo, IEquatable<Either<T1, T2>>
     ///     To get at the value as well, use <see cref="TryGetSecond" />, or <c>Match</c> to handle
     ///     every case.
     /// </remarks>
-    [JetBrains.Annotations.Pure]
-    public bool IsSecond() => this.Match(onFirst: _ => false, onSecond: _ => true);
+    [Pure]
+    public bool IsSecond() => this.Match(onFirst: static _ => false, onSecond: static _ => true);
 
     void IEitherOfTwo.MatchVoid(Action<object?> onFirst, Action<object?> onSecond) =>
         // ReSharper disable once ReturnValueOfPureMethodIsNotUsed
@@ -725,11 +749,9 @@ public struct Either<T1, T2> : IEitherOfTwo, IEquatable<Either<T1, T2>>
     /// <returns>An either holding that value as its first case.</returns>
     /// <remarks>
     ///     This is what makes <see cref="Either.First{T}" /> usable in place of this type's own
-    ///     <c>First</c>. A <see langword="null" /> marked value converts to an either holding a
-    ///     default first value rather than throwing.
+    ///     <c>First</c>.
     /// </remarks>
-    public static implicit operator Either<T1, T2>(Either.EitherFirst<T1>? value) =>
-        First(value == null ? default! : value.Value);
+    public static implicit operator Either<T1, T2>(Either.EitherFirst<T1> value) => First(value.Value);
 
     /// <summary>
     ///     Converts a value marked for the second position into an either of this type.
@@ -738,11 +760,9 @@ public struct Either<T1, T2> : IEitherOfTwo, IEquatable<Either<T1, T2>>
     /// <returns>An either holding that value as its second case.</returns>
     /// <remarks>
     ///     This is what makes <see cref="Either.Second{T}" /> usable in place of this type's own
-    ///     <c>Second</c>. A <see langword="null" /> marked value converts to an either holding a
-    ///     default second value rather than throwing.
+    ///     <c>Second</c>.
     /// </remarks>
-    public static implicit operator Either<T1, T2>(Either.EitherSecond<T2>? value) =>
-        Second(value == null ? default! : value.Value);
+    public static implicit operator Either<T1, T2>(Either.EitherSecond<T2> value) => Second(value.Value);
 
     /// <summary>
     ///     Determines whether two instances hold the same case with equal values.
@@ -755,8 +775,11 @@ public struct Either<T1, T2> : IEitherOfTwo, IEquatable<Either<T1, T2>>
     /// </returns>
     public static bool operator ==(Either<T1, T2> x, Either<T1, T2> y) =>
         x.valueType == y.valueType
+        // ReSharper disable NullableWarningSuppressionIsUsed - .NET 4.7.2 and .NET Standard 2.0 did not define these
+        // parameters as being nullable as they should have.
         && EqualityComparer<T1>.Default.Equals(x: x.value1!, y: y.value1!)
         && EqualityComparer<T2>.Default.Equals(x: x.value2!, y: y.value2!);
+    // ReSharper restore NullableWarningSuppressionIsUsed
 
     /// <summary>
     ///     Determines whether two instances differ, by negating <see cref="op_Equality" />.
@@ -795,6 +818,7 @@ public struct Either<T1, T2> : IEitherOfTwo, IEquatable<Either<T1, T2>>
     ///     <see cref="EqualityComparer{T}.Default" /> looks for, so that comparing these in a
     ///     collection does not box both operands the way <see cref="Equals(object)" /> must.
     /// </remarks>
+    // ReSharper disable once InheritdocConsiderUsage
     public bool Equals(Either<T1, T2> other) => this == other;
 
     /// <summary>
@@ -806,8 +830,17 @@ public struct Either<T1, T2> : IEitherOfTwo, IEquatable<Either<T1, T2>>
         unchecked
         {
             int hashCode = this.valueType;
-            hashCode = (hashCode * 397) ^ EqualityComparer<T1>.Default.GetHashCode(this.value1!);
-            hashCode = (hashCode * 397) ^ EqualityComparer<T2>.Default.GetHashCode(this.value2!);
+
+            if (this.value1 is not null)
+            {
+                hashCode = (hashCode * 397) ^ EqualityComparer<T1>.Default.GetHashCode(this.value1);
+            }
+
+            if (this.value2 is not null)
+            {
+                hashCode = (hashCode * 397) ^ EqualityComparer<T2>.Default.GetHashCode(this.value2);
+            }
+
             return hashCode;
         }
     }
@@ -816,7 +849,8 @@ public struct Either<T1, T2> : IEitherOfTwo, IEquatable<Either<T1, T2>>
     ///     Returns a readable description of this instance, for diagnostics.
     /// </summary>
     /// <returns>The name of the case held, followed by the value it holds.</returns>
-    public override string ToString() => this.Match(onFirst: v1 => $"First: {v1}", onSecond: v2 => $"Second: {v2}");
+    public override string ToString() =>
+        this.Match(onFirst: static v1 => $"First: {v1}", onSecond: static v2 => $"Second: {v2}");
 }
 
 /// <summary>
@@ -834,6 +868,8 @@ public struct Either<T1, T2> : IEitherOfTwo, IEquatable<Either<T1, T2>>
 ///     This is a struct, so <see langword="default" /> is a valid instance; it holds the
 ///     first case, with the default value of <typeparamref name="T1" />.
 /// </remarks>
+[PublicAPI]
+// ReSharper disable once InheritdocConsiderUsage
 public struct Either<T1, T2, T3> : IEitherOfThree, IEquatable<Either<T1, T2, T3>>
 {
     private readonly int valueType;
@@ -911,14 +947,18 @@ public struct Either<T1, T2, T3> : IEitherOfThree, IEquatable<Either<T1, T2, T3>
     ///     before this method returns.
     /// </remarks>
     public T Match<T>(
-        [JetBrains.Annotations.InstantHandle] Func<T1, T> onFirst,
-        [JetBrains.Annotations.InstantHandle] Func<T2, T> onSecond,
-        [JetBrains.Annotations.InstantHandle] Func<T3, T> onThird) =>
-        this.valueType == 0
-            ? onFirst(this.value1!)
-            : this.valueType == 1
-                ? onSecond(this.value2!)
-                : onThird(this.value3!);
+        [InstantHandle] Func<T1, T> onFirst,
+        [InstantHandle] Func<T2, T> onSecond,
+        [InstantHandle] Func<T3, T> onThird) =>
+        this.valueType switch
+        {
+            // ReSharper disable NullableWarningSuppressionIsUsed - valueType determined that the respective field is
+            // non-null within its switch expression
+            0 => onFirst(this.value1!),
+            1 => onSecond(this.value2!),
+            _ => onThird(this.value3!)
+            // ReSharper restore NullableWarningSuppressionIsUsed
+        };
 
     #endregion
 
@@ -931,9 +971,9 @@ public struct Either<T1, T2, T3> : IEitherOfThree, IEquatable<Either<T1, T2, T3>
     /// <param name="onSecond">Run with the value when the second case is held.</param>
     /// <param name="onThird">Run with the value when the third case is held.</param>
     public void MatchVoid(
-        [JetBrains.Annotations.InstantHandle] Action<T1> onFirst,
-        [JetBrains.Annotations.InstantHandle] Action<T2> onSecond,
-        [JetBrains.Annotations.InstantHandle] Action<T3> onThird) =>
+        [InstantHandle] Action<T1> onFirst,
+        [InstantHandle] Action<T2> onSecond,
+        [InstantHandle] Action<T3> onThird) =>
         // ReSharper disable once ReturnValueOfPureMethodIsNotUsed
         this.Match(onFirst: onFirst.ToFunc(), onSecond: onSecond.ToFunc(), onThird: onThird.ToFunc());
 
@@ -951,9 +991,9 @@ public struct Either<T1, T2, T3> : IEitherOfThree, IEquatable<Either<T1, T2, T3>
     ///     so failures surface as that task faulting rather than as an exception from this call.
     /// </remarks>
     public Task<T> MatchAsync<T>(
-        [JetBrains.Annotations.InstantHandle] Func<T1, Task<T>> onFirst,
-        [JetBrains.Annotations.InstantHandle] Func<T2, Task<T>> onSecond,
-        [JetBrains.Annotations.InstantHandle] Func<T3, Task<T>> onThird) =>
+        [InstantHandle] Func<T1, Task<T>> onFirst,
+        [InstantHandle] Func<T2, Task<T>> onSecond,
+        [InstantHandle] Func<T3, Task<T>> onThird) =>
         this.Match(onFirst: onFirst, onSecond: onSecond, onThird: onThird);
 
     /// <summary>
@@ -964,9 +1004,9 @@ public struct Either<T1, T2, T3> : IEitherOfThree, IEquatable<Either<T1, T2, T3>
     /// <param name="onThird">Run with the value when the third case is held.</param>
     /// <returns>A task which completes when the selected action has completed.</returns>
     public Task MatchAsyncVoid(
-        [JetBrains.Annotations.InstantHandle] Func<T1, Task> onFirst,
-        [JetBrains.Annotations.InstantHandle] Func<T2, Task> onSecond,
-        [JetBrains.Annotations.InstantHandle] Func<T3, Task> onThird) =>
+        [InstantHandle] Func<T1, Task> onFirst,
+        [InstantHandle] Func<T2, Task> onSecond,
+        [InstantHandle] Func<T3, Task> onThird) =>
         this.MatchAsync(
             onFirst: onFirst.ToAsyncFunc(),
             onSecond: onSecond.ToAsyncFunc(),
@@ -986,11 +1026,11 @@ public struct Either<T1, T2, T3> : IEitherOfThree, IEquatable<Either<T1, T2, T3>
     /// <remarks>
     ///     <paramref name="f" /> is called only when this holds the first case.
     /// </remarks>
-    public Either<T, T2, T3> MapFirst<T>([JetBrains.Annotations.InstantHandle] Func<T1, T> f) =>
+    public Either<T, T2, T3> MapFirst<T>([InstantHandle] Func<T1, T> f) =>
         this.Match(
             onFirst: v1 => Either<T, T2, T3>.First(f(v1)),
-            onSecond: v2 => Either.Second(v2),
-            onThird: v3 => Either.Third(v3));
+            onSecond: static v2 => Either.Second(v2),
+            onThird: static v3 => Either.Third(v3));
 
     /// <summary>
     ///     Transforms the value if this holds the second case, and passes every other case
@@ -1006,11 +1046,11 @@ public struct Either<T1, T2, T3> : IEitherOfThree, IEquatable<Either<T1, T2, T3>
     /// <remarks>
     ///     <paramref name="f" /> is called only when this holds the second case.
     /// </remarks>
-    public Either<T1, T, T3> MapSecond<T>([JetBrains.Annotations.InstantHandle] Func<T2, T> f) =>
+    public Either<T1, T, T3> MapSecond<T>([InstantHandle] Func<T2, T> f) =>
         this.Match(
             onFirst: Either<T1, T, T3>.First,
             onSecond: v2 => Either.Second(f(v2)),
-            onThird: v3 => Either.Third(v3));
+            onThird: static v3 => Either.Third(v3));
 
     /// <summary>
     ///     Transforms the value if this holds the third case, and passes every other case
@@ -1026,10 +1066,10 @@ public struct Either<T1, T2, T3> : IEitherOfThree, IEquatable<Either<T1, T2, T3>
     /// <remarks>
     ///     <paramref name="f" /> is called only when this holds the third case.
     /// </remarks>
-    public Either<T1, T2, T> MapThird<T>([JetBrains.Annotations.InstantHandle] Func<T3, T> f) =>
+    public Either<T1, T2, T> MapThird<T>([InstantHandle] Func<T3, T> f) =>
         this.Match(
             onFirst: Either<T1, T2, T>.First,
-            onSecond: v2 => Either.Second(v2),
+            onSecond: static v2 => Either.Second(v2),
             onThird: v3 => Either.Third(f(v3)));
 
     /// <summary>
@@ -1039,9 +1079,9 @@ public struct Either<T1, T2, T3> : IEitherOfThree, IEquatable<Either<T1, T2, T3>
     ///     A <see cref="Maybe{T}" /> containing the value if this holds the first case, and
     ///     containing nothing otherwise.
     /// </returns>
-    [JetBrains.Annotations.Pure]
+    [Pure]
     public Maybe<T1> TryGetFirst() =>
-        this.Match(onFirst: Maybe.Some, onSecond: _ => Maybe.None, onThird: _ => Maybe.None);
+        this.Match(onFirst: Maybe.Some, onSecond: static _ => Maybe.None, onThird: static _ => Maybe.None);
 
     /// <summary>
     ///     Gets the held value if this holds the second case.
@@ -1050,9 +1090,9 @@ public struct Either<T1, T2, T3> : IEitherOfThree, IEquatable<Either<T1, T2, T3>
     ///     A <see cref="Maybe{T}" /> containing the value if this holds the second case, and
     ///     containing nothing otherwise.
     /// </returns>
-    [JetBrains.Annotations.Pure]
+    [Pure]
     public Maybe<T2> TryGetSecond() =>
-        this.Match(onFirst: _ => Maybe.None, onSecond: Maybe.Some, onThird: _ => Maybe.None);
+        this.Match(onFirst: static _ => Maybe.None, onSecond: Maybe.Some, onThird: static _ => Maybe.None);
 
     /// <summary>
     ///     Gets the held value if this holds the third case.
@@ -1061,9 +1101,9 @@ public struct Either<T1, T2, T3> : IEitherOfThree, IEquatable<Either<T1, T2, T3>
     ///     A <see cref="Maybe{T}" /> containing the value if this holds the third case, and
     ///     containing nothing otherwise.
     /// </returns>
-    [JetBrains.Annotations.Pure]
+    [Pure]
     public Maybe<T3> TryGetThird() =>
-        this.Match(onFirst: _ => Maybe.None, onSecond: _ => Maybe.None, onThird: Maybe.Some);
+        this.Match(onFirst: static _ => Maybe.None, onSecond: static _ => Maybe.None, onThird: Maybe.Some);
 
     /// <summary>
     ///     Returns whether this holds the first case.
@@ -1076,8 +1116,9 @@ public struct Either<T1, T2, T3> : IEitherOfThree, IEquatable<Either<T1, T2, T3>
     ///     To get at the value as well, use <see cref="TryGetFirst" />, or <c>Match</c> to handle
     ///     every case.
     /// </remarks>
-    [JetBrains.Annotations.Pure]
-    public bool IsFirst() => this.Match(onFirst: _ => true, onSecond: _ => false, onThird: _ => false);
+    [Pure]
+    public bool IsFirst() =>
+        this.Match(onFirst: static _ => true, onSecond: static _ => false, onThird: static _ => false);
 
     /// <summary>
     ///     Returns whether this holds the second case.
@@ -1090,8 +1131,9 @@ public struct Either<T1, T2, T3> : IEitherOfThree, IEquatable<Either<T1, T2, T3>
     ///     To get at the value as well, use <see cref="TryGetSecond" />, or <c>Match</c> to handle
     ///     every case.
     /// </remarks>
-    [JetBrains.Annotations.Pure]
-    public bool IsSecond() => this.Match(onFirst: _ => false, onSecond: _ => true, onThird: _ => false);
+    [Pure]
+    public bool IsSecond() =>
+        this.Match(onFirst: static _ => false, onSecond: static _ => true, onThird: static _ => false);
 
     /// <summary>
     ///     Returns whether this holds the third case.
@@ -1104,8 +1146,9 @@ public struct Either<T1, T2, T3> : IEitherOfThree, IEquatable<Either<T1, T2, T3>
     ///     To get at the value as well, use <see cref="TryGetThird" />, or <c>Match</c> to handle
     ///     every case.
     /// </remarks>
-    [JetBrains.Annotations.Pure]
-    public bool IsThird() => this.Match(onFirst: _ => false, onSecond: _ => false, onThird: _ => true);
+    [Pure]
+    public bool IsThird() =>
+        this.Match(onFirst: static _ => false, onSecond: static _ => false, onThird: static _ => true);
 
     void IEitherOfThree.MatchVoid(Action<object?> onFirst, Action<object?> onSecond, Action<object?> onThird) =>
         // ReSharper disable once ReturnValueOfPureMethodIsNotUsed
@@ -1137,11 +1180,9 @@ public struct Either<T1, T2, T3> : IEitherOfThree, IEquatable<Either<T1, T2, T3>
     /// <returns>An either holding that value as its first case.</returns>
     /// <remarks>
     ///     This is what makes <see cref="Either.First{T}" /> usable in place of this type's own
-    ///     <c>First</c>. A <see langword="null" /> marked value converts to an either holding a
-    ///     default first value rather than throwing.
+    ///     <c>First</c>.
     /// </remarks>
-    public static implicit operator Either<T1, T2, T3>(Either.EitherFirst<T1>? value) =>
-        First(value == null ? default! : value.Value);
+    public static implicit operator Either<T1, T2, T3>(Either.EitherFirst<T1> value) => First(value.Value);
 
     /// <summary>
     ///     Converts a value marked for the second position into an either of this type.
@@ -1150,11 +1191,9 @@ public struct Either<T1, T2, T3> : IEitherOfThree, IEquatable<Either<T1, T2, T3>
     /// <returns>An either holding that value as its second case.</returns>
     /// <remarks>
     ///     This is what makes <see cref="Either.Second{T}" /> usable in place of this type's own
-    ///     <c>Second</c>. A <see langword="null" /> marked value converts to an either holding a
-    ///     default second value rather than throwing.
+    ///     <c>Second</c>.
     /// </remarks>
-    public static implicit operator Either<T1, T2, T3>(Either.EitherSecond<T2>? value) =>
-        Second(value == null ? default! : value.Value);
+    public static implicit operator Either<T1, T2, T3>(Either.EitherSecond<T2> value) => Second(value.Value);
 
     /// <summary>
     ///     Converts a value marked for the third position into an either of this type.
@@ -1163,11 +1202,9 @@ public struct Either<T1, T2, T3> : IEitherOfThree, IEquatable<Either<T1, T2, T3>
     /// <returns>An either holding that value as its third case.</returns>
     /// <remarks>
     ///     This is what makes <see cref="Either.Third{T}" /> usable in place of this type's own
-    ///     <c>Third</c>. A <see langword="null" /> marked value converts to an either holding a
-    ///     default third value rather than throwing.
+    ///     <c>Third</c>.
     /// </remarks>
-    public static implicit operator Either<T1, T2, T3>(Either.EitherThird<T3>? value) =>
-        Third(value == null ? default! : value.Value);
+    public static implicit operator Either<T1, T2, T3>(Either.EitherThird<T3> value) => Third(value.Value);
 
     /// <summary>
     ///     Determines whether two instances hold the same case with equal values.
@@ -1180,9 +1217,12 @@ public struct Either<T1, T2, T3> : IEitherOfThree, IEquatable<Either<T1, T2, T3>
     /// </returns>
     public static bool operator ==(Either<T1, T2, T3> x, Either<T1, T2, T3> y) =>
         x.valueType == y.valueType
+        // ReSharper disable NullableWarningSuppressionIsUsed - .NET 4.7.2 and .NET Standard 2.0 did not define these
+        // parameters as being nullable as they should have.
         && EqualityComparer<T1>.Default.Equals(x: x.value1!, y: y.value1!)
         && EqualityComparer<T2>.Default.Equals(x: x.value2!, y: y.value2!)
         && EqualityComparer<T3>.Default.Equals(x: x.value3!, y: y.value3!);
+    // ReSharper restore NullableWarningSuppressionIsUsed
 
     /// <summary>
     ///     Determines whether two instances differ, by negating <see cref="op_Equality" />.
@@ -1221,6 +1261,7 @@ public struct Either<T1, T2, T3> : IEitherOfThree, IEquatable<Either<T1, T2, T3>
     ///     <see cref="EqualityComparer{T}.Default" /> looks for, so that comparing these in a
     ///     collection does not box both operands the way <see cref="Equals(object)" /> must.
     /// </remarks>
+    // ReSharper disable once InheritdocConsiderUsage
     public bool Equals(Either<T1, T2, T3> other) => this == other;
 
     /// <summary>
@@ -1232,9 +1273,22 @@ public struct Either<T1, T2, T3> : IEitherOfThree, IEquatable<Either<T1, T2, T3>
         unchecked
         {
             int hashCode = this.valueType;
-            hashCode = (hashCode * 397) ^ EqualityComparer<T1>.Default.GetHashCode(this.value1!);
-            hashCode = (hashCode * 397) ^ EqualityComparer<T2>.Default.GetHashCode(this.value2!);
-            hashCode = (hashCode * 397) ^ EqualityComparer<T3>.Default.GetHashCode(this.value3!);
+
+            if (this.value1 is not null)
+            {
+                hashCode = (hashCode * 397) ^ EqualityComparer<T1>.Default.GetHashCode(this.value1);
+            }
+
+            if (this.value2 is not null)
+            {
+                hashCode = (hashCode * 397) ^ EqualityComparer<T2>.Default.GetHashCode(this.value2);
+            }
+
+            if (this.value3 is not null)
+            {
+                hashCode = (hashCode * 397) ^ EqualityComparer<T3>.Default.GetHashCode(this.value3);
+            }
+
             return hashCode;
         }
     }
@@ -1245,9 +1299,9 @@ public struct Either<T1, T2, T3> : IEitherOfThree, IEquatable<Either<T1, T2, T3>
     /// <returns>The name of the case held, followed by the value it holds.</returns>
     public override string ToString() =>
         this.Match(
-            onFirst: v1 => $"First: {v1}",
-            onSecond: v2 => $"Second: {v2}",
-            onThird: v3 => $"Third: {v3}");
+            onFirst: static v1 => $"First: {v1}",
+            onSecond: static v2 => $"Second: {v2}",
+            onThird: static v3 => $"Third: {v3}");
 }
 
 /// <summary>
@@ -1266,6 +1320,8 @@ public struct Either<T1, T2, T3> : IEitherOfThree, IEquatable<Either<T1, T2, T3>
 ///     This is a struct, so <see langword="default" /> is a valid instance; it holds the
 ///     first case, with the default value of <typeparamref name="T1" />.
 /// </remarks>
+[PublicAPI]
+// ReSharper disable once InheritdocConsiderUsage
 public struct Either<T1, T2, T3, T4> : IEitherOfFour, IEquatable<Either<T1, T2, T3, T4>>
 {
     private readonly int valueType;
@@ -1366,17 +1422,20 @@ public struct Either<T1, T2, T3, T4> : IEitherOfFour, IEquatable<Either<T1, T2, 
     ///     before this method returns.
     /// </remarks>
     public T Match<T>(
-        [JetBrains.Annotations.InstantHandle] Func<T1, T> onFirst,
-        [JetBrains.Annotations.InstantHandle] Func<T2, T> onSecond,
-        [JetBrains.Annotations.InstantHandle] Func<T3, T> onThird,
-        [JetBrains.Annotations.InstantHandle] Func<T4, T> onFourth) =>
-        this.valueType == 0
-            ? onFirst(this.value1!)
-            : this.valueType == 1
-                ? onSecond(this.value2!)
-                : this.valueType == 2
-                    ? onThird(this.value3!)
-                    : onFourth(this.value4!);
+        [InstantHandle] Func<T1, T> onFirst,
+        [InstantHandle] Func<T2, T> onSecond,
+        [InstantHandle] Func<T3, T> onThird,
+        [InstantHandle] Func<T4, T> onFourth) =>
+        this.valueType switch
+        {
+            // ReSharper disable NullableWarningSuppressionIsUsed - valueType determined that the respective field is
+            // non-null within its switch expression
+            0 => onFirst(this.value1!),
+            1 => onSecond(this.value2!),
+            2 => onThird(this.value3!),
+            _ => onFourth(this.value4!)
+            // ReSharper restore NullableWarningSuppressionIsUsed
+        };
 
     #endregion
 
@@ -1390,10 +1449,10 @@ public struct Either<T1, T2, T3, T4> : IEitherOfFour, IEquatable<Either<T1, T2, 
     /// <param name="onThird">Run with the value when the third case is held.</param>
     /// <param name="onFourth">Run with the value when the fourth case is held.</param>
     public void MatchVoid(
-        [JetBrains.Annotations.InstantHandle] Action<T1> onFirst,
-        [JetBrains.Annotations.InstantHandle] Action<T2> onSecond,
-        [JetBrains.Annotations.InstantHandle] Action<T3> onThird,
-        [JetBrains.Annotations.InstantHandle] Action<T4> onFourth) =>
+        [InstantHandle] Action<T1> onFirst,
+        [InstantHandle] Action<T2> onSecond,
+        [InstantHandle] Action<T3> onThird,
+        [InstantHandle] Action<T4> onFourth) =>
         // ReSharper disable once ReturnValueOfPureMethodIsNotUsed
         this.Match(
             onFirst: onFirst.ToFunc(),
@@ -1416,10 +1475,10 @@ public struct Either<T1, T2, T3, T4> : IEitherOfFour, IEquatable<Either<T1, T2, 
     ///     so failures surface as that task faulting rather than as an exception from this call.
     /// </remarks>
     public Task<T> MatchAsync<T>(
-        [JetBrains.Annotations.InstantHandle] Func<T1, Task<T>> onFirst,
-        [JetBrains.Annotations.InstantHandle] Func<T2, Task<T>> onSecond,
-        [JetBrains.Annotations.InstantHandle] Func<T3, Task<T>> onThird,
-        [JetBrains.Annotations.InstantHandle] Func<T4, Task<T>> onFourth) =>
+        [InstantHandle] Func<T1, Task<T>> onFirst,
+        [InstantHandle] Func<T2, Task<T>> onSecond,
+        [InstantHandle] Func<T3, Task<T>> onThird,
+        [InstantHandle] Func<T4, Task<T>> onFourth) =>
         this.Match(onFirst: onFirst, onSecond: onSecond, onThird: onThird, onFourth: onFourth);
 
     /// <summary>
@@ -1431,10 +1490,10 @@ public struct Either<T1, T2, T3, T4> : IEitherOfFour, IEquatable<Either<T1, T2, 
     /// <param name="onFourth">Run with the value when the fourth case is held.</param>
     /// <returns>A task which completes when the selected action has completed.</returns>
     public Task MatchAsyncVoid(
-        [JetBrains.Annotations.InstantHandle] Func<T1, Task> onFirst,
-        [JetBrains.Annotations.InstantHandle] Func<T2, Task> onSecond,
-        [JetBrains.Annotations.InstantHandle] Func<T3, Task> onThird,
-        [JetBrains.Annotations.InstantHandle] Func<T4, Task> onFourth) =>
+        [InstantHandle] Func<T1, Task> onFirst,
+        [InstantHandle] Func<T2, Task> onSecond,
+        [InstantHandle] Func<T3, Task> onThird,
+        [InstantHandle] Func<T4, Task> onFourth) =>
         this.MatchAsync(
             onFirst: onFirst.ToAsyncFunc(),
             onSecond: onSecond.ToAsyncFunc(),
@@ -1455,12 +1514,12 @@ public struct Either<T1, T2, T3, T4> : IEitherOfFour, IEquatable<Either<T1, T2, 
     /// <remarks>
     ///     <paramref name="f" /> is called only when this holds the first case.
     /// </remarks>
-    public Either<T, T2, T3, T4> MapFirst<T>([JetBrains.Annotations.InstantHandle] Func<T1, T> f) =>
+    public Either<T, T2, T3, T4> MapFirst<T>([InstantHandle] Func<T1, T> f) =>
         this.Match(
             onFirst: v1 => Either<T, T2, T3, T4>.First(f(v1)),
-            onSecond: v2 => Either.Second(v2),
-            onThird: v3 => Either.Third(v3),
-            onFourth: v4 => Either.Fourth(v4));
+            onSecond: static v2 => Either.Second(v2),
+            onThird: static v3 => Either.Third(v3),
+            onFourth: static v4 => Either.Fourth(v4));
 
     /// <summary>
     ///     Transforms the value if this holds the second case, and passes every other case
@@ -1476,12 +1535,12 @@ public struct Either<T1, T2, T3, T4> : IEitherOfFour, IEquatable<Either<T1, T2, 
     /// <remarks>
     ///     <paramref name="f" /> is called only when this holds the second case.
     /// </remarks>
-    public Either<T1, T, T3, T4> MapSecond<T>([JetBrains.Annotations.InstantHandle] Func<T2, T> f) =>
+    public Either<T1, T, T3, T4> MapSecond<T>([InstantHandle] Func<T2, T> f) =>
         this.Match(
             onFirst: Either<T1, T, T3, T4>.First,
             onSecond: v2 => Either.Second(f(v2)),
-            onThird: v3 => Either.Third(v3),
-            onFourth: v4 => Either.Fourth(v4));
+            onThird: static v3 => Either.Third(v3),
+            onFourth: static v4 => Either.Fourth(v4));
 
     /// <summary>
     ///     Transforms the value if this holds the third case, and passes every other case
@@ -1497,12 +1556,12 @@ public struct Either<T1, T2, T3, T4> : IEitherOfFour, IEquatable<Either<T1, T2, 
     /// <remarks>
     ///     <paramref name="f" /> is called only when this holds the third case.
     /// </remarks>
-    public Either<T1, T2, T, T4> MapThird<T>([JetBrains.Annotations.InstantHandle] Func<T3, T> f) =>
+    public Either<T1, T2, T, T4> MapThird<T>([InstantHandle] Func<T3, T> f) =>
         this.Match(
             onFirst: Either<T1, T2, T, T4>.First,
-            onSecond: v2 => Either.Second(v2),
+            onSecond: static v2 => Either.Second(v2),
             onThird: v3 => Either.Third(f(v3)),
-            onFourth: v4 => Either.Fourth(v4));
+            onFourth: static v4 => Either.Fourth(v4));
 
     /// <summary>
     ///     Transforms the value if this holds the fourth case, and passes every other case
@@ -1518,11 +1577,11 @@ public struct Either<T1, T2, T3, T4> : IEitherOfFour, IEquatable<Either<T1, T2, 
     /// <remarks>
     ///     <paramref name="f" /> is called only when this holds the fourth case.
     /// </remarks>
-    public Either<T1, T2, T3, T> MapFourth<T>([JetBrains.Annotations.InstantHandle] Func<T4, T> f) =>
+    public Either<T1, T2, T3, T> MapFourth<T>([InstantHandle] Func<T4, T> f) =>
         this.Match(
             onFirst: Either<T1, T2, T3, T>.First,
-            onSecond: v2 => Either.Second(v2),
-            onThird: v3 => Either.Third(v3),
+            onSecond: static v2 => Either.Second(v2),
+            onThird: static v3 => Either.Third(v3),
             onFourth: v4 => Either.Fourth(f(v4)));
 
     /// <summary>
@@ -1532,9 +1591,13 @@ public struct Either<T1, T2, T3, T4> : IEitherOfFour, IEquatable<Either<T1, T2, 
     ///     A <see cref="Maybe{T}" /> containing the value if this holds the first case, and
     ///     containing nothing otherwise.
     /// </returns>
-    [JetBrains.Annotations.Pure]
+    [Pure]
     public Maybe<T1> TryGetFirst() =>
-        this.Match(onFirst: Maybe.Some, onSecond: _ => Maybe.None, onThird: _ => Maybe.None, onFourth: _ => Maybe.None);
+        this.Match(
+            onFirst: Maybe.Some,
+            onSecond: static _ => Maybe.None,
+            onThird: static _ => Maybe.None,
+            onFourth: static _ => Maybe.None);
 
     /// <summary>
     ///     Gets the held value if this holds the second case.
@@ -1543,9 +1606,13 @@ public struct Either<T1, T2, T3, T4> : IEitherOfFour, IEquatable<Either<T1, T2, 
     ///     A <see cref="Maybe{T}" /> containing the value if this holds the second case, and
     ///     containing nothing otherwise.
     /// </returns>
-    [JetBrains.Annotations.Pure]
+    [Pure]
     public Maybe<T2> TryGetSecond() =>
-        this.Match(onFirst: _ => Maybe.None, onSecond: Maybe.Some, onThird: _ => Maybe.None, onFourth: _ => Maybe.None);
+        this.Match(
+            onFirst: static _ => Maybe.None,
+            onSecond: Maybe.Some,
+            onThird: static _ => Maybe.None,
+            onFourth: static _ => Maybe.None);
 
     /// <summary>
     ///     Gets the held value if this holds the third case.
@@ -1554,9 +1621,13 @@ public struct Either<T1, T2, T3, T4> : IEitherOfFour, IEquatable<Either<T1, T2, 
     ///     A <see cref="Maybe{T}" /> containing the value if this holds the third case, and
     ///     containing nothing otherwise.
     /// </returns>
-    [JetBrains.Annotations.Pure]
+    [Pure]
     public Maybe<T3> TryGetThird() =>
-        this.Match(onFirst: _ => Maybe.None, onSecond: _ => Maybe.None, onThird: Maybe.Some, onFourth: _ => Maybe.None);
+        this.Match(
+            onFirst: static _ => Maybe.None,
+            onSecond: static _ => Maybe.None,
+            onThird: Maybe.Some,
+            onFourth: static _ => Maybe.None);
 
     /// <summary>
     ///     Gets the held value if this holds the fourth case.
@@ -1565,9 +1636,13 @@ public struct Either<T1, T2, T3, T4> : IEitherOfFour, IEquatable<Either<T1, T2, 
     ///     A <see cref="Maybe{T}" /> containing the value if this holds the fourth case, and
     ///     containing nothing otherwise.
     /// </returns>
-    [JetBrains.Annotations.Pure]
+    [Pure]
     public Maybe<T4> TryGetFourth() =>
-        this.Match(onFirst: _ => Maybe.None, onSecond: _ => Maybe.None, onThird: _ => Maybe.None, onFourth: Maybe.Some);
+        this.Match(
+            onFirst: static _ => Maybe.None,
+            onSecond: static _ => Maybe.None,
+            onThird: static _ => Maybe.None,
+            onFourth: Maybe.Some);
 
     /// <summary>
     ///     Returns whether this holds the first case.
@@ -1580,9 +1655,13 @@ public struct Either<T1, T2, T3, T4> : IEitherOfFour, IEquatable<Either<T1, T2, 
     ///     To get at the value as well, use <see cref="TryGetFirst" />, or <c>Match</c> to handle
     ///     every case.
     /// </remarks>
-    [JetBrains.Annotations.Pure]
+    [Pure]
     public bool IsFirst() =>
-        this.Match(onFirst: _ => true, onSecond: _ => false, onThird: _ => false, onFourth: _ => false);
+        this.Match(
+            onFirst: static _ => true,
+            onSecond: static _ => false,
+            onThird: static _ => false,
+            onFourth: static _ => false);
 
     /// <summary>
     ///     Returns whether this holds the second case.
@@ -1595,9 +1674,13 @@ public struct Either<T1, T2, T3, T4> : IEitherOfFour, IEquatable<Either<T1, T2, 
     ///     To get at the value as well, use <see cref="TryGetSecond" />, or <c>Match</c> to handle
     ///     every case.
     /// </remarks>
-    [JetBrains.Annotations.Pure]
+    [Pure]
     public bool IsSecond() =>
-        this.Match(onFirst: _ => false, onSecond: _ => true, onThird: _ => false, onFourth: _ => false);
+        this.Match(
+            onFirst: static _ => false,
+            onSecond: static _ => true,
+            onThird: static _ => false,
+            onFourth: static _ => false);
 
     /// <summary>
     ///     Returns whether this holds the third case.
@@ -1610,9 +1693,13 @@ public struct Either<T1, T2, T3, T4> : IEitherOfFour, IEquatable<Either<T1, T2, 
     ///     To get at the value as well, use <see cref="TryGetThird" />, or <c>Match</c> to handle
     ///     every case.
     /// </remarks>
-    [JetBrains.Annotations.Pure]
+    [Pure]
     public bool IsThird() =>
-        this.Match(onFirst: _ => false, onSecond: _ => false, onThird: _ => true, onFourth: _ => false);
+        this.Match(
+            onFirst: static _ => false,
+            onSecond: static _ => false,
+            onThird: static _ => true,
+            onFourth: static _ => false);
 
     /// <summary>
     ///     Returns whether this holds the fourth case.
@@ -1625,9 +1712,13 @@ public struct Either<T1, T2, T3, T4> : IEitherOfFour, IEquatable<Either<T1, T2, 
     ///     To get at the value as well, use <see cref="TryGetFourth" />, or <c>Match</c> to handle
     ///     every case.
     /// </remarks>
-    [JetBrains.Annotations.Pure]
+    [Pure]
     public bool IsFourth() =>
-        this.Match(onFirst: _ => false, onSecond: _ => false, onThird: _ => false, onFourth: _ => true);
+        this.Match(
+            onFirst: static _ => false,
+            onSecond: static _ => false,
+            onThird: static _ => false,
+            onFourth: static _ => true);
 
     void IEitherOfFour.MatchVoid(
         Action<object?> onFirst,
@@ -1670,11 +1761,9 @@ public struct Either<T1, T2, T3, T4> : IEitherOfFour, IEquatable<Either<T1, T2, 
     /// <returns>An either holding that value as its first case.</returns>
     /// <remarks>
     ///     This is what makes <see cref="Either.First{T}" /> usable in place of this type's own
-    ///     <c>First</c>. A <see langword="null" /> marked value converts to an either holding a
-    ///     default first value rather than throwing.
+    ///     <c>First</c>.
     /// </remarks>
-    public static implicit operator Either<T1, T2, T3, T4>(Either.EitherFirst<T1>? value) =>
-        First(value == null ? default! : value.Value);
+    public static implicit operator Either<T1, T2, T3, T4>(Either.EitherFirst<T1> value) => First(value.Value);
 
     /// <summary>
     ///     Converts a value marked for the second position into an either of this type.
@@ -1683,11 +1772,9 @@ public struct Either<T1, T2, T3, T4> : IEitherOfFour, IEquatable<Either<T1, T2, 
     /// <returns>An either holding that value as its second case.</returns>
     /// <remarks>
     ///     This is what makes <see cref="Either.Second{T}" /> usable in place of this type's own
-    ///     <c>Second</c>. A <see langword="null" /> marked value converts to an either holding a
-    ///     default second value rather than throwing.
+    ///     <c>Second</c>.
     /// </remarks>
-    public static implicit operator Either<T1, T2, T3, T4>(Either.EitherSecond<T2>? value) =>
-        Second(value == null ? default! : value.Value);
+    public static implicit operator Either<T1, T2, T3, T4>(Either.EitherSecond<T2> value) => Second(value.Value);
 
     /// <summary>
     ///     Converts a value marked for the third position into an either of this type.
@@ -1696,11 +1783,9 @@ public struct Either<T1, T2, T3, T4> : IEitherOfFour, IEquatable<Either<T1, T2, 
     /// <returns>An either holding that value as its third case.</returns>
     /// <remarks>
     ///     This is what makes <see cref="Either.Third{T}" /> usable in place of this type's own
-    ///     <c>Third</c>. A <see langword="null" /> marked value converts to an either holding a
-    ///     default third value rather than throwing.
+    ///     <c>Third</c>.
     /// </remarks>
-    public static implicit operator Either<T1, T2, T3, T4>(Either.EitherThird<T3>? value) =>
-        Third(value == null ? default! : value.Value);
+    public static implicit operator Either<T1, T2, T3, T4>(Either.EitherThird<T3> value) => Third(value.Value);
 
     /// <summary>
     ///     Converts a value marked for the fourth position into an either of this type.
@@ -1709,11 +1794,9 @@ public struct Either<T1, T2, T3, T4> : IEitherOfFour, IEquatable<Either<T1, T2, 
     /// <returns>An either holding that value as its fourth case.</returns>
     /// <remarks>
     ///     This is what makes <see cref="Either.Fourth{T}" /> usable in place of this type's own
-    ///     <c>Fourth</c>. A <see langword="null" /> marked value converts to an either holding a
-    ///     default fourth value rather than throwing.
+    ///     <c>Fourth</c>.
     /// </remarks>
-    public static implicit operator Either<T1, T2, T3, T4>(Either.EitherFourth<T4>? value) =>
-        Fourth(value == null ? default! : value.Value);
+    public static implicit operator Either<T1, T2, T3, T4>(Either.EitherFourth<T4> value) => Fourth(value.Value);
 
     /// <summary>
     ///     Determines whether two instances hold the same case with equal values.
@@ -1726,10 +1809,13 @@ public struct Either<T1, T2, T3, T4> : IEitherOfFour, IEquatable<Either<T1, T2, 
     /// </returns>
     public static bool operator ==(Either<T1, T2, T3, T4> x, Either<T1, T2, T3, T4> y) =>
         x.valueType == y.valueType
+        // ReSharper disable NullableWarningSuppressionIsUsed - .NET 4.7.2 and .NET Standard 2.0 did not define these
+        // parameters as being nullable as they should have.
         && EqualityComparer<T1>.Default.Equals(x: x.value1!, y: y.value1!)
         && EqualityComparer<T2>.Default.Equals(x: x.value2!, y: y.value2!)
         && EqualityComparer<T3>.Default.Equals(x: x.value3!, y: y.value3!)
         && EqualityComparer<T4>.Default.Equals(x: x.value4!, y: y.value4!);
+    // ReSharper restore NullableWarningSuppressionIsUsed
 
     /// <summary>
     ///     Determines whether two instances differ, by negating <see cref="op_Equality" />.
@@ -1768,6 +1854,7 @@ public struct Either<T1, T2, T3, T4> : IEitherOfFour, IEquatable<Either<T1, T2, 
     ///     <see cref="EqualityComparer{T}.Default" /> looks for, so that comparing these in a
     ///     collection does not box both operands the way <see cref="Equals(object)" /> must.
     /// </remarks>
+    // ReSharper disable once InheritdocConsiderUsage
     public bool Equals(Either<T1, T2, T3, T4> other) => this == other;
 
     /// <summary>
@@ -1779,10 +1866,27 @@ public struct Either<T1, T2, T3, T4> : IEitherOfFour, IEquatable<Either<T1, T2, 
         unchecked
         {
             int hashCode = this.valueType;
-            hashCode = (hashCode * 397) ^ EqualityComparer<T1>.Default.GetHashCode(this.value1!);
-            hashCode = (hashCode * 397) ^ EqualityComparer<T2>.Default.GetHashCode(this.value2!);
-            hashCode = (hashCode * 397) ^ EqualityComparer<T3>.Default.GetHashCode(this.value3!);
-            hashCode = (hashCode * 397) ^ EqualityComparer<T4>.Default.GetHashCode(this.value4!);
+
+            if (this.value1 is not null)
+            {
+                hashCode = (hashCode * 397) ^ EqualityComparer<T1>.Default.GetHashCode(this.value1);
+            }
+
+            if (this.value2 is not null)
+            {
+                hashCode = (hashCode * 397) ^ EqualityComparer<T2>.Default.GetHashCode(this.value2);
+            }
+
+            if (this.value3 is not null)
+            {
+                hashCode = (hashCode * 397) ^ EqualityComparer<T3>.Default.GetHashCode(this.value3);
+            }
+
+            if (this.value4 is not null)
+            {
+                hashCode = (hashCode * 397) ^ EqualityComparer<T4>.Default.GetHashCode(this.value4);
+            }
+
             return hashCode;
         }
     }
@@ -1793,10 +1897,10 @@ public struct Either<T1, T2, T3, T4> : IEitherOfFour, IEquatable<Either<T1, T2, 
     /// <returns>The name of the case held, followed by the value it holds.</returns>
     public override string ToString() =>
         this.Match(
-            onFirst: v1 => $"First: {v1}",
-            onSecond: v2 => $"Second: {v2}",
-            onThird: v3 => $"Third: {v3}",
-            onFourth: v4 => $"Fourth: {v4}");
+            onFirst: static v1 => $"First: {v1}",
+            onSecond: static v2 => $"Second: {v2}",
+            onThird: static v3 => $"Third: {v3}",
+            onFourth: static v4 => $"Fourth: {v4}");
 }
 
 /// <summary>
@@ -1816,6 +1920,8 @@ public struct Either<T1, T2, T3, T4> : IEitherOfFour, IEquatable<Either<T1, T2, 
 ///     This is a struct, so <see langword="default" /> is a valid instance; it holds the
 ///     first case, with the default value of <typeparamref name="T1" />.
 /// </remarks>
+[PublicAPI]
+// ReSharper disable once InheritdocConsiderUsage
 public struct Either<T1, T2, T3, T4, T5> : IEitherOfFive, IEquatable<Either<T1, T2, T3, T4, T5>>
 {
     private readonly int valueType;
@@ -1963,20 +2069,22 @@ public struct Either<T1, T2, T3, T4, T5> : IEitherOfFive, IEquatable<Either<T1, 
     ///     before this method returns.
     /// </remarks>
     public T Match<T>(
-        [JetBrains.Annotations.InstantHandle] Func<T1, T> onFirst,
-        [JetBrains.Annotations.InstantHandle] Func<T2, T> onSecond,
-        [JetBrains.Annotations.InstantHandle] Func<T3, T> onThird,
-        [JetBrains.Annotations.InstantHandle] Func<T4, T> onFourth,
-        [JetBrains.Annotations.InstantHandle] Func<T5, T> onFifth) =>
-        this.valueType == 0
-            ? onFirst(this.value1!)
-            : this.valueType == 1
-                ? onSecond(this.value2!)
-                : this.valueType == 2
-                    ? onThird(this.value3!)
-                    : this.valueType == 3
-                        ? onFourth(this.value4!)
-                        : onFifth(this.value5!);
+        [InstantHandle] Func<T1, T> onFirst,
+        [InstantHandle] Func<T2, T> onSecond,
+        [InstantHandle] Func<T3, T> onThird,
+        [InstantHandle] Func<T4, T> onFourth,
+        [InstantHandle] Func<T5, T> onFifth) =>
+        this.valueType switch
+        {
+            // ReSharper disable NullableWarningSuppressionIsUsed - valueType determined that the respective field is
+            // non-null within its switch expression
+            0 => onFirst(this.value1!),
+            1 => onSecond(this.value2!),
+            2 => onThird(this.value3!),
+            3 => onFourth(this.value4!),
+            _ => onFifth(this.value5!)
+            // ReSharper restore NullableWarningSuppressionIsUsed
+        };
 
     #endregion
 
@@ -1991,11 +2099,11 @@ public struct Either<T1, T2, T3, T4, T5> : IEitherOfFive, IEquatable<Either<T1, 
     /// <param name="onFourth">Run with the value when the fourth case is held.</param>
     /// <param name="onFifth">Run with the value when the fifth case is held.</param>
     public void MatchVoid(
-        [JetBrains.Annotations.InstantHandle] Action<T1> onFirst,
-        [JetBrains.Annotations.InstantHandle] Action<T2> onSecond,
-        [JetBrains.Annotations.InstantHandle] Action<T3> onThird,
-        [JetBrains.Annotations.InstantHandle] Action<T4> onFourth,
-        [JetBrains.Annotations.InstantHandle] Action<T5> onFifth) =>
+        [InstantHandle] Action<T1> onFirst,
+        [InstantHandle] Action<T2> onSecond,
+        [InstantHandle] Action<T3> onThird,
+        [InstantHandle] Action<T4> onFourth,
+        [InstantHandle] Action<T5> onFifth) =>
         // ReSharper disable once ReturnValueOfPureMethodIsNotUsed
         this.Match(
             onFirst: onFirst.ToFunc(),
@@ -2020,11 +2128,11 @@ public struct Either<T1, T2, T3, T4, T5> : IEitherOfFive, IEquatable<Either<T1, 
     ///     so failures surface as that task faulting rather than as an exception from this call.
     /// </remarks>
     public Task<T> MatchAsync<T>(
-        [JetBrains.Annotations.InstantHandle] Func<T1, Task<T>> onFirst,
-        [JetBrains.Annotations.InstantHandle] Func<T2, Task<T>> onSecond,
-        [JetBrains.Annotations.InstantHandle] Func<T3, Task<T>> onThird,
-        [JetBrains.Annotations.InstantHandle] Func<T4, Task<T>> onFourth,
-        [JetBrains.Annotations.InstantHandle] Func<T5, Task<T>> onFifth) =>
+        [InstantHandle] Func<T1, Task<T>> onFirst,
+        [InstantHandle] Func<T2, Task<T>> onSecond,
+        [InstantHandle] Func<T3, Task<T>> onThird,
+        [InstantHandle] Func<T4, Task<T>> onFourth,
+        [InstantHandle] Func<T5, Task<T>> onFifth) =>
         this.Match(onFirst: onFirst, onSecond: onSecond, onThird: onThird, onFourth: onFourth, onFifth: onFifth);
 
     /// <summary>
@@ -2037,11 +2145,11 @@ public struct Either<T1, T2, T3, T4, T5> : IEitherOfFive, IEquatable<Either<T1, 
     /// <param name="onFifth">Run with the value when the fifth case is held.</param>
     /// <returns>A task which completes when the selected action has completed.</returns>
     public Task MatchAsyncVoid(
-        [JetBrains.Annotations.InstantHandle] Func<T1, Task> onFirst,
-        [JetBrains.Annotations.InstantHandle] Func<T2, Task> onSecond,
-        [JetBrains.Annotations.InstantHandle] Func<T3, Task> onThird,
-        [JetBrains.Annotations.InstantHandle] Func<T4, Task> onFourth,
-        [JetBrains.Annotations.InstantHandle] Func<T5, Task> onFifth) =>
+        [InstantHandle] Func<T1, Task> onFirst,
+        [InstantHandle] Func<T2, Task> onSecond,
+        [InstantHandle] Func<T3, Task> onThird,
+        [InstantHandle] Func<T4, Task> onFourth,
+        [InstantHandle] Func<T5, Task> onFifth) =>
         this.MatchAsync(
             onFirst: onFirst.ToAsyncFunc(),
             onSecond: onSecond.ToAsyncFunc(),
@@ -2063,13 +2171,13 @@ public struct Either<T1, T2, T3, T4, T5> : IEitherOfFive, IEquatable<Either<T1, 
     /// <remarks>
     ///     <paramref name="f" /> is called only when this holds the first case.
     /// </remarks>
-    public Either<T, T2, T3, T4, T5> MapFirst<T>([JetBrains.Annotations.InstantHandle] Func<T1, T> f) =>
+    public Either<T, T2, T3, T4, T5> MapFirst<T>([InstantHandle] Func<T1, T> f) =>
         this.Match(
             onFirst: v1 => Either<T, T2, T3, T4, T5>.First(f(v1)),
-            onSecond: v2 => Either.Second(v2),
-            onThird: v3 => Either.Third(v3),
-            onFourth: v4 => Either.Fourth(v4),
-            onFifth: v5 => Either.Fifth(v5));
+            onSecond: static v2 => Either.Second(v2),
+            onThird: static v3 => Either.Third(v3),
+            onFourth: static v4 => Either.Fourth(v4),
+            onFifth: static v5 => Either.Fifth(v5));
 
     /// <summary>
     ///     Transforms the value if this holds the second case, and passes every other case
@@ -2085,13 +2193,13 @@ public struct Either<T1, T2, T3, T4, T5> : IEitherOfFive, IEquatable<Either<T1, 
     /// <remarks>
     ///     <paramref name="f" /> is called only when this holds the second case.
     /// </remarks>
-    public Either<T1, T, T3, T4, T5> MapSecond<T>([JetBrains.Annotations.InstantHandle] Func<T2, T> f) =>
+    public Either<T1, T, T3, T4, T5> MapSecond<T>([InstantHandle] Func<T2, T> f) =>
         this.Match(
             onFirst: Either<T1, T, T3, T4, T5>.First,
             onSecond: v2 => Either.Second(f(v2)),
-            onThird: v3 => Either.Third(v3),
-            onFourth: v4 => Either.Fourth(v4),
-            onFifth: v5 => Either.Fifth(v5));
+            onThird: static v3 => Either.Third(v3),
+            onFourth: static v4 => Either.Fourth(v4),
+            onFifth: static v5 => Either.Fifth(v5));
 
     /// <summary>
     ///     Transforms the value if this holds the third case, and passes every other case
@@ -2107,13 +2215,13 @@ public struct Either<T1, T2, T3, T4, T5> : IEitherOfFive, IEquatable<Either<T1, 
     /// <remarks>
     ///     <paramref name="f" /> is called only when this holds the third case.
     /// </remarks>
-    public Either<T1, T2, T, T4, T5> MapThird<T>([JetBrains.Annotations.InstantHandle] Func<T3, T> f) =>
+    public Either<T1, T2, T, T4, T5> MapThird<T>([InstantHandle] Func<T3, T> f) =>
         this.Match(
             onFirst: Either<T1, T2, T, T4, T5>.First,
-            onSecond: v2 => Either.Second(v2),
+            onSecond: static v2 => Either.Second(v2),
             onThird: v3 => Either.Third(f(v3)),
-            onFourth: v4 => Either.Fourth(v4),
-            onFifth: v5 => Either.Fifth(v5));
+            onFourth: static v4 => Either.Fourth(v4),
+            onFifth: static v5 => Either.Fifth(v5));
 
     /// <summary>
     ///     Transforms the value if this holds the fourth case, and passes every other case
@@ -2129,13 +2237,13 @@ public struct Either<T1, T2, T3, T4, T5> : IEitherOfFive, IEquatable<Either<T1, 
     /// <remarks>
     ///     <paramref name="f" /> is called only when this holds the fourth case.
     /// </remarks>
-    public Either<T1, T2, T3, T, T5> MapFourth<T>([JetBrains.Annotations.InstantHandle] Func<T4, T> f) =>
+    public Either<T1, T2, T3, T, T5> MapFourth<T>([InstantHandle] Func<T4, T> f) =>
         this.Match(
             onFirst: Either<T1, T2, T3, T, T5>.First,
-            onSecond: v2 => Either.Second(v2),
-            onThird: v3 => Either.Third(v3),
+            onSecond: static v2 => Either.Second(v2),
+            onThird: static v3 => Either.Third(v3),
             onFourth: v4 => Either.Fourth(f(v4)),
-            onFifth: v5 => Either.Fifth(v5));
+            onFifth: static v5 => Either.Fifth(v5));
 
     /// <summary>
     ///     Transforms the value if this holds the fifth case, and passes every other case
@@ -2151,12 +2259,12 @@ public struct Either<T1, T2, T3, T4, T5> : IEitherOfFive, IEquatable<Either<T1, 
     /// <remarks>
     ///     <paramref name="f" /> is called only when this holds the fifth case.
     /// </remarks>
-    public Either<T1, T2, T3, T4, T> MapFifth<T>([JetBrains.Annotations.InstantHandle] Func<T5, T> f) =>
+    public Either<T1, T2, T3, T4, T> MapFifth<T>([InstantHandle] Func<T5, T> f) =>
         this.Match(
             onFirst: Either<T1, T2, T3, T4, T>.First,
-            onSecond: v2 => Either.Second(v2),
-            onThird: v3 => Either.Third(v3),
-            onFourth: v4 => Either.Fourth(v4),
+            onSecond: static v2 => Either.Second(v2),
+            onThird: static v3 => Either.Third(v3),
+            onFourth: static v4 => Either.Fourth(v4),
             onFifth: v5 => Either.Fifth(f(v5)));
 
     /// <summary>
@@ -2166,14 +2274,14 @@ public struct Either<T1, T2, T3, T4, T5> : IEitherOfFive, IEquatable<Either<T1, 
     ///     A <see cref="Maybe{T}" /> containing the value if this holds the first case, and
     ///     containing nothing otherwise.
     /// </returns>
-    [JetBrains.Annotations.Pure]
+    [Pure]
     public Maybe<T1> TryGetFirst() =>
         this.Match(
             onFirst: Maybe.Some,
-            onSecond: _ => Maybe.None,
-            onThird: _ => Maybe.None,
-            onFourth: _ => Maybe.None,
-            onFifth: _ => Maybe.None);
+            onSecond: static _ => Maybe.None,
+            onThird: static _ => Maybe.None,
+            onFourth: static _ => Maybe.None,
+            onFifth: static _ => Maybe.None);
 
     /// <summary>
     ///     Gets the held value if this holds the second case.
@@ -2182,14 +2290,14 @@ public struct Either<T1, T2, T3, T4, T5> : IEitherOfFive, IEquatable<Either<T1, 
     ///     A <see cref="Maybe{T}" /> containing the value if this holds the second case, and
     ///     containing nothing otherwise.
     /// </returns>
-    [JetBrains.Annotations.Pure]
+    [Pure]
     public Maybe<T2> TryGetSecond() =>
         this.Match(
-            onFirst: _ => Maybe.None,
+            onFirst: static _ => Maybe.None,
             onSecond: Maybe.Some,
-            onThird: _ => Maybe.None,
-            onFourth: _ => Maybe.None,
-            onFifth: _ => Maybe.None);
+            onThird: static _ => Maybe.None,
+            onFourth: static _ => Maybe.None,
+            onFifth: static _ => Maybe.None);
 
     /// <summary>
     ///     Gets the held value if this holds the third case.
@@ -2198,14 +2306,14 @@ public struct Either<T1, T2, T3, T4, T5> : IEitherOfFive, IEquatable<Either<T1, 
     ///     A <see cref="Maybe{T}" /> containing the value if this holds the third case, and
     ///     containing nothing otherwise.
     /// </returns>
-    [JetBrains.Annotations.Pure]
+    [Pure]
     public Maybe<T3> TryGetThird() =>
         this.Match(
-            onFirst: _ => Maybe.None,
-            onSecond: _ => Maybe.None,
+            onFirst: static _ => Maybe.None,
+            onSecond: static _ => Maybe.None,
             onThird: Maybe.Some,
-            onFourth: _ => Maybe.None,
-            onFifth: _ => Maybe.None);
+            onFourth: static _ => Maybe.None,
+            onFifth: static _ => Maybe.None);
 
     /// <summary>
     ///     Gets the held value if this holds the fourth case.
@@ -2214,14 +2322,14 @@ public struct Either<T1, T2, T3, T4, T5> : IEitherOfFive, IEquatable<Either<T1, 
     ///     A <see cref="Maybe{T}" /> containing the value if this holds the fourth case, and
     ///     containing nothing otherwise.
     /// </returns>
-    [JetBrains.Annotations.Pure]
+    [Pure]
     public Maybe<T4> TryGetFourth() =>
         this.Match(
-            onFirst: _ => Maybe.None,
-            onSecond: _ => Maybe.None,
-            onThird: _ => Maybe.None,
+            onFirst: static _ => Maybe.None,
+            onSecond: static _ => Maybe.None,
+            onThird: static _ => Maybe.None,
             onFourth: Maybe.Some,
-            onFifth: _ => Maybe.None);
+            onFifth: static _ => Maybe.None);
 
     /// <summary>
     ///     Gets the held value if this holds the fifth case.
@@ -2230,13 +2338,13 @@ public struct Either<T1, T2, T3, T4, T5> : IEitherOfFive, IEquatable<Either<T1, 
     ///     A <see cref="Maybe{T}" /> containing the value if this holds the fifth case, and
     ///     containing nothing otherwise.
     /// </returns>
-    [JetBrains.Annotations.Pure]
+    [Pure]
     public Maybe<T5> TryGetFifth() =>
         this.Match(
-            onFirst: _ => Maybe.None,
-            onSecond: _ => Maybe.None,
-            onThird: _ => Maybe.None,
-            onFourth: _ => Maybe.None,
+            onFirst: static _ => Maybe.None,
+            onSecond: static _ => Maybe.None,
+            onThird: static _ => Maybe.None,
+            onFourth: static _ => Maybe.None,
             onFifth: Maybe.Some);
 
     /// <summary>
@@ -2250,14 +2358,14 @@ public struct Either<T1, T2, T3, T4, T5> : IEitherOfFive, IEquatable<Either<T1, 
     ///     To get at the value as well, use <see cref="TryGetFirst" />, or <c>Match</c> to handle
     ///     every case.
     /// </remarks>
-    [JetBrains.Annotations.Pure]
+    [Pure]
     public bool IsFirst() =>
         this.Match(
-            onFirst: _ => true,
-            onSecond: _ => false,
-            onThird: _ => false,
-            onFourth: _ => false,
-            onFifth: _ => false);
+            onFirst: static _ => true,
+            onSecond: static _ => false,
+            onThird: static _ => false,
+            onFourth: static _ => false,
+            onFifth: static _ => false);
 
     /// <summary>
     ///     Returns whether this holds the second case.
@@ -2270,14 +2378,14 @@ public struct Either<T1, T2, T3, T4, T5> : IEitherOfFive, IEquatable<Either<T1, 
     ///     To get at the value as well, use <see cref="TryGetSecond" />, or <c>Match</c> to handle
     ///     every case.
     /// </remarks>
-    [JetBrains.Annotations.Pure]
+    [Pure]
     public bool IsSecond() =>
         this.Match(
-            onFirst: _ => false,
-            onSecond: _ => true,
-            onThird: _ => false,
-            onFourth: _ => false,
-            onFifth: _ => false);
+            onFirst: static _ => false,
+            onSecond: static _ => true,
+            onThird: static _ => false,
+            onFourth: static _ => false,
+            onFifth: static _ => false);
 
     /// <summary>
     ///     Returns whether this holds the third case.
@@ -2290,14 +2398,14 @@ public struct Either<T1, T2, T3, T4, T5> : IEitherOfFive, IEquatable<Either<T1, 
     ///     To get at the value as well, use <see cref="TryGetThird" />, or <c>Match</c> to handle
     ///     every case.
     /// </remarks>
-    [JetBrains.Annotations.Pure]
+    [Pure]
     public bool IsThird() =>
         this.Match(
-            onFirst: _ => false,
-            onSecond: _ => false,
-            onThird: _ => true,
-            onFourth: _ => false,
-            onFifth: _ => false);
+            onFirst: static _ => false,
+            onSecond: static _ => false,
+            onThird: static _ => true,
+            onFourth: static _ => false,
+            onFifth: static _ => false);
 
     /// <summary>
     ///     Returns whether this holds the fourth case.
@@ -2310,14 +2418,14 @@ public struct Either<T1, T2, T3, T4, T5> : IEitherOfFive, IEquatable<Either<T1, 
     ///     To get at the value as well, use <see cref="TryGetFourth" />, or <c>Match</c> to handle
     ///     every case.
     /// </remarks>
-    [JetBrains.Annotations.Pure]
+    [Pure]
     public bool IsFourth() =>
         this.Match(
-            onFirst: _ => false,
-            onSecond: _ => false,
-            onThird: _ => false,
-            onFourth: _ => true,
-            onFifth: _ => false);
+            onFirst: static _ => false,
+            onSecond: static _ => false,
+            onThird: static _ => false,
+            onFourth: static _ => true,
+            onFifth: static _ => false);
 
     /// <summary>
     ///     Returns whether this holds the fifth case.
@@ -2330,14 +2438,14 @@ public struct Either<T1, T2, T3, T4, T5> : IEitherOfFive, IEquatable<Either<T1, 
     ///     To get at the value as well, use <see cref="TryGetFifth" />, or <c>Match</c> to handle
     ///     every case.
     /// </remarks>
-    [JetBrains.Annotations.Pure]
+    [Pure]
     public bool IsFifth() =>
         this.Match(
-            onFirst: _ => false,
-            onSecond: _ => false,
-            onThird: _ => false,
-            onFourth: _ => false,
-            onFifth: _ => true);
+            onFirst: static _ => false,
+            onSecond: static _ => false,
+            onThird: static _ => false,
+            onFourth: static _ => false,
+            onFifth: static _ => true);
 
     void IEitherOfFive.MatchVoid(
         Action<object?> onFirst,
@@ -2386,11 +2494,9 @@ public struct Either<T1, T2, T3, T4, T5> : IEitherOfFive, IEquatable<Either<T1, 
     /// <returns>An either holding that value as its first case.</returns>
     /// <remarks>
     ///     This is what makes <see cref="Either.First{T}" /> usable in place of this type's own
-    ///     <c>First</c>. A <see langword="null" /> marked value converts to an either holding a
-    ///     default first value rather than throwing.
+    ///     <c>First</c>.
     /// </remarks>
-    public static implicit operator Either<T1, T2, T3, T4, T5>(Either.EitherFirst<T1>? value) =>
-        First(value == null ? default! : value.Value);
+    public static implicit operator Either<T1, T2, T3, T4, T5>(Either.EitherFirst<T1> value) => First(value.Value);
 
     /// <summary>
     ///     Converts a value marked for the second position into an either of this type.
@@ -2399,11 +2505,9 @@ public struct Either<T1, T2, T3, T4, T5> : IEitherOfFive, IEquatable<Either<T1, 
     /// <returns>An either holding that value as its second case.</returns>
     /// <remarks>
     ///     This is what makes <see cref="Either.Second{T}" /> usable in place of this type's own
-    ///     <c>Second</c>. A <see langword="null" /> marked value converts to an either holding a
-    ///     default second value rather than throwing.
+    ///     <c>Second</c>.
     /// </remarks>
-    public static implicit operator Either<T1, T2, T3, T4, T5>(Either.EitherSecond<T2>? value) =>
-        Second(value == null ? default! : value.Value);
+    public static implicit operator Either<T1, T2, T3, T4, T5>(Either.EitherSecond<T2> value) => Second(value.Value);
 
     /// <summary>
     ///     Converts a value marked for the third position into an either of this type.
@@ -2412,11 +2516,9 @@ public struct Either<T1, T2, T3, T4, T5> : IEitherOfFive, IEquatable<Either<T1, 
     /// <returns>An either holding that value as its third case.</returns>
     /// <remarks>
     ///     This is what makes <see cref="Either.Third{T}" /> usable in place of this type's own
-    ///     <c>Third</c>. A <see langword="null" /> marked value converts to an either holding a
-    ///     default third value rather than throwing.
+    ///     <c>Third</c>.
     /// </remarks>
-    public static implicit operator Either<T1, T2, T3, T4, T5>(Either.EitherThird<T3>? value) =>
-        Third(value == null ? default! : value.Value);
+    public static implicit operator Either<T1, T2, T3, T4, T5>(Either.EitherThird<T3> value) => Third(value.Value);
 
     /// <summary>
     ///     Converts a value marked for the fourth position into an either of this type.
@@ -2425,11 +2527,9 @@ public struct Either<T1, T2, T3, T4, T5> : IEitherOfFive, IEquatable<Either<T1, 
     /// <returns>An either holding that value as its fourth case.</returns>
     /// <remarks>
     ///     This is what makes <see cref="Either.Fourth{T}" /> usable in place of this type's own
-    ///     <c>Fourth</c>. A <see langword="null" /> marked value converts to an either holding a
-    ///     default fourth value rather than throwing.
+    ///     <c>Fourth</c>.
     /// </remarks>
-    public static implicit operator Either<T1, T2, T3, T4, T5>(Either.EitherFourth<T4>? value) =>
-        Fourth(value == null ? default! : value.Value);
+    public static implicit operator Either<T1, T2, T3, T4, T5>(Either.EitherFourth<T4> value) => Fourth(value.Value);
 
     /// <summary>
     ///     Converts a value marked for the fifth position into an either of this type.
@@ -2438,11 +2538,9 @@ public struct Either<T1, T2, T3, T4, T5> : IEitherOfFive, IEquatable<Either<T1, 
     /// <returns>An either holding that value as its fifth case.</returns>
     /// <remarks>
     ///     This is what makes <see cref="Either.Fifth{T}" /> usable in place of this type's own
-    ///     <c>Fifth</c>. A <see langword="null" /> marked value converts to an either holding a
-    ///     default fifth value rather than throwing.
+    ///     <c>Fifth</c>.
     /// </remarks>
-    public static implicit operator Either<T1, T2, T3, T4, T5>(Either.EitherFifth<T5>? value) =>
-        Fifth(value == null ? default! : value.Value);
+    public static implicit operator Either<T1, T2, T3, T4, T5>(Either.EitherFifth<T5> value) => Fifth(value.Value);
 
     /// <summary>
     ///     Determines whether two instances hold the same case with equal values.
@@ -2455,11 +2553,14 @@ public struct Either<T1, T2, T3, T4, T5> : IEitherOfFive, IEquatable<Either<T1, 
     /// </returns>
     public static bool operator ==(Either<T1, T2, T3, T4, T5> x, Either<T1, T2, T3, T4, T5> y) =>
         x.valueType == y.valueType
+        // ReSharper disable NullableWarningSuppressionIsUsed - .NET 4.7.2 and .NET Standard 2.0 did not define these
+        // parameters as being nullable as they should have.
         && EqualityComparer<T1>.Default.Equals(x: x.value1!, y: y.value1!)
         && EqualityComparer<T2>.Default.Equals(x: x.value2!, y: y.value2!)
         && EqualityComparer<T3>.Default.Equals(x: x.value3!, y: y.value3!)
         && EqualityComparer<T4>.Default.Equals(x: x.value4!, y: y.value4!)
         && EqualityComparer<T5>.Default.Equals(x: x.value5!, y: y.value5!);
+    // ReSharper restore NullableWarningSuppressionIsUsed
 
     /// <summary>
     ///     Determines whether two instances differ, by negating <see cref="op_Equality" />.
@@ -2498,6 +2599,7 @@ public struct Either<T1, T2, T3, T4, T5> : IEitherOfFive, IEquatable<Either<T1, 
     ///     <see cref="EqualityComparer{T}.Default" /> looks for, so that comparing these in a
     ///     collection does not box both operands the way <see cref="Equals(object)" /> must.
     /// </remarks>
+    // ReSharper disable once InheritdocConsiderUsage
     public bool Equals(Either<T1, T2, T3, T4, T5> other) => this == other;
 
     /// <summary>
@@ -2509,11 +2611,32 @@ public struct Either<T1, T2, T3, T4, T5> : IEitherOfFive, IEquatable<Either<T1, 
         unchecked
         {
             int hashCode = this.valueType;
-            hashCode = (hashCode * 397) ^ EqualityComparer<T1>.Default.GetHashCode(this.value1!);
-            hashCode = (hashCode * 397) ^ EqualityComparer<T2>.Default.GetHashCode(this.value2!);
-            hashCode = (hashCode * 397) ^ EqualityComparer<T3>.Default.GetHashCode(this.value3!);
-            hashCode = (hashCode * 397) ^ EqualityComparer<T4>.Default.GetHashCode(this.value4!);
-            hashCode = (hashCode * 397) ^ EqualityComparer<T5>.Default.GetHashCode(this.value5!);
+
+            if (this.value1 is not null)
+            {
+                hashCode = (hashCode * 397) ^ EqualityComparer<T1>.Default.GetHashCode(this.value1);
+            }
+
+            if (this.value2 is not null)
+            {
+                hashCode = (hashCode * 397) ^ EqualityComparer<T2>.Default.GetHashCode(this.value2);
+            }
+
+            if (this.value3 is not null)
+            {
+                hashCode = (hashCode * 397) ^ EqualityComparer<T3>.Default.GetHashCode(this.value3);
+            }
+
+            if (this.value4 is not null)
+            {
+                hashCode = (hashCode * 397) ^ EqualityComparer<T4>.Default.GetHashCode(this.value4);
+            }
+
+            if (this.value5 is not null)
+            {
+                hashCode = (hashCode * 397) ^ EqualityComparer<T5>.Default.GetHashCode(this.value5);
+            }
+
             return hashCode;
         }
     }
@@ -2524,11 +2647,11 @@ public struct Either<T1, T2, T3, T4, T5> : IEitherOfFive, IEquatable<Either<T1, 
     /// <returns>The name of the case held, followed by the value it holds.</returns>
     public override string ToString() =>
         this.Match(
-            onFirst: v1 => $"First: {v1}",
-            onSecond: v2 => $"Second: {v2}",
-            onThird: v3 => $"Third: {v3}",
-            onFourth: v4 => $"Fourth: {v4}",
-            onFifth: v5 => $"Fifth: {v5}");
+            onFirst: static v1 => $"First: {v1}",
+            onSecond: static v2 => $"Second: {v2}",
+            onThird: static v3 => $"Third: {v3}",
+            onFourth: static v4 => $"Fourth: {v4}",
+            onFifth: static v5 => $"Fifth: {v5}");
 }
 
 /// <summary>
@@ -2549,6 +2672,8 @@ public struct Either<T1, T2, T3, T4, T5> : IEitherOfFive, IEquatable<Either<T1, 
 ///     This is a struct, so <see langword="default" /> is a valid instance; it holds the
 ///     first case, with the default value of <typeparamref name="T1" />.
 /// </remarks>
+[PublicAPI]
+// ReSharper disable once InheritdocConsiderUsage
 public struct Either<T1, T2, T3, T4, T5, T6> : IEitherOfSix, IEquatable<Either<T1, T2, T3, T4, T5, T6>>
 {
     private readonly int valueType;
@@ -2725,23 +2850,24 @@ public struct Either<T1, T2, T3, T4, T5, T6> : IEitherOfSix, IEquatable<Either<T
     ///     before this method returns.
     /// </remarks>
     public T Match<T>(
-        [JetBrains.Annotations.InstantHandle] Func<T1, T> onFirst,
-        [JetBrains.Annotations.InstantHandle] Func<T2, T> onSecond,
-        [JetBrains.Annotations.InstantHandle] Func<T3, T> onThird,
-        [JetBrains.Annotations.InstantHandle] Func<T4, T> onFourth,
-        [JetBrains.Annotations.InstantHandle] Func<T5, T> onFifth,
-        [JetBrains.Annotations.InstantHandle] Func<T6, T> onSixth) =>
-        this.valueType == 0
-            ? onFirst(this.value1!)
-            : this.valueType == 1
-                ? onSecond(this.value2!)
-                : this.valueType == 2
-                    ? onThird(this.value3!)
-                    : this.valueType == 3
-                        ? onFourth(this.value4!)
-                        : this.valueType == 4
-                            ? onFifth(this.value5!)
-                            : onSixth(this.value6!);
+        [InstantHandle] Func<T1, T> onFirst,
+        [InstantHandle] Func<T2, T> onSecond,
+        [InstantHandle] Func<T3, T> onThird,
+        [InstantHandle] Func<T4, T> onFourth,
+        [InstantHandle] Func<T5, T> onFifth,
+        [InstantHandle] Func<T6, T> onSixth) =>
+        this.valueType switch
+        {
+            // ReSharper disable NullableWarningSuppressionIsUsed - valueType determined that the respective field is
+            // non-null within its switch expression
+            0 => onFirst(this.value1!),
+            1 => onSecond(this.value2!),
+            2 => onThird(this.value3!),
+            3 => onFourth(this.value4!),
+            4 => onFifth(this.value5!),
+            _ => onSixth(this.value6!)
+            // ReSharper restore NullableWarningSuppressionIsUsed
+        };
 
     #endregion
 
@@ -2757,12 +2883,12 @@ public struct Either<T1, T2, T3, T4, T5, T6> : IEitherOfSix, IEquatable<Either<T
     /// <param name="onFifth">Run with the value when the fifth case is held.</param>
     /// <param name="onSixth">Run with the value when the sixth case is held.</param>
     public void MatchVoid(
-        [JetBrains.Annotations.InstantHandle] Action<T1> onFirst,
-        [JetBrains.Annotations.InstantHandle] Action<T2> onSecond,
-        [JetBrains.Annotations.InstantHandle] Action<T3> onThird,
-        [JetBrains.Annotations.InstantHandle] Action<T4> onFourth,
-        [JetBrains.Annotations.InstantHandle] Action<T5> onFifth,
-        [JetBrains.Annotations.InstantHandle] Action<T6> onSixth) =>
+        [InstantHandle] Action<T1> onFirst,
+        [InstantHandle] Action<T2> onSecond,
+        [InstantHandle] Action<T3> onThird,
+        [InstantHandle] Action<T4> onFourth,
+        [InstantHandle] Action<T5> onFifth,
+        [InstantHandle] Action<T6> onSixth) =>
         // ReSharper disable once ReturnValueOfPureMethodIsNotUsed
         this.Match(
             onFirst: onFirst.ToFunc(),
@@ -2789,12 +2915,12 @@ public struct Either<T1, T2, T3, T4, T5, T6> : IEitherOfSix, IEquatable<Either<T
     ///     so failures surface as that task faulting rather than as an exception from this call.
     /// </remarks>
     public Task<T> MatchAsync<T>(
-        [JetBrains.Annotations.InstantHandle] Func<T1, Task<T>> onFirst,
-        [JetBrains.Annotations.InstantHandle] Func<T2, Task<T>> onSecond,
-        [JetBrains.Annotations.InstantHandle] Func<T3, Task<T>> onThird,
-        [JetBrains.Annotations.InstantHandle] Func<T4, Task<T>> onFourth,
-        [JetBrains.Annotations.InstantHandle] Func<T5, Task<T>> onFifth,
-        [JetBrains.Annotations.InstantHandle] Func<T6, Task<T>> onSixth) =>
+        [InstantHandle] Func<T1, Task<T>> onFirst,
+        [InstantHandle] Func<T2, Task<T>> onSecond,
+        [InstantHandle] Func<T3, Task<T>> onThird,
+        [InstantHandle] Func<T4, Task<T>> onFourth,
+        [InstantHandle] Func<T5, Task<T>> onFifth,
+        [InstantHandle] Func<T6, Task<T>> onSixth) =>
         this.Match(
             onFirst: onFirst,
             onSecond: onSecond,
@@ -2814,12 +2940,12 @@ public struct Either<T1, T2, T3, T4, T5, T6> : IEitherOfSix, IEquatable<Either<T
     /// <param name="onSixth">Run with the value when the sixth case is held.</param>
     /// <returns>A task which completes when the selected action has completed.</returns>
     public Task MatchAsyncVoid(
-        [JetBrains.Annotations.InstantHandle] Func<T1, Task> onFirst,
-        [JetBrains.Annotations.InstantHandle] Func<T2, Task> onSecond,
-        [JetBrains.Annotations.InstantHandle] Func<T3, Task> onThird,
-        [JetBrains.Annotations.InstantHandle] Func<T4, Task> onFourth,
-        [JetBrains.Annotations.InstantHandle] Func<T5, Task> onFifth,
-        [JetBrains.Annotations.InstantHandle] Func<T6, Task> onSixth) =>
+        [InstantHandle] Func<T1, Task> onFirst,
+        [InstantHandle] Func<T2, Task> onSecond,
+        [InstantHandle] Func<T3, Task> onThird,
+        [InstantHandle] Func<T4, Task> onFourth,
+        [InstantHandle] Func<T5, Task> onFifth,
+        [InstantHandle] Func<T6, Task> onSixth) =>
         this.MatchAsync(
             onFirst: onFirst.ToAsyncFunc(),
             onSecond: onSecond.ToAsyncFunc(),
@@ -2842,14 +2968,14 @@ public struct Either<T1, T2, T3, T4, T5, T6> : IEitherOfSix, IEquatable<Either<T
     /// <remarks>
     ///     <paramref name="f" /> is called only when this holds the first case.
     /// </remarks>
-    public Either<T, T2, T3, T4, T5, T6> MapFirst<T>([JetBrains.Annotations.InstantHandle] Func<T1, T> f) =>
+    public Either<T, T2, T3, T4, T5, T6> MapFirst<T>([InstantHandle] Func<T1, T> f) =>
         this.Match(
             onFirst: v1 => Either<T, T2, T3, T4, T5, T6>.First(f(v1)),
-            onSecond: v2 => Either.Second(v2),
-            onThird: v3 => Either.Third(v3),
-            onFourth: v4 => Either.Fourth(v4),
-            onFifth: v5 => Either.Fifth(v5),
-            onSixth: v6 => Either.Sixth(v6));
+            onSecond: static v2 => Either.Second(v2),
+            onThird: static v3 => Either.Third(v3),
+            onFourth: static v4 => Either.Fourth(v4),
+            onFifth: static v5 => Either.Fifth(v5),
+            onSixth: static v6 => Either.Sixth(v6));
 
     /// <summary>
     ///     Transforms the value if this holds the second case, and passes every other case
@@ -2865,14 +2991,14 @@ public struct Either<T1, T2, T3, T4, T5, T6> : IEitherOfSix, IEquatable<Either<T
     /// <remarks>
     ///     <paramref name="f" /> is called only when this holds the second case.
     /// </remarks>
-    public Either<T1, T, T3, T4, T5, T6> MapSecond<T>([JetBrains.Annotations.InstantHandle] Func<T2, T> f) =>
+    public Either<T1, T, T3, T4, T5, T6> MapSecond<T>([InstantHandle] Func<T2, T> f) =>
         this.Match(
             onFirst: Either<T1, T, T3, T4, T5, T6>.First,
             onSecond: v2 => Either.Second(f(v2)),
-            onThird: v3 => Either.Third(v3),
-            onFourth: v4 => Either.Fourth(v4),
-            onFifth: v5 => Either.Fifth(v5),
-            onSixth: v6 => Either.Sixth(v6));
+            onThird: static v3 => Either.Third(v3),
+            onFourth: static v4 => Either.Fourth(v4),
+            onFifth: static v5 => Either.Fifth(v5),
+            onSixth: static v6 => Either.Sixth(v6));
 
     /// <summary>
     ///     Transforms the value if this holds the third case, and passes every other case
@@ -2888,14 +3014,14 @@ public struct Either<T1, T2, T3, T4, T5, T6> : IEitherOfSix, IEquatable<Either<T
     /// <remarks>
     ///     <paramref name="f" /> is called only when this holds the third case.
     /// </remarks>
-    public Either<T1, T2, T, T4, T5, T6> MapThird<T>([JetBrains.Annotations.InstantHandle] Func<T3, T> f) =>
+    public Either<T1, T2, T, T4, T5, T6> MapThird<T>([InstantHandle] Func<T3, T> f) =>
         this.Match(
             onFirst: Either<T1, T2, T, T4, T5, T6>.First,
-            onSecond: v2 => Either.Second(v2),
+            onSecond: static v2 => Either.Second(v2),
             onThird: v3 => Either.Third(f(v3)),
-            onFourth: v4 => Either.Fourth(v4),
-            onFifth: v5 => Either.Fifth(v5),
-            onSixth: v6 => Either.Sixth(v6));
+            onFourth: static v4 => Either.Fourth(v4),
+            onFifth: static v5 => Either.Fifth(v5),
+            onSixth: static v6 => Either.Sixth(v6));
 
     /// <summary>
     ///     Transforms the value if this holds the fourth case, and passes every other case
@@ -2911,14 +3037,14 @@ public struct Either<T1, T2, T3, T4, T5, T6> : IEitherOfSix, IEquatable<Either<T
     /// <remarks>
     ///     <paramref name="f" /> is called only when this holds the fourth case.
     /// </remarks>
-    public Either<T1, T2, T3, T, T5, T6> MapFourth<T>([JetBrains.Annotations.InstantHandle] Func<T4, T> f) =>
+    public Either<T1, T2, T3, T, T5, T6> MapFourth<T>([InstantHandle] Func<T4, T> f) =>
         this.Match(
             onFirst: Either<T1, T2, T3, T, T5, T6>.First,
-            onSecond: v2 => Either.Second(v2),
-            onThird: v3 => Either.Third(v3),
+            onSecond: static v2 => Either.Second(v2),
+            onThird: static v3 => Either.Third(v3),
             onFourth: v4 => Either.Fourth(f(v4)),
-            onFifth: v5 => Either.Fifth(v5),
-            onSixth: v6 => Either.Sixth(v6));
+            onFifth: static v5 => Either.Fifth(v5),
+            onSixth: static v6 => Either.Sixth(v6));
 
     /// <summary>
     ///     Transforms the value if this holds the fifth case, and passes every other case
@@ -2934,14 +3060,14 @@ public struct Either<T1, T2, T3, T4, T5, T6> : IEitherOfSix, IEquatable<Either<T
     /// <remarks>
     ///     <paramref name="f" /> is called only when this holds the fifth case.
     /// </remarks>
-    public Either<T1, T2, T3, T4, T, T6> MapFifth<T>([JetBrains.Annotations.InstantHandle] Func<T5, T> f) =>
+    public Either<T1, T2, T3, T4, T, T6> MapFifth<T>([InstantHandle] Func<T5, T> f) =>
         this.Match(
             onFirst: Either<T1, T2, T3, T4, T, T6>.First,
-            onSecond: v2 => Either.Second(v2),
-            onThird: v3 => Either.Third(v3),
-            onFourth: v4 => Either.Fourth(v4),
+            onSecond: static v2 => Either.Second(v2),
+            onThird: static v3 => Either.Third(v3),
+            onFourth: static v4 => Either.Fourth(v4),
             onFifth: v5 => Either.Fifth(f(v5)),
-            onSixth: v6 => Either.Sixth(v6));
+            onSixth: static v6 => Either.Sixth(v6));
 
     /// <summary>
     ///     Transforms the value if this holds the sixth case, and passes every other case
@@ -2957,13 +3083,13 @@ public struct Either<T1, T2, T3, T4, T5, T6> : IEitherOfSix, IEquatable<Either<T
     /// <remarks>
     ///     <paramref name="f" /> is called only when this holds the sixth case.
     /// </remarks>
-    public Either<T1, T2, T3, T4, T5, T> MapSixth<T>([JetBrains.Annotations.InstantHandle] Func<T6, T> f) =>
+    public Either<T1, T2, T3, T4, T5, T> MapSixth<T>([InstantHandle] Func<T6, T> f) =>
         this.Match(
             onFirst: Either<T1, T2, T3, T4, T5, T>.First,
-            onSecond: v2 => Either.Second(v2),
-            onThird: v3 => Either.Third(v3),
-            onFourth: v4 => Either.Fourth(v4),
-            onFifth: v5 => Either.Fifth(v5),
+            onSecond: static v2 => Either.Second(v2),
+            onThird: static v3 => Either.Third(v3),
+            onFourth: static v4 => Either.Fourth(v4),
+            onFifth: static v5 => Either.Fifth(v5),
             onSixth: v6 => Either.Sixth(f(v6)));
 
     /// <summary>
@@ -2973,15 +3099,15 @@ public struct Either<T1, T2, T3, T4, T5, T6> : IEitherOfSix, IEquatable<Either<T
     ///     A <see cref="Maybe{T}" /> containing the value if this holds the first case, and
     ///     containing nothing otherwise.
     /// </returns>
-    [JetBrains.Annotations.Pure]
+    [Pure]
     public Maybe<T1> TryGetFirst() =>
         this.Match(
             onFirst: Maybe.Some,
-            onSecond: _ => Maybe.None,
-            onThird: _ => Maybe.None,
-            onFourth: _ => Maybe.None,
-            onFifth: _ => Maybe.None,
-            onSixth: _ => Maybe.None);
+            onSecond: static _ => Maybe.None,
+            onThird: static _ => Maybe.None,
+            onFourth: static _ => Maybe.None,
+            onFifth: static _ => Maybe.None,
+            onSixth: static _ => Maybe.None);
 
     /// <summary>
     ///     Gets the held value if this holds the second case.
@@ -2990,15 +3116,15 @@ public struct Either<T1, T2, T3, T4, T5, T6> : IEitherOfSix, IEquatable<Either<T
     ///     A <see cref="Maybe{T}" /> containing the value if this holds the second case, and
     ///     containing nothing otherwise.
     /// </returns>
-    [JetBrains.Annotations.Pure]
+    [Pure]
     public Maybe<T2> TryGetSecond() =>
         this.Match(
-            onFirst: _ => Maybe.None,
+            onFirst: static _ => Maybe.None,
             onSecond: Maybe.Some,
-            onThird: _ => Maybe.None,
-            onFourth: _ => Maybe.None,
-            onFifth: _ => Maybe.None,
-            onSixth: _ => Maybe.None);
+            onThird: static _ => Maybe.None,
+            onFourth: static _ => Maybe.None,
+            onFifth: static _ => Maybe.None,
+            onSixth: static _ => Maybe.None);
 
     /// <summary>
     ///     Gets the held value if this holds the third case.
@@ -3007,15 +3133,15 @@ public struct Either<T1, T2, T3, T4, T5, T6> : IEitherOfSix, IEquatable<Either<T
     ///     A <see cref="Maybe{T}" /> containing the value if this holds the third case, and
     ///     containing nothing otherwise.
     /// </returns>
-    [JetBrains.Annotations.Pure]
+    [Pure]
     public Maybe<T3> TryGetThird() =>
         this.Match(
-            onFirst: _ => Maybe.None,
-            onSecond: _ => Maybe.None,
+            onFirst: static _ => Maybe.None,
+            onSecond: static _ => Maybe.None,
             onThird: Maybe.Some,
-            onFourth: _ => Maybe.None,
-            onFifth: _ => Maybe.None,
-            onSixth: _ => Maybe.None);
+            onFourth: static _ => Maybe.None,
+            onFifth: static _ => Maybe.None,
+            onSixth: static _ => Maybe.None);
 
     /// <summary>
     ///     Gets the held value if this holds the fourth case.
@@ -3024,15 +3150,15 @@ public struct Either<T1, T2, T3, T4, T5, T6> : IEitherOfSix, IEquatable<Either<T
     ///     A <see cref="Maybe{T}" /> containing the value if this holds the fourth case, and
     ///     containing nothing otherwise.
     /// </returns>
-    [JetBrains.Annotations.Pure]
+    [Pure]
     public Maybe<T4> TryGetFourth() =>
         this.Match(
-            onFirst: _ => Maybe.None,
-            onSecond: _ => Maybe.None,
-            onThird: _ => Maybe.None,
+            onFirst: static _ => Maybe.None,
+            onSecond: static _ => Maybe.None,
+            onThird: static _ => Maybe.None,
             onFourth: Maybe.Some,
-            onFifth: _ => Maybe.None,
-            onSixth: _ => Maybe.None);
+            onFifth: static _ => Maybe.None,
+            onSixth: static _ => Maybe.None);
 
     /// <summary>
     ///     Gets the held value if this holds the fifth case.
@@ -3041,15 +3167,15 @@ public struct Either<T1, T2, T3, T4, T5, T6> : IEitherOfSix, IEquatable<Either<T
     ///     A <see cref="Maybe{T}" /> containing the value if this holds the fifth case, and
     ///     containing nothing otherwise.
     /// </returns>
-    [JetBrains.Annotations.Pure]
+    [Pure]
     public Maybe<T5> TryGetFifth() =>
         this.Match(
-            onFirst: _ => Maybe.None,
-            onSecond: _ => Maybe.None,
-            onThird: _ => Maybe.None,
-            onFourth: _ => Maybe.None,
+            onFirst: static _ => Maybe.None,
+            onSecond: static _ => Maybe.None,
+            onThird: static _ => Maybe.None,
+            onFourth: static _ => Maybe.None,
             onFifth: Maybe.Some,
-            onSixth: _ => Maybe.None);
+            onSixth: static _ => Maybe.None);
 
     /// <summary>
     ///     Gets the held value if this holds the sixth case.
@@ -3058,14 +3184,14 @@ public struct Either<T1, T2, T3, T4, T5, T6> : IEitherOfSix, IEquatable<Either<T
     ///     A <see cref="Maybe{T}" /> containing the value if this holds the sixth case, and
     ///     containing nothing otherwise.
     /// </returns>
-    [JetBrains.Annotations.Pure]
+    [Pure]
     public Maybe<T6> TryGetSixth() =>
         this.Match(
-            onFirst: _ => Maybe.None,
-            onSecond: _ => Maybe.None,
-            onThird: _ => Maybe.None,
-            onFourth: _ => Maybe.None,
-            onFifth: _ => Maybe.None,
+            onFirst: static _ => Maybe.None,
+            onSecond: static _ => Maybe.None,
+            onThird: static _ => Maybe.None,
+            onFourth: static _ => Maybe.None,
+            onFifth: static _ => Maybe.None,
             onSixth: Maybe.Some);
 
     /// <summary>
@@ -3079,15 +3205,15 @@ public struct Either<T1, T2, T3, T4, T5, T6> : IEitherOfSix, IEquatable<Either<T
     ///     To get at the value as well, use <see cref="TryGetFirst" />, or <c>Match</c> to handle
     ///     every case.
     /// </remarks>
-    [JetBrains.Annotations.Pure]
+    [Pure]
     public bool IsFirst() =>
         this.Match(
-            onFirst: _ => true,
-            onSecond: _ => false,
-            onThird: _ => false,
-            onFourth: _ => false,
-            onFifth: _ => false,
-            onSixth: _ => false);
+            onFirst: static _ => true,
+            onSecond: static _ => false,
+            onThird: static _ => false,
+            onFourth: static _ => false,
+            onFifth: static _ => false,
+            onSixth: static _ => false);
 
     /// <summary>
     ///     Returns whether this holds the second case.
@@ -3100,15 +3226,15 @@ public struct Either<T1, T2, T3, T4, T5, T6> : IEitherOfSix, IEquatable<Either<T
     ///     To get at the value as well, use <see cref="TryGetSecond" />, or <c>Match</c> to handle
     ///     every case.
     /// </remarks>
-    [JetBrains.Annotations.Pure]
+    [Pure]
     public bool IsSecond() =>
         this.Match(
-            onFirst: _ => false,
-            onSecond: _ => true,
-            onThird: _ => false,
-            onFourth: _ => false,
-            onFifth: _ => false,
-            onSixth: _ => false);
+            onFirst: static _ => false,
+            onSecond: static _ => true,
+            onThird: static _ => false,
+            onFourth: static _ => false,
+            onFifth: static _ => false,
+            onSixth: static _ => false);
 
     /// <summary>
     ///     Returns whether this holds the third case.
@@ -3121,15 +3247,15 @@ public struct Either<T1, T2, T3, T4, T5, T6> : IEitherOfSix, IEquatable<Either<T
     ///     To get at the value as well, use <see cref="TryGetThird" />, or <c>Match</c> to handle
     ///     every case.
     /// </remarks>
-    [JetBrains.Annotations.Pure]
+    [Pure]
     public bool IsThird() =>
         this.Match(
-            onFirst: _ => false,
-            onSecond: _ => false,
-            onThird: _ => true,
-            onFourth: _ => false,
-            onFifth: _ => false,
-            onSixth: _ => false);
+            onFirst: static _ => false,
+            onSecond: static _ => false,
+            onThird: static _ => true,
+            onFourth: static _ => false,
+            onFifth: static _ => false,
+            onSixth: static _ => false);
 
     /// <summary>
     ///     Returns whether this holds the fourth case.
@@ -3142,15 +3268,15 @@ public struct Either<T1, T2, T3, T4, T5, T6> : IEitherOfSix, IEquatable<Either<T
     ///     To get at the value as well, use <see cref="TryGetFourth" />, or <c>Match</c> to handle
     ///     every case.
     /// </remarks>
-    [JetBrains.Annotations.Pure]
+    [Pure]
     public bool IsFourth() =>
         this.Match(
-            onFirst: _ => false,
-            onSecond: _ => false,
-            onThird: _ => false,
-            onFourth: _ => true,
-            onFifth: _ => false,
-            onSixth: _ => false);
+            onFirst: static _ => false,
+            onSecond: static _ => false,
+            onThird: static _ => false,
+            onFourth: static _ => true,
+            onFifth: static _ => false,
+            onSixth: static _ => false);
 
     /// <summary>
     ///     Returns whether this holds the fifth case.
@@ -3163,15 +3289,15 @@ public struct Either<T1, T2, T3, T4, T5, T6> : IEitherOfSix, IEquatable<Either<T
     ///     To get at the value as well, use <see cref="TryGetFifth" />, or <c>Match</c> to handle
     ///     every case.
     /// </remarks>
-    [JetBrains.Annotations.Pure]
+    [Pure]
     public bool IsFifth() =>
         this.Match(
-            onFirst: _ => false,
-            onSecond: _ => false,
-            onThird: _ => false,
-            onFourth: _ => false,
-            onFifth: _ => true,
-            onSixth: _ => false);
+            onFirst: static _ => false,
+            onSecond: static _ => false,
+            onThird: static _ => false,
+            onFourth: static _ => false,
+            onFifth: static _ => true,
+            onSixth: static _ => false);
 
     /// <summary>
     ///     Returns whether this holds the sixth case.
@@ -3184,15 +3310,15 @@ public struct Either<T1, T2, T3, T4, T5, T6> : IEitherOfSix, IEquatable<Either<T
     ///     To get at the value as well, use <see cref="TryGetSixth" />, or <c>Match</c> to handle
     ///     every case.
     /// </remarks>
-    [JetBrains.Annotations.Pure]
+    [Pure]
     public bool IsSixth() =>
         this.Match(
-            onFirst: _ => false,
-            onSecond: _ => false,
-            onThird: _ => false,
-            onFourth: _ => false,
-            onFifth: _ => false,
-            onSixth: _ => true);
+            onFirst: static _ => false,
+            onSecond: static _ => false,
+            onThird: static _ => false,
+            onFourth: static _ => false,
+            onFifth: static _ => false,
+            onSixth: static _ => true);
 
     void IEitherOfSix.MatchVoid(
         Action<object?> onFirst,
@@ -3252,11 +3378,9 @@ public struct Either<T1, T2, T3, T4, T5, T6> : IEitherOfSix, IEquatable<Either<T
     /// <returns>An either holding that value as its first case.</returns>
     /// <remarks>
     ///     This is what makes <see cref="Either.First{T}" /> usable in place of this type's own
-    ///     <c>First</c>. A <see langword="null" /> marked value converts to an either holding a
-    ///     default first value rather than throwing.
+    ///     <c>First</c>.
     /// </remarks>
-    public static implicit operator Either<T1, T2, T3, T4, T5, T6>(Either.EitherFirst<T1>? value) =>
-        First(value == null ? default! : value.Value);
+    public static implicit operator Either<T1, T2, T3, T4, T5, T6>(Either.EitherFirst<T1> value) => First(value.Value);
 
     /// <summary>
     ///     Converts a value marked for the second position into an either of this type.
@@ -3265,11 +3389,10 @@ public struct Either<T1, T2, T3, T4, T5, T6> : IEitherOfSix, IEquatable<Either<T
     /// <returns>An either holding that value as its second case.</returns>
     /// <remarks>
     ///     This is what makes <see cref="Either.Second{T}" /> usable in place of this type's own
-    ///     <c>Second</c>. A <see langword="null" /> marked value converts to an either holding a
-    ///     default second value rather than throwing.
+    ///     <c>Second</c>.
     /// </remarks>
-    public static implicit operator Either<T1, T2, T3, T4, T5, T6>(Either.EitherSecond<T2>? value) =>
-        Second(value == null ? default! : value.Value);
+    public static implicit operator Either<T1, T2, T3, T4, T5, T6>(Either.EitherSecond<T2> value) =>
+        Second(value.Value);
 
     /// <summary>
     ///     Converts a value marked for the third position into an either of this type.
@@ -3278,11 +3401,9 @@ public struct Either<T1, T2, T3, T4, T5, T6> : IEitherOfSix, IEquatable<Either<T
     /// <returns>An either holding that value as its third case.</returns>
     /// <remarks>
     ///     This is what makes <see cref="Either.Third{T}" /> usable in place of this type's own
-    ///     <c>Third</c>. A <see langword="null" /> marked value converts to an either holding a
-    ///     default third value rather than throwing.
+    ///     <c>Third</c>.
     /// </remarks>
-    public static implicit operator Either<T1, T2, T3, T4, T5, T6>(Either.EitherThird<T3>? value) =>
-        Third(value == null ? default! : value.Value);
+    public static implicit operator Either<T1, T2, T3, T4, T5, T6>(Either.EitherThird<T3> value) => Third(value.Value);
 
     /// <summary>
     ///     Converts a value marked for the fourth position into an either of this type.
@@ -3291,11 +3412,10 @@ public struct Either<T1, T2, T3, T4, T5, T6> : IEitherOfSix, IEquatable<Either<T
     /// <returns>An either holding that value as its fourth case.</returns>
     /// <remarks>
     ///     This is what makes <see cref="Either.Fourth{T}" /> usable in place of this type's own
-    ///     <c>Fourth</c>. A <see langword="null" /> marked value converts to an either holding a
-    ///     default fourth value rather than throwing.
+    ///     <c>Fourth</c>.
     /// </remarks>
-    public static implicit operator Either<T1, T2, T3, T4, T5, T6>(Either.EitherFourth<T4>? value) =>
-        Fourth(value == null ? default! : value.Value);
+    public static implicit operator Either<T1, T2, T3, T4, T5, T6>(Either.EitherFourth<T4> value) =>
+        Fourth(value.Value);
 
     /// <summary>
     ///     Converts a value marked for the fifth position into an either of this type.
@@ -3304,11 +3424,9 @@ public struct Either<T1, T2, T3, T4, T5, T6> : IEitherOfSix, IEquatable<Either<T
     /// <returns>An either holding that value as its fifth case.</returns>
     /// <remarks>
     ///     This is what makes <see cref="Either.Fifth{T}" /> usable in place of this type's own
-    ///     <c>Fifth</c>. A <see langword="null" /> marked value converts to an either holding a
-    ///     default fifth value rather than throwing.
+    ///     <c>Fifth</c>.
     /// </remarks>
-    public static implicit operator Either<T1, T2, T3, T4, T5, T6>(Either.EitherFifth<T5>? value) =>
-        Fifth(value == null ? default! : value.Value);
+    public static implicit operator Either<T1, T2, T3, T4, T5, T6>(Either.EitherFifth<T5> value) => Fifth(value.Value);
 
     /// <summary>
     ///     Converts a value marked for the sixth position into an either of this type.
@@ -3317,11 +3435,9 @@ public struct Either<T1, T2, T3, T4, T5, T6> : IEitherOfSix, IEquatable<Either<T
     /// <returns>An either holding that value as its sixth case.</returns>
     /// <remarks>
     ///     This is what makes <see cref="Either.Sixth{T}" /> usable in place of this type's own
-    ///     <c>Sixth</c>. A <see langword="null" /> marked value converts to an either holding a
-    ///     default sixth value rather than throwing.
+    ///     <c>Sixth</c>.
     /// </remarks>
-    public static implicit operator Either<T1, T2, T3, T4, T5, T6>(Either.EitherSixth<T6>? value) =>
-        Sixth(value == null ? default! : value.Value);
+    public static implicit operator Either<T1, T2, T3, T4, T5, T6>(Either.EitherSixth<T6> value) => Sixth(value.Value);
 
     /// <summary>
     ///     Determines whether two instances hold the same case with equal values.
@@ -3334,12 +3450,15 @@ public struct Either<T1, T2, T3, T4, T5, T6> : IEitherOfSix, IEquatable<Either<T
     /// </returns>
     public static bool operator ==(Either<T1, T2, T3, T4, T5, T6> x, Either<T1, T2, T3, T4, T5, T6> y) =>
         x.valueType == y.valueType
+        // ReSharper disable NullableWarningSuppressionIsUsed - .NET 4.7.2 and .NET Standard 2.0 did not define these
+        // parameters as being nullable as they should have.
         && EqualityComparer<T1>.Default.Equals(x: x.value1!, y: y.value1!)
         && EqualityComparer<T2>.Default.Equals(x: x.value2!, y: y.value2!)
         && EqualityComparer<T3>.Default.Equals(x: x.value3!, y: y.value3!)
         && EqualityComparer<T4>.Default.Equals(x: x.value4!, y: y.value4!)
         && EqualityComparer<T5>.Default.Equals(x: x.value5!, y: y.value5!)
         && EqualityComparer<T6>.Default.Equals(x: x.value6!, y: y.value6!);
+    // ReSharper restore NullableWarningSuppressionIsUsed
 
     /// <summary>
     ///     Determines whether two instances differ, by negating <see cref="op_Equality" />.
@@ -3378,6 +3497,7 @@ public struct Either<T1, T2, T3, T4, T5, T6> : IEitherOfSix, IEquatable<Either<T
     ///     <see cref="EqualityComparer{T}.Default" /> looks for, so that comparing these in a
     ///     collection does not box both operands the way <see cref="Equals(object)" /> must.
     /// </remarks>
+    // ReSharper disable once InheritdocConsiderUsage
     public bool Equals(Either<T1, T2, T3, T4, T5, T6> other) => this == other;
 
     /// <summary>
@@ -3389,12 +3509,37 @@ public struct Either<T1, T2, T3, T4, T5, T6> : IEitherOfSix, IEquatable<Either<T
         unchecked
         {
             int hashCode = this.valueType;
-            hashCode = (hashCode * 397) ^ EqualityComparer<T1>.Default.GetHashCode(this.value1!);
-            hashCode = (hashCode * 397) ^ EqualityComparer<T2>.Default.GetHashCode(this.value2!);
-            hashCode = (hashCode * 397) ^ EqualityComparer<T3>.Default.GetHashCode(this.value3!);
-            hashCode = (hashCode * 397) ^ EqualityComparer<T4>.Default.GetHashCode(this.value4!);
-            hashCode = (hashCode * 397) ^ EqualityComparer<T5>.Default.GetHashCode(this.value5!);
-            hashCode = (hashCode * 397) ^ EqualityComparer<T6>.Default.GetHashCode(this.value6!);
+
+            if (this.value1 is not null)
+            {
+                hashCode = (hashCode * 397) ^ EqualityComparer<T1>.Default.GetHashCode(this.value1);
+            }
+
+            if (this.value2 is not null)
+            {
+                hashCode = (hashCode * 397) ^ EqualityComparer<T2>.Default.GetHashCode(this.value2);
+            }
+
+            if (this.value3 is not null)
+            {
+                hashCode = (hashCode * 397) ^ EqualityComparer<T3>.Default.GetHashCode(this.value3);
+            }
+
+            if (this.value4 is not null)
+            {
+                hashCode = (hashCode * 397) ^ EqualityComparer<T4>.Default.GetHashCode(this.value4);
+            }
+
+            if (this.value5 is not null)
+            {
+                hashCode = (hashCode * 397) ^ EqualityComparer<T5>.Default.GetHashCode(this.value5);
+            }
+
+            if (this.value6 is not null)
+            {
+                hashCode = (hashCode * 397) ^ EqualityComparer<T6>.Default.GetHashCode(this.value6);
+            }
+
             return hashCode;
         }
     }
@@ -3405,12 +3550,12 @@ public struct Either<T1, T2, T3, T4, T5, T6> : IEitherOfSix, IEquatable<Either<T
     /// <returns>The name of the case held, followed by the value it holds.</returns>
     public override string ToString() =>
         this.Match(
-            onFirst: v1 => $"First: {v1}",
-            onSecond: v2 => $"Second: {v2}",
-            onThird: v3 => $"Third: {v3}",
-            onFourth: v4 => $"Fourth: {v4}",
-            onFifth: v5 => $"Fifth: {v5}",
-            onSixth: v6 => $"Sixth: {v6}");
+            onFirst: static v1 => $"First: {v1}",
+            onSecond: static v2 => $"Second: {v2}",
+            onThird: static v3 => $"Third: {v3}",
+            onFourth: static v4 => $"Fourth: {v4}",
+            onFifth: static v5 => $"Fifth: {v5}",
+            onSixth: static v6 => $"Sixth: {v6}");
 }
 
 /// <summary>
@@ -3432,6 +3577,8 @@ public struct Either<T1, T2, T3, T4, T5, T6> : IEitherOfSix, IEquatable<Either<T
 ///     This is a struct, so <see langword="default" /> is a valid instance; it holds the
 ///     first case, with the default value of <typeparamref name="T1" />.
 /// </remarks>
+[PublicAPI]
+// ReSharper disable once InheritdocConsiderUsage
 public struct Either<T1, T2, T3, T4, T5, T6, T7> : IEitherOfSeven, IEquatable<Either<T1, T2, T3, T4, T5, T6, T7>>
 {
     private readonly int valueType;
@@ -3639,26 +3786,26 @@ public struct Either<T1, T2, T3, T4, T5, T6, T7> : IEitherOfSeven, IEquatable<Ei
     ///     before this method returns.
     /// </remarks>
     public T Match<T>(
-        [JetBrains.Annotations.InstantHandle] Func<T1, T> onFirst,
-        [JetBrains.Annotations.InstantHandle] Func<T2, T> onSecond,
-        [JetBrains.Annotations.InstantHandle] Func<T3, T> onThird,
-        [JetBrains.Annotations.InstantHandle] Func<T4, T> onFourth,
-        [JetBrains.Annotations.InstantHandle] Func<T5, T> onFifth,
-        [JetBrains.Annotations.InstantHandle] Func<T6, T> onSixth,
-        [JetBrains.Annotations.InstantHandle] Func<T7, T> onSeventh) =>
-        this.valueType == 0
-            ? onFirst(this.value1!)
-            : this.valueType == 1
-                ? onSecond(this.value2!)
-                : this.valueType == 2
-                    ? onThird(this.value3!)
-                    : this.valueType == 3
-                        ? onFourth(this.value4!)
-                        : this.valueType == 4
-                            ? onFifth(this.value5!)
-                            : this.valueType == 5
-                                ? onSixth(this.value6!)
-                                : onSeventh(this.value7!);
+        [InstantHandle] Func<T1, T> onFirst,
+        [InstantHandle] Func<T2, T> onSecond,
+        [InstantHandle] Func<T3, T> onThird,
+        [InstantHandle] Func<T4, T> onFourth,
+        [InstantHandle] Func<T5, T> onFifth,
+        [InstantHandle] Func<T6, T> onSixth,
+        [InstantHandle] Func<T7, T> onSeventh) =>
+        this.valueType switch
+        {
+            // ReSharper disable NullableWarningSuppressionIsUsed - valueType determined that the respective field is
+            // non-null within its switch expression
+            0 => onFirst(this.value1!),
+            1 => onSecond(this.value2!),
+            2 => onThird(this.value3!),
+            3 => onFourth(this.value4!),
+            4 => onFifth(this.value5!),
+            5 => onSixth(this.value6!),
+            _ => onSeventh(this.value7!)
+            // ReSharper restore NullableWarningSuppressionIsUsed
+        };
 
     #endregion
 
@@ -3675,13 +3822,13 @@ public struct Either<T1, T2, T3, T4, T5, T6, T7> : IEitherOfSeven, IEquatable<Ei
     /// <param name="onSixth">Run with the value when the sixth case is held.</param>
     /// <param name="onSeventh">Run with the value when the seventh case is held.</param>
     public void MatchVoid(
-        [JetBrains.Annotations.InstantHandle] Action<T1> onFirst,
-        [JetBrains.Annotations.InstantHandle] Action<T2> onSecond,
-        [JetBrains.Annotations.InstantHandle] Action<T3> onThird,
-        [JetBrains.Annotations.InstantHandle] Action<T4> onFourth,
-        [JetBrains.Annotations.InstantHandle] Action<T5> onFifth,
-        [JetBrains.Annotations.InstantHandle] Action<T6> onSixth,
-        [JetBrains.Annotations.InstantHandle] Action<T7> onSeventh) =>
+        [InstantHandle] Action<T1> onFirst,
+        [InstantHandle] Action<T2> onSecond,
+        [InstantHandle] Action<T3> onThird,
+        [InstantHandle] Action<T4> onFourth,
+        [InstantHandle] Action<T5> onFifth,
+        [InstantHandle] Action<T6> onSixth,
+        [InstantHandle] Action<T7> onSeventh) =>
         // ReSharper disable once ReturnValueOfPureMethodIsNotUsed
         this.Match(
             onFirst: onFirst.ToFunc(),
@@ -3710,13 +3857,13 @@ public struct Either<T1, T2, T3, T4, T5, T6, T7> : IEitherOfSeven, IEquatable<Ei
     ///     so failures surface as that task faulting rather than as an exception from this call.
     /// </remarks>
     public Task<T> MatchAsync<T>(
-        [JetBrains.Annotations.InstantHandle] Func<T1, Task<T>> onFirst,
-        [JetBrains.Annotations.InstantHandle] Func<T2, Task<T>> onSecond,
-        [JetBrains.Annotations.InstantHandle] Func<T3, Task<T>> onThird,
-        [JetBrains.Annotations.InstantHandle] Func<T4, Task<T>> onFourth,
-        [JetBrains.Annotations.InstantHandle] Func<T5, Task<T>> onFifth,
-        [JetBrains.Annotations.InstantHandle] Func<T6, Task<T>> onSixth,
-        [JetBrains.Annotations.InstantHandle] Func<T7, Task<T>> onSeventh) =>
+        [InstantHandle] Func<T1, Task<T>> onFirst,
+        [InstantHandle] Func<T2, Task<T>> onSecond,
+        [InstantHandle] Func<T3, Task<T>> onThird,
+        [InstantHandle] Func<T4, Task<T>> onFourth,
+        [InstantHandle] Func<T5, Task<T>> onFifth,
+        [InstantHandle] Func<T6, Task<T>> onSixth,
+        [InstantHandle] Func<T7, Task<T>> onSeventh) =>
         this.Match(
             onFirst: onFirst,
             onSecond: onSecond,
@@ -3738,13 +3885,13 @@ public struct Either<T1, T2, T3, T4, T5, T6, T7> : IEitherOfSeven, IEquatable<Ei
     /// <param name="onSeventh">Run with the value when the seventh case is held.</param>
     /// <returns>A task which completes when the selected action has completed.</returns>
     public Task MatchAsyncVoid(
-        [JetBrains.Annotations.InstantHandle] Func<T1, Task> onFirst,
-        [JetBrains.Annotations.InstantHandle] Func<T2, Task> onSecond,
-        [JetBrains.Annotations.InstantHandle] Func<T3, Task> onThird,
-        [JetBrains.Annotations.InstantHandle] Func<T4, Task> onFourth,
-        [JetBrains.Annotations.InstantHandle] Func<T5, Task> onFifth,
-        [JetBrains.Annotations.InstantHandle] Func<T6, Task> onSixth,
-        [JetBrains.Annotations.InstantHandle] Func<T7, Task> onSeventh) =>
+        [InstantHandle] Func<T1, Task> onFirst,
+        [InstantHandle] Func<T2, Task> onSecond,
+        [InstantHandle] Func<T3, Task> onThird,
+        [InstantHandle] Func<T4, Task> onFourth,
+        [InstantHandle] Func<T5, Task> onFifth,
+        [InstantHandle] Func<T6, Task> onSixth,
+        [InstantHandle] Func<T7, Task> onSeventh) =>
         this.MatchAsync(
             onFirst: onFirst.ToAsyncFunc(),
             onSecond: onSecond.ToAsyncFunc(),
@@ -3768,15 +3915,15 @@ public struct Either<T1, T2, T3, T4, T5, T6, T7> : IEitherOfSeven, IEquatable<Ei
     /// <remarks>
     ///     <paramref name="f" /> is called only when this holds the first case.
     /// </remarks>
-    public Either<T, T2, T3, T4, T5, T6, T7> MapFirst<T>([JetBrains.Annotations.InstantHandle] Func<T1, T> f) =>
+    public Either<T, T2, T3, T4, T5, T6, T7> MapFirst<T>([InstantHandle] Func<T1, T> f) =>
         this.Match(
             onFirst: v1 => Either<T, T2, T3, T4, T5, T6, T7>.First(f(v1)),
-            onSecond: v2 => Either.Second(v2),
-            onThird: v3 => Either.Third(v3),
-            onFourth: v4 => Either.Fourth(v4),
-            onFifth: v5 => Either.Fifth(v5),
-            onSixth: v6 => Either.Sixth(v6),
-            onSeventh: v7 => Either.Seventh(v7));
+            onSecond: static v2 => Either.Second(v2),
+            onThird: static v3 => Either.Third(v3),
+            onFourth: static v4 => Either.Fourth(v4),
+            onFifth: static v5 => Either.Fifth(v5),
+            onSixth: static v6 => Either.Sixth(v6),
+            onSeventh: static v7 => Either.Seventh(v7));
 
     /// <summary>
     ///     Transforms the value if this holds the second case, and passes every other case
@@ -3792,15 +3939,15 @@ public struct Either<T1, T2, T3, T4, T5, T6, T7> : IEitherOfSeven, IEquatable<Ei
     /// <remarks>
     ///     <paramref name="f" /> is called only when this holds the second case.
     /// </remarks>
-    public Either<T1, T, T3, T4, T5, T6, T7> MapSecond<T>([JetBrains.Annotations.InstantHandle] Func<T2, T> f) =>
+    public Either<T1, T, T3, T4, T5, T6, T7> MapSecond<T>([InstantHandle] Func<T2, T> f) =>
         this.Match(
             onFirst: Either<T1, T, T3, T4, T5, T6, T7>.First,
             onSecond: v2 => Either.Second(f(v2)),
-            onThird: v3 => Either.Third(v3),
-            onFourth: v4 => Either.Fourth(v4),
-            onFifth: v5 => Either.Fifth(v5),
-            onSixth: v6 => Either.Sixth(v6),
-            onSeventh: v7 => Either.Seventh(v7));
+            onThird: static v3 => Either.Third(v3),
+            onFourth: static v4 => Either.Fourth(v4),
+            onFifth: static v5 => Either.Fifth(v5),
+            onSixth: static v6 => Either.Sixth(v6),
+            onSeventh: static v7 => Either.Seventh(v7));
 
     /// <summary>
     ///     Transforms the value if this holds the third case, and passes every other case
@@ -3816,15 +3963,15 @@ public struct Either<T1, T2, T3, T4, T5, T6, T7> : IEitherOfSeven, IEquatable<Ei
     /// <remarks>
     ///     <paramref name="f" /> is called only when this holds the third case.
     /// </remarks>
-    public Either<T1, T2, T, T4, T5, T6, T7> MapThird<T>([JetBrains.Annotations.InstantHandle] Func<T3, T> f) =>
+    public Either<T1, T2, T, T4, T5, T6, T7> MapThird<T>([InstantHandle] Func<T3, T> f) =>
         this.Match(
             onFirst: Either<T1, T2, T, T4, T5, T6, T7>.First,
-            onSecond: v2 => Either.Second(v2),
+            onSecond: static v2 => Either.Second(v2),
             onThird: v3 => Either.Third(f(v3)),
-            onFourth: v4 => Either.Fourth(v4),
-            onFifth: v5 => Either.Fifth(v5),
-            onSixth: v6 => Either.Sixth(v6),
-            onSeventh: v7 => Either.Seventh(v7));
+            onFourth: static v4 => Either.Fourth(v4),
+            onFifth: static v5 => Either.Fifth(v5),
+            onSixth: static v6 => Either.Sixth(v6),
+            onSeventh: static v7 => Either.Seventh(v7));
 
     /// <summary>
     ///     Transforms the value if this holds the fourth case, and passes every other case
@@ -3840,15 +3987,15 @@ public struct Either<T1, T2, T3, T4, T5, T6, T7> : IEitherOfSeven, IEquatable<Ei
     /// <remarks>
     ///     <paramref name="f" /> is called only when this holds the fourth case.
     /// </remarks>
-    public Either<T1, T2, T3, T, T5, T6, T7> MapFourth<T>([JetBrains.Annotations.InstantHandle] Func<T4, T> f) =>
+    public Either<T1, T2, T3, T, T5, T6, T7> MapFourth<T>([InstantHandle] Func<T4, T> f) =>
         this.Match(
             onFirst: Either<T1, T2, T3, T, T5, T6, T7>.First,
-            onSecond: v2 => Either.Second(v2),
-            onThird: v3 => Either.Third(v3),
+            onSecond: static v2 => Either.Second(v2),
+            onThird: static v3 => Either.Third(v3),
             onFourth: v4 => Either.Fourth(f(v4)),
-            onFifth: v5 => Either.Fifth(v5),
-            onSixth: v6 => Either.Sixth(v6),
-            onSeventh: v7 => Either.Seventh(v7));
+            onFifth: static v5 => Either.Fifth(v5),
+            onSixth: static v6 => Either.Sixth(v6),
+            onSeventh: static v7 => Either.Seventh(v7));
 
     /// <summary>
     ///     Transforms the value if this holds the fifth case, and passes every other case
@@ -3864,15 +4011,15 @@ public struct Either<T1, T2, T3, T4, T5, T6, T7> : IEitherOfSeven, IEquatable<Ei
     /// <remarks>
     ///     <paramref name="f" /> is called only when this holds the fifth case.
     /// </remarks>
-    public Either<T1, T2, T3, T4, T, T6, T7> MapFifth<T>([JetBrains.Annotations.InstantHandle] Func<T5, T> f) =>
+    public Either<T1, T2, T3, T4, T, T6, T7> MapFifth<T>([InstantHandle] Func<T5, T> f) =>
         this.Match(
             onFirst: Either<T1, T2, T3, T4, T, T6, T7>.First,
-            onSecond: v2 => Either.Second(v2),
-            onThird: v3 => Either.Third(v3),
-            onFourth: v4 => Either.Fourth(v4),
+            onSecond: static v2 => Either.Second(v2),
+            onThird: static v3 => Either.Third(v3),
+            onFourth: static v4 => Either.Fourth(v4),
             onFifth: v5 => Either.Fifth(f(v5)),
-            onSixth: v6 => Either.Sixth(v6),
-            onSeventh: v7 => Either.Seventh(v7));
+            onSixth: static v6 => Either.Sixth(v6),
+            onSeventh: static v7 => Either.Seventh(v7));
 
     /// <summary>
     ///     Transforms the value if this holds the sixth case, and passes every other case
@@ -3888,15 +4035,15 @@ public struct Either<T1, T2, T3, T4, T5, T6, T7> : IEitherOfSeven, IEquatable<Ei
     /// <remarks>
     ///     <paramref name="f" /> is called only when this holds the sixth case.
     /// </remarks>
-    public Either<T1, T2, T3, T4, T5, T, T7> MapSixth<T>([JetBrains.Annotations.InstantHandle] Func<T6, T> f) =>
+    public Either<T1, T2, T3, T4, T5, T, T7> MapSixth<T>([InstantHandle] Func<T6, T> f) =>
         this.Match(
             onFirst: Either<T1, T2, T3, T4, T5, T, T7>.First,
-            onSecond: v2 => Either.Second(v2),
-            onThird: v3 => Either.Third(v3),
-            onFourth: v4 => Either.Fourth(v4),
-            onFifth: v5 => Either.Fifth(v5),
+            onSecond: static v2 => Either.Second(v2),
+            onThird: static v3 => Either.Third(v3),
+            onFourth: static v4 => Either.Fourth(v4),
+            onFifth: static v5 => Either.Fifth(v5),
             onSixth: v6 => Either.Sixth(f(v6)),
-            onSeventh: v7 => Either.Seventh(v7));
+            onSeventh: static v7 => Either.Seventh(v7));
 
     /// <summary>
     ///     Transforms the value if this holds the seventh case, and passes every other case
@@ -3912,14 +4059,14 @@ public struct Either<T1, T2, T3, T4, T5, T6, T7> : IEitherOfSeven, IEquatable<Ei
     /// <remarks>
     ///     <paramref name="f" /> is called only when this holds the seventh case.
     /// </remarks>
-    public Either<T1, T2, T3, T4, T5, T6, T> MapSeventh<T>([JetBrains.Annotations.InstantHandle] Func<T7, T> f) =>
+    public Either<T1, T2, T3, T4, T5, T6, T> MapSeventh<T>([InstantHandle] Func<T7, T> f) =>
         this.Match(
             onFirst: Either<T1, T2, T3, T4, T5, T6, T>.First,
-            onSecond: v2 => Either.Second(v2),
-            onThird: v3 => Either.Third(v3),
-            onFourth: v4 => Either.Fourth(v4),
-            onFifth: v5 => Either.Fifth(v5),
-            onSixth: v6 => Either.Sixth(v6),
+            onSecond: static v2 => Either.Second(v2),
+            onThird: static v3 => Either.Third(v3),
+            onFourth: static v4 => Either.Fourth(v4),
+            onFifth: static v5 => Either.Fifth(v5),
+            onSixth: static v6 => Either.Sixth(v6),
             onSeventh: v7 => Either.Seventh(f(v7)));
 
     /// <summary>
@@ -3929,16 +4076,16 @@ public struct Either<T1, T2, T3, T4, T5, T6, T7> : IEitherOfSeven, IEquatable<Ei
     ///     A <see cref="Maybe{T}" /> containing the value if this holds the first case, and
     ///     containing nothing otherwise.
     /// </returns>
-    [JetBrains.Annotations.Pure]
+    [Pure]
     public Maybe<T1> TryGetFirst() =>
         this.Match(
             onFirst: Maybe.Some,
-            onSecond: _ => Maybe.None,
-            onThird: _ => Maybe.None,
-            onFourth: _ => Maybe.None,
-            onFifth: _ => Maybe.None,
-            onSixth: _ => Maybe.None,
-            onSeventh: _ => Maybe.None);
+            onSecond: static _ => Maybe.None,
+            onThird: static _ => Maybe.None,
+            onFourth: static _ => Maybe.None,
+            onFifth: static _ => Maybe.None,
+            onSixth: static _ => Maybe.None,
+            onSeventh: static _ => Maybe.None);
 
     /// <summary>
     ///     Gets the held value if this holds the second case.
@@ -3947,16 +4094,16 @@ public struct Either<T1, T2, T3, T4, T5, T6, T7> : IEitherOfSeven, IEquatable<Ei
     ///     A <see cref="Maybe{T}" /> containing the value if this holds the second case, and
     ///     containing nothing otherwise.
     /// </returns>
-    [JetBrains.Annotations.Pure]
+    [Pure]
     public Maybe<T2> TryGetSecond() =>
         this.Match(
-            onFirst: _ => Maybe.None,
+            onFirst: static _ => Maybe.None,
             onSecond: Maybe.Some,
-            onThird: _ => Maybe.None,
-            onFourth: _ => Maybe.None,
-            onFifth: _ => Maybe.None,
-            onSixth: _ => Maybe.None,
-            onSeventh: _ => Maybe.None);
+            onThird: static _ => Maybe.None,
+            onFourth: static _ => Maybe.None,
+            onFifth: static _ => Maybe.None,
+            onSixth: static _ => Maybe.None,
+            onSeventh: static _ => Maybe.None);
 
     /// <summary>
     ///     Gets the held value if this holds the third case.
@@ -3965,16 +4112,16 @@ public struct Either<T1, T2, T3, T4, T5, T6, T7> : IEitherOfSeven, IEquatable<Ei
     ///     A <see cref="Maybe{T}" /> containing the value if this holds the third case, and
     ///     containing nothing otherwise.
     /// </returns>
-    [JetBrains.Annotations.Pure]
+    [Pure]
     public Maybe<T3> TryGetThird() =>
         this.Match(
-            onFirst: _ => Maybe.None,
-            onSecond: _ => Maybe.None,
+            onFirst: static _ => Maybe.None,
+            onSecond: static _ => Maybe.None,
             onThird: Maybe.Some,
-            onFourth: _ => Maybe.None,
-            onFifth: _ => Maybe.None,
-            onSixth: _ => Maybe.None,
-            onSeventh: _ => Maybe.None);
+            onFourth: static _ => Maybe.None,
+            onFifth: static _ => Maybe.None,
+            onSixth: static _ => Maybe.None,
+            onSeventh: static _ => Maybe.None);
 
     /// <summary>
     ///     Gets the held value if this holds the fourth case.
@@ -3983,16 +4130,16 @@ public struct Either<T1, T2, T3, T4, T5, T6, T7> : IEitherOfSeven, IEquatable<Ei
     ///     A <see cref="Maybe{T}" /> containing the value if this holds the fourth case, and
     ///     containing nothing otherwise.
     /// </returns>
-    [JetBrains.Annotations.Pure]
+    [Pure]
     public Maybe<T4> TryGetFourth() =>
         this.Match(
-            onFirst: _ => Maybe.None,
-            onSecond: _ => Maybe.None,
-            onThird: _ => Maybe.None,
+            onFirst: static _ => Maybe.None,
+            onSecond: static _ => Maybe.None,
+            onThird: static _ => Maybe.None,
             onFourth: Maybe.Some,
-            onFifth: _ => Maybe.None,
-            onSixth: _ => Maybe.None,
-            onSeventh: _ => Maybe.None);
+            onFifth: static _ => Maybe.None,
+            onSixth: static _ => Maybe.None,
+            onSeventh: static _ => Maybe.None);
 
     /// <summary>
     ///     Gets the held value if this holds the fifth case.
@@ -4001,16 +4148,16 @@ public struct Either<T1, T2, T3, T4, T5, T6, T7> : IEitherOfSeven, IEquatable<Ei
     ///     A <see cref="Maybe{T}" /> containing the value if this holds the fifth case, and
     ///     containing nothing otherwise.
     /// </returns>
-    [JetBrains.Annotations.Pure]
+    [Pure]
     public Maybe<T5> TryGetFifth() =>
         this.Match(
-            onFirst: _ => Maybe.None,
-            onSecond: _ => Maybe.None,
-            onThird: _ => Maybe.None,
-            onFourth: _ => Maybe.None,
+            onFirst: static _ => Maybe.None,
+            onSecond: static _ => Maybe.None,
+            onThird: static _ => Maybe.None,
+            onFourth: static _ => Maybe.None,
             onFifth: Maybe.Some,
-            onSixth: _ => Maybe.None,
-            onSeventh: _ => Maybe.None);
+            onSixth: static _ => Maybe.None,
+            onSeventh: static _ => Maybe.None);
 
     /// <summary>
     ///     Gets the held value if this holds the sixth case.
@@ -4019,16 +4166,16 @@ public struct Either<T1, T2, T3, T4, T5, T6, T7> : IEitherOfSeven, IEquatable<Ei
     ///     A <see cref="Maybe{T}" /> containing the value if this holds the sixth case, and
     ///     containing nothing otherwise.
     /// </returns>
-    [JetBrains.Annotations.Pure]
+    [Pure]
     public Maybe<T6> TryGetSixth() =>
         this.Match(
-            onFirst: _ => Maybe.None,
-            onSecond: _ => Maybe.None,
-            onThird: _ => Maybe.None,
-            onFourth: _ => Maybe.None,
-            onFifth: _ => Maybe.None,
+            onFirst: static _ => Maybe.None,
+            onSecond: static _ => Maybe.None,
+            onThird: static _ => Maybe.None,
+            onFourth: static _ => Maybe.None,
+            onFifth: static _ => Maybe.None,
             onSixth: Maybe.Some,
-            onSeventh: _ => Maybe.None);
+            onSeventh: static _ => Maybe.None);
 
     /// <summary>
     ///     Gets the held value if this holds the seventh case.
@@ -4037,15 +4184,15 @@ public struct Either<T1, T2, T3, T4, T5, T6, T7> : IEitherOfSeven, IEquatable<Ei
     ///     A <see cref="Maybe{T}" /> containing the value if this holds the seventh case, and
     ///     containing nothing otherwise.
     /// </returns>
-    [JetBrains.Annotations.Pure]
+    [Pure]
     public Maybe<T7> TryGetSeventh() =>
         this.Match(
-            onFirst: _ => Maybe.None,
-            onSecond: _ => Maybe.None,
-            onThird: _ => Maybe.None,
-            onFourth: _ => Maybe.None,
-            onFifth: _ => Maybe.None,
-            onSixth: _ => Maybe.None,
+            onFirst: static _ => Maybe.None,
+            onSecond: static _ => Maybe.None,
+            onThird: static _ => Maybe.None,
+            onFourth: static _ => Maybe.None,
+            onFifth: static _ => Maybe.None,
+            onSixth: static _ => Maybe.None,
             onSeventh: Maybe.Some);
 
     /// <summary>
@@ -4059,16 +4206,16 @@ public struct Either<T1, T2, T3, T4, T5, T6, T7> : IEitherOfSeven, IEquatable<Ei
     ///     To get at the value as well, use <see cref="TryGetFirst" />, or <c>Match</c> to handle
     ///     every case.
     /// </remarks>
-    [JetBrains.Annotations.Pure]
+    [Pure]
     public bool IsFirst() =>
         this.Match(
-            onFirst: _ => true,
-            onSecond: _ => false,
-            onThird: _ => false,
-            onFourth: _ => false,
-            onFifth: _ => false,
-            onSixth: _ => false,
-            onSeventh: _ => false);
+            onFirst: static _ => true,
+            onSecond: static _ => false,
+            onThird: static _ => false,
+            onFourth: static _ => false,
+            onFifth: static _ => false,
+            onSixth: static _ => false,
+            onSeventh: static _ => false);
 
     /// <summary>
     ///     Returns whether this holds the second case.
@@ -4081,16 +4228,16 @@ public struct Either<T1, T2, T3, T4, T5, T6, T7> : IEitherOfSeven, IEquatable<Ei
     ///     To get at the value as well, use <see cref="TryGetSecond" />, or <c>Match</c> to handle
     ///     every case.
     /// </remarks>
-    [JetBrains.Annotations.Pure]
+    [Pure]
     public bool IsSecond() =>
         this.Match(
-            onFirst: _ => false,
-            onSecond: _ => true,
-            onThird: _ => false,
-            onFourth: _ => false,
-            onFifth: _ => false,
-            onSixth: _ => false,
-            onSeventh: _ => false);
+            onFirst: static _ => false,
+            onSecond: static _ => true,
+            onThird: static _ => false,
+            onFourth: static _ => false,
+            onFifth: static _ => false,
+            onSixth: static _ => false,
+            onSeventh: static _ => false);
 
     /// <summary>
     ///     Returns whether this holds the third case.
@@ -4103,16 +4250,16 @@ public struct Either<T1, T2, T3, T4, T5, T6, T7> : IEitherOfSeven, IEquatable<Ei
     ///     To get at the value as well, use <see cref="TryGetThird" />, or <c>Match</c> to handle
     ///     every case.
     /// </remarks>
-    [JetBrains.Annotations.Pure]
+    [Pure]
     public bool IsThird() =>
         this.Match(
-            onFirst: _ => false,
-            onSecond: _ => false,
-            onThird: _ => true,
-            onFourth: _ => false,
-            onFifth: _ => false,
-            onSixth: _ => false,
-            onSeventh: _ => false);
+            onFirst: static _ => false,
+            onSecond: static _ => false,
+            onThird: static _ => true,
+            onFourth: static _ => false,
+            onFifth: static _ => false,
+            onSixth: static _ => false,
+            onSeventh: static _ => false);
 
     /// <summary>
     ///     Returns whether this holds the fourth case.
@@ -4125,16 +4272,16 @@ public struct Either<T1, T2, T3, T4, T5, T6, T7> : IEitherOfSeven, IEquatable<Ei
     ///     To get at the value as well, use <see cref="TryGetFourth" />, or <c>Match</c> to handle
     ///     every case.
     /// </remarks>
-    [JetBrains.Annotations.Pure]
+    [Pure]
     public bool IsFourth() =>
         this.Match(
-            onFirst: _ => false,
-            onSecond: _ => false,
-            onThird: _ => false,
-            onFourth: _ => true,
-            onFifth: _ => false,
-            onSixth: _ => false,
-            onSeventh: _ => false);
+            onFirst: static _ => false,
+            onSecond: static _ => false,
+            onThird: static _ => false,
+            onFourth: static _ => true,
+            onFifth: static _ => false,
+            onSixth: static _ => false,
+            onSeventh: static _ => false);
 
     /// <summary>
     ///     Returns whether this holds the fifth case.
@@ -4147,16 +4294,16 @@ public struct Either<T1, T2, T3, T4, T5, T6, T7> : IEitherOfSeven, IEquatable<Ei
     ///     To get at the value as well, use <see cref="TryGetFifth" />, or <c>Match</c> to handle
     ///     every case.
     /// </remarks>
-    [JetBrains.Annotations.Pure]
+    [Pure]
     public bool IsFifth() =>
         this.Match(
-            onFirst: _ => false,
-            onSecond: _ => false,
-            onThird: _ => false,
-            onFourth: _ => false,
-            onFifth: _ => true,
-            onSixth: _ => false,
-            onSeventh: _ => false);
+            onFirst: static _ => false,
+            onSecond: static _ => false,
+            onThird: static _ => false,
+            onFourth: static _ => false,
+            onFifth: static _ => true,
+            onSixth: static _ => false,
+            onSeventh: static _ => false);
 
     /// <summary>
     ///     Returns whether this holds the sixth case.
@@ -4169,16 +4316,16 @@ public struct Either<T1, T2, T3, T4, T5, T6, T7> : IEitherOfSeven, IEquatable<Ei
     ///     To get at the value as well, use <see cref="TryGetSixth" />, or <c>Match</c> to handle
     ///     every case.
     /// </remarks>
-    [JetBrains.Annotations.Pure]
+    [Pure]
     public bool IsSixth() =>
         this.Match(
-            onFirst: _ => false,
-            onSecond: _ => false,
-            onThird: _ => false,
-            onFourth: _ => false,
-            onFifth: _ => false,
-            onSixth: _ => true,
-            onSeventh: _ => false);
+            onFirst: static _ => false,
+            onSecond: static _ => false,
+            onThird: static _ => false,
+            onFourth: static _ => false,
+            onFifth: static _ => false,
+            onSixth: static _ => true,
+            onSeventh: static _ => false);
 
     /// <summary>
     ///     Returns whether this holds the seventh case.
@@ -4191,16 +4338,16 @@ public struct Either<T1, T2, T3, T4, T5, T6, T7> : IEitherOfSeven, IEquatable<Ei
     ///     To get at the value as well, use <see cref="TryGetSeventh" />, or <c>Match</c> to handle
     ///     every case.
     /// </remarks>
-    [JetBrains.Annotations.Pure]
+    [Pure]
     public bool IsSeventh() =>
         this.Match(
-            onFirst: _ => false,
-            onSecond: _ => false,
-            onThird: _ => false,
-            onFourth: _ => false,
-            onFifth: _ => false,
-            onSixth: _ => false,
-            onSeventh: _ => true);
+            onFirst: static _ => false,
+            onSecond: static _ => false,
+            onThird: static _ => false,
+            onFourth: static _ => false,
+            onFifth: static _ => false,
+            onSixth: static _ => false,
+            onSeventh: static _ => true);
 
     void IEitherOfSeven.MatchVoid(
         Action<object?> onFirst,
@@ -4266,11 +4413,10 @@ public struct Either<T1, T2, T3, T4, T5, T6, T7> : IEitherOfSeven, IEquatable<Ei
     /// <returns>An either holding that value as its first case.</returns>
     /// <remarks>
     ///     This is what makes <see cref="Either.First{T}" /> usable in place of this type's own
-    ///     <c>First</c>. A <see langword="null" /> marked value converts to an either holding a
-    ///     default first value rather than throwing.
+    ///     <c>First</c>.
     /// </remarks>
-    public static implicit operator Either<T1, T2, T3, T4, T5, T6, T7>(Either.EitherFirst<T1>? value) =>
-        First(value == null ? default! : value.Value);
+    public static implicit operator Either<T1, T2, T3, T4, T5, T6, T7>(Either.EitherFirst<T1> value) =>
+        First(value.Value);
 
     /// <summary>
     ///     Converts a value marked for the second position into an either of this type.
@@ -4279,11 +4425,10 @@ public struct Either<T1, T2, T3, T4, T5, T6, T7> : IEitherOfSeven, IEquatable<Ei
     /// <returns>An either holding that value as its second case.</returns>
     /// <remarks>
     ///     This is what makes <see cref="Either.Second{T}" /> usable in place of this type's own
-    ///     <c>Second</c>. A <see langword="null" /> marked value converts to an either holding a
-    ///     default second value rather than throwing.
+    ///     <c>Second</c>.
     /// </remarks>
-    public static implicit operator Either<T1, T2, T3, T4, T5, T6, T7>(Either.EitherSecond<T2>? value) =>
-        Second(value == null ? default! : value.Value);
+    public static implicit operator Either<T1, T2, T3, T4, T5, T6, T7>(Either.EitherSecond<T2> value) =>
+        Second(value.Value);
 
     /// <summary>
     ///     Converts a value marked for the third position into an either of this type.
@@ -4292,11 +4437,10 @@ public struct Either<T1, T2, T3, T4, T5, T6, T7> : IEitherOfSeven, IEquatable<Ei
     /// <returns>An either holding that value as its third case.</returns>
     /// <remarks>
     ///     This is what makes <see cref="Either.Third{T}" /> usable in place of this type's own
-    ///     <c>Third</c>. A <see langword="null" /> marked value converts to an either holding a
-    ///     default third value rather than throwing.
+    ///     <c>Third</c>.
     /// </remarks>
-    public static implicit operator Either<T1, T2, T3, T4, T5, T6, T7>(Either.EitherThird<T3>? value) =>
-        Third(value == null ? default! : value.Value);
+    public static implicit operator Either<T1, T2, T3, T4, T5, T6, T7>(Either.EitherThird<T3> value) =>
+        Third(value.Value);
 
     /// <summary>
     ///     Converts a value marked for the fourth position into an either of this type.
@@ -4305,11 +4449,10 @@ public struct Either<T1, T2, T3, T4, T5, T6, T7> : IEitherOfSeven, IEquatable<Ei
     /// <returns>An either holding that value as its fourth case.</returns>
     /// <remarks>
     ///     This is what makes <see cref="Either.Fourth{T}" /> usable in place of this type's own
-    ///     <c>Fourth</c>. A <see langword="null" /> marked value converts to an either holding a
-    ///     default fourth value rather than throwing.
+    ///     <c>Fourth</c>.
     /// </remarks>
-    public static implicit operator Either<T1, T2, T3, T4, T5, T6, T7>(Either.EitherFourth<T4>? value) =>
-        Fourth(value == null ? default! : value.Value);
+    public static implicit operator Either<T1, T2, T3, T4, T5, T6, T7>(Either.EitherFourth<T4> value) =>
+        Fourth(value.Value);
 
     /// <summary>
     ///     Converts a value marked for the fifth position into an either of this type.
@@ -4318,11 +4461,10 @@ public struct Either<T1, T2, T3, T4, T5, T6, T7> : IEitherOfSeven, IEquatable<Ei
     /// <returns>An either holding that value as its fifth case.</returns>
     /// <remarks>
     ///     This is what makes <see cref="Either.Fifth{T}" /> usable in place of this type's own
-    ///     <c>Fifth</c>. A <see langword="null" /> marked value converts to an either holding a
-    ///     default fifth value rather than throwing.
+    ///     <c>Fifth</c>.
     /// </remarks>
-    public static implicit operator Either<T1, T2, T3, T4, T5, T6, T7>(Either.EitherFifth<T5>? value) =>
-        Fifth(value == null ? default! : value.Value);
+    public static implicit operator Either<T1, T2, T3, T4, T5, T6, T7>(Either.EitherFifth<T5> value) =>
+        Fifth(value.Value);
 
     /// <summary>
     ///     Converts a value marked for the sixth position into an either of this type.
@@ -4331,11 +4473,10 @@ public struct Either<T1, T2, T3, T4, T5, T6, T7> : IEitherOfSeven, IEquatable<Ei
     /// <returns>An either holding that value as its sixth case.</returns>
     /// <remarks>
     ///     This is what makes <see cref="Either.Sixth{T}" /> usable in place of this type's own
-    ///     <c>Sixth</c>. A <see langword="null" /> marked value converts to an either holding a
-    ///     default sixth value rather than throwing.
+    ///     <c>Sixth</c>.
     /// </remarks>
-    public static implicit operator Either<T1, T2, T3, T4, T5, T6, T7>(Either.EitherSixth<T6>? value) =>
-        Sixth(value == null ? default! : value.Value);
+    public static implicit operator Either<T1, T2, T3, T4, T5, T6, T7>(Either.EitherSixth<T6> value) =>
+        Sixth(value.Value);
 
     /// <summary>
     ///     Converts a value marked for the seventh position into an either of this type.
@@ -4344,11 +4485,10 @@ public struct Either<T1, T2, T3, T4, T5, T6, T7> : IEitherOfSeven, IEquatable<Ei
     /// <returns>An either holding that value as its seventh case.</returns>
     /// <remarks>
     ///     This is what makes <see cref="Either.Seventh{T}" /> usable in place of this type's own
-    ///     <c>Seventh</c>. A <see langword="null" /> marked value converts to an either holding a
-    ///     default seventh value rather than throwing.
+    ///     <c>Seventh</c>.
     /// </remarks>
-    public static implicit operator Either<T1, T2, T3, T4, T5, T6, T7>(Either.EitherSeventh<T7>? value) =>
-        Seventh(value == null ? default! : value.Value);
+    public static implicit operator Either<T1, T2, T3, T4, T5, T6, T7>(Either.EitherSeventh<T7> value) =>
+        Seventh(value.Value);
 
     /// <summary>
     ///     Determines whether two instances hold the same case with equal values.
@@ -4361,6 +4501,8 @@ public struct Either<T1, T2, T3, T4, T5, T6, T7> : IEitherOfSeven, IEquatable<Ei
     /// </returns>
     public static bool operator ==(Either<T1, T2, T3, T4, T5, T6, T7> x, Either<T1, T2, T3, T4, T5, T6, T7> y) =>
         x.valueType == y.valueType
+        // ReSharper disable NullableWarningSuppressionIsUsed - .NET 4.7.2 and .NET Standard 2.0 did not define these
+        // parameters as being nullable as they should have.
         && EqualityComparer<T1>.Default.Equals(x: x.value1!, y: y.value1!)
         && EqualityComparer<T2>.Default.Equals(x: x.value2!, y: y.value2!)
         && EqualityComparer<T3>.Default.Equals(x: x.value3!, y: y.value3!)
@@ -4368,6 +4510,7 @@ public struct Either<T1, T2, T3, T4, T5, T6, T7> : IEitherOfSeven, IEquatable<Ei
         && EqualityComparer<T5>.Default.Equals(x: x.value5!, y: y.value5!)
         && EqualityComparer<T6>.Default.Equals(x: x.value6!, y: y.value6!)
         && EqualityComparer<T7>.Default.Equals(x: x.value7!, y: y.value7!);
+    // ReSharper restore NullableWarningSuppressionIsUsed
 
     /// <summary>
     ///     Determines whether two instances differ, by negating <see cref="op_Equality" />.
@@ -4407,6 +4550,7 @@ public struct Either<T1, T2, T3, T4, T5, T6, T7> : IEitherOfSeven, IEquatable<Ei
     ///     <see cref="EqualityComparer{T}.Default" /> looks for, so that comparing these in a
     ///     collection does not box both operands the way <see cref="Equals(object)" /> must.
     /// </remarks>
+    // ReSharper disable once InheritdocConsiderUsage
     public bool Equals(Either<T1, T2, T3, T4, T5, T6, T7> other) => this == other;
 
     /// <summary>
@@ -4418,13 +4562,42 @@ public struct Either<T1, T2, T3, T4, T5, T6, T7> : IEitherOfSeven, IEquatable<Ei
         unchecked
         {
             int hashCode = this.valueType;
-            hashCode = (hashCode * 397) ^ EqualityComparer<T1>.Default.GetHashCode(this.value1!);
-            hashCode = (hashCode * 397) ^ EqualityComparer<T2>.Default.GetHashCode(this.value2!);
-            hashCode = (hashCode * 397) ^ EqualityComparer<T3>.Default.GetHashCode(this.value3!);
-            hashCode = (hashCode * 397) ^ EqualityComparer<T4>.Default.GetHashCode(this.value4!);
-            hashCode = (hashCode * 397) ^ EqualityComparer<T5>.Default.GetHashCode(this.value5!);
-            hashCode = (hashCode * 397) ^ EqualityComparer<T6>.Default.GetHashCode(this.value6!);
-            hashCode = (hashCode * 397) ^ EqualityComparer<T7>.Default.GetHashCode(this.value7!);
+
+            if (this.value1 is not null)
+            {
+                hashCode = (hashCode * 397) ^ EqualityComparer<T1>.Default.GetHashCode(this.value1);
+            }
+
+            if (this.value2 is not null)
+            {
+                hashCode = (hashCode * 397) ^ EqualityComparer<T2>.Default.GetHashCode(this.value2);
+            }
+
+            if (this.value3 is not null)
+            {
+                hashCode = (hashCode * 397) ^ EqualityComparer<T3>.Default.GetHashCode(this.value3);
+            }
+
+            if (this.value4 is not null)
+            {
+                hashCode = (hashCode * 397) ^ EqualityComparer<T4>.Default.GetHashCode(this.value4);
+            }
+
+            if (this.value5 is not null)
+            {
+                hashCode = (hashCode * 397) ^ EqualityComparer<T5>.Default.GetHashCode(this.value5);
+            }
+
+            if (this.value6 is not null)
+            {
+                hashCode = (hashCode * 397) ^ EqualityComparer<T6>.Default.GetHashCode(this.value6);
+            }
+
+            if (this.value7 is not null)
+            {
+                hashCode = (hashCode * 397) ^ EqualityComparer<T7>.Default.GetHashCode(this.value7);
+            }
+
             return hashCode;
         }
     }
@@ -4435,13 +4608,13 @@ public struct Either<T1, T2, T3, T4, T5, T6, T7> : IEitherOfSeven, IEquatable<Ei
     /// <returns>The name of the case held, followed by the value it holds.</returns>
     public override string ToString() =>
         this.Match(
-            onFirst: v1 => $"First: {v1}",
-            onSecond: v2 => $"Second: {v2}",
-            onThird: v3 => $"Third: {v3}",
-            onFourth: v4 => $"Fourth: {v4}",
-            onFifth: v5 => $"Fifth: {v5}",
-            onSixth: v6 => $"Sixth: {v6}",
-            onSeventh: v7 => $"Seventh: {v7}");
+            onFirst: static v1 => $"First: {v1}",
+            onSecond: static v2 => $"Second: {v2}",
+            onThird: static v3 => $"Third: {v3}",
+            onFourth: static v4 => $"Fourth: {v4}",
+            onFifth: static v5 => $"Fifth: {v5}",
+            onSixth: static v6 => $"Sixth: {v6}",
+            onSeventh: static v7 => $"Seventh: {v7}");
 }
 
 /// <summary>
@@ -4464,6 +4637,8 @@ public struct Either<T1, T2, T3, T4, T5, T6, T7> : IEitherOfSeven, IEquatable<Ei
 ///     This is a struct, so <see langword="default" /> is a valid instance; it holds the
 ///     first case, with the default value of <typeparamref name="T1" />.
 /// </remarks>
+[PublicAPI]
+// ReSharper disable once InheritdocConsiderUsage
 public struct Either<T1, T2, T3, T4, T5, T6, T7, T8>
     : IEitherOfEight, IEquatable<Either<T1, T2, T3, T4, T5, T6, T7, T8>>
 {
@@ -4714,29 +4889,28 @@ public struct Either<T1, T2, T3, T4, T5, T6, T7, T8>
     ///     before this method returns.
     /// </remarks>
     public T Match<T>(
-        [JetBrains.Annotations.InstantHandle] Func<T1, T> onFirst,
-        [JetBrains.Annotations.InstantHandle] Func<T2, T> onSecond,
-        [JetBrains.Annotations.InstantHandle] Func<T3, T> onThird,
-        [JetBrains.Annotations.InstantHandle] Func<T4, T> onFourth,
-        [JetBrains.Annotations.InstantHandle] Func<T5, T> onFifth,
-        [JetBrains.Annotations.InstantHandle] Func<T6, T> onSixth,
-        [JetBrains.Annotations.InstantHandle] Func<T7, T> onSeventh,
-        [JetBrains.Annotations.InstantHandle] Func<T8, T> onEighth) =>
-        this.valueType == 0
-            ? onFirst(this.value1!)
-            : this.valueType == 1
-                ? onSecond(this.value2!)
-                : this.valueType == 2
-                    ? onThird(this.value3!)
-                    : this.valueType == 3
-                        ? onFourth(this.value4!)
-                        : this.valueType == 4
-                            ? onFifth(this.value5!)
-                            : this.valueType == 5
-                                ? onSixth(this.value6!)
-                                : this.valueType == 6
-                                    ? onSeventh(this.value7!)
-                                    : onEighth(this.value8!);
+        [InstantHandle] Func<T1, T> onFirst,
+        [InstantHandle] Func<T2, T> onSecond,
+        [InstantHandle] Func<T3, T> onThird,
+        [InstantHandle] Func<T4, T> onFourth,
+        [InstantHandle] Func<T5, T> onFifth,
+        [InstantHandle] Func<T6, T> onSixth,
+        [InstantHandle] Func<T7, T> onSeventh,
+        [InstantHandle] Func<T8, T> onEighth) =>
+        this.valueType switch
+        {
+            // ReSharper disable NullableWarningSuppressionIsUsed - valueType determined that the respective field is
+            // non-null within its switch expression
+            0 => onFirst(this.value1!),
+            1 => onSecond(this.value2!),
+            2 => onThird(this.value3!),
+            3 => onFourth(this.value4!),
+            4 => onFifth(this.value5!),
+            5 => onSixth(this.value6!),
+            6 => onSeventh(this.value7!),
+            _ => onEighth(this.value8!)
+            // ReSharper restore NullableWarningSuppressionIsUsed
+        };
 
     #endregion
 
@@ -4754,14 +4928,14 @@ public struct Either<T1, T2, T3, T4, T5, T6, T7, T8>
     /// <param name="onSeventh">Run with the value when the seventh case is held.</param>
     /// <param name="onEighth">Run with the value when the eighth case is held.</param>
     public void MatchVoid(
-        [JetBrains.Annotations.InstantHandle] Action<T1> onFirst,
-        [JetBrains.Annotations.InstantHandle] Action<T2> onSecond,
-        [JetBrains.Annotations.InstantHandle] Action<T3> onThird,
-        [JetBrains.Annotations.InstantHandle] Action<T4> onFourth,
-        [JetBrains.Annotations.InstantHandle] Action<T5> onFifth,
-        [JetBrains.Annotations.InstantHandle] Action<T6> onSixth,
-        [JetBrains.Annotations.InstantHandle] Action<T7> onSeventh,
-        [JetBrains.Annotations.InstantHandle] Action<T8> onEighth) =>
+        [InstantHandle] Action<T1> onFirst,
+        [InstantHandle] Action<T2> onSecond,
+        [InstantHandle] Action<T3> onThird,
+        [InstantHandle] Action<T4> onFourth,
+        [InstantHandle] Action<T5> onFifth,
+        [InstantHandle] Action<T6> onSixth,
+        [InstantHandle] Action<T7> onSeventh,
+        [InstantHandle] Action<T8> onEighth) =>
         // ReSharper disable once ReturnValueOfPureMethodIsNotUsed
         this.Match(
             onFirst: onFirst.ToFunc(),
@@ -4792,14 +4966,14 @@ public struct Either<T1, T2, T3, T4, T5, T6, T7, T8>
     ///     so failures surface as that task faulting rather than as an exception from this call.
     /// </remarks>
     public Task<T> MatchAsync<T>(
-        [JetBrains.Annotations.InstantHandle] Func<T1, Task<T>> onFirst,
-        [JetBrains.Annotations.InstantHandle] Func<T2, Task<T>> onSecond,
-        [JetBrains.Annotations.InstantHandle] Func<T3, Task<T>> onThird,
-        [JetBrains.Annotations.InstantHandle] Func<T4, Task<T>> onFourth,
-        [JetBrains.Annotations.InstantHandle] Func<T5, Task<T>> onFifth,
-        [JetBrains.Annotations.InstantHandle] Func<T6, Task<T>> onSixth,
-        [JetBrains.Annotations.InstantHandle] Func<T7, Task<T>> onSeventh,
-        [JetBrains.Annotations.InstantHandle] Func<T8, Task<T>> onEighth) =>
+        [InstantHandle] Func<T1, Task<T>> onFirst,
+        [InstantHandle] Func<T2, Task<T>> onSecond,
+        [InstantHandle] Func<T3, Task<T>> onThird,
+        [InstantHandle] Func<T4, Task<T>> onFourth,
+        [InstantHandle] Func<T5, Task<T>> onFifth,
+        [InstantHandle] Func<T6, Task<T>> onSixth,
+        [InstantHandle] Func<T7, Task<T>> onSeventh,
+        [InstantHandle] Func<T8, Task<T>> onEighth) =>
         this.Match(
             onFirst: onFirst,
             onSecond: onSecond,
@@ -4823,14 +4997,14 @@ public struct Either<T1, T2, T3, T4, T5, T6, T7, T8>
     /// <param name="onEighth">Run with the value when the eighth case is held.</param>
     /// <returns>A task which completes when the selected action has completed.</returns>
     public Task MatchAsyncVoid(
-        [JetBrains.Annotations.InstantHandle] Func<T1, Task> onFirst,
-        [JetBrains.Annotations.InstantHandle] Func<T2, Task> onSecond,
-        [JetBrains.Annotations.InstantHandle] Func<T3, Task> onThird,
-        [JetBrains.Annotations.InstantHandle] Func<T4, Task> onFourth,
-        [JetBrains.Annotations.InstantHandle] Func<T5, Task> onFifth,
-        [JetBrains.Annotations.InstantHandle] Func<T6, Task> onSixth,
-        [JetBrains.Annotations.InstantHandle] Func<T7, Task> onSeventh,
-        [JetBrains.Annotations.InstantHandle] Func<T8, Task> onEighth) =>
+        [InstantHandle] Func<T1, Task> onFirst,
+        [InstantHandle] Func<T2, Task> onSecond,
+        [InstantHandle] Func<T3, Task> onThird,
+        [InstantHandle] Func<T4, Task> onFourth,
+        [InstantHandle] Func<T5, Task> onFifth,
+        [InstantHandle] Func<T6, Task> onSixth,
+        [InstantHandle] Func<T7, Task> onSeventh,
+        [InstantHandle] Func<T8, Task> onEighth) =>
         this.MatchAsync(
             onFirst: onFirst.ToAsyncFunc(),
             onSecond: onSecond.ToAsyncFunc(),
@@ -4855,16 +5029,16 @@ public struct Either<T1, T2, T3, T4, T5, T6, T7, T8>
     /// <remarks>
     ///     <paramref name="f" /> is called only when this holds the first case.
     /// </remarks>
-    public Either<T, T2, T3, T4, T5, T6, T7, T8> MapFirst<T>([JetBrains.Annotations.InstantHandle] Func<T1, T> f) =>
+    public Either<T, T2, T3, T4, T5, T6, T7, T8> MapFirst<T>([InstantHandle] Func<T1, T> f) =>
         this.Match(
             onFirst: v1 => Either<T, T2, T3, T4, T5, T6, T7, T8>.First(f(v1)),
-            onSecond: v2 => Either.Second(v2),
-            onThird: v3 => Either.Third(v3),
-            onFourth: v4 => Either.Fourth(v4),
-            onFifth: v5 => Either.Fifth(v5),
-            onSixth: v6 => Either.Sixth(v6),
-            onSeventh: v7 => Either.Seventh(v7),
-            onEighth: v8 => Either.Eighth(v8));
+            onSecond: static v2 => Either.Second(v2),
+            onThird: static v3 => Either.Third(v3),
+            onFourth: static v4 => Either.Fourth(v4),
+            onFifth: static v5 => Either.Fifth(v5),
+            onSixth: static v6 => Either.Sixth(v6),
+            onSeventh: static v7 => Either.Seventh(v7),
+            onEighth: static v8 => Either.Eighth(v8));
 
     /// <summary>
     ///     Transforms the value if this holds the second case, and passes every other case
@@ -4880,16 +5054,16 @@ public struct Either<T1, T2, T3, T4, T5, T6, T7, T8>
     /// <remarks>
     ///     <paramref name="f" /> is called only when this holds the second case.
     /// </remarks>
-    public Either<T1, T, T3, T4, T5, T6, T7, T8> MapSecond<T>([JetBrains.Annotations.InstantHandle] Func<T2, T> f) =>
+    public Either<T1, T, T3, T4, T5, T6, T7, T8> MapSecond<T>([InstantHandle] Func<T2, T> f) =>
         this.Match(
             onFirst: Either<T1, T, T3, T4, T5, T6, T7, T8>.First,
             onSecond: v2 => Either.Second(f(v2)),
-            onThird: v3 => Either.Third(v3),
-            onFourth: v4 => Either.Fourth(v4),
-            onFifth: v5 => Either.Fifth(v5),
-            onSixth: v6 => Either.Sixth(v6),
-            onSeventh: v7 => Either.Seventh(v7),
-            onEighth: v8 => Either.Eighth(v8));
+            onThird: static v3 => Either.Third(v3),
+            onFourth: static v4 => Either.Fourth(v4),
+            onFifth: static v5 => Either.Fifth(v5),
+            onSixth: static v6 => Either.Sixth(v6),
+            onSeventh: static v7 => Either.Seventh(v7),
+            onEighth: static v8 => Either.Eighth(v8));
 
     /// <summary>
     ///     Transforms the value if this holds the third case, and passes every other case
@@ -4905,16 +5079,16 @@ public struct Either<T1, T2, T3, T4, T5, T6, T7, T8>
     /// <remarks>
     ///     <paramref name="f" /> is called only when this holds the third case.
     /// </remarks>
-    public Either<T1, T2, T, T4, T5, T6, T7, T8> MapThird<T>([JetBrains.Annotations.InstantHandle] Func<T3, T> f) =>
+    public Either<T1, T2, T, T4, T5, T6, T7, T8> MapThird<T>([InstantHandle] Func<T3, T> f) =>
         this.Match(
             onFirst: Either<T1, T2, T, T4, T5, T6, T7, T8>.First,
-            onSecond: v2 => Either.Second(v2),
+            onSecond: static v2 => Either.Second(v2),
             onThird: v3 => Either.Third(f(v3)),
-            onFourth: v4 => Either.Fourth(v4),
-            onFifth: v5 => Either.Fifth(v5),
-            onSixth: v6 => Either.Sixth(v6),
-            onSeventh: v7 => Either.Seventh(v7),
-            onEighth: v8 => Either.Eighth(v8));
+            onFourth: static v4 => Either.Fourth(v4),
+            onFifth: static v5 => Either.Fifth(v5),
+            onSixth: static v6 => Either.Sixth(v6),
+            onSeventh: static v7 => Either.Seventh(v7),
+            onEighth: static v8 => Either.Eighth(v8));
 
     /// <summary>
     ///     Transforms the value if this holds the fourth case, and passes every other case
@@ -4930,16 +5104,16 @@ public struct Either<T1, T2, T3, T4, T5, T6, T7, T8>
     /// <remarks>
     ///     <paramref name="f" /> is called only when this holds the fourth case.
     /// </remarks>
-    public Either<T1, T2, T3, T, T5, T6, T7, T8> MapFourth<T>([JetBrains.Annotations.InstantHandle] Func<T4, T> f) =>
+    public Either<T1, T2, T3, T, T5, T6, T7, T8> MapFourth<T>([InstantHandle] Func<T4, T> f) =>
         this.Match(
             onFirst: Either<T1, T2, T3, T, T5, T6, T7, T8>.First,
-            onSecond: v2 => Either.Second(v2),
-            onThird: v3 => Either.Third(v3),
+            onSecond: static v2 => Either.Second(v2),
+            onThird: static v3 => Either.Third(v3),
             onFourth: v4 => Either.Fourth(f(v4)),
-            onFifth: v5 => Either.Fifth(v5),
-            onSixth: v6 => Either.Sixth(v6),
-            onSeventh: v7 => Either.Seventh(v7),
-            onEighth: v8 => Either.Eighth(v8));
+            onFifth: static v5 => Either.Fifth(v5),
+            onSixth: static v6 => Either.Sixth(v6),
+            onSeventh: static v7 => Either.Seventh(v7),
+            onEighth: static v8 => Either.Eighth(v8));
 
     /// <summary>
     ///     Transforms the value if this holds the fifth case, and passes every other case
@@ -4955,16 +5129,16 @@ public struct Either<T1, T2, T3, T4, T5, T6, T7, T8>
     /// <remarks>
     ///     <paramref name="f" /> is called only when this holds the fifth case.
     /// </remarks>
-    public Either<T1, T2, T3, T4, T, T6, T7, T8> MapFifth<T>([JetBrains.Annotations.InstantHandle] Func<T5, T> f) =>
+    public Either<T1, T2, T3, T4, T, T6, T7, T8> MapFifth<T>([InstantHandle] Func<T5, T> f) =>
         this.Match(
             onFirst: Either<T1, T2, T3, T4, T, T6, T7, T8>.First,
-            onSecond: v2 => Either.Second(v2),
-            onThird: v3 => Either.Third(v3),
-            onFourth: v4 => Either.Fourth(v4),
+            onSecond: static v2 => Either.Second(v2),
+            onThird: static v3 => Either.Third(v3),
+            onFourth: static v4 => Either.Fourth(v4),
             onFifth: v5 => Either.Fifth(f(v5)),
-            onSixth: v6 => Either.Sixth(v6),
-            onSeventh: v7 => Either.Seventh(v7),
-            onEighth: v8 => Either.Eighth(v8));
+            onSixth: static v6 => Either.Sixth(v6),
+            onSeventh: static v7 => Either.Seventh(v7),
+            onEighth: static v8 => Either.Eighth(v8));
 
     /// <summary>
     ///     Transforms the value if this holds the sixth case, and passes every other case
@@ -4980,16 +5154,16 @@ public struct Either<T1, T2, T3, T4, T5, T6, T7, T8>
     /// <remarks>
     ///     <paramref name="f" /> is called only when this holds the sixth case.
     /// </remarks>
-    public Either<T1, T2, T3, T4, T5, T, T7, T8> MapSixth<T>([JetBrains.Annotations.InstantHandle] Func<T6, T> f) =>
+    public Either<T1, T2, T3, T4, T5, T, T7, T8> MapSixth<T>([InstantHandle] Func<T6, T> f) =>
         this.Match(
             onFirst: Either<T1, T2, T3, T4, T5, T, T7, T8>.First,
-            onSecond: v2 => Either.Second(v2),
-            onThird: v3 => Either.Third(v3),
-            onFourth: v4 => Either.Fourth(v4),
-            onFifth: v5 => Either.Fifth(v5),
+            onSecond: static v2 => Either.Second(v2),
+            onThird: static v3 => Either.Third(v3),
+            onFourth: static v4 => Either.Fourth(v4),
+            onFifth: static v5 => Either.Fifth(v5),
             onSixth: v6 => Either.Sixth(f(v6)),
-            onSeventh: v7 => Either.Seventh(v7),
-            onEighth: v8 => Either.Eighth(v8));
+            onSeventh: static v7 => Either.Seventh(v7),
+            onEighth: static v8 => Either.Eighth(v8));
 
     /// <summary>
     ///     Transforms the value if this holds the seventh case, and passes every other case
@@ -5005,16 +5179,16 @@ public struct Either<T1, T2, T3, T4, T5, T6, T7, T8>
     /// <remarks>
     ///     <paramref name="f" /> is called only when this holds the seventh case.
     /// </remarks>
-    public Either<T1, T2, T3, T4, T5, T6, T, T8> MapSeventh<T>([JetBrains.Annotations.InstantHandle] Func<T7, T> f) =>
+    public Either<T1, T2, T3, T4, T5, T6, T, T8> MapSeventh<T>([InstantHandle] Func<T7, T> f) =>
         this.Match(
             onFirst: Either<T1, T2, T3, T4, T5, T6, T, T8>.First,
-            onSecond: v2 => Either.Second(v2),
-            onThird: v3 => Either.Third(v3),
-            onFourth: v4 => Either.Fourth(v4),
-            onFifth: v5 => Either.Fifth(v5),
-            onSixth: v6 => Either.Sixth(v6),
+            onSecond: static v2 => Either.Second(v2),
+            onThird: static v3 => Either.Third(v3),
+            onFourth: static v4 => Either.Fourth(v4),
+            onFifth: static v5 => Either.Fifth(v5),
+            onSixth: static v6 => Either.Sixth(v6),
             onSeventh: v7 => Either.Seventh(f(v7)),
-            onEighth: v8 => Either.Eighth(v8));
+            onEighth: static v8 => Either.Eighth(v8));
 
     /// <summary>
     ///     Transforms the value if this holds the eighth case, and passes every other case
@@ -5030,15 +5204,15 @@ public struct Either<T1, T2, T3, T4, T5, T6, T7, T8>
     /// <remarks>
     ///     <paramref name="f" /> is called only when this holds the eighth case.
     /// </remarks>
-    public Either<T1, T2, T3, T4, T5, T6, T7, T> MapEighth<T>([JetBrains.Annotations.InstantHandle] Func<T8, T> f) =>
+    public Either<T1, T2, T3, T4, T5, T6, T7, T> MapEighth<T>([InstantHandle] Func<T8, T> f) =>
         this.Match(
             onFirst: Either<T1, T2, T3, T4, T5, T6, T7, T>.First,
-            onSecond: v2 => Either.Second(v2),
-            onThird: v3 => Either.Third(v3),
-            onFourth: v4 => Either.Fourth(v4),
-            onFifth: v5 => Either.Fifth(v5),
-            onSixth: v6 => Either.Sixth(v6),
-            onSeventh: v7 => Either.Seventh(v7),
+            onSecond: static v2 => Either.Second(v2),
+            onThird: static v3 => Either.Third(v3),
+            onFourth: static v4 => Either.Fourth(v4),
+            onFifth: static v5 => Either.Fifth(v5),
+            onSixth: static v6 => Either.Sixth(v6),
+            onSeventh: static v7 => Either.Seventh(v7),
             onEighth: v8 => Either.Eighth(f(v8)));
 
     /// <summary>
@@ -5048,17 +5222,17 @@ public struct Either<T1, T2, T3, T4, T5, T6, T7, T8>
     ///     A <see cref="Maybe{T}" /> containing the value if this holds the first case, and
     ///     containing nothing otherwise.
     /// </returns>
-    [JetBrains.Annotations.Pure]
+    [Pure]
     public Maybe<T1> TryGetFirst() =>
         this.Match(
             onFirst: Maybe.Some,
-            onSecond: _ => Maybe.None,
-            onThird: _ => Maybe.None,
-            onFourth: _ => Maybe.None,
-            onFifth: _ => Maybe.None,
-            onSixth: _ => Maybe.None,
-            onSeventh: _ => Maybe.None,
-            onEighth: _ => Maybe.None);
+            onSecond: static _ => Maybe.None,
+            onThird: static _ => Maybe.None,
+            onFourth: static _ => Maybe.None,
+            onFifth: static _ => Maybe.None,
+            onSixth: static _ => Maybe.None,
+            onSeventh: static _ => Maybe.None,
+            onEighth: static _ => Maybe.None);
 
     /// <summary>
     ///     Gets the held value if this holds the second case.
@@ -5067,17 +5241,17 @@ public struct Either<T1, T2, T3, T4, T5, T6, T7, T8>
     ///     A <see cref="Maybe{T}" /> containing the value if this holds the second case, and
     ///     containing nothing otherwise.
     /// </returns>
-    [JetBrains.Annotations.Pure]
+    [Pure]
     public Maybe<T2> TryGetSecond() =>
         this.Match(
-            onFirst: _ => Maybe.None,
+            onFirst: static _ => Maybe.None,
             onSecond: Maybe.Some,
-            onThird: _ => Maybe.None,
-            onFourth: _ => Maybe.None,
-            onFifth: _ => Maybe.None,
-            onSixth: _ => Maybe.None,
-            onSeventh: _ => Maybe.None,
-            onEighth: _ => Maybe.None);
+            onThird: static _ => Maybe.None,
+            onFourth: static _ => Maybe.None,
+            onFifth: static _ => Maybe.None,
+            onSixth: static _ => Maybe.None,
+            onSeventh: static _ => Maybe.None,
+            onEighth: static _ => Maybe.None);
 
     /// <summary>
     ///     Gets the held value if this holds the third case.
@@ -5086,17 +5260,17 @@ public struct Either<T1, T2, T3, T4, T5, T6, T7, T8>
     ///     A <see cref="Maybe{T}" /> containing the value if this holds the third case, and
     ///     containing nothing otherwise.
     /// </returns>
-    [JetBrains.Annotations.Pure]
+    [Pure]
     public Maybe<T3> TryGetThird() =>
         this.Match(
-            onFirst: _ => Maybe.None,
-            onSecond: _ => Maybe.None,
+            onFirst: static _ => Maybe.None,
+            onSecond: static _ => Maybe.None,
             onThird: Maybe.Some,
-            onFourth: _ => Maybe.None,
-            onFifth: _ => Maybe.None,
-            onSixth: _ => Maybe.None,
-            onSeventh: _ => Maybe.None,
-            onEighth: _ => Maybe.None);
+            onFourth: static _ => Maybe.None,
+            onFifth: static _ => Maybe.None,
+            onSixth: static _ => Maybe.None,
+            onSeventh: static _ => Maybe.None,
+            onEighth: static _ => Maybe.None);
 
     /// <summary>
     ///     Gets the held value if this holds the fourth case.
@@ -5105,17 +5279,17 @@ public struct Either<T1, T2, T3, T4, T5, T6, T7, T8>
     ///     A <see cref="Maybe{T}" /> containing the value if this holds the fourth case, and
     ///     containing nothing otherwise.
     /// </returns>
-    [JetBrains.Annotations.Pure]
+    [Pure]
     public Maybe<T4> TryGetFourth() =>
         this.Match(
-            onFirst: _ => Maybe.None,
-            onSecond: _ => Maybe.None,
-            onThird: _ => Maybe.None,
+            onFirst: static _ => Maybe.None,
+            onSecond: static _ => Maybe.None,
+            onThird: static _ => Maybe.None,
             onFourth: Maybe.Some,
-            onFifth: _ => Maybe.None,
-            onSixth: _ => Maybe.None,
-            onSeventh: _ => Maybe.None,
-            onEighth: _ => Maybe.None);
+            onFifth: static _ => Maybe.None,
+            onSixth: static _ => Maybe.None,
+            onSeventh: static _ => Maybe.None,
+            onEighth: static _ => Maybe.None);
 
     /// <summary>
     ///     Gets the held value if this holds the fifth case.
@@ -5124,17 +5298,17 @@ public struct Either<T1, T2, T3, T4, T5, T6, T7, T8>
     ///     A <see cref="Maybe{T}" /> containing the value if this holds the fifth case, and
     ///     containing nothing otherwise.
     /// </returns>
-    [JetBrains.Annotations.Pure]
+    [Pure]
     public Maybe<T5> TryGetFifth() =>
         this.Match(
-            onFirst: _ => Maybe.None,
-            onSecond: _ => Maybe.None,
-            onThird: _ => Maybe.None,
-            onFourth: _ => Maybe.None,
+            onFirst: static _ => Maybe.None,
+            onSecond: static _ => Maybe.None,
+            onThird: static _ => Maybe.None,
+            onFourth: static _ => Maybe.None,
             onFifth: Maybe.Some,
-            onSixth: _ => Maybe.None,
-            onSeventh: _ => Maybe.None,
-            onEighth: _ => Maybe.None);
+            onSixth: static _ => Maybe.None,
+            onSeventh: static _ => Maybe.None,
+            onEighth: static _ => Maybe.None);
 
     /// <summary>
     ///     Gets the held value if this holds the sixth case.
@@ -5143,17 +5317,17 @@ public struct Either<T1, T2, T3, T4, T5, T6, T7, T8>
     ///     A <see cref="Maybe{T}" /> containing the value if this holds the sixth case, and
     ///     containing nothing otherwise.
     /// </returns>
-    [JetBrains.Annotations.Pure]
+    [Pure]
     public Maybe<T6> TryGetSixth() =>
         this.Match(
-            onFirst: _ => Maybe.None,
-            onSecond: _ => Maybe.None,
-            onThird: _ => Maybe.None,
-            onFourth: _ => Maybe.None,
-            onFifth: _ => Maybe.None,
+            onFirst: static _ => Maybe.None,
+            onSecond: static _ => Maybe.None,
+            onThird: static _ => Maybe.None,
+            onFourth: static _ => Maybe.None,
+            onFifth: static _ => Maybe.None,
             onSixth: Maybe.Some,
-            onSeventh: _ => Maybe.None,
-            onEighth: _ => Maybe.None);
+            onSeventh: static _ => Maybe.None,
+            onEighth: static _ => Maybe.None);
 
     /// <summary>
     ///     Gets the held value if this holds the seventh case.
@@ -5162,17 +5336,17 @@ public struct Either<T1, T2, T3, T4, T5, T6, T7, T8>
     ///     A <see cref="Maybe{T}" /> containing the value if this holds the seventh case, and
     ///     containing nothing otherwise.
     /// </returns>
-    [JetBrains.Annotations.Pure]
+    [Pure]
     public Maybe<T7> TryGetSeventh() =>
         this.Match(
-            onFirst: _ => Maybe.None,
-            onSecond: _ => Maybe.None,
-            onThird: _ => Maybe.None,
-            onFourth: _ => Maybe.None,
-            onFifth: _ => Maybe.None,
-            onSixth: _ => Maybe.None,
+            onFirst: static _ => Maybe.None,
+            onSecond: static _ => Maybe.None,
+            onThird: static _ => Maybe.None,
+            onFourth: static _ => Maybe.None,
+            onFifth: static _ => Maybe.None,
+            onSixth: static _ => Maybe.None,
             onSeventh: Maybe.Some,
-            onEighth: _ => Maybe.None);
+            onEighth: static _ => Maybe.None);
 
     /// <summary>
     ///     Gets the held value if this holds the eighth case.
@@ -5181,16 +5355,16 @@ public struct Either<T1, T2, T3, T4, T5, T6, T7, T8>
     ///     A <see cref="Maybe{T}" /> containing the value if this holds the eighth case, and
     ///     containing nothing otherwise.
     /// </returns>
-    [JetBrains.Annotations.Pure]
+    [Pure]
     public Maybe<T8> TryGetEighth() =>
         this.Match(
-            onFirst: _ => Maybe.None,
-            onSecond: _ => Maybe.None,
-            onThird: _ => Maybe.None,
-            onFourth: _ => Maybe.None,
-            onFifth: _ => Maybe.None,
-            onSixth: _ => Maybe.None,
-            onSeventh: _ => Maybe.None,
+            onFirst: static _ => Maybe.None,
+            onSecond: static _ => Maybe.None,
+            onThird: static _ => Maybe.None,
+            onFourth: static _ => Maybe.None,
+            onFifth: static _ => Maybe.None,
+            onSixth: static _ => Maybe.None,
+            onSeventh: static _ => Maybe.None,
             onEighth: Maybe.Some);
 
     /// <summary>
@@ -5204,17 +5378,17 @@ public struct Either<T1, T2, T3, T4, T5, T6, T7, T8>
     ///     To get at the value as well, use <see cref="TryGetFirst" />, or <c>Match</c> to handle
     ///     every case.
     /// </remarks>
-    [JetBrains.Annotations.Pure]
+    [Pure]
     public bool IsFirst() =>
         this.Match(
-            onFirst: _ => true,
-            onSecond: _ => false,
-            onThird: _ => false,
-            onFourth: _ => false,
-            onFifth: _ => false,
-            onSixth: _ => false,
-            onSeventh: _ => false,
-            onEighth: _ => false);
+            onFirst: static _ => true,
+            onSecond: static _ => false,
+            onThird: static _ => false,
+            onFourth: static _ => false,
+            onFifth: static _ => false,
+            onSixth: static _ => false,
+            onSeventh: static _ => false,
+            onEighth: static _ => false);
 
     /// <summary>
     ///     Returns whether this holds the second case.
@@ -5227,17 +5401,17 @@ public struct Either<T1, T2, T3, T4, T5, T6, T7, T8>
     ///     To get at the value as well, use <see cref="TryGetSecond" />, or <c>Match</c> to handle
     ///     every case.
     /// </remarks>
-    [JetBrains.Annotations.Pure]
+    [Pure]
     public bool IsSecond() =>
         this.Match(
-            onFirst: _ => false,
-            onSecond: _ => true,
-            onThird: _ => false,
-            onFourth: _ => false,
-            onFifth: _ => false,
-            onSixth: _ => false,
-            onSeventh: _ => false,
-            onEighth: _ => false);
+            onFirst: static _ => false,
+            onSecond: static _ => true,
+            onThird: static _ => false,
+            onFourth: static _ => false,
+            onFifth: static _ => false,
+            onSixth: static _ => false,
+            onSeventh: static _ => false,
+            onEighth: static _ => false);
 
     /// <summary>
     ///     Returns whether this holds the third case.
@@ -5250,17 +5424,17 @@ public struct Either<T1, T2, T3, T4, T5, T6, T7, T8>
     ///     To get at the value as well, use <see cref="TryGetThird" />, or <c>Match</c> to handle
     ///     every case.
     /// </remarks>
-    [JetBrains.Annotations.Pure]
+    [Pure]
     public bool IsThird() =>
         this.Match(
-            onFirst: _ => false,
-            onSecond: _ => false,
-            onThird: _ => true,
-            onFourth: _ => false,
-            onFifth: _ => false,
-            onSixth: _ => false,
-            onSeventh: _ => false,
-            onEighth: _ => false);
+            onFirst: static _ => false,
+            onSecond: static _ => false,
+            onThird: static _ => true,
+            onFourth: static _ => false,
+            onFifth: static _ => false,
+            onSixth: static _ => false,
+            onSeventh: static _ => false,
+            onEighth: static _ => false);
 
     /// <summary>
     ///     Returns whether this holds the fourth case.
@@ -5273,17 +5447,17 @@ public struct Either<T1, T2, T3, T4, T5, T6, T7, T8>
     ///     To get at the value as well, use <see cref="TryGetFourth" />, or <c>Match</c> to handle
     ///     every case.
     /// </remarks>
-    [JetBrains.Annotations.Pure]
+    [Pure]
     public bool IsFourth() =>
         this.Match(
-            onFirst: _ => false,
-            onSecond: _ => false,
-            onThird: _ => false,
-            onFourth: _ => true,
-            onFifth: _ => false,
-            onSixth: _ => false,
-            onSeventh: _ => false,
-            onEighth: _ => false);
+            onFirst: static _ => false,
+            onSecond: static _ => false,
+            onThird: static _ => false,
+            onFourth: static _ => true,
+            onFifth: static _ => false,
+            onSixth: static _ => false,
+            onSeventh: static _ => false,
+            onEighth: static _ => false);
 
     /// <summary>
     ///     Returns whether this holds the fifth case.
@@ -5296,17 +5470,17 @@ public struct Either<T1, T2, T3, T4, T5, T6, T7, T8>
     ///     To get at the value as well, use <see cref="TryGetFifth" />, or <c>Match</c> to handle
     ///     every case.
     /// </remarks>
-    [JetBrains.Annotations.Pure]
+    [Pure]
     public bool IsFifth() =>
         this.Match(
-            onFirst: _ => false,
-            onSecond: _ => false,
-            onThird: _ => false,
-            onFourth: _ => false,
-            onFifth: _ => true,
-            onSixth: _ => false,
-            onSeventh: _ => false,
-            onEighth: _ => false);
+            onFirst: static _ => false,
+            onSecond: static _ => false,
+            onThird: static _ => false,
+            onFourth: static _ => false,
+            onFifth: static _ => true,
+            onSixth: static _ => false,
+            onSeventh: static _ => false,
+            onEighth: static _ => false);
 
     /// <summary>
     ///     Returns whether this holds the sixth case.
@@ -5319,17 +5493,17 @@ public struct Either<T1, T2, T3, T4, T5, T6, T7, T8>
     ///     To get at the value as well, use <see cref="TryGetSixth" />, or <c>Match</c> to handle
     ///     every case.
     /// </remarks>
-    [JetBrains.Annotations.Pure]
+    [Pure]
     public bool IsSixth() =>
         this.Match(
-            onFirst: _ => false,
-            onSecond: _ => false,
-            onThird: _ => false,
-            onFourth: _ => false,
-            onFifth: _ => false,
-            onSixth: _ => true,
-            onSeventh: _ => false,
-            onEighth: _ => false);
+            onFirst: static _ => false,
+            onSecond: static _ => false,
+            onThird: static _ => false,
+            onFourth: static _ => false,
+            onFifth: static _ => false,
+            onSixth: static _ => true,
+            onSeventh: static _ => false,
+            onEighth: static _ => false);
 
     /// <summary>
     ///     Returns whether this holds the seventh case.
@@ -5342,17 +5516,17 @@ public struct Either<T1, T2, T3, T4, T5, T6, T7, T8>
     ///     To get at the value as well, use <see cref="TryGetSeventh" />, or <c>Match</c> to handle
     ///     every case.
     /// </remarks>
-    [JetBrains.Annotations.Pure]
+    [Pure]
     public bool IsSeventh() =>
         this.Match(
-            onFirst: _ => false,
-            onSecond: _ => false,
-            onThird: _ => false,
-            onFourth: _ => false,
-            onFifth: _ => false,
-            onSixth: _ => false,
-            onSeventh: _ => true,
-            onEighth: _ => false);
+            onFirst: static _ => false,
+            onSecond: static _ => false,
+            onThird: static _ => false,
+            onFourth: static _ => false,
+            onFifth: static _ => false,
+            onSixth: static _ => false,
+            onSeventh: static _ => true,
+            onEighth: static _ => false);
 
     /// <summary>
     ///     Returns whether this holds the eighth case.
@@ -5365,17 +5539,17 @@ public struct Either<T1, T2, T3, T4, T5, T6, T7, T8>
     ///     To get at the value as well, use <see cref="TryGetEighth" />, or <c>Match</c> to handle
     ///     every case.
     /// </remarks>
-    [JetBrains.Annotations.Pure]
+    [Pure]
     public bool IsEighth() =>
         this.Match(
-            onFirst: _ => false,
-            onSecond: _ => false,
-            onThird: _ => false,
-            onFourth: _ => false,
-            onFifth: _ => false,
-            onSixth: _ => false,
-            onSeventh: _ => false,
-            onEighth: _ => true);
+            onFirst: static _ => false,
+            onSecond: static _ => false,
+            onThird: static _ => false,
+            onFourth: static _ => false,
+            onFifth: static _ => false,
+            onSixth: static _ => false,
+            onSeventh: static _ => false,
+            onEighth: static _ => true);
 
     void IEitherOfEight.MatchVoid(
         Action<object?> onFirst,
@@ -5447,11 +5621,10 @@ public struct Either<T1, T2, T3, T4, T5, T6, T7, T8>
     /// <returns>An either holding that value as its first case.</returns>
     /// <remarks>
     ///     This is what makes <see cref="Either.First{T}" /> usable in place of this type's own
-    ///     <c>First</c>. A <see langword="null" /> marked value converts to an either holding a
-    ///     default first value rather than throwing.
+    ///     <c>First</c>.
     /// </remarks>
-    public static implicit operator Either<T1, T2, T3, T4, T5, T6, T7, T8>(Either.EitherFirst<T1>? value) =>
-        First(value == null ? default! : value.Value);
+    public static implicit operator Either<T1, T2, T3, T4, T5, T6, T7, T8>(Either.EitherFirst<T1> value) =>
+        First(value.Value);
 
     /// <summary>
     ///     Converts a value marked for the second position into an either of this type.
@@ -5460,11 +5633,10 @@ public struct Either<T1, T2, T3, T4, T5, T6, T7, T8>
     /// <returns>An either holding that value as its second case.</returns>
     /// <remarks>
     ///     This is what makes <see cref="Either.Second{T}" /> usable in place of this type's own
-    ///     <c>Second</c>. A <see langword="null" /> marked value converts to an either holding a
-    ///     default second value rather than throwing.
+    ///     <c>Second</c>.
     /// </remarks>
-    public static implicit operator Either<T1, T2, T3, T4, T5, T6, T7, T8>(Either.EitherSecond<T2>? value) =>
-        Second(value == null ? default! : value.Value);
+    public static implicit operator Either<T1, T2, T3, T4, T5, T6, T7, T8>(Either.EitherSecond<T2> value) =>
+        Second(value.Value);
 
     /// <summary>
     ///     Converts a value marked for the third position into an either of this type.
@@ -5473,11 +5645,10 @@ public struct Either<T1, T2, T3, T4, T5, T6, T7, T8>
     /// <returns>An either holding that value as its third case.</returns>
     /// <remarks>
     ///     This is what makes <see cref="Either.Third{T}" /> usable in place of this type's own
-    ///     <c>Third</c>. A <see langword="null" /> marked value converts to an either holding a
-    ///     default third value rather than throwing.
+    ///     <c>Third</c>.
     /// </remarks>
-    public static implicit operator Either<T1, T2, T3, T4, T5, T6, T7, T8>(Either.EitherThird<T3>? value) =>
-        Third(value == null ? default! : value.Value);
+    public static implicit operator Either<T1, T2, T3, T4, T5, T6, T7, T8>(Either.EitherThird<T3> value) =>
+        Third(value.Value);
 
     /// <summary>
     ///     Converts a value marked for the fourth position into an either of this type.
@@ -5486,11 +5657,10 @@ public struct Either<T1, T2, T3, T4, T5, T6, T7, T8>
     /// <returns>An either holding that value as its fourth case.</returns>
     /// <remarks>
     ///     This is what makes <see cref="Either.Fourth{T}" /> usable in place of this type's own
-    ///     <c>Fourth</c>. A <see langword="null" /> marked value converts to an either holding a
-    ///     default fourth value rather than throwing.
+    ///     <c>Fourth</c>.
     /// </remarks>
-    public static implicit operator Either<T1, T2, T3, T4, T5, T6, T7, T8>(Either.EitherFourth<T4>? value) =>
-        Fourth(value == null ? default! : value.Value);
+    public static implicit operator Either<T1, T2, T3, T4, T5, T6, T7, T8>(Either.EitherFourth<T4> value) =>
+        Fourth(value.Value);
 
     /// <summary>
     ///     Converts a value marked for the fifth position into an either of this type.
@@ -5499,11 +5669,10 @@ public struct Either<T1, T2, T3, T4, T5, T6, T7, T8>
     /// <returns>An either holding that value as its fifth case.</returns>
     /// <remarks>
     ///     This is what makes <see cref="Either.Fifth{T}" /> usable in place of this type's own
-    ///     <c>Fifth</c>. A <see langword="null" /> marked value converts to an either holding a
-    ///     default fifth value rather than throwing.
+    ///     <c>Fifth</c>.
     /// </remarks>
-    public static implicit operator Either<T1, T2, T3, T4, T5, T6, T7, T8>(Either.EitherFifth<T5>? value) =>
-        Fifth(value == null ? default! : value.Value);
+    public static implicit operator Either<T1, T2, T3, T4, T5, T6, T7, T8>(Either.EitherFifth<T5> value) =>
+        Fifth(value.Value);
 
     /// <summary>
     ///     Converts a value marked for the sixth position into an either of this type.
@@ -5512,11 +5681,10 @@ public struct Either<T1, T2, T3, T4, T5, T6, T7, T8>
     /// <returns>An either holding that value as its sixth case.</returns>
     /// <remarks>
     ///     This is what makes <see cref="Either.Sixth{T}" /> usable in place of this type's own
-    ///     <c>Sixth</c>. A <see langword="null" /> marked value converts to an either holding a
-    ///     default sixth value rather than throwing.
+    ///     <c>Sixth</c>.
     /// </remarks>
-    public static implicit operator Either<T1, T2, T3, T4, T5, T6, T7, T8>(Either.EitherSixth<T6>? value) =>
-        Sixth(value == null ? default! : value.Value);
+    public static implicit operator Either<T1, T2, T3, T4, T5, T6, T7, T8>(Either.EitherSixth<T6> value) =>
+        Sixth(value.Value);
 
     /// <summary>
     ///     Converts a value marked for the seventh position into an either of this type.
@@ -5525,11 +5693,10 @@ public struct Either<T1, T2, T3, T4, T5, T6, T7, T8>
     /// <returns>An either holding that value as its seventh case.</returns>
     /// <remarks>
     ///     This is what makes <see cref="Either.Seventh{T}" /> usable in place of this type's own
-    ///     <c>Seventh</c>. A <see langword="null" /> marked value converts to an either holding a
-    ///     default seventh value rather than throwing.
+    ///     <c>Seventh</c>.
     /// </remarks>
-    public static implicit operator Either<T1, T2, T3, T4, T5, T6, T7, T8>(Either.EitherSeventh<T7>? value) =>
-        Seventh(value == null ? default! : value.Value);
+    public static implicit operator Either<T1, T2, T3, T4, T5, T6, T7, T8>(Either.EitherSeventh<T7> value) =>
+        Seventh(value.Value);
 
     /// <summary>
     ///     Converts a value marked for the eighth position into an either of this type.
@@ -5538,11 +5705,10 @@ public struct Either<T1, T2, T3, T4, T5, T6, T7, T8>
     /// <returns>An either holding that value as its eighth case.</returns>
     /// <remarks>
     ///     This is what makes <see cref="Either.Eighth{T}" /> usable in place of this type's own
-    ///     <c>Eighth</c>. A <see langword="null" /> marked value converts to an either holding a
-    ///     default eighth value rather than throwing.
+    ///     <c>Eighth</c>.
     /// </remarks>
-    public static implicit operator Either<T1, T2, T3, T4, T5, T6, T7, T8>(Either.EitherEighth<T8>? value) =>
-        Eighth(value == null ? default! : value.Value);
+    public static implicit operator Either<T1, T2, T3, T4, T5, T6, T7, T8>(Either.EitherEighth<T8> value) =>
+        Eighth(value.Value);
 
     /// <summary>
     ///     Determines whether two instances hold the same case with equal values.
@@ -5557,6 +5723,8 @@ public struct Either<T1, T2, T3, T4, T5, T6, T7, T8>
         Either<T1, T2, T3, T4, T5, T6, T7, T8> x,
         Either<T1, T2, T3, T4, T5, T6, T7, T8> y) =>
         x.valueType == y.valueType
+        // ReSharper disable NullableWarningSuppressionIsUsed - .NET 4.7.2 and .NET Standard 2.0 did not define these
+        // parameters as being nullable as they should have.
         && EqualityComparer<T1>.Default.Equals(x: x.value1!, y: y.value1!)
         && EqualityComparer<T2>.Default.Equals(x: x.value2!, y: y.value2!)
         && EqualityComparer<T3>.Default.Equals(x: x.value3!, y: y.value3!)
@@ -5565,6 +5733,7 @@ public struct Either<T1, T2, T3, T4, T5, T6, T7, T8>
         && EqualityComparer<T6>.Default.Equals(x: x.value6!, y: y.value6!)
         && EqualityComparer<T7>.Default.Equals(x: x.value7!, y: y.value7!)
         && EqualityComparer<T8>.Default.Equals(x: x.value8!, y: y.value8!);
+    // ReSharper restore NullableWarningSuppressionIsUsed
 
     /// <summary>
     ///     Determines whether two instances differ, by negating <see cref="op_Equality" />.
@@ -5606,6 +5775,7 @@ public struct Either<T1, T2, T3, T4, T5, T6, T7, T8>
     ///     <see cref="EqualityComparer{T}.Default" /> looks for, so that comparing these in a
     ///     collection does not box both operands the way <see cref="Equals(object)" /> must.
     /// </remarks>
+    // ReSharper disable once InheritdocConsiderUsage
     public bool Equals(Either<T1, T2, T3, T4, T5, T6, T7, T8> other) => this == other;
 
     /// <summary>
@@ -5617,14 +5787,47 @@ public struct Either<T1, T2, T3, T4, T5, T6, T7, T8>
         unchecked
         {
             int hashCode = this.valueType;
-            hashCode = (hashCode * 397) ^ EqualityComparer<T1>.Default.GetHashCode(this.value1!);
-            hashCode = (hashCode * 397) ^ EqualityComparer<T2>.Default.GetHashCode(this.value2!);
-            hashCode = (hashCode * 397) ^ EqualityComparer<T3>.Default.GetHashCode(this.value3!);
-            hashCode = (hashCode * 397) ^ EqualityComparer<T4>.Default.GetHashCode(this.value4!);
-            hashCode = (hashCode * 397) ^ EqualityComparer<T5>.Default.GetHashCode(this.value5!);
-            hashCode = (hashCode * 397) ^ EqualityComparer<T6>.Default.GetHashCode(this.value6!);
-            hashCode = (hashCode * 397) ^ EqualityComparer<T7>.Default.GetHashCode(this.value7!);
-            hashCode = (hashCode * 397) ^ EqualityComparer<T8>.Default.GetHashCode(this.value8!);
+
+            if (this.value1 is not null)
+            {
+                hashCode = (hashCode * 397) ^ EqualityComparer<T1>.Default.GetHashCode(this.value1);
+            }
+
+            if (this.value2 is not null)
+            {
+                hashCode = (hashCode * 397) ^ EqualityComparer<T2>.Default.GetHashCode(this.value2);
+            }
+
+            if (this.value3 is not null)
+            {
+                hashCode = (hashCode * 397) ^ EqualityComparer<T3>.Default.GetHashCode(this.value3);
+            }
+
+            if (this.value4 is not null)
+            {
+                hashCode = (hashCode * 397) ^ EqualityComparer<T4>.Default.GetHashCode(this.value4);
+            }
+
+            if (this.value5 is not null)
+            {
+                hashCode = (hashCode * 397) ^ EqualityComparer<T5>.Default.GetHashCode(this.value5);
+            }
+
+            if (this.value6 is not null)
+            {
+                hashCode = (hashCode * 397) ^ EqualityComparer<T6>.Default.GetHashCode(this.value6);
+            }
+
+            if (this.value7 is not null)
+            {
+                hashCode = (hashCode * 397) ^ EqualityComparer<T7>.Default.GetHashCode(this.value7);
+            }
+
+            if (this.value8 is not null)
+            {
+                hashCode = (hashCode * 397) ^ EqualityComparer<T8>.Default.GetHashCode(this.value8);
+            }
+
             return hashCode;
         }
     }
@@ -5635,12 +5838,12 @@ public struct Either<T1, T2, T3, T4, T5, T6, T7, T8>
     /// <returns>The name of the case held, followed by the value it holds.</returns>
     public override string ToString() =>
         this.Match(
-            onFirst: v1 => $"First: {v1}",
-            onSecond: v2 => $"Second: {v2}",
-            onThird: v3 => $"Third: {v3}",
-            onFourth: v4 => $"Fourth: {v4}",
-            onFifth: v5 => $"Fifth: {v5}",
-            onSixth: v6 => $"Sixth: {v6}",
-            onSeventh: v7 => $"Seventh: {v7}",
-            onEighth: v8 => $"Eighth: {v8}");
+            onFirst: static v1 => $"First: {v1}",
+            onSecond: static v2 => $"Second: {v2}",
+            onThird: static v3 => $"Third: {v3}",
+            onFourth: static v4 => $"Fourth: {v4}",
+            onFifth: static v5 => $"Fifth: {v5}",
+            onSixth: static v6 => $"Sixth: {v6}",
+            onSeventh: static v7 => $"Seventh: {v7}",
+            onEighth: static v8 => $"Eighth: {v8}");
 }

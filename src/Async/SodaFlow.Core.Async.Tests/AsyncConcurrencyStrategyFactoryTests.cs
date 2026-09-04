@@ -24,8 +24,8 @@ public class AsyncConcurrencyStrategyFactoryTests
                 errors: errors,
                 operation: op.Operation,
                 strategy: AsyncConcurrencyStrategyFactory.Parallel("unused"),
-                inputConverter: v => v,
-                resultConverter: v => v);
+                inputConverter: static v => v,
+                resultConverter: static v => v);
 
         source.Send("a");
         source.Send("b");
@@ -46,6 +46,54 @@ public class AsyncConcurrencyStrategyFactoryTests
     }
 
     [Test]
+    public void Parallel_BothStartImmediatelyAndPublishInCompletionOrderWithFailures()
+    {
+        StreamSink<string> source = Stream.CreateSink<string>();
+        StreamSink<string> results = Stream.CreateSink<string>();
+        StreamSink<Exception> errors = Stream.CreateSink<Exception>();
+        ControlledOperation<string, string> op = new();
+        List<object> received = new();
+        IListener l = results.ListenStrong(received.Add);
+        IListener l2 = errors.ListenStrong(received.Add);
+
+        AsyncMapStatus<string> status =
+            source.MapAsyncImpl(
+                results: results,
+                errors: errors,
+                operation: op.Operation,
+                strategy: AsyncConcurrencyStrategyFactory.Parallel("unused"),
+                inputConverter: static v => v,
+                resultConverter: static v => v);
+
+        source.Send("a");
+        source.Send("b");
+        source.Send("c");
+        source.Send("d");
+
+        TestUtil.WaitUntil(() => op.HasStarted("a") && op.HasStarted("b"));
+
+        Exception b = new("D");
+        Exception d = new("D");
+
+        // Both admitted and started before either is released — proves Parallel never waits.
+        op.Fail(input: "d", error: d);
+        TestUtil.WaitUntil(() => received.Count == 1);
+        op.Release(input: "c", result: "C");
+        TestUtil.WaitUntil(() => received.Count == 2);
+        op.Fail(input: "b", error: b);
+        TestUtil.WaitUntil(() => received.Count == 3);
+        op.Release(input: "a", result: "A");
+        TestUtil.WaitUntil(() => received.Count == 4);
+
+        // Completion order, not submission order.
+        CollectionAssert.AreEqual(expected: new object[] { d, "C", b, "A" }, actual: received);
+
+        status.Dispose();
+        l.Unlisten();
+        l2.Unlisten();
+    }
+
+    [Test]
     public void Queue_SecondDoesNotStartUntilFirstCompletes()
     {
         StreamSink<string> source = Stream.CreateSink<string>();
@@ -61,8 +109,8 @@ public class AsyncConcurrencyStrategyFactoryTests
                 errors: errors,
                 operation: op.Operation,
                 strategy: AsyncConcurrencyStrategyFactory.Queue<string>(),
-                inputConverter: v => v,
-                resultConverter: v => v);
+                inputConverter: static v => v,
+                resultConverter: static v => v);
 
         source.Send("a");
         source.Send("b");
@@ -98,17 +146,14 @@ public class AsyncConcurrencyStrategyFactoryTests
         List<string> received = new();
         IListener l = results.ListenStrong(received.Add);
 
-        // Group is the character before the hyphen: "g1-a"/"g1-b" share a group, "g2-a" doesn't.
-        string GetGroup(string v) => v.Split('-')[0];
-
         AsyncMapStatus<string> status =
             source.MapAsyncImpl(
                 results: results,
                 errors: errors,
                 operation: op.Operation,
                 strategy: AsyncConcurrencyStrategyFactory.QueuePerGroup<string, string, string>(GetGroup),
-                inputConverter: v => v,
-                resultConverter: v => v);
+                inputConverter: static v => v,
+                resultConverter: static v => v);
 
         source.Send("g1-a");
         source.Send("g1-b");
@@ -129,6 +174,10 @@ public class AsyncConcurrencyStrategyFactoryTests
 
         status.Dispose();
         l.Unlisten();
+        return;
+
+        // Group is the character before the hyphen: "g1-a"/"g1-b" share a group, "g2-a" doesn't.
+        static string GetGroup(string v) => v.Split('-')[0];
     }
 
     [Test]
@@ -147,8 +196,8 @@ public class AsyncConcurrencyStrategyFactoryTests
                 errors: errors,
                 operation: op.Operation,
                 strategy: AsyncConcurrencyStrategyFactory.SwitchLatest<string>(),
-                inputConverter: v => v,
-                resultConverter: v => v);
+                inputConverter: static v => v,
+                resultConverter: static v => v);
 
         source.Send("a");
         TestUtil.WaitUntil(() => op.HasStarted("a"));
@@ -156,12 +205,12 @@ public class AsyncConcurrencyStrategyFactoryTests
         source.Send("b");
         TestUtil.WaitUntil(() => op.HasStarted("b"));
 
-        // "a" is still in flight when it's superseded; releasing it must not publish.
+        // Object "a" is still in flight when it's superseded; releasing it must not publish.
         op.Release(input: "a", result: "A");
         op.Release(input: "b", result: "B");
         TestUtil.WaitUntil(() => received.Count == 1);
 
-        // Give "a" a fair chance to have published if the supersede logic were broken.
+        // Give object "a" a fair chance to have published if the supersede logic were broken.
         Thread.Sleep(100);
 
         CollectionAssert.AreEqual(expected: new[] { "B" }, actual: received);
@@ -195,8 +244,8 @@ public class AsyncConcurrencyStrategyFactoryTests
                 errors: errors1,
                 operation: op1.Operation,
                 strategy: sharedQueue,
-                inputConverter: v => v,
-                resultConverter: v => v);
+                inputConverter: static v => v,
+                resultConverter: static v => v);
 
         AsyncMapStatus<string> status2 =
             source2.MapAsyncImpl(
@@ -204,8 +253,8 @@ public class AsyncConcurrencyStrategyFactoryTests
                 errors: errors2,
                 operation: op2.Operation,
                 strategy: sharedQueue,
-                inputConverter: v => v,
-                resultConverter: v => v);
+                inputConverter: static v => v,
+                resultConverter: static v => v);
 
         source1.Send("x");
 

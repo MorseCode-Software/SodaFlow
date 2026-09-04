@@ -127,7 +127,7 @@ let map f (behavior: Behavior<_>) = behavior.MapImpl(Func<_, _> f)
 ///     input behavior's current value.
 /// </returns>
 /// <remarks>
-///     The primitive all of the <c>lift</c> functions are built from. Reach for <c>lift2</c> and
+///     The primitive all the <c>lift</c> functions are built from. Reach for <c>lift2</c> and
 ///     its siblings first; this is for the cases they do not cover.
 /// </remarks>
 [<MethodImpl(MethodImplOptions.NoInlining)>]
@@ -146,10 +146,10 @@ let apply f (behavior: Behavior<_>) =
 /// </returns>
 /// <remarks>
 ///     Glitch-free: when several of the inputs change in one transaction, the result updates
-///     once, with all of the new values, rather than once per input.
+///     once, with all the new values, rather than once per input.
 /// </remarks>
 [<MethodImpl(MethodImplOptions.NoInlining)>]
-let lift2 f ((behavior: Behavior<_>), behavior2) =
+let lift2 f (behavior: Behavior<_>, behavior2) =
     behavior.LiftImpl(behavior2, Func<_, _, _> f)
 
 /// <summary>
@@ -165,10 +165,10 @@ let lift2 f ((behavior: Behavior<_>), behavior2) =
 /// </returns>
 /// <remarks>
 ///     Glitch-free: when several of the inputs change in one transaction, the result updates
-///     once, with all of the new values, rather than once per input.
+///     once, with all the new values, rather than once per input.
 /// </remarks>
 [<MethodImpl(MethodImplOptions.NoInlining)>]
-let lift3 f ((behavior: Behavior<_>), behavior2, behavior3) =
+let lift3 f (behavior: Behavior<_>, behavior2, behavior3) =
     behavior.LiftImpl(behavior2, behavior3, Func<_, _, _, _> f)
 
 /// <summary>
@@ -185,10 +185,10 @@ let lift3 f ((behavior: Behavior<_>), behavior2, behavior3) =
 /// </returns>
 /// <remarks>
 ///     Glitch-free: when several of the inputs change in one transaction, the result updates
-///     once, with all of the new values, rather than once per input.
+///     once, with all the new values, rather than once per input.
 /// </remarks>
 [<MethodImpl(MethodImplOptions.NoInlining)>]
-let lift4 f ((behavior: Behavior<_>), behavior2, behavior3, behavior4) =
+let lift4 f (behavior: Behavior<_>, behavior2, behavior3, behavior4) =
     behavior.LiftImpl(behavior2, behavior3, behavior4, Func<_, _, _, _, _> f)
 
 /// <summary>
@@ -206,10 +206,10 @@ let lift4 f ((behavior: Behavior<_>), behavior2, behavior3, behavior4) =
 /// </returns>
 /// <remarks>
 ///     Glitch-free: when several of the inputs change in one transaction, the result updates
-///     once, with all of the new values, rather than once per input.
+///     once, with all the new values, rather than once per input.
 /// </remarks>
 [<MethodImpl(MethodImplOptions.NoInlining)>]
-let lift5 f ((behavior: Behavior<_>), behavior2, behavior3, behavior4, behavior5) =
+let lift5 f (behavior: Behavior<_>, behavior2, behavior3, behavior4, behavior5) =
     behavior.LiftImpl(behavior2, behavior3, behavior4, behavior5, Func<_, _, _, _, _, _> f)
 
 /// <summary>
@@ -228,10 +228,10 @@ let lift5 f ((behavior: Behavior<_>), behavior2, behavior3, behavior4, behavior5
 /// </returns>
 /// <remarks>
 ///     Glitch-free: when several of the inputs change in one transaction, the result updates
-///     once, with all of the new values, rather than once per input.
+///     once, with all the new values, rather than once per input.
 /// </remarks>
 [<MethodImpl(MethodImplOptions.NoInlining)>]
-let lift6 f ((behavior: Behavior<_>), behavior2, behavior3, behavior4, behavior5, behavior6) =
+let lift6 f (behavior: Behavior<_>, behavior2, behavior3, behavior4, behavior5, behavior6) =
     behavior.LiftImpl(behavior2, behavior3, behavior4, behavior5, behavior6, Func<_, _, _, _, _, _, _> f)
 
 /// <summary>
@@ -251,7 +251,7 @@ let lift6 f ((behavior: Behavior<_>), behavior2, behavior3, behavior4, behavior5
 /// </returns>
 /// <remarks>
 ///     Glitch-free: when several of the inputs change in one transaction, the result updates
-///     once, with all of the new values, rather than once per input.
+///     once, with all the new values, rather than once per input.
 /// </remarks>
 let lift7 f (behavior, behavior2, behavior3, behavior4, behavior5, behavior6, behavior7) =
     ((behavior, behavior2, behavior3, behavior4, behavior5, behavior6)
@@ -277,7 +277,7 @@ let lift7 f (behavior, behavior2, behavior3, behavior4, behavior5, behavior6, be
 /// </returns>
 /// <remarks>
 ///     Glitch-free: when several of the inputs change in one transaction, the result updates
-///     once, with all of the new values, rather than once per input.
+///     once, with all the new values, rather than once per input.
 /// </remarks>
 let lift8 f (behavior, behavior2, behavior3, behavior4, behavior5, behavior6, behavior7, behavior8) =
     ((behavior, behavior2, behavior3, behavior4, behavior5, behavior6)
@@ -299,7 +299,7 @@ let private liftAllSeq f (behaviors: seq<'Behavior>) =
 /// </summary>
 /// <param name="f">Combines the current values, given in the order the behaviors were supplied.</param>
 /// <param name="behaviors">The behaviors to combine.</param>
-/// <returns>A behavior whose value is <paramref name="f" /> applied to all of the current values.</returns>
+/// <returns>A behavior whose value is <paramref name="f" /> applied to all the current values.</returns>
 /// <remarks>
 ///     The <c>lift</c> family where the number of inputs is not known until run time. Glitch-free
 ///     in the same way: however many of the inputs change in one transaction, the result updates

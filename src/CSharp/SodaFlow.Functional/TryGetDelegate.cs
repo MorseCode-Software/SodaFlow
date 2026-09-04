@@ -1,4 +1,6 @@
-﻿namespace SodaFlow.Functional;
+﻿using JetBrains.Annotations;
+
+namespace SodaFlow.Functional;
 
 /// <summary>
 ///     A method which produces a value if it can, reporting whether it did through its return
@@ -18,7 +20,8 @@
 ///     <see cref="Maybe.FromTryGet{TResult}" /> turn any such method into a
 ///     <see cref="Maybe{T}" />, including ones this library knows nothing about.
 /// </remarks>
-public delegate bool TryGet<TResult>(out TResult result);
+[PublicAPI]
+public delegate bool TryGetDelegate<TResult>(out TResult result);
 
 /// <summary>
 ///     A method which produces a value from one input if it can, reporting whether it did

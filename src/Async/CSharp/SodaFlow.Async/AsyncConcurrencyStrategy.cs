@@ -10,6 +10,7 @@ namespace SodaFlow.Async;
 ///     <see cref="Unit" />.
 /// </summary>
 [PublicAPI]
+// ReSharper disable once InheritdocConsiderUsage
 public abstract class AsyncConcurrencyStrategy<TInput, TState>
     : AsyncConcurrencyStrategy<TInput, Unit, TState>
 {
@@ -20,6 +21,7 @@ public abstract class AsyncConcurrencyStrategy<TInput, TState>
 ///     <see cref="Unit" />.
 /// </summary>
 [PublicAPI]
+// ReSharper disable once InheritdocConsiderUsage
 public abstract class AsyncConcurrencyStrategy<TState>
     : AsyncConcurrencyStrategy<Unit, Unit, TState>
 {
@@ -42,6 +44,7 @@ public abstract class AsyncConcurrencyStrategy<TState>
 ///     without spelling out <see cref="Unit" /> twice.
 /// </summary>
 [PublicAPI]
+// ReSharper disable once InheritdocConsiderUsage
 public abstract class AsyncConcurrencyStrategy
     : AsyncConcurrencyStrategy<Unit, Unit, Unit>
 {

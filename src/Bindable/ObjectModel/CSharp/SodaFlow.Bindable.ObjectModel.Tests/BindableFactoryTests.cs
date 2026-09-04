@@ -17,6 +17,7 @@ public class BindableFactoryTests
     ///     Records that it was asked, then behaves like the immediate scheduler so the bindable
     ///     under test still works.
     /// </summary>
+    // ReSharper disable once InheritdocConsiderUsage
     private sealed class RecordingScheduler : IBindingScheduler
     {
         public int Posts { get; private set; }
@@ -34,13 +35,12 @@ public class BindableFactoryTests
         RecordingScheduler scheduler = new();
         CellSink<int> c = Cell.CreateSink(0);
 
-        using (IOneWayBindableValue<int> b = new BindableFactory(scheduler).ToOneWay(c))
-        {
-            c.Send(1);
+        using IOneWayBindableValue<int> b = new BindableFactory(scheduler).CreateOneWay(c);
 
-            Assert.AreEqual(expected: 1, actual: b.Value);
-            Assert.AreEqual(expected: 1, actual: scheduler.Posts);
-        }
+        c.Send(1);
+
+        Assert.AreEqual(expected: 1, actual: b.Value);
+        Assert.AreEqual(expected: 1, actual: scheduler.Posts);
     }
 
     [Test]
@@ -49,13 +49,12 @@ public class BindableFactoryTests
         RecordingScheduler scheduler = new();
         CellSink<int> c = Cell.CreateSink(0);
 
-        using (ITwoWayBindableValue<int> b = new BindableFactory(scheduler).ToTwoWay(c))
-        {
-            c.Send(1);
+        using ITwoWayBindableValue<int> b = new BindableFactory(scheduler).CreateTwoWay(c);
 
-            Assert.AreEqual(expected: 1, actual: b.Value);
-            Assert.GreaterOrEqual(arg1: scheduler.Posts, arg2: 1);
-        }
+        c.Send(1);
+
+        Assert.AreEqual(expected: 1, actual: b.Value);
+        Assert.GreaterOrEqual(arg1: scheduler.Posts, arg2: 1);
     }
 
     // The two command overloads were the ones that dropped it, and a command built without the
@@ -66,20 +65,19 @@ public class BindableFactoryTests
         RecordingScheduler scheduler = new();
         CellSink<bool> enabled = Cell.CreateSink(false);
 
-        using (IBindableAction<int> a =
-               new BindableFactory(scheduler).ToBindableAction(
-                   firingsStreamSink: Stream.CreateSink<int>(),
-                   isEnabledCell: enabled))
-        {
-            enabled.Send(true);
+        using IBindableAction<int> a =
+            new BindableFactory(scheduler).CreateBindableAction(
+                firingsStreamSink: Stream.CreateSink<int>(),
+                isEnabledCell: enabled);
 
-            Assert.IsTrue(a.CanExecute(null));
+        enabled.Send(true);
 
-            Assert.AreEqual(
-                expected: 1,
-                actual: scheduler.Posts,
-                message: "the enablement change went through the injected scheduler");
-        }
+        Assert.IsTrue(a.CanExecute(null));
+
+        Assert.AreEqual(
+            expected: 1,
+            actual: scheduler.Posts,
+            message: "the enablement change went through the injected scheduler");
     }
 
     [Test]
@@ -88,20 +86,19 @@ public class BindableFactoryTests
         RecordingScheduler scheduler = new();
         CellSink<bool> enabled = Cell.CreateSink(false);
 
-        using (IBindableAction a =
-               new BindableFactory(scheduler).ToBindableAction(
-                   firingsStreamSink: Stream.CreateSink<Unit>(),
-                   isEnabledCell: enabled))
-        {
-            enabled.Send(true);
+        using IBindableAction a =
+            new BindableFactory(scheduler).CreateBindableAction(
+                firingsStreamSink: Stream.CreateSink<Unit>(),
+                isEnabledCell: enabled);
 
-            Assert.IsTrue(a.CanExecute(null));
+        enabled.Send(true);
 
-            Assert.AreEqual(
-                expected: 1,
-                actual: scheduler.Posts,
-                message: "the enablement change went through the injected scheduler");
-        }
+        Assert.IsTrue(a.CanExecute(null));
+
+        Assert.AreEqual(
+            expected: 1,
+            actual: scheduler.Posts,
+            message: "the enablement change went through the injected scheduler");
     }
 
     [Test]
@@ -110,8 +107,9 @@ public class BindableFactoryTests
         StreamSink<Unit> sink = Stream.CreateSink<Unit>();
         List<Unit> fired = new();
 
-        using (IBindableAction a =
-               new BindableFactory(BindingScheduler.Immediate).ToBindableAction(sink))
+        using IBindableAction a =
+            new BindableFactory(BindingScheduler.Immediate).CreateBindableAction(sink);
+
         using (a.FiringsStream.ListenStrong(fired.Add))
         {
             // Whatever the XAML author bound CommandParameter to, a parameterless command has no

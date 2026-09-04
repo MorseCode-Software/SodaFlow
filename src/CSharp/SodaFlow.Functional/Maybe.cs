@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
+using JetBrains.Annotations;
 
 namespace SodaFlow.Functional;
 
@@ -8,6 +9,7 @@ namespace SodaFlow.Functional;
 ///     Constructors for <see cref="Maybe{T}" /> which do not require the type argument to be
 ///     written out.
 /// </summary>
+[PublicAPI]
 public static class Maybe
 {
     /// <summary>
@@ -19,7 +21,7 @@ public static class Maybe
     ///     is available - a ternary whose other branch is also untyped, for instance - use
     ///     <see cref="Maybe{T}.None" /> instead.
     /// </remarks>
-    public static readonly NoneType None = new();
+    public static readonly NoneType None;
 
     /// <summary>
     ///     Creates a <see cref="Maybe{T}" /> containing the given value.
@@ -31,7 +33,7 @@ public static class Maybe
     ///     A <see langword="null" /> value is contained like any other: this produces a
     ///     <see cref="Maybe{T}" /> which has a value, and that value is <see langword="null" />.
     /// </remarks>
-    [JetBrains.Annotations.Pure]
+    [Pure]
     public static Maybe<T> Some<T>(T value) => Maybe<T>.Some(value);
 
     /// <summary>
@@ -52,7 +54,7 @@ public static class Maybe
     ///     since it is an argument; where that is not wanted, use
     ///     <see cref="SomeIf{T}(bool,System.Func{T})" />.
     /// </remarks>
-    [JetBrains.Annotations.Pure]
+    [Pure]
     public static Maybe<T> SomeIf<T>(bool condition, T value) => condition ? Some(value) : None;
 
     /// <summary>
@@ -72,10 +74,10 @@ public static class Maybe
     ///     this is the form to reach for when producing the value is expensive, or when producing it
     ///     is only valid in that case.
     /// </remarks>
-    [JetBrains.Annotations.Pure]
+    [Pure]
     public static Maybe<T> SomeIf<T>(
         bool condition,
-        [JetBrains.Annotations.InstantHandle] Func<T> valueFactory) =>
+        [InstantHandle] Func<T> valueFactory) =>
         condition ? Some(valueFactory()) : None;
 
     /// <summary>
@@ -95,7 +97,7 @@ public static class Maybe
     ///     <see cref="Maybe{T}" /> of a nullable type distinguish no value at all from a value
     ///     which is <see langword="null" />.
     /// </remarks>
-    [JetBrains.Annotations.Pure]
+    [Pure]
     public static Maybe<T> SomeNotNull<T>(T? value)
         where T : class =>
         value == null ? None : Some(value);
@@ -110,7 +112,7 @@ public static class Maybe
     ///     A <see cref="Maybe{T}" /> containing the value of <paramref name="value" /> if it has
     ///     one, and one containing no value otherwise.
     /// </returns>
-    [JetBrains.Annotations.Pure]
+    [Pure]
     public static Maybe<T> SomeNotNull<T>(T? value)
         where T : struct =>
         value.HasValue ? Some(value.Value) : None;
@@ -129,12 +131,9 @@ public static class Maybe
     ///     <see cref="ReadOnlyDictionaryExtensionMethods" /> - cover the common cases. This is for
     ///     the ones it does not know about: your own, or another library.
     /// </remarks>
-    [JetBrains.Annotations.Pure]
-    public static Maybe<TResult> FromTryGet<TResult>([JetBrains.Annotations.InstantHandle] TryGet<TResult> tryGet)
-    {
-        TResult result;
-        return tryGet(out result) ? Some(result) : None;
-    }
+    [Pure]
+    public static Maybe<TResult> FromTryGet<TResult>([InstantHandle] TryGetDelegate<TResult> tryGet) =>
+        tryGet(out TResult result) ? Some(result) : None;
 
     /// <summary>
     ///     Runs a method of the <c>bool Try...(T, out TResult)</c> shape against the given input and
@@ -153,14 +152,11 @@ public static class Maybe
     ///     own for them to be inferred from:
     ///     <c>Maybe.FromTryGet&lt;string, int&gt;(s, int.TryParse)</c>.
     /// </remarks>
-    [JetBrains.Annotations.Pure]
+    [Pure]
     public static Maybe<TResult> FromTryGet<T, TResult>(
         T value,
-        [JetBrains.Annotations.InstantHandle] TryGet<T, TResult> tryGet)
-    {
-        TResult result;
-        return tryGet(value: value, result: out result) ? Some(result) : None;
-    }
+        [InstantHandle] TryGet<T, TResult> tryGet) =>
+        tryGet(value: value, result: out TResult result) ? Some(result) : None;
 
     /// <summary>
     ///     Runs a method of the <c>bool Try...(T1, T2, out TResult)</c> shape against the given
@@ -176,15 +172,12 @@ public static class Maybe
     ///     A <see cref="Maybe{T}" /> containing the output of <paramref name="tryGet" /> if it
     ///     returned <see langword="true" />, and one containing no value otherwise.
     /// </returns>
-    [JetBrains.Annotations.Pure]
+    [Pure]
     public static Maybe<TResult> FromTryGet<T1, T2, TResult>(
         T1 value1,
         T2 value2,
-        [JetBrains.Annotations.InstantHandle] TryGet<T1, T2, TResult> tryGet)
-    {
-        TResult result;
-        return tryGet(value1: value1, value2: value2, result: out result) ? Some(result) : None;
-    }
+        [InstantHandle] TryGet<T1, T2, TResult> tryGet) =>
+        tryGet(value1: value1, value2: value2, result: out TResult result) ? Some(result) : None;
 
     /// <summary>
     ///     Runs a method of the <c>bool Try...(T1, T2, T3, out TResult)</c> shape against the given
@@ -202,16 +195,13 @@ public static class Maybe
     ///     A <see cref="Maybe{T}" /> containing the output of <paramref name="tryGet" /> if it
     ///     returned <see langword="true" />, and one containing no value otherwise.
     /// </returns>
-    [JetBrains.Annotations.Pure]
+    [Pure]
     public static Maybe<TResult> FromTryGet<T1, T2, T3, TResult>(
         T1 value1,
         T2 value2,
         T3 value3,
-        [JetBrains.Annotations.InstantHandle] TryGet<T1, T2, T3, TResult> tryGet)
-    {
-        TResult result;
-        return tryGet(value1: value1, value2: value2, value3: value3, result: out result) ? Some(result) : None;
-    }
+        [InstantHandle] TryGet<T1, T2, T3, TResult> tryGet) =>
+        tryGet(value1: value1, value2: value2, value3: value3, result: out TResult result) ? Some(result) : None;
 
     /// <summary>
     ///     The type of <see cref="Maybe.None" />: a value carrying no information, whose only
@@ -236,6 +226,8 @@ public static class Maybe
 ///     This is a struct, so <see langword="default" /> is a valid instance and contains nothing -
 ///     the same as <see cref="None" />.
 /// </remarks>
+[PublicAPI]
+// ReSharper disable once InheritdocConsiderUsage
 public struct Maybe<T> : IMaybe, IEquatable<Maybe<T>>, IComparable<Maybe<T>>
 {
     private readonly bool hasValue;
@@ -258,7 +250,7 @@ public struct Maybe<T> : IMaybe, IEquatable<Maybe<T>>, IComparable<Maybe<T>>
     ///     <see cref="Maybe.Some{T}" /> is usually more convenient, since it infers the type
     ///     argument from the value.
     /// </remarks>
-    [JetBrains.Annotations.Pure]
+    [Pure]
     public static Maybe<T> Some(T value) => new(value);
 
     /// <summary>
@@ -269,7 +261,7 @@ public struct Maybe<T> : IMaybe, IEquatable<Maybe<T>>, IComparable<Maybe<T>>
     ///     <see cref="Maybe{T}" /> the context calls for. Use this where no such conversion is
     ///     available.
     /// </remarks>
-    public static readonly Maybe<T> None = new();
+    public static readonly Maybe<T> None;
 
     #endregion
 
@@ -291,6 +283,8 @@ public struct Maybe<T> : IMaybe, IEquatable<Maybe<T>>, IComparable<Maybe<T>>
     ///     returns.
     /// </remarks>
     public TResult Match<TResult>(Func<T, TResult> onSome, Func<TResult> onNone) =>
+        // ReSharper disable once NullableWarningSuppressionIsUsed - If hasValue is true, then value will have a
+        // non-null value.
         this.hasValue ? onSome(this.value!) : onNone();
 
     #endregion
@@ -304,8 +298,8 @@ public struct Maybe<T> : IMaybe, IEquatable<Maybe<T>>, IComparable<Maybe<T>>
     /// <param name="onSome">Run with the contained value when one is present.</param>
     /// <param name="onNone">Run when no value is present.</param>
     public void MatchVoid(
-        [JetBrains.Annotations.InstantHandle] Action<T> onSome,
-        [JetBrains.Annotations.InstantHandle] Action onNone) =>
+        [InstantHandle] Action<T> onSome,
+        [InstantHandle] Action onNone) =>
         this.Match(onSome: onSome.ToFunc(), onNone: onNone.ToFunc());
 
     // ReSharper disable once ReturnValueOfPureMethodIsNotUsed
@@ -313,10 +307,10 @@ public struct Maybe<T> : IMaybe, IEquatable<Maybe<T>>, IComparable<Maybe<T>>
     ///     Runs an action with the contained value if one is present, and otherwise does nothing.
     /// </summary>
     /// <param name="onSome">Run with the contained value when one is present.</param>
-    public void MatchSome([JetBrains.Annotations.InstantHandle] Action<T> onSome) =>
+    public void MatchSome([InstantHandle] Action<T> onSome) =>
         this.MatchVoid(
             onSome: onSome,
-            onNone: () =>
+            onNone: static () =>
             {
             });
 
@@ -325,9 +319,9 @@ public struct Maybe<T> : IMaybe, IEquatable<Maybe<T>>, IComparable<Maybe<T>>
     ///     Runs an action if no value is present, and otherwise does nothing.
     /// </summary>
     /// <param name="onNone">Run when no value is present.</param>
-    public void MatchNone([JetBrains.Annotations.InstantHandle] Action onNone) =>
+    public void MatchNone([InstantHandle] Action onNone) =>
         this.MatchVoid(
-            onSome: _ =>
+            onSome: static _ =>
             {
             },
             onNone: onNone);
@@ -345,8 +339,8 @@ public struct Maybe<T> : IMaybe, IEquatable<Maybe<T>>, IComparable<Maybe<T>>
     ///     failures surface as that task faulting rather than as an exception from this call.
     /// </remarks>
     public Task<TResult> MatchAsync<TResult>(
-        [JetBrains.Annotations.InstantHandle] Func<T, Task<TResult>> onSome,
-        [JetBrains.Annotations.InstantHandle] Func<Task<TResult>> onNone) =>
+        [InstantHandle] Func<T, Task<TResult>> onSome,
+        [InstantHandle] Func<Task<TResult>> onNone) =>
         this.Match(onSome: onSome, onNone: onNone);
 
     /// <summary>
@@ -356,8 +350,8 @@ public struct Maybe<T> : IMaybe, IEquatable<Maybe<T>>, IComparable<Maybe<T>>
     /// <param name="onNone">Run when no value is present.</param>
     /// <returns>A task which completes when the selected action has completed.</returns>
     public Task MatchAsyncVoid(
-        [JetBrains.Annotations.InstantHandle] Func<T, Task> onSome,
-        [JetBrains.Annotations.InstantHandle] Func<Task> onNone) =>
+        [InstantHandle] Func<T, Task> onSome,
+        [InstantHandle] Func<Task> onNone) =>
         this.MatchAsync(onSome: onSome.ToAsyncFunc(), onNone: onNone.ToAsyncFunc());
 
     /// <summary>
@@ -369,8 +363,8 @@ public struct Maybe<T> : IMaybe, IEquatable<Maybe<T>>, IComparable<Maybe<T>>
     ///     A task which completes when the action has completed, or an already completed task if no
     ///     value is present.
     /// </returns>
-    public Task MatchSomeAsync([JetBrains.Annotations.InstantHandle] Func<T, Task> onSome) =>
-        this.MatchAsyncVoid(onSome: onSome, onNone: () => Task.FromResult(false));
+    public Task MatchSomeAsync([InstantHandle] Func<T, Task> onSome) =>
+        this.MatchAsyncVoid(onSome: onSome, onNone: static () => Task.FromResult(false));
 
     /// <summary>
     ///     Runs an asynchronous action if no value is present, and otherwise does nothing.
@@ -380,8 +374,8 @@ public struct Maybe<T> : IMaybe, IEquatable<Maybe<T>>, IComparable<Maybe<T>>
     ///     A task which completes when the action has completed, or an already completed task if a
     ///     value is present.
     /// </returns>
-    public Task MatchNoneAsync([JetBrains.Annotations.InstantHandle] Func<Task> onNone) =>
-        this.MatchAsyncVoid(onSome: _ => Task.FromResult(false), onNone: onNone);
+    public Task MatchNoneAsync([InstantHandle] Func<Task> onNone) =>
+        this.MatchAsyncVoid(onSome: static _ => Task.FromResult(false), onNone: onNone);
 
     /// <summary>
     ///     Map the <see cref="Maybe{T}" /> value using a mapping function if a value exists, or propogate the None value if
@@ -393,8 +387,7 @@ public struct Maybe<T> : IMaybe, IEquatable<Maybe<T>>, IComparable<Maybe<T>>
     ///     The <see cref="Maybe{TResult}" /> which results from transforming this <see cref="Maybe{T}" /> using
     ///     <paramref name="f" />.
     /// </returns>
-    public Maybe<TResult> Map<TResult>([JetBrains.Annotations.InstantHandle] Func<T, TResult> f) =>
-        this.Bind(v => Maybe.Some(f(v)));
+    public Maybe<TResult> Map<TResult>([InstantHandle] Func<T, TResult> f) => this.Bind(v => Maybe.Some(f(v)));
 
     /// <summary>
     ///     Returns whether a value is present.
@@ -407,8 +400,8 @@ public struct Maybe<T> : IMaybe, IEquatable<Maybe<T>>, IComparable<Maybe<T>>
     ///     where only the presence matters; where the value is wanted, use
     ///     <see cref="Match{TResult}" /> so that both cases are handled.
     /// </remarks>
-    [JetBrains.Annotations.Pure]
-    public bool HasValue() => this.Match(onSome: v => true, onNone: () => false);
+    [Pure]
+    public bool HasValue() => this.Match(onSome: static _ => true, onNone: static () => false);
 
     // ReSharper disable once ReturnValueOfPureMethodIsNotUsed
     void IMaybe.MatchVoid(Action<object?> onSome, Action onNone) =>
@@ -419,7 +412,7 @@ public struct Maybe<T> : IMaybe, IEquatable<Maybe<T>>, IComparable<Maybe<T>>
         this.Upcast<IMaybe>()
             .MatchVoid(
                 onSome: onSome,
-                onNone: () =>
+                onNone: static () =>
                 {
                 });
 
@@ -427,7 +420,7 @@ public struct Maybe<T> : IMaybe, IEquatable<Maybe<T>>, IComparable<Maybe<T>>
     void IMaybe.MatchNone(Action onNone) =>
         this.Upcast<IMaybe>()
             .MatchVoid(
-                onSome: _ =>
+                onSome: static _ =>
                 {
                 },
                 onNone: onNone);
@@ -439,10 +432,10 @@ public struct Maybe<T> : IMaybe, IEquatable<Maybe<T>>, IComparable<Maybe<T>>
         this.Upcast<IMaybe>().MatchAsync(onSome: onSome.ToAsyncFunc(), onNone: onNone.ToAsyncFunc());
 
     Task IMaybe.MatchSomeAsync(Func<object?, Task> onSome) =>
-        this.Upcast<IMaybe>().MatchAsyncVoid(onSome: onSome, onNone: () => Task.FromResult(false));
+        this.Upcast<IMaybe>().MatchAsyncVoid(onSome: onSome, onNone: static () => Task.FromResult(false));
 
     Task IMaybe.MatchNoneAsync(Func<Task> onNone) =>
-        this.Upcast<IMaybe>().MatchAsyncVoid(onSome: _ => Task.FromResult(false), onNone: onNone);
+        this.Upcast<IMaybe>().MatchAsyncVoid(onSome: static _ => Task.FromResult(false), onNone: onNone);
 
     #endregion
 
@@ -468,7 +461,10 @@ public struct Maybe<T> : IMaybe, IEquatable<Maybe<T>>, IComparable<Maybe<T>>
     ///     <see cref="EqualityComparer{T}.Default" /> considers equal.
     /// </returns>
     public static bool operator ==(Maybe<T> x, Maybe<T> y) =>
+        // ReSharper disable NullableWarningSuppressionIsUsed - .NET 4.7.2 and .NET Standard 2.0 did not define these
+        // parameters as being nullable as they should have.
         x.hasValue == y.hasValue && EqualityComparer<T>.Default.Equals(x: x.value!, y: y.value!);
+    // ReSharper restore NullableWarningSuppressionIsUsed
 
     /// <summary>
     ///     Determines whether two instances differ, by negating <see cref="op_Equality" />.
@@ -514,6 +510,7 @@ public struct Maybe<T> : IMaybe, IEquatable<Maybe<T>>, IComparable<Maybe<T>>
     ///     type avoids allocating; that made it allocate anyway, in exactly the
     ///     collection-heavy code which would notice.
     /// </remarks>
+    // ReSharper disable once InheritdocConsiderUsage
     public bool Equals(Maybe<T> other) => this == other;
 
     /// <summary>
@@ -544,18 +541,33 @@ public struct Maybe<T> : IMaybe, IEquatable<Maybe<T>>, IComparable<Maybe<T>>
     ///     <c>!(a &lt; b)</c> stops meaning <c>a &gt;= b</c>. Sorting is what an ordering is
     ///     wanted for, and sorting goes through this method.
     /// </remarks>
+    // ReSharper disable once InheritdocConsiderUsage
     public int CompareTo(Maybe<T> other) =>
         this.Match(
             onSome: v =>
-                other.Match(onSome: otherValue => Comparer<T>.Default.Compare(x: v, y: otherValue), onNone: () => 1),
-            onNone: () => other.Match(onSome: _ => -1, onNone: () => 0));
+                other.Match(
+                    onSome: otherValue => Comparer<T>.Default.Compare(x: v, y: otherValue),
+                    onNone: static () => 1),
+            onNone: () => other.Match(onSome: static _ => -1, onNone: static () => 0));
 
     /// <summary>
     ///     Returns a hash code consistent with <see cref="op_Equality" />.
     /// </summary>
     /// <returns>A hash code for this instance.</returns>
-    public override int GetHashCode() =>
-        (this.hasValue.GetHashCode() * 397) ^ EqualityComparer<T>.Default.GetHashCode(this.value!);
+    public override int GetHashCode()
+    {
+        unchecked
+        {
+            int hashCode = this.hasValue.GetHashCode();
+
+            if (this.value is not null)
+            {
+                hashCode = (hashCode * 397) ^ EqualityComparer<T>.Default.GetHashCode(this.value);
+            }
+
+            return hashCode;
+        }
+    }
 
     /// <summary>
     ///     Returns a readable description of this instance, for diagnostics.
@@ -563,5 +575,6 @@ public struct Maybe<T> : IMaybe, IEquatable<Maybe<T>>, IComparable<Maybe<T>>
     /// <returns>
     ///     <c>{Some: value}</c> when a value is present, and <c>{None}</c> when one is not.
     /// </returns>
-    public override string ToString() => this.Match(onSome: v => $"{{Some: {v}}}", onNone: () => "{None}");
+    public override string ToString() =>
+        this.Match(onSome: static v => $"{{Some: {v}}}", onNone: static () => "{None}");
 }

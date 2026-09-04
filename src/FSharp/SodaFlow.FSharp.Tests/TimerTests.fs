@@ -11,8 +11,8 @@ open SodaFlow.Time
 type ``Timer Tests``() =
 
     [<Test>]
-    member __.``Simultaneous Timer Events``() =
-        let ts = SystemClockTimerSystem(fun e -> ()) :> ITimerSystem<DateTime>
+    member _.``Simultaneous Timer Events``() =
+        let ts = SystemClockTimerSystem(fun _ -> ()) :> ITimerSystem<DateTime>
         let time = ts.Time
         let l = List<DateTime>()
 

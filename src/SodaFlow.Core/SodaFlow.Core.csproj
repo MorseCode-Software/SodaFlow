@@ -2,6 +2,8 @@
 
     <PropertyGroup>
         <TargetFrameworks>net472;net60;netstandard2.0</TargetFrameworks>
+        <LangVersion>latest</LangVersion>
+        <Nullable>enable</Nullable>
     </PropertyGroup>
 
     <PropertyGroup>
@@ -26,6 +28,7 @@
     </PropertyGroup>
 
     <ItemGroup>
+        <PackageReference Include="JetBrains.Annotations" Version="2026.2.0" PrivateAssets="all"/>
         <PackageReference Include="System.ValueTuple" Version="4.4.0"/>
     </ItemGroup>
 
@@ -57,7 +60,6 @@
         <Compile Include="StreamSink.cs"/>
         <Compile Include="Transaction.cs"/>
         <Compile Include="Unit.cs"/>
-        <Compile Include="Utilities.cs"/>
     </ItemGroup>
 
 </Project>

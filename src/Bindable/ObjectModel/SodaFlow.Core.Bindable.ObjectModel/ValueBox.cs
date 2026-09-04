@@ -17,9 +17,9 @@ public static partial class BindableCoreExtensionMethods
     ///         A reference to an immutable box solves both halves. The assignment is a single
     ///         reference write, so a wide struct can never be read half-updated; and
     ///         <c>volatile</c> on the reference gives the release on write and acquire on read that
-    ///         publish the value along with it. That is what lets a view model build its bindables
-    ///         on whatever thread it happens to be running on, which is the whole point — a view
-    ///         model has no business knowing which thread the binding engine uses.
+    ///         publish the value along with it. That is what lets a view model build its bindable
+    ///         objects on whatever thread it happens to be running on, which is the whole point — a
+    ///         view model has no business knowing which thread the binding engine uses.
     ///     </para>
     ///     <para>
     ///         The cost is an allocation per change. A bound property changes at the rate a person

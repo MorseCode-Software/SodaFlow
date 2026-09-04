@@ -8,7 +8,7 @@ open SodaFlow
 type ``Common Tests``() =
 
     [<Test>]
-    member __.``Test Base Send 1``() =
+    member _.``Test Base Send 1``() =
         let s = sinkS ()
         let out = List<_>()
         let l = s |> listenStrongS out.Add
@@ -18,7 +18,7 @@ type ``Common Tests``() =
         CollectionAssert.AreEqual([ "a"; "b" ], out)
 
     [<Test>]
-    member __.``Test Operational Split``() =
+    member _.``Test Operational Split``() =
         let a = sinkS ()
         let b = a |> Operational.split
         let out = List<_>()
@@ -28,7 +28,7 @@ type ``Common Tests``() =
         CollectionAssert.AreEqual([ "a"; "b" ], out)
 
     [<Test>]
-    member __.``Test Operational Defer 1``() =
+    member _.``Test Operational Defer 1``() =
         let a = sinkS ()
         let b = a |> Operational.defer
         let out = List<_>()
@@ -43,7 +43,7 @@ type ``Common Tests``() =
         CollectionAssert.AreEqual([ "b" ], out)
 
     [<Test>]
-    member __.``Test Operational Defer 2``() =
+    member _.``Test Operational Defer 2``() =
         let a = sinkS ()
         let b = sinkS ()
         let c = (a |> Operational.defer, b) |> orElseS
@@ -63,7 +63,7 @@ type ``Common Tests``() =
         CollectionAssert.AreEqual([ "B"; "b" ], out)
 
     [<Test>]
-    member __.``Test Stream OrElse 1``() =
+    member _.``Test Stream OrElse 1``() =
         let a = sinkS ()
         let b = sinkS ()
         let c = (a, b) |> orElseS
@@ -93,7 +93,7 @@ type ``Common Tests``() =
         CollectionAssert.AreEqual([ 30 ], out)
 
     [<Test>]
-    member __.``Test Operational Defer Simultaneous``() =
+    member _.``Test Operational Defer Simultaneous``() =
         let a = sinkS ()
         let b = sinkS ()
         let c = (a |> Operational.defer, b |> Operational.defer) |> orElseS

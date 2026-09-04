@@ -15,6 +15,7 @@ namespace SodaFlow.Functional;
 ///     <see cref="IDictionary{TKey,TValue}" /> is in hand, reach for
 ///     <see cref="Maybe.FromTryGet{T,TResult}" /> instead.
 /// </remarks>
+[PublicAPI]
 public static class ReadOnlyDictionaryExtensionMethods
 {
     /// <summary>
@@ -51,6 +52,6 @@ public static class ReadOnlyDictionaryExtensionMethods
         // The output is declared nullable and read as not, rather than the other way round,
         // because TryGetValue is annotated to leave it null on false only on net6.0; the
         // net472 and netstandard2.0 reference assemblies carry no annotation at all.
-        return dictionary.TryGetValue(key: key, value: out TValue? value) ? Maybe.Some(value!) : Maybe.None;
+        return dictionary.TryGetValue(key: key, value: out TValue? value) ? Maybe.Some(value) : Maybe.None;
     }
 }

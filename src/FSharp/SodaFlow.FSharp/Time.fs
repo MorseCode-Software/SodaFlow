@@ -160,7 +160,7 @@ type TimerSystem<'T when 'T: comparison>(implementation: 'T ITimerSystemImplemen
                                 findMoreEvents ())
 
                     if events.Count > 0 then
-                        timeSink |> BehaviorSink.send events.[0].Time
+                        timeSink |> BehaviorSink.send events[0].Time
 
                         Transaction.run (fun () ->
                             events |> Seq.iter (fun event -> event.Alarm |> StreamSink.send event.Time))
@@ -174,9 +174,9 @@ type TimerSystem<'T when 'T: comparison>(implementation: 'T ITimerSystemImplemen
             timeSink :> 'T Behavior) ()
 
     interface 'T ITimerSystem with
-        member __.Time = time
+        member _.Time = time
 
-        member __.At t =
+        member _.At t =
             let alarm = StreamSink.create ()
             let mutable currentTimer: ITimer option = None
 
@@ -248,8 +248,8 @@ type TimerSystemImplementationBase<'T when 'T: comparison>() as this =
             callback ()
             timeUntilNext now
 
-    member internal __.LockObject = lockObject
-    member internal __.Timers = timers
+    member internal _.LockObject = lockObject
+    member internal _.Timers = timers
     member val internal NextSeq = nextSeq with get, set
 
     /// <summary>
@@ -317,7 +317,7 @@ type TimerSystemImplementationBase<'T when 'T: comparison>() as this =
             timersChanged.Set() |> ignore
             upcast timer
 
-        member __.RunTimersTo now = timeUntilNext now |> ignore
+        member _.RunTimersTo now = timeUntilNext now |> ignore
 
         member this.Now = this.Now
 
@@ -357,9 +357,9 @@ and SimpleTimer<'T when 'T: comparison>
     let cancel () =
         lock implementation.LockObject (fun () -> implementation.Timers.Remove(this) |> ignore)
 
-    member internal __.Seq = seq
-    member internal __.Time = time
-    member internal __.Callback = callback
+    member internal _.Seq = seq
+    member internal _.Time = time
+    member internal _.Callback = callback
 
     interface ITimer with
         member this.Cancel() = cancel ()
@@ -396,8 +396,8 @@ and SimpleTimer<'T when 'T: comparison>
 
 type private SystemClockTimerSystemImplementation() =
     inherit TimerSystemImplementationBase<DateTime>()
-    override __.SubtractTimes first second = first - second
-    override __.Now = DateTime.Now
+    override _.SubtractTimes first second = first - second
+    override _.Now = DateTime.Now
 
 /// <summary>
 ///     A timer system measuring time with the system clock.
@@ -414,8 +414,8 @@ type SystemClockTimerSystem(handleException: exn -> unit) =
 type private SecondsTimerSystemImplementation() =
     inherit TimerSystemImplementationBase<float>()
     let startTime = DateTime.Now
-    override __.SubtractTimes first second = TimeSpan.FromSeconds(first - second)
-    override __.Now = (DateTime.Now - startTime).TotalSeconds
+    override _.SubtractTimes first second = TimeSpan.FromSeconds(first - second)
+    override _.Now = (DateTime.Now - startTime).TotalSeconds
 
 /// <summary>
 ///     A timer system measuring time as the number of seconds elapsed since it was created.

@@ -1,22 +1,24 @@
 ﻿using System;
+using JetBrains.Annotations;
 
-namespace SodaFlow
+namespace SodaFlow;
+
+/// <summary>
+///     A stream that allows values to be pushed into it which is meant to be used as the input update stream for a
+///     <see cref="CellSink{T}" />.
+/// </summary>
+/// <typeparam name="T">The type of values in the cell sink.</typeparam>
+[PublicAPI]
+// ReSharper disable once InheritdocConsiderUsage
+public class CellStreamSink<T> : StreamSink<T>
 {
-    /// <summary>
-    ///     A stream that allows values to be pushed into it which is meant to be used as the input update stream for a
-    ///     <see cref="CellSink{T}" />.
-    /// </summary>
-    /// <typeparam name="T">The type of values in the cell sink.</typeparam>
-    public class CellStreamSink<T> : StreamSink<T>
+    internal CellStreamSink()
+        : base(static (_, right) => right)
     {
-        internal CellStreamSink()
-            : base((left, right) => right)
-        {
-        }
+    }
 
-        internal CellStreamSink(Func<T, T, T> coalesce)
-            : base(coalesce)
-        {
-        }
+    internal CellStreamSink(Func<T, T, T> coalesce)
+        : base(coalesce)
+    {
     }
 }

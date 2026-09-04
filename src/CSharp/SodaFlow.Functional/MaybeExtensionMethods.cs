@@ -8,6 +8,7 @@ namespace SodaFlow.Functional;
 /// <summary>
 ///     The operations available on a <see cref="Maybe{T}" /> and on sequences of them.
 /// </summary>
+[PublicAPI]
 public static class MaybeExtensionMethods
 {
     /// <summary>
@@ -24,7 +25,7 @@ public static class MaybeExtensionMethods
     ///     an outer containing an inner with no value both give no value.
     /// </remarks>
     [Pure]
-    public static Maybe<T> Flatten<T>(this Maybe<Maybe<T>> a) => a.Bind(v => v);
+    public static Maybe<T> Flatten<T>(this Maybe<Maybe<T>> a) => a.Bind(static v => v);
 
     /// <summary>
     ///     Returns the values from a sequence which have one, discarding the entries which do not.
@@ -38,13 +39,15 @@ public static class MaybeExtensionMethods
     /// </remarks>
     [Pure]
     public static IEnumerable<T> WhereSome<T>(this IEnumerable<Maybe<T>>? o) =>
-        (o ?? new Maybe<T>[0])
-        .Select(m =>
+        (o ?? [])
+        .Select(static m =>
             m.Match(
-                onSome: v => new ValueAndHasValue<T>(value: v, hasValue: true),
-                onNone: () => new ValueAndHasValue<T>(value: default!, hasValue: false)))
-        .Where(p => p.HasValue)
-        .Select(p => p.Value);
+                onSome: static v => new ValueAndHasValue<T>(value: v, hasValue: true),
+                onNone: static () => new ValueAndHasValue<T>(value: default, hasValue: false)))
+        .Where(static p => p.HasValue)
+        // ReSharper disable once NullableWarningSuppressionIsUsed - If HasValue is true, then Value will have a
+        // non-null value.
+        .Select(static p => p.Value!);
 
     /// <summary>
     ///     Turns a sequence of possibly-absent values into a possibly-absent sequence of values,
@@ -53,7 +56,7 @@ public static class MaybeExtensionMethods
     /// <typeparam name="T">The type of the values in the sequence.</typeparam>
     /// <param name="o">The sequence to collect. A <see langword="null" /> sequence is treated as empty.</param>
     /// <returns>
-    ///     All of the values if every entry had one, and no value if any entry did not. An empty
+    ///     All the values if every entry had one, and no value if any entry did not. An empty
     ///     sequence gives an empty sequence rather than no value.
     /// </returns>
     /// <remarks>
@@ -64,14 +67,17 @@ public static class MaybeExtensionMethods
     public static Maybe<IEnumerable<T>> AllSomeOrNone<T>(this IEnumerable<Maybe<T>>? o)
     {
         ValueAndHasValue<T>[] rr =
-            (o ?? new Maybe<T>[0])
-            .Select(m =>
+        [
+            .. (o ?? [])
+            .Select(static m =>
                 m.Match(
-                    onSome: v => new ValueAndHasValue<T>(value: v, hasValue: true),
-                    onNone: () => new ValueAndHasValue<T>(value: default!, hasValue: false)))
-            .ToArray();
+                    onSome: static v => new ValueAndHasValue<T>(value: v, hasValue: true),
+                    onNone: static () => new ValueAndHasValue<T>(value: default, hasValue: false)))
+        ];
 
-        return rr.Any(r => !r.HasValue) ? Maybe.None : Maybe.Some(rr.Select(r => r.Value));
+        // ReSharper disable once NullableWarningSuppressionIsUsed - If HasValue is true, then Value will have a
+        // non-null value.
+        return rr.Any(static r => !r.HasValue) ? Maybe.None : Maybe.Some(rr.Select(static r => r.Value!));
     }
 
     /// <summary>
@@ -83,7 +89,7 @@ public static class MaybeExtensionMethods
     /// <param name="o">The sequence to map. A <see langword="null" /> sequence is treated as empty.</param>
     /// <param name="f">Applied to each element in turn.</param>
     /// <returns>
-    ///     All of the results if <paramref name="f" /> produced a value for every element, and no
+    ///     All the results if <paramref name="f" /> produced a value for every element, and no
     ///     value if it did not produce one for any. An empty sequence gives an empty sequence
     ///     rather than no value.
     /// </returns>
@@ -101,7 +107,7 @@ public static class MaybeExtensionMethods
     public static Maybe<IEnumerable<TResult>> AllSomeOrNone<T, TResult>(
         this IEnumerable<T>? o,
         [InstantHandle] Func<T, Maybe<TResult>> f) =>
-        (o ?? new T[0]).Select(f).AllSomeOrNone();
+        (o ?? []).Select(f).AllSomeOrNone();
 
     /// <summary>
     ///     Views a <see cref="Maybe{T}" /> as a sequence of either one element or none.
@@ -119,7 +125,7 @@ public static class MaybeExtensionMethods
     /// </remarks>
     [Pure]
     public static IEnumerable<T> ToEnumerable<T>(this Maybe<T> a) =>
-        a.Match(onSome: v => new[] { v }, onNone: () => new T[0]);
+        a.Match(onSome: static v => [v], onNone: static () => Array.Empty<T>());
 
     /// <summary>
     ///     Converts a <see cref="Maybe{T}" /> of a value type into a
@@ -138,7 +144,7 @@ public static class MaybeExtensionMethods
     [Pure]
     public static T? ToNullable<T>(this Maybe<T> a)
         where T : struct =>
-        a.Match(onSome: v => (T?)v, onNone: () => null);
+        a.Match(onSome: static v => (T?)v, onNone: static () => null);
 
     /// <summary>
     ///     Converts a reference which may be <see langword="null" /> into a <see cref="Maybe{T}" />.
@@ -190,7 +196,8 @@ public static class MaybeExtensionMethods
     ///     that is not wanted, use <see cref="ValueOr{T}(Maybe{T},Func{T})" />.
     /// </remarks>
     [Pure]
-    public static T ValueOr<T>(this Maybe<T> a, T defaultValue) => a.Match(onSome: v => v, onNone: () => defaultValue);
+    public static T ValueOr<T>(this Maybe<T> a, T defaultValue) =>
+        a.Match(onSome: static v => v, onNone: () => defaultValue);
 
     /// <summary>
     ///     Returns the contained value if there is one, and the result of the given function
@@ -210,7 +217,7 @@ public static class MaybeExtensionMethods
     public static T ValueOr<T>(
         this Maybe<T> a,
         [InstantHandle] Func<T> defaultValueFactory) =>
-        a.Match(onSome: v => v, onNone: defaultValueFactory);
+        a.Match(onSome: static v => v, onNone: defaultValueFactory);
 
     /// <summary>
     ///     Returns the contained value if there is one, and the default for its type otherwise.
@@ -227,7 +234,8 @@ public static class MaybeExtensionMethods
     ///     genuinely does not matter.
     /// </remarks>
     [Pure]
-    public static T? ValueOrDefault<T>(this Maybe<T> a) => a.Match(onSome: v => v, onNone: () => default);
+    public static T? ValueOrDefault<T>(this Maybe<T> a) =>
+        a.Match<T?>(onSome: static v => v, onNone: static () => default);
 
     /// <summary>
     ///     Returns the contained value if there is one, and throws the exception produced by the
@@ -248,7 +256,7 @@ public static class MaybeExtensionMethods
     public static T ValueOrThrow<T>(
         this Maybe<T> a,
         [InstantHandle] Func<Exception> onNone) =>
-        a.Match<T>(onSome: v => v, onNone: () => throw onNone());
+        a.Match<T>(onSome: static v => v, onNone: () => throw onNone());
 
     /// <summary>
     ///     Returns this value if it has one, and the given value otherwise.
@@ -368,13 +376,13 @@ public static class MaybeExtensionMethods
 
     private struct ValueAndHasValue<T>
     {
-        public ValueAndHasValue(T value, bool hasValue)
+        public ValueAndHasValue(T? value, bool hasValue)
         {
             this.Value = value;
             this.HasValue = hasValue;
         }
 
-        public T Value { get; }
+        public T? Value { get; }
         public bool HasValue { get; }
     }
 }

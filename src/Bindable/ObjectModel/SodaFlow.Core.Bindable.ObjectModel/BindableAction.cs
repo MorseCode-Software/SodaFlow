@@ -1,19 +1,25 @@
 ﻿using System;
 using System.Threading;
+using System.Windows.Input;
+using JetBrains.Annotations;
 
 namespace SodaFlow.Bindable.ObjectModel;
 
+[PublicAPI]
 public static partial class BindableCoreExtensionMethods
 {
     /// <summary>
-    ///     A command that carries the <c>CommandParameter</c> into the stream.
+    ///     An <see cref="ICommand" /> that carries its <c>CommandParameter</c> through to the stream and
+    ///     whose enablement is driven by a <see cref="Cell{T}" /> of <see cref="bool" />.
     /// </summary>
     /// <remarks>
     ///     Safe to construct on any thread. Enablement is sampled by whichever thread builds the
     ///     instance and read by the binding thread, which is why the field holding it is volatile;
     ///     every later change is marshaled through the scheduler.
     /// </remarks>
+    // ReSharper disable once InheritdocConsiderUsage
     internal class BindableAction<T> : IBindableAction<T>
+        where T : notnull
     {
         private readonly StreamSink<T> firingsStreamSink;
 
@@ -112,9 +118,12 @@ public static partial class BindableCoreExtensionMethods
             this.scheduler.Post(() => handler(sender: this, e: EventArgs.Empty));
         }
 
+        private static Exception GetInvalidTypeException() =>
+            new InvalidOperationException("The command parameter must be of type " + typeof(T).FullName + ".");
+
         /// <summary>
         ///     Guards against a XAML author binding a <c>CommandParameter</c> to the wrong type.
-        ///     Runs before the send is queued, so the exception reaches the caller of
+        ///     Runs before the send operation is queued, so the exception reaches the caller of
         ///     <see cref="Execute" />.
         /// </summary>
         /// <param name="value">The command parameter, as the binding engine supplied it.</param>
@@ -124,12 +133,12 @@ public static partial class BindableCoreExtensionMethods
         /// </exception>
         protected virtual void ValidateParameter(object? value)
         {
-            if (value is T || (value is null && default(T) == null))
+            if (value is T)
             {
                 return;
             }
 
-            throw new InvalidOperationException("The command parameter must be of type " + typeof(T).FullName);
+            throw GetInvalidTypeException();
         }
 
         /// <summary>
@@ -141,9 +150,7 @@ public static partial class BindableCoreExtensionMethods
                 value switch
                 {
                     T typedValue => typedValue,
-                    null when default(T) == null => default!,
-                    _ => throw new InvalidOperationException(
-                        "The command parameter must be of type " + typeof(T).FullName)
+                    _ => throw GetInvalidTypeException()
                 });
 
         private void OnIsEnabledChanged(bool value) =>

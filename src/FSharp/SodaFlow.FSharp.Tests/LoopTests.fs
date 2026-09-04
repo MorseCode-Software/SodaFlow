@@ -8,7 +8,7 @@ open SodaFlow
 type ``Loop Tests``() =
 
     [<Test>]
-    member __.``Functional Stream Loop``() =
+    member _.``Functional Stream Loop``() =
         let s = sinkS ()
         let result = loopWithNoCapturesS (fun r -> s |> snapshotC (r |> holdS 0) (+))
         let out = List<_>()
@@ -20,7 +20,7 @@ type ``Loop Tests``() =
         CollectionAssert.AreEqual([ 1; 3; 6 ], out)
 
     [<Test>]
-    member __.``Functional Stream Loop With Captures``() =
+    member _.``Functional Stream Loop With Captures``() =
         let s = sinkS ()
 
         let struct (result, s2) =
@@ -39,7 +39,7 @@ type ``Loop Tests``() =
         CollectionAssert.AreEqual([ 2; 4; 6 ], out2)
 
     [<Test>]
-    member __.``Functional Behavior Loop``() =
+    member _.``Functional Behavior Loop``() =
         let s = sinkB 0
 
         let result =
@@ -54,7 +54,7 @@ type ``Loop Tests``() =
         CollectionAssert.AreEqual([ 0; 1; 3; 6 ], out)
 
     [<Test>]
-    member __.``Functional Behavior Loop With Captures``() =
+    member _.``Functional Behavior Loop With Captures``() =
         let s = sinkB 0
 
         let struct (result, s2) =
@@ -74,7 +74,7 @@ type ``Loop Tests``() =
         CollectionAssert.AreEqual([ 0; 2; 4; 6 ], out2)
 
     [<Test>]
-    member __.``Functional Cell Loop``() =
+    member _.``Functional Cell Loop``() =
         let s = sinkC 0
 
         let result =
@@ -89,7 +89,7 @@ type ``Loop Tests``() =
         CollectionAssert.AreEqual([ 0; 1; 3; 6 ], out)
 
     [<Test>]
-    member __.``Functional Cell Loop With Captures``() =
+    member _.``Functional Cell Loop With Captures``() =
         let s = sinkC 0
 
         let struct (result, s2) =

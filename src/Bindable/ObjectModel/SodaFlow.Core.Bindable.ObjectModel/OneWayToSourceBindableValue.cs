@@ -15,6 +15,7 @@ public static partial class BindableCoreExtensionMethods
     ///     the instance and read by the binding thread; <see cref="ValueBox{T}" /> is what orders
     ///     the two.
     /// </remarks>
+    // ReSharper disable once InheritdocConsiderUsage
     private sealed class OneWayToSourceBindableValue<T> : IOneWayToSourceBindableValue<T>
     {
         private readonly IEqualityComparer<T> comparer;
@@ -80,6 +81,7 @@ public static partial class BindableCoreExtensionMethods
         ///     Stops accepting writes. The sink itself is left intact so downstream subscribers keep
         ///     observing the last value rather than faulting.
         /// </summary>
+        // ReSharper disable once InheritdocConsiderUsage
         public void Dispose() => Interlocked.Exchange(location1: ref this.disposed, value: 1);
     }
 }

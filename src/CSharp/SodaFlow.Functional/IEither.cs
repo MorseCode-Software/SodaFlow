@@ -12,6 +12,7 @@ namespace SodaFlow.Functional;
 ///     add the matching operations; where the types are known, prefer
 ///     <see cref="Either{T1,T2}" /> itself.
 /// </remarks>
+[PublicAPI]
 public interface IEither
 {
     /// <summary>
@@ -35,6 +36,8 @@ public interface IEither
 ///     the held value surfaced as <see cref="object" />. Prefer the generic type wherever the
 ///     types are known: this interface boxes, and loses the type of the value.
 /// </remarks>
+[PublicAPI]
+// ReSharper disable once InheritdocConsiderUsage
 public interface IEitherOfTwo : IEither
 {
     /// <summary>
@@ -99,6 +102,8 @@ public interface IEitherOfTwo : IEither
 ///     the held value surfaced as <see cref="object" />. Prefer the generic type wherever the
 ///     types are known: this interface boxes, and loses the type of the value.
 /// </remarks>
+[PublicAPI]
+// ReSharper disable once InheritdocConsiderUsage
 public interface IEitherOfThree : IEither
 {
     /// <summary>
@@ -171,6 +176,8 @@ public interface IEitherOfThree : IEither
 ///     the held value surfaced as <see cref="object" />. Prefer the generic type wherever the
 ///     types are known: this interface boxes, and loses the type of the value.
 /// </remarks>
+[PublicAPI]
+// ReSharper disable once InheritdocConsiderUsage
 public interface IEitherOfFour : IEither
 {
     /// <summary>
@@ -251,6 +258,8 @@ public interface IEitherOfFour : IEither
 ///     the held value surfaced as <see cref="object" />. Prefer the generic type wherever the
 ///     types are known: this interface boxes, and loses the type of the value.
 /// </remarks>
+[PublicAPI]
+// ReSharper disable once InheritdocConsiderUsage
 public interface IEitherOfFive : IEither
 {
     /// <summary>
@@ -339,6 +348,8 @@ public interface IEitherOfFive : IEither
 ///     the held value surfaced as <see cref="object" />. Prefer the generic type wherever the
 ///     types are known: this interface boxes, and loses the type of the value.
 /// </remarks>
+[PublicAPI]
+// ReSharper disable once InheritdocConsiderUsage
 public interface IEitherOfSix : IEither
 {
     /// <summary>
@@ -435,6 +446,8 @@ public interface IEitherOfSix : IEither
 ///     the held value surfaced as <see cref="object" />. Prefer the generic type wherever the
 ///     types are known: this interface boxes, and loses the type of the value.
 /// </remarks>
+[PublicAPI]
+// ReSharper disable once InheritdocConsiderUsage
 public interface IEitherOfSeven : IEither
 {
     /// <summary>
@@ -539,6 +552,8 @@ public interface IEitherOfSeven : IEither
 ///     the held value surfaced as <see cref="object" />. Prefer the generic type wherever the
 ///     types are known: this interface boxes, and loses the type of the value.
 /// </remarks>
+[PublicAPI]
+// ReSharper disable once InheritdocConsiderUsage
 public interface IEitherOfEight : IEither
 {
     /// <summary>

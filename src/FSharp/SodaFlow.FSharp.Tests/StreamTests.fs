@@ -10,7 +10,7 @@ open System.Threading
 type ``Stream Tests``() =
 
     [<Test>]
-    member __.``Test Stream Send``() =
+    member _.``Test Stream Send``() =
         let s = sinkS ()
         let out = List<_>()
         let l = s |> listenStrongS out.Add
@@ -21,7 +21,7 @@ type ``Stream Tests``() =
         CollectionAssert.AreEqual([ 5 ], out)
 
     [<Test>]
-    member __.``Test Stream Send In Callback Throws Exception``() =
+    member _.``Test Stream Send In Callback Throws Exception``() =
         let s = sinkS ()
         let s2 = sinkS ()
 
@@ -38,7 +38,7 @@ type ``Stream Tests``() =
         |> assertExceptionExists (fun e -> Assert.AreEqual("Send may not be called inside a callback.", e.Message))
 
     [<Test>]
-    member __.``Test Stream Send In Map Throws Exception``() =
+    member _.``Test Stream Send In Map Throws Exception``() =
         let s = sinkS ()
         let s2 = sinkS ()
 
@@ -55,7 +55,7 @@ type ``Stream Tests``() =
         |> assertExceptionExists (fun e -> Assert.AreEqual("Send may not be called inside a callback.", e.Message))
 
     [<Test>]
-    member __.``Test Stream Send In Cell Map Throws Exception``() =
+    member _.``Test Stream Send In Cell Map Throws Exception``() =
         let c = constantC 5
         let s2 = sinkS ()
 
@@ -70,7 +70,7 @@ type ``Stream Tests``() =
         |> assertExceptionExists (fun e -> Assert.AreEqual("Send may not be called inside a callback.", e.Message))
 
     [<Test>]
-    member __.``Test Stream Send In Cell Lift Throws Exception``() =
+    member _.``Test Stream Send In Cell Lift Throws Exception``() =
         let c = constantC 5
         let c2 = constantC 7
         let s2 = sinkS ()
@@ -86,7 +86,7 @@ type ``Stream Tests``() =
         |> assertExceptionExists (fun e -> Assert.AreEqual("Send may not be called inside a callback.", e.Message))
 
     [<Test>]
-    member __.``Test Stream Send In Cell Apply Throws Exception``() =
+    member _.``Test Stream Send In Cell Apply Throws Exception``() =
         let c = constantC 5
         let s2 = sinkS ()
         let c2 = constantC (fun _ -> s2 |> sendS 5)
@@ -102,7 +102,7 @@ type ``Stream Tests``() =
         |> assertExceptionExists (fun e -> Assert.AreEqual("Send may not be called inside a callback.", e.Message))
 
     [<Test>]
-    member __.``Test Map``() =
+    member _.``Test Map``() =
         let s = sinkS ()
         let m = s |> mapS ((+) 2 >> string)
         let out = List<_>()
@@ -113,7 +113,7 @@ type ``Stream Tests``() =
         CollectionAssert.AreEqual([ "7"; "5" ], out)
 
     [<Test>]
-    member __.``Test OrElse Non-Simultaneous``() =
+    member _.``Test OrElse Non-Simultaneous``() =
         let s1 = sinkS ()
         let s2 = sinkS ()
         let out = List<_>()
@@ -125,9 +125,9 @@ type ``Stream Tests``() =
         CollectionAssert.AreEqual([ 7; 9; 8 ], out)
 
     [<Test>]
-    member __.``Test OrElse Simultaneous 1``() =
-        let s1 = sinkWithCoalesceS (fun l r -> r)
-        let s2 = sinkWithCoalesceS (fun l r -> r)
+    member _.``Test OrElse Simultaneous 1``() =
+        let s1 = sinkWithCoalesceS (fun _ r -> r)
+        let s2 = sinkWithCoalesceS (fun _ r -> r)
         let out = List<_>()
         let l = (s2, s1) |> orElseS |> listenStrongS out.Add
 
@@ -159,7 +159,7 @@ type ``Stream Tests``() =
         CollectionAssert.AreEqual([ 60; 9; 90; 90; 90 ], out)
 
     [<Test>]
-    member __.``Test OrElse Simultaneous 2``() =
+    member _.``Test OrElse Simultaneous 2``() =
         let s = sinkS ()
         let s2 = s |> mapS ((*) 2)
         let out = List<_>()
@@ -170,7 +170,7 @@ type ``Stream Tests``() =
         CollectionAssert.AreEqual([ 7; 9 ], out)
 
     [<Test>]
-    member __.``Test OrElse Left Bias``() =
+    member _.``Test OrElse Left Bias``() =
         let s = sinkS ()
         let s2 = s |> mapS ((*) 2)
         let out = List<_>()
@@ -181,7 +181,7 @@ type ``Stream Tests``() =
         CollectionAssert.AreEqual([ 14; 18 ], out)
 
     [<Test>]
-    member __.``Test Merge Non-Simultaneous``() =
+    member _.``Test Merge Non-Simultaneous``() =
         let s1 = sinkS ()
         let s2 = sinkS ()
         let out = List<_>()
@@ -193,7 +193,7 @@ type ``Stream Tests``() =
         CollectionAssert.AreEqual([ 7; 9; 8 ], out)
 
     [<Test>]
-    member __.``Test Merge Simultaneous``() =
+    member _.``Test Merge Simultaneous``() =
         let s = sinkS ()
         let s2 = s |> mapS ((*) 2)
         let out = List<_>()
@@ -204,7 +204,7 @@ type ``Stream Tests``() =
         CollectionAssert.AreEqual([ 21; 27 ], out)
 
     [<Test>]
-    member __.``Test Coalesce``() =
+    member _.``Test Coalesce``() =
         let s = sinkWithCoalesceS (+)
         let out = List<_>()
         let l = s |> listenStrongS out.Add
@@ -218,7 +218,7 @@ type ``Stream Tests``() =
         CollectionAssert.AreEqual([ 2; 48 ], out)
 
     [<Test>]
-    member __.``Test Coalesce 2``() =
+    member _.``Test Coalesce 2``() =
         let s = sinkWithCoalesceS (+)
         let out = List<_>()
         let l = s |> listenStrongS out.Add
@@ -228,7 +228,7 @@ type ``Stream Tests``() =
         CollectionAssert.AreEqual([ 15; 40 ], out)
 
     [<Test>]
-    member __.``Test Filter``() =
+    member _.``Test Filter``() =
         let s = sinkS ()
         let out = List<_>()
         let l = s |> filterS Char.IsUpper |> listenStrongS out.Add
@@ -239,7 +239,7 @@ type ``Stream Tests``() =
         CollectionAssert.AreEqual([ 'H'; 'I' ], out)
 
     [<Test>]
-    member __.``Test Filter Some``() =
+    member _.``Test Filter Some``() =
         let s = sinkS ()
         let out = List<_>()
         let l = s |> filterSomeS |> listenStrongS out.Add
@@ -252,7 +252,7 @@ type ``Stream Tests``() =
         CollectionAssert.AreEqual([ "tomato"; "peach"; "pear" ], out)
 
     [<Test>]
-    member __.``Test Choose``() =
+    member _.``Test Choose``() =
         let s = sinkS ()
         let out = List<_>()
 
@@ -270,7 +270,7 @@ type ``Stream Tests``() =
         CollectionAssert.AreEqual([ 6; 5 ], out)
 
     [<Test>]
-    member __.``Test Choose Matches Map Then Filter Some``() =
+    member _.``Test Choose Matches Map Then Filter Some``() =
         let s = sinkS ()
         let chosen = List<_>()
         let mapped = List<_>()
@@ -289,7 +289,7 @@ type ``Stream Tests``() =
         CollectionAssert.AreEqual([ 6; 5 ], chosen)
 
     [<Test>]
-    member __.``Test Choose None Fires Nothing``() =
+    member _.``Test Choose None Fires Nothing``() =
         let s = sinkS ()
         let out = List<_>()
         let l = s |> chooseS (fun (_: string) -> Option<int>.None) |> listenStrongS out.Add
@@ -299,7 +299,7 @@ type ``Stream Tests``() =
         CollectionAssert.AreEqual(List<int>(), out)
 
     [<Test>]
-    member __.``Test Loop Stream``() =
+    member _.``Test Loop Stream``() =
         let sa = sinkS ()
 
         let struct (sb, sc) =
@@ -320,7 +320,7 @@ type ``Stream Tests``() =
         CollectionAssert.AreEqual([ 2; 10 ], out2)
 
     [<Test>]
-    member __.``Test Loop Cell``() =
+    member _.``Test Loop Cell``() =
         let ca = sinkC 22
 
         let struct (cb, cc) =
@@ -341,7 +341,7 @@ type ``Stream Tests``() =
         CollectionAssert.AreEqual([ 4; 0; 10 ], out2)
 
     [<Test>]
-    member __.``Test Gate``() =
+    member _.``Test Gate``() =
         let sc = sinkS ()
         let cGate = sinkB true
         let out = List<_>()
@@ -355,7 +355,7 @@ type ``Stream Tests``() =
         CollectionAssert.AreEqual([ 'H'; 'I' ], out)
 
     [<Test>]
-    member __.``Test Calm``() =
+    member _.``Test Calm``() =
         let s = sinkS ()
         let out = List<_>()
         let l = s |> calmS |> listenStrongS out.Add
@@ -408,7 +408,7 @@ type ``Stream Tests``() =
         CollectionAssert.AreEqual([ 2; 4; 2; 4; 2; 4; 2; 4; 2; 4; 2; 4; 2; 4; 2; 4; 2; 4; 2; 4; 2 ], out)
 
     [<Test>]
-    member __.``Test Calm 2``() =
+    member _.``Test Calm 2``() =
         let s = sinkS ()
         let out = List<_>()
         let l = s |> calmS |> listenStrongS out.Add
@@ -423,7 +423,7 @@ type ``Stream Tests``() =
         CollectionAssert.AreEqual([ 2; 4; 2; 4; 2 ], out)
 
     [<Test>]
-    member __.``Test Collect``() =
+    member _.``Test Collect``() =
         let sa = sinkS ()
         let out = List<_>()
 
@@ -443,7 +443,7 @@ type ``Stream Tests``() =
         CollectionAssert.AreEqual([ 115; 122; 125; 127; 130 ], out)
 
     [<Test>]
-    member __.``Test Accum``() =
+    member _.``Test Accum``() =
         let sa = sinkS ()
         let out = List<_>()
         let sum = sa |> accumS 100 (+)
@@ -457,7 +457,7 @@ type ``Stream Tests``() =
         CollectionAssert.AreEqual([ 100; 105; 112; 113; 115; 118 ], out)
 
     [<Test>]
-    member __.``Test Once``() =
+    member _.``Test Once``() =
         let s = sinkS ()
         let out = List<_>()
         let l = s |> onceS |> listenStrongS out.Add
@@ -468,7 +468,7 @@ type ``Stream Tests``() =
         CollectionAssert.AreEqual([ 'A' ], out)
 
     [<Test>]
-    member __.``Test Hold``() =
+    member _.``Test Hold``() =
         let s = sinkS ()
         let c = s |> holdS ' '
         let out = List<_>()
@@ -480,7 +480,7 @@ type ``Stream Tests``() =
         CollectionAssert.AreEqual([ ' '; 'C'; 'B'; 'A' ], out)
 
     [<Test>]
-    member __.``Test Hold Implicit Delay``() =
+    member _.``Test Hold Implicit Delay``() =
         let s = sinkS ()
         let c = s |> holdS ' '
         let out = List<_>()
@@ -492,7 +492,7 @@ type ``Stream Tests``() =
         CollectionAssert.AreEqual([ ' '; 'C'; 'B' ], out)
 
     [<Test>]
-    member __.``Test Defer``() =
+    member _.``Test Defer``() =
         let s = sinkS ()
         let c = s |> holdS ' '
         let out = List<_>()
@@ -504,12 +504,12 @@ type ``Stream Tests``() =
         CollectionAssert.AreEqual([ 'C'; 'B'; 'A' ], out)
 
     [<Test>]
-    member __.``Test Listen``() =
+    member _.``Test Listen``() =
         let s = sinkS ()
         let out = List<_>()
 
         let a () =
-            let l = s |> listenS out.Add
+            let _l = s |> listenS out.Add
             s |> sendS 1
             s |> sendS 2
 
@@ -521,7 +521,7 @@ type ``Stream Tests``() =
         Assert.AreEqual(2, out.Count)
 
     [<Test>]
-    member __.``Test Listen With Map``() =
+    member _.``Test Listen With Map``() =
         let s = sinkS ()
         let out = List<_>()
 
@@ -529,7 +529,7 @@ type ``Stream Tests``() =
             let s2 = s |> mapS ((+) 1)
 
             let a () =
-                let l = s |> listenS out.Add
+                let _l = s |> listenS out.Add
                 s |> sendS 1
                 s |> sendS 2
 
@@ -538,7 +538,7 @@ type ``Stream Tests``() =
             GC.Collect(0, GCCollectionMode.Forced)
 
             let a () =
-                let l = s2 |> listenS out.Add
+                let _l = s2 |> listenS out.Add
                 s |> sendS 3
                 s |> sendS 4
                 s |> sendS 5
@@ -553,7 +553,7 @@ type ``Stream Tests``() =
         Assert.AreEqual(5, out.Count)
 
     [<Test>]
-    member __.``Test Unlisten``() =
+    member _.``Test Unlisten``() =
         let s = sinkS ()
         let out = List<_>()
 
@@ -569,7 +569,7 @@ type ``Stream Tests``() =
         Assert.AreEqual(1, out.Count)
 
     [<Test>]
-    member __.``Test Unlisten Weak``() =
+    member _.``Test Unlisten Weak``() =
         let s = sinkS ()
         let out = List<_>()
 
@@ -585,7 +585,7 @@ type ``Stream Tests``() =
         Assert.AreEqual(1, out.Count)
 
     [<Test>]
-    member __.``Test Multiple Unlisten``() =
+    member _.``Test Multiple Unlisten``() =
         let s = sinkS ()
         let out = List<_>()
 
@@ -603,7 +603,7 @@ type ``Stream Tests``() =
         Assert.AreEqual(1, out.Count)
 
     [<Test>]
-    member __.``Test Multiple Unlisten Weak``() =
+    member _.``Test Multiple Unlisten Weak``() =
         let s = sinkS ()
         let out = List<_>()
 
@@ -621,7 +621,7 @@ type ``Stream Tests``() =
         Assert.AreEqual(1, out.Count)
 
     [<Test>]
-    member __.``Test ListenOnce``() =
+    member _.``Test ListenOnce``() =
         let s = sinkS ()
         let out = List<_>()
         let l = s |> listenOnceS out.Add
@@ -632,15 +632,15 @@ type ``Stream Tests``() =
         CollectionAssert.AreEqual([ 'A' ], out)
 
     [<Test>]
-    member __.``Test ListenOnceAsync``() =
+    member _.``Test ListenOnceAsync``() =
         async {
             let s = sinkS ()
 
-            (Thread(fun () ->
+            Thread(fun () ->
                 Thread.Sleep 250
                 s |> sendS 'A'
                 s |> sendS 'B'
-                s |> sendS 'C'))
+                s |> sendS 'C')
                 .Start()
 
             let! r = s |> listenOnceAsyncS
@@ -649,7 +649,7 @@ type ``Stream Tests``() =
         |> Async.StartAsVoidTask
 
     [<Test>]
-    member __.``Test ListenOnceAsync Same Thread``() =
+    member _.``Test ListenOnceAsync Same Thread``() =
         async {
             let s = sinkS ()
             let r' = s |> listenOnceAsyncS
@@ -662,13 +662,13 @@ type ``Stream Tests``() =
         |> Async.StartAsVoidTask
 
     [<Test>]
-    member __.``Test ListenStrong Async``() =
+    member _.``Test ListenStrong Async``() =
         async {
             let a = sinkC 1
             let a1 = a |> mapC ((+) 1)
             let a2 = a |> mapC ((*) 2)
 
-            let struct (called, struct (results, l)) =
+            let struct (called, struct (_, l)) =
                 loopC (fun calledLoop ->
                     let result = (a1, a2) |> lift2C (+)
                     let incrementStream = result |> valuesC |> mapToS ()
@@ -707,7 +707,7 @@ type ``Stream Tests``() =
         |> Async.StartAsVoidTask
 
     [<Test>]
-    member __.``Test Stream Loop``() =
+    member _.``Test Stream Loop``() =
         let streamSink = sinkS ()
 
         let s =
@@ -725,7 +725,7 @@ type ``Stream Tests``() =
         CollectionAssert.AreEqual([ 3; 9; 18; 28 ], out)
 
     [<Test>]
-    member __.``Test Stream Loop Defer``() =
+    member _.``Test Stream Loop Defer``() =
         let streamSink = sinkS ()
 
         let stream =

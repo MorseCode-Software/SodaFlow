@@ -1,4 +1,5 @@
 ﻿using System;
+using JetBrains.Annotations;
 
 namespace SodaFlow.Functional;
 
@@ -9,6 +10,7 @@ namespace SodaFlow.Functional;
 ///     Everything here is itself lazy: the result is a <see cref="Lazy{T}" /> which forces its
 ///     inputs only when the result is forced.
 /// </remarks>
+[PublicAPI]
 public static class LazyExtensionMethods
 {
     /// <summary>

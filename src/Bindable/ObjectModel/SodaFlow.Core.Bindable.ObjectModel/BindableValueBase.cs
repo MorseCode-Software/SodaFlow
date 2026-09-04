@@ -10,6 +10,7 @@ public static partial class BindableCoreExtensionMethods
     ///     Common plumbing for the notifying implementations: a single <c>"Value"</c>
     ///     property-changed notification, scheduler access, and idempotent disposal.
     /// </summary>
+    // ReSharper disable once InheritdocConsiderUsage
     private abstract class BindableValueBase : INotifyPropertyChanged, IDisposable
     {
         /// <summary>Cached to avoid allocating on every notification.</summary>

@@ -1,11 +1,11 @@
 ﻿using System;
 using System.Threading.Tasks;
+using JetBrains.Annotations;
 
 namespace SodaFlow.Functional;
 
 /// <summary>
-///     Conversions between actions and functions, using <see cref="Unit" /> to stand in for the
-///     value an action does not return.
+///     Extension methods for basic type conversion helpers.
 /// </summary>
 /// <remarks>
 ///     C# splits what is one idea in a functional language into two: <see cref="System.Action" />
@@ -14,6 +14,7 @@ namespace SodaFlow.Functional;
 ///     taking a function can serve both - which is how, for instance,
 ///     <c>Maybe&lt;T&gt;.MatchVoid</c> is expressed in terms of <c>Maybe&lt;T&gt;.Match</c>.
 /// </remarks>
+[PublicAPI]
 public static class UnitExtensionMethods
 {
     /// <summary>

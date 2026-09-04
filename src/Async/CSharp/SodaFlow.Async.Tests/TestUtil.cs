@@ -59,5 +59,5 @@ internal sealed class ControlledOperation<TInput, TResult>
     }
 
     private TaskCompletionSource<TResult> GateFor(TInput input) =>
-        this.gates.GetOrAdd(key: input, valueFactory: _ => new TaskCompletionSource<TResult>());
+        this.gates.GetOrAdd(key: input, valueFactory: static _ => new TaskCompletionSource<TResult>());
 }

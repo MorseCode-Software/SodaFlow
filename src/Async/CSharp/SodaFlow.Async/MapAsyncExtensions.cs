@@ -68,8 +68,8 @@ public static class AsyncStreamExtensions
             errors: errors,
             operation: operation,
             strategy: strategy,
-            inputConverter: _ => Unit.Value,
-            resultConverter: _ => Unit.Value,
+            inputConverter: static _ => Unit.Value,
+            resultConverter: static _ => Unit.Value,
             cancelAll: ToUnitInternalStream(cancelAll),
             cancelMatching: cancelMatching,
             cancelOnDispose: cancelOnDispose);
@@ -125,8 +125,8 @@ public static class AsyncStreamExtensions
             errors: errors,
             operation: operation,
             strategy: strategy,
-            inputConverter: v => v,
-            resultConverter: _ => Unit.Value,
+            inputConverter: static v => v,
+            resultConverter: static _ => Unit.Value,
             cancelAll: ToUnitInternalStream(cancelAll),
             cancelMatching: cancelMatching,
             cancelOnDispose: cancelOnDispose);
@@ -184,7 +184,7 @@ public static class AsyncStreamExtensions
             operation: operation,
             strategy: strategy,
             inputConverter: inputConverter,
-            resultConverter: _ => Unit.Value,
+            resultConverter: static _ => Unit.Value,
             cancelAll: ToUnitInternalStream(cancelAll),
             cancelMatching: cancelMatching,
             cancelOnDispose: cancelOnDispose);
@@ -239,8 +239,8 @@ public static class AsyncStreamExtensions
             errors: errors,
             operation: operation,
             strategy: strategy,
-            inputConverter: _ => Unit.Value,
-            resultConverter: v => v,
+            inputConverter: static _ => Unit.Value,
+            resultConverter: static v => v,
             cancelAll: ToUnitInternalStream(cancelAll),
             cancelMatching: cancelMatching,
             cancelOnDispose: cancelOnDispose);
@@ -298,7 +298,7 @@ public static class AsyncStreamExtensions
             errors: errors,
             operation: operation,
             strategy: strategy,
-            inputConverter: _ => Unit.Value,
+            inputConverter: static _ => Unit.Value,
             resultConverter: resultConverter,
             cancelAll: ToUnitInternalStream(cancelAll),
             cancelMatching: cancelMatching,
@@ -360,8 +360,8 @@ public static class AsyncStreamExtensions
             errors: errors,
             operation: operation,
             strategy: strategy,
-            inputConverter: v => v,
-            resultConverter: v => v,
+            inputConverter: static v => v,
+            resultConverter: static v => v,
             cancelAll: ToUnitInternalStream(cancelAll),
             cancelMatching: cancelMatching,
             cancelOnDispose: cancelOnDispose);
@@ -426,7 +426,7 @@ public static class AsyncStreamExtensions
             operation: operation,
             strategy: strategy,
             inputConverter: inputConverter,
-            resultConverter: v => v,
+            resultConverter: static v => v,
             cancelAll: ToUnitInternalStream(cancelAll),
             cancelMatching: cancelMatching,
             cancelOnDispose: cancelOnDispose);
@@ -490,7 +490,7 @@ public static class AsyncStreamExtensions
             errors: errors,
             operation: operation,
             strategy: strategy,
-            inputConverter: v => v,
+            inputConverter: static v => v,
             resultConverter: resultConverter,
             cancelAll: ToUnitInternalStream(cancelAll),
             cancelMatching: cancelMatching,
@@ -631,5 +631,5 @@ public static class AsyncStreamExtensions
     // type a C# caller ever sees. The F# wrapper does the same thing for its own native unit;
     // see toUnitInternalStream there.
     private static Stream<UnitInternal>? ToUnitInternalStream(Stream<Unit>? cancelAll) =>
-        cancelAll?.MapImpl(_ => UnitInternal.Value);
+        cancelAll?.MapImpl(static _ => UnitInternal.Value);
 }

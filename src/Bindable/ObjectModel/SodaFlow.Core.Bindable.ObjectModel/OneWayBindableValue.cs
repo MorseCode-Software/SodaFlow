@@ -14,6 +14,7 @@ public static partial class BindableCoreExtensionMethods
     ///     the instance and read by the binding thread; <see cref="ValueBox{T}" /> is what orders
     ///     the two. Every later change is marshaled through the scheduler.
     /// </remarks>
+    // ReSharper disable once InheritdocConsiderUsage
     private sealed class OneWayBindableValue<T> : BindableValueBase, IOneWayBindableValue<T>
     {
         private readonly IEqualityComparer<T> comparer;
@@ -38,6 +39,10 @@ public static partial class BindableCoreExtensionMethods
         {
             this.Cell = cell ?? throw new ArgumentNullException(nameof(cell));
             this.comparer = comparer ?? EqualityComparer<T>.Default;
+
+            // ReSharper disable once NullableWarningSuppressionIsUsed - This value will be replaced with a non-null
+            // value in the transaction below when the cell is sampled, which happens before the constructor completes
+            // and before the listener is attached, so nothing has a chance of modifying this.box before then.
             this.box = new ValueBox<T>(default!);
 
             // Sample and subscribe inside one transaction so no update can slip through the gap.

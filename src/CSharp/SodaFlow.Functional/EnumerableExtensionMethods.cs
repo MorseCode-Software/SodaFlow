@@ -17,6 +17,7 @@ namespace SodaFlow.Functional;
 ///     A <see langword="null" /> sequence is treated as empty throughout, matching the behavior
 ///     of <see cref="MaybeExtensionMethods" />.
 /// </remarks>
+[PublicAPI]
 public static class EnumerableExtensionMethods
 {
     /// <summary>
@@ -46,7 +47,7 @@ public static class EnumerableExtensionMethods
     public static IEnumerable<TResult> Choose<T, TResult>(
         this IEnumerable<T>? source,
         Func<T, Maybe<TResult>> selector) =>
-        (source ?? new T[0]).Select(selector).WhereSome();
+        (source ?? []).Select(selector).WhereSome();
 
     /// <summary>
     ///     Applies a function which may produce no value to every element of a sequence along with
@@ -70,7 +71,7 @@ public static class EnumerableExtensionMethods
     public static IEnumerable<TResult> Choose<T, TResult>(
         this IEnumerable<T>? source,
         Func<T, int, Maybe<TResult>> selector) =>
-        (source ?? new T[0]).Select(selector).WhereSome();
+        (source ?? []).Select(selector).WhereSome();
 
     /// <summary>
     ///     Returns the first element of a sequence, if it has one.
@@ -92,10 +93,9 @@ public static class EnumerableExtensionMethods
             return Maybe.None;
         }
 
-        using (IEnumerator<T> enumerator = source.GetEnumerator())
-        {
-            return enumerator.MoveNext() ? Maybe.Some(enumerator.Current) : Maybe.None;
-        }
+        using IEnumerator<T> enumerator = source.GetEnumerator();
+
+        return enumerator.MoveNext() ? Maybe.Some(enumerator.Current) : Maybe.None;
     }
 
     /// <summary>
@@ -115,7 +115,7 @@ public static class EnumerableExtensionMethods
     public static Maybe<T> FirstOrNone<T>(
         [InstantHandle] this IEnumerable<T>? source,
         [InstantHandle] Func<T, bool> predicate) =>
-        (source ?? new T[0]).Where(predicate).FirstOrNone();
+        (source ?? []).Where(predicate).FirstOrNone();
 
     /// <summary>
     ///     Returns the last element of a sequence, if it has one.
@@ -133,16 +133,21 @@ public static class EnumerableExtensionMethods
     [Pure]
     public static Maybe<T> LastOrNone<T>([InstantHandle] this IEnumerable<T>? source)
     {
-        if (source == null)
+        switch (source)
         {
-            return Maybe.None;
-        }
-
-        IReadOnlyList<T>? list = source as IReadOnlyList<T>;
-
-        if (list != null)
-        {
-            return list.Count > 0 ? Maybe.Some(list[list.Count - 1]) : Maybe.None;
+            case null:
+                return Maybe.None;
+            case IReadOnlyList<T> list:
+                return list.Count > 0
+                    ? Maybe.Some(
+                        list[
+#if NET
+                            ^1
+#else
+                            list.Count - 1
+#endif
+                        ])
+                    : Maybe.None;
         }
 
         Maybe<T> result = Maybe.None;
@@ -169,7 +174,7 @@ public static class EnumerableExtensionMethods
     public static Maybe<T> LastOrNone<T>(
         [InstantHandle] this IEnumerable<T>? source,
         [InstantHandle] Func<T, bool> predicate) =>
-        (source ?? new T[0]).Where(predicate).LastOrNone();
+        (source ?? []).Where(predicate).LastOrNone();
 
     /// <summary>
     ///     Returns the only element of a sequence, if it has one.
@@ -199,22 +204,18 @@ public static class EnumerableExtensionMethods
             return Maybe.None;
         }
 
-        using (IEnumerator<T> enumerator = source.GetEnumerator())
+        using IEnumerator<T> enumerator = source.GetEnumerator();
+
+        if (!enumerator.MoveNext())
         {
-            if (!enumerator.MoveNext())
-            {
-                return Maybe.None;
-            }
-
-            T result = enumerator.Current;
-
-            if (enumerator.MoveNext())
-            {
-                throw new InvalidOperationException("The sequence contains more than one element.");
-            }
-
-            return Maybe.Some(result);
+            return Maybe.None;
         }
+
+        T result = enumerator.Current;
+
+        return enumerator.MoveNext()
+            ? throw new InvalidOperationException("The sequence contains more than one element.")
+            : Maybe.Some(result);
     }
 
     /// <summary>
@@ -234,7 +235,7 @@ public static class EnumerableExtensionMethods
     public static Maybe<T> SingleOrNone<T>(
         [InstantHandle] this IEnumerable<T>? source,
         [InstantHandle] Func<T, bool> predicate) =>
-        (source ?? new T[0]).Where(predicate).SingleOrNone();
+        (source ?? []).Where(predicate).SingleOrNone();
 
     /// <summary>
     ///     Combines the elements of a sequence with a function, if it has any.
@@ -272,10 +273,12 @@ public static class EnumerableExtensionMethods
 
         foreach (T item in source)
         {
+            // ReSharper disable once NullableWarningSuppressionIsUsed - accumulated will be non-null when any is true.
             accumulated = any ? f(arg1: accumulated!, arg2: item) : item;
             any = true;
         }
 
+        // ReSharper disable once NullableWarningSuppressionIsUsed - accumulated will be non-null when any is true.
         return Maybe.SomeIf(condition: any, value: accumulated!);
     }
 
@@ -336,7 +339,7 @@ public static class EnumerableExtensionMethods
     public static Maybe<TResult> MinOrNone<T, TResult>(
         [InstantHandle] this IEnumerable<T>? source,
         [InstantHandle] Func<T, TResult> selector) =>
-        (source ?? new T[0]).Select(selector).MinOrNone();
+        (source ?? []).Select(selector).MinOrNone();
 
     /// <summary>
     ///     Returns the largest element of a sequence, if it has any.
@@ -390,7 +393,7 @@ public static class EnumerableExtensionMethods
     public static Maybe<TResult> MaxOrNone<T, TResult>(
         [InstantHandle] this IEnumerable<T>? source,
         [InstantHandle] Func<T, TResult> selector) =>
-        (source ?? new T[0]).Select(selector).MaxOrNone();
+        (source ?? []).Select(selector).MaxOrNone();
 
     /// <summary>
     ///     Returns the element at a given position in a sequence, if there is one there.
@@ -420,25 +423,22 @@ public static class EnumerableExtensionMethods
             return Maybe.None;
         }
 
-        IReadOnlyList<T>? list = source as IReadOnlyList<T>;
-
-        if (list != null)
+        if (source is IReadOnlyList<T> list)
         {
             return index < list.Count ? Maybe.Some(list[index]) : Maybe.None;
         }
 
-        using (IEnumerator<T> enumerator = source.GetEnumerator())
-        {
-            for (int i = 0; i <= index; i++)
-            {
-                if (!enumerator.MoveNext())
-                {
-                    return Maybe.None;
-                }
-            }
+        using IEnumerator<T> enumerator = source.GetEnumerator();
 
-            return Maybe.Some(enumerator.Current);
+        for (int i = 0; i <= index; i++)
+        {
+            if (!enumerator.MoveNext())
+            {
+                return Maybe.None;
+            }
         }
+
+        return Maybe.Some(enumerator.Current);
     }
 
     /// <summary>
@@ -468,9 +468,10 @@ public static class EnumerableExtensionMethods
         bool any = false;
         T? best = default;
 
+        // ReSharper disable once LoopCanBePartlyConvertedToQuery - Done for performance reasons.
         foreach (T item in source)
         {
-            if (canBeNull && item == null)
+            if (canBeNull && item is null)
             {
                 continue;
             }
@@ -482,6 +483,8 @@ public static class EnumerableExtensionMethods
                 continue;
             }
 
+            // ReSharper disable once NullableWarningSuppressionIsUsed - If we have gotten to this point, any has been
+            // set to true and best has a non-null value.
             int comparison = c.Compare(x: item, y: best!);
 
             if (wantLarger ? comparison > 0 : comparison < 0)
@@ -490,6 +493,7 @@ public static class EnumerableExtensionMethods
             }
         }
 
+        // ReSharper disable once NullableWarningSuppressionIsUsed - If any is true, then best has a non-null value.
         return Maybe.SomeIf(condition: any, value: best!);
     }
 }

@@ -13,6 +13,7 @@ namespace SodaFlow.Functional;
 ///     <see cref="object" />. Prefer <see cref="Maybe{T}" /> itself wherever the type is known: this
 ///     interface boxes, and loses the type of the value.
 /// </remarks>
+[PublicAPI]
 public interface IMaybe
 {
     /// <summary>

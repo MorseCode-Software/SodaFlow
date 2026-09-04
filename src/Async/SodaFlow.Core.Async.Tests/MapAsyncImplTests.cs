@@ -23,10 +23,10 @@ public class MapAsyncImplTests
             source.MapAsyncImpl(
                 results: results,
                 errors: errors,
-                operation: (v, _) => Task.FromResult(v.ToUpperInvariant()),
+                operation: static (v, _) => Task.FromResult(v.ToUpperInvariant()),
                 strategy: AsyncConcurrencyStrategyFactory.Parallel("unused"),
-                inputConverter: v => v,
-                resultConverter: v => v);
+                inputConverter: static v => v,
+                resultConverter: static v => v);
 
         source.Send("hello");
 
@@ -53,8 +53,8 @@ public class MapAsyncImplTests
                 errors: errors,
                 operation: (_, _) => Task.FromException<string>(thrown),
                 strategy: AsyncConcurrencyStrategyFactory.Parallel("unused"),
-                inputConverter: v => v,
-                resultConverter: v => v);
+                inputConverter: static v => v,
+                resultConverter: static v => v);
 
         source.Send("hello");
 
@@ -81,10 +81,10 @@ public class MapAsyncImplTests
             source.MapAsyncImpl(
                 results: results,
                 errors: errors,
-                operation: (v, _) => Task.FromResult(v.ToUpperInvariant()),
+                operation: static (v, _) => Task.FromResult(v.ToUpperInvariant()),
                 strategy: strategy,
-                inputConverter: v => v.Length,
-                resultConverter: v => v.Length);
+                inputConverter: static v => v.Length,
+                resultConverter: static v => v.Length);
 
         source.Send("hello");
 
@@ -114,10 +114,10 @@ public class MapAsyncImplTests
             source.MapAsyncImpl(
                 results: results,
                 errors: errors,
-                operation: (v, _) => Task.FromResult(v),
+                operation: static (v, _) => Task.FromResult(v),
                 strategy: strategy,
-                inputConverter: v => v,
-                resultConverter: v => v);
+                inputConverter: static v => v,
+                resultConverter: static v => v);
 
         source.Send(-1);
         source.Send(2);
@@ -131,7 +131,7 @@ public class MapAsyncImplTests
 
         // The rejected item is still visible, forever Queued — that's the visible cost of this
         // idiom, called out in AsyncConcurrencyStrategy's own remarks.
-        Assert.IsTrue(status.Items.Sample().Any(i => i is { Value: -1, Status: AsyncItemStatus.Queued }));
+        Assert.IsTrue(status.Items.Sample().Any(static i => i is { Value: -1, Status: AsyncItemStatus.Queued }));
 
         status.Dispose();
         l.Unlisten();
@@ -166,10 +166,10 @@ public class MapAsyncImplTests
             source.MapAsyncImpl(
                 results: results,
                 errors: errors,
-                operation: (v, _) => Task.FromResult(v),
+                operation: static (v, _) => Task.FromResult(v),
                 strategy: new CancelAndPromoteSameItemStrategy(),
-                inputConverter: v => v,
-                resultConverter: v => v);
+                inputConverter: static v => v,
+                resultConverter: static v => v);
 
         Assert.DoesNotThrow(
             code: () => source.Send(1),
@@ -196,10 +196,10 @@ public class MapAsyncImplTests
             source.MapAsyncImpl(
                 results: results,
                 errors: errors,
-                operation: (v, _) => Task.FromResult(v),
+                operation: static (v, _) => Task.FromResult(v),
                 strategy: AsyncConcurrencyStrategyFactory.Parallel("unused"),
-                inputConverter: v => v,
-                resultConverter: v => v);
+                inputConverter: static v => v,
+                resultConverter: static v => v);
 
         status.Dispose();
         source.Send("after-dispose");
@@ -226,8 +226,8 @@ public class MapAsyncImplTests
                 errors: errors,
                 operation: op.Operation,
                 strategy: AsyncConcurrencyStrategyFactory.Parallel("unused"),
-                inputConverter: v => v,
-                resultConverter: v => v,
+                inputConverter: static v => v,
+                resultConverter: static v => v,
                 cancelOnDispose: true);
 
         source.Send("a");
@@ -257,8 +257,8 @@ public class MapAsyncImplTests
                 errors: errors,
                 operation: op.Operation,
                 strategy: AsyncConcurrencyStrategyFactory.Parallel("unused"),
-                inputConverter: v => v,
-                resultConverter: v => v,
+                inputConverter: static v => v,
+                resultConverter: static v => v,
                 cancelOnDispose: false);
 
         source.Send("a");
@@ -287,8 +287,8 @@ public class MapAsyncImplTests
                 errors: errors,
                 operation: op.Operation,
                 strategy: AsyncConcurrencyStrategyFactory.Queue<string>(),
-                inputConverter: v => v,
-                resultConverter: v => v);
+                inputConverter: static v => v,
+                resultConverter: static v => v);
 
         Assert.IsFalse(status.IsRunning.Sample());
         Assert.AreEqual(expected: 0, actual: status.Items.Sample().Count);
@@ -301,8 +301,8 @@ public class MapAsyncImplTests
 
         IReadOnlyList<AsyncItem<string>> items = status.Items.Sample();
         Assert.AreEqual(expected: 2, actual: items.Count);
-        Assert.IsTrue(items.Any(i => i is { Value: "a", Status: AsyncItemStatus.Running }));
-        Assert.IsTrue(items.Any(i => i is { Value: "b", Status: AsyncItemStatus.Queued }));
+        Assert.IsTrue(items.Any(static i => i is { Value: "a", Status: AsyncItemStatus.Running }));
+        Assert.IsTrue(items.Any(static i => i is { Value: "b", Status: AsyncItemStatus.Queued }));
 
         op.Release(input: "a", result: "A");
         TestUtil.WaitUntil(() => op.HasStarted("b"));
@@ -322,13 +322,14 @@ public class MapAsyncImplTests
 
         Assert.Throws<ArgumentNullException>(() =>
             AsyncStreamUtility.MapAsyncImpl<string, string, string, string>(
+                // ReSharper disable once NullableWarningSuppressionIsUsed - Testing for exception on null.
                 source: null!,
                 results: results,
                 errors: errors,
-                operation: (v, _) => Task.FromResult(v),
+                operation: static (v, _) => Task.FromResult(v),
                 strategy: AsyncConcurrencyStrategyFactory.Parallel("unused"),
-                inputConverter: v => v,
-                resultConverter: v => v));
+                inputConverter: static v => v,
+                resultConverter: static v => v));
     }
 
     [Test]
@@ -339,12 +340,13 @@ public class MapAsyncImplTests
 
         Assert.Throws<ArgumentNullException>(() =>
             source.MapAsyncImpl(
+                // ReSharper disable once NullableWarningSuppressionIsUsed - Testing for exception on null.
                 results: null!,
                 errors: errors,
-                operation: (v, _) => Task.FromResult(v),
+                operation: static (v, _) => Task.FromResult(v),
                 strategy: AsyncConcurrencyStrategyFactory.Parallel("unused"),
-                inputConverter: v => v,
-                resultConverter: v => v));
+                inputConverter: static v => v,
+                resultConverter: static v => v));
     }
 
     [Test]
@@ -356,11 +358,12 @@ public class MapAsyncImplTests
         Assert.Throws<ArgumentNullException>(() =>
             source.MapAsyncImpl(
                 results: results,
+                // ReSharper disable once NullableWarningSuppressionIsUsed - Testing for exception on null.
                 errors: null!,
-                operation: (v, _) => Task.FromResult(v),
+                operation: static (v, _) => Task.FromResult(v),
                 strategy: AsyncConcurrencyStrategyFactory.Parallel("unused"),
-                inputConverter: v => v,
-                resultConverter: v => v));
+                inputConverter: static v => v,
+                resultConverter: static v => v));
     }
 
     [Test]
@@ -374,10 +377,11 @@ public class MapAsyncImplTests
             source.MapAsyncImpl(
                 results: results,
                 errors: errors,
+                // ReSharper disable once NullableWarningSuppressionIsUsed - Testing for exception on null.
                 operation: null!,
                 strategy: AsyncConcurrencyStrategyFactory.Parallel("unused"),
-                inputConverter: v => v,
-                resultConverter: v => v));
+                inputConverter: static v => v,
+                resultConverter: static v => v));
     }
 
     [Test]
@@ -391,13 +395,15 @@ public class MapAsyncImplTests
             source.MapAsyncImpl(
                 results: results,
                 errors: errors,
-                operation: (v, _) => Task.FromResult(v),
+                operation: static (v, _) => Task.FromResult(v),
+                // ReSharper disable once NullableWarningSuppressionIsUsed - Testing for exception on null.
                 strategy: null!,
-                inputConverter: v => v,
-                resultConverter: v => v));
+                inputConverter: static v => v,
+                resultConverter: static v => v));
     }
 
     /// <summary>Starts everything immediately and records the converted value each item was admitted with.</summary>
+    // ReSharper disable once InheritdocConsiderUsage
     private sealed class RecordingStrategy<TStrategyInput, TStrategyResult>
         : AsyncConcurrencyStrategy<TStrategyInput, TStrategyResult, object?>
     {
@@ -430,6 +436,7 @@ public class MapAsyncImplTests
     ///     outright rejection, rather than canceling and also returning it as an
     ///     <see cref="AsyncMapBase.AsyncToStart{TInput}" /> to start in the same call.
     /// </summary>
+    // ReSharper disable once InheritdocConsiderUsage
     private sealed class RejectNegativeStrategy : AsyncConcurrencyStrategy<int, int, object?>
     {
         protected override object? CreateState() => null;
@@ -463,6 +470,7 @@ public class MapAsyncImplTests
     ///     cancelAll/cancelMatching firing, or another item's completion promoting a
     ///     previously-queued one.)
     /// </summary>
+    // ReSharper disable once InheritdocConsiderUsage
     private sealed class CancelAndPromoteSameItemStrategy : AsyncConcurrencyStrategy<int, int, object?>
     {
         protected override object? CreateState() => null;

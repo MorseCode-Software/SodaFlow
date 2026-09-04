@@ -67,7 +67,8 @@ public static partial class BindableExtensionMethods
     public static IBindableAction<T> ToBindableAction<T>(
         this StreamSink<T> firingsStreamSink,
         Cell<bool>? isEnabledCell = null,
-        IBindingScheduler? scheduler = null) =>
+        IBindingScheduler? scheduler = null)
+        where T : notnull =>
         firingsStreamSink.ToBindableActionImpl(isEnabledCell: isEnabledCell, scheduler: scheduler);
 
     /// <summary>
@@ -79,6 +80,20 @@ public static partial class BindableExtensionMethods
         Cell<bool>? isEnabledCell = null,
         IBindingScheduler? scheduler = null) =>
         new BindableAction(
+            firingsStreamSink: firingsStreamSink,
+            isEnabledCell: isEnabledCell,
+            scheduler: scheduler);
+
+    /// <summary>
+    ///     Exposes an existing sink as an optional command. The <c>CommandParameter</c> passed mey be
+    ///     <see langword="null" />, an object of type <typeparamref name="T" />, or a <see cref="Maybe{T}" />.
+    /// </summary>
+    public static IBindableAction<Maybe<T>> ToBindableAction<T>(
+        this StreamSink<Maybe<T>> firingsStreamSink,
+        Cell<bool>? isEnabledCell = null,
+        IBindingScheduler? scheduler = null)
+        where T : notnull =>
+        new BindableMaybeAction<T>(
             firingsStreamSink: firingsStreamSink,
             isEnabledCell: isEnabledCell,
             scheduler: scheduler);

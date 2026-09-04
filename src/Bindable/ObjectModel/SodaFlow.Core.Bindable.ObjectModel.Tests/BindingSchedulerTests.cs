@@ -55,7 +55,8 @@ public class BindingSchedulerTests
 
     [Test]
     public void ImmediateRejectsANullAction() =>
-        Assert.Throws<ArgumentNullException>(() => BindingScheduler.Immediate.Post(null!));
+        // ReSharper disable once NullableWarningSuppressionIsUsed - Testing for exception on null.
+        Assert.Throws<ArgumentNullException>(static () => BindingScheduler.Immediate.Post(null!));
 
     // The reason the rule exists. A notification raised from inside the transaction would leave a
     // handler unable to send into another sink - which is an ordinary thing for a view model to do,
@@ -68,7 +69,9 @@ public class BindingSchedulerTests
 
         using (IOneWayBindableValue<int> b = source.ToOneWayImpl(scheduler: BindingScheduler.Immediate))
         {
-            b.PropertyChanged += (_, __) => other.Send(b.Value * 2);
+            // ReSharper disable once AccessToDisposedClosure - Used before disposal because the binding scheduler being
+            // used is BindingScheduler.Immediate.
+            b.PropertyChanged += (_, _) => other.Send(b.Value * 2);
 
             Assert.DoesNotThrow(() => source.Send(21));
         }

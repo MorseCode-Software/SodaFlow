@@ -31,6 +31,7 @@ namespace SodaFlow.Functional;
 ///     resuming on a captured context would cost a hop and gain nothing, and would deadlock a
 ///     caller which blocks on the returned task.
 /// </remarks>
+[PublicAPI]
 public static class MaybeAsyncExtensionMethods
 {
     /// <summary>

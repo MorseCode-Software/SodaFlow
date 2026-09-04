@@ -84,7 +84,8 @@ public static partial class BindableCoreExtensionMethods
     internal static IBindableAction<T> ToBindableActionImpl<T>(
         this StreamSink<T> firingsStreamSink,
         Cell<bool>? isEnabledCell = null,
-        IBindingScheduler? scheduler = null) =>
+        IBindingScheduler? scheduler = null)
+        where T : notnull =>
         new BindableAction<T>(
             firingsStreamSink: firingsStreamSink,
             isEnabledCell: isEnabledCell,

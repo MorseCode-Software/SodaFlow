@@ -3,23 +3,13 @@
     <PropertyGroup>
         <TargetFrameworks>net472;net60;netstandard2.0</TargetFrameworks>
         <!--
-            LangVersion is pinned because nullable reference types need C# 8 and this project's
-            default was not. The default follows the target framework, so net60 was already getting
-            C# 10 while net472 and netstandard2.0 were getting 7.3 - which is why the nullable syntax
-            would not have compiled for two of the three. 10 matches the other projects here that have
-            nullable enabled, and has the side benefit that all three targets now compile the same
-            language rather than one of them silently accepting more than the others.
-    
             Nullable annotations are missing from the net472 and netstandard2.0 reference assemblies,
             which is why a few calls carry a suppression that reads as unnecessary against net6.0
             alone. EqualityComparer<T>.Equals is the one to know: on net6.0 it is annotated to accept
             nulls, on the other two it is not annotated at all, so the equality operators in Either.cs
             suppress at every one of them.
-    
-            JetBrainsAnnotations.cs is vendored third-party source and opts itself out with
-            #nullable disable rather than being annotated; see the note at the top of that file.
         -->
-        <LangVersion>10</LangVersion>
+        <LangVersion>latest</LangVersion>
         <Nullable>enable</Nullable>
     </PropertyGroup>
 
@@ -47,7 +37,6 @@
         <Compile Include="EnumerableExtensionMethods.cs"/>
         <Compile Include="IEither.cs"/>
         <Compile Include="IMaybe.cs"/>
-        <Compile Include="JetBrainsAnnotations.cs"/>
         <Compile Include="LazyExtensionMethods.cs"/>
         <Compile Include="Maybe.cs"/>
         <Compile Include="MaybeAsyncExtensionMethods.cs"/>
@@ -55,9 +44,13 @@
         <Compile Include="MaybeMonad.cs"/>
         <Compile Include="ReadOnlyDictionaryExtensionMethods.cs"/>
         <Compile Include="StringExtensionMethods.cs"/>
-        <Compile Include="TryGet.cs"/>
+        <Compile Include="TryGetDelegate.cs"/>
         <Compile Include="Unit.cs"/>
         <Compile Include="UnitExtensionMethods.cs"/>
+    </ItemGroup>
+
+    <ItemGroup>
+        <PackageReference Include="JetBrains.Annotations" Version="2026.2.0" PrivateAssets="all"/>
     </ItemGroup>
 
 </Project>

@@ -202,7 +202,7 @@ let map f (cell: Cell<_>) = cell.MapImpl(Func<_, _> f)
 ///     cell's current value.
 /// </returns>
 /// <remarks>
-///     The primitive all of the <c>lift</c> functions are built from. Reach for <c>lift2</c> and
+///     The primitive all the <c>lift</c> functions are built from. Reach for <c>lift2</c> and
 ///     its siblings first; this is for the cases they do not cover.
 /// </remarks>
 [<MethodImpl(MethodImplOptions.NoInlining)>]
@@ -221,10 +221,10 @@ let apply f (cell: Cell<_>) =
 /// </returns>
 /// <remarks>
 ///     Glitch-free: when several of the inputs change in one transaction, the result updates
-///     once, with all of the new values, rather than once per input.
+///     once, with all the new values, rather than once per input.
 /// </remarks>
 [<MethodImpl(MethodImplOptions.NoInlining)>]
-let lift2 f ((cell: Cell<_>), cell2) = cell.LiftImpl(cell2, Func<_, _, _> f)
+let lift2 f (cell: Cell<_>, cell2) = cell.LiftImpl(cell2, Func<_, _, _> f)
 
 /// <summary>
 ///     Combines three cells into one whose value is a function of all of theirs.
@@ -239,10 +239,10 @@ let lift2 f ((cell: Cell<_>), cell2) = cell.LiftImpl(cell2, Func<_, _, _> f)
 /// </returns>
 /// <remarks>
 ///     Glitch-free: when several of the inputs change in one transaction, the result updates
-///     once, with all of the new values, rather than once per input.
+///     once, with all the new values, rather than once per input.
 /// </remarks>
 [<MethodImpl(MethodImplOptions.NoInlining)>]
-let lift3 f ((cell: Cell<_>), cell2, cell3) =
+let lift3 f (cell: Cell<_>, cell2, cell3) =
     cell.LiftImpl(cell2, cell3, Func<_, _, _, _> f)
 
 /// <summary>
@@ -259,10 +259,10 @@ let lift3 f ((cell: Cell<_>), cell2, cell3) =
 /// </returns>
 /// <remarks>
 ///     Glitch-free: when several of the inputs change in one transaction, the result updates
-///     once, with all of the new values, rather than once per input.
+///     once, with all the new values, rather than once per input.
 /// </remarks>
 [<MethodImpl(MethodImplOptions.NoInlining)>]
-let lift4 f ((cell: Cell<_>), cell2, cell3, cell4) =
+let lift4 f (cell: Cell<_>, cell2, cell3, cell4) =
     cell.LiftImpl(cell2, cell3, cell4, Func<_, _, _, _, _> f)
 
 /// <summary>
@@ -280,10 +280,10 @@ let lift4 f ((cell: Cell<_>), cell2, cell3, cell4) =
 /// </returns>
 /// <remarks>
 ///     Glitch-free: when several of the inputs change in one transaction, the result updates
-///     once, with all of the new values, rather than once per input.
+///     once, with all the new values, rather than once per input.
 /// </remarks>
 [<MethodImpl(MethodImplOptions.NoInlining)>]
-let lift5 f ((cell: Cell<_>), cell2, cell3, cell4, cell5) =
+let lift5 f (cell: Cell<_>, cell2, cell3, cell4, cell5) =
     cell.LiftImpl(cell2, cell3, cell4, cell5, Func<_, _, _, _, _, _> f)
 
 /// <summary>
@@ -302,10 +302,10 @@ let lift5 f ((cell: Cell<_>), cell2, cell3, cell4, cell5) =
 /// </returns>
 /// <remarks>
 ///     Glitch-free: when several of the inputs change in one transaction, the result updates
-///     once, with all of the new values, rather than once per input.
+///     once, with all the new values, rather than once per input.
 /// </remarks>
 [<MethodImpl(MethodImplOptions.NoInlining)>]
-let lift6 f ((cell: Cell<_>), cell2, cell3, cell4, cell5, cell6) =
+let lift6 f (cell: Cell<_>, cell2, cell3, cell4, cell5, cell6) =
     cell.LiftImpl(cell2, cell3, cell4, cell5, cell6, Func<_, _, _, _, _, _, _> f)
 
 /// <summary>
@@ -325,11 +325,11 @@ let lift6 f ((cell: Cell<_>), cell2, cell3, cell4, cell5, cell6) =
 /// </returns>
 /// <remarks>
 ///     Glitch-free: when several of the inputs change in one transaction, the result updates
-///     once, with all of the new values, rather than once per input.
+///     once, with all the new values, rather than once per input.
 /// </remarks>
 let lift7 f (cell, cell2, cell3, cell4, cell5, cell6, cell7) =
     ((cell, cell2, cell3, cell4, cell5, cell6) |> lift6 tuple6S, cell7)
-    |> lift2 (fun struct (a, b, c, d, e, f') g -> f a b c d e f' g)
+    |> lift2 (fun struct (a, b, c, d, e, f') -> f a b c d e f')
 
 /// <summary>
 ///     Combines eight cells into one whose value is a function of all of theirs.
@@ -349,11 +349,11 @@ let lift7 f (cell, cell2, cell3, cell4, cell5, cell6, cell7) =
 /// </returns>
 /// <remarks>
 ///     Glitch-free: when several of the inputs change in one transaction, the result updates
-///     once, with all of the new values, rather than once per input.
+///     once, with all the new values, rather than once per input.
 /// </remarks>
 let lift8 f (cell, cell2, cell3, cell4, cell5, cell6, cell7, cell8) =
     ((cell, cell2, cell3, cell4, cell5, cell6) |> lift6 tuple6S, cell7, cell8)
-    |> lift3 (fun struct (a, b, c, d, e, f') g h -> f a b c d e f' g h)
+    |> lift3 (fun struct (a, b, c, d, e, f') -> f a b c d e f')
 
 /// <summary>
 ///     Suppresses updates whose value the given comparison considers equal to the last one that got
@@ -412,7 +412,7 @@ let private liftAllSeq f (cells: seq<'Cell>) =
 /// </summary>
 /// <param name="f">Combines the current values, given in the order the cells were supplied.</param>
 /// <param name="cells">The cells to combine.</param>
-/// <returns>A cell whose value is <paramref name="f" /> applied to all of the current values.</returns>
+/// <returns>A cell whose value is <paramref name="f" /> applied to all the current values.</returns>
 /// <remarks>
 ///     The <c>lift</c> family where the number of inputs is not known until run time. Glitch-free
 ///     in the same way: however many of the inputs change in one transaction, the result updates

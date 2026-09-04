@@ -1,56 +1,58 @@
 ﻿using System;
 
-namespace SodaFlow
+namespace SodaFlow;
+
+internal sealed class LazyBehavior<T> : Behavior<T>
 {
-    internal class LazyBehavior<T> : Behavior<T>
+    private Lazy<T>? lazyInitialValue;
+
+    internal LazyBehavior(TransactionInternal trans, Stream<T> stream, Lazy<T> lazyInitialValue)
+        // ReSharper disable once NullableWarningSuppressionIsUsed - initialValue is assigned to valueProperty on
+        // the base class, and that value is only read by SampleNoTransaction(), which this class overrides to
+        // ensure the value is set before returning.
+        : base(stream: stream, initialValue: default!)
     {
-        internal Lazy<T> LazyInitialValue;
+        this.lazyInitialValue = new Lazy<T>(() => GuardAgainstSend(trans: trans, v: lazyInitialValue));
 
-        internal LazyBehavior(TransactionInternal trans, Stream<T> stream, Lazy<T> lazyInitialValue)
-            : base(stream: stream, initialValue: default)
+        trans.Sample(this.EnsureValueIsCreated);
+    }
+
+    private static T GuardAgainstSend(TransactionInternal trans, Lazy<T> v)
+    {
+        trans.InCallback++;
+
+        try
         {
-            this.LazyInitialValue = new Lazy<T>(() => GuardAgainstSend(trans: trans, v: lazyInitialValue));
-
-            trans.Sample(this.EnsureValueIsCreated);
+            // Don't allow transactions to interfere with SodaFlow
+            // internals.
+            return v.Value;
         }
-
-        private static T GuardAgainstSend(TransactionInternal trans, Lazy<T> v)
+        finally
         {
-            trans.InCallback++;
-
-            try
-            {
-                // Don't allow transactions to interfere with SodaFlow
-                // internals.
-                return v.Value;
-            }
-            finally
-            {
-                trans.InCallback--;
-            }
+            trans.InCallback--;
         }
+    }
 
-        protected override void NotUsingInitialValue()
+    protected override void NotUsingInitialValue()
+    {
+        base.NotUsingInitialValue();
+
+        this.lazyInitialValue = null;
+    }
+
+    internal override T SampleNoTransaction()
+    {
+        this.EnsureValueIsCreated();
+
+        return this.ValueProperty;
+    }
+
+    private void EnsureValueIsCreated()
+    {
+        if (this.UsingInitialValue && this.lazyInitialValue != null)
         {
-            base.NotUsingInitialValue();
-
-            this.LazyInitialValue = null;
-        }
-
-        internal override T SampleNoTransaction()
-        {
-            this.EnsureValueIsCreated();
-
-            return this.ValueProperty;
-        }
-
-        private void EnsureValueIsCreated()
-        {
-            if (this.UsingInitialValue && this.LazyInitialValue != null)
-            {
-                this.ValueProperty = this.LazyInitialValue.Value;
-                this.LazyInitialValue = null;
-            }
+            this.ValueProperty = this.lazyInitialValue.Value;
+            this.lazyInitialValue = null;
         }
     }
 }

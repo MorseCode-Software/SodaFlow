@@ -1,18 +1,24 @@
-﻿namespace SodaFlow.Functional;
+﻿using System;
+using System.Collections;
+using JetBrains.Annotations;
+#if NET
+using System.Diagnostics.CodeAnalysis;
+#endif
+
+namespace SodaFlow.Functional;
 
 /// <summary>
-///     A class representing the unit type (similar to <code>void</code>).
+///     A struct representing the unit type (similar to <code>void</code>).
 /// </summary>
-public sealed class Unit
+[PublicAPI]
+// ReSharper disable once InheritdocConsiderUsage
+public readonly struct Unit
+    : IEquatable<Unit>, IStructuralEquatable, IStructuralComparable, IComparable, IComparable<Unit>
 {
     /// <summary>
     ///     The singleton value of type <see cref="Unit" />.
     /// </summary>
-    public static readonly Unit Value = new();
-
-    private Unit()
-    {
-    }
+    public static readonly Unit Value;
 
     /// <summary>
     ///     Determines whether the given object is also a <see cref="Unit" />.
@@ -25,25 +31,36 @@ public sealed class Unit
     /// <remarks>
     ///     There is only one value of this type, so any two instances are equal.
     /// </remarks>
-    public override bool Equals(object? obj)
+    public override bool Equals(
+#if NET
+        [NotNullWhen(true)]
+#endif
+        object? obj) =>
+        obj is Unit;
+
+    /// <inheritdoc />
+    public bool Equals(Unit other) => true;
+
+    bool IStructuralEquatable.Equals(object? other, IEqualityComparer comparer) => other is Unit;
+
+    private static int CompareToCore(object? other)
     {
-        if (ReferenceEquals(objA: null, objB: obj))
+        if (other is null)
         {
-            return false;
+            return 1;
         }
 
-        if (ReferenceEquals(objA: this, objB: obj))
-        {
-            return true;
-        }
-
-        if (obj.GetType() != this.GetType())
-        {
-            return false;
-        }
-
-        return true;
+        return other is not Unit
+            ? throw new ArgumentException($"Parameter {nameof(other)} expected to be of type {nameof(Unit)}.")
+            : 0;
     }
+
+    int IComparable.CompareTo(object? other) => CompareToCore(other);
+
+    /// <inheritdoc />
+    public int CompareTo(Unit other) => 0;
+
+    int IStructuralComparable.CompareTo(object? other, IComparer comparer) => CompareToCore(other);
 
     /// <summary>
     ///     Returns a hash code for this instance.
@@ -51,26 +68,30 @@ public sealed class Unit
     /// <returns>The same constant for every instance, since all of them are equal.</returns>
     public override int GetHashCode() => 1;
 
-    /// <summary>
-    ///     Determines whether two references are equal.
-    /// </summary>
-    /// <param name="x">The first reference.</param>
-    /// <param name="y">The second reference.</param>
-    /// <returns>
-    ///     <see langword="true" /> if both are <see langword="null" /> or neither is, since any two
-    ///     non-null instances are equal.
-    /// </returns>
-    public static bool operator ==(Unit x, Unit y) =>
-        ReferenceEquals(objA: x, objB: null) == ReferenceEquals(objA: y, objB: null);
+    int IStructuralEquatable.GetHashCode(IEqualityComparer comparer) => 0;
 
     /// <summary>
-    ///     Determines whether two references differ, by negating <see cref="op_Equality" />.
+    ///     Returns a string that represents the value of this <see cref="Unit" /> instance.
     /// </summary>
-    /// <param name="x">The first reference.</param>
-    /// <param name="y">The second reference.</param>
-    /// <returns>
-    ///     <see langword="true" /> if exactly one of the two is <see langword="null" />.
-    /// </returns>
-    public static bool operator !=(Unit x, Unit y) =>
-        ReferenceEquals(objA: x, objB: null) != ReferenceEquals(objA: y, objB: null);
+    /// <returns>The string representation of this <see cref="Unit" /> instance.</returns>
+    /// <remarks>
+    ///     The string returned by this method takes the form <c>()</c>.
+    /// </remarks>
+    public override string ToString() => "()";
+
+    /// <summary>
+    ///     Returns <see langword="true" /> since instances of <see cref="Unit" /> are always equal.
+    /// </summary>
+    /// <param name="x">The first instance.</param>
+    /// <param name="y">The second instance.</param>
+    /// <returns><see langword="true" /> since instances of <see cref="Unit" /> are always equal.</returns>
+    public static bool operator ==(Unit x, Unit y) => true;
+
+    /// <summary>
+    ///     Returns <see langword="false" /> since instances of <see cref="Unit" /> are always equal.
+    /// </summary>
+    /// <param name="x">The first instance.</param>
+    /// <param name="y">The second instance.</param>
+    /// <returns><see langword="false" /> since instances of <see cref="Unit" /> are always equal.</returns>
+    public static bool operator !=(Unit x, Unit y) => false;
 }

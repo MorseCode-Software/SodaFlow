@@ -10,17 +10,17 @@ module Issue151 =
     type ``Issue 151 Tests``() =
 
         [<Test>]
-        member __.``Pool Double Subtraction: Broken``() =
+        member _.``Pool Double Subtraction: Broken``() =
             let actual =
                 try
                     let threshold = sinkC 10
                     let addPoolSink = sinkS ()
 
-                    let struct (submitPooledAmount, pool) =
+                    let struct (_submitPooledAmount, _pool) =
                         loopS (fun submitPooledAmount ->
                             let poolAddByInput = addPoolSink |> mapS (flip (+))
-                            let poolremoveByUsage = submitPooledAmount |> mapS (fun x -> (flip (-) x))
-                            let pool = (poolAddByInput, poolremoveByUsage) |> mergeS (>>) |> accumS 0 (<|)
+                            let poolRemoveByUsage = submitPooledAmount |> mapS (flip (-))
+                            let pool = (poolAddByInput, poolRemoveByUsage) |> mergeS (>>) |> accumS 0 (<|)
 
                             let inputByAdded =
                                 poolAddByInput
@@ -46,7 +46,7 @@ module Issue151 =
             |> assertExceptionExists (fun e -> Assert.AreEqual("A dependency cycle was detected.", e.Message))
 
         [<Test>]
-        member __.``Pool Double Subtraction: Fixed``() =
+        member _.``Pool Double Subtraction: Fixed``() =
             let threshold = sinkC 10
             let addPoolSink = sinkS ()
 
@@ -54,10 +54,9 @@ module Issue151 =
                 loopS (fun submitPooledAmount ->
                     let poolAddByInput = addPoolSink |> mapS (flip (+))
 
-                    let poolremoveByUsage =
-                        submitPooledAmount |> mapS (fun x -> (flip (-) x)) |> Operational.defer
+                    let poolRemoveByUsage = submitPooledAmount |> mapS (flip (-)) |> Operational.defer
 
-                    let pool = (poolAddByInput, poolremoveByUsage) |> mergeS (>>) |> accumS 0 (<|)
+                    let pool = (poolAddByInput, poolRemoveByUsage) |> mergeS (>>) |> accumS 0 (<|)
 
                     let inputByAdded =
                         poolAddByInput
@@ -79,7 +78,7 @@ module Issue151 =
             addPoolSink |> sendS 10
             l |> unlistenL
             Assert.AreEqual(1, submissions.Count)
-            Assert.AreEqual(10, submissions.[0])
+            Assert.AreEqual(10, submissions[0])
             Assert.AreEqual(0, pool |> sampleC)
 
 module Issue138 =
@@ -129,12 +128,12 @@ module Issue138 =
          * The current implementation throws an exception stating that a dependency cycle was detected, and I think this is the correct behavior.
          *)
         [<Test>]
-        member __.``Test SwitchC Loop``() =
+        member _.``Test SwitchC Loop``() =
             let actual =
                 try
                     let streamSink = sinkCS ()
 
-                    let cell: Cell<TestObject list> =
+                    let _cell: Cell<TestObject list> =
                         loopWithNoCapturesC (fun cell ->
                             (streamSink |> mapS (fun v _ -> v),
                              cell
@@ -162,7 +161,7 @@ module Issue138 =
          * This won't work both because we miss the first Values stream event when the list changes and also because we would need to recurse to keep the list correct when the sum is very low (only one item can be added per transaction).
          *)
         [<Test>]
-        member __.``Test SwitchS Values Loop``() =
+        member _.``Test SwitchS Values Loop``() =
             let streamSink = sinkCS ()
 
             let cell: Cell<TestObject list> =
@@ -181,8 +180,10 @@ module Issue138 =
             objectCounts.Add -1
             let l = cell |> listenStrongC (objectCounts.Add << List.length)
             objectCounts.Add -1
+            // ReSharper disable once FSharpRedundantDotInIndexer - Inpection is incorrect as the dot is needed here.
             (cell |> sampleC).[2].Input1 |> sendS 1
             objectCounts.Add -1
+            // ReSharper disable once FSharpRedundantDotInIndexer - Inpection is incorrect as the dot is needed here.
             (cell |> sampleC).[1].Input1 |> sendS -20
             objectCounts.Add -1
             streamSink |> sendS List.empty
@@ -204,7 +205,7 @@ module Issue138 =
          * The only drawback to this method is that each step of the recursion is in a new transaction, so it exhibits "glitchy" behavior where the intermediate invalid states are externally visible.
          *)
         [<Test>]
-        member __.``Test SwitchC Deferred Loop``() =
+        member _.``Test SwitchC Deferred Loop``() =
             let streamSink = sinkCS ()
 
             let cell: Cell<TestObject list> =
@@ -225,8 +226,10 @@ module Issue138 =
             objectCounts.Add -1
             let l = cell |> listenStrongC (objectCounts.Add << List.length)
             objectCounts.Add -1
+            // ReSharper disable once FSharpRedundantDotInIndexer - Inpection is incorrect as the dot is needed here.
             (cell |> sampleC).[2].Input1 |> sendS 1
             objectCounts.Add -1
+            // ReSharper disable once FSharpRedundantDotInIndexer - Inpection is incorrect as the dot is needed here.
             (cell |> sampleC).[1].Input1 |> sendS -20
             objectCounts.Add -1
             streamSink |> sendS List.empty
@@ -250,7 +253,7 @@ module Issue138 =
          * containing the DeferredValues() and DeferredUpdates() methods.
          *)
         [<Test>]
-        member __.``Test SwitchC Deferred Loop With Better API``() =
+        member _.``Test SwitchC Deferred Loop With Better API``() =
             let switchCWithDeferredValues cell =
                 cell |> switchC |> valuesC |> Operational.defer
 
@@ -272,8 +275,10 @@ module Issue138 =
             objectCounts.Add -1
             let l = cell |> listenStrongC (objectCounts.Add << List.length)
             objectCounts.Add -1
+            // ReSharper disable once FSharpRedundantDotInIndexer - Inpection is incorrect as the dot is needed here.
             (cell |> sampleC).[2].Input1 |> sendS 1
             objectCounts.Add -1
+            // ReSharper disable once FSharpRedundantDotInIndexer - Inpection is incorrect as the dot is needed here.
             (cell |> sampleC).[1].Input1 |> sendS -20
             objectCounts.Add -1
             streamSink |> sendS List.empty

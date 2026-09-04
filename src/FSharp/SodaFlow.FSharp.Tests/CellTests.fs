@@ -28,7 +28,7 @@ module private Types =
 type ``Cell Tests``() =
 
     [<Test>]
-    member __.``Test Loop``() =
+    member _.``Test Loop``() =
         let struct (_, (c, s)) =
             loopC (fun cl ->
                 let c = cl |> mapC ((*) 5)
@@ -47,7 +47,7 @@ type ``Cell Tests``() =
         CollectionAssert.AreEqual([ 25; 35 ], output2)
 
     [<Test>]
-    member __.``Test Lift Simultaneous Updates``() =
+    member _.``Test Lift Simultaneous Updates``() =
         let out = List<_>()
         let cellSink = sinkC 1
         let cell = cellSink |> mapC ((*) 2)
@@ -58,7 +58,7 @@ type ``Cell Tests``() =
         CollectionAssert.AreEqual([ 6; 21 ], out)
 
     [<Test>]
-    member __.``Test Lift In SwitchC``() =
+    member _.``Test Lift In SwitchC``() =
         let list1 = [| Test(0); Test(1); Test(2); Test(3); Test(4) |]
         let list2 = [| Test(5); Test(6); Test(7); Test(8); Test(9) |]
         let v = sinkC list1
@@ -67,33 +67,33 @@ type ``Cell Tests``() =
         let l = c |> updatesC |> listenStrongS streamOutput.Add
         let cellOutput = List<_>()
         let l2 = c |> listenStrongC cellOutput.Add
-        list1.[2].Value |> sendC 12
-        list2.[1].Value |> sendC 16
-        list1.[4].Value |> sendC 14
+        list1[2].Value |> sendC 12
+        list2[1].Value |> sendC 16
+        list1[4].Value |> sendC 14
 
         runT (fun () ->
-            list2.[2].Value |> sendC 17
-            list1.[0].Value |> sendC 10
+            list2[2].Value |> sendC 17
+            list1[0].Value |> sendC 10
             v |> sendC list2)
 
-        list1.[3].Value |> sendC 13
-        list2.[3].Value |> sendC 18
+        list1[3].Value |> sendC 13
+        list2[3].Value |> sendC 18
         l2 |> unlistenL
         l |> unlistenL
         Assert.AreEqual(4, streamOutput.Count)
         Assert.AreEqual(5, cellOutput.Count)
-        CollectionAssert.AreEqual([ 0; 1; 2; 3; 4 ], cellOutput.[0])
-        CollectionAssert.AreEqual([ 0; 1; 12; 3; 4 ], streamOutput.[0])
-        CollectionAssert.AreEqual([ 0; 1; 12; 3; 4 ], cellOutput.[1])
-        CollectionAssert.AreEqual([ 0; 1; 12; 3; 14 ], streamOutput.[1])
-        CollectionAssert.AreEqual([ 0; 1; 12; 3; 14 ], cellOutput.[2])
-        CollectionAssert.AreEqual([ 5; 16; 17; 8; 9 ], streamOutput.[2])
-        CollectionAssert.AreEqual([ 5; 16; 17; 8; 9 ], cellOutput.[3])
-        CollectionAssert.AreEqual([ 5; 16; 17; 18; 9 ], streamOutput.[3])
-        CollectionAssert.AreEqual([ 5; 16; 17; 18; 9 ], cellOutput.[4])
+        CollectionAssert.AreEqual([ 0; 1; 2; 3; 4 ], cellOutput[0])
+        CollectionAssert.AreEqual([ 0; 1; 12; 3; 4 ], streamOutput[0])
+        CollectionAssert.AreEqual([ 0; 1; 12; 3; 4 ], cellOutput[1])
+        CollectionAssert.AreEqual([ 0; 1; 12; 3; 14 ], streamOutput[1])
+        CollectionAssert.AreEqual([ 0; 1; 12; 3; 14 ], cellOutput[2])
+        CollectionAssert.AreEqual([ 5; 16; 17; 8; 9 ], streamOutput[2])
+        CollectionAssert.AreEqual([ 5; 16; 17; 8; 9 ], cellOutput[3])
+        CollectionAssert.AreEqual([ 5; 16; 17; 18; 9 ], streamOutput[3])
+        CollectionAssert.AreEqual([ 5; 16; 17; 18; 9 ], cellOutput[4])
 
     [<Test>]
-    member __.``Test Map With SwitchC``() =
+    member _.``Test Map With SwitchC``() =
         let list1 = [| Test(0); Test(1); Test(2); Test(3); Test(4) |]
         let list2 = [| Test(5); Test(6); Test(7); Test(8); Test(9) |]
         let v = sinkC list1
@@ -105,33 +105,33 @@ type ``Cell Tests``() =
         let l = c |> updatesC |> listenStrongS streamOutput.Add
         let cellOutput = List<_>()
         let l2 = c |> listenStrongC cellOutput.Add
-        list1.[2].Value |> sendC 12
-        list2.[1].Value |> sendC 16
-        list1.[4].Value |> sendC 14
+        list1[2].Value |> sendC 12
+        list2[1].Value |> sendC 16
+        list1[4].Value |> sendC 14
 
         runT (fun () ->
-            list2.[2].Value |> sendC 17
-            list1.[0].Value |> sendC 10
+            list2[2].Value |> sendC 17
+            list1[0].Value |> sendC 10
             v |> sendC list2)
 
-        list1.[3].Value |> sendC 13
-        list2.[3].Value |> sendC 18
+        list1[3].Value |> sendC 13
+        list2[3].Value |> sendC 18
         l2 |> unlistenL
         l |> unlistenL
         Assert.AreEqual(4, streamOutput.Count)
         Assert.AreEqual(5, cellOutput.Count)
-        CollectionAssert.AreEqual([ 0; 1; 2; 3; 4 ], cellOutput.[0])
-        CollectionAssert.AreEqual([ 0; 1; 12; 3; 4 ], streamOutput.[0])
-        CollectionAssert.AreEqual([ 0; 1; 12; 3; 4 ], cellOutput.[1])
-        CollectionAssert.AreEqual([ 0; 1; 12; 3; 14 ], streamOutput.[1])
-        CollectionAssert.AreEqual([ 0; 1; 12; 3; 14 ], cellOutput.[2])
-        CollectionAssert.AreEqual([ 5; 16; 17; 8; 9 ], streamOutput.[2])
-        CollectionAssert.AreEqual([ 5; 16; 17; 8; 9 ], cellOutput.[3])
-        CollectionAssert.AreEqual([ 5; 16; 17; 18; 9 ], streamOutput.[3])
-        CollectionAssert.AreEqual([ 5; 16; 17; 18; 9 ], cellOutput.[4])
+        CollectionAssert.AreEqual([ 0; 1; 2; 3; 4 ], cellOutput[0])
+        CollectionAssert.AreEqual([ 0; 1; 12; 3; 4 ], streamOutput[0])
+        CollectionAssert.AreEqual([ 0; 1; 12; 3; 4 ], cellOutput[1])
+        CollectionAssert.AreEqual([ 0; 1; 12; 3; 14 ], streamOutput[1])
+        CollectionAssert.AreEqual([ 0; 1; 12; 3; 14 ], cellOutput[2])
+        CollectionAssert.AreEqual([ 5; 16; 17; 8; 9 ], streamOutput[2])
+        CollectionAssert.AreEqual([ 5; 16; 17; 8; 9 ], cellOutput[3])
+        CollectionAssert.AreEqual([ 5; 16; 17; 18; 9 ], streamOutput[3])
+        CollectionAssert.AreEqual([ 5; 16; 17; 18; 9 ], cellOutput[4])
 
     [<Test>]
-    member __.``Test Lift Cells In SwitchC``() =
+    member _.``Test Lift Cells In SwitchC``() =
         let out = List<_>()
         let s = sinkC 0
         let c = constantC <| constantC 1
@@ -142,7 +142,7 @@ type ``Cell Tests``() =
         l |> unlistenL
 
     [<Test>]
-    member __.``Test Lazy Cell Creation``() =
+    member _.``Test Lazy Cell Creation``() =
         let out = List<_>()
         let s = sinkS ()
         let c = constantC 1 |> mapC (fun _ -> s |> holdS 0)
@@ -154,7 +154,7 @@ type ``Cell Tests``() =
         CollectionAssert.AreEqual([ 1; 3; 5 ], out)
 
     [<Test>]
-    member __.``Test Cell Values With Previous``() =
+    member _.``Test Cell Values With Previous``() =
         let s = sinkS ()
         let c = s |> holdS 0
         let out = List<_>()
@@ -176,7 +176,7 @@ type ``Cell Tests``() =
         CollectionAssert.AreEqual([ (0, None); (1, Some 0); (2, Some 1); (3, Some 2); (4, Some 3) ], out)
 
     [<Test>]
-    member __.``Test Cell Values With Previous Having Initial Update``() =
+    member _.``Test Cell Values With Previous Having Initial Update``() =
         let s = sinkS ()
         let c = s |> holdS 0
         let out = List<_>()
@@ -199,7 +199,7 @@ type ``Cell Tests``() =
         CollectionAssert.AreEqual([ (1, Some 0); (2, Some 1); (3, Some 2); (4, Some 3); (5, Some 4) ], out)
 
     [<Test>]
-    member __.``Test Loop And SwitchC Error``() =
+    member _.``Test Loop And SwitchC Error``() =
         let e =
             try
                 loopWithNoCapturesC (fun c ->
@@ -217,7 +217,7 @@ type ``Cell Tests``() =
             Assert.AreEqual("ValueFactory attempted to access the Value property of this instance.", e.Message))
 
     [<Test>]
-    member __.``Test Loop And SwitchC``() =
+    member _.``Test Loop And SwitchC``() =
         let struct (resultCell, (innerCell, innerStreamSink)) =
             loopC (fun c ->
                 let s = sinkS ()

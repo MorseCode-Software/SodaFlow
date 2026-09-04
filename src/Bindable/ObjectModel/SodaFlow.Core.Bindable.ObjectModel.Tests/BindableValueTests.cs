@@ -21,10 +21,10 @@ public class BindableValueTests
     private static ITwoWayBindableValue<T> TwoWay<T>(CellSink<T> sink) =>
         sink.ToTwoWayImpl(scheduler: BindingScheduler.Immediate);
 
-    private static List<string> RecordNotifications(INotifyPropertyChanged source)
+    private static List<string?> RecordNotifications(INotifyPropertyChanged source)
     {
-        List<string> names = new();
-        source.PropertyChanged += (_, e) => names.Add(e.PropertyName!);
+        List<string?> names = new();
+        source.PropertyChanged += (_, e) => names.Add(e.PropertyName);
         return names;
     }
 
@@ -33,13 +33,12 @@ public class BindableValueTests
     {
         CellSink<int> c = Cell.CreateSink(7);
 
-        using (IOneWayBindableValue<int> b = OneWay(c))
-        {
-            Assert.AreEqual(
-                expected: 7,
-                actual: b.Value,
-                message: "the constructor samples rather than waiting for an update");
-        }
+        using IOneWayBindableValue<int> b = OneWay(c);
+
+        Assert.AreEqual(
+            expected: 7,
+            actual: b.Value,
+            message: "the constructor samples rather than waiting for an update");
     }
 
     [Test]
@@ -47,16 +46,15 @@ public class BindableValueTests
     {
         CellSink<int> c = Cell.CreateSink(0);
 
-        using (IOneWayBindableValue<int> b = OneWay(c))
-        {
-            List<string> names = RecordNotifications(b);
+        using IOneWayBindableValue<int> b = OneWay(c);
 
-            c.Send(1);
-            c.Send(2);
+        List<string?> names = RecordNotifications(b);
 
-            Assert.AreEqual(expected: 2, actual: b.Value);
-            CollectionAssert.AreEqual(expected: new[] { "Value", "Value" }, actual: names);
-        }
+        c.Send(1);
+        c.Send(2);
+
+        Assert.AreEqual(expected: 2, actual: b.Value);
+        CollectionAssert.AreEqual(expected: new[] { "Value", "Value" }, actual: names);
     }
 
     // The property name is load-bearing: the documented binding path is {Binding Foo.Value}, so a
@@ -66,14 +64,13 @@ public class BindableValueTests
     {
         CellSink<string> c = Cell.CreateSink("a");
 
-        using (IOneWayBindableValue<string> b = OneWay(c))
-        {
-            List<string> names = RecordNotifications(b);
+        using IOneWayBindableValue<string> b = OneWay(c);
 
-            c.Send("b");
+        List<string?> names = RecordNotifications(b);
 
-            CollectionAssert.AreEqual(expected: new[] { "Value" }, actual: names);
-        }
+        c.Send("b");
+
+        CollectionAssert.AreEqual(expected: new[] { "Value" }, actual: names);
     }
 
     [Test]
@@ -81,14 +78,13 @@ public class BindableValueTests
     {
         CellSink<int> c = Cell.CreateSink(3);
 
-        using (IOneWayBindableValue<int> b = OneWay(c))
-        {
-            List<string> names = RecordNotifications(b);
+        using IOneWayBindableValue<int> b = OneWay(c);
 
-            c.Send(3);
+        List<string?> names = RecordNotifications(b);
 
-            CollectionAssert.IsEmpty(collection: names, message: "an update carrying the same value is not a change");
-        }
+        c.Send(3);
+
+        CollectionAssert.IsEmpty(collection: names, message: "an update carrying the same value is not a change");
     }
 
     [Test]
@@ -108,13 +104,12 @@ public class BindableValueTests
     {
         CellSink<int> c = Cell.CreateSink(0);
 
-        using (ITwoWayBindableValue<int> b = TwoWay(c))
-        {
-            b.Value = 5;
+        using ITwoWayBindableValue<int> b = TwoWay(c);
 
-            Assert.AreEqual(expected: 5, actual: c.Sample(), message: "the write reached the sink");
-            Assert.AreEqual(expected: 5, actual: b.Value);
-        }
+        b.Value = 5;
+
+        Assert.AreEqual(expected: 5, actual: c.Sample(), message: "the write reached the sink");
+        Assert.AreEqual(expected: 5, actual: b.Value);
     }
 
     [Test]
@@ -122,15 +117,14 @@ public class BindableValueTests
     {
         CellSink<int> c = Cell.CreateSink(0);
 
-        using (ITwoWayBindableValue<int> b = TwoWay(c))
-        {
-            List<string> names = RecordNotifications(b);
+        using ITwoWayBindableValue<int> b = TwoWay(c);
 
-            c.Send(4);
+        List<string?> names = RecordNotifications(b);
 
-            Assert.AreEqual(expected: 4, actual: b.Value);
-            CollectionAssert.AreEqual(expected: new[] { "Value" }, actual: names);
-        }
+        c.Send(4);
+
+        Assert.AreEqual(expected: 4, actual: b.Value);
+        CollectionAssert.AreEqual(expected: new[] { "Value" }, actual: names);
     }
 
     // The graph is authoritative. A write the graph normalizes has to come back corrected, or the
@@ -139,15 +133,14 @@ public class BindableValueTests
     public void TwoWayReconcilesAWriteTheGraphNormalizes()
     {
         StreamSink<string> edits = Stream.CreateSink<string>();
-        Cell<string> upperCased = edits.Map(v => v.ToUpperInvariant()).Hold(string.Empty);
+        Cell<string> upperCased = edits.Map(static v => v.ToUpperInvariant()).Hold(string.Empty);
 
-        using (ITwoWayBindableValue<string> b =
-               upperCased.ToTwoWayImpl(editsStreamSink: edits, scheduler: BindingScheduler.Immediate))
-        {
-            b.Value = "abc";
+        using ITwoWayBindableValue<string> b =
+            upperCased.ToTwoWayImpl(editsStreamSink: edits, scheduler: BindingScheduler.Immediate);
 
-            Assert.AreEqual(expected: "ABC", actual: b.Value, message: "the cell's value wins over the optimistic one");
-        }
+        b.Value = "abc";
+
+        Assert.AreEqual(expected: "ABC", actual: b.Value, message: "the cell's value wins over the optimistic one");
     }
 
     [Test]
@@ -166,15 +159,14 @@ public class BindableValueTests
     {
         CellSink<int> c = Cell.CreateSink(0);
 
-        using (IOneWayToSourceBindableValue<int> b = c.ToOneWayToSourceImpl())
-        {
-            Assert.AreEqual(expected: 0, actual: b.Value, message: "the getter starts at the sink's value");
+        using IOneWayToSourceBindableValue<int> b = c.ToOneWayToSourceImpl();
 
-            b.Value = 6;
+        Assert.AreEqual(expected: 0, actual: b.Value, message: "the getter starts at the sink's value");
 
-            Assert.AreEqual(expected: 6, actual: c.Sample());
-            Assert.AreEqual(expected: 6, actual: b.Value, message: "the getter reads back what the view wrote");
-        }
+        b.Value = 6;
+
+        Assert.AreEqual(expected: 6, actual: c.Sample());
+        Assert.AreEqual(expected: 6, actual: b.Value, message: "the getter reads back what the view wrote");
     }
 
     [Test]
@@ -189,7 +181,7 @@ public class BindableValueTests
         Assert.AreEqual(expected: 0, actual: c.Sample(), message: "a disposed sink accepts no further writes");
     }
 
-    // A view model builds its bindables wherever it happens to be running and has no business
+    // A view model builds its bindable objects wherever it happens to be running and has no business
     // knowing which thread the binding engine uses. These construct off the current thread, with
     // no SynchronizationContext to capture, and check the sampled value survives the handover.
     //
@@ -198,7 +190,7 @@ public class BindableValueTests
     // reintroduced a same-thread requirement would fail here immediately.
     private static TResult OnAnotherThread<TResult>(Func<TResult> f)
     {
-        TResult result = default!;
+        TResult? result = default;
         Exception? failure = null;
 
         Thread thread =
@@ -221,12 +213,10 @@ public class BindableValueTests
         thread.Start();
         Assert.IsTrue(condition: thread.Join(TimeSpan.FromSeconds(10)), message: "construction should not block");
 
-        if (failure != null)
-        {
-            throw new AssertionException(message: "construction threw on the other thread", inner: failure);
-        }
-
-        return result;
+        return failure != null
+            ? throw new AssertionException(message: "construction threw on the other thread", inner: failure)
+            // ReSharper disable once NullableWarningSuppressionIsUsed - This will be non-null if failure is null.
+            : result!;
     }
 
     [Test]
@@ -234,14 +224,13 @@ public class BindableValueTests
     {
         CellSink<int> c = Cell.CreateSink(11);
 
-        using (IOneWayBindableValue<int> b = OnAnotherThread(() => OneWay(c)))
-        {
-            Assert.AreEqual(expected: 11, actual: b.Value, message: "the sample survived the handover");
+        using IOneWayBindableValue<int> b = OnAnotherThread(() => OneWay(c));
 
-            c.Send(12);
+        Assert.AreEqual(expected: 11, actual: b.Value, message: "the sample survived the handover");
 
-            Assert.AreEqual(expected: 12, actual: b.Value, message: "and it keeps following afterward");
-        }
+        c.Send(12);
+
+        Assert.AreEqual(expected: 12, actual: b.Value, message: "and it keeps following afterward");
     }
 
     [Test]
@@ -249,14 +238,13 @@ public class BindableValueTests
     {
         CellSink<int> c = Cell.CreateSink(11);
 
-        using (ITwoWayBindableValue<int> b = OnAnotherThread(() => TwoWay(c)))
-        {
-            Assert.AreEqual(expected: 11, actual: b.Value);
+        using ITwoWayBindableValue<int> b = OnAnotherThread(() => TwoWay(c));
 
-            b.Value = 13;
+        Assert.AreEqual(expected: 11, actual: b.Value);
 
-            Assert.AreEqual(expected: 13, actual: c.Sample());
-        }
+        b.Value = 13;
+
+        Assert.AreEqual(expected: 13, actual: c.Sample());
     }
 
     [Test]
@@ -264,14 +252,13 @@ public class BindableValueTests
     {
         CellSink<int> c = Cell.CreateSink(11);
 
-        using (IOneWayToSourceBindableValue<int> b = OnAnotherThread(() => c.ToOneWayToSourceImpl()))
-        {
-            Assert.AreEqual(expected: 11, actual: b.Value);
+        using IOneWayToSourceBindableValue<int> b = OnAnotherThread(() => c.ToOneWayToSourceImpl());
 
-            b.Value = 13;
+        Assert.AreEqual(expected: 11, actual: b.Value);
 
-            Assert.AreEqual(expected: 13, actual: c.Sample());
-        }
+        b.Value = 13;
+
+        Assert.AreEqual(expected: 13, actual: c.Sample());
     }
 
     [Test]
@@ -279,19 +266,18 @@ public class BindableValueTests
     {
         CellSink<bool> enabled = Cell.CreateSink(true);
 
-        using (IBindableAction<int> a =
-               OnAnotherThread(() =>
-                   Stream.CreateSink<int>()
-                       .ToBindableActionImpl(
-                           isEnabledCell: enabled,
-                           scheduler: BindingScheduler.Immediate)))
-        {
-            Assert.IsTrue(condition: a.CanExecute(null), message: "the sampled enablement survived the handover");
+        using IBindableAction<int> a =
+            OnAnotherThread(() =>
+                Stream.CreateSink<int>()
+                    .ToBindableActionImpl(
+                        isEnabledCell: enabled,
+                        scheduler: BindingScheduler.Immediate));
 
-            enabled.Send(false);
+        Assert.IsTrue(condition: a.CanExecute(null), message: "the sampled enablement survived the handover");
 
-            Assert.IsFalse(a.CanExecute(null));
-        }
+        enabled.Send(false);
+
+        Assert.IsFalse(a.CanExecute(null));
     }
 
     // Every bindable is disposable through the one marker interface, which is what lets a view

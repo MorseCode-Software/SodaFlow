@@ -32,15 +32,63 @@ public class AsyncConcurrencyStrategyTests
 
         TestUtil.WaitUntil(() => op.HasStarted("a") && op.HasStarted("b"));
 
+        // Both admitted and started before either is released — proves Parallel never waits.
         op.Release(input: "b", result: "B");
         TestUtil.WaitUntil(() => received.Count == 1);
         op.Release(input: "a", result: "A");
         TestUtil.WaitUntil(() => received.Count == 2);
 
+        // Completion order, not submission order.
         CollectionAssert.AreEqual(expected: new[] { "B", "A" }, actual: received);
 
         status.Dispose();
         l.Unlisten();
+    }
+
+    [Test]
+    public void Parallel_BothStartImmediatelyAndPublishInCompletionOrderWithFailures()
+    {
+        StreamSink<string> source = Stream.CreateSink<string>();
+        StreamSink<string> results = Stream.CreateSink<string>();
+        StreamSink<Exception> errors = Stream.CreateSink<Exception>();
+        ControlledOperation<string, string> op = new();
+        List<object> received = new();
+        IListener l = results.ListenStrong(received.Add);
+        IListener l2 = errors.ListenStrong(received.Add);
+
+        AsyncMapStatus<string> status =
+            source.MapAsync(
+                results: results,
+                errors: errors,
+                operation: op.Operation,
+                strategy: AsyncConcurrencyStrategy.Parallel());
+
+        source.Send("a");
+        source.Send("b");
+        source.Send("c");
+        source.Send("d");
+
+        TestUtil.WaitUntil(() => op.HasStarted("a") && op.HasStarted("b"));
+
+        Exception b = new("D");
+        Exception d = new("D");
+
+        // Both admitted and started before either is released — proves Parallel never waits.
+        op.Fail(input: "d", error: d);
+        TestUtil.WaitUntil(() => received.Count == 1);
+        op.Release(input: "c", result: "C");
+        TestUtil.WaitUntil(() => received.Count == 2);
+        op.Fail(input: "b", error: b);
+        TestUtil.WaitUntil(() => received.Count == 3);
+        op.Release(input: "a", result: "A");
+        TestUtil.WaitUntil(() => received.Count == 4);
+
+        // Completion order, not submission order.
+        CollectionAssert.AreEqual(expected: new object[] { d, "C", b, "A" }, actual: received);
+
+        status.Dispose();
+        l.Unlisten();
+        l2.Unlisten();
     }
 
     [Test]
@@ -88,7 +136,7 @@ public class AsyncConcurrencyStrategyTests
         IListener l = results.ListenStrong(received.Add);
 
         AsyncConcurrencyStrategyBase<string, Unit> strategy =
-            AsyncConcurrencyStrategy.QueuePerGroup<string>().Create(v => v.Split('-')[0]);
+            AsyncConcurrencyStrategy.QueuePerGroup<string>().Create(static v => v.Split('-')[0]);
 
         AsyncMapStatus<string> status =
             source.MapAsync(
@@ -178,7 +226,7 @@ public class AsyncConcurrencyStrategyTests
             source.MapAsync(
                 results: results,
                 errors: errors,
-                operation: (_, _) => Task.FromResult(Unit.Value),
+                operation: static (_, _) => Task.FromResult(Unit.Value),
                 strategy: strategy);
 
         source.Send("a");
@@ -196,6 +244,7 @@ public class AsyncConcurrencyStrategyTests
     ///     shorthand (input and result both fixed to <see cref="Unit" />) — every value starts
     ///     immediately, like Parallel, but also counts admissions.
     /// </summary>
+    // ReSharper disable once InheritdocConsiderUsage
     private sealed class CountingStrategy : AsyncConcurrencyStrategy<int>
     {
         private int count;

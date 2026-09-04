@@ -1,6 +1,7 @@
 using System;
 using System.ComponentModel;
 using System.Windows.Input;
+using JetBrains.Annotations;
 
 namespace SodaFlow.Bindable.ObjectModel;
 
@@ -8,6 +9,8 @@ namespace SodaFlow.Bindable.ObjectModel;
 ///     Anything this library hands to a view. Every bindable owns a subscription into the FRP graph
 ///     and must be disposed; this is what lets a view model hold a heterogeneous collection of them.
 /// </summary>
+[PublicAPI]
+// ReSharper disable once InheritdocConsiderUsage
 public interface IBindable : IDisposable
 {
 }
@@ -15,6 +18,8 @@ public interface IBindable : IDisposable
 /// <summary>
 ///     The readable half of every bindable value, whichever direction it flows.
 /// </summary>
+[PublicAPI]
+// ReSharper disable once InheritdocConsiderUsage
 public interface IReadableBindableValue<T> : IBindable
 {
     /// <summary>The current value.</summary>
@@ -30,6 +35,8 @@ public interface IReadableBindableValue<T> : IBindable
 ///     <see cref="IOneWayToSourceBindableValue{T}" />, so a helper that only needs to push a value
 ///     into the graph can accept either.
 /// </summary>
+[PublicAPI]
+// ReSharper disable once InheritdocConsiderUsage
 public interface IWritableBindableValue<T> : IBindable
 {
     /// <summary>Gets the current value, or writes a new one into the FRP graph.</summary>
@@ -50,6 +57,8 @@ public interface IWritableBindableValue<T> : IBindable
 ///         <see cref="IReadableBindableValue{T}.Cell" /> can be part of the contract.
 ///     </para>
 /// </remarks>
+[PublicAPI]
+// ReSharper disable once InheritdocConsiderUsage
 public interface IOneWayBindableValue<T> : IReadableBindableValue<T>, INotifyPropertyChanged
 {
     /// <summary>The most recent value delivered to the binding thread.</summary>
@@ -64,6 +73,8 @@ public interface IOneWayBindableValue<T> : IReadableBindableValue<T>, INotifyPro
 ///     <see cref="Value" /> is redeclared to resolve the two inherited declarations — without it,
 ///     every access through this interface would be ambiguous.
 /// </remarks>
+[PublicAPI]
+// ReSharper disable once InheritdocConsiderUsage
 public interface ITwoWayBindableValue<T> : IOneWayBindableValue<T>, IWritableBindableValue<T>
 {
     /// <summary>
@@ -82,6 +93,8 @@ public interface ITwoWayBindableValue<T> : IOneWayBindableValue<T>, IWritableBin
 ///     A getter is exposed because both WPF and Avalonia read the source property when establishing
 ///     a <c>OneWayToSource</c> binding. It returns the last value written by the view.
 /// </remarks>
+[PublicAPI]
+// ReSharper disable once InheritdocConsiderUsage
 public interface IOneWayToSourceBindableValue<T> : IWritableBindableValue<T>
 {
 }
@@ -90,6 +103,8 @@ public interface IOneWayToSourceBindableValue<T> : IWritableBindableValue<T>
 ///     An <see cref="ICommand" /> that carries its <c>CommandParameter</c> through to the stream and
 ///     whose enablement is driven by a <see cref="Cell{T}" /> of <see cref="bool" />.
 /// </summary>
+[PublicAPI]
+// ReSharper disable once InheritdocConsiderUsage
 public interface IBindableAction<T> : IBindable, ICommand
 {
     /// <summary>The cell driving enablement, for further composition in the FRP graph.</summary>

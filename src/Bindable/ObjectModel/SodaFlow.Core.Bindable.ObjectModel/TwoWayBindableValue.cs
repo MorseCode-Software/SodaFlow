@@ -14,7 +14,7 @@ public static partial class BindableCoreExtensionMethods
     ///         The setter is optimistic: it updates the cached value immediately (so the binding engine
     ///         reads back exactly what it wrote and does not fight the user's caret), then pushes the
     ///         value into the graph. Once the graph settles, a reconciliation pass samples the cell and
-    ///         corrects the cached value if the graph rejected or normalized the write — for example an
+    ///         corrects the cached value if the graph rejected or normalized the write operation — for example an
     ///         input mask that upper-cases text, or a validation rule that discards it.
     ///     </para>
     ///     <para>
@@ -23,6 +23,7 @@ public static partial class BindableCoreExtensionMethods
     ///         orders the two. Every later change is marshaled through the scheduler.
     ///     </para>
     /// </remarks>
+    // ReSharper disable once InheritdocConsiderUsage
     private sealed class TwoWayBindableValue<T> : BindableValueBase, ITwoWayBindableValue<T>
     {
         private readonly IEqualityComparer<T> comparer;
@@ -62,6 +63,10 @@ public static partial class BindableCoreExtensionMethods
             this.Cell = cell ?? throw new ArgumentNullException(nameof(cell));
             this.write = write ?? throw new ArgumentNullException(nameof(write));
             this.comparer = comparer ?? EqualityComparer<T>.Default;
+
+            // ReSharper disable once NullableWarningSuppressionIsUsed - This value will be replaced with a non-null
+            // value in the transaction below when the cell is sampled, which happens before the constructor completes
+            // and before the listener is attached, so nothing has a chance of modifying this.box before then.
             this.box = new ValueBox<T>(default!);
 
             this.listener =
@@ -106,13 +111,13 @@ public static partial class BindableCoreExtensionMethods
                     }
                     finally
                     {
-                        // Queued from inside the write rather than alongside it. If the write
-                        // was itself deferred, queuing the reconciliation here keeps it behind
+                        // Queued from inside the write operation rather than alongside it. If the write
+                        // operation was itself deferred, queuing the reconciliation here keeps it behind
                         // the update the write produces — otherwise it could sample a stale
-                        // cell and revert the user's edit before the send had happened.
+                        // cell and revert the user's edit before the send operation had happened.
                         //
-                        // In a finally, because the cached value was already updated
-                        // optimistically above. A write that throws would otherwise leave that
+                        // This is run in a finally block, because the cached value was already updated
+                        // optimistically above. A write operation that throws would otherwise leave that
                         // value standing with nothing to correct it, and the equality check in
                         // the setter would then refuse to retry it — wedging the property for
                         // good. Reconciling regardless puts the cell's value back on screen.
@@ -140,8 +145,8 @@ public static partial class BindableCoreExtensionMethods
             });
 
         /// <summary>
-        ///     Queued from inside the write, so any update the write produced was posted first —
-        ///     Sodium delivers it synchronously during the send. By the time this runs the cached
+        ///     Queued from inside the write, so any update the write operation produced was posted first —
+        ///     Sodium delivers it synchronously during the send operation. By the time this runs the cached
         ///     value is already correct in the common case, and this is a cheap no-op.
         /// </summary>
         private void ScheduleReconciliation() =>

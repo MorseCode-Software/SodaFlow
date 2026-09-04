@@ -6,6 +6,7 @@ namespace SodaFlow.Functional;
 /// <summary>
 ///     Provides methods implementing a monad for <see cref="Maybe{T}" />.
 /// </summary>
+[PublicAPI]
 public static class MaybeMonad
 {
     #region Public Methods and Operators
@@ -43,7 +44,7 @@ public static class MaybeMonad
                     Maybe<TResult> intermediateResult = transformation(v);
                     return intermediateResult;
                 },
-                onNone: () => Maybe.None);
+                onNone: static () => Maybe.None);
 
         return result;
     }

@@ -6,10 +6,10 @@ open NUnit.Framework
 open SodaFlow
 
 type Node(child: Child) =
-    member __.Child = child
+    member _.Child = child
 
 and Child(parent: Cell<Node>) =
-    member __.Parent = parent
+    member _.Parent = parent
 
 /// Builds the node whose child holds a reference back to it, which is the knot under test.
 let private nodeHolding reference = Node(Child reference)
@@ -18,13 +18,13 @@ let private nodeHolding reference = Node(Child reference)
 type ``Forward Reference Tests``() =
 
     [<Test>]
-    member __.``Test Create With No Captures Resolves The Reference``() =
-        let node = forwardReferenceWithNoCaptures (fun reference -> nodeHolding reference)
+    member _.``Test Create With No Captures Resolves The Reference``() =
+        let node = forwardReferenceWithNoCaptures nodeHolding
 
         Assert.AreSame(node, node.Child.Parent |> sampleC)
 
     [<Test>]
-    member __.``Test Create With No Captures Returns What The Function Produced``() =
+    member _.``Test Create With No Captures Returns What The Function Produced``() =
         let produced = obj ()
 
         let result = forwardReferenceWithNoCaptures (fun _ -> produced)
@@ -32,7 +32,7 @@ type ``Forward Reference Tests``() =
         Assert.AreSame(produced, result)
 
     [<Test>]
-    member __.``Test Create With No Captures Runs The Function Once``() =
+    member _.``Test Create With No Captures Runs The Function Once``() =
         let mutable calls = 0
 
         forwardReferenceWithNoCaptures (fun _ ->
@@ -43,9 +43,9 @@ type ``Forward Reference Tests``() =
         Assert.AreEqual(1, calls)
 
     [<Test>]
-    member __.``Test Create With No Captures Reference Never Changes``() =
+    member _.``Test Create With No Captures Reference Never Changes``() =
         // The single-valued case of a cell loop: the reference resolves once and stays there.
-        let node = forwardReferenceWithNoCaptures (fun reference -> nodeHolding reference)
+        let node = forwardReferenceWithNoCaptures nodeHolding
         let out = List<_>()
         let l = node.Child.Parent |> listenStrongC out.Add
         l |> unlistenL
@@ -53,7 +53,7 @@ type ``Forward Reference Tests``() =
         CollectionAssert.AreEqual([ node ], out)
 
     [<Test>]
-    member __.``Test Create Resolves The Reference And Returns The Captures``() =
+    member _.``Test Create Resolves The Reference And Returns The Captures``() =
         let struct (node, sink) =
             forwardReference (fun reference -> struct (nodeHolding reference, sinkS ()))
 
@@ -61,7 +61,7 @@ type ``Forward Reference Tests``() =
         Assert.IsNotNull sink
 
     [<Test>]
-    member __.``Test Create Runs The Function Once``() =
+    member _.``Test Create Runs The Function Once``() =
         let mutable calls = 0
 
         forwardReference (fun _ ->
@@ -72,7 +72,7 @@ type ``Forward Reference Tests``() =
         Assert.AreEqual(1, calls)
 
     [<Test>]
-    member __.``Test Two Objects Can Refer To Each Other``() =
+    member _.``Test Two Objects Can Refer To Each Other``() =
         // Neither exists when the other is constructed, which is the knot this unties.
         let struct (node, child) =
             forwardReference (fun reference -> struct (nodeHolding reference, Child reference))
@@ -81,16 +81,14 @@ type ``Forward Reference Tests``() =
         Assert.AreSame(node, node.Child.Parent |> sampleC)
 
     [<Test>]
-    member __.``Test Works Inside An Existing Transaction``() =
-        let node =
-            runT (fun () -> forwardReferenceWithNoCaptures (fun reference -> nodeHolding reference))
+    member _.``Test Works Inside An Existing Transaction``() =
+        let node = runT (fun () -> forwardReferenceWithNoCaptures nodeHolding)
 
         Assert.AreSame(node, node.Child.Parent |> sampleC)
 
     [<Test>]
-    member __.``Test Reference Cannot Be Read During Construction``() =
+    member _.``Test Reference Cannot Be Read During Construction``() =
         // The reference is a promise about what the value will be, not the value, so asking for
         // it before the constructing function has returned has no answer.
-        Assert.Throws<InvalidOperationException>(fun () ->
-            forwardReferenceWithNoCaptures (fun reference -> reference |> sampleC) |> ignore)
+        Assert.Throws<InvalidOperationException>(fun () -> forwardReferenceWithNoCaptures sampleC |> ignore)
         |> ignore

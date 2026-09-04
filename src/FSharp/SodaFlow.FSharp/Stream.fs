@@ -218,7 +218,7 @@ let mapTo value (stream: Stream<_>) = stream.MapToImpl value
 /// <returns>A cell holding the last value fired, or <paramref name="initialValue" /> before any.</returns>
 /// <remarks>
 ///     The cell's new value is visible to anything sampling it after the transaction in which the
-///     firing happened, not within it. That delay is what makes a loop through a cell well defined
+///     firing happened, not within it. That delay is what makes a loop through a cell well-defined
 ///     rather than circular.
 /// </remarks>
 [<MethodImpl(MethodImplOptions.NoInlining)>]
@@ -464,7 +464,7 @@ let snapshot4 (cell1: Cell<_>) cell2 cell3 cell4 f (stream: Stream<_>) =
 let snapshot5B behavior1 behavior2 behavior3 behavior4 behavior5 f stream =
     stream
     |> snapshot4B behavior1 behavior2 behavior3 behavior4 tuple5S
-    |> snapshotB behavior5 (fun struct (a, b, c, d, e) f' -> f a b c d e f')
+    |> snapshotB behavior5 (fun struct (a, b, c, d, e) -> f a b c d e)
 
 /// <summary>
 ///     Samples five cells when the stream fires, and fires the combination.
@@ -520,7 +520,7 @@ let snapshot5 cell1 cell2 cell3 cell4 cell5 f stream =
 let snapshot6B behavior1 behavior2 behavior3 behavior4 behavior5 behavior6 f stream =
     stream
     |> snapshot4B behavior1 behavior2 behavior3 behavior4 tuple5S
-    |> snapshot2B behavior5 behavior6 (fun struct (a, b, c, d, e) f' g -> f a b c d e f' g)
+    |> snapshot2B behavior5 behavior6 (fun struct (a, b, c, d, e) -> f a b c d e)
 
 /// <summary>
 ///     Samples six cells when the stream fires, and fires the combination.
@@ -579,7 +579,7 @@ let snapshot6 cell1 cell2 cell3 cell4 cell5 cell6 f stream =
 let snapshot7B behavior1 behavior2 behavior3 behavior4 behavior5 behavior6 behavior7 f stream =
     stream
     |> snapshot4B behavior1 behavior2 behavior3 behavior4 tuple5S
-    |> snapshot3B behavior5 behavior6 behavior7 (fun struct (a, b, c, d, e) f' g h -> f a b c d e f' g h)
+    |> snapshot3B behavior5 behavior6 behavior7 (fun struct (a, b, c, d, e) -> f a b c d e)
 
 /// <summary>
 ///     Samples seven cells when the stream fires, and fires the combination.
@@ -641,7 +641,7 @@ let snapshot7 cell1 cell2 cell3 cell4 cell5 cell6 cell7 f stream =
 let snapshot8B behavior1 behavior2 behavior3 behavior4 behavior5 behavior6 behavior7 behavior8 f stream =
     stream
     |> snapshot4B behavior1 behavior2 behavior3 behavior4 tuple5S
-    |> snapshot4B behavior5 behavior6 behavior7 behavior8 (fun struct (a, b, c, d, e) f' g h i -> f a b c d e f' g h i)
+    |> snapshot4B behavior5 behavior6 behavior7 behavior8 (fun struct (a, b, c, d, e) -> f a b c d e)
 
 /// <summary>
 ///     Samples eight cells when the stream fires, and fires the combination.
@@ -727,7 +727,7 @@ let filter predicate (stream: Stream<_>) = stream.FilterImpl(Func<_, _> predicat
 /// <returns>A stream firing the value inside each <c>Some</c>, and not firing for <c>None</c>.</returns>
 [<MethodImpl(MethodImplOptions.NoInlining)>]
 let filterSome (stream: Stream<_>) =
-    StreamExtensionMethodsInternal.FilterSomeImpl(stream, (Action<_, _>(fun o a -> o |> Option.iter a.Invoke)))
+    StreamExtensionMethodsInternal.FilterSomeImpl(stream, Action<_, _>(fun o a -> o |> Option.iter a.Invoke))
 
 /// <summary>
 ///     Transforms the firings with a function which may produce no value, and fires only the values
@@ -748,7 +748,7 @@ let filterSome (stream: Stream<_>) =
 let choose f (stream: Stream<_>) =
     StreamExtensionMethodsInternal.FilterSomeImpl(
         stream.MapImpl(Func<_, _> f),
-        (Action<_, _>(fun o a -> o |> Option.iter a.Invoke))
+        Action<_, _>(fun o a -> o |> Option.iter a.Invoke)
     )
 
 /// <summary>

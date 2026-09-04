@@ -45,6 +45,7 @@ public readonly struct AsyncItem<TInput>
 ///     sole handle for tearing the pipeline down — see <see cref="Dispose" />.
 /// </summary>
 [PublicAPI]
+// ReSharper disable once InheritdocConsiderUsage
 public readonly struct AsyncMapStatus<TInput>
     : IDisposable
 {
@@ -83,6 +84,7 @@ public readonly struct AsyncMapStatus<TInput>
     ///     runs to completion and still publishes its result or error afterward. Safe to call
     ///     more than once — later calls are no-ops.
     /// </summary>
+    // ReSharper disable once InheritdocConsiderUsage
     public void Dispose() => this.dispose();
 }
 
@@ -246,7 +248,11 @@ public abstract class AsyncMapBase
             Func<T> onCanceled) =>
             this.kind switch
             {
+                // ReSharper disable once NullableWarningSuppressionIsUsed - This object can only be constructed with
+                // kind being AsyncOutcomeKind.Succeeded when it sets this.value to a non-null value.
                 AsyncOutcomeKind.Succeeded => onSucceeded(this.value!),
+                // ReSharper disable once NullableWarningSuppressionIsUsed - This object can only be constructed with
+                // kind being AsyncOutcomeKind.Failed when it sets this.error to a non-null value.
                 AsyncOutcomeKind.Failed => onFailed(this.error!),
                 AsyncOutcomeKind.Canceled => onCanceled(),
                 _ => throw new InvalidOperationException("Unknown value for kind.")
@@ -267,9 +273,13 @@ public abstract class AsyncMapBase
             switch (this.kind)
             {
                 case AsyncOutcomeKind.Succeeded:
+                    // ReSharper disable once NullableWarningSuppressionIsUsed - This object can only be constructed with
+                    // kind being AsyncOutcomeKind.Succeeded when it sets this.value to a non-null value.
                     onSucceeded?.Invoke(this.value!);
                     break;
                 case AsyncOutcomeKind.Failed:
+                    // ReSharper disable once NullableWarningSuppressionIsUsed - This object can only be constructed with
+                    // kind being AsyncOutcomeKind.Failed when it sets this.error to a non-null value.
                     onFailed?.Invoke(this.error!);
                     break;
                 case AsyncOutcomeKind.Canceled:
@@ -364,6 +374,7 @@ public abstract class AsyncMapBase
     ///     so the execution engine can call Admit/OnCompleted without knowing
     ///     <typeparamref name="TState" /> itself.
     /// </summary>
+    // ReSharper disable once InheritdocConsiderUsage
     internal class StateManager<TInput, TResult, TState>
         : IStateManager<TInput, TResult>
     {
@@ -566,6 +577,7 @@ internal static class AsyncStreamUtility
 ///     <see cref="AsyncConcurrencyStrategy{TInput,TResult,TState}" /> instead.
 /// </summary>
 [PublicAPI]
+// ReSharper disable once InheritdocConsiderUsage
 public abstract class AsyncConcurrencyStrategyBase<TInput, TResult>
     : AsyncMapBase
 {
@@ -606,6 +618,7 @@ public abstract class AsyncConcurrencyStrategyBase<TInput, TResult>
 ///     to recognize it again later.
 /// </summary>
 [PublicAPI]
+// ReSharper disable once InheritdocConsiderUsage
 public abstract class AsyncConcurrencyStrategy<TInput, TResult, TState>
     : AsyncConcurrencyStrategyBase<TInput, TResult>
 {
@@ -830,6 +843,7 @@ internal static class AsyncConcurrencyStrategyFactory
     ///     a
     ///     specified group selector.
     /// </summary>
+    // ReSharper disable once InheritdocConsiderUsage
     private sealed class QueuePerGroupStrategy<TUnit, TInput, TGroup>
         : AsyncConcurrencyStrategy<TInput, TUnit, QueuePerGroupStrategy<TUnit, TInput, TGroup>.State>
         where TGroup : notnull
@@ -1000,6 +1014,7 @@ internal static class AsyncConcurrencyStrategyFactory
 ///     <typeparamref name="TStrategyResult" /> the strategy is shown, alongside <c>outcome</c>,
 ///     holding the real <typeparamref name="TResult" /> that gets published).
 /// </summary>
+// ReSharper disable once InheritdocConsiderUsage
 internal sealed class AsyncMapExecutionManager<TInput, TResult, TStrategyInput, TStrategyResult>
     : AsyncMapBase
 {
@@ -1109,7 +1124,7 @@ internal sealed class AsyncMapExecutionManager<TInput, TResult, TStrategyInput, 
                     source
                         .SnapshotImpl(
                             c: entryByIdCellLoop,
-                            f: (value, entryById) => (Value: value, EntryById: entryById))
+                            f: static (value, entryById) => (Value: value, EntryById: entryById))
                         .MapImpl(o =>
                         {
                             if (this.disposed)
@@ -1181,11 +1196,10 @@ internal sealed class AsyncMapExecutionManager<TInput, TResult, TStrategyInput, 
                         .MergeImpl(s: this.mutations, f: CombineMutations)
                         .AccumImpl(
                             initialState: Array.Empty<Entry>(),
-                            f: (mutation, list) =>
-                                Apply(list: list, mutation: mutation));
+                            f: static (mutation, list) => Apply(list: list, mutation: mutation));
 
                 Cell<Dictionary<Guid, Entry>> entryByIdCell =
-                    trackedCell.MapImpl(tracked => tracked.ToDictionary(e => e.Item.Id));
+                    trackedCell.MapImpl(static tracked => tracked.ToDictionary(static e => e.Item.Id));
 
                 entryByIdCellLoop.Loop(trans: trans, c: entryByIdCell);
 
@@ -1217,8 +1231,8 @@ internal sealed class AsyncMapExecutionManager<TInput, TResult, TStrategyInput, 
         {
             this.cancelAllListener =
                 this.cancelAll
-                    .SnapshotImpl(c: trackedCell, f: (_, entries) => entries)
-                    .ListenImpl(entries =>
+                    .SnapshotImpl(c: trackedCell, f: static (_, entries) => entries)
+                    .ListenImpl(static entries =>
                     {
                         foreach (Entry e in entries)
                         {
@@ -1231,8 +1245,10 @@ internal sealed class AsyncMapExecutionManager<TInput, TResult, TStrategyInput, 
         {
             this.cancelMatchingListener =
                 this.cancelMatching
-                    .SnapshotImpl(c: trackedCell, f: (toCancel, entries) => (ToCancel: toCancel, Entries: entries))
-                    .ListenImpl(pair =>
+                    .SnapshotImpl(
+                        c: trackedCell,
+                        f: static (toCancel, entries) => (ToCancel: toCancel, Entries: entries))
+                    .ListenImpl(static pair =>
                     {
                         if (pair.ToCancel.Count == 0)
                         {
@@ -1245,6 +1261,7 @@ internal sealed class AsyncMapExecutionManager<TInput, TResult, TStrategyInput, 
                         // conversion is needed here.
                         HashSet<TInput> targets = new(pair.ToCancel);
 
+                        // ReSharper disable once LoopCanBePartlyConvertedToQuery - Done for performance reasons.
                         foreach (Entry e in pair.Entries)
                         {
                             if (targets.Contains(e.Item.Value))
@@ -1263,8 +1280,8 @@ internal sealed class AsyncMapExecutionManager<TInput, TResult, TStrategyInput, 
         // Listen.
         this.disposeCancelListener =
             this.disposeCancelTrigger
-                .SnapshotImpl(c: trackedCell, f: (_, entries) => entries)
-                .ListenImpl(entries =>
+                .SnapshotImpl(c: trackedCell, f: static (_, entries) => entries)
+                .ListenImpl(static entries =>
                 {
                     foreach (Entry e in entries)
                     {
@@ -1273,14 +1290,14 @@ internal sealed class AsyncMapExecutionManager<TInput, TResult, TStrategyInput, 
                 });
 
         Cell<bool> isRunning =
-            trackedCell.MapImpl(entries =>
-                Array.Exists(array: entries, match: e => e.Status == AsyncItemStatus.Running));
+            trackedCell.MapImpl(static entries =>
+                Array.Exists(array: entries, match: static e => e.Status == AsyncItemStatus.Running));
 
         Cell<IReadOnlyList<AsyncItem<TInput>>> items =
-            trackedCell.MapImpl<IReadOnlyList<AsyncItem<TInput>>>(entries =>
+            trackedCell.MapImpl<IReadOnlyList<AsyncItem<TInput>>>(static entries =>
                 Array.ConvertAll(
                     array: entries,
-                    converter: e => new AsyncItem<TInput>(value: e.Item.Value, status: e.Status)));
+                    converter: static e => new AsyncItem<TInput>(value: e.Item.Value, status: e.Status)));
 
         return new AsyncMapStatus<TInput>(isRunning: isRunning, items: items, dispose: this.Dispose);
     }
@@ -1300,7 +1317,9 @@ internal sealed class AsyncMapExecutionManager<TInput, TResult, TStrategyInput, 
     // ThreadPool.QueueUserWorkItem instead if a hard crash-on-bug is ever wanted.
     private static void FireAndForget(Task task) =>
         task.ContinueWith(
-            continuationAction: t => ExceptionDispatchInfo.Capture(t.Exception!.GetBaseException()).Throw(),
+            // ReSharper disable once NullableWarningSuppressionIsUsed - This continuation has
+            // TaskContinuationOptions.OnlyOnFaulted set, so the task's Exception property will be non-null.
+            continuationAction: static t => ExceptionDispatchInfo.Capture(t.Exception!.GetBaseException()).Throw(),
             cancellationToken: CancellationToken.None,
             continuationOptions: TaskContinuationOptions.OnlyOnFaulted |
                                  TaskContinuationOptions.ExecuteSynchronously,
@@ -1325,6 +1344,7 @@ internal sealed class AsyncMapExecutionManager<TInput, TResult, TStrategyInput, 
             Entry[] kept = new Entry[list.Length];
             int count = 0;
 
+            // ReSharper disable once LoopCanBePartlyConvertedToQuery - Done for performance reasons.
             foreach (Entry e in list)
             {
                 bool remove = mutation.Remove.Any(itemToRemove => e.Item.Id == itemToRemove);
@@ -1351,6 +1371,7 @@ internal sealed class AsyncMapExecutionManager<TInput, TResult, TStrategyInput, 
         {
             Entry[]? updated = null;
 
+            // ReSharper disable once LoopCanBePartlyConvertedToQuery - Done for performance reasons.
             foreach (Guid idToPromote in mutation.Promote)
             {
                 int idx =

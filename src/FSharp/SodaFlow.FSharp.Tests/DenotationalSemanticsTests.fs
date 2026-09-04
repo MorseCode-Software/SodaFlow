@@ -85,16 +85,16 @@ type ``Denotational Semantics Tests``() =
         getPermutationsInternal list list.Length
 
     let runPermutations
-        (createListAndListener: unit -> (string * Map<int, (unit -> unit)>) list * (('T -> unit) -> #IListener))
+        (createListAndListener: unit -> (string * Map<int, unit -> unit>) list * (('T -> unit) -> #IListener))
         ``assert``
         =
         let indexes = List.init (createListAndListener () |> fst).Length id
 
-        for (list, listener) in
+        for list, listener in
             (getPermutations indexes
              |> List.map (fun ii ->
-                 let (list, listener) = createListAndListener ()
-                 (ii |> List.map (fun i -> list.[i]), listener))) do
+                 let list, listener = createListAndListener ()
+                 (ii |> List.map (fun i -> list[i]), listener))) do
             try
                 let out = runSimulation listener (list |> List.map snd)
                 ``assert`` out
@@ -103,34 +103,34 @@ type ``Denotational Semantics Tests``() =
                 reraise ()
 
     [<Test>]
-    member __.``Never: Test Case``() =
+    member _.``Never: Test Case``() =
         let out = runSimulationWithNoFirings (flip listenStrongS (neverS<int> ()))
         CollectionAssert.AreEqual([], out)
 
     [<Test>]
-    member __.``MapS: Test Case``() =
-        let (s, sf) = mkStream ([ (0, 5); (1, 10); (2, 12) ] |> Map.ofList)
+    member _.``MapS: Test Case``() =
+        let s, sf = mkStream ([ (0, 5); (1, 10); (2, 12) ] |> Map.ofList)
         let out = runSimulation (flip listenStrongS (s |> mapS ((+) 1))) [ sf ]
         CollectionAssert.AreEqual([ 6; 11; 13 ], out)
 
     [<Test>]
-    member __.``Snapshot: Test Case``() =
-        let (s1, s1f) = mkStream ([ (0, 'a'); (3, 'b'); (5, 'c') ] |> Map.ofList)
-        let (s2, s2f) = mkStream ([ (1, 4); (5, 7) ] |> Map.ofList)
+    member _.``Snapshot: Test Case``() =
+        let s1, s1f = mkStream ([ (0, 'a'); (3, 'b'); (5, 'c') ] |> Map.ofList)
+        let s2, s2f = mkStream ([ (1, 4); (5, 7) ] |> Map.ofList)
         let c = s2 |> holdS 3
         let out = runSimulation (flip listenStrongS (s1 |> snapshotAndTakeC c)) [ s1f; s2f ]
         CollectionAssert.AreEqual([ 3; 4; 4 ], out)
 
     [<Test>]
-    member __.``Merge: Test Case``() =
-        let (s1, s1f) = mkStream ([ (0, 0); (2, 2) ] |> Map.ofList)
-        let (s2, s2f) = mkStream ([ (1, 10); (2, 20); (3, 30) ] |> Map.ofList)
+    member _.``Merge: Test Case``() =
+        let s1, s1f = mkStream ([ (0, 0); (2, 2) ] |> Map.ofList)
+        let s2, s2f = mkStream ([ (1, 10); (2, 20); (3, 30) ] |> Map.ofList)
         let out = runSimulation (flip listenStrongS ((s1, s2) |> mergeS (+))) [ s1f; s2f ]
         CollectionAssert.AreEqual([ 0; 10; 22; 30 ], out)
 
     [<Test>]
-    member __.``Filter: Test Case``() =
-        let (s, sf) = mkStream ([ (0, 5); (1, 6); (2, 7) ] |> Map.ofList)
+    member _.``Filter: Test Case``() =
+        let s, sf = mkStream ([ (0, 5); (1, 6); (2, 7) ] |> Map.ofList)
 
         let out =
             runSimulation (flip listenStrongS (s |> filterS ((flip (%) 2) >> ((<>) 0)))) [ sf ]
@@ -138,27 +138,27 @@ type ``Denotational Semantics Tests``() =
         CollectionAssert.AreEqual([ 5; 7 ], out)
 
     [<Test>]
-    member __.``SwitchS: Test Case``() =
+    member _.``SwitchS: Test Case``() =
         runPermutations
             (fun () ->
-                let (s1, s1f) = mkStream ([ (0, 'a'); (1, 'b'); (2, 'c'); (3, 'd') ] |> Map.ofList)
-                let (s2, s2f) = mkStream ([ (0, 'W'); (1, 'X'); (2, 'Y'); (3, 'Z') ] |> Map.ofList)
-                let (switcher, switcherF) = mkStream ([ 1, s2 ] |> Map.ofList)
+                let s1, s1f = mkStream ([ (0, 'a'); (1, 'b'); (2, 'c'); (3, 'd') ] |> Map.ofList)
+                let s2, s2f = mkStream ([ (0, 'W'); (1, 'X'); (2, 'Y'); (3, 'Z') ] |> Map.ofList)
+                let switcher, switcherF = mkStream ([ 1, s2 ] |> Map.ofList)
                 let c = switcher |> holdS s1
                 let firings = [ ("s1", s1f); ("s2", s2f); ("switcher", switcherF) ]
                 (firings, flip listenStrongS (c |> switchS)))
             (fun out -> CollectionAssert.AreEqual([ 'a'; 'b'; 'Y'; 'Z' ], out))
 
     [<Test>]
-    member __.``Updates: Test Case``() =
-        let (s, sf) = mkStream ([ (1, 'b'); (3, 'c') ] |> Map.ofList)
+    member _.``Updates: Test Case``() =
+        let s, sf = mkStream ([ (1, 'b'); (3, 'c') ] |> Map.ofList)
         let c = s |> holdS 'a'
         let out = runSimulation (flip listenStrongS (c |> updatesC)) [ sf ]
         CollectionAssert.AreEqual([ 'b'; 'c' ], out)
 
     [<Test>]
-    member __.``Value: Test Case 1``() =
-        let (s, sf) = mkStream ([ (1, 'b'); (3, 'c') ] |> Map.ofList)
+    member _.``Value: Test Case 1``() =
+        let s, sf = mkStream ([ (1, 'b'); (3, 'c') ] |> Map.ofList)
         let c = s |> holdS 'a'
 
         let out =
@@ -167,8 +167,8 @@ type ``Denotational Semantics Tests``() =
         CollectionAssert.AreEqual([ 'a'; 'b'; 'c' ], out)
 
     [<Test>]
-    member __.``Value: Test Case 2``() =
-        let (s, sf) = mkStream ([ (0, 'b'); (1, 'c'); (3, 'd') ] |> Map.ofList)
+    member _.``Value: Test Case 2``() =
+        let s, sf = mkStream ([ (0, 'b'); (1, 'c'); (3, 'd') ] |> Map.ofList)
         let c = s |> holdS 'a'
 
         let out =
@@ -177,22 +177,22 @@ type ``Denotational Semantics Tests``() =
         CollectionAssert.AreEqual([ 'b'; 'c'; 'd' ], out)
 
     [<Test>]
-    member __.``ListenC: Test Case 1``() =
-        let (s, sf) = mkStream ([ (1, 'b'); (3, 'c') ] |> Map.ofList)
+    member _.``ListenC: Test Case 1``() =
+        let s, sf = mkStream ([ (1, 'b'); (3, 'c') ] |> Map.ofList)
         let c = s |> holdS 'a'
         let out = runSimulation (flip listenStrongC c) [ sf ]
         CollectionAssert.AreEqual([ 'a'; 'b'; 'c' ], out)
 
     [<Test>]
-    member __.``ListenC: Test Case 2``() =
-        let (s, sf) = mkStream ([ (0, 'b'); (1, 'c'); (3, 'd') ] |> Map.ofList)
+    member _.``ListenC: Test Case 2``() =
+        let s, sf = mkStream ([ (0, 'b'); (1, 'c'); (3, 'd') ] |> Map.ofList)
         let c = s |> holdS 'a'
         let out = runSimulation (flip listenStrongC c) [ sf ]
         CollectionAssert.AreEqual([ 'b'; 'c'; 'd' ], out)
 
     [<Test>]
-    member __.``Split: Test Case``() =
-        let (s, sf) =
+    member _.``Split: Test Case``() =
+        let s, sf =
             mkStreamWithCoalesce [ (0, [ 'a'; 'b' ]); (1, [ 'c' ]); (1, [ 'd'; 'e' ]) ] List.append
 
         let out =
@@ -201,100 +201,100 @@ type ``Denotational Semantics Tests``() =
         CollectionAssert.AreEqual([ 'a'; 'b'; 'c'; 'd'; 'e' ], out)
 
     [<Test>]
-    member __.``Constant: Test Case``() =
+    member _.``Constant: Test Case``() =
         let c = constantC 'a'
         let out = runSimulationWithNoFirings (flip listenStrongC c)
         CollectionAssert.AreEqual([ 'a' ], out)
 
     [<Test>]
-    member __.``ConstantLazy: Test Case``() =
+    member _.``ConstantLazy: Test Case``() =
         let c = constantLazyC (lazy 'a')
         let out = runSimulationWithNoFirings (flip listenStrongC c)
         CollectionAssert.AreEqual([ 'a' ], out)
 
     [<Test>]
-    member __.``Hold: Test Case``() =
-        let (s, sf) = mkStream ([ (1, 'b'); (3, 'c') ] |> Map.ofList)
+    member _.``Hold: Test Case``() =
+        let s, sf = mkStream ([ (1, 'b'); (3, 'c') ] |> Map.ofList)
         let c = s |> holdS 'a'
         let out = runSimulation (flip listenStrongC c) [ sf ]
         CollectionAssert.AreEqual([ 'a'; 'b'; 'c' ], out)
 
     [<Test>]
-    member __.``MapC: Test Case``() =
-        let (s, sf) = mkStream ([ (2, 3); (3, 5) ] |> Map.ofList)
+    member _.``MapC: Test Case``() =
+        let s, sf = mkStream ([ (2, 3); (3, 5) ] |> Map.ofList)
         let c = s |> holdS 0
         let out = runSimulation (flip listenStrongC (c |> mapC ((+) 1))) [ sf ]
         CollectionAssert.AreEqual([ 1; 4; 6 ], out)
 
     [<Test>]
-    member __.``Apply: Test Case``() =
-        let (s1, s1f) = mkStream ([ (1, 200); (2, 300); (4, 400) ] |> Map.ofList)
+    member _.``Apply: Test Case``() =
+        let s1, s1f = mkStream ([ (1, 200); (2, 300); (4, 400) ] |> Map.ofList)
         let ca = s1 |> holdS 100
-        let (s2, s2f) = mkStream ([ (1, (+) 5); (3, (+) 6) ] |> Map.ofList)
+        let s2, s2f = mkStream ([ (1, (+) 5); (3, (+) 6) ] |> Map.ofList)
         let cf = s2 |> holdS ((+) 0)
         let out = runSimulation (flip listenStrongC (ca |> applyC cf)) [ s1f; s2f ]
         CollectionAssert.AreEqual([ 100; 205; 305; 306; 406 ], out)
 
     [<Test>]
-    member __.``SwitchC: Test Case 1``() =
+    member _.``SwitchC: Test Case 1``() =
         runPermutations
             (fun () ->
-                let (s1, s1f) = mkStream ([ (0, 'b'); (1, 'c'); (2, 'd'); (3, 'e') ] |> Map.ofList)
+                let s1, s1f = mkStream ([ (0, 'b'); (1, 'c'); (2, 'd'); (3, 'e') ] |> Map.ofList)
                 let c1 = s1 |> holdS 'a'
-                let (s2, s2f) = mkStream ([ (0, 'W'); (1, 'X'); (2, 'Y'); (3, 'Z') ] |> Map.ofList)
+                let s2, s2f = mkStream ([ (0, 'W'); (1, 'X'); (2, 'Y'); (3, 'Z') ] |> Map.ofList)
                 let c2 = s2 |> holdS 'V'
-                let (switcher, switcherF) = mkStream ([ 1, c2 ] |> Map.ofList)
+                let switcher, switcherF = mkStream ([ 1, c2 ] |> Map.ofList)
                 let c = switcher |> holdS c1
                 let firings = [ ("s1", s1f); ("s2", s2f); ("switcher", switcherF) ]
                 (firings, flip listenStrongC (c |> switchC)))
             (fun out -> CollectionAssert.AreEqual([ 'b'; 'X'; 'Y'; 'Z' ], out))
 
     [<Test>]
-    member __.``SwitchC: Test Case 2``() =
+    member _.``SwitchC: Test Case 2``() =
         runPermutations
             (fun () ->
-                let (s1, s1f) = mkStream ([ (0, 'b'); (1, 'c'); (2, 'd'); (3, 'e') ] |> Map.ofList)
+                let s1, s1f = mkStream ([ (0, 'b'); (1, 'c'); (2, 'd'); (3, 'e') ] |> Map.ofList)
                 let c1 = s1 |> holdS 'a'
-                let (s2, s2f) = mkStream ([ (1, 'X'); (2, 'Y'); (3, 'Z') ] |> Map.ofList)
+                let s2, s2f = mkStream ([ (1, 'X'); (2, 'Y'); (3, 'Z') ] |> Map.ofList)
                 let c2 = s2 |> holdS 'W'
-                let (switcher, switcherF) = mkStream ([ 1, c2 ] |> Map.ofList)
+                let switcher, switcherF = mkStream ([ 1, c2 ] |> Map.ofList)
                 let c = switcher |> holdS c1
                 let firings = [ ("s1", s1f); ("s2", s2f); ("switcher", switcherF) ]
                 (firings, flip listenStrongC (c |> switchC)))
             (fun out -> CollectionAssert.AreEqual([ 'b'; 'X'; 'Y'; 'Z' ], out))
 
     [<Test>]
-    member __.``SwitchC: Test Case 3``() =
+    member _.``SwitchC: Test Case 3``() =
         runPermutations
             (fun () ->
-                let (s1, s1f) = mkStream ([ (0, 'b'); (1, 'c'); (2, 'd'); (3, 'e') ] |> Map.ofList)
+                let s1, s1f = mkStream ([ (0, 'b'); (1, 'c'); (2, 'd'); (3, 'e') ] |> Map.ofList)
                 let c1 = s1 |> holdS 'a'
-                let (s2, s2f) = mkStream ([ (2, 'Y'); (3, 'Z') ] |> Map.ofList)
+                let s2, s2f = mkStream ([ (2, 'Y'); (3, 'Z') ] |> Map.ofList)
                 let c2 = s2 |> holdS 'X'
-                let (switcher, switcherF) = mkStream ([ 1, c2 ] |> Map.ofList)
+                let switcher, switcherF = mkStream ([ 1, c2 ] |> Map.ofList)
                 let c = switcher |> holdS c1
                 let firings = [ ("s1", s1f); ("s2", s2f); ("switcher", switcherF) ]
                 (firings, flip listenStrongC (c |> switchC)))
             (fun out -> CollectionAssert.AreEqual([ 'b'; 'X'; 'Y'; 'Z' ], out))
 
     [<Test>]
-    member __.``SwitchC: Test Case 4``() =
+    member _.``SwitchC: Test Case 4``() =
         runPermutations
             (fun () ->
-                let (s1, s1f) = mkStream ([ (0, 'b'); (1, 'c'); (2, 'd'); (3, 'e') ] |> Map.ofList)
+                let s1, s1f = mkStream ([ (0, 'b'); (1, 'c'); (2, 'd'); (3, 'e') ] |> Map.ofList)
                 let c1 = s1 |> holdS 'a'
-                let (s2, s2f) = mkStream ([ (0, 'W'); (1, 'X'); (2, 'Y'); (3, 'Z') ] |> Map.ofList)
+                let s2, s2f = mkStream ([ (0, 'W'); (1, 'X'); (2, 'Y'); (3, 'Z') ] |> Map.ofList)
                 let c2 = s2 |> holdS 'V'
-                let (s3, s3f) = mkStream ([ (0, '2'); (1, '3'); (2, '4'); (3, '5') ] |> Map.ofList)
+                let s3, s3f = mkStream ([ (0, '2'); (1, '3'); (2, '4'); (3, '5') ] |> Map.ofList)
                 let c3 = s3 |> holdS '1'
-                let (switcher, switcherF) = mkStream ([ (1, c2); (3, c3) ] |> Map.ofList)
+                let switcher, switcherF = mkStream ([ (1, c2); (3, c3) ] |> Map.ofList)
                 let c = switcher |> holdS c1
                 let firings = [ ("s1", s1f); ("s2", s2f); ("s3", s3f); ("switcher", switcherF) ]
                 (firings, flip listenStrongC (c |> switchC)))
             (fun out -> CollectionAssert.AreEqual([ 'b'; 'X'; 'Y'; '5' ], out))
 
     [<Test>]
-    member __.``Sample: Test Case``() =
+    member _.``Sample: Test Case``() =
         let s = sinkS ()
         let c = s |> holdS 'a'
         let sample1 = c |> sampleC
@@ -304,7 +304,7 @@ type ``Denotational Semantics Tests``() =
         Assert.AreEqual('b', sample2)
 
     [<Test>]
-    member __.``SampleLazy: Test Case``() =
+    member _.``SampleLazy: Test Case``() =
         let s = sinkS ()
         let c = s |> holdS 'a'
         let sample1 = c |> sampleLazyC

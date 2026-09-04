@@ -23,7 +23,7 @@ public class MapAsyncExtensionsTests
             source.MapAsync(
                 results: results,
                 errors: errors,
-                operation: (v, _) => Task.FromResult(v.ToUpperInvariant()),
+                operation: static (v, _) => Task.FromResult(v.ToUpperInvariant()),
                 strategy: AsyncConcurrencyStrategy.Parallel());
 
         source.Send("hello");
@@ -49,7 +49,7 @@ public class MapAsyncExtensionsTests
             source.MapAsync(
                 results: results,
                 errors: errors,
-                operation: (_, _) => Task.FromResult("done"),
+                operation: static (_, _) => Task.FromResult("done"),
                 strategy: strategy);
 
         source.Send(dog);
@@ -76,9 +76,9 @@ public class MapAsyncExtensionsTests
             source.MapAsync(
                 results: results,
                 errors: errors,
-                operation: (v, _) => Task.FromResult(v.ToUpperInvariant()),
+                operation: static (v, _) => Task.FromResult(v.ToUpperInvariant()),
                 strategy: strategy,
-                inputConverter: v => v.Length);
+                inputConverter: static v => v.Length);
 
         source.Send("hello");
         TestUtil.WaitUntil(() => received.Count == 1);
@@ -129,9 +129,9 @@ public class MapAsyncExtensionsTests
             source.MapAsync(
                 results: results,
                 errors: errors,
-                operation: (v, _) => Task.FromResult(v.ToUpperInvariant()),
+                operation: static (v, _) => Task.FromResult(v.ToUpperInvariant()),
                 strategy: strategy,
-                resultConverter: v => v.Length);
+                resultConverter: static v => v.Length);
 
         source.Send("hello");
         TestUtil.WaitUntil(() => received.Count == 1);
@@ -157,7 +157,7 @@ public class MapAsyncExtensionsTests
             source.MapAsync(
                 results: results,
                 errors: errors,
-                operation: (v, _) => Task.FromResult(v),
+                operation: static (v, _) => Task.FromResult(v),
                 strategy: new AlwaysStartStrategy<Animal, Animal>());
 
         source.Send(dog);
@@ -185,7 +185,7 @@ public class MapAsyncExtensionsTests
                 errors: errors,
                 operation: (_, _) => Task.FromResult(dog),
                 strategy: strategy,
-                inputConverter: v => v.Length);
+                inputConverter: static v => v.Length);
 
         source.Send("hello");
         TestUtil.WaitUntil(() => received.Count == 1);
@@ -212,9 +212,9 @@ public class MapAsyncExtensionsTests
             source.MapAsync(
                 results: results,
                 errors: errors,
-                operation: (_, _) => Task.FromResult("done"),
+                operation: static (_, _) => Task.FromResult("done"),
                 strategy: strategy,
-                resultConverter: v => v.Length);
+                resultConverter: static v => v.Length);
 
         source.Send(dog);
         TestUtil.WaitUntil(() => received.Count == 1);
@@ -242,10 +242,10 @@ public class MapAsyncExtensionsTests
             source.MapAsync(
                 results: results,
                 errors: errors,
-                operation: (v, _) => Task.FromResult(v.ToUpperInvariant()),
+                operation: static (v, _) => Task.FromResult(v.ToUpperInvariant()),
                 strategy: strategy,
-                inputConverter: v => v.Length,
-                resultConverter: v => v.Length > 3);
+                inputConverter: static v => v.Length,
+                resultConverter: static v => v.Length > 3);
 
         source.Send("hello");
         TestUtil.WaitUntil(() => received.Count == 1);
@@ -462,6 +462,7 @@ public class MapAsyncExtensionsTests
     ///     TStrategyInput/TStrategyResult and records both what it was admitted with and what it
     ///     saw on completion — so a test can assert a converter actually ran, not merely compiled.
     /// </summary>
+    // ReSharper disable once InheritdocConsiderUsage
     private sealed class AlwaysStartStrategy<TStrategyInput, TStrategyResult>
         : AsyncConcurrencyStrategy<TStrategyInput, TStrategyResult, Unit>
     {

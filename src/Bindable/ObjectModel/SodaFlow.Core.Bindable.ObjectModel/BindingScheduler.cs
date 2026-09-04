@@ -1,11 +1,13 @@
 ﻿using System;
 using System.Threading;
+using JetBrains.Annotations;
 
 namespace SodaFlow.Bindable.ObjectModel;
 
 /// <summary>
 ///     Marshals notifications onto the thread the binding engine requires.
 /// </summary>
+[PublicAPI]
 public interface IBindingScheduler
 {
     /// <summary>
@@ -13,16 +15,27 @@ public interface IBindingScheduler
     ///     MUST preserve FIFO ordering and MUST NOT execute the action synchronously while a Sodium
     ///     transaction is in flight.
     /// </summary>
+    /// <param name="action">The action to run.</param>
     void Post(Action action);
 }
 
 /// <summary>
 ///     Posts through a captured <see cref="SynchronizationContext" />. Works unmodified for WPF
 ///     (<c>DispatcherSynchronizationContext</c>) and Avalonia (<c>AvaloniaSynchronizationContext</c>).
+///     The <see cref="SynchronizationContext" /> used here must ensure that items are run exclusively,
+///     not in parallel, and that their Post() method does not ever run the SendOrPostCallback delegate
+///     directly, in which case it would become re-entrant.
 /// </summary>
+[PublicAPI]
+// ReSharper disable once InheritdocConsiderUsage
 public sealed class SynchronizationContextBindingScheduler : IBindingScheduler
 {
-    private static readonly SendOrPostCallback Callback = state => ((Action)state!)();
+    private static readonly SendOrPostCallback Callback =
+        static state =>
+        {
+            Action? a = state as Action;
+            a?.Invoke();
+        };
 
     private readonly SynchronizationContext context;
 
@@ -31,6 +44,11 @@ public sealed class SynchronizationContextBindingScheduler : IBindingScheduler
     /// </summary>
     /// <param name="context">The context to post to. Usually the UI thread's.</param>
     /// <exception cref="ArgumentNullException"><paramref name="context" /> is null.</exception>
+    /// <remarks>
+    ///     The <see cref="SynchronizationContext" /> used here must ensure that items are run exclusively,
+    ///     not in parallel, and that their Post() method does not ever run the SendOrPostCallback delegate
+    ///     directly, in which case it would become re-entrant.
+    /// </remarks>
     public SynchronizationContextBindingScheduler(SynchronizationContext context) =>
         this.context = context ?? throw new ArgumentNullException(nameof(context));
 
@@ -44,6 +62,7 @@ public sealed class SynchronizationContextBindingScheduler : IBindingScheduler
     ///     running inline would breach the contract on <see cref="IBindingScheduler.Post" /> for a
     ///     caller inside a transaction, and the handlers here are called from inside one.
     /// </remarks>
+    // ReSharper disable once InheritdocConsiderUsage
     public void Post(Action action)
     {
         if (action == null)
@@ -81,10 +100,12 @@ public sealed class SynchronizationContextBindingScheduler : IBindingScheduler
 ///     the source-changed handlers are invoked from a listener callback, so an unconditionally
 ///     inline scheduler would raise <c>PropertyChanged</c> from inside the transaction and let a
 ///     handler re-enter the graph. A dispatcher-backed scheduler cannot do that; a test scheduler
-///     that could would exercise an ordering the real one never produces.
+///     that could, would exercise an ordering the real one never produces.
 ///     Deferring to the end of the current transaction costs a test nothing, because the queued
 ///     action still runs before the <c>Send</c> that produced it returns.
 /// </remarks>
+[PublicAPI]
+// ReSharper disable once InheritdocConsiderUsage
 public sealed class ImmediateBindingScheduler : IBindingScheduler
 {
     /// <summary>The single instance. This type holds no state.</summary>
@@ -99,6 +120,7 @@ public sealed class ImmediateBindingScheduler : IBindingScheduler
     /// </summary>
     /// <param name="action">The action to run.</param>
     /// <exception cref="ArgumentNullException"><paramref name="action" /> is null.</exception>
+    // ReSharper disable once InheritdocConsiderUsage
     public void Post(Action action)
     {
         if (action == null)
@@ -113,6 +135,7 @@ public sealed class ImmediateBindingScheduler : IBindingScheduler
 }
 
 /// <summary>Ambient scheduler resolution.</summary>
+[PublicAPI]
 public static class BindingScheduler
 {
     /// <summary>
@@ -122,7 +145,7 @@ public static class BindingScheduler
     ///     <see cref="SynchronizationContext" /> of the thread that constructed it.
     /// </summary>
     /// <remarks>
-    ///     Bindables may be constructed on any thread, so a view model never needs to know which
+    ///     Bindable objects may be constructed on any thread, so a view model never needs to know which
     ///     thread the binding engine uses. What it does need is for one of these to be resolvable:
     ///     set this when the binding thread has no <see cref="SynchronizationContext" /> to capture,
     ///     or when construction happens somewhere there is no context to capture from.
