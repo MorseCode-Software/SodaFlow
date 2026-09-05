@@ -13,7 +13,7 @@ public class StreamTests
 {
     [Test]
     [Skip("Requires dotMemory.")]
-    public void TestListenStrong()
+    public async Task TestListenStrong()
     {
         int? listenerCount = null;
         int? listenerCount2 = null;
@@ -71,17 +71,17 @@ public class StreamTests
         await Assert.That(afterListenerCount).IsNotNull();
 
         await Assert.That(listenerCount4).IsEqualTo(listenerCount).Because("BeforeL == AfterL");
-        await Assert.That(condition: listenerCount2 > listenerCount3).IsTrue().Because("DuringL > AfterL");
-        await Assert.That(condition: listenerCount2 > listenerCount).IsTrue().Because("DuringL > BeforeL");
+        await Assert.That(listenerCount2 > listenerCount3).IsTrue().Because("DuringL > AfterL");
+        await Assert.That(listenerCount2 > listenerCount).IsTrue().Because("DuringL > BeforeL");
 
         await Assert.That(afterListenerCount).IsEqualTo(beforeListenerCount).Because("Before == After");
         await Assert.That(duringStreamCount).IsEqualTo(duringListenerCount).Because("During == During2");
-        await Assert.That(condition: duringListenerCount > beforeListenerCount).IsTrue().Because("During > Before");
+        await Assert.That(duringListenerCount > beforeListenerCount).IsTrue().Because("During > Before");
     }
 
     [Test]
     [Skip("Requires dotMemory.")]
-    public void TestUnlisten()
+    public async Task TestUnlisten()
     {
         int? listenerCount = null;
         int? listenerCount2 = null;
@@ -140,17 +140,17 @@ public class StreamTests
         await Assert.That(afterListenerCount).IsNotNull();
 
         await Assert.That(listenerCount4).IsEqualTo(listenerCount).Because("BeforeL == After2L");
-        await Assert.That(condition: listenerCount2 > listenerCount3).IsTrue().Because("DuringL > AfterL");
-        await Assert.That(condition: listenerCount2 > listenerCount).IsTrue().Because("DuringL > BeforeL");
+        await Assert.That(listenerCount2 > listenerCount3).IsTrue().Because("DuringL > AfterL");
+        await Assert.That(listenerCount2 > listenerCount).IsTrue().Because("DuringL > BeforeL");
 
         await Assert.That(afterListenerCount).IsEqualTo(beforeListenerCount).Because("Before == After");
         await Assert.That(duringStreamCount).IsEqualTo(duringListenerCount).Because("During == During2");
-        await Assert.That(condition: duringListenerCount > beforeListenerCount).IsTrue().Because("During > Before");
+        await Assert.That(duringListenerCount > beforeListenerCount).IsTrue().Because("During > Before");
     }
 
     [Test]
     [Skip("Requires dotMemory.")]
-    public void TestStreamGarbageCollection()
+    public async Task TestStreamGarbageCollection()
     {
         int? beforeListenerCount = null;
         int? duringListenerCount = null;
@@ -193,12 +193,12 @@ public class StreamTests
 
         await Assert.That(afterListenerCount).IsEqualTo(beforeListenerCount).Because("Before == After");
         await Assert.That(duringListenerCount2).IsEqualTo(duringListenerCount).Because("During == During2");
-        await Assert.That(condition: duringListenerCount > beforeListenerCount).IsTrue().Because("During > Before");
+        await Assert.That(duringListenerCount > beforeListenerCount).IsTrue().Because("During > Before");
     }
 
     [Test]
     [Skip("Requires dotMemory.")]
-    public void TestMapMemory()
+    public async Task TestMapMemory()
     {
         int? beforeListenerCount = null;
         int? duringListenerCount = null;
@@ -221,8 +221,12 @@ public class StreamTests
             s.Send(5);
             s.Send(3);
             l.Unlisten();
-            await Assert.That(@out).IsEquivalentTo(new[] { "7", "5" }, CollectionOrdering.Matching);
         }))();
+
+        // The lambda above stays synchronous on purpose: it exists so that its locals are out of
+        // scope by the time the snapshot below is taken. What the listener collected is checked
+        // here instead, where @out still holds it and nothing has appended to it since.
+        await Assert.That(@out).IsEquivalentTo(new[] { "7", "5" }, CollectionOrdering.Matching);
 
         dotMemory.Check(memory =>
             afterListenerCount = memory.GetObjects(static where => where.Interface.Is<IListener>()).ObjectsCount);
@@ -232,12 +236,12 @@ public class StreamTests
         await Assert.That(afterListenerCount).IsNotNull();
 
         await Assert.That(afterListenerCount).IsEqualTo(beforeListenerCount).Because("Before == After");
-        await Assert.That(condition: duringListenerCount > beforeListenerCount).IsTrue().Because("During > Before");
+        await Assert.That(duringListenerCount > beforeListenerCount).IsTrue().Because("During > Before");
     }
 
     [Test]
     [Skip("Requires dotMemory.")]
-    public void TestNestedMapGarbageCollection()
+    public async Task TestNestedMapGarbageCollection()
     {
         int? beforeStreamCount = null;
         int? beforeListenerCount = null;
@@ -275,8 +279,12 @@ public class StreamTests
             s.Send(5);
             s.Send(3);
             l.Unlisten();
-            await Assert.That(@out).IsEquivalentTo(new[] { "15", "11" }, CollectionOrdering.Matching);
         }))();
+
+        // The lambda above stays synchronous on purpose: it exists so that its locals are out of
+        // scope by the time the snapshot below is taken. What the listener collected is checked
+        // here instead, where @out still holds it and nothing has appended to it since.
+        await Assert.That(@out).IsEquivalentTo(new[] { "15", "11" }, CollectionOrdering.Matching);
 
         dotMemory.Check(memory =>
             afterStreamCount =
@@ -302,8 +310,8 @@ public class StreamTests
 
         await Assert.That(afterListenerCount).IsEqualTo(beforeListenerCount).Because("Before Listeners == After Listeners");
 
-        await Assert.That(condition: duringStreamCount > beforeStreamCount).IsTrue().Because("During Streams > Before Streams");
+        await Assert.That(duringStreamCount > beforeStreamCount).IsTrue().Because("During Streams > Before Streams");
 
-        await Assert.That(condition: duringListenerCount > beforeListenerCount).IsTrue().Because("During Listeners > Before Listeners");
+        await Assert.That(duringListenerCount > beforeListenerCount).IsTrue().Because("During Listeners > Before Listeners");
     }
 }

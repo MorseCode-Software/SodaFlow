@@ -1163,7 +1163,7 @@ public class StreamTests
             s.Send(0);
             l.Unlisten();
 
-            await Assert.That(@out).IsEquivalentTo(new[] { depth }, CollectionOrdering.Matching).Because("chain of depth {0}");
+            await Assert.That(@out).IsEquivalentTo(new[] { depth }, CollectionOrdering.Matching).Because($"chain of depth {depth}");
         }
 
         StreamSink<int> shallowSink = Stream.CreateSink<int>();

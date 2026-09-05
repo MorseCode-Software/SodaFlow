@@ -4,6 +4,7 @@ using System.ComponentModel;
 using System.Threading;
 using System.Threading.Tasks;
 using TUnit.Assertions;
+using TUnit.Assertions.Exceptions;
 using TUnit.Assertions.Enums;
 using TUnit.Assertions.Extensions;
 using TUnit.Core;
@@ -54,7 +55,7 @@ public class BindableValueTests
         c.Send(2);
 
         await Assert.That(b.Value).IsEqualTo(2);
-        await Assert.That(names).IsEquivalentTo(new[] { "Value", "Value" }, CollectionOrdering.Matching);
+        await Assert.That(names).IsEquivalentTo(new string?[] { "Value", "Value" }, CollectionOrdering.Matching);
     }
 
     // The property name is load-bearing: the documented binding path is {Binding Foo.Value}, so a
@@ -70,7 +71,7 @@ public class BindableValueTests
 
         c.Send("b");
 
-        await Assert.That(names).IsEquivalentTo(new[] { "Value" }, CollectionOrdering.Matching);
+        await Assert.That(names).IsEquivalentTo(new string?[] { "Value" }, CollectionOrdering.Matching);
     }
 
     [Test]
@@ -84,7 +85,7 @@ public class BindableValueTests
 
         c.Send(3);
 
-        await Assert.That(collection: names).IsEmpty().Because("an update carrying the same value is not a change");
+        await Assert.That(names).IsEmpty().Because("an update carrying the same value is not a change");
     }
 
     [Test]
@@ -124,7 +125,7 @@ public class BindableValueTests
         c.Send(4);
 
         await Assert.That(b.Value).IsEqualTo(4);
-        await Assert.That(names).IsEquivalentTo(new[] { "Value" }, CollectionOrdering.Matching);
+        await Assert.That(names).IsEquivalentTo(new string?[] { "Value" }, CollectionOrdering.Matching);
     }
 
     // The graph is authoritative. A write the graph normalizes has to come back corrected, or the
@@ -188,17 +189,19 @@ public class BindableValueTests
     // A visibility bug would not fail this reliably - that is the nature of one - but the value
     // being boxed behind a volatile reference is what makes the handover sound, and a change that
     // reintroduced a same-thread requirement would fail here immediately.
-    private static TResult OnAnotherThread<TResult>(Func<TResult> f)
+    private static async Task<TResult> OnAnotherThread<TResult>(Func<TResult> f)
     {
         TResult? result = default;
         Exception? failure = null;
+        SynchronizationContext? contextOnTheOtherThread = null;
 
         Thread thread =
             new(() =>
             {
                 try
                 {
-                    await Assert.That(anObject: SynchronizationContext.Current).IsNull().Because("the point is a thread with no context of its own");
+                    // Recorded rather than asserted here: nothing inside a thread body can be awaited.
+                    contextOnTheOtherThread = SynchronizationContext.Current;
 
                     result = f();
                 }
@@ -209,10 +212,17 @@ public class BindableValueTests
             });
 
         thread.Start();
-        await Assert.That(condition: thread.Join(TimeSpan.FromSeconds(10))).IsTrue().Because("construction should not block");
+        bool finished = thread.Join(TimeSpan.FromSeconds(10));
+
+        await Assert.That(finished).IsTrue().Because("construction should not block");
+
+        await Assert.That(contextOnTheOtherThread).IsNull()
+            .Because("the point is a thread with no context of its own");
 
         return failure != null
-            ? throw new AssertionException(message: "construction threw on the other thread", inner: failure)
+            ? throw new AssertionException(
+                message: "construction threw on the other thread",
+                innerException: failure)
             // ReSharper disable once NullableWarningSuppressionIsUsed - This will be non-null if failure is null.
             : result!;
     }
@@ -222,7 +232,7 @@ public class BindableValueTests
     {
         CellSink<int> c = Cell.CreateSink(11);
 
-        using IOneWayBindableValue<int> b = OnAnotherThread(() => OneWay(c));
+        using IOneWayBindableValue<int> b = await OnAnotherThread(() => OneWay(c));
 
         await Assert.That(b.Value).IsEqualTo(11).Because("the sample survived the handover");
 
@@ -236,7 +246,7 @@ public class BindableValueTests
     {
         CellSink<int> c = Cell.CreateSink(11);
 
-        using ITwoWayBindableValue<int> b = OnAnotherThread(() => TwoWay(c));
+        using ITwoWayBindableValue<int> b = await OnAnotherThread(() => TwoWay(c));
 
         await Assert.That(b.Value).IsEqualTo(11);
 
@@ -250,7 +260,7 @@ public class BindableValueTests
     {
         CellSink<int> c = Cell.CreateSink(11);
 
-        using IOneWayToSourceBindableValue<int> b = OnAnotherThread(() => c.ToOneWayToSourceImpl());
+        using IOneWayToSourceBindableValue<int> b = await OnAnotherThread(() => c.ToOneWayToSourceImpl());
 
         await Assert.That(b.Value).IsEqualTo(11);
 
@@ -265,13 +275,13 @@ public class BindableValueTests
         CellSink<bool> enabled = Cell.CreateSink(true);
 
         using IBindableAction<int> a =
-            OnAnotherThread(() =>
+            await OnAnotherThread(() =>
                 Stream.CreateSink<int>()
                     .ToBindableActionImpl(
                         isEnabledCell: enabled,
                         scheduler: BindingScheduler.Immediate));
 
-        await Assert.That(condition: a.CanExecute(null)).IsTrue().Because("the sampled enablement survived the handover");
+        await Assert.That(a.CanExecute(null)).IsTrue().Because("the sampled enablement survived the handover");
 
         enabled.Send(false);
 

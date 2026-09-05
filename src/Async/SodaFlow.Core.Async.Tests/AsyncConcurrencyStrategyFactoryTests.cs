@@ -120,12 +120,12 @@ public class AsyncConcurrencyStrategyFactoryTests
         source.Send("c");
 
         TestUtil.WaitUntil(() => op.HasStarted("a"));
-        await Assert.That(condition: op.HasStarted("b")).IsFalse().Because("b must stay queued while a is running.");
-        await Assert.That(condition: op.HasStarted("c")).IsFalse().Because("c must stay queued while a is running.");
+        await Assert.That(op.HasStarted("b")).IsFalse().Because("b must stay queued while a is running.");
+        await Assert.That(op.HasStarted("c")).IsFalse().Because("c must stay queued while a is running.");
 
         op.Release(input: "a", result: "A");
         TestUtil.WaitUntil(() => op.HasStarted("b"));
-        await Assert.That(condition: op.HasStarted("c")).IsFalse().Because("c must stay queued while b is running.");
+        await Assert.That(op.HasStarted("c")).IsFalse().Because("c must stay queued while b is running.");
 
         op.Release(input: "b", result: "B");
         TestUtil.WaitUntil(() => op.HasStarted("c"));
@@ -164,7 +164,7 @@ public class AsyncConcurrencyStrategyFactoryTests
 
         // g1-a and g2-a are in different groups, so both start; g1-b waits behind g1-a.
         TestUtil.WaitUntil(() => op.HasStarted("g1-a") && op.HasStarted("g2-a"));
-        await Assert.That(condition: op.HasStarted("g1-b")).IsFalse().Because("g1-b shares a group with g1-a and must wait.");
+        await Assert.That(op.HasStarted("g1-b")).IsFalse().Because("g1-b shares a group with g1-a and must wait.");
 
         op.Release(input: "g1-a", result: "A1");
         TestUtil.WaitUntil(() => op.HasStarted("g1-b"));

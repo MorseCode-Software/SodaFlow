@@ -20,7 +20,7 @@ public class BindableActionTests
     {
         using IBindableAction<int> a = Action(Stream.CreateSink<int>());
 
-        await Assert.That(condition: a.CanExecute(null)).IsTrue().Because("no enablement cell means always enabled");
+        await Assert.That(a.CanExecute(null)).IsTrue().Because("no enablement cell means always enabled");
     }
 
     [Test]
@@ -30,7 +30,7 @@ public class BindableActionTests
 
         using IBindableAction<int> a = Action(sink: Stream.CreateSink<int>(), isEnabled: enabled);
 
-        await Assert.That(condition: a.CanExecute(null)).IsFalse().Because("the constructor samples the cell");
+        await Assert.That(a.CanExecute(null)).IsFalse().Because("the constructor samples the cell");
 
         int notifications = 0;
         a.CanExecuteChanged += (_, _) => notifications++;

@@ -173,7 +173,7 @@ public class MapAsyncImplTests
                 inputConverter: static v => v,
                 resultConverter: static v => v);
 
-        await Assert.That(code: () => source.Send(1)).ThrowsNothing().Because("Canceling and promoting the same item in one Admit call should complete it as " +
+        await Assert.That(() => source.Send(1)).ThrowsNothing().Because("Canceling and promoting the same item in one Admit call should complete it as " +
                      "Canceled, not crash the transaction that admitted it.");
 
         Thread.Sleep(100);

@@ -23,22 +23,27 @@ public class BindingSchedulerTests
 
         BindingScheduler.Immediate.Post(() => ran = true);
 
-        await Assert.That(condition: ran).IsTrue().Because("with nothing in flight there is nothing to wait for");
+        await Assert.That(ran).IsTrue().Because("with nothing in flight there is nothing to wait for");
     }
 
     [Test]
     public async Task ImmediateDefersUntilTheTransactionCloses()
     {
         bool ranInside = false;
+        bool ranBeforeTheTransactionClosed = true;
 
         Transaction.RunVoid(() =>
         {
             BindingScheduler.Immediate.Post(() => ranInside = true);
 
-            await Assert.That(condition: ranInside).IsFalse().Because("running here would be inside the transaction");
+            // Transaction.RunVoid takes an Action, so what happened inside is recorded here and
+            // asserted below rather than awaited in place.
+            ranBeforeTheTransactionClosed = ranInside;
         });
 
-        await Assert.That(condition: ranInside).IsTrue().Because("and it still runs, once the transaction has closed");
+        await Assert.That(ranBeforeTheTransactionClosed).IsFalse().Because("running here would be inside the transaction");
+
+        await Assert.That(ranInside).IsTrue().Because("and it still runs, once the transaction has closed");
     }
 
     [Test]

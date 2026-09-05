@@ -121,11 +121,11 @@ public class BindableValueConcurrencyTests
 
             setter.Start(b);
 
-            await Assert.That(condition: setter.Join(200)).IsFalse().Because("the setter cannot complete while another thread holds the transaction open");
+            await Assert.That(setter.Join(200)).IsFalse().Because("the setter cannot complete while another thread holds the transaction open");
 
             release.TrySetResult(true);
 
-            await Assert.That(condition: setter.Join(TimeSpan.FromSeconds(30))).IsTrue().Because("and completes once that transaction closes");
+            await Assert.That(setter.Join(TimeSpan.FromSeconds(30))).IsTrue().Because("and completes once that transaction closes");
 
             await Assert.That(c.Sample()).IsEqualTo(5).Because("the write reached the graph");
         }
@@ -225,10 +225,10 @@ public class BindableValueConcurrencyTests
         // still reads 0 - true a moment ago, not true now.
         c.Send(1);
 
-        Assume.That(
-            actual: b.Value,
-            expression: Is.EqualTo(0),
-            message: "precondition: the refresh has not been delivered yet");
+        // An assertion rather than an assumption: the scheduler queues rather than running, so this
+        // is not a maybe, and a test which stopped meeting its own precondition should say so.
+        await Assert.That(b.Value).IsEqualTo(0)
+            .Because("precondition: the refresh has not been delivered yet");
 
         // Something asks for the value the property still reports. The graph does not hold it.
         b.Value = 0;
@@ -322,7 +322,7 @@ public class BindableValueConcurrencyTests
 
         Exception? caught = CaughtOffTheBindingThread(state: b, body: static target => _ = target.Value);
 
-        await Assert.That(actual: caught).IsTypeOf<InvalidOperationException>().Because("reading from another thread is caught rather than left to return a stale value");
+        await Assert.That(caught).IsTypeOf<InvalidOperationException>().Because("reading from another thread is caught rather than left to return a stale value");
     }
 
     [Test]
@@ -336,7 +336,7 @@ public class BindableValueConcurrencyTests
 
         Exception? caught = CaughtOffTheBindingThread(state: b, body: static target => _ = target.Value);
 
-        await Assert.That(actual: caught).IsTypeOf<InvalidOperationException>().Because("reading from another thread is caught rather than left to return a stale value");
+        await Assert.That(caught).IsTypeOf<InvalidOperationException>().Because("reading from another thread is caught rather than left to return a stale value");
     }
 
     [Test]
@@ -378,7 +378,7 @@ public class BindableValueConcurrencyTests
 
         Exception? caught = CaughtOffTheBindingThread(state: b, body: static target => target.Value = 5);
 
-        await Assert.That(anObject: caught).IsNull().Because("the immediate scheduler runs work wherever it is called");
+        await Assert.That(caught).IsNull().Because("the immediate scheduler runs work wherever it is called");
         await Assert.That(c.Sample()).IsEqualTo(5);
     }
 
