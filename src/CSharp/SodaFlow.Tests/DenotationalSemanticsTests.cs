@@ -1,22 +1,25 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using NUnit.Framework;
+using System.Threading.Tasks;
+using TUnit.Assertions;
+using TUnit.Assertions.Enums;
+using TUnit.Assertions.Extensions;
+using TUnit.Core;
 
 namespace SodaFlow.Tests;
 
-[TestFixture]
-public class DenotationalSemanticsTests
+public sealed class DenotationalSemanticsTests
 {
     [Test]
-    public void Test_Never_TestCase()
+    public async Task Test_Never_TestCase()
     {
         List<int> @out = RunSimulation<int>(Stream.Never<int>().ListenStrong);
-        CollectionAssert.AreEqual(expected: Array.Empty<int>(), actual: @out);
+        await Assert.That(@out).IsEquivalentTo(Array.Empty<int>(), CollectionOrdering.Matching);
     }
 
     [Test]
-    public void Test_MapS_TestCase()
+    public async Task Test_MapS_TestCase()
     {
         (Stream<int> s, Dictionary<int, Action> sf) =
             MkStream(new Dictionary<int, int> { { 0, 5 }, { 1, 10 }, { 2, 12 } });
@@ -26,11 +29,11 @@ public class DenotationalSemanticsTests
                 listenStrong: s.Map(static x => x + 1).ListenStrong,
                 firings: (IReadOnlyList<Dictionary<int, Action>>)[sf]);
 
-        CollectionAssert.AreEqual(expected: new[] { 6, 11, 13 }, actual: @out);
+        await Assert.That(@out).IsEquivalentTo([6, 11, 13], CollectionOrdering.Matching);
     }
 
     [Test]
-    public void Test_Snapshot_TestCase()
+    public async Task Test_Snapshot_TestCase()
     {
         (Stream<char> s1, Dictionary<int, Action> s1F) =
             MkStream(new Dictionary<int, char> { { 0, 'a' }, { 3, 'b' }, { 5, 'c' } });
@@ -43,11 +46,11 @@ public class DenotationalSemanticsTests
                 listenStrong: s1.Snapshot(c).ListenStrong,
                 firings: (IReadOnlyList<Dictionary<int, Action>>)[s1F, s2F]);
 
-        CollectionAssert.AreEqual(expected: new[] { 3, 4, 4 }, actual: @out);
+        await Assert.That(@out).IsEquivalentTo([3, 4, 4], CollectionOrdering.Matching);
     }
 
     [Test]
-    public void Test_Merge_TestCase()
+    public async Task Test_Merge_TestCase()
     {
         (Stream<int> s1, Dictionary<int, Action> s1F) = MkStream(new Dictionary<int, int> { { 0, 0 }, { 2, 2 } });
 
@@ -59,11 +62,11 @@ public class DenotationalSemanticsTests
                 listenStrong: s1.Merge(s2: s2, f: static (x, y) => x + y).ListenStrong,
                 firings: (IReadOnlyList<Dictionary<int, Action>>)[s1F, s2F]);
 
-        CollectionAssert.AreEqual(expected: new[] { 0, 10, 22, 30 }, actual: @out);
+        await Assert.That(@out).IsEquivalentTo([0, 10, 22, 30], CollectionOrdering.Matching);
     }
 
     [Test]
-    public void Test_Filter_TestCase()
+    public async Task Test_Filter_TestCase()
     {
         (Stream<int> s, Dictionary<int, Action> sf) =
             MkStream(new Dictionary<int, int> { { 0, 5 }, { 1, 6 }, { 2, 7 } });
@@ -73,12 +76,12 @@ public class DenotationalSemanticsTests
                 listenStrong: s.Filter(static x => x % 2 != 0).ListenStrong,
                 firings: (IReadOnlyList<Dictionary<int, Action>>)[sf]);
 
-        CollectionAssert.AreEqual(expected: new[] { 5, 7 }, actual: @out);
+        await Assert.That(@out).IsEquivalentTo([5, 7], CollectionOrdering.Matching);
     }
 
     [Test]
-    public void Test_SwitchS_TestCase() =>
-        RunPermutations<char>(
+    public async Task Test_SwitchS_TestCase() =>
+        await RunPermutations<char>(
             createListAndListener: static createFiringsListAndListener =>
             {
                 (Stream<char> s1, Dictionary<int, Action> s1F) =
@@ -99,10 +102,10 @@ public class DenotationalSemanticsTests
 
                 return createFiringsListAndListener(arg1: firings, arg2: c.SwitchS().ListenStrong);
             },
-            assert: static @out => CollectionAssert.AreEqual(expected: new[] { 'a', 'b', 'Y', 'Z' }, actual: @out));
+            assert: static async @out => await Assert.That(@out).IsEquivalentTo(['a', 'b', 'Y', 'Z'], CollectionOrdering.Matching));
 
     [Test]
-    public void Test_Updates_TestCase()
+    public async Task Test_Updates_TestCase()
     {
         (Stream<char> s, Dictionary<int, Action> sf) =
             MkStream(new Dictionary<int, char> { { 1, 'b' }, { 3, 'c' } });
@@ -114,11 +117,11 @@ public class DenotationalSemanticsTests
                 listenStrong: c.Updates().ListenStrong,
                 firings: (IReadOnlyList<Dictionary<int, Action>>)[sf]);
 
-        CollectionAssert.AreEqual(expected: new[] { 'b', 'c' }, actual: @out);
+        await Assert.That(@out).IsEquivalentTo(['b', 'c'], CollectionOrdering.Matching);
     }
 
     [Test]
-    public void Test_Value_TestCase1()
+    public async Task Test_Value_TestCase1()
     {
         (Stream<char> s, Dictionary<int, Action> sf) =
             MkStream(new Dictionary<int, char> { { 1, 'b' }, { 3, 'c' } });
@@ -130,11 +133,11 @@ public class DenotationalSemanticsTests
                 listenStrong: h => Transaction.Run(() => c.Values().ListenStrong(h)),
                 firings: (IReadOnlyList<Dictionary<int, Action>>)[sf]);
 
-        CollectionAssert.AreEqual(expected: new[] { 'a', 'b', 'c' }, actual: @out);
+        await Assert.That(@out).IsEquivalentTo(['a', 'b', 'c'], CollectionOrdering.Matching);
     }
 
     [Test]
-    public void Test_Value_TestCase2()
+    public async Task Test_Value_TestCase2()
     {
         (Stream<char> s, Dictionary<int, Action> sf) =
             MkStream(new Dictionary<int, char> { { 0, 'b' }, { 1, 'c' }, { 3, 'd' } });
@@ -146,11 +149,11 @@ public class DenotationalSemanticsTests
                 listenStrong: h => Transaction.Run(() => c.Values().ListenStrong(h)),
                 firings: (IReadOnlyList<Dictionary<int, Action>>)[sf]);
 
-        CollectionAssert.AreEqual(expected: new[] { 'b', 'c', 'd' }, actual: @out);
+        await Assert.That(@out).IsEquivalentTo(['b', 'c', 'd'], CollectionOrdering.Matching);
     }
 
     [Test]
-    public void Test_ListenC_TestCase1()
+    public async Task Test_ListenC_TestCase1()
     {
         (Stream<char> s, Dictionary<int, Action> sf) =
             MkStream(new Dictionary<int, char> { { 1, 'b' }, { 3, 'c' } });
@@ -160,11 +163,11 @@ public class DenotationalSemanticsTests
         List<char> @out =
             RunSimulation<char>(listenStrong: c.ListenStrong, firings: (IReadOnlyList<Dictionary<int, Action>>)[sf]);
 
-        CollectionAssert.AreEqual(expected: new[] { 'a', 'b', 'c' }, actual: @out);
+        await Assert.That(@out).IsEquivalentTo(['a', 'b', 'c'], CollectionOrdering.Matching);
     }
 
     [Test]
-    public void Test_ListenC_TestCase2()
+    public async Task Test_ListenC_TestCase2()
     {
         (Stream<char> s, Dictionary<int, Action> sf) =
             MkStream(new Dictionary<int, char> { { 0, 'b' }, { 1, 'c' }, { 3, 'd' } });
@@ -174,11 +177,11 @@ public class DenotationalSemanticsTests
         List<char> @out =
             RunSimulation<char>(listenStrong: c.ListenStrong, firings: (IReadOnlyList<Dictionary<int, Action>>)[sf]);
 
-        CollectionAssert.AreEqual(expected: new[] { 'b', 'c', 'd' }, actual: @out);
+        await Assert.That(@out).IsEquivalentTo(['b', 'c', 'd'], CollectionOrdering.Matching);
     }
 
     [Test]
-    public void Test_Split_TestCase()
+    public async Task Test_Split_TestCase()
     {
         (Stream<IReadOnlyList<char>> s, ILookup<int, Action> sf) =
             MkStream(
@@ -193,27 +196,27 @@ public class DenotationalSemanticsTests
                 listenStrong: Operational.Split<char, IReadOnlyList<char>>(s).ListenStrong,
                 firings: [sf]);
 
-        CollectionAssert.AreEqual(expected: new[] { 'a', 'b', 'c', 'd', 'e' }, actual: @out);
+        await Assert.That(@out).IsEquivalentTo(['a', 'b', 'c', 'd', 'e'], CollectionOrdering.Matching);
     }
 
     [Test]
-    public void Test_Constant_TestCase()
+    public async Task Test_Constant_TestCase()
     {
         Cell<char> c = Cell.Constant('a');
         List<char> @out = RunSimulation<char>(c.ListenStrong);
-        CollectionAssert.AreEqual(expected: new[] { 'a' }, actual: @out);
+        await Assert.That(@out).IsEquivalentTo(['a'], CollectionOrdering.Matching);
     }
 
     [Test]
-    public void Test_ConstantLazy_TestCase()
+    public async Task Test_ConstantLazy_TestCase()
     {
         Cell<char> c = Cell.ConstantLazy(new Lazy<char>(static () => 'a'));
         List<char> @out = RunSimulation<char>(c.ListenStrong);
-        CollectionAssert.AreEqual(expected: new[] { 'a' }, actual: @out);
+        await Assert.That(@out).IsEquivalentTo(['a'], CollectionOrdering.Matching);
     }
 
     [Test]
-    public void Test_Hold_TestCase()
+    public async Task Test_Hold_TestCase()
     {
         (Stream<char> s, Dictionary<int, Action> sf) =
             MkStream(new Dictionary<int, char> { { 1, 'b' }, { 3, 'c' } });
@@ -223,11 +226,11 @@ public class DenotationalSemanticsTests
         List<char> @out =
             RunSimulation<char>(listenStrong: c.ListenStrong, firings: (IReadOnlyList<Dictionary<int, Action>>)[sf]);
 
-        CollectionAssert.AreEqual(expected: new[] { 'a', 'b', 'c' }, actual: @out);
+        await Assert.That(@out).IsEquivalentTo(['a', 'b', 'c'], CollectionOrdering.Matching);
     }
 
     [Test]
-    public void Test_MapC_TestCase()
+    public async Task Test_MapC_TestCase()
     {
         (Stream<int> s, Dictionary<int, Action> sf) = MkStream(new Dictionary<int, int> { { 2, 3 }, { 3, 5 } });
         Cell<int> c = s.Hold(0);
@@ -237,11 +240,11 @@ public class DenotationalSemanticsTests
                 listenStrong: c.Map(static x => x + 1).ListenStrong,
                 firings: (IReadOnlyList<Dictionary<int, Action>>)[sf]);
 
-        CollectionAssert.AreEqual(expected: new[] { 1, 4, 6 }, actual: @out);
+        await Assert.That(@out).IsEquivalentTo([1, 4, 6], CollectionOrdering.Matching);
     }
 
     [Test]
-    public void Test_Apply_TestCase()
+    public async Task Test_Apply_TestCase()
     {
         (Stream<int> s1, Dictionary<int, Action> s1F) =
             MkStream(new Dictionary<int, int> { { 1, 200 }, { 2, 300 }, { 4, 400 } });
@@ -258,12 +261,12 @@ public class DenotationalSemanticsTests
                 listenStrong: ca.Apply(cf).ListenStrong,
                 firings: (IReadOnlyList<Dictionary<int, Action>>)[s1F, s2F]);
 
-        CollectionAssert.AreEqual(expected: new[] { 100, 205, 305, 306, 406 }, actual: @out);
+        await Assert.That(@out).IsEquivalentTo([100, 205, 305, 306, 406], CollectionOrdering.Matching);
     }
 
     [Test]
-    public void Test_SwitchC_TestCase1() =>
-        RunPermutations<char>(
+    public async Task Test_SwitchC_TestCase1() =>
+        await RunPermutations<char>(
             createListAndListener: static createFiringsListAndListener =>
             {
                 (Stream<char> s1, Dictionary<int, Action> s1F) =
@@ -288,11 +291,11 @@ public class DenotationalSemanticsTests
 
                 return createFiringsListAndListener(arg1: firings, arg2: c.SwitchC().ListenStrong);
             },
-            assert: static @out => CollectionAssert.AreEqual(expected: new[] { 'b', 'X', 'Y', 'Z' }, actual: @out));
+            assert: static async @out => await Assert.That(@out).IsEquivalentTo(['b', 'X', 'Y', 'Z'], CollectionOrdering.Matching));
 
     [Test]
-    public void Test_SwitchC_TestCase2() =>
-        RunPermutations<char>(
+    public async Task Test_SwitchC_TestCase2() =>
+        await RunPermutations<char>(
             createListAndListener: static createFiringsListAndListener =>
             {
                 (Stream<char> s1, Dictionary<int, Action> s1F) =
@@ -317,11 +320,11 @@ public class DenotationalSemanticsTests
 
                 return createFiringsListAndListener(arg1: firings, arg2: c.SwitchC().ListenStrong);
             },
-            assert: static @out => CollectionAssert.AreEqual(expected: new[] { 'b', 'X', 'Y', 'Z' }, actual: @out));
+            assert: static async @out => await Assert.That(@out).IsEquivalentTo(['b', 'X', 'Y', 'Z'], CollectionOrdering.Matching));
 
     [Test]
-    public void Test_SwitchC_TestCase3() =>
-        RunPermutations<char>(
+    public async Task Test_SwitchC_TestCase3() =>
+        await RunPermutations<char>(
             createListAndListener: static createFiringsListAndListener =>
             {
                 (Stream<char> s1, Dictionary<int, Action> s1F) =
@@ -346,11 +349,11 @@ public class DenotationalSemanticsTests
 
                 return createFiringsListAndListener(arg1: firings, arg2: c.SwitchC().ListenStrong);
             },
-            assert: static @out => CollectionAssert.AreEqual(expected: new[] { 'b', 'X', 'Y', 'Z' }, actual: @out));
+            assert: static async @out => await Assert.That(@out).IsEquivalentTo(['b', 'X', 'Y', 'Z'], CollectionOrdering.Matching));
 
     [Test]
-    public void Test_SwitchC_TestCase4() =>
-        RunPermutations<char>(
+    public async Task Test_SwitchC_TestCase4() =>
+        await RunPermutations<char>(
             createListAndListener: static createFiringsListAndListener =>
             {
                 (Stream<char> s1, Dictionary<int, Action> s1F) =
@@ -383,30 +386,30 @@ public class DenotationalSemanticsTests
 
                 return createFiringsListAndListener(arg1: firings, arg2: c.SwitchC().ListenStrong);
             },
-            assert: static @out => CollectionAssert.AreEqual(expected: new[] { 'b', 'X', 'Y', '5' }, actual: @out));
+            assert: static async @out => await Assert.That(@out).IsEquivalentTo(['b', 'X', 'Y', '5'], CollectionOrdering.Matching));
 
     [Test]
-    public void Test_Sample_TestCase()
+    public async Task Test_Sample_TestCase()
     {
         StreamSink<char> s = Stream.CreateSink<char>();
         Cell<char> c = s.Hold('a');
         char sample1 = c.Sample();
         s.Send('b');
         char sample2 = c.Sample();
-        Assert.AreEqual(expected: 'a', actual: sample1);
-        Assert.AreEqual(expected: 'b', actual: sample2);
+        await Assert.That(sample1).IsEqualTo('a');
+        await Assert.That(sample2).IsEqualTo('b');
     }
 
     [Test]
-    public void Test_SampleLazy_TestCase()
+    public async Task Test_SampleLazy_TestCase()
     {
         StreamSink<char> s = Stream.CreateSink<char>();
         Cell<char> c = s.Hold('a');
         Lazy<char> sample1 = c.SampleLazy();
         s.Send('b');
         Lazy<char> sample2 = c.SampleLazy();
-        Assert.AreEqual(expected: 'a', actual: sample1.Value);
-        Assert.AreEqual(expected: 'b', actual: sample2.Value);
+        await Assert.That(sample1.Value).IsEqualTo('a');
+        await Assert.That(sample2.Value).IsEqualTo('b');
     }
 
     private static (Stream<T> Stream, Dictionary<int, Action> Firings) MkStream<T>(Dictionary<int, T> firings)
@@ -512,13 +515,13 @@ public class DenotationalSemanticsTests
         return @out;
     }
 
-    private static void RunPermutations<T>(
+    private static async Task RunPermutations<T>(
         Func<Func<IReadOnlyList<(string Name, Dictionary<int, Action> Firings)>, Func<Action<T>, IListener>, (
                 IReadOnlyList<(string Name, Dictionary<int, Action> Firings)> FiringsList,
                 Func<Action<T>, IListener>
                 ListenStrong)>, (IReadOnlyList<(string Name, Dictionary<int, Action> Firings)> FiringsList,
             Func<Action<T>, IListener> ListenStrong)> createListAndListener,
-        Action<IReadOnlyList<T>> assert)
+        Func<IReadOnlyList<T>, Task> assert)
     {
         IReadOnlyList<int> indexes =
         [
@@ -549,7 +552,7 @@ public class DenotationalSemanticsTests
                             .. firingsList.Select(static o => o.Firings)
                         ]);
 
-                assert(@out);
+                await assert(@out);
             }
             catch
             {

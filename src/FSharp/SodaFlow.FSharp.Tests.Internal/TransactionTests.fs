@@ -1,16 +1,16 @@
-﻿module SodaFlow.Tests.Internal.Transaction
+module SodaFlow.Tests.Internal.Transaction
 
 open System
-open NUnit.Framework
-open SodaFlow
 open System.Threading
+open SodaFlow
+open SodaFlow.Tests
+open TUnit.Core
 
-[<TestFixture>]
 type ``Transaction Tests``() =
 
     [<Test>]
     member _.``Post See Outside``() =
-        async {
+        task {
             use re = new AutoResetEvent false
 
             let! actual =
@@ -36,6 +36,5 @@ type ``Transaction Tests``() =
                         return Some e
                 }
 
-            Assert.IsTrue(Option.isSome actual)
+            do! Expect.True(Option.isSome actual)
         }
-        |> Async.StartAsVoidTask

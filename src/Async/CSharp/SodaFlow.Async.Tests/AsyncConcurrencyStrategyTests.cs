@@ -1,23 +1,25 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
-using NUnit.Framework;
 using SodaFlow.Functional;
+using TUnit.Assertions;
+using TUnit.Assertions.Enums;
+using TUnit.Assertions.Extensions;
+using TUnit.Core;
 
 namespace SodaFlow.Async.Tests;
 
-[TestFixture]
-public class AsyncConcurrencyStrategyTests
+public sealed class AsyncConcurrencyStrategyTests
 {
     [Test]
-    public void Parallel_BothStartImmediatelyAndPublishInCompletionOrder()
+    public async Task Parallel_BothStartImmediatelyAndPublishInCompletionOrder()
     {
         StreamSink<string> source = Stream.CreateSink<string>();
         StreamSink<string> results = Stream.CreateSink<string>();
         StreamSink<Exception> errors = Stream.CreateSink<Exception>();
         ControlledOperation<string, string> op = new();
-        List<string> received = new();
+        List<string> received = [];
         IListener l = results.ListenStrong(received.Add);
 
         AsyncMapStatus<string> status =
@@ -39,20 +41,20 @@ public class AsyncConcurrencyStrategyTests
         TestUtil.WaitUntil(() => received.Count == 2);
 
         // Completion order, not submission order.
-        CollectionAssert.AreEqual(expected: new[] { "B", "A" }, actual: received);
+        await Assert.That(received).IsEquivalentTo(["B", "A"], CollectionOrdering.Matching);
 
         status.Dispose();
         l.Unlisten();
     }
 
     [Test]
-    public void Parallel_BothStartImmediatelyAndPublishInCompletionOrderWithFailures()
+    public async Task Parallel_BothStartImmediatelyAndPublishInCompletionOrderWithFailures()
     {
         StreamSink<string> source = Stream.CreateSink<string>();
         StreamSink<string> results = Stream.CreateSink<string>();
         StreamSink<Exception> errors = Stream.CreateSink<Exception>();
         ControlledOperation<string, string> op = new();
-        List<object> received = new();
+        List<object> received = [];
         IListener l = results.ListenStrong(received.Add);
         IListener l2 = errors.ListenStrong(received.Add);
 
@@ -84,7 +86,7 @@ public class AsyncConcurrencyStrategyTests
         TestUtil.WaitUntil(() => received.Count == 4);
 
         // Completion order, not submission order.
-        CollectionAssert.AreEqual(expected: new object[] { d, "C", b, "A" }, actual: received);
+        await Assert.That(received).IsEquivalentTo(new object[] { d, "C", b, "A" }, CollectionOrdering.Matching);
 
         status.Dispose();
         l.Unlisten();
@@ -92,13 +94,13 @@ public class AsyncConcurrencyStrategyTests
     }
 
     [Test]
-    public void Queue_SecondDoesNotStartUntilFirstCompletes()
+    public async Task Queue_SecondDoesNotStartUntilFirstCompletes()
     {
         StreamSink<string> source = Stream.CreateSink<string>();
         StreamSink<string> results = Stream.CreateSink<string>();
         StreamSink<Exception> errors = Stream.CreateSink<Exception>();
         ControlledOperation<string, string> op = new();
-        List<string> received = new();
+        List<string> received = [];
         IListener l = results.ListenStrong(received.Add);
 
         AsyncMapStatus<string> status =
@@ -112,27 +114,27 @@ public class AsyncConcurrencyStrategyTests
         source.Send("b");
 
         TestUtil.WaitUntil(() => op.HasStarted("a"));
-        Assert.IsFalse(op.HasStarted("b"));
+        await Assert.That(op.HasStarted("b")).IsFalse();
 
         op.Release(input: "a", result: "A");
         TestUtil.WaitUntil(() => op.HasStarted("b"));
         op.Release(input: "b", result: "B");
 
         TestUtil.WaitUntil(() => received.Count == 2);
-        CollectionAssert.AreEqual(expected: new[] { "A", "B" }, actual: received);
+        await Assert.That(received).IsEquivalentTo(["A", "B"], CollectionOrdering.Matching);
 
         status.Dispose();
         l.Unlisten();
     }
 
     [Test]
-    public void QueuePerGroup_DifferentGroupsRunConcurrentlyButSameGroupSerializes()
+    public async Task QueuePerGroup_DifferentGroupsRunConcurrentlyButSameGroupSerializes()
     {
         StreamSink<string> source = Stream.CreateSink<string>();
         StreamSink<string> results = Stream.CreateSink<string>();
         StreamSink<Exception> errors = Stream.CreateSink<Exception>();
         ControlledOperation<string, string> op = new();
-        List<string> received = new();
+        List<string> received = [];
         IListener l = results.ListenStrong(received.Add);
 
         AsyncConcurrencyStrategyBase<string, Unit> strategy =
@@ -150,7 +152,7 @@ public class AsyncConcurrencyStrategyTests
         source.Send("g2-a");
 
         TestUtil.WaitUntil(() => op.HasStarted("g1-a") && op.HasStarted("g2-a"));
-        Assert.IsFalse(op.HasStarted("g1-b"));
+        await Assert.That(op.HasStarted("g1-b")).IsFalse();
 
         op.Release(input: "g1-a", result: "A1");
         TestUtil.WaitUntil(() => op.HasStarted("g1-b"));
@@ -159,20 +161,20 @@ public class AsyncConcurrencyStrategyTests
         op.Release(input: "g2-a", result: "A2");
         TestUtil.WaitUntil(() => received.Count == 3);
 
-        CollectionAssert.AreEquivalent(expected: new[] { "A1", "B1", "A2" }, actual: received);
+        await Assert.That(received).IsEquivalentTo(["A1", "B1", "A2"]);
 
         status.Dispose();
         l.Unlisten();
     }
 
     [Test]
-    public void SwitchLatest_SupersededRunIsNeverPublished()
+    public async Task SwitchLatest_SupersededRunIsNeverPublished()
     {
         StreamSink<string> source = Stream.CreateSink<string>();
         StreamSink<string> results = Stream.CreateSink<string>();
         StreamSink<Exception> errors = Stream.CreateSink<Exception>();
         ControlledOperation<string, string> op = new();
-        List<string> received = new();
+        List<string> received = [];
         IListener l = results.ListenStrong(received.Add);
 
         AsyncMapStatus<string> status =
@@ -192,32 +194,30 @@ public class AsyncConcurrencyStrategyTests
         TestUtil.WaitUntil(() => received.Count == 1);
 
         Thread.Sleep(100);
-        CollectionAssert.AreEqual(expected: new[] { "B" }, actual: received);
+        await Assert.That(received).IsEquivalentTo(["B"], CollectionOrdering.Matching);
 
         status.Dispose();
         l.Unlisten();
     }
 
     [Test]
-    public void Parallel_Queue_SwitchLatest_EachReturnTheSameCachedInstanceEveryCall()
+    public async Task Parallel_Queue_SwitchLatest_EachReturnTheSameCachedInstanceEveryCall()
     {
         // These are advertised as stateless and reusable; the wrapper caches one instance per
         // strategy rather than allocating fresh on every call.
-        Assert.AreSame(expected: AsyncConcurrencyStrategy.Parallel(), actual: AsyncConcurrencyStrategy.Parallel());
-        Assert.AreSame(expected: AsyncConcurrencyStrategy.Queue(), actual: AsyncConcurrencyStrategy.Queue());
+        await Assert.That(AsyncConcurrencyStrategy.Parallel()).IsSameReferenceAs(AsyncConcurrencyStrategy.Parallel());
+        await Assert.That(AsyncConcurrencyStrategy.Queue()).IsSameReferenceAs(AsyncConcurrencyStrategy.Queue());
 
-        Assert.AreSame(
-            expected: AsyncConcurrencyStrategy.SwitchLatest(),
-            actual: AsyncConcurrencyStrategy.SwitchLatest());
+        await Assert.That(AsyncConcurrencyStrategy.SwitchLatest()).IsSameReferenceAs(AsyncConcurrencyStrategy.SwitchLatest());
     }
 
     [Test]
-    public void CustomStrategy_ViaUnitShorthandBase_Works()
+    public async Task CustomStrategy_ViaUnitShorthandBase_Works()
     {
         StreamSink<string> source = Stream.CreateSink<string>();
         StreamSink<Unit> results = Stream.CreateSink<Unit>();
         StreamSink<Exception> errors = Stream.CreateSink<Exception>();
-        List<Unit> received = new();
+        List<Unit> received = [];
         IListener l = results.ListenStrong(received.Add);
 
         CountingStrategy strategy = new();
@@ -233,7 +233,7 @@ public class AsyncConcurrencyStrategyTests
         source.Send("b");
 
         TestUtil.WaitUntil(() => received.Count == 2);
-        Assert.AreEqual(expected: 2, actual: strategy.AdmittedCount);
+        await Assert.That(strategy.AdmittedCount).IsEqualTo(2);
 
         status.Dispose();
         l.Unlisten();
@@ -258,7 +258,7 @@ public class AsyncConcurrencyStrategyTests
             AsyncQueuedItem<Unit> incoming)
         {
             Interlocked.Increment(ref this.count);
-            return new[] { new AsyncToStart<Unit>(incoming) };
+            return [new AsyncToStart<Unit>(incoming)];
         }
 
         protected override AsyncStrategyResult<Unit> OnCompleted(

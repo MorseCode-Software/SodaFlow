@@ -1,46 +1,49 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
-using NUnit.Framework;
+using System.Threading.Tasks;
 using SodaFlow.Functional;
+using TUnit.Assertions;
+using TUnit.Assertions.Enums;
+using TUnit.Assertions.Extensions;
+using TUnit.Core;
 
 namespace SodaFlow.Tests;
 
-[TestFixture]
-public class EnumerableExtensionMethodsTests
+public sealed class EnumerableExtensionMethodsTests
 {
     [Test]
-    public void TestChoose()
+    public async Task TestChoose()
     {
         string[] source = ["1", "x", "3", string.Empty, "5"];
 
         IEnumerable<int> result = source.Choose(static s => s.TryParseInt32());
 
-        CollectionAssert.AreEqual(expected: new[] { 1, 3, 5 }, actual: result);
+        await Assert.That(result).IsEquivalentTo([1, 3, 5], CollectionOrdering.Matching);
     }
 
     [Test]
-    public void TestChooseNoneKept()
+    public async Task TestChooseNoneKept()
     {
         string[] source = ["x", "y"];
 
         IEnumerable<int> result = source.Choose(static s => s.TryParseInt32());
 
-        CollectionAssert.AreEqual(expected: Array.Empty<int>(), actual: result);
+        await Assert.That(result).IsEquivalentTo(Array.Empty<int>(), CollectionOrdering.Matching);
     }
 
     [Test]
-    public void TestChooseNullSource()
+    public async Task TestChooseNullSource()
     {
         IEnumerable<string>? source = null;
 
         IEnumerable<int> result = source.Choose(static s => s.TryParseInt32());
 
-        CollectionAssert.AreEqual(expected: Array.Empty<int>(), actual: result);
+        await Assert.That(result).IsEquivalentTo(Array.Empty<int>(), CollectionOrdering.Matching);
     }
 
     [Test]
-    public void TestChooseIsLazy()
+    public async Task TestChooseIsLazy()
     {
         int calls = 0;
 
@@ -51,162 +54,158 @@ public class EnumerableExtensionMethodsTests
                 return Maybe.Some(v);
             });
 
-        Assert.AreEqual(expected: 0, actual: calls);
+        await Assert.That(calls).IsEqualTo(0);
 
         // ReSharper disable once ReturnValueOfPureMethodIsNotUsed - Testing for side effect only.
         result.ToArray();
 
-        Assert.AreEqual(expected: 3, actual: calls);
+        await Assert.That(calls).IsEqualTo(3);
     }
 
     [Test]
-    public void TestChooseWithIndex()
+    public async Task TestChooseWithIndex()
     {
         string[] source = ["a", "b", "c", "d"];
 
         IEnumerable<string> result = source.Choose(static (v, i) => Maybe.SomeIf(condition: i % 2 == 0, value: v + i));
 
-        CollectionAssert.AreEqual(expected: new[] { "a0", "c2" }, actual: result);
+        await Assert.That(result).IsEquivalentTo(["a0", "c2"], CollectionOrdering.Matching);
     }
 
     [Test]
-    public void TestFirstOrNone()
+    public async Task TestFirstOrNone()
     {
-        Assert.AreEqual(expected: Maybe.Some(1), actual: new[] { 1, 2, 3 }.FirstOrNone());
-        Assert.AreEqual(expected: Maybe<int>.None, actual: Array.Empty<int>().FirstOrNone());
-        Assert.AreEqual(expected: Maybe<int>.None, actual: ((IEnumerable<int>?)null).FirstOrNone());
+        await Assert.That(new[] { 1, 2, 3 }.FirstOrNone()).IsEqualTo(Maybe.Some(1));
+        await Assert.That(Array.Empty<int>().FirstOrNone()).IsEqualTo(Maybe<int>.None);
+        await Assert.That(((IEnumerable<int>?)null).FirstOrNone()).IsEqualTo(Maybe<int>.None);
     }
 
     [Test]
-    public void TestFirstOrNoneKeepsDefaultValue() =>
-        Assert.AreEqual(expected: Maybe.Some(0), actual: new[] { 0, 1 }.FirstOrNone());
+    public async Task TestFirstOrNoneKeepsDefaultValue() =>
+        await Assert.That(new[] { 0, 1 }.FirstOrNone()).IsEqualTo(Maybe.Some(0));
 
     [Test]
-    public void TestFirstOrNoneReadsOneElement()
+    public async Task TestFirstOrNoneReadsOneElement()
     {
         int read = 0;
 
         Maybe<int> result = Counted(source: [1, 2, 3], onRead: () => read++).FirstOrNone();
 
-        Assert.AreEqual(expected: Maybe.Some(1), actual: result);
-        Assert.AreEqual(expected: 1, actual: read);
+        await Assert.That(result).IsEqualTo(Maybe.Some(1));
+        await Assert.That(read).IsEqualTo(1);
     }
 
     [Test]
-    public void TestFirstOrNoneWithPredicate()
+    public async Task TestFirstOrNoneWithPredicate()
     {
-        Assert.AreEqual(expected: Maybe.Some(2), actual: new[] { 1, 2, 3, 4 }.FirstOrNone(static v => v % 2 == 0));
-        Assert.AreEqual(expected: Maybe<int>.None, actual: new[] { 1, 3 }.FirstOrNone(static v => v % 2 == 0));
-        Assert.AreEqual(expected: Maybe<int>.None, actual: ((IEnumerable<int>?)null).FirstOrNone(static _ => true));
+        await Assert.That(new[] { 1, 2, 3, 4 }.FirstOrNone(static v => v % 2 == 0)).IsEqualTo(Maybe.Some(2));
+        await Assert.That(new[] { 1, 3 }.FirstOrNone(static v => v % 2 == 0)).IsEqualTo(Maybe<int>.None);
+        await Assert.That(((IEnumerable<int>?)null).FirstOrNone(static _ => true)).IsEqualTo(Maybe<int>.None);
     }
 
     [Test]
-    public void TestLastOrNoneIndexable()
+    public async Task TestLastOrNoneIndexable()
     {
-        Assert.AreEqual(expected: Maybe.Some(3), actual: new[] { 1, 2, 3 }.LastOrNone());
-        Assert.AreEqual(expected: Maybe<int>.None, actual: Array.Empty<int>().LastOrNone());
-        Assert.AreEqual(expected: Maybe<int>.None, actual: ((IEnumerable<int>?)null).LastOrNone());
+        await Assert.That(new[] { 1, 2, 3 }.LastOrNone()).IsEqualTo(Maybe.Some(3));
+        await Assert.That(Array.Empty<int>().LastOrNone()).IsEqualTo(Maybe<int>.None);
+        await Assert.That(((IEnumerable<int>?)null).LastOrNone()).IsEqualTo(Maybe<int>.None);
     }
 
     [Test]
-    public void TestLastOrNoneNotIndexable()
+    public async Task TestLastOrNoneNotIndexable()
     {
-        Assert.AreEqual(expected: Maybe.Some(3), actual: Yield(1, 2, 3).LastOrNone());
-        Assert.AreEqual(expected: Maybe<int>.None, actual: Yield<int>().LastOrNone());
+        await Assert.That(Yield(1, 2, 3).LastOrNone()).IsEqualTo(Maybe.Some(3));
+        await Assert.That(Yield<int>().LastOrNone()).IsEqualTo(Maybe<int>.None);
     }
 
     [Test]
-    public void TestLastOrNoneWithPredicate()
+    public async Task TestLastOrNoneWithPredicate()
     {
-        Assert.AreEqual(expected: Maybe.Some(4), actual: new[] { 1, 2, 3, 4, 5 }.LastOrNone(static v => v % 2 == 0));
-        Assert.AreEqual(expected: Maybe<int>.None, actual: new[] { 1, 3 }.LastOrNone(static v => v % 2 == 0));
+        await Assert.That(new[] { 1, 2, 3, 4, 5 }.LastOrNone(static v => v % 2 == 0)).IsEqualTo(Maybe.Some(4));
+        await Assert.That(new[] { 1, 3 }.LastOrNone(static v => v % 2 == 0)).IsEqualTo(Maybe<int>.None);
     }
 
     [Test]
-    public void TestSingleOrNone()
+    public async Task TestSingleOrNone()
     {
-        Assert.AreEqual(expected: Maybe.Some(1), actual: new[] { 1 }.SingleOrNone());
-        Assert.AreEqual(expected: Maybe<int>.None, actual: Array.Empty<int>().SingleOrNone());
-        Assert.AreEqual(expected: Maybe<int>.None, actual: ((IEnumerable<int>?)null).SingleOrNone());
+        await Assert.That(new[] { 1 }.SingleOrNone()).IsEqualTo(Maybe.Some(1));
+        await Assert.That(Array.Empty<int>().SingleOrNone()).IsEqualTo(Maybe<int>.None);
+        await Assert.That(((IEnumerable<int>?)null).SingleOrNone()).IsEqualTo(Maybe<int>.None);
     }
 
     [Test]
-    public void TestSingleOrNoneThrowsOnMoreThanOne() =>
+    public async Task TestSingleOrNoneThrowsOnMoreThanOne() =>
         // ReSharper disable once ReturnValueOfPureMethodIsNotUsed - Testing for side effect only.
-        Assert.Throws<InvalidOperationException>(static () => new[] { 1, 2 }.SingleOrNone());
+        await Assert.That(static () => new[] { 1, 2 }.SingleOrNone()).ThrowsExactly<InvalidOperationException>();
 
     [Test]
-    public void TestSingleOrNoneReadsTwoElements()
+    public async Task TestSingleOrNoneReadsTwoElements()
     {
         int read = 0;
 
         Maybe<int> result = Counted(source: [1], onRead: () => read++).SingleOrNone();
 
-        Assert.AreEqual(expected: Maybe.Some(1), actual: result);
-        Assert.AreEqual(expected: 1, actual: read);
+        await Assert.That(result).IsEqualTo(Maybe.Some(1));
+        await Assert.That(read).IsEqualTo(1);
     }
 
     [Test]
-    public void TestSingleOrNoneWithPredicate()
+    public async Task TestSingleOrNoneWithPredicate()
     {
-        Assert.AreEqual(expected: Maybe.Some(2), actual: new[] { 1, 2, 3 }.SingleOrNone(static v => v % 2 == 0));
-        Assert.AreEqual(expected: Maybe<int>.None, actual: new[] { 1, 3 }.SingleOrNone(static v => v % 2 == 0));
+        await Assert.That(new[] { 1, 2, 3 }.SingleOrNone(static v => v % 2 == 0)).IsEqualTo(Maybe.Some(2));
+        await Assert.That(new[] { 1, 3 }.SingleOrNone(static v => v % 2 == 0)).IsEqualTo(Maybe<int>.None);
         // ReSharper disable once ReturnValueOfPureMethodIsNotUsed - Testing for side effect only.
-        Assert.Throws<InvalidOperationException>(static () => new[] { 2, 4 }.SingleOrNone(static v => v % 2 == 0));
+        await Assert.That(static () => new[] { 2, 4 }.SingleOrNone(static v => v % 2 == 0)).ThrowsExactly<InvalidOperationException>();
     }
 
     [Test]
-    public void TestElementAtOrNoneIndexable()
+    public async Task TestElementAtOrNoneIndexable()
     {
         int[] source = [1, 2, 3];
 
-        Assert.AreEqual(expected: Maybe.Some(1), actual: source.ElementAtOrNone(0));
-        Assert.AreEqual(expected: Maybe.Some(3), actual: source.ElementAtOrNone(2));
-        Assert.AreEqual(expected: Maybe<int>.None, actual: source.ElementAtOrNone(3));
-        Assert.AreEqual(expected: Maybe<int>.None, actual: source.ElementAtOrNone(-1));
-        Assert.AreEqual(expected: Maybe<int>.None, actual: ((IEnumerable<int>?)null).ElementAtOrNone(0));
+        await Assert.That(source.ElementAtOrNone(0)).IsEqualTo(Maybe.Some(1));
+        await Assert.That(source.ElementAtOrNone(2)).IsEqualTo(Maybe.Some(3));
+        await Assert.That(source.ElementAtOrNone(3)).IsEqualTo(Maybe<int>.None);
+        await Assert.That(source.ElementAtOrNone(-1)).IsEqualTo(Maybe<int>.None);
+        await Assert.That(((IEnumerable<int>?)null).ElementAtOrNone(0)).IsEqualTo(Maybe<int>.None);
     }
 
     [Test]
-    public void TestElementAtOrNoneNotIndexable()
+    public async Task TestElementAtOrNoneNotIndexable()
     {
-        Assert.AreEqual(expected: Maybe.Some(1), actual: Yield(1, 2, 3).ElementAtOrNone(0));
-        Assert.AreEqual(expected: Maybe.Some(3), actual: Yield(1, 2, 3).ElementAtOrNone(2));
-        Assert.AreEqual(expected: Maybe<int>.None, actual: Yield(1, 2, 3).ElementAtOrNone(3));
-        Assert.AreEqual(expected: Maybe<int>.None, actual: Yield(1, 2, 3).ElementAtOrNone(-1));
+        await Assert.That(Yield(1, 2, 3).ElementAtOrNone(0)).IsEqualTo(Maybe.Some(1));
+        await Assert.That(Yield(1, 2, 3).ElementAtOrNone(2)).IsEqualTo(Maybe.Some(3));
+        await Assert.That(Yield(1, 2, 3).ElementAtOrNone(3)).IsEqualTo(Maybe<int>.None);
+        await Assert.That(Yield(1, 2, 3).ElementAtOrNone(-1)).IsEqualTo(Maybe<int>.None);
     }
 
     [Test]
-    public void TestElementAtOrNoneReadsNoFurtherThanNeeded()
+    public async Task TestElementAtOrNoneReadsNoFurtherThanNeeded()
     {
         int read = 0;
 
         Maybe<int> result = Counted(source: [1, 2, 3, 4, 5], onRead: () => read++).ElementAtOrNone(1);
 
-        Assert.AreEqual(expected: Maybe.Some(2), actual: result);
-        Assert.AreEqual(expected: 2, actual: read);
+        await Assert.That(result).IsEqualTo(Maybe.Some(2));
+        await Assert.That(read).IsEqualTo(2);
     }
 
     [Test]
-    public void TestAggregateOrNone()
+    public async Task TestAggregateOrNone()
     {
-        Assert.AreEqual(expected: Maybe.Some(10), actual: new[] { 1, 2, 3, 4 }.AggregateOrNone(static (a, b) => a + b));
-        Assert.AreEqual(expected: Maybe.Some(7), actual: new[] { 7 }.AggregateOrNone(static (a, b) => a + b));
-        Assert.AreEqual(expected: Maybe<int>.None, actual: Array.Empty<int>().AggregateOrNone(static (a, b) => a + b));
+        await Assert.That(new[] { 1, 2, 3, 4 }.AggregateOrNone(static (a, b) => a + b)).IsEqualTo(Maybe.Some(10));
+        await Assert.That(new[] { 7 }.AggregateOrNone(static (a, b) => a + b)).IsEqualTo(Maybe.Some(7));
+        await Assert.That(Array.Empty<int>().AggregateOrNone(static (a, b) => a + b)).IsEqualTo(Maybe<int>.None);
 
-        Assert.AreEqual(
-            expected: Maybe<int>.None,
-            actual: ((IEnumerable<int>?)null).AggregateOrNone(static (a, b) => a + b));
+        await Assert.That(((IEnumerable<int>?)null).AggregateOrNone(static (a, b) => a + b)).IsEqualTo(Maybe<int>.None);
     }
 
     [Test]
-    public void TestAggregateOrNoneIsLeftAssociative() =>
-        Assert.AreEqual(
-            expected: Maybe.Some("((a b) c)"),
-            actual: new[] { "a", "b", "c" }.AggregateOrNone(static (a, b) => "(" + a + " " + b + ")"));
+    public async Task TestAggregateOrNoneIsLeftAssociative() =>
+        await Assert.That(new[] { "a", "b", "c" }.AggregateOrNone(static (a, b) => "(" + a + " " + b + ")")).IsEqualTo(Maybe.Some("((a b) c)"));
 
     [Test]
-    public void TestAggregateOrNoneDoesNotRunFunctionForOneElement()
+    public async Task TestAggregateOrNoneDoesNotRunFunctionForOneElement()
     {
         int calls = 0;
 
@@ -217,89 +216,85 @@ public class EnumerableExtensionMethodsTests
                 return a + b;
             });
 
-        Assert.AreEqual(expected: Maybe.Some(7), actual: result);
-        Assert.AreEqual(expected: 0, actual: calls);
+        await Assert.That(result).IsEqualTo(Maybe.Some(7));
+        await Assert.That(calls).IsEqualTo(0);
     }
 
     [Test]
-    public void TestMinOrNoneAndMaxOrNone()
+    public async Task TestMinOrNoneAndMaxOrNone()
     {
         int[] source = [3, 1, 4, 1, 5];
 
-        Assert.AreEqual(expected: Maybe.Some(1), actual: source.MinOrNone());
-        Assert.AreEqual(expected: Maybe.Some(5), actual: source.MaxOrNone());
-        Assert.AreEqual(expected: Maybe<int>.None, actual: Array.Empty<int>().MinOrNone());
-        Assert.AreEqual(expected: Maybe<int>.None, actual: Array.Empty<int>().MaxOrNone());
-        Assert.AreEqual(expected: Maybe<int>.None, actual: ((IEnumerable<int>?)null).MinOrNone());
-        Assert.AreEqual(expected: Maybe<int>.None, actual: ((IEnumerable<int>?)null).MaxOrNone());
+        await Assert.That(source.MinOrNone()).IsEqualTo(Maybe.Some(1));
+        await Assert.That(source.MaxOrNone()).IsEqualTo(Maybe.Some(5));
+        await Assert.That(Array.Empty<int>().MinOrNone()).IsEqualTo(Maybe<int>.None);
+        await Assert.That(Array.Empty<int>().MaxOrNone()).IsEqualTo(Maybe<int>.None);
+        await Assert.That(((IEnumerable<int>?)null).MinOrNone()).IsEqualTo(Maybe<int>.None);
+        await Assert.That(((IEnumerable<int>?)null).MaxOrNone()).IsEqualTo(Maybe<int>.None);
     }
 
     [Test]
-    public void TestMinOrNoneKeepsZero() =>
+    public async Task TestMinOrNoneKeepsZero() =>
         // Min throws on an empty sequence precisely so it need not conflate it with this.
-        Assert.AreEqual(expected: Maybe.Some(0), actual: new[] { 0, 1 }.MinOrNone());
+        await Assert.That(new[] { 0, 1 }.MinOrNone()).IsEqualTo(Maybe.Some(0));
 
     [Test]
-    public void TestMinOrNoneWithComparer()
+    public async Task TestMinOrNoneWithComparer()
     {
         string[] source = ["bbb", "a", "cc"];
 
-        Assert.AreEqual(
-            expected: Maybe.Some("a"),
-            actual: source.MinOrNone(Comparer<string>.Create(static (x, y) => x.Length - y.Length)));
+        await Assert.That(source.MinOrNone(Comparer<string>.Create(static (x, y) => x.Length - y.Length))).IsEqualTo(Maybe.Some("a"));
 
-        Assert.AreEqual(
-            expected: Maybe.Some("bbb"),
-            actual: source.MaxOrNone(Comparer<string>.Create(static (x, y) => x.Length - y.Length)));
+        await Assert.That(source.MaxOrNone(Comparer<string>.Create(static (x, y) => x.Length - y.Length))).IsEqualTo(Maybe.Some("bbb"));
     }
 
     [Test]
-    public void TestMinOrNoneWithSelector()
+    public async Task TestMinOrNoneWithSelector()
     {
         string[] source = ["bbb", "a", "cc"];
 
-        Assert.AreEqual(expected: Maybe.Some(1), actual: source.MinOrNone(static v => v.Length));
-        Assert.AreEqual(expected: Maybe.Some(3), actual: source.MaxOrNone(static v => v.Length));
-        Assert.AreEqual(expected: Maybe<int>.None, actual: Array.Empty<string>().MinOrNone(static v => v.Length));
+        await Assert.That(source.MinOrNone(static v => v.Length)).IsEqualTo(Maybe.Some(1));
+        await Assert.That(source.MaxOrNone(static v => v.Length)).IsEqualTo(Maybe.Some(3));
+        await Assert.That(Array.Empty<string>().MinOrNone(static v => v.Length)).IsEqualTo(Maybe<int>.None);
     }
 
     [Test]
-    public void TestMinOrNoneSkipsNulls()
+    public async Task TestMinOrNoneSkipsNulls()
     {
         // Comparer<string>.Default sorts null before everything, so without skipping them a
         // single null would be the answer for every sequence of a reference type.
         string?[] source = ["b", null, "a"];
 
-        Assert.AreEqual(expected: Maybe.Some("a"), actual: source.MinOrNone());
-        Assert.AreEqual(expected: Maybe.Some("b"), actual: source.MaxOrNone());
+        await Assert.That(source.MinOrNone()).IsEqualTo(Maybe.Some<string?>("a"));
+        await Assert.That(source.MaxOrNone()).IsEqualTo(Maybe.Some<string?>("b"));
     }
 
     [Test]
-    public void TestMinOrNoneSkipsNullsInNullableValueTypes()
+    public async Task TestMinOrNoneSkipsNullsInNullableValueTypes()
     {
         int?[] source = [3, null, 1];
 
-        Assert.AreEqual(expected: Maybe.Some((int?)1), actual: source.MinOrNone());
-        Assert.AreEqual(expected: Maybe.Some((int?)3), actual: source.MaxOrNone());
+        await Assert.That(source.MinOrNone()).IsEqualTo(Maybe.Some((int?)1));
+        await Assert.That(source.MaxOrNone()).IsEqualTo(Maybe.Some((int?)3));
     }
 
     [Test]
-    public void TestMinOrNoneOfNothingButNulls()
+    public async Task TestMinOrNoneOfNothingButNulls()
     {
         // LINQ answers null here, which cannot be told from a sequence whose minimum is null.
         // There is genuinely nothing to compare, so this says so.
-        Assert.AreEqual(expected: Maybe<string?>.None, actual: new string?[] { null, null }.MinOrNone());
-        Assert.AreEqual(expected: Maybe<int?>.None, actual: new int?[] { null, null }.MaxOrNone());
+        await Assert.That(new string?[] { null, null }.MinOrNone()).IsEqualTo(Maybe<string?>.None);
+        await Assert.That(new int?[] { null, null }.MaxOrNone()).IsEqualTo(Maybe<int?>.None);
     }
 
     [Test]
-    public void TestMinOrNoneOrdersByTheComparerIncludingNaN()
+    public async Task TestMinOrNoneOrdersByTheComparerIncludingNaN()
     {
         // Pinned rather than claimed: Comparer<double>.Default sorts NaN below everything.
         double[] source = [2.0, double.NaN, 1.0];
 
-        Assert.AreEqual(expected: Maybe.Some(double.NaN), actual: source.MinOrNone());
-        Assert.AreEqual(expected: Maybe.Some(2.0), actual: source.MaxOrNone());
+        await Assert.That(source.MinOrNone()).IsEqualTo(Maybe.Some(double.NaN));
+        await Assert.That(source.MaxOrNone()).IsEqualTo(Maybe.Some(2.0));
     }
 
     private static IEnumerable<T> Yield<T>(params T[] items) => items;

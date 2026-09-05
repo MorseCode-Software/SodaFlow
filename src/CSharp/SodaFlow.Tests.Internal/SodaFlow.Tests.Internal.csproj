@@ -1,9 +1,20 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
     <PropertyGroup>
-        <TargetFramework>net472</TargetFramework>
+        <TargetFrameworks>net10.0;net472</TargetFrameworks>
+        <OutputType>Exe</OutputType>
+        <!-- TUnit's transitive dependencies do not claim net472; their netstandard2.0 assets work. -->
+        <SuppressTfmSupportBuildWarnings>true</SuppressTfmSupportBuildWarnings>
+        <!-- The usings are listed per file here, as everywhere else in this repository. -->
+        <TUnitImplicitUsings>disable</TUnitImplicitUsings>
+        <TUnitAssertionsImplicitUsings>disable</TUnitAssertionsImplicitUsings>
         <LangVersion>latest</LangVersion>
         <Nullable>enable</Nullable>
+    </PropertyGroup>
+
+    <!-- Microsoft.Testing.Platform builds a native apphost for net472, which needs an explicit RID. -->
+    <PropertyGroup Condition=" '$(TargetFramework)' == 'net472' ">
+        <RuntimeIdentifier>win-x64</RuntimeIdentifier>
     </PropertyGroup>
 
     <PropertyGroup>
@@ -15,13 +26,13 @@
 
     <ItemGroup>
         <PackageReference Include="JetBrains.Annotations" Version="2026.2.0" PrivateAssets="all"/>
-        <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.11.1"/>
-        <PackageReference Include="NUnit" Version="3.11.0"/>
-        <PackageReference Include="NUnit3TestAdapter" Version="3.10.0"/>
-        <PackageReference Include="System.ValueTuple" Version="4.4.0"/>
+        <PackageReference Include="TUnit" Version="1.66.8"/>
+        <PackageReference Include="System.ValueTuple" Version="4.6.2"/>
     </ItemGroup>
 
     <ItemGroup>
+        <Compile Include="..\..\TestPolyfills.cs" Link="TestPolyfills.cs"/>
+        <Compile Include="..\..\TestParallelism.cs" Link="TestParallelism.cs"/>
         <Compile Include="CalmTests.cs"/>
         <Compile Include="CellTests.cs"/>
         <Compile Include="NodeTests.cs"/>

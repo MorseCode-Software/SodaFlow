@@ -1,15 +1,17 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
-using NUnit.Framework;
+using System.Threading.Tasks;
 using SodaFlow.Functional;
+using TUnit.Assertions;
+using TUnit.Assertions.Extensions;
+using TUnit.Core;
 
 namespace SodaFlow.Tests;
 
-[TestFixture]
-public class IssueTests
+public sealed class IssueTests
 {
     [Test]
-    public void Issue151_PoolDoubleSubtraction_Broken()
+    public async Task Issue151_PoolDoubleSubtraction_Broken()
     {
         Exception? actual = null;
 
@@ -68,12 +70,12 @@ public class IssueTests
             actual = e;
         }
 
-        Assert.IsNotNull(actual);
-        Assert.AreEqual(expected: "A dependency cycle was detected.", actual: actual?.Message);
+        await Assert.That(actual).IsNotNull();
+        await Assert.That(actual?.Message).IsEqualTo("A dependency cycle was detected.");
     }
 
     [Test]
-    public void Issue151_PoolDoubleSubtraction_Fixed()
+    public async Task Issue151_PoolDoubleSubtraction_Fixed()
     {
         CellSink<int> threshold = Cell.CreateSink(10);
         StreamSink<int> addPoolSink = Stream.CreateSink<int>();
@@ -133,8 +135,8 @@ public class IssueTests
             addPoolSink.Send(10);
         }
 
-        Assert.AreEqual(expected: 1, actual: submissions.Count);
-        Assert.AreEqual(expected: 10, actual: submissions[0]);
-        Assert.AreEqual(expected: 0, actual: pool.Sample());
+        await Assert.That(submissions.Count).IsEqualTo(1);
+        await Assert.That(submissions[0]).IsEqualTo(10);
+        await Assert.That(pool.Sample()).IsEqualTo(0);
     }
 }

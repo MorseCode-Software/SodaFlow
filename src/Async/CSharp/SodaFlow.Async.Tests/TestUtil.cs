@@ -52,6 +52,8 @@ internal sealed class ControlledOperation<TInput, TResult>
 
         TaskCompletionSource<TResult> tcs = this.GateFor(input);
 
+        // ReSharper disable once UseAwaitUsing - CancellationTokenRegistration is only
+        // IAsyncDisposable from .NET Core 3.0, and this compiles for net472 as well.
         using CancellationTokenRegistration registration =
             token.Register(() => tcs.TrySetCanceled(token));
 

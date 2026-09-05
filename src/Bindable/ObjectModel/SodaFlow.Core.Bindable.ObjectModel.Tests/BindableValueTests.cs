@@ -1,8 +1,13 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Threading;
-using NUnit.Framework;
+using System.Threading.Tasks;
+using TUnit.Assertions;
+using TUnit.Assertions.Exceptions;
+using TUnit.Assertions.Enums;
+using TUnit.Assertions.Extensions;
+using TUnit.Core;
 
 namespace SodaFlow.Bindable.ObjectModel.Tests;
 
@@ -12,8 +17,7 @@ namespace SodaFlow.Bindable.ObjectModel.Tests;
 ///     without a dispatcher; the ordering it produces is the same one a dispatcher-backed scheduler
 ///     produces, because it defers to the end of the current transaction exactly as that one does.
 /// </summary>
-[TestFixture]
-public class BindableValueTests
+public sealed class BindableValueTests
 {
     private static IOneWayBindableValue<T> OneWay<T>(Cell<T> cell) =>
         cell.ToOneWayImpl(scheduler: BindingScheduler.Immediate);
@@ -23,26 +27,23 @@ public class BindableValueTests
 
     private static List<string?> RecordNotifications(INotifyPropertyChanged source)
     {
-        List<string?> names = new();
+        List<string?> names = [];
         source.PropertyChanged += (_, e) => names.Add(e.PropertyName);
         return names;
     }
 
     [Test]
-    public void OneWayStartsAtTheCellsCurrentValue()
+    public async Task OneWayStartsAtTheCellsCurrentValue()
     {
         CellSink<int> c = Cell.CreateSink(7);
 
         using IOneWayBindableValue<int> b = OneWay(c);
 
-        Assert.AreEqual(
-            expected: 7,
-            actual: b.Value,
-            message: "the constructor samples rather than waiting for an update");
+        await Assert.That(b.Value).IsEqualTo(7).Because("the constructor samples rather than waiting for an update");
     }
 
     [Test]
-    public void OneWayFollowsTheCellAndNotifiesOnce()
+    public async Task OneWayFollowsTheCellAndNotifiesOnce()
     {
         CellSink<int> c = Cell.CreateSink(0);
 
@@ -53,14 +54,16 @@ public class BindableValueTests
         c.Send(1);
         c.Send(2);
 
-        Assert.AreEqual(expected: 2, actual: b.Value);
-        CollectionAssert.AreEqual(expected: new[] { "Value", "Value" }, actual: names);
+        await Assert.That(b.Value).IsEqualTo(2);
+        string?[] expected = ["Value", "Value"];
+
+        await Assert.That(names).IsEquivalentTo(expected, CollectionOrdering.Matching);
     }
 
     // The property name is load-bearing: the documented binding path is {Binding Foo.Value}, so a
     // notification naming anything else silently fails to update the view.
     [Test]
-    public void OneWayRaisesForTheValueProperty()
+    public async Task OneWayRaisesForTheValueProperty()
     {
         CellSink<string> c = Cell.CreateSink("a");
 
@@ -70,11 +73,13 @@ public class BindableValueTests
 
         c.Send("b");
 
-        CollectionAssert.AreEqual(expected: new[] { "Value" }, actual: names);
+        string?[] expected = ["Value"];
+
+        await Assert.That(names).IsEquivalentTo(expected, CollectionOrdering.Matching);
     }
 
     [Test]
-    public void OneWayDoesNotNotifyWhenTheValueIsUnchanged()
+    public async Task OneWayDoesNotNotifyWhenTheValueIsUnchanged()
     {
         CellSink<int> c = Cell.CreateSink(3);
 
@@ -84,11 +89,11 @@ public class BindableValueTests
 
         c.Send(3);
 
-        CollectionAssert.IsEmpty(collection: names, message: "an update carrying the same value is not a change");
+        await Assert.That(names).IsEmpty().Because("an update carrying the same value is not a change");
     }
 
     [Test]
-    public void OneWayStopsFollowingOnceDisposed()
+    public async Task OneWayStopsFollowingOnceDisposed()
     {
         CellSink<int> c = Cell.CreateSink(0);
         IOneWayBindableValue<int> b = OneWay(c);
@@ -96,11 +101,11 @@ public class BindableValueTests
         b.Dispose();
         c.Send(9);
 
-        Assert.AreEqual(expected: 0, actual: b.Value, message: "a disposed bindable is detached from its cell");
+        await Assert.That(b.Value).IsEqualTo(0).Because("a disposed bindable is detached from its cell");
     }
 
     [Test]
-    public void TwoWayPushesWritesIntoTheGraph()
+    public async Task TwoWayPushesWritesIntoTheGraph()
     {
         CellSink<int> c = Cell.CreateSink(0);
 
@@ -108,12 +113,12 @@ public class BindableValueTests
 
         b.Value = 5;
 
-        Assert.AreEqual(expected: 5, actual: c.Sample(), message: "the write reached the sink");
-        Assert.AreEqual(expected: 5, actual: b.Value);
+        await Assert.That(c.Sample()).IsEqualTo(5).Because("the write reached the sink");
+        await Assert.That(b.Value).IsEqualTo(5);
     }
 
     [Test]
-    public void TwoWayFollowsTheCellWhenTheGraphIsTheWriter()
+    public async Task TwoWayFollowsTheCellWhenTheGraphIsTheWriter()
     {
         CellSink<int> c = Cell.CreateSink(0);
 
@@ -123,14 +128,16 @@ public class BindableValueTests
 
         c.Send(4);
 
-        Assert.AreEqual(expected: 4, actual: b.Value);
-        CollectionAssert.AreEqual(expected: new[] { "Value" }, actual: names);
+        await Assert.That(b.Value).IsEqualTo(4);
+        string?[] expected = ["Value"];
+
+        await Assert.That(names).IsEquivalentTo(expected, CollectionOrdering.Matching);
     }
 
     // The graph is authoritative. A write the graph normalizes has to come back corrected, or the
     // view keeps showing something that was never accepted.
     [Test]
-    public void TwoWayReconcilesAWriteTheGraphNormalizes()
+    public async Task TwoWayReconcilesAWriteTheGraphNormalizes()
     {
         StreamSink<string> edits = Stream.CreateSink<string>();
         Cell<string> upperCased = edits.Map(static v => v.ToUpperInvariant()).Hold(string.Empty);
@@ -140,37 +147,37 @@ public class BindableValueTests
 
         b.Value = "abc";
 
-        Assert.AreEqual(expected: "ABC", actual: b.Value, message: "the cell's value wins over the optimistic one");
+        await Assert.That(b.Value).IsEqualTo("ABC").Because("the cell's value wins over the optimistic one");
     }
 
     [Test]
-    public void TwoWayThrowsOnceDisposed()
+    public async Task TwoWayThrowsOnceDisposed()
     {
         CellSink<int> c = Cell.CreateSink(0);
         ITwoWayBindableValue<int> b = TwoWay(c);
 
         b.Dispose();
 
-        Assert.Throws<ObjectDisposedException>(() => b.Value = 1);
+        await Assert.That(() => b.Value = 1).ThrowsExactly<ObjectDisposedException>();
     }
 
     [Test]
-    public void OneWayToSourcePushesWritesIntoTheGraph()
+    public async Task OneWayToSourcePushesWritesIntoTheGraph()
     {
         CellSink<int> c = Cell.CreateSink(0);
 
         using IOneWayToSourceBindableValue<int> b = c.ToOneWayToSourceImpl();
 
-        Assert.AreEqual(expected: 0, actual: b.Value, message: "the getter starts at the sink's value");
+        await Assert.That(b.Value).IsEqualTo(0).Because("the getter starts at the sink's value");
 
         b.Value = 6;
 
-        Assert.AreEqual(expected: 6, actual: c.Sample());
-        Assert.AreEqual(expected: 6, actual: b.Value, message: "the getter reads back what the view wrote");
+        await Assert.That(c.Sample()).IsEqualTo(6);
+        await Assert.That(b.Value).IsEqualTo(6).Because("the getter reads back what the view wrote");
     }
 
     [Test]
-    public void OneWayToSourceStopsWritingOnceDisposed()
+    public async Task OneWayToSourceStopsWritingOnceDisposed()
     {
         CellSink<int> c = Cell.CreateSink(0);
         IOneWayToSourceBindableValue<int> b = c.ToOneWayToSourceImpl();
@@ -178,7 +185,7 @@ public class BindableValueTests
         b.Dispose();
         b.Value = 3;
 
-        Assert.AreEqual(expected: 0, actual: c.Sample(), message: "a disposed sink accepts no further writes");
+        await Assert.That(c.Sample()).IsEqualTo(0).Because("a disposed sink accepts no further writes");
     }
 
     // A view model builds its bindable objects wherever it happens to be running and has no business
@@ -188,19 +195,19 @@ public class BindableValueTests
     // A visibility bug would not fail this reliably - that is the nature of one - but the value
     // being boxed behind a volatile reference is what makes the handover sound, and a change that
     // reintroduced a same-thread requirement would fail here immediately.
-    private static TResult OnAnotherThread<TResult>(Func<TResult> f)
+    private static async Task<TResult> OnAnotherThread<TResult>(Func<TResult> f)
     {
         TResult? result = default;
         Exception? failure = null;
+        SynchronizationContext? contextOnTheOtherThread = null;
 
         Thread thread =
             new(() =>
             {
                 try
                 {
-                    Assert.IsNull(
-                        anObject: SynchronizationContext.Current,
-                        message: "the point is a thread with no context of its own");
+                    // Recorded rather than asserted here: nothing inside a thread body can be awaited.
+                    contextOnTheOtherThread = SynchronizationContext.Current;
 
                     result = f();
                 }
@@ -211,98 +218,104 @@ public class BindableValueTests
             });
 
         thread.Start();
-        Assert.IsTrue(condition: thread.Join(TimeSpan.FromSeconds(10)), message: "construction should not block");
+        bool finished = thread.Join(TimeSpan.FromSeconds(10));
+
+        await Assert.That(finished).IsTrue().Because("construction should not block");
+
+        await Assert.That(contextOnTheOtherThread).IsNull()
+            .Because("the point is a thread with no context of its own");
 
         return failure != null
-            ? throw new AssertionException(message: "construction threw on the other thread", inner: failure)
+            ? throw new AssertionException(
+                message: "construction threw on the other thread",
+                innerException: failure)
             // ReSharper disable once NullableWarningSuppressionIsUsed - This will be non-null if failure is null.
             : result!;
     }
 
     [Test]
-    public void OneWayCanBeConstructedOffTheBindingThread()
+    public async Task OneWayCanBeConstructedOffTheBindingThread()
     {
         CellSink<int> c = Cell.CreateSink(11);
 
-        using IOneWayBindableValue<int> b = OnAnotherThread(() => OneWay(c));
+        using IOneWayBindableValue<int> b = await OnAnotherThread(() => OneWay(c));
 
-        Assert.AreEqual(expected: 11, actual: b.Value, message: "the sample survived the handover");
+        await Assert.That(b.Value).IsEqualTo(11).Because("the sample survived the handover");
 
         c.Send(12);
 
-        Assert.AreEqual(expected: 12, actual: b.Value, message: "and it keeps following afterward");
+        await Assert.That(b.Value).IsEqualTo(12).Because("and it keeps following afterward");
     }
 
     [Test]
-    public void TwoWayCanBeConstructedOffTheBindingThread()
+    public async Task TwoWayCanBeConstructedOffTheBindingThread()
     {
         CellSink<int> c = Cell.CreateSink(11);
 
-        using ITwoWayBindableValue<int> b = OnAnotherThread(() => TwoWay(c));
+        using ITwoWayBindableValue<int> b = await OnAnotherThread(() => TwoWay(c));
 
-        Assert.AreEqual(expected: 11, actual: b.Value);
+        await Assert.That(b.Value).IsEqualTo(11);
 
         b.Value = 13;
 
-        Assert.AreEqual(expected: 13, actual: c.Sample());
+        await Assert.That(c.Sample()).IsEqualTo(13);
     }
 
     [Test]
-    public void OneWayToSourceCanBeConstructedOffTheBindingThread()
+    public async Task OneWayToSourceCanBeConstructedOffTheBindingThread()
     {
         CellSink<int> c = Cell.CreateSink(11);
 
-        using IOneWayToSourceBindableValue<int> b = OnAnotherThread(() => c.ToOneWayToSourceImpl());
+        using IOneWayToSourceBindableValue<int> b = await OnAnotherThread(() => c.ToOneWayToSourceImpl());
 
-        Assert.AreEqual(expected: 11, actual: b.Value);
+        await Assert.That(b.Value).IsEqualTo(11);
 
         b.Value = 13;
 
-        Assert.AreEqual(expected: 13, actual: c.Sample());
+        await Assert.That(c.Sample()).IsEqualTo(13);
     }
 
     [Test]
-    public void ACommandCanBeConstructedOffTheBindingThread()
+    public async Task ACommandCanBeConstructedOffTheBindingThread()
     {
         CellSink<bool> enabled = Cell.CreateSink(true);
 
         using IBindableAction<int> a =
-            OnAnotherThread(() =>
+            await OnAnotherThread(() =>
                 Stream.CreateSink<int>()
                     .ToBindableActionImpl(
                         isEnabledCell: enabled,
                         scheduler: BindingScheduler.Immediate));
 
-        Assert.IsTrue(condition: a.CanExecute(null), message: "the sampled enablement survived the handover");
+        await Assert.That(a.CanExecute(null)).IsTrue().Because("the sampled enablement survived the handover");
 
         enabled.Send(false);
 
-        Assert.IsFalse(a.CanExecute(null));
+        await Assert.That(a.CanExecute(null)).IsFalse();
     }
 
     // Every bindable is disposable through the one marker interface, which is what lets a view
     // model keep them in a single collection and tear them all down together. The write-only one
     // used to be left out of it.
     [Test]
-    public void EveryBindableIsAnIBindable()
+    public async Task EveryBindableIsAnIBindable()
     {
         CellSink<int> c = Cell.CreateSink(0);
         StreamSink<int> edits = Stream.CreateSink<int>();
 
         List<IBindable> all =
-            new()
-            {
+            [
                 OneWay(c),
                 TwoWay(c),
                 c.ToOneWayToSourceImpl(),
                 edits.ToBindableActionImpl(scheduler: BindingScheduler.Immediate)
-            };
+            ];
 
         foreach (IBindable bindable in all)
         {
             bindable.Dispose();
         }
 
-        Assert.AreEqual(expected: 4, actual: all.Count);
+        await Assert.That(all.Count).IsEqualTo(4);
     }
 }

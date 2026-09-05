@@ -1,6 +1,10 @@
 using System;
 using System.Collections.Generic;
-using NUnit.Framework;
+using System.Threading.Tasks;
+using TUnit.Assertions;
+using TUnit.Assertions.Enums;
+using TUnit.Assertions.Extensions;
+using TUnit.Core;
 
 namespace SodaFlow.Tests.Internal;
 
@@ -11,8 +15,7 @@ namespace SodaFlow.Tests.Internal;
 ///     Calm has no denotational conformance coverage, so this is the only specification-level cover
 ///     the protocol has.
 /// </summary>
-[TestFixture]
-public class CalmTests
+public sealed class CalmTests
 {
     private static Stream<int> Calm(Stream<int> source, Lazy<MaybeInternal<int>> init) =>
         source.Calm(init: init, areEqual: static (x, y) => x == y);
@@ -21,7 +24,7 @@ public class CalmTests
     // behavior Calm replaced. Nothing observable depends on the value here - only on it having been
     // asked for at all.
     [Test]
-    public void InitialValueIsForcedEvenWhenNothingFires()
+    public async Task InitialValueIsForcedEvenWhenNothingFires()
     {
         int forceOperations = 0;
         StreamSink<int> s = Stream.CreateSink<int>();
@@ -42,10 +45,7 @@ public class CalmTests
                     });
             });
 
-        Assert.AreEqual(
-            expected: 1,
-            actual: forceOperations,
-            message: "the initial value should be forced once, in the sample phase");
+        await Assert.That(forceOperations).IsEqualTo(1).Because("the initial value should be forced once, in the sample phase");
 
         l.Unlisten();
     }
@@ -54,7 +54,7 @@ public class CalmTests
     // still force only once - Lazy caches - but would also reset the remembered value on every
     // firing, so the count and the output are asserted together.
     [Test]
-    public void InitialValueIsForcedOnceAcrossManyFirings()
+    public async Task InitialValueIsForcedOnceAcrossManyFirings()
     {
         int forceOperations = 0;
         StreamSink<int> s = Stream.CreateSink<int>();
@@ -81,15 +81,9 @@ public class CalmTests
 
         l.Unlisten();
 
-        Assert.AreEqual(
-            expected: 1,
-            actual: forceOperations,
-            message: "the initial value should be forced exactly once");
+        await Assert.That(forceOperations).IsEqualTo(1).Because("the initial value should be forced exactly once");
 
-        CollectionAssert.AreEqual(
-            expected: new[] { 1, 2, 1 },
-            actual: @out,
-            message: "re-reading the initial value per firing would reset the remembered value and let " +
+        await Assert.That(@out).IsEquivalentTo([1, 2, 1], CollectionOrdering.Matching).Because("re-reading the initial value per firing would reset the remembered value and let " +
                      "duplicates through");
     }
 
@@ -97,7 +91,7 @@ public class CalmTests
     // This is the case a sentinel cannot express: None is a legitimate initial value, so
     // "uninitialized" needs its own flag.
     [Test]
-    public void NonEmptyInitialValueSuppressesAMatchingFirstFiring()
+    public async Task NonEmptyInitialValueSuppressesAMatchingFirstFiring()
     {
         StreamSink<int> s = Stream.CreateSink<int>();
         List<int> @out = [];
@@ -114,16 +108,13 @@ public class CalmTests
 
         l.Unlisten();
 
-        CollectionAssert.AreEqual(
-            expected: new[] { 8, 7 },
-            actual: @out,
-            message: "the first 7 matches the initial value");
+        await Assert.That(@out).IsEquivalentTo([8, 7], CollectionOrdering.Matching).Because("the first 7 matches the initial value");
     }
 
     // A suppressed firing must carry the remembered value forward rather than clearing it, which is
     // what the behavior-backed version got from feeding its state back on every firing.
     [Test]
-    public void SuppressedFiringKeepsTheRememberedValue()
+    public async Task SuppressedFiringKeepsTheRememberedValue()
     {
         StreamSink<int> s = Stream.CreateSink<int>();
         List<int> @out = [];
@@ -141,10 +132,7 @@ public class CalmTests
 
         l.Unlisten();
 
-        CollectionAssert.AreEqual(
-            expected: new[] { 1, 2 },
-            actual: @out,
-            message: "a run of suppressed firings must not clear what was remembered");
+        await Assert.That(@out).IsEquivalentTo([1, 2], CollectionOrdering.Matching).Because("a run of suppressed firings must not clear what was remembered");
     }
 
     // A transaction that fails must not leave the remembered value updated. Calm defers the
@@ -156,7 +144,7 @@ public class CalmTests
     // are queued: an exception raised before the drain would abort the transaction without
     // Calm's handler ever running, which cannot tell the two designs apart.
     [Test]
-    public void AFailedTransactionDoesNotCommitTheRememberedValue()
+    public async Task AFailedTransactionDoesNotCommitTheRememberedValue()
     {
         StreamSink<int> s = Stream.CreateSink<int>();
         List<int> @out = [];
@@ -168,7 +156,7 @@ public class CalmTests
         IListener good = calmed.ListenStrong(@out.Add);
         IListener boom = calmed.ListenStrong(static _ => throw new InvalidOperationException("abort"));
 
-        Assert.Throws<InvalidOperationException>(() => s.Send(1));
+        await Assert.That(() => s.Send(1)).ThrowsExactly<InvalidOperationException>();
 
         boom.Unlisten();
 
@@ -177,17 +165,14 @@ public class CalmTests
 
         good.Unlisten();
 
-        CollectionAssert.AreEqual(
-            expected: new[] { 1, 1 },
-            actual: @out,
-            message: "the firing from the failed transaction must not suppress the retry");
+        await Assert.That(@out).IsEquivalentTo([1, 1], CollectionOrdering.Matching).Because("the firing from the failed transaction must not suppress the retry");
     }
 
     // The remembered value is committed at the end of the transaction, so simultaneous sources
     // feeding one firing compare against what the previous transaction left, not against anything
     // computed within this one.
     [Test]
-    public void ComparisonUsesTheValueCommittedByThePreviousTransaction()
+    public async Task ComparisonUsesTheValueCommittedByThePreviousTransaction()
     {
         StreamSink<int> a = Stream.CreateSink<int>();
         StreamSink<int> b = Stream.CreateSink<int>();
@@ -218,6 +203,6 @@ public class CalmTests
 
         l.Unlisten();
 
-        CollectionAssert.AreEqual(expected: new[] { 2, 3 }, actual: @out);
+        await Assert.That(@out).IsEquivalentTo([2, 3], CollectionOrdering.Matching);
     }
 }

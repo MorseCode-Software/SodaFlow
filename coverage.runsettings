@@ -1,14 +1,23 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
-    Settings for the Microsoft Code Coverage collector, passed to the `dotnet test` runs in
-    appveyor.yml alongside the Code Coverage collector.
+    Settings for the Microsoft Code Coverage collector, passed by build.cake through the platform's
+    coverage-settings option. The test projects run on Microsoft.Testing.Platform, which reaches the
+    collector through Microsoft.Testing.Extensions.CodeCoverage and reads this file unchanged from
+    when VSTest took it as its settings file.
+
+    Note for anyone editing this header: a pair of hyphens cannot appear inside an XML comment, and
+    the collector rejects the whole file if one does, reporting only that the settings do not exist
+    or are invalid.
+
 
     Cobertura because that is what the Coveralls Universal Coverage Reporter accepts; its formats
     are lcov, simplecov, cobertura, jacoco, gcov, luacov, golang, coveralls, python and clover.
 
     Without the module filters the collector instruments everything the tests load, FSharp.Core and
     the test assemblies included, which inflated one F# run from roughly 2,300 relevant lines to
-    21,686. Only the shipping assemblies are of interest.
+    21,686. Only the shipping assemblies are of interest, and all ten of them are listed. A package
+    missing from this list does not read as uncovered in the report; it is absent from it, which
+    reads instead as though there were nothing there to cover.
 
     JetBrainsAnnotations.cs is excluded because it is vendored MIT third party code compiled into
     SodaFlow and SodaFlow.Functional (see NOTICE), and counting it would report coverage against
@@ -30,6 +39,9 @@
                 <ModulePath>.*\\SodaFlow\.Core\.Async\.dll$</ModulePath>
                 <ModulePath>.*\\SodaFlow\.Async\.dll$</ModulePath>
                 <ModulePath>.*\\SodaFlow\.FSharp\.Async\.dll$</ModulePath>
+                <ModulePath>.*\\SodaFlow\.Core\.Bindable\.ObjectModel\.dll$</ModulePath>
+                <ModulePath>.*\\SodaFlow\.Bindable\.ObjectModel\.dll$</ModulePath>
+                <ModulePath>.*\\SodaFlow\.FSharp\.Bindable\.ObjectModel\.dll$</ModulePath>
               </Include>
             </ModulePaths>
             <Sources>

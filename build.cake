@@ -118,10 +118,16 @@ Task("Test")
 {
     CleanDirectory(coverageDirectory);
 
-    // One run over the solution. Collection is done by the Microsoft Code Coverage collector that
-    // ships inside Microsoft.NET.Test.Sdk, which writes Cobertura directly - the format the
-    // Coveralls reporter accepts - so nothing has to be converted and nothing merged. Scoping and
-    // exclusions live in coverage.runsettings.
+    // One run over the solution. The test projects run on Microsoft.Testing.Platform rather than
+    // VSTest - global.json selects it - so each of them builds into an executable that hosts its own
+    // run, and dotnet test starts them. Everything after the -- is theirs rather than the SDK's,
+    // which is why none of it is expressed through DotNetTestSettings.
+    //
+    // Collection is still the Microsoft Code Coverage collector, reached now through
+    // Microsoft.Testing.Extensions.CodeCoverage, which arrives with TUnit. It writes Cobertura
+    // directly - the format the Coveralls reporter accepts - so nothing has to be converted and
+    // nothing merged. Scoping and exclusions live in coverage.runsettings, which the platform takes
+    // unchanged: --coverage-settings reads the same file --settings used to.
     //
     // SodaFlow.Benchmarks contributes no tests: it is a console application driving
     // BenchmarkDotNet, not a test project, and the run does not mind.
@@ -132,21 +138,27 @@ Task("Test")
     // FSharp.Core 4.5.0.0 while 10.0.0.0 is deployed; its instrumentation does not honor the
     // binding redirect. OpenCover wrapped around dotnet test hangs, because dotnet.exe is a CoreCLR
     // host and OpenCover's profiler is a .NET Framework CLR profiler.
+    var resultsDirectory = MakeAbsolute(coverageDirectory).FullPath;
+    var coverageSettings = MakeAbsolute(File("./coverage.runsettings")).FullPath;
+
     DotNetTest(
         solution,
         new DotNetTestSettings
         {
             Configuration = configuration,
             NoBuild = true,
-            Settings = File("./coverage.runsettings"),
-            ResultsDirectory = coverageDirectory,
-            Loggers = new[] { "trx" },
-            ArgumentCustomization = args => args.Append("--collect:\"Code Coverage\""),
+            ArgumentCustomization = args => args
+                .Append("--")
+                .Append("--results-directory").AppendQuoted(resultsDirectory)
+                .Append("--coverage")
+                .Append("--coverage-output-format").Append("cobertura")
+                .Append("--coverage-settings").AppendQuoted(coverageSettings)
+                .Append("--report-trx"),
         });
 
     // AppVeyor shows a Tests tab only for results handed to its API; a passing or failing phase on
-    // its own says how many suites ran, not which test failed. The trx logger writes one file per
-    // test project and AppVeyor reads that format as MSTest.
+    // its own says how many suites ran, not which test failed. --report-trx writes one file per test
+    // project per framework, named for both, and AppVeyor reads that format as MSTest.
     //
     // Uploaded here rather than in a later task because a failing test run stops the build, and the
     // results of the run that failed are exactly the ones worth having.
@@ -165,16 +177,18 @@ Task("Upload-Coverage")
     .IsDependentOn("Test")
     .Does(() =>
 {
-    // The collector names each report after the machine and timestamp and puts it in a GUID
-    // subdirectory, so they have to be found rather than assumed.
+    // The collector names each report after a GUID, so they have to be found rather than assumed.
     //
-    // There is more than one. A solution-level run writes a report per test project, each covering
-    // only the assemblies that project touched - eight of them here, ranging from two assemblies to
-    // seven. Sending the first, which is what this did until now, uploaded a partial view, and
-    // which partial view depended on the order the filesystem happened to return those GUID
-    // directories in. The reporter takes several files in one invocation and merges them, so all of
-    // them go up as a single submission.
-    var reports = GetFiles($"{coverageDirectory.Path}/**/*.cobertura.xml")
+    // There is more than one. A solution-level run writes a report per test project per framework,
+    // each covering only the assemblies that project touched. Sending the first uploaded a partial
+    // view, and which partial view depended on the order the filesystem happened to return them in.
+    // The reporter takes several files in one invocation and merges them, so all of them go up as a
+    // single submission.
+    //
+    // Not a recursive glob, and that matters: the collector writes every report twice, once here and
+    // once under a machine-and-timestamp directory in the layout VSTest used. The two copies are
+    // byte for byte the same file, and sending both would submit every report twice.
+    var reports = GetFiles($"{coverageDirectory.Path}/*.cobertura.xml")
         .OrderBy(r => r.FullPath, StringComparer.Ordinal)
         .ToList();
 
@@ -259,9 +273,9 @@ Task("Pack")
     CleanDirectory(artifactsDirectory);
 
     // One pack over the whole solution. It packs the publishable projects and skips the test and
-    // benchmark ones: the test projects reference Microsoft.NET.Test.Sdk, which the SDK reads as
-    // IsTestProject and defaults IsPackable to false for, and SodaFlow.Benchmarks sets IsPackable
-    // false explicitly because it has no test adapter reference to be read that way.
+    // benchmark ones, each of which sets IsPackable false. That used to be inferred for the test
+    // projects, from the reference to Microsoft.NET.Test.Sdk the SDK reads as IsTestProject; moving
+    // to Microsoft.Testing.Platform removed that reference, so every one of them now says so.
     DotNetPack(
         solution,
         new DotNetPackSettings

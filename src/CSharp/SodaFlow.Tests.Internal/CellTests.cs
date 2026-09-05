@@ -1,15 +1,18 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
-using NUnit.Framework;
+using System.Threading.Tasks;
 using SodaFlow.Functional;
+using TUnit.Assertions;
+using TUnit.Assertions.Enums;
+using TUnit.Assertions.Extensions;
+using TUnit.Core;
 
 namespace SodaFlow.Tests.Internal;
 
-[TestFixture]
-public class CellTests
+public sealed class CellTests
 {
     [Test]
-    public void TestTransaction()
+    public async Task TestTransaction()
     {
         bool calledBack = false;
 
@@ -19,11 +22,11 @@ public class CellTests
             return UnitInternal.Value;
         });
 
-        Assert.IsTrue(calledBack);
+        await Assert.That(calledBack).IsTrue();
     }
 
     [Test]
-    public void TestRegen()
+    public async Task TestRegen()
     {
         List<int> @out = [];
 
@@ -45,6 +48,6 @@ public class CellTests
                 trans.Prioritized(node: new Node<Unit>(), action: _ => action());
         });
 
-        CollectionAssert.AreEqual(expected: new[] { 1, 2, 3, 4, 5, 6 }, actual: @out);
+        await Assert.That(@out).IsEquivalentTo([1, 2, 3, 4, 5, 6], CollectionOrdering.Matching);
     }
 }

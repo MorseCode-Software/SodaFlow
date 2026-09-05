@@ -1,17 +1,19 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Threading;
-using NUnit.Framework;
+using System.Threading.Tasks;
 using SodaFlow.Functional;
 using SodaFlow.Time;
+using TUnit.Assertions;
+using TUnit.Assertions.Extensions;
+using TUnit.Core;
 
 namespace SodaFlow.Tests;
 
-[TestFixture]
-public class TimerTests
+public sealed class TimerTests
 {
     [Test]
-    public void SimultaneousTimerEvents()
+    public async Task SimultaneousTimerEvents()
     {
         TimerSystem<DateTime> ts =
             new SystemClockTimerSystem(static _ =>
@@ -62,9 +64,15 @@ public class TimerTests
 
         Thread.Sleep(100);
 
+        int count;
+
+        // Read under the lock and asserted outside it: await is not allowed in a lock body, and
+        // the lock is here to make the read safe rather than the assertion.
         lock (l)
         {
-            Assert.That(actual: l.Count, expression: Is.EqualTo(2));
+            count = l.Count;
         }
+
+        await Assert.That(count).IsEqualTo(2);
     }
 }

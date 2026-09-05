@@ -1,28 +1,30 @@
-﻿using NUnit.Framework;
+using System.Threading.Tasks;
 using SodaFlow.Functional;
+using TUnit.Assertions;
+using TUnit.Assertions.Extensions;
+using TUnit.Core;
 
 namespace SodaFlow.Tests;
 
-[TestFixture]
-public class MaybeMonadTests
+public sealed class MaybeMonadTests
 {
     [Test]
-    public void TestSelect()
+    public async Task TestSelect()
     {
-        Assert.AreEqual(expected: Maybe.Some(4), actual: Maybe.Some(2).Select(static v => v * 2));
-        Assert.AreEqual(expected: Maybe<int>.None, actual: Maybe<int>.None.Select(static v => v * 2));
+        await Assert.That(Maybe.Some(2).Select(static v => v * 2)).IsEqualTo(Maybe.Some(4));
+        await Assert.That(Maybe<int>.None.Select(static v => v * 2)).IsEqualTo(Maybe<int>.None);
     }
 
     [Test]
-    public void TestWhere()
+    public async Task TestWhere()
     {
-        Assert.AreEqual(expected: Maybe.Some(2), actual: Maybe.Some(2).Where(static v => v % 2 == 0));
-        Assert.AreEqual(expected: Maybe<int>.None, actual: Maybe.Some(3).Where(static v => v % 2 == 0));
-        Assert.AreEqual(expected: Maybe<int>.None, actual: Maybe<int>.None.Where(static v => v % 2 == 0));
+        await Assert.That(Maybe.Some(2).Where(static v => v % 2 == 0)).IsEqualTo(Maybe.Some(2));
+        await Assert.That(Maybe.Some(3).Where(static v => v % 2 == 0)).IsEqualTo(Maybe<int>.None);
+        await Assert.That(Maybe<int>.None.Where(static v => v % 2 == 0)).IsEqualTo(Maybe<int>.None);
     }
 
     [Test]
-    public void TestWhereDoesNotRunPredicateWithoutValue()
+    public async Task TestWhereDoesNotRunPredicateWithoutValue()
     {
         int calls = 0;
 
@@ -33,12 +35,12 @@ public class MaybeMonadTests
                 return true;
             });
 
-        Assert.AreEqual(expected: Maybe<int>.None, actual: result);
-        Assert.AreEqual(expected: 0, actual: calls);
+        await Assert.That(result).IsEqualTo(Maybe<int>.None);
+        await Assert.That(calls).IsEqualTo(0);
     }
 
     [Test]
-    public void TestQuerySyntax()
+    public async Task TestQuerySyntax()
     {
         Maybe<int> a = Maybe.Some(2);
         Maybe<int> b = Maybe.Some(3);
@@ -49,11 +51,11 @@ public class MaybeMonadTests
             where x < y
             select x * y;
 
-        Assert.AreEqual(expected: Maybe.Some(6), actual: result);
+        await Assert.That(result).IsEqualTo(Maybe.Some(6));
     }
 
     [Test]
-    public void TestQuerySyntaxNone()
+    public async Task TestQuerySyntaxNone()
     {
         Maybe<int> a = Maybe.Some(2);
         Maybe<int> b = Maybe<int>.None;
@@ -63,6 +65,6 @@ public class MaybeMonadTests
             from y in b
             select x * y;
 
-        Assert.AreEqual(expected: Maybe<int>.None, actual: result);
+        await Assert.That(result).IsEqualTo(Maybe<int>.None);
     }
 }

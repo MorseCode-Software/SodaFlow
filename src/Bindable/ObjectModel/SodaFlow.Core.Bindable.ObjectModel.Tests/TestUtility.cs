@@ -11,16 +11,19 @@ internal static class TestUtility
 
         return new ActionDisposable(() => bindableValue.PropertyChanged -= Handler);
 
-        void Handler(object sender, PropertyChangedEventArgs args)
+        void Handler(object? sender, PropertyChangedEventArgs args)
         {
             if (sender is IReadableBindableValue<T> notified &&
-                args.PropertyName == nameof(IReadableBindableValue<T>.Value))
+                args.PropertyName == nameof(IReadableBindableValue<>.Value))
             {
                 action(notified.Value);
             }
         }
     }
 
+    // ReSharper disable once ConvertToPrimaryConstructor - a primary constructor here cannot satisfy
+    // this solution's settings: capturing its parameter in Dispose is disallowed, and holding it in a
+    // field instead is then reported as a field that should be that parameter.
     private sealed class ActionDisposable : IDisposable
     {
         private readonly Action onDispose;
