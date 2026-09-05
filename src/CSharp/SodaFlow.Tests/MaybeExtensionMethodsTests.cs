@@ -2,11 +2,11 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using SodaFlow.Functional;
 using TUnit.Assertions;
 using TUnit.Assertions.Enums;
 using TUnit.Assertions.Extensions;
 using TUnit.Core;
-using SodaFlow.Functional;
 
 namespace SodaFlow.Tests;
 
@@ -168,7 +168,7 @@ public class MaybeExtensionMethodsTests
     public async Task TestToNullable()
     {
         await Assert.That(Maybe.Some(2).ToNullable()).IsEqualTo((int?)2);
-        await Assert.That(Maybe<int>.None.ToNullable()).IsEqualTo(null);
+        await Assert.That(Maybe<int>.None.ToNullable()).IsNull();
     }
 
     [Test]
@@ -189,7 +189,7 @@ public class MaybeExtensionMethodsTests
     public async Task TestToMaybeAndToNullableRoundTrip()
     {
         await Assert.That(((int?)2).ToMaybe().ToNullable()).IsEqualTo((int?)2);
-        await Assert.That(((int?)null).ToMaybe().ToNullable()).IsEqualTo(null);
+        await Assert.That(((int?)null).ToMaybe().ToNullable()).IsNull();
     }
 
     [Test]
@@ -227,7 +227,7 @@ public class MaybeExtensionMethodsTests
     {
         await Assert.That(Maybe.Some(2).ValueOrDefault()).IsEqualTo(2);
         await Assert.That(Maybe<int>.None.ValueOrDefault()).IsEqualTo(0);
-        await Assert.That(Maybe<string>.None.ValueOrDefault()).IsEqualTo(null);
+        await Assert.That(Maybe<string>.None.ValueOrDefault()).IsNull();
     }
 
     [Test]
@@ -235,11 +235,11 @@ public class MaybeExtensionMethodsTests
     {
         await Assert.That(Maybe.Some(2).ValueOrThrow(static () => new InvalidOperationException("no value"))).IsEqualTo(2);
 
-        InvalidOperationException e =
+        InvalidOperationException? e =
             await Assert.That(static () =>
                 Maybe<int>.None.ValueOrThrow(static () => new InvalidOperationException("no value"))).ThrowsExactly<InvalidOperationException>();
 
-        await Assert.That(e.Message).IsEqualTo("no value");
+        await Assert.That(e?.Message).IsEqualTo("no value");
     }
 
     [Test]

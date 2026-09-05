@@ -111,13 +111,28 @@ public class LoopTests
 
         ManualResetEvent waitHandle = new(false);
 
-        new Thread(() =>
-            Transaction.RunVoid(() =>
+        InvalidOperationException? actualOnOtherThread = null;
+
+        Thread thread = new(() =>
+        {
+            try
             {
-                l = new StreamLoop<int>();
-                waitHandle.Set();
-                Thread.Sleep(500);
-            })).Start();
+                Transaction.RunVoid(() =>
+                {
+                    l = new StreamLoop<int>();
+                    waitHandle.Set();
+                    Thread.Sleep(500);
+                });
+            }
+            catch (InvalidOperationException e)
+            {
+                // This transaction creates the loop and never loops it, so it is expected to fail when it closes.
+                // Catching it here is what keeps it from terminating the test host, and lets it be asserted below.
+                actualOnOtherThread = e;
+            }
+        });
+
+        thread.Start();
 
         waitHandle.WaitOne();
 
@@ -141,11 +156,15 @@ public class LoopTests
             actual = e;
         }
 
-        Thread.Sleep(500);
+        thread.Join();
 
         await Assert.That(actual).IsNotNull();
 
         await Assert.That(actual?.Message).IsEqualTo("Loop must be looped in the same transaction that it was created in.");
+
+        await Assert.That(actualOnOtherThread).IsNotNull();
+
+        await Assert.That(actualOnOtherThread?.Message).IsEqualTo("Loop was not looped.");
     }
 
     [Test]
@@ -299,13 +318,28 @@ public class LoopTests
 
         ManualResetEvent waitHandle = new(false);
 
-        new Thread(() =>
-            Transaction.RunVoid(() =>
+        InvalidOperationException? actualOnOtherThread = null;
+
+        Thread thread = new(() =>
+        {
+            try
             {
-                l = new BehaviorLoop<int>();
-                waitHandle.Set();
-                Thread.Sleep(500);
-            })).Start();
+                Transaction.RunVoid(() =>
+                {
+                    l = new BehaviorLoop<int>();
+                    waitHandle.Set();
+                    Thread.Sleep(500);
+                });
+            }
+            catch (InvalidOperationException e)
+            {
+                // This transaction creates the loop and never loops it, so it is expected to fail when it closes.
+                // Catching it here is what keeps it from terminating the test host, and lets it be asserted below.
+                actualOnOtherThread = e;
+            }
+        });
+
+        thread.Start();
 
         waitHandle.WaitOne();
 
@@ -332,11 +366,15 @@ public class LoopTests
             actual = e;
         }
 
-        Thread.Sleep(500);
+        thread.Join();
 
         await Assert.That(actual).IsNotNull();
 
         await Assert.That(actual?.Message).IsEqualTo("Loop must be looped in the same transaction that it was created in.");
+
+        await Assert.That(actualOnOtherThread).IsNotNull();
+
+        await Assert.That(actualOnOtherThread?.Message).IsEqualTo("Loop was not looped.");
     }
 
     [Test]
@@ -487,13 +525,28 @@ public class LoopTests
 
         ManualResetEvent waitHandle = new(false);
 
-        new Thread(() =>
-            Transaction.RunVoid(() =>
+        InvalidOperationException? actualOnOtherThread = null;
+
+        Thread thread = new(() =>
+        {
+            try
             {
-                l = new CellLoop<int>();
-                waitHandle.Set();
-                Thread.Sleep(500);
-            })).Start();
+                Transaction.RunVoid(() =>
+                {
+                    l = new CellLoop<int>();
+                    waitHandle.Set();
+                    Thread.Sleep(500);
+                });
+            }
+            catch (InvalidOperationException e)
+            {
+                // This transaction creates the loop and never loops it, so it is expected to fail when it closes.
+                // Catching it here is what keeps it from terminating the test host, and lets it be asserted below.
+                actualOnOtherThread = e;
+            }
+        });
+
+        thread.Start();
 
         waitHandle.WaitOne();
 
@@ -517,11 +570,15 @@ public class LoopTests
             actual = e;
         }
 
-        Thread.Sleep(500);
+        thread.Join();
 
         await Assert.That(actual).IsNotNull();
 
         await Assert.That(actual?.Message).IsEqualTo("Loop must be looped in the same transaction that it was created in.");
+
+        await Assert.That(actualOnOtherThread).IsNotNull();
+
+        await Assert.That(actualOnOtherThread?.Message).IsEqualTo("Loop was not looped.");
     }
 
     [Test]
@@ -575,11 +632,10 @@ public class LoopTests
     //A list of items of type TestObject are held in a cell.  TestObject contains a cell of type int named Output, which
     //is calculated from other values. Any time a new TestObject is created, it will have the values for the cells from
     //which Output is calculated.  The sum of all Output values in the list should always be 50 or greater.
-    // Internal rather than private, and the change is not cosmetic: NUnit only ran tests in public
-    // and internal types, so while this was private its one test never ran at all. TUnit's generator
-    // finds it and emits metadata for it, which does not compile against a private type - so the
-    // choice was to let it run or to say plainly that it does not.
-    internal sealed class DependencyCycleTest
+    // Public rather than private, and the change is not cosmetic: while this was private its one
+    // test never ran, under NUnit or anything else. TUnit requires a public type and says so at
+    // build time, so the choice was to let the test run or to delete it. It runs.
+    public sealed class DependencyCycleTest
     {
         // Switch over the sum of the Output cells in the list.
         // This won't work because we would need to recurse to keep the list correct when the sum is very low (only one

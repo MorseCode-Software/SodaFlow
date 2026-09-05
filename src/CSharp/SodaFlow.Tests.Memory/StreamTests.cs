@@ -1,7 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
-using JetBrains.dotMemoryUnit;
 using System.Threading.Tasks;
+using JetBrains.dotMemoryUnit;
 using TUnit.Assertions;
 using TUnit.Assertions.Enums;
 using TUnit.Assertions.Extensions;

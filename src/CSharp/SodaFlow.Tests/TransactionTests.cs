@@ -1,10 +1,10 @@
 ﻿using System.Threading;
 using System.Threading.Tasks;
+using SodaFlow.Functional;
 using TUnit.Assertions;
 using TUnit.Assertions.Enums;
 using TUnit.Assertions.Extensions;
 using TUnit.Core;
-using SodaFlow.Functional;
 
 namespace SodaFlow.Tests;
 
@@ -54,15 +54,21 @@ public class TransactionTests
     {
         int value = 0;
 
+        // Captured rather than asserted in place: Transaction.RunVoid takes an Action, so an
+        // assertion inside it cannot be awaited. Seeded with a value the lambda must overwrite,
+        // so a lambda which never ran fails here rather than passing.
+        int valueInsideTransaction = -1;
+
         Transaction.RunVoid(() =>
         {
             StreamSink<int> s = Stream.CreateSink<int>();
             s.Send(2);
             Cell<int> c = s.Hold(1);
             Transaction.Post(() => value = c.Sample());
-            await Assert.That(value).IsEqualTo(0);
+            valueInsideTransaction = value;
         });
 
+        await Assert.That(valueInsideTransaction).IsEqualTo(0);
         await Assert.That(value).IsEqualTo(2);
     }
 
@@ -70,6 +76,11 @@ public class TransactionTests
     public async Task PostInNestedTransaction()
     {
         int value = 0;
+
+        // Captured rather than asserted in place: Transaction.RunVoid takes an Action, so an
+        // assertion inside it cannot be awaited. Seeded with a value the lambda must overwrite,
+        // so a lambda which never ran fails here rather than passing.
+        int valueInsideTransaction = -1;
 
         Transaction.RunVoid(() =>
         {
@@ -82,9 +93,10 @@ public class TransactionTests
                 Transaction.Post(() => value = c.Sample());
             });
 
-            await Assert.That(value).IsEqualTo(0);
+            valueInsideTransaction = value;
         });
 
+        await Assert.That(valueInsideTransaction).IsEqualTo(0);
         await Assert.That(value).IsEqualTo(2);
     }
 
@@ -92,6 +104,11 @@ public class TransactionTests
     public async Task PostInNestedTransaction2()
     {
         int value = 0;
+
+        // Captured rather than asserted in place: Transaction.RunVoid takes an Action, so an
+        // assertion inside it cannot be awaited. Seeded with a value the lambda must overwrite,
+        // so a lambda which never ran fails here rather than passing.
+        int valueInsideTransaction = -1;
 
         Transaction.RunVoid(() =>
         {
@@ -105,9 +122,10 @@ public class TransactionTests
                 return Unit.Value;
             });
 
-            await Assert.That(value).IsEqualTo(0);
+            valueInsideTransaction = value;
         });
 
+        await Assert.That(valueInsideTransaction).IsEqualTo(0);
         await Assert.That(value).IsEqualTo(2);
     }
 

@@ -3,11 +3,11 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
 using System.Threading.Tasks;
+using SodaFlow.Functional;
 using TUnit.Assertions;
 using TUnit.Assertions.Enums;
 using TUnit.Assertions.Extensions;
 using TUnit.Core;
-using SodaFlow.Functional;
 
 namespace SodaFlow.Tests;
 
@@ -165,7 +165,9 @@ public class MaybeTests
     public async Task TestSomeNotNullDiffersFromSome()
     {
         await Assert.That(Maybe<string?>.Some(null)).IsEqualTo(Maybe.Some<string?>(null));
-        await Assert.That(Maybe.SomeNotNull<string>(null)).IsNotEqualTo(Maybe.Some<string?>(null));
+        // ReSharper disable once NullableWarningSuppressionIsUsed - Maybe<string> and Maybe<string?> are the
+        // same type once the annotations are erased, and the assertion needs both sides annotated alike.
+        await Assert.That(Maybe.SomeNotNull<string>(null)).IsNotEqualTo(Maybe.Some<string>(null!));
     }
 
     [Test]

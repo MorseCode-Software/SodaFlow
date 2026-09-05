@@ -40,6 +40,7 @@
 
     <ItemGroup>
         <Compile Include="..\..\TestPolyfills.cs" Link="TestPolyfills.cs"/>
+        <Compile Include="..\..\TestParallelism.cs" Link="TestParallelism.cs"/>
         <Compile Include="AsyncConcurrencyStrategyFactoryTests.cs"/>
         <Compile Include="MapAsyncImplTests.cs"/>
         <Compile Include="TestUtil.cs"/>

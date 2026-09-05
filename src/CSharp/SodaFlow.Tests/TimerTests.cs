@@ -2,12 +2,12 @@
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
+using SodaFlow.Functional;
+using SodaFlow.Time;
 using TUnit.Assertions;
 using TUnit.Assertions.Enums;
 using TUnit.Assertions.Extensions;
 using TUnit.Core;
-using SodaFlow.Functional;
-using SodaFlow.Time;
 
 namespace SodaFlow.Tests;
 
@@ -65,9 +65,15 @@ public class TimerTests
 
         Thread.Sleep(100);
 
+        int count;
+
+        // Read under the lock and asserted outside it: await is not allowed in a lock body, and
+        // the lock is here to make the read safe rather than the assertion.
         lock (l)
         {
-            await Assert.That(l.Count).IsEqualTo(2);
+            count = l.Count;
         }
+
+        await Assert.That(count).IsEqualTo(2);
     }
 }

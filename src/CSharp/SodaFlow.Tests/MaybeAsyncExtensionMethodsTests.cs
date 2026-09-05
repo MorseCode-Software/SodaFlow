@@ -1,11 +1,10 @@
 ﻿using System;
 using System.Threading.Tasks;
-using System.Threading.Tasks;
+using SodaFlow.Functional;
 using TUnit.Assertions;
 using TUnit.Assertions.Enums;
 using TUnit.Assertions.Extensions;
 using TUnit.Core;
-using SodaFlow.Functional;
 
 namespace SodaFlow.Tests;
 
@@ -130,11 +129,11 @@ public class MaybeAsyncExtensionMethodsTests
     {
         await Assert.That(await SomeAsync(2).ValueOrThrow(static () => new InvalidOperationException("no value"))).IsEqualTo(2);
 
-        InvalidOperationException e =
+        InvalidOperationException? e =
             await Assert.That(static async () =>
                 await NoneAsync<int>().ValueOrThrow(static () => new InvalidOperationException("no value"))).ThrowsExactly<InvalidOperationException>();
 
-        await Assert.That(e.Message).IsEqualTo("no value");
+        await Assert.That(e?.Message).IsEqualTo("no value");
     }
 
     [Test]
@@ -169,14 +168,14 @@ public class MaybeAsyncExtensionMethodsTests
     public async Task TestEmptyPathDoesNotAllocateANewTask() =>
         // The completed task giving no value is the same one every time, so a lookup which
         // misses costs nothing beyond the miss itself.
-        await Assert.That(Maybe<int>.None.MapAsync(Task.FromResult)).IsSameReferenceAs(Maybe<int>.None.MapAsync(Task.FromResult));
+        await Assert.That((object)Maybe<int>.None.MapAsync(Task.FromResult)).IsSameReferenceAs(Maybe<int>.None.MapAsync(Task.FromResult));
 
     [Test]
     public async Task TestBindAsyncReturnsTheFunctionsOwnTask()
     {
         Task<Maybe<int>> inner = Task.FromResult(Maybe.Some(3));
 
-        await Assert.That(Maybe.Some(2).BindAsync(_ => inner)).IsSameReferenceAs(inner);
+        await Assert.That((object)Maybe.Some(2).BindAsync(_ => inner)).IsSameReferenceAs(inner);
         await Assert.That(await inner).IsEqualTo(Maybe.Some(3));
     }
 

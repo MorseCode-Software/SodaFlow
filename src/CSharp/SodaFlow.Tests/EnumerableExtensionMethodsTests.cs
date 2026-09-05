@@ -2,11 +2,11 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using SodaFlow.Functional;
 using TUnit.Assertions;
 using TUnit.Assertions.Enums;
 using TUnit.Assertions.Extensions;
 using TUnit.Core;
-using SodaFlow.Functional;
 
 namespace SodaFlow.Tests;
 
@@ -265,8 +265,8 @@ public class EnumerableExtensionMethodsTests
         // single null would be the answer for every sequence of a reference type.
         string?[] source = ["b", null, "a"];
 
-        await Assert.That(source.MinOrNone()).IsEqualTo(Maybe.Some("a"));
-        await Assert.That(source.MaxOrNone()).IsEqualTo(Maybe.Some("b"));
+        await Assert.That(source.MinOrNone()).IsEqualTo(Maybe.Some<string?>("a"));
+        await Assert.That(source.MaxOrNone()).IsEqualTo(Maybe.Some<string?>("b"));
     }
 
     [Test]

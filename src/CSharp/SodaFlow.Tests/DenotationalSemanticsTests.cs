@@ -81,7 +81,7 @@ public class DenotationalSemanticsTests
 
     [Test]
     public async Task Test_SwitchS_TestCase() =>
-        RunPermutations<char>(
+        await RunPermutations<char>(
             createListAndListener: static createFiringsListAndListener =>
             {
                 (Stream<char> s1, Dictionary<int, Action> s1F) =
@@ -102,7 +102,7 @@ public class DenotationalSemanticsTests
 
                 return createFiringsListAndListener(arg1: firings, arg2: c.SwitchS().ListenStrong);
             },
-            assert: static @out => await Assert.That(@out).IsEquivalentTo(new[] { 'a', 'b', 'Y', 'Z' }, CollectionOrdering.Matching));
+            assert: static async @out => await Assert.That(@out).IsEquivalentTo(new[] { 'a', 'b', 'Y', 'Z' }, CollectionOrdering.Matching));
 
     [Test]
     public async Task Test_Updates_TestCase()
@@ -266,7 +266,7 @@ public class DenotationalSemanticsTests
 
     [Test]
     public async Task Test_SwitchC_TestCase1() =>
-        RunPermutations<char>(
+        await RunPermutations<char>(
             createListAndListener: static createFiringsListAndListener =>
             {
                 (Stream<char> s1, Dictionary<int, Action> s1F) =
@@ -291,11 +291,11 @@ public class DenotationalSemanticsTests
 
                 return createFiringsListAndListener(arg1: firings, arg2: c.SwitchC().ListenStrong);
             },
-            assert: static @out => await Assert.That(@out).IsEquivalentTo(new[] { 'b', 'X', 'Y', 'Z' }, CollectionOrdering.Matching));
+            assert: static async @out => await Assert.That(@out).IsEquivalentTo(new[] { 'b', 'X', 'Y', 'Z' }, CollectionOrdering.Matching));
 
     [Test]
     public async Task Test_SwitchC_TestCase2() =>
-        RunPermutations<char>(
+        await RunPermutations<char>(
             createListAndListener: static createFiringsListAndListener =>
             {
                 (Stream<char> s1, Dictionary<int, Action> s1F) =
@@ -320,11 +320,11 @@ public class DenotationalSemanticsTests
 
                 return createFiringsListAndListener(arg1: firings, arg2: c.SwitchC().ListenStrong);
             },
-            assert: static @out => await Assert.That(@out).IsEquivalentTo(new[] { 'b', 'X', 'Y', 'Z' }, CollectionOrdering.Matching));
+            assert: static async @out => await Assert.That(@out).IsEquivalentTo(new[] { 'b', 'X', 'Y', 'Z' }, CollectionOrdering.Matching));
 
     [Test]
     public async Task Test_SwitchC_TestCase3() =>
-        RunPermutations<char>(
+        await RunPermutations<char>(
             createListAndListener: static createFiringsListAndListener =>
             {
                 (Stream<char> s1, Dictionary<int, Action> s1F) =
@@ -349,11 +349,11 @@ public class DenotationalSemanticsTests
 
                 return createFiringsListAndListener(arg1: firings, arg2: c.SwitchC().ListenStrong);
             },
-            assert: static @out => await Assert.That(@out).IsEquivalentTo(new[] { 'b', 'X', 'Y', 'Z' }, CollectionOrdering.Matching));
+            assert: static async @out => await Assert.That(@out).IsEquivalentTo(new[] { 'b', 'X', 'Y', 'Z' }, CollectionOrdering.Matching));
 
     [Test]
     public async Task Test_SwitchC_TestCase4() =>
-        RunPermutations<char>(
+        await RunPermutations<char>(
             createListAndListener: static createFiringsListAndListener =>
             {
                 (Stream<char> s1, Dictionary<int, Action> s1F) =
@@ -386,7 +386,7 @@ public class DenotationalSemanticsTests
 
                 return createFiringsListAndListener(arg1: firings, arg2: c.SwitchC().ListenStrong);
             },
-            assert: static @out => await Assert.That(@out).IsEquivalentTo(new[] { 'b', 'X', 'Y', '5' }, CollectionOrdering.Matching));
+            assert: static async @out => await Assert.That(@out).IsEquivalentTo(new[] { 'b', 'X', 'Y', '5' }, CollectionOrdering.Matching));
 
     [Test]
     public async Task Test_Sample_TestCase()
@@ -515,13 +515,13 @@ public class DenotationalSemanticsTests
         return @out;
     }
 
-    private static void RunPermutations<T>(
+    private static async Task RunPermutations<T>(
         Func<Func<IReadOnlyList<(string Name, Dictionary<int, Action> Firings)>, Func<Action<T>, IListener>, (
                 IReadOnlyList<(string Name, Dictionary<int, Action> Firings)> FiringsList,
                 Func<Action<T>, IListener>
                 ListenStrong)>, (IReadOnlyList<(string Name, Dictionary<int, Action> Firings)> FiringsList,
             Func<Action<T>, IListener> ListenStrong)> createListAndListener,
-        Action<IReadOnlyList<T>> assert)
+        Func<IReadOnlyList<T>, Task> assert)
     {
         IReadOnlyList<int> indexes =
         [
@@ -552,7 +552,7 @@ public class DenotationalSemanticsTests
                             .. firingsList.Select(static o => o.Firings)
                         ]);
 
-                assert(@out);
+                await assert(@out);
             }
             catch
             {

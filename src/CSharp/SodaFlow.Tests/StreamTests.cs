@@ -2,12 +2,11 @@
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
-using System.Threading.Tasks;
+using SodaFlow.Functional;
 using TUnit.Assertions;
 using TUnit.Assertions.Enums;
 using TUnit.Assertions.Extensions;
 using TUnit.Core;
-using SodaFlow.Functional;
 
 namespace SodaFlow.Tests;
 
@@ -512,7 +511,9 @@ public class StreamTests
         cGate.Send(true);
         sc.Send('I');
         l.Unlisten();
-        await Assert.That(@out).IsEquivalentTo(new[] { 'H', 'I' }, CollectionOrdering.Matching);
+        // char?[] rather than char[]: this collection holds char?, and TUnit compares element
+        // types where NUnit coerced them.
+        await Assert.That(@out).IsEquivalentTo(new char?[] { 'H', 'I' }, CollectionOrdering.Matching);
     }
 
     [Test]
