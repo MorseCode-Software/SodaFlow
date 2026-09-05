@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using System.Linq;
 using BenchmarkDotNet.Attributes;
 using BenchmarkDotNet.Jobs;
+using JetBrains.Annotations;
 using SodaFlow.Functional;
 
 namespace SodaFlow.Benchmarks;
@@ -43,7 +44,7 @@ public class SelectAllBenchmarks
 
     /// <summary>How many selectable objects the graph holds.</summary>
     [Params(100, 1000)]
-    public int ObjectCount { get; }
+    public int ObjectCount { get; [UsedImplicitly] set; }
 
     /// <summary>Builds a graph of <see cref="ObjectCount" /> objects for the benchmarks to work on.</summary>
     [GlobalSetup]
