@@ -48,12 +48,13 @@ work over and blocks until it finishes can deadlock against a binding
 thread already waiting for that lock. Anything built on a dispatcher is
 fine; a hand-written scheduler needs the care.
 
-BREAKING: IBindingScheduler gains IsOnBindingThread, so a scheduler
-written outside this package has to implement it. It answers whether the
-calling thread is the one the scheduler posts to, and it is deliberately
-biased: an implementation which cannot tell MUST return true. A wrong
-true gives up a diagnostic that was never promised; a wrong false throws
-on correct code.
+BREAKING: IBindingScheduler gains CheckAccess, so a scheduler written
+outside this package has to implement it. It answers whether the calling
+thread is the one the scheduler posts to - the name is
+DispatcherObject's, because the question is the same one and the answer
+is used the same way - and it is deliberately biased: an implementation
+which cannot tell MUST return true. A wrong true gives up a diagnostic
+that was never promised; a wrong false throws on correct code.
 
 What it buys: a bindable's Value now throws InvalidOperationException
 when it is read or written from anywhere but the binding thread, instead

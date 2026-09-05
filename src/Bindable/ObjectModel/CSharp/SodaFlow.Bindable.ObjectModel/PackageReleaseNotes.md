@@ -1,5 +1,12 @@
 3.0.0
 
+BREAKING: ToOneWayToSource takes its optional parameters in the order
+the other factories use, scheduler before comparer. A call which passed
+a comparer positionally - ToOneWayToSource(myComparer) - now binds it to
+the scheduler parameter and stops compiling. The types differ, so this
+is a compiler error rather than a silent misbinding; name the argument,
+or move it along one.
+
 ToOneWayToSource takes an optional scheduler, matching the other three.
 It schedules nothing - nothing flows back out to the view - but it
 identifies the binding thread, which is what lets Value throw when it is

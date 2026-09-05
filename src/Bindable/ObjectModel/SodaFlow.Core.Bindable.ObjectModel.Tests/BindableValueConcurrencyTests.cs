@@ -174,6 +174,51 @@ public class BindableValueConcurrencyTests
         Assert.AreEqual(expected: 2, actual: c.Sample());
     }
 
+    // The same pair of writes down the other path. A setter normally sends synchronously - with no
+    // transaction open, PostWrite runs the write there and then - so the first write has reached
+    // the cell before the second setter is even called, and no refresh can sample between them.
+    // Called from inside a transaction the write defers instead, and both sit in the post queue
+    // until it closes. That is the arrangement where a refresh sampling too early would hand the
+    // view the older value back, so it is the one worth pinning: both writes drain before any
+    // refresh runs, and the refreshes sample rather than carrying a value, so neither can.
+    [Test]
+    public void TwoWritesInsideOneTransactionDoNotRevert()
+    {
+        QueueingScheduler scheduler = new();
+        StreamSink<string> edits = Stream.CreateSink<string>();
+
+        // Normalizing, so the cell's value differs from the one written and a reversion would
+        // actually be visible rather than hidden behind an equality check.
+        Cell<string> upperCased = edits.Map(static v => v.ToUpperInvariant()).Hold(string.Empty);
+
+        using ITwoWayBindableValue<string> b =
+            upperCased.ToTwoWayImpl(editsStreamSink: edits, scheduler: scheduler);
+
+        List<string> observed = new();
+
+        using IDisposable _ = b.ListenForValueChanges(observed.Add);
+
+        // The lambda runs synchronously inside RunVoid, so it cannot outlive the using scope.
+        // ReSharper disable AccessToDisposedClosure
+        Transaction.RunVoid(() =>
+        {
+            b.Value = "a";
+            b.Value = "b";
+        });
+
+        // ReSharper restore AccessToDisposedClosure
+
+        scheduler.RunAll();
+
+        CollectionAssert.DoesNotContain(
+            collection: observed,
+            actual: "A",
+            message: "the deferred first write never reaches the view after the second has replaced it");
+
+        Assert.AreEqual(expected: "B", actual: b.Value);
+        Assert.AreEqual(expected: "B", actual: upperCased.Sample());
+    }
+
     // The cached value is a record of what the cell held when it was last sampled, not of what
     // the cell holds now. Between an update and the refresh it queues, the two disagree - and a
     // write whose value matches the stale cache is indistinguishable from a no-op, so the equality
