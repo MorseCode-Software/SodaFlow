@@ -23,6 +23,15 @@ rejects null for every type argument, and being a behavior change behind an
 unchanged signature, it is the kind that surfaces at runtime rather than at
 compile time.
 
+BREAKING: requires FSharp.Core 11.0.100, where it required 4.5.2. A
+consumer still on FSharp.Core 4.x cannot take this release. Nothing in
+this package's own code turns on anything that changed between those
+versions - it compiles against 11.0.100 unaltered - but the floor is
+written into the package, so the requirement is real whether or not the
+code exercises it. It moves because the shipping projects and the test
+projects now compile against one version of FSharp.Core instead of
+disagreeing about it.
+
 2.0.0
 
 No code change. This release exists to move a dependency, and is a major

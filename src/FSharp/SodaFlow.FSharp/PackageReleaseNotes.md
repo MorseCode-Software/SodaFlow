@@ -9,6 +9,15 @@ calls HasCurrentTransaction now, which is what the C# side already
 called and what IsActiveImpl forwarded to. Same answer, one less hop,
 and nothing about isActive's own signature or behavior changes.
 
+BREAKING: requires FSharp.Core 11.0.100, where it required 4.5.2. A
+consumer still on FSharp.Core 4.x cannot take this release. Nothing in
+this package's own code turns on anything that changed between those
+versions - it compiles against 11.0.100 unaltered - but the floor is
+written into the package, so the requirement is real whether or not the
+code exercises it. It moves because the shipping projects and the test
+projects now compile against one version of FSharp.Core instead of
+disagreeing about it.
+
 3.1.0
 
 New: ForwardReference.create and ForwardReference.createWithNoCaptures build a
