@@ -814,7 +814,7 @@ public sealed class StreamTests
             s.Send(2);
         }))();
 
-        GC.Collect(generation: 0, mode: GCCollectionMode.Forced);
+        Collect();
         s.Send(3);
         s.Send(4);
 
@@ -841,7 +841,7 @@ public sealed class StreamTests
                 s.Send(2);
             }))();
 
-            GC.Collect(generation: 0, mode: GCCollectionMode.Forced);
+            Collect();
 
             ((Action)(() =>
             {
@@ -854,7 +854,7 @@ public sealed class StreamTests
             }))();
         }))();
 
-        GC.Collect(generation: 0, mode: GCCollectionMode.Forced);
+        Collect();
         s.Send(6);
         s.Send(7);
 
@@ -1011,7 +1011,7 @@ public sealed class StreamTests
         }).Start();
 
         Task<char> t = s.ListenOnceAsync();
-        GC.Collect(generation: 0, mode: GCCollectionMode.Forced);
+        Collect();
         char r = await t;
         await Assert.That(r).IsEqualTo('A');
     }
@@ -1033,7 +1033,7 @@ public sealed class StreamTests
     {
         StreamSink<char> s = Stream.CreateSink<char>();
         Task<char> t = s.ListenOnceAsync();
-        GC.Collect(generation: 0, mode: GCCollectionMode.Forced);
+        Collect();
         s.Send('A');
         s.Send('B');
         s.Send('C');
@@ -1173,5 +1173,24 @@ public sealed class StreamTests
         shallowListener.Unlisten();
 
         await Assert.That(shallowOut).IsEquivalentTo([2], CollectionOrdering.Matching);
+    }
+
+    private static void Collect()
+    {
+        // Every generation, not only generation 0. These tests turn on a listener being reclaimed
+        // once nothing roots it, and a generation-0 collection reclaims only what is still in
+        // generation 0. Running a whole suite in one process allocates enough that the listener has
+        // usually been promoted by the time the test asks, and a promoted object survives the
+        // collection and goes on firing - which is how TestListen could pass locally and on the
+        // branch build and fail on the pull request build of the same commit, reporting four sends
+        // where it wanted two.
+        //
+        // The finalizer pass and the second collection are for StreamListenerManager's sweep
+        // trigger, which asks for a sweep by being finalized. Nothing here waits on that sweep,
+        // because Send prunes dead targets itself, but letting it run keeps the collection this
+        // test forced from being left for whatever runs next.
+        GC.Collect();
+        GC.WaitForPendingFinalizers();
+        GC.Collect();
     }
 }
