@@ -1,23 +1,23 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
-  <PropertyGroup>
-    <OutputType>WinExe</OutputType>
-    <TargetFramework>net8.0</TargetFramework>
-    <Nullable>enable</Nullable>
-    <LangVersion>10</LangVersion>
-    <IsPackable>false</IsPackable>
-    <ApplicationManifest>app.manifest</ApplicationManifest>
-  </PropertyGroup>
+    <PropertyGroup>
+        <OutputType>WinExe</OutputType>
+        <TargetFramework>net8.0</TargetFramework>
+        <Nullable>enable</Nullable>
+        <LangVersion>10</LangVersion>
+        <IsPackable>false</IsPackable>
+        <ApplicationManifest>app.manifest</ApplicationManifest>
+    </PropertyGroup>
 
-  <ItemGroup>
-    <PackageReference Include="Avalonia" Version="11.0.10" />
-    <PackageReference Include="Avalonia.Desktop" Version="11.0.10" />
-    <PackageReference Include="Avalonia.Themes.Fluent" Version="11.0.10" />
-  </ItemGroup>
+    <ItemGroup>
+        <PackageReference Include="Avalonia" Version="12.1.1"/>
+        <PackageReference Include="Avalonia.Desktop" Version="12.1.1"/>
+        <PackageReference Include="Avalonia.Themes.Fluent" Version="12.1.1"/>
+    </ItemGroup>
 
-  <ItemGroup>
-    <!-- The same view model project the WPF head uses, unchanged. -->
-    <ProjectReference Include="..\SodaFlow.Samples.Search.ViewModels\SodaFlow.Samples.Search.ViewModels.csproj" />
-  </ItemGroup>
+    <ItemGroup>
+        <!-- The same view model project the WPF head uses, unchanged. -->
+        <ProjectReference Include="..\SodaFlow.Samples.Search.ViewModels\SodaFlow.Samples.Search.ViewModels.csproj"/>
+    </ItemGroup>
 
 </Project>

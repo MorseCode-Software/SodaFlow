@@ -67,9 +67,9 @@ Every sample takes its dependencies from nuget.org at a pinned version, exactly 
 application outside this repository would:
 
 ```xml
-<PackageReference Include="SodaFlow" Version="2.0.0" />
-<PackageReference Include="SodaFlow.Async" Version="2.1.0" />
-<PackageReference Include="SodaFlow.Bindable.ObjectModel" Version="1.0.0" />
+<PackageReference Include="SodaFlow" Version="3.0.0" />
+<PackageReference Include="SodaFlow.Async" Version="3.0.0" />
+<PackageReference Include="SodaFlow.Bindable.ObjectModel" Version="2.0.0" />
 ```
 
 Project references into `src/` would have been easier to set up and worse to live with: a sample

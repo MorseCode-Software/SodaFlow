@@ -1,23 +1,38 @@
 <Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        x:Class="SodaFlow.Samples.Counter.AvaloniaUi.MainWindow"
+        xmlns:viewModels="clr-namespace:SodaFlow.Samples.Counter.ViewModels;assembly=SodaFlow.Samples.Counter.ViewModels"
+        x:Class="SodaFlow.Samples.Counter.Avalonia.MainWindow"
         Title="SodaFlow Counter (Avalonia)"
-        Width="340" Height="240"
-        WindowStartupLocation="CenterScreen">
+        Width="340"
+        Height="240"
+        WindowStartupLocation="CenterScreen"
+        x:DataType="viewModels:CounterViewModel">
 
     <!--
         The same bindings as the WPF window, against the same view model. Every path ends in
         .Value, because a bindable property is an object that raises PropertyChanged for "Value".
     -->
-    <StackPanel Margin="24" VerticalAlignment="Center">
+    <StackPanel Margin="24"
+                VerticalAlignment="Center">
         <TextBlock Text="{Binding CountText.Value}"
                    FontSize="52"
                    HorizontalAlignment="Center" />
 
-        <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,20,0,0">
-            <Button Content="-"     Command="{Binding Decrement}" Width="56" Margin="4" />
-            <Button Content="+"     Command="{Binding Increment}" Width="56" Margin="4" />
-            <Button Content="Reset" Command="{Binding Reset}"     Width="72" Margin="4" />
+        <StackPanel Orientation="Horizontal"
+                    HorizontalAlignment="Center"
+                    Margin="0,20,0,0">
+            <Button Content="-"
+                    Command="{Binding Decrement}"
+                    Width="56"
+                    Margin="4" />
+            <Button Content="+"
+                    Command="{Binding Increment}"
+                    Width="56"
+                    Margin="4" />
+            <Button Content="Reset"
+                    Command="{Binding Reset}"
+                    Width="72"
+                    Margin="4" />
         </StackPanel>
 
         <TextBlock Margin="0,20,0,0"

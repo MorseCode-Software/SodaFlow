@@ -1,15 +1,13 @@
 using Avalonia;
 
-namespace SodaFlow.Samples.Search.AvaloniaUi
-{
-    public static class Program
-    {
-        public static int Main(string[] args) =>
-            BuildAvaloniaApp().StartWithClassicDesktopLifetime(args);
+namespace SodaFlow.Samples.Search.Avalonia;
 
-        public static AppBuilder BuildAvaloniaApp() =>
-            AppBuilder.Configure<App>()
-                .UsePlatformDetect()
-                .LogToTrace();
-    }
+public static class Program
+{
+    public static int Main(string[] args) => Program.BuildAvaloniaApp().StartWithClassicDesktopLifetime(args);
+
+    private static AppBuilder BuildAvaloniaApp() =>
+        AppBuilder.Configure<App>()
+            .UsePlatformDetect()
+            .LogToTrace();
 }
