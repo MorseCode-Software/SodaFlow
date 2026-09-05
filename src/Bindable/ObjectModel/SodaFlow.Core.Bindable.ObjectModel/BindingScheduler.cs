@@ -26,7 +26,7 @@ public interface IBindingScheduler
     ///         called, answers <see langword="true" /> unconditionally.
     ///     </para>
     /// </remarks>
-    bool IsOnBindingThread { get; }
+    bool CheckAccess();
 
     /// <summary>
     ///     Queues <paramref name="action" /> for execution on the binding thread. Implementations
@@ -105,7 +105,7 @@ public sealed class SynchronizationContextBindingScheduler : IBindingScheduler
     ///         out the same context instance on its own thread in the ordinary case, but not in
     ///         every one — a nested message pump or a priority-carrying copy can substitute another
     ///         — so the thread captured alongside it is the second answer. Erring toward yes is the
-    ///         contract: see <see cref="IBindingScheduler.IsOnBindingThread" />.
+    ///         contract: see <see cref="IBindingScheduler.CheckAccess()" />.
     ///     </para>
     ///     <para>
     ///         The thread is compared first, and the order is load-bearing rather than incidental.
@@ -125,7 +125,7 @@ public sealed class SynchronizationContextBindingScheduler : IBindingScheduler
     ///         exactly this reason.
     ///     </para>
     /// </remarks>
-    public bool IsOnBindingThread =>
+    public bool CheckAccess() =>
         Environment.CurrentManagedThreadId == this.bindingThreadId
         || ReferenceEquals(objA: SynchronizationContext.Current, objB: this.context);
 
@@ -199,7 +199,7 @@ public sealed class ImmediateBindingScheduler : IBindingScheduler
     ///     Always true. This scheduler runs work on whichever thread hands it over, so every
     ///     thread is its binding thread and there is nothing to be wrong about.
     /// </remarks>
-    public bool IsOnBindingThread => true;
+    public bool CheckAccess() => true;
 
     /// <summary>
     ///     Runs the action on the calling thread, once no transaction is in flight.

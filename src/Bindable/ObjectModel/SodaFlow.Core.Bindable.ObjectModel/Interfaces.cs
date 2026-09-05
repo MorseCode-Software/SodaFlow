@@ -20,7 +20,7 @@ public interface IBindable : IDisposable
 /// </summary>
 [PublicAPI]
 // ReSharper disable once InheritdocConsiderUsage
-public interface IReadableBindableValue<T> : IBindable
+public interface IReadableBindableValue<T> : IBindable, INotifyPropertyChanged
 {
     /// <summary>
     ///     The current value, for the binding engine to read. Not an accessor for application
@@ -89,7 +89,7 @@ public interface IWritableBindableValue<T> : IBindable
 /// </remarks>
 [PublicAPI]
 // ReSharper disable once InheritdocConsiderUsage
-public interface IOneWayBindableValue<T> : IReadableBindableValue<T>, INotifyPropertyChanged
+public interface IOneWayBindableValue<T> : IReadableBindableValue<T>
 {
     /// <summary>The most recent value delivered to the binding thread.</summary>
     new T Value { get; }

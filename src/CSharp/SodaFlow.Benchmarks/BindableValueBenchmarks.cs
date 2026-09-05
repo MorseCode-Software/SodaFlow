@@ -19,7 +19,7 @@ namespace SodaFlow.Benchmarks;
 ///     </para>
 ///     <para>
 ///         The unguarded read is the baseline, so the ratio column reads directly as what the
-///         check costs. The two <c>IsOnBindingThread</c> benchmarks isolate it further, and the
+///         check costs. The two <c>CheckAccess()</c> benchmarks isolate it further, and the
 ///         two <c>Value</c> benchmarks are what a binding engine pays per refresh - though not
 ///         what a binding costs, since neither includes the reflection nor compiled accessor the
 ///         engine reaches the property through.
@@ -63,16 +63,16 @@ public class BindableValueBenchmarks
         Cell.CreateSink(1).ToOneWay(scheduler: BindingScheduler.Immediate);
 
     /// <summary>The check where the scheduler has no thread of its own, so it answers a constant.</summary>
-    [Benchmark(Description = "IsOnBindingThread, no affinity")]
-    public bool CheckWithoutAffinity() => this.immediateScheduler.IsOnBindingThread;
+    [Benchmark(Description = "CheckAccess(), no affinity")]
+    public bool CheckWithoutAffinity() => this.immediateScheduler.CheckAccess();
 
     /// <summary>
     ///     The check where the scheduler has a thread. A thread-id comparison, and a context
     ///     comparison only if that one fails — the order matters, and this is what says by how
     ///     much.
     /// </summary>
-    [Benchmark(Description = "IsOnBindingThread, affine")]
-    public bool CheckWithAffinity() => this.affineScheduler.IsOnBindingThread;
+    [Benchmark(Description = "CheckAccess(), affine")]
+    public bool CheckWithAffinity() => this.affineScheduler.CheckAccess();
 
     /// <summary>
     ///     The floor for a guarded read: the check is a constant, so this is dispatch plus a field.

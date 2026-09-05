@@ -54,13 +54,13 @@ public static partial class BindableCoreExtensionMethods
     /// </summary>
     internal static IOneWayToSourceBindableValue<T> ToOneWayToSourceImpl<T>(
         this CellSink<T> sink,
-        IEqualityComparer<T>? comparer = null,
-        IBindingScheduler? scheduler = null) =>
+        IBindingScheduler? scheduler = null,
+        IEqualityComparer<T>? comparer = null) =>
         new OneWayToSourceBindableValue<T>(
             write: sink.SendImpl,
             initialValue: sink.SampleImpl(),
-            comparer: comparer,
-            scheduler: scheduler);
+            scheduler: scheduler,
+            comparer: comparer);
 
     /// <summary>
     ///     Creates a one-way-to-source bindable property with an initial value, routing view writes into
@@ -69,13 +69,13 @@ public static partial class BindableCoreExtensionMethods
     internal static IOneWayToSourceBindableValue<T> ToOneWayToSourceImpl<T>(
         this StreamSink<T> editsStreamSink,
         T initialValue,
-        IEqualityComparer<T>? comparer = null,
-        IBindingScheduler? scheduler = null) =>
+        IBindingScheduler? scheduler = null,
+        IEqualityComparer<T>? comparer = null) =>
         new OneWayToSourceBindableValue<T>(
             write: editsStreamSink.SendImpl,
             initialValue: initialValue,
-            comparer: comparer,
-            scheduler: scheduler);
+            scheduler: scheduler,
+            comparer: comparer);
 
     /// <summary>
     ///     Exposes an existing sink as a command that carries its <c>CommandParameter</c>.
@@ -142,12 +142,12 @@ public static partial class BindableCoreExtensionMethods
     ///     silent and neither reproducible on demand. This turns it into an exception at the call
     ///     site that did it.
     ///     Only ever raised when the scheduler is certain - see
-    ///     <see cref="IBindingScheduler.IsOnBindingThread" /> - so it accuses nothing it cannot
+    ///     <see cref="IBindingScheduler.CheckAccess()" /> - so it accuses nothing it cannot
     ///     prove.
     /// </remarks>
-    private static void VerifyOnBindingThread(IBindingScheduler scheduler, string member)
+    private static void VerifyAccess(this IBindingScheduler scheduler, string member)
     {
-        if (scheduler.IsOnBindingThread)
+        if (scheduler.CheckAccess())
         {
             return;
         }

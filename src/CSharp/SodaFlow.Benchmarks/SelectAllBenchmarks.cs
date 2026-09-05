@@ -36,6 +36,49 @@ namespace SodaFlow.Benchmarks;
 // ReSharper disable once MemberCanBeFileLocal
 public class SelectAllBenchmarks
 {
+    // Populated for real in the setup; built small here so the field never has to be nullable.
+    private Graph graph = Graph.Build(1);
+
+    private bool nextSelection;
+
+    /// <summary>How many selectable objects the graph holds.</summary>
+    [Params(100, 1000)]
+    public int ObjectCount { get; set; }
+
+    /// <summary>Builds a graph of <see cref="ObjectCount" /> objects for the benchmarks to work on.</summary>
+    [GlobalSetup]
+    public void Setup() => this.graph = Graph.Build(this.ObjectCount);
+
+    /// <summary>Releases the listener holding the graph up.</summary>
+    [GlobalCleanup]
+    public void Cleanup() => this.graph.Listener.Unlisten();
+
+    /// <summary>Building the graph and filling it, which is what a view model does once.</summary>
+    [Benchmark(Description = "build the graph")]
+    public int BuildTheGraph()
+    {
+        Graph built = Graph.Build(this.ObjectCount);
+        built.Listener.Unlisten();
+
+        return built.Objects.Sample().Count;
+    }
+
+    /// <summary>One toggle, which flips every element and recomputes the tri-state above them.</summary>
+    [Benchmark(Description = "toggle all selected")]
+    public void ToggleAllSelected() => this.graph.ToggleAllSelected.Send(Unit.Value);
+
+    /// <summary>One element changing, which recomputes the lift but touches one source.</summary>
+    [Benchmark(Description = "select one object")]
+    public void SelectOneObject()
+    {
+        this.nextSelection = !this.nextSelection;
+        this.graph.Objects.Sample()[0].IsSelectedStreamSink.Send(this.nextSelection);
+    }
+
+    /// <summary>Replacing the collection, which rebuilds the lift the switch feeds.</summary>
+    [Benchmark(Description = "replace every object")]
+    public void ReplaceEveryObject() => this.graph.Objects.Send(this.graph.NewObjects(this.ObjectCount));
+
     /// <summary>One selectable thing: its own toggle, and the select-all stream folded in.</summary>
     private sealed class TestObject
     {
@@ -122,13 +165,16 @@ public class SelectAllBenchmarks
                     objectsAndIsSelected
                         .Map(static oo => oo.Count(static o => o.IsSelected))
                         .Updates()
-                        .ListenStrong(static _ => { }));
+                        .ListenStrong(static _ =>
+                        {
+                        }));
 
-            Graph graph = new(
-                toggleAllSelected: toggleAllSelected,
-                objects: objects,
-                selectAllStream: selectAllStream,
-                listener: listener);
+            Graph graph =
+                new(
+                    toggleAllSelected: toggleAllSelected,
+                    objects: objects,
+                    selectAllStream: selectAllStream,
+                    listener: listener);
 
             graph.Objects.Send(graph.NewObjects(count));
 
@@ -137,49 +183,8 @@ public class SelectAllBenchmarks
 
         /// <summary>A fresh set of objects wired to this graph's select-all stream.</summary>
         internal IReadOnlyList<TestObject> NewObjects(int count) =>
-            [.. Enumerable.Range(start: 0, count: count).Select(_ => new TestObject(this.SelectAllStream))];
+        [
+            .. Enumerable.Range(start: 0, count: count).Select(_ => new TestObject(this.SelectAllStream))
+        ];
     }
-
-    private bool nextSelection;
-
-    // Populated for real in the setup; built small here so the field never has to be nullable.
-    private Graph graph = Graph.Build(1);
-
-    /// <summary>How many selectable objects the graph holds.</summary>
-    [Params(100, 1000)]
-    public int ObjectCount { get; set; }
-
-    /// <summary>Builds a graph of <see cref="ObjectCount" /> objects for the benchmarks to work on.</summary>
-    [GlobalSetup]
-    public void Setup() => this.graph = Graph.Build(this.ObjectCount);
-
-    /// <summary>Releases the listener holding the graph up.</summary>
-    [GlobalCleanup]
-    public void Cleanup() => this.graph.Listener.Unlisten();
-
-    /// <summary>Building the graph and filling it, which is what a view model does once.</summary>
-    [Benchmark(Description = "build the graph")]
-    public int BuildTheGraph()
-    {
-        Graph built = Graph.Build(this.ObjectCount);
-        built.Listener.Unlisten();
-
-        return built.Objects.Sample().Count;
-    }
-
-    /// <summary>One toggle, which flips every element and recomputes the tri-state above them.</summary>
-    [Benchmark(Description = "toggle all selected")]
-    public void ToggleAllSelected() => this.graph.ToggleAllSelected.Send(Unit.Value);
-
-    /// <summary>One element changing, which recomputes the lift but touches one source.</summary>
-    [Benchmark(Description = "select one object")]
-    public void SelectOneObject()
-    {
-        this.nextSelection = !this.nextSelection;
-        this.graph.Objects.Sample()[0].IsSelectedStreamSink.Send(this.nextSelection);
-    }
-
-    /// <summary>Replacing the collection, which rebuilds the lift the switch feeds.</summary>
-    [Benchmark(Description = "replace every object")]
-    public void ReplaceEveryObject() => this.graph.Objects.Send(this.graph.NewObjects(this.ObjectCount));
 }

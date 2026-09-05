@@ -71,7 +71,7 @@ module Bindable =
         BindableCoreExtensionMethods.ToOneWayImpl(cell, scheduler = scheduler)
 
     [<MethodImpl(MethodImplOptions.NoInlining)>]
-    let oneWayWithComparerAndScheduler cell comparer scheduler =
+    let oneWayWithSchedulerAndComparer cell scheduler comparer =
         BindableCoreExtensionMethods.ToOneWayImpl(cell, scheduler, comparer)
 
     [<MethodImpl(MethodImplOptions.NoInlining)>]
@@ -87,7 +87,7 @@ module Bindable =
         BindableCoreExtensionMethods.ToTwoWayImpl(cell, editsStreamSink = editsStreamSink, scheduler = scheduler)
 
     [<MethodImpl(MethodImplOptions.NoInlining)>]
-    let twoWayWithComparerAndScheduler cell editsStreamSink comparer scheduler =
+    let twoWayWithSchedulerAndComparer cell editsStreamSink scheduler comparer =
         BindableCoreExtensionMethods.ToTwoWayImpl(cell, editsStreamSink, scheduler, comparer)
 
     [<MethodImpl(MethodImplOptions.NoInlining)>]
@@ -103,24 +103,40 @@ module Bindable =
         BindableCoreExtensionMethods.ToTwoWayImpl(cellSink, scheduler = scheduler)
 
     [<MethodImpl(MethodImplOptions.NoInlining)>]
-    let twoWayCSWithComparerAndScheduler cellSink comparer scheduler =
+    let twoWayCSWithSchedulerAndComparer cellSink scheduler comparer =
         BindableCoreExtensionMethods.ToTwoWayImpl(cellSink, scheduler, comparer)
 
     [<MethodImpl(MethodImplOptions.NoInlining)>]
-    let oneWayToSource (editsStreamSink: StreamSink<'T>) initialValue =
+    let oneWayToSource (editsStreamSink: StreamSink<_>) initialValue =
         BindableCoreExtensionMethods.ToOneWayToSourceImpl(editsStreamSink, initialValue)
 
     [<MethodImpl(MethodImplOptions.NoInlining)>]
-    let oneWayToSourceWithComparer editsStreamSink initialValue comparer =
-        BindableCoreExtensionMethods.ToOneWayToSourceImpl(editsStreamSink, initialValue, comparer)
+    let oneWayToSourceWithScheduler (editsStreamSink: StreamSink<_>) initialValue scheduler =
+        BindableCoreExtensionMethods.ToOneWayToSourceImpl(editsStreamSink, initialValue, scheduler = scheduler)
 
     [<MethodImpl(MethodImplOptions.NoInlining)>]
-    let oneWayToSourceCS cellSink =
+    let oneWayToSourceWithComparer (editsStreamSink: StreamSink<_>) initialValue comparer =
+        BindableCoreExtensionMethods.ToOneWayToSourceImpl(editsStreamSink, initialValue, comparer = comparer)
+
+    [<MethodImpl(MethodImplOptions.NoInlining)>]
+    let oneWayToSourceWithSchedulerAndComparer (editsStreamSink: StreamSink<_>) initialValue scheduler comparer =
+        BindableCoreExtensionMethods.ToOneWayToSourceImpl(editsStreamSink, initialValue, scheduler, comparer)
+
+    [<MethodImpl(MethodImplOptions.NoInlining)>]
+    let oneWayToSourceCS (cellSink: CellSink<'T>) =
         BindableCoreExtensionMethods.ToOneWayToSourceImpl cellSink
 
     [<MethodImpl(MethodImplOptions.NoInlining)>]
+    let oneWayToSourceCSWithScheduler (cellSink: CellSink<'T>) scheduler =
+        BindableCoreExtensionMethods.ToOneWayToSourceImpl(cellSink, scheduler = scheduler)
+
+    [<MethodImpl(MethodImplOptions.NoInlining)>]
     let oneWayToSourceCSWithComparer (cellSink: CellSink<'T>) comparer =
-        BindableCoreExtensionMethods.ToOneWayToSourceImpl(cellSink, comparer)
+        BindableCoreExtensionMethods.ToOneWayToSourceImpl(cellSink, comparer = comparer)
+
+    [<MethodImpl(MethodImplOptions.NoInlining)>]
+    let oneWayToSourceCSWithSchedulerAndComparer (cellSink: CellSink<'T>) scheduler comparer =
+        BindableCoreExtensionMethods.ToOneWayToSourceImpl(cellSink, scheduler, comparer)
 
     [<MethodImpl(MethodImplOptions.NoInlining)>]
     let toBindableActionWithValue firingsStreamSink =

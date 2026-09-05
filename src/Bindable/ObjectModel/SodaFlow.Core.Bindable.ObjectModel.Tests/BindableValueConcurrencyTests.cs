@@ -40,7 +40,7 @@ public class BindableValueConcurrencyTests
         private readonly Queue<Action> queue = new();
 
         /// <inheritdoc />
-        public bool IsOnBindingThread => true;
+        public bool CheckAccess() => true;
 
         /// <inheritdoc />
         public void Post(Action action) => this.queue.Enqueue(action);
@@ -72,14 +72,7 @@ public class BindableValueConcurrencyTests
 
         List<int> observed = new();
 
-        b.PropertyChanged +=
-            (sender, _) =>
-            {
-                if (sender is IOneWayBindableValue<int> notified)
-                {
-                    observed.Add(notified.Value);
-                }
-            };
+        using IDisposable _ = b.ListenForValueChanges(observed.Add);
 
         c.Send(1);
 
@@ -165,14 +158,7 @@ public class BindableValueConcurrencyTests
 
         List<int> observed = new();
 
-        b.PropertyChanged +=
-            (sender, _) =>
-            {
-                if (sender is ITwoWayBindableValue<int> notified)
-                {
-                    observed.Add(notified.Value);
-                }
-            };
+        using IDisposable _ = b.ListenForValueChanges(observed.Add);
 
         b.Value = 1;
         b.Value = 2;
@@ -270,7 +256,7 @@ public class BindableValueConcurrencyTests
     /// <summary>
     ///     Runs <paramref name="body" /> on another thread and returns whatever it threw.
     /// </summary>
-    private static Exception? CaughtOffTheBindingThread(object state, Action<object?> body)
+    private static Exception? CaughtOffTheBindingThread<TState>(TState state, Action<TState> body)
     {
         Exception? caught = null;
 
@@ -279,7 +265,7 @@ public class BindableValueConcurrencyTests
             {
                 try
                 {
-                    body(s);
+                    body((TState)s);
                 }
                 catch (Exception e)
                 {
@@ -309,16 +295,26 @@ public class BindableValueConcurrencyTests
             actual: b.Value,
             message: "the constructing thread is the binding thread for this scheduler");
 
-        Exception? caught =
-            CaughtOffTheBindingThread(
-                state: b,
-                body: static state =>
-                {
-                    if (state is IOneWayBindableValue<int> target)
-                    {
-                        _ = target.Value;
-                    }
-                });
+        Exception? caught = CaughtOffTheBindingThread(state: b, body: static target => _ = target.Value);
+
+        Assert.IsInstanceOf<InvalidOperationException>(
+            actual: caught,
+            message: "reading from another thread is caught rather than left to return a stale value");
+    }
+
+    [Test]
+    public void ReadingTwoWayOffTheBindingThreadThrows()
+    {
+        CellSink<int> c = Cell.CreateSink(0);
+
+        using ITwoWayBindableValue<int> b = c.ToTwoWayImpl(scheduler: AffineScheduler());
+
+        Assert.AreEqual(
+            expected: 0,
+            actual: b.Value,
+            message: "the constructing thread is the binding thread for this scheduler");
+
+        Exception? caught = CaughtOffTheBindingThread(state: b, body: static target => _ = target.Value);
 
         Assert.IsInstanceOf<InvalidOperationException>(
             actual: caught,
@@ -332,16 +328,7 @@ public class BindableValueConcurrencyTests
 
         using ITwoWayBindableValue<int> b = c.ToTwoWayImpl(scheduler: AffineScheduler());
 
-        Exception? caught =
-            CaughtOffTheBindingThread(
-                state: b,
-                body: static state =>
-                {
-                    if (state is ITwoWayBindableValue<int> target)
-                    {
-                        target.Value = 5;
-                    }
-                });
+        Exception? caught = CaughtOffTheBindingThread(state: b, body: static target => target.Value = 5);
 
         Assert.IsInstanceOf<InvalidOperationException>(caught);
         Assert.AreEqual(expected: 0, actual: c.Sample(), message: "and the write never reached the graph");
@@ -356,16 +343,7 @@ public class BindableValueConcurrencyTests
         using IOneWayToSourceBindableValue<int> b =
             c.ToOneWayToSourceImpl(scheduler: AffineScheduler());
 
-        Exception? caught =
-            CaughtOffTheBindingThread(
-                state: b,
-                body: static state =>
-                {
-                    if (state is IOneWayToSourceBindableValue<int> target)
-                    {
-                        target.Value = 5;
-                    }
-                });
+        Exception? caught = CaughtOffTheBindingThread(state: b, body: static target => target.Value = 5);
 
         Assert.IsInstanceOf<InvalidOperationException>(caught);
         Assert.AreEqual(expected: 0, actual: c.Sample());
@@ -380,16 +358,7 @@ public class BindableValueConcurrencyTests
 
         using ITwoWayBindableValue<int> b = c.ToTwoWayImpl(scheduler: BindingScheduler.Immediate);
 
-        Exception? caught =
-            CaughtOffTheBindingThread(
-                state: b,
-                body: static state =>
-                {
-                    if (state is ITwoWayBindableValue<int> target)
-                    {
-                        target.Value = 5;
-                    }
-                });
+        Exception? caught = CaughtOffTheBindingThread(state: b, body: static target => target.Value = 5);
 
         Assert.IsNull(anObject: caught, message: "the immediate scheduler runs work wherever it is called");
         Assert.AreEqual(expected: 5, actual: c.Sample());
@@ -408,14 +377,7 @@ public class BindableValueConcurrencyTests
 
         List<int> observed = new();
 
-        b.PropertyChanged +=
-            (sender, _) =>
-            {
-                if (sender is ITwoWayBindableValue<int> notified)
-                {
-                    observed.Add(notified.Value);
-                }
-            };
+        using IDisposable _ = b.ListenForValueChanges(observed.Add);
 
         c.Send(1);
         c.Send(2);
@@ -447,13 +409,8 @@ public class BindableValueConcurrencyTests
         using IOneWayBindableValue<int> b = c.ToOneWayImpl(scheduler: scheduler);
 
         List<int> observed = new();
-        b.PropertyChanged += (sender, _) =>
-        {
-            if (sender is IOneWayBindableValue<int> notified)
-            {
-                observed.Add(notified.Value);
-            }
-        };
+
+        using IDisposable _ = b.ListenForValueChanges(observed.Add);
 
         c.Send(1);
         c.Send(2);

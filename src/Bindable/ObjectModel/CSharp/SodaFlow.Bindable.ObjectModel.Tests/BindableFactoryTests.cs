@@ -23,7 +23,7 @@ public class BindableFactoryTests
         public int Posts { get; private set; }
 
         /// <inheritdoc />
-        public bool IsOnBindingThread => true;
+        public bool CheckAccess() => true;
 
         public void Post(Action action)
         {

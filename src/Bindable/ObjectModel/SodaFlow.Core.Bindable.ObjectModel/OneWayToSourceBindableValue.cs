@@ -71,18 +71,14 @@ public static partial class BindableCoreExtensionMethods
         {
             get
             {
-                VerifyOnBindingThread(
-                    scheduler: this.scheduler,
-                    member: "IOneWayToSourceBindableValue<T>.Value");
+                this.scheduler.VerifyAccess("IOneWayToSourceBindableValue<T>.Value");
 
                 return this.cachedValue;
             }
 
             set
             {
-                VerifyOnBindingThread(
-                    scheduler: this.scheduler,
-                    member: "IOneWayToSourceBindableValue<T>.Value");
+                this.scheduler.VerifyAccess("IOneWayToSourceBindableValue<T>.Value");
 
                 if (Volatile.Read(ref this.disposed) != 0)
                 {

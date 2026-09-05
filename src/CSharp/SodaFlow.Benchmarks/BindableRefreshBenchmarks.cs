@@ -118,7 +118,7 @@ public class BindableRefreshBenchmarks
         private readonly Queue<Action> queue = new();
 
         /// <inheritdoc />
-        public bool IsOnBindingThread => true;
+        public bool CheckAccess() => true;
 
         /// <inheritdoc />
         public void Post(Action action) => this.queue.Enqueue(action);

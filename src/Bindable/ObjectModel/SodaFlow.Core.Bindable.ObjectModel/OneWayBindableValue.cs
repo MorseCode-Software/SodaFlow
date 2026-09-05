@@ -76,7 +76,7 @@ public static partial class BindableCoreExtensionMethods
         {
             get
             {
-                VerifyOnBindingThread(scheduler: this.Scheduler, member: "IOneWayBindableValue<T>.Value");
+                this.Scheduler.VerifyAccess("IOneWayBindableValue<T>.Value");
 
                 return this.cachedValue;
             }

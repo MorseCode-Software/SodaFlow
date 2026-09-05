@@ -51,15 +51,15 @@ type BindableFactory(?scheduler: IBindingScheduler) =
             BindableCoreExtensionMethods.ToOneWayToSourceImpl(
                 editsStreamSink,
                 initialValue,
-                comparer |> Option.defaultValue null,
-                scheduler |> Option.defaultValue null
+                scheduler |> Option.defaultValue null,
+                comparer |> Option.defaultValue null
             )
 
         member this.ToOneWayToSource(sink, comparer) =
             BindableCoreExtensionMethods.ToOneWayToSourceImpl(
                 sink,
-                comparer |> Option.defaultValue null,
-                scheduler |> Option.defaultValue null
+                scheduler |> Option.defaultValue null,
+                comparer |> Option.defaultValue null
             )
 
         member this.ToBindableAction(firingsStreamSink, isEnabledCell: Cell<bool> option) =

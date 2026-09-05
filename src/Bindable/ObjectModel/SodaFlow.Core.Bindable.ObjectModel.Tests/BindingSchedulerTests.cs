@@ -67,15 +67,11 @@ public class BindingSchedulerTests
         CellSink<int> source = Cell.CreateSink(0);
         CellSink<int> other = Cell.CreateSink(0);
 
-        using (IOneWayBindableValue<int> b = source.ToOneWayImpl(scheduler: BindingScheduler.Immediate))
-        {
-            // ReSharper disable once AccessToDisposedClosure - Used before disposal because the binding scheduler being
-            // used is BindingScheduler.Immediate.
-            b.PropertyChanged += (_, _) => other.Send(b.Value * 2);
+        using IOneWayBindableValue<int> b = source.ToOneWayImpl(scheduler: BindingScheduler.Immediate);
 
-            Assert.DoesNotThrow(() => source.Send(21));
-        }
+        using IDisposable _ = b.ListenForValueChanges(value => other.Send(value * 2));
 
+        Assert.DoesNotThrow(() => source.Send(21));
         Assert.AreEqual(expected: 42, actual: other.Sample());
     }
 }
