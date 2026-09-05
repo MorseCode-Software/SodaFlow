@@ -20,6 +20,12 @@ be consumed through them.
 The build is warning-free, which it was not: the unreachable-code warnings
 in the priority queue are gone.
 
+Requires System.ValueTuple 4.6.2, where it required 4.4.0. Nothing here
+uses it differently: this repository named two versions of it, one in
+the shipping projects and one in the test projects, and now names a
+single version in both. A consumer does nothing about this; NuGet
+resolves the higher floor.
+
 3.0.0
 
 New: ForwardReference constructs a value which can refer to itself while it is

@@ -134,10 +134,14 @@ Task("Test")
     //
     // Three earlier approaches are recorded so they are not retried blindly. The NUnit console
     // runner under OpenCover profiled cleanly but took close to ten minutes here and failed tests
-    // that pass under dotnet test. Coverlet breaks the F# suite, whose assemblies compile against
-    // FSharp.Core 4.5.0.0 while 10.0.0.0 is deployed; its instrumentation does not honor the
-    // binding redirect. OpenCover wrapped around dotnet test hangs, because dotnet.exe is a CoreCLR
-    // host and OpenCover's profiler is a .NET Framework CLR profiler.
+    // that pass under dotnet test. OpenCover wrapped around dotnet test hangs, because dotnet.exe
+    // is a CoreCLR host and OpenCover's profiler is a .NET Framework CLR profiler.
+    //
+    // Coverlet broke the F# suite, whose assemblies compiled against FSharp.Core 4.5.0.0 while
+    // 10.0.0.0 was deployed; its instrumentation did not honor the binding redirect. That
+    // particular reason is gone - every project here now compiles against the FSharp.Core it
+    // deploys - so Coverlet is untried rather than ruled out. Nothing has been measured about it
+    // since, and the collector in use costs nothing to keep.
     var resultsDirectory = MakeAbsolute(coverageDirectory).FullPath;
     var coverageSettings = MakeAbsolute(File("./coverage.runsettings")).FullPath;
 
