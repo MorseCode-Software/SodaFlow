@@ -43,7 +43,7 @@ public class SelectAllBenchmarks
 
     /// <summary>How many selectable objects the graph holds.</summary>
     [Params(100, 1000)]
-    public int ObjectCount { get; set; }
+    public int ObjectCount { get; }
 
     /// <summary>Builds a graph of <see cref="ObjectCount" /> objects for the benchmarks to work on.</summary>
     [GlobalSetup]
