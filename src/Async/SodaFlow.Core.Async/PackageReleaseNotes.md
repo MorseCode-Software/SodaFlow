@@ -7,6 +7,12 @@ Nothing in this package's own code changed but its layout: file-scoped
 namespaces in place of braced ones, which moves every line left by four
 columns and alters no behavior.
 
+Requires System.ValueTuple 4.6.2, where it required 4.4.0. Nothing here
+uses it differently: this repository named two versions of it, one in
+the shipping projects and one in the test projects, and now names a
+single version in both. A consumer does nothing about this; NuGet
+resolves the higher floor.
+
 3.0.0
 
 No code change. This release exists to move a dependency, and is a major

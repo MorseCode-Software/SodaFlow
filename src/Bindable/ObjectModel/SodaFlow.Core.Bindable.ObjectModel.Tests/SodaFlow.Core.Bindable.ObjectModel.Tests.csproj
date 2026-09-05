@@ -34,8 +34,7 @@
     </PropertyGroup>
 
     <ItemGroup>
-        <PackageReference Include="JetBrains.Annotations" Version="2026.2.0" PrivateAssets="all"/>
-        <PackageReference Include="TUnit" Version="1.66.8"/>
+        <PackageReference Include="TUnit" Version="1.66.10"/>
         <PackageReference Include="System.ValueTuple" Version="4.6.2"/>
     </ItemGroup>
 

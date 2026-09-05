@@ -212,8 +212,12 @@ public sealed class GarbageCollectionTests
 
     private static void Collect()
     {
-        // Twice, with finalizers in between: Stream still has a finalizer today, so the first
-        // pass only queues it. Once the finalizer is gone this stays correct, just quicker.
+        // Every generation, and a finalizer pass in between. Stream has no finalizer - this
+        // said it did, which was true when it was written and is not now. The finalizer that
+        // matters is StreamListenerManager's sweep trigger, which asks for a sweep by being
+        // finalized, and these tests do read RegistryCount after a sweep. The generation is the
+        // other half: a promoted object is not seen by a young collection, so a collection meant
+        // to be conclusive has to reach all of them.
         GC.Collect();
         GC.WaitForPendingFinalizers();
         GC.Collect();

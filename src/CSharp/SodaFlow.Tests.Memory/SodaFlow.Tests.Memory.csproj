@@ -25,9 +25,8 @@
     </PropertyGroup>
 
     <ItemGroup>
-        <PackageReference Include="JetBrains.Annotations" Version="2026.2.0" PrivateAssets="all"/>
-        <PackageReference Include="JetBrains.dotMemoryUnit" Version="3.0.20171219.105559"/>
-        <PackageReference Include="TUnit" Version="1.66.8"/>
+        <PackageReference Include="JetBrains.dotMemoryUnit" Version="3.2.20220510"/>
+        <PackageReference Include="TUnit" Version="1.66.10"/>
     </ItemGroup>
 
     <ItemGroup>

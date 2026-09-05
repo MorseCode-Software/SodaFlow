@@ -88,6 +88,12 @@ if that fails. See SodaFlow.Benchmarks, which found it and which runs on
 both runtimes because this is the kind of thing that differs between
 them.
 
+Requires System.ValueTuple 4.6.2, where it required 4.4.0. Nothing here
+uses it differently: this repository named two versions of it, one in
+the shipping projects and one in the test projects, and now names a
+single version in both. A consumer does nothing about this; NuGet
+resolves the higher floor.
+
 2.0.0
 
 No code change. This release exists to move a dependency, and is a major

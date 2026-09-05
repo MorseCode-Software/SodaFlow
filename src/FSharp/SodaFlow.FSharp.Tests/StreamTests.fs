@@ -13,6 +13,19 @@ open TUnit.Core
 // life of the method, and F# inlines a local function used once. So the part that has to go out of
 // scope is its own function, kept out of its caller, which is what the C# tests do too.
 
+// Every generation, not only generation 0, as the C# tests do. These turn on a listener being
+// reclaimed once nothing roots it, and a generation-0 collection reclaims only what is still in
+// generation 0; running a whole suite in one process allocates enough that the listener has usually
+// been promoted by the time the test asks, and a promoted object survives and goes on firing.
+//
+// The finalizer pass and the second collection are for StreamListenerManager's sweep trigger, which
+// asks for a sweep by being finalized. Nothing here waits on that sweep, because Send prunes dead
+// targets itself.
+let private collect () =
+    GC.Collect()
+    GC.WaitForPendingFinalizers()
+    GC.Collect()
+
 [<MethodImpl(MethodImplOptions.NoInlining)>]
 let private listenAndSend (s: StreamSink<int>) (out: List<int>) (values: int list) =
     let _l = s |> listenS out.Add
@@ -30,8 +43,7 @@ let private listenAndDrop () =
 
     listenAndSend s out [ 1; 2 ]
 
-    GC.Collect(0, GCCollectionMode.Forced)
-    GC.Collect(0, GCCollectionMode.Forced)
+    collect ()
     s |> sendS 3
     s |> sendS 4
     out
@@ -42,8 +54,7 @@ let private listenAndDropInner (s: StreamSink<int>) (out: List<int>) =
 
     listenAndSend s out [ 1; 2 ]
 
-    GC.Collect(0, GCCollectionMode.Forced)
-    GC.Collect(0, GCCollectionMode.Forced)
+    collect ()
 
     listenAndSendMapped s s2 out [ 3; 4; 5 ]
 
@@ -54,8 +65,7 @@ let private listenAndDropWithMap () =
 
     listenAndDropInner s out
 
-    GC.Collect(0, GCCollectionMode.Forced)
-    GC.Collect(0, GCCollectionMode.Forced)
+    collect ()
     s |> sendS 6
     s |> sendS 7
     out

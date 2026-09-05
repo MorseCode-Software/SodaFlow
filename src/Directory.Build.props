@@ -72,11 +72,39 @@
         same day, so the condition is now always true.
     -->
     <ItemGroup Condition="'$(UsingMicrosoftNETSdk)' == 'true'">
-        <PackageReference Include="MinVer" Version="6.1.0" PrivateAssets="all"/>
+        <PackageReference Include="MinVer" Version="8.0.0" PrivateAssets="all"/>
     </ItemGroup>
 
     <PropertyGroup Condition="'$(UsingMicrosoftNETSdk)' == 'true'">
         <MinVerIgnoreHeight>true</MinVerIgnoreHeight>
+    </PropertyGroup>
+
+    <!--
+        JetBrains.Annotations for every project here, rather than the same line in each of them. The
+        attributes are read at build time, by the compiler and by ReSharper, and say nothing a
+        consumer needs at runtime, so PrivateAssets keeps the reference out of the packages.
+
+        SodaFlow and SodaFlow.Functional additionally compile a vendored copy of the annotations, so
+        that the attributes they apply to their own public API travel with the source rather than
+        obliging a consumer to acquire the package. That copy and this reference coexist, as they
+        did when every project declared this itself.
+    -->
+    <ItemGroup>
+        <PackageReference Include="JetBrains.Annotations" Version="2026.2.0" PrivateAssets="all"/>
+    </ItemGroup>
+
+    <!--
+        FSharp.Core for every F# project here, shipping and test alike, rather than the three that
+        used to name it. The F# SDK references it implicitly and this property is what chooses the
+        version, so it reaches the test projects too - which is the point. With only the shipping
+        projects pinned, they compiled against one version while the tests supplied whatever the SDK
+        implied, and MSB3277 reported the conflict.
+
+        This is a dependency floor for consumers of the three F# packages, not just a build detail:
+        it is written into their nuspecs.
+    -->
+    <PropertyGroup>
+        <FSharpCoreImplicitPackageVersion>11.0.100</FSharpCoreImplicitPackageVersion>
     </PropertyGroup>
 
     <!--
