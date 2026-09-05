@@ -1,16 +1,19 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
-using NUnit.Framework;
+using System.Threading.Tasks;
+using TUnit.Assertions;
+using TUnit.Assertions.Enums;
+using TUnit.Assertions.Extensions;
+using TUnit.Core;
 using SodaFlow.Functional;
 
 namespace SodaFlow.Tests;
 
-[TestFixture]
 public class PerformanceTests
 {
     [Test]
-    public void TestMerge()
+    public async Task TestMerge()
     {
         StreamSink<Unit> s = Stream.CreateSink<Unit>();
 
@@ -33,9 +36,7 @@ public class PerformanceTests
 
         int[] values = [.. obj.Select(static v => v.CurrentValue)];
 
-        CollectionAssert.AreEqual(
-            expected: Enumerable.Range(start: 1, count: 5000).Select(static _ => 0),
-            actual: values);
+        await Assert.That(values).IsEquivalentTo(Enumerable.Range(start: 1, count: 5000).Select(static _ => 0), CollectionOrdering.Matching);
     }
 
     private sealed class TestObject
@@ -143,7 +144,7 @@ public class PerformanceTests
     }
 
     [Test]
-    public void TestRunConstruct()
+    public async Task TestRunConstruct()
     {
         CellSink<IReadOnlyList<TestObject2>> objects =
             Transaction.Run(static () =>
@@ -176,7 +177,7 @@ public class PerformanceTests
     }
 
     [Test]
-    public void TestRunConstruct2()
+    public async Task TestRunConstruct2()
     {
         (var objectsAndIsSelected, Stream<bool> selectAllStream, CellSink<IReadOnlyList<TestObject2>> objects) =
             Transaction.Run(static () =>
@@ -241,7 +242,7 @@ public class PerformanceTests
             });
         }
 
-        CollectionAssert.AreEqual(expected: new[] { 1500, 500 }, actual: @out);
+        await Assert.That(@out).IsEquivalentTo(new[] { 1500, 500 }, CollectionOrdering.Matching);
     }
 
     private sealed class TestObject2

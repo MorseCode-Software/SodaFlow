@@ -1,218 +1,221 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
-using NUnit.Framework;
+using System.Threading.Tasks;
+using TUnit.Assertions;
+using TUnit.Assertions.Enums;
+using TUnit.Assertions.Extensions;
+using TUnit.Core;
 using SodaFlow.Functional;
 
 namespace SodaFlow.Tests;
 
-[TestFixture]
 public class EitherTests
 {
     [Test]
-    public void DefaultValue2Test()
+    public async Task DefaultValue2Test()
     {
         Either<Test1, Test2> e = default;
 
         object? o = e.Upcast<IEither>().GetValueAsObject();
 
-        Assert.AreEqual(expected: 1, actual: TestIt2(e));
-        Assert.IsNull(o);
+        await Assert.That(TestIt2(e)).IsEqualTo(1);
+        await Assert.That(o).IsNull();
     }
 
     [Test]
-    public void DefaultValue3Test()
+    public async Task DefaultValue3Test()
     {
         Either<Test1, Test2, Test3> e = default;
 
         object? o = e.Upcast<IEither>().GetValueAsObject();
 
-        Assert.AreEqual(expected: 1, actual: TestIt3(e));
-        Assert.IsNull(o);
+        await Assert.That(TestIt3(e)).IsEqualTo(1);
+        await Assert.That(o).IsNull();
     }
 
     [Test]
-    public void DefaultValue4Test()
+    public async Task DefaultValue4Test()
     {
         Either<Test1, Test2, Test3, Test4> e = default;
 
         object? o = e.Upcast<IEither>().GetValueAsObject();
 
-        Assert.AreEqual(expected: 1, actual: TestIt4(e));
-        Assert.IsNull(o);
+        await Assert.That(TestIt4(e)).IsEqualTo(1);
+        await Assert.That(o).IsNull();
     }
 
     [Test]
-    public void DefaultValue5Test()
+    public async Task DefaultValue5Test()
     {
         Either<Test1, Test2, Test3, Test4, Test5> e = default;
 
         object? o = e.Upcast<IEither>().GetValueAsObject();
 
-        Assert.AreEqual(expected: 1, actual: TestIt5(e));
-        Assert.IsNull(o);
+        await Assert.That(TestIt5(e)).IsEqualTo(1);
+        await Assert.That(o).IsNull();
     }
 
     [Test]
-    public void DefaultValue6Test()
+    public async Task DefaultValue6Test()
     {
         Either<Test1, Test2, Test3, Test4, Test5, Test6> e = default;
 
         object? o = e.Upcast<IEither>().GetValueAsObject();
 
-        Assert.AreEqual(expected: 1, actual: TestIt6(e));
-        Assert.IsNull(o);
+        await Assert.That(TestIt6(e)).IsEqualTo(1);
+        await Assert.That(o).IsNull();
     }
 
     [Test]
-    public void DefaultValue7Test()
+    public async Task DefaultValue7Test()
     {
         Either<Test1, Test2, Test3, Test4, Test5, Test6, Test7> e = default;
 
         object? o = e.Upcast<IEither>().GetValueAsObject();
 
-        Assert.AreEqual(expected: 1, actual: TestIt7(e));
-        Assert.IsNull(o);
+        await Assert.That(TestIt7(e)).IsEqualTo(1);
+        await Assert.That(o).IsNull();
     }
 
     [Test]
-    public void DefaultValue8Test()
+    public async Task DefaultValue8Test()
     {
         Either<Test1, Test2, Test3, Test4, Test5, Test6, Test7, Test8> e = default;
 
         object? o = e.Upcast<IEither>().GetValueAsObject();
 
-        Assert.AreEqual(expected: 1, actual: TestIt8(e));
-        Assert.IsNull(o);
+        await Assert.That(TestIt8(e)).IsEqualTo(1);
+        await Assert.That(o).IsNull();
     }
 
     [Test]
-    public void DefaultConstructor2Test()
+    public async Task DefaultConstructor2Test()
     {
         Either<Test1, Test2> e = new();
 
         object? o = e.Upcast<IEither>().GetValueAsObject();
 
-        Assert.AreEqual(expected: 1, actual: TestIt2(e));
-        Assert.IsNull(o);
+        await Assert.That(TestIt2(e)).IsEqualTo(1);
+        await Assert.That(o).IsNull();
     }
 
     [Test]
-    public void DefaultConstructor3Test()
+    public async Task DefaultConstructor3Test()
     {
         Either<Test1, Test2, Test3> e = new();
 
         object? o = e.Upcast<IEither>().GetValueAsObject();
 
-        Assert.AreEqual(expected: 1, actual: TestIt3(e));
-        Assert.IsNull(o);
+        await Assert.That(TestIt3(e)).IsEqualTo(1);
+        await Assert.That(o).IsNull();
     }
 
     [Test]
-    public void DefaultConstructor4Test()
+    public async Task DefaultConstructor4Test()
     {
         Either<Test1, Test2, Test3, Test4> e = new();
 
         object? o = e.Upcast<IEither>().GetValueAsObject();
 
-        Assert.AreEqual(expected: 1, actual: TestIt4(e));
-        Assert.IsNull(o);
+        await Assert.That(TestIt4(e)).IsEqualTo(1);
+        await Assert.That(o).IsNull();
     }
 
     [Test]
-    public void DefaultConstructor5Test()
+    public async Task DefaultConstructor5Test()
     {
         Either<Test1, Test2, Test3, Test4, Test5> e = new();
 
         object? o = e.Upcast<IEither>().GetValueAsObject();
 
-        Assert.AreEqual(expected: 1, actual: TestIt5(e));
-        Assert.IsNull(o);
+        await Assert.That(TestIt5(e)).IsEqualTo(1);
+        await Assert.That(o).IsNull();
     }
 
     [Test]
-    public void DefaultConstructor6Test()
+    public async Task DefaultConstructor6Test()
     {
         Either<Test1, Test2, Test3, Test4, Test5, Test6> e = new();
 
         object? o = e.Upcast<IEither>().GetValueAsObject();
 
-        Assert.AreEqual(expected: 1, actual: TestIt6(e));
-        Assert.IsNull(o);
+        await Assert.That(TestIt6(e)).IsEqualTo(1);
+        await Assert.That(o).IsNull();
     }
 
     [Test]
-    public void DefaultConstructor7Test()
+    public async Task DefaultConstructor7Test()
     {
         Either<Test1, Test2, Test3, Test4, Test5, Test6, Test7> e = new();
 
         object? o = e.Upcast<IEither>().GetValueAsObject();
 
-        Assert.AreEqual(expected: 1, actual: TestIt7(e));
-        Assert.IsNull(o);
+        await Assert.That(TestIt7(e)).IsEqualTo(1);
+        await Assert.That(o).IsNull();
     }
 
     [Test]
-    public void DefaultConstructor8Test()
+    public async Task DefaultConstructor8Test()
     {
         Either<Test1, Test2, Test3, Test4, Test5, Test6, Test7, Test8> e = new();
 
         object? o = e.Upcast<IEither>().GetValueAsObject();
 
-        Assert.AreEqual(expected: 1, actual: TestIt8(e));
-        Assert.IsNull(o);
+        await Assert.That(TestIt8(e)).IsEqualTo(1);
+        await Assert.That(o).IsNull();
     }
 
     [Test]
-    public void Either2Test()
+    public async Task Either2Test()
     {
         Either<Test1, Test2> v1 = Either.First(new Test1());
         Either<Test1, Test2> v2 = Either.Second(new Test2());
 
-        Assert.AreEqual(expected: 1, actual: TestIt2(v1));
-        Assert.AreEqual(expected: 2, actual: TestIt2(v2));
+        await Assert.That(TestIt2(v1)).IsEqualTo(1);
+        await Assert.That(TestIt2(v2)).IsEqualTo(2);
 
-        Assert.AreEqual(expected: 1, actual: TestIt2Action(v1));
-        Assert.AreEqual(expected: 2, actual: TestIt2Action(v2));
+        await Assert.That(TestIt2Action(v1)).IsEqualTo(1);
+        await Assert.That(TestIt2Action(v2)).IsEqualTo(2);
     }
 
     [Test]
-    public void Either3Test()
+    public async Task Either3Test()
     {
         Either<Test1, Test2, Test3> v1 = Either.First(new Test1());
         Either<Test1, Test2, Test3> v2 = Either.Second(new Test2());
         Either<Test1, Test2, Test3> v3 = Either.Third(new Test3());
 
-        Assert.AreEqual(expected: 1, actual: TestIt3(v1));
-        Assert.AreEqual(expected: 2, actual: TestIt3(v2));
-        Assert.AreEqual(expected: 3, actual: TestIt3(v3));
+        await Assert.That(TestIt3(v1)).IsEqualTo(1);
+        await Assert.That(TestIt3(v2)).IsEqualTo(2);
+        await Assert.That(TestIt3(v3)).IsEqualTo(3);
 
-        Assert.AreEqual(expected: 1, actual: TestIt3Action(v1));
-        Assert.AreEqual(expected: 2, actual: TestIt3Action(v2));
-        Assert.AreEqual(expected: 3, actual: TestIt3Action(v3));
+        await Assert.That(TestIt3Action(v1)).IsEqualTo(1);
+        await Assert.That(TestIt3Action(v2)).IsEqualTo(2);
+        await Assert.That(TestIt3Action(v3)).IsEqualTo(3);
     }
 
     [Test]
-    public void Either4Test()
+    public async Task Either4Test()
     {
         Either<Test1, Test2, Test3, Test4> v1 = Either.First(new Test1());
         Either<Test1, Test2, Test3, Test4> v2 = Either.Second(new Test2());
         Either<Test1, Test2, Test3, Test4> v3 = Either.Third(new Test3());
         Either<Test1, Test2, Test3, Test4> v4 = Either.Fourth(new Test4());
 
-        Assert.AreEqual(expected: 1, actual: TestIt4(v1));
-        Assert.AreEqual(expected: 2, actual: TestIt4(v2));
-        Assert.AreEqual(expected: 3, actual: TestIt4(v3));
-        Assert.AreEqual(expected: 4, actual: TestIt4(v4));
+        await Assert.That(TestIt4(v1)).IsEqualTo(1);
+        await Assert.That(TestIt4(v2)).IsEqualTo(2);
+        await Assert.That(TestIt4(v3)).IsEqualTo(3);
+        await Assert.That(TestIt4(v4)).IsEqualTo(4);
 
-        Assert.AreEqual(expected: 1, actual: TestIt4Action(v1));
-        Assert.AreEqual(expected: 2, actual: TestIt4Action(v2));
-        Assert.AreEqual(expected: 3, actual: TestIt4Action(v3));
-        Assert.AreEqual(expected: 4, actual: TestIt4Action(v4));
+        await Assert.That(TestIt4Action(v1)).IsEqualTo(1);
+        await Assert.That(TestIt4Action(v2)).IsEqualTo(2);
+        await Assert.That(TestIt4Action(v3)).IsEqualTo(3);
+        await Assert.That(TestIt4Action(v4)).IsEqualTo(4);
     }
 
     [Test]
-    public void Either5Test()
+    public async Task Either5Test()
     {
         Either<Test1, Test2, Test3, Test4, Test5> v1 = Either.First(new Test1());
         Either<Test1, Test2, Test3, Test4, Test5> v2 = Either.Second(new Test2());
@@ -220,21 +223,21 @@ public class EitherTests
         Either<Test1, Test2, Test3, Test4, Test5> v4 = Either.Fourth(new Test4());
         Either<Test1, Test2, Test3, Test4, Test5> v5 = Either.Fifth(new Test5());
 
-        Assert.AreEqual(expected: 1, actual: TestIt5(v1));
-        Assert.AreEqual(expected: 2, actual: TestIt5(v2));
-        Assert.AreEqual(expected: 3, actual: TestIt5(v3));
-        Assert.AreEqual(expected: 4, actual: TestIt5(v4));
-        Assert.AreEqual(expected: 5, actual: TestIt5(v5));
+        await Assert.That(TestIt5(v1)).IsEqualTo(1);
+        await Assert.That(TestIt5(v2)).IsEqualTo(2);
+        await Assert.That(TestIt5(v3)).IsEqualTo(3);
+        await Assert.That(TestIt5(v4)).IsEqualTo(4);
+        await Assert.That(TestIt5(v5)).IsEqualTo(5);
 
-        Assert.AreEqual(expected: 1, actual: TestIt5Action(v1));
-        Assert.AreEqual(expected: 2, actual: TestIt5Action(v2));
-        Assert.AreEqual(expected: 3, actual: TestIt5Action(v3));
-        Assert.AreEqual(expected: 4, actual: TestIt5Action(v4));
-        Assert.AreEqual(expected: 5, actual: TestIt5Action(v5));
+        await Assert.That(TestIt5Action(v1)).IsEqualTo(1);
+        await Assert.That(TestIt5Action(v2)).IsEqualTo(2);
+        await Assert.That(TestIt5Action(v3)).IsEqualTo(3);
+        await Assert.That(TestIt5Action(v4)).IsEqualTo(4);
+        await Assert.That(TestIt5Action(v5)).IsEqualTo(5);
     }
 
     [Test]
-    public void Either6Test()
+    public async Task Either6Test()
     {
         Either<Test1, Test2, Test3, Test4, Test5, Test6> v1 = Either.First(new Test1());
         Either<Test1, Test2, Test3, Test4, Test5, Test6> v2 = Either.Second(new Test2());
@@ -243,23 +246,23 @@ public class EitherTests
         Either<Test1, Test2, Test3, Test4, Test5, Test6> v5 = Either.Fifth(new Test5());
         Either<Test1, Test2, Test3, Test4, Test5, Test6> v6 = Either.Sixth(new Test6());
 
-        Assert.AreEqual(expected: 1, actual: TestIt6(v1));
-        Assert.AreEqual(expected: 2, actual: TestIt6(v2));
-        Assert.AreEqual(expected: 3, actual: TestIt6(v3));
-        Assert.AreEqual(expected: 4, actual: TestIt6(v4));
-        Assert.AreEqual(expected: 5, actual: TestIt6(v5));
-        Assert.AreEqual(expected: 6, actual: TestIt6(v6));
+        await Assert.That(TestIt6(v1)).IsEqualTo(1);
+        await Assert.That(TestIt6(v2)).IsEqualTo(2);
+        await Assert.That(TestIt6(v3)).IsEqualTo(3);
+        await Assert.That(TestIt6(v4)).IsEqualTo(4);
+        await Assert.That(TestIt6(v5)).IsEqualTo(5);
+        await Assert.That(TestIt6(v6)).IsEqualTo(6);
 
-        Assert.AreEqual(expected: 1, actual: TestIt6Action(v1));
-        Assert.AreEqual(expected: 2, actual: TestIt6Action(v2));
-        Assert.AreEqual(expected: 3, actual: TestIt6Action(v3));
-        Assert.AreEqual(expected: 4, actual: TestIt6Action(v4));
-        Assert.AreEqual(expected: 5, actual: TestIt6Action(v5));
-        Assert.AreEqual(expected: 6, actual: TestIt6Action(v6));
+        await Assert.That(TestIt6Action(v1)).IsEqualTo(1);
+        await Assert.That(TestIt6Action(v2)).IsEqualTo(2);
+        await Assert.That(TestIt6Action(v3)).IsEqualTo(3);
+        await Assert.That(TestIt6Action(v4)).IsEqualTo(4);
+        await Assert.That(TestIt6Action(v5)).IsEqualTo(5);
+        await Assert.That(TestIt6Action(v6)).IsEqualTo(6);
     }
 
     [Test]
-    public void Either7Test()
+    public async Task Either7Test()
     {
         Either<Test1, Test2, Test3, Test4, Test5, Test6, Test7> v1 = Either.First(new Test1());
         Either<Test1, Test2, Test3, Test4, Test5, Test6, Test7> v2 = Either.Second(new Test2());
@@ -269,25 +272,25 @@ public class EitherTests
         Either<Test1, Test2, Test3, Test4, Test5, Test6, Test7> v6 = Either.Sixth(new Test6());
         Either<Test1, Test2, Test3, Test4, Test5, Test6, Test7> v7 = Either.Seventh(new Test7());
 
-        Assert.AreEqual(expected: 1, actual: TestIt7(v1));
-        Assert.AreEqual(expected: 2, actual: TestIt7(v2));
-        Assert.AreEqual(expected: 3, actual: TestIt7(v3));
-        Assert.AreEqual(expected: 4, actual: TestIt7(v4));
-        Assert.AreEqual(expected: 5, actual: TestIt7(v5));
-        Assert.AreEqual(expected: 6, actual: TestIt7(v6));
-        Assert.AreEqual(expected: 7, actual: TestIt7(v7));
+        await Assert.That(TestIt7(v1)).IsEqualTo(1);
+        await Assert.That(TestIt7(v2)).IsEqualTo(2);
+        await Assert.That(TestIt7(v3)).IsEqualTo(3);
+        await Assert.That(TestIt7(v4)).IsEqualTo(4);
+        await Assert.That(TestIt7(v5)).IsEqualTo(5);
+        await Assert.That(TestIt7(v6)).IsEqualTo(6);
+        await Assert.That(TestIt7(v7)).IsEqualTo(7);
 
-        Assert.AreEqual(expected: 1, actual: TestIt7Action(v1));
-        Assert.AreEqual(expected: 2, actual: TestIt7Action(v2));
-        Assert.AreEqual(expected: 3, actual: TestIt7Action(v3));
-        Assert.AreEqual(expected: 4, actual: TestIt7Action(v4));
-        Assert.AreEqual(expected: 5, actual: TestIt7Action(v5));
-        Assert.AreEqual(expected: 6, actual: TestIt7Action(v6));
-        Assert.AreEqual(expected: 7, actual: TestIt7Action(v7));
+        await Assert.That(TestIt7Action(v1)).IsEqualTo(1);
+        await Assert.That(TestIt7Action(v2)).IsEqualTo(2);
+        await Assert.That(TestIt7Action(v3)).IsEqualTo(3);
+        await Assert.That(TestIt7Action(v4)).IsEqualTo(4);
+        await Assert.That(TestIt7Action(v5)).IsEqualTo(5);
+        await Assert.That(TestIt7Action(v6)).IsEqualTo(6);
+        await Assert.That(TestIt7Action(v7)).IsEqualTo(7);
     }
 
     [Test]
-    public void Either8Test()
+    public async Task Either8Test()
     {
         Either<Test1, Test2, Test3, Test4, Test5, Test6, Test7, Test8> v1 = Either.First(new Test1());
         Either<Test1, Test2, Test3, Test4, Test5, Test6, Test7, Test8> v2 = Either.Second(new Test2());
@@ -298,77 +301,77 @@ public class EitherTests
         Either<Test1, Test2, Test3, Test4, Test5, Test6, Test7, Test8> v7 = Either.Seventh(new Test7());
         Either<Test1, Test2, Test3, Test4, Test5, Test6, Test7, Test8> v8 = Either.Eighth(new Test8());
 
-        Assert.AreEqual(expected: 1, actual: TestIt8(v1));
-        Assert.AreEqual(expected: 2, actual: TestIt8(v2));
-        Assert.AreEqual(expected: 3, actual: TestIt8(v3));
-        Assert.AreEqual(expected: 4, actual: TestIt8(v4));
-        Assert.AreEqual(expected: 5, actual: TestIt8(v5));
-        Assert.AreEqual(expected: 6, actual: TestIt8(v6));
-        Assert.AreEqual(expected: 7, actual: TestIt8(v7));
-        Assert.AreEqual(expected: 8, actual: TestIt8(v8));
+        await Assert.That(TestIt8(v1)).IsEqualTo(1);
+        await Assert.That(TestIt8(v2)).IsEqualTo(2);
+        await Assert.That(TestIt8(v3)).IsEqualTo(3);
+        await Assert.That(TestIt8(v4)).IsEqualTo(4);
+        await Assert.That(TestIt8(v5)).IsEqualTo(5);
+        await Assert.That(TestIt8(v6)).IsEqualTo(6);
+        await Assert.That(TestIt8(v7)).IsEqualTo(7);
+        await Assert.That(TestIt8(v8)).IsEqualTo(8);
 
-        Assert.AreEqual(expected: 1, actual: TestIt8Action(v1));
-        Assert.AreEqual(expected: 2, actual: TestIt8Action(v2));
-        Assert.AreEqual(expected: 3, actual: TestIt8Action(v3));
-        Assert.AreEqual(expected: 4, actual: TestIt8Action(v4));
-        Assert.AreEqual(expected: 5, actual: TestIt8Action(v5));
-        Assert.AreEqual(expected: 6, actual: TestIt8Action(v6));
-        Assert.AreEqual(expected: 7, actual: TestIt8Action(v7));
-        Assert.AreEqual(expected: 8, actual: TestIt8Action(v8));
+        await Assert.That(TestIt8Action(v1)).IsEqualTo(1);
+        await Assert.That(TestIt8Action(v2)).IsEqualTo(2);
+        await Assert.That(TestIt8Action(v3)).IsEqualTo(3);
+        await Assert.That(TestIt8Action(v4)).IsEqualTo(4);
+        await Assert.That(TestIt8Action(v5)).IsEqualTo(5);
+        await Assert.That(TestIt8Action(v6)).IsEqualTo(6);
+        await Assert.That(TestIt8Action(v7)).IsEqualTo(7);
+        await Assert.That(TestIt8Action(v8)).IsEqualTo(8);
     }
 
     [Test]
-    public void EqualityTest()
+    public async Task EqualityTest()
     {
         Either<int, double, DateTime, string, char, float, long, byte> e1 = Either.Seventh(2L);
         Either<int, double, DateTime, string, char, float, long, byte> e2 = Either.Seventh(2L);
 
-        Assert.AreEqual(expected: e1, actual: e2);
+        await Assert.That(e2).IsEqualTo(e1);
     }
 
     [Test]
-    public void NonEqualityTest1()
+    public async Task NonEqualityTest1()
     {
         Either<int, double, DateTime, string, char, float, long, byte> e1 = Either.Seventh(2L);
         Either<int, double, DateTime, string, char, float, long, byte> e2 = Either.First(2);
 
-        Assert.AreNotEqual(expected: e1, actual: e2);
+        await Assert.That(e2).IsNotEqualTo(e1);
     }
 
     [Test]
-    public void NonEqualityTest2()
+    public async Task NonEqualityTest2()
     {
         Either<int, double, DateTime, string, char, float, long, byte> e1 = Either.Seventh(2L);
         Either<int, double, DateTime, string, char, float, long, byte> e2 = Either.Seventh(3L);
 
-        Assert.AreNotEqual(expected: e1, actual: e2);
+        await Assert.That(e2).IsNotEqualTo(e1);
     }
 
     [Test]
-    public void EqualityOperatorTest()
+    public async Task EqualityOperatorTest()
     {
         Either<int, double, DateTime, string, char, float, long, byte> e1 = Either.Seventh(2L);
         Either<int, double, DateTime, string, char, float, long, byte> e2 = Either.Seventh(2L);
 
-        Assert.IsTrue(e1 == e2);
+        await Assert.That(e1 == e2).IsTrue();
     }
 
     [Test]
-    public void NonEqualityOperatorTest1()
+    public async Task NonEqualityOperatorTest1()
     {
         Either<int, double, DateTime, string, char, float, long, byte> e1 = Either.Seventh(2L);
         Either<int, double, DateTime, string, char, float, long, byte> e2 = Either.First(2);
 
-        Assert.IsTrue(e1 != e2);
+        await Assert.That(e1 != e2).IsTrue();
     }
 
     [Test]
-    public void NonEqualityOperatorTest2()
+    public async Task NonEqualityOperatorTest2()
     {
         Either<int, double, DateTime, string, char, float, long, byte> e1 = Either.Seventh(2L);
         Either<int, double, DateTime, string, char, float, long, byte> e2 = Either.Seventh(3L);
 
-        Assert.IsTrue(e1 != e2);
+        await Assert.That(e1 != e2).IsTrue();
     }
 
     private sealed class Test1;
@@ -388,35 +391,33 @@ public class EitherTests
     private sealed class Test8;
 
     [Test]
-    public void SwapTest()
+    public async Task SwapTest()
     {
         Either<int, string> first = Either.First(2);
         Either<int, string> second = Either.Second("a");
 
-        Assert.AreEqual(expected: Either<string, int>.Second(2), actual: first.Swap());
-        Assert.AreEqual(expected: Either<string, int>.First("a"), actual: second.Swap());
+        await Assert.That(first.Swap()).IsEqualTo(Either<string, int>.Second(2));
+        await Assert.That(second.Swap()).IsEqualTo(Either<string, int>.First("a"));
     }
 
     [Test]
-    public void SwapTwiceIsIdentityTest()
+    public async Task SwapTwiceIsIdentityTest()
     {
         Either<int, string> first = Either.First(2);
         Either<int, string> second = Either.Second("a");
 
-        Assert.AreEqual(expected: first, actual: first.Swap().Swap());
-        Assert.AreEqual(expected: second, actual: second.Swap().Swap());
+        await Assert.That(first.Swap().Swap()).IsEqualTo(first);
+        await Assert.That(second.Swap().Swap()).IsEqualTo(second);
     }
 
     [Test]
-    public void SwapReachesTheOtherCaseTest()
+    public async Task SwapReachesTheOtherCaseTest()
     {
         // MapSecond only addresses the second case; swapping either side of it is how the
         // first case is reached, and the second swap puts the result back where it started.
         Either<int, string> e = Either.First(2);
 
-        Assert.AreEqual(
-            expected: Either<string, string>.First("2"),
-            actual: e.Swap().MapSecond(static v => v.ToString()).Swap());
+        await Assert.That(e.Swap().MapSecond(static v => v.ToString()).Swap()).IsEqualTo(Either<string, string>.First("2"));
     }
 
     private static int TestIt2(Either<Test1, Test2> e) => e.Match(onFirst: static _ => 1, onSecond: static _ => 2);
@@ -669,41 +670,36 @@ public class EitherTests
     }
 
     [Test]
-    public void ImplementsIEquatable()
+    public async Task ImplementsIEquatable()
     {
-        Assert.IsTrue(typeof(IEquatable<Either<int, string>>).IsAssignableFrom(typeof(Either<int, string>)));
+        await Assert.That(typeof(IEquatable<Either<int, string>>).IsAssignableFrom(typeof(Either<int, string>))).IsTrue();
 
-        Assert.IsTrue(
-            typeof(IEquatable<Either<int, string, bool, char, byte, long, short, uint>>).IsAssignableFrom(
-                typeof(Either<int, string, bool, char, byte, long, short, uint>)));
+        await Assert.That(typeof(IEquatable<Either<int, string, bool, char, byte, long, short, uint>>).IsAssignableFrom(
+                typeof(Either<int, string, bool, char, byte, long, short, uint>))).IsTrue();
     }
 
     [Test]
-    public void DefaultComparerDoesNotBox() =>
-        Assert.AreNotEqual(
-            expected: "ObjectEqualityComparer`1",
-            actual: EqualityComparer<Either<int, string>>.Default.GetType().Name);
+    public async Task DefaultComparerDoesNotBox() =>
+        await Assert.That(EqualityComparer<Either<int, string>>.Default.GetType().Name).IsNotEqualTo("ObjectEqualityComparer`1");
 
     [Test]
-    public void TypedEqualsAgreesWithOperator()
+    public async Task TypedEqualsAgreesWithOperator()
     {
         Either<int, string> a = Either.First(2);
         Either<int, string> b = Either.First(2);
         Either<int, string> c = Either.Second("2");
 
-        Assert.IsTrue(a.Equals(b));
-        Assert.IsFalse(a.Equals(c));
-        Assert.AreEqual(expected: a == b, actual: a.Equals(b));
-        Assert.AreEqual(expected: a == c, actual: a.Equals(c));
+        await Assert.That(a.Equals(b)).IsTrue();
+        await Assert.That(a.Equals(c)).IsFalse();
+        await Assert.That(a.Equals(b)).IsEqualTo(a == b);
+        await Assert.That(a.Equals(c)).IsEqualTo(a == c);
     }
 
     [Test]
-    public void TypedEqualsWorksInCollections()
+    public async Task TypedEqualsWorksInCollections()
     {
         Either<int, string>[] source = [Either.First(1), Either.Second("a"), Either.First(1), Either.Second("a")];
 
-        CollectionAssert.AreEqual(
-            expected: new Either<int, string>[] { Either.First(1), Either.Second("a") },
-            actual: source.Distinct());
+        await Assert.That(source.Distinct()).IsEquivalentTo(new Either<int, string>[] { Either.First(1), Either.Second("a") }, CollectionOrdering.Matching);
     }
 }

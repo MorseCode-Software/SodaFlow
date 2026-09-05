@@ -2,204 +2,197 @@
 using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
-using NUnit.Framework;
+using System.Threading.Tasks;
+using TUnit.Assertions;
+using TUnit.Assertions.Enums;
+using TUnit.Assertions.Extensions;
+using TUnit.Core;
 using SodaFlow.Functional;
 
 namespace SodaFlow.Tests;
 
-[TestFixture]
 public class MaybeTests
 {
     [Test]
-    public void DefaultConstructorTest()
+    public async Task DefaultConstructorTest()
     {
         Maybe<int> m = new();
 
-        Assert.IsFalse(m.HasValue());
+        await Assert.That(m.HasValue()).IsFalse();
     }
 
     [Test]
-    public void DefaultValueTest()
+    public async Task DefaultValueTest()
     {
         Maybe<int> m = default;
 
-        Assert.IsFalse(m.HasValue());
+        await Assert.That(m.HasValue()).IsFalse();
     }
 
     [Test]
-    public void TestSome()
+    public async Task TestSome()
     {
         Maybe<int> m = Maybe.Some(2);
 
         int n = m.Match(onSome: static v => v, onNone: static () => 0);
 
-        Assert.AreEqual(expected: 2, actual: n);
+        await Assert.That(n).IsEqualTo(2);
     }
 
     [Test]
-    public void TestNone()
+    public async Task TestNone()
     {
         Maybe<int> m = Maybe.None;
 
         int n = m.Match(onSome: static _ => 0, onNone: static () => 1);
 
-        Assert.AreEqual(expected: 1, actual: n);
+        await Assert.That(n).IsEqualTo(1);
     }
 
     [Test]
-    public void EqualityTest()
+    public async Task EqualityTest()
     {
         Maybe<int> m1 = Maybe.Some(2);
         Maybe<int> m2 = Maybe.Some(2);
 
-        Assert.AreEqual(expected: m1, actual: m2);
+        await Assert.That(m2).IsEqualTo(m1);
     }
 
     [Test]
-    public void EqualityTestNone()
+    public async Task EqualityTestNone()
     {
         Maybe<int> m1 = Maybe.None;
         Maybe<int> m2 = Maybe.None;
 
-        Assert.AreEqual(expected: m1, actual: m2);
+        await Assert.That(m2).IsEqualTo(m1);
     }
 
     [Test]
-    public void NonEqualityTest1()
+    public async Task NonEqualityTest1()
     {
         Maybe<int> m1 = Maybe.Some(2);
         Maybe<int> m2 = Maybe.None;
 
-        Assert.AreNotEqual(expected: m1, actual: m2);
+        await Assert.That(m2).IsNotEqualTo(m1);
     }
 
     [Test]
-    public void NonEqualityTest2()
+    public async Task NonEqualityTest2()
     {
         Maybe<int> m1 = Maybe.Some(2);
         Maybe<int> m2 = Maybe.Some(3);
 
-        Assert.AreNotEqual(expected: m1, actual: m2);
+        await Assert.That(m2).IsNotEqualTo(m1);
     }
 
     [Test]
-    public void EqualityOperatorTest()
+    public async Task EqualityOperatorTest()
     {
         Maybe<int> m1 = Maybe.Some(2);
         Maybe<int> m2 = Maybe.Some(2);
 
-        Assert.IsTrue(m1 == m2);
+        await Assert.That(m1 == m2).IsTrue();
     }
 
     [Test]
-    public void EqualityOperatorTestNone()
+    public async Task EqualityOperatorTestNone()
     {
         Maybe<int> m1 = Maybe.None;
         Maybe<int> m2 = Maybe.None;
 
-        Assert.IsTrue(m1 == m2);
+        await Assert.That(m1 == m2).IsTrue();
     }
 
     [Test]
-    public void NonEqualityOperatorTest1()
+    public async Task NonEqualityOperatorTest1()
     {
         Maybe<int> m1 = Maybe.Some(2);
         Maybe<int> m2 = Maybe.None;
 
-        Assert.IsTrue(m1 != m2);
+        await Assert.That(m1 != m2).IsTrue();
     }
 
     [Test]
-    public void NonEqualityOperatorTest2()
+    public async Task NonEqualityOperatorTest2()
     {
         Maybe<int> m1 = Maybe.Some(2);
         Maybe<int> m2 = Maybe.Some(3);
 
-        Assert.IsTrue(m1 != m2);
+        await Assert.That(m1 != m2).IsTrue();
     }
 
     [Test]
-    public void TestSomeIf()
+    public async Task TestSomeIf()
     {
-        Assert.AreEqual(expected: Maybe.Some(2), actual: Maybe.SomeIf(condition: true, value: 2));
-        Assert.AreEqual(expected: Maybe<int>.None, actual: Maybe.SomeIf(condition: false, value: 2));
+        await Assert.That(Maybe.SomeIf(condition: true, value: 2)).IsEqualTo(Maybe.Some(2));
+        await Assert.That(Maybe.SomeIf(condition: false, value: 2)).IsEqualTo(Maybe<int>.None);
     }
 
     [Test]
-    public void TestSomeIfLazy()
+    public async Task TestSomeIfLazy()
     {
         int calls = 0;
 
-        Assert.AreEqual(
-            expected: Maybe.Some(2),
-            actual: Maybe.SomeIf(
+        await Assert.That(Maybe.SomeIf(
                 condition: true,
                 valueFactory: () =>
                 {
                     calls++;
                     return 2;
-                }));
+                })).IsEqualTo(Maybe.Some(2));
 
-        Assert.AreEqual(expected: 1, actual: calls);
+        await Assert.That(calls).IsEqualTo(1);
 
-        Assert.AreEqual(
-            expected: Maybe<int>.None,
-            actual: Maybe.SomeIf(
+        await Assert.That(Maybe.SomeIf(
                 condition: false,
                 valueFactory: () =>
                 {
                     calls++;
                     return 2;
-                }));
+                })).IsEqualTo(Maybe<int>.None);
 
-        Assert.AreEqual(expected: 1, actual: calls);
+        await Assert.That(calls).IsEqualTo(1);
     }
 
     [Test]
-    public void TestSomeNotNullReference()
+    public async Task TestSomeNotNullReference()
     {
-        Assert.AreEqual(expected: Maybe.Some("a"), actual: Maybe.SomeNotNull("a"));
-        Assert.AreEqual(expected: Maybe<string>.None, actual: Maybe.SomeNotNull<string>(null));
+        await Assert.That(Maybe.SomeNotNull("a")).IsEqualTo(Maybe.Some("a"));
+        await Assert.That(Maybe.SomeNotNull<string>(null)).IsEqualTo(Maybe<string>.None);
     }
 
     [Test]
-    public void TestSomeNotNullDiffersFromSome()
+    public async Task TestSomeNotNullDiffersFromSome()
     {
-        Assert.AreEqual(expected: Maybe.Some<string?>(null), actual: Maybe<string?>.Some(null));
-        Assert.AreNotEqual(expected: Maybe.Some<string?>(null), actual: Maybe.SomeNotNull<string>(null));
+        await Assert.That(Maybe<string?>.Some(null)).IsEqualTo(Maybe.Some<string?>(null));
+        await Assert.That(Maybe.SomeNotNull<string>(null)).IsNotEqualTo(Maybe.Some<string?>(null));
     }
 
     [Test]
-    public void TestSomeNotNullNullable()
+    public async Task TestSomeNotNullNullable()
     {
-        Assert.AreEqual(expected: Maybe.Some(2), actual: Maybe.SomeNotNull((int?)2));
-        Assert.AreEqual(expected: Maybe<int>.None, actual: Maybe.SomeNotNull((int?)null));
+        await Assert.That(Maybe.SomeNotNull((int?)2)).IsEqualTo(Maybe.Some(2));
+        await Assert.That(Maybe.SomeNotNull((int?)null)).IsEqualTo(Maybe<int>.None);
     }
 
     [Test]
-    public void TestFromTryGet()
+    public async Task TestFromTryGet()
     {
-        Assert.AreEqual(
-            expected: Maybe.Some(42),
-            actual: Maybe.FromTryGet<string, int>(value: "42", tryGet: int.TryParse));
+        await Assert.That(Maybe.FromTryGet<string, int>(value: "42", tryGet: int.TryParse)).IsEqualTo(Maybe.Some(42));
 
-        Assert.AreEqual(
-            expected: Maybe<int>.None,
-            actual: Maybe.FromTryGet<string, int>(value: "x", tryGet: int.TryParse));
+        await Assert.That(Maybe.FromTryGet<string, int>(value: "x", tryGet: int.TryParse)).IsEqualTo(Maybe<int>.None);
     }
 
     [Test]
-    public void TestFromTryGetThreeInputs() =>
-        Assert.AreEqual(
-            expected: Maybe.Some(1234),
-            actual: Maybe.FromTryGet<string, NumberStyles, IFormatProvider, int>(
+    public async Task TestFromTryGetThreeInputs() =>
+        await Assert.That(Maybe.FromTryGet<string, NumberStyles, IFormatProvider, int>(
                 value1: "1,234",
                 value2: NumberStyles.Integer | NumberStyles.AllowThousands,
                 value3: CultureInfo.InvariantCulture,
-                tryGet: int.TryParse));
+                tryGet: int.TryParse)).IsEqualTo(Maybe.Some(1234));
 
     [Test]
-    public void TestFromTryGetNoInput()
+    public async Task TestFromTryGetNoInput()
     {
         const int captured = 7;
 
@@ -210,116 +203,104 @@ public class MaybeTests
                 return true;
             });
 
-        Assert.AreEqual(expected: Maybe.Some(7), actual: result);
+        await Assert.That(result).IsEqualTo(Maybe.Some(7));
     }
 
     [Test]
-    public void ImplementsIEquatable() =>
-        Assert.IsTrue(typeof(IEquatable<Maybe<int>>).IsAssignableFrom(typeof(Maybe<int>)));
+    public async Task ImplementsIEquatable() =>
+        await Assert.That(typeof(IEquatable<Maybe<int>>).IsAssignableFrom(typeof(Maybe<int>))).IsTrue();
 
     [Test]
-    public void DefaultEqualityComparerDoesNotBox() =>
+    public async Task DefaultEqualityComparerDoesNotBox() =>
         // A struct which does not implement IEquatable<T> gets ObjectEqualityComparer, which
         // compares through Equals(object) and boxes both operands on every comparison.
-        Assert.AreNotEqual(
-            expected: "ObjectEqualityComparer`1",
-            actual: EqualityComparer<Maybe<int>>.Default.GetType().Name);
+        await Assert.That(EqualityComparer<Maybe<int>>.Default.GetType().Name).IsNotEqualTo("ObjectEqualityComparer`1");
 
     [Test]
-    public void TypedEqualsAgreesWithOperator()
+    public async Task TypedEqualsAgreesWithOperator()
     {
-        Assert.IsTrue(Maybe.Some(2).Equals(Maybe.Some(2)));
-        Assert.IsFalse(Maybe.Some(2).Equals(Maybe.Some(3)));
-        Assert.IsFalse(Maybe.Some(2).Equals(Maybe<int>.None));
-        Assert.IsTrue(Maybe<int>.None.Equals(Maybe<int>.None));
-        Assert.IsTrue(Maybe.Some<string?>(null).Equals(Maybe<string?>.Some(null)));
-        Assert.IsFalse(Maybe.Some<string?>(null).Equals(Maybe<string?>.None));
+        await Assert.That(Maybe.Some(2).Equals(Maybe.Some(2))).IsTrue();
+        await Assert.That(Maybe.Some(2).Equals(Maybe.Some(3))).IsFalse();
+        await Assert.That(Maybe.Some(2).Equals(Maybe<int>.None)).IsFalse();
+        await Assert.That(Maybe<int>.None.Equals(Maybe<int>.None)).IsTrue();
+        await Assert.That(Maybe.Some<string?>(null).Equals(Maybe<string?>.Some(null))).IsTrue();
+        await Assert.That(Maybe.Some<string?>(null).Equals(Maybe<string?>.None)).IsFalse();
     }
 
     [Test]
-    public void TypedEqualsWorksInCollections()
+    public async Task TypedEqualsWorksInCollections()
     {
         Maybe<int>[] source = [Maybe.Some(1), Maybe<int>.None, Maybe.Some(1), Maybe<int>.None];
 
-        CollectionAssert.AreEqual(expected: new[] { Maybe.Some(1), Maybe<int>.None }, actual: source.Distinct());
-        Assert.IsTrue(source.Contains(Maybe<int>.None));
+        await Assert.That(source.Distinct()).IsEquivalentTo(new[] { Maybe.Some(1), Maybe<int>.None }, CollectionOrdering.Matching);
+        await Assert.That(source.Contains(Maybe<int>.None)).IsTrue();
 
         Dictionary<Maybe<int>, string> d = new() { { Maybe.Some(1), "one" }, { Maybe<int>.None, "none" } };
 
-        Assert.AreEqual(expected: "one", actual: d[Maybe.Some(1)]);
-        Assert.AreEqual(expected: "none", actual: d[Maybe<int>.None]);
+        await Assert.That(d[Maybe.Some(1)]).IsEqualTo("one");
+        await Assert.That(d[Maybe<int>.None]).IsEqualTo("none");
     }
 
     [Test]
-    public void ImplementsIComparable() =>
-        Assert.IsTrue(typeof(IComparable<Maybe<int>>).IsAssignableFrom(typeof(Maybe<int>)));
+    public async Task ImplementsIComparable() =>
+        await Assert.That(typeof(IComparable<Maybe<int>>).IsAssignableFrom(typeof(Maybe<int>))).IsTrue();
 
     [Test]
-    public void DefaultOrderingComparerDoesNotBox() =>
+    public async Task DefaultOrderingComparerDoesNotBox() =>
         // Without IComparable<T> a struct gets ObjectComparer, which compares through the
         // non-generic IComparable and boxes both operands.
-        Assert.AreNotEqual(expected: "ObjectComparer`1", actual: Comparer<Maybe<int>>.Default.GetType().Name);
+        await Assert.That(Comparer<Maybe<int>>.Default.GetType().Name).IsNotEqualTo("ObjectComparer`1");
 
     [Test]
-    public void CompareToOrdersNoneFirst()
+    public async Task CompareToOrdersNoneFirst()
     {
-        Assert.AreEqual(expected: 0, actual: Maybe<int>.None.CompareTo(Maybe<int>.None));
-        Assert.Less(arg1: Maybe<int>.None.CompareTo(Maybe.Some(0)), arg2: 0);
-        Assert.Greater(arg1: Maybe.Some(0).CompareTo(Maybe<int>.None), arg2: 0);
+        await Assert.That(Maybe<int>.None.CompareTo(Maybe<int>.None)).IsEqualTo(0);
+        await Assert.That(Maybe<int>.None.CompareTo(Maybe.Some(0))).IsLessThan(0);
+        await Assert.That(Maybe.Some(0).CompareTo(Maybe<int>.None)).IsGreaterThan(0);
     }
 
     [Test]
-    public void CompareToOrdersValuesByTheirOwnComparer()
+    public async Task CompareToOrdersValuesByTheirOwnComparer()
     {
-        Assert.AreEqual(expected: 0, actual: Maybe.Some(2).CompareTo(Maybe.Some(2)));
-        Assert.Less(arg1: Maybe.Some(2).CompareTo(Maybe.Some(3)), arg2: 0);
-        Assert.Greater(arg1: Maybe.Some(3).CompareTo(Maybe.Some(2)), arg2: 0);
+        await Assert.That(Maybe.Some(2).CompareTo(Maybe.Some(2))).IsEqualTo(0);
+        await Assert.That(Maybe.Some(2).CompareTo(Maybe.Some(3))).IsLessThan(0);
+        await Assert.That(Maybe.Some(3).CompareTo(Maybe.Some(2))).IsGreaterThan(0);
     }
 
     [Test]
-    public void CompareToMatchesNullableOrdering()
+    public async Task CompareToMatchesNullableOrdering()
     {
         // None sorts before every value, exactly as null does for Nullable<T>.
-        Assert.AreEqual(
-            expected: Math.Sign(Comparer<int?>.Default.Compare(x: null, y: 0)),
-            actual: Math.Sign(Maybe<int>.None.CompareTo(Maybe.Some(0))));
+        await Assert.That(Math.Sign(Maybe<int>.None.CompareTo(Maybe.Some(0)))).IsEqualTo(Math.Sign(Comparer<int?>.Default.Compare(x: null, y: 0)));
 
-        Assert.AreEqual(
-            expected: Math.Sign(Comparer<int?>.Default.Compare(x: 0, y: null)),
-            actual: Math.Sign(Maybe.Some(0).CompareTo(Maybe<int>.None)));
+        await Assert.That(Math.Sign(Maybe.Some(0).CompareTo(Maybe<int>.None))).IsEqualTo(Math.Sign(Comparer<int?>.Default.Compare(x: 0, y: null)));
 
-        Assert.AreEqual(
-            expected: Math.Sign(Comparer<int?>.Default.Compare(x: null, y: null)),
-            actual: Math.Sign(Maybe<int>.None.CompareTo(Maybe<int>.None)));
+        await Assert.That(Math.Sign(Maybe<int>.None.CompareTo(Maybe<int>.None))).IsEqualTo(Math.Sign(Comparer<int?>.Default.Compare(x: null, y: null)));
     }
 
     [Test]
-    public void CompareToOrdersAContainedNullBeforeAContainedValue()
+    public async Task CompareToOrdersAContainedNullBeforeAContainedValue()
     {
         // A contained null is still a value, so it sorts after None and before "a".
-        Assert.Less(arg1: Maybe<string?>.None.CompareTo(Maybe.Some<string?>(null)), arg2: 0);
-        Assert.Less(arg1: Maybe.Some<string?>(null).CompareTo(Maybe.Some<string?>("a")), arg2: 0);
+        await Assert.That(Maybe<string?>.None.CompareTo(Maybe.Some<string?>(null))).IsLessThan(0);
+        await Assert.That(Maybe.Some<string?>(null).CompareTo(Maybe.Some<string?>("a"))).IsLessThan(0);
     }
 
     [Test]
-    public void SortingUsesTheOrdering()
+    public async Task SortingUsesTheOrdering()
     {
         Maybe<int>[] source = [Maybe.Some(3), Maybe<int>.None, Maybe.Some(1), Maybe<int>.None, Maybe.Some(2)];
 
-        CollectionAssert.AreEqual(
-            expected: new[] { Maybe<int>.None, Maybe<int>.None, Maybe.Some(1), Maybe.Some(2), Maybe.Some(3) },
-            actual: source.OrderBy(static v => v));
+        await Assert.That(source.OrderBy(static v => v)).IsEquivalentTo(new[] { Maybe<int>.None, Maybe<int>.None, Maybe.Some(1), Maybe.Some(2), Maybe.Some(3) }, CollectionOrdering.Matching);
 
         Maybe<int>[] sorted = (Maybe<int>[])source.Clone();
         Array.Sort(sorted);
 
-        CollectionAssert.AreEqual(
-            expected: new[] { Maybe<int>.None, Maybe<int>.None, Maybe.Some(1), Maybe.Some(2), Maybe.Some(3) },
-            actual: sorted);
+        await Assert.That(sorted).IsEquivalentTo(new[] { Maybe<int>.None, Maybe<int>.None, Maybe.Some(1), Maybe.Some(2), Maybe.Some(3) }, CollectionOrdering.Matching);
     }
 
     [Test]
-    public void CompareToIsConsistentWithEquality()
+    public async Task CompareToIsConsistentWithEquality()
     {
         Maybe<int>[] values = [Maybe<int>.None, Maybe.Some(1), Maybe.Some(2)];
 
@@ -327,12 +308,9 @@ public class MaybeTests
         {
             foreach (Maybe<int> y in values)
             {
-                Assert.AreEqual(expected: x == y, actual: x.CompareTo(y) == 0, message: $"{x} against {y}");
+                await Assert.That(x.CompareTo(y) == 0).IsEqualTo(x == y).Because($"{x} against {y}");
 
-                Assert.AreEqual(
-                    expected: Math.Sign(x.CompareTo(y)),
-                    actual: -Math.Sign(y.CompareTo(x)),
-                    message: $"{x} against {y}");
+                await Assert.That(-Math.Sign(y.CompareTo(x))).IsEqualTo(Math.Sign(x.CompareTo(y))).Because($"{x} against {y}");
             }
         }
     }

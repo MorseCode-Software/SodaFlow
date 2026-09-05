@@ -2,7 +2,11 @@ using System;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
-using NUnit.Framework;
+using System.Threading.Tasks;
+using TUnit.Assertions;
+using TUnit.Assertions.Enums;
+using TUnit.Assertions.Extensions;
+using TUnit.Core;
 
 namespace SodaFlow.Bindable.ObjectModel.Tests;
 
@@ -26,7 +30,6 @@ namespace SodaFlow.Bindable.ObjectModel.Tests;
 ///         were compared.
 ///     </para>
 /// </remarks>
-[TestFixture]
 public class BindableValueConcurrencyTests
 {
     /// <summary>
@@ -64,7 +67,7 @@ public class BindableValueConcurrencyTests
     // The documented contract on ImmediateBindingScheduler: it defers, but only to the end of the
     // transaction in flight, so a test never has to pump anything to see the notification.
     [Test]
-    public void TheImmediateSchedulerHasNotifiedByTheTimeTheSendReturns()
+    public async Task TheImmediateSchedulerHasNotifiedByTheTimeTheSendReturns()
     {
         CellSink<int> c = Cell.CreateSink(0);
 
@@ -76,10 +79,7 @@ public class BindableValueConcurrencyTests
 
         c.Send(1);
 
-        CollectionAssert.AreEqual(
-            expected: new[] { 1 },
-            actual: observed,
-            message: "the notification is delivered before Send returns, not left queued");
+        await Assert.That(observed).IsEquivalentTo(new[] { 1 }, CollectionOrdering.Matching).Because("the notification is delivered before Send returns, not left queued");
     }
 
     // Transactions are serialized process-wide, and that guarantee reaches the binding thread: a
@@ -87,7 +87,7 @@ public class BindableValueConcurrencyTests
     // already in flight. Worth pinning down - it is the reason a long transaction on a background
     // thread stalls the UI, and the reason a scheduler which blocks would deadlock against it.
     [Test]
-    public void ASetterWaitsWhileAnotherThreadHoldsATransactionOpen()
+    public async Task ASetterWaitsWhileAnotherThreadHoldsATransactionOpen()
     {
         CellSink<int> c = Cell.CreateSink(0);
 
@@ -122,17 +122,13 @@ public class BindableValueConcurrencyTests
 
             setter.Start(b);
 
-            Assert.IsFalse(
-                condition: setter.Join(200),
-                message: "the setter cannot complete while another thread holds the transaction open");
+            await Assert.That(condition: setter.Join(200)).IsFalse().Because("the setter cannot complete while another thread holds the transaction open");
 
             release.TrySetResult(true);
 
-            Assert.IsTrue(
-                condition: setter.Join(TimeSpan.FromSeconds(30)),
-                message: "and completes once that transaction closes");
+            await Assert.That(condition: setter.Join(TimeSpan.FromSeconds(30))).IsTrue().Because("and completes once that transaction closes");
 
-            Assert.AreEqual(expected: 5, actual: c.Sample(), message: "the write reached the graph");
+            await Assert.That(c.Sample()).IsEqualTo(5).Because("the write reached the graph");
         }
         finally
         {
@@ -149,7 +145,7 @@ public class BindableValueConcurrencyTests
     // correction. Sampling the cell in the handler, as the reconciliation does, would make a late
     // notification harmless.
     [Test]
-    public void AStaleUpdateDoesNotRevertANewerValue()
+    public async Task AStaleUpdateDoesNotRevertANewerValue()
     {
         QueueingScheduler scheduler = new();
         CellSink<int> c = Cell.CreateSink(0);
@@ -165,13 +161,10 @@ public class BindableValueConcurrencyTests
 
         scheduler.RunAll();
 
-        CollectionAssert.DoesNotContain(
-            collection: observed,
-            actual: 1,
-            message: "the view is never told to go back to a value the caller has already replaced");
+        await Assert.That(observed).DoesNotContain(1).Because("the view is never told to go back to a value the caller has already replaced");
 
-        Assert.AreEqual(expected: 2, actual: b.Value);
-        Assert.AreEqual(expected: 2, actual: c.Sample());
+        await Assert.That(b.Value).IsEqualTo(2);
+        await Assert.That(c.Sample()).IsEqualTo(2);
     }
 
     // The same pair of writes down the other path. A setter normally sends synchronously - with no
@@ -182,7 +175,7 @@ public class BindableValueConcurrencyTests
     // view the older value back, so it is the one worth pinning: both writes drain before any
     // refresh runs, and the refreshes sample rather than carrying a value, so neither can.
     [Test]
-    public void TwoWritesInsideOneTransactionDoNotRevert()
+    public async Task TwoWritesInsideOneTransactionDoNotRevert()
     {
         QueueingScheduler scheduler = new();
         StreamSink<string> edits = Stream.CreateSink<string>();
@@ -210,13 +203,10 @@ public class BindableValueConcurrencyTests
 
         scheduler.RunAll();
 
-        CollectionAssert.DoesNotContain(
-            collection: observed,
-            actual: "A",
-            message: "the deferred first write never reaches the view after the second has replaced it");
+        await Assert.That(observed).DoesNotContain("A").Because("the deferred first write never reaches the view after the second has replaced it");
 
-        Assert.AreEqual(expected: "B", actual: b.Value);
-        Assert.AreEqual(expected: "B", actual: upperCased.Sample());
+        await Assert.That(b.Value).IsEqualTo("B");
+        await Assert.That(upperCased.Sample()).IsEqualTo("B");
     }
 
     // The cached value is a record of what the cell held when it was last sampled, not of what
@@ -225,7 +215,7 @@ public class BindableValueConcurrencyTests
     // check discards it. The caller asked for a value the graph does not hold, and nothing carries
     // the request anywhere.
     [Test]
-    public void ASetterIsNotDiscardedWhileARefreshIsInFlight()
+    public async Task ASetterIsNotDiscardedWhileARefreshIsInFlight()
     {
         QueueingScheduler scheduler = new();
         CellSink<int> c = Cell.CreateSink(0);
@@ -246,10 +236,7 @@ public class BindableValueConcurrencyTests
 
         scheduler.RunAll();
 
-        Assert.AreEqual(
-            expected: 0,
-            actual: c.Sample(),
-            message: "a write is not dropped for matching a cached value the graph had already left behind");
+        await Assert.That(c.Sample()).IsEqualTo(0).Because("a write is not dropped for matching a cached value the graph had already left behind");
     }
 
     // The constructor samples the cell and attaches its listener inside one transaction, and the
@@ -260,7 +247,7 @@ public class BindableValueConcurrencyTests
     // sampling and subscribing, and reporting it as the value before the sample landed would mean
     // the constructor had overwritten it.
     [Test]
-    public void OneWayConstructedInsideATransactionWhichThenFires()
+    public async Task OneWayConstructedInsideATransactionWhichThenFires()
     {
         CellSink<int> c = Cell.CreateSink(0);
 
@@ -274,14 +261,11 @@ public class BindableValueConcurrencyTests
                 return created;
             });
 
-        Assert.AreEqual(
-            expected: 5,
-            actual: b.Value,
-            message: "the update fired after the listener was attached and is newer than the sample");
+        await Assert.That(b.Value).IsEqualTo(5).Because("the update fired after the listener was attached and is newer than the sample");
     }
 
     [Test]
-    public void TwoWayConstructedInsideATransactionWhichThenFires()
+    public async Task TwoWayConstructedInsideATransactionWhichThenFires()
     {
         CellSink<int> c = Cell.CreateSink(0);
 
@@ -295,7 +279,7 @@ public class BindableValueConcurrencyTests
                 return created;
             });
 
-        Assert.AreEqual(expected: 5, actual: b.Value);
+        await Assert.That(b.Value).IsEqualTo(5);
     }
 
     /// <summary>
@@ -329,45 +313,35 @@ public class BindableValueConcurrencyTests
     private static SynchronizationContextBindingScheduler AffineScheduler() => new(new SynchronizationContext());
 
     [Test]
-    public void ReadingOneWayOffTheBindingThreadThrows()
+    public async Task ReadingOneWayOffTheBindingThreadThrows()
     {
         CellSink<int> c = Cell.CreateSink(0);
 
         using IOneWayBindableValue<int> b = c.ToOneWayImpl(scheduler: AffineScheduler());
 
-        Assert.AreEqual(
-            expected: 0,
-            actual: b.Value,
-            message: "the constructing thread is the binding thread for this scheduler");
+        await Assert.That(b.Value).IsEqualTo(0).Because("the constructing thread is the binding thread for this scheduler");
 
         Exception? caught = CaughtOffTheBindingThread(state: b, body: static target => _ = target.Value);
 
-        Assert.IsInstanceOf<InvalidOperationException>(
-            actual: caught,
-            message: "reading from another thread is caught rather than left to return a stale value");
+        await Assert.That(actual: caught).IsTypeOf<InvalidOperationException>().Because("reading from another thread is caught rather than left to return a stale value");
     }
 
     [Test]
-    public void ReadingTwoWayOffTheBindingThreadThrows()
+    public async Task ReadingTwoWayOffTheBindingThreadThrows()
     {
         CellSink<int> c = Cell.CreateSink(0);
 
         using ITwoWayBindableValue<int> b = c.ToTwoWayImpl(scheduler: AffineScheduler());
 
-        Assert.AreEqual(
-            expected: 0,
-            actual: b.Value,
-            message: "the constructing thread is the binding thread for this scheduler");
+        await Assert.That(b.Value).IsEqualTo(0).Because("the constructing thread is the binding thread for this scheduler");
 
         Exception? caught = CaughtOffTheBindingThread(state: b, body: static target => _ = target.Value);
 
-        Assert.IsInstanceOf<InvalidOperationException>(
-            actual: caught,
-            message: "reading from another thread is caught rather than left to return a stale value");
+        await Assert.That(actual: caught).IsTypeOf<InvalidOperationException>().Because("reading from another thread is caught rather than left to return a stale value");
     }
 
     [Test]
-    public void WritingTwoWayOffTheBindingThreadThrows()
+    public async Task WritingTwoWayOffTheBindingThreadThrows()
     {
         CellSink<int> c = Cell.CreateSink(0);
 
@@ -375,13 +349,13 @@ public class BindableValueConcurrencyTests
 
         Exception? caught = CaughtOffTheBindingThread(state: b, body: static target => target.Value = 5);
 
-        Assert.IsInstanceOf<InvalidOperationException>(caught);
-        Assert.AreEqual(expected: 0, actual: c.Sample(), message: "and the write never reached the graph");
+        await Assert.That(caught).IsTypeOf<InvalidOperationException>();
+        await Assert.That(c.Sample()).IsEqualTo(0).Because("and the write never reached the graph");
     }
 
     // The one that had no scheduler before, and so no way to be checked at all.
     [Test]
-    public void WritingOneWayToSourceOffTheBindingThreadThrows()
+    public async Task WritingOneWayToSourceOffTheBindingThreadThrows()
     {
         CellSink<int> c = Cell.CreateSink(0);
 
@@ -390,14 +364,14 @@ public class BindableValueConcurrencyTests
 
         Exception? caught = CaughtOffTheBindingThread(state: b, body: static target => target.Value = 5);
 
-        Assert.IsInstanceOf<InvalidOperationException>(caught);
-        Assert.AreEqual(expected: 0, actual: c.Sample());
+        await Assert.That(caught).IsTypeOf<InvalidOperationException>();
+        await Assert.That(c.Sample()).IsEqualTo(0);
     }
 
     // Nothing changes for a scheduler with no affinity, which is what keeps every existing test
     // and every headless host working unchanged.
     [Test]
-    public void TheImmediateSchedulerNeverRejectsAThread()
+    public async Task TheImmediateSchedulerNeverRejectsAThread()
     {
         CellSink<int> c = Cell.CreateSink(0);
 
@@ -405,15 +379,15 @@ public class BindableValueConcurrencyTests
 
         Exception? caught = CaughtOffTheBindingThread(state: b, body: static target => target.Value = 5);
 
-        Assert.IsNull(anObject: caught, message: "the immediate scheduler runs work wherever it is called");
-        Assert.AreEqual(expected: 5, actual: c.Sample());
+        await Assert.That(anObject: caught).IsNull().Because("the immediate scheduler runs work wherever it is called");
+        await Assert.That(c.Sample()).IsEqualTo(5);
     }
 
     // What a burst costs and what it produces, which is the question to answer before trying to
     // coalesce the refreshes: every queued refresh sees the same cell, so the first one to run
     // does the work and the rest find nothing to do.
     [Test]
-    public void ABurstOfUpdatesQueuesARefreshEachButNotifiesOnce()
+    public async Task ABurstOfUpdatesQueuesARefreshEachButNotifiesOnce()
     {
         QueueingScheduler scheduler = new();
         CellSink<int> c = Cell.CreateSink(0);
@@ -430,14 +404,11 @@ public class BindableValueConcurrencyTests
 
         int ran = scheduler.RunAll();
 
-        Assert.AreEqual(expected: 3, actual: ran, message: "one refresh queued per update");
+        await Assert.That(ran).IsEqualTo(3).Because("one refresh queued per update");
 
-        CollectionAssert.AreEqual(
-            expected: new[] { 3 },
-            actual: observed,
-            message: "but only one notification, because they all sample the same settled cell");
+        await Assert.That(observed).IsEquivalentTo(new[] { 3 }, CollectionOrdering.Matching).Because("but only one notification, because they all sample the same settled cell");
 
-        Assert.AreEqual(expected: 3, actual: b.Value);
+        await Assert.That(b.Value).IsEqualTo(3);
     }
 
     // The deliberate asymmetry with the two-way value above, and the reason a one-way value was
@@ -446,7 +417,7 @@ public class BindableValueConcurrencyTests
     // leaves the cell's current value behind. Sampling would be sound too - and would collapse
     // this to a single notification carrying only the final value.
     [Test]
-    public void ABurstOfUpdatesReachesAOneWayValueOneAtATime()
+    public async Task ABurstOfUpdatesReachesAOneWayValueOneAtATime()
     {
         QueueingScheduler scheduler = new();
         CellSink<int> c = Cell.CreateSink(0);
@@ -463,16 +434,10 @@ public class BindableValueConcurrencyTests
 
         int ran = scheduler.RunAll();
 
-        Assert.AreEqual(expected: 3, actual: ran, message: "one delivery queued per update");
+        await Assert.That(ran).IsEqualTo(3).Because("one delivery queued per update");
 
-        CollectionAssert.AreEqual(
-            expected: new[] { 1, 2, 3 },
-            actual: observed,
-            message: "each value the cell held is reported, in the order it held them");
+        await Assert.That(observed).IsEquivalentTo(new[] { 1, 2, 3 }, CollectionOrdering.Matching).Because("each value the cell held is reported, in the order it held them");
 
-        Assert.AreEqual(
-            expected: 3,
-            actual: b.Value,
-            message: "and the last one delivered agrees with the cell");
+        await Assert.That(b.Value).IsEqualTo(3).Because("and the last one delivered agrees with the cell");
     }
 }

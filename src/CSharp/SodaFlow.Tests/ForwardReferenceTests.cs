@@ -1,10 +1,13 @@
 using System;
 using System.Collections.Generic;
-using NUnit.Framework;
+using System.Threading.Tasks;
+using TUnit.Assertions;
+using TUnit.Assertions.Enums;
+using TUnit.Assertions.Extensions;
+using TUnit.Core;
 
 namespace SodaFlow.Tests;
 
-[TestFixture]
 public class ForwardReferenceTests
 {
     private sealed class Child(Cell<Node> parent)
@@ -20,16 +23,16 @@ public class ForwardReferenceTests
     }
 
     [Test]
-    public void TestWithoutCapturesResolvesTheReference()
+    public async Task TestWithoutCapturesResolvesTheReference()
     {
         Node node =
             ForwardReference<Node>.WithoutCaptures(static reference => Node.WithChildHolding(reference.AsCell()));
 
-        Assert.AreSame(expected: node, actual: node.Child.Parent.Sample());
+        await Assert.That(node.Child.Parent.Sample()).IsSameReferenceAs(node);
     }
 
     [Test]
-    public void TestWithoutCapturesReturnsWhatTheFunctionProduced()
+    public async Task TestWithoutCapturesReturnsWhatTheFunctionProduced()
     {
         object? produced = null;
 
@@ -40,11 +43,11 @@ public class ForwardReferenceTests
                 return produced;
             });
 
-        Assert.AreSame(expected: produced, actual: result);
+        await Assert.That(result).IsSameReferenceAs(produced);
     }
 
     [Test]
-    public void TestWithoutCapturesRunsTheFunctionOnce()
+    public async Task TestWithoutCapturesRunsTheFunctionOnce()
     {
         int calls = 0;
 
@@ -55,11 +58,11 @@ public class ForwardReferenceTests
             return 1;
         });
 
-        Assert.AreEqual(expected: 1, actual: calls);
+        await Assert.That(calls).IsEqualTo(1);
     }
 
     [Test]
-    public void TestWithoutCapturesReferenceNeverChanges()
+    public async Task TestWithoutCapturesReferenceNeverChanges()
     {
         // The single-valued case of a cell loop: the reference resolves once and stays there.
         Node node =
@@ -71,22 +74,22 @@ public class ForwardReferenceTests
         {
         }
 
-        CollectionAssert.AreEqual(expected: new[] { node }, actual: @out);
+        await Assert.That(@out).IsEquivalentTo(new[] { node }, CollectionOrdering.Matching);
     }
 
     [Test]
-    public void TestWithCapturesResolvesTheReferenceAndReturnsTheCaptures()
+    public async Task TestWithCapturesResolvesTheReferenceAndReturnsTheCaptures()
     {
         (Node node, StreamSink<int> sink) =
             ForwardReference<Node>.WithCaptures(static reference =>
                 (Value: Node.WithChildHolding(reference.AsCell()), Captures: Stream.CreateSink<int>()));
 
-        Assert.AreSame(expected: node, actual: node.Child.Parent.Sample());
-        Assert.IsNotNull(sink);
+        await Assert.That(node.Child.Parent.Sample()).IsSameReferenceAs(node);
+        await Assert.That(sink).IsNotNull();
     }
 
     [Test]
-    public void TestWithCapturesRunsTheFunctionOnce()
+    public async Task TestWithCapturesRunsTheFunctionOnce()
     {
         int calls = 0;
 
@@ -97,11 +100,11 @@ public class ForwardReferenceTests
             return (Value: 1, Captures: 2);
         });
 
-        Assert.AreEqual(expected: 1, actual: calls);
+        await Assert.That(calls).IsEqualTo(1);
     }
 
     [Test]
-    public void TestTwoObjectsCanReferToEachOther()
+    public async Task TestTwoObjectsCanReferToEachOther()
     {
         // Neither exists when the other is constructed, which is the knot this unties.
         (Node node, Child child) =
@@ -111,25 +114,25 @@ public class ForwardReferenceTests
                 return (Value: Node.WithChildHolding(reference.AsCell()), Captures: c);
             });
 
-        Assert.AreSame(expected: node, actual: child.Parent.Sample());
-        Assert.AreSame(expected: node, actual: node.Child.Parent.Sample());
+        await Assert.That(child.Parent.Sample()).IsSameReferenceAs(node);
+        await Assert.That(node.Child.Parent.Sample()).IsSameReferenceAs(node);
     }
 
     [Test]
-    public void TestWorksInsideAnExistingTransaction()
+    public async Task TestWorksInsideAnExistingTransaction()
     {
         Node node =
             Transaction.Run(static () =>
                 ForwardReference<Node>.WithoutCaptures(static reference => Node.WithChildHolding(reference.AsCell())));
 
-        Assert.AreSame(expected: node, actual: node.Child.Parent.Sample());
+        await Assert.That(node.Child.Parent.Sample()).IsSameReferenceAs(node);
     }
 
     [Test]
-    public void TestReferenceCannotBeReadDuringConstruction() =>
+    public async Task TestReferenceCannotBeReadDuringConstruction() =>
         // The reference is a promise about what the value will be, not the value, so asking
         // for it before the constructing function has returned has no answer.
-        Assert.Throws<InvalidOperationException>(static () =>
+        await Assert.That(static () =>
             // ReSharper disable once ReturnValueOfPureMethodIsNotUsed - Testing for side effect only.
-            ForwardReference<int>.WithoutCaptures(static reference => reference.Sample()));
+            ForwardReference<int>.WithoutCaptures(static reference => reference.Sample())).ThrowsExactly<InvalidOperationException>();
 }

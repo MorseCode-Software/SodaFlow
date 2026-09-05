@@ -1,17 +1,20 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Threading;
-using NUnit.Framework;
+using System.Threading.Tasks;
+using TUnit.Assertions;
+using TUnit.Assertions.Enums;
+using TUnit.Assertions.Extensions;
+using TUnit.Core;
 using SodaFlow.Functional;
 using SodaFlow.Time;
 
 namespace SodaFlow.Tests;
 
-[TestFixture]
 public class TimerTests
 {
     [Test]
-    public void SimultaneousTimerEvents()
+    public async Task SimultaneousTimerEvents()
     {
         TimerSystem<DateTime> ts =
             new SystemClockTimerSystem(static _ =>
@@ -64,7 +67,7 @@ public class TimerTests
 
         lock (l)
         {
-            Assert.That(actual: l.Count, expression: Is.EqualTo(2));
+            await Assert.That(l.Count).IsEqualTo(2);
         }
     }
 }

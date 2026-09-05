@@ -1,13 +1,16 @@
-﻿using NUnit.Framework;
+﻿using System.Threading.Tasks;
+using TUnit.Assertions;
+using TUnit.Assertions.Enums;
+using TUnit.Assertions.Extensions;
+using TUnit.Core;
 using SodaFlow.Functional;
 
 namespace SodaFlow.Tests.Internal;
 
-[TestFixture]
 public class NodeTests
 {
     [Test]
-    public void TestNode()
+    public async Task TestNode()
     {
         Node<int> a = new();
         Node<int> b = new();
@@ -30,20 +33,20 @@ public class NodeTests
             return UnitInternal.Value;
         });
 
-        Assert.That(actual: a.Rank, expression: Is.LessThan(b.Rank));
+        await Assert.That(a.Rank).IsLessThan(b.Rank);
     }
 
     [Test]
-    public void TestDependency()
+    public async Task TestDependency()
     {
         StreamSink<int> streamSink = Stream.CreateSink<int>();
         Stream<int> stream = streamSink.Map(static v => v * 2);
 
-        Assert.That(actual: streamSink.Node.Rank, expression: Is.LessThan(stream.Node.Rank));
+        await Assert.That(streamSink.Node.Rank).IsLessThan(stream.Node.Rank);
     }
 
     [Test]
-    public void TestSnapshot()
+    public async Task TestSnapshot()
     {
         CellSink<int> cellSink = Cell.CreateSink(0);
         StreamSink<Unit> streamSink = Stream.CreateSink<Unit>();
@@ -75,7 +78,7 @@ public class NodeTests
 
         long rank3 = cell.UpdatesImpl.Node.Rank;
 
-        Assert.That(actual: rank1, expression: Is.EqualTo(rank2));
-        Assert.That(actual: rank2, expression: Is.LessThan(rank3));
+        await Assert.That(rank1).IsEqualTo(rank2);
+        await Assert.That(rank2).IsLessThan(rank3);
     }
 }

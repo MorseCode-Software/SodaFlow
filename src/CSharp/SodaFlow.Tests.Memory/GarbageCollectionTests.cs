@@ -1,7 +1,11 @@
 using System;
 using System.Collections.Generic;
 using System.Runtime.CompilerServices;
-using NUnit.Framework;
+using System.Threading.Tasks;
+using TUnit.Assertions;
+using TUnit.Assertions.Enums;
+using TUnit.Assertions.Extensions;
+using TUnit.Core;
 
 namespace SodaFlow.Tests.Memory;
 
@@ -24,58 +28,46 @@ namespace SodaFlow.Tests.Memory;
 ///         these tests send a value to force a deterministic outcome and check that.
 ///     </para>
 /// </remarks>
-[TestFixture]
 public class GarbageCollectionTests
 {
     [Test]
-    public void MappedStreamIsCollectedOnceDroppedAndUnlistened()
+    public async Task MappedStreamIsCollectedOnceDroppedAndUnlistened()
     {
         StreamSink<int> s = Stream.CreateSink<int>();
         List<string> @out = [];
 
         WeakReference mapped = CreateMappedStreamAndUnlisten(s: s, @out: @out);
 
-        CollectionAssert.AreEqual(
-            expected: new[] { "3" },
-            actual: @out,
-            message: "the mapped stream should have fired while it was listening");
+        await Assert.That(@out).IsEquivalentTo(new[] { "3" }, CollectionOrdering.Matching).Because("the mapped stream should have fired while it was listening");
 
         Collect();
 
-        Assert.IsFalse(
-            condition: mapped.IsAlive,
-            message: "nothing should still root a mapped stream after the caller drops it and unlistens");
+        await Assert.That(condition: mapped.IsAlive).IsFalse().Because("nothing should still root a mapped stream after the caller drops it and unlistens");
     }
 
     [Test]
-    public void SourceNodeIsDisconnectedAfterDownstreamIsCollected()
+    public async Task SourceNodeIsDisconnectedAfterDownstreamIsCollected()
     {
         StreamSink<int> s = Stream.CreateSink<int>();
         List<string> @out = [];
 
-        Assert.AreEqual(
-            expected: 0,
-            actual: s.Node.GetListenersCopy().Count,
-            message: "a fresh sink has no listeners");
+        await Assert.That(s.Node.GetListenersCopy().Count).IsEqualTo(0).Because("a fresh sink has no listeners");
 
         WeakReference mapped = CreateMappedStreamAndUnlisten(s: s, @out: @out);
 
         Collect();
 
-        Assert.IsFalse(condition: mapped.IsAlive, message: "the mapped stream should have been collected");
+        await Assert.That(condition: mapped.IsAlive).IsFalse().Because("the mapped stream should have been collected");
 
         // Sending is what makes this deterministic: either the cleanup thread already unhooked
         // the node, or this send prunes the target whose weak reference has died.
         s.Send(2);
 
-        Assert.AreEqual(
-            expected: 0,
-            actual: s.Node.GetListenersCopy().Count,
-            message: "the source node should no longer be linked to a collected downstream stream");
+        await Assert.That(s.Node.GetListenersCopy().Count).IsEqualTo(0).Because("the source node should no longer be linked to a collected downstream stream");
     }
 
     [Test]
-    public void EveryStreamInAChainIsCollected()
+    public async Task EveryStreamInAChainIsCollected()
     {
         const int depth = 10;
 
@@ -86,22 +78,16 @@ public class GarbageCollectionTests
 
         for (int i = 0; i < chain.Length; i++)
         {
-            Assert.IsFalse(
-                condition: chain[i].IsAlive,
-                message: "stream at depth {0} should have been collected",
-                i);
+            await Assert.That(condition: chain[i].IsAlive).IsFalse().Because("stream at depth {0} should have been collected");
         }
 
         s.Send(1);
 
-        Assert.AreEqual(
-            expected: 0,
-            actual: s.Node.GetListenersCopy().Count,
-            message: "the source node should be disconnected once the whole chain is gone");
+        await Assert.That(s.Node.GetListenersCopy().Count).IsEqualTo(0).Because("the source node should be disconnected once the whole chain is gone");
     }
 
     [Test]
-    public void ListenerIsKeptAliveWhileStillListening()
+    public async Task ListenerIsKeptAliveWhileStillListening()
     {
         StreamSink<int> s = Stream.CreateSink<int>();
         List<int> @out = [];
@@ -113,20 +99,15 @@ public class GarbageCollectionTests
         // This is deliberate, not an oversight: ListenStrong roots the listener in the stream's
         // keep-alive set precisely so that a caller which ignores the return value still
         // receives values. Losing this would make listeners silently stop firing.
-        Assert.IsTrue(
-            condition: listener.IsAlive,
-            message: "an active listener should stay alive even once the caller drops it");
+        await Assert.That(condition: listener.IsAlive).IsTrue().Because("an active listener should stay alive even once the caller drops it");
 
         s.Send(5);
 
-        CollectionAssert.AreEqual(
-            expected: new[] { 5 },
-            actual: @out,
-            message: "a rooted listener should still be firing");
+        await Assert.That(@out).IsEquivalentTo(new[] { 5 }, CollectionOrdering.Matching).Because("a rooted listener should still be firing");
     }
 
     [Test]
-    public void UnlistenReleasesTheListener()
+    public async Task UnlistenReleasesTheListener()
     {
         StreamSink<int> s = Stream.CreateSink<int>();
         List<int> @out = [];
@@ -135,17 +116,15 @@ public class GarbageCollectionTests
 
         Collect();
 
-        Assert.IsFalse(
-            condition: listener.IsAlive,
-            message: "Unlisten should stop the listener being rooted by the stream");
+        await Assert.That(condition: listener.IsAlive).IsFalse().Because("Unlisten should stop the listener being rooted by the stream");
 
         s.Send(5);
 
-        CollectionAssert.IsEmpty(collection: @out, message: "an unlistened listener should not fire");
+        await Assert.That(collection: @out).IsEmpty().Because("an unlistened listener should not fire");
     }
 
     [Test]
-    public void CollectedStreamsAreReapedFromTheRegistry()
+    public async Task CollectedStreamsAreReapedFromTheRegistry()
     {
         // StreamListenerManager tracks every stream ever created, so if the sweep failed to
         // reap collected ones the registry would grow without bound. Nothing else here would
@@ -161,9 +140,7 @@ public class GarbageCollectionTests
         StreamListenerManager.Sweep();
         int after = StreamListenerManager.RegistryCount;
 
-        Assert.That(
-            actual: after,
-            expression: Is.LessThanOrEqualTo(before),
+        await Assert.That(after).IsLessThanOrEqualTo(before),
             message: "the registry should be back to its previous size once the streams it tracked are collected");
     }
 
@@ -190,7 +167,7 @@ public class GarbageCollectionTests
     [MethodImpl(MethodImplOptions.NoInlining)]
     private static WeakReference CreateMappedStreamAndUnlisten(StreamSink<int> s, ICollection<string> @out)
     {
-        Stream<string> mapped = s.Map(static x => (x + 2).ToString());
+        Stream<string> mapped = s.Map(static x => (x + 2).ToString();
         IListener listener = mapped.ListenStrong(@out.Add);
         s.Send(1);
         listener.Unlisten();

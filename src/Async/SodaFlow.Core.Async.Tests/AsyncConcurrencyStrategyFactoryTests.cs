@@ -1,15 +1,18 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Threading;
-using NUnit.Framework;
+using System.Threading.Tasks;
+using TUnit.Assertions;
+using TUnit.Assertions.Enums;
+using TUnit.Assertions.Extensions;
+using TUnit.Core;
 
 namespace SodaFlow.Async.Tests;
 
-[TestFixture]
 public class AsyncConcurrencyStrategyFactoryTests
 {
     [Test]
-    public void Parallel_BothStartImmediatelyAndPublishInCompletionOrder()
+    public async Task Parallel_BothStartImmediatelyAndPublishInCompletionOrder()
     {
         StreamSink<string> source = Stream.CreateSink<string>();
         StreamSink<string> results = Stream.CreateSink<string>();
@@ -39,14 +42,14 @@ public class AsyncConcurrencyStrategyFactoryTests
         TestUtil.WaitUntil(() => received.Count == 2);
 
         // Completion order, not submission order.
-        CollectionAssert.AreEqual(expected: new[] { "B", "A" }, actual: received);
+        await Assert.That(received).IsEquivalentTo(new[] { "B", "A" }, CollectionOrdering.Matching);
 
         status.Dispose();
         l.Unlisten();
     }
 
     [Test]
-    public void Parallel_BothStartImmediatelyAndPublishInCompletionOrderWithFailures()
+    public async Task Parallel_BothStartImmediatelyAndPublishInCompletionOrderWithFailures()
     {
         StreamSink<string> source = Stream.CreateSink<string>();
         StreamSink<string> results = Stream.CreateSink<string>();
@@ -86,7 +89,7 @@ public class AsyncConcurrencyStrategyFactoryTests
         TestUtil.WaitUntil(() => received.Count == 4);
 
         // Completion order, not submission order.
-        CollectionAssert.AreEqual(expected: new object[] { d, "C", b, "A" }, actual: received);
+        await Assert.That(received).IsEquivalentTo(new object[] { d, "C", b, "A" }, CollectionOrdering.Matching);
 
         status.Dispose();
         l.Unlisten();
@@ -94,7 +97,7 @@ public class AsyncConcurrencyStrategyFactoryTests
     }
 
     [Test]
-    public void Queue_SecondDoesNotStartUntilFirstCompletes()
+    public async Task Queue_SecondDoesNotStartUntilFirstCompletes()
     {
         StreamSink<string> source = Stream.CreateSink<string>();
         StreamSink<string> results = Stream.CreateSink<string>();
@@ -117,12 +120,12 @@ public class AsyncConcurrencyStrategyFactoryTests
         source.Send("c");
 
         TestUtil.WaitUntil(() => op.HasStarted("a"));
-        Assert.IsFalse(condition: op.HasStarted("b"), message: "b must stay queued while a is running.");
-        Assert.IsFalse(condition: op.HasStarted("c"), message: "c must stay queued while a is running.");
+        await Assert.That(condition: op.HasStarted("b")).IsFalse().Because("b must stay queued while a is running.");
+        await Assert.That(condition: op.HasStarted("c")).IsFalse().Because("c must stay queued while a is running.");
 
         op.Release(input: "a", result: "A");
         TestUtil.WaitUntil(() => op.HasStarted("b"));
-        Assert.IsFalse(condition: op.HasStarted("c"), message: "c must stay queued while b is running.");
+        await Assert.That(condition: op.HasStarted("c")).IsFalse().Because("c must stay queued while b is running.");
 
         op.Release(input: "b", result: "B");
         TestUtil.WaitUntil(() => op.HasStarted("c"));
@@ -130,14 +133,14 @@ public class AsyncConcurrencyStrategyFactoryTests
         op.Release(input: "c", result: "C");
         TestUtil.WaitUntil(() => received.Count == 3);
 
-        CollectionAssert.AreEqual(expected: new[] { "A", "B", "C" }, actual: received);
+        await Assert.That(received).IsEquivalentTo(new[] { "A", "B", "C" }, CollectionOrdering.Matching);
 
         status.Dispose();
         l.Unlisten();
     }
 
     [Test]
-    public void QueuePerGroup_DifferentGroupsRunConcurrentlyButSameGroupSerializes()
+    public async Task QueuePerGroup_DifferentGroupsRunConcurrentlyButSameGroupSerializes()
     {
         StreamSink<string> source = Stream.CreateSink<string>();
         StreamSink<string> results = Stream.CreateSink<string>();
@@ -161,7 +164,7 @@ public class AsyncConcurrencyStrategyFactoryTests
 
         // g1-a and g2-a are in different groups, so both start; g1-b waits behind g1-a.
         TestUtil.WaitUntil(() => op.HasStarted("g1-a") && op.HasStarted("g2-a"));
-        Assert.IsFalse(condition: op.HasStarted("g1-b"), message: "g1-b shares a group with g1-a and must wait.");
+        await Assert.That(condition: op.HasStarted("g1-b")).IsFalse().Because("g1-b shares a group with g1-a and must wait.");
 
         op.Release(input: "g1-a", result: "A1");
         TestUtil.WaitUntil(() => op.HasStarted("g1-b"));
@@ -170,7 +173,7 @@ public class AsyncConcurrencyStrategyFactoryTests
         op.Release(input: "g2-a", result: "A2");
         TestUtil.WaitUntil(() => received.Count == 3);
 
-        CollectionAssert.AreEquivalent(expected: new[] { "A1", "B1", "A2" }, actual: received);
+        await Assert.That(received).IsEquivalentTo(new[] { "A1", "B1", "A2" });
 
         status.Dispose();
         l.Unlisten();
@@ -181,7 +184,7 @@ public class AsyncConcurrencyStrategyFactoryTests
     }
 
     [Test]
-    public void SwitchLatest_SupersededRunIsNeverPublished()
+    public async Task SwitchLatest_SupersededRunIsNeverPublished()
     {
         StreamSink<string> source = Stream.CreateSink<string>();
         StreamSink<string> results = Stream.CreateSink<string>();
@@ -213,14 +216,14 @@ public class AsyncConcurrencyStrategyFactoryTests
         // Give object "a" a fair chance to have published if the supersede logic were broken.
         Thread.Sleep(100);
 
-        CollectionAssert.AreEqual(expected: new[] { "B" }, actual: received);
+        await Assert.That(received).IsEquivalentTo(new[] { "B" }, CollectionOrdering.Matching);
 
         status.Dispose();
         l.Unlisten();
     }
 
     [Test]
-    public void Queue_SameStrategyInstanceSharedAcrossTwoPipelinesDoesNotCrossSerialize()
+    public async Task Queue_SameStrategyInstanceSharedAcrossTwoPipelinesDoesNotCrossSerialize()
     {
         AsyncConcurrencyStrategyBase<string, string> sharedQueue = AsyncConcurrencyStrategyFactory.Queue<string>();
 

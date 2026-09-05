@@ -3,15 +3,18 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
-using NUnit.Framework;
+using System.Threading.Tasks;
+using TUnit.Assertions;
+using TUnit.Assertions.Enums;
+using TUnit.Assertions.Extensions;
+using TUnit.Core;
 
 namespace SodaFlow.Async.Tests;
 
-[TestFixture]
 public class MapAsyncImplTests
 {
     [Test]
-    public void SuccessfulOperationPublishesToResults()
+    public async Task SuccessfulOperationPublishesToResults()
     {
         StreamSink<string> source = Stream.CreateSink<string>();
         StreamSink<string> results = Stream.CreateSink<string>();
@@ -31,14 +34,14 @@ public class MapAsyncImplTests
         source.Send("hello");
 
         TestUtil.WaitUntil(() => received.Count == 1);
-        Assert.AreEqual(expected: "HELLO", actual: received[0]);
+        await Assert.That(received[0]).IsEqualTo("HELLO");
 
         status.Dispose();
         l.Unlisten();
     }
 
     [Test]
-    public void FailedOperationPublishesToErrors()
+    public async Task FailedOperationPublishesToErrors()
     {
         StreamSink<string> source = Stream.CreateSink<string>();
         StreamSink<string> results = Stream.CreateSink<string>();
@@ -59,14 +62,14 @@ public class MapAsyncImplTests
         source.Send("hello");
 
         TestUtil.WaitUntil(() => received.Count == 1);
-        Assert.AreSame(expected: thrown, actual: received[0]);
+        await Assert.That(received[0]).IsSameReferenceAs(thrown);
 
         status.Dispose();
         l.Unlisten();
     }
 
     [Test]
-    public void InputAndResultConvertersAreAppliedBeforeTheStrategySeesThem()
+    public async Task InputAndResultConvertersAreAppliedBeforeTheStrategySeesThem()
     {
         StreamSink<string> source = Stream.CreateSink<string>();
         StreamSink<string> results = Stream.CreateSink<string>();
@@ -91,17 +94,17 @@ public class MapAsyncImplTests
         TestUtil.WaitUntil(() => received.Count == 1);
 
         // The strategy only ever sees the converted int, never the original string.
-        CollectionAssert.AreEqual(expected: new[] { 5 }, actual: strategy.AdmittedValues);
+        await Assert.That(strategy.AdmittedValues).IsEquivalentTo(new[] { 5 }, CollectionOrdering.Matching);
 
         // Meanwhile the real TResult published is the untouched, unconverted operation output.
-        Assert.AreEqual(expected: "HELLO", actual: received[0]);
+        await Assert.That(received[0]).IsEqualTo("HELLO");
 
         status.Dispose();
         l.Unlisten();
     }
 
     [Test]
-    public void CustomStrategyCanRejectAnIncomingValueOutright()
+    public async Task CustomStrategyCanRejectAnIncomingValueOutright()
     {
         StreamSink<int> source = Stream.CreateSink<int>();
         StreamSink<int> results = Stream.CreateSink<int>();
@@ -127,11 +130,11 @@ public class MapAsyncImplTests
         // -1 was rejected by the strategy — canceled and left permanently Queued, per the
         // documented "reject outright" idiom — and so never reached the operation; only the
         // non-negative value made it through.
-        CollectionAssert.AreEqual(expected: new[] { 2 }, actual: received);
+        await Assert.That(received).IsEquivalentTo(new[] { 2 }, CollectionOrdering.Matching);
 
         // The rejected item is still visible, forever Queued — that's the visible cost of this
         // idiom, called out in AsyncConcurrencyStrategy's own remarks.
-        Assert.IsTrue(status.Items.Sample().Any(static i => i is { Value: -1, Status: AsyncItemStatus.Queued }));
+        await Assert.That(status.Items.Sample().Any(static i => i is { Value: -1, Status: AsyncItemStatus.Queued })).IsTrue();
 
         status.Dispose();
         l.Unlisten();
@@ -154,7 +157,7 @@ public class MapAsyncImplTests
     ///     Expected to fail until <c>PromoteAndLaunch</c> defers that branch the same way.
     /// </summary>
     [Test]
-    public void Admit_CancelingAndPromotingTheSameItemInOneCall_CompletesItAsCanceledInstead()
+    public async Task Admit_CancelingAndPromotingTheSameItemInOneCall_CompletesItAsCanceledInstead()
     {
         StreamSink<int> source = Stream.CreateSink<int>();
         StreamSink<int> results = Stream.CreateSink<int>();
@@ -171,20 +174,18 @@ public class MapAsyncImplTests
                 inputConverter: static v => v,
                 resultConverter: static v => v);
 
-        Assert.DoesNotThrow(
-            code: () => source.Send(1),
-            message: "Canceling and promoting the same item in one Admit call should complete it as " +
+        await Assert.That(code: () => source.Send(1)).ThrowsNothing().Because("Canceling and promoting the same item in one Admit call should complete it as " +
                      "Canceled, not crash the transaction that admitted it.");
 
         Thread.Sleep(100);
-        Assert.AreEqual(expected: 0, actual: received.Count, message: "A canceled outcome must never be published.");
+        await Assert.That(received.Count).IsEqualTo(0).Because("A canceled outcome must never be published.");
 
         status.Dispose();
         l.Unlisten();
     }
 
     [Test]
-    public void Dispose_StopsFurtherAdmission()
+    public async Task Dispose_StopsFurtherAdmission()
     {
         StreamSink<string> source = Stream.CreateSink<string>();
         StreamSink<string> results = Stream.CreateSink<string>();
@@ -205,13 +206,13 @@ public class MapAsyncImplTests
         source.Send("after-dispose");
 
         Thread.Sleep(100);
-        Assert.AreEqual(expected: 0, actual: received.Count);
+        await Assert.That(received.Count).IsEqualTo(0);
 
         l.Unlisten();
     }
 
     [Test]
-    public void Dispose_WithCancelOnDisposeTrue_CancelsInFlightItem()
+    public async Task Dispose_WithCancelOnDisposeTrue_CancelsInFlightItem()
     {
         StreamSink<string> source = Stream.CreateSink<string>();
         StreamSink<string> results = Stream.CreateSink<string>();
@@ -236,13 +237,13 @@ public class MapAsyncImplTests
         status.Dispose();
 
         Thread.Sleep(200);
-        Assert.AreEqual(expected: 0, actual: received.Count, message: "A canceled outcome must never be published.");
+        await Assert.That(received.Count).IsEqualTo(0).Because("A canceled outcome must never be published.");
 
         l.Unlisten();
     }
 
     [Test]
-    public void Dispose_WithCancelOnDisposeFalse_LetsInFlightItemFinishAndPublish()
+    public async Task Dispose_WithCancelOnDisposeFalse_LetsInFlightItemFinishAndPublish()
     {
         StreamSink<string> source = Stream.CreateSink<string>();
         StreamSink<string> results = Stream.CreateSink<string>();
@@ -268,13 +269,13 @@ public class MapAsyncImplTests
         op.Release(input: "a", result: "A");
 
         TestUtil.WaitUntil(() => received.Count == 1);
-        CollectionAssert.AreEqual(expected: new[] { "A" }, actual: received);
+        await Assert.That(received).IsEquivalentTo(new[] { "A" }, CollectionOrdering.Matching);
 
         l.Unlisten();
     }
 
     [Test]
-    public void ItemsAndIsRunning_ReflectQueuedAndRunningStatus()
+    public async Task ItemsAndIsRunning_ReflectQueuedAndRunningStatus()
     {
         StreamSink<string> source = Stream.CreateSink<string>();
         StreamSink<string> results = Stream.CreateSink<string>();
@@ -290,8 +291,8 @@ public class MapAsyncImplTests
                 inputConverter: static v => v,
                 resultConverter: static v => v);
 
-        Assert.IsFalse(status.IsRunning.Sample());
-        Assert.AreEqual(expected: 0, actual: status.Items.Sample().Count);
+        await Assert.That(status.IsRunning.Sample()).IsFalse();
+        await Assert.That(status.Items.Sample().Count).IsEqualTo(0);
 
         source.Send("a");
         source.Send("b");
@@ -300,27 +301,27 @@ public class MapAsyncImplTests
         TestUtil.WaitUntil(() => status.IsRunning.Sample());
 
         IReadOnlyList<AsyncItem<string>> items = status.Items.Sample();
-        Assert.AreEqual(expected: 2, actual: items.Count);
-        Assert.IsTrue(items.Any(static i => i is { Value: "a", Status: AsyncItemStatus.Running }));
-        Assert.IsTrue(items.Any(static i => i is { Value: "b", Status: AsyncItemStatus.Queued }));
+        await Assert.That(items.Count).IsEqualTo(2);
+        await Assert.That(items.Any(static i => i is { Value: "a", Status: AsyncItemStatus.Running })).IsTrue();
+        await Assert.That(items.Any(static i => i is { Value: "b", Status: AsyncItemStatus.Queued })).IsTrue();
 
         op.Release(input: "a", result: "A");
         TestUtil.WaitUntil(() => op.HasStarted("b"));
 
         op.Release(input: "b", result: "B");
         TestUtil.WaitUntil(() => status.Items.Sample().Count == 0);
-        Assert.IsFalse(status.IsRunning.Sample());
+        await Assert.That(status.IsRunning.Sample()).IsFalse();
 
         status.Dispose();
     }
 
     [Test]
-    public void NullSourceThrowsArgumentNullException()
+    public async Task NullSourceThrowsArgumentNullException()
     {
         StreamSink<string> results = Stream.CreateSink<string>();
         StreamSink<Exception> errors = Stream.CreateSink<Exception>();
 
-        Assert.Throws<ArgumentNullException>(() =>
+        await Assert.That(() =>
             AsyncStreamUtility.MapAsyncImpl<string, string, string, string>(
                 // ReSharper disable once NullableWarningSuppressionIsUsed - Testing for exception on null.
                 source: null!,
@@ -329,16 +330,16 @@ public class MapAsyncImplTests
                 operation: static (v, _) => Task.FromResult(v),
                 strategy: AsyncConcurrencyStrategyFactory.Parallel("unused"),
                 inputConverter: static v => v,
-                resultConverter: static v => v));
+                resultConverter: static v => v)).ThrowsExactly<ArgumentNullException>();
     }
 
     [Test]
-    public void NullResultsThrowsArgumentNullException()
+    public async Task NullResultsThrowsArgumentNullException()
     {
         StreamSink<string> source = Stream.CreateSink<string>();
         StreamSink<Exception> errors = Stream.CreateSink<Exception>();
 
-        Assert.Throws<ArgumentNullException>(() =>
+        await Assert.That(() =>
             source.MapAsyncImpl(
                 // ReSharper disable once NullableWarningSuppressionIsUsed - Testing for exception on null.
                 results: null!,
@@ -346,16 +347,16 @@ public class MapAsyncImplTests
                 operation: static (v, _) => Task.FromResult(v),
                 strategy: AsyncConcurrencyStrategyFactory.Parallel("unused"),
                 inputConverter: static v => v,
-                resultConverter: static v => v));
+                resultConverter: static v => v)).ThrowsExactly<ArgumentNullException>();
     }
 
     [Test]
-    public void NullErrorsThrowsArgumentNullException()
+    public async Task NullErrorsThrowsArgumentNullException()
     {
         StreamSink<string> source = Stream.CreateSink<string>();
         StreamSink<string> results = Stream.CreateSink<string>();
 
-        Assert.Throws<ArgumentNullException>(() =>
+        await Assert.That(() =>
             source.MapAsyncImpl(
                 results: results,
                 // ReSharper disable once NullableWarningSuppressionIsUsed - Testing for exception on null.
@@ -363,17 +364,17 @@ public class MapAsyncImplTests
                 operation: static (v, _) => Task.FromResult(v),
                 strategy: AsyncConcurrencyStrategyFactory.Parallel("unused"),
                 inputConverter: static v => v,
-                resultConverter: static v => v));
+                resultConverter: static v => v)).ThrowsExactly<ArgumentNullException>();
     }
 
     [Test]
-    public void NullOperationThrowsArgumentNullException()
+    public async Task NullOperationThrowsArgumentNullException()
     {
         StreamSink<string> source = Stream.CreateSink<string>();
         StreamSink<string> results = Stream.CreateSink<string>();
         StreamSink<Exception> errors = Stream.CreateSink<Exception>();
 
-        Assert.Throws<ArgumentNullException>(() =>
+        await Assert.That(() =>
             source.MapAsyncImpl(
                 results: results,
                 errors: errors,
@@ -381,17 +382,17 @@ public class MapAsyncImplTests
                 operation: null!,
                 strategy: AsyncConcurrencyStrategyFactory.Parallel("unused"),
                 inputConverter: static v => v,
-                resultConverter: static v => v));
+                resultConverter: static v => v)).ThrowsExactly<ArgumentNullException>();
     }
 
     [Test]
-    public void NullStrategyThrowsArgumentNullException()
+    public async Task NullStrategyThrowsArgumentNullException()
     {
         StreamSink<string> source = Stream.CreateSink<string>();
         StreamSink<string> results = Stream.CreateSink<string>();
         StreamSink<Exception> errors = Stream.CreateSink<Exception>();
 
-        Assert.Throws<ArgumentNullException>(() =>
+        await Assert.That(() =>
             source.MapAsyncImpl(
                 results: results,
                 errors: errors,
@@ -399,7 +400,7 @@ public class MapAsyncImplTests
                 // ReSharper disable once NullableWarningSuppressionIsUsed - Testing for exception on null.
                 strategy: null!,
                 inputConverter: static v => v,
-                resultConverter: static v => v));
+                resultConverter: static v => v)).ThrowsExactly<ArgumentNullException>();
     }
 
     /// <summary>Starts everything immediately and records the converted value each item was admitted with.</summary>

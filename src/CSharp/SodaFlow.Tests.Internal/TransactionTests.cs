@@ -1,11 +1,14 @@
 ﻿using System;
 using System.Threading;
 using System.Threading.Tasks;
-using NUnit.Framework;
+using System.Threading.Tasks;
+using TUnit.Assertions;
+using TUnit.Assertions.Enums;
+using TUnit.Assertions.Extensions;
+using TUnit.Core;
 
 namespace SodaFlow.Tests.Internal;
 
-[TestFixture]
 public class TransactionTests
 {
     [Test]
@@ -47,6 +50,6 @@ public class TransactionTests
             }
         }
 
-        Assert.IsNotNull(actual);
+        await Assert.That(actual).IsNotNull();
     }
 }

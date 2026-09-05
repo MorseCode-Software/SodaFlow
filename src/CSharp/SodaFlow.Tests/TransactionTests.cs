@@ -1,14 +1,17 @@
 ﻿using System.Threading;
-using NUnit.Framework;
+using System.Threading.Tasks;
+using TUnit.Assertions;
+using TUnit.Assertions.Enums;
+using TUnit.Assertions.Extensions;
+using TUnit.Core;
 using SodaFlow.Functional;
 
 namespace SodaFlow.Tests;
 
-[TestFixture]
 public class TransactionTests
 {
     [Test]
-    public void Post()
+    public async Task Post()
     {
         Cell<int> cell =
             Transaction.Run(static () =>
@@ -21,11 +24,11 @@ public class TransactionTests
         int value = 0;
         Transaction.Post(() => value = cell.Sample());
 
-        Assert.AreEqual(expected: 2, actual: value);
+        await Assert.That(value).IsEqualTo(2);
     }
 
     [Test]
-    public void NestedPost()
+    public async Task NestedPost()
     {
         Cell<int> cell =
             Transaction.Run(static () =>
@@ -43,11 +46,11 @@ public class TransactionTests
                 return s.Hold(1);
             });
 
-        Assert.AreEqual(expected: 5, actual: cell.Sample());
+        await Assert.That(cell.Sample()).IsEqualTo(5);
     }
 
     [Test]
-    public void PostInTransaction()
+    public async Task PostInTransaction()
     {
         int value = 0;
 
@@ -57,14 +60,14 @@ public class TransactionTests
             s.Send(2);
             Cell<int> c = s.Hold(1);
             Transaction.Post(() => value = c.Sample());
-            Assert.AreEqual(expected: 0, actual: value);
+            await Assert.That(value).IsEqualTo(0);
         });
 
-        Assert.AreEqual(expected: 2, actual: value);
+        await Assert.That(value).IsEqualTo(2);
     }
 
     [Test]
-    public void PostInNestedTransaction()
+    public async Task PostInNestedTransaction()
     {
         int value = 0;
 
@@ -79,14 +82,14 @@ public class TransactionTests
                 Transaction.Post(() => value = c.Sample());
             });
 
-            Assert.AreEqual(expected: 0, actual: value);
+            await Assert.That(value).IsEqualTo(0);
         });
 
-        Assert.AreEqual(expected: 2, actual: value);
+        await Assert.That(value).IsEqualTo(2);
     }
 
     [Test]
-    public void PostInNestedTransaction2()
+    public async Task PostInNestedTransaction2()
     {
         int value = 0;
 
@@ -102,30 +105,30 @@ public class TransactionTests
                 return Unit.Value;
             });
 
-            Assert.AreEqual(expected: 0, actual: value);
+            await Assert.That(value).IsEqualTo(0);
         });
 
-        Assert.AreEqual(expected: 2, actual: value);
+        await Assert.That(value).IsEqualTo(2);
     }
 
     [Test]
-    public void IsActive()
+    public async Task IsActive()
     {
         bool isActive = Transaction.Run(Transaction.IsActive);
 
-        Assert.IsTrue(isActive);
+        await Assert.That(isActive).IsTrue();
     }
 
     [Test]
-    public void IsNotActive()
+    public async Task IsNotActive()
     {
         bool isActive = Transaction.IsActive();
 
-        Assert.IsFalse(isActive);
+        await Assert.That(isActive).IsFalse();
     }
 
     [Test]
-    public void IsNotActiveSeparateThread()
+    public async Task IsNotActiveSeparateThread()
     {
         bool? threadIsActive1 = null;
         bool? threadIsActive2 = null;
@@ -156,19 +159,19 @@ public class TransactionTests
         Thread.Sleep(500);
         bool isActive3 = Transaction.IsActive();
 
-        Assert.IsFalse(isActive1);
-        Assert.IsFalse(isActive2);
-        Assert.IsFalse(isActive3);
+        await Assert.That(isActive1).IsFalse();
+        await Assert.That(isActive2).IsFalse();
+        await Assert.That(isActive3).IsFalse();
 
-        Assert.IsFalse(threadIsActive1);
-        Assert.IsFalse(threadIsActive2);
-        Assert.IsTrue(threadIsActive3);
-        Assert.IsTrue(threadIsActive4);
-        Assert.IsFalse(threadIsActive5);
+        await Assert.That(threadIsActive1).IsFalse();
+        await Assert.That(threadIsActive2).IsFalse();
+        await Assert.That(threadIsActive3).IsTrue();
+        await Assert.That(threadIsActive4).IsTrue();
+        await Assert.That(threadIsActive5).IsFalse();
     }
 
     [Test]
-    public void StartHooksRunOnlyOnce()
+    public async Task StartHooksRunOnlyOnce()
     {
         int startHooksCount = 0;
         Transaction.OnStart(() => startHooksCount++);
@@ -178,17 +181,17 @@ public class TransactionTests
             {
             }));
 
-        Assert.That(actual: startHooksCount, expression: Is.EqualTo(1));
+        await Assert.That(startHooksCount).IsEqualTo(1);
     }
 
     [Test]
-    public void StartHooksRunOnlyOnceWithSample()
+    public async Task StartHooksRunOnlyOnceWithSample()
     {
         int startHooksCount = 0;
         Cell<int> cell = Cell.Constant(0);
         Transaction.OnStart(() => startHooksCount++);
         Transaction.RunVoid(() => Transaction.RunVoid(() => cell.Sample()));
 
-        Assert.That(actual: startHooksCount, expression: Is.EqualTo(1));
+        await Assert.That(startHooksCount).IsEqualTo(1);
     }
 }

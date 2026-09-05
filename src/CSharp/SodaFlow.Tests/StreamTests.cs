@@ -2,29 +2,32 @@
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
-using NUnit.Framework;
+using System.Threading.Tasks;
+using TUnit.Assertions;
+using TUnit.Assertions.Enums;
+using TUnit.Assertions.Extensions;
+using TUnit.Core;
 using SodaFlow.Functional;
 
 namespace SodaFlow.Tests;
 
-[TestFixture]
 public class StreamTests
 {
     [Test]
-    public void TestStreamSend()
+    public async Task TestStreamSend()
     {
         StreamSink<int> s = Stream.CreateSink<int>();
         List<int> @out = [];
         IListener l = s.ListenStrong(@out.Add);
         s.Send(5);
         l.Unlisten();
-        CollectionAssert.AreEqual(expected: new[] { 5 }, actual: @out);
+        await Assert.That(@out).IsEquivalentTo(new[] { 5 }, CollectionOrdering.Matching);
         s.Send(6);
-        CollectionAssert.AreEqual(expected: new[] { 5 }, actual: @out);
+        await Assert.That(@out).IsEquivalentTo(new[] { 5 }, CollectionOrdering.Matching);
     }
 
     [Test]
-    public void TestStreamSendInCallbackThrowsException()
+    public async Task TestStreamSendInCallbackThrowsException()
     {
         InvalidOperationException? actual = null;
 
@@ -43,12 +46,12 @@ public class StreamTests
             }
         }
 
-        Assert.IsNotNull(actual);
-        Assert.AreEqual(expected: "Send may not be called inside a callback.", actual: actual?.Message);
+        await Assert.That(actual).IsNotNull();
+        await Assert.That(actual?.Message).IsEqualTo("Send may not be called inside a callback.");
     }
 
     [Test]
-    public void TestStreamSendInMapThrowsException()
+    public async Task TestStreamSendInMapThrowsException()
     {
         InvalidOperationException? actual = null;
 
@@ -74,12 +77,12 @@ public class StreamTests
             }
         }
 
-        Assert.IsNotNull(actual);
-        Assert.AreEqual(expected: "Send may not be called inside a callback.", actual: actual?.Message);
+        await Assert.That(actual).IsNotNull();
+        await Assert.That(actual?.Message).IsEqualTo("Send may not be called inside a callback.");
     }
 
     [Test]
-    public void TestStreamSendInCellMapThrowsException()
+    public async Task TestStreamSendInCellMapThrowsException()
     {
         InvalidOperationException? actual = null;
 
@@ -104,12 +107,12 @@ public class StreamTests
             actual = e;
         }
 
-        Assert.IsNotNull(actual);
-        Assert.AreEqual(expected: "Send may not be called inside a callback.", actual: actual?.Message);
+        await Assert.That(actual).IsNotNull();
+        await Assert.That(actual?.Message).IsEqualTo("Send may not be called inside a callback.");
     }
 
     [Test]
-    public void TestStreamSendInCellLiftThrowsException()
+    public async Task TestStreamSendInCellLiftThrowsException()
     {
         InvalidOperationException? actual = null;
 
@@ -137,12 +140,12 @@ public class StreamTests
             actual = e;
         }
 
-        Assert.IsNotNull(actual);
-        Assert.AreEqual(expected: "Send may not be called inside a callback.", actual: actual?.Message);
+        await Assert.That(actual).IsNotNull();
+        await Assert.That(actual?.Message).IsEqualTo("Send may not be called inside a callback.");
     }
 
     [Test]
-    public void TestStreamSendInCellApplyThrowsException()
+    public async Task TestStreamSendInCellApplyThrowsException()
     {
         InvalidOperationException? actual = null;
 
@@ -170,12 +173,12 @@ public class StreamTests
             actual = e;
         }
 
-        Assert.IsNotNull(actual);
-        Assert.AreEqual(expected: "Send may not be called inside a callback.", actual: actual?.Message);
+        await Assert.That(actual).IsNotNull();
+        await Assert.That(actual?.Message).IsEqualTo("Send may not be called inside a callback.");
     }
 
     [Test]
-    public void TestMap()
+    public async Task TestMap()
     {
         StreamSink<int> s = Stream.CreateSink<int>();
         Stream<string> m = s.Map(static x => (x + 2).ToString());
@@ -184,11 +187,11 @@ public class StreamTests
         s.Send(5);
         s.Send(3);
         l.Unlisten();
-        CollectionAssert.AreEqual(expected: new[] { "7", "5" }, actual: @out);
+        await Assert.That(@out).IsEquivalentTo(new[] { "7", "5" }, CollectionOrdering.Matching);
     }
 
     [Test]
-    public void TestOrElseNonSimultaneous()
+    public async Task TestOrElseNonSimultaneous()
     {
         StreamSink<int> s1 = Stream.CreateSink<int>();
         StreamSink<int> s2 = Stream.CreateSink<int>();
@@ -198,11 +201,11 @@ public class StreamTests
         s2.Send(9);
         s1.Send(8);
         l.Unlisten();
-        CollectionAssert.AreEqual(expected: new[] { 7, 9, 8 }, actual: @out);
+        await Assert.That(@out).IsEquivalentTo(new[] { 7, 9, 8 }, CollectionOrdering.Matching);
     }
 
     [Test]
-    public void TestOrElseSimultaneous1()
+    public async Task TestOrElseSimultaneous1()
     {
         StreamSink<int> s1 = Stream.CreateSink<int>(static (_, r) => r);
         StreamSink<int> s2 = Stream.CreateSink<int>(static (_, r) => r);
@@ -245,11 +248,11 @@ public class StreamTests
         });
 
         l.Unlisten();
-        CollectionAssert.AreEqual(expected: new[] { 60, 9, 90, 90, 90 }, actual: @out);
+        await Assert.That(@out).IsEquivalentTo(new[] { 60, 9, 90, 90, 90 }, CollectionOrdering.Matching);
     }
 
     [Test]
-    public void TestOrElseSimultaneous2()
+    public async Task TestOrElseSimultaneous2()
     {
         StreamSink<int> s = Stream.CreateSink<int>();
         Stream<int> s2 = s.Map(static x => 2 * x);
@@ -258,11 +261,11 @@ public class StreamTests
         s.Send(7);
         s.Send(9);
         l.Unlisten();
-        CollectionAssert.AreEqual(expected: new[] { 7, 9 }, actual: @out);
+        await Assert.That(@out).IsEquivalentTo(new[] { 7, 9 }, CollectionOrdering.Matching);
     }
 
     [Test]
-    public void TestOrElseLeftBias()
+    public async Task TestOrElseLeftBias()
     {
         StreamSink<int> s = Stream.CreateSink<int>();
         Stream<int> s2 = s.Map(static x => 2 * x);
@@ -271,11 +274,11 @@ public class StreamTests
         s.Send(7);
         s.Send(9);
         l.Unlisten();
-        CollectionAssert.AreEqual(expected: new[] { 14, 18 }, actual: @out);
+        await Assert.That(@out).IsEquivalentTo(new[] { 14, 18 }, CollectionOrdering.Matching);
     }
 
     [Test]
-    public void TestMergeNonSimultaneous()
+    public async Task TestMergeNonSimultaneous()
     {
         StreamSink<int> s1 = Stream.CreateSink<int>();
         StreamSink<int> s2 = Stream.CreateSink<int>();
@@ -285,11 +288,11 @@ public class StreamTests
         s2.Send(9);
         s1.Send(8);
         l.Unlisten();
-        CollectionAssert.AreEqual(expected: new[] { 7, 9, 8 }, actual: @out);
+        await Assert.That(@out).IsEquivalentTo(new[] { 7, 9, 8 }, CollectionOrdering.Matching);
     }
 
     [Test]
-    public void TestMergeSimultaneous()
+    public async Task TestMergeSimultaneous()
     {
         StreamSink<int> s = Stream.CreateSink<int>();
         Stream<int> s2 = s.Map(static x => 2 * x);
@@ -298,11 +301,11 @@ public class StreamTests
         s.Send(7);
         s.Send(9);
         l.Unlisten();
-        CollectionAssert.AreEqual(expected: new[] { 21, 27 }, actual: @out);
+        await Assert.That(@out).IsEquivalentTo(new[] { 21, 27 }, CollectionOrdering.Matching);
     }
 
     [Test]
-    public void TestCoalesce()
+    public async Task TestCoalesce()
     {
         StreamSink<int> s = Stream.CreateSink<int>(static (x, y) => x + y);
         List<int> @out = [];
@@ -320,11 +323,11 @@ public class StreamTests
         });
 
         l.Unlisten();
-        CollectionAssert.AreEqual(expected: new[] { 2, 48 }, actual: @out.ToArray());
+        await Assert.That(@out.ToArray()).IsEquivalentTo(new[] { 2, 48 }, CollectionOrdering.Matching);
     }
 
     [Test]
-    public void TestCoalesce2()
+    public async Task TestCoalesce2()
     {
         StreamSink<int> s = Stream.CreateSink<int>(static (x, y) => x + y);
         List<int> @out = [];
@@ -349,11 +352,11 @@ public class StreamTests
         });
 
         l.Unlisten();
-        CollectionAssert.AreEqual(expected: new[] { 15, 40 }, actual: @out.ToArray());
+        await Assert.That(@out.ToArray()).IsEquivalentTo(new[] { 15, 40 }, CollectionOrdering.Matching);
     }
 
     [Test]
-    public void TestFilter()
+    public async Task TestFilter()
     {
         StreamSink<char> s = Stream.CreateSink<char>();
         List<char> @out = [];
@@ -362,11 +365,11 @@ public class StreamTests
         s.Send('o');
         s.Send('I');
         l.Unlisten();
-        CollectionAssert.AreEqual(expected: new[] { 'H', 'I' }, actual: @out);
+        await Assert.That(@out).IsEquivalentTo(new[] { 'H', 'I' }, CollectionOrdering.Matching);
     }
 
     [Test]
-    public void TestFilterSome()
+    public async Task TestFilterSome()
     {
         StreamSink<Maybe<string>> s = Stream.CreateSink<Maybe<string>>();
         List<string> @out = [];
@@ -377,11 +380,11 @@ public class StreamTests
         s.Send(Maybe.None);
         s.Send(Maybe.Some("pear"));
         l.Unlisten();
-        CollectionAssert.AreEqual(expected: new[] { "tomato", "peach", "pear" }, actual: @out);
+        await Assert.That(@out).IsEquivalentTo(new[] { "tomato", "peach", "pear" }, CollectionOrdering.Matching);
     }
 
     [Test]
-    public void TestChoose()
+    public async Task TestChoose()
     {
         StreamSink<string> s = Stream.CreateSink<string>();
         List<int> @out = [];
@@ -396,11 +399,11 @@ public class StreamTests
         s.Send(string.Empty);
         s.Send("3");
         l.Unlisten();
-        CollectionAssert.AreEqual(expected: new[] { 1, 2, 3 }, actual: @out);
+        await Assert.That(@out).IsEquivalentTo(new[] { 1, 2, 3 }, CollectionOrdering.Matching);
     }
 
     [Test]
-    public void TestChooseMatchesMapThenFilterSome()
+    public async Task TestChooseMatchesMapThenFilterSome()
     {
         StreamSink<string> s = Stream.CreateSink<string>();
         List<int> chosen = [];
@@ -418,12 +421,12 @@ public class StreamTests
         l1.Unlisten();
         l2.Unlisten();
 
-        CollectionAssert.AreEqual(expected: mapped, actual: chosen);
-        CollectionAssert.AreEqual(expected: new[] { 1, 2 }, actual: chosen);
+        await Assert.That(chosen).IsEquivalentTo(mapped, CollectionOrdering.Matching);
+        await Assert.That(chosen).IsEquivalentTo(new[] { 1, 2 }, CollectionOrdering.Matching);
     }
 
     [Test]
-    public void TestChooseNoneFiresNothing()
+    public async Task TestChooseNoneFiresNothing()
     {
         StreamSink<string> s = Stream.CreateSink<string>();
         List<int> @out = [];
@@ -431,11 +434,11 @@ public class StreamTests
         s.Send("1");
         s.Send("2");
         l.Unlisten();
-        CollectionAssert.AreEqual(expected: Array.Empty<int>(), actual: @out);
+        await Assert.That(@out).IsEquivalentTo(Array.Empty<int>(), CollectionOrdering.Matching);
     }
 
     [Test]
-    public void TestLoopStream()
+    public async Task TestLoopStream()
     {
         StreamSink<int> sa = Stream.CreateSink<int>();
 
@@ -460,13 +463,13 @@ public class StreamTests
         l3.Unlisten();
         l2.Unlisten();
         l.Unlisten();
-        CollectionAssert.AreEqual(expected: new[] { 5 }, actual: @out.ToArray());
-        CollectionAssert.AreEqual(expected: new[] { 5 }, actual: out2.ToArray());
-        CollectionAssert.AreEqual(expected: new[] { 2, 10 }, actual: out3.ToArray());
+        await Assert.That(@out.ToArray()).IsEquivalentTo(new[] { 5 }, CollectionOrdering.Matching);
+        await Assert.That(out2.ToArray()).IsEquivalentTo(new[] { 5 }, CollectionOrdering.Matching);
+        await Assert.That(out3.ToArray()).IsEquivalentTo(new[] { 2, 10 }, CollectionOrdering.Matching);
     }
 
     [Test]
-    public void TestLoopCell()
+    public async Task TestLoopCell()
     {
         CellSink<int> ca = Cell.CreateSink(22);
 
@@ -491,13 +494,13 @@ public class StreamTests
         l3.Unlisten();
         l2.Unlisten();
         l.Unlisten();
-        CollectionAssert.AreEqual(expected: new[] { 2, 0, 5 }, actual: @out.ToArray());
-        CollectionAssert.AreEqual(expected: new[] { 2, 0, 5 }, actual: out2.ToArray());
-        CollectionAssert.AreEqual(expected: new[] { 4, 0, 10 }, actual: out3.ToArray());
+        await Assert.That(@out.ToArray()).IsEquivalentTo(new[] { 2, 0, 5 }, CollectionOrdering.Matching);
+        await Assert.That(out2.ToArray()).IsEquivalentTo(new[] { 2, 0, 5 }, CollectionOrdering.Matching);
+        await Assert.That(out3.ToArray()).IsEquivalentTo(new[] { 4, 0, 10 }, CollectionOrdering.Matching);
     }
 
     [Test]
-    public void TestGate()
+    public async Task TestGate()
     {
         StreamSink<char?> sc = Stream.CreateSink<char?>();
         BehaviorSink<bool> cGate = Behavior.CreateSink(true);
@@ -509,11 +512,11 @@ public class StreamTests
         cGate.Send(true);
         sc.Send('I');
         l.Unlisten();
-        CollectionAssert.AreEqual(expected: new[] { 'H', 'I' }, actual: @out);
+        await Assert.That(@out).IsEquivalentTo(new[] { 'H', 'I' }, CollectionOrdering.Matching);
     }
 
     [Test]
-    public void TestCalm()
+    public async Task TestCalm()
     {
         StreamSink<int> s = Stream.CreateSink<int>();
         List<int> @out = [];
@@ -565,13 +568,11 @@ public class StreamTests
         s.Send(2);
         l.Unlisten();
 
-        CollectionAssert.AreEqual(
-            expected: new[] { 2, 4, 2, 4, 2, 4, 2, 4, 2, 4, 2, 4, 2, 4, 2, 4, 2, 4, 2, 4, 2 },
-            actual: @out);
+        await Assert.That(@out).IsEquivalentTo(new[] { 2, 4, 2, 4, 2, 4, 2, 4, 2, 4, 2, 4, 2, 4, 2, 4, 2, 4, 2, 4, 2 }, CollectionOrdering.Matching);
     }
 
     [Test]
-    public void TestCalm2()
+    public async Task TestCalm2()
     {
         StreamSink<int> s = Stream.CreateSink<int>();
         List<int> @out = [];
@@ -584,7 +585,7 @@ public class StreamTests
         s.Send(2);
         s.Send(2);
         l.Unlisten();
-        CollectionAssert.AreEqual(expected: new[] { 2, 4, 2, 4, 2 }, actual: @out);
+        await Assert.That(@out).IsEquivalentTo(new[] { 2, 4, 2, 4, 2 }, CollectionOrdering.Matching);
     }
 
     // Calm remembers the last value it let through, and that memory has to survive the end of a
@@ -594,7 +595,7 @@ public class StreamTests
     // against. Both are checked here: the second transaction is suppressed only if the first
     // committed correctly, and the fourth only if the third did.
     [Test]
-    public void TestCalmRemembersAcrossTransactions()
+    public async Task TestCalmRemembersAcrossTransactions()
     {
         StreamSink<int> a = Stream.CreateSink<int>();
         StreamSink<int> b = Stream.CreateSink<int>();
@@ -625,11 +626,11 @@ public class StreamTests
 
         l.Unlisten();
 
-        CollectionAssert.AreEqual(expected: new[] { 2, 3, 4 }, actual: @out);
+        await Assert.That(@out).IsEquivalentTo(new[] { 2, 3, 4 }, CollectionOrdering.Matching);
     }
 
     [Test]
-    public void TestCollect()
+    public async Task TestCollect()
     {
         StreamSink<int> sa = Stream.CreateSink<int>();
         List<int> @out = [];
@@ -650,11 +651,11 @@ public class StreamTests
         sa.Send(2);
         sa.Send(3);
         l.Unlisten();
-        CollectionAssert.AreEqual(expected: new[] { 115, 122, 125, 127, 130 }, actual: @out);
+        await Assert.That(@out).IsEquivalentTo(new[] { 115, 122, 125, 127, 130 }, CollectionOrdering.Matching);
     }
 
     [Test]
-    public void TestAccum()
+    public async Task TestAccum()
     {
         StreamSink<int> sa = Stream.CreateSink<int>();
         List<int> @out = [];
@@ -666,7 +667,7 @@ public class StreamTests
         sa.Send(2);
         sa.Send(3);
         l.Unlisten();
-        CollectionAssert.AreEqual(expected: new[] { 100, 105, 112, 113, 115, 118 }, actual: @out);
+        await Assert.That(@out).IsEquivalentTo(new[] { 100, 105, 112, 113, 115, 118 }, CollectionOrdering.Matching);
     }
 
     // Collect carries state between firings, and that state has to survive the end of a
@@ -675,7 +676,7 @@ public class StreamTests
     // committed at the end of one transaction is what the next one folds over. The count in the
     // state makes both visible: it can only reach 3 if every transaction committed.
     [Test]
-    public void TestCollectStateSurvivesTransactions()
+    public async Task TestCollectStateSurvivesTransactions()
     {
         StreamSink<int> a = Stream.CreateSink<int>();
         StreamSink<int> b = Stream.CreateSink<int>();
@@ -708,12 +709,12 @@ public class StreamTests
 
         l.Unlisten();
 
-        CollectionAssert.AreEqual(expected: new[] { "3/1", "13/2", "15/3" }, actual: @out);
+        await Assert.That(@out).IsEquivalentTo(new[] { "3/1", "13/2", "15/3" }, CollectionOrdering.Matching);
     }
 
     // Accum shares Collect's state carrying, so the same boundary applies to it.
     [Test]
-    public void TestAccumStateSurvivesTransactions()
+    public async Task TestAccumStateSurvivesTransactions()
     {
         StreamSink<int> a = Stream.CreateSink<int>();
         StreamSink<int> b = Stream.CreateSink<int>();
@@ -738,11 +739,11 @@ public class StreamTests
 
         l.Unlisten();
 
-        CollectionAssert.AreEqual(expected: new[] { 0, 3, 13, 15 }, actual: @out);
+        await Assert.That(@out).IsEquivalentTo(new[] { 0, 3, 13, 15 }, CollectionOrdering.Matching);
     }
 
     [Test]
-    public void TestOnce()
+    public async Task TestOnce()
     {
         StreamSink<char> s = Stream.CreateSink<char>();
         List<char> @out = [];
@@ -751,11 +752,11 @@ public class StreamTests
         s.Send('B');
         s.Send('C');
         l.Unlisten();
-        CollectionAssert.AreEqual(expected: new[] { 'A' }, actual: @out);
+        await Assert.That(@out).IsEquivalentTo(new[] { 'A' }, CollectionOrdering.Matching);
     }
 
     [Test]
-    public void TestHold()
+    public async Task TestHold()
     {
         StreamSink<char> s = Stream.CreateSink<char>();
         Cell<char> c = s.Hold(' ');
@@ -765,11 +766,11 @@ public class StreamTests
         s.Send('B');
         s.Send('A');
         l.Unlisten();
-        CollectionAssert.AreEqual(expected: new[] { ' ', 'C', 'B', 'A' }, actual: @out);
+        await Assert.That(@out).IsEquivalentTo(new[] { ' ', 'C', 'B', 'A' }, CollectionOrdering.Matching);
     }
 
     [Test]
-    public void TestHoldImplicitDelay()
+    public async Task TestHoldImplicitDelay()
     {
         StreamSink<char> s = Stream.CreateSink<char>();
         Cell<char> c = s.Hold(' ');
@@ -779,11 +780,11 @@ public class StreamTests
         s.Send('B');
         s.Send('A');
         l.Unlisten();
-        CollectionAssert.AreEqual(expected: new[] { ' ', 'C', 'B' }, actual: @out);
+        await Assert.That(@out).IsEquivalentTo(new[] { ' ', 'C', 'B' }, CollectionOrdering.Matching);
     }
 
     [Test]
-    public void TestDefer()
+    public async Task TestDefer()
     {
         StreamSink<char> s = Stream.CreateSink<char>();
         Cell<char> c = s.Hold(' ');
@@ -793,11 +794,11 @@ public class StreamTests
         s.Send('B');
         s.Send('A');
         l.Unlisten();
-        CollectionAssert.AreEqual(expected: new[] { 'C', 'B', 'A' }, actual: @out);
+        await Assert.That(@out).IsEquivalentTo(new[] { 'C', 'B', 'A' }, CollectionOrdering.Matching);
     }
 
     [Test]
-    public void TestListen()
+    public async Task TestListen()
     {
         StreamSink<int> s = Stream.CreateSink<int>();
 
@@ -816,11 +817,11 @@ public class StreamTests
         s.Send(3);
         s.Send(4);
 
-        Assert.AreEqual(expected: 2, actual: @out.Count);
+        await Assert.That(@out.Count).IsEqualTo(2);
     }
 
     [Test]
-    public void TestListenWithMap()
+    public async Task TestListenWithMap()
     {
         StreamSink<int> s = Stream.CreateSink<int>();
 
@@ -856,11 +857,11 @@ public class StreamTests
         s.Send(6);
         s.Send(7);
 
-        Assert.AreEqual(expected: 5, actual: @out.Count);
+        await Assert.That(@out.Count).IsEqualTo(5);
     }
 
     [Test]
-    public void TestUnlisten()
+    public async Task TestUnlisten()
     {
         StreamSink<int> s = Stream.CreateSink<int>();
 
@@ -881,11 +882,11 @@ public class StreamTests
         s.Send(3);
         s.Send(4);
 
-        Assert.AreEqual(expected: 1, actual: @out.Count);
+        await Assert.That(@out.Count).IsEqualTo(1);
     }
 
     [Test]
-    public void TestUnlistenWeak()
+    public async Task TestUnlistenWeak()
     {
         StreamSink<int> s = Stream.CreateSink<int>();
 
@@ -906,11 +907,11 @@ public class StreamTests
         s.Send(3);
         s.Send(4);
 
-        Assert.AreEqual(expected: 1, actual: @out.Count);
+        await Assert.That(@out.Count).IsEqualTo(1);
     }
 
     [Test]
-    public void TestMultipleUnlisten()
+    public async Task TestMultipleUnlisten()
     {
         StreamSink<int> s = Stream.CreateSink<int>();
 
@@ -934,11 +935,11 @@ public class StreamTests
         s.Send(3);
         s.Send(4);
 
-        Assert.AreEqual(expected: 1, actual: @out.Count);
+        await Assert.That(@out.Count).IsEqualTo(1);
     }
 
     [Test]
-    public void TestMultipleUnlistenWeak()
+    public async Task TestMultipleUnlistenWeak()
     {
         StreamSink<int> s = Stream.CreateSink<int>();
 
@@ -962,11 +963,11 @@ public class StreamTests
         s.Send(3);
         s.Send(4);
 
-        Assert.AreEqual(expected: 1, actual: @out.Count);
+        await Assert.That(@out.Count).IsEqualTo(1);
     }
 
     [Test]
-    public void TestListenOnce()
+    public async Task TestListenOnce()
     {
         StreamSink<char> s = Stream.CreateSink<char>();
         List<char> @out = [];
@@ -975,7 +976,7 @@ public class StreamTests
         s.Send('B');
         s.Send('C');
         l.Unlisten();
-        CollectionAssert.AreEqual(expected: new[] { 'A' }, actual: @out);
+        await Assert.That(@out).IsEquivalentTo(new[] { 'A' }, CollectionOrdering.Matching);
     }
 
     [Test]
@@ -992,7 +993,7 @@ public class StreamTests
         }).Start();
 
         char r = await s.ListenOnceAsync();
-        Assert.AreEqual(expected: 'A', actual: r);
+        await Assert.That(r).IsEqualTo('A');
     }
 
     [Test]
@@ -1011,7 +1012,7 @@ public class StreamTests
         Task<char> t = s.ListenOnceAsync();
         GC.Collect(generation: 0, mode: GCCollectionMode.Forced);
         char r = await t;
-        Assert.AreEqual(expected: 'A', actual: r);
+        await Assert.That(r).IsEqualTo('A');
     }
 
     [Test]
@@ -1023,7 +1024,7 @@ public class StreamTests
         s.Send('B');
         s.Send('C');
         char r = await t;
-        Assert.AreEqual(expected: 'A', actual: r);
+        await Assert.That(r).IsEqualTo('A');
     }
 
     [Test]
@@ -1036,7 +1037,7 @@ public class StreamTests
         s.Send('B');
         s.Send('C');
         char r = await t;
-        Assert.AreEqual(expected: 'A', actual: r);
+        await Assert.That(r).IsEqualTo('A');
     }
 
     [Test]
@@ -1088,7 +1089,7 @@ public class StreamTests
     }
 
     [Test]
-    public void TestStreamLoop()
+    public async Task TestStreamLoop()
     {
         StreamSink<int> streamSink = Stream.CreateSink<int>();
 
@@ -1110,11 +1111,11 @@ public class StreamTests
         streamSink.Send(8);
         l.Unlisten();
 
-        CollectionAssert.AreEqual(expected: new[] { 3, 9, 18, 28 }, actual: @out);
+        await Assert.That(@out).IsEquivalentTo(new[] { 3, 9, 18, 28 }, CollectionOrdering.Matching);
     }
 
     [Test]
-    public void TestStreamLoopDefer()
+    public async Task TestStreamLoopDefer()
     {
         StreamSink<int> streamSink = Stream.CreateSink<int>();
 
@@ -1135,7 +1136,7 @@ public class StreamTests
         streamSink.Send(2);
         l.Unlisten();
 
-        CollectionAssert.AreEqual(expected: new[] { 3, 4, 5 }, actual: @out);
+        await Assert.That(@out).IsEquivalentTo(new[] { 3, 4, 5 }, CollectionOrdering.Matching);
     }
 
     // Node ranks index directly into the prioritized queue's backing array, which starts at
@@ -1144,7 +1145,7 @@ public class StreamTests
     // graph - it left the queue unusable for every later transaction in the process, which is
     // what the trailing shallow chain checks.
     [Test]
-    public void TestDeepChainGrowsPrioritizedQueue()
+    public async Task TestDeepChainGrowsPrioritizedQueue()
     {
         foreach (int depth in new[] { 999, 1000, 1001, 2000, 5000 })
         {
@@ -1161,11 +1162,7 @@ public class StreamTests
             s.Send(0);
             l.Unlisten();
 
-            CollectionAssert.AreEqual(
-                expected: new[] { depth },
-                actual: @out,
-                message: "chain of depth {0}",
-                depth);
+            await Assert.That(@out).IsEquivalentTo(new[] { depth }, CollectionOrdering.Matching).Because("chain of depth {0}");
         }
 
         StreamSink<int> shallowSink = Stream.CreateSink<int>();
@@ -1174,6 +1171,6 @@ public class StreamTests
         shallowSink.Send(1);
         shallowListener.Unlisten();
 
-        CollectionAssert.AreEqual(expected: new[] { 2 }, actual: shallowOut);
+        await Assert.That(shallowOut).IsEquivalentTo(new[] { 2 }, CollectionOrdering.Matching);
     }
 }

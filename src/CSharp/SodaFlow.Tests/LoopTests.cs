@@ -2,15 +2,18 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
-using NUnit.Framework;
+using System.Threading.Tasks;
+using TUnit.Assertions;
+using TUnit.Assertions.Enums;
+using TUnit.Assertions.Extensions;
+using TUnit.Core;
 
 namespace SodaFlow.Tests;
 
-[TestFixture]
 public class LoopTests
 {
     [Test]
-    public void ImperativeStreamLoop()
+    public async Task ImperativeStreamLoop()
     {
         StreamSink<int> s = Stream.CreateSink<int>();
 
@@ -32,11 +35,11 @@ public class LoopTests
             s.Send(3);
         }
 
-        CollectionAssert.AreEqual(expected: new[] { 1, 3, 6 }, actual: @out);
+        await Assert.That(@out).IsEquivalentTo(new[] { 1, 3, 6 }, CollectionOrdering.Matching);
     }
 
     [Test]
-    public void ImperativeStreamLoopFailsWhenLoopedTwice()
+    public async Task ImperativeStreamLoopFailsWhenLoopedTwice()
     {
         InvalidOperationException? actual = null;
 
@@ -57,12 +60,12 @@ public class LoopTests
             actual = e;
         }
 
-        Assert.IsNotNull(actual);
-        Assert.AreEqual(expected: "Loop was looped more than once.", actual: actual?.Message);
+        await Assert.That(actual).IsNotNull();
+        await Assert.That(actual?.Message).IsEqualTo("Loop was looped more than once.");
     }
 
     [Test]
-    public void ImperativeStreamLoopFailsWithoutTransaction()
+    public async Task ImperativeStreamLoopFailsWithoutTransaction()
     {
         InvalidOperationException? actual = null;
 
@@ -76,12 +79,12 @@ public class LoopTests
             actual = e;
         }
 
-        Assert.IsNotNull(actual);
-        Assert.AreEqual(expected: "Loop must be created within an explicit transaction.", actual: actual?.Message);
+        await Assert.That(actual).IsNotNull();
+        await Assert.That(actual?.Message).IsEqualTo("Loop must be created within an explicit transaction.");
     }
 
     [Test]
-    public void ImperativeStreamLoopFailsWhenNotLooped()
+    public async Task ImperativeStreamLoopFailsWhenNotLooped()
     {
         InvalidOperationException? actual = null;
 
@@ -95,12 +98,12 @@ public class LoopTests
             actual = e;
         }
 
-        Assert.IsNotNull(actual);
-        Assert.AreEqual(expected: "Loop was not looped.", actual: actual?.Message);
+        await Assert.That(actual).IsNotNull();
+        await Assert.That(actual?.Message).IsEqualTo("Loop was not looped.");
     }
 
     [Test]
-    public void ImperativeStreamLoopFailsWhenLoopedInSeparateTransaction()
+    public async Task ImperativeStreamLoopFailsWhenLoopedInSeparateTransaction()
     {
         InvalidOperationException? actual = null;
 
@@ -140,15 +143,13 @@ public class LoopTests
 
         Thread.Sleep(500);
 
-        Assert.IsNotNull(actual);
+        await Assert.That(actual).IsNotNull();
 
-        Assert.AreEqual(
-            expected: "Loop must be looped in the same transaction that it was created in.",
-            actual: actual?.Message);
+        await Assert.That(actual?.Message).IsEqualTo("Loop must be looped in the same transaction that it was created in.");
     }
 
     [Test]
-    public void FunctionalStreamLoop()
+    public async Task FunctionalStreamLoop()
     {
         StreamSink<int> s = Stream.CreateSink<int>();
 
@@ -164,11 +165,11 @@ public class LoopTests
             s.Send(3);
         }
 
-        CollectionAssert.AreEqual(expected: new[] { 1, 3, 6 }, actual: @out);
+        await Assert.That(@out).IsEquivalentTo(new[] { 1, 3, 6 }, CollectionOrdering.Matching);
     }
 
     [Test]
-    public void FunctionalStreamLoopWithCaptures()
+    public async Task FunctionalStreamLoopWithCaptures()
     {
         StreamSink<int> s = Stream.CreateSink<int>();
 
@@ -189,12 +190,12 @@ public class LoopTests
             s.Send(3);
         }
 
-        CollectionAssert.AreEqual(expected: new[] { 1, 3, 6 }, actual: @out);
-        CollectionAssert.AreEqual(expected: new[] { 2, 4, 6 }, actual: out2);
+        await Assert.That(@out).IsEquivalentTo(new[] { 1, 3, 6 }, CollectionOrdering.Matching);
+        await Assert.That(out2).IsEquivalentTo(new[] { 2, 4, 6 }, CollectionOrdering.Matching);
     }
 
     [Test]
-    public void ImperativeBehaviorLoop()
+    public async Task ImperativeBehaviorLoop()
     {
         BehaviorSink<int> s = Behavior.CreateSink(0);
 
@@ -219,11 +220,11 @@ public class LoopTests
             s.Send(3);
         }
 
-        CollectionAssert.AreEqual(expected: new[] { 0, 1, 3, 6 }, actual: @out);
+        await Assert.That(@out).IsEquivalentTo(new[] { 0, 1, 3, 6 }, CollectionOrdering.Matching);
     }
 
     [Test]
-    public void ImperativeBehaviorLoopFailsWhenLoopedTwice()
+    public async Task ImperativeBehaviorLoopFailsWhenLoopedTwice()
     {
         InvalidOperationException? actual = null;
 
@@ -247,12 +248,12 @@ public class LoopTests
             actual = e;
         }
 
-        Assert.IsNotNull(actual);
-        Assert.AreEqual(expected: "Loop was looped more than once.", actual: actual?.Message);
+        await Assert.That(actual).IsNotNull();
+        await Assert.That(actual?.Message).IsEqualTo("Loop was looped more than once.");
     }
 
     [Test]
-    public void ImperativeBehaviorLoopFailsWithoutTransaction()
+    public async Task ImperativeBehaviorLoopFailsWithoutTransaction()
     {
         InvalidOperationException? actual = null;
 
@@ -266,12 +267,12 @@ public class LoopTests
             actual = e;
         }
 
-        Assert.IsNotNull(actual);
-        Assert.AreEqual(expected: "Loop must be created within an explicit transaction.", actual: actual?.Message);
+        await Assert.That(actual).IsNotNull();
+        await Assert.That(actual?.Message).IsEqualTo("Loop must be created within an explicit transaction.");
     }
 
     [Test]
-    public void ImperativeBehaviorLoopFailsWhenNotLooped()
+    public async Task ImperativeBehaviorLoopFailsWhenNotLooped()
     {
         InvalidOperationException? actual = null;
 
@@ -285,12 +286,12 @@ public class LoopTests
             actual = e;
         }
 
-        Assert.IsNotNull(actual);
-        Assert.AreEqual(expected: "Loop was not looped.", actual: actual?.Message);
+        await Assert.That(actual).IsNotNull();
+        await Assert.That(actual?.Message).IsEqualTo("Loop was not looped.");
     }
 
     [Test]
-    public void ImperativeBehaviorLoopFailsWhenLoopedInSeparateTransaction()
+    public async Task ImperativeBehaviorLoopFailsWhenLoopedInSeparateTransaction()
     {
         InvalidOperationException? actual = null;
 
@@ -333,15 +334,13 @@ public class LoopTests
 
         Thread.Sleep(500);
 
-        Assert.IsNotNull(actual);
+        await Assert.That(actual).IsNotNull();
 
-        Assert.AreEqual(
-            expected: "Loop must be looped in the same transaction that it was created in.",
-            actual: actual?.Message);
+        await Assert.That(actual?.Message).IsEqualTo("Loop must be looped in the same transaction that it was created in.");
     }
 
     [Test]
-    public void FunctionalBehaviorLoop()
+    public async Task FunctionalBehaviorLoop()
     {
         BehaviorSink<int> s = Behavior.CreateSink(0);
 
@@ -359,11 +358,11 @@ public class LoopTests
             s.Send(3);
         }
 
-        CollectionAssert.AreEqual(expected: new[] { 0, 1, 3, 6 }, actual: @out);
+        await Assert.That(@out).IsEquivalentTo(new[] { 0, 1, 3, 6 }, CollectionOrdering.Matching);
     }
 
     [Test]
-    public void FunctionalBehaviorLoopWithCaptures()
+    public async Task FunctionalBehaviorLoopWithCaptures()
     {
         BehaviorSink<int> s = Behavior.CreateSink(0);
 
@@ -385,12 +384,12 @@ public class LoopTests
             s.Send(3);
         }
 
-        CollectionAssert.AreEqual(expected: new[] { 0, 1, 3, 6 }, actual: @out);
-        CollectionAssert.AreEqual(expected: new[] { 0, 2, 4, 6 }, actual: out2);
+        await Assert.That(@out).IsEquivalentTo(new[] { 0, 1, 3, 6 }, CollectionOrdering.Matching);
+        await Assert.That(out2).IsEquivalentTo(new[] { 0, 2, 4, 6 }, CollectionOrdering.Matching);
     }
 
     [Test]
-    public void ImperativeCellLoop()
+    public async Task ImperativeCellLoop()
     {
         CellSink<int> s = Cell.CreateSink(0);
 
@@ -412,11 +411,11 @@ public class LoopTests
             s.Send(3);
         }
 
-        CollectionAssert.AreEqual(expected: new[] { 0, 1, 3, 6 }, actual: @out);
+        await Assert.That(@out).IsEquivalentTo(new[] { 0, 1, 3, 6 }, CollectionOrdering.Matching);
     }
 
     [Test]
-    public void ImperativeCellLoopFailsWhenLoopedTwice()
+    public async Task ImperativeCellLoopFailsWhenLoopedTwice()
     {
         InvalidOperationException? actual = null;
 
@@ -437,12 +436,12 @@ public class LoopTests
             actual = e;
         }
 
-        Assert.IsNotNull(actual);
-        Assert.AreEqual(expected: "Loop was looped more than once.", actual: actual?.Message);
+        await Assert.That(actual).IsNotNull();
+        await Assert.That(actual?.Message).IsEqualTo("Loop was looped more than once.");
     }
 
     [Test]
-    public void ImperativeCellLoopFailsWithoutTransaction()
+    public async Task ImperativeCellLoopFailsWithoutTransaction()
     {
         InvalidOperationException? actual = null;
 
@@ -456,12 +455,12 @@ public class LoopTests
             actual = e;
         }
 
-        Assert.IsNotNull(actual);
-        Assert.AreEqual(expected: "Loop must be created within an explicit transaction.", actual: actual?.Message);
+        await Assert.That(actual).IsNotNull();
+        await Assert.That(actual?.Message).IsEqualTo("Loop must be created within an explicit transaction.");
     }
 
     [Test]
-    public void ImperativeCellLoopFailsWhenNotLooped()
+    public async Task ImperativeCellLoopFailsWhenNotLooped()
     {
         InvalidOperationException? actual = null;
 
@@ -475,12 +474,12 @@ public class LoopTests
             actual = e;
         }
 
-        Assert.IsNotNull(actual);
-        Assert.AreEqual(expected: "Loop was not looped.", actual: actual?.Message);
+        await Assert.That(actual).IsNotNull();
+        await Assert.That(actual?.Message).IsEqualTo("Loop was not looped.");
     }
 
     [Test]
-    public void ImperativeCellLoopFailsWhenLoopedInSeparateTransaction()
+    public async Task ImperativeCellLoopFailsWhenLoopedInSeparateTransaction()
     {
         InvalidOperationException? actual = null;
 
@@ -520,15 +519,13 @@ public class LoopTests
 
         Thread.Sleep(500);
 
-        Assert.IsNotNull(actual);
+        await Assert.That(actual).IsNotNull();
 
-        Assert.AreEqual(
-            expected: "Loop must be looped in the same transaction that it was created in.",
-            actual: actual?.Message);
+        await Assert.That(actual?.Message).IsEqualTo("Loop must be looped in the same transaction that it was created in.");
     }
 
     [Test]
-    public void FunctionalCellLoop()
+    public async Task FunctionalCellLoop()
     {
         CellSink<int> s = Cell.CreateSink(0);
 
@@ -544,11 +541,11 @@ public class LoopTests
             s.Send(3);
         }
 
-        CollectionAssert.AreEqual(expected: new[] { 0, 1, 3, 6 }, actual: @out);
+        await Assert.That(@out).IsEquivalentTo(new[] { 0, 1, 3, 6 }, CollectionOrdering.Matching);
     }
 
     [Test]
-    public void FunctionalCellLoopWithCaptures()
+    public async Task FunctionalCellLoopWithCaptures()
     {
         CellSink<int> s = Cell.CreateSink(0);
 
@@ -570,22 +567,26 @@ public class LoopTests
             s.Send(3);
         }
 
-        CollectionAssert.AreEqual(expected: new[] { 0, 1, 3, 6 }, actual: @out);
-        CollectionAssert.AreEqual(expected: new[] { 0, 2, 4, 6 }, actual: out2);
+        await Assert.That(@out).IsEquivalentTo(new[] { 0, 1, 3, 6 }, CollectionOrdering.Matching);
+        await Assert.That(out2).IsEquivalentTo(new[] { 0, 2, 4, 6 }, CollectionOrdering.Matching);
     }
 
     // Desired behavior:
     //A list of items of type TestObject are held in a cell.  TestObject contains a cell of type int named Output, which
     //is calculated from other values. Any time a new TestObject is created, it will have the values for the cells from
     //which Output is calculated.  The sum of all Output values in the list should always be 50 or greater.
-    private sealed class DependencyCycleTest
+    // Internal rather than private, and the change is not cosmetic: NUnit only ran tests in public
+    // and internal types, so while this was private its one test never ran at all. TUnit's generator
+    // finds it and emits metadata for it, which does not compile against a private type - so the
+    // choice was to let it run or to say plainly that it does not.
+    internal sealed class DependencyCycleTest
     {
         // Switch over the sum of the Output cells in the list.
         // This won't work because we would need to recurse to keep the list correct when the sum is very low (only one
         // item can be added per transaction). The current implementation throws an exception stating that a dependency
         // cycle was detected, and I think this is the correct behavior.
         [Test]
-        public void TestSwitchCLoop()
+        public async Task TestSwitchCLoop()
         {
             Exception? actual = null;
 
@@ -635,8 +636,8 @@ public class LoopTests
                 actual = e;
             }
 
-            Assert.IsNotNull(actual);
-            Assert.AreEqual(expected: "A dependency cycle was detected.", actual: actual?.Message);
+            await Assert.That(actual).IsNotNull();
+            await Assert.That(actual?.Message).IsEqualTo("A dependency cycle was detected.");
         }
 
         // Switch over the sum of the Output cell value streams in the list.
@@ -644,7 +645,7 @@ public class LoopTests
         // would need to recurse to keep the list correct when the sum is very low (only one item can be added per
         // transaction).
         [Test]
-        public void TestSwitchSValuesLoop()
+        public async Task TestSwitchSValuesLoop()
         {
             CellStreamSink<IReadOnlyList<TestObject>> streamSink =
                 Cell.CreateStreamSink<IReadOnlyList<TestObject>>();
@@ -686,15 +687,13 @@ public class LoopTests
             objectCounts.Add(-1);
 
             // Ideal result, likely not achievable.
-            //CollectionAssert.AreEquivalent(new[] { -1, 10, -1, 11, -1, 15, -1, 10, -1 }, objectCounts);
+            //await Assert.That(objectCounts).IsEquivalentTo(new[] { -1, 10, -1, 11, -1, 15, -1, 10, -1 });
 
             // Glitchy result, also not returned by this method.
-            //CollectionAssert.AreEquivalent(new[] { -1, 10, -1, 11, -1, 12, 13, 14, 15, -1, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, -1 }, objectCounts);
+            //await Assert.That(objectCounts).IsEquivalentTo(new[] { -1, 10, -1, 11, -1, 12, 13, 14, 15, -1, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, -1 });
 
             // Incorrect result we will see.
-            CollectionAssert.AreEquivalent(
-                expected: new[] { -1, 10, -1, 11, -1, 12, -1, 0, -1 },
-                actual: objectCounts);
+            await Assert.That(objectCounts).IsEquivalentTo(new[] { -1, 10, -1, 11, -1, 12, -1, 0, -1 });
         }
 
         // Switch over the sum of the Output cells in the list, deferring the firings from the Values stream.
@@ -703,7 +702,7 @@ public class LoopTests
         // recursion is in a new transaction, so it exhibits "glitchy" behavior where the intermediate invalid states
         // are externally visible.
         [Test]
-        public void TestSwitchCDeferredLoop()
+        public async Task TestSwitchCDeferredLoop()
         {
             CellStreamSink<IReadOnlyList<TestObject>> streamSink =
                 Cell.CreateStreamSink<IReadOnlyList<TestObject>>();
@@ -744,12 +743,10 @@ public class LoopTests
             objectCounts.Add(-1);
 
             // Ideal result, likely not achievable.
-            //CollectionAssert.AreEquivalent(new[] { -1, 10, -1, 11, -1, 15, -1, 10, -1 }, objectCounts);
+            //await Assert.That(objectCounts).IsEquivalentTo(new[] { -1, 10, -1, 11, -1, 15, -1, 10, -1 });
 
             // Glitchy result, but correct otherwise.
-            CollectionAssert.AreEquivalent(
-                expected: new[] { -1, 10, -1, 11, -1, 12, 13, 14, 15, -1, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, -1 },
-                actual: objectCounts);
+            await Assert.That(objectCounts).IsEquivalentTo(new[] { -1, 10, -1, 11, -1, 12, 13, 14, 15, -1, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, -1 });
         }
 
         // Switch over the sum of the Output cells in the list, deferring the firings from the Values stream, and use a
@@ -761,7 +758,7 @@ public class LoopTests
         // SwitchC().DeferredValues() with SwitchC() on the cell loop returning a special type containing the
         // DeferredValues() and DeferredUpdates() methods.
         [Test]
-        public void TestSwitchCDeferredLoopWithBetterApi()
+        public async Task TestSwitchCDeferredLoopWithBetterApi()
         {
             CellStreamSink<IReadOnlyList<TestObject>> streamSink =
                 Cell.CreateStreamSink<IReadOnlyList<TestObject>>();
@@ -798,12 +795,10 @@ public class LoopTests
             objectCounts.Add(-1);
 
             // Ideal result, likely not achievable.
-            //CollectionAssert.AreEquivalent(new[] { -1, 10, -1, 11, -1, 15, -1, 10, -1 }, objectCounts);
+            //await Assert.That(objectCounts).IsEquivalentTo(new[] { -1, 10, -1, 11, -1, 15, -1, 10, -1 });
 
             // Glitchy result, but correct otherwise.
-            CollectionAssert.AreEquivalent(
-                expected: new[] { -1, 10, -1, 11, -1, 12, 13, 14, 15, -1, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, -1 },
-                actual: objectCounts);
+            await Assert.That(objectCounts).IsEquivalentTo(new[] { -1, 10, -1, 11, -1, 12, 13, 14, 15, -1, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, -1 });
         }
 
         private sealed class TestObject

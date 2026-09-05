@@ -2,16 +2,19 @@
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
-using NUnit.Framework;
+using System.Threading.Tasks;
+using TUnit.Assertions;
+using TUnit.Assertions.Enums;
+using TUnit.Assertions.Extensions;
+using TUnit.Core;
 using SodaFlow.Functional;
 
 namespace SodaFlow.Async.Tests;
 
-[TestFixture]
 public class MapAsyncExtensionsTests
 {
     [Test]
-    public void MapAsync_UnitErasedStrategy_Overload()
+    public async Task MapAsync_UnitErasedStrategy_Overload()
     {
         StreamSink<string> source = Stream.CreateSink<string>();
         StreamSink<string> results = Stream.CreateSink<string>();
@@ -28,14 +31,14 @@ public class MapAsyncExtensionsTests
 
         source.Send("hello");
         TestUtil.WaitUntil(() => received.Count == 1);
-        Assert.AreEqual(expected: "HELLO", actual: received[0]);
+        await Assert.That(received[0]).IsEqualTo("HELLO");
 
         status.Dispose();
         l.Unlisten();
     }
 
     [Test]
-    public void MapAsync_TStrategyInputWithoutConverter_AcceptsTInputAsSubtypeOfTStrategyInput()
+    public async Task MapAsync_TStrategyInputWithoutConverter_AcceptsTInputAsSubtypeOfTStrategyInput()
     {
         StreamSink<Dog> source = Stream.CreateSink<Dog>();
         StreamSink<string> results = Stream.CreateSink<string>();
@@ -55,15 +58,15 @@ public class MapAsyncExtensionsTests
         source.Send(dog);
         TestUtil.WaitUntil(() => received.Count == 1);
 
-        Assert.AreSame(expected: dog, actual: strategy.AdmittedValues[0]);
-        Assert.AreEqual(expected: "done", actual: received[0]);
+        await Assert.That(strategy.AdmittedValues[0]).IsSameReferenceAs(dog);
+        await Assert.That(received[0]).IsEqualTo("done");
 
         status.Dispose();
         l.Unlisten();
     }
 
     [Test]
-    public void MapAsync_TStrategyInputWithConverter_AppliesInputConverter()
+    public async Task MapAsync_TStrategyInputWithConverter_AppliesInputConverter()
     {
         StreamSink<string> source = Stream.CreateSink<string>();
         StreamSink<string> results = Stream.CreateSink<string>();
@@ -83,15 +86,15 @@ public class MapAsyncExtensionsTests
         source.Send("hello");
         TestUtil.WaitUntil(() => received.Count == 1);
 
-        CollectionAssert.AreEqual(expected: new[] { 5 }, actual: strategy.AdmittedValues);
-        Assert.AreEqual(expected: "HELLO", actual: received[0]);
+        await Assert.That(strategy.AdmittedValues).IsEquivalentTo(new[] { 5 }, CollectionOrdering.Matching);
+        await Assert.That(received[0]).IsEqualTo("HELLO");
 
         status.Dispose();
         l.Unlisten();
     }
 
     [Test]
-    public void MapAsync_TStrategyResultWithoutConverter_AcceptsTResultAsSubtypeOfTStrategyResult()
+    public async Task MapAsync_TStrategyResultWithoutConverter_AcceptsTResultAsSubtypeOfTStrategyResult()
     {
         StreamSink<string> source = Stream.CreateSink<string>();
         StreamSink<Dog> results = Stream.CreateSink<Dog>();
@@ -109,14 +112,14 @@ public class MapAsyncExtensionsTests
 
         source.Send("hello");
         TestUtil.WaitUntil(() => received.Count == 1);
-        Assert.AreSame(expected: dog, actual: received[0]);
+        await Assert.That(received[0]).IsSameReferenceAs(dog);
 
         status.Dispose();
         l.Unlisten();
     }
 
     [Test]
-    public void MapAsync_TStrategyResultWithConverter_AppliesResultConverter()
+    public async Task MapAsync_TStrategyResultWithConverter_AppliesResultConverter()
     {
         StreamSink<string> source = Stream.CreateSink<string>();
         StreamSink<string> results = Stream.CreateSink<string>();
@@ -136,15 +139,15 @@ public class MapAsyncExtensionsTests
         source.Send("hello");
         TestUtil.WaitUntil(() => received.Count == 1);
 
-        CollectionAssert.AreEqual(expected: new[] { 5 }, actual: strategy.CompletedResults);
-        Assert.AreEqual(expected: "HELLO", actual: received[0]);
+        await Assert.That(strategy.CompletedResults).IsEquivalentTo(new[] { 5 }, CollectionOrdering.Matching);
+        await Assert.That(received[0]).IsEqualTo("HELLO");
 
         status.Dispose();
         l.Unlisten();
     }
 
     [Test]
-    public void MapAsync_FourTypeArgsWithoutConverters_AcceptsBothAsSubtypes()
+    public async Task MapAsync_FourTypeArgsWithoutConverters_AcceptsBothAsSubtypes()
     {
         StreamSink<Dog> source = Stream.CreateSink<Dog>();
         StreamSink<Dog> results = Stream.CreateSink<Dog>();
@@ -162,14 +165,14 @@ public class MapAsyncExtensionsTests
 
         source.Send(dog);
         TestUtil.WaitUntil(() => received.Count == 1);
-        Assert.AreSame(expected: dog, actual: received[0]);
+        await Assert.That(received[0]).IsSameReferenceAs(dog);
 
         status.Dispose();
         l.Unlisten();
     }
 
     [Test]
-    public void MapAsync_FourTypeArgsWithInputConverterOnly_AppliesInputConverter()
+    public async Task MapAsync_FourTypeArgsWithInputConverterOnly_AppliesInputConverter()
     {
         StreamSink<string> source = Stream.CreateSink<string>();
         StreamSink<Dog> results = Stream.CreateSink<Dog>();
@@ -190,15 +193,15 @@ public class MapAsyncExtensionsTests
         source.Send("hello");
         TestUtil.WaitUntil(() => received.Count == 1);
 
-        CollectionAssert.AreEqual(expected: new[] { 5 }, actual: strategy.AdmittedValues);
-        Assert.AreSame(expected: dog, actual: received[0]);
+        await Assert.That(strategy.AdmittedValues).IsEquivalentTo(new[] { 5 }, CollectionOrdering.Matching);
+        await Assert.That(received[0]).IsSameReferenceAs(dog);
 
         status.Dispose();
         l.Unlisten();
     }
 
     [Test]
-    public void MapAsync_FourTypeArgsWithResultConverterOnly_AppliesResultConverter()
+    public async Task MapAsync_FourTypeArgsWithResultConverterOnly_AppliesResultConverter()
     {
         StreamSink<Dog> source = Stream.CreateSink<Dog>();
         StreamSink<string> results = Stream.CreateSink<string>();
@@ -219,15 +222,15 @@ public class MapAsyncExtensionsTests
         source.Send(dog);
         TestUtil.WaitUntil(() => received.Count == 1);
 
-        CollectionAssert.AreEqual(expected: new[] { 4 }, actual: strategy.CompletedResults);
-        Assert.AreEqual(expected: "done", actual: received[0]);
+        await Assert.That(strategy.CompletedResults).IsEquivalentTo(new[] { 4 }, CollectionOrdering.Matching);
+        await Assert.That(received[0]).IsEqualTo("done");
 
         status.Dispose();
         l.Unlisten();
     }
 
     [Test]
-    public void MapAsync_FullyGeneralOverload_AppliesBothConvertersToUnrelatedTypes()
+    public async Task MapAsync_FullyGeneralOverload_AppliesBothConvertersToUnrelatedTypes()
     {
         StreamSink<string> source = Stream.CreateSink<string>();
         StreamSink<string> results = Stream.CreateSink<string>();
@@ -250,16 +253,16 @@ public class MapAsyncExtensionsTests
         source.Send("hello");
         TestUtil.WaitUntil(() => received.Count == 1);
 
-        CollectionAssert.AreEqual(expected: new[] { 5 }, actual: strategy.AdmittedValues);
-        CollectionAssert.AreEqual(expected: new[] { true }, actual: strategy.CompletedResults);
-        Assert.AreEqual(expected: "HELLO", actual: received[0]);
+        await Assert.That(strategy.AdmittedValues).IsEquivalentTo(new[] { 5 }, CollectionOrdering.Matching);
+        await Assert.That(strategy.CompletedResults).IsEquivalentTo(new[] { true }, CollectionOrdering.Matching);
+        await Assert.That(received[0]).IsEqualTo("HELLO");
 
         status.Dispose();
         l.Unlisten();
     }
 
     [Test]
-    public void CancelAll_CancelsEveryTrackedOperation()
+    public async Task CancelAll_CancelsEveryTrackedOperation()
     {
         StreamSink<string> source = Stream.CreateSink<string>();
         StreamSink<string> results = Stream.CreateSink<string>();
@@ -285,17 +288,14 @@ public class MapAsyncExtensionsTests
 
         Thread.Sleep(200);
 
-        Assert.AreEqual(
-            expected: 0,
-            actual: received.Count,
-            message: "A canceled outcome must never be published.");
+        await Assert.That(received.Count).IsEqualTo(0).Because("A canceled outcome must never be published.");
 
         status.Dispose();
         l.Unlisten();
     }
 
     [Test]
-    public void CancelMatching_CancelsOnlyTrackedOperationsForMatchingInputValues()
+    public async Task CancelMatching_CancelsOnlyTrackedOperationsForMatchingInputValues()
     {
         StreamSink<string> source = Stream.CreateSink<string>();
         StreamSink<string> results = Stream.CreateSink<string>();
@@ -323,14 +323,14 @@ public class MapAsyncExtensionsTests
         TestUtil.WaitUntil(() => received.Count == 1);
 
         Thread.Sleep(100);
-        CollectionAssert.AreEqual(expected: new[] { "B" }, actual: received);
+        await Assert.That(received).IsEquivalentTo(new[] { "B" }, CollectionOrdering.Matching);
 
         status.Dispose();
         l.Unlisten();
     }
 
     [Test]
-    public void CancelOnDisposeTrue_CancelsInFlightItem()
+    public async Task CancelOnDisposeTrue_CancelsInFlightItem()
     {
         StreamSink<string> source = Stream.CreateSink<string>();
         StreamSink<string> results = Stream.CreateSink<string>();
@@ -353,13 +353,13 @@ public class MapAsyncExtensionsTests
         status.Dispose();
 
         Thread.Sleep(200);
-        Assert.AreEqual(expected: 0, actual: received.Count);
+        await Assert.That(received.Count).IsEqualTo(0);
 
         l.Unlisten();
     }
 
     [Test]
-    public void CancelOnDisposeFalse_LetsInFlightItemFinishAndPublish()
+    public async Task CancelOnDisposeFalse_LetsInFlightItemFinishAndPublish()
     {
         StreamSink<string> source = Stream.CreateSink<string>();
         StreamSink<string> results = Stream.CreateSink<string>();
@@ -383,13 +383,13 @@ public class MapAsyncExtensionsTests
         op.Release(input: "a", result: "A");
 
         TestUtil.WaitUntil(() => received.Count == 1);
-        CollectionAssert.AreEqual(expected: new[] { "A" }, actual: received);
+        await Assert.That(received).IsEquivalentTo(new[] { "A" }, CollectionOrdering.Matching);
 
         l.Unlisten();
     }
 
     [Test]
-    public void FailedOperationPublishesToErrors()
+    public async Task FailedOperationPublishesToErrors()
     {
         StreamSink<string> source = Stream.CreateSink<string>();
         StreamSink<string> results = Stream.CreateSink<string>();
@@ -407,14 +407,14 @@ public class MapAsyncExtensionsTests
 
         source.Send("hello");
         TestUtil.WaitUntil(() => received.Count == 1);
-        Assert.AreSame(expected: thrown, actual: received[0]);
+        await Assert.That(received[0]).IsSameReferenceAs(thrown);
 
         status.Dispose();
         l.Unlisten();
     }
 
     [Test]
-    public void ItemsAndIsRunning_ReflectQueuedAndRunningStatus()
+    public async Task ItemsAndIsRunning_ReflectQueuedAndRunningStatus()
     {
         StreamSink<string> source = Stream.CreateSink<string>();
         StreamSink<string> results = Stream.CreateSink<string>();
@@ -428,8 +428,8 @@ public class MapAsyncExtensionsTests
                 operation: op.Operation,
                 strategy: AsyncConcurrencyStrategy.Queue());
 
-        Assert.IsFalse(status.IsRunning.Sample());
-        Assert.AreEqual(expected: 0, actual: status.Items.Sample().Count);
+        await Assert.That(status.IsRunning.Sample()).IsFalse();
+        await Assert.That(status.Items.Sample().Count).IsEqualTo(0);
 
         source.Send("a");
         source.Send("b");
@@ -437,14 +437,14 @@ public class MapAsyncExtensionsTests
         TestUtil.WaitUntil(() => status.IsRunning.Sample());
 
         IReadOnlyList<AsyncItem<string>> items = status.Items.Sample();
-        Assert.AreEqual(expected: 2, actual: items.Count);
+        await Assert.That(items.Count).IsEqualTo(2);
 
         op.Release(input: "a", result: "A");
         TestUtil.WaitUntil(() => op.HasStarted("b"));
         op.Release(input: "b", result: "B");
 
         TestUtil.WaitUntil(() => status.Items.Sample().Count == 0);
-        Assert.IsFalse(status.IsRunning.Sample());
+        await Assert.That(status.IsRunning.Sample()).IsFalse();
 
         status.Dispose();
     }

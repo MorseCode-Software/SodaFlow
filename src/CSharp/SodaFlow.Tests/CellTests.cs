@@ -1,16 +1,19 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
-using NUnit.Framework;
+using System.Threading.Tasks;
+using TUnit.Assertions;
+using TUnit.Assertions.Enums;
+using TUnit.Assertions.Extensions;
+using TUnit.Core;
 using SodaFlow.Functional;
 
 namespace SodaFlow.Tests;
 
-[TestFixture]
 public class CellTests
 {
     [Test]
-    public void TestLoop()
+    public async Task TestLoop()
     {
         (Cell<int> c, CellStreamSink<int> s) =
             Transaction.Run(static () =>
@@ -33,12 +36,12 @@ public class CellTests
         l2.Unlisten();
         l.Unlisten();
 
-        CollectionAssert.AreEqual(expected: new[] { 15, 25, 35 }, actual: output1);
-        CollectionAssert.AreEqual(expected: new[] { 25, 35 }, actual: output2);
+        await Assert.That(output1).IsEquivalentTo(new[] { 15, 25, 35 }, CollectionOrdering.Matching);
+        await Assert.That(output2).IsEquivalentTo(new[] { 25, 35 }, CollectionOrdering.Matching);
     }
 
     [Test]
-    public void TestLiftSimultaneousUpdates()
+    public async Task TestLiftSimultaneousUpdates()
     {
         List<int> @out = [];
         CellSink<int> cellSink = Cell.CreateSink(1);
@@ -50,11 +53,11 @@ public class CellTests
 
         l.Unlisten();
 
-        CollectionAssert.AreEqual(expected: new[] { 6, 21 }, actual: @out);
+        await Assert.That(@out).IsEquivalentTo(new[] { 6, 21 }, CollectionOrdering.Matching);
     }
 
     [Test]
-    public void TestLiftInSwitchC()
+    public async Task TestLiftInSwitchC()
     {
         IReadOnlyList<Test> list1 = [new(0), new(1), new(2), new(3), new(4)];
         IReadOnlyList<Test> list2 = [new(5), new(6), new(7), new(8), new(9)];
@@ -86,22 +89,22 @@ public class CellTests
         l2.Unlisten();
         l.Unlisten();
 
-        Assert.AreEqual(expected: 4, actual: streamOutput.Count);
-        Assert.AreEqual(expected: 5, actual: cellOutput.Count);
+        await Assert.That(streamOutput.Count).IsEqualTo(4);
+        await Assert.That(cellOutput.Count).IsEqualTo(5);
 
-        CollectionAssert.AreEqual(expected: new[] { 0, 1, 2, 3, 4 }, actual: cellOutput[0]);
-        CollectionAssert.AreEqual(expected: new[] { 0, 1, 12, 3, 4 }, actual: streamOutput[0]);
-        CollectionAssert.AreEqual(expected: new[] { 0, 1, 12, 3, 4 }, actual: cellOutput[1]);
-        CollectionAssert.AreEqual(expected: new[] { 0, 1, 12, 3, 14 }, actual: streamOutput[1]);
-        CollectionAssert.AreEqual(expected: new[] { 0, 1, 12, 3, 14 }, actual: cellOutput[2]);
-        CollectionAssert.AreEqual(expected: new[] { 5, 16, 17, 8, 9 }, actual: streamOutput[2]);
-        CollectionAssert.AreEqual(expected: new[] { 5, 16, 17, 8, 9 }, actual: cellOutput[3]);
-        CollectionAssert.AreEqual(expected: new[] { 5, 16, 17, 18, 9 }, actual: streamOutput[3]);
-        CollectionAssert.AreEqual(expected: new[] { 5, 16, 17, 18, 9 }, actual: cellOutput[4]);
+        await Assert.That(cellOutput[0]).IsEquivalentTo(new[] { 0, 1, 2, 3, 4 }, CollectionOrdering.Matching);
+        await Assert.That(streamOutput[0]).IsEquivalentTo(new[] { 0, 1, 12, 3, 4 }, CollectionOrdering.Matching);
+        await Assert.That(cellOutput[1]).IsEquivalentTo(new[] { 0, 1, 12, 3, 4 }, CollectionOrdering.Matching);
+        await Assert.That(streamOutput[1]).IsEquivalentTo(new[] { 0, 1, 12, 3, 14 }, CollectionOrdering.Matching);
+        await Assert.That(cellOutput[2]).IsEquivalentTo(new[] { 0, 1, 12, 3, 14 }, CollectionOrdering.Matching);
+        await Assert.That(streamOutput[2]).IsEquivalentTo(new[] { 5, 16, 17, 8, 9 }, CollectionOrdering.Matching);
+        await Assert.That(cellOutput[3]).IsEquivalentTo(new[] { 5, 16, 17, 8, 9 }, CollectionOrdering.Matching);
+        await Assert.That(streamOutput[3]).IsEquivalentTo(new[] { 5, 16, 17, 18, 9 }, CollectionOrdering.Matching);
+        await Assert.That(cellOutput[4]).IsEquivalentTo(new[] { 5, 16, 17, 18, 9 }, CollectionOrdering.Matching);
     }
 
     [Test]
-    public void TestMapWithSwitchC()
+    public async Task TestMapWithSwitchC()
     {
         IReadOnlyList<Test> list1 = [new(0), new(1), new(2), new(3), new(4)];
         IReadOnlyList<Test> list2 = [new(5), new(6), new(7), new(8), new(9)];
@@ -134,18 +137,18 @@ public class CellTests
         l2.Unlisten();
         l.Unlisten();
 
-        Assert.AreEqual(expected: 4, actual: streamOutput.Count);
-        Assert.AreEqual(expected: 5, actual: cellOutput.Count);
+        await Assert.That(streamOutput.Count).IsEqualTo(4);
+        await Assert.That(cellOutput.Count).IsEqualTo(5);
 
-        CollectionAssert.AreEqual(expected: new[] { 0, 1, 2, 3, 4 }, actual: cellOutput[0]);
-        CollectionAssert.AreEqual(expected: new[] { 0, 1, 12, 3, 4 }, actual: streamOutput[0]);
-        CollectionAssert.AreEqual(expected: new[] { 0, 1, 12, 3, 4 }, actual: cellOutput[1]);
-        CollectionAssert.AreEqual(expected: new[] { 0, 1, 12, 3, 14 }, actual: streamOutput[1]);
-        CollectionAssert.AreEqual(expected: new[] { 0, 1, 12, 3, 14 }, actual: cellOutput[2]);
-        CollectionAssert.AreEqual(expected: new[] { 5, 16, 17, 8, 9 }, actual: streamOutput[2]);
-        CollectionAssert.AreEqual(expected: new[] { 5, 16, 17, 8, 9 }, actual: cellOutput[3]);
-        CollectionAssert.AreEqual(expected: new[] { 5, 16, 17, 18, 9 }, actual: streamOutput[3]);
-        CollectionAssert.AreEqual(expected: new[] { 5, 16, 17, 18, 9 }, actual: cellOutput[4]);
+        await Assert.That(cellOutput[0]).IsEquivalentTo(new[] { 0, 1, 2, 3, 4 }, CollectionOrdering.Matching);
+        await Assert.That(streamOutput[0]).IsEquivalentTo(new[] { 0, 1, 12, 3, 4 }, CollectionOrdering.Matching);
+        await Assert.That(cellOutput[1]).IsEquivalentTo(new[] { 0, 1, 12, 3, 4 }, CollectionOrdering.Matching);
+        await Assert.That(streamOutput[1]).IsEquivalentTo(new[] { 0, 1, 12, 3, 14 }, CollectionOrdering.Matching);
+        await Assert.That(cellOutput[2]).IsEquivalentTo(new[] { 0, 1, 12, 3, 14 }, CollectionOrdering.Matching);
+        await Assert.That(streamOutput[2]).IsEquivalentTo(new[] { 5, 16, 17, 8, 9 }, CollectionOrdering.Matching);
+        await Assert.That(cellOutput[3]).IsEquivalentTo(new[] { 5, 16, 17, 8, 9 }, CollectionOrdering.Matching);
+        await Assert.That(streamOutput[3]).IsEquivalentTo(new[] { 5, 16, 17, 18, 9 }, CollectionOrdering.Matching);
+        await Assert.That(cellOutput[4]).IsEquivalentTo(new[] { 5, 16, 17, 18, 9 }, CollectionOrdering.Matching);
     }
 
     private sealed class Test(int initialValue)
@@ -154,7 +157,7 @@ public class CellTests
     }
 
     [Test]
-    public void TestLiftCellsInSwitchC()
+    public async Task TestLiftCellsInSwitchC()
     {
         List<int> @out = [];
         CellSink<int> s = Cell.CreateSink(0);
@@ -164,11 +167,11 @@ public class CellTests
         s.Send(2);
         s.Send(4);
         l.Unlisten();
-        CollectionAssert.AreEqual(expected: new[] { 1, 3, 5 }, actual: @out);
+        await Assert.That(@out).IsEquivalentTo(new[] { 1, 3, 5 }, CollectionOrdering.Matching);
     }
 
     [Test]
-    public void TestLazyCellCreation()
+    public async Task TestLazyCellCreation()
     {
         List<int> @out = [];
         StreamSink<int> s = Stream.CreateSink<int>();
@@ -178,11 +181,11 @@ public class CellTests
         s.Send(3);
         s.Send(5);
         l.Unlisten();
-        CollectionAssert.AreEqual(expected: new[] { 1, 3, 5 }, actual: @out);
+        await Assert.That(@out).IsEquivalentTo(new[] { 1, 3, 5 }, CollectionOrdering.Matching);
     }
 
     [Test]
-    public void CellValuesWithPrevious()
+    public async Task CellValuesWithPrevious()
     {
         StreamSink<int> s = Stream.CreateSink<int>();
         Cell<int> c = s.Hold(0);
@@ -207,20 +210,18 @@ public class CellTests
             s.Send(4);
         }
 
-        CollectionAssert.AreEqual(
-            expected: new[]
+        await Assert.That(@out).IsEquivalentTo(new[]
                       {
                           (Current: 0, Previous: Maybe.None),
                           (Current: 1, Previous: Maybe.Some(0)),
                           (Current: 2, Previous: Maybe.Some(1)),
                           (Current: 3, Previous: Maybe.Some(2)),
                           (Current: 4, Previous: Maybe.Some(3))
-                      },
-            actual: @out);
+                      }, CollectionOrdering.Matching);
     }
 
     [Test]
-    public void CellValuesWithPreviousHavingInitialUpdate()
+    public async Task CellValuesWithPreviousHavingInitialUpdate()
     {
         StreamSink<int> s = Stream.CreateSink<int>();
         Cell<int> c = s.Hold(0);
@@ -246,20 +247,18 @@ public class CellTests
             s.Send(5);
         }
 
-        CollectionAssert.AreEqual(
-            expected: new[]
+        await Assert.That(@out).IsEquivalentTo(new[]
                       {
                           (Current: 1, Previous: Maybe.Some(0)),
                           (Current: 2, Previous: Maybe.Some(1)),
                           (Current: 3, Previous: Maybe.Some(2)),
                           (Current: 4, Previous: Maybe.Some(3)),
                           (Current: 5, Previous: Maybe.Some(4))
-                      },
-            actual: @out);
+                      }, CollectionOrdering.Matching);
     }
 
     [Test]
-    public void TestLoopAndSwitchCError()
+    public async Task TestLoopAndSwitchCError()
     {
         InvalidOperationException? exception = null;
 
@@ -280,15 +279,13 @@ public class CellTests
             exception = e;
         }
 
-        Assert.IsNotNull(exception);
+        await Assert.That(exception).IsNotNull();
 
-        Assert.AreEqual(
-            expected: "ValueFactory attempted to access the Value property of this instance.",
-            actual: exception?.Message);
+        await Assert.That(exception?.Message).IsEqualTo("ValueFactory attempted to access the Value property of this instance.");
     }
 
     [Test]
-    public void TestLoopAndSwitchC()
+    public async Task TestLoopAndSwitchC()
     {
         (Cell<int> resultCell, (Cell<Inner> innerCell, StreamSink<Inner> innerStreamSink)) =
             Cell.Loop<int>()
@@ -309,7 +306,7 @@ public class CellTests
             innerCell.Sample().S.Send(7);
         }
 
-        CollectionAssert.AreEqual(expected: new[] { 3, 5, 4, 7 }, actual: @out);
+        await Assert.That(@out).IsEquivalentTo(new[] { 3, 5, 4, 7 }, CollectionOrdering.Matching);
     }
 
     private sealed class Inner

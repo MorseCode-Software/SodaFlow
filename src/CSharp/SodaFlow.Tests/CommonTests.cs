@@ -1,14 +1,17 @@
 ﻿using System.Collections.Generic;
-using NUnit.Framework;
+using System.Threading.Tasks;
+using TUnit.Assertions;
+using TUnit.Assertions.Enums;
+using TUnit.Assertions.Extensions;
+using TUnit.Core;
 using SodaFlow.Functional;
 
 namespace SodaFlow.Tests;
 
-[TestFixture]
 public class CommonTests
 {
     [Test]
-    public void TestBaseSend1()
+    public async Task TestBaseSend1()
     {
         StreamSink<string> s = Stream.CreateSink<string>();
         List<string> @out = [];
@@ -16,11 +19,11 @@ public class CommonTests
         s.Send("a");
         s.Send("b");
         l.Unlisten();
-        CollectionAssert.AreEqual(expected: new[] { "a", "b" }, actual: @out);
+        await Assert.That(@out).IsEquivalentTo(new[] { "a", "b" }, CollectionOrdering.Matching);
     }
 
     [Test]
-    public void TestOperationalSplit()
+    public async Task TestOperationalSplit()
     {
         StreamSink<List<string>> a = Stream.CreateSink<List<string>>();
         Stream<string> b = Operational.Split<string, List<string>>(a);
@@ -28,11 +31,11 @@ public class CommonTests
         IListener l = b.ListenStrong(@out.Add);
         a.Send(["a", "b"]);
         l.Unlisten();
-        CollectionAssert.AreEqual(expected: new[] { "a", "b" }, actual: @out);
+        await Assert.That(@out).IsEquivalentTo(new[] { "a", "b" }, CollectionOrdering.Matching);
     }
 
     [Test]
-    public void TestOperationalDefer1()
+    public async Task TestOperationalDefer1()
     {
         StreamSink<string> a = Stream.CreateSink<string>();
         Stream<string> b = Operational.Defer(a);
@@ -40,16 +43,16 @@ public class CommonTests
         IListener l = b.ListenStrong(@out.Add);
         a.Send("a");
         l.Unlisten();
-        CollectionAssert.AreEqual(expected: new[] { "a" }, actual: @out);
+        await Assert.That(@out).IsEquivalentTo(new[] { "a" }, CollectionOrdering.Matching);
         List<string> out2 = [];
         IListener l2 = b.ListenStrong(out2.Add);
         a.Send("b");
         l2.Unlisten();
-        CollectionAssert.AreEqual(expected: new[] { "b" }, actual: out2);
+        await Assert.That(out2).IsEquivalentTo(new[] { "b" }, CollectionOrdering.Matching);
     }
 
     [Test]
-    public void TestOperationalDefer2()
+    public async Task TestOperationalDefer2()
     {
         StreamSink<string> a = Stream.CreateSink<string>();
         StreamSink<string> b = Stream.CreateSink<string>();
@@ -58,7 +61,7 @@ public class CommonTests
         IListener l = c.ListenStrong(@out.Add);
         a.Send("a");
         l.Unlisten();
-        CollectionAssert.AreEqual(expected: new[] { "a" }, actual: @out);
+        await Assert.That(@out).IsEquivalentTo(new[] { "a" }, CollectionOrdering.Matching);
         List<string> out2 = [];
         IListener l2 = c.ListenStrong(out2.Add);
 
@@ -69,11 +72,11 @@ public class CommonTests
         });
 
         l2.Unlisten();
-        CollectionAssert.AreEqual(expected: new[] { "B", "b" }, actual: out2);
+        await Assert.That(out2).IsEquivalentTo(new[] { "B", "b" }, CollectionOrdering.Matching);
     }
 
     [Test]
-    public void TestStreamOrElse1()
+    public async Task TestStreamOrElse1()
     {
         StreamSink<int> a = Stream.CreateSink<int>();
         StreamSink<int> b = Stream.CreateSink<int>();
@@ -82,12 +85,12 @@ public class CommonTests
         IListener l = c.ListenStrong(@out.Add);
         a.Send(0);
         l.Unlisten();
-        CollectionAssert.AreEqual(expected: new[] { 0 }, actual: @out);
+        await Assert.That(@out).IsEquivalentTo(new[] { 0 }, CollectionOrdering.Matching);
         List<int> out2 = [];
         IListener l2 = c.ListenStrong(out2.Add);
         b.Send(10);
         l2.Unlisten();
-        CollectionAssert.AreEqual(expected: new[] { 10 }, actual: out2);
+        await Assert.That(out2).IsEquivalentTo(new[] { 10 }, CollectionOrdering.Matching);
         List<int> out3 = [];
         IListener l3 = c.ListenStrong(out3.Add);
 
@@ -98,16 +101,16 @@ public class CommonTests
         });
 
         l3.Unlisten();
-        CollectionAssert.AreEqual(expected: new[] { 2 }, actual: out3);
+        await Assert.That(out3).IsEquivalentTo(new[] { 2 }, CollectionOrdering.Matching);
         List<int> out4 = [];
         IListener l4 = c.ListenStrong(out4.Add);
         b.Send(30);
         l4.Unlisten();
-        CollectionAssert.AreEqual(expected: new[] { 30 }, actual: out4);
+        await Assert.That(out4).IsEquivalentTo(new[] { 30 }, CollectionOrdering.Matching);
     }
 
     [Test]
-    public void TestOperationalDeferSimultaneous()
+    public async Task TestOperationalDeferSimultaneous()
     {
         StreamSink<string> a = Stream.CreateSink<string>();
         StreamSink<string> b = Stream.CreateSink<string>();
@@ -116,7 +119,7 @@ public class CommonTests
         IListener l = c.ListenStrong(@out.Add);
         b.Send("A");
         l.Unlisten();
-        CollectionAssert.AreEqual(expected: new[] { "A" }, actual: @out);
+        await Assert.That(@out).IsEquivalentTo(new[] { "A" }, CollectionOrdering.Matching);
         List<string> out2 = [];
         IListener l2 = c.ListenStrong(out2.Add);
 
@@ -127,26 +130,26 @@ public class CommonTests
         });
 
         l2.Unlisten();
-        CollectionAssert.AreEqual(expected: new[] { "b" }, actual: out2);
+        await Assert.That(out2).IsEquivalentTo(new[] { "b" }, CollectionOrdering.Matching);
     }
 
     [Test]
-    public void TestUnitEqualsOperator()
+    public async Task TestUnitEqualsOperator()
     {
         Unit u1 = Unit.Value;
         Unit u2 = Unit.Value;
 
-        Assert.IsTrue(u1 == u2);
-        Assert.IsTrue(u2 == u1);
+        await Assert.That(u1 == u2).IsTrue();
+        await Assert.That(u2 == u1).IsTrue();
     }
 
     [Test]
-    public void TestUnitNotEqualsOperator()
+    public async Task TestUnitNotEqualsOperator()
     {
         Unit u1 = Unit.Value;
         Unit u2 = Unit.Value;
 
-        Assert.IsFalse(u1 != u2);
-        Assert.IsFalse(u2 != u1);
+        await Assert.That(u1 != u2).IsFalse();
+        await Assert.That(u2 != u1).IsFalse();
     }
 }
