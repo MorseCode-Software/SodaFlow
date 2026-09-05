@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Threading.Tasks;
 using TUnit.Assertions;
 using TUnit.Assertions.Enums;
+using TUnit.Assertions.Core;
 using TUnit.Assertions.Extensions;
 
 namespace SodaFlow.Tests;
@@ -29,43 +30,71 @@ namespace SodaFlow.Tests;
 ///         The expected value comes first, as it did in the NUnit calls these replace.
 ///     </para>
 /// </remarks>
+// Every assertion below is awaited, in Run, one call away from where it is built. TUnit's
+// analyzer only recognizes an await in the same expression, so it reads each of these as an
+// assertion that is never checked. Awaiting in place instead would mean writing each method
+// twice, once with the message and once without.
+#pragma warning disable TUnitAssertions0002
+
 public static class Expect
 {
     /// <summary>Asserts that <paramref name="actual" /> equals <paramref name="expected" />.</summary>
-    public static async Task Equal<T>(T expected, T actual) =>
-        await Assert.That(actual).IsEqualTo(expected);
+    public static Task Equal<T>(T expected, T actual, string? because = null) =>
+        Run(Assert.That(actual).IsEqualTo(expected), because);
 
     /// <summary>Asserts that <paramref name="actual" /> is the same object as <paramref name="expected" />.</summary>
-    public static async Task Same<T>(T expected, T actual)
-        where T : class =>
-        await Assert.That(actual).IsSameReferenceAs(expected);
+    /// <remarks>
+    ///     Untyped, as NUnit's AreSame was. Reference identity does not need the two sides to share a
+    ///     static type, and some of these call sites compare an exception to one held as its base.
+    /// </remarks>
+    public static Task Same(object? expected, object? actual, string? because = null) =>
+        Run(Assert.That(actual).IsSameReferenceAs(expected), because);
 
     /// <summary>Asserts that <paramref name="actual" /> holds exactly <paramref name="expected" />, in that order.</summary>
-    public static async Task Sequence<T>(IEnumerable<T> expected, IEnumerable<T> actual) =>
-        await Assert.That(actual).IsEquivalentTo(expected, CollectionOrdering.Matching);
+    public static Task Sequence<T>(IEnumerable<T> expected, IEnumerable<T> actual, string? because = null) =>
+        Run(Assert.That(actual).IsEquivalentTo(expected, CollectionOrdering.Matching), because);
 
     /// <summary>Asserts that <paramref name="actual" /> holds exactly <paramref name="expected" />, in any order.</summary>
-    public static async Task SameItems<T>(IEnumerable<T> expected, IEnumerable<T> actual) =>
-        await Assert.That(actual).IsEquivalentTo(expected);
+    public static Task SameItems<T>(IEnumerable<T> expected, IEnumerable<T> actual, string? because = null) =>
+        Run(Assert.That(actual).IsEquivalentTo(expected), because);
 
     /// <summary>Asserts that <paramref name="actual" /> is <see langword="true" />.</summary>
-    public static async Task True(bool actual) => await Assert.That(actual).IsTrue();
+    public static Task True(bool actual, string? because = null) =>
+        Run(Assert.That(actual).IsTrue(), because);
 
     /// <summary>Asserts that <paramref name="actual" /> is <see langword="false" />.</summary>
-    public static async Task False(bool actual) => await Assert.That(actual).IsFalse();
+    public static Task False(bool actual, string? because = null) =>
+        Run(Assert.That(actual).IsFalse(), because);
 
     /// <summary>Asserts that <paramref name="actual" /> is not <see langword="null" />.</summary>
-    public static async Task NotNull<T>(T actual)
+    public static Task NotNull<T>(T actual, string? because = null)
         where T : class =>
-        await Assert.That(actual).IsNotNull();
+        Run(Assert.That(actual).IsNotNull(), because);
 
     /// <summary>Asserts that <paramref name="actual" /> is less than <paramref name="limit" />.</summary>
-    public static async Task LessThan<T>(T limit, T actual)
+    public static Task LessThan<T>(T limit, T actual, string? because = null)
         where T : IComparable<T> =>
-        await Assert.That(actual).IsLessThan(limit);
+        Run(Assert.That(actual).IsLessThan(limit), because);
 
     /// <summary>Asserts that <paramref name="action" /> throws exactly <typeparamref name="TException" />.</summary>
-    public static async Task Throws<TException>(Action action)
+    public static Task Throws<TException>(Action action, string? because = null)
         where TException : Exception =>
-        await Assert.That(action).ThrowsExactly<TException>();
+        Run(Assert.That(action).ThrowsExactly<TException>(), because);
+
+    /// <summary>
+    ///     Awaits an assertion, attaching <paramref name="because" /> when the call supplied the
+    ///     message NUnit's assertions took as their last argument.
+    /// </summary>
+    private static async Task Run<T>(Assertion<T> assertion, string? because)
+    {
+        if (because is not null)
+        {
+            await assertion.Because(because);
+            return;
+        }
+
+        await assertion;
+    }
 }
+
+#pragma warning restore TUnitAssertions0002

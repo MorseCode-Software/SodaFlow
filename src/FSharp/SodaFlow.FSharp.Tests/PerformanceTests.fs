@@ -1,8 +1,8 @@
 module SodaFlow.Tests.Performance
 
 open System.Collections.Generic
-open NUnit.Framework
 open SodaFlow
+open TUnit.Core
 
 [<AutoOpen>]
 module private Types =
@@ -54,86 +54,92 @@ module private Types =
         member _.IsSelectedStreamSink = isSelectedStreamSink
         member _.IsSelected = isSelected
 
-[<TestFixture>]
 type ``Performance Tests``() =
 
     [<Test>]
     member _.``Test Merge``() =
-        let s = sinkS<unit> ()
+        task {
+            let s = sinkS<unit> ()
 
-        let struct (_, obj) =
-            loopS (fun loop ->
-                let s1 = sinkCS ()
-                let s2 = sinkCS ()
-                let l = Array.init 5000 (fun _ -> TestObject(loop, s1, s2))
+            let struct (_, obj) =
+                loopS (fun loop ->
+                    let s1 = sinkCS ()
+                    let s2 = sinkCS ()
+                    let l = Array.init 5000 (fun _ -> TestObject(loop, s1, s2))
 
-                struct (s
-                        |> snapshotAndTakeC (l |> Seq.map (fun o -> o.Cell) |> liftAllC id)
-                        |> mapS (Seq.forall (fun v -> v = 0)),
-                        l))
+                    struct (s
+                            |> snapshotAndTakeC (l |> Seq.map (fun o -> o.Cell) |> liftAllC id)
+                            |> mapS (Seq.forall (fun v -> v = 0)),
+                            l))
 
-        let values = obj |> Array.map (fun o -> o.CurrentValue)
-        CollectionAssert.AreEqual(Seq.init 5000 (fun _ -> 0), values)
+            let values = obj |> Array.map (fun o -> o.CurrentValue)
+            do! Expect.Sequence(Seq.init 5000 (fun _ -> 0), values)
+        }
 
     [<Test>]
     member _.``Test Run Construct``() =
-        let objects =
-            runT (fun () ->
-                let o2 = List.init 10000 (fun n -> TestObject2(n, n < 1500, neverS ()))
-                sinkC o2)
+        task {
+            let objects =
+                runT (fun () ->
+                    let o2 = List.init 10000 (fun n -> TestObject2(n, n < 1500, neverS ()))
+                    sinkC o2)
 
-        runT (fun () -> objects |> sendC (List.init 20000 (fun n -> TestObject2(n, n < 500, neverS ()))))
+            runT (fun () -> objects |> sendC (List.init 20000 (fun n -> TestObject2(n, n < 500, neverS ()))))
+        }
 
     [<Test>]
     member _.``Test Run Construct 2``() =
-        let struct (_, (objectsAndIsSelected, selectAllStream, objects)) =
-            loopC (fun allSelected ->
-                let toggleAllSelectedStream = sinkS ()
+        task {
+            let struct (_, (objectsAndIsSelected, selectAllStream, objects)) =
+                loopC (fun allSelected ->
+                    let toggleAllSelectedStream = sinkS ()
 
-                let selectAllStream =
-                    toggleAllSelectedStream
-                    |> snapshotAndTakeC allSelected
-                    |> mapS (fun a ->
-                        match a with
-                        | Some a -> not a
-                        | None -> true)
+                    let selectAllStream =
+                        toggleAllSelectedStream
+                        |> snapshotAndTakeC allSelected
+                        |> mapS (fun a ->
+                            match a with
+                            | Some a -> not a
+                            | None -> true)
 
-                let o2 = List.init 10000 (fun n -> TestObject2(n, n < 1500, selectAllStream))
-                let objects = sinkC o2
+                    let o2 = List.init 10000 (fun n -> TestObject2(n, n < 1500, selectAllStream))
+                    let objects = sinkC o2
 
-                let objectsAndIsSelected =
-                    objects
-                    |> mapC (Seq.map (fun o -> o.IsSelected |> mapC (fun s -> (o, s))) >> liftAllC id)
-                    |> switchC
+                    let objectsAndIsSelected =
+                        objects
+                        |> mapC (Seq.map (fun o -> o.IsSelected |> mapC (fun s -> (o, s))) >> liftAllC id)
+                        |> switchC
 
-                let defaultValue = Some(o2.Length < 1)
+                    let defaultValue = Some(o2.Length < 1)
 
-                let allSelected =
-                    objectsAndIsSelected
-                    |> mapC (fun oo ->
-                        if oo.Count > 0 then
-                            (if oo |> Seq.forall snd then
-                                 Some true
-                             else
-                                 (if oo |> Seq.forall (fun (_, isSelected) -> not isSelected) then
-                                      Some false
-                                  else
-                                      None))
-                        else
-                            defaultValue)
+                    let allSelected =
+                        objectsAndIsSelected
+                        |> mapC (fun oo ->
+                            if oo.Count > 0 then
+                                (if oo |> Seq.forall snd then
+                                     Some true
+                                 else
+                                     (if oo |> Seq.forall (fun (_, isSelected) -> not isSelected) then
+                                          Some false
+                                      else
+                                          None))
+                            else
+                                defaultValue)
 
-                struct (allSelected, (objectsAndIsSelected, selectAllStream, objects)))
+                    struct (allSelected, (objectsAndIsSelected, selectAllStream, objects)))
 
-        let out = List<_>()
+            let out = List<_>()
 
-        (use _l =
-            runT (fun () ->
-                objectsAndIsSelected
-                |> mapC (Seq.where snd >> Seq.length)
-                |> listenStrongC out.Add)
+            let _ =
+                (use _l =
+                    runT (fun () ->
+                        objectsAndIsSelected
+                        |> mapC (Seq.where snd >> Seq.length)
+                        |> listenStrongC out.Add)
 
-         runT (fun () ->
-             objects
-             |> sendC (List.init 20000 (fun n -> TestObject2(n, n < 500, selectAllStream)))))
+                 runT (fun () ->
+                     objects
+                     |> sendC (List.init 20000 (fun n -> TestObject2(n, n < 500, selectAllStream)))))
 
-        CollectionAssert.AreEqual([ 1500; 500 ], out)
+            do! Expect.Sequence([ 1500; 500 ], out)
+        }

@@ -18,6 +18,7 @@
     </PropertyGroup>
 
     <ItemGroup>
+        <Compile Include="AssemblyInfo.fs"/>
         <Compile Include="ObjectModelTests.fs"/>
     </ItemGroup>
 
@@ -27,6 +28,7 @@
     </ItemGroup>
 
     <ItemGroup>
+        <ProjectReference Include="..\..\..\..\FSharp\SodaFlow.FSharp.Tests.Assertions\SodaFlow.FSharp.Tests.Assertions.csproj"/>
         <ProjectReference Include="..\..\..\..\FSharp\SodaFlow.FSharp\SodaFlow.FSharp.fsproj"/>
         <ProjectReference Include="..\..\SodaFlow.Core.Bindable.ObjectModel\SodaFlow.Core.Bindable.ObjectModel.csproj"/>
         <ProjectReference Include="..\SodaFlow.FSharp.Bindable.ObjectModel\SodaFlow.FSharp.Bindable.ObjectModel.fsproj"/>

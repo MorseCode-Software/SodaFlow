@@ -2,14 +2,14 @@ namespace SodaFlow.Tests
 
 [<AutoOpen>]
 module internal Utils =
-    open NUnit.Framework
+    open TUnit.Assertions.Exceptions
 
     let inline flip f x y = f y x
 
     let internal assertExists notExistsMessage onExists =
         function
         | Some o -> onExists o
-        | None -> Assert.Fail notExistsMessage
+        | None -> raise (AssertionException notExistsMessage)
 
     let internal assertExceptionExists onExists (e: #exn option) =
         assertExists "No exception was encountered." onExists e

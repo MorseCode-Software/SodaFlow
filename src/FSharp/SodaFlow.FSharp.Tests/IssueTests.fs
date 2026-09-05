@@ -1,85 +1,89 @@
 module SodaFlow.Tests.Issue
 
 open System.Collections.Generic
-open NUnit.Framework
 open SodaFlow
+open TUnit.Core
 
 module Issue151 =
 
-    [<TestFixture>]
     type ``Issue 151 Tests``() =
 
         [<Test>]
         member _.``Pool Double Subtraction: Broken``() =
-            let actual =
-                try
-                    let threshold = sinkC 10
-                    let addPoolSink = sinkS ()
+            task {
+                let actual =
+                    try
+                        let threshold = sinkC 10
+                        let addPoolSink = sinkS ()
 
-                    let struct (_submitPooledAmount, _pool) =
-                        loopS (fun submitPooledAmount ->
-                            let poolAddByInput = addPoolSink |> mapS (flip (+))
-                            let poolRemoveByUsage = submitPooledAmount |> mapS (flip (-))
-                            let pool = (poolAddByInput, poolRemoveByUsage) |> mergeS (>>) |> accumS 0 (<|)
+                        let struct (_submitPooledAmount, _pool) =
+                            loopS (fun submitPooledAmount ->
+                                let poolAddByInput = addPoolSink |> mapS (flip (+))
+                                let poolRemoveByUsage = submitPooledAmount |> mapS (flip (-))
+                                let pool = (poolAddByInput, poolRemoveByUsage) |> mergeS (>>) |> accumS 0 (<|)
 
-                            let inputByAdded =
-                                poolAddByInput
-                                |> snapshot2C pool threshold (fun f x t ->
-                                    let r = f x
-                                    if r >= t then Some r else None)
-                                |> filterSomeS
+                                let inputByAdded =
+                                    poolAddByInput
+                                    |> snapshot2C pool threshold (fun f x t ->
+                                        let r = f x
+                                        if r >= t then Some r else None)
+                                    |> filterSomeS
 
-                            let inputBySatisfaction =
-                                pool
-                                |> updatesC
-                                |> snapshot2C pool threshold (fun neu alt t ->
-                                    if neu >= t && alt < t then Some neu else None)
-                                |> filterSomeS
+                                let inputBySatisfaction =
+                                    pool
+                                    |> updatesC
+                                    |> snapshot2C pool threshold (fun neu alt t ->
+                                        if neu >= t && alt < t then Some neu else None)
+                                    |> filterSomeS
 
-                            struct ((inputByAdded, inputBySatisfaction) |> mergeS max, pool))
+                                struct ((inputByAdded, inputBySatisfaction) |> mergeS max, pool))
 
-                    None
-                with e ->
-                    Some e
+                        None
+                    with e ->
+                        Some e
 
-            actual
-            |> assertExceptionExists (fun e -> Assert.AreEqual("A dependency cycle was detected.", e.Message))
+                do!
+                    actual
+                    |> assertExceptionExists (fun e -> Expect.Equal("A dependency cycle was detected.", e.Message))
+            }
 
         [<Test>]
         member _.``Pool Double Subtraction: Fixed``() =
-            let threshold = sinkC 10
-            let addPoolSink = sinkS ()
+            task {
+                let threshold = sinkC 10
+                let addPoolSink = sinkS ()
 
-            let struct (input, pool) =
-                loopS (fun submitPooledAmount ->
-                    let poolAddByInput = addPoolSink |> mapS (flip (+))
+                let struct (input, pool) =
+                    loopS (fun submitPooledAmount ->
+                        let poolAddByInput = addPoolSink |> mapS (flip (+))
 
-                    let poolRemoveByUsage = submitPooledAmount |> mapS (flip (-)) |> Operational.defer
+                        let poolRemoveByUsage = submitPooledAmount |> mapS (flip (-)) |> Operational.defer
 
-                    let pool = (poolAddByInput, poolRemoveByUsage) |> mergeS (>>) |> accumS 0 (<|)
+                        let pool = (poolAddByInput, poolRemoveByUsage) |> mergeS (>>) |> accumS 0 (<|)
 
-                    let inputByAdded =
-                        poolAddByInput
-                        |> snapshot2C pool threshold (fun f x t ->
-                            let r = f x
-                            if r >= t then Some r else None)
-                        |> filterSomeS
+                        let inputByAdded =
+                            poolAddByInput
+                            |> snapshot2C pool threshold (fun f x t ->
+                                let r = f x
+                                if r >= t then Some r else None)
+                            |> filterSomeS
 
-                    let inputBySatisfaction =
-                        pool
-                        |> updatesC
-                        |> snapshot2C pool threshold (fun neu alt t -> if neu >= t && alt < t then Some neu else None)
-                        |> filterSomeS
+                        let inputBySatisfaction =
+                            pool
+                            |> updatesC
+                            |> snapshot2C pool threshold (fun neu alt t -> if neu >= t && alt < t then Some neu else None)
+                            |> filterSomeS
 
-                    struct ((inputByAdded, inputBySatisfaction) |> mergeS max, pool))
+                        struct ((inputByAdded, inputBySatisfaction) |> mergeS max, pool))
 
-            let submissions = List<_>()
-            let l = input |> listenStrongS submissions.Add
-            addPoolSink |> sendS 10
-            l |> unlistenL
-            Assert.AreEqual(1, submissions.Count)
-            Assert.AreEqual(10, submissions[0])
-            Assert.AreEqual(0, pool |> sampleC)
+                let submissions = List<_>()
+                let l = input |> listenStrongS submissions.Add
+                addPoolSink |> sendS 10
+                l |> unlistenL
+                do! Expect.Equal(1, submissions.Count)
+                do! Expect.Equal(10, submissions[0])
+                do! Expect.Equal(0, pool |> sampleC)
+            }
 
 module Issue138 =
     open System
@@ -119,7 +123,6 @@ module Issue138 =
      *     A list of items of type TestObject are held in a cell.  TestObject contains a cell of type int named Output, which is calculated from other values.
      *     Any time a new TestObject is created, it will have the values for the cells from which Output is calculated.  The sum of all Output values in the list should always be 50 or greater.
      *)
-    [<TestFixture>]
     type ``Issue 138 Tests``() =
 
         (*
@@ -129,32 +132,35 @@ module Issue138 =
          *)
         [<Test>]
         member _.``Test SwitchC Loop``() =
-            let actual =
-                try
-                    let streamSink = sinkCS ()
+            task {
+                let actual =
+                    try
+                        let streamSink = sinkCS ()
 
-                    let _cell: Cell<TestObject list> =
-                        loopWithNoCapturesC (fun cell ->
-                            (streamSink |> mapS (fun v _ -> v),
-                             cell
-                             |> mapC (Seq.map TestObject.output >> liftAllC Seq.sum)
-                             |> switchC
-                             |> updatesC
-                             |> filterS (flip (<) 50)
-                             |> mapToS (List.append (List.singleton <| TestObject.create ())))
-                            |> mergeS (>>)
-                            |> snapshotC cell (<|)
-                            |> holdS (List.init 10 (fun _ -> TestObject.create ())))
+                        let _cell: Cell<TestObject list> =
+                            loopWithNoCapturesC (fun cell ->
+                                (streamSink |> mapS (fun v _ -> v),
+                                 cell
+                                 |> mapC (Seq.map TestObject.output >> liftAllC Seq.sum)
+                                 |> switchC
+                                 |> updatesC
+                                 |> filterS (flip (<) 50)
+                                 |> mapToS (List.append (List.singleton <| TestObject.create ())))
+                                |> mergeS (>>)
+                                |> snapshotC cell (<|)
+                                |> holdS (List.init 10 (fun _ -> TestObject.create ())))
 
-                    None
-                with
-                | :? AggregateException as e ->
-                    e.InnerExceptions
-                    |> Seq.tryFind (fun e -> e.Message = "A dependency cycle was detected.")
-                | e -> Some e
+                        None
+                    with
+                    | :? AggregateException as e ->
+                        e.InnerExceptions
+                        |> Seq.tryFind (fun e -> e.Message = "A dependency cycle was detected.")
+                    | e -> Some e
 
-            actual
-            |> assertExceptionExists (fun e -> Assert.AreEqual("A dependency cycle was detected.", e.Message))
+                do!
+                    actual
+                    |> assertExceptionExists (fun e -> Expect.Equal("A dependency cycle was detected.", e.Message))
+            }
 
         (*
          * Switch over the sum of the Output cell value streams in the list.
@@ -162,42 +168,44 @@ module Issue138 =
          *)
         [<Test>]
         member _.``Test SwitchS Values Loop``() =
-            let streamSink = sinkCS ()
+            task {
+                let streamSink = sinkCS ()
 
-            let cell: Cell<TestObject list> =
-                loopWithNoCapturesC (fun cell ->
-                    (streamSink |> mapS (fun v _ -> v),
-                     cell
-                     |> mapC (Seq.map TestObject.output >> liftAllC Seq.sum >> valuesC)
-                     |> switchS
-                     |> filterS (flip (<) 50)
-                     |> mapToS (List.append (List.singleton <| TestObject.create ())))
-                    |> mergeS (>>)
-                    |> snapshotC cell (<|)
-                    |> holdS (List.init 10 (fun _ -> TestObject.create ())))
+                let cell: Cell<TestObject list> =
+                    loopWithNoCapturesC (fun cell ->
+                        (streamSink |> mapS (fun v _ -> v),
+                         cell
+                         |> mapC (Seq.map TestObject.output >> liftAllC Seq.sum >> valuesC)
+                         |> switchS
+                         |> filterS (flip (<) 50)
+                         |> mapToS (List.append (List.singleton <| TestObject.create ())))
+                        |> mergeS (>>)
+                        |> snapshotC cell (<|)
+                        |> holdS (List.init 10 (fun _ -> TestObject.create ())))
 
-            let objectCounts = List<_>()
-            objectCounts.Add -1
-            let l = cell |> listenStrongC (objectCounts.Add << List.length)
-            objectCounts.Add -1
-            // ReSharper disable once FSharpRedundantDotInIndexer - Inpection is incorrect as the dot is needed here.
-            (cell |> sampleC).[2].Input1 |> sendS 1
-            objectCounts.Add -1
-            // ReSharper disable once FSharpRedundantDotInIndexer - Inpection is incorrect as the dot is needed here.
-            (cell |> sampleC).[1].Input1 |> sendS -20
-            objectCounts.Add -1
-            streamSink |> sendS List.empty
-            objectCounts.Add -1
-            l |> unlistenL
+                let objectCounts = List<_>()
+                objectCounts.Add -1
+                let l = cell |> listenStrongC (objectCounts.Add << List.length)
+                objectCounts.Add -1
+                // ReSharper disable once FSharpRedundantDotInIndexer - Inpection is incorrect as the dot is needed here.
+                (cell |> sampleC).[2].Input1 |> sendS 1
+                objectCounts.Add -1
+                // ReSharper disable once FSharpRedundantDotInIndexer - Inpection is incorrect as the dot is needed here.
+                (cell |> sampleC).[1].Input1 |> sendS -20
+                objectCounts.Add -1
+                streamSink |> sendS List.empty
+                objectCounts.Add -1
+                l |> unlistenL
 
-            // Ideal result, likely not achievable.
-            //CollectionAssert.AreEquivalent ([-1;10;-1;11;-1;15;-1;10;-1], objectCounts)
+                // Ideal result, likely not achievable.
+                //Expect.SameItems ([-1;10;-1;11;-1;15;-1;10;-1], objectCounts)
 
-            // Glitchy result, also not returned by this method.
-            //CollectionAssert.AreEquivalent ([-1;10;-1;11;-1;12;13;14;15;-1;0;1;2;3;4;5;6;7;8;9;10;-1], objectCounts)
+                // Glitchy result, also not returned by this method.
+                //Expect.SameItems ([-1;10;-1;11;-1;12;13;14;15;-1;0;1;2;3;4;5;6;7;8;9;10;-1], objectCounts)
 
-            // Incorrect result we will see.
-            CollectionAssert.AreEquivalent([ -1; 10; -1; 11; -1; 12; -1; 0; -1 ], objectCounts)
+                // Incorrect result we will see.
+                do! Expect.SameItems([ -1; 10; -1; 11; -1; 12; -1; 0; -1 ], objectCounts)
+            }
 
         (*
          * Switch over the sum of the Output cells in the list, deferring the firings from the Values stream.
@@ -206,44 +214,46 @@ module Issue138 =
          *)
         [<Test>]
         member _.``Test SwitchC Deferred Loop``() =
-            let streamSink = sinkCS ()
+            task {
+                let streamSink = sinkCS ()
 
-            let cell: Cell<TestObject list> =
-                loopWithNoCapturesC (fun cell ->
-                    (streamSink,
-                     cell
-                     |> mapC (Seq.map TestObject.output >> liftAllC Seq.sum)
-                     |> switchC
-                     |> valuesC
-                     |> Operational.defer
-                     |> filterS (flip (<) 50)
-                     |> mapToS (List.append (List.singleton <| TestObject.create ()))
-                     |> snapshotC cell (<|))
-                    |> orElseS
-                    |> holdS (List.init 10 (fun _ -> TestObject.create ())))
+                let cell: Cell<TestObject list> =
+                    loopWithNoCapturesC (fun cell ->
+                        (streamSink,
+                         cell
+                         |> mapC (Seq.map TestObject.output >> liftAllC Seq.sum)
+                         |> switchC
+                         |> valuesC
+                         |> Operational.defer
+                         |> filterS (flip (<) 50)
+                         |> mapToS (List.append (List.singleton <| TestObject.create ()))
+                         |> snapshotC cell (<|))
+                        |> orElseS
+                        |> holdS (List.init 10 (fun _ -> TestObject.create ())))
 
-            let objectCounts = List<_>()
-            objectCounts.Add -1
-            let l = cell |> listenStrongC (objectCounts.Add << List.length)
-            objectCounts.Add -1
-            // ReSharper disable once FSharpRedundantDotInIndexer - Inpection is incorrect as the dot is needed here.
-            (cell |> sampleC).[2].Input1 |> sendS 1
-            objectCounts.Add -1
-            // ReSharper disable once FSharpRedundantDotInIndexer - Inpection is incorrect as the dot is needed here.
-            (cell |> sampleC).[1].Input1 |> sendS -20
-            objectCounts.Add -1
-            streamSink |> sendS List.empty
-            objectCounts.Add -1
-            l |> unlistenL
+                let objectCounts = List<_>()
+                objectCounts.Add -1
+                let l = cell |> listenStrongC (objectCounts.Add << List.length)
+                objectCounts.Add -1
+                // ReSharper disable once FSharpRedundantDotInIndexer - Inpection is incorrect as the dot is needed here.
+                (cell |> sampleC).[2].Input1 |> sendS 1
+                objectCounts.Add -1
+                // ReSharper disable once FSharpRedundantDotInIndexer - Inpection is incorrect as the dot is needed here.
+                (cell |> sampleC).[1].Input1 |> sendS -20
+                objectCounts.Add -1
+                streamSink |> sendS List.empty
+                objectCounts.Add -1
+                l |> unlistenL
 
-            // Ideal result, likely not achievable.
-            //CollectionAssert.AreEquivalent ([-1;10;-1;11;-1;15;-1;10;-1], objectCounts)
+                // Ideal result, likely not achievable.
+                //Expect.SameItems ([-1;10;-1;11;-1;15;-1;10;-1], objectCounts)
 
-            // Glitchy result, but correct otherwise.
-            CollectionAssert.AreEquivalent(
-                [ -1; 10; -1; 11; -1; 12; 13; 14; 15; -1; 0; 1; 2; 3; 4; 5; 6; 7; 8; 9; 10; -1 ],
-                objectCounts
-            )
+                // Glitchy result, but correct otherwise.
+                do! Expect.SameItems(
+                    [ -1; 10; -1; 11; -1; 12; 13; 14; 15; -1; 0; 1; 2; 3; 4; 5; 6; 7; 8; 9; 10; -1 ],
+                    objectCounts
+                )
+            }
 
         (*
          * Switch over the sum of the Output cells in the list, deferring the firings from the Values stream, and use a better API.
@@ -254,42 +264,44 @@ module Issue138 =
          *)
         [<Test>]
         member _.``Test SwitchC Deferred Loop With Better API``() =
-            let switchCWithDeferredValues cell =
-                cell |> switchC |> valuesC |> Operational.defer
+            task {
+                let switchCWithDeferredValues cell =
+                    cell |> switchC |> valuesC |> Operational.defer
 
-            let streamSink = sinkCS ()
+                let streamSink = sinkCS ()
 
-            let cell: Cell<TestObject list> =
-                loopWithNoCapturesC (fun cell ->
-                    (streamSink,
-                     cell
-                     |> mapC (Seq.map TestObject.output >> liftAllC Seq.sum)
-                     |> switchCWithDeferredValues
-                     |> filterS (flip (<) 50)
-                     |> mapToS (List.append (List.singleton <| TestObject.create ()))
-                     |> snapshotC cell (<|))
-                    |> orElseS
-                    |> holdS (List.init 10 (fun _ -> TestObject.create ())))
+                let cell: Cell<TestObject list> =
+                    loopWithNoCapturesC (fun cell ->
+                        (streamSink,
+                         cell
+                         |> mapC (Seq.map TestObject.output >> liftAllC Seq.sum)
+                         |> switchCWithDeferredValues
+                         |> filterS (flip (<) 50)
+                         |> mapToS (List.append (List.singleton <| TestObject.create ()))
+                         |> snapshotC cell (<|))
+                        |> orElseS
+                        |> holdS (List.init 10 (fun _ -> TestObject.create ())))
 
-            let objectCounts = List<_>()
-            objectCounts.Add -1
-            let l = cell |> listenStrongC (objectCounts.Add << List.length)
-            objectCounts.Add -1
-            // ReSharper disable once FSharpRedundantDotInIndexer - Inpection is incorrect as the dot is needed here.
-            (cell |> sampleC).[2].Input1 |> sendS 1
-            objectCounts.Add -1
-            // ReSharper disable once FSharpRedundantDotInIndexer - Inpection is incorrect as the dot is needed here.
-            (cell |> sampleC).[1].Input1 |> sendS -20
-            objectCounts.Add -1
-            streamSink |> sendS List.empty
-            objectCounts.Add -1
-            l |> unlistenL
+                let objectCounts = List<_>()
+                objectCounts.Add -1
+                let l = cell |> listenStrongC (objectCounts.Add << List.length)
+                objectCounts.Add -1
+                // ReSharper disable once FSharpRedundantDotInIndexer - Inpection is incorrect as the dot is needed here.
+                (cell |> sampleC).[2].Input1 |> sendS 1
+                objectCounts.Add -1
+                // ReSharper disable once FSharpRedundantDotInIndexer - Inpection is incorrect as the dot is needed here.
+                (cell |> sampleC).[1].Input1 |> sendS -20
+                objectCounts.Add -1
+                streamSink |> sendS List.empty
+                objectCounts.Add -1
+                l |> unlistenL
 
-            // Ideal result, likely not achievable.
-            //CollectionAssert.AreEquivalent ([-1;10;-1;11;-1;15;-1;10;-1], objectCounts)
+                // Ideal result, likely not achievable.
+                //Expect.SameItems ([-1;10;-1;11;-1;15;-1;10;-1], objectCounts)
 
-            // Glitchy result, but correct otherwise.
-            CollectionAssert.AreEquivalent(
-                [ -1; 10; -1; 11; -1; 12; 13; 14; 15; -1; 0; 1; 2; 3; 4; 5; 6; 7; 8; 9; 10; -1 ],
-                objectCounts
-            )
+                // Glitchy result, but correct otherwise.
+                do! Expect.SameItems(
+                    [ -1; 10; -1; 11; -1; 12; 13; 14; 15; -1; 0; 1; 2; 3; 4; 5; 6; 7; 8; 9; 10; -1 ],
+                    objectCounts
+                )
+            }
