@@ -13,25 +13,29 @@ open SodaFlow.Bindable.ObjectModel
 /// Records that it was asked, then behaves like the immediate scheduler.
 type private RecordingScheduler() =
     let mutable posts = 0
-    member __.Posts = posts
+    member _.Posts = posts
 
     interface IBindingScheduler with
-        member __.Post action =
+        member _.Post action =
             posts <- posts + 1
             BindingScheduler.Immediate.Post action
+
+        /// True throughout, as for the immediate scheduler this delegates to: it runs work on
+        /// whichever thread hands it over, so every thread is its binding thread.
+        member _.CheckAccess() = true
 
 [<TestFixture>]
 type ``Object Model Tests``() =
 
     [<Test>]
-    member __.``one way follows its cell``() =
+    member _.``one way follows its cell``() =
         let c = sinkC 0
         use b = Bindable.oneWayWithScheduler c BindingScheduler.Immediate
         c |> sendC 7
         Assert.AreEqual(7, b.Value)
 
     [<Test>]
-    member __.``two way pushes writes into the graph``() =
+    member _.``two way pushes writes into the graph``() =
         let c = sinkC 0
         use b = Bindable.twoWayCSWithScheduler c BindingScheduler.Immediate
         b.Value <- 5
@@ -39,14 +43,14 @@ type ``Object Model Tests``() =
         Assert.AreEqual(5, b.Value)
 
     [<Test>]
-    member __.``one way to source pushes writes into the graph``() =
+    member _.``one way to source pushes writes into the graph``() =
         let c = sinkC 0
         use b = Bindable.oneWayToSourceCS c
         b.Value <- 3
         Assert.AreEqual(3, c |> sampleC)
 
     [<Test>]
-    member __.``a parameterless action fires unit and ignores its parameter``() =
+    member _.``a parameterless action fires unit and ignores its parameter``() =
         let sink = sinkS<unit> ()
         let fired = List<unit>()
         use a = Bindable.toBindableActionAndScheduler sink BindingScheduler.Immediate
@@ -55,7 +59,7 @@ type ``Object Model Tests``() =
         Assert.AreEqual(1, fired.Count)
 
     [<Test>]
-    member __.``an action with a value carries its parameter``() =
+    member _.``an action with a value carries its parameter``() =
         let sink = sinkS<int> ()
         let fired = List<int>()
 
@@ -67,7 +71,7 @@ type ``Object Model Tests``() =
         CollectionAssert.AreEqual([ 42 ], fired)
 
     [<Test>]
-    member __.``the factory carries its scheduler into a command``() =
+    member _.``the factory carries its scheduler into a command``() =
         let scheduler = RecordingScheduler()
         let enabled = sinkC false
         let factory = BindableFactory(scheduler) :> IBindableFactory
@@ -77,7 +81,7 @@ type ``Object Model Tests``() =
         Assert.AreEqual(1, scheduler.Posts)
 
     [<Test>]
-    member __.``the factory carries its scheduler into a value``() =
+    member _.``the factory carries its scheduler into a value``() =
         let scheduler = RecordingScheduler()
         let c = sinkC 0
         let factory = BindableFactory(scheduler) :> IBindableFactory

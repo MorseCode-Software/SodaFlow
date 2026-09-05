@@ -1,8 +1,22 @@
 3.0.0
 
-No API change of its own. This release moves to
-SodaFlow.Bindable.ObjectModel.Core 3.x, and is a major because taking it
-obliges a consumer to take that.
+BREAKING: three functions are renamed, because their arguments are now
+in the order the rest of the module uses - scheduler before comparer.
+oneWayWithComparerAndScheduler, twoWayWithComparerAndScheduler and
+twoWayCSWithComparerAndScheduler become oneWayWithSchedulerAndComparer,
+twoWayWithSchedulerAndComparer and twoWayCSWithSchedulerAndComparer,
+taking their arguments in that order too.
+
+One-way-to-source gains the scheduler variants the other three already
+had: oneWayToSourceWithScheduler,
+oneWayToSourceWithSchedulerAndComparer, oneWayToSourceCSWithScheduler
+and oneWayToSourceCSWithSchedulerAndComparer. A scheduler is what
+identifies the binding thread, so passing one is what lets that
+bindable's Value throw when it is touched from another - see
+SodaFlow.Bindable.ObjectModel.Core.
+
+Otherwise this release moves to SodaFlow.Bindable.ObjectModel.Core 3.x,
+and would be a major for that alone.
 
 Worth reading that package's notes rather than skipping this: Execute now
 rejects null for every type argument, and being a behavior change behind an

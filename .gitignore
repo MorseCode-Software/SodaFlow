@@ -256,6 +256,8 @@ artifacts/
 coverage/
 # build.cake writes the InspectCode SARIF here.
 inspection/
+# Where the benchmark runner writes its reports and logs.
+BenchmarkDotNet.Artifacts/
 # Where Cake caches the addins its #addin directives resolve.
 tools/
 # build.cake downloads this when it is about to upload coverage.

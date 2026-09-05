@@ -11,8 +11,11 @@ public static partial class BindableCoreExtensionMethods
     /// </summary>
     /// <remarks>
     ///     Safe to construct on any thread. The initial value is sampled by whichever thread builds
-    ///     the instance and read by the binding thread; <see cref="ValueBox{T}" /> is what orders
-    ///     the two. Every later change is marshaled through the scheduler.
+    ///     the instance, and every later change is marshaled through the scheduler, so after
+    ///     construction the cached value is written only on the binding thread.
+    ///     Nothing orders the constructing thread against the binding thread beyond whatever
+    ///     publishes the instance to it — and that has to order them anyway, since
+    ///     <c>comparer</c> and <c>listener</c> are ordinary fields a reader needs just as much.
     /// </remarks>
     // ReSharper disable once InheritdocConsiderUsage
     private sealed class OneWayBindableValue<T> : BindableValueBase, IOneWayBindableValue<T>
@@ -26,10 +29,10 @@ public static partial class BindableCoreExtensionMethods
         private readonly IListener listener;
 
         /// <summary>
-        ///     Boxed so the field can be volatile whatever <typeparamref name="T" /> is. See
-        ///     <see cref="ValueBox{T}" />.
+        ///     The value the binding engine last saw. Written only by scheduled work after
+        ///     construction, which is to say only on the binding thread.
         /// </summary>
-        private volatile ValueBox<T> box;
+        private T cachedValue;
 
         internal OneWayBindableValue(
             Cell<T> cell,
@@ -40,19 +43,27 @@ public static partial class BindableCoreExtensionMethods
             this.Cell = cell ?? throw new ArgumentNullException(nameof(cell));
             this.comparer = comparer ?? EqualityComparer<T>.Default;
 
-            // ReSharper disable once NullableWarningSuppressionIsUsed - This value will be replaced with a non-null
-            // value in the transaction below when the cell is sampled, which happens before the constructor completes
-            // and before the listener is attached, so nothing has a chance of modifying this.box before then.
-            this.box = new ValueBox<T>(default!);
+            // ReSharper disable once NullableWarningSuppressionIsUsed - Replaced with the sampled value
+            // in the transaction below, which happens before the constructor completes and before the
+            // listener is attached.
+            this.cachedValue = default!;
 
             // Sample and subscribe inside one transaction so no update can slip through the gap.
             // The sample is stored here rather than after the transaction for the same reason:
             // once the listener is attached an update can arrive on another thread, and writing
             // the initial value afterward would overwrite it.
+            //
+            // Attaching the listener publishes this object into the graph before the constructor
+            // has returned, so the listener can fire while the constructor is still running - which
+            // it does when this is constructed inside a transaction that goes on to update the same
+            // cell. That is safe for a structural reason rather than a timing one: OnSourceChanged
+            // does not touch the cached value at all, it only posts to the scheduler. Nothing the
+            // listener can do writes over the sample being taken here; the scheduled work runs
+            // afterward, on the binding thread, and a newer update correctly wins.
             this.listener =
                 TransactionInternal.RunImpl(() =>
                 {
-                    this.box = new ValueBox<T>(cell.SampleImpl());
+                    this.cachedValue = cell.SampleImpl();
                     return ListenToUpdates(cell: cell, handler: this.OnSourceChanged);
                 });
         }
@@ -61,7 +72,15 @@ public static partial class BindableCoreExtensionMethods
         public Cell<T> Cell { get; }
 
         /// <inheritdoc />
-        public T Value => this.box.Value;
+        public T Value
+        {
+            get
+            {
+                this.Scheduler.VerifyAccess("IOneWayBindableValue<T>.Value");
+
+                return this.cachedValue;
+            }
+        }
 
         /// <summary>
         ///     Applies an incoming update. Always posted rather than raised inline: the callback runs
@@ -76,12 +95,12 @@ public static partial class BindableCoreExtensionMethods
                     return;
                 }
 
-                if (this.comparer.Equals(x: this.box.Value, y: newValue))
+                if (this.comparer.Equals(x: this.cachedValue, y: newValue))
                 {
                     return;
                 }
 
-                this.box = new ValueBox<T>(newValue);
+                this.cachedValue = newValue;
                 this.RaiseValueChanged();
             });
 

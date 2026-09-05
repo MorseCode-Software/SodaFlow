@@ -20,9 +20,13 @@ public interface IBindable : IDisposable
 /// </summary>
 [PublicAPI]
 // ReSharper disable once InheritdocConsiderUsage
-public interface IReadableBindableValue<T> : IBindable
+public interface IReadableBindableValue<T> : IBindable, INotifyPropertyChanged
 {
-    /// <summary>The current value.</summary>
+    /// <summary>
+    ///     The current value, for the binding engine to read. Not an accessor for application
+    ///     code: see the remarks on <see cref="IWritableBindableValue{T}" />, which apply to
+    ///     reading as much as to writing.
+    /// </summary>
     T Value { get; }
 
     /// <summary>The cell backing this value, for further composition in the FRP graph.</summary>
@@ -35,11 +39,37 @@ public interface IReadableBindableValue<T> : IBindable
 ///     <see cref="IOneWayToSourceBindableValue{T}" />, so a helper that only needs to push a value
 ///     into the graph can accept either.
 /// </summary>
+/// <remarks>
+///     <para>
+///         <see cref="Value" /> exists for the binding engine to read and write, and for nothing
+///         else. Reaching for it from application code is a procedural way around the graph: the
+///         value it reports is a value the graph already holds, and a value pushed into it is a value a
+///         sink can be sent directly. Compose cells and streams instead.
+///     </para>
+///     <para>
+///         The thread rule follows from that. A bindable may be constructed on any thread, but
+///         the property is touched on the binding thread only, which is where a binding engine
+///         calls from — so the cached value behind it is an ordinary field, with no
+///         synchronization and no allocation per change. Read or write it from somewhere else and
+///         that assumption is gone, quietly: a stale value at best, and a torn one where
+///         <typeparamref name="T" /> is a large struct.
+///     </para>
+///     <para>
+///         A write reaches the graph inside a transaction, and transactions are serialized
+///         process-wide, so setting blocks until any transaction in flight elsewhere has closed.
+///         That is ordinarily immeasurable, and is the same guarantee that means none of this
+///         needs synchronizing by hand — but a long-running transaction on a background thread
+///         will hold up the setter, and with it the binding thread, for as long as it runs.
+///     </para>
+/// </remarks>
 [PublicAPI]
 // ReSharper disable once InheritdocConsiderUsage
 public interface IWritableBindableValue<T> : IBindable
 {
-    /// <summary>Gets the current value, or writes a new one into the FRP graph.</summary>
+    /// <summary>
+    ///     Gets the current value, or writes a new one into the FRP graph. For the binding engine,
+    ///     on the binding thread; see the remarks on this interface.
+    /// </summary>
     T Value { get; set; }
 }
 
@@ -59,7 +89,7 @@ public interface IWritableBindableValue<T> : IBindable
 /// </remarks>
 [PublicAPI]
 // ReSharper disable once InheritdocConsiderUsage
-public interface IOneWayBindableValue<T> : IReadableBindableValue<T>, INotifyPropertyChanged
+public interface IOneWayBindableValue<T> : IReadableBindableValue<T>
 {
     /// <summary>The most recent value delivered to the binding thread.</summary>
     new T Value { get; }
@@ -79,8 +109,13 @@ public interface ITwoWayBindableValue<T> : IOneWayBindableValue<T>, IWritableBin
 {
     /// <summary>
     ///     Gets the most recent value delivered to the binding thread, or writes a new value into
-    ///     the FRP graph. Setting is a no-op if the value is unchanged.
+    ///     the FRP graph.
     /// </summary>
+    /// <remarks>
+    ///     Setting is a no-op when the value is unchanged — unless an update is still on its way
+    ///     to the binding thread, in which case it is written regardless, because until that
+    ///     update arrives the value read back is not known to be the graph's.
+    /// </remarks>
     new T Value { get; set; }
 }
 

@@ -44,8 +44,12 @@ public static partial class BindableExtensionMethods
     public static IOneWayToSourceBindableValue<T> ToOneWayToSource<T>(
         this StreamSink<T> editsStreamSink,
         T initialValue,
+        IBindingScheduler? scheduler = null,
         IEqualityComparer<T>? comparer = null) =>
-        editsStreamSink.ToOneWayToSourceImpl(initialValue: initialValue, comparer: comparer);
+        editsStreamSink.ToOneWayToSourceImpl(
+            initialValue: initialValue,
+            scheduler: scheduler,
+            comparer: comparer);
 
     /// <summary>
     ///     Creates a one-way-to-source bindable property with an initial value, routing view writes into
@@ -53,8 +57,9 @@ public static partial class BindableExtensionMethods
     /// </summary>
     public static IOneWayToSourceBindableValue<T> ToOneWayToSource<T>(
         this CellSink<T> sink,
+        IBindingScheduler? scheduler = null,
         IEqualityComparer<T>? comparer = null) =>
-        sink.ToOneWayToSourceImpl(comparer: comparer);
+        sink.ToOneWayToSourceImpl(scheduler: scheduler, comparer: comparer);
 
     /// <summary>
     ///     Exposes an existing sink as a command that carries its <c>CommandParameter</c>.

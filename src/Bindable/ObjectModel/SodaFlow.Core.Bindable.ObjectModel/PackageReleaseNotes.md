@@ -13,6 +13,77 @@ another way - the sink is still there - or stop.
 This one is quiet. The signature is unchanged, so nothing stops compiling;
 the exception arrives at runtime, from a call which used to work.
 
+Fixed: a two-way bindable no longer puts a value back on screen that the
+caller has already replaced, and no longer discards a write.
+
+The update handler wrote back the value the update carried. Running
+later, on the binding thread, after a setter had moved the cached value
+on, that put the older value up and then raised a second notification to
+take it away again - visible in a text box as a flicker back to what was
+just typed over. It samples the cell instead, so an update arriving late
+says what is true rather than what was true when it fired.
+
+The setter skips a write whose value matches the cached one. That reads
+the cache as a statement about the graph, when it is only a statement
+about the last time the two were compared: between an update and the
+refresh it queues, they disagree, and a write matching the stale cache
+was dropped even though the graph never held that value. The check now
+stands down while a refresh is outstanding and lets the write through.
+
+Documented, rather than changed: a bindable's Value belongs to the
+binding engine. The instance can be constructed on any thread, but the
+property is read and written on the binding thread and nowhere else.
+Reaching for it from application code is a procedural way around the
+graph anyway - the value it reports is one the graph already holds, and
+a value pushed into it is one a sink can be sent directly - so this
+costs nothing that was worth having. A binding engine already calls from
+the right thread; it is worth a look at application code which reads or
+sets these from a background task.
+
+Also documented: an IBindingScheduler must not wait for the action it is
+given. Post is called from inside a transaction, which holds a
+process-wide lock, and the binding thread reaches this library through
+setters that open transactions of their own - so a scheduler which hands
+work over and blocks until it finishes can deadlock against a binding
+thread already waiting for that lock. Anything built on a dispatcher is
+fine; a hand-written scheduler needs the care.
+
+BREAKING: IBindingScheduler gains CheckAccess, so a scheduler written
+outside this package has to implement it. It answers whether the calling
+thread is the one the scheduler posts to - the name is
+DispatcherObject's, because the question is the same one and the answer
+is used the same way - and it is deliberately biased: an implementation
+which cannot tell MUST return true. A wrong true gives up a diagnostic
+that was never promised; a wrong false throws on correct code.
+
+What it buys: a bindable's Value now throws InvalidOperationException
+when it is read or written from anywhere but the binding thread, instead
+of quietly returning a stale value - or, for a large struct, a torn one.
+Only raised where the scheduler is certain, so nothing is accused that
+cannot be proven. ImmediateBindingScheduler answers true
+unconditionally, having no thread of its own, so tests and headless
+hosts are unaffected.
+
+This will turn code that has been working by luck into code that throws.
+That is the point, but it is worth knowing before upgrading rather than
+after.
+
+ToOneWayToSource takes an optional scheduler now. It had none - nothing
+flows back out to the view, so there was nothing to marshal - which also
+left it the one bindable whose Value could not be checked. It still
+schedules nothing; the scheduler is there to say which thread is the
+right one.
+
+The check adds about 2ns to reading Value on .NET 8, and about 2.3ns on
+.NET Framework, allocating nothing. It cost far more before the two
+halves were reordered: reading SynchronizationContext.Current is not the
+cheap thread-local fetch it looks like, and on .NET Framework asking it
+first made the check 13.0ns rather than 3.1ns, and the whole read 18.3ns
+rather than 6.4ns. The thread id is compared first, and the context only
+if that fails. See SodaFlow.Benchmarks, which found it and which runs on
+both runtimes because this is the kind of thing that differs between
+them.
+
 2.0.0
 
 No code change. This release exists to move a dependency, and is a major

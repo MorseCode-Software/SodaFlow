@@ -54,10 +54,12 @@ public static partial class BindableCoreExtensionMethods
     /// </summary>
     internal static IOneWayToSourceBindableValue<T> ToOneWayToSourceImpl<T>(
         this CellSink<T> sink,
+        IBindingScheduler? scheduler = null,
         IEqualityComparer<T>? comparer = null) =>
         new OneWayToSourceBindableValue<T>(
             write: sink.SendImpl,
             initialValue: sink.SampleImpl(),
+            scheduler: scheduler,
             comparer: comparer);
 
     /// <summary>
@@ -67,10 +69,12 @@ public static partial class BindableCoreExtensionMethods
     internal static IOneWayToSourceBindableValue<T> ToOneWayToSourceImpl<T>(
         this StreamSink<T> editsStreamSink,
         T initialValue,
+        IBindingScheduler? scheduler = null,
         IEqualityComparer<T>? comparer = null) =>
         new OneWayToSourceBindableValue<T>(
             write: editsStreamSink.SendImpl,
             initialValue: initialValue,
+            scheduler: scheduler,
             comparer: comparer);
 
     /// <summary>
@@ -127,4 +131,32 @@ public static partial class BindableCoreExtensionMethods
     ///     </para>
     /// </remarks>
     private static void PostWrite(Action write) => TransactionInternal.PostImpl(write);
+
+    /// <summary>
+    ///     Throws unless the caller is on the binding thread.
+    /// </summary>
+    /// <remarks>
+    ///     The cached value behind every bindable's <c>Value</c> is an ordinary field, safe
+    ///     because the property is touched on one thread. Nothing enforced that before this: the
+    ///     symptom of getting it wrong was a stale read, or a torn one for a large struct, both
+    ///     silent and neither reproducible on demand. This turns it into an exception at the call
+    ///     site that did it.
+    ///     Only ever raised when the scheduler is certain - see
+    ///     <see cref="IBindingScheduler.CheckAccess()" /> - so it accuses nothing it cannot
+    ///     prove.
+    /// </remarks>
+    private static void VerifyAccess(this IBindingScheduler scheduler, string member)
+    {
+        if (scheduler.CheckAccess())
+        {
+            return;
+        }
+
+        throw new InvalidOperationException(
+            $"{member} was accessed from a thread other than the binding thread. A bindable's "
+            + "Value exists for the binding engine, and is read and written on the binding thread "
+            + "only; the value behind it is not synchronized for anything else. To read or change "
+            + "this from elsewhere, go through the FRP graph - sample the cell, or send to the "
+            + "sink - rather than through this property.");
+    }
 }

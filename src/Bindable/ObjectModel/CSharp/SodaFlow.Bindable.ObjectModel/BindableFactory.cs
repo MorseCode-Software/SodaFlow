@@ -45,13 +45,16 @@ public class BindableFactory : IBindableFactory
         StreamSink<T> editsStreamSink,
         T initialValue,
         IEqualityComparer<T>? comparer = null) =>
-        editsStreamSink.ToOneWayToSource(initialValue: initialValue, comparer: comparer);
+        editsStreamSink.ToOneWayToSource(
+            initialValue: initialValue,
+            scheduler: this.bindingScheduler,
+            comparer: comparer);
 
     /// <inheritdoc />
     public IOneWayToSourceBindableValue<T> CreateOneWayToSource<T>(
         CellSink<T> sink,
         IEqualityComparer<T>? comparer = null) =>
-        sink.ToOneWayToSource(comparer);
+        sink.ToOneWayToSource(scheduler: this.bindingScheduler, comparer: comparer);
 
     /// <inheritdoc />
     public IBindableAction<T> CreateBindableAction<T>(

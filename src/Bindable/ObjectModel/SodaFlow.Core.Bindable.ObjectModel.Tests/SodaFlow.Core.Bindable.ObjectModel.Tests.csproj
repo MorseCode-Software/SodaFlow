@@ -30,6 +30,8 @@
 
     <ItemGroup>
         <Compile Include="BindableActionTests.cs"/>
+        <Compile Include="TestUtility.cs"/>
+        <Compile Include="BindableValueConcurrencyTests.cs"/>
         <Compile Include="BindableValueTests.cs"/>
         <Compile Include="BindingSchedulerTests.cs"/>
     </ItemGroup>
