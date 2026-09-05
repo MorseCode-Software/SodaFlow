@@ -1,6 +1,9 @@
 using System;
 using System.Collections.Generic;
-using NUnit.Framework;
+using System.Threading.Tasks;
+using TUnit.Assertions;
+using TUnit.Assertions.Extensions;
+using TUnit.Core;
 using SodaFlow.Functional;
 
 namespace SodaFlow.Bindable.ObjectModel.Tests;
@@ -10,7 +13,6 @@ namespace SodaFlow.Bindable.ObjectModel.Tests;
 ///     single injected scheduler into everything it creates. A method that forgets to pass it still
 ///     produces a working bindable, so nothing but a test of this shape catches the omission.
 /// </summary>
-[TestFixture]
 public class BindableFactoryTests
 {
     /// <summary>
@@ -33,7 +35,7 @@ public class BindableFactoryTests
     }
 
     [Test]
-    public void OneWayUsesTheInjectedScheduler()
+    public async Task OneWayUsesTheInjectedScheduler()
     {
         RecordingScheduler scheduler = new();
         CellSink<int> c = Cell.CreateSink(0);
@@ -42,12 +44,12 @@ public class BindableFactoryTests
 
         c.Send(1);
 
-        Assert.AreEqual(expected: 1, actual: b.Value);
-        Assert.AreEqual(expected: 1, actual: scheduler.Posts);
+        await Assert.That(b.Value).IsEqualTo(1);
+        await Assert.That(scheduler.Posts).IsEqualTo(1);
     }
 
     [Test]
-    public void TwoWayUsesTheInjectedScheduler()
+    public async Task TwoWayUsesTheInjectedScheduler()
     {
         RecordingScheduler scheduler = new();
         CellSink<int> c = Cell.CreateSink(0);
@@ -56,14 +58,14 @@ public class BindableFactoryTests
 
         c.Send(1);
 
-        Assert.AreEqual(expected: 1, actual: b.Value);
-        Assert.GreaterOrEqual(arg1: scheduler.Posts, arg2: 1);
+        await Assert.That(b.Value).IsEqualTo(1);
+        await Assert.That(scheduler.Posts).IsGreaterThanOrEqualTo(1);
     }
 
     // The two command overloads were the ones that dropped it, and a command built without the
     // injected scheduler still fires - only its CanExecuteChanged goes to the wrong place.
     [Test]
-    public void BindableActionUsesTheInjectedScheduler()
+    public async Task BindableActionUsesTheInjectedScheduler()
     {
         RecordingScheduler scheduler = new();
         CellSink<bool> enabled = Cell.CreateSink(false);
@@ -75,16 +77,13 @@ public class BindableFactoryTests
 
         enabled.Send(true);
 
-        Assert.IsTrue(a.CanExecute(null));
+        await Assert.That(a.CanExecute(null)).IsTrue();
 
-        Assert.AreEqual(
-            expected: 1,
-            actual: scheduler.Posts,
-            message: "the enablement change went through the injected scheduler");
+        await Assert.That(scheduler.Posts).IsEqualTo(1).Because("the enablement change went through the injected scheduler");
     }
 
     [Test]
-    public void ParameterlessBindableActionUsesTheInjectedScheduler()
+    public async Task ParameterlessBindableActionUsesTheInjectedScheduler()
     {
         RecordingScheduler scheduler = new();
         CellSink<bool> enabled = Cell.CreateSink(false);
@@ -96,16 +95,13 @@ public class BindableFactoryTests
 
         enabled.Send(true);
 
-        Assert.IsTrue(a.CanExecute(null));
+        await Assert.That(a.CanExecute(null)).IsTrue();
 
-        Assert.AreEqual(
-            expected: 1,
-            actual: scheduler.Posts,
-            message: "the enablement change went through the injected scheduler");
+        await Assert.That(scheduler.Posts).IsEqualTo(1).Because("the enablement change went through the injected scheduler");
     }
 
     [Test]
-    public void ParameterlessBindableActionIgnoresItsParameter()
+    public async Task ParameterlessBindableActionIgnoresItsParameter()
     {
         StreamSink<Unit> sink = Stream.CreateSink<Unit>();
         List<Unit> fired = new();
@@ -119,7 +115,7 @@ public class BindableFactoryTests
             // use for it and must not reject it.
             a.Execute("anything at all");
 
-            Assert.AreEqual(expected: 1, actual: fired.Count);
+            await Assert.That(fired.Count).IsEqualTo(1);
         }
     }
 }
