@@ -1,0 +1,25 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <AssemblyName>SodaFlow.FSharp.Tests.Assertions</AssemblyName>
+        <RootNamespace>SodaFlow.Tests</RootNamespace>
+        <TargetFrameworks>net10.0;net472</TargetFrameworks>
+        <LangVersion>latest</LangVersion>
+        <Nullable>enable</Nullable>
+        <EnableDefaultItems>false</EnableDefaultItems>
+        <IsPackable>false</IsPackable>
+        <!-- TUnit's transitive dependencies do not claim net472; their netstandard2.0 assets work. -->
+        <SuppressTfmSupportBuildWarnings>true</SuppressTfmSupportBuildWarnings>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <Compile Include="Expect.cs"/>
+    </ItemGroup>
+
+    <ItemGroup>
+        <!-- Assertions only. This is a library the F# test projects call, not a test project itself,
+             so it takes no part in test discovery or the test platform. -->
+        <PackageReference Include="TUnit.Assertions" Version="1.66.8"/>
+    </ItemGroup>
+
+</Project>

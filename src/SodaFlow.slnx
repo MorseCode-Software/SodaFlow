@@ -38,6 +38,8 @@
         <Project Path="CSharp/SodaFlow/SodaFlow.csproj"/>
     </Folder>
     <Folder Name="/FSharp/">
+        <Project
+                Path="FSharp/SodaFlow.FSharp.Tests.Assertions/SodaFlow.FSharp.Tests.Assertions.csproj"/>
         <Project Path="FSharp/SodaFlow.FSharp.Tests.Internal/SodaFlow.FSharp.Tests.Internal.fsproj"/>
         <Project Path="FSharp/SodaFlow.FSharp.Tests/SodaFlow.FSharp.Tests.fsproj"/>
         <Project Path="FSharp/SodaFlow.FSharp/SodaFlow.FSharp.fsproj"/>
