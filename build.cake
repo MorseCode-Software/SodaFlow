@@ -273,9 +273,9 @@ Task("Pack")
     CleanDirectory(artifactsDirectory);
 
     // One pack over the whole solution. It packs the publishable projects and skips the test and
-    // benchmark ones: the test projects reference Microsoft.NET.Test.Sdk, which the SDK reads as
-    // IsTestProject and defaults IsPackable to false for, and SodaFlow.Benchmarks sets IsPackable
-    // false explicitly because it has no test adapter reference to be read that way.
+    // benchmark ones, each of which sets IsPackable false. That used to be inferred for the test
+    // projects, from the reference to Microsoft.NET.Test.Sdk the SDK reads as IsTestProject; moving
+    // to Microsoft.Testing.Platform removed that reference, so every one of them now says so.
     DotNetPack(
         solution,
         new DotNetPackSettings

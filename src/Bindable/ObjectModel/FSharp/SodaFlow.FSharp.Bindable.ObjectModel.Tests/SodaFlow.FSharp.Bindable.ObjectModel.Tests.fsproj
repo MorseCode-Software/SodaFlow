@@ -5,6 +5,9 @@
         <RootNamespace>SodaFlow.Bindable.ObjectModel.Tests</RootNamespace>
         <TargetFrameworks>net10.0;net472</TargetFrameworks>
         <OutputType>Exe</OutputType>
+        <!-- Never packed. Said here rather than inferred: what marked these as test
+             projects was the reference to Microsoft.NET.Test.Sdk, which is gone. -->
+        <IsPackable>false</IsPackable>
         <!-- TUnit's transitive dependencies do not claim net472; their netstandard2.0 assets work. -->
         <SuppressTfmSupportBuildWarnings>true</SuppressTfmSupportBuildWarnings>
         <!-- The usings are listed per file here, as everywhere else in this repository. -->

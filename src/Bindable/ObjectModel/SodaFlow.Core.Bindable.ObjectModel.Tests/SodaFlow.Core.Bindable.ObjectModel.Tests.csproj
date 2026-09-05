@@ -29,7 +29,7 @@
         <RootNamespace>SodaFlow.Bindable.ObjectModel.Tests</RootNamespace>
         <EnableDefaultItems>false</EnableDefaultItems>
         <Nullable>enable</Nullable>
-        <!-- Never packed. Microsoft.NET.Test.Sdk implies this; stated anyway, as the siblings do. -->
+        <!-- Never packed. Nothing implies it since Microsoft.NET.Test.Sdk went, so it is stated. -->
         <IsPackable>false</IsPackable>
     </PropertyGroup>
 
