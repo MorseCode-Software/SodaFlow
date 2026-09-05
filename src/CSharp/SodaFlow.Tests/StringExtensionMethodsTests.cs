@@ -1,15 +1,14 @@
-﻿using System;
+using System;
 using System.Globalization;
 using System.Threading.Tasks;
 using SodaFlow.Functional;
 using TUnit.Assertions;
-using TUnit.Assertions.Enums;
 using TUnit.Assertions.Extensions;
 using TUnit.Core;
 
 namespace SodaFlow.Tests;
 
-public class StringExtensionMethodsTests
+public sealed class StringExtensionMethodsTests
 {
     // ReSharper disable UnusedMember.Local
     private enum Color

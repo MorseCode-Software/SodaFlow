@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 using JetBrains.dotMemoryUnit;
@@ -9,7 +9,7 @@ using TUnit.Core;
 
 namespace SodaFlow.Tests.Memory;
 
-public class StreamTests
+public sealed class StreamTests
 {
     [Test]
     [Skip("Requires dotMemory.")]
@@ -226,7 +226,7 @@ public class StreamTests
         // The lambda above stays synchronous on purpose: it exists so that its locals are out of
         // scope by the time the snapshot below is taken. What the listener collected is checked
         // here instead, where @out still holds it and nothing has appended to it since.
-        await Assert.That(@out).IsEquivalentTo(new[] { "7", "5" }, CollectionOrdering.Matching);
+        await Assert.That(@out).IsEquivalentTo(["7", "5"], CollectionOrdering.Matching);
 
         dotMemory.Check(memory =>
             afterListenerCount = memory.GetObjects(static where => where.Interface.Is<IListener>()).ObjectsCount);
@@ -284,7 +284,7 @@ public class StreamTests
         // The lambda above stays synchronous on purpose: it exists so that its locals are out of
         // scope by the time the snapshot below is taken. What the listener collected is checked
         // here instead, where @out still holds it and nothing has appended to it since.
-        await Assert.That(@out).IsEquivalentTo(new[] { "15", "11" }, CollectionOrdering.Matching);
+        await Assert.That(@out).IsEquivalentTo(["15", "11"], CollectionOrdering.Matching);
 
         dotMemory.Check(memory =>
             afterStreamCount =

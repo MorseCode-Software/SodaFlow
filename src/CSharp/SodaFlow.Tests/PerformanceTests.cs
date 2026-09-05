@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
@@ -10,7 +10,7 @@ using TUnit.Core;
 
 namespace SodaFlow.Tests;
 
-public class PerformanceTests
+public sealed class PerformanceTests
 {
     [Test]
     public async Task TestMerge()
@@ -144,7 +144,7 @@ public class PerformanceTests
     }
 
     [Test]
-    public async Task TestRunConstruct()
+    public void TestRunConstruct()
     {
         CellSink<IReadOnlyList<TestObject2>> objects =
             Transaction.Run(static () =>
@@ -242,7 +242,7 @@ public class PerformanceTests
             });
         }
 
-        await Assert.That(@out).IsEquivalentTo(new[] { 1500, 500 }, CollectionOrdering.Matching);
+        await Assert.That(@out).IsEquivalentTo([1500, 500], CollectionOrdering.Matching);
     }
 
     private sealed class TestObject2

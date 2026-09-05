@@ -1,14 +1,13 @@
-﻿using System.Threading;
+using System.Threading;
 using System.Threading.Tasks;
 using SodaFlow.Functional;
 using TUnit.Assertions;
-using TUnit.Assertions.Enums;
 using TUnit.Assertions.Extensions;
 using TUnit.Core;
 
 namespace SodaFlow.Tests;
 
-public class TransactionTests
+public sealed class TransactionTests
 {
     [Test]
     public async Task Post()

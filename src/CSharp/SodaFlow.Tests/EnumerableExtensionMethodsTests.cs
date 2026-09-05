@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
@@ -10,7 +10,7 @@ using TUnit.Core;
 
 namespace SodaFlow.Tests;
 
-public class EnumerableExtensionMethodsTests
+public sealed class EnumerableExtensionMethodsTests
 {
     [Test]
     public async Task TestChoose()
@@ -19,7 +19,7 @@ public class EnumerableExtensionMethodsTests
 
         IEnumerable<int> result = source.Choose(static s => s.TryParseInt32());
 
-        await Assert.That(result).IsEquivalentTo(new[] { 1, 3, 5 }, CollectionOrdering.Matching);
+        await Assert.That(result).IsEquivalentTo([1, 3, 5], CollectionOrdering.Matching);
     }
 
     [Test]
@@ -69,7 +69,7 @@ public class EnumerableExtensionMethodsTests
 
         IEnumerable<string> result = source.Choose(static (v, i) => Maybe.SomeIf(condition: i % 2 == 0, value: v + i));
 
-        await Assert.That(result).IsEquivalentTo(new[] { "a0", "c2" }, CollectionOrdering.Matching);
+        await Assert.That(result).IsEquivalentTo(["a0", "c2"], CollectionOrdering.Matching);
     }
 
     [Test]

@@ -264,10 +264,13 @@ module Issue138 =
          *)
         [<Test>]
         member _.``Test SwitchC Deferred Loop With Better API``() =
-            task {
-                let switchCWithDeferredValues cell =
-                    cell |> switchC |> valuesC |> Operational.defer
+            // Outside the task block on purpose: a generic function declared inside one leaves the
+            // state machine unable to compile statically, and F# falls back to a slower dynamic
+            // implementation rather than failing.
+            let switchCWithDeferredValues cell =
+                cell |> switchC |> valuesC |> Operational.defer
 
+            task {
                 let streamSink = sinkCS ()
 
                 let cell: Cell<TestObject list> =

@@ -1,13 +1,12 @@
-﻿using System.Threading.Tasks;
+using System.Threading.Tasks;
 using SodaFlow.Functional;
 using TUnit.Assertions;
-using TUnit.Assertions.Enums;
 using TUnit.Assertions.Extensions;
 using TUnit.Core;
 
 namespace SodaFlow.Tests.Internal;
 
-public class NodeTests
+public sealed class NodeTests
 {
     [Test]
     public async Task TestNode()

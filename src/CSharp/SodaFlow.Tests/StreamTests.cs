@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
@@ -10,7 +10,7 @@ using TUnit.Core;
 
 namespace SodaFlow.Tests;
 
-public class StreamTests
+public sealed class StreamTests
 {
     [Test]
     public async Task TestStreamSend()
@@ -20,9 +20,9 @@ public class StreamTests
         IListener l = s.ListenStrong(@out.Add);
         s.Send(5);
         l.Unlisten();
-        await Assert.That(@out).IsEquivalentTo(new[] { 5 }, CollectionOrdering.Matching);
+        await Assert.That(@out).IsEquivalentTo([5], CollectionOrdering.Matching);
         s.Send(6);
-        await Assert.That(@out).IsEquivalentTo(new[] { 5 }, CollectionOrdering.Matching);
+        await Assert.That(@out).IsEquivalentTo([5], CollectionOrdering.Matching);
     }
 
     [Test]
@@ -186,7 +186,7 @@ public class StreamTests
         s.Send(5);
         s.Send(3);
         l.Unlisten();
-        await Assert.That(@out).IsEquivalentTo(new[] { "7", "5" }, CollectionOrdering.Matching);
+        await Assert.That(@out).IsEquivalentTo(["7", "5"], CollectionOrdering.Matching);
     }
 
     [Test]
@@ -200,7 +200,7 @@ public class StreamTests
         s2.Send(9);
         s1.Send(8);
         l.Unlisten();
-        await Assert.That(@out).IsEquivalentTo(new[] { 7, 9, 8 }, CollectionOrdering.Matching);
+        await Assert.That(@out).IsEquivalentTo([7, 9, 8], CollectionOrdering.Matching);
     }
 
     [Test]
@@ -247,7 +247,7 @@ public class StreamTests
         });
 
         l.Unlisten();
-        await Assert.That(@out).IsEquivalentTo(new[] { 60, 9, 90, 90, 90 }, CollectionOrdering.Matching);
+        await Assert.That(@out).IsEquivalentTo([60, 9, 90, 90, 90], CollectionOrdering.Matching);
     }
 
     [Test]
@@ -260,7 +260,7 @@ public class StreamTests
         s.Send(7);
         s.Send(9);
         l.Unlisten();
-        await Assert.That(@out).IsEquivalentTo(new[] { 7, 9 }, CollectionOrdering.Matching);
+        await Assert.That(@out).IsEquivalentTo([7, 9], CollectionOrdering.Matching);
     }
 
     [Test]
@@ -273,7 +273,7 @@ public class StreamTests
         s.Send(7);
         s.Send(9);
         l.Unlisten();
-        await Assert.That(@out).IsEquivalentTo(new[] { 14, 18 }, CollectionOrdering.Matching);
+        await Assert.That(@out).IsEquivalentTo([14, 18], CollectionOrdering.Matching);
     }
 
     [Test]
@@ -287,7 +287,7 @@ public class StreamTests
         s2.Send(9);
         s1.Send(8);
         l.Unlisten();
-        await Assert.That(@out).IsEquivalentTo(new[] { 7, 9, 8 }, CollectionOrdering.Matching);
+        await Assert.That(@out).IsEquivalentTo([7, 9, 8], CollectionOrdering.Matching);
     }
 
     [Test]
@@ -300,7 +300,7 @@ public class StreamTests
         s.Send(7);
         s.Send(9);
         l.Unlisten();
-        await Assert.That(@out).IsEquivalentTo(new[] { 21, 27 }, CollectionOrdering.Matching);
+        await Assert.That(@out).IsEquivalentTo([21, 27], CollectionOrdering.Matching);
     }
 
     [Test]
@@ -322,7 +322,7 @@ public class StreamTests
         });
 
         l.Unlisten();
-        await Assert.That(@out.ToArray()).IsEquivalentTo(new[] { 2, 48 }, CollectionOrdering.Matching);
+        await Assert.That(@out).IsEquivalentTo([2, 48], CollectionOrdering.Matching);
     }
 
     [Test]
@@ -351,7 +351,7 @@ public class StreamTests
         });
 
         l.Unlisten();
-        await Assert.That(@out.ToArray()).IsEquivalentTo(new[] { 15, 40 }, CollectionOrdering.Matching);
+        await Assert.That(@out).IsEquivalentTo([15, 40], CollectionOrdering.Matching);
     }
 
     [Test]
@@ -364,7 +364,7 @@ public class StreamTests
         s.Send('o');
         s.Send('I');
         l.Unlisten();
-        await Assert.That(@out).IsEquivalentTo(new[] { 'H', 'I' }, CollectionOrdering.Matching);
+        await Assert.That(@out).IsEquivalentTo(['H', 'I'], CollectionOrdering.Matching);
     }
 
     [Test]
@@ -379,7 +379,7 @@ public class StreamTests
         s.Send(Maybe.None);
         s.Send(Maybe.Some("pear"));
         l.Unlisten();
-        await Assert.That(@out).IsEquivalentTo(new[] { "tomato", "peach", "pear" }, CollectionOrdering.Matching);
+        await Assert.That(@out).IsEquivalentTo(["tomato", "peach", "pear"], CollectionOrdering.Matching);
     }
 
     [Test]
@@ -398,7 +398,7 @@ public class StreamTests
         s.Send(string.Empty);
         s.Send("3");
         l.Unlisten();
-        await Assert.That(@out).IsEquivalentTo(new[] { 1, 2, 3 }, CollectionOrdering.Matching);
+        await Assert.That(@out).IsEquivalentTo([1, 2, 3], CollectionOrdering.Matching);
     }
 
     [Test]
@@ -421,7 +421,7 @@ public class StreamTests
         l2.Unlisten();
 
         await Assert.That(chosen).IsEquivalentTo(mapped, CollectionOrdering.Matching);
-        await Assert.That(chosen).IsEquivalentTo(new[] { 1, 2 }, CollectionOrdering.Matching);
+        await Assert.That(chosen).IsEquivalentTo([1, 2], CollectionOrdering.Matching);
     }
 
     [Test]
@@ -462,9 +462,9 @@ public class StreamTests
         l3.Unlisten();
         l2.Unlisten();
         l.Unlisten();
-        await Assert.That(@out.ToArray()).IsEquivalentTo(new[] { 5 }, CollectionOrdering.Matching);
-        await Assert.That(out2.ToArray()).IsEquivalentTo(new[] { 5 }, CollectionOrdering.Matching);
-        await Assert.That(out3.ToArray()).IsEquivalentTo(new[] { 2, 10 }, CollectionOrdering.Matching);
+        await Assert.That(@out).IsEquivalentTo([5], CollectionOrdering.Matching);
+        await Assert.That(out2).IsEquivalentTo([5], CollectionOrdering.Matching);
+        await Assert.That(out3).IsEquivalentTo([2, 10], CollectionOrdering.Matching);
     }
 
     [Test]
@@ -493,9 +493,9 @@ public class StreamTests
         l3.Unlisten();
         l2.Unlisten();
         l.Unlisten();
-        await Assert.That(@out.ToArray()).IsEquivalentTo(new[] { 2, 0, 5 }, CollectionOrdering.Matching);
-        await Assert.That(out2.ToArray()).IsEquivalentTo(new[] { 2, 0, 5 }, CollectionOrdering.Matching);
-        await Assert.That(out3.ToArray()).IsEquivalentTo(new[] { 4, 0, 10 }, CollectionOrdering.Matching);
+        await Assert.That(@out).IsEquivalentTo([2, 0, 5], CollectionOrdering.Matching);
+        await Assert.That(out2).IsEquivalentTo([2, 0, 5], CollectionOrdering.Matching);
+        await Assert.That(out3).IsEquivalentTo([4, 0, 10], CollectionOrdering.Matching);
     }
 
     [Test]
@@ -569,7 +569,7 @@ public class StreamTests
         s.Send(2);
         l.Unlisten();
 
-        await Assert.That(@out).IsEquivalentTo(new[] { 2, 4, 2, 4, 2, 4, 2, 4, 2, 4, 2, 4, 2, 4, 2, 4, 2, 4, 2, 4, 2 }, CollectionOrdering.Matching);
+        await Assert.That(@out).IsEquivalentTo([2, 4, 2, 4, 2, 4, 2, 4, 2, 4, 2, 4, 2, 4, 2, 4, 2, 4, 2, 4, 2], CollectionOrdering.Matching);
     }
 
     [Test]
@@ -586,7 +586,7 @@ public class StreamTests
         s.Send(2);
         s.Send(2);
         l.Unlisten();
-        await Assert.That(@out).IsEquivalentTo(new[] { 2, 4, 2, 4, 2 }, CollectionOrdering.Matching);
+        await Assert.That(@out).IsEquivalentTo([2, 4, 2, 4, 2], CollectionOrdering.Matching);
     }
 
     // Calm remembers the last value it let through, and that memory has to survive the end of a
@@ -627,7 +627,7 @@ public class StreamTests
 
         l.Unlisten();
 
-        await Assert.That(@out).IsEquivalentTo(new[] { 2, 3, 4 }, CollectionOrdering.Matching);
+        await Assert.That(@out).IsEquivalentTo([2, 3, 4], CollectionOrdering.Matching);
     }
 
     [Test]
@@ -652,7 +652,7 @@ public class StreamTests
         sa.Send(2);
         sa.Send(3);
         l.Unlisten();
-        await Assert.That(@out).IsEquivalentTo(new[] { 115, 122, 125, 127, 130 }, CollectionOrdering.Matching);
+        await Assert.That(@out).IsEquivalentTo([115, 122, 125, 127, 130], CollectionOrdering.Matching);
     }
 
     [Test]
@@ -668,7 +668,7 @@ public class StreamTests
         sa.Send(2);
         sa.Send(3);
         l.Unlisten();
-        await Assert.That(@out).IsEquivalentTo(new[] { 100, 105, 112, 113, 115, 118 }, CollectionOrdering.Matching);
+        await Assert.That(@out).IsEquivalentTo([100, 105, 112, 113, 115, 118], CollectionOrdering.Matching);
     }
 
     // Collect carries state between firings, and that state has to survive the end of a
@@ -710,7 +710,7 @@ public class StreamTests
 
         l.Unlisten();
 
-        await Assert.That(@out).IsEquivalentTo(new[] { "3/1", "13/2", "15/3" }, CollectionOrdering.Matching);
+        await Assert.That(@out).IsEquivalentTo(["3/1", "13/2", "15/3"], CollectionOrdering.Matching);
     }
 
     // Accum shares Collect's state carrying, so the same boundary applies to it.
@@ -740,7 +740,7 @@ public class StreamTests
 
         l.Unlisten();
 
-        await Assert.That(@out).IsEquivalentTo(new[] { 0, 3, 13, 15 }, CollectionOrdering.Matching);
+        await Assert.That(@out).IsEquivalentTo([0, 3, 13, 15], CollectionOrdering.Matching);
     }
 
     [Test]
@@ -753,7 +753,7 @@ public class StreamTests
         s.Send('B');
         s.Send('C');
         l.Unlisten();
-        await Assert.That(@out).IsEquivalentTo(new[] { 'A' }, CollectionOrdering.Matching);
+        await Assert.That(@out).IsEquivalentTo(['A'], CollectionOrdering.Matching);
     }
 
     [Test]
@@ -767,7 +767,7 @@ public class StreamTests
         s.Send('B');
         s.Send('A');
         l.Unlisten();
-        await Assert.That(@out).IsEquivalentTo(new[] { ' ', 'C', 'B', 'A' }, CollectionOrdering.Matching);
+        await Assert.That(@out).IsEquivalentTo([' ', 'C', 'B', 'A'], CollectionOrdering.Matching);
     }
 
     [Test]
@@ -781,7 +781,7 @@ public class StreamTests
         s.Send('B');
         s.Send('A');
         l.Unlisten();
-        await Assert.That(@out).IsEquivalentTo(new[] { ' ', 'C', 'B' }, CollectionOrdering.Matching);
+        await Assert.That(@out).IsEquivalentTo([' ', 'C', 'B'], CollectionOrdering.Matching);
     }
 
     [Test]
@@ -795,7 +795,7 @@ public class StreamTests
         s.Send('B');
         s.Send('A');
         l.Unlisten();
-        await Assert.That(@out).IsEquivalentTo(new[] { 'C', 'B', 'A' }, CollectionOrdering.Matching);
+        await Assert.That(@out).IsEquivalentTo(['C', 'B', 'A'], CollectionOrdering.Matching);
     }
 
     [Test]
@@ -977,7 +977,7 @@ public class StreamTests
         s.Send('B');
         s.Send('C');
         l.Unlisten();
-        await Assert.That(@out).IsEquivalentTo(new[] { 'A' }, CollectionOrdering.Matching);
+        await Assert.That(@out).IsEquivalentTo(['A'], CollectionOrdering.Matching);
     }
 
     [Test]
@@ -1112,7 +1112,7 @@ public class StreamTests
         streamSink.Send(8);
         l.Unlisten();
 
-        await Assert.That(@out).IsEquivalentTo(new[] { 3, 9, 18, 28 }, CollectionOrdering.Matching);
+        await Assert.That(@out).IsEquivalentTo([3, 9, 18, 28], CollectionOrdering.Matching);
     }
 
     [Test]
@@ -1137,7 +1137,7 @@ public class StreamTests
         streamSink.Send(2);
         l.Unlisten();
 
-        await Assert.That(@out).IsEquivalentTo(new[] { 3, 4, 5 }, CollectionOrdering.Matching);
+        await Assert.That(@out).IsEquivalentTo([3, 4, 5], CollectionOrdering.Matching);
     }
 
     // Node ranks index directly into the prioritized queue's backing array, which starts at
@@ -1163,7 +1163,7 @@ public class StreamTests
             s.Send(0);
             l.Unlisten();
 
-            await Assert.That(@out).IsEquivalentTo(new[] { depth }, CollectionOrdering.Matching).Because($"chain of depth {depth}");
+            await Assert.That(@out).IsEquivalentTo([depth], CollectionOrdering.Matching).Because($"chain of depth {depth}");
         }
 
         StreamSink<int> shallowSink = Stream.CreateSink<int>();
@@ -1172,6 +1172,6 @@ public class StreamTests
         shallowSink.Send(1);
         shallowListener.Unlisten();
 
-        await Assert.That(shallowOut).IsEquivalentTo(new[] { 2 }, CollectionOrdering.Matching);
+        await Assert.That(shallowOut).IsEquivalentTo([2], CollectionOrdering.Matching);
     }
 }

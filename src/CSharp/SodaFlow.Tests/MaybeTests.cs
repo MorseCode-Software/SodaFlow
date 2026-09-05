@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
@@ -11,7 +11,7 @@ using TUnit.Core;
 
 namespace SodaFlow.Tests;
 
-public class MaybeTests
+public sealed class MaybeTests
 {
     [Test]
     public async Task DefaultConstructorTest()
@@ -234,7 +234,7 @@ public class MaybeTests
     {
         Maybe<int>[] source = [Maybe.Some(1), Maybe<int>.None, Maybe.Some(1), Maybe<int>.None];
 
-        await Assert.That(source.Distinct()).IsEquivalentTo(new[] { Maybe.Some(1), Maybe<int>.None }, CollectionOrdering.Matching);
+        await Assert.That(source.Distinct()).IsEquivalentTo([Maybe.Some(1), Maybe<int>.None], CollectionOrdering.Matching);
         await Assert.That(source.Contains(Maybe<int>.None)).IsTrue();
 
         Dictionary<Maybe<int>, string> d = new() { { Maybe.Some(1), "one" }, { Maybe<int>.None, "none" } };
@@ -293,12 +293,12 @@ public class MaybeTests
     {
         Maybe<int>[] source = [Maybe.Some(3), Maybe<int>.None, Maybe.Some(1), Maybe<int>.None, Maybe.Some(2)];
 
-        await Assert.That(source.OrderBy(static v => v)).IsEquivalentTo(new[] { Maybe<int>.None, Maybe<int>.None, Maybe.Some(1), Maybe.Some(2), Maybe.Some(3) }, CollectionOrdering.Matching);
+        await Assert.That(source.OrderBy(static v => v)).IsEquivalentTo([Maybe<int>.None, Maybe<int>.None, Maybe.Some(1), Maybe.Some(2), Maybe.Some(3)], CollectionOrdering.Matching);
 
         Maybe<int>[] sorted = (Maybe<int>[])source.Clone();
         Array.Sort(sorted);
 
-        await Assert.That(sorted).IsEquivalentTo(new[] { Maybe<int>.None, Maybe<int>.None, Maybe.Some(1), Maybe.Some(2), Maybe.Some(3) }, CollectionOrdering.Matching);
+        await Assert.That(sorted).IsEquivalentTo([Maybe<int>.None, Maybe<int>.None, Maybe.Some(1), Maybe.Some(2), Maybe.Some(3)], CollectionOrdering.Matching);
     }
 
     [Test]

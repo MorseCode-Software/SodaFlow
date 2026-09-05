@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 using SodaFlow.Functional;
@@ -9,7 +9,7 @@ using TUnit.Core;
 
 namespace SodaFlow.Tests.Internal;
 
-public class CellTests
+public sealed class CellTests
 {
     [Test]
     public async Task TestTransaction()
@@ -48,6 +48,6 @@ public class CellTests
                 trans.Prioritized(node: new Node<Unit>(), action: _ => action());
         });
 
-        await Assert.That(@out).IsEquivalentTo(new[] { 1, 2, 3, 4, 5, 6 }, CollectionOrdering.Matching);
+        await Assert.That(@out).IsEquivalentTo([1, 2, 3, 4, 5, 6], CollectionOrdering.Matching);
     }
 }

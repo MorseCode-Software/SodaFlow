@@ -1,14 +1,13 @@
-﻿using System;
+using System;
 using System.Threading;
 using System.Threading.Tasks;
 using TUnit.Assertions;
-using TUnit.Assertions.Enums;
 using TUnit.Assertions.Extensions;
 using TUnit.Core;
 
 namespace SodaFlow.Tests.Internal;
 
-public class TransactionTests
+public sealed class TransactionTests
 {
     [Test]
     public async Task PostSeeOutside()
@@ -37,6 +36,8 @@ public class TransactionTests
 
             re.WaitOne();
 
+            // ReSharper disable once MethodHasAsyncOverload - CancelAsync arrived in .NET 8,
+            // and this compiles for net472 as well.
             cts.Cancel();
 
             try

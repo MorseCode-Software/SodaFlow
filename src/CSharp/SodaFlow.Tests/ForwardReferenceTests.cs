@@ -8,7 +8,7 @@ using TUnit.Core;
 
 namespace SodaFlow.Tests;
 
-public class ForwardReferenceTests
+public sealed class ForwardReferenceTests
 {
     private sealed class Child(Cell<Node> parent)
     {
@@ -74,7 +74,7 @@ public class ForwardReferenceTests
         {
         }
 
-        await Assert.That(@out).IsEquivalentTo(new[] { node }, CollectionOrdering.Matching);
+        await Assert.That(@out).IsEquivalentTo([node], CollectionOrdering.Matching);
     }
 
     [Test]

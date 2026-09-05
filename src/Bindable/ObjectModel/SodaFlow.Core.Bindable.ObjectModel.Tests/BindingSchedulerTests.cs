@@ -14,7 +14,7 @@ namespace SodaFlow.Bindable.ObjectModel.Tests;
 ///     construction; the immediate one has to be careful, and it is the one tests run against, so
 ///     everything else in this assembly depends on it getting this right.
 /// </summary>
-public class BindingSchedulerTests
+public sealed class BindingSchedulerTests
 {
     [Test]
     public async Task ImmediateRunsInlineWhenNoTransactionIsOpen()
@@ -49,7 +49,7 @@ public class BindingSchedulerTests
     [Test]
     public async Task ImmediatePreservesOrdering()
     {
-        List<int> order = new();
+        List<int> order = [];
 
         Transaction.RunVoid(() =>
         {
@@ -58,7 +58,7 @@ public class BindingSchedulerTests
             BindingScheduler.Immediate.Post(() => order.Add(3));
         });
 
-        await Assert.That(order).IsEquivalentTo(new[] { 1, 2, 3 }, CollectionOrdering.Matching);
+        await Assert.That(order).IsEquivalentTo([1, 2, 3], CollectionOrdering.Matching);
     }
 
     [Test]

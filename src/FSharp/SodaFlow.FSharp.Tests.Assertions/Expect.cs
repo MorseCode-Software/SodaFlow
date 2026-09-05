@@ -1,10 +1,9 @@
 using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
-using TUnit.Assertions;
+using JetBrains.Annotations;
 using TUnit.Assertions.Enums;
 using TUnit.Assertions.Core;
-using TUnit.Assertions.Extensions;
 
 namespace SodaFlow.Tests;
 
@@ -35,7 +34,8 @@ namespace SodaFlow.Tests;
 // assertion that is never checked. Awaiting in place instead would mean writing each method
 // twice, once with the message and once without.
 #pragma warning disable TUnitAssertions0002
-
+// Called only from F#, which inspectcode does not analyze, so every member here reads as dead.
+[PublicAPI]
 public static class Expect
 {
     /// <summary>Asserts that <paramref name="actual" /> equals <paramref name="expected" />.</summary>

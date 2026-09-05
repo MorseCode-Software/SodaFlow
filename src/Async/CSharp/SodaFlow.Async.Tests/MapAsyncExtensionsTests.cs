@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
@@ -10,7 +10,7 @@ using TUnit.Core;
 
 namespace SodaFlow.Async.Tests;
 
-public class MapAsyncExtensionsTests
+public sealed class MapAsyncExtensionsTests
 {
     [Test]
     public async Task MapAsync_UnitErasedStrategy_Overload()
@@ -18,7 +18,7 @@ public class MapAsyncExtensionsTests
         StreamSink<string> source = Stream.CreateSink<string>();
         StreamSink<string> results = Stream.CreateSink<string>();
         StreamSink<Exception> errors = Stream.CreateSink<Exception>();
-        List<string> received = new();
+        List<string> received = [];
         IListener l = results.ListenStrong(received.Add);
 
         AsyncMapStatus<string> status =
@@ -42,7 +42,7 @@ public class MapAsyncExtensionsTests
         StreamSink<Dog> source = Stream.CreateSink<Dog>();
         StreamSink<string> results = Stream.CreateSink<string>();
         StreamSink<Exception> errors = Stream.CreateSink<Exception>();
-        List<string> received = new();
+        List<string> received = [];
         IListener l = results.ListenStrong(received.Add);
         Dog dog = new();
         AlwaysStartStrategy<Animal, Unit> strategy = new();
@@ -70,7 +70,7 @@ public class MapAsyncExtensionsTests
         StreamSink<string> source = Stream.CreateSink<string>();
         StreamSink<string> results = Stream.CreateSink<string>();
         StreamSink<Exception> errors = Stream.CreateSink<Exception>();
-        List<string> received = new();
+        List<string> received = [];
         IListener l = results.ListenStrong(received.Add);
         AlwaysStartStrategy<int, Unit> strategy = new();
 
@@ -85,7 +85,7 @@ public class MapAsyncExtensionsTests
         source.Send("hello");
         TestUtil.WaitUntil(() => received.Count == 1);
 
-        await Assert.That(strategy.AdmittedValues).IsEquivalentTo(new[] { 5 }, CollectionOrdering.Matching);
+        await Assert.That(strategy.AdmittedValues).IsEquivalentTo([5], CollectionOrdering.Matching);
         await Assert.That(received[0]).IsEqualTo("HELLO");
 
         status.Dispose();
@@ -98,7 +98,7 @@ public class MapAsyncExtensionsTests
         StreamSink<string> source = Stream.CreateSink<string>();
         StreamSink<Dog> results = Stream.CreateSink<Dog>();
         StreamSink<Exception> errors = Stream.CreateSink<Exception>();
-        List<Dog> received = new();
+        List<Dog> received = [];
         IListener l = results.ListenStrong(received.Add);
         Dog dog = new();
 
@@ -123,7 +123,7 @@ public class MapAsyncExtensionsTests
         StreamSink<string> source = Stream.CreateSink<string>();
         StreamSink<string> results = Stream.CreateSink<string>();
         StreamSink<Exception> errors = Stream.CreateSink<Exception>();
-        List<string> received = new();
+        List<string> received = [];
         IListener l = results.ListenStrong(received.Add);
         AlwaysStartStrategy<Unit, int> strategy = new();
 
@@ -138,7 +138,7 @@ public class MapAsyncExtensionsTests
         source.Send("hello");
         TestUtil.WaitUntil(() => received.Count == 1);
 
-        await Assert.That(strategy.CompletedResults).IsEquivalentTo(new[] { 5 }, CollectionOrdering.Matching);
+        await Assert.That(strategy.CompletedResults).IsEquivalentTo([5], CollectionOrdering.Matching);
         await Assert.That(received[0]).IsEqualTo("HELLO");
 
         status.Dispose();
@@ -151,7 +151,7 @@ public class MapAsyncExtensionsTests
         StreamSink<Dog> source = Stream.CreateSink<Dog>();
         StreamSink<Dog> results = Stream.CreateSink<Dog>();
         StreamSink<Exception> errors = Stream.CreateSink<Exception>();
-        List<Dog> received = new();
+        List<Dog> received = [];
         IListener l = results.ListenStrong(received.Add);
         Dog dog = new();
 
@@ -176,7 +176,7 @@ public class MapAsyncExtensionsTests
         StreamSink<string> source = Stream.CreateSink<string>();
         StreamSink<Dog> results = Stream.CreateSink<Dog>();
         StreamSink<Exception> errors = Stream.CreateSink<Exception>();
-        List<Dog> received = new();
+        List<Dog> received = [];
         IListener l = results.ListenStrong(received.Add);
         Dog dog = new();
         AlwaysStartStrategy<int, Animal> strategy = new();
@@ -192,7 +192,7 @@ public class MapAsyncExtensionsTests
         source.Send("hello");
         TestUtil.WaitUntil(() => received.Count == 1);
 
-        await Assert.That(strategy.AdmittedValues).IsEquivalentTo(new[] { 5 }, CollectionOrdering.Matching);
+        await Assert.That(strategy.AdmittedValues).IsEquivalentTo([5], CollectionOrdering.Matching);
         await Assert.That(received[0]).IsSameReferenceAs(dog);
 
         status.Dispose();
@@ -205,7 +205,7 @@ public class MapAsyncExtensionsTests
         StreamSink<Dog> source = Stream.CreateSink<Dog>();
         StreamSink<string> results = Stream.CreateSink<string>();
         StreamSink<Exception> errors = Stream.CreateSink<Exception>();
-        List<string> received = new();
+        List<string> received = [];
         IListener l = results.ListenStrong(received.Add);
         Dog dog = new();
         AlwaysStartStrategy<Animal, int> strategy = new();
@@ -221,7 +221,7 @@ public class MapAsyncExtensionsTests
         source.Send(dog);
         TestUtil.WaitUntil(() => received.Count == 1);
 
-        await Assert.That(strategy.CompletedResults).IsEquivalentTo(new[] { 4 }, CollectionOrdering.Matching);
+        await Assert.That(strategy.CompletedResults).IsEquivalentTo([4], CollectionOrdering.Matching);
         await Assert.That(received[0]).IsEqualTo("done");
 
         status.Dispose();
@@ -234,7 +234,7 @@ public class MapAsyncExtensionsTests
         StreamSink<string> source = Stream.CreateSink<string>();
         StreamSink<string> results = Stream.CreateSink<string>();
         StreamSink<Exception> errors = Stream.CreateSink<Exception>();
-        List<string> received = new();
+        List<string> received = [];
         IListener l = results.ListenStrong(received.Add);
         AlwaysStartStrategy<int, bool> strategy = new();
 
@@ -252,8 +252,8 @@ public class MapAsyncExtensionsTests
         source.Send("hello");
         TestUtil.WaitUntil(() => received.Count == 1);
 
-        await Assert.That(strategy.AdmittedValues).IsEquivalentTo(new[] { 5 }, CollectionOrdering.Matching);
-        await Assert.That(strategy.CompletedResults).IsEquivalentTo(new[] { true }, CollectionOrdering.Matching);
+        await Assert.That(strategy.AdmittedValues).IsEquivalentTo([5], CollectionOrdering.Matching);
+        await Assert.That(strategy.CompletedResults).IsEquivalentTo([true], CollectionOrdering.Matching);
         await Assert.That(received[0]).IsEqualTo("HELLO");
 
         status.Dispose();
@@ -268,7 +268,7 @@ public class MapAsyncExtensionsTests
         StreamSink<Exception> errors = Stream.CreateSink<Exception>();
         StreamSink<Unit> cancelAll = Stream.CreateSink<Unit>();
         ControlledOperation<string, string> op = new();
-        List<string> received = new();
+        List<string> received = [];
         IListener l = results.ListenStrong(received.Add);
 
         AsyncMapStatus<string> status =
@@ -301,7 +301,7 @@ public class MapAsyncExtensionsTests
         StreamSink<Exception> errors = Stream.CreateSink<Exception>();
         StreamSink<IReadOnlyCollection<string>> cancelMatching = Stream.CreateSink<IReadOnlyCollection<string>>();
         ControlledOperation<string, string> op = new();
-        List<string> received = new();
+        List<string> received = [];
         IListener l = results.ListenStrong(received.Add);
 
         AsyncMapStatus<string> status =
@@ -316,13 +316,13 @@ public class MapAsyncExtensionsTests
         source.Send("b");
         TestUtil.WaitUntil(() => op.HasStarted("a") && op.HasStarted("b"));
 
-        cancelMatching.Send(new[] { "a" });
+        cancelMatching.Send(["a"]);
 
         op.Release(input: "b", result: "B");
         TestUtil.WaitUntil(() => received.Count == 1);
 
         Thread.Sleep(100);
-        await Assert.That(received).IsEquivalentTo(new[] { "B" }, CollectionOrdering.Matching);
+        await Assert.That(received).IsEquivalentTo(["B"], CollectionOrdering.Matching);
 
         status.Dispose();
         l.Unlisten();
@@ -335,7 +335,7 @@ public class MapAsyncExtensionsTests
         StreamSink<string> results = Stream.CreateSink<string>();
         StreamSink<Exception> errors = Stream.CreateSink<Exception>();
         ControlledOperation<string, string> op = new();
-        List<string> received = new();
+        List<string> received = [];
         IListener l = results.ListenStrong(received.Add);
 
         AsyncMapStatus<string> status =
@@ -364,7 +364,7 @@ public class MapAsyncExtensionsTests
         StreamSink<string> results = Stream.CreateSink<string>();
         StreamSink<Exception> errors = Stream.CreateSink<Exception>();
         ControlledOperation<string, string> op = new();
-        List<string> received = new();
+        List<string> received = [];
         IListener l = results.ListenStrong(received.Add);
 
         AsyncMapStatus<string> status =
@@ -382,7 +382,7 @@ public class MapAsyncExtensionsTests
         op.Release(input: "a", result: "A");
 
         TestUtil.WaitUntil(() => received.Count == 1);
-        await Assert.That(received).IsEquivalentTo(new[] { "A" }, CollectionOrdering.Matching);
+        await Assert.That(received).IsEquivalentTo(["A"], CollectionOrdering.Matching);
 
         l.Unlisten();
     }
@@ -394,7 +394,7 @@ public class MapAsyncExtensionsTests
         StreamSink<string> results = Stream.CreateSink<string>();
         StreamSink<Exception> errors = Stream.CreateSink<Exception>();
         InvalidOperationException thrown = new("boom");
-        List<Exception> received = new();
+        List<Exception> received = [];
         IListener l = errors.ListenStrong(received.Add);
 
         AsyncMapStatus<string> status =
@@ -448,13 +448,9 @@ public class MapAsyncExtensionsTests
         status.Dispose();
     }
 
-    private class Animal
-    {
-    }
+    private class Animal;
 
-    private sealed class Dog : Animal
-    {
-    }
+    private sealed class Dog : Animal;
 
     /// <summary>
     ///     Starts everything immediately, like the built-in Parallel, but works against arbitrary
@@ -465,8 +461,8 @@ public class MapAsyncExtensionsTests
     private sealed class AlwaysStartStrategy<TStrategyInput, TStrategyResult>
         : AsyncConcurrencyStrategy<TStrategyInput, TStrategyResult, Unit>
     {
-        public readonly List<TStrategyInput> AdmittedValues = new();
-        public readonly List<TStrategyResult> CompletedResults = new();
+        public readonly List<TStrategyInput> AdmittedValues = [];
+        public readonly List<TStrategyResult> CompletedResults = [];
 
         protected override Unit CreateState() => Unit.Value;
 
@@ -479,7 +475,7 @@ public class MapAsyncExtensionsTests
                 this.AdmittedValues.Add(incoming.Value);
             }
 
-            return new[] { new AsyncToStart<TStrategyInput>(incoming) };
+            return [new AsyncToStart<TStrategyInput>(incoming)];
         }
 
         protected override AsyncStrategyResult<TStrategyInput> OnCompleted(

@@ -1,14 +1,13 @@
-﻿using System;
+using System;
 using System.Threading.Tasks;
 using SodaFlow.Functional;
 using TUnit.Assertions;
-using TUnit.Assertions.Enums;
 using TUnit.Assertions.Extensions;
 using TUnit.Core;
 
 namespace SodaFlow.Tests;
 
-public class MaybeAsyncExtensionMethodsTests
+public sealed class MaybeAsyncExtensionMethodsTests
 {
     [Test]
     public async Task TestMapAsync()

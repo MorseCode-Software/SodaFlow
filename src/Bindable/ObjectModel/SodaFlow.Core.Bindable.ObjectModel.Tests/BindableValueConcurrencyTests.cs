@@ -29,7 +29,7 @@ namespace SodaFlow.Bindable.ObjectModel.Tests;
 ///         were compared.
 ///     </para>
 /// </remarks>
-public class BindableValueConcurrencyTests
+public sealed class BindableValueConcurrencyTests
 {
     /// <summary>
     ///     Stands in for a dispatcher. The point is that it queues: a real scheduler hands work to
@@ -72,13 +72,13 @@ public class BindableValueConcurrencyTests
 
         using IOneWayBindableValue<int> b = c.ToOneWayImpl(scheduler: BindingScheduler.Immediate);
 
-        List<int> observed = new();
+        List<int> observed = [];
 
         using IDisposable _ = b.ListenForValueChanges(observed.Add);
 
         c.Send(1);
 
-        await Assert.That(observed).IsEquivalentTo(new[] { 1 }, CollectionOrdering.Matching).Because("the notification is delivered before Send returns, not left queued");
+        await Assert.That(observed).IsEquivalentTo([1], CollectionOrdering.Matching).Because("the notification is delivered before Send returns, not left queued");
     }
 
     // Transactions are serialized process-wide, and that guarantee reaches the binding thread: a
@@ -151,7 +151,7 @@ public class BindableValueConcurrencyTests
 
         using ITwoWayBindableValue<int> b = c.ToTwoWayImpl(scheduler: scheduler);
 
-        List<int> observed = new();
+        List<int> observed = [];
 
         using IDisposable _ = b.ListenForValueChanges(observed.Add);
 
@@ -186,7 +186,7 @@ public class BindableValueConcurrencyTests
         using ITwoWayBindableValue<string> b =
             upperCased.ToTwoWayImpl(editsStreamSink: edits, scheduler: scheduler);
 
-        List<string> observed = new();
+        List<string> observed = [];
 
         using IDisposable _ = b.ListenForValueChanges(observed.Add);
 
@@ -293,7 +293,9 @@ public class BindableValueConcurrencyTests
             {
                 try
                 {
-                    body((TState)s);
+                    // ReSharper disable once NullableWarningSuppressionIsUsed - s is the state
+                    // passed to Start below, of type TState.
+                    body((TState)s!);
                 }
                 catch (Exception e)
                 {
@@ -393,7 +395,7 @@ public class BindableValueConcurrencyTests
 
         using ITwoWayBindableValue<int> b = c.ToTwoWayImpl(scheduler: scheduler);
 
-        List<int> observed = new();
+        List<int> observed = [];
 
         using IDisposable _ = b.ListenForValueChanges(observed.Add);
 
@@ -405,7 +407,7 @@ public class BindableValueConcurrencyTests
 
         await Assert.That(ran).IsEqualTo(3).Because("one refresh queued per update");
 
-        await Assert.That(observed).IsEquivalentTo(new[] { 3 }, CollectionOrdering.Matching).Because("but only one notification, because they all sample the same settled cell");
+        await Assert.That(observed).IsEquivalentTo([3], CollectionOrdering.Matching).Because("but only one notification, because they all sample the same settled cell");
 
         await Assert.That(b.Value).IsEqualTo(3);
     }
@@ -423,7 +425,7 @@ public class BindableValueConcurrencyTests
 
         using IOneWayBindableValue<int> b = c.ToOneWayImpl(scheduler: scheduler);
 
-        List<int> observed = new();
+        List<int> observed = [];
 
         using IDisposable _ = b.ListenForValueChanges(observed.Add);
 
@@ -435,7 +437,7 @@ public class BindableValueConcurrencyTests
 
         await Assert.That(ran).IsEqualTo(3).Because("one delivery queued per update");
 
-        await Assert.That(observed).IsEquivalentTo(new[] { 1, 2, 3 }, CollectionOrdering.Matching).Because("each value the cell held is reported, in the order it held them");
+        await Assert.That(observed).IsEquivalentTo([1, 2, 3], CollectionOrdering.Matching).Because("each value the cell held is reported, in the order it held them");
 
         await Assert.That(b.Value).IsEqualTo(3).Because("and the last one delivered agrees with the cell");
     }

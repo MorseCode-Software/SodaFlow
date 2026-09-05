@@ -19,6 +19,7 @@
     <ItemGroup>
         <!-- Assertions only. This is a library the F# test projects call, not a test project itself,
              so it takes no part in test discovery or the test platform. -->
+        <PackageReference Include="JetBrains.Annotations" Version="2026.2.0" PrivateAssets="all"/>
         <PackageReference Include="TUnit.Assertions" Version="1.66.8"/>
     </ItemGroup>
 

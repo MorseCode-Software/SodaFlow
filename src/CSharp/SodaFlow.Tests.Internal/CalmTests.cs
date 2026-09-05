@@ -15,7 +15,7 @@ namespace SodaFlow.Tests.Internal;
 ///     Calm has no denotational conformance coverage, so this is the only specification-level cover
 ///     the protocol has.
 /// </summary>
-public class CalmTests
+public sealed class CalmTests
 {
     private static Stream<int> Calm(Stream<int> source, Lazy<MaybeInternal<int>> init) =>
         source.Calm(init: init, areEqual: static (x, y) => x == y);
@@ -83,7 +83,7 @@ public class CalmTests
 
         await Assert.That(forceOperations).IsEqualTo(1).Because("the initial value should be forced exactly once");
 
-        await Assert.That(@out).IsEquivalentTo(new[] { 1, 2, 1 }, CollectionOrdering.Matching).Because("re-reading the initial value per firing would reset the remembered value and let " +
+        await Assert.That(@out).IsEquivalentTo([1, 2, 1], CollectionOrdering.Matching).Because("re-reading the initial value per firing would reset the remembered value and let " +
                      "duplicates through");
     }
 
@@ -108,7 +108,7 @@ public class CalmTests
 
         l.Unlisten();
 
-        await Assert.That(@out).IsEquivalentTo(new[] { 8, 7 }, CollectionOrdering.Matching).Because("the first 7 matches the initial value");
+        await Assert.That(@out).IsEquivalentTo([8, 7], CollectionOrdering.Matching).Because("the first 7 matches the initial value");
     }
 
     // A suppressed firing must carry the remembered value forward rather than clearing it, which is
@@ -132,7 +132,7 @@ public class CalmTests
 
         l.Unlisten();
 
-        await Assert.That(@out).IsEquivalentTo(new[] { 1, 2 }, CollectionOrdering.Matching).Because("a run of suppressed firings must not clear what was remembered");
+        await Assert.That(@out).IsEquivalentTo([1, 2], CollectionOrdering.Matching).Because("a run of suppressed firings must not clear what was remembered");
     }
 
     // A transaction that fails must not leave the remembered value updated. Calm defers the
@@ -165,7 +165,7 @@ public class CalmTests
 
         good.Unlisten();
 
-        await Assert.That(@out).IsEquivalentTo(new[] { 1, 1 }, CollectionOrdering.Matching).Because("the firing from the failed transaction must not suppress the retry");
+        await Assert.That(@out).IsEquivalentTo([1, 1], CollectionOrdering.Matching).Because("the firing from the failed transaction must not suppress the retry");
     }
 
     // The remembered value is committed at the end of the transaction, so simultaneous sources
@@ -203,6 +203,6 @@ public class CalmTests
 
         l.Unlisten();
 
-        await Assert.That(@out).IsEquivalentTo(new[] { 2, 3 }, CollectionOrdering.Matching);
+        await Assert.That(@out).IsEquivalentTo([2, 3], CollectionOrdering.Matching);
     }
 }

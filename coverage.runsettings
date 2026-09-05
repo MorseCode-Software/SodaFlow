@@ -1,7 +1,14 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
-    Settings for the Microsoft Code Coverage collector, passed to the `dotnet test` runs in
-    appveyor.yml alongside the Code Coverage collector.
+    Settings for the Microsoft Code Coverage collector, passed by build.cake through the platform's
+    coverage-settings option. The test projects run on Microsoft.Testing.Platform, which reaches the
+    collector through Microsoft.Testing.Extensions.CodeCoverage and reads this file unchanged from
+    when VSTest took it as its settings file.
+
+    Note for anyone editing this header: a pair of hyphens cannot appear inside an XML comment, and
+    the collector rejects the whole file if one does, reporting only that the settings do not exist
+    or are invalid.
+
 
     Cobertura because that is what the Coveralls Universal Coverage Reporter accepts; its formats
     are lcov, simplecov, cobertura, jacoco, gcov, luacov, golang, coveralls, python and clover.

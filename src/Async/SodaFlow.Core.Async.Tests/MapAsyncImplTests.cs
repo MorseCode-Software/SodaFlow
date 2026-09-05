@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
@@ -10,7 +10,7 @@ using TUnit.Core;
 
 namespace SodaFlow.Async.Tests;
 
-public class MapAsyncImplTests
+public sealed class MapAsyncImplTests
 {
     [Test]
     public async Task SuccessfulOperationPublishesToResults()
@@ -18,7 +18,7 @@ public class MapAsyncImplTests
         StreamSink<string> source = Stream.CreateSink<string>();
         StreamSink<string> results = Stream.CreateSink<string>();
         StreamSink<Exception> errors = Stream.CreateSink<Exception>();
-        List<string> received = new();
+        List<string> received = [];
         IListener l = results.ListenStrong(received.Add);
 
         AsyncMapStatus<string> status =
@@ -46,7 +46,7 @@ public class MapAsyncImplTests
         StreamSink<string> results = Stream.CreateSink<string>();
         StreamSink<Exception> errors = Stream.CreateSink<Exception>();
         InvalidOperationException thrown = new("boom");
-        List<Exception> received = new();
+        List<Exception> received = [];
         IListener l = errors.ListenStrong(received.Add);
 
         AsyncMapStatus<string> status =
@@ -74,7 +74,7 @@ public class MapAsyncImplTests
         StreamSink<string> results = Stream.CreateSink<string>();
         StreamSink<Exception> errors = Stream.CreateSink<Exception>();
         RecordingStrategy<int, int> strategy = new();
-        List<string> received = new();
+        List<string> received = [];
         IListener l = results.ListenStrong(received.Add);
 
         // TStrategyInput/TStrategyResult (int, a length) are unrelated by inheritance to
@@ -93,7 +93,7 @@ public class MapAsyncImplTests
         TestUtil.WaitUntil(() => received.Count == 1);
 
         // The strategy only ever sees the converted int, never the original string.
-        await Assert.That(strategy.AdmittedValues).IsEquivalentTo(new[] { 5 }, CollectionOrdering.Matching);
+        await Assert.That(strategy.AdmittedValues).IsEquivalentTo([5], CollectionOrdering.Matching);
 
         // Meanwhile the real TResult published is the untouched, unconverted operation output.
         await Assert.That(received[0]).IsEqualTo("HELLO");
@@ -109,7 +109,7 @@ public class MapAsyncImplTests
         StreamSink<int> results = Stream.CreateSink<int>();
         StreamSink<Exception> errors = Stream.CreateSink<Exception>();
         RejectNegativeStrategy strategy = new();
-        List<int> received = new();
+        List<int> received = [];
         IListener l = results.ListenStrong(received.Add);
 
         AsyncMapStatus<int> status =
@@ -129,7 +129,7 @@ public class MapAsyncImplTests
         // -1 was rejected by the strategy — canceled and left permanently Queued, per the
         // documented "reject outright" idiom — and so never reached the operation; only the
         // non-negative value made it through.
-        await Assert.That(received).IsEquivalentTo(new[] { 2 }, CollectionOrdering.Matching);
+        await Assert.That(received).IsEquivalentTo([2], CollectionOrdering.Matching);
 
         // The rejected item is still visible, forever Queued — that's the visible cost of this
         // idiom, called out in AsyncConcurrencyStrategy's own remarks.
@@ -161,7 +161,7 @@ public class MapAsyncImplTests
         StreamSink<int> source = Stream.CreateSink<int>();
         StreamSink<int> results = Stream.CreateSink<int>();
         StreamSink<Exception> errors = Stream.CreateSink<Exception>();
-        List<int> received = new();
+        List<int> received = [];
         IListener l = results.ListenStrong(received.Add);
 
         AsyncMapStatus<int> status =
@@ -189,7 +189,7 @@ public class MapAsyncImplTests
         StreamSink<string> source = Stream.CreateSink<string>();
         StreamSink<string> results = Stream.CreateSink<string>();
         StreamSink<Exception> errors = Stream.CreateSink<Exception>();
-        List<string> received = new();
+        List<string> received = [];
         IListener l = results.ListenStrong(received.Add);
 
         AsyncMapStatus<string> status =
@@ -217,7 +217,7 @@ public class MapAsyncImplTests
         StreamSink<string> results = Stream.CreateSink<string>();
         StreamSink<Exception> errors = Stream.CreateSink<Exception>();
         ControlledOperation<string, string> op = new();
-        List<string> received = new();
+        List<string> received = [];
         IListener l = results.ListenStrong(received.Add);
 
         AsyncMapStatus<string> status =
@@ -248,7 +248,7 @@ public class MapAsyncImplTests
         StreamSink<string> results = Stream.CreateSink<string>();
         StreamSink<Exception> errors = Stream.CreateSink<Exception>();
         ControlledOperation<string, string> op = new();
-        List<string> received = new();
+        List<string> received = [];
         IListener l = results.ListenStrong(received.Add);
 
         AsyncMapStatus<string> status =
@@ -268,7 +268,7 @@ public class MapAsyncImplTests
         op.Release(input: "a", result: "A");
 
         TestUtil.WaitUntil(() => received.Count == 1);
-        await Assert.That(received).IsEquivalentTo(new[] { "A" }, CollectionOrdering.Matching);
+        await Assert.That(received).IsEquivalentTo(["A"], CollectionOrdering.Matching);
 
         l.Unlisten();
     }
@@ -408,7 +408,7 @@ public class MapAsyncImplTests
         : AsyncConcurrencyStrategy<TStrategyInput, TStrategyResult, object?>
     {
         // This state is global and not per MapAsync call.  Per MapAsync state needs to be held in a TState object.
-        private readonly List<TStrategyInput> admittedValues = new();
+        private readonly List<TStrategyInput> admittedValues = [];
 
         public IReadOnlyList<TStrategyInput> AdmittedValues => this.admittedValues;
 
@@ -420,7 +420,7 @@ public class MapAsyncImplTests
         {
             this.admittedValues.Add(incoming.Value);
 
-            return new[] { new AsyncToStart<TStrategyInput>(incoming) };
+            return [new AsyncToStart<TStrategyInput>(incoming)];
         }
 
         protected internal override AsyncStrategyResult<TStrategyInput> OnCompleted(
@@ -451,7 +451,7 @@ public class MapAsyncImplTests
                 return AsyncStrategyResult<int>.None;
             }
 
-            return new[] { new AsyncToStart<int>(incoming) };
+            return [new AsyncToStart<int>(incoming)];
         }
 
         protected internal override AsyncStrategyResult<int> OnCompleted(
@@ -480,7 +480,7 @@ public class MapAsyncImplTests
             AsyncQueuedItem<int> incoming)
         {
             incoming.Cancel();
-            return new[] { new AsyncToStart<int>(incoming) };
+            return [new AsyncToStart<int>(incoming)];
         }
 
         protected internal override AsyncStrategyResult<int> OnCompleted(

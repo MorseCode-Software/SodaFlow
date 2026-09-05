@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
@@ -10,7 +10,7 @@ using TUnit.Core;
 
 namespace SodaFlow.Tests;
 
-public class LoopTests
+public sealed class LoopTests
 {
     [Test]
     public async Task ImperativeStreamLoop()
@@ -35,7 +35,7 @@ public class LoopTests
             s.Send(3);
         }
 
-        await Assert.That(@out).IsEquivalentTo(new[] { 1, 3, 6 }, CollectionOrdering.Matching);
+        await Assert.That(@out).IsEquivalentTo([1, 3, 6], CollectionOrdering.Matching);
     }
 
     [Test]
@@ -184,7 +184,7 @@ public class LoopTests
             s.Send(3);
         }
 
-        await Assert.That(@out).IsEquivalentTo(new[] { 1, 3, 6 }, CollectionOrdering.Matching);
+        await Assert.That(@out).IsEquivalentTo([1, 3, 6], CollectionOrdering.Matching);
     }
 
     [Test]
@@ -209,8 +209,8 @@ public class LoopTests
             s.Send(3);
         }
 
-        await Assert.That(@out).IsEquivalentTo(new[] { 1, 3, 6 }, CollectionOrdering.Matching);
-        await Assert.That(out2).IsEquivalentTo(new[] { 2, 4, 6 }, CollectionOrdering.Matching);
+        await Assert.That(@out).IsEquivalentTo([1, 3, 6], CollectionOrdering.Matching);
+        await Assert.That(out2).IsEquivalentTo([2, 4, 6], CollectionOrdering.Matching);
     }
 
     [Test]
@@ -239,7 +239,7 @@ public class LoopTests
             s.Send(3);
         }
 
-        await Assert.That(@out).IsEquivalentTo(new[] { 0, 1, 3, 6 }, CollectionOrdering.Matching);
+        await Assert.That(@out).IsEquivalentTo([0, 1, 3, 6], CollectionOrdering.Matching);
     }
 
     [Test]
@@ -396,7 +396,7 @@ public class LoopTests
             s.Send(3);
         }
 
-        await Assert.That(@out).IsEquivalentTo(new[] { 0, 1, 3, 6 }, CollectionOrdering.Matching);
+        await Assert.That(@out).IsEquivalentTo([0, 1, 3, 6], CollectionOrdering.Matching);
     }
 
     [Test]
@@ -422,8 +422,8 @@ public class LoopTests
             s.Send(3);
         }
 
-        await Assert.That(@out).IsEquivalentTo(new[] { 0, 1, 3, 6 }, CollectionOrdering.Matching);
-        await Assert.That(out2).IsEquivalentTo(new[] { 0, 2, 4, 6 }, CollectionOrdering.Matching);
+        await Assert.That(@out).IsEquivalentTo([0, 1, 3, 6], CollectionOrdering.Matching);
+        await Assert.That(out2).IsEquivalentTo([0, 2, 4, 6], CollectionOrdering.Matching);
     }
 
     [Test]
@@ -449,7 +449,7 @@ public class LoopTests
             s.Send(3);
         }
 
-        await Assert.That(@out).IsEquivalentTo(new[] { 0, 1, 3, 6 }, CollectionOrdering.Matching);
+        await Assert.That(@out).IsEquivalentTo([0, 1, 3, 6], CollectionOrdering.Matching);
     }
 
     [Test]
@@ -598,7 +598,7 @@ public class LoopTests
             s.Send(3);
         }
 
-        await Assert.That(@out).IsEquivalentTo(new[] { 0, 1, 3, 6 }, CollectionOrdering.Matching);
+        await Assert.That(@out).IsEquivalentTo([0, 1, 3, 6], CollectionOrdering.Matching);
     }
 
     [Test]
@@ -624,8 +624,8 @@ public class LoopTests
             s.Send(3);
         }
 
-        await Assert.That(@out).IsEquivalentTo(new[] { 0, 1, 3, 6 }, CollectionOrdering.Matching);
-        await Assert.That(out2).IsEquivalentTo(new[] { 0, 2, 4, 6 }, CollectionOrdering.Matching);
+        await Assert.That(@out).IsEquivalentTo([0, 1, 3, 6], CollectionOrdering.Matching);
+        await Assert.That(out2).IsEquivalentTo([0, 2, 4, 6], CollectionOrdering.Matching);
     }
 
     // Desired behavior:
@@ -749,7 +749,7 @@ public class LoopTests
             //await Assert.That(objectCounts).IsEquivalentTo(new[] { -1, 10, -1, 11, -1, 12, 13, 14, 15, -1, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, -1 });
 
             // Incorrect result we will see.
-            await Assert.That(objectCounts).IsEquivalentTo(new[] { -1, 10, -1, 11, -1, 12, -1, 0, -1 });
+            await Assert.That(objectCounts).IsEquivalentTo([-1, 10, -1, 11, -1, 12, -1, 0, -1]);
         }
 
         // Switch over the sum of the Output cells in the list, deferring the firings from the Values stream.
@@ -802,7 +802,7 @@ public class LoopTests
             //await Assert.That(objectCounts).IsEquivalentTo(new[] { -1, 10, -1, 11, -1, 15, -1, 10, -1 });
 
             // Glitchy result, but correct otherwise.
-            await Assert.That(objectCounts).IsEquivalentTo(new[] { -1, 10, -1, 11, -1, 12, 13, 14, 15, -1, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, -1 });
+            await Assert.That(objectCounts).IsEquivalentTo([-1, 10, -1, 11, -1, 12, 13, 14, 15, -1, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, -1]);
         }
 
         // Switch over the sum of the Output cells in the list, deferring the firings from the Values stream, and use a
@@ -854,7 +854,7 @@ public class LoopTests
             //await Assert.That(objectCounts).IsEquivalentTo(new[] { -1, 10, -1, 11, -1, 15, -1, 10, -1 });
 
             // Glitchy result, but correct otherwise.
-            await Assert.That(objectCounts).IsEquivalentTo(new[] { -1, 10, -1, 11, -1, 12, 13, 14, 15, -1, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, -1 });
+            await Assert.That(objectCounts).IsEquivalentTo([-1, 10, -1, 11, -1, 12, 13, 14, 15, -1, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, -1]);
         }
 
         private sealed class TestObject

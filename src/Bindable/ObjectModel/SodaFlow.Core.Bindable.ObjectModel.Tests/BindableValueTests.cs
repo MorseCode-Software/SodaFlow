@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Threading;
@@ -17,7 +17,7 @@ namespace SodaFlow.Bindable.ObjectModel.Tests;
 ///     without a dispatcher; the ordering it produces is the same one a dispatcher-backed scheduler
 ///     produces, because it defers to the end of the current transaction exactly as that one does.
 /// </summary>
-public class BindableValueTests
+public sealed class BindableValueTests
 {
     private static IOneWayBindableValue<T> OneWay<T>(Cell<T> cell) =>
         cell.ToOneWayImpl(scheduler: BindingScheduler.Immediate);
@@ -27,7 +27,7 @@ public class BindableValueTests
 
     private static List<string?> RecordNotifications(INotifyPropertyChanged source)
     {
-        List<string?> names = new();
+        List<string?> names = [];
         source.PropertyChanged += (_, e) => names.Add(e.PropertyName);
         return names;
     }
@@ -55,7 +55,9 @@ public class BindableValueTests
         c.Send(2);
 
         await Assert.That(b.Value).IsEqualTo(2);
-        await Assert.That(names).IsEquivalentTo(new string?[] { "Value", "Value" }, CollectionOrdering.Matching);
+        string?[] expected = ["Value", "Value"];
+
+        await Assert.That(names).IsEquivalentTo(expected, CollectionOrdering.Matching);
     }
 
     // The property name is load-bearing: the documented binding path is {Binding Foo.Value}, so a
@@ -71,7 +73,9 @@ public class BindableValueTests
 
         c.Send("b");
 
-        await Assert.That(names).IsEquivalentTo(new string?[] { "Value" }, CollectionOrdering.Matching);
+        string?[] expected = ["Value"];
+
+        await Assert.That(names).IsEquivalentTo(expected, CollectionOrdering.Matching);
     }
 
     [Test]
@@ -125,7 +129,9 @@ public class BindableValueTests
         c.Send(4);
 
         await Assert.That(b.Value).IsEqualTo(4);
-        await Assert.That(names).IsEquivalentTo(new string?[] { "Value" }, CollectionOrdering.Matching);
+        string?[] expected = ["Value"];
+
+        await Assert.That(names).IsEquivalentTo(expected, CollectionOrdering.Matching);
     }
 
     // The graph is authoritative. A write the graph normalizes has to come back corrected, or the
@@ -298,13 +304,12 @@ public class BindableValueTests
         StreamSink<int> edits = Stream.CreateSink<int>();
 
         List<IBindable> all =
-            new()
-            {
+            [
                 OneWay(c),
                 TwoWay(c),
                 c.ToOneWayToSourceImpl(),
                 edits.ToBindableActionImpl(scheduler: BindingScheduler.Immediate)
-            };
+            ];
 
         foreach (IBindable bindable in all)
         {

@@ -9,7 +9,7 @@ using TUnit.Core;
 namespace SodaFlow.Bindable.ObjectModel.Tests;
 
 /// <summary>Covers the command: enablement, firing, parameter typing and disposal.</summary>
-public class BindableActionTests
+public sealed class BindableActionTests
 {
     private static IBindableAction<T> Action<T>(StreamSink<T> sink, Cell<bool>? isEnabled = null)
         where T : notnull =>
@@ -45,7 +45,7 @@ public class BindableActionTests
     public async Task CarriesItsParameterIntoTheStream()
     {
         StreamSink<int> sink = Stream.CreateSink<int>();
-        List<int> fired = new();
+        List<int> fired = [];
 
         using IBindableAction<int> a = Action(sink);
 
@@ -53,7 +53,7 @@ public class BindableActionTests
         {
             a.Execute(42);
 
-            await Assert.That(fired).IsEquivalentTo(new[] { 42 }, CollectionOrdering.Matching);
+            await Assert.That(fired).IsEquivalentTo([42], CollectionOrdering.Matching);
         }
     }
 
@@ -61,7 +61,7 @@ public class BindableActionTests
     public async Task DoesNotFireWhileDisabled()
     {
         StreamSink<int> sink = Stream.CreateSink<int>();
-        List<int> fired = new();
+        List<int> fired = [];
 
         using IBindableAction<int> a = Action(sink: sink, isEnabled: Cell.Constant(false));
 
@@ -80,6 +80,8 @@ public class BindableActionTests
     {
         using IBindableAction<int> a = Action(Stream.CreateSink<int>());
 
+        // ReSharper disable once AccessToDisposedClosure - the assertion runs the lambda before
+        // the using disposes a.
         await Assert.That(() => a.Execute("not an int")).ThrowsExactly<InvalidOperationException>();
     }
 
@@ -88,6 +90,8 @@ public class BindableActionTests
     {
         using IBindableAction<string> a = Action(Stream.CreateSink<string>());
 
+        // ReSharper disable once AccessToDisposedClosure - the assertion runs the lambda before
+        // the using disposes a.
         await Assert.That(() => a.Execute(null)).ThrowsExactly<InvalidOperationException>();
     }
 
@@ -96,6 +100,8 @@ public class BindableActionTests
     {
         using IBindableAction<int> a = Action(Stream.CreateSink<int>());
 
+        // ReSharper disable once AccessToDisposedClosure - the assertion runs the lambda before
+        // the using disposes a.
         await Assert.That(() => a.Execute(null)).ThrowsExactly<InvalidOperationException>();
     }
 
@@ -103,7 +109,7 @@ public class BindableActionTests
     public async Task StopsFiringOnceDisposed()
     {
         StreamSink<int> sink = Stream.CreateSink<int>();
-        List<int> fired = new();
+        List<int> fired = [];
 
         IBindableAction<int> a = Action(sink);
 

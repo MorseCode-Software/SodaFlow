@@ -13,7 +13,7 @@ namespace SodaFlow.Bindable.ObjectModel.Tests;
 ///     single injected scheduler into everything it creates. A method that forgets to pass it still
 ///     produces a working bindable, so nothing but a test of this shape catches the omission.
 /// </summary>
-public class BindableFactoryTests
+public sealed class BindableFactoryTests
 {
     /// <summary>
     ///     Records that it was asked, then behaves like the immediate scheduler so the bindable
@@ -104,7 +104,7 @@ public class BindableFactoryTests
     public async Task ParameterlessBindableActionIgnoresItsParameter()
     {
         StreamSink<Unit> sink = Stream.CreateSink<Unit>();
-        List<Unit> fired = new();
+        List<Unit> fired = [];
 
         using IBindableAction a =
             new BindableFactory(BindingScheduler.Immediate).CreateBindableAction(sink);

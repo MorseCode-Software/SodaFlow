@@ -1,17 +1,16 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using SodaFlow.Functional;
 using SodaFlow.Time;
 using TUnit.Assertions;
-using TUnit.Assertions.Enums;
 using TUnit.Assertions.Extensions;
 using TUnit.Core;
 
 namespace SodaFlow.Tests;
 
-public class TimerTests
+public sealed class TimerTests
 {
     [Test]
     public async Task SimultaneousTimerEvents()

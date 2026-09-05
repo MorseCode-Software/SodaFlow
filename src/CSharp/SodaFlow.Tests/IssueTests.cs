@@ -1,15 +1,14 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 using SodaFlow.Functional;
 using TUnit.Assertions;
-using TUnit.Assertions.Enums;
 using TUnit.Assertions.Extensions;
 using TUnit.Core;
 
 namespace SodaFlow.Tests;
 
-public class IssueTests
+public sealed class IssueTests
 {
     [Test]
     public async Task Issue151_PoolDoubleSubtraction_Broken()

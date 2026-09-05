@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
@@ -9,7 +9,7 @@ using TUnit.Core;
 
 namespace SodaFlow.Async.Tests;
 
-public class AsyncConcurrencyStrategyFactoryTests
+public sealed class AsyncConcurrencyStrategyFactoryTests
 {
     [Test]
     public async Task Parallel_BothStartImmediatelyAndPublishInCompletionOrder()
@@ -18,7 +18,7 @@ public class AsyncConcurrencyStrategyFactoryTests
         StreamSink<string> results = Stream.CreateSink<string>();
         StreamSink<Exception> errors = Stream.CreateSink<Exception>();
         ControlledOperation<string, string> op = new();
-        List<string> received = new();
+        List<string> received = [];
         IListener l = results.ListenStrong(received.Add);
 
         AsyncMapStatus<string> status =
@@ -42,7 +42,7 @@ public class AsyncConcurrencyStrategyFactoryTests
         TestUtil.WaitUntil(() => received.Count == 2);
 
         // Completion order, not submission order.
-        await Assert.That(received).IsEquivalentTo(new[] { "B", "A" }, CollectionOrdering.Matching);
+        await Assert.That(received).IsEquivalentTo(["B", "A"], CollectionOrdering.Matching);
 
         status.Dispose();
         l.Unlisten();
@@ -55,7 +55,7 @@ public class AsyncConcurrencyStrategyFactoryTests
         StreamSink<string> results = Stream.CreateSink<string>();
         StreamSink<Exception> errors = Stream.CreateSink<Exception>();
         ControlledOperation<string, string> op = new();
-        List<object> received = new();
+        List<object> received = [];
         IListener l = results.ListenStrong(received.Add);
         IListener l2 = errors.ListenStrong(received.Add);
 
@@ -103,7 +103,7 @@ public class AsyncConcurrencyStrategyFactoryTests
         StreamSink<string> results = Stream.CreateSink<string>();
         StreamSink<Exception> errors = Stream.CreateSink<Exception>();
         ControlledOperation<string, string> op = new();
-        List<string> received = new();
+        List<string> received = [];
         IListener l = results.ListenStrong(received.Add);
 
         AsyncMapStatus<string> status =
@@ -133,7 +133,7 @@ public class AsyncConcurrencyStrategyFactoryTests
         op.Release(input: "c", result: "C");
         TestUtil.WaitUntil(() => received.Count == 3);
 
-        await Assert.That(received).IsEquivalentTo(new[] { "A", "B", "C" }, CollectionOrdering.Matching);
+        await Assert.That(received).IsEquivalentTo(["A", "B", "C"], CollectionOrdering.Matching);
 
         status.Dispose();
         l.Unlisten();
@@ -146,7 +146,7 @@ public class AsyncConcurrencyStrategyFactoryTests
         StreamSink<string> results = Stream.CreateSink<string>();
         StreamSink<Exception> errors = Stream.CreateSink<Exception>();
         ControlledOperation<string, string> op = new();
-        List<string> received = new();
+        List<string> received = [];
         IListener l = results.ListenStrong(received.Add);
 
         AsyncMapStatus<string> status =
@@ -173,7 +173,7 @@ public class AsyncConcurrencyStrategyFactoryTests
         op.Release(input: "g2-a", result: "A2");
         TestUtil.WaitUntil(() => received.Count == 3);
 
-        await Assert.That(received).IsEquivalentTo(new[] { "A1", "B1", "A2" });
+        await Assert.That(received).IsEquivalentTo(["A1", "B1", "A2"]);
 
         status.Dispose();
         l.Unlisten();
@@ -190,7 +190,7 @@ public class AsyncConcurrencyStrategyFactoryTests
         StreamSink<string> results = Stream.CreateSink<string>();
         StreamSink<Exception> errors = Stream.CreateSink<Exception>();
         ControlledOperation<string, string> op = new();
-        List<string> received = new();
+        List<string> received = [];
         IListener l = results.ListenStrong(received.Add);
 
         AsyncMapStatus<string> status =
@@ -216,14 +216,14 @@ public class AsyncConcurrencyStrategyFactoryTests
         // Give object "a" a fair chance to have published if the supersede logic were broken.
         Thread.Sleep(100);
 
-        await Assert.That(received).IsEquivalentTo(new[] { "B" }, CollectionOrdering.Matching);
+        await Assert.That(received).IsEquivalentTo(["B"], CollectionOrdering.Matching);
 
         status.Dispose();
         l.Unlisten();
     }
 
     [Test]
-    public async Task Queue_SameStrategyInstanceSharedAcrossTwoPipelinesDoesNotCrossSerialize()
+    public void Queue_SameStrategyInstanceSharedAcrossTwoPipelinesDoesNotCrossSerialize()
     {
         AsyncConcurrencyStrategyBase<string, string> sharedQueue = AsyncConcurrencyStrategyFactory.Queue<string>();
 
@@ -231,14 +231,14 @@ public class AsyncConcurrencyStrategyFactoryTests
         StreamSink<string> results1 = Stream.CreateSink<string>();
         StreamSink<Exception> errors1 = Stream.CreateSink<Exception>();
         ControlledOperation<string, string> op1 = new();
-        List<string> received1 = new();
+        List<string> received1 = [];
         IListener l1 = results1.ListenStrong(received1.Add);
 
         StreamSink<string> source2 = Stream.CreateSink<string>();
         StreamSink<string> results2 = Stream.CreateSink<string>();
         StreamSink<Exception> errors2 = Stream.CreateSink<Exception>();
         ControlledOperation<string, string> op2 = new();
-        List<string> received2 = new();
+        List<string> received2 = [];
         IListener l2 = results2.ListenStrong(received2.Add);
 
         AsyncMapStatus<string> status1 =

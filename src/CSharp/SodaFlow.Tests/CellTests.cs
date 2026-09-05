@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
@@ -10,7 +10,7 @@ using TUnit.Core;
 
 namespace SodaFlow.Tests;
 
-public class CellTests
+public sealed class CellTests
 {
     [Test]
     public async Task TestLoop()
@@ -36,8 +36,8 @@ public class CellTests
         l2.Unlisten();
         l.Unlisten();
 
-        await Assert.That(output1).IsEquivalentTo(new[] { 15, 25, 35 }, CollectionOrdering.Matching);
-        await Assert.That(output2).IsEquivalentTo(new[] { 25, 35 }, CollectionOrdering.Matching);
+        await Assert.That(output1).IsEquivalentTo([15, 25, 35], CollectionOrdering.Matching);
+        await Assert.That(output2).IsEquivalentTo([25, 35], CollectionOrdering.Matching);
     }
 
     [Test]
@@ -53,7 +53,7 @@ public class CellTests
 
         l.Unlisten();
 
-        await Assert.That(@out).IsEquivalentTo(new[] { 6, 21 }, CollectionOrdering.Matching);
+        await Assert.That(@out).IsEquivalentTo([6, 21], CollectionOrdering.Matching);
     }
 
     [Test]
@@ -92,15 +92,15 @@ public class CellTests
         await Assert.That(streamOutput.Count).IsEqualTo(4);
         await Assert.That(cellOutput.Count).IsEqualTo(5);
 
-        await Assert.That(cellOutput[0]).IsEquivalentTo(new[] { 0, 1, 2, 3, 4 }, CollectionOrdering.Matching);
-        await Assert.That(streamOutput[0]).IsEquivalentTo(new[] { 0, 1, 12, 3, 4 }, CollectionOrdering.Matching);
-        await Assert.That(cellOutput[1]).IsEquivalentTo(new[] { 0, 1, 12, 3, 4 }, CollectionOrdering.Matching);
-        await Assert.That(streamOutput[1]).IsEquivalentTo(new[] { 0, 1, 12, 3, 14 }, CollectionOrdering.Matching);
-        await Assert.That(cellOutput[2]).IsEquivalentTo(new[] { 0, 1, 12, 3, 14 }, CollectionOrdering.Matching);
-        await Assert.That(streamOutput[2]).IsEquivalentTo(new[] { 5, 16, 17, 8, 9 }, CollectionOrdering.Matching);
-        await Assert.That(cellOutput[3]).IsEquivalentTo(new[] { 5, 16, 17, 8, 9 }, CollectionOrdering.Matching);
-        await Assert.That(streamOutput[3]).IsEquivalentTo(new[] { 5, 16, 17, 18, 9 }, CollectionOrdering.Matching);
-        await Assert.That(cellOutput[4]).IsEquivalentTo(new[] { 5, 16, 17, 18, 9 }, CollectionOrdering.Matching);
+        await Assert.That(cellOutput[0]).IsEquivalentTo([0, 1, 2, 3, 4], CollectionOrdering.Matching);
+        await Assert.That(streamOutput[0]).IsEquivalentTo([0, 1, 12, 3, 4], CollectionOrdering.Matching);
+        await Assert.That(cellOutput[1]).IsEquivalentTo([0, 1, 12, 3, 4], CollectionOrdering.Matching);
+        await Assert.That(streamOutput[1]).IsEquivalentTo([0, 1, 12, 3, 14], CollectionOrdering.Matching);
+        await Assert.That(cellOutput[2]).IsEquivalentTo([0, 1, 12, 3, 14], CollectionOrdering.Matching);
+        await Assert.That(streamOutput[2]).IsEquivalentTo([5, 16, 17, 8, 9], CollectionOrdering.Matching);
+        await Assert.That(cellOutput[3]).IsEquivalentTo([5, 16, 17, 8, 9], CollectionOrdering.Matching);
+        await Assert.That(streamOutput[3]).IsEquivalentTo([5, 16, 17, 18, 9], CollectionOrdering.Matching);
+        await Assert.That(cellOutput[4]).IsEquivalentTo([5, 16, 17, 18, 9], CollectionOrdering.Matching);
     }
 
     [Test]
@@ -140,15 +140,15 @@ public class CellTests
         await Assert.That(streamOutput.Count).IsEqualTo(4);
         await Assert.That(cellOutput.Count).IsEqualTo(5);
 
-        await Assert.That(cellOutput[0]).IsEquivalentTo(new[] { 0, 1, 2, 3, 4 }, CollectionOrdering.Matching);
-        await Assert.That(streamOutput[0]).IsEquivalentTo(new[] { 0, 1, 12, 3, 4 }, CollectionOrdering.Matching);
-        await Assert.That(cellOutput[1]).IsEquivalentTo(new[] { 0, 1, 12, 3, 4 }, CollectionOrdering.Matching);
-        await Assert.That(streamOutput[1]).IsEquivalentTo(new[] { 0, 1, 12, 3, 14 }, CollectionOrdering.Matching);
-        await Assert.That(cellOutput[2]).IsEquivalentTo(new[] { 0, 1, 12, 3, 14 }, CollectionOrdering.Matching);
-        await Assert.That(streamOutput[2]).IsEquivalentTo(new[] { 5, 16, 17, 8, 9 }, CollectionOrdering.Matching);
-        await Assert.That(cellOutput[3]).IsEquivalentTo(new[] { 5, 16, 17, 8, 9 }, CollectionOrdering.Matching);
-        await Assert.That(streamOutput[3]).IsEquivalentTo(new[] { 5, 16, 17, 18, 9 }, CollectionOrdering.Matching);
-        await Assert.That(cellOutput[4]).IsEquivalentTo(new[] { 5, 16, 17, 18, 9 }, CollectionOrdering.Matching);
+        await Assert.That(cellOutput[0]).IsEquivalentTo([0, 1, 2, 3, 4], CollectionOrdering.Matching);
+        await Assert.That(streamOutput[0]).IsEquivalentTo([0, 1, 12, 3, 4], CollectionOrdering.Matching);
+        await Assert.That(cellOutput[1]).IsEquivalentTo([0, 1, 12, 3, 4], CollectionOrdering.Matching);
+        await Assert.That(streamOutput[1]).IsEquivalentTo([0, 1, 12, 3, 14], CollectionOrdering.Matching);
+        await Assert.That(cellOutput[2]).IsEquivalentTo([0, 1, 12, 3, 14], CollectionOrdering.Matching);
+        await Assert.That(streamOutput[2]).IsEquivalentTo([5, 16, 17, 8, 9], CollectionOrdering.Matching);
+        await Assert.That(cellOutput[3]).IsEquivalentTo([5, 16, 17, 8, 9], CollectionOrdering.Matching);
+        await Assert.That(streamOutput[3]).IsEquivalentTo([5, 16, 17, 18, 9], CollectionOrdering.Matching);
+        await Assert.That(cellOutput[4]).IsEquivalentTo([5, 16, 17, 18, 9], CollectionOrdering.Matching);
     }
 
     private sealed class Test(int initialValue)
@@ -167,7 +167,7 @@ public class CellTests
         s.Send(2);
         s.Send(4);
         l.Unlisten();
-        await Assert.That(@out).IsEquivalentTo(new[] { 1, 3, 5 }, CollectionOrdering.Matching);
+        await Assert.That(@out).IsEquivalentTo([1, 3, 5], CollectionOrdering.Matching);
     }
 
     [Test]
@@ -181,7 +181,7 @@ public class CellTests
         s.Send(3);
         s.Send(5);
         l.Unlisten();
-        await Assert.That(@out).IsEquivalentTo(new[] { 1, 3, 5 }, CollectionOrdering.Matching);
+        await Assert.That(@out).IsEquivalentTo([1, 3, 5], CollectionOrdering.Matching);
     }
 
     [Test]
@@ -210,14 +210,13 @@ public class CellTests
             s.Send(4);
         }
 
-        await Assert.That(@out).IsEquivalentTo(new[]
-                      {
+        await Assert.That(@out).IsEquivalentTo([
                           (Current: 0, Previous: Maybe.None),
                           (Current: 1, Previous: Maybe.Some(0)),
                           (Current: 2, Previous: Maybe.Some(1)),
                           (Current: 3, Previous: Maybe.Some(2)),
                           (Current: 4, Previous: Maybe.Some(3))
-                      }, CollectionOrdering.Matching);
+                      ], CollectionOrdering.Matching);
     }
 
     [Test]
@@ -247,14 +246,13 @@ public class CellTests
             s.Send(5);
         }
 
-        await Assert.That(@out).IsEquivalentTo(new[]
-                      {
+        await Assert.That(@out).IsEquivalentTo([
                           (Current: 1, Previous: Maybe.Some(0)),
                           (Current: 2, Previous: Maybe.Some(1)),
                           (Current: 3, Previous: Maybe.Some(2)),
                           (Current: 4, Previous: Maybe.Some(3)),
                           (Current: 5, Previous: Maybe.Some(4))
-                      }, CollectionOrdering.Matching);
+                      ], CollectionOrdering.Matching);
     }
 
     [Test]
@@ -306,7 +304,7 @@ public class CellTests
             innerCell.Sample().S.Send(7);
         }
 
-        await Assert.That(@out).IsEquivalentTo(new[] { 3, 5, 4, 7 }, CollectionOrdering.Matching);
+        await Assert.That(@out).IsEquivalentTo([3, 5, 4, 7], CollectionOrdering.Matching);
     }
 
     private sealed class Inner
