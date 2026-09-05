@@ -1,3 +1,11 @@
+4.0.0
+
+No API change of its own. This release moves to SodaFlow.Async.Core 4.x
+and SodaFlow.FSharp 4.x, and is a major because taking it obliges a
+consumer to take those.
+
+Nothing in this package's own code changed but its formatting.
+
 3.0.0
 
 No code change. This release exists to move a dependency, and is a major

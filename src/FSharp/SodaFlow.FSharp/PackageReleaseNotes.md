@@ -1,3 +1,14 @@
+4.0.0
+
+No API change of its own. This release moves to SodaFlow.Core 4.x, and
+is a major because taking it obliges a consumer to take that.
+
+It could not have stayed on 3.x. Transaction.isActive in 3.1.0 called
+TransactionInternal.IsActiveImpl, which SodaFlow.Core 4.0.0 removes; it
+calls HasCurrentTransaction now, which is what the C# side already
+called and what IsActiveImpl forwarded to. Same answer, one less hop,
+and nothing about isActive's own signature or behavior changes.
+
 3.1.0
 
 New: ForwardReference.create and ForwardReference.createWithNoCaptures build a

@@ -15,8 +15,8 @@ identifies the binding thread, so passing one is what lets that
 bindable's Value throw when it is touched from another - see
 SodaFlow.Bindable.ObjectModel.Core.
 
-Otherwise this release moves to SodaFlow.Bindable.ObjectModel.Core 3.x,
-and would be a major for that alone.
+Otherwise this release moves to SodaFlow.Bindable.ObjectModel.Core 3.x
+and SodaFlow.FSharp 4.x, and would be a major for either alone.
 
 Worth reading that package's notes rather than skipping this: Execute now
 rejects null for every type argument, and being a behavior change behind an

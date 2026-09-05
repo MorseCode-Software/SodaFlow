@@ -1,5 +1,10 @@
 4.0.0
 
+BREAKING: requires SodaFlow.Core 4.x, where it required 3.x. That
+package removed internal members this one is built against, so the two
+have to move together; nothing it removed is in its public surface, and
+nothing here changed shape because of it.
+
 BREAKING: requires SodaFlow.Functional 3.x, where it required 2.x. Unit is a
 struct there now, and this package's surface is full of Stream<Unit> and its
 relatives, so the two move together. Nothing in this package's own API

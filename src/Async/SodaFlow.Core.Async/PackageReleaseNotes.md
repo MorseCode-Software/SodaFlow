@@ -1,3 +1,12 @@
+4.0.0
+
+No API change of its own. This release moves to SodaFlow.Core 4.x, and
+is a major because taking it obliges a consumer to take that.
+
+Nothing in this package's own code changed but its layout: file-scoped
+namespaces in place of braced ones, which moves every line left by four
+columns and alters no behavior.
+
 3.0.0
 
 No code change. This release exists to move a dependency, and is a major

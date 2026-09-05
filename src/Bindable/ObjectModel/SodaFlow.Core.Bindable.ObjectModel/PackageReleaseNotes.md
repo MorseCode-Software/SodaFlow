@@ -1,5 +1,9 @@
 3.0.0
 
+BREAKING: requires SodaFlow.Core 4.x, where it required 3.x. That
+package removed internal members, and this one is rebuilt against what
+replaced them.
+
 BREAKING: IBindableAction.Execute rejects null whatever the action's type
 argument, where it previously accepted null for a type which could represent
 one.

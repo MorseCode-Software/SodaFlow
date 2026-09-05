@@ -1,8 +1,8 @@
 4.0.0
 
-No API change of its own. This release moves to SodaFlow 4.x and
-SodaFlow.Functional 3.x, and is a major because taking it obliges a consumer
-to take those.
+No API change of its own. This release moves to SodaFlow 4.x,
+SodaFlow.Async.Core 4.x and SodaFlow.Functional 3.x, and is a major
+because taking it obliges a consumer to take those.
 
 Unit is a struct in SodaFlow.Functional 3.0.0, and this package's
 AsyncConcurrencyStrategy fixes its unused type parameters to Unit, so an
