@@ -1,25 +1,24 @@
 using Avalonia.Controls;
 using Avalonia.Markup.Xaml;
-using SodaFlow.Samples.Counter;
+using SodaFlow.Samples.Counter.ViewModels;
 
-namespace SodaFlow.Samples.Counter.AvaloniaUi
+namespace SodaFlow.Samples.Counter.Avalonia;
+
+/// <summary>
+///     The entire Avalonia side of this sample. Compare it with the WPF window: different
+///     framework, different XAML dialect, same view model with nothing changed.
+/// </summary>
+public partial class MainWindow : Window
 {
-    /// <summary>
-    ///     The entire Avalonia side of this sample. Compare it with the WPF window: different
-    ///     framework, different XAML dialect, same view model with nothing changed.
-    /// </summary>
-    public partial class MainWindow : Window
+    private readonly CounterViewModel viewModel = CounterViewModel.Create();
+
+    public MainWindow()
     {
-        private readonly CounterViewModel viewModel = new CounterViewModel();
+        AvaloniaXamlLoader.Load(this);
 
-        public MainWindow()
-        {
-            AvaloniaXamlLoader.Load(this);
+        this.DataContext = this.viewModel;
 
-            this.DataContext = this.viewModel;
-
-            // The view model holds subscriptions into the FRP graph. Disposing it releases them.
-            this.Closed += (_, __) => this.viewModel.Dispose();
-        }
+        // The view model holds subscriptions into the FRP graph. Disposing it releases them.
+        this.Closed += (_, _) => this.viewModel.Dispose();
     }
 }

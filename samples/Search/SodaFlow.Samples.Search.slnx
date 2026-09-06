@@ -1,10 +1,10 @@
 <Solution>
-  <Configurations>
-    <Platform Name="Any CPU" />
-    <Platform Name="x64" />
-    <Platform Name="x86" />
-  </Configurations>
-  <Project Path="SodaFlow.Samples.Search.Avalonia/SodaFlow.Samples.Search.Avalonia.csproj" />
-  <Project Path="SodaFlow.Samples.Search.ViewModels/SodaFlow.Samples.Search.ViewModels.csproj" />
-  <Project Path="SodaFlow.Samples.Search.Wpf/SodaFlow.Samples.Search.Wpf.csproj" />
+    <Configurations>
+        <Platform Name="Any CPU"/>
+        <Platform Name="x64"/>
+        <Platform Name="x86"/>
+    </Configurations>
+    <Project Path="SodaFlow.Samples.Search.Avalonia/SodaFlow.Samples.Search.Avalonia.csproj"/>
+    <Project Path="SodaFlow.Samples.Search.ViewModels/SodaFlow.Samples.Search.ViewModels.csproj"/>
+    <Project Path="SodaFlow.Samples.Search.Wpf/SodaFlow.Samples.Search.Wpf.csproj"/>
 </Solution>

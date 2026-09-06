@@ -1,6 +1,5 @@
-namespace SodaFlow.Samples.Search.Wpf
+namespace SodaFlow.Samples.Search.Wpf;
+
+public partial class App
 {
-    public partial class App : System.Windows.Application
-    {
-    }
 }

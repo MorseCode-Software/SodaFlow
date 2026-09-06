@@ -1,9 +1,15 @@
 <Window x:Class="SodaFlow.Samples.Search.Wpf.MainWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:viewModels="clr-namespace:SodaFlow.Samples.Search.ViewModels;assembly=SodaFlow.Samples.Search.ViewModels"
+        mc:Ignorable="d"
         Title="SodaFlow Search (WPF)"
-        Width="440" Height="520"
-        WindowStartupLocation="CenterScreen">
+        Width="440"
+        Height="520"
+        WindowStartupLocation="CenterScreen"
+        d:DataContext="{d:DesignInstance viewModels:SearchViewModel}">
 
     <Window.Resources>
         <BooleanToVisibilityConverter x:Key="BoolToVisibility" />
@@ -42,11 +48,13 @@
                     Padding="8"
                     Margin="0,8,0,0"
                     Visibility="{Binding HasError.Value, Converter={StaticResource BoolToVisibility}}">
-                <TextBlock Text="{Binding Error.Value}" TextWrapping="Wrap" />
+                <TextBlock Text="{Binding Error.Value}"
+                           TextWrapping="Wrap" />
             </Border>
         </StackPanel>
 
-        <ListBox ItemsSource="{Binding Results.Value}" Margin="0,12,0,0" />
+        <ListBox ItemsSource="{Binding Results.Value}"
+                 Margin="0,12,0,0" />
 
     </DockPanel>
 </Window>
