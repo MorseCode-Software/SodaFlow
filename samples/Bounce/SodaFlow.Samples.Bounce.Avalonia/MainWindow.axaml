@@ -10,11 +10,16 @@
         x:DataType="viewModels:BounceViewModel">
 
     <!--
-        A tab per scene, smallest first. Each one hands its scene to a SceneView, which draws it by
-        sampling; there is nothing to bind, because a behavior has no changes to be notified of.
+        A tab per scene, smallest first, opening on the smallest. SelectedIndex is set rather than
+        left to the framework, which is not the same in both: Avalonia selected the first tab on its
+        own and WPF opened with none selected.
+
+        Each tab hands its scene to a SceneView, which draws it by sampling; there is nothing to
+        bind, because a behavior has no changes to be notified of.
     -->
     <TabControl Margin="12"
-                ItemsSource="{Binding Scenes}">
+                ItemsSource="{Binding Scenes}"
+                SelectedIndex="0">
         <TabControl.ItemTemplate>
             <DataTemplate DataType="viewModels:IScene">
                 <TextBlock Text="{Binding Name}" />
