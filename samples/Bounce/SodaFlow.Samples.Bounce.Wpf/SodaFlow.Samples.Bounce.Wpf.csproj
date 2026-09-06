@@ -1,0 +1,18 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <OutputType>WinExe</OutputType>
+        <TargetFramework>net8.0-windows</TargetFramework>
+        <UseWPF>true</UseWPF>
+        <Nullable>enable</Nullable>
+        <EnableDefaultItems>true</EnableDefaultItems>
+        <LangVersion>10</LangVersion>
+        <IsPackable>false</IsPackable>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <!-- The whole sample is in here. This project only draws it. -->
+        <ProjectReference Include="..\SodaFlow.Samples.Bounce.ViewModels\SodaFlow.Samples.Bounce.ViewModels.csproj"/>
+    </ItemGroup>
+
+</Project>

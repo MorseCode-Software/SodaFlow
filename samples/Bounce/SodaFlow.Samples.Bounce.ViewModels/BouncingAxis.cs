@@ -1,0 +1,165 @@
+using System;
+using SodaFlow.Functional;
+using SodaFlow.Time;
+
+namespace SodaFlow.Samples.Bounce.ViewModels;
+
+/// <summary>
+///     One axis of motion, bouncing between two bounds forever.
+/// </summary>
+/// <remarks>
+///     <para>
+///         The shape here is the whole idea of the sample. A <see cref="Cell{T}" /> holds the
+///         current <see cref="Flight" /> - the equation the body is following right now - and the
+///         position is that equation applied to the current time. Every bounce replaces the
+///         equation, and <c>SwitchB</c> makes the resulting behavior follow whichever equation is
+///         current.
+///     </para>
+///     <para>
+///         The feedback is the interesting part. The next bounce is a function of the current
+///         flight, the bounce is what produces the next flight, and so the graph refers to itself.
+///         <c>Cell.Loop</c> is what lets it be written that way, and no sink is involved: the
+///         simulation runs on pure FRP feedback, so nothing has to remember to send anything.
+///     </para>
+/// </remarks>
+internal static class BouncingAxis
+{
+    /// <summary>
+    ///     How soon after a bounce another one is believed. Two bounces cannot be separated by
+    ///     less than this, which is what keeps the solved root of the bounce just taken from
+    ///     being read as a fresh one at the same instant.
+    /// </summary>
+    private const double MinimumInterval = 1e-6;
+
+    /// <summary>
+    ///     Builds the position along one axis: a behavior defined at every instant, bouncing
+    ///     between <paramref name="min" /> and <paramref name="max" />.
+    /// </summary>
+    public static Behavior<double> Create(
+        ITimerSystem<double> timers,
+        Flight initial,
+        double min,
+        double max) =>
+        Position(
+            timers: timers,
+            flight: Flights(
+                timers: timers,
+                initial: initial,
+                min: min,
+                max: max,
+                restarts: Stream.Never<Flight>()));
+
+    /// <summary>
+    ///     The equation in force at each moment, each bounce replacing the one before it.
+    /// </summary>
+    /// <param name="restarts">
+    ///     Flights imposed from outside, which take precedence over a bounce arriving in the same
+    ///     transaction. Releasing a thrown ball is the only thing that uses this; the scenes with
+    ///     nothing to impose pass a stream that never fires.
+    /// </param>
+    public static Cell<Flight> Flights(
+        ITimerSystem<double> timers,
+        Flight initial,
+        double min,
+        double max,
+        Stream<Flight> restarts) =>
+        Cell.Loop<Flight>()
+            .WithoutCaptures(flight =>
+            {
+                // Armed for the instant the current flight reaches a bound, disarmed when it never
+                // will. Rescheduling is not a step anything performs - the target is a function of
+                // the flight, so a new flight is a new target.
+                Cell<Maybe<double>> nextBounce = flight.Map(f => NextBounceTime(flight: f, min: min, max: max));
+
+                Stream<Flight> bounced = timers
+                    .At(nextBounce)
+                    .Snapshot(c: flight, f: (time, f) => Reflect(flight: f, time: time, min: min, max: max));
+
+                return restarts.OrElse(bounced).Hold(initial);
+            });
+
+    /// <summary>
+    ///     The position, following whichever flight is current.
+    /// </summary>
+    public static Behavior<double> Position(ITimerSystem<double> timers, Cell<Flight> flight) =>
+        // Each flight becomes its own behavior - a function of time and nothing else - and
+        // SwitchB flattens the cell of them back into a single continuous position.
+        flight.Map(f => timers.Time.Map(f.PositionAt)).SwitchB();
+
+    /// <summary>
+    ///     When the given flight next reaches a bound, or none if it never does.
+    /// </summary>
+    public static Maybe<double> NextBounceTime(Flight flight, double min, double max)
+    {
+        Maybe<double> toMin = TimeToReach(flight: flight, bound: min);
+        Maybe<double> toMax = TimeToReach(flight: flight, bound: max);
+
+        return toMin.Match(
+            onSome: a => toMax.Match(onSome: b => Maybe.Some(Math.Min(a, b)), onNone: () => Maybe.Some(a)),
+            onNone: () => toMax);
+    }
+
+    /// <summary>
+    ///     The flight that begins where the given one meets a bound, going the other way.
+    /// </summary>
+    /// <remarks>
+    ///     The bounce is perfectly elastic. Damping would be one multiplier here, and would also
+    ///     bring the problem it always brings: as the bounces shrink the intervals between them
+    ///     shrink too, without ever reaching zero, so a simulation that solves for each one in
+    ///     turn schedules them forever. Handling that means deciding when a body is at rest, which
+    ///     is a worthwhile thing to write and not what this sample is about.
+    /// </remarks>
+    public static Flight Reflect(Flight flight, double time, double min, double max)
+    {
+        double position = flight.PositionAt(time);
+        double bound = Math.Abs(position - min) < Math.Abs(position - max) ? min : max;
+
+        return new Flight(
+            startTime: time,
+            position: bound,
+            velocity: -flight.VelocityAt(time),
+            acceleration: flight.Acceleration);
+    }
+
+    /// <summary>
+    ///     How long until the flight reaches the bound, or none if it does not reach it going
+    ///     forward in time.
+    /// </summary>
+    private static Maybe<double> TimeToReach(Flight flight, double bound)
+    {
+        double offset = flight.Position - bound;
+
+        if (Math.Abs(flight.Acceleration) < double.Epsilon)
+        {
+            // No acceleration, so the position is a straight line and there is one crossing.
+            return Math.Abs(flight.Velocity) < double.Epsilon
+                ? Maybe.None
+                : Reached(flight: flight, dt: -offset / flight.Velocity);
+        }
+
+        // 0.5at^2 + vt + offset = 0, whose roots are the two moments the body is at the bound.
+        double discriminant = (flight.Velocity * flight.Velocity) - (2.0 * flight.Acceleration * offset);
+
+        if (discriminant < 0.0)
+        {
+            return Maybe.None;
+        }
+
+        double root = Math.Sqrt(discriminant);
+        Maybe<double> first = Reached(flight: flight, dt: (-flight.Velocity - root) / flight.Acceleration);
+        Maybe<double> second = Reached(flight: flight, dt: (-flight.Velocity + root) / flight.Acceleration);
+
+        return first.Match(
+            onSome: a => second.Match(onSome: b => Maybe.Some(Math.Min(a, b)), onNone: () => Maybe.Some(a)),
+            onNone: () => second);
+    }
+
+    /// <summary>
+    ///     The absolute time <paramref name="dt" /> seconds into the flight, if that is far enough
+    ///     ahead to be a bounce that has not already been taken.
+    /// </summary>
+    private static Maybe<double> Reached(Flight flight, double dt) =>
+        dt > MinimumInterval && !double.IsNaN(dt) && !double.IsInfinity(dt)
+            ? Maybe.Some(flight.StartTime + dt)
+            : Maybe.None;
+}

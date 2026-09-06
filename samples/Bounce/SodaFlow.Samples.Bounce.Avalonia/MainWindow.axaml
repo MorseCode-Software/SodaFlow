@@ -1,0 +1,38 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:viewModels="clr-namespace:SodaFlow.Samples.Bounce.ViewModels;assembly=SodaFlow.Samples.Bounce.ViewModels"
+        xmlns:local="clr-namespace:SodaFlow.Samples.Bounce.Avalonia"
+        x:Class="SodaFlow.Samples.Bounce.Avalonia.MainWindow"
+        Title="SodaFlow Bounce (Avalonia)"
+        Width="560"
+        Height="500"
+        WindowStartupLocation="CenterScreen"
+        x:DataType="viewModels:BounceViewModel">
+
+    <!--
+        A tab per scene, smallest first. Each one hands its scene to a SceneView, which draws it by
+        sampling; there is nothing to bind, because a behavior has no changes to be notified of.
+    -->
+    <TabControl Margin="12"
+                ItemsSource="{Binding Scenes}">
+        <TabControl.ItemTemplate>
+            <DataTemplate DataType="viewModels:IScene">
+                <TextBlock Text="{Binding Name}" />
+            </DataTemplate>
+        </TabControl.ItemTemplate>
+
+        <TabControl.ContentTemplate>
+            <DataTemplate DataType="viewModels:IScene">
+                <StackPanel Margin="4">
+                    <TextBlock Text="{Binding Summary}"
+                               TextWrapping="Wrap"
+                               Foreground="Gray"
+                               Margin="0,0,0,12" />
+
+                    <local:SceneView Scene="{Binding}"
+                                     HorizontalAlignment="Left" />
+                </StackPanel>
+            </DataTemplate>
+        </TabControl.ContentTemplate>
+    </TabControl>
+</Window>

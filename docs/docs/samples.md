@@ -4,16 +4,18 @@ title: Sample applications
 
 # Sample applications
 
-Two applications live in [`samples/`](https://github.com/MorseCode-Software/SodaFlow/tree/main/samples) in the repository, each built twice — once in
+Three applications live in [`samples/`](https://github.com/MorseCode-Software/SodaFlow/tree/main/samples) in the repository, each built twice — once in
 WPF and once in Avalonia — over one shared view model that knows about neither.
 
 | Sample | Uses | What it shows |
 | --- | --- | --- |
 | [Counter](https://github.com/MorseCode-Software/SodaFlow/tree/main/samples/Counter) | `SodaFlow`, `SodaFlow.Bindable.ObjectModel` | The whole idea on one screen |
 | [Search](https://github.com/MorseCode-Software/SodaFlow/tree/main/samples/Search) | those two plus `SodaFlow.Async` | Search-as-you-type against a slow service |
+| [Bounce](https://github.com/MorseCode-Software/SodaFlow/tree/main/samples/Bounce) | `SodaFlow` alone | Continuous time: motion as a function of `Time` |
 
-Each is a folder with its own solution: open `Counter/SodaFlow.Samples.Counter.slnx` or
-`Search/SodaFlow.Samples.Search.slnx` and run either head.
+Each is a folder with its own solution: open `Counter/SodaFlow.Samples.Counter.slnx`,
+`Search/SodaFlow.Samples.Search.slnx` or `Bounce/SodaFlow.Samples.Bounce.slnx` and run either
+head.
 
 ## Why the view model is its own project
 
@@ -48,6 +50,18 @@ spinner that never stops because a canceled request never decremented a counter,
 error left on screen after a later search succeeded. See
 [Asynchronous work](async.md) for the mechanism.
 
+**Bounce** is balls bouncing in a box, and the only one of the three about
+[`Behavior<T>`](time.md) rather than about cells and streams. A ball's position is a function of
+time rather than a number something keeps updating, which has two consequences worth seeing: the
+instant it reaches a wall is a root of the quadratic, solved in advance and scheduled with `At`
+rather than noticed by a frame; and the views hold no positions at all, asking where things are
+once per frame and drawing them there. It has three scenes, from one ball on one axis up to balls
+that can be picked up and thrown, where `SwitchB` chooses between following the pointer and
+following physics.
+
+It is also the one sample that needs no bindable object model. Nothing in it binds, because a
+behavior has no changes to raise `PropertyChanged` about.
+
 ## Two things that trip people up
 
 See [Data binding](bindable.md) for the full model.
@@ -71,6 +85,9 @@ application outside this repository would:
 <PackageReference Include="SodaFlow.Async" Version="4.0.0" />
 <PackageReference Include="SodaFlow.Bindable.ObjectModel" Version="3.0.0" />
 ```
+
+That is Search, which uses all three. Counter takes the first and the third, and Bounce takes only
+the first.
 
 Project references into `src/` would have been easier to set up and worse to live with: a sample
 would then break the moment anyone changed a library API. Pinning to released versions means a
