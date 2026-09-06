@@ -6,8 +6,28 @@
         <Nullable>enable</Nullable>
         <LangVersion>10</LangVersion>
         <IsPackable>false</IsPackable>
+        <EnableDefaultItems>false</EnableDefaultItems>
         <ApplicationManifest>app.manifest</ApplicationManifest>
     </PropertyGroup>
+
+    <ItemGroup>
+        <AvaloniaXaml Include="App.axaml">
+            <SubType>Designer</SubType>
+        </AvaloniaXaml>
+        <Compile Include="App.axaml.cs">
+            <DependentUpon>App.axaml</DependentUpon>
+            <SubType>Code</SubType>
+        </Compile>
+        <None Include="app.manifest"/>
+        <AvaloniaXaml Include="MainWindow.axaml">
+            <SubType>Designer</SubType>
+        </AvaloniaXaml>
+        <Compile Include="MainWindow.axaml.cs">
+            <DependentUpon>MainWindow.axaml</DependentUpon>
+            <SubType>Code</SubType>
+        </Compile>
+        <Compile Include="Program.cs"/>
+    </ItemGroup>
 
     <ItemGroup>
         <PackageReference Include="Avalonia" Version="12.1.2"/>

@@ -9,7 +9,14 @@
         <Nullable>enable</Nullable>
         <LangVersion>10</LangVersion>
         <IsPackable>false</IsPackable>
+        <EnableDefaultItems>false</EnableDefaultItems>
     </PropertyGroup>
+
+    <ItemGroup>
+        <Compile Include="ISearchViewModel.cs"/>
+        <Compile Include="SearchViewModel.cs"/>
+        <Compile Include="Catalog.cs"/>
+    </ItemGroup>
 
     <ItemGroup>
         <!--

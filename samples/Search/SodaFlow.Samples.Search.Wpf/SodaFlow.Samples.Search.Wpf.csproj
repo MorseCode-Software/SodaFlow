@@ -7,7 +7,19 @@
         <Nullable>enable</Nullable>
         <LangVersion>10</LangVersion>
         <IsPackable>false</IsPackable>
+        <EnableDefaultItems>false</EnableDefaultItems>
     </PropertyGroup>
+
+    <ItemGroup>
+        <ApplicationDefinition Include="App.xaml"/>
+        <Compile Include="App.xaml.cs">
+            <DependentUpon>App.xaml</DependentUpon>
+        </Compile>
+        <Page Include="MainWindow.xaml"/>
+        <Compile Include="MainWindow.xaml.cs">
+            <DependentUpon>MainWindow.xaml</DependentUpon>
+        </Compile>
+    </ItemGroup>
 
     <ItemGroup>
         <ProjectReference Include="..\SodaFlow.Samples.Search.ViewModels\SodaFlow.Samples.Search.ViewModels.csproj"/>
