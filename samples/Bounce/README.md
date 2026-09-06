@@ -107,9 +107,14 @@ control:
             SelectedItem="{Binding SelectedScene.Value, Mode=TwoWay}">
 ```
 
-That buys both directions. The summary above the tabs is a function of the selection, so nothing has
-to notice a tab change and go and update a label; and `Show(scene)` changes the tab from the view
-model, which is the same thing a click does rather than a second mechanism beside it.
+That buys both directions with one thing. The summary above the tabs is a function of the
+selection, so nothing has to notice a tab change and go and update a label; and setting
+`SelectedScene.Value` changes which tab is showing, which is the same write a click performs.
+
+There is no `Show(scene)` method beside it, and that is the point rather than an omission. A second
+way to set the selection would be a second thing to keep in step with the first, which is the habit
+this library exists to make unnecessary. Values that change are bindable values; things that happen
+are bindable actions; neither wants a method next to it doing the same job procedurally.
 
 ## A note on the physics
 

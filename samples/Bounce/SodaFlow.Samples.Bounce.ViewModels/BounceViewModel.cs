@@ -33,16 +33,12 @@ public sealed class BounceViewModel : IDisposable
 {
     private readonly IReadOnlyList<IDisposable> disposables;
 
-    private readonly CellSink<IScene> selected;
-
     private BounceViewModel(
         IReadOnlyList<IScene> scenes,
-        CellSink<IScene> selected,
         ITwoWayBindableValue<IScene> selectedScene,
         IOneWayBindableValue<string> selectedSummary)
     {
         this.Scenes = scenes;
-        this.selected = selected;
         this.SelectedScene = selectedScene;
         this.SelectedSummary = selectedSummary;
 
@@ -56,11 +52,17 @@ public sealed class BounceViewModel : IDisposable
     ///     Which scene is showing.
     /// </summary>
     /// <remarks>
-    ///     Two-way, so it is a value rather than a fact about a control. The view writes it when a
-    ///     tab is clicked, and anything here can write it to change the tab - see
-    ///     <see cref="Show" /> - or read it to derive something, as
-    ///     <see cref="SelectedSummary" /> does. Bind a tab control's selected item to
-    ///     <c>SelectedScene.Value</c>.
+    ///     <para>
+    ///         Two-way, so it is a value rather than a fact about a control. The view writes it when
+    ///         a tab is clicked, and writing it is equally how anything else changes which tab is
+    ///         showing. Bind a tab control's selected item to <c>SelectedScene.Value</c>.
+    ///     </para>
+    ///     <para>
+    ///         There is deliberately no method beside this that also sets the selection. A second
+    ///         way in is a second thing to keep in step with the first, and it is the habit this
+    ///         library exists to make unnecessary: the bindable property is the way in, as a
+    ///         bindable action is for something that happens rather than something that is.
+    ///     </para>
     /// </remarks>
     public ITwoWayBindableValue<IScene> SelectedScene { get; }
 
@@ -96,19 +98,10 @@ public sealed class BounceViewModel : IDisposable
 
                 return new BounceViewModel(
                     scenes: scenes,
-                    selected: selected,
                     selectedScene: selected.ToTwoWay(),
                     selectedSummary: selected.Map(scene => scene.Summary).ToOneWay());
             });
     }
-
-    /// <summary>Selects the given scene, as though its tab had been clicked.</summary>
-    /// <remarks>
-    ///     Sending into the sink rather than assigning <see cref="SelectedScene" />'s value, so
-    ///     that this can be called from anywhere. The bindable property's setter is for the
-    ///     binding engine and has to be used on the binding thread; the sink has no such rule.
-    /// </remarks>
-    public void Show(IScene scene) => this.selected.Send(scene);
 
     /// <summary>
     ///     Releases the bindable properties.
