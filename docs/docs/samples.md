@@ -11,7 +11,7 @@ WPF and once in Avalonia — over one shared view model that knows about neither
 | --- | --- | --- |
 | [Counter](https://github.com/MorseCode-Software/SodaFlow/tree/main/samples/Counter) | `SodaFlow`, `SodaFlow.Bindable.ObjectModel` | The whole idea on one screen |
 | [Search](https://github.com/MorseCode-Software/SodaFlow/tree/main/samples/Search) | those two plus `SodaFlow.Async` | Search-as-you-type against a slow service |
-| [Bounce](https://github.com/MorseCode-Software/SodaFlow/tree/main/samples/Bounce) | `SodaFlow` alone | Continuous time: motion as a function of `Time` |
+| [Bounce](https://github.com/MorseCode-Software/SodaFlow/tree/main/samples/Bounce) | `SodaFlow`, `SodaFlow.Bindable.ObjectModel` | Continuous time: motion as a function of `Time` |
 
 Each is a folder with its own solution: open `Counter/SodaFlow.Samples.Counter.slnx`,
 `Search/SodaFlow.Samples.Search.slnx` or `Bounce/SodaFlow.Samples.Bounce.slnx` and run either
@@ -59,8 +59,11 @@ once per frame and drawing them there. It has three scenes, from one ball on one
 that can be picked up and thrown, where `SwitchB` chooses between following the pointer and
 following physics.
 
-It is also the one sample that needs no bindable object model. Nothing in it binds, because a
-behavior has no changes to raise `PropertyChanged` about.
+It is worth seeing which half of it binds and which does not. The balls bind to nothing: they are
+behaviors, read by sampling, and a behavior has no changes to raise `PropertyChanged` about. Which
+scene is selected is an ordinary changing value, so it is an ordinary cell exposed as an ordinary
+two-way bindable property - which is what lets the summary above the tabs be a function of the
+selection, and lets the view model change the tab rather than only learn about it.
 
 ## Two things that trip people up
 
@@ -86,8 +89,7 @@ application outside this repository would:
 <PackageReference Include="SodaFlow.Bindable.ObjectModel" Version="3.0.0" />
 ```
 
-That is Search, which uses all three. Counter takes the first and the third, and Bounce takes only
-the first.
+That is Search, which uses all three. Counter and Bounce take the first and the third.
 
 Project references into `src/` would have been easier to set up and worse to live with: a sample
 would then break the moment anyone changed a library API. Pinning to released versions means a

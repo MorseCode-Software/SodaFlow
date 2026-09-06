@@ -8,17 +8,19 @@ namespace SodaFlow.Samples.Bounce.Avalonia;
 ///     The entire Avalonia side of this sample. Compare it with the WPF window: different
 ///     framework, different XAML dialect, same view model with nothing changed.
 /// </summary>
-/// <remarks>
-///     Nothing is disposed when this closes, unlike the other samples. There is nothing to
-///     dispose: no part of this holds a subscription into the graph, because a behavior is read by
-///     sampling rather than by subscribing.
-/// </remarks>
 public partial class MainWindow : Window
 {
+    private readonly BounceViewModel viewModel =
+        BounceViewModel.Create(ex => System.Diagnostics.Debug.WriteLine(ex));
+
     public MainWindow()
     {
         AvaloniaXamlLoader.Load(this);
 
-        this.DataContext = BounceViewModel.Create(ex => System.Diagnostics.Debug.WriteLine(ex));
+        this.DataContext = this.viewModel;
+
+        // Only the bindable properties need this. The balls do not: they are behaviors, and
+        // nothing subscribes to a behavior.
+        this.Closed += (_, _) => this.viewModel.Dispose();
     }
 }

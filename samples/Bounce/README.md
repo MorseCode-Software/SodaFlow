@@ -83,8 +83,9 @@ on a timer and the WPF head on `CompositionTarget.Rendering`; slow either one do
 same motion sampled less often. Stall the thread and the balls are wherever they should be when it
 resumes, rather than behind by however long it was stuck.
 
-It is also why nothing here is disposable, unlike the other two samples: no part of the view holds
-a subscription into the graph, so there is nothing to release.
+Which is why the balls need no disposal: no part of a view subscribes to them, so there is nothing
+to release. The view model is still `IDisposable`, because the selection is not a behavior - it is
+an ordinary cell behind an ordinary bindable property, and those do hold subscriptions.
 
 ## Where to look
 
@@ -94,6 +95,21 @@ a subscription into the graph, so there is nothing to release.
 | [`BouncingAxis.cs`](SodaFlow.Samples.Bounce.ViewModels/BouncingAxis.cs) | The feedback loop, the solved bounce, and the switch. Read this one. |
 | [`GrabScene.cs`](SodaFlow.Samples.Bounce.ViewModels/GrabScene.cs) | Switching driven by input instead of by physics. |
 | [`SceneView.cs`](SodaFlow.Samples.Bounce.Avalonia/SceneView.cs) | Sampling to draw, in about a hundred lines. |
+| [`BounceViewModel.cs`](SodaFlow.Samples.Bounce.ViewModels/BounceViewModel.cs) | The shared clock, and the selection as a value rather than as control state. |
+
+## The selection is a value
+
+Which scene is showing is bound two-way, so it belongs to the view model rather than to the tab
+control:
+
+```xml
+<TabControl ItemsSource="{Binding Scenes}"
+            SelectedItem="{Binding SelectedScene.Value, Mode=TwoWay}">
+```
+
+That buys both directions. The summary above the tabs is a function of the selection, so nothing has
+to notice a tab change and go and update a label; and `Show(scene)` changes the tab from the view
+model, which is the same thing a click does rather than a second mechanism beside it.
 
 ## A note on the physics
 

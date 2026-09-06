@@ -10,34 +10,37 @@
         x:DataType="viewModels:BounceViewModel">
 
     <!--
-        A tab per scene, smallest first, opening on the smallest. SelectedIndex is set rather than
-        left to the framework, which is not the same in both: Avalonia selected the first tab on its
-        own and WPF opened with none selected.
+        A tab per scene, smallest first. The selection is bound rather than left to the control,
+        so which scene is showing is a value in the view model: the summary above is a function of
+        it, and the view model can set it to change the tab. It also settles what opens, which the
+        two frameworks did not agree on by default - Avalonia selected the first tab on its own and
+        WPF opened with none selected.
 
-        Each tab hands its scene to a SceneView, which draws it by sampling; there is nothing to
-        bind, because a behavior has no changes to be notified of.
+        Each tab hands its scene to a SceneView, which draws it by sampling. Nothing about the balls
+        binds, because a behavior has no changes to be notified of.
     -->
-    <TabControl Margin="12"
-                ItemsSource="{Binding Scenes}"
-                SelectedIndex="0">
-        <TabControl.ItemTemplate>
-            <DataTemplate DataType="viewModels:IScene">
-                <TextBlock Text="{Binding Name}" />
-            </DataTemplate>
-        </TabControl.ItemTemplate>
+    <DockPanel Margin="12">
+        <TextBlock DockPanel.Dock="Top"
+                   Text="{Binding SelectedSummary.Value}"
+                   TextWrapping="Wrap"
+                   Foreground="Gray"
+                   Margin="0,0,0,12" />
 
-        <TabControl.ContentTemplate>
-            <DataTemplate DataType="viewModels:IScene">
-                <StackPanel Margin="4">
-                    <TextBlock Text="{Binding Summary}"
-                               TextWrapping="Wrap"
-                               Foreground="Gray"
-                               Margin="0,0,0,12" />
+        <TabControl ItemsSource="{Binding Scenes}"
+                    SelectedItem="{Binding SelectedScene.Value, Mode=TwoWay}">
+            <TabControl.ItemTemplate>
+                <DataTemplate DataType="viewModels:IScene">
+                    <TextBlock Text="{Binding Name}" />
+                </DataTemplate>
+            </TabControl.ItemTemplate>
 
+            <TabControl.ContentTemplate>
+                <DataTemplate DataType="viewModels:IScene">
                     <local:SceneView Scene="{Binding}"
-                                     HorizontalAlignment="Left" />
-                </StackPanel>
-            </DataTemplate>
-        </TabControl.ContentTemplate>
-    </TabControl>
+                                     HorizontalAlignment="Left"
+                                     Margin="4" />
+                </DataTemplate>
+            </TabControl.ContentTemplate>
+        </TabControl>
+    </DockPanel>
 </Window>
