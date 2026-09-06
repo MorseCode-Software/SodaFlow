@@ -35,7 +35,12 @@ dotnet test  src/CSharp/SodaFlow.Tests/SodaFlow.Tests.csproj
 
 ## Documentation
 
-Reference documentation is generated with DocFX from `docs/`:
+The documentation is published at
+[morsecode-software.github.io/SodaFlow](https://morsecode-software.github.io/SodaFlow/),
+where it is browsable without building anything: the guides under **Docs**, and the
+generated **API Reference**.
+
+To build and serve it locally, it is generated with DocFX from `docs/`:
 
 ```
 dotnet tool install -g docfx
