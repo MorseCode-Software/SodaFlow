@@ -95,6 +95,7 @@ an ordinary cell behind an ordinary bindable property, and those do hold subscri
 | [`BouncingAxis.cs`](SodaFlow.Samples.Bounce.ViewModels/BouncingAxis.cs) | The feedback loop, the solved bounce, and the switch. Read this one. |
 | [`GrabScene.cs`](SodaFlow.Samples.Bounce.ViewModels/GrabScene.cs) | Switching driven by input instead of by physics. |
 | [`SceneView.cs`](SodaFlow.Samples.Bounce.Avalonia/SceneView.cs) | Sampling to draw, in about a hundred lines. |
+| [`IBounceViewModel.cs`](SodaFlow.Samples.Bounce.ViewModels/IBounceViewModel.cs) | What the views bind to. |
 | [`BounceViewModel.cs`](SodaFlow.Samples.Bounce.ViewModels/BounceViewModel.cs) | The shared clock, and the selection as a value rather than as control state. |
 
 ## The selection is a value
@@ -115,6 +116,21 @@ There is no `Show(scene)` method beside it, and that is the point rather than an
 way to set the selection would be a second thing to keep in step with the first, which is the habit
 this library exists to make unnecessary. Values that change are bindable values; things that happen
 are bindable actions; neither wants a method next to it doing the same job procedurally.
+
+## The data context is an interface
+
+Both windows bind against
+[`IBounceViewModel`](SodaFlow.Samples.Bounce.ViewModels/IBounceViewModel.cs) rather than the class:
+
+```xml
+x:DataType="viewModels:IBounceViewModel"                          <!-- Avalonia -->
+d:DataContext="{d:DesignInstance viewModels:IBounceViewModel}"    <!-- WPF -->
+```
+
+XAML binds by name against whatever the data context happens to be, so saying what that is turns
+the bound members into something a reader, a designer and the compiler can all find. It also keeps
+the interface honest about what a view is entitled to: `Create` is not on it, because building a
+view model is not something a view does with one.
 
 ## A note on the physics
 

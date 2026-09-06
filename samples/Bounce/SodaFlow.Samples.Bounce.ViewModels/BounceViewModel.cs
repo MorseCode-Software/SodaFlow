@@ -29,7 +29,7 @@ namespace SodaFlow.Samples.Bounce.ViewModels;
 ///         exposed as an ordinary bindable property, exactly as in the other samples.
 ///     </para>
 /// </remarks>
-public sealed class BounceViewModel : IDisposable
+public sealed class BounceViewModel : IBounceViewModel
 {
     private readonly IReadOnlyList<IDisposable> disposables;
 
@@ -45,30 +45,20 @@ public sealed class BounceViewModel : IDisposable
         this.disposables = new IDisposable[] { selectedScene, selectedSummary };
     }
 
-    /// <summary>Smallest first, so that reading them in order is reading the idea in order.</summary>
+    /// <inheritdoc />
+    /// <remarks>Smallest first, so that reading them in order is reading the idea in order.</remarks>
     public IReadOnlyList<IScene> Scenes { get; }
 
-    /// <summary>
-    ///     Which scene is showing.
-    /// </summary>
+    /// <inheritdoc />
     /// <remarks>
-    ///     <para>
-    ///         Two-way, so it is a value rather than a fact about a control. The view writes it when
-    ///         a tab is clicked, and writing it is equally how anything else changes which tab is
-    ///         showing. Bind a tab control's selected item to <c>SelectedScene.Value</c>.
-    ///     </para>
-    ///     <para>
-    ///         There is deliberately no method beside this that also sets the selection. A second
-    ///         way in is a second thing to keep in step with the first, and it is the habit this
-    ///         library exists to make unnecessary: the bindable property is the way in, as a
-    ///         bindable action is for something that happens rather than something that is.
-    ///     </para>
+    ///     There is deliberately no method beside this that also sets the selection. A second way in
+    ///     is a second thing to keep in step with the first, and it is the habit this library exists
+    ///     to make unnecessary: the bindable property is the way in, as a bindable action is for
+    ///     something that happens rather than something that is.
     /// </remarks>
     public ITwoWayBindableValue<IScene> SelectedScene { get; }
 
-    /// <summary>
-    ///     The selected scene's description.
-    /// </summary>
+    /// <inheritdoc />
     /// <remarks>
     ///     Here to make the point that the selection is part of the graph rather than something the
     ///     view keeps to itself: this is a function of it, and nothing has to notice a tab change
@@ -80,7 +70,7 @@ public sealed class BounceViewModel : IDisposable
     ///     Called with anything raised while waiting for or firing a timer. Timer callbacks run
     ///     outside any call stack of yours, so an exception in one has nowhere else to go.
     /// </param>
-    public static BounceViewModel Create(Action<Exception> handleException)
+    public static IBounceViewModel Create(Action<Exception> handleException)
     {
         SecondsTimerSystem timers = new(handleException);
 
@@ -103,9 +93,7 @@ public sealed class BounceViewModel : IDisposable
             });
     }
 
-    /// <summary>
-    ///     Releases the bindable properties.
-    /// </summary>
+    /// <inheritdoc />
     /// <remarks>
     ///     Only the bindables need this. The scenes do not: their balls are behaviors, and nothing
     ///     subscribes to a behavior.

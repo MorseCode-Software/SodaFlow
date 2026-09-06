@@ -7,7 +7,7 @@ namespace SodaFlow.Samples.Bounce.Wpf;
 /// </summary>
 public partial class MainWindow
 {
-    private readonly BounceViewModel viewModel =
+    private readonly IBounceViewModel viewModel =
         BounceViewModel.Create(ex => System.Diagnostics.Debug.WriteLine(ex));
 
     public MainWindow()

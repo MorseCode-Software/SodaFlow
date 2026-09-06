@@ -10,7 +10,7 @@ namespace SodaFlow.Samples.Bounce.Avalonia;
 /// </summary>
 public partial class MainWindow : Window
 {
-    private readonly BounceViewModel viewModel =
+    private readonly IBounceViewModel viewModel =
         BounceViewModel.Create(ex => System.Diagnostics.Debug.WriteLine(ex));
 
     public MainWindow()

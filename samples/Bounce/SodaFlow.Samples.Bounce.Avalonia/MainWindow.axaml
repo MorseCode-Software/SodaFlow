@@ -7,7 +7,7 @@
         Width="560"
         Height="500"
         WindowStartupLocation="CenterScreen"
-        x:DataType="viewModels:BounceViewModel">
+        x:DataType="viewModels:IBounceViewModel">
 
     <!--
         A tab per scene, smallest first. The selection is bound rather than left to the control,
