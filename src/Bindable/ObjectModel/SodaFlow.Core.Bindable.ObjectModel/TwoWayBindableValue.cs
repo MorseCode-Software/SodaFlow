@@ -1,151 +1,230 @@
 using System;
 using System.Collections.Generic;
+using System.Threading;
 
-namespace SodaFlow.Bindable.ObjectModel
+namespace SodaFlow.Bindable.ObjectModel;
+
+public static partial class BindableCoreExtensionMethods
 {
-    public static partial class BindableCoreExtensionMethods
+    /// <summary>
+    ///     Projects a <see cref="Cell{T}" /> onto a settable, observable property. Writes from the
+    ///     view are pushed into the graph; the cell remains authoritative.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         The setter is optimistic: it updates the cached value immediately (so the binding engine
+    ///         reads back exactly what it wrote and does not fight the user's caret), then pushes the
+    ///         value into the graph. Once the graph settles, a reconciliation pass samples the cell and
+    ///         corrects the cached value if the graph rejected or normalized the write operation — for example an
+    ///         input mask that upper-cases text, or a validation rule that discards it.
+    ///     </para>
+    ///     <para>
+    ///         Safe to construct on any thread. The initial value is sampled by whichever thread
+    ///         builds the instance, and every later change is marshaled through the scheduler.
+    ///         Nothing orders the constructing thread against the binding thread beyond whatever
+    ///         publishes the instance to it — and that has to order them anyway, since
+    ///         <c>comparer</c>, <c>listener</c> and <c>write</c> are ordinary fields a reader needs
+    ///         just as much.
+    ///     </para>
+    ///     <para>
+    ///         The setter writes the cached value on the calling thread rather than through the
+    ///         scheduler, which it has to: the point of the optimistic update is that the binding
+    ///         engine reads back what it just wrote, without a round trip in between. That is
+    ///         sound because <see cref="Value" /> belongs to the binding engine and is read and
+    ///         written there and nowhere else — see <see cref="IWritableBindableValue{T}" />.
+    ///     </para>
+    /// </remarks>
+    // ReSharper disable once InheritdocConsiderUsage
+    private sealed class TwoWayBindableValue<T> : BindableValueBase, ITwoWayBindableValue<T>
     {
+        private readonly IEqualityComparer<T> comparer;
+
         /// <summary>
-        ///     Projects a <see cref="Cell{T}" /> onto a settable, observable property. Writes from the
-        ///     view are pushed into the graph; the cell remains authoritative.
+        ///     Load-bearing. The subscription is weak, so this field is what keeps it alive. Do not
+        ///     let it be refactored into a local.
         /// </summary>
-        /// <remarks>
-        ///     <para>
-        ///         The setter is optimistic: it updates the cached value immediately (so the binding engine
-        ///         reads back exactly what it wrote and does not fight the user's caret), then pushes the
-        ///         value into the graph. Once the graph settles, a reconciliation pass samples the cell and
-        ///         corrects the cached value if the graph rejected or normalized the write — for example an
-        ///         input mask that upper-cases text, or a validation rule that discards it.
-        ///     </para>
-        ///     <para>
-        ///         Safe to construct on any thread. The initial value is sampled by whichever thread
-        ///         builds the instance and read by the binding thread; <see cref="ValueBox{T}" /> is what
-        ///         orders the two. Every later change is marshaled through the scheduler.
-        ///     </para>
-        /// </remarks>
-        private sealed class TwoWayBindableValue<T> : BindableValueBase, ITwoWayBindableValue<T>
+        private readonly IListener listener;
+
+        private readonly Action<T> write;
+
+        /// <summary>
+        ///     The value the binding engine last saw. Read and written on the binding thread only,
+        ///     which is what lets it be an ordinary field: see <see cref="IWritableBindableValue{T}" />
+        ///     for why nothing else touches it.
+        /// </summary>
+        private T cachedValue;
+
+        /// <summary>
+        ///     How many refreshes have been queued and not yet run. Non-zero means the cached value
+        ///     is not known to agree with the cell, which is what the setter's equality check needs
+        ///     to know before it can treat a write operation as redundant.
+        /// </summary>
+        private int pendingRefreshes;
+
+        /// <param name="cell">The authoritative value shown to the view.</param>
+        /// <param name="write">
+        ///     Receives values written by the view. Typically <c>sink.Send</c>. Invoked inside a
+        ///     transaction opened by <c>Transaction.Post</c>, never from within a callback.
+        /// </param>
+        /// <param name="scheduler">
+        ///     Marshals notifications onto the binding thread. Null resolves one ambiently.
+        /// </param>
+        /// <param name="comparer">
+        ///     Decides whether a value has actually changed. Null uses the default comparer.
+        /// </param>
+        internal TwoWayBindableValue(
+            Cell<T> cell,
+            Action<T> write,
+            IBindingScheduler? scheduler,
+            IEqualityComparer<T>? comparer)
+            : base(scheduler)
         {
-            private readonly Action<T> write;
+            this.Cell = cell ?? throw new ArgumentNullException(nameof(cell));
+            this.write = write ?? throw new ArgumentNullException(nameof(write));
+            this.comparer = comparer ?? EqualityComparer<T>.Default;
 
-            /// <summary>
-            ///     Load-bearing. The subscription is weak, so this field is what keeps it alive. Do not
-            ///     let it be refactored into a local.
-            /// </summary>
-            private readonly IListener listener;
+            // ReSharper disable once NullableWarningSuppressionIsUsed - Replaced with the sampled value
+            // in the transaction below, which happens before the constructor completes and before the
+            // listener is attached.
+            this.cachedValue = default!;
 
-            private readonly IEqualityComparer<T> comparer;
+            // Attaching the listener publishes this object into the graph before the constructor
+            // has returned, so the listener can fire while the constructor is still running - which
+            // it does when this is constructed inside a transaction that goes on to update the same
+            // cell. That is safe for a structural reason rather than a timing one: OnSourceChanged
+            // does not touch the cached value at all, it only posts to the scheduler. Nothing the
+            // listener can do writes over the sample being taken here; the scheduled work runs
+            // afterward, on the binding thread, and a newer update correctly wins.
 
-            /// <summary>
-            ///     Boxed so the field can be volatile whatever <typeparamref name="T" /> is. See
-            ///     <see cref="ValueBox{T}" />.
-            /// </summary>
-            private volatile ValueBox<T> box;
+            this.listener =
+                TransactionInternal.RunImpl(() =>
+                {
+                    this.cachedValue = cell.SampleImpl();
+                    return ListenToUpdates(cell: cell, handler: this.OnSourceChanged);
+                });
+        }
 
-            /// <param name="cell">The authoritative value shown to the view.</param>
-            /// <param name="write">
-            ///     Receives values written by the view. Typically <c>sink.Send</c>. Invoked inside a
-            ///     transaction opened by <c>Transaction.Post</c>, never from within a callback.
-            /// </param>
-            /// <param name="scheduler">
-            ///     Marshals notifications onto the binding thread. Null resolves one ambiently.
-            /// </param>
-            /// <param name="comparer">
-            ///     Decides whether a value has actually changed. Null uses the default comparer.
-            /// </param>
-            internal TwoWayBindableValue(
-                Cell<T> cell,
-                Action<T> write,
-                IBindingScheduler? scheduler,
-                IEqualityComparer<T>? comparer)
-                : base(scheduler)
+        /// <inheritdoc />
+        public Cell<T> Cell { get; }
+
+        /// <inheritdoc />
+        public T Value
+        {
+            get
             {
-                this.Cell = cell ?? throw new ArgumentNullException(nameof(cell));
-                this.write = write ?? throw new ArgumentNullException(nameof(write));
-                this.comparer = comparer ?? EqualityComparer<T>.Default;
-                this.box = new ValueBox<T>(default!);
+                this.Scheduler.VerifyAccess("ITwoWayBindableValue<T>.Value");
 
-                this.listener =
-                    TransactionInternal.RunImpl(() =>
-                    {
-                        this.box = new ValueBox<T>(cell.SampleImpl());
-                        return ListenToUpdates(cell: cell, handler: this.OnSourceChanged);
-                    });
+                return this.cachedValue;
             }
 
-            /// <inheritdoc />
-            public Cell<T> Cell { get; }
-
-            /// <inheritdoc />
-            public T Value
+            set
             {
-                get => this.box.Value;
-                set
+                this.Scheduler.VerifyAccess("ITwoWayBindableValue<T>.Value");
+                this.ThrowIfDisposed();
+
+                // Skipping the write because the cached value already matches is only sound while
+                // that cached value is known to be the cell's. It is a record of what the cell held
+                // when it was last sampled, so between an update and the refresh it queues the two
+                // disagree - and a write matching the stale one would be dropped although the graph
+                // never had it. While anything is queued, send and let the refresh behind it decide.
+                if (Volatile.Read(ref this.pendingRefreshes) == 0
+                    && this.comparer.Equals(x: this.cachedValue, y: value))
                 {
-                    this.ThrowIfDisposed();
-
-                    if (this.comparer.Equals(x: this.box.Value, y: value))
-                    {
-                        return;
-                    }
-
-                    this.box = new ValueBox<T>(value);
-
-                    PostWrite(() =>
-                    {
-                        // Checked again here, not only by the ThrowIfDisposed above. PostWrite
-                        // defers whenever a transaction is already open, so a Dispose in between
-                        // would otherwise still let this write reach the graph.
-                        if (this.IsDisposed)
-                        {
-                            return;
-                        }
-
-                        try
-                        {
-                            this.write(value);
-                        }
-                        finally
-                        {
-                            // Queued from inside the write rather than alongside it. If the write
-                            // was itself deferred, queuing the reconciliation here keeps it behind
-                            // the update the write produces — otherwise it could sample a stale
-                            // cell and revert the user's edit before the send had happened.
-                            //
-                            // In a finally, because the cached value was already updated
-                            // optimistically above. A write that throws would otherwise leave that
-                            // value standing with nothing to correct it, and the equality check in
-                            // the setter would then refuse to retry it — wedging the property for
-                            // good. Reconciling regardless puts the cell's value back on screen.
-                            this.ScheduleReconciliation();
-                        }
-                    });
+                    return;
                 }
-            }
 
-            private void OnSourceChanged(T newValue) =>
-                this.Scheduler.Post(() =>
+                this.cachedValue = value;
+
+                PostWrite(() =>
                 {
+                    // Checked again here, not only by the ThrowIfDisposed above. PostWrite
+                    // defers whenever a transaction is already open, so a Dispose in between
+                    // would otherwise still let this write reach the graph.
                     if (this.IsDisposed)
                     {
                         return;
                     }
 
-                    if (this.comparer.Equals(x: this.box.Value, y: newValue))
+                    try
                     {
-                        return;
+                        this.write(value);
                     }
-
-                    this.box = new ValueBox<T>(newValue);
-                    this.RaiseValueChanged();
+                    finally
+                    {
+                        // Run in a finally block, because the cached value was already updated
+                        // optimistically above. A write operation that throws would otherwise leave that
+                        // value standing with nothing to correct it, and the equality check in
+                        // the setter would then refuse to retry it — wedging the property for
+                        // good. Refreshing regardless puts the cell's value back on screen.
+                        this.ScheduleRefreshFromCell();
+                    }
                 });
+            }
+        }
 
-            /// <summary>
-            ///     Queued from inside the write, so any update the write produced was posted first —
-            ///     Sodium delivers it synchronously during the send. By the time this runs the cached
-            ///     value is already correct in the common case, and this is a cheap no-op.
-            /// </summary>
-            private void ScheduleReconciliation() =>
-                this.Scheduler.Post(() =>
+        /// <summary>
+        ///     The update's own value is deliberately ignored in favor of sampling the cell. An
+        ///     update carries what the cell held when it fired, and this runs later, on the binding
+        ///     thread: by then the setter may have moved the cached value on, and writing a captured
+        ///     value back would put an older one on screen in place of a newer one. Sampling asks
+        ///     what is true now, which is the only question worth asking this late.
+        /// </summary>
+        /// <param name="newValue">Ignored. See the summary.</param>
+        // ReSharper disable once UnusedParameter.Local - Required by the handler signature.
+        private void OnSourceChanged(T newValue) => this.ScheduleRefreshFromCell();
+
+        /// <summary>
+        ///     Brings the cached value back in line with the cell.
+        /// </summary>
+        /// <remarks>
+        ///     <para>
+        ///         Every path that can leave the cache disagreeing with the cell ends here, and
+        ///         because it samples rather than carrying a value, the order these run in does not
+        ///         matter: any one of them arriving last leaves the same answer. That is what makes
+        ///         the queue safe without reasoning about how a write interleaves with the update
+        ///         it produces.
+        ///     </para>
+        ///     <para>
+        ///         The sample is not free, and the cost is worth knowing before anyone tries to
+        ///         remove it. Posted work runs after the sending transaction has closed, so there
+        ///         is none to join and this opens one — measured at 45ns on .NET 8 and 62ns on
+        ///         .NET Framework, which is almost exactly what an empty transaction costs there:
+        ///         the price is the transaction, not the sampling. Against a whole update
+        ///         delivered to a two-way value, 492ns and 696ns respectively, it is about a tenth.
+        ///         One-way values do not sample, and pay none of it.
+        ///     </para>
+        ///     <para>
+        ///         What it does double is how often an update takes the process-wide transaction
+        ///         lock: once to send, and now once more to sample. That is a latency exposure
+        ///         under contention rather than a throughput cost, and it is the reason to leave
+        ///         this alone unless a profile says otherwise. See BindableRefreshBenchmarks in
+        ///         SodaFlow.Benchmarks.
+        ///     </para>
+        ///     <para>
+        ///         The move that would pay, if one ever does, is to stop queuing a refresh while
+        ///         one is already pending: the queued refreshes are idempotent - they all sample
+        ///         the same settled cell, so the first does the work and the rest find nothing -
+        ///         so collapsing a burst into one sample changes no notification and no value.
+        ///         It is worth knowing why that has not been done. It cannot be hung off
+        ///         pendingRefreshes, which means "the cache may not agree with the cell" and not
+        ///         "a post is outstanding"; the two differ exactly where a refresh has run and a
+        ///         newer update has arrived, and every naive gate there either drops that update
+        ///         and leaves the cache stale for good, or clears the count early and lets the
+        ///         setter discard a write again. Doing it properly needs a generation compared
+        ///         across the body, which is a second concurrent invariant sitting on the field
+        ///         the setter's correctness already depends on - for a saving that is nothing at
+        ///         all unless updates arrive in bursts within one turn of the dispatcher.
+        ///     </para>
+        /// </remarks>
+        private void ScheduleRefreshFromCell()
+        {
+            // Counted before the post, not inside it, so that a setter running between the two
+            // still sees the refresh as outstanding.
+            Interlocked.Increment(ref this.pendingRefreshes);
+
+            this.Scheduler.Post(() =>
+            {
+                try
                 {
                     if (this.IsDisposed)
                     {
@@ -154,16 +233,24 @@ namespace SodaFlow.Bindable.ObjectModel
 
                     T authoritative = this.Cell.SampleImpl();
 
-                    if (this.comparer.Equals(x: this.box.Value, y: authoritative))
+                    if (this.comparer.Equals(x: this.cachedValue, y: authoritative))
                     {
                         return;
                     }
 
-                    this.box = new ValueBox<T>(authoritative);
+                    this.cachedValue = authoritative;
                     this.RaiseValueChanged();
-                });
-
-            protected override void DisposeCore() => this.listener.Unlisten();
+                }
+                finally
+                {
+                    // In a finally so that a disposal, or a throw out of the comparer, cannot
+                    // leave the count standing - which would disable the equality check for the
+                    // rest of this object's life.
+                    Interlocked.Decrement(ref this.pendingRefreshes);
+                }
+            });
         }
+
+        protected override void DisposeCore() => this.listener.Unlisten();
     }
 }

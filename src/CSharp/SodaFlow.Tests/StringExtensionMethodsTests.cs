@@ -1,180 +1,193 @@
-﻿using System;
+using System;
 using System.Globalization;
-using NUnit.Framework;
+using System.Threading.Tasks;
 using SodaFlow.Functional;
+using TUnit.Assertions;
+using TUnit.Assertions.Extensions;
+using TUnit.Core;
 
-namespace SodaFlow.Tests
+namespace SodaFlow.Tests;
+
+public sealed class StringExtensionMethodsTests
 {
-    [TestFixture]
-    public class StringExtensionMethodsTests
+    // ReSharper disable UnusedMember.Local
+    private enum Color
     {
-        private enum Color
-        {
-            Red = 0,
-            Green = 1,
-            Blue = 2
-        }
+        Red = 0,
+        Green = 1,
+        Blue = 2
+    }
+    // ReSharper restore UnusedMember.Local
 
-        [Test]
-        public void TestTryParseInt32()
-        {
-            Assert.AreEqual(Maybe.Some(42), "42".TryParseInt32());
-            Assert.AreEqual(Maybe.Some(-42), "-42".TryParseInt32());
-            Assert.AreEqual(Maybe<int>.None, "x".TryParseInt32());
-            Assert.AreEqual(Maybe<int>.None, string.Empty.TryParseInt32());
-            Assert.AreEqual(Maybe<int>.None, ((string)null).TryParseInt32());
-            Assert.AreEqual(Maybe<int>.None, "2147483648".TryParseInt32());
-        }
+    [Test]
+    public async Task TestTryParseInt32()
+    {
+        await Assert.That("42".TryParseInt32()).IsEqualTo(Maybe.Some(42));
+        await Assert.That("-42".TryParseInt32()).IsEqualTo(Maybe.Some(-42));
+        await Assert.That("x".TryParseInt32()).IsEqualTo(Maybe<int>.None);
+        await Assert.That(string.Empty.TryParseInt32()).IsEqualTo(Maybe<int>.None);
+        await Assert.That(((string?)null).TryParseInt32()).IsEqualTo(Maybe<int>.None);
+        await Assert.That("2147483648".TryParseInt32()).IsEqualTo(Maybe<int>.None);
+    }
 
-        [Test]
-        public void TestTryParseInt32WithStyles()
-        {
-            Assert.AreEqual(
-                Maybe.Some(1234),
-                "1,234".TryParseInt32(NumberStyles.Integer | NumberStyles.AllowThousands, CultureInfo.InvariantCulture));
-            Assert.AreEqual(
-                Maybe<int>.None,
-                "1,234".TryParseInt32(NumberStyles.Integer, CultureInfo.InvariantCulture));
-        }
+    [Test]
+    public async Task TestTryParseInt32WithStyles()
+    {
+        await Assert.That("1,234".TryParseInt32(
+                styles: NumberStyles.Integer | NumberStyles.AllowThousands,
+                provider: CultureInfo.InvariantCulture)).IsEqualTo(Maybe.Some(1234));
 
-        [Test]
-        public void TestTryParseIntegralTypes()
-        {
-            Assert.AreEqual(Maybe.Some((byte)7), "7".TryParseByte());
-            Assert.AreEqual(Maybe<byte>.None, "256".TryParseByte());
-            Assert.AreEqual(Maybe.Some((sbyte)-7), "-7".TryParseSByte());
-            Assert.AreEqual(Maybe.Some((short)-7), "-7".TryParseInt16());
-            Assert.AreEqual(Maybe.Some((ushort)7), "7".TryParseUInt16());
-            Assert.AreEqual(Maybe.Some(7u), "7".TryParseUInt32());
-            Assert.AreEqual(Maybe.Some(-7L), "-7".TryParseInt64());
-            Assert.AreEqual(Maybe.Some(7ul), "7".TryParseUInt64());
-            Assert.AreEqual(Maybe<uint>.None, "-7".TryParseUInt32());
-        }
+        await Assert.That("1,234".TryParseInt32(styles: NumberStyles.Integer, provider: CultureInfo.InvariantCulture)).IsEqualTo(Maybe<int>.None);
+    }
 
-        [Test]
-        public void TestTryParseRealTypes()
-        {
-            Assert.AreEqual(Maybe.Some(1.5f), "1.5".TryParseSingle(NumberStyles.Float, CultureInfo.InvariantCulture));
-            Assert.AreEqual(Maybe.Some(1.5d), "1.5".TryParseDouble(NumberStyles.Float, CultureInfo.InvariantCulture));
-            Assert.AreEqual(Maybe.Some(1.5m), "1.5".TryParseDecimal(NumberStyles.Number, CultureInfo.InvariantCulture));
-            Assert.AreEqual(Maybe<double>.None, "x".TryParseDouble(NumberStyles.Float, CultureInfo.InvariantCulture));
-        }
+    [Test]
+    public async Task TestTryParseIntegralTypes()
+    {
+        await Assert.That("7".TryParseByte()).IsEqualTo(Maybe.Some((byte)7));
+        await Assert.That("256".TryParseByte()).IsEqualTo(Maybe<byte>.None);
+        await Assert.That("-7".TryParseSByte()).IsEqualTo(Maybe.Some((sbyte)-7));
+        await Assert.That("-7".TryParseInt16()).IsEqualTo(Maybe.Some((short)-7));
+        await Assert.That("7".TryParseUInt16()).IsEqualTo(Maybe.Some((ushort)7));
+        await Assert.That("7".TryParseUInt32()).IsEqualTo(Maybe.Some(7u));
+        await Assert.That("-7".TryParseInt64()).IsEqualTo(Maybe.Some(-7L));
+        await Assert.That("7".TryParseUInt64()).IsEqualTo(Maybe.Some(7ul));
+        await Assert.That("-7".TryParseUInt32()).IsEqualTo(Maybe<uint>.None);
+    }
 
-        [Test]
-        public void TestTryParseBoolean()
-        {
-            Assert.AreEqual(Maybe.Some(true), "true".TryParseBoolean());
-            Assert.AreEqual(Maybe.Some(true), " TRUE ".TryParseBoolean());
-            Assert.AreEqual(Maybe.Some(false), "False".TryParseBoolean());
-            Assert.AreEqual(Maybe<bool>.None, "1".TryParseBoolean());
-            Assert.AreEqual(Maybe<bool>.None, ((string)null).TryParseBoolean());
-        }
+    [Test]
+    public async Task TestTryParseRealTypes()
+    {
+        await Assert.That("1.5".TryParseSingle(styles: NumberStyles.Float, provider: CultureInfo.InvariantCulture)).IsEqualTo(Maybe.Some(1.5f));
 
-        [Test]
-        public void TestTryParseChar()
-        {
-            Assert.AreEqual(Maybe.Some('a'), "a".TryParseChar());
-            Assert.AreEqual(Maybe<char>.None, "ab".TryParseChar());
-            Assert.AreEqual(Maybe<char>.None, string.Empty.TryParseChar());
-        }
+        await Assert.That("1.5".TryParseDouble(styles: NumberStyles.Float, provider: CultureInfo.InvariantCulture)).IsEqualTo(Maybe.Some(1.5d));
 
-        [Test]
-        public void TestTryParseGuid()
-        {
-            Guid g = Guid.NewGuid();
+        await Assert.That("1.5".TryParseDecimal(styles: NumberStyles.Number, provider: CultureInfo.InvariantCulture)).IsEqualTo(Maybe.Some(1.5m));
 
-            Assert.AreEqual(Maybe.Some(g), g.ToString("D").TryParseGuid());
-            Assert.AreEqual(Maybe.Some(g), g.ToString("N").TryParseGuid());
-            Assert.AreEqual(Maybe<Guid>.None, "not-a-guid".TryParseGuid());
-        }
+        await Assert.That("x".TryParseDouble(styles: NumberStyles.Float, provider: CultureInfo.InvariantCulture)).IsEqualTo(Maybe<double>.None);
+    }
 
-        [Test]
-        public void TestTryParseGuidExact()
-        {
-            Guid g = Guid.NewGuid();
+    [Test]
+    public async Task TestTryParseBoolean()
+    {
+        await Assert.That("true".TryParseBoolean()).IsEqualTo(Maybe.Some(true));
+        await Assert.That(" TRUE ".TryParseBoolean()).IsEqualTo(Maybe.Some(true));
+        await Assert.That("False".TryParseBoolean()).IsEqualTo(Maybe.Some(false));
+        await Assert.That("1".TryParseBoolean()).IsEqualTo(Maybe<bool>.None);
+        await Assert.That(((string?)null).TryParseBoolean()).IsEqualTo(Maybe<bool>.None);
+    }
 
-            Assert.AreEqual(Maybe.Some(g), g.ToString("N").TryParseGuidExact("N"));
-            Assert.AreEqual(Maybe<Guid>.None, g.ToString("D").TryParseGuidExact("N"));
-        }
+    [Test]
+    public async Task TestTryParseChar()
+    {
+        await Assert.That("a".TryParseChar()).IsEqualTo(Maybe.Some('a'));
+        await Assert.That("ab".TryParseChar()).IsEqualTo(Maybe<char>.None);
+        await Assert.That(string.Empty.TryParseChar()).IsEqualTo(Maybe<char>.None);
+    }
 
-        [Test]
-        public void TestTryParseDateTime()
-        {
-            Assert.AreEqual(
-                Maybe.Some(new DateTime(2026, 3, 4)),
-                "2026-03-04".TryParseDateTime(CultureInfo.InvariantCulture, DateTimeStyles.None));
-            Assert.AreEqual(
-                Maybe<DateTime>.None,
-                "not a date".TryParseDateTime(CultureInfo.InvariantCulture, DateTimeStyles.None));
-        }
+    [Test]
+    public async Task TestTryParseGuid()
+    {
+        Guid g = Guid.NewGuid();
 
-        [Test]
-        public void TestTryParseDateTimeExact()
-        {
-            Assert.AreEqual(
-                Maybe.Some(new DateTime(2026, 3, 4)),
-                "04/03/2026".TryParseDateTimeExact("dd/MM/yyyy", CultureInfo.InvariantCulture, DateTimeStyles.None));
-            Assert.AreEqual(
-                Maybe<DateTime>.None,
-                "2026-03-04".TryParseDateTimeExact("dd/MM/yyyy", CultureInfo.InvariantCulture, DateTimeStyles.None));
-        }
+        await Assert.That(g.ToString("D").TryParseGuid()).IsEqualTo(Maybe.Some(g));
+        await Assert.That(g.ToString("N").TryParseGuid()).IsEqualTo(Maybe.Some(g));
+        await Assert.That("not-a-guid".TryParseGuid()).IsEqualTo(Maybe<Guid>.None);
+    }
 
-        [Test]
-        public void TestTryParseDateTimeOffset()
-        {
-            Assert.AreEqual(
-                Maybe.Some(new DateTimeOffset(2026, 3, 4, 0, 0, 0, TimeSpan.Zero)),
-                "2026-03-04T00:00:00+00:00".TryParseDateTimeOffset(
-                    CultureInfo.InvariantCulture,
-                    DateTimeStyles.None));
-            Assert.AreEqual(
-                Maybe<DateTimeOffset>.None,
-                "x".TryParseDateTimeOffset(CultureInfo.InvariantCulture, DateTimeStyles.None));
-        }
+    [Test]
+    public async Task TestTryParseGuidExact()
+    {
+        Guid g = Guid.NewGuid();
 
-        [Test]
-        public void TestTryParseTimeSpan()
-        {
-            Assert.AreEqual(
-                Maybe.Some(TimeSpan.FromMinutes(90)),
-                "01:30:00".TryParseTimeSpan(CultureInfo.InvariantCulture));
-            Assert.AreEqual(Maybe<TimeSpan>.None, "x".TryParseTimeSpan(CultureInfo.InvariantCulture));
-        }
+        await Assert.That(g.ToString("N").TryParseGuidExact("N")).IsEqualTo(Maybe.Some(g));
+        await Assert.That(g.ToString("D").TryParseGuidExact("N")).IsEqualTo(Maybe<Guid>.None);
+    }
 
-        [Test]
-        public void TestTryParseUri()
-        {
-            Assert.AreEqual(
-                Maybe.Some(new Uri("https://example.com/a")),
-                "https://example.com/a".TryParseUri());
-            Assert.AreEqual(Maybe<Uri>.None, "/a/b".TryParseUri());
-            Assert.AreEqual(Maybe.Some(new Uri("/a/b", UriKind.Relative)), "/a/b".TryParseUri(UriKind.Relative));
-        }
+    [Test]
+    public async Task TestTryParseDateTime()
+    {
+        await Assert.That("2026-03-04".TryParseDateTime(
+                provider: CultureInfo.InvariantCulture,
+                styles: DateTimeStyles.None)).IsEqualTo(Maybe.Some(new DateTime(year: 2026, month: 3, day: 4)));
 
-        [Test]
-        public void TestTryParseEnum()
-        {
-            Assert.AreEqual(Maybe.Some(Color.Green), "Green".TryParseEnum<Color>());
-            Assert.AreEqual(Maybe<Color>.None, "green".TryParseEnum<Color>());
-            Assert.AreEqual(Maybe.Some(Color.Green), "green".TryParseEnum<Color>(true));
-            Assert.AreEqual(Maybe<Color>.None, "Mauve".TryParseEnum<Color>());
-            Assert.AreEqual(Maybe<Color>.None, ((string)null).TryParseEnum<Color>());
-        }
+        await Assert.That("not a date".TryParseDateTime(
+                provider: CultureInfo.InvariantCulture,
+                styles: DateTimeStyles.None)).IsEqualTo(Maybe<DateTime>.None);
+    }
 
-        [Test]
-        public void TestTryParseEnumAcceptsUndeclaredNumbers()
-        {
-            Assert.AreEqual(Maybe.Some((Color)37), "37".TryParseEnum<Color>());
-        }
+    [Test]
+    public async Task TestTryParseDateTimeExact()
+    {
+        await Assert.That("04/03/2026".TryParseDateTimeExact(
+                format: "dd/MM/yyyy",
+                provider: CultureInfo.InvariantCulture,
+                styles: DateTimeStyles.None)).IsEqualTo(Maybe.Some(new DateTime(year: 2026, month: 3, day: 4)));
 
-        [Test]
-        public void TestTryParseDefinedEnum()
-        {
-            Assert.AreEqual(Maybe.Some(Color.Green), "Green".TryParseDefinedEnum<Color>());
-            Assert.AreEqual(Maybe.Some(Color.Green), "1".TryParseDefinedEnum<Color>());
-            Assert.AreEqual(Maybe<Color>.None, "37".TryParseDefinedEnum<Color>());
-            Assert.AreEqual(Maybe<Color>.None, "green".TryParseDefinedEnum<Color>());
-            Assert.AreEqual(Maybe.Some(Color.Green), "green".TryParseDefinedEnum<Color>(true));
-        }
+        await Assert.That("2026-03-04".TryParseDateTimeExact(
+                format: "dd/MM/yyyy",
+                provider: CultureInfo.InvariantCulture,
+                styles: DateTimeStyles.None)).IsEqualTo(Maybe<DateTime>.None);
+    }
+
+    [Test]
+    public async Task TestTryParseDateTimeOffset()
+    {
+        await Assert.That("2026-03-04T00:00:00+00:00".TryParseDateTimeOffset(
+                provider: CultureInfo.InvariantCulture,
+                styles: DateTimeStyles.None)).IsEqualTo(Maybe.Some(
+                new DateTimeOffset(
+                    year: 2026,
+                    month: 3,
+                    day: 4,
+                    hour: 0,
+                    minute: 0,
+                    second: 0,
+                    offset: TimeSpan.Zero)));
+
+        await Assert.That("x".TryParseDateTimeOffset(
+                provider: CultureInfo.InvariantCulture,
+                styles: DateTimeStyles.None)).IsEqualTo(Maybe<DateTimeOffset>.None);
+    }
+
+    [Test]
+    public async Task TestTryParseTimeSpan()
+    {
+        await Assert.That("01:30:00".TryParseTimeSpan(CultureInfo.InvariantCulture)).IsEqualTo(Maybe.Some(TimeSpan.FromMinutes(90)));
+
+        await Assert.That("x".TryParseTimeSpan(CultureInfo.InvariantCulture)).IsEqualTo(Maybe<TimeSpan>.None);
+    }
+
+    [Test]
+    public async Task TestTryParseUri()
+    {
+        await Assert.That("https://example.com/a".TryParseUri()).IsEqualTo(Maybe.Some(new Uri("https://example.com/a")));
+
+        await Assert.That("/a/b".TryParseUri()).IsEqualTo(Maybe<Uri>.None);
+
+        await Assert.That("/a/b".TryParseUri(UriKind.Relative)).IsEqualTo(Maybe.Some(new Uri(uriString: "/a/b", uriKind: UriKind.Relative)));
+    }
+
+    [Test]
+    public async Task TestTryParseEnum()
+    {
+        await Assert.That("Green".TryParseEnum<Color>()).IsEqualTo(Maybe.Some(Color.Green));
+        await Assert.That("green".TryParseEnum<Color>()).IsEqualTo(Maybe<Color>.None);
+        await Assert.That("green".TryParseEnum<Color>(true)).IsEqualTo(Maybe.Some(Color.Green));
+        await Assert.That("Mauve".TryParseEnum<Color>()).IsEqualTo(Maybe<Color>.None);
+        await Assert.That(((string?)null).TryParseEnum<Color>()).IsEqualTo(Maybe<Color>.None);
+    }
+
+    [Test]
+    public async Task TestTryParseEnumAcceptsUndeclaredNumbers() =>
+        await Assert.That("37".TryParseEnum<Color>()).IsEqualTo(Maybe.Some((Color)37));
+
+    [Test]
+    public async Task TestTryParseDefinedEnum()
+    {
+        await Assert.That("Green".TryParseDefinedEnum<Color>()).IsEqualTo(Maybe.Some(Color.Green));
+        await Assert.That("1".TryParseDefinedEnum<Color>()).IsEqualTo(Maybe.Some(Color.Green));
+        await Assert.That("37".TryParseDefinedEnum<Color>()).IsEqualTo(Maybe<Color>.None);
+        await Assert.That("green".TryParseDefinedEnum<Color>()).IsEqualTo(Maybe<Color>.None);
+        await Assert.That("green".TryParseDefinedEnum<Color>(true)).IsEqualTo(Maybe.Some(Color.Green));
     }
 }

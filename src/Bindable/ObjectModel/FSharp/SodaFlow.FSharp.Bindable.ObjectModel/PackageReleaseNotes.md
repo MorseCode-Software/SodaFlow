@@ -1,3 +1,37 @@
+3.0.0
+
+BREAKING: three functions are renamed, because their arguments are now
+in the order the rest of the module uses - scheduler before comparer.
+oneWayWithComparerAndScheduler, twoWayWithComparerAndScheduler and
+twoWayCSWithComparerAndScheduler become oneWayWithSchedulerAndComparer,
+twoWayWithSchedulerAndComparer and twoWayCSWithSchedulerAndComparer,
+taking their arguments in that order too.
+
+One-way-to-source gains the scheduler variants the other three already
+had: oneWayToSourceWithScheduler,
+oneWayToSourceWithSchedulerAndComparer, oneWayToSourceCSWithScheduler
+and oneWayToSourceCSWithSchedulerAndComparer. A scheduler is what
+identifies the binding thread, so passing one is what lets that
+bindable's Value throw when it is touched from another - see
+SodaFlow.Bindable.ObjectModel.Core.
+
+Otherwise this release moves to SodaFlow.Bindable.ObjectModel.Core 3.x
+and SodaFlow.FSharp 4.x, and would be a major for either alone.
+
+Worth reading that package's notes rather than skipping this: Execute now
+rejects null for every type argument, and being a behavior change behind an
+unchanged signature, it is the kind that surfaces at runtime rather than at
+compile time.
+
+BREAKING: requires FSharp.Core 11.0.100, where it required 4.5.2. A
+consumer still on FSharp.Core 4.x cannot take this release. Nothing in
+this package's own code turns on anything that changed between those
+versions - it compiles against 11.0.100 unaltered - but the floor is
+written into the package, so the requirement is real whether or not the
+code exercises it. It moves because the shipping projects and the test
+projects now compile against one version of FSharp.Core instead of
+disagreeing about it.
+
 2.0.0
 
 No code change. This release exists to move a dependency, and is a major

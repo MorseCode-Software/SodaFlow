@@ -1,16 +1,18 @@
-﻿namespace SodaFlow
+﻿using JetBrains.Annotations;
+
+namespace SodaFlow;
+
+/// <summary>
+///     The operations available on a <see cref="LoopedStream{T}" />.
+/// </summary>
+[PublicAPI]
+public static class LoopedStreamExtensionMethods
 {
     /// <summary>
-    ///     The operations available on a <see cref="LoopedStream{T}" />.
+    ///     Return a reference to this <see cref="LoopedStream{T}" /> as a <see cref="Stream{T}" />.
     /// </summary>
-    public static class LoopedStreamExtensionMethods
-    {
-        /// <summary>
-        ///     Return a reference to this <see cref="LoopedStream{T}" /> as a <see cref="Stream{T}" />.
-        /// </summary>
-        /// <typeparam name="T">The type of the looped stream.</typeparam>
-        /// <param name="s">The looped stream.</param>
-        /// <returns>A reference to this <see cref="LoopedStream{T}" /> as a <see cref="Stream{T}" />.</returns>
-        public static Stream<T> AsStream<T>(this LoopedStream<T> s) => s;
-    }
+    /// <typeparam name="T">The type of the looped stream.</typeparam>
+    /// <param name="s">The looped stream.</param>
+    /// <returns>A reference to this <see cref="LoopedStream{T}" /> as a <see cref="Stream{T}" />.</returns>
+    public static Stream<T> AsStream<T>(this LoopedStream<T> s) => s;
 }

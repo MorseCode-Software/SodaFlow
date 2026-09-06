@@ -5,7 +5,7 @@
 ///     Every binding here is an alias for one in <c>Stream</c>, <c>Cell</c>, <c>Behavior</c> or one
 ///     of their sinks, with a suffix naming which: <c>S</c> for stream, <c>C</c> for cell, <c>B</c>
 ///     for behavior, <c>T</c> for transaction and <c>L</c> for listener. The suffix is what
-///     disambiguates operations that exist on more than one of them - <c>mapS</c>, <c>mapC</c> and
+///     differentiates operations that exist on more than one of them - <c>mapS</c>, <c>mapC</c> and
 ///     <c>mapB</c> - and lets all of them be used unqualified in the same scope.
 ///
 ///     Where an operation takes one kind of value but produces another the suffix names the
@@ -24,6 +24,7 @@ module SodaFlow.Shorthand
 /// Shorthand for <c>Transaction.isActive</c>; see it for the full contract.
 /// </remarks>
 let inline isActiveT () = Transaction.isActive ()
+
 /// <summary>
 /// Runs a function inside a single transaction and returns its result.
 /// </summary>
@@ -41,6 +42,7 @@ let inline isActiveT () = Transaction.isActive ()
 /// closed within one transaction.
 /// </remarks>
 let inline runT f = Transaction.run f
+
 /// <summary>
 /// Registers an action to run whenever a transaction starts.
 /// </summary>
@@ -53,6 +55,7 @@ let inline runT f = Transaction.run f
 /// rarely what application code wants.
 /// </remarks>
 let inline onStartT a = Transaction.onStart a
+
 /// <summary>
 /// Runs an action once the current transaction has closed, or immediately if none is running.
 /// </summary>
@@ -75,6 +78,7 @@ let inline postT a = Transaction.post a
 /// Safe to call more than once; later calls do nothing.
 /// </remarks>
 let inline unlistenL listener = Listener.unlisten listener
+
 /// <summary>
 /// Stops listening.
 /// </summary>
@@ -85,6 +89,7 @@ let inline unlistenL listener = Listener.unlisten listener
 /// Safe to call more than once; later calls do nothing.
 /// </remarks>
 let inline unlistenWeakL listener = WeakListener.unlisten listener
+
 /// <summary>
 /// Stops listening.
 /// </summary>
@@ -108,6 +113,7 @@ let inline unlistenStrongL listener = StrongListener.unlisten listener
 /// The identity for <c>orElse</c>, and what to return from a branch which has nothing to fire.
 /// </remarks>
 let inline neverS<'a> () = Stream.never<'a> ()
+
 /// <summary>
 /// Creates a stream sink which throws if <c>send</c> is called more than once in a transaction.
 /// </summary>
@@ -120,6 +126,7 @@ let inline neverS<'a> () = Stream.never<'a> ()
 /// rather than silently resolved. Use <c>createWithCoalesce</c> where it is intended.
 /// </remarks>
 let inline sinkS<'a> () = StreamSink.create<'a> ()
+
 /// <summary>
 /// Creates a stream sink which combines values when <c>send</c> is called more than once in a
 /// single transaction.
@@ -136,6 +143,7 @@ let inline sinkS<'a> () = StreamSink.create<'a> ()
 /// within one transaction is folded down to the single value that fires.
 /// </remarks>
 let inline sinkWithCoalesceS coalesce = StreamSink.createWithCoalesce coalesce
+
 /// <summary>
 /// Creates a cell stream sink which throws if <c>StreamSink.send</c> is called more than once in
 /// a transaction.
@@ -146,6 +154,7 @@ let inline sinkWithCoalesceS coalesce = StreamSink.createWithCoalesce coalesce
 /// Shorthand for <c>CellStreamSink.create</c>; see it for the full contract.
 /// </remarks>
 let inline sinkCS<'a> () = CellStreamSink.create<'a> ()
+
 /// <summary>
 /// Creates a cell stream sink which combines values when <c>StreamSink.send</c> is called more
 /// than once in a single transaction.
@@ -158,7 +167,9 @@ let inline sinkCS<'a> () = CellStreamSink.create<'a> ()
 /// <remarks>
 /// Shorthand for <c>CellStreamSink.createWithCoalesce</c>; see it for the full contract.
 /// </remarks>
-let inline sinkWithCoalesceCS coalesce = CellStreamSink.createWithCoalesce coalesce
+let inline sinkWithCoalesceCS coalesce =
+    CellStreamSink.createWithCoalesce coalesce
+
 /// <summary>
 /// Sends a value, firing the stream sink.
 /// </summary>
@@ -174,6 +185,7 @@ let inline sinkWithCoalesceCS coalesce = CellStreamSink.createWithCoalesce coale
 /// <c>createWithCoalesce</c>.
 /// </remarks>
 let inline sendS a streamSink = StreamSink.send a streamSink
+
 /// <summary>
 /// Builds a stream which refers to itself, closing the loop within one transaction.
 /// </summary>
@@ -195,6 +207,7 @@ let inline sendS a streamSink = StreamSink.send a streamSink
 /// Use <c>loopWithNoCaptures</c> where nothing but the stream itself is needed.
 /// </remarks>
 let inline loopS f = Stream.loop f
+
 /// <summary>
 /// Builds a self-referential stream where nothing but the stream itself is wanted back.
 /// </summary>
@@ -206,6 +219,7 @@ let inline loopS f = Stream.loop f
 /// <c>loop</c> where something more than the stream needs to escape the loop.
 /// </remarks>
 let inline loopWithNoCapturesS f = Stream.loopWithNoCaptures f
+
 /// <summary>
 /// Listens for firings without keeping the stream alive.
 /// </summary>
@@ -221,6 +235,7 @@ let inline loopWithNoCapturesS f = Stream.loopWithNoCaptures f
 /// kept alive for as long as something is listening, use <c>listenStrong</c>.
 /// </remarks>
 let inline listenS handler stream = Stream.listen handler stream
+
 /// <summary>
 /// Listens for firings, keeping the stream alive while the listener lives.
 /// </summary>
@@ -240,6 +255,7 @@ let inline listenS handler stream = Stream.listen handler stream
 /// long-running or blocking work to another thread.
 /// </remarks>
 let inline listenStrongS handler stream = Stream.listenStrong handler stream
+
 /// <summary>
 /// Ties a listener to the lifetime of a stream, so the listener lives while the stream does.
 /// </summary>
@@ -255,6 +271,7 @@ let inline listenStrongS handler stream = Stream.listenStrong handler stream
 /// quietly stops firing.
 /// </remarks>
 let inline attachListenerS listener stream = Stream.attachListener listener stream
+
 /// <summary>
 /// Listens for the next firing only, then stops.
 /// </summary>
@@ -268,6 +285,7 @@ let inline attachListenerS listener stream = Stream.attachListener listener stre
 /// Shorthand for <c>Stream.listenOnce</c>; see it for the full contract.
 /// </remarks>
 let inline listenOnceS handler stream = Stream.listenOnce handler stream
+
 /// <summary>
 /// Waits asynchronously for the next firing.
 /// </summary>
@@ -284,6 +302,7 @@ let inline listenOnceS handler stream = Stream.listenOnce handler stream
 /// the transaction lock.
 /// </remarks>
 let inline listenOnceAsyncS stream = Stream.listenOnceAsync stream
+
 /// <summary>
 /// Transforms each fired value with a function.
 /// </summary>
@@ -297,6 +316,7 @@ let inline listenOnceAsyncS stream = Stream.listenOnceAsync stream
 /// that it must be pure.
 /// </remarks>
 let inline mapS f stream = Stream.map f stream
+
 /// <summary>
 /// Replaces every fired value with a constant.
 /// </summary>
@@ -309,6 +329,7 @@ let inline mapS f stream = Stream.map f stream
 /// For when only the fact that something happened matters, not what it carried.
 /// </remarks>
 let inline mapToS value stream = Stream.mapTo value stream
+
 /// <summary>
 /// Holds the most recently fired value in a cell.
 /// </summary>
@@ -319,10 +340,11 @@ let inline mapToS value stream = Stream.mapTo value stream
 /// Shorthand for <c>Stream.hold</c>; see it for the full contract.
 ///
 /// The cell's new value is visible to anything sampling it after the transaction in which the
-/// firing happened, not within it. That delay is what makes a loop through a cell well defined
+/// firing happened, not within it. That delay is what makes a loop through a cell well-defined
 /// rather than circular.
 /// </remarks>
 let inline holdS initialValue stream = Stream.hold initialValue stream
+
 /// <summary>
 /// Holds the most recently fired value in a cell, with an initial value computed on first use.
 /// </summary>
@@ -337,6 +359,7 @@ let inline holdS initialValue stream = Stream.hold initialValue stream
 /// exactly what this takes.
 /// </remarks>
 let inline holdLazyS initialValue stream = Stream.holdLazy initialValue stream
+
 /// <summary>
 /// Samples a behavior when the stream fires, and fires the combination.
 /// </summary>
@@ -356,6 +379,7 @@ let inline holdLazyS initialValue stream = Stream.holdLazy initialValue stream
 /// the order the graph happens to be evaluated in.
 /// </remarks>
 let inline snapshotB behavior f stream = Stream.snapshotB behavior f stream
+
 /// <summary>
 /// Samples a cell when the stream fires, and fires the combination.
 /// </summary>
@@ -375,6 +399,7 @@ let inline snapshotB behavior f stream = Stream.snapshotB behavior f stream
 /// the order the graph happens to be evaluated in.
 /// </remarks>
 let inline snapshotC cell f stream = Stream.snapshot cell f stream
+
 /// <summary>
 /// Samples a behavior when the stream fires, and fires the behavior's value, discarding the
 /// stream's own.
@@ -391,6 +416,7 @@ let inline snapshotC cell f stream = Stream.snapshot cell f stream
 /// the order the graph happens to be evaluated in.
 /// </remarks>
 let inline snapshotAndTakeB behavior stream = Stream.snapshotAndTakeB behavior stream
+
 /// <summary>
 /// Samples a cell when the stream fires, and fires the cell's value, discarding the stream's own.
 /// </summary>
@@ -406,6 +432,7 @@ let inline snapshotAndTakeB behavior stream = Stream.snapshotAndTakeB behavior s
 /// the order the graph happens to be evaluated in.
 /// </remarks>
 let inline snapshotAndTakeC cell stream = Stream.snapshotAndTake cell stream
+
 /// <summary>
 /// Samples two behaviors when the stream fires, and fires the combination.
 /// </summary>
@@ -425,7 +452,9 @@ let inline snapshotAndTakeC cell stream = Stream.snapshotAndTake cell stream
 /// transaction is therefore seen with its old value, which is what keeps the result independent of
 /// the order the graph happens to be evaluated in.
 /// </remarks>
-let inline snapshot2B behavior1 behavior2 f stream = Stream.snapshot2B behavior1 behavior2 f stream
+let inline snapshot2B behavior1 behavior2 f stream =
+    Stream.snapshot2B behavior1 behavior2 f stream
+
 /// <summary>
 /// Samples two cells when the stream fires, and fires the combination.
 /// </summary>
@@ -446,6 +475,7 @@ let inline snapshot2B behavior1 behavior2 f stream = Stream.snapshot2B behavior1
 /// the order the graph happens to be evaluated in.
 /// </remarks>
 let inline snapshot2C cell1 cell2 f stream = Stream.snapshot2 cell1 cell2 f stream
+
 /// <summary>
 /// Samples three behaviors when the stream fires, and fires the combination.
 /// </summary>
@@ -466,7 +496,9 @@ let inline snapshot2C cell1 cell2 f stream = Stream.snapshot2 cell1 cell2 f stre
 /// transaction is therefore seen with its old value, which is what keeps the result independent of
 /// the order the graph happens to be evaluated in.
 /// </remarks>
-let inline snapshot3B behavior1 behavior2 behavior3 f stream = Stream.snapshot3B behavior1 behavior2 behavior3 f stream
+let inline snapshot3B behavior1 behavior2 behavior3 f stream =
+    Stream.snapshot3B behavior1 behavior2 behavior3 f stream
+
 /// <summary>
 /// Samples three cells when the stream fires, and fires the combination.
 /// </summary>
@@ -487,7 +519,9 @@ let inline snapshot3B behavior1 behavior2 behavior3 f stream = Stream.snapshot3B
 /// transaction is therefore seen with its old value, which is what keeps the result independent of
 /// the order the graph happens to be evaluated in.
 /// </remarks>
-let inline snapshot3C cell1 cell2 cell3 f stream = Stream.snapshot3 cell1 cell2 cell3 f stream
+let inline snapshot3C cell1 cell2 cell3 f stream =
+    Stream.snapshot3 cell1 cell2 cell3 f stream
+
 /// <summary>
 /// Samples four behaviors when the stream fires, and fires the combination.
 /// </summary>
@@ -509,7 +543,9 @@ let inline snapshot3C cell1 cell2 cell3 f stream = Stream.snapshot3 cell1 cell2 
 /// transaction is therefore seen with its old value, which is what keeps the result independent of
 /// the order the graph happens to be evaluated in.
 /// </remarks>
-let inline snapshot4B behavior1 behavior2 behavior3 behavior4 f stream = Stream.snapshot4B behavior1 behavior2 behavior3 behavior4 f stream
+let inline snapshot4B behavior1 behavior2 behavior3 behavior4 f stream =
+    Stream.snapshot4B behavior1 behavior2 behavior3 behavior4 f stream
+
 /// <summary>
 /// Samples four cells when the stream fires, and fires the combination.
 /// </summary>
@@ -531,7 +567,9 @@ let inline snapshot4B behavior1 behavior2 behavior3 behavior4 f stream = Stream.
 /// transaction is therefore seen with its old value, which is what keeps the result independent of
 /// the order the graph happens to be evaluated in.
 /// </remarks>
-let inline snapshot4C cell1 cell2 cell3 cell4 f stream = Stream.snapshot4 cell1 cell2 cell3 cell4 f stream
+let inline snapshot4C cell1 cell2 cell3 cell4 f stream =
+    Stream.snapshot4 cell1 cell2 cell3 cell4 f stream
+
 /// <summary>
 /// Samples five behaviors when the stream fires, and fires the combination.
 /// </summary>
@@ -554,7 +592,9 @@ let inline snapshot4C cell1 cell2 cell3 cell4 f stream = Stream.snapshot4 cell1 
 /// transaction is therefore seen with its old value, which is what keeps the result independent of
 /// the order the graph happens to be evaluated in.
 /// </remarks>
-let inline snapshot5B behavior1 behavior2 behavior3 behavior4 behavior5 f stream = Stream.snapshot5B behavior1 behavior2 behavior3 behavior4 behavior5 f stream
+let inline snapshot5B behavior1 behavior2 behavior3 behavior4 behavior5 f stream =
+    Stream.snapshot5B behavior1 behavior2 behavior3 behavior4 behavior5 f stream
+
 /// <summary>
 /// Samples five cells when the stream fires, and fires the combination.
 /// </summary>
@@ -577,7 +617,9 @@ let inline snapshot5B behavior1 behavior2 behavior3 behavior4 behavior5 f stream
 /// transaction is therefore seen with its old value, which is what keeps the result independent of
 /// the order the graph happens to be evaluated in.
 /// </remarks>
-let inline snapshot5C cell1 cell2 cell3 cell4 cell5 f stream = Stream.snapshot5 cell1 cell2 cell3 cell4 cell5 f stream
+let inline snapshot5C cell1 cell2 cell3 cell4 cell5 f stream =
+    Stream.snapshot5 cell1 cell2 cell3 cell4 cell5 f stream
+
 /// <summary>
 /// Samples six behaviors when the stream fires, and fires the combination.
 /// </summary>
@@ -601,7 +643,9 @@ let inline snapshot5C cell1 cell2 cell3 cell4 cell5 f stream = Stream.snapshot5 
 /// transaction is therefore seen with its old value, which is what keeps the result independent of
 /// the order the graph happens to be evaluated in.
 /// </remarks>
-let inline snapshot6B behavior1 behavior2 behavior3 behavior4 behavior5 behavior6 f stream = Stream.snapshot6B behavior1 behavior2 behavior3 behavior4 behavior5 behavior6 f stream
+let inline snapshot6B behavior1 behavior2 behavior3 behavior4 behavior5 behavior6 f stream =
+    Stream.snapshot6B behavior1 behavior2 behavior3 behavior4 behavior5 behavior6 f stream
+
 /// <summary>
 /// Samples six cells when the stream fires, and fires the combination.
 /// </summary>
@@ -625,7 +669,9 @@ let inline snapshot6B behavior1 behavior2 behavior3 behavior4 behavior5 behavior
 /// transaction is therefore seen with its old value, which is what keeps the result independent of
 /// the order the graph happens to be evaluated in.
 /// </remarks>
-let inline snapshot6C cell1 cell2 cell3 cell4 cell5 cell6 f stream = Stream.snapshot6 cell1 cell2 cell3 cell4 cell5 cell6 f stream
+let inline snapshot6C cell1 cell2 cell3 cell4 cell5 cell6 f stream =
+    Stream.snapshot6 cell1 cell2 cell3 cell4 cell5 cell6 f stream
+
 /// <summary>
 /// Samples seven behaviors when the stream fires, and fires the combination.
 /// </summary>
@@ -650,7 +696,9 @@ let inline snapshot6C cell1 cell2 cell3 cell4 cell5 cell6 f stream = Stream.snap
 /// transaction is therefore seen with its old value, which is what keeps the result independent of
 /// the order the graph happens to be evaluated in.
 /// </remarks>
-let inline snapshot7B behavior1 behavior2 behavior3 behavior4 behavior5 behavior6 behavior7 f stream = Stream.snapshot7B behavior1 behavior2 behavior3 behavior4 behavior5 behavior6 behavior7 f stream
+let inline snapshot7B behavior1 behavior2 behavior3 behavior4 behavior5 behavior6 behavior7 f stream =
+    Stream.snapshot7B behavior1 behavior2 behavior3 behavior4 behavior5 behavior6 behavior7 f stream
+
 /// <summary>
 /// Samples seven cells when the stream fires, and fires the combination.
 /// </summary>
@@ -675,7 +723,9 @@ let inline snapshot7B behavior1 behavior2 behavior3 behavior4 behavior5 behavior
 /// transaction is therefore seen with its old value, which is what keeps the result independent of
 /// the order the graph happens to be evaluated in.
 /// </remarks>
-let inline snapshot7C cell1 cell2 cell3 cell4 cell5 cell6 cell7 f stream = Stream.snapshot7 cell1 cell2 cell3 cell4 cell5 cell6 cell7 f stream
+let inline snapshot7C cell1 cell2 cell3 cell4 cell5 cell6 cell7 f stream =
+    Stream.snapshot7 cell1 cell2 cell3 cell4 cell5 cell6 cell7 f stream
+
 /// <summary>
 /// Samples eight behaviors when the stream fires, and fires the combination.
 /// </summary>
@@ -701,7 +751,9 @@ let inline snapshot7C cell1 cell2 cell3 cell4 cell5 cell6 cell7 f stream = Strea
 /// transaction is therefore seen with its old value, which is what keeps the result independent of
 /// the order the graph happens to be evaluated in.
 /// </remarks>
-let inline snapshot8B behavior1 behavior2 behavior3 behavior4 behavior5 behavior6 behavior7 behavior8 f stream = Stream.snapshot8B behavior1 behavior2 behavior3 behavior4 behavior5 behavior6 behavior7 behavior8 f stream
+let inline snapshot8B behavior1 behavior2 behavior3 behavior4 behavior5 behavior6 behavior7 behavior8 f stream =
+    Stream.snapshot8B behavior1 behavior2 behavior3 behavior4 behavior5 behavior6 behavior7 behavior8 f stream
+
 /// <summary>
 /// Samples eight cells when the stream fires, and fires the combination.
 /// </summary>
@@ -727,7 +779,9 @@ let inline snapshot8B behavior1 behavior2 behavior3 behavior4 behavior5 behavior
 /// transaction is therefore seen with its old value, which is what keeps the result independent of
 /// the order the graph happens to be evaluated in.
 /// </remarks>
-let inline snapshot8C cell1 cell2 cell3 cell4 cell5 cell6 cell7 cell8 f stream = Stream.snapshot8 cell1 cell2 cell3 cell4 cell5 cell6 cell7 cell8 f stream
+let inline snapshot8C cell1 cell2 cell3 cell4 cell5 cell6 cell7 cell8 f stream =
+    Stream.snapshot8 cell1 cell2 cell3 cell4 cell5 cell6 cell7 cell8 f stream
+
 /// <summary>
 /// Merges two streams, combining the values where both fire in one transaction.
 /// </summary>
@@ -746,6 +800,7 @@ let inline snapshot8C cell1 cell2 cell3 cell4 cell5 cell6 cell7 cell8 f stream =
 /// to take the first instead of combining.
 /// </remarks>
 let inline mergeS f (stream, stream2) = Stream.merge f (stream, stream2)
+
 /// <summary>
 /// Merges two streams, preferring the first where both fire in one transaction.
 /// </summary>
@@ -759,6 +814,7 @@ let inline mergeS f (stream, stream2) = Stream.merge f (stream, stream2)
 /// value is gone, not deferred - use <c>merge</c> where both matter.
 /// </remarks>
 let inline orElseS (stream, stream2) = Stream.orElse (stream, stream2)
+
 /// <summary>
 /// Keeps only the firings whose value satisfies a predicate.
 /// </summary>
@@ -769,6 +825,7 @@ let inline orElseS (stream, stream2) = Stream.orElse (stream, stream2)
 /// Shorthand for <c>Stream.filter</c>; see it for the full contract.
 /// </remarks>
 let inline filterS predicate stream = Stream.filter predicate stream
+
 /// <summary>
 /// Keeps only the firings which carried <c>Some</c>, and unwraps them.
 /// </summary>
@@ -778,6 +835,7 @@ let inline filterS predicate stream = Stream.filter predicate stream
 /// Shorthand for <c>Stream.filterSome</c>; see it for the full contract.
 /// </remarks>
 let inline filterSomeS stream = Stream.filterSome stream
+
 /// <summary>
 /// Transforms the firings with a function which may produce no value, and fires only the values it
 /// produced.
@@ -792,6 +850,7 @@ let inline filterSomeS stream = Stream.filterSome stream
 /// Shorthand for <c>Stream.choose</c>; see it for the full contract.
 /// </remarks>
 let inline chooseS f stream = Stream.choose f stream
+
 /// <summary>
 /// Lets firings through only while a behavior holds true.
 /// </summary>
@@ -805,6 +864,7 @@ let inline chooseS f stream = Stream.choose f stream
 /// at the start of the transaction the firing belongs to.
 /// </remarks>
 let inline gateB behavior stream = Stream.gateB behavior stream
+
 /// <summary>
 /// Lets firings through only while a cell holds true.
 /// </summary>
@@ -818,6 +878,7 @@ let inline gateB behavior stream = Stream.gateB behavior stream
 /// the start of the transaction the firing belongs to.
 /// </remarks>
 let inline gateC cell stream = Stream.gate cell stream
+
 /// <summary>
 /// Folds state across firings, firing a value derived from each step, with an initial state
 /// computed on first use.
@@ -838,7 +899,9 @@ let inline gateC cell stream = Stream.gate cell stream
 ///
 /// This is the lazy form, for closing a loop where the initial state is not yet available.
 /// </remarks>
-let inline collectLazyS initialState f stream = Stream.collectLazy initialState f stream
+let inline collectLazyS initialState f stream =
+    Stream.collectLazy initialState f stream
+
 /// <summary>
 /// Folds state across firings, firing a value derived from each step.
 /// </summary>
@@ -859,6 +922,7 @@ let inline collectLazyS initialState f stream = Stream.collectLazy initialState 
 /// Use <c>accum</c> where the state itself is what should be published.
 /// </remarks>
 let inline collectS initialState f stream = Stream.collect initialState f stream
+
 /// <summary>
 /// Suppresses firings whose value the given comparison considers equal to the last one that got
 /// through.
@@ -873,6 +937,7 @@ let inline collectS initialState f stream = Stream.collect initialState f stream
 /// the value that was suppressed, not against the last one that got through.
 /// </remarks>
 let inline calmWithCompareS compare stream = Stream.calmWithCompare compare stream
+
 /// <summary>
 /// Suppresses firings whose value the given comparer considers equal to the last one that got
 /// through.
@@ -886,7 +951,9 @@ let inline calmWithCompareS compare stream = Stream.calmWithCompare compare stre
 /// Suppressing a firing is not the same as it not happening: the next comparison is made against
 /// the value that was suppressed, not against the last one that got through.
 /// </remarks>
-let inline calmWithEqualityComparerS equalityComparer stream = Stream.calmWithEqualityComparer equalityComparer stream
+let inline calmWithEqualityComparerS equalityComparer stream =
+    Stream.calmWithEqualityComparer equalityComparer stream
+
 /// <summary>
 /// Suppresses firings equal, by F#'s structural equality, to the last one that got through.
 /// </summary>
@@ -902,6 +969,7 @@ let inline calmWithEqualityComparerS equalityComparer stream = Stream.calmWithEq
 /// <c>calmWithCompare</c> instead.
 /// </remarks>
 let inline calmS stream = Stream.calm stream
+
 /// <summary>
 /// Folds state across firings into a cell, with an initial state computed on first use.
 /// </summary>
@@ -915,6 +983,7 @@ let inline calmS stream = Stream.calm stream
 /// This is the lazy form, for closing a loop where the initial state is not yet available.
 /// </remarks>
 let inline accumLazyS initialState f stream = Stream.accumLazy initialState f stream
+
 /// <summary>
 /// Folds state across firings into a cell.
 /// </summary>
@@ -929,6 +998,7 @@ let inline accumLazyS initialState f stream = Stream.accumLazy initialState f st
 /// <c>collect</c> where the published value differs from the state carried forward.
 /// </remarks>
 let inline accumS initialState f stream = Stream.accum initialState f stream
+
 /// <summary>
 /// Keeps only the first firing.
 /// </summary>
@@ -938,6 +1008,7 @@ let inline accumS initialState f stream = Stream.accum initialState f stream
 /// Shorthand for <c>Stream.once</c>; see it for the full contract.
 /// </remarks>
 let inline onceS stream = Stream.once stream
+
 /// <summary>
 /// Merges any number of streams, combining the values where several fire in one transaction.
 /// </summary>
@@ -951,6 +1022,7 @@ let inline onceS stream = Stream.once stream
 /// Shorthand for <c>Stream.mergeAll</c>; see it for the full contract.
 /// </remarks>
 let inline mergeAllS f streams = Stream.mergeAll f streams
+
 /// <summary>
 /// Merges any number of streams, preferring the earliest where several fire in one transaction.
 /// </summary>
@@ -973,6 +1045,7 @@ let inline orElseAllS streams = Stream.orElseAll streams
 /// Shorthand for <c>Behavior.constant</c>; see it for the full contract.
 /// </remarks>
 let inline constantB value = Behavior.constant value
+
 /// <summary>
 /// Creates a behavior with a value that never changes, computed on first use.
 /// </summary>
@@ -985,6 +1058,7 @@ let inline constantB value = Behavior.constant value
 /// is being built - the value is forced only when the behavior is first sampled.
 /// </remarks>
 let inline constantLazyB value = Behavior.constantLazy value
+
 /// <summary>
 /// Creates a behavior sink which keeps the last value sent when <c>send</c> is called more than
 /// once in a single transaction.
@@ -995,6 +1069,7 @@ let inline constantLazyB value = Behavior.constantLazy value
 /// Shorthand for <c>BehaviorSink.create</c>; see it for the full contract.
 /// </remarks>
 let inline sinkB initialValue = BehaviorSink.create initialValue
+
 /// <summary>
 /// Creates a behavior sink which combines values when <c>send</c> is called more than once in a
 /// single transaction.
@@ -1008,7 +1083,9 @@ let inline sinkB initialValue = BehaviorSink.create initialValue
 /// <remarks>
 /// Shorthand for <c>BehaviorSink.createWithCoalesce</c>; see it for the full contract.
 /// </remarks>
-let inline sinkWithCoalesceB initialValue coalesce = BehaviorSink.createWithCoalesce initialValue coalesce
+let inline sinkWithCoalesceB initialValue coalesce =
+    BehaviorSink.createWithCoalesce initialValue coalesce
+
 /// <summary>
 /// Sends a value, changing what the behavior holds.
 /// </summary>
@@ -1020,6 +1097,7 @@ let inline sinkWithCoalesceB initialValue coalesce = BehaviorSink.createWithCoal
 /// Must not be called from inside a listener callback; doing so throws.
 /// </remarks>
 let inline sendB a behaviorSink = BehaviorSink.send a behaviorSink
+
 /// <summary>
 /// Builds a behavior which refers to itself, closing the loop within one transaction.
 /// </summary>
@@ -1041,6 +1119,7 @@ let inline sendB a behaviorSink = BehaviorSink.send a behaviorSink
 /// Use <c>loopWithNoCaptures</c> where nothing but the behavior itself is needed.
 /// </remarks>
 let inline loopB f = Behavior.loop f
+
 /// <summary>
 /// Builds a self-referential behavior where nothing but the behavior itself is wanted back.
 /// </summary>
@@ -1052,6 +1131,7 @@ let inline loopB f = Behavior.loop f
 /// <c>loop</c> where something more than the behavior needs to escape the loop.
 /// </remarks>
 let inline loopWithNoCapturesB f = Behavior.loopWithNoCaptures f
+
 /// <summary>
 /// Gets a behavior's current value.
 /// </summary>
@@ -1065,6 +1145,7 @@ let inline loopWithNoCapturesB f = Behavior.loopWithNoCaptures f
 /// value read is never a half-updated one.
 /// </remarks>
 let inline sampleB behavior = Behavior.sample behavior
+
 /// <summary>
 /// Gets a behavior's value as of now, without forcing it yet.
 /// </summary>
@@ -1078,6 +1159,7 @@ let inline sampleB behavior = Behavior.sample behavior
 /// but which moment it is to be taken from already is.
 /// </remarks>
 let inline sampleLazyB behavior = Behavior.sampleLazy behavior
+
 /// <summary>
 /// Applies a behavior of functions to a behavior of values.
 /// </summary>
@@ -1090,10 +1172,11 @@ let inline sampleLazyB behavior = Behavior.sampleLazy behavior
 /// <remarks>
 /// Shorthand for <c>Behavior.apply</c>; see it for the full contract.
 ///
-/// The primitive all of the <c>lift</c> functions are built from. Reach for <c>lift2</c> and
+/// The primitive all the <c>lift</c> functions are built from. Reach for <c>lift2</c> and
 /// its siblings first; this is for the cases they do not cover.
 /// </remarks>
 let inline applyB f behavior = Behavior.apply f behavior
+
 /// <summary>
 /// Transforms a behavior with a function.
 /// </summary>
@@ -1110,6 +1193,7 @@ let inline applyB f behavior = Behavior.apply f behavior
 /// that it must be pure, since it may be called more than once for one input.
 /// </remarks>
 let inline mapB f behavior = Behavior.map f behavior
+
 /// <summary>
 /// Combines two behaviors into one whose value is a function of all of theirs.
 /// </summary>
@@ -1124,9 +1208,10 @@ let inline mapB f behavior = Behavior.map f behavior
 /// Shorthand for <c>Behavior.lift2</c>; see it for the full contract.
 ///
 /// Glitch-free: when several of the inputs change in one transaction, the result updates
-/// once, with all of the new values, rather than once per input.
+/// once, with all the new values, rather than once per input.
 /// </remarks>
 let inline lift2B f (behavior, behavior2) = Behavior.lift2 f (behavior, behavior2)
+
 /// <summary>
 /// Combines three behaviors into one whose value is a function of all of theirs.
 /// </summary>
@@ -1142,9 +1227,11 @@ let inline lift2B f (behavior, behavior2) = Behavior.lift2 f (behavior, behavior
 /// Shorthand for <c>Behavior.lift3</c>; see it for the full contract.
 ///
 /// Glitch-free: when several of the inputs change in one transaction, the result updates
-/// once, with all of the new values, rather than once per input.
+/// once, with all the new values, rather than once per input.
 /// </remarks>
-let inline lift3B f (behavior, behavior2, behavior3) = Behavior.lift3 f (behavior, behavior2, behavior3)
+let inline lift3B f (behavior, behavior2, behavior3) =
+    Behavior.lift3 f (behavior, behavior2, behavior3)
+
 /// <summary>
 /// Combines four behaviors into one whose value is a function of all of theirs.
 /// </summary>
@@ -1161,9 +1248,11 @@ let inline lift3B f (behavior, behavior2, behavior3) = Behavior.lift3 f (behavio
 /// Shorthand for <c>Behavior.lift4</c>; see it for the full contract.
 ///
 /// Glitch-free: when several of the inputs change in one transaction, the result updates
-/// once, with all of the new values, rather than once per input.
+/// once, with all the new values, rather than once per input.
 /// </remarks>
-let inline lift4B f (behavior, behavior2, behavior3, behavior4) = Behavior.lift4 f (behavior, behavior2, behavior3, behavior4)
+let inline lift4B f (behavior, behavior2, behavior3, behavior4) =
+    Behavior.lift4 f (behavior, behavior2, behavior3, behavior4)
+
 /// <summary>
 /// Combines five behaviors into one whose value is a function of all of theirs.
 /// </summary>
@@ -1181,9 +1270,11 @@ let inline lift4B f (behavior, behavior2, behavior3, behavior4) = Behavior.lift4
 /// Shorthand for <c>Behavior.lift5</c>; see it for the full contract.
 ///
 /// Glitch-free: when several of the inputs change in one transaction, the result updates
-/// once, with all of the new values, rather than once per input.
+/// once, with all the new values, rather than once per input.
 /// </remarks>
-let inline lift5B f (behavior, behavior2, behavior3, behavior4, behavior5) = Behavior.lift5 f (behavior, behavior2, behavior3, behavior4, behavior5)
+let inline lift5B f (behavior, behavior2, behavior3, behavior4, behavior5) =
+    Behavior.lift5 f (behavior, behavior2, behavior3, behavior4, behavior5)
+
 /// <summary>
 /// Combines six behaviors into one whose value is a function of all of theirs.
 /// </summary>
@@ -1202,9 +1293,11 @@ let inline lift5B f (behavior, behavior2, behavior3, behavior4, behavior5) = Beh
 /// Shorthand for <c>Behavior.lift6</c>; see it for the full contract.
 ///
 /// Glitch-free: when several of the inputs change in one transaction, the result updates
-/// once, with all of the new values, rather than once per input.
+/// once, with all the new values, rather than once per input.
 /// </remarks>
-let inline lift6B f (behavior, behavior2, behavior3, behavior4, behavior5, behavior6) = Behavior.lift6 f (behavior, behavior2, behavior3, behavior4, behavior5, behavior6)
+let inline lift6B f (behavior, behavior2, behavior3, behavior4, behavior5, behavior6) =
+    Behavior.lift6 f (behavior, behavior2, behavior3, behavior4, behavior5, behavior6)
+
 /// <summary>
 /// Combines seven behaviors into one whose value is a function of all of theirs.
 /// </summary>
@@ -1224,9 +1317,11 @@ let inline lift6B f (behavior, behavior2, behavior3, behavior4, behavior5, behav
 /// Shorthand for <c>Behavior.lift7</c>; see it for the full contract.
 ///
 /// Glitch-free: when several of the inputs change in one transaction, the result updates
-/// once, with all of the new values, rather than once per input.
+/// once, with all the new values, rather than once per input.
 /// </remarks>
-let inline lift7B f (behavior, behavior2, behavior3, behavior4, behavior5, behavior6, behavior7) = Behavior.lift7 f (behavior, behavior2, behavior3, behavior4, behavior5, behavior6, behavior7)
+let inline lift7B f (behavior, behavior2, behavior3, behavior4, behavior5, behavior6, behavior7) =
+    Behavior.lift7 f (behavior, behavior2, behavior3, behavior4, behavior5, behavior6, behavior7)
+
 /// <summary>
 /// Combines eight behaviors into one whose value is a function of all of theirs.
 /// </summary>
@@ -1247,15 +1342,17 @@ let inline lift7B f (behavior, behavior2, behavior3, behavior4, behavior5, behav
 /// Shorthand for <c>Behavior.lift8</c>; see it for the full contract.
 ///
 /// Glitch-free: when several of the inputs change in one transaction, the result updates
-/// once, with all of the new values, rather than once per input.
+/// once, with all the new values, rather than once per input.
 /// </remarks>
-let inline lift8B f (behavior, behavior2, behavior3, behavior4, behavior5, behavior6, behavior7, behavior8) = Behavior.lift8 f (behavior, behavior2, behavior3, behavior4, behavior5, behavior6, behavior7, behavior8)
+let inline lift8B f (behavior, behavior2, behavior3, behavior4, behavior5, behavior6, behavior7, behavior8) =
+    Behavior.lift8 f (behavior, behavior2, behavior3, behavior4, behavior5, behavior6, behavior7, behavior8)
+
 /// <summary>
 /// Combines any number of behaviors into one whose value is a function of all of theirs.
 /// </summary>
 /// <param name="f">Combines the current values, given in the order the behaviors were supplied.</param>
 /// <param name="behaviors">The behaviors to combine.</param>
-/// <returns>A behavior whose value is <paramref name="f" /> applied to all of the current values.</returns>
+/// <returns>A behavior whose value is <paramref name="f" /> applied to all the current values.</returns>
 /// <remarks>
 /// Shorthand for <c>Behavior.liftAll</c>; see it for the full contract.
 ///
@@ -1264,6 +1361,7 @@ let inline lift8B f (behavior, behavior2, behavior3, behavior4, behavior5, behav
 /// once.
 /// </remarks>
 let inline liftAllB f behaviors = Behavior.liftAll f behaviors
+
 /// <summary>
 /// Unwraps a behavior of behaviors into a behavior which follows whichever one is current.
 /// </summary>
@@ -1276,6 +1374,7 @@ let inline liftAllB f behaviors = Behavior.liftAll f behaviors
 /// is being followed.
 /// </remarks>
 let inline switchBB behavior = Behavior.switchB behavior
+
 /// <summary>
 /// Unwraps a behavior of cells into a cell which follows whichever one is current.
 /// </summary>
@@ -1285,6 +1384,7 @@ let inline switchBB behavior = Behavior.switchB behavior
 /// Shorthand for <c>Behavior.switchC</c>; see it for the full contract.
 /// </remarks>
 let inline switchCB behavior = Behavior.switchC behavior
+
 /// <summary>
 /// Unwraps a behavior of streams into a stream which fires whatever the current one fires.
 /// </summary>
@@ -1307,6 +1407,7 @@ let inline switchSB behavior = Behavior.switchS behavior
 /// Shorthand for <c>Cell.constant</c>; see it for the full contract.
 /// </remarks>
 let inline constantC value = Cell.constant value
+
 /// <summary>
 /// Creates a cell with a value that never changes, computed on first use.
 /// </summary>
@@ -1319,6 +1420,7 @@ let inline constantC value = Cell.constant value
 /// being built - the value is forced only when the cell is first sampled.
 /// </remarks>
 let inline constantLazyC value = Cell.constantLazy value
+
 /// <summary>
 /// Creates a cell sink which keeps the last value sent when <c>send</c> is called more than once
 /// in a single transaction.
@@ -1329,6 +1431,7 @@ let inline constantLazyC value = Cell.constantLazy value
 /// Shorthand for <c>CellSink.create</c>; see it for the full contract.
 /// </remarks>
 let inline sinkC initialValue = CellSink.create initialValue
+
 /// <summary>
 /// Creates a cell sink which combines values when <c>send</c> is called more than once in a
 /// single transaction.
@@ -1342,7 +1445,9 @@ let inline sinkC initialValue = CellSink.create initialValue
 /// <remarks>
 /// Shorthand for <c>CellSink.createWithCoalesce</c>; see it for the full contract.
 /// </remarks>
-let inline sinkWithCoalesceC initialValue coalesce = CellSink.createWithCoalesce initialValue coalesce
+let inline sinkWithCoalesceC initialValue coalesce =
+    CellSink.createWithCoalesce initialValue coalesce
+
 /// <summary>
 /// Sends a value, changing what the cell holds.
 /// </summary>
@@ -1354,6 +1459,7 @@ let inline sinkWithCoalesceC initialValue coalesce = CellSink.createWithCoalesce
 /// Must not be called from inside a listener callback; doing so throws.
 /// </remarks>
 let inline sendC a cellSink = CellSink.send a cellSink
+
 /// <summary>
 /// Builds a cell which refers to itself, closing the loop within one transaction.
 /// </summary>
@@ -1375,6 +1481,7 @@ let inline sendC a cellSink = CellSink.send a cellSink
 /// Use <c>loopWithNoCaptures</c> where nothing but the cell itself is needed.
 /// </remarks>
 let inline loopC f = Cell.loop f
+
 /// <summary>
 /// Builds a self-referential cell where nothing but the cell itself is wanted back.
 /// </summary>
@@ -1386,6 +1493,41 @@ let inline loopC f = Cell.loop f
 /// <c>loop</c> where something more than the cell needs to escape the loop.
 /// </remarks>
 let inline loopWithNoCapturesC f = Cell.loopWithNoCaptures f
+
+/// <summary>
+/// Builds a value which can refer to itself, along with anything else worth keeping from its
+/// construction.
+/// </summary>
+/// <param name="f">
+/// Given the forward reference, returns a struct tuple of the value it stands for and anything
+/// else the caller wants back out.
+/// </param>
+/// <returns>
+/// A struct tuple of the value the forward reference was closed with, and whatever
+/// <paramref name="f" /> returned alongside it.
+/// </returns>
+/// <remarks>
+/// Shorthand for <c>ForwardReference.create</c>; see it for the full contract.
+///
+/// The single-valued case of a cell loop: the loop handed to <paramref name="f" /> is closed with
+/// a constant cell, so the reference resolves to the value produced and never changes.
+///
+/// Use <c>forwardReferenceWithNoCaptures</c> where nothing but the value itself is needed.
+/// </remarks>
+let inline forwardReference f = ForwardReference.create f
+
+/// <summary>
+/// Builds a value which can refer to itself, where nothing but the value itself is wanted back.
+/// </summary>
+/// <param name="f">Given the forward reference, returns the value it stands for.</param>
+/// <returns>The value the forward reference was closed with.</returns>
+/// <remarks>
+/// Shorthand for <c>ForwardReference.createWithNoCaptures</c>; see it for the full contract.
+///
+/// <c>forwardReference</c> where something more than the value needs to escape the construction.
+/// </remarks>
+let inline forwardReferenceWithNoCaptures f = ForwardReference.createWithNoCaptures f
+
 /// <summary>
 /// Gets a cell's current value.
 /// </summary>
@@ -1399,6 +1541,7 @@ let inline loopWithNoCapturesC f = Cell.loopWithNoCaptures f
 /// value read is never a half-updated one.
 /// </remarks>
 let inline sampleC cell = Cell.sample cell
+
 /// <summary>
 /// Gets a cell's value as of now, without forcing it yet.
 /// </summary>
@@ -1412,6 +1555,7 @@ let inline sampleC cell = Cell.sample cell
 /// taken from already is.
 /// </remarks>
 let inline sampleLazyC cell = Cell.sampleLazy cell
+
 /// <summary>
 /// Gets a stream firing the new value of a cell each time it changes.
 /// </summary>
@@ -1424,6 +1568,7 @@ let inline sampleLazyC cell = Cell.sampleLazy cell
 /// get that initial value as a firing too.
 /// </remarks>
 let inline updatesC cell = Cell.updates cell
+
 /// <summary>
 /// Gets a stream firing the cell's current value at once, and its new value on every change.
 /// </summary>
@@ -1437,10 +1582,11 @@ let inline updatesC cell = Cell.updates cell
 ///
 /// The immediate firing happens in the transaction this is called in, so this must be called
 /// inside <c>Transaction.run</c> if that firing is to be observed at all - a listener attached
-/// afterwards, in a later transaction, has already missed it. This is the single most common
+/// afterward, in a later transaction, has already missed it. This is the single most common
 /// reason to wrap graph construction in a transaction.
 /// </remarks>
 let inline valuesC cell = Cell.values cell
+
 /// <summary>
 /// Views a cell as a behavior.
 /// </summary>
@@ -1453,6 +1599,7 @@ let inline valuesC cell = Cell.values cell
 /// is for passing one to something written against <c>Behavior</c>.
 /// </remarks>
 let inline asBehaviorC cell = Cell.asBehavior cell
+
 /// <summary>
 /// Listens for changes without keeping the cell alive.
 /// </summary>
@@ -1470,6 +1617,7 @@ let inline asBehaviorC cell = Cell.asBehavior cell
 /// Fires the current value immediately, in the transaction this is called in.
 /// </remarks>
 let inline listenC handler cell = Cell.listen handler cell
+
 /// <summary>
 /// Listens for changes, keeping the cell alive while the listener lives.
 /// </summary>
@@ -1489,6 +1637,7 @@ let inline listenC handler cell = Cell.listen handler cell
 /// under the transaction lock, so it should return promptly.
 /// </remarks>
 let inline listenStrongC handler cell = Cell.listenStrong handler cell
+
 /// <summary>
 /// Applies a cell of functions to a cell of values.
 /// </summary>
@@ -1501,10 +1650,11 @@ let inline listenStrongC handler cell = Cell.listenStrong handler cell
 /// <remarks>
 /// Shorthand for <c>Cell.apply</c>; see it for the full contract.
 ///
-/// The primitive all of the <c>lift</c> functions are built from. Reach for <c>lift2</c> and
+/// The primitive all the <c>lift</c> functions are built from. Reach for <c>lift2</c> and
 /// its siblings first; this is for the cases they do not cover.
 /// </remarks>
 let inline applyC f cell = Cell.apply f cell
+
 /// <summary>
 /// Transforms a cell with a function.
 /// </summary>
@@ -1518,6 +1668,7 @@ let inline applyC f cell = Cell.apply f cell
 /// that it must be pure, since it may be called more than once for one input.
 /// </remarks>
 let inline mapC f cell = Cell.map f cell
+
 /// <summary>
 /// Combines two cells into one whose value is a function of all of theirs.
 /// </summary>
@@ -1532,9 +1683,10 @@ let inline mapC f cell = Cell.map f cell
 /// Shorthand for <c>Cell.lift2</c>; see it for the full contract.
 ///
 /// Glitch-free: when several of the inputs change in one transaction, the result updates
-/// once, with all of the new values, rather than once per input.
+/// once, with all the new values, rather than once per input.
 /// </remarks>
 let inline lift2C f (cell, cell2) = Cell.lift2 f (cell, cell2)
+
 /// <summary>
 /// Combines three cells into one whose value is a function of all of theirs.
 /// </summary>
@@ -1550,9 +1702,10 @@ let inline lift2C f (cell, cell2) = Cell.lift2 f (cell, cell2)
 /// Shorthand for <c>Cell.lift3</c>; see it for the full contract.
 ///
 /// Glitch-free: when several of the inputs change in one transaction, the result updates
-/// once, with all of the new values, rather than once per input.
+/// once, with all the new values, rather than once per input.
 /// </remarks>
 let inline lift3C f (cell, cell2, cell3) = Cell.lift3 f (cell, cell2, cell3)
+
 /// <summary>
 /// Combines four cells into one whose value is a function of all of theirs.
 /// </summary>
@@ -1569,9 +1722,11 @@ let inline lift3C f (cell, cell2, cell3) = Cell.lift3 f (cell, cell2, cell3)
 /// Shorthand for <c>Cell.lift4</c>; see it for the full contract.
 ///
 /// Glitch-free: when several of the inputs change in one transaction, the result updates
-/// once, with all of the new values, rather than once per input.
+/// once, with all the new values, rather than once per input.
 /// </remarks>
-let inline lift4C f (cell, cell2, cell3, cell4) = Cell.lift4 f (cell, cell2, cell3, cell4)
+let inline lift4C f (cell, cell2, cell3, cell4) =
+    Cell.lift4 f (cell, cell2, cell3, cell4)
+
 /// <summary>
 /// Combines five cells into one whose value is a function of all of theirs.
 /// </summary>
@@ -1589,9 +1744,11 @@ let inline lift4C f (cell, cell2, cell3, cell4) = Cell.lift4 f (cell, cell2, cel
 /// Shorthand for <c>Cell.lift5</c>; see it for the full contract.
 ///
 /// Glitch-free: when several of the inputs change in one transaction, the result updates
-/// once, with all of the new values, rather than once per input.
+/// once, with all the new values, rather than once per input.
 /// </remarks>
-let inline lift5C f (cell, cell2, cell3, cell4, cell5) = Cell.lift5 f (cell, cell2, cell3, cell4, cell5)
+let inline lift5C f (cell, cell2, cell3, cell4, cell5) =
+    Cell.lift5 f (cell, cell2, cell3, cell4, cell5)
+
 /// <summary>
 /// Combines six cells into one whose value is a function of all of theirs.
 /// </summary>
@@ -1610,9 +1767,11 @@ let inline lift5C f (cell, cell2, cell3, cell4, cell5) = Cell.lift5 f (cell, cel
 /// Shorthand for <c>Cell.lift6</c>; see it for the full contract.
 ///
 /// Glitch-free: when several of the inputs change in one transaction, the result updates
-/// once, with all of the new values, rather than once per input.
+/// once, with all the new values, rather than once per input.
 /// </remarks>
-let inline lift6C f (cell, cell2, cell3, cell4, cell5, cell6) = Cell.lift6 f (cell, cell2, cell3, cell4, cell5, cell6)
+let inline lift6C f (cell, cell2, cell3, cell4, cell5, cell6) =
+    Cell.lift6 f (cell, cell2, cell3, cell4, cell5, cell6)
+
 /// <summary>
 /// Combines seven cells into one whose value is a function of all of theirs.
 /// </summary>
@@ -1632,9 +1791,11 @@ let inline lift6C f (cell, cell2, cell3, cell4, cell5, cell6) = Cell.lift6 f (ce
 /// Shorthand for <c>Cell.lift7</c>; see it for the full contract.
 ///
 /// Glitch-free: when several of the inputs change in one transaction, the result updates
-/// once, with all of the new values, rather than once per input.
+/// once, with all the new values, rather than once per input.
 /// </remarks>
-let inline lift7C f (cell, cell2, cell3, cell4, cell5, cell6, cell7) = Cell.lift7 f (cell, cell2, cell3, cell4, cell5, cell6, cell7)
+let inline lift7C f (cell, cell2, cell3, cell4, cell5, cell6, cell7) =
+    Cell.lift7 f (cell, cell2, cell3, cell4, cell5, cell6, cell7)
+
 /// <summary>
 /// Combines eight cells into one whose value is a function of all of theirs.
 /// </summary>
@@ -1655,9 +1816,11 @@ let inline lift7C f (cell, cell2, cell3, cell4, cell5, cell6, cell7) = Cell.lift
 /// Shorthand for <c>Cell.lift8</c>; see it for the full contract.
 ///
 /// Glitch-free: when several of the inputs change in one transaction, the result updates
-/// once, with all of the new values, rather than once per input.
+/// once, with all the new values, rather than once per input.
 /// </remarks>
-let inline lift8C f (cell, cell2, cell3, cell4, cell5, cell6, cell7, cell8) = Cell.lift8 f (cell, cell2, cell3, cell4, cell5, cell6, cell7, cell8)
+let inline lift8C f (cell, cell2, cell3, cell4, cell5, cell6, cell7, cell8) =
+    Cell.lift8 f (cell, cell2, cell3, cell4, cell5, cell6, cell7, cell8)
+
 /// <summary>
 /// Suppresses updates whose value the given comparison considers equal to the last one that got
 /// through.
@@ -1672,6 +1835,7 @@ let inline lift8C f (cell, cell2, cell3, cell4, cell5, cell6, cell7, cell8) = Ce
 /// and the next comparison is made against the last value that got through.
 /// </remarks>
 let inline calmWithCompareC compare cell = Cell.calmWithCompare compare cell
+
 /// <summary>
 /// Suppresses updates whose value the given comparer considers equal to the last one that got
 /// through.
@@ -1685,7 +1849,9 @@ let inline calmWithCompareC compare cell = Cell.calmWithCompare compare cell
 /// Suppressing an update is not the same as it not happening: the cell still takes the new value,
 /// and the next comparison is made against the last value that got through.
 /// </remarks>
-let inline calmWithEqualityComparerC equalityComparer cell = Cell.calmWithEqualityComparer equalityComparer cell
+let inline calmWithEqualityComparerC equalityComparer cell =
+    Cell.calmWithEqualityComparer equalityComparer cell
+
 /// <summary>
 /// Suppresses updates equal, by F#'s structural equality, to the last one that got through.
 /// </summary>
@@ -1701,12 +1867,13 @@ let inline calmWithEqualityComparerC equalityComparer cell = Cell.calmWithEquali
 /// <c>calmWithCompare</c> instead.
 /// </remarks>
 let inline calmC cell = Cell.calm cell
+
 /// <summary>
 /// Combines any number of cells into one whose value is a function of all of theirs.
 /// </summary>
 /// <param name="f">Combines the current values, given in the order the cells were supplied.</param>
 /// <param name="cells">The cells to combine.</param>
-/// <returns>A cell whose value is <paramref name="f" /> applied to all of the current values.</returns>
+/// <returns>A cell whose value is <paramref name="f" /> applied to all the current values.</returns>
 /// <remarks>
 /// Shorthand for <c>Cell.liftAll</c>; see it for the full contract.
 ///
@@ -1715,6 +1882,7 @@ let inline calmC cell = Cell.calm cell
 /// once.
 /// </remarks>
 let inline liftAllC f cells = Cell.liftAll f cells
+
 /// <summary>
 /// Unwraps a cell of behaviors into a behavior which follows whichever one is current.
 /// </summary>
@@ -1724,6 +1892,7 @@ let inline liftAllC f cells = Cell.liftAll f cells
 /// Shorthand for <c>Cell.switchB</c>; see it for the full contract.
 /// </remarks>
 let inline switchB cell = Cell.switchB cell
+
 /// <summary>
 /// Unwraps a cell of cells into a cell which follows whichever one is current.
 /// </summary>
@@ -1736,6 +1905,7 @@ let inline switchB cell = Cell.switchB cell
 /// being followed.
 /// </remarks>
 let inline switchC cell = Cell.switchC cell
+
 /// <summary>
 /// Unwraps a cell of streams into a stream which fires whatever the current one fires.
 /// </summary>

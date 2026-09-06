@@ -14,4 +14,4 @@ open System.Runtime.CompilerServices
 ///     chooses. Use this where the moment matters.
 /// </remarks>
 [<MethodImpl(MethodImplOptions.NoInlining)>]
-let cleanupNow (cleanup : Cleanup) = cleanup.CleanupNowImpl ()
+let cleanupNow (cleanup: Cleanup) = cleanup.CleanupNowImpl()

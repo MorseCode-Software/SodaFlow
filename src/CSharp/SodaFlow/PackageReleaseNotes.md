@@ -1,3 +1,31 @@
+4.0.0
+
+BREAKING: requires SodaFlow.Core 4.x, where it required 3.x. That
+package removed internal members this one is built against, so the two
+have to move together; nothing it removed is in its public surface, and
+nothing here changed shape because of it.
+
+BREAKING: requires SodaFlow.Functional 3.x, where it required 2.x. Unit is a
+struct there now, and this package's surface is full of Stream<Unit> and its
+relatives, so the two move together. Nothing in this package's own API
+changed shape.
+
+BREAKING: the JetBrains annotation attributes which were compiled into the
+SodaFlow namespace - SodaFlow.PureAttribute, SodaFlow.NotNullAttribute and
+fifty more - are gone. They were a vendored copy, public by accident rather
+than by intent, and are replaced by a reference to the JetBrains.Annotations
+package which is not redistributed with this one. Nothing here was meant to
+be consumed through them.
+
+The build is warning-free, which it was not: the unreachable-code warnings
+in the priority queue are gone.
+
+Requires System.ValueTuple 4.6.2, where it required 4.4.0. Nothing here
+uses it differently: this repository named two versions of it, one in
+the shipping projects and one in the test projects, and now names a
+single version in both. A consumer does nothing about this; NuGet
+resolves the higher floor.
+
 3.0.0
 
 New: ForwardReference constructs a value which can refer to itself while it is

@@ -2,609 +2,801 @@ module SodaFlow.Tests.Stream
 
 open System
 open System.Collections.Generic
-open NUnit.Framework
-open SodaFlow
+open System.Runtime.CompilerServices
 open System.Threading
+open SodaFlow
+open TUnit.Core
 
-[<TestFixture>]
+// These two run outside the tests that assert on them, and not by preference. Each turns on a weak
+// listener being collected once the local holding it is dropped, and neither a task block nor an
+// inner `let f () = ...` gives it a frame that ends: the state machine holds every local for the
+// life of the method, and F# inlines a local function used once. So the part that has to go out of
+// scope is its own function, kept out of its caller, which is what the C# tests do too.
+
+// Every generation, not only generation 0, as the C# tests do. These turn on a listener being
+// reclaimed once nothing roots it, and a generation-0 collection reclaims only what is still in
+// generation 0; running a whole suite in one process allocates enough that the listener has usually
+// been promoted by the time the test asks, and a promoted object survives and goes on firing.
+//
+// The finalizer pass and the second collection are for StreamListenerManager's sweep trigger, which
+// asks for a sweep by being finalized. Nothing here waits on that sweep, because Send prunes dead
+// targets itself.
+let private collect () =
+    GC.Collect()
+    GC.WaitForPendingFinalizers()
+    GC.Collect()
+
+[<MethodImpl(MethodImplOptions.NoInlining)>]
+let private listenAndSend (s: StreamSink<int>) (out: List<int>) (values: int list) =
+    let _l = s |> listenS out.Add
+    values |> List.iter (fun v -> s |> sendS v)
+
+[<MethodImpl(MethodImplOptions.NoInlining)>]
+let private listenAndSendMapped (s: StreamSink<int>) (s2: Stream<int>) (out: List<int>) (values: int list) =
+    let _l = s2 |> listenS out.Add
+    values |> List.iter (fun v -> s |> sendS v)
+
+[<MethodImpl(MethodImplOptions.NoInlining)>]
+let private listenAndDrop () =
+    let s = sinkS ()
+    let out = List<_>()
+
+    listenAndSend s out [ 1; 2 ]
+
+    collect ()
+    s |> sendS 3
+    s |> sendS 4
+    out
+
+[<MethodImpl(MethodImplOptions.NoInlining)>]
+let private listenAndDropInner (s: StreamSink<int>) (out: List<int>) =
+    let s2 = s |> mapS ((+) 1)
+
+    listenAndSend s out [ 1; 2 ]
+
+    collect ()
+
+    listenAndSendMapped s s2 out [ 3; 4; 5 ]
+
+[<MethodImpl(MethodImplOptions.NoInlining)>]
+let private listenAndDropWithMap () =
+    let s = sinkS ()
+    let out = List<_>()
+
+    listenAndDropInner s out
+
+    collect ()
+    s |> sendS 6
+    s |> sendS 7
+    out
+
 type ``Stream Tests``() =
 
     [<Test>]
-    member __.``Test Stream Send``() =
-        let s = sinkS ()
-        let out = List<_>()
-        let l = s |> listenStrongS out.Add
-        s |> sendS 5
-        l |> unlistenL
-        CollectionAssert.AreEqual([5], out)
-        s |> sendS 6
-        CollectionAssert.AreEqual([5], out)
+    member _.``Test Stream Send``() =
+        task {
+            let s = sinkS ()
+            let out = List<_>()
+            let l = s |> listenStrongS out.Add
+            s |> sendS 5
+            l |> unlistenL
+            do! Expect.Sequence([ 5 ], out)
+            s |> sendS 6
+            do! Expect.Sequence([ 5 ], out)
+        }
 
     [<Test>]
-    member __.``Test Stream Send In Callback Throws Exception``() =
-        let s = sinkS ()
-        let s2 = sinkS ()
-        let actual = (
-            use _let = s |> listenStrongS (s2 |> flip sendS)
-            try
-                s |> sendS 5
-                None
-            with
-                | :? InvalidOperationException as e -> Some e
-        )
-        actual |> assertExceptionExists (fun e -> Assert.AreEqual ("Send may not be called inside a callback.", e.Message))
+    member _.``Test Stream Send In Callback Throws Exception``() =
+        task {
+            let s = sinkS ()
+            let s2 = sinkS ()
+
+            let actual =
+                (use _let = s |> listenStrongS (s2 |> flip sendS)
+
+                 try
+                     s |> sendS 5
+                     None
+                 with :? InvalidOperationException as e ->
+                     Some e)
+
+            do!
+                actual
+                |> assertExceptionExists (fun e -> Expect.Equal("Send may not be called inside a callback.", e.Message))
+        }
 
     [<Test>]
-    member __.``Test Stream Send In Map Throws Exception``() =
-        let s = sinkS ()
-        let s2 = sinkS ()
-        let actual = (
-            use _let = s |> mapS (s2 |> flip sendS) |> listenStrongS id
-            try
-                s |> sendS 5
-                None
-            with
-                | :? InvalidOperationException as e -> Some e
-        )
-        actual |> assertExceptionExists (fun e -> Assert.AreEqual ("Send may not be called inside a callback.", e.Message))
+    member _.``Test Stream Send In Map Throws Exception``() =
+        task {
+            let s = sinkS ()
+            let s2 = sinkS ()
+
+            let actual =
+                (use _let = s |> mapS (s2 |> flip sendS) |> listenStrongS id
+
+                 try
+                     s |> sendS 5
+                     None
+                 with :? InvalidOperationException as e ->
+                     Some e)
+
+            do!
+                actual
+                |> assertExceptionExists (fun e -> Expect.Equal("Send may not be called inside a callback.", e.Message))
+        }
 
     [<Test>]
-    member __.``Test Stream Send In Cell Map Throws Exception``() =
-        let c = constantC 5
-        let s2 = sinkS ()
-        let actual = (
-            try
-                use _let = c |> mapC (s2 |> flip sendS) |> listenStrongC id
-                None
-            with
-                | :? InvalidOperationException as e -> Some e
-        )
-        actual |> assertExceptionExists (fun e -> Assert.AreEqual ("Send may not be called inside a callback.", e.Message))
+    member _.``Test Stream Send In Cell Map Throws Exception``() =
+        task {
+            let c = constantC 5
+            let s2 = sinkS ()
+
+            let actual =
+                (try
+                    use _let = c |> mapC (s2 |> flip sendS) |> listenStrongC id
+                    None
+                 with :? InvalidOperationException as e ->
+                     Some e)
+
+            do!
+                actual
+                |> assertExceptionExists (fun e -> Expect.Equal("Send may not be called inside a callback.", e.Message))
+        }
 
     [<Test>]
-    member __.``Test Stream Send In Cell Lift Throws Exception``() =
-        let c = constantC 5
-        let c2 = constantC 7
-        let s2 = sinkS ()
-        let actual = (
-            try
-                use _let = (c, c2) |> lift2C (fun _ _ -> s2 |> sendS 5) |> listenStrongC id
-                None
-            with
-                | :? InvalidOperationException as e -> Some e
-        )
-        actual |> assertExceptionExists (fun e -> Assert.AreEqual ("Send may not be called inside a callback.", e.Message))
+    member _.``Test Stream Send In Cell Lift Throws Exception``() =
+        task {
+            let c = constantC 5
+            let c2 = constantC 7
+            let s2 = sinkS ()
+
+            let actual =
+                (try
+                    use _let = (c, c2) |> lift2C (fun _ _ -> s2 |> sendS 5) |> listenStrongC id
+                    None
+                 with :? InvalidOperationException as e ->
+                     Some e)
+
+            do!
+                actual
+                |> assertExceptionExists (fun e -> Expect.Equal("Send may not be called inside a callback.", e.Message))
+        }
 
     [<Test>]
-    member __.``Test Stream Send In Cell Apply Throws Exception``() =
-        let c = constantC 5
-        let s2 = sinkS ()
-        let c2 = constantC (fun _ -> s2 |> sendS 5)
-        let actual = (
-            try
-                use _let = c |> applyC c2 |> listenStrongC id
-                None
-            with
-                | :? InvalidOperationException as e -> Some e
-        )
-        actual |> assertExceptionExists (fun e -> Assert.AreEqual ("Send may not be called inside a callback.", e.Message))
+    member _.``Test Stream Send In Cell Apply Throws Exception``() =
+        task {
+            let c = constantC 5
+            let s2 = sinkS ()
+            let c2 = constantC (fun _ -> s2 |> sendS 5)
+
+            let actual =
+                (try
+                    use _let = c |> applyC c2 |> listenStrongC id
+                    None
+                 with :? InvalidOperationException as e ->
+                     Some e)
+
+            do!
+                actual
+                |> assertExceptionExists (fun e -> Expect.Equal("Send may not be called inside a callback.", e.Message))
+        }
 
     [<Test>]
-    member __.``Test Map``() =
-        let s = sinkS ()
-        let m = s |> mapS ((+) 2 >> string)
-        let out = List<_>()
-        let l = m |> listenStrongS out.Add
-        s |> sendS 5
-        s |> sendS 3
-        l |> unlistenL
-        CollectionAssert.AreEqual(["7";"5"], out)
+    member _.``Test Map``() =
+        task {
+            let s = sinkS ()
+            let m = s |> mapS ((+) 2 >> string)
+            let out = List<_>()
+            let l = m |> listenStrongS out.Add
+            s |> sendS 5
+            s |> sendS 3
+            l |> unlistenL
+            do! Expect.Sequence([ "7"; "5" ], out)
+        }
 
     [<Test>]
-    member __.``Test OrElse Non-Simultaneous``() =
-        let s1 = sinkS ()
-        let s2 = sinkS ()
-        let out = List<_>()
-        let l = (s1, s2) |> orElseS |> listenStrongS out.Add
-        s1 |> sendS 7
-        s1 |> sendS 9
-        s1 |> sendS 8
-        l |> unlistenL
-        CollectionAssert.AreEqual([7;9;8], out)
+    member _.``Test OrElse Non-Simultaneous``() =
+        task {
+            let s1 = sinkS ()
+            let s2 = sinkS ()
+            let out = List<_>()
+            let l = (s1, s2) |> orElseS |> listenStrongS out.Add
+            s1 |> sendS 7
+            s1 |> sendS 9
+            s1 |> sendS 8
+            l |> unlistenL
+            do! Expect.Sequence([ 7; 9; 8 ], out)
+        }
 
     [<Test>]
-    member __.``Test OrElse Simultaneous 1``() =
-        let s1 = sinkWithCoalesceS (fun l r -> r)
-        let s2 = sinkWithCoalesceS (fun l r -> r)
-        let out = List<_>()
-        let l = (s2, s1) |> orElseS |> listenStrongS out.Add
-        runT (fun () -> s1 |> sendS 7; s2 |> sendS 60)
-        runT (fun () -> s1 |> sendS 9)
-        runT (fun () -> s1 |> sendS 7; s1 |> sendS 60; s2 |> sendS 8; s2 |> sendS 90)
-        runT (fun () -> s2 |> sendS 8; s2 |> sendS 90; s1 |> sendS 7; s1 |> sendS 60)
-        runT (fun () -> s2 |> sendS 8; s1 |> sendS 7; s2 |> sendS 90; s1 |> sendS 60)
-        l |> unlistenL
-        CollectionAssert.AreEqual([60;9;90;90;90], out)
+    member _.``Test OrElse Simultaneous 1``() =
+        task {
+            let s1 = sinkWithCoalesceS (fun _ r -> r)
+            let s2 = sinkWithCoalesceS (fun _ r -> r)
+            let out = List<_>()
+            let l = (s2, s1) |> orElseS |> listenStrongS out.Add
+
+            runT (fun () ->
+                s1 |> sendS 7
+                s2 |> sendS 60)
+
+            runT (fun () -> s1 |> sendS 9)
+
+            runT (fun () ->
+                s1 |> sendS 7
+                s1 |> sendS 60
+                s2 |> sendS 8
+                s2 |> sendS 90)
+
+            runT (fun () ->
+                s2 |> sendS 8
+                s2 |> sendS 90
+                s1 |> sendS 7
+                s1 |> sendS 60)
+
+            runT (fun () ->
+                s2 |> sendS 8
+                s1 |> sendS 7
+                s2 |> sendS 90
+                s1 |> sendS 60)
+
+            l |> unlistenL
+            do! Expect.Sequence([ 60; 9; 90; 90; 90 ], out)
+        }
 
     [<Test>]
-    member __.``Test OrElse Simultaneous 2``() =
-        let s = sinkS ()
-        let s2 = s |> mapS ((*) 2)
-        let out = List<_>()
-        let l = (s, s2) |> orElseS |> listenStrongS out.Add
-        s |> sendS 7
-        s |> sendS 9
-        l |> unlistenL
-        CollectionAssert.AreEqual([7;9], out)
+    member _.``Test OrElse Simultaneous 2``() =
+        task {
+            let s = sinkS ()
+            let s2 = s |> mapS ((*) 2)
+            let out = List<_>()
+            let l = (s, s2) |> orElseS |> listenStrongS out.Add
+            s |> sendS 7
+            s |> sendS 9
+            l |> unlistenL
+            do! Expect.Sequence([ 7; 9 ], out)
+        }
 
     [<Test>]
-    member __.``Test OrElse Left Bias``() =
-        let s = sinkS ()
-        let s2 = s |> mapS ((*) 2)
-        let out = List<_>()
-        let l = (s2, s) |> orElseS |> listenStrongS out.Add
-        s |> sendS 7
-        s |> sendS 9
-        l |> unlistenL
-        CollectionAssert.AreEqual([14;18], out)
+    member _.``Test OrElse Left Bias``() =
+        task {
+            let s = sinkS ()
+            let s2 = s |> mapS ((*) 2)
+            let out = List<_>()
+            let l = (s2, s) |> orElseS |> listenStrongS out.Add
+            s |> sendS 7
+            s |> sendS 9
+            l |> unlistenL
+            do! Expect.Sequence([ 14; 18 ], out)
+        }
 
     [<Test>]
-    member __.``Test Merge Non-Simultaneous``() =
-        let s1 = sinkS ()
-        let s2 = sinkS ()
-        let out = List<_>()
-        let l = (s1, s2) |> mergeS (+) |> listenStrongS out.Add
-        s1 |> sendS 7
-        s1 |> sendS 9
-        s1 |> sendS 8
-        l |> unlistenL
-        CollectionAssert.AreEqual([7;9;8], out)
+    member _.``Test Merge Non-Simultaneous``() =
+        task {
+            let s1 = sinkS ()
+            let s2 = sinkS ()
+            let out = List<_>()
+            let l = (s1, s2) |> mergeS (+) |> listenStrongS out.Add
+            s1 |> sendS 7
+            s1 |> sendS 9
+            s1 |> sendS 8
+            l |> unlistenL
+            do! Expect.Sequence([ 7; 9; 8 ], out)
+        }
 
     [<Test>]
-    member __.``Test Merge Simultaneous``() =
-        let s = sinkS ()
-        let s2 = s |> mapS ((*) 2)
-        let out = List<_>()
-        let l = (s, s2) |> mergeS (+) |> listenStrongS out.Add
-        s |> sendS 7
-        s |> sendS 9
-        l |> unlistenL
-        CollectionAssert.AreEqual([21;27], out)
+    member _.``Test Merge Simultaneous``() =
+        task {
+            let s = sinkS ()
+            let s2 = s |> mapS ((*) 2)
+            let out = List<_>()
+            let l = (s, s2) |> mergeS (+) |> listenStrongS out.Add
+            s |> sendS 7
+            s |> sendS 9
+            l |> unlistenL
+            do! Expect.Sequence([ 21; 27 ], out)
+        }
 
     [<Test>]
-    member __.``Test Coalesce``() =
-        let s = sinkWithCoalesceS (+)
-        let out = List<_>()
-        let l = s |> listenStrongS out.Add
-        runT (fun () -> s |> sendS 2)
-        runT (fun () -> s |> sendS 8; s |> sendS 40)
-        l |> unlistenL
-        CollectionAssert.AreEqual([2;48], out)
+    member _.``Test Coalesce``() =
+        task {
+            let s = sinkWithCoalesceS (+)
+            let out = List<_>()
+            let l = s |> listenStrongS out.Add
+            runT (fun () -> s |> sendS 2)
+
+            runT (fun () ->
+                s |> sendS 8
+                s |> sendS 40)
+
+            l |> unlistenL
+            do! Expect.Sequence([ 2; 48 ], out)
+        }
 
     [<Test>]
-    member __.``Test Coalesce 2``() =
-        let s = sinkWithCoalesceS (+)
-        let out = List<_>()
-        let l = s |> listenStrongS out.Add
-        runT (fun () -> Seq.init 5 ((+) 1) |> Seq.iter (s |> flip sendS))
-        runT (fun () -> Seq.init 5 ((+) 6) |> Seq.iter (s |> flip sendS))
-        l |> unlistenL
-        CollectionAssert.AreEqual([15;40], out)
+    member _.``Test Coalesce 2``() =
+        task {
+            let s = sinkWithCoalesceS (+)
+            let out = List<_>()
+            let l = s |> listenStrongS out.Add
+            runT (fun () -> Seq.init 5 ((+) 1) |> Seq.iter (s |> flip sendS))
+            runT (fun () -> Seq.init 5 ((+) 6) |> Seq.iter (s |> flip sendS))
+            l |> unlistenL
+            do! Expect.Sequence([ 15; 40 ], out)
+        }
 
     [<Test>]
-    member __.``Test Filter``() =
-        let s = sinkS ()
-        let out = List<_>()
-        let l = s |> filterS Char.IsUpper |> listenStrongS out.Add
-        s |> sendS 'H'
-        s |> sendS 'o'
-        s |> sendS 'I'
-        l |> unlistenL
-        CollectionAssert.AreEqual (['H';'I'], out)
+    member _.``Test Filter``() =
+        task {
+            let s = sinkS ()
+            let out = List<_>()
+            let l = s |> filterS Char.IsUpper |> listenStrongS out.Add
+            s |> sendS 'H'
+            s |> sendS 'o'
+            s |> sendS 'I'
+            l |> unlistenL
+            do! Expect.Sequence([ 'H'; 'I' ], out)
+        }
 
     [<Test>]
-    member __.``Test Filter Some``() =
-        let s = sinkS ()
-        let out = List<_>()
-        let l = s |> filterSomeS |> listenStrongS out.Add
-        s |> sendS (Some "tomato")
-        s |> sendS None
-        s |> sendS (Some "peach")
-        s |> sendS None
-        s |> sendS (Some "pear")
-        l |> unlistenL
-        CollectionAssert.AreEqual (["tomato";"peach";"pear"], out)
+    member _.``Test Filter Some``() =
+        task {
+            let s = sinkS ()
+            let out = List<_>()
+            let l = s |> filterSomeS |> listenStrongS out.Add
+            s |> sendS (Some "tomato")
+            s |> sendS None
+            s |> sendS (Some "peach")
+            s |> sendS None
+            s |> sendS (Some "pear")
+            l |> unlistenL
+            do! Expect.Sequence([ "tomato"; "peach"; "pear" ], out)
+        }
 
     [<Test>]
-    member __.``Test Choose``() =
-        let s = sinkS ()
-        let out = List<_>()
-        let l = s |> chooseS (fun (v : string) -> if v.Length > 4 then Some v.Length else None) |> listenStrongS out.Add
-        s |> sendS "tomato"
-        s |> sendS "fig"
-        s |> sendS "peach"
-        s |> sendS "yam"
-        s |> sendS "pear"
-        l |> unlistenL
-        CollectionAssert.AreEqual ([6;5], out)
+    member _.``Test Choose``() =
+        task {
+            let s = sinkS ()
+            let out = List<_>()
+
+            let l =
+                s
+                |> chooseS (fun (v: string) -> if v.Length > 4 then Some v.Length else None)
+                |> listenStrongS out.Add
+
+            s |> sendS "tomato"
+            s |> sendS "fig"
+            s |> sendS "peach"
+            s |> sendS "yam"
+            s |> sendS "pear"
+            l |> unlistenL
+            do! Expect.Sequence([ 6; 5 ], out)
+        }
 
     [<Test>]
-    member __.``Test Choose Matches Map Then Filter Some``() =
-        let s = sinkS ()
-        let chosen = List<_>()
-        let mapped = List<_>()
-        let f (v : string) = if v.Length > 4 then Some v.Length else None
-        let l1 = s |> chooseS f |> listenStrongS chosen.Add
-        let l2 = s |> mapS f |> filterSomeS |> listenStrongS mapped.Add
-        s |> sendS "tomato"
-        s |> sendS "fig"
-        s |> sendS "peach"
-        l1 |> unlistenL
-        l2 |> unlistenL
-        CollectionAssert.AreEqual (mapped, chosen)
-        CollectionAssert.AreEqual ([6;5], chosen)
+    member _.``Test Choose Matches Map Then Filter Some``() =
+        task {
+            let s = sinkS ()
+            let chosen = List<_>()
+            let mapped = List<_>()
+
+            let f (v: string) =
+                if v.Length > 4 then Some v.Length else None
+
+            let l1 = s |> chooseS f |> listenStrongS chosen.Add
+            let l2 = s |> mapS f |> filterSomeS |> listenStrongS mapped.Add
+            s |> sendS "tomato"
+            s |> sendS "fig"
+            s |> sendS "peach"
+            l1 |> unlistenL
+            l2 |> unlistenL
+            do! Expect.Sequence(mapped, chosen)
+            do! Expect.Sequence([ 6; 5 ], chosen)
+        }
 
     [<Test>]
-    member __.``Test Choose None Fires Nothing``() =
-        let s = sinkS ()
-        let out = List<_>()
-        let l = s |> chooseS (fun (_ : string) -> Option<int>.None) |> listenStrongS out.Add
-        s |> sendS "tomato"
-        s |> sendS "peach"
-        l |> unlistenL
-        CollectionAssert.AreEqual (List<int>(), out)
+    member _.``Test Choose None Fires Nothing``() =
+        task {
+            let s = sinkS ()
+            let out = List<_>()
+            let l = s |> chooseS (fun (_: string) -> Option<int>.None) |> listenStrongS out.Add
+            s |> sendS "tomato"
+            s |> sendS "peach"
+            l |> unlistenL
+            do! Expect.Sequence(List<int>(), out)
+        }
 
     [<Test>]
-    member __.``Test Loop Stream``() =
-        let sa = sinkS ()
-        let struct (sb, sc) = loopS (fun sb ->
-            let sc = (sa |> mapS (flip (%) 10), sb) |> mergeS (*)
-            let sb = sa |> mapS (flip (/) 10) |> filterS ((<>) 0)
-            struct (sb, sc))
-        let out = List<_>()
-        let out2 = List<_>()
-        let l = sb |> listenStrongS out.Add
-        let l2 = sc |> listenStrongS out2.Add
-        sa |> sendS 2
-        sa |> sendS 52
-        l2 |> unlistenL
-        l |> unlistenL
-        CollectionAssert.AreEqual ([5], out)
-        CollectionAssert.AreEqual ([2;10], out2)
+    member _.``Test Loop Stream``() =
+        task {
+            let sa = sinkS ()
+
+            let struct (sb, sc) =
+                loopS (fun sb ->
+                    let sc = (sa |> mapS (flip (%) 10), sb) |> mergeS (*)
+                    let sb = sa |> mapS (flip (/) 10) |> filterS ((<>) 0)
+                    struct (sb, sc))
+
+            let out = List<_>()
+            let out2 = List<_>()
+            let l = sb |> listenStrongS out.Add
+            let l2 = sc |> listenStrongS out2.Add
+            sa |> sendS 2
+            sa |> sendS 52
+            l2 |> unlistenL
+            l |> unlistenL
+            do! Expect.Sequence([ 5 ], out)
+            do! Expect.Sequence([ 2; 10 ], out2)
+        }
 
     [<Test>]
-    member __.``Test Loop Cell``() =
-        let ca = sinkC 22
-        let struct (cb, cc) = loopC (fun cb ->
-            let cc = (ca |> mapC (flip (%) 10), cb) |> lift2C (*)
-            let cb = ca |> mapC (flip (/) 10)
-            struct (cb, cc))
-        let out = List<_>()
-        let out2 = List<_>()
-        let l = cb |> listenStrongC out.Add
-        let l2 = cc |> listenStrongC out2.Add
-        ca |> sendC 2
-        ca |> sendC 52
-        l2 |> unlistenL
-        l |> unlistenL
-        CollectionAssert.AreEqual ([2;0;5], out)
-        CollectionAssert.AreEqual ([4;0;10], out2)
+    member _.``Test Loop Cell``() =
+        task {
+            let ca = sinkC 22
+
+            let struct (cb, cc) =
+                loopC (fun cb ->
+                    let cc = (ca |> mapC (flip (%) 10), cb) |> lift2C (*)
+                    let cb = ca |> mapC (flip (/) 10)
+                    struct (cb, cc))
+
+            let out = List<_>()
+            let out2 = List<_>()
+            let l = cb |> listenStrongC out.Add
+            let l2 = cc |> listenStrongC out2.Add
+            ca |> sendC 2
+            ca |> sendC 52
+            l2 |> unlistenL
+            l |> unlistenL
+            do! Expect.Sequence([ 2; 0; 5 ], out)
+            do! Expect.Sequence([ 4; 0; 10 ], out2)
+        }
 
     [<Test>]
-    member __.``Test Gate``() =
-        let sc = sinkS ()
-        let cGate = sinkB true
-        let out = List<_>()
-        let l = sc |> gateB cGate |> listenStrongS out.Add
-        sc |> sendS 'H'
-        cGate |> sendB false
-        sc |> sendS 'O'
-        cGate |> sendB true
-        sc |> sendS 'I'
-        l |> unlistenL
-        CollectionAssert.AreEqual (['H';'I'], out)
-    
+    member _.``Test Gate``() =
+        task {
+            let sc = sinkS ()
+            let cGate = sinkB true
+            let out = List<_>()
+            let l = sc |> gateB cGate |> listenStrongS out.Add
+            sc |> sendS 'H'
+            cGate |> sendB false
+            sc |> sendS 'O'
+            cGate |> sendB true
+            sc |> sendS 'I'
+            l |> unlistenL
+            do! Expect.Sequence([ 'H'; 'I' ], out)
+        }
+
     [<Test>]
-    member __.``Test Calm``() =
-        let s = sinkS ()
-        let out = List<_>()
-        let l = s |> calmS |> listenStrongS out.Add
-        s |> sendS 2
-        s |> sendS 2
-        s |> sendS 2
-        s |> sendS 4
-        s |> sendS 2
-        s |> sendS 4
-        s |> sendS 4
-        s |> sendS 2
-        s |> sendS 2
-        s |> sendS 2
-        s |> sendS 2
-        s |> sendS 2
-        s |> sendS 4
-        s |> sendS 2
-        s |> sendS 4
-        s |> sendS 4
-        s |> sendS 2
-        s |> sendS 2
-        s |> sendS 2
-        s |> sendS 2
-        s |> sendS 2
-        s |> sendS 4
-        s |> sendS 2
-        s |> sendS 4
-        s |> sendS 4
-        s |> sendS 2
-        s |> sendS 2
-        s |> sendS 2
-        s |> sendS 2
-        s |> sendS 2
-        s |> sendS 4
-        s |> sendS 2
-        s |> sendS 4
-        s |> sendS 4
-        s |> sendS 2
-        s |> sendS 2
-        s |> sendS 2
-        s |> sendS 2
-        s |> sendS 2
-        s |> sendS 4
-        s |> sendS 2
-        s |> sendS 4
-        s |> sendS 4
-        s |> sendS 2
-        s |> sendS 2
-        l |> unlistenL
-        CollectionAssert.AreEqual ([2;4;2;4;2;4;2;4;2;4;2;4;2;4;2;4;2;4;2;4;2], out)
-    
-    [<Test>]
-    member __.``Test Calm 2``() =
-        let s = sinkS ()
-        let out = List<_>()
-        let l = s |> calmS |> listenStrongS out.Add
-        s |> sendS 2
-        s |> sendS 4
-        s |> sendS 2
-        s |> sendS 4
-        s |> sendS 4
-        s |> sendS 2
-        s |> sendS 2
-        l |> unlistenL
-        CollectionAssert.AreEqual ([2;4;2;4;2], out)
-    
-    [<Test>]
-    member __.``Test Collect``() =
-        let sa = sinkS ()
-        let out = List<_>()
-        let sum = sa |> collectS struct (100, true) (fun a struct (value, test) ->
-            let outputValue = value + if test then a * 3 else a
-            struct (outputValue, struct (outputValue, outputValue % 2 = 0)))
-        let l = sum |> listenStrongS out.Add
-        sa |> sendS 5
-        sa |> sendS 7
-        sa |> sendS 1
-        sa |> sendS 2
-        sa |> sendS 3
-        l |> unlistenL
-        CollectionAssert.AreEqual ([115;122;125;127;130], out)
-    
-    [<Test>]
-    member __.``Test Accum``() =
-        let sa = sinkS ()
-        let out = List<_>()
-        let sum = sa |> accumS 100 (+)
-        let l = sum |> listenStrongC out.Add
-        sa |> sendS 5
-        sa |> sendS 7
-        sa |> sendS 1
-        sa |> sendS 2
-        sa |> sendS 3
-        l |> unlistenL
-        CollectionAssert.AreEqual ([100;105;112;113;115;118], out)
-    
-    [<Test>]
-    member __.``Test Once``() =
-        let s = sinkS ()
-        let out = List<_>()
-        let l = s |> onceS |> listenStrongS out.Add
-        s |> sendS 'A'
-        s |> sendS 'B'
-        s |> sendS 'C'
-        l |> unlistenL
-        CollectionAssert.AreEqual (['A'], out)
-    
-    [<Test>]
-    member __.``Test Hold``() =
-        let s = sinkS ()
-        let c = s |> holdS ' '
-        let out = List<_>()
-        let l = c |> listenStrongC out.Add
-        s |> sendS 'C'
-        s |> sendS 'B'
-        s |> sendS 'A'
-        l |> unlistenL
-        CollectionAssert.AreEqual ([' ';'C';'B';'A'], out)
-    
-    [<Test>]
-    member __.``Test Hold Implicit Delay``() =
-        let s = sinkS ()
-        let c = s |> holdS ' '
-        let out = List<_>()
-        let l = s |> snapshotAndTakeC c |> listenStrongS out.Add
-        s |> sendS 'C'
-        s |> sendS 'B'
-        s |> sendS 'A'
-        l |> unlistenL
-        CollectionAssert.AreEqual ([' ';'C';'B'], out)
-    
-    [<Test>]
-    member __.``Test Defer``() =
-        let s = sinkS ()
-        let c = s |> holdS ' '
-        let out = List<_>()
-        let l = s |> Operational.defer |> snapshotAndTakeC c |> listenStrongS out.Add
-        s |> sendS 'C'
-        s |> sendS 'B'
-        s |> sendS 'A'
-        l |> unlistenL
-        CollectionAssert.AreEqual (['C';'B';'A'], out)
-    
-    [<Test>]
-    member __.``Test Listen``() =
-        let s = sinkS ()
-        let out = List<_>()
-        let a () =
-            let l = s |> listenS out.Add
-            s |> sendS 1
+    member _.``Test Calm``() =
+        task {
+            let s = sinkS ()
+            let out = List<_>()
+            let l = s |> calmS |> listenStrongS out.Add
             s |> sendS 2
-        a ()
-        GC.Collect (0, GCCollectionMode.Forced)
-        GC.Collect (0, GCCollectionMode.Forced)
-        s |> sendS 3
-        s |> sendS 4
-        Assert.AreEqual (2, out.Count)
-    
+            s |> sendS 2
+            s |> sendS 2
+            s |> sendS 4
+            s |> sendS 2
+            s |> sendS 4
+            s |> sendS 4
+            s |> sendS 2
+            s |> sendS 2
+            s |> sendS 2
+            s |> sendS 2
+            s |> sendS 2
+            s |> sendS 4
+            s |> sendS 2
+            s |> sendS 4
+            s |> sendS 4
+            s |> sendS 2
+            s |> sendS 2
+            s |> sendS 2
+            s |> sendS 2
+            s |> sendS 2
+            s |> sendS 4
+            s |> sendS 2
+            s |> sendS 4
+            s |> sendS 4
+            s |> sendS 2
+            s |> sendS 2
+            s |> sendS 2
+            s |> sendS 2
+            s |> sendS 2
+            s |> sendS 4
+            s |> sendS 2
+            s |> sendS 4
+            s |> sendS 4
+            s |> sendS 2
+            s |> sendS 2
+            s |> sendS 2
+            s |> sendS 2
+            s |> sendS 2
+            s |> sendS 4
+            s |> sendS 2
+            s |> sendS 4
+            s |> sendS 4
+            s |> sendS 2
+            s |> sendS 2
+            l |> unlistenL
+            do! Expect.Sequence([ 2; 4; 2; 4; 2; 4; 2; 4; 2; 4; 2; 4; 2; 4; 2; 4; 2; 4; 2; 4; 2 ], out)
+        }
+
     [<Test>]
-    member __.``Test Listen With Map``() =
-        let s = sinkS ()
-        let out = List<_>()
-        let a () =
-            let s2 = s |> mapS ((+) 1)
+    member _.``Test Calm 2``() =
+        task {
+            let s = sinkS ()
+            let out = List<_>()
+            let l = s |> calmS |> listenStrongS out.Add
+            s |> sendS 2
+            s |> sendS 4
+            s |> sendS 2
+            s |> sendS 4
+            s |> sendS 4
+            s |> sendS 2
+            s |> sendS 2
+            l |> unlistenL
+            do! Expect.Sequence([ 2; 4; 2; 4; 2 ], out)
+        }
+
+    [<Test>]
+    member _.``Test Collect``() =
+        task {
+            let sa = sinkS ()
+            let out = List<_>()
+
+            let sum =
+                sa
+                |> collectS struct (100, true) (fun a struct (value, test) ->
+                    let outputValue = value + if test then a * 3 else a
+                    struct (outputValue, struct (outputValue, outputValue % 2 = 0)))
+
+            let l = sum |> listenStrongS out.Add
+            sa |> sendS 5
+            sa |> sendS 7
+            sa |> sendS 1
+            sa |> sendS 2
+            sa |> sendS 3
+            l |> unlistenL
+            do! Expect.Sequence([ 115; 122; 125; 127; 130 ], out)
+        }
+
+    [<Test>]
+    member _.``Test Accum``() =
+        task {
+            let sa = sinkS ()
+            let out = List<_>()
+            let sum = sa |> accumS 100 (+)
+            let l = sum |> listenStrongC out.Add
+            sa |> sendS 5
+            sa |> sendS 7
+            sa |> sendS 1
+            sa |> sendS 2
+            sa |> sendS 3
+            l |> unlistenL
+            do! Expect.Sequence([ 100; 105; 112; 113; 115; 118 ], out)
+        }
+
+    [<Test>]
+    member _.``Test Once``() =
+        task {
+            let s = sinkS ()
+            let out = List<_>()
+            let l = s |> onceS |> listenStrongS out.Add
+            s |> sendS 'A'
+            s |> sendS 'B'
+            s |> sendS 'C'
+            l |> unlistenL
+            do! Expect.Sequence([ 'A' ], out)
+        }
+
+    [<Test>]
+    member _.``Test Hold``() =
+        task {
+            let s = sinkS ()
+            let c = s |> holdS ' '
+            let out = List<_>()
+            let l = c |> listenStrongC out.Add
+            s |> sendS 'C'
+            s |> sendS 'B'
+            s |> sendS 'A'
+            l |> unlistenL
+            do! Expect.Sequence([ ' '; 'C'; 'B'; 'A' ], out)
+        }
+
+    [<Test>]
+    member _.``Test Hold Implicit Delay``() =
+        task {
+            let s = sinkS ()
+            let c = s |> holdS ' '
+            let out = List<_>()
+            let l = s |> snapshotAndTakeC c |> listenStrongS out.Add
+            s |> sendS 'C'
+            s |> sendS 'B'
+            s |> sendS 'A'
+            l |> unlistenL
+            do! Expect.Sequence([ ' '; 'C'; 'B' ], out)
+        }
+
+    [<Test>]
+    member _.``Test Defer``() =
+        task {
+            let s = sinkS ()
+            let c = s |> holdS ' '
+            let out = List<_>()
+            let l = s |> Operational.defer |> snapshotAndTakeC c |> listenStrongS out.Add
+            s |> sendS 'C'
+            s |> sendS 'B'
+            s |> sendS 'A'
+            l |> unlistenL
+            do! Expect.Sequence([ 'C'; 'B'; 'A' ], out)
+        }
+
+    [<Test>]
+    member _.``Test Listen``() =
+        task {
+            let out = listenAndDrop ()
+            do! Expect.Equal(2, out.Count)
+        }
+
+    [<Test>]
+    member _.``Test Listen With Map``() =
+        task {
+            let out = listenAndDropWithMap ()
+            do! Expect.Equal(5, out.Count)
+        }
+
+    [<Test>]
+    member _.``Test Unlisten``() =
+        task {
+            let s = sinkS ()
+            let out = List<_>()
+
+            let a () =
+                let l = s |> listenStrongS out.Add
+                s |> sendS 1
+                l |> unlistenL
+                s |> sendS 2
+
+            a ()
+            s |> sendS 3
+            s |> sendS 4
+            do! Expect.Equal(1, out.Count)
+        }
+
+    [<Test>]
+    member _.``Test Unlisten Weak``() =
+        task {
+            let s = sinkS ()
+            let out = List<_>()
+
             let a () =
                 let l = s |> listenS out.Add
                 s |> sendS 1
+                l |> unlistenL
                 s |> sendS 2
+
             a ()
-            GC.Collect (0, GCCollectionMode.Forced)
-            GC.Collect (0, GCCollectionMode.Forced)
-            let a () =
-                let l = s2 |> listenS out.Add
-                s |> sendS 3
-                s |> sendS 4
-                s |> sendS 5
-            a ()
-        a ()
-        GC.Collect (0, GCCollectionMode.Forced)
-        GC.Collect (0, GCCollectionMode.Forced)
-        s |> sendS 6
-        s |> sendS 7
-        Assert.AreEqual (5, out.Count)
-    
+            s |> sendS 3
+            s |> sendS 4
+            do! Expect.Equal(1, out.Count)
+        }
+
     [<Test>]
-    member __.``Test Unlisten``() =
-        let s = sinkS ()
-        let out = List<_>()
-        let a () =
-            let l = s |> listenStrongS out.Add
-            s |> sendS 1
-            l |> unlistenL
-            s |> sendS 2
-        a ()
-        s |> sendS 3
-        s |> sendS 4
-        Assert.AreEqual (1, out.Count)
-    
-    [<Test>]
-    member __.``Test Unlisten Weak``() =
-        let s = sinkS ()
-        let out = List<_>()
-        let a () =
-            let l = s |> listenS out.Add
-            s |> sendS 1
-            l |> unlistenL
-            s |> sendS 2
-        a ()
-        s |> sendS 3
-        s |> sendS 4
-        Assert.AreEqual (1, out.Count)
-    
-    [<Test>]
-    member __.``Test Multiple Unlisten``() =
-        let s = sinkS ()
-        let out = List<_>()
-        let a () =
-            let l = s |> listenStrongS out.Add
-            s |> sendS 1
-            l |> unlistenL
-            l |> unlistenL
-            s |> sendS 2
-            l |> unlistenL
-        a ()
-        s |> sendS 3
-        s |> sendS 4
-        Assert.AreEqual (1, out.Count)
-    
-    [<Test>]
-    member __.``Test Multiple Unlisten Weak``() =
-        let s = sinkS ()
-        let out = List<_>()
-        let a () =
-            let l = s |> listenS out.Add
-            s |> sendS 1
-            l |> unlistenL
-            l |> unlistenL
-            s |> sendS 2
-            l |> unlistenL
-        a ()
-        s |> sendS 3
-        s |> sendS 4
-        Assert.AreEqual (1, out.Count)
-    
-    [<Test>]
-    member __.``Test ListenOnce``() =
-        let s = sinkS ()
-        let out = List<_>()
-        let l = s |> listenOnceS out.Add
-        s |> sendS 'A'
-        s |> sendS 'B'
-        s |> sendS 'C'
-        l |> unlistenL
-        CollectionAssert.AreEqual (['A'], out)
-    
-    [<Test>]
-    member __.``Test ListenOnceAsync``() =
-        async {
+    member _.``Test Multiple Unlisten``() =
+        task {
             let s = sinkS ()
-            (Thread (fun () ->
+            let out = List<_>()
+
+            let a () =
+                let l = s |> listenStrongS out.Add
+                s |> sendS 1
+                l |> unlistenL
+                l |> unlistenL
+                s |> sendS 2
+                l |> unlistenL
+
+            a ()
+            s |> sendS 3
+            s |> sendS 4
+            do! Expect.Equal(1, out.Count)
+        }
+
+    [<Test>]
+    member _.``Test Multiple Unlisten Weak``() =
+        task {
+            let s = sinkS ()
+            let out = List<_>()
+
+            let a () =
+                let l = s |> listenS out.Add
+                s |> sendS 1
+                l |> unlistenL
+                l |> unlistenL
+                s |> sendS 2
+                l |> unlistenL
+
+            a ()
+            s |> sendS 3
+            s |> sendS 4
+            do! Expect.Equal(1, out.Count)
+        }
+
+    [<Test>]
+    member _.``Test ListenOnce``() =
+        task {
+            let s = sinkS ()
+            let out = List<_>()
+            let l = s |> listenOnceS out.Add
+            s |> sendS 'A'
+            s |> sendS 'B'
+            s |> sendS 'C'
+            l |> unlistenL
+            do! Expect.Sequence([ 'A' ], out)
+        }
+
+    [<Test>]
+    member _.``Test ListenOnceAsync``() =
+        task {
+            let s = sinkS ()
+
+            Thread(fun () ->
                 Thread.Sleep 250
                 s |> sendS 'A'
                 s |> sendS 'B'
-                s |> sendS 'C')).Start ()
+                s |> sendS 'C')
+                .Start()
+
             let! r = s |> listenOnceAsyncS
-            Assert.AreEqual ('A', r)
-        } |> Async.StartAsVoidTask
+            do! Expect.Equal('A', r)
+        }
 
     [<Test>]
-    member __.``Test ListenOnceAsync Same Thread``() =
-        async {
+    member _.``Test ListenOnceAsync Same Thread``() =
+        task {
             let s = sinkS ()
             let r' = s |> listenOnceAsyncS
             s |> sendS 'A'
             s |> sendS 'B'
             s |> sendS 'C'
             let! r = r'
-            Assert.AreEqual ('A', r)
-        } |> Async.StartAsVoidTask
-    
+            do! Expect.Equal('A', r)
+        }
+
     [<Test>]
-    member __.``Test ListenStrong Async``() =
-        async {
+    member _.``Test ListenStrong Async``() =
+        task {
             let a = sinkC 1
             let a1 = a |> mapC ((+) 1)
             let a2 = a |> mapC ((*) 2)
-            let struct (called, struct (results, l)) = loopC (fun calledLoop ->
-                let result = (a1, a2) |> lift2C (+)
-                let incrementStream = result |> valuesC |> mapToS ()
-                let decrementStream = sinkS ()
-                let called = (incrementStream |> mapToS 1, decrementStream |> mapToS -1) |> mergeS (+) |> snapshotC calledLoop (+) |> holdS 0
-                let results = List<_>()
-                let l = result |> listenStrongC (fun v ->
-                    async {
-                        do! Async.Sleep 900
-                        results.Add v
-                        decrementStream |> sendS ()
-                    } |> Async.Start)
-                struct (called, struct (results, l)))
+
+            let struct (called, struct (_, l)) =
+                loopC (fun calledLoop ->
+                    let result = (a1, a2) |> lift2C (+)
+                    let incrementStream = result |> valuesC |> mapToS ()
+                    let decrementStream = sinkS ()
+
+                    let called =
+                        (incrementStream |> mapToS 1, decrementStream |> mapToS -1)
+                        |> mergeS (+)
+                        |> snapshotC calledLoop (+)
+                        |> holdS 0
+
+                    let results = List<_>()
+
+                    let l =
+                        result
+                        |> listenStrongC (fun v ->
+                            async {
+                                do! Async.Sleep 900
+                                results.Add v
+                                decrementStream |> sendS ()
+                            }
+                            |> Async.Start)
+
+                    struct (called, struct (results, l)))
+
             let calledResults = List<_>()
             let l2 = called |> listenStrongC calledResults.Add
             do! Async.Sleep 500
@@ -614,30 +806,44 @@ type ``Stream Tests``() =
             do! Async.Sleep 2500
             l2 |> unlistenL
             l |> unlistenL
-        } |> Async.StartAsVoidTask
-    
+        }
+
     [<Test>]
-    member __.``Test Stream Loop``() =
-        let streamSink = sinkS ()
-        let s = loopWithNoCapturesS (fun sl ->
-            let c = sl |> mapS ((+) 2) |> holdS 0
-            streamSink |> snapshotC c (+))
-        let out = List<_>()
-        let l = s |> listenStrongS out.Add
-        streamSink |> sendS 3
-        streamSink |> sendS 4
-        streamSink |> sendS 7
-        streamSink |> sendS 8
-        l |> unlistenL
-        CollectionAssert.AreEqual ([3;9;18;28], out)
-    
+    member _.``Test Stream Loop``() =
+        task {
+            let streamSink = sinkS ()
+
+            let s =
+                loopWithNoCapturesS (fun sl ->
+                    let c = sl |> mapS ((+) 2) |> holdS 0
+                    streamSink |> snapshotC c (+))
+
+            let out = List<_>()
+            let l = s |> listenStrongS out.Add
+            streamSink |> sendS 3
+            streamSink |> sendS 4
+            streamSink |> sendS 7
+            streamSink |> sendS 8
+            l |> unlistenL
+            do! Expect.Sequence([ 3; 9; 18; 28 ], out)
+        }
+
     [<Test>]
-    member __.``Test Stream Loop Defer``() =
-        let streamSink = sinkS ()
-        let stream = loopWithNoCapturesS (fun streamLoop ->
-            (streamSink, streamLoop) |> orElseS |> filterS (flip (<) 5) |> mapS ((+) 1) |> Operational.defer)
-        let out = List<_>()
-        let l = stream |> listenStrongS out.Add
-        streamSink |> sendS 2
-        l |> unlistenL
-        CollectionAssert.AreEqual ([3;4;5], out)
+    member _.``Test Stream Loop Defer``() =
+        task {
+            let streamSink = sinkS ()
+
+            let stream =
+                loopWithNoCapturesS (fun streamLoop ->
+                    (streamSink, streamLoop)
+                    |> orElseS
+                    |> filterS (flip (<) 5)
+                    |> mapS ((+) 1)
+                    |> Operational.defer)
+
+            let out = List<_>()
+            let l = stream |> listenStrongS out.Add
+            streamSink |> sendS 2
+            l |> unlistenL
+            do! Expect.Sequence([ 3; 4; 5 ], out)
+        }

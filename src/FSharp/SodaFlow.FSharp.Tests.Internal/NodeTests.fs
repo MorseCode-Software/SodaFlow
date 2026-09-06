@@ -1,17 +1,20 @@
 module SodaFlow.Tests.Internal.Node
 
-open NUnit.Framework
 open SodaFlow
+open SodaFlow.Tests
+open TUnit.Core
 
-[<TestFixture>]
 type ``Node Tests``() =
 
     [<Test>]
-    member __.``Test Node``() =
-        let a = Node<int> ()
-        let b = Node<int> ()
-        TransactionInternal.Apply
-            (fun trans _ ->
-                a.Link (trans, (fun _ _ -> ()), b) |> ignore
-                trans.Prioritized (a, (fun _ -> ())))
-        Assert.That (a.Rank, Is.LessThan b.Rank)
+    member _.``Test Node``() =
+        task {
+            let a = Node<int>()
+            let b = Node<int>()
+
+            TransactionInternal.Apply(fun trans _ ->
+                a.Link(trans, (fun _ _ -> ()), b) |> ignore
+                trans.Prioritized(a, (fun _ -> ())))
+
+            do! Expect.LessThan(b.Rank, a.Rank)
+        }

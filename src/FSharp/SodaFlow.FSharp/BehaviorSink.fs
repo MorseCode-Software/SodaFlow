@@ -16,7 +16,8 @@ open System.Runtime.CompilerServices
 /// <param name="initialValue">The value the behavior holds until something is sent.</param>
 /// <returns>A new behavior sink.</returns>
 [<MethodImpl(MethodImplOptions.NoInlining)>]
-let create initialValue = BehaviorInternal.CreateSinkImpl initialValue
+let create initialValue =
+    BehaviorInternal.CreateSinkImpl initialValue
 
 /// <summary>
 ///     Creates a behavior sink which combines values when <c>send</c> is called more than once in a
@@ -29,7 +30,8 @@ let create initialValue = BehaviorInternal.CreateSinkImpl initialValue
 /// </param>
 /// <returns>A new behavior sink.</returns>
 [<MethodImpl(MethodImplOptions.NoInlining)>]
-let createWithCoalesce initialValue coalesce = BehaviorInternal.CreateSinkImpl (initialValue, coalesce)
+let createWithCoalesce initialValue coalesce =
+    BehaviorInternal.CreateSinkImpl(initialValue, coalesce)
 
 /// <summary>
 ///     Sends a value, changing what the behavior holds.
@@ -40,4 +42,4 @@ let createWithCoalesce initialValue coalesce = BehaviorInternal.CreateSinkImpl (
 ///     Must not be called from inside a listener callback; doing so throws.
 /// </remarks>
 [<MethodImpl(MethodImplOptions.NoInlining)>]
-let send a (behaviorSink : BehaviorSink<'T>) = behaviorSink.SendImpl a
+let send a (behaviorSink: BehaviorSink<'T>) = behaviorSink.SendImpl a

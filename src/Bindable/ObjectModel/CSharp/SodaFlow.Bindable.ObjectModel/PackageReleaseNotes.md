@@ -1,3 +1,42 @@
+3.0.0
+
+BREAKING: ToOneWayToSource takes its optional parameters in the order
+the other factories use, scheduler before comparer. A call which passed
+a comparer positionally - ToOneWayToSource(myComparer) - now binds it to
+the scheduler parameter and stops compiling. The types differ, so this
+is a compiler error rather than a silent misbinding; name the argument,
+or move it along one.
+
+ToOneWayToSource takes an optional scheduler, matching the other three.
+It schedules nothing - nothing flows back out to the view - but it
+identifies the binding thread, which is what lets Value throw when it is
+touched from another one. BindableFactory passes its own scheduler
+through. See SodaFlow.Bindable.ObjectModel.Core for what the check does
+and what it costs.
+
+BREAKING: the factory methods are renamed from To to Create, on both
+BindableFactory and IBindableFactory: ToBindableAction, ToOneWay,
+ToOneWayToSource and ToTwoWay become CreateBindableAction, CreateOneWay,
+CreateOneWayToSource and CreateTwoWay. They construct rather than convert,
+and now say so. The ToBindableAction and ToOneWay extension methods keep
+their names, since those do read as conversions of the thing they extend.
+
+BREAKING: BindableExtensionMethods.BindableAction is gone, replaced by
+BindableMaybeAction<T>, alongside a new ToBindableAction overload taking a
+StreamSink<Maybe<T>> so that an action can carry a parameter which may be
+absent.
+
+BREAKING: requires SodaFlow 4.x, SodaFlow.Bindable.ObjectModel.Core 3.x and
+SodaFlow.Functional 3.x. See those packages for what moved; the Execute
+change in the core one is the one to read, because it is the only break here
+that a compiler will not point at.
+
+Requires System.ValueTuple 4.6.2, where it required 4.4.0. Nothing here
+uses it differently: this repository named two versions of it, one in
+the shipping projects and one in the test projects, and now names a
+single version in both. A consumer does nothing about this; NuGet
+resolves the higher floor.
+
 2.0.0
 
 No code change. This release exists to move a dependency, and is a major

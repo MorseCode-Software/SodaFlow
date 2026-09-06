@@ -1,52 +1,53 @@
-﻿using System.Collections.Generic;
-using NUnit.Framework;
+using System.Collections.Generic;
+using System.Threading.Tasks;
 using SodaFlow.Functional;
+using TUnit.Assertions;
+using TUnit.Assertions.Extensions;
+using TUnit.Core;
 
-namespace SodaFlow.Tests
+namespace SodaFlow.Tests;
+
+public sealed class ReadOnlyDictionaryExtensionMethodsTests
 {
-    [TestFixture]
-    public class ReadOnlyDictionaryExtensionMethodsTests
+    [Test]
+    public async Task TestTryGetValuePresent()
     {
-        [Test]
-        public void TestTryGetValuePresent()
-        {
-            IReadOnlyDictionary<string, int> d = new Dictionary<string, int> { { "a", 1 } };
+        IReadOnlyDictionary<string, int> d = new Dictionary<string, int> { { "a", 1 } };
 
-            Assert.AreEqual(Maybe.Some(1), d.TryGetValue("a"));
-        }
+        await Assert.That(d.TryGetValue("a")).IsEqualTo(Maybe.Some(1));
+    }
 
-        [Test]
-        public void TestTryGetValueMissing()
-        {
-            IReadOnlyDictionary<string, int> d = new Dictionary<string, int> { { "a", 1 } };
+    [Test]
+    public async Task TestTryGetValueMissing()
+    {
+        IReadOnlyDictionary<string, int> d = new Dictionary<string, int> { { "a", 1 } };
 
-            Assert.AreEqual(Maybe<int>.None, d.TryGetValue("b"));
-        }
+        await Assert.That(d.TryGetValue("b")).IsEqualTo(Maybe<int>.None);
+    }
 
-        [Test]
-        public void TestTryGetValueDistinguishesStoredDefault()
-        {
-            IReadOnlyDictionary<string, int> d = new Dictionary<string, int> { { "a", 0 } };
+    [Test]
+    public async Task TestTryGetValueDistinguishesStoredDefault()
+    {
+        IReadOnlyDictionary<string, int> d = new Dictionary<string, int> { { "a", 0 } };
 
-            Assert.AreEqual(Maybe.Some(0), d.TryGetValue("a"));
-            Assert.AreEqual(Maybe<int>.None, d.TryGetValue("b"));
-        }
+        await Assert.That(d.TryGetValue("a")).IsEqualTo(Maybe.Some(0));
+        await Assert.That(d.TryGetValue("b")).IsEqualTo(Maybe<int>.None);
+    }
 
-        [Test]
-        public void TestTryGetValueStoredNull()
-        {
-            IReadOnlyDictionary<string, string> d = new Dictionary<string, string> { { "a", null } };
+    [Test]
+    public async Task TestTryGetValueStoredNull()
+    {
+        IReadOnlyDictionary<string, string?> d = new Dictionary<string, string?> { { "a", null } };
 
-            Assert.AreEqual(Maybe.Some((string)null), d.TryGetValue("a"));
-            Assert.AreEqual(Maybe<string>.None, d.TryGetValue("b"));
-        }
+        await Assert.That(d.TryGetValue("a")).IsEqualTo(Maybe.Some<string?>(null));
+        await Assert.That(d.TryGetValue("b")).IsEqualTo(Maybe<string?>.None);
+    }
 
-        [Test]
-        public void TestTryGetValueNullDictionary()
-        {
-            IReadOnlyDictionary<string, int> d = null;
+    [Test]
+    public async Task TestTryGetValueNullDictionary()
+    {
+        IReadOnlyDictionary<string, int>? d = null;
 
-            Assert.AreEqual(Maybe<int>.None, d.TryGetValue("a"));
-        }
+        await Assert.That(d.TryGetValue("a")).IsEqualTo(Maybe<int>.None);
     }
 }

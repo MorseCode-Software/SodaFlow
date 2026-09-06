@@ -119,21 +119,33 @@ itself depends on the loop, it must be deferred.
 A loop lets a cell be referred to before it exists. `ForwardReference` is the same idea with the
 cell taken back out — for when what has to refer to itself is one value, not a series of them:
 
+# [C#](#tab/csharp)
+
 ```csharp
 Node node = ForwardReference<Node>.WithoutCaptures(
     reference => new Node(new Child(reference.AsCell())));
 ```
+
+# [F#](#tab/fsharp)
+
+```fsharp
+let node = forwardReferenceWithNoCaptures (fun reference -> Node (Child reference))
+```
+
+---
 
 The child is handed a `Cell<Node>` which means nothing until the call returns and holds the
 finished node from then on. It unties the knot two objects make when each needs the other at
 construction, which otherwise forces one of them to be built half-formed and completed
 afterward — with a settable member that has no business being settable once the graph is up.
 
-`WithCaptures` returns anything else worth keeping from the construction, the same way it does
-on a loop, and infers its capture type from the function. The value type sits on
-`ForwardReference<T>` rather than on the methods, which is what leaves the capture type free to
-be inferred — a lambda gives inference nothing to work from, and C# does not allow only some of
-a method's type arguments to be given.
+`WithCaptures`, and `forwardReference` in F#, return anything else worth keeping from the
+construction, the same way a loop does.
+
+The C# value type sits on `ForwardReference<T>` rather than on the methods, which is what leaves
+the capture type free to be inferred — a lambda gives inference nothing to work from, and C#
+does not allow only some of a method's type arguments to be given. F# needs none of that: both
+types are inferred from the function, so neither is ever written.
 
 Internally this is a cell loop closed with a constant cell, so the rule above applies unchanged:
 reading the reference during construction asks a question that has no answer yet, and throws.

@@ -1,165 +1,164 @@
 using System;
 using System.Collections.Generic;
-using NUnit.Framework;
+using System.Threading.Tasks;
+using TUnit.Assertions;
+using TUnit.Assertions.Enums;
+using TUnit.Assertions.Extensions;
+using TUnit.Core;
 
-namespace SodaFlow.Bindable.ObjectModel.Tests
+namespace SodaFlow.Bindable.ObjectModel.Tests;
+
+/// <summary>Covers the command: enablement, firing, parameter typing and disposal.</summary>
+public sealed class BindableActionTests
 {
-    /// <summary>Covers the command: enablement, firing, parameter typing and disposal.</summary>
-    [TestFixture]
-    public class BindableActionTests
+    private static IBindableAction<T> Action<T>(StreamSink<T> sink, Cell<bool>? isEnabled = null)
+        where T : notnull =>
+        sink.ToBindableActionImpl(isEnabledCell: isEnabled, scheduler: BindingScheduler.Immediate);
+
+    [Test]
+    public async Task IsExecutableByDefault()
     {
-        private static IBindableAction<T> Action<T>(StreamSink<T> sink, Cell<bool>? isEnabled = null) =>
-            sink.ToBindableActionImpl(isEnabledCell: isEnabled, scheduler: BindingScheduler.Immediate);
+        using IBindableAction<int> a = Action(Stream.CreateSink<int>());
 
-        [Test]
-        public void IsExecutableByDefault()
+        await Assert.That(a.CanExecute(null)).IsTrue().Because("no enablement cell means always enabled");
+    }
+
+    [Test]
+    public async Task FollowsItsEnablementCell()
+    {
+        CellSink<bool> enabled = Cell.CreateSink(false);
+
+        using IBindableAction<int> a = Action(sink: Stream.CreateSink<int>(), isEnabled: enabled);
+
+        await Assert.That(a.CanExecute(null)).IsFalse().Because("the constructor samples the cell");
+
+        int notifications = 0;
+        a.CanExecuteChanged += (_, _) => notifications++;
+
+        enabled.Send(true);
+
+        await Assert.That(a.CanExecute(null)).IsTrue();
+        await Assert.That(notifications).IsEqualTo(1);
+    }
+
+    [Test]
+    public async Task CarriesItsParameterIntoTheStream()
+    {
+        StreamSink<int> sink = Stream.CreateSink<int>();
+        List<int> fired = [];
+
+        using IBindableAction<int> a = Action(sink);
+
+        using (a.FiringsStream.ListenStrong(fired.Add))
         {
-            using (IBindableAction<int> a = Action(Stream.CreateSink<int>()))
-            {
-                Assert.IsTrue(a.CanExecute(null), "no enablement cell means always enabled");
-            }
+            a.Execute(42);
+
+            await Assert.That(fired).IsEquivalentTo([42], CollectionOrdering.Matching);
         }
+    }
 
-        [Test]
-        public void FollowsItsEnablementCell()
+    [Test]
+    public async Task DoesNotFireWhileDisabled()
+    {
+        StreamSink<int> sink = Stream.CreateSink<int>();
+        List<int> fired = [];
+
+        using IBindableAction<int> a = Action(sink: sink, isEnabled: Cell.Constant(false));
+
+        using (a.FiringsStream.ListenStrong(fired.Add))
         {
-            CellSink<bool> enabled = Cell.CreateSink(false);
+            a.Execute(1);
 
-            using (IBindableAction<int> a = Action(Stream.CreateSink<int>(), enabled))
-            {
-                Assert.IsFalse(a.CanExecute(null), "the constructor samples the cell");
-
-                int notifications = 0;
-                a.CanExecuteChanged += (_, __) => notifications++;
-
-                enabled.Send(true);
-
-                Assert.IsTrue(a.CanExecute(null));
-                Assert.AreEqual(1, notifications);
-            }
+            await Assert.That(fired).IsEmpty();
         }
+    }
 
-        [Test]
-        public void CarriesItsParameterIntoTheStream()
+    // The type check is a diagnostic for whoever wrote the XAML, so it has to surface at the call
+    // site. Deferring it into the posted send would have thrown somewhere they cannot see.
+    [Test]
+    public async Task RejectsAMistypedParameterAtTheCallSite()
+    {
+        using IBindableAction<int> a = Action(Stream.CreateSink<int>());
+
+        // ReSharper disable once AccessToDisposedClosure - the assertion runs the lambda before
+        // the using disposes a.
+        await Assert.That(() => a.Execute("not an int")).ThrowsExactly<InvalidOperationException>();
+    }
+
+    [Test]
+    public async Task RejectsNullForAReferenceType()
+    {
+        using IBindableAction<string> a = Action(Stream.CreateSink<string>());
+
+        // ReSharper disable once AccessToDisposedClosure - the assertion runs the lambda before
+        // the using disposes a.
+        await Assert.That(() => a.Execute(null)).ThrowsExactly<InvalidOperationException>();
+    }
+
+    [Test]
+    public async Task RejectsNullForAValueType()
+    {
+        using IBindableAction<int> a = Action(Stream.CreateSink<int>());
+
+        // ReSharper disable once AccessToDisposedClosure - the assertion runs the lambda before
+        // the using disposes a.
+        await Assert.That(() => a.Execute(null)).ThrowsExactly<InvalidOperationException>();
+    }
+
+    [Test]
+    public async Task StopsFiringOnceDisposed()
+    {
+        StreamSink<int> sink = Stream.CreateSink<int>();
+        List<int> fired = [];
+
+        IBindableAction<int> a = Action(sink);
+
+        using (a.FiringsStream.ListenStrong(fired.Add))
         {
-            StreamSink<int> sink = Stream.CreateSink<int>();
-            List<int> fired = new List<int>();
-
-            using (IBindableAction<int> a = Action(sink))
-            using (a.FiringsStream.ListenStrong(fired.Add))
-            {
-                a.Execute(42);
-
-                CollectionAssert.AreEqual(new[] { 42 }, fired);
-            }
-        }
-
-        [Test]
-        public void DoesNotFireWhileDisabled()
-        {
-            StreamSink<int> sink = Stream.CreateSink<int>();
-            List<int> fired = new List<int>();
-
-            using (IBindableAction<int> a = Action(sink, Cell.Constant(false)))
-            using (a.FiringsStream.ListenStrong(fired.Add))
-            {
-                a.Execute(1);
-
-                CollectionAssert.IsEmpty(fired);
-            }
-        }
-
-        // The type check is a diagnostic for whoever wrote the XAML, so it has to surface at the call
-        // site. Deferring it into the posted send would have thrown somewhere they cannot see.
-        [Test]
-        public void RejectsAMistypedParameterAtTheCallSite()
-        {
-            using (IBindableAction<int> a = Action(Stream.CreateSink<int>()))
-            {
-                Assert.Throws<InvalidOperationException>(() => a.Execute("not an int"));
-            }
-        }
-
-        [Test]
-        public void AcceptsNullForATypeThatCanRepresentIt()
-        {
-            StreamSink<string> sink = Stream.CreateSink<string>();
-            List<string> fired = new List<string>();
-
-            using (IBindableAction<string> a = Action(sink))
-            using (a.FiringsStream.ListenStrong(fired.Add))
-            {
-                a.Execute(null);
-
-                Assert.AreEqual(1, fired.Count);
-                Assert.IsNull(fired[0]);
-            }
-        }
-
-        [Test]
-        public void RejectsNullForATypeThatCannot()
-        {
-            using (IBindableAction<int> a = Action(Stream.CreateSink<int>()))
-            {
-                Assert.Throws<InvalidOperationException>(() => a.Execute(null));
-            }
-        }
-
-        [Test]
-        public void StopsFiringOnceDisposed()
-        {
-            StreamSink<int> sink = Stream.CreateSink<int>();
-            List<int> fired = new List<int>();
-
-            IBindableAction<int> a = Action(sink);
-
-            using (a.FiringsStream.ListenStrong(fired.Add))
-            {
-                a.Dispose();
-                a.Execute(1);
-
-                CollectionAssert.IsEmpty(fired);
-                Assert.IsFalse(a.CanExecute(null));
-            }
-        }
-
-        // A binding engine caches the last CanExecute answer and only asks again when told to, so
-        // disposing without notifying leaves a button enabled that does nothing when clicked.
-        [Test]
-        public void NotifiesTheViewWhenDisposalDisablesIt()
-        {
-            IBindableAction<int> a = Action(Stream.CreateSink<int>());
-            int notifications = 0;
-            a.CanExecuteChanged += (_, __) => notifications++;
-
             a.Dispose();
+            a.Execute(1);
 
-            Assert.AreEqual(1, notifications, "the view has to be told to re-query");
+            await Assert.That(fired).IsEmpty();
+            await Assert.That(a.CanExecute(null)).IsFalse();
         }
+    }
 
-        [Test]
-        public void DoesNotNotifyWhenDisposingAnAlreadyDisabledCommand()
-        {
-            IBindableAction<int> a = Action(Stream.CreateSink<int>(), Cell.Constant(false));
-            int notifications = 0;
-            a.CanExecuteChanged += (_, __) => notifications++;
+    // A binding engine caches the last CanExecute answer and only asks again when told to, so
+    // disposing without notifying leaves a button enabled that does nothing when clicked.
+    [Test]
+    public async Task NotifiesTheViewWhenDisposalDisablesIt()
+    {
+        IBindableAction<int> a = Action(Stream.CreateSink<int>());
+        int notifications = 0;
+        a.CanExecuteChanged += (_, _) => notifications++;
 
-            a.Dispose();
+        a.Dispose();
 
-            Assert.AreEqual(0, notifications, "nothing changed, so there is nothing to report");
-        }
+        await Assert.That(notifications).IsEqualTo(1).Because("the view has to be told to re-query");
+    }
 
-        [Test]
-        public void DisposesIdempotently()
-        {
-            IBindableAction<int> a = Action(Stream.CreateSink<int>());
+    [Test]
+    public async Task DoesNotNotifyWhenDisposingAnAlreadyDisabledCommand()
+    {
+        IBindableAction<int> a = Action(sink: Stream.CreateSink<int>(), isEnabled: Cell.Constant(false));
+        int notifications = 0;
+        a.CanExecuteChanged += (_, _) => notifications++;
 
-            a.Dispose();
-            int notifications = 0;
-            a.CanExecuteChanged += (_, __) => notifications++;
-            a.Dispose();
+        a.Dispose();
 
-            Assert.AreEqual(0, notifications, "the second dispose does nothing at all");
-        }
+        await Assert.That(notifications).IsEqualTo(0).Because("nothing changed, so there is nothing to report");
+    }
+
+    [Test]
+    public async Task DisposesIdempotently()
+    {
+        IBindableAction<int> a = Action(Stream.CreateSink<int>());
+
+        a.Dispose();
+        int notifications = 0;
+        a.CanExecuteChanged += (_, _) => notifications++;
+        a.Dispose();
+
+        await Assert.That(notifications).IsEqualTo(0).Because("the second dispose does nothing at all");
     }
 }

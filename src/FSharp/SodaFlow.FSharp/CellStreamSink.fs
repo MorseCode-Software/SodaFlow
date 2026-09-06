@@ -18,7 +18,7 @@ open System.Runtime.CompilerServices
 /// <typeparam name="'a">The type of the values the cell stream sink fires.</typeparam>
 /// <returns>A new cell stream sink.</returns>
 [<MethodImpl(MethodImplOptions.NoInlining)>]
-let create<'a> () = CellInternal.CreateStreamSinkImpl<'a> ()
+let create<'a> () = CellInternal.CreateStreamSinkImpl<'a>()
 
 /// <summary>
 ///     Creates a cell stream sink which combines values when <c>StreamSink.send</c> is called more
@@ -30,4 +30,5 @@ let create<'a> () = CellInternal.CreateStreamSinkImpl<'a> ()
 /// </param>
 /// <returns>A new cell stream sink.</returns>
 [<MethodImpl(MethodImplOptions.NoInlining)>]
-let createWithCoalesce coalesce = CellInternal.CreateStreamSinkImpl (Func<_,_,_> coalesce)
+let createWithCoalesce coalesce =
+    CellInternal.CreateStreamSinkImpl(Func<_, _, _> coalesce)

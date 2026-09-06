@@ -1,16 +1,18 @@
-﻿namespace SodaFlow
+﻿using JetBrains.Annotations;
+
+namespace SodaFlow;
+
+/// <summary>
+///     The operations available on a <see cref="CellStreamSink{T}" />.
+/// </summary>
+[PublicAPI]
+public static class CellStreamSinkExtensionMethods
 {
     /// <summary>
-    ///     The operations available on a <see cref="CellStreamSink{T}" />.
+    ///     Return a reference to this <see cref="CellStreamSink{T}" /> as a <see cref="StreamSink{T}" />.
     /// </summary>
-    public static class CellStreamSinkExtensionMethods
-    {
-        /// <summary>
-        ///     Return a reference to this <see cref="CellStreamSink{T}" /> as a <see cref="StreamSink{T}" />.
-        /// </summary>
-        /// <typeparam name="T">The type of the cell stream sink.</typeparam>
-        /// <param name="c">The cell stream sink.</param>
-        /// <returns>A reference to this <see cref="CellStreamSink{T}" /> as a <see cref="StreamSink{T}" />.</returns>
-        public static StreamSink<T> AsStreamSink<T>(this CellStreamSink<T> c) => c;
-    }
+    /// <typeparam name="T">The type of the cell stream sink.</typeparam>
+    /// <param name="c">The cell stream sink.</param>
+    /// <returns>A reference to this <see cref="CellStreamSink{T}" /> as a <see cref="StreamSink{T}" />.</returns>
+    public static StreamSink<T> AsStreamSink<T>(this CellStreamSink<T> c) => c;
 }

@@ -254,5 +254,18 @@ Desktop.ini
 # appveyor.yml packs to artifacts/ and writes coverage to coverage/; docfx.json builds to _site.
 artifacts/
 coverage/
+# build.cake writes the InspectCode SARIF here.
+inspection/
+# Where the benchmark runner writes its reports and logs.
+BenchmarkDotNet.Artifacts/
+# Where Cake caches the addins its #addin directives resolve.
+tools/
+# build.cake downloads this when it is about to upload coverage.
+coveralls.exe
 _site/
 [Tt]est[Rr]esults/
+
+# Backups a merge tool leaves behind when a conflict is resolved. A hundred of these were
+# committed once already, by a git add that swept the working tree after a large merge.
+*.orig
+*.rej

@@ -1,3 +1,50 @@
+4.0.0
+
+No API change of its own. This release moves to SodaFlow.Core 4.x, and
+is a major because taking it obliges a consumer to take that.
+
+It could not have stayed on 3.x. Transaction.isActive in 3.1.0 called
+TransactionInternal.IsActiveImpl, which SodaFlow.Core 4.0.0 removes; it
+calls HasCurrentTransaction now, which is what the C# side already
+called and what IsActiveImpl forwarded to. Same answer, one less hop,
+and nothing about isActive's own signature or behavior changes.
+
+BREAKING: requires FSharp.Core 11.0.100, where it required 4.5.2. A
+consumer still on FSharp.Core 4.x cannot take this release. Nothing in
+this package's own code turns on anything that changed between those
+versions - it compiles against 11.0.100 unaltered - but the floor is
+written into the package, so the requirement is real whether or not the
+code exercises it. It moves because the shipping projects and the test
+projects now compile against one version of FSharp.Core instead of
+disagreeing about it.
+
+3.1.0
+
+New: ForwardReference.create and ForwardReference.createWithNoCaptures build a
+value which can refer to itself while it is being constructed, with
+forwardReference and forwardReferenceWithNoCaptures as the shorthand aliases.
+This is the F# counterpart of the type SodaFlow 3.0.0 added, which shipped
+without one.
+
+    let node = forwardReferenceWithNoCaptures (fun reference -> Node (Child reference))
+
+It is the single-valued case of a cell loop. A loop lets a cell be referred to
+before it exists and is closed with the cell the reference turned out to mean;
+this produces one value rather than a series of them, and closes the loop with
+a constant cell, so the reference resolves to that value and never changes.
+
+The naming follows the loops already here rather than the C# type: create and
+createWithNoCaptures, as Cell.loop pairs with Cell.loopWithNoCaptures, taking
+and returning struct tuples the same way.
+
+Where C# has to be told the value type, because a lambda gives inference
+nothing to work from and only some of a method's type arguments cannot be
+given, F# infers both the value and the capture types from the function. Neither
+is ever written.
+
+Reading the reference before the constructing function returns throws, as it
+does for any looped cell.
+
 3.0.0
 
 BREAKING: Stream.filterOption is renamed to Stream.filterSome, and the
