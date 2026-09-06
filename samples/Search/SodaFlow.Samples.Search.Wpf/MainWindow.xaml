@@ -9,7 +9,7 @@
         Width="440"
         Height="520"
         WindowStartupLocation="CenterScreen"
-        d:DataContext="{d:DesignInstance viewModels:SearchViewModel}">
+        d:DataContext="{d:DesignInstance viewModels:ISearchViewModel}">
 
     <Window.Resources>
         <BooleanToVisibilityConverter x:Key="BoolToVisibility" />

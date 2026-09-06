@@ -6,7 +6,7 @@
         Width="340"
         Height="240"
         WindowStartupLocation="CenterScreen"
-        x:DataType="viewModels:CounterViewModel">
+        x:DataType="viewModels:ICounterViewModel">
 
     <!--
         The same bindings as the WPF window, against the same view model. Every path ends in

@@ -7,7 +7,7 @@ namespace SodaFlow.Samples.Counter.Wpf;
 /// </summary>
 public partial class MainWindow
 {
-    private readonly CounterViewModel viewModel = CounterViewModel.Create();
+    private readonly ICounterViewModel viewModel = CounterViewModel.Create();
 
     public MainWindow()
     {

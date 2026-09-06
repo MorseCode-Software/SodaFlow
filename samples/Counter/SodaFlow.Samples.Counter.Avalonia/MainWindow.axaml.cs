@@ -10,7 +10,7 @@ namespace SodaFlow.Samples.Counter.Avalonia;
 /// </summary>
 public partial class MainWindow : Window
 {
-    private readonly CounterViewModel viewModel = CounterViewModel.Create();
+    private readonly ICounterViewModel viewModel = CounterViewModel.Create();
 
     public MainWindow()
     {

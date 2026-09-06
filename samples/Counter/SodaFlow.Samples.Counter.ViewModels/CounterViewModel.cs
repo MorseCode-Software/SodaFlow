@@ -25,7 +25,7 @@ namespace SodaFlow.Samples.Counter.ViewModels;
 ///     </para>
 /// </remarks>
 public sealed class CounterViewModel
-    : IDisposable
+    : ICounterViewModel
 {
     private readonly IReadOnlyList<IDisposable> disposables;
 
@@ -50,25 +50,27 @@ public sealed class CounterViewModel
 
     #endregion
 
-    /// <summary>The current count, for anything that wants the number itself.</summary>
+    /// <inheritdoc />
     [UsedImplicitly] // This property is actually unused, but provided simply as a sample
     public IOneWayBindableValue<int> Count { get; }
 
-    /// <summary>The count as text, formatted for the current culture.</summary>
+    /// <inheritdoc />
     public IOneWayBindableValue<string> CountText { get; }
 
+    /// <inheritdoc />
     public IBindableAction Increment { get; }
 
+    /// <inheritdoc />
     public IBindableAction Decrement { get; }
 
-    /// <summary>Enabled only when the count is not already zero.</summary>
+    /// <inheritdoc />
     public IBindableAction Reset { get; }
 
-    /// <summary>
-    ///     Every entry holds a subscription into the graph, and disposing it is what releases
-    ///     that subscription.
-    /// </summary>
+    /// <inheritdoc />
     /// <remarks>
+    ///     Every entry holds a subscription into the graph, and disposing it is what releases that
+    ///     subscription.
+    ///     <para />
     ///     The list is of <see cref="IDisposable" /> rather than of bindables because a view
     ///     model's disposables are not all bindables in general - a graph using MapAsync also
     ///     holds an AsyncMapStatus, as the search sample does - and disposal is the only thing
@@ -82,7 +84,7 @@ public sealed class CounterViewModel
         }
     }
 
-    public static CounterViewModel Create() =>
+    public static ICounterViewModel Create() =>
         // One transaction for the whole graph. Nothing here fires during construction, so it
         // changes no behavior in this sample - but it is the habit worth having: a graph
         // containing a Values() stream loses its first firing without it, silently.

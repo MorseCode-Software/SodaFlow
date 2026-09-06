@@ -6,7 +6,7 @@
         Width="440"
         Height="520"
         WindowStartupLocation="CenterScreen"
-        x:DataType="viewModels:SearchViewModel">
+        x:DataType="viewModels:ISearchViewModel">
 
     <DockPanel Margin="16">
 
