@@ -5,7 +5,7 @@
         <TargetFramework>net8.0-windows</TargetFramework>
         <UseWPF>true</UseWPF>
         <Nullable>enable</Nullable>
-        <EnableDefaultItems>true</EnableDefaultItems>
+        <EnableDefaultItems>false</EnableDefaultItems>
         <LangVersion>10</LangVersion>
         <IsPackable>false</IsPackable>
     </PropertyGroup>
@@ -13,6 +13,18 @@
     <ItemGroup>
         <!-- The whole sample is in here. This project only draws it. -->
         <ProjectReference Include="..\SodaFlow.Samples.Bounce.ViewModels\SodaFlow.Samples.Bounce.ViewModels.csproj"/>
+    </ItemGroup>
+
+    <ItemGroup>
+        <ApplicationDefinition Include="App.xaml"/>
+        <Compile Include="App.xaml.cs">
+            <DependentUpon>App.xaml</DependentUpon>
+        </Compile>
+        <Page Include="MainWindow.xaml"/>
+        <Compile Include="MainWindow.xaml.cs">
+            <DependentUpon>MainWindow.xaml</DependentUpon>
+        </Compile>
+        <Compile Include="SceneView.cs"/>
     </ItemGroup>
 
 </Project>

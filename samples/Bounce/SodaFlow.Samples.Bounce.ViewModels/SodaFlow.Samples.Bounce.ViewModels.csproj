@@ -9,7 +9,23 @@
         <Nullable>enable</Nullable>
         <LangVersion>10</LangVersion>
         <IsPackable>false</IsPackable>
+        <EnableDefaultItems>false</EnableDefaultItems>
     </PropertyGroup>
+
+    <ItemGroup>
+        <Compile Include="IBounceViewModel.cs"/>
+        <Compile Include="BounceViewModel.cs"/>
+        <Compile Include="IScene.cs"/>
+        <Compile Include="SceneExtensionMethods.cs"/>
+        <Compile Include="SimpleScene.cs"/>
+        <Compile Include="WallsScene.cs"/>
+        <Compile Include="GrabScene.cs"/>
+        <Compile Include="Arrangement.cs"/>
+        <Compile Include="Ball.cs"/>
+        <Compile Include="BouncingAxis.cs"/>
+        <Compile Include="Flight.cs"/>
+        <Compile Include="PointerTrail.cs"/>
+    </ItemGroup>
 
     <ItemGroup>
         <!--
