@@ -4,6 +4,7 @@
         <AssemblyName>SodaFlow.FSharp.Bindable.ObjectModel</AssemblyName>
         <RootNamespace>SodaFlow.Bindable.ObjectModel</RootNamespace>
         <TargetFrameworks>net472;net60;netstandard2.0</TargetFrameworks>
+        <EnableDefaultItems>false</EnableDefaultItems>
     </PropertyGroup>
 
     <PropertyGroup>
