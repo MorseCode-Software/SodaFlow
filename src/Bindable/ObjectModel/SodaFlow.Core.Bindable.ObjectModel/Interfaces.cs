@@ -112,9 +112,18 @@ public interface ITwoWayBindableValue<T> : IOneWayBindableValue<T>, IWritableBin
     ///     the FRP graph.
     /// </summary>
     /// <remarks>
-    ///     Setting is a no-op when the value is unchanged — unless an update is still on its way
-    ///     to the binding thread, in which case it is written regardless, because until that
-    ///     update arrives the value read back is not known to be the graph's.
+    ///     <para>
+    ///         Setting is a no-op when the value is unchanged — unless an update is still on its way
+    ///         to the binding thread, in which case it is written regardless, because until that
+    ///         update arrives the value read back is not known to be the graph's.
+    ///     </para>
+    ///     <para>
+    ///         A write that does change the value raises
+    ///         <see cref="INotifyPropertyChanged.PropertyChanged" /> once the graph has settled,
+    ///         carrying whatever the graph settled on. So any number of controls may bind to this
+    ///         property, in either direction, and all of them follow a write made by any one of
+    ///         them.
+    ///     </para>
     /// </remarks>
     new T Value { get; set; }
 }
