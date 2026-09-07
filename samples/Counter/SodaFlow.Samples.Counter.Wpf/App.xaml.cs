@@ -1,4 +1,5 @@
 using System.Windows;
+using SodaFlow.Bindable.ObjectModel;
 using SodaFlow.Samples.Counter.ViewModels;
 
 namespace SodaFlow.Samples.Counter.Wpf;
@@ -28,6 +29,12 @@ public partial class App
     protected override void OnStartup(StartupEventArgs e)
     {
         base.OnStartup(e);
+
+        // Pinned before anything bindable exists, so nothing afterwards depends on which
+        // thread a bindable happened to be built on. Without it each one captures the
+        // synchronization context of its constructing thread, and a view model built off
+        // the UI thread would quietly get the wrong one - or none, and run inline.
+        BindingScheduler.Default = SynchronizationContextBindingScheduler.Capture();
 
         this.viewModel = CounterViewModel.Create();
 

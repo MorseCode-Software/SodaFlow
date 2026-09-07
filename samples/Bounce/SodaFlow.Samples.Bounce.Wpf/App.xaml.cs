@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using System.Windows;
+using SodaFlow.Bindable.ObjectModel;
 using SodaFlow.Samples.Bounce.ViewModels;
 
 namespace SodaFlow.Samples.Bounce.Wpf;
@@ -21,9 +22,8 @@ namespace SodaFlow.Samples.Bounce.Wpf;
 ///         constructs and shows the window in one step, leaving nowhere to set anything in between.
 ///     </para>
 ///     <para>
-///         This runs on the UI thread, which matters here more than in the other samples: the
-///         bindable values capture the synchronization context in force where they are built, and
-///         that is what they marshal their notifications onto.
+///         The binding scheduler is pinned here too, before anything bindable exists, so that
+///         nothing afterwards depends on which thread a bindable happened to be built on.
 ///     </para>
 /// </remarks>
 public partial class App
@@ -35,9 +35,15 @@ public partial class App
     {
         base.OnStartup(e);
 
-        // The handler is called with anything raised while waiting for or firing a timer. Timer
-        // callbacks run outside any call stack of yours, so an exception in one has nowhere else
-        // to go.
+        // Pinned before anything bindable exists, so nothing afterwards depends on which
+        // thread a bindable happened to be built on. Without it each one captures the
+        // synchronization context of its constructing thread, and a view model built off
+        // the UI thread would quietly get the wrong one - or none, and run inline.
+        BindingScheduler.Default = SynchronizationContextBindingScheduler.Capture();
+
+        // The handler is called with anything raised while waiting for or firing a timer.
+        // Timer callbacks run outside any call stack of yours, so an exception in one has
+        // nowhere else to go.
         this.viewModel = BounceViewModel.Create(ex => Debug.WriteLine(ex));
 
         MainWindow window = new() { DataContext = this.viewModel };
