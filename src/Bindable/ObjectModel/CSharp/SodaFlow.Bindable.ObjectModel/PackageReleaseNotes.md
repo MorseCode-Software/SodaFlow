@@ -1,3 +1,21 @@
+3.0.1
+
+No code change. This release exists to move a dependency floor, so that
+a new install gets the fix in SodaFlow.Bindable.ObjectModel.Core 3.0.1.
+
+A two-way bindable did not raise PropertyChanged for a write made through
+it, so only the control that made the write ever learned of the new
+value. Bind a checkbox and a slider to the same property and the slider
+can never follow the checkbox. See that package's notes for why, and for
+what is announced now.
+
+Strictly, this release is not what delivers the fix. The dependency was
+already a range, and 3.0.1 satisfies it, so a consumer who upgrades the
+core package directly gets the fix whether or not they take this. But
+NuGet resolves the lowest version a range allows, so a fresh install of
+3.0.0 would go on resolving core 3.0.0 and never see it. Moving the floor
+is what makes the fixed version the one a consumer gets by default.
+
 3.0.0
 
 BREAKING: ToOneWayToSource takes its optional parameters in the order
