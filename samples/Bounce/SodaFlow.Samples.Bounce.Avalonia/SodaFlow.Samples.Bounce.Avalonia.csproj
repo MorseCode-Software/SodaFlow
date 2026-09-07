@@ -1,0 +1,44 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <OutputType>WinExe</OutputType>
+        <TargetFramework>net8.0</TargetFramework>
+        <Nullable>enable</Nullable>
+        <EnableDefaultItems>false</EnableDefaultItems>
+        <LangVersion>10</LangVersion>
+        <IsPackable>false</IsPackable>
+        <ApplicationManifest>app.manifest</ApplicationManifest>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <PackageReference Include="Avalonia" Version="12.1.2"/>
+        <PackageReference Include="Avalonia.Desktop" Version="12.1.2"/>
+        <PackageReference Include="Avalonia.Themes.Fluent" Version="12.1.2"/>
+    </ItemGroup>
+
+    <ItemGroup>
+        <!-- The same view model project the WPF head uses, unchanged. -->
+        <ProjectReference Include="..\SodaFlow.Samples.Bounce.ViewModels\SodaFlow.Samples.Bounce.ViewModels.csproj"/>
+    </ItemGroup>
+
+    <ItemGroup>
+        <AvaloniaXaml Include="App.axaml">
+            <SubType>Designer</SubType>
+        </AvaloniaXaml>
+        <Compile Include="App.axaml.cs">
+            <DependentUpon>App.axaml</DependentUpon>
+            <SubType>Code</SubType>
+        </Compile>
+        <None Include="app.manifest"/>
+        <AvaloniaXaml Include="MainWindow.axaml">
+            <SubType>Designer</SubType>
+        </AvaloniaXaml>
+        <Compile Include="MainWindow.axaml.cs">
+            <DependentUpon>MainWindow.axaml</DependentUpon>
+            <SubType>Code</SubType>
+        </Compile>
+        <Compile Include="Program.cs"/>
+        <Compile Include="SceneView.cs"/>
+    </ItemGroup>
+
+</Project>
