@@ -28,7 +28,7 @@
 
 
         <!--
-            Shown only for the scene the damping applies to, which is a value on the view model
+            Shown only for the scenes the damping applies to, which is a value on the view model
             rather than anything this markup works out. The slider writes a multiplier the bounce
             reads when it happens, so moving it changes the next bounce and not the flight already
             under way.

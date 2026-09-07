@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using SodaFlow.Bindable.ObjectModel;
+using SodaFlow.Functional;
 using SodaFlow.Time;
 
 namespace SodaFlow.Samples.Bounce.ViewModels;
@@ -120,8 +121,17 @@ public sealed class BounceViewModel : IBounceViewModel
                 Cell<double> restitution =
                     dampingEnabled.Lift(c2: damping, f: (enabled, value) => enabled ? value : 1.0);
 
-                IScene damped = new GrabScene(timers: timers, restitution: restitution);
-                IScene[] scenes = { new SimpleScene(timers), new WallsScene(timers), damped };
+                // Switching damping on or off puts the several-balls scene back to its opening
+                // arrangement, because damped below one it settles and has nothing to pick a
+                // settled ball up with. The checkbox is what relaunches and the slider is not, so
+                // that dragging the slider does not restart the scene under the pointer.
+                Stream<Unit> relaunches = dampingEnabled.Updates().Map(static _ => Unit.Value);
+
+                IScene walls =
+                    new WallsScene(timers: timers, restitution: restitution, relaunches: relaunches);
+
+                IScene grab = new GrabScene(timers: timers, restitution: restitution);
+                IScene[] scenes = { new SimpleScene(timers), walls, grab };
 
                 // The simplest two-way case: the view is the only writer and the sink is the
                 // authoritative value. No scheduler is passed, so one is captured from the
@@ -133,10 +143,13 @@ public sealed class BounceViewModel : IBounceViewModel
                     selectedScene: selected.ToTwoWay(),
                     selectedSummary: selected.Map(scene => scene.Summary).ToOneWay(),
 
-                    // Which scene damping applies to is known here because this is where it was
-                    // handed over, so the answer is which scene that was rather than a flag every
-                    // scene has to carry.
-                    isDampingAvailable: selected.Map(scene => ReferenceEquals(scene, damped)).ToOneWay(),
+                    // Which scenes damping applies to is known here because this is where it was
+                    // handed over, so the answer is which scenes those were rather than a flag
+                    // every scene has to carry.
+                    isDampingAvailable:
+                    selected
+                        .Map(scene => ReferenceEquals(scene, walls) || ReferenceEquals(scene, grab))
+                        .ToOneWay(),
                     dampingEnabled: dampingEnabled.ToTwoWay(),
                     damping: damping.ToTwoWay());
             });

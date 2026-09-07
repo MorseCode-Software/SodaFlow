@@ -44,6 +44,20 @@ internal static class BouncingAxis
     private const double RestSpeed = 25.0;
 
     /// <summary>
+    ///     The speed a bounce will not take a body past.
+    /// </summary>
+    /// <remarks>
+    ///     The other end of the same problem <see cref="RestSpeed" /> answers. Multiply the speed
+    ///     by more than one at every bounce and it grows without bound, so the bounces get closer
+    ///     together without limit - and once they are closer together than the timer can service
+    ///     them, the flight in force is older than the moment being drawn and the body is drawn
+    ///     wherever an equation it should have stopped following says. A speed the gaining stops at
+    ///     keeps the bounces far enough apart to stay ahead of, which is what makes a multiplier
+    ///     above one something the simulation can honour rather than merely accept.
+    /// </remarks>
+    private const double MaximumSpeed = 2000.0;
+
+    /// <summary>
     ///     Builds the position along one axis: a behavior defined at every instant, bouncing
     ///     between <paramref name="min" /> and <paramref name="max" />.
     /// </summary>
@@ -68,8 +82,9 @@ internal static class BouncingAxis
     /// </summary>
     /// <param name="restarts">
     ///     Flights imposed from outside, which take precedence over a bounce arriving in the same
-    ///     transaction. Releasing a thrown ball is the only thing that uses this; the scenes with
-    ///     nothing to impose pass a stream that never fires.
+    ///     transaction. Releasing a thrown ball arrives here, and so does relaunching a scene that
+    ///     has damped itself to a standstill; the one-ball scene has nothing to impose and passes a
+    ///     stream that never fires.
     /// </param>
     /// <param name="restitution">
     ///     What the speed is multiplied by at each bounce. One is a perfectly elastic bounce, less
@@ -138,12 +153,16 @@ internal static class BouncingAxis
     ///         of an axis that accelerates towards it - the floor - or anywhere on an axis with no
     ///         acceleration at all. A slow body at the ceiling is not at rest, it is about to fall.
     ///     </para>
+    ///     <para>
+    ///         Above <see cref="MaximumSpeed" /> it gains no more, which is the part a multiplier
+    ///         over one cannot do without, and for the mirror-image reason.
+    ///     </para>
     /// </remarks>
     public static Flight Reflect(Flight flight, double time, double min, double max, double restitution)
     {
         double position = flight.PositionAt(time);
         double bound = Math.Abs(position - min) < Math.Abs(position - max) ? min : max;
-        double velocity = -flight.VelocityAt(time) * restitution;
+        double velocity = Clamp(-flight.VelocityAt(time) * restitution);
 
         bool canRest =
             Math.Abs(flight.Acceleration) < double.Epsilon || Math.Abs(bound - max) < double.Epsilon;
@@ -156,6 +175,10 @@ internal static class BouncingAxis
                 velocity: velocity,
                 acceleration: flight.Acceleration);
     }
+
+    /// <summary>The given speed, in the direction it is going, held to <see cref="MaximumSpeed" />.</summary>
+    private static double Clamp(double velocity) =>
+        velocity > MaximumSpeed ? MaximumSpeed : velocity < -MaximumSpeed ? -MaximumSpeed : velocity;
 
     /// <summary>
     ///     How long until the flight reaches the bound, or none if it does not reach it going

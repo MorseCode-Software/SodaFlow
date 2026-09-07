@@ -29,8 +29,8 @@ public sealed class GrabScene : IInteractiveScene
     private readonly StreamSink<Unit> released;
 
     /// <param name="restitution">
-    ///     What a bounce multiplies the speed by. This scene is the one that offers it as a
-    ///     setting; see <see cref="BounceViewModel" />, which owns the value the controls write.
+    ///     What a bounce multiplies the speed by, the same cell the several-balls scene reads. See
+    ///     <see cref="BounceViewModel" />, which owns the value the controls write.
     /// </param>
     internal GrabScene(ITimerSystem<double> timers, Cell<double> restitution)
     {

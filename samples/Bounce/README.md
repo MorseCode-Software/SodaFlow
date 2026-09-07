@@ -16,7 +16,10 @@ derived from.
 | --- | --- |
 | **One ball** | A single ball on one axis. The whole idea, with nothing else in the way. |
 | **Several balls** | Four balls, each a pair of independent axes, bouncing off walls as well as the floor. |
-| **Grab and throw** | Drag a ball and let go. Its position switches between the pointer's and its own flight, and a checkbox and slider set what a bounce does to its speed. |
+| **Grab and throw** | Drag a ball and let go. Its position switches between the pointer's and its own flight. |
+
+The last two share a checkbox and a slider setting what a bounce does to a ball's speed. The first
+is deliberately elastic, so that the smallest scene stays the smallest thing that makes the point.
 
 ## The idea
 
@@ -132,11 +135,12 @@ the bound members into something a reader, a designer and the compiler can all f
 the interface honest about what a view is entitled to: `Create` is not on it, because building a
 view model is not something a view does with one.
 
-## Damping, and why it needs a rule about resting
+## Damping, and why it needs rules at both ends
 
-The first two scenes bounce elastically and never settle. The third has a checkbox and a slider
-that set what a bounce multiplies the speed by, from 0.1 to 1.1 — below one a ball loses speed and
-stops, at one it bounces forever, above one it gains speed and climbs to the ceiling.
+A checkbox and a slider set what a bounce multiplies the speed by, from 0.1 to 1.1 — below one a
+ball loses speed and stops, at one it bounces forever, above one it gains speed and climbs to the
+ceiling. One value, shared: the several-balls scene alone reads it from eight axes, and none of
+them holds a copy or has to be told when it changes.
 
 The multiplier is a `Cell<double>` read at the moment of each bounce, so moving the slider changes
 the next bounce rather than the flight already under way. Turning the checkbox off is the same as a
@@ -161,7 +165,25 @@ return Math.Abs(velocity) < RestSpeed && canRest
 `canRest` is the other half. A ball stops against the floor, or on an axis with no acceleration at
 all; a slow ball at the *ceiling* is not at rest, it is about to fall. A resting flight has no
 velocity and no acceleration, so `NextBounceTime` finds nothing and the alarm disarms itself — the
-ball costs nothing until something moves it, which grabbing and throwing it does.
+ball costs nothing until something moves it.
+
+Above one has the mirror-image problem, and it is worth knowing that it bites. The speed grows at
+every bounce, so the bounces get closer together without limit, and once they are closer together
+than the timer can service them the flight in force is older than the moment being drawn — the ball
+is drawn wherever an equation it should have stopped following puts it, which is off the screen and
+then off by millions of pixels. So there is a speed the gaining stops at, exactly as there is a
+speed the losing stops at.
+
+The rest speed is why a damped scene needs a way back. The grab scene has one already — pick a
+settled ball up and throw it — but the several-balls scene has nothing to poke it with, so
+switching the checkbox relaunches it:
+
+```csharp
+Stream<Unit> relaunches = dampingEnabled.Updates().Map(static _ => Unit.Value);
+```
+
+That reaches the axes as `restarts`, the same input a throw arrives on. The *checkbox* relaunches
+and the slider does not, so dragging the slider does not restart the scene under the pointer.
 
 ## A note on the physics
 

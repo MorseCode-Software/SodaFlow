@@ -47,8 +47,8 @@ public interface IBounceViewModel : IDisposable
     ///     Whether the selected scene is one the damping applies to.
     /// </summary>
     /// <remarks>
-    ///     Only the grab-and-throw scene offers it, so the controls appear only when that one is
-    ///     showing. A function of the selection, like the summary.
+    ///     The one-ball scene is deliberately elastic, so the controls appear only for the other
+    ///     two. A function of the selection, like the summary.
     /// </remarks>
     IOneWayBindableValue<bool> IsDampingAvailable { get; }
 
