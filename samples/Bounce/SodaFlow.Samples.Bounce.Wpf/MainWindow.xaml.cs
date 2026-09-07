@@ -1,23 +1,11 @@
-using SodaFlow.Samples.Bounce.ViewModels;
-
 namespace SodaFlow.Samples.Bounce.Wpf;
 
 /// <summary>
-///     The entire WPF side of this sample: build the view model, bind to it, dispose it.
+///     Markup and nothing else. The data context is supplied by <see cref="App" /> before this is
+///     shown, so the whole WPF side of the sample is the XAML next to this file and
+///     <see cref="SceneView" />.
 /// </summary>
 public partial class MainWindow
 {
-    private readonly IBounceViewModel viewModel =
-        BounceViewModel.Create(ex => System.Diagnostics.Debug.WriteLine(ex));
-
-    public MainWindow()
-    {
-        this.InitializeComponent();
-
-        this.DataContext = this.viewModel;
-
-        // Only the bindable properties need this. The balls do not: they are behaviors, and
-        // nothing subscribes to a behavior.
-        this.Closed += (_, _) => this.viewModel.Dispose();
-    }
+    public MainWindow() => this.InitializeComponent();
 }
