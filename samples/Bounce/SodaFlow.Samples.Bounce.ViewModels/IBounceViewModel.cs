@@ -42,4 +42,34 @@ public interface IBounceViewModel : IDisposable
 
     /// <summary>The selected scene's description, as a function of the selection.</summary>
     IOneWayBindableValue<string> SelectedSummary { get; }
+
+    /// <summary>
+    ///     Whether the selected scene is one the damping applies to.
+    /// </summary>
+    /// <remarks>
+    ///     Only the grab-and-throw scene offers it, so the controls appear only when that one is
+    ///     showing. A function of the selection, like the summary.
+    /// </remarks>
+    IOneWayBindableValue<bool> IsDampingAvailable { get; }
+
+    /// <summary>
+    ///     Whether a bounce changes speed rather than keeping it. Two-way, for a checkbox.
+    /// </summary>
+    ITwoWayBindableValue<bool> DampingEnabled { get; }
+
+    /// <summary>
+    ///     What a bounce multiplies speed by while damping is on. Two-way, for a slider.
+    /// </summary>
+    /// <remarks>
+    ///     Below one a body loses speed at every bounce and comes to rest; at one it bounces
+    ///     forever; above one it gains speed and climbs. Read at the moment of each bounce, so
+    ///     moving the slider changes the next bounce rather than the flight already under way.
+    /// </remarks>
+    ITwoWayBindableValue<double> Damping { get; }
+
+    /// <summary>The smallest value <see cref="Damping" /> takes.</summary>
+    double MinimumDamping { get; }
+
+    /// <summary>The largest value <see cref="Damping" /> takes.</summary>
+    double MaximumDamping { get; }
 }

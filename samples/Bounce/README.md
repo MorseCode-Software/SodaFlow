@@ -16,7 +16,7 @@ derived from.
 | --- | --- |
 | **One ball** | A single ball on one axis. The whole idea, with nothing else in the way. |
 | **Several balls** | Four balls, each a pair of independent axes, bouncing off walls as well as the floor. |
-| **Grab and throw** | Drag a ball and let go. Its position switches between the pointer's and its own flight. |
+| **Grab and throw** | Drag a ball and let go. Its position switches between the pointer's and its own flight, and a checkbox and slider set what a bounce does to its speed. |
 
 ## The idea
 
@@ -132,13 +132,38 @@ the bound members into something a reader, a designer and the compiler can all f
 the interface honest about what a view is entitled to: `Create` is not on it, because building a
 view model is not something a view does with one.
 
-## A note on the physics
+## Damping, and why it needs a rule about resting
 
-The bounces are perfectly elastic, so the balls never settle. Damping would be one multiplier in
-`Reflect`, and would bring the problem damping always brings: as the bounces shrink the intervals
-between them shrink too, without ever reaching zero, so a simulation that solves for each one in
-turn schedules them forever. Handling that means deciding when a body is at rest — worth writing,
-and not what this sample is about.
+The first two scenes bounce elastically and never settle. The third has a checkbox and a slider
+that set what a bounce multiplies the speed by, from 0.1 to 1.1 — below one a ball loses speed and
+stops, at one it bounces forever, above one it gains speed and climbs to the ceiling.
+
+The multiplier is a `Cell<double>` read at the moment of each bounce, so moving the slider changes
+the next bounce rather than the flight already under way. Turning the checkbox off is the same as a
+multiplier of one, and that is what the graph says rather than making the bounce ask two questions:
+
+```csharp
+Cell<double> restitution = dampingEnabled.Lift(damping, (enabled, value) => enabled ? value : 1.0);
+```
+
+Damping cannot be only a multiplier, though, and this is the part worth reading `Reflect` for. Each
+bounce is smaller than the last, and the interval to the next one shrinks just as fast, without ever
+reaching zero — so solving for each bounce in turn means scheduling infinitely many of them in
+finite time, and the ball never arrives at sitting still. The answer is a speed below which a bounce
+becomes a stop:
+
+```csharp
+return Math.Abs(velocity) < RestSpeed && canRest
+    ? new Flight(startTime: time, position: bound, velocity: 0.0, acceleration: 0.0)
+    : ...
+```
+
+`canRest` is the other half. A ball stops against the floor, or on an axis with no acceleration at
+all; a slow ball at the *ceiling* is not at rest, it is about to fall. A resting flight has no
+velocity and no acceleration, so `NextBounceTime` finds nothing and the alarm disarms itself — the
+ball costs nothing until something moves it, which grabbing and throwing it does.
+
+## A note on the physics
 
 Balls do not collide with each other. Each is two independent axes, which is what keeps the graph
 small enough to read.

@@ -12,6 +12,12 @@
         WindowStartupLocation="CenterScreen"
         d:DataContext="{d:DesignInstance viewModels:IBounceViewModel}">
 
+    <Window.Resources>
+        <!-- WPF has no IsVisible, so the same bool reaches Visibility through the converter the
+             framework ships for exactly this. -->
+        <BooleanToVisibilityConverter x:Key="BooleanToVisibility" />
+    </Window.Resources>
+
     <!--
         A tab per scene, smallest first. The selection is bound rather than left to the control,
         so which scene is showing is a value in the view model: the summary above is a function of
@@ -28,6 +34,34 @@
                    TextWrapping="Wrap"
                    Foreground="Gray"
                    Margin="0,0,0,12" />
+
+
+        <!--
+            Shown only for the scene the damping applies to, which is a value on the view model
+            rather than anything this markup works out. The slider writes a multiplier the bounce
+            reads when it happens, so moving it changes the next bounce and not the flight already
+            under way.
+        -->
+        <StackPanel DockPanel.Dock="Bottom"
+                    Orientation="Horizontal"
+                    Margin="0,12,0,0"
+                    Visibility="{Binding IsDampingAvailable.Value, Converter={StaticResource BooleanToVisibility}}">
+            <CheckBox Content="Damping"
+                      IsChecked="{Binding DampingEnabled.Value, Mode=TwoWay}"
+                      VerticalAlignment="Center" />
+
+            <Slider Minimum="{Binding MinimumDamping}"
+                    Maximum="{Binding MaximumDamping}"
+                    Value="{Binding Damping.Value, Mode=TwoWay}"
+                    IsEnabled="{Binding DampingEnabled.Value}"
+                    Width="200"
+                    Margin="12,0,8,0"
+                    VerticalAlignment="Center" />
+
+            <TextBlock Text="{Binding Damping.Value, StringFormat={}{0:F2}}"
+                       Foreground="Gray"
+                       VerticalAlignment="Center" />
+        </StackPanel>
 
         <TabControl ItemsSource="{Binding Scenes}"
                     SelectedItem="{Binding SelectedScene.Value, Mode=TwoWay}">

@@ -28,7 +28,11 @@ public sealed class GrabScene : IInteractiveScene
 
     private readonly StreamSink<Unit> released;
 
-    internal GrabScene(ITimerSystem<double> timers)
+    /// <param name="restitution">
+    ///     What a bounce multiplies the speed by. This scene is the one that offers it as a
+    ///     setting; see <see cref="BounceViewModel" />, which owns the value the controls write.
+    /// </param>
+    internal GrabScene(ITimerSystem<double> timers, Cell<double> restitution)
     {
         double now = timers.Time.Sample();
 
@@ -88,7 +92,8 @@ public sealed class GrabScene : IInteractiveScene
                                 startTime: t.Time,
                                 position: Clamp(value: t.Trail.X, min: minX, max: maxX),
                                 velocity: t.Trail.VelocityX,
-                                acceleration: 0.0))));
+                                acceleration: 0.0)),
+                        restitution: restitution));
 
             Behavior<double> freeY =
                 BouncingAxis.Position(
@@ -103,7 +108,8 @@ public sealed class GrabScene : IInteractiveScene
                                 startTime: t.Time,
                                 position: Clamp(value: t.Trail.Y, min: minY, max: maxY),
                                 velocity: t.Trail.VelocityY,
-                                acceleration: Arrangement.Gravity))));
+                                acceleration: Arrangement.Gravity)),
+                        restitution: restitution));
 
             Cell<bool> isHeld =
                 this.held.Map(m => m.Match(onSome: h => h == index, onNone: static () => false));
@@ -131,7 +137,9 @@ public sealed class GrabScene : IInteractiveScene
     /// <inheritdoc />
     public string Summary =>
         "Drag a ball and let go. While held, its position is the pointer's; otherwise it is its "
-        + "flight's. SwitchB is what makes those one behavior rather than two states to reconcile.";
+        + "flight's, and SwitchB is what makes those one behavior rather than two states to "
+        + "reconcile. Damping sets what a bounce does to a ball's speed: below one it settles, "
+        + "above one it climbs.";
 
     /// <inheritdoc />
     public double Width => Arrangement.Width;

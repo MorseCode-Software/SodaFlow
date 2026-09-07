@@ -26,6 +26,34 @@
                    Foreground="Gray"
                    Margin="0,0,0,12" />
 
+
+        <!--
+            Shown only for the scene the damping applies to, which is a value on the view model
+            rather than anything this markup works out. The slider writes a multiplier the bounce
+            reads when it happens, so moving it changes the next bounce and not the flight already
+            under way.
+        -->
+        <StackPanel DockPanel.Dock="Bottom"
+                    Orientation="Horizontal"
+                    Margin="0,12,0,0"
+                    IsVisible="{Binding IsDampingAvailable.Value}">
+            <CheckBox Content="Damping"
+                      IsChecked="{Binding DampingEnabled.Value, Mode=TwoWay}"
+                      VerticalAlignment="Center" />
+
+            <Slider Minimum="{Binding MinimumDamping}"
+                    Maximum="{Binding MaximumDamping}"
+                    Value="{Binding Damping.Value, Mode=TwoWay}"
+                    IsEnabled="{Binding DampingEnabled.Value}"
+                    Width="200"
+                    Margin="12,0,8,0"
+                    VerticalAlignment="Center" />
+
+            <TextBlock Text="{Binding Damping.Value, StringFormat={}{0:F2}}"
+                       Foreground="Gray"
+                       VerticalAlignment="Center" />
+        </StackPanel>
+
         <TabControl ItemsSource="{Binding Scenes}"
                     SelectedItem="{Binding SelectedScene.Value, Mode=TwoWay}">
             <TabControl.ItemTemplate>

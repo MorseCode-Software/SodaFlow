@@ -32,6 +32,18 @@ internal static class BouncingAxis
     private const double MinimumInterval = 1e-6;
 
     /// <summary>
+    ///     The speed below which a damped body stops rather than bouncing again.
+    /// </summary>
+    /// <remarks>
+    ///     This is what makes damping finite. Multiply the speed by less than one at every bounce
+    ///     and the bounces get closer together as fast as they get smaller, without the interval
+    ///     between them ever reaching zero - so a simulation that solves for each one in turn will
+    ///     schedule them forever and never arrive at the body sitting still. Deciding that slowly
+    ///     enough is stopped is how that is answered, here as everywhere else.
+    /// </remarks>
+    private const double RestSpeed = 25.0;
+
+    /// <summary>
     ///     Builds the position along one axis: a behavior defined at every instant, bouncing
     ///     between <paramref name="min" /> and <paramref name="max" />.
     /// </summary>
@@ -39,7 +51,8 @@ internal static class BouncingAxis
         ITimerSystem<double> timers,
         Flight initial,
         double min,
-        double max) =>
+        double max,
+        Cell<double> restitution) =>
         Position(
             timers: timers,
             flight: Flights(
@@ -47,7 +60,8 @@ internal static class BouncingAxis
                 initial: initial,
                 min: min,
                 max: max,
-                restarts: Stream.Never<Flight>()));
+                restarts: Stream.Never<Flight>(),
+                restitution: restitution));
 
     /// <summary>
     ///     The equation in force at each moment, each bounce replacing the one before it.
@@ -57,12 +71,18 @@ internal static class BouncingAxis
     ///     transaction. Releasing a thrown ball is the only thing that uses this; the scenes with
     ///     nothing to impose pass a stream that never fires.
     /// </param>
+    /// <param name="restitution">
+    ///     What the speed is multiplied by at each bounce. One is a perfectly elastic bounce, less
+    ///     loses speed, more gains it. Read at the moment of the bounce, so changing it affects the
+    ///     next bounce rather than the flight already under way.
+    /// </param>
     public static Cell<Flight> Flights(
         ITimerSystem<double> timers,
         Flight initial,
         double min,
         double max,
-        Stream<Flight> restarts) =>
+        Stream<Flight> restarts,
+        Cell<double> restitution) =>
         Cell.Loop<Flight>()
             .WithoutCaptures(flight =>
             {
@@ -71,9 +91,14 @@ internal static class BouncingAxis
                 // the flight, so a new flight is a new target.
                 Cell<Maybe<double>> nextBounce = flight.Map(f => NextBounceTime(flight: f, min: min, max: max));
 
-                Stream<Flight> bounced = timers
-                    .At(nextBounce)
-                    .Snapshot(c: flight, f: (time, f) => Reflect(flight: f, time: time, min: min, max: max));
+                Stream<Flight> bounced =
+                    timers
+                        .At(nextBounce)
+                        .Snapshot(
+                            c1: flight,
+                            c2: restitution,
+                            f: (time, f, e) =>
+                                Reflect(flight: f, time: time, min: min, max: max, restitution: e));
 
                 return restarts.OrElse(bounced).Hold(initial);
             });
@@ -103,22 +128,33 @@ internal static class BouncingAxis
     ///     The flight that begins where the given one meets a bound, going the other way.
     /// </summary>
     /// <remarks>
-    ///     The bounce is perfectly elastic. Damping would be one multiplier here, and would also
-    ///     bring the problem it always brings: as the bounces shrink the intervals between them
-    ///     shrink too, without ever reaching zero, so a simulation that solves for each one in
-    ///     turn schedules them forever. Handling that means deciding when a body is at rest, which
-    ///     is a worthwhile thing to write and not what this sample is about.
+    ///     <para>
+    ///         <paramref name="restitution" /> is the whole of the damping: one bounces without
+    ///         loss, less than one loses speed, more than one gains it.
+    ///     </para>
+    ///     <para>
+    ///         Below <see cref="RestSpeed" /> the body stops instead, which is the part damping
+    ///         cannot do without. It stops only where stopping is possible: against the far bound
+    ///         of an axis that accelerates towards it - the floor - or anywhere on an axis with no
+    ///         acceleration at all. A slow body at the ceiling is not at rest, it is about to fall.
+    ///     </para>
     /// </remarks>
-    public static Flight Reflect(Flight flight, double time, double min, double max)
+    public static Flight Reflect(Flight flight, double time, double min, double max, double restitution)
     {
         double position = flight.PositionAt(time);
         double bound = Math.Abs(position - min) < Math.Abs(position - max) ? min : max;
+        double velocity = -flight.VelocityAt(time) * restitution;
 
-        return new Flight(
-            startTime: time,
-            position: bound,
-            velocity: -flight.VelocityAt(time),
-            acceleration: flight.Acceleration);
+        bool canRest =
+            Math.Abs(flight.Acceleration) < double.Epsilon || Math.Abs(bound - max) < double.Epsilon;
+
+        return Math.Abs(velocity) < RestSpeed && canRest
+            ? new Flight(startTime: time, position: bound, velocity: 0.0, acceleration: 0.0)
+            : new Flight(
+                startTime: time,
+                position: bound,
+                velocity: velocity,
+                acceleration: flight.Acceleration);
     }
 
     /// <summary>

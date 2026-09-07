@@ -36,7 +36,11 @@ public sealed class SimpleScene : IScene
                             velocity: 0.0,
                             acceleration: Gravity),
                         min: BallRadius,
-                        max: this.Height - BallRadius),
+                        max: this.Height - BallRadius,
+
+                        // Elastic, and not offered as a choice: this scene is here to be the
+                        // smallest thing that makes the point.
+                        restitution: Cell.Constant(1.0)),
                     radius: BallRadius,
                     color: "#E2574C"),
             };

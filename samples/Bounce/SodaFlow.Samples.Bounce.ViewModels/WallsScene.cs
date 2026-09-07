@@ -35,12 +35,14 @@ public sealed class WallsScene : IScene
                         timers: timers,
                         initial: Arrangement.InitialX(start: start, now: now),
                         min: start.Radius,
-                        max: Arrangement.Width - start.Radius),
+                        max: Arrangement.Width - start.Radius,
+                        restitution: Cell.Constant(1.0)),
                     y: BouncingAxis.Create(
                         timers: timers,
                         initial: Arrangement.InitialY(start: start, now: now),
                         min: start.Radius,
-                        max: Arrangement.Height - start.Radius),
+                        max: Arrangement.Height - start.Radius,
+                        restitution: Cell.Constant(1.0)),
                     radius: start.Radius,
                     color: start.Color);
         }
