@@ -195,6 +195,29 @@ public sealed class BindableValueTests
         await Assert.That(names).IsEquivalentTo(expected, CollectionOrdering.Matching);
     }
 
+    // What the comparer calls unchanged is unchanged, all the way down. A cell value that differs
+    // only in a way the comparer ignores must not quietly replace what the view is showing: there
+    // is no notification for it, by definition, so the swap would stand with nothing to reconcile
+    // it and the property would report something the view never displayed.
+    [Test]
+    public async Task TwoWayKeepsItsValueWhenTheComparerCallsTheCellsEquivalent()
+    {
+        CellSink<string> c = Cell.CreateSink("abc");
+
+        using ITwoWayBindableValue<string> b =
+            c.ToTwoWayImpl(scheduler: BindingScheduler.Immediate, comparer: StringComparer.OrdinalIgnoreCase);
+
+        List<string?> names = RecordNotifications(b);
+
+        c.Send("ABC");
+
+        await Assert.That(names).IsEmpty().Because("the comparer says nothing changed");
+
+        await Assert.That(b.Value)
+            .IsEqualTo("abc")
+            .Because("an unannounced change would leave the property disagreeing with the view");
+    }
+
     // The graph is authoritative. A write the graph normalizes has to come back corrected, or the
     // view keeps showing something that was never accepted.
     [Test]

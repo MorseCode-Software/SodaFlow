@@ -262,29 +262,34 @@ public static partial class BindableCoreExtensionMethods
 
                     T authoritative = this.Cell.SampleImpl();
 
-                    // Two things can be behind the cell, and either is a reason to announce.
+                    // Two things can be behind the cell, and either is a reason to announce, so
+                    // there is nothing to do only when both agree with it.
                     //
                     // The cached value is what the writing control put there optimistically, and is
-                    // stale when the graph rejected or normalized that write - the case that gives
+                    // behind when the graph rejected or normalized that write - the case that gives
                     // the writer its correction back.
                     //
-                    // The last notified value is what every other observer was told, and is stale
+                    // The last notified value is what every other observer was told, and is behind
                     // whenever a write went through unchanged: the cache agrees with the cell
                     // because the setter got there first, while nothing bound to this property has
                     // heard anything. A property one control can write and another cannot follow is
                     // not a bindable value, so that case has to announce too.
-                    bool cacheIsBehind = !this.comparer.Equals(x: this.cachedValue, y: authoritative);
-
-                    bool observersAreBehind =
-                        !this.comparer.Equals(x: this.lastNotifiedValue, y: authoritative);
-
-                    this.cachedValue = authoritative;
-
-                    if (!cacheIsBehind && !observersAreBehind)
+                    //
+                    // Short-circuiting is deliberate. The first comparison failing already settles
+                    // that this is not the early return, so the second one has no answer left to
+                    // contribute and a comparer is arbitrary code.
+                    if (this.comparer.Equals(x: this.cachedValue, y: authoritative)
+                        && this.comparer.Equals(x: this.lastNotifiedValue, y: authoritative))
                     {
                         return;
                     }
 
+                    // Assigned only on the announcing path. Where the early return was taken the
+                    // cached value already compares equal, and replacing it would swap the writer's
+                    // value for the graph's without telling anyone - which for a comparer that
+                    // ignores some part of the value, a case-insensitive one say, is a visible
+                    // difference left with nothing to reconcile it.
+                    this.cachedValue = authoritative;
                     this.lastNotifiedValue = authoritative;
                     this.RaiseValueChanged();
                 }
