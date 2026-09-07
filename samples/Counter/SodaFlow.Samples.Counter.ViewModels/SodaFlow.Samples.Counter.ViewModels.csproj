@@ -25,7 +25,7 @@
         -->
         <PackageReference Include="JetBrains.Annotations" Version="2026.2.0" PrivateAssets="all"/>
         <PackageReference Include="SodaFlow" Version="4.0.0"/>
-        <PackageReference Include="SodaFlow.Bindable.ObjectModel" Version="3.0.0"/>
+        <PackageReference Include="SodaFlow.Bindable.ObjectModel" Version="3.0.1"/>
     </ItemGroup>
 
     <ItemGroup>
