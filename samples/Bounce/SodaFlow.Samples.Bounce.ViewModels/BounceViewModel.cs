@@ -47,7 +47,6 @@ public sealed class BounceViewModel : IBounceViewModel
         IOneWayBindableValue<string> selectedSummary,
         IOneWayBindableValue<bool> isDampingAvailable,
         ITwoWayBindableValue<bool> dampingEnabled,
-        IOneWayBindableValue<bool> isDampingAdjustable,
         ITwoWayBindableValue<double> damping)
     {
         this.Scenes = scenes;
@@ -55,14 +54,12 @@ public sealed class BounceViewModel : IBounceViewModel
         this.SelectedSummary = selectedSummary;
         this.IsDampingAvailable = isDampingAvailable;
         this.DampingEnabled = dampingEnabled;
-        this.IsDampingAdjustable = isDampingAdjustable;
         this.Damping = damping;
 
         this.disposables =
             new IDisposable[]
             {
-                selectedScene, selectedSummary, isDampingAvailable, dampingEnabled,
-                isDampingAdjustable, damping,
+                selectedScene, selectedSummary, isDampingAvailable, dampingEnabled, damping,
             };
     }
 
@@ -92,9 +89,6 @@ public sealed class BounceViewModel : IBounceViewModel
 
     /// <inheritdoc />
     public ITwoWayBindableValue<bool> DampingEnabled { get; }
-
-    /// <inheritdoc />
-    public IOneWayBindableValue<bool> IsDampingAdjustable { get; }
 
     /// <inheritdoc />
     public ITwoWayBindableValue<double> Damping { get; }
@@ -172,12 +166,6 @@ public sealed class BounceViewModel : IBounceViewModel
                         .Map(scene => ReferenceEquals(scene, walls) || ReferenceEquals(scene, grab))
                         .ToOneWay(),
                     dampingEnabled: dampingEnabled.ToTwoWay(),
-
-                    // The same cell again, one-way, because a two-way value is for the control
-                    // that owns the input and does not announce a write back at it. The slider is
-                    // a second reader of the checkbox's value, so it reads the graph rather than
-                    // the other control's property.
-                    isDampingAdjustable: dampingEnabled.ToOneWay(),
                     damping: damping.ToTwoWay());
             });
     }

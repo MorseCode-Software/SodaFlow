@@ -58,18 +58,6 @@ public interface IBounceViewModel : IDisposable
     ITwoWayBindableValue<bool> DampingEnabled { get; }
 
     /// <summary>
-    ///     The same answer as <see cref="DampingEnabled" />, for anything that is not the checkbox.
-    /// </summary>
-    /// <remarks>
-    ///     A two-way value is written by the control that owns the input, and does not announce
-    ///     that write back at it - which is right for the writer and leaves a second reader of the
-    ///     same value hearing nothing. The slider is that second reader: it is enabled by the
-    ///     checkbox's answer without being the control that supplies it, so it binds here. Anything
-    ///     else that comes to depend on the checkbox should bind here too.
-    /// </remarks>
-    IOneWayBindableValue<bool> IsDampingAdjustable { get; }
-
-    /// <summary>
     ///     What a bounce multiplies speed by while damping is on. Two-way, for a slider.
     /// </summary>
     /// <remarks>

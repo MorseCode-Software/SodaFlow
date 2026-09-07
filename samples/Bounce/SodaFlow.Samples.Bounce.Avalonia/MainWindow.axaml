@@ -44,7 +44,7 @@
             <Slider Minimum="{Binding MinimumDamping}"
                     Maximum="{Binding MaximumDamping}"
                     Value="{Binding Damping.Value, Mode=TwoWay}"
-                    IsEnabled="{Binding IsDampingAdjustable.Value}"
+                    IsEnabled="{Binding DampingEnabled.Value}"
                     Width="200"
                     Margin="12,0,8,0"
                     VerticalAlignment="Center" />

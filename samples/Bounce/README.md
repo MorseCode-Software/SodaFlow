@@ -135,25 +135,6 @@ the bound members into something a reader, a designer and the compiler can all f
 the interface honest about what a view is entitled to: `Create` is not on it, because building a
 view model is not something a view does with one.
 
-## A two-way value has one reader
-
-The checkbox writes `DampingEnabled`, and the slider is enabled by the same answer. Binding both to
-the two-way value does not work, and the reason is worth knowing:
-
-```xml
-<CheckBox IsChecked="{Binding DampingEnabled.Value, Mode=TwoWay}" />
-<Slider   IsEnabled="{Binding IsDampingAdjustable.Value}" />
-```
-
-A two-way value is written by the control that owns the input, and does not announce that write
-back at it — which is right, because the writer already knows and an echo would fight it. But it
-means a *second* control binding to the same property never hears anything: the slider would sit
-disabled forever, whatever the checkbox said.
-
-So the second reader reads the graph instead. `IsDampingAdjustable` is the same cell exposed
-one-way, and one-way values do notify. The rule that falls out is a good one to keep: a two-way
-value belongs to the control that supplies it, and everything else derives what it needs.
-
 ## Damping, and why it needs rules at both ends
 
 A checkbox and a slider set what a bounce multiplies the speed by, from 0.1 to 1.1 — below one a
