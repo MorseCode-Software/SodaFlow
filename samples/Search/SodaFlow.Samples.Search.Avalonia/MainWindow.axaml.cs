@@ -10,7 +10,7 @@ namespace SodaFlow.Samples.Search.Avalonia;
 /// </summary>
 public partial class MainWindow : Window
 {
-    private readonly SearchViewModel viewModel = SearchViewModel.Create();
+    private readonly ISearchViewModel viewModel = SearchViewModel.Create();
 
     public MainWindow()
     {

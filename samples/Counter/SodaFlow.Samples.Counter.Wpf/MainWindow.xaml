@@ -9,7 +9,7 @@
         Width="340"
         Height="240"
         WindowStartupLocation="CenterScreen"
-        d:DataContext="{d:DesignInstance viewModels:CounterViewModel}">
+        d:DataContext="{d:DesignInstance viewModels:ICounterViewModel}">
 
     <!--
         Every binding path ends in .Value. A bindable property is an object that raises

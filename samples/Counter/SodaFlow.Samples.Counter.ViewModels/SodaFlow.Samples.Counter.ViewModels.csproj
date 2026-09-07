@@ -29,6 +29,7 @@
     </ItemGroup>
 
     <ItemGroup>
+        <Compile Include="ICounterViewModel.cs"/>
         <Compile Include="CounterViewModel.cs"/>
     </ItemGroup>
 

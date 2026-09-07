@@ -4,7 +4,7 @@ namespace SodaFlow.Samples.Search.Wpf;
 
 public partial class MainWindow
 {
-    private readonly SearchViewModel viewModel = SearchViewModel.Create();
+    private readonly ISearchViewModel viewModel = SearchViewModel.Create();
 
     public MainWindow()
     {

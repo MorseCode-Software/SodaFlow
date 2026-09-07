@@ -27,7 +27,7 @@ namespace SodaFlow.Samples.Search.ViewModels;
 ///         Type "fail" to see the error path. Type slowly and then quickly to see supersession.
 ///     </para>
 /// </remarks>
-public sealed class SearchViewModel : IDisposable
+public sealed class SearchViewModel : ISearchViewModel
 {
     private static readonly IReadOnlyList<string> NoResults = Array.Empty<string>();
 
@@ -61,30 +61,33 @@ public sealed class SearchViewModel : IDisposable
 
     #endregion
 
-    /// <summary>What the user has typed. Two-way, so the view both reads and writes it.</summary>
+    /// <inheritdoc />
     public ITwoWayBindableValue<string> Query { get; }
 
+    /// <inheritdoc />
     public IOneWayBindableValue<IReadOnlyList<string>> Results { get; }
 
-    /// <summary>"Searching..." while a request is out, otherwise a count.</summary>
+    /// <inheritdoc />
     public IOneWayBindableValue<string> Summary { get; }
 
+    /// <inheritdoc />
     public IOneWayBindableValue<string> Error { get; }
 
-    /// <summary>Separate from <see cref="Error" /> so the view can bind visibility to it.</summary>
+    /// <inheritdoc />
     public IOneWayBindableValue<bool> HasError { get; }
 
+    /// <inheritdoc />
     [UsedImplicitly] // This property is actually unused, but provided simply as a sample
     public IOneWayBindableValue<bool> IsBusy { get; }
 
-    /// <summary>Enabled only while a search is running.</summary>
+    /// <inheritdoc />
     public IBindableAction Cancel { get; }
 
-    /// <summary>
-    ///     Every entry holds a subscription into the graph, and disposing it is what releases
-    ///     that subscription.
-    /// </summary>
+    /// <inheritdoc />
     /// <remarks>
+    ///     Every entry holds a subscription into the graph, and disposing it is what releases that
+    ///     subscription.
+    ///     <para />
     ///     This is the case the counter sample's remarks point at: the list holds the async
     ///     pipeline's status alongside the bindables, which is why it is typed as
     ///     <see cref="IDisposable" />. The constructor says what disposing that one does.
@@ -97,7 +100,7 @@ public sealed class SearchViewModel : IDisposable
         }
     }
 
-    public static SearchViewModel Create() =>
+    public static ISearchViewModel Create() =>
         Transaction.Run(() =>
         {
             CellSink<string> query = Cell.CreateSink(string.Empty);
