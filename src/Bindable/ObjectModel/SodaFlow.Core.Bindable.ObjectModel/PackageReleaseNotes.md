@@ -1,3 +1,27 @@
+3.0.1
+
+Fixed: a two-way bindable now raises PropertyChanged for a write made
+through it, so more than one control can bind to the same value.
+
+The reconciliation pass compared the cell against the cached value to
+decide whether anything had changed. The setter has already moved that
+cached value optimistically, so a write the graph accepted unchanged
+looked like nothing having happened and was never announced. Only the
+control that wrote it knew: a checkbox and a slider bound to the same
+property left the slider unable to follow the checkbox, permanently.
+
+Notifications now go out whenever the settled value differs from either
+the cached value - the writer's correction, as before - or the value last
+announced, which is what every other binding is showing. A write that
+changes nothing is still silent, and what is announced is still what the
+graph settled on rather than what was optimistically written, so a value
+the graph rejected or normalized never reaches a binding.
+
+Expect one notification where there was none, per write that changes the
+value. Code that treated PropertyChanged as meaning "the graph changed
+this, not the view" no longer can, and never reliably could: an update
+arriving from the graph in the same turn was indistinguishable already.
+
 3.0.0
 
 BREAKING: requires SodaFlow.Core 4.x, where it required 3.x. That

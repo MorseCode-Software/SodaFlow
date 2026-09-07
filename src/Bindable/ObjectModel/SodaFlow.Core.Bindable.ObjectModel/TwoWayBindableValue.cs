@@ -19,6 +19,13 @@ public static partial class BindableCoreExtensionMethods
     ///         input mask that upper-cases text, or a validation rule that discards it.
     ///     </para>
     ///     <para>
+    ///         That pass is also what announces the settled value, and it announces it whether or not
+    ///         the graph changed anything. A write the graph accepts unchanged still leaves every
+    ///         binding other than the writer's showing the value from before, so it is a change to
+    ///         all of them; the notification carries the value the cell settled on rather than the
+    ///         optimistic one, so nothing is announced that the graph did not accept.
+    ///     </para>
+    ///     <para>
     ///         Safe to construct on any thread. The initial value is sampled by whichever thread
     ///         builds the instance, and every later change is marshaled through the scheduler.
     ///         Nothing orders the constructing thread against the binding thread beyond whatever
@@ -55,6 +62,20 @@ public static partial class BindableCoreExtensionMethods
         private T cachedValue;
 
         /// <summary>
+        ///     The value last announced on <see cref="BindableValueBase.PropertyChanged" />, which is
+        ///     what every observer other than the one that wrote is showing.
+        /// </summary>
+        /// <remarks>
+        ///     Distinct from <see cref="cachedValue" />, and the distinction is the whole point. The
+        ///     setter moves the cached value optimistically, so after a write the graph accepts, the
+        ///     cache already agrees with the cell while everything bound to this property is still
+        ///     showing the value from before. Comparing the cell against the cache alone cannot tell
+        ///     those apart, and reads the case as nothing having happened. Binding thread only, for
+        ///     the same reason the cached value is.
+        /// </remarks>
+        private T lastNotifiedValue;
+
+        /// <summary>
         ///     How many refreshes have been queued and not yet run. Non-zero means the cached value
         ///     is not known to agree with the cell, which is what the setter's equality check needs
         ///     to know before it can treat a write operation as redundant.
@@ -88,6 +109,9 @@ public static partial class BindableCoreExtensionMethods
             // listener is attached.
             this.cachedValue = default!;
 
+            // ReSharper disable once NullableWarningSuppressionIsUsed - As above.
+            this.lastNotifiedValue = default!;
+
             // Attaching the listener publishes this object into the graph before the constructor
             // has returned, so the listener can fire while the constructor is still running - which
             // it does when this is constructed inside a transaction that goes on to update the same
@@ -100,6 +124,11 @@ public static partial class BindableCoreExtensionMethods
                 TransactionInternal.RunImpl(() =>
                 {
                     this.cachedValue = cell.SampleImpl();
+
+                    // Nothing has been announced yet, and nothing needs to be: a binding reads the
+                    // property when it attaches, so the initial value counts as already seen.
+                    this.lastNotifiedValue = this.cachedValue;
+
                     return ListenToUpdates(cell: cell, handler: this.OnSourceChanged);
                 });
         }
@@ -233,12 +262,30 @@ public static partial class BindableCoreExtensionMethods
 
                     T authoritative = this.Cell.SampleImpl();
 
-                    if (this.comparer.Equals(x: this.cachedValue, y: authoritative))
+                    // Two things can be behind the cell, and either is a reason to announce.
+                    //
+                    // The cached value is what the writing control put there optimistically, and is
+                    // stale when the graph rejected or normalized that write - the case that gives
+                    // the writer its correction back.
+                    //
+                    // The last notified value is what every other observer was told, and is stale
+                    // whenever a write went through unchanged: the cache agrees with the cell
+                    // because the setter got there first, while nothing bound to this property has
+                    // heard anything. A property one control can write and another cannot follow is
+                    // not a bindable value, so that case has to announce too.
+                    bool cacheIsBehind = !this.comparer.Equals(x: this.cachedValue, y: authoritative);
+
+                    bool observersAreBehind =
+                        !this.comparer.Equals(x: this.lastNotifiedValue, y: authoritative);
+
+                    this.cachedValue = authoritative;
+
+                    if (!cacheIsBehind && !observersAreBehind)
                     {
                         return;
                     }
 
-                    this.cachedValue = authoritative;
+                    this.lastNotifiedValue = authoritative;
                     this.RaiseValueChanged();
                 }
                 finally

@@ -134,6 +134,67 @@ public sealed class BindableValueTests
         await Assert.That(names).IsEquivalentTo(expected, CollectionOrdering.Matching);
     }
 
+    // A two-way value is bound by more than one control as a matter of course - a checkbox that
+    // writes it and anything else enabled or shown by the same answer. Only the writer knows what
+    // it wrote, so a write the graph accepts unchanged is a change to every other binding, and
+    // has to be announced or those bindings never move.
+    [Test]
+    public async Task TwoWayNotifiesWhenTheViewIsTheWriter()
+    {
+        CellSink<int> c = Cell.CreateSink(0);
+
+        using ITwoWayBindableValue<int> b = TwoWay(c);
+
+        List<string?> names = RecordNotifications(b);
+
+        b.Value = 5;
+
+        string?[] expected = ["Value"];
+
+        await Assert.That(names)
+            .IsEquivalentTo(expected, CollectionOrdering.Matching)
+            .Because("a second binding to this property has no other way to learn of the write");
+
+        await Assert.That(b.Value).IsEqualTo(5);
+    }
+
+    // The counterpart. Announcing a write that changed nothing would have every binding refresh
+    // for no reason, and is the thing the equality check is there to prevent.
+    [Test]
+    public async Task TwoWayDoesNotNotifyForAWriteThatChangesNothing()
+    {
+        CellSink<int> c = Cell.CreateSink(5);
+
+        using ITwoWayBindableValue<int> b = TwoWay(c);
+
+        List<string?> names = RecordNotifications(b);
+
+        b.Value = 5;
+
+        await Assert.That(names).IsEmpty().Because("nothing changed, so there is nothing to announce");
+    }
+
+    // Repeating a write announces nothing further, so a control that writes on every keystroke
+    // does not make the others refresh on every keystroke.
+    [Test]
+    public async Task TwoWayNotifiesOncePerActualChange()
+    {
+        CellSink<int> c = Cell.CreateSink(0);
+
+        using ITwoWayBindableValue<int> b = TwoWay(c);
+
+        List<string?> names = RecordNotifications(b);
+
+        b.Value = 1;
+        b.Value = 1;
+        b.Value = 2;
+        b.Value = 2;
+
+        string?[] expected = ["Value", "Value"];
+
+        await Assert.That(names).IsEquivalentTo(expected, CollectionOrdering.Matching);
+    }
+
     // The graph is authoritative. A write the graph normalizes has to come back corrected, or the
     // view keeps showing something that was never accepted.
     [Test]
@@ -145,9 +206,17 @@ public sealed class BindableValueTests
         using ITwoWayBindableValue<string> b =
             upperCased.ToTwoWayImpl(editsStreamSink: edits, scheduler: BindingScheduler.Immediate);
 
+        List<string?> names = RecordNotifications(b);
+
         b.Value = "abc";
 
         await Assert.That(b.Value).IsEqualTo("ABC").Because("the cell's value wins over the optimistic one");
+
+        string?[] expected = ["Value"];
+
+        await Assert.That(names)
+            .IsEquivalentTo(expected, CollectionOrdering.Matching)
+            .Because("announced once, carrying what the graph settled on rather than what was written");
     }
 
     [Test]
