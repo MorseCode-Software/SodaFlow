@@ -135,6 +135,25 @@ the bound members into something a reader, a designer and the compiler can all f
 the interface honest about what a view is entitled to: `Create` is not on it, because building a
 view model is not something a view does with one.
 
+## A two-way value has one reader
+
+The checkbox writes `DampingEnabled`, and the slider is enabled by the same answer. Binding both to
+the two-way value does not work, and the reason is worth knowing:
+
+```xml
+<CheckBox IsChecked="{Binding DampingEnabled.Value, Mode=TwoWay}" />
+<Slider   IsEnabled="{Binding IsDampingAdjustable.Value}" />
+```
+
+A two-way value is written by the control that owns the input, and does not announce that write
+back at it — which is right, because the writer already knows and an echo would fight it. But it
+means a *second* control binding to the same property never hears anything: the slider would sit
+disabled forever, whatever the checkbox said.
+
+So the second reader reads the graph instead. `IsDampingAdjustable` is the same cell exposed
+one-way, and one-way values do notify. The rule that falls out is a good one to keep: a two-way
+value belongs to the control that supplies it, and everything else derives what it needs.
+
 ## Damping, and why it needs rules at both ends
 
 A checkbox and a slider set what a bounce multiplies the speed by, from 0.1 to 1.1 — below one a
@@ -174,16 +193,21 @@ is drawn wherever an equation it should have stopped following puts it, which is
 then off by millions of pixels. So there is a speed the gaining stops at, exactly as there is a
 speed the losing stops at.
 
-The rest speed is why a damped scene needs a way back. The grab scene has one already — pick a
-settled ball up and throw it — but the several-balls scene has nothing to poke it with, so
-switching the checkbox relaunches it:
+The rest speed is why a damped scene needs a way back, and the way back is the tab. A scene starts
+again when its tab becomes the selected one, which is a fact about the selection rather than
+something a view has to remember to call:
 
 ```csharp
-Stream<Unit> relaunches = dampingEnabled.Updates().Map(static _ => Unit.Value);
+activated.Loop(selected.Updates().Map(scene => Array.IndexOf(scenes, scene)));
 ```
 
-That reaches the axes as `restarts`, the same input a throw arrives on. The *checkbox* relaunches
-and the slider does not, so dragging the slider does not restart the scene under the pointer.
+That reaches each scene as `restarts`, the same input a throw arrives on in the grab scene — a
+throw and a fresh start being the same kind of thing, a flight imposed from outside. `Updates` and
+not the cell itself, so the scene showing at startup is not restarted the moment it is built.
+
+The selection cannot exist until the scenes do, and the scenes want the stream, so the stream is
+looped: `Stream.CreateLoop<int>()` declares it, and it is defined once the selection is there. The
+same trick as `Cell.Loop` in `BouncingAxis`, for the same reason.
 
 ## A note on the physics
 

@@ -30,18 +30,16 @@ public sealed class WallsScene : IScene
     ///     What a bounce multiplies the speed by, shared by every axis of every ball. See
     ///     <see cref="BounceViewModel" />, which owns the value the controls write.
     /// </param>
-    /// <param name="relaunches">
-    ///     Puts the balls back where they started, going as fast as they started.
-    /// </param>
-    internal WallsScene(ITimerSystem<double> timers, Cell<double> restitution, Stream<Unit> relaunches)
+    /// <param name="restarts">Fires when this scene's tab becomes the selected one.</param>
+    internal WallsScene(ITimerSystem<double> timers, Cell<double> restitution, Stream<Unit> restarts)
     {
         double now = timers.Time.Sample();
 
         // Damped below one, every ball ends up at rest, and this scene has no pointer to pick a
-        // settled one up with - so without a way back it would be a tab that goes permanently
-        // still. A relaunch is the way back, and it is the restart stream the axes already accept
-        // rather than anything new: the same input a throw uses in the scene next door.
-        Stream<double> relaunched = relaunches.Snapshot(timers.Time, (_, time) => time);
+        // settled one up with - so coming back to it is what puts it back on its feet. The
+        // restart is the input the axes already accept: the same one a throw arrives on in the
+        // scene next door.
+        Stream<double> restarted = restarts.Snapshot(timers.Time, (_, time) => time);
 
         Ball[] balls = new Ball[Arrangement.Starts.Count];
 
@@ -58,7 +56,7 @@ public sealed class WallsScene : IScene
                             initial: Arrangement.InitialX(start: start, now: now),
                             min: start.Radius,
                             max: Arrangement.Width - start.Radius,
-                            restarts: relaunched.Map(time => Arrangement.InitialX(start: start, now: time)),
+                            restarts: restarted.Map(time => Arrangement.InitialX(start: start, now: time)),
                             restitution: restitution)),
                     y: BouncingAxis.Position(
                         timers: timers,
@@ -67,7 +65,7 @@ public sealed class WallsScene : IScene
                             initial: Arrangement.InitialY(start: start, now: now),
                             min: start.Radius,
                             max: Arrangement.Height - start.Radius,
-                            restarts: relaunched.Map(time => Arrangement.InitialY(start: start, now: time)),
+                            restarts: restarted.Map(time => Arrangement.InitialY(start: start, now: time)),
                             restitution: restitution)),
                     radius: start.Radius,
                     color: start.Color);
@@ -82,8 +80,7 @@ public sealed class WallsScene : IScene
     /// <inheritdoc />
     public string Summary =>
         "Four balls, each a pair of independent axes. Adding one adds a graph rather than an entry "
-        + "in a list something has to walk, and the damping is one cell all eight axes read. "
-        + "Switching it puts them back where they started.";
+        + "in a list something has to walk, and the damping is one cell all eight axes read.";
 
     /// <inheritdoc />
     public double Width => Arrangement.Width;

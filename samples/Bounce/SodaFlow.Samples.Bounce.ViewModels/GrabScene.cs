@@ -32,9 +32,12 @@ public sealed class GrabScene : IInteractiveScene
     ///     What a bounce multiplies the speed by, the same cell the several-balls scene reads. See
     ///     <see cref="BounceViewModel" />, which owns the value the controls write.
     /// </param>
-    internal GrabScene(ITimerSystem<double> timers, Cell<double> restitution)
+    /// <param name="restarts">Fires when this scene's tab becomes the selected one.</param>
+    internal GrabScene(ITimerSystem<double> timers, Cell<double> restitution, Stream<Unit> restarts)
     {
         double now = timers.Time.Sample();
+
+        Stream<double> restarted = restarts.Snapshot(timers.Time, (_, time) => time);
 
         this.held = Cell.CreateSink(Maybe<int>.None);
         this.pointer = Cell.CreateSink(new Point(x: 0.0, y: 0.0));
@@ -87,12 +90,17 @@ public sealed class GrabScene : IInteractiveScene
                         initial: Arrangement.InitialX(start: start, now: now),
                         min: minX,
                         max: maxX,
-                        restarts: mine.Map(
-                            t => new Flight(
-                                startTime: t.Time,
-                                position: Clamp(value: t.Trail.X, min: minX, max: maxX),
-                                velocity: t.Trail.VelocityX,
-                                acceleration: 0.0)),
+                        // A throw and a fresh start are the same kind of thing - a flight imposed
+                        // from outside - so they arrive on one stream rather than the axis being
+                        // told about two.
+                        restarts: mine
+                            .Map(
+                                t => new Flight(
+                                    startTime: t.Time,
+                                    position: Clamp(value: t.Trail.X, min: minX, max: maxX),
+                                    velocity: t.Trail.VelocityX,
+                                    acceleration: 0.0))
+                            .OrElse(restarted.Map(time => Arrangement.InitialX(start: start, now: time))),
                         restitution: restitution));
 
             Behavior<double> freeY =
@@ -103,12 +111,14 @@ public sealed class GrabScene : IInteractiveScene
                         initial: Arrangement.InitialY(start: start, now: now),
                         min: minY,
                         max: maxY,
-                        restarts: mine.Map(
-                            t => new Flight(
-                                startTime: t.Time,
-                                position: Clamp(value: t.Trail.Y, min: minY, max: maxY),
-                                velocity: t.Trail.VelocityY,
-                                acceleration: Arrangement.Gravity)),
+                        restarts: mine
+                            .Map(
+                                t => new Flight(
+                                    startTime: t.Time,
+                                    position: Clamp(value: t.Trail.Y, min: minY, max: maxY),
+                                    velocity: t.Trail.VelocityY,
+                                    acceleration: Arrangement.Gravity))
+                            .OrElse(restarted.Map(time => Arrangement.InitialY(start: start, now: time))),
                         restitution: restitution));
 
             Cell<bool> isHeld =

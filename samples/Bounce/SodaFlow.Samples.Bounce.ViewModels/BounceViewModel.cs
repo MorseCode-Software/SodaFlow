@@ -47,6 +47,7 @@ public sealed class BounceViewModel : IBounceViewModel
         IOneWayBindableValue<string> selectedSummary,
         IOneWayBindableValue<bool> isDampingAvailable,
         ITwoWayBindableValue<bool> dampingEnabled,
+        IOneWayBindableValue<bool> isDampingAdjustable,
         ITwoWayBindableValue<double> damping)
     {
         this.Scenes = scenes;
@@ -54,12 +55,14 @@ public sealed class BounceViewModel : IBounceViewModel
         this.SelectedSummary = selectedSummary;
         this.IsDampingAvailable = isDampingAvailable;
         this.DampingEnabled = dampingEnabled;
+        this.IsDampingAdjustable = isDampingAdjustable;
         this.Damping = damping;
 
         this.disposables =
             new IDisposable[]
             {
-                selectedScene, selectedSummary, isDampingAvailable, dampingEnabled, damping,
+                selectedScene, selectedSummary, isDampingAvailable, dampingEnabled,
+                isDampingAdjustable, damping,
             };
     }
 
@@ -89,6 +92,9 @@ public sealed class BounceViewModel : IBounceViewModel
 
     /// <inheritdoc />
     public ITwoWayBindableValue<bool> DampingEnabled { get; }
+
+    /// <inheritdoc />
+    public IOneWayBindableValue<bool> IsDampingAdjustable { get; }
 
     /// <inheritdoc />
     public ITwoWayBindableValue<double> Damping { get; }
@@ -121,22 +127,37 @@ public sealed class BounceViewModel : IBounceViewModel
                 Cell<double> restitution =
                     dampingEnabled.Lift(c2: damping, f: (enabled, value) => enabled ? value : 1.0);
 
-                // Switching damping on or off puts the several-balls scene back to its opening
-                // arrangement, because damped below one it settles and has nothing to pick a
-                // settled ball up with. The checkbox is what relaunches and the slider is not, so
-                // that dragging the slider does not restart the scene under the pointer.
-                Stream<Unit> relaunches = dampingEnabled.Updates().Map(static _ => Unit.Value);
+                // A scene starts again when its tab becomes the selected one. That is a fact about
+                // the selection rather than something a view has to remember to call, and it is
+                // what a damped scene needs: below one every ball ends up at rest, and coming back
+                // to the tab is what puts it on its feet again.
+                //
+                // The selection cannot exist until the scenes do, and the scenes want the stream,
+                // so the stream is looped - declared now, defined once the selection is there. The
+                // index passed to each scene is its position in the array just below.
+                StreamLoop<int> activated = Stream.CreateLoop<int>();
+
+                Stream<Unit> ActivatedAt(int index) =>
+                    activated.Filter(i => i == index).Map(static _ => Unit.Value);
+
+                IScene simple = new SimpleScene(timers: timers, restarts: ActivatedAt(0));
 
                 IScene walls =
-                    new WallsScene(timers: timers, restitution: restitution, relaunches: relaunches);
+                    new WallsScene(timers: timers, restitution: restitution, restarts: ActivatedAt(1));
 
-                IScene grab = new GrabScene(timers: timers, restitution: restitution);
-                IScene[] scenes = { new SimpleScene(timers), walls, grab };
+                IScene grab =
+                    new GrabScene(timers: timers, restitution: restitution, restarts: ActivatedAt(2));
+
+                IScene[] scenes = { simple, walls, grab };
 
                 // The simplest two-way case: the view is the only writer and the sink is the
                 // authoritative value. No scheduler is passed, so one is captured from the
                 // synchronization context in force here - build this on the UI thread.
                 CellSink<IScene> selected = Cell.CreateSink(scenes[0]);
+
+                // Updates and not the cell itself, so the scene showing at startup is not restarted
+                // the moment it is built.
+                activated.Loop(selected.Updates().Map(scene => Array.IndexOf(scenes, scene)));
 
                 return new BounceViewModel(
                     scenes: scenes,
@@ -151,6 +172,12 @@ public sealed class BounceViewModel : IBounceViewModel
                         .Map(scene => ReferenceEquals(scene, walls) || ReferenceEquals(scene, grab))
                         .ToOneWay(),
                     dampingEnabled: dampingEnabled.ToTwoWay(),
+
+                    // The same cell again, one-way, because a two-way value is for the control
+                    // that owns the input and does not announce a write back at it. The slider is
+                    // a second reader of the checkbox's value, so it reads the graph rather than
+                    // the other control's property.
+                    isDampingAdjustable: dampingEnabled.ToOneWay(),
                     damping: damping.ToTwoWay());
             });
     }

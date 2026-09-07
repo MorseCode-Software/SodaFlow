@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using SodaFlow.Functional;
 using SodaFlow.Time;
 
 namespace SodaFlow.Samples.Bounce.ViewModels;
@@ -18,7 +19,8 @@ public sealed class SimpleScene : IScene
 
     private const double BallRadius = 18.0;
 
-    internal SimpleScene(ITimerSystem<double> timers)
+    /// <param name="restarts">Fires when this scene's tab becomes the selected one.</param>
+    internal SimpleScene(ITimerSystem<double> timers, Stream<Unit> restarts)
     {
         double now = timers.Time.Sample();
 
@@ -28,19 +30,18 @@ public sealed class SimpleScene : IScene
                 new Ball(
                     // Nothing moves it sideways, and a constant is a perfectly good behavior.
                     x: Behavior.Constant(this.Width / 2.0),
-                    y: BouncingAxis.Create(
+                    y: BouncingAxis.Position(
                         timers: timers,
-                        initial: new Flight(
-                            startTime: now,
-                            position: BallRadius,
-                            velocity: 0.0,
-                            acceleration: Gravity),
-                        min: BallRadius,
-                        max: this.Height - BallRadius,
+                        flight: BouncingAxis.Flights(
+                            timers: timers,
+                            initial: Initial(now),
+                            min: BallRadius,
+                            max: this.Height - BallRadius,
+                            restarts: restarts.Snapshot(timers.Time, (_, time) => Initial(time)),
 
-                        // Elastic, and not offered as a choice: this scene is here to be the
-                        // smallest thing that makes the point.
-                        restitution: Cell.Constant(1.0)),
+                            // Elastic, and not offered as a choice: this scene is here to be the
+                            // smallest thing that makes the point.
+                            restitution: Cell.Constant(1.0))),
                     radius: BallRadius,
                     color: "#E2574C"),
             };
@@ -62,4 +63,8 @@ public sealed class SimpleScene : IScene
 
     /// <inheritdoc />
     public IReadOnlyList<Ball> Balls { get; }
+
+    /// <summary>The flight the ball begins with, and begins again with.</summary>
+    private static Flight Initial(double time) =>
+        new(startTime: time, position: BallRadius, velocity: 0.0, acceleration: Gravity);
 }
