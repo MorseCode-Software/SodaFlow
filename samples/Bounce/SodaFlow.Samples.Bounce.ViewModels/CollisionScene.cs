@@ -98,6 +98,21 @@ internal sealed class CollisionScene : IScene
     private const double TouchingDistance = 1.0;
 
     /// <summary>
+    ///     The closing speed below which an overlapping pair is left where it is.
+    /// </summary>
+    /// <remarks>
+    ///     Two balls that are already overlapping and still closing have no root ahead of them, so
+    ///     the only way to handle them is to look again immediately. That is fine once. It is not
+    ///     fine for a pair that cannot be separated - balls heaped against a wall, where every
+    ///     impulse is undone by the clamp that keeps them in the box - because the immediate look
+    ///     comes back forever and the simulation advances a microsecond per step while the clock
+    ///     runs away from it. Requiring some real closing speed is what makes that terminate; a
+    ///     pair drifting together at under a pixel a second is going nowhere worth interrupting
+    ///     the world for.
+    /// </remarks>
+    private const double MinimumApproach = 1.0;
+
+    /// <summary>
     ///     The speed no ball is allowed past, however much the damping keeps handing it.
     /// </summary>
     /// <remarks>
@@ -468,7 +483,19 @@ internal sealed class CollisionScene : IScene
         // separating.
         if (c <= 0.0)
         {
-            return Maybe.Some(startTime + MinimumInterval);
+            // Only if they are closing fast enough to be worth an instant of the clock. Balls
+            // heaped against a wall creep into each other at a fraction of a pixel a second, and
+            // there is no resolving that: the impulse pushes them apart, the wall clamps one of
+            // them back, and they are overlapping and closing again. Asking for an immediate look
+            // every time is a loop the simulation never leaves - it steps a microsecond at a time
+            // and the clock runs away from it.
+            //
+            // Below the threshold the pair is simply left alone. They are barely moving, so the
+            // overlap barely grows, and the next real event picks it up.
+            double separation = Math.Sqrt(dx * dx + dy * dy);
+            double approach = separation > double.Epsilon ? -b / (2.0 * separation) : 0.0;
+
+            return approach > MinimumApproach ? Maybe.Some(startTime + MinimumInterval) : Maybe.None;
         }
 
         double discriminant = b * b - 4.0 * a * c;
@@ -548,6 +575,31 @@ internal sealed class CollisionScene : IScene
             b.WithVelocity(
                 velocityX: b.X.Velocity + impulse * a.Mass * nx,
                 velocityY: b.Y.Velocity + impulse * a.Mass * ny);
+
+        // Reversing the approach is not enough on its own. If the pair is already overlapping when
+        // this runs - which happens when several balls meet at once, each impact shoving one of
+        // them into the next - then a low restitution separates them so slowly that they are still
+        // overlapping afterwards. ContactTime sees an overlapping pair that is closing and asks for
+        // another look immediately, and the whole simulation goes round that loop forever, stepping
+        // a microsecond at a time and never getting anywhere. The balls stop moving and the drawing
+        // keeps extrapolating the last flight it was given, so they sail off the screen.
+        //
+        // Pushing them apart is what guarantees the step made progress. Split by mass, so the
+        // heavier ball yields less here for the same reason it yields less to the impulse.
+        double overlap = a.Radius + b.Radius - distance;
+
+        if (overlap > 0.0)
+        {
+            double total = a.Mass + b.Mass;
+
+            bodies[first] = bodies[first].MovedBy(
+                x: -nx * overlap * (b.Mass / total),
+                y: -ny * overlap * (b.Mass / total));
+
+            bodies[second] = bodies[second].MovedBy(
+                x: nx * overlap * (a.Mass / total),
+                y: ny * overlap * (a.Mass / total));
+        }
     }
 
     /// <summary>One ball, as the pair of equations it is currently following.</summary>
@@ -581,6 +633,21 @@ internal sealed class CollisionScene : IScene
                     startTime: time,
                     position: this.Y.PositionAt(time),
                     velocity: this.Y.VelocityAt(time),
+                    acceleration: this.Y.Acceleration),
+                radius: this.Radius);
+
+        /// <summary>The same ball, shifted, keeping the motion it had.</summary>
+        public Body MovedBy(double x, double y) =>
+            new(
+                x: new Flight(
+                    startTime: this.X.StartTime,
+                    position: this.X.Position + x,
+                    velocity: this.X.Velocity,
+                    acceleration: this.X.Acceleration),
+                y: new Flight(
+                    startTime: this.Y.StartTime,
+                    position: this.Y.Position + y,
+                    velocity: this.Y.Velocity,
                     acceleration: this.Y.Acceleration),
                 radius: this.Radius);
 
