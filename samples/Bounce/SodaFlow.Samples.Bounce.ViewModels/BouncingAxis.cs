@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using SodaFlow.Functional;
 using SodaFlow.Time;
 
@@ -61,6 +61,13 @@ internal static class BouncingAxis
     ///     Builds the position along one axis: a behavior defined at every instant, bouncing
     ///     between <paramref name="min" /> and <paramref name="max" />.
     /// </summary>
+    /// <param name="timers">
+    ///     The clock the position is a function of, and the source of the alarms each bounce is
+    ///     scheduled on.
+    /// </param>
+    /// <param name="initial">The flight the body is following before any bounce or restart.</param>
+    /// <param name="min">The lower bound, which is the ceiling on an axis that points down.</param>
+    /// <param name="max">The upper bound, which is the floor on an axis that points down.</param>
     /// <param name="restarts">
     ///     Flights imposed from outside, which take precedence over a bounce arriving in the same
     ///     transaction. Releasing a thrown ball arrives here, and so does relaunching a scene that
@@ -86,7 +93,7 @@ internal static class BouncingAxis
                 initial: initial,
                 min: min,
                 max: max,
-                restarts: Stream.Never<Flight>(),
+                restarts: restarts,
                 restitution: restitution));
 
     /// <summary>

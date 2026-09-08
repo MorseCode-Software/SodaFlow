@@ -1,4 +1,4 @@
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using SodaFlow.Functional;
 using SodaFlow.Time;
 
@@ -29,6 +29,7 @@ internal sealed class GrabScene : IInteractiveScene
 
     private readonly StreamSink<Unit> released;
 
+    /// <param name="timers">The clock every ball's position is a function of.</param>
     /// <param name="restitution">
     ///     What a bounce multiplies the speed by, the same cell the several-balls scene reads. See
     ///     <see cref="BounceViewModel" />, which owns the value the controls write.

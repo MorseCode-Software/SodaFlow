@@ -1,4 +1,4 @@
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using SodaFlow.Functional;
 using SodaFlow.Time;
 
@@ -27,6 +27,7 @@ namespace SodaFlow.Samples.Bounce.ViewModels;
 // ReSharper disable once InheritdocConsiderUsage
 internal sealed class WallsScene : IScene
 {
+    /// <param name="timers">The clock every ball's position is a function of.</param>
     /// <param name="restitution">
     ///     What a bounce multiplies the speed by, shared by every axis of every ball. See
     ///     <see cref="BounceViewModel" />, which owns the value the controls write.

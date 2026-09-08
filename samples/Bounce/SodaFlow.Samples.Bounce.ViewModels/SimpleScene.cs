@@ -1,4 +1,4 @@
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using SodaFlow.Functional;
 using SodaFlow.Time;
 
@@ -20,6 +20,7 @@ internal sealed class SimpleScene : IScene
 
     private const double BallRadius = 18.0;
 
+    /// <param name="timers">The clock every ball's position is a function of.</param>
     /// <param name="restarts">Fires when this scene's tab becomes the selected one.</param>
     internal SimpleScene(ITimerSystem<double> timers, Stream<Unit> restarts)
     {
