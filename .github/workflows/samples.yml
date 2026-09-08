@@ -65,11 +65,6 @@ jobs:
       - name: Build
         run: dotnet build samples/${{ matrix.sample }}/SodaFlow.Samples.${{ matrix.sample }}.slnx --configuration Release -warnaserror
 
-      # inspectcode ships as a local tool, pinned in .config/dotnet-tools.json alongside Cake, so
-      # CI inspects with the version a developer does.
-      - name: Restore tools
-        run: dotnet tool restore
-
       # The step lives in build.cake rather than here, so it can be run locally the same way:
       #
       #     dotnet cake --target=Inspect-Sample --sample=Bounce
@@ -77,7 +72,18 @@ jobs:
       # It reads src/SodaFlow.sln.DotSettings - the one rule set every solution is held to - and
       # fails on anything it finds, suggestions included, exactly as the inspection over src does.
       #
-      # THESE STEPS FAIL TODAY, and are added ahead of the fixes on purpose: 121 issues across the
+      # cake-version: tool-manifest is the load-bearing input. Without it the action installs a
+      # Cake of its own choosing, and CI would stop running the version pinned in
+      # .config/dotnet-tools.json - which is the whole reason that manifest exists. With it, the
+      # action restores the local tools, so inspectcode's `jb` arrives too and needs no step of
+      # its own.
+      #
+      # THIS STEP FAILS TODAY, and is here ahead of the fixes on purpose: 121 issues across the
       # three samples, none of them yet addressed. The build going red is the point until they are.
       - name: Inspect
-        run: dotnet cake --target=Inspect-Sample --sample=${{ matrix.sample }}
+        uses: cake-build/cake-action@v3
+        with:
+          target: Inspect-Sample
+          cake-version: tool-manifest
+          arguments: |
+            sample: ${{ matrix.sample }}
