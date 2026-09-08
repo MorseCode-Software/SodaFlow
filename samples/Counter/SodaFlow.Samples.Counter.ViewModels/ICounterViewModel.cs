@@ -23,6 +23,7 @@ namespace SodaFlow.Samples.Counter.ViewModels;
 ///         this interface as through the class.
 ///     </para>
 /// </remarks>
+// ReSharper disable once InheritdocConsiderUsage
 public interface ICounterViewModel : IDisposable
 {
     /// <summary>The current count, for anything that wants the number itself.</summary>
