@@ -7,18 +7,17 @@
 # readable without opening a log. Neither is the other's fallback. If the two ever disagree about a
 # commit, that disagreement is itself the finding.
 #
-# NOTHING HERE PUBLISHES, and three separate things have to change before it could:
+# THIS WORKFLOW NOW RELEASES. It did not while the two systems were being compared; the comparison
+# came out in favour of Actions, so the publish step at the bottom is live and appveyor.yml's
+# deploy_script was deleted in the same commit that added it. That pairing is deliberate: there is
+# no commit at which both systems would push the same tag and race for which reached nuget.org
+# first. AppVeyor still builds every commit, so the comparison stays readable - it just no longer
+# releases anything.
 #
-#   1. No step below invokes build.cake's Publish target. AppVeyor's deploy_script does; this
-#      workflow deliberately stops after the inspection.
-#   2. Publish would refuse anyway. It returns early unless BuildSystem.IsRunningOnAppVeyor, so
-#      even `dotnet cake --target=Publish` from here is a no-op that logs and exits.
-#   3. There is no key to push with. NUGET_API_KEY lives in appveyor.yml as an AppVeyor-encrypted
-#      value, which only AppVeyor can decrypt, and no GitHub secret of that name is read here.
-#
-# Releases stay AppVeyor's until the comparison this workflow exists for is settled. Whoever
-# settles it in favour of Actions has to undo all three, which is the point: none of them can be
-# tripped by accident.
+# Before the first tag push, NUGET_API_KEY has to exist as a repository secret. It cannot be
+# carried over from appveyor.yml, whose copy is encrypted under that AppVeyor account and cannot be
+# read back out; it has to come from nuget.org. Publish throws rather than skips when it is
+# missing, because a tag build that quietly released nothing is the failure hardest to notice.
 #
 # Coverage is collected on every run and submitted to Coveralls on none of them, unless someone
 # deliberately switches that on. AppVeyor is the one that submits while both systems are building
@@ -45,12 +44,17 @@ name: Build
 # here would mean the two systems were sometimes asked different questions, and a speed comparison
 # between a run that happened and a run that was skipped says nothing.
 #
-# Tags are not built. AppVeyor starts a build per tag because a tag build is what releases a
-# package, and that is the one part of its job this workflow is explicitly not doing.
+# Tags are built, and a tag build is what releases a package - see the publish step at the bottom.
+# The pattern is every tag this repository uses: MinVerTagPrefix is per project and they all begin
+# sodaflow-, from sodaflow- itself through sodaflow-fsharp-bindable-objectmodel-. It is only a
+# trigger, not the mapping - which tag names which package is worked out in build.cake, from the
+# projects themselves, and a tag matching this pattern but naming nothing is logged and skipped.
+#
 # workflow_dispatch covers running this against any branch by hand.
 on:
   push:
     branches: [ main ]
+    tags: [ 'sodaflow-*' ]
   pull_request:
   workflow_dispatch:
 
@@ -60,11 +64,17 @@ permissions:
   contents: read
   security-events: write
 
-# Superseded runs on a branch are cancelled; main is not, so every commit that lands keeps a
-# complete run to compare against. A cancelled run has no duration worth reading anyway.
+# Superseded pull request runs are cancelled, and nothing else is. A cancelled run has no duration
+# worth reading, so main keeps a complete run per commit to compare against.
+#
+# Cancellation is keyed on the event rather than on "not main", which is what this said first and
+# which would have swept up tag runs: a tag run publishes, and a publish killed part-way through
+# because another tag arrived is the one cancellation that could do real damage. Tags also get
+# their own concurrency group by virtue of github.ref, so two tag runs never queue behind each
+# other in the first place.
 concurrency:
   group: build-${{ github.ref }}
-  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 env:
   # appveyor.yml sets these three in its environment block, and its configuration at the top level.
@@ -292,3 +302,26 @@ jobs:
         with:
           name: inspection
           path: inspection
+
+      # Last, and after the artifacts, which is where appveyor.yml's deploy_script ran for the same
+      # reason: a release should not be the thing that decides whether the packages and the coverage
+      # from this run are kept.
+      #
+      # Two conditions have to hold, and only one of them is written here. The `if` restricts this
+      # to a tag push - and because it names no status function, GitHub implies success(), so a run
+      # whose tests or inspection failed skips it rather than releasing a red build. The second
+      # condition is inside build.cake: Publish returns early unless it is on Actions with a tag
+      # ref, so `dotnet cake` on a developer's machine cannot push no matter what it is handed.
+      #
+      # Not a separate job. It could be one, and a job could carry an environment with a manual
+      # approval on it, which is worth considering later; as a step it needs no artifact handoff and
+      # keeps the phase order identical to the build it replaces.
+      #
+      # NUGET_API_KEY has to exist as a repository secret before the first tag push, and Publish
+      # throws rather than skips when it does not - the reasoning is in build.cake. Scoped to this
+      # step so the key is not in the environment of the build, the tests or the inspection.
+      - name: Publish
+        if: startsWith(github.ref, 'refs/tags/')
+        env:
+          NUGET_API_KEY: ${{ secrets.NUGET_API_KEY }}
+        run: dotnet cake --target=Publish --configuration=${{ env.CONFIGURATION }}

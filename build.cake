@@ -16,11 +16,15 @@
 // dependencies below are therefore what a local run follows, not what CI relies on; keep them
 // accurate anyway, since `dotnet cake --target=Pack` on a clean tree has to work.
 //
-// Two CI systems drive them that way at the moment, deliberately: appveyor.yml and
-// .github/workflows/build.yml run the same targets with the same flags on the same commits, so
-// that AppVeyor and GitHub Actions can be compared on speed and on reporting before one of them is
-// dropped. That comparison is the reason this file stays neutral about which is running it. The
-// Actions workflow does not publish - see the note at the top of it, and the guard in Publish.
+// Two CI systems drive them that way at the moment: appveyor.yml and .github/workflows/build.yml
+// run the same targets with the same flags on the same commits. That started as a comparison and
+// has been decided - Actions won, on queue time above all - so what remains is a migration with
+// AppVeyor still building alongside until the last of it is finished. This file stays neutral
+// about which is running it for as long as that is true.
+//
+// Releasing is the one thing that has already moved outright, because it is the one thing that
+// must never happen twice: Publish pushes only from Actions with a tag ref, and appveyor.yml has
+// no deploy_script.
 //
 // Package versions are NOT set here. Each packable project derives its own version from git tags
 // via MinVer (see src/Directory.Build.props), so pushing sodaflow-async-2.1.0 releases only
@@ -582,28 +586,29 @@ Task("Publish")
     // gives a tagged build a stable version and every other build a prerelease one, so only
     // deliberate tags can ever produce something publishable.
     //
-    // A tag build publishes exactly one package: the one its own tag names. AppVeyor starts a
-    // separate build per tag even when several are pushed together, and each of those builds sees
-    // the same artifacts directory holding every package. Pushing all of them from every build made
-    // the publish order the order the builds happened to run in, which is not something a release
-    // can control - so a package could reach nuget.org before the dependency it was built against.
+    // A tag build publishes exactly one package: the one its own tag names. A run sees the whole
+    // artifacts directory, holding every package the solution produces, so pushing all of them from
+    // every tag build made the publish order the order the builds happened to run in - which is not
+    // something a release can control, and which let a package reach nuget.org before the
+    // dependency it was built against.
     //
     // Note what this does and does not do. It makes the order controllable; it does not impose one.
-    // Push the tags in dependency order, and wait for each build to publish before pushing the next.
+    // Push the tags in dependency order, and wait for each run to publish before pushing the next.
+    // That advice does not depend on how many runs a multi-tag push produces, because each run
+    // publishes only the package named by the tag it was started for.
     //
-    // The IsRunningOnAppVeyor half of the guard below is doing a second job while GitHub Actions is
-    // being trialled alongside AppVeyor: it means this task cannot push from there even if someone
-    // adds it to .github/workflows/build.yml. That workflow does not invoke it and has no NuGet key
-    // to push with, so this is the third of three independent things that would have to change
-    // before Actions could release anything. Releases stay AppVeyor's until that trial is settled;
-    // whoever settles it in favour of Actions has to teach this guard about the new home first.
-    if (!BuildSystem.IsRunningOnAppVeyor || !AppVeyor.Environment.Repository.Tag.IsTag)
+    // GitHub Actions is the only place this pushes from. AppVeyor published until the main build
+    // moved here, and stopped in the same commit that started this: appveyor.yml no longer has a
+    // deploy_script, so there is no commit at which both could push the same tag and race for it.
+    // AppVeyor still builds every commit while the two are compared - it just does not release.
+    if (!BuildSystem.IsRunningOnGitHubActions ||
+        GitHubActions.Environment.Workflow.RefType != GitHubActionsRefType.Tag)
     {
         Information("Not a tag build - skipping NuGet push.");
         return;
     }
 
-    var tag = AppVeyor.Environment.Repository.Tag.Name;
+    var tag = GitHubActions.Environment.Workflow.RefName;
     if (string.IsNullOrEmpty(tag))
     {
         throw new Exception(
@@ -611,10 +616,21 @@ Task("Publish")
             "package it releases.");
     }
 
+    // Thrown rather than skipped, unlike every other missing-credential check here. Those guard
+    // work that is worth doing anyway; this one guards the release itself, and a tag build that
+    // quietly published nothing is the failure that is hardest to notice - the tag exists, the run
+    // is green, and only nuget.org disagrees.
+    //
+    // Worth revisiting once: nuget.org supports trusted publishing, where a workflow exchanges its
+    // OIDC token for a short-lived key and no long-lived secret exists to leak or rotate. That is a
+    // thing Actions can do and AppVeyor could not, so it is the natural follow-up to this move
+    // rather than part of it.
     var apiKey = EnvironmentVariable("NUGET_API_KEY");
     if (string.IsNullOrEmpty(apiKey))
     {
-        throw new Exception("NUGET_API_KEY is not set. Add it as a secure variable in AppVeyor.");
+        throw new Exception(
+            "NUGET_API_KEY is not set. Add it as a repository secret under Settings > Secrets and "
+            + "variables > Actions, and pass it to the publish step in .github/workflows/build.yml.");
     }
 
     // The tag prefix to package id map is read from the projects rather than written out here. Both
