@@ -1,4 +1,4 @@
-# AppVeyor build for the .NET implementation under src.
+﻿# AppVeyor build for the .NET implementation under src.
 #
 # NOTE: committing this file supersedes the configuration currently held in the AppVeyor UI.
 # Compare the two before enabling "use YAML from repository".
