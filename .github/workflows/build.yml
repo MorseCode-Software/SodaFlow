@@ -27,24 +27,20 @@
 # rather than skips on a missing key, because a tag build that quietly released nothing is the
 # failure hardest to notice.
 #
-# Coverage is collected on every run and submitted to Coveralls on none of them, unless someone
-# deliberately switches that on. AppVeyor is the one that submits while both systems are building
-# every commit: two submissions per commit would be two Coveralls builds and two pull request
-# statuses for one set of numbers - the same numbers, since the two run the same tests through the
-# same collector - so this is noise rather than a wrong figure. The reports are kept as an artifact
-# here instead.
+# Coverage is collected on every run and submitted to Coveralls whenever there is a token to submit
+# with. There was a COVERALLS_FROM_ACTIONS repository variable gating that while it was still an
+# open question whether Actions would replace AppVeyor; the question is settled and the variable is
+# gone.
 #
-# The switch exists because coverage reporting would otherwise be the one part of AppVeyor's job
-# this trial never exercises on Actions, and retiring AppVeyor without having run it once would
-# mean building that path having never seen it work. To try it for a run or two:
+# ONE THING STILL HAS TO BE ADDED BY HAND: a COVERALLS_REPO_TOKEN repository secret, taken from the
+# Coveralls project page. The value AppVeyor uses is encrypted under that account and cannot be read
+# back out. Until that secret exists this workflow submits nothing - build.cake logs and skips
+# rather than failing, the same way it does for a pull request raised from a fork, where secrets are
+# withheld. The reports are kept as an artifact either way.
 #
-#   1. Add a COVERALLS_REPO_TOKEN repository secret, taken from the Coveralls project page. The
-#      value AppVeyor uses is encrypted under that account and cannot be read back out.
-#   2. Set a COVERALLS_FROM_ACTIONS repository variable to "true".
-#   3. Re-run this workflow, check what lands on Coveralls, then clear the variable again.
-#
-# Clearing the variable is enough to stop it; the secret can stay. Neither step touches this file,
-# which is the point - the trial should not need a commit to start and another to stop.
+# While AppVeyor is still building every commit, both systems submit, so a commit gets two Coveralls
+# builds for one set of numbers. They are the same numbers, and AppVeyor's queue means its
+# submission is usually the one left standing. That ends when AppVeyor does.
 name: Build
 
 # No paths filter, unlike docs.yml and samples.yml. Those two guard narrow, self-contained corners
@@ -211,22 +207,14 @@ jobs:
       # by picking one of them, or by averaging them, would be worse than no number.
       - name: Upload coverage
         env:
-          # Both of these have to be present before anything is sent, and each is missing in a
-          # different way today.
-          #
-          # COVERALLS_FROM_ACTIONS is a repository variable, so it is empty until someone sets it
-          # to "true" in Settings > Secrets and variables > Actions > Variables, and emptying it
-          # again turns the upload back off without a commit.
-          #
-          # COVERALLS_REPO_TOKEN is a repository secret, and there is not one yet - the token
-          # AppVeyor uses is encrypted under that account and cannot be read back out, so it has to
-          # come from the Coveralls project page. Absent, or withheld as it is from a pull request
-          # raised on a fork, the task logs and skips rather than failing the build. That is the
-          # same shape the AppVeyor path has always had for fork pull requests.
+          # The only thing standing between this run and a Coveralls submission, and there is not
+          # one yet: the token AppVeyor uses is encrypted under that account and cannot be read back
+          # out, so it has to come from the Coveralls project page. Absent, or withheld as it is
+          # from a pull request raised on a fork, the task logs and skips rather than failing the
+          # build - the same shape the AppVeyor path has always had for fork pull requests.
           #
           # Scoped to this step rather than declared at the top of the file, so the token is not in
           # the environment of every other step, the inspection and the packing included.
-          COVERALLS_FROM_ACTIONS: ${{ vars.COVERALLS_FROM_ACTIONS }}
           COVERALLS_REPO_TOKEN: ${{ secrets.COVERALLS_REPO_TOKEN }}
         run: dotnet cake --target=Upload-Coverage --exclusive --configuration=${{ env.CONFIGURATION }}
 

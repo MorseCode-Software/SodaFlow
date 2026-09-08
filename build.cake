@@ -243,36 +243,27 @@ Task("Upload-Coverage")
     // on a machine that submits nothing: a collector that has quietly stopped collecting looks
     // exactly like a build that got faster.
     //
-    // Who is allowed to submit is a narrower question. Coveralls holds one view of a commit, so
-    // while AppVeyor and GitHub Actions are both building every commit, two submissions per commit
-    // would mean two Coveralls builds and two pull request statuses for one set of numbers. They
-    // would be the same numbers - the two run the same tests through the same collector - so this
-    // is noise rather than a wrong figure, which is why the Actions side is a switch and not a
-    // refusal.
+    // Who submits is a narrower question, and the answer is now "either CI system", where it used
+    // to be "AppVeyor, or Actions if a switch says so".
     //
-    // AppVeyor submits, as it always has. Actions submits only when COVERALLS_FROM_ACTIONS is
-    // "true", which is a repository variable rather than something in the workflow file, so
-    // turning the Actions path on for a run or two and off again is two clicks in settings and
-    // leaves no commit behind. It is unset today, and unset is off.
+    // That switch was a repository variable, COVERALLS_FROM_ACTIONS, and it existed because
+    // coverage reporting was the one part of AppVeyor's job the Actions trial never exercised:
+    // retiring AppVeyor without having run this path once would have meant building it having
+    // never seen it work. The trial is over and Actions won, so the switch is gone rather than
+    // left permanently on, which is all it would have been.
     //
-    // The point of the switch is that coverage reporting is the one part of AppVeyor's job the
-    // trial otherwise never exercises on Actions. Retiring AppVeyor without having run this once
-    // would mean building that path having never seen it work.
+    // What it was holding off is worth naming, because removing it brings it back. While both
+    // systems build every commit, both now submit, so a commit gets two Coveralls builds and two
+    // pull request statuses for one set of numbers. They are the same numbers - the two run the
+    // same tests through the same collector - so this is noise and not a wrong figure. AppVeyor's
+    // queue means its submission is usually the later one and therefore the one left standing.
+    // It stops being true when AppVeyor stops building, which is the last step of this migration.
     var onAppVeyor = BuildSystem.IsRunningOnAppVeyor;
     var onGitHubActions = BuildSystem.IsRunningOnGitHubActions;
-    var fromActions =
-        onGitHubActions &&
-        string.Equals(
-            EnvironmentVariable("COVERALLS_FROM_ACTIONS"),
-            "true",
-            StringComparison.OrdinalIgnoreCase);
 
-    if (!onAppVeyor && !fromActions)
+    if (!onAppVeyor && !onGitHubActions)
     {
-        Information(
-            onGitHubActions
-                ? "COVERALLS_FROM_ACTIONS is not \"true\" - skipping the coverage upload."
-                : "Not running on AppVeyor - skipping the coverage upload.");
+        Information("Not running on CI - skipping the coverage upload.");
         return;
     }
 
