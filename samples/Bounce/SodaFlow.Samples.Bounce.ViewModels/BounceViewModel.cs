@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using SodaFlow.Bindable.ObjectModel;
 using SodaFlow.Functional;
@@ -149,7 +149,11 @@ public sealed class BounceViewModel : IBounceViewModel
             IScene grab =
                 new GrabScene(timers: timers, restitution: restitution, restarts: ActivatedAt(2));
 
-            IScene[] scenes = { simple, walls, grab };
+            // Elastic, and not offered the damping: the point of it is that momentum and energy
+            // survive an impact, which a multiplier below one would quietly spoil.
+            IScene ricochets = new CollisionScene(timers: timers, restarts: ActivatedAt(3));
+
+            IScene[] scenes = { simple, walls, grab, ricochets };
 
             // The simplest two-way case: the view is the only writer and the sink is the
             // authoritative value. No scheduler is passed, so the ambient one is resolved -

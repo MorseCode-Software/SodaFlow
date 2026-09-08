@@ -10,16 +10,18 @@ build on it.
 Inspired by the Bounce example in [Sodium](https://github.com/SodiumFRP/sodium), which SodaFlow is
 derived from.
 
-## Three scenes, smallest first
+## Four scenes, smallest first
 
 | Tab | What it adds |
 | --- | --- |
 | **One ball** | A single ball on one axis. The whole idea, with nothing else in the way. |
 | **Several balls** | Four balls, each a pair of independent axes, bouncing off walls as well as the floor. |
 | **Grab and throw** | Drag a ball and let go. Its position switches between the pointer's and its own flight. |
+| **Ricochets** | The balls hit each other, on a level table. The one scene where the axes are not independent. |
 
-The last two share a checkbox and a slider setting what a bounce does to a ball's speed. The first
-is deliberately elastic, so that the smallest scene stays the smallest thing that makes the point.
+The middle two share a checkbox and a slider setting what a bounce does to a ball's speed. The
+first is deliberately elastic, so that the smallest scene stays the smallest thing that makes the
+point, and so is the last: what it is there to show is what an impact preserves.
 
 ## The idea
 
@@ -97,6 +99,7 @@ an ordinary cell behind an ordinary bindable property, and those do hold subscri
 | [`Flight.cs`](SodaFlow.Samples.Bounce.ViewModels/Flight.cs) | The equation. All of the physics. |
 | [`BouncingAxis.cs`](SodaFlow.Samples.Bounce.ViewModels/BouncingAxis.cs) | The feedback loop, the solved bounce, and the switch. Read this one. |
 | [`GrabScene.cs`](SodaFlow.Samples.Bounce.ViewModels/GrabScene.cs) | Switching driven by input instead of by physics. |
+| [`CollisionScene.cs`](SodaFlow.Samples.Bounce.ViewModels/CollisionScene.cs) | One cell for the whole world, advanced event by event. The only coupled scene. |
 | [`SceneView.cs`](SodaFlow.Samples.Bounce.Avalonia/SceneView.cs) | Sampling to draw, in about a hundred lines. |
 | [`IBounceViewModel.cs`](SodaFlow.Samples.Bounce.ViewModels/IBounceViewModel.cs) | What the views bind to. |
 | [`BounceViewModel.cs`](SodaFlow.Samples.Bounce.ViewModels/BounceViewModel.cs) | The shared clock, and the selection as a value rather than as control state. |
@@ -190,7 +193,66 @@ The selection cannot exist until the scenes do, and the scenes want the stream, 
 looped: `Stream.CreateLoop<int>()` declares it, and it is defined once the selection is there. The
 same trick as `Cell.Loop` in `BouncingAxis`, for the same reason.
 
+## Ricochets, and the one thing that couples
+
+Every other scene is built out of things that do not interact. A ball is two axes that know
+nothing of each other, and no ball knows of any other, which is what lets each one be a small
+independent graph. A collision breaks both at once: it couples the two axes of two balls at a
+single instant.
+
+So this scene holds one cell containing every ball, rather than a cell per axis, and advances it
+event by event — solve for the earliest thing that happens next, jump to it, apply it, solve
+again. Between events each ball is still a plain equation, which is what the views sample.
+
+**The collision is still solved, not detected.** Nothing steps time forward looking for overlap.
+The moment two balls touch is a root of a quadratic, computed ahead and scheduled with `At`,
+exactly as a wall bounce is — so two balls cannot pass through each other because a frame arrived
+late.
+
+That the moment is a *quadratic* is worth a sentence, because it is not obvious and it is what
+makes the scene tractable. Each ball is curving under its own acceleration, so the position of
+either one is quadratic in time and their separation looks like it should be worse. But every
+ball has the *same* acceleration, so it cancels out of the difference: relative to each other they
+move in straight lines, and "when are these two exactly touching" is
+
+```
+|dp + dv t| = r1 + r2
+```
+
+Give one ball a different acceleration and this scene needs a different solver.
+
+## What the impact does
+
+The standard elastic result. Only the component along the line joining the centers changes, and
+the tangential component is left alone — which is what makes a glancing blow glance rather than
+stop, and means the outgoing angles come from the geometry rather than from anything written down.
+
+Mass is the radius squared: the balls are discs of one density, and area is what a disc has. It is
+the ratio that shows. A big ball meeting a small one barely changes course while the small one
+comes back hard; two equal balls meeting head on simply trade velocities.
+
+Momentum and kinetic energy both survive, which is why this scene is not offered the damping
+controls — a multiplier below one would quietly spoil the thing it exists to show.
+
+## Why this table is level
+
+It is the one scene without gravity, and that is a deliberate trade rather than an omission.
+
+Falling balls spend most of their time doing what the other three scenes already show, and the
+impacts are over before the eye can read them. Level, the collisions are the only thing that
+happens, and the angles and the mass ratios are legible.
+
+It also keeps them slow, which matters more than it sounds. Every alarm here is a wait on a real
+clock, and on Windows that wakes on roughly a fifteen millisecond granularity — so between the
+instant two balls truly touch and the instant the graph is told, they carry on closing. The error
+is closing speed multiplied by that granularity, and gravity is what supplies the speed. Under
+gravity the balls visibly interpenetrate by around nine pixels at the worst impacts; level, the
+worst measured over seventy-eight seconds is under two. It is the same artifact the other scenes
+have at a wall, and this is the scene where it would show most.
+
 ## A note on the physics
 
-Balls do not collide with each other. Each is two independent axes, which is what keeps the graph
-small enough to read.
+Balls do not collide with each other in the first three scenes. Each is two independent axes,
+which is what keeps those graphs small enough to read. The fourth gives that up deliberately, and
+is worth reading against the others for what it costs: one cell for the whole world instead of one
+per axis, and a step that has to consider every pair.
