@@ -27,6 +27,7 @@ namespace SodaFlow.Samples.Search.ViewModels;
 ///         Type "fail" to see the error path. Type slowly and then quickly to see supersession.
 ///     </para>
 /// </remarks>
+// ReSharper disable once InheritdocConsiderUsage
 public sealed class SearchViewModel : ISearchViewModel
 {
     private static readonly IReadOnlyList<string> NoResults = Array.Empty<string>();
@@ -101,7 +102,7 @@ public sealed class SearchViewModel : ISearchViewModel
     }
 
     public static ISearchViewModel Create() =>
-        Transaction.Run(() =>
+        Transaction.Run(static () =>
         {
             CellSink<string> query = Cell.CreateSink(string.Empty);
             StreamSink<Unit> cancel = Stream.CreateSink<Unit>();
@@ -120,7 +121,7 @@ public sealed class SearchViewModel : ISearchViewModel
                 query
                     .Calm()
                     .Updates()
-                    .Filter(q => !string.IsNullOrWhiteSpace(q));
+                    .Filter(static q => !string.IsNullOrWhiteSpace(q));
 
             AsyncMapStatus<string> mapStatus =
                 searches.MapAsync(
@@ -142,7 +143,7 @@ public sealed class SearchViewModel : ISearchViewModel
             // because OrElse prefers its left argument.
             Cell<string> error =
                 failed
-                    .Map(e => e.Message)
+                    .Map(static e => e.Message)
                     .OrElse(searches.MapTo(string.Empty))
                     .Hold(string.Empty);
 
@@ -152,7 +153,7 @@ public sealed class SearchViewModel : ISearchViewModel
             Cell<string> summary =
                 results.Lift(
                     c2: busy,
-                    f: (r, isBusy) =>
+                    f: static (r, isBusy) =>
                         isBusy
                             ? "Searching..."
                             : r.Count.ToString(CultureInfo.CurrentCulture) + " result(s)");
@@ -165,7 +166,7 @@ public sealed class SearchViewModel : ISearchViewModel
                 results: results.ToOneWay(),
                 summary: summary.ToOneWay(),
                 error: error.ToOneWay(),
-                hasError: error.Map(e => e.Length > 0).ToOneWay(),
+                hasError: error.Map(static e => e.Length > 0).ToOneWay(),
                 isBusy: busy.ToOneWay(),
 
                 // Cancel is offered only while something is actually running.

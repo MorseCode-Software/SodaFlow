@@ -21,7 +21,8 @@ namespace SodaFlow.Samples.Counter.Wpf;
 ///         constructs and shows the window in one step, leaving nowhere to set anything in between.
 ///     </para>
 /// </remarks>
-public partial class App
+// ReSharper disable once InheritdocConsiderUsage
+internal sealed partial class App
 {
     private ICounterViewModel? viewModel;
 
@@ -30,7 +31,7 @@ public partial class App
     {
         base.OnStartup(e);
 
-        // Pinned before anything bindable exists, so nothing afterwards depends on which
+        // Pinned before anything bindable exists, so nothing afterward depends on which
         // thread a bindable happened to be built on. Without it each one captures the
         // synchronization context of its constructing thread, and a view model built off
         // the UI thread would quietly get the wrong one - or none, and run inline.

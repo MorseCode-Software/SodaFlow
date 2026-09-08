@@ -26,6 +26,7 @@ namespace SodaFlow.Samples.Search.ViewModels;
 ///         business, not this one's.
 ///     </para>
 /// </remarks>
+// ReSharper disable once InheritdocConsiderUsage
 public interface ISearchViewModel : IDisposable
 {
     /// <summary>What the user has typed. Two-way, so the view both reads and writes it.</summary>

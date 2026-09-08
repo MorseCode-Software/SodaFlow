@@ -12,7 +12,7 @@ namespace SodaFlow.Samples.Search.ViewModels;
 ///     cancellation token, which is what makes cancellation actually stop work rather than
 ///     merely discard its result.
 /// </summary>
-public static class Catalog
+internal static class Catalog
 {
     private static readonly string[] Entries =
     {

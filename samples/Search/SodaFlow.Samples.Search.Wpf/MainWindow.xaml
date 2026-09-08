@@ -6,10 +6,10 @@
         xmlns:viewModels="clr-namespace:SodaFlow.Samples.Search.ViewModels;assembly=SodaFlow.Samples.Search.ViewModels"
         mc:Ignorable="d"
         Title="SodaFlow Search (WPF)"
-        Width="440"
-        Height="520"
+        SizeToContent="WidthAndHeight"
         WindowStartupLocation="CenterScreen"
-        d:DataContext="{d:DesignInstance viewModels:ISearchViewModel}">
+        d:DataContext="{d:DesignInstance viewModels:ISearchViewModel}"
+        x:ClassModifier="internal">
 
     <Window.Resources>
         <BooleanToVisibilityConverter x:Key="BoolToVisibility" />
