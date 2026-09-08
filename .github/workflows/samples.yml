@@ -55,9 +55,9 @@ jobs:
     name: ${{ matrix.sample }}
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - uses: actions/setup-dotnet@v4
+      - uses: actions/setup-dotnet@v6
         with:
           # 10.0 is what global.json pins, and is what actually runs the build. 8.0 is installed
           # alongside it so the net8.0 and net8.0-windows targets have their targeting packs
@@ -77,6 +77,11 @@ jobs:
       #
       # It reads src/SodaFlow.sln.DotSettings - the one rule set every solution is held to - and
       # fails on anything it finds, suggestions included, exactly as the inspection over src does.
+      #
+      # Still on v3 while every other action here is on a Node 24 major. cake-action has moved to
+      # Node 24 on its default branch but has not released it - v3.0.1, and the v3 tag, are still
+      # Node 20 - so this step keeps the deprecation notice until upstream cuts a release. Pinning
+      # to an unreleased commit to silence a warning is the worse trade.
       #
       # cake-version: tool-manifest is the load-bearing input. Without it the action installs a
       # Cake of its own choosing, and CI would stop running the version pinned in
@@ -111,7 +116,7 @@ jobs:
       - name: Upload inspection results
         if: always()
         continue-on-error: true
-        uses: github/codeql-action/upload-sarif@v3
+        uses: github/codeql-action/upload-sarif@v4
         with:
           sarif_file: inspection/inspectcode-${{ matrix.sample }}.sarif
           category: samples-${{ matrix.sample }}
