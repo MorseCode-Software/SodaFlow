@@ -14,7 +14,7 @@ namespace SodaFlow.Samples.Bounce.ViewModels;
 ///         The other scenes get their shape from independence: a ball is two axes that know
 ///         nothing of each other, and no ball knows of any other. A collision is exactly the thing
 ///         that breaks both. It couples the two axes of two balls at one instant, so the flights
-///         cannot be solved one at a time any more.
+///         cannot be solved one at a time anymore.
 ///     </para>
 ///     <para>
 ///         What does not change is that the collision is solved rather than detected. Nothing here
@@ -85,14 +85,12 @@ internal sealed class CollisionScene : IScene
 
         for (int i = 0; i < balls.Length; i++)
         {
-            int index = i;
-
-            balls[index] =
+            balls[i] =
                 new Ball(
-                    x: Position(timers: timers, world: world, index: index, horizontal: true),
-                    y: Position(timers: timers, world: world, index: index, horizontal: false),
-                    radius: Arrangement.Starts[index].Radius,
-                    color: Arrangement.Starts[index].Color);
+                    x: Position(timers: timers, world: world, index: i, horizontal: true),
+                    y: Position(timers: timers, world: world, index: i, horizontal: false),
+                    radius: Arrangement.Starts[i].Radius,
+                    color: Arrangement.Starts[i].Color);
         }
 
         this.Balls = balls;
@@ -184,7 +182,7 @@ internal sealed class CollisionScene : IScene
     ///     The world as it is the instant after <paramref name="time" />.
     /// </summary>
     /// <remarks>
-    ///     Every ball is rebased onto that moment first, so that afterwards they all share one
+    ///     Every ball is rebased onto that moment first, so that afterward they all share one
     ///     start time. That is what keeps the pairwise solve a quadratic: it can take the
     ///     separation and the relative velocity as of a single instant rather than reconciling
     ///     four equations that each began somewhere else.
@@ -444,7 +442,7 @@ internal sealed class CollisionScene : IScene
         /// <remarks>
         ///     Elastic, and unlike <see cref="BouncingAxis" /> this never lets a ball come to rest.
         ///     Resting sets the acceleration to zero, and a ball with a different acceleration to
-        ///     its neighbours would break the very thing that makes the pairwise solve a quadratic.
+        ///     its neighbors would break the very thing that makes the pairwise solve a quadratic.
         ///     Nothing loses speed in this scene, so nothing needs to be allowed to stop.
         /// </remarks>
         public Body Reflected(bool horizontal, double min, double max)
@@ -456,7 +454,7 @@ internal sealed class CollisionScene : IScene
             Flight reflected =
                 new(
                     startTime: flight.StartTime,
-                    position: Math.Min(Math.Max(flight.Position, min), max),
+                    position: Math.Min(val1: Math.Max(val1: flight.Position, val2: min), val2: max),
                     velocity: -flight.Velocity,
                     acceleration: flight.Acceleration);
 
