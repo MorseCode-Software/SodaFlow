@@ -64,9 +64,9 @@ permissions:
   contents: read
   # Uploading the inspection results to code scanning, as samples.yml does.
   security-events: write
-  # Creating the Tests check run. This is the permission a pull request raised from a fork does not
-  # get, which is why the step that needs it is allowed to fail without failing the job.
-  checks: write
+  #
+  # Deliberately no checks: write. Creating the Tests check run needs it, and a fork pull request
+  # would never be granted it, which is exactly why that work is in test-report.yml instead.
 
 # Superseded pull request runs are cancelled, and nothing else is. A cancelled run has no duration
 # worth reading, so main keeps a complete run per commit to compare against.
@@ -160,54 +160,29 @@ jobs:
         run: dotnet cake --target=Test --exclusive --configuration=${{ env.CONFIGURATION }}
 
       # AppVeyor gets a Tests tab for free: build.cake hands it the trx files through its API as
-      # soon as the run finishes, and it renders every one of them individually. This is the Actions
-      # equivalent, and it reads the same trx files that step already wrote. On the run that added
-      # it: 1342 passed, 0 failed, 10 skipped, each named.
+      # soon as the run finishes, and it renders every one of them individually. The Actions
+      # equivalent is NOT here - it is test-report.yml, and this step is the half of it that this
+      # workflow can do.
       #
-      # use-actions-summary is the input that decides where that lands, and it is off here against
-      # the action's own default. Left on, the report goes to the job summary and NO check run is
-      # created - which is how this was first written, and it is worth naming because the step
-      # passes either way and the difference is invisible unless you go looking for the check.
+      # The split is the reporter's own recommended setup for a public repository, and the reason is
+      # that a pull request raised from a fork runs with a read-only token and cannot create a check
+      # run at all. Reporting from inside this workflow therefore either annotates failures and
+      # abandons fork contributors, or serves everyone and annotates nobody - both of which this
+      # file did at one point. Handing the results to a workflow_run workflow, which runs in this
+      # repository's context with a token that can write, gets both.
       #
-      # Off, the report becomes a check run named Tests: the same full listing, plus failures
-      # annotated on the lines they happened on, and a check visible from the pull request rather
-      # than one page further in. Annotations are the half that matters on the day something breaks,
-      # which is the argument for paying what this costs.
+      # A dedicated artifact rather than reusing the coverage one below, though the trx files are in
+      # both. This one is a contract between two workflows and says so; that one exists so a run's
+      # coverage can be read back. Narrowing either should not silently break the other.
       #
-      # What it costs is the checks: write permission, which a pull request raised from a fork does
-      # not get. On such a run this step goes red on its own and there is no report at all - the trx
-      # files in the coverage artifact are the only fallback. Setting use-actions-summary back to
-      # true trades the annotations for a report that works everywhere, if that turns out to matter
-      # more here.
-      #
-      # list-suites and list-tests are at their defaults of "all" and named anyway, because they are
-      # the whole point of this step: a summary of counts was the earlier version of it, and counts
-      # are what AppVeyor's tab is not.
-      #
-      # max-annotations is at 50, the highest the action accepts. A run with more than fifty
-      # distinct failures has a problem the annotations were not going to explain anyway, and the
-      # full list is still in the check run.
-      #
-      # fail-on-error and fail-on-empty are both off, and both would otherwise fail the job a second
-      # time for something already reported: the Test step above fails when a test fails, and fails
-      # before writing anything when it falls over early. Reporting should not be able to change a
-      # run's outcome, only describe it.
-      #
-      # always(), because a failing test run is exactly the run whose results are worth reading.
-      - name: Report tests
-        if: always()
-        continue-on-error: true
-        uses: dorny/test-reporter@v3
+      # !cancelled() rather than always(): a cancelled run has nothing worth reporting, and
+      # uploading anyway would have test-report.yml create a check run for a superseded commit.
+      - name: Collect test results
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v7
         with:
-          name: Tests
+          name: test-results
           path: coverage/**/*.trx
-          reporter: dotnet-trx
-          use-actions-summary: false
-          list-suites: all
-          list-tests: all
-          max-annotations: 50
-          fail-on-error: false
-          fail-on-empty: false
 
       # Finds the Cobertura reports and fails if there are none, which is the check worth keeping
       # even on a run that submits nothing: a collector that has silently stopped collecting looks
