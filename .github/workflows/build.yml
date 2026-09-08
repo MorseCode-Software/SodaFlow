@@ -160,18 +160,33 @@ jobs:
         run: dotnet cake --target=Test --exclusive --configuration=${{ env.CONFIGURATION }}
 
       # AppVeyor gets a Tests tab for free: build.cake hands it the trx files through its API as
-      # soon as the run finishes, and it renders all 1300 of them individually. This is the Actions
-      # equivalent, and it reads the same trx files that step already wrote.
+      # soon as the run finishes, and it renders every one of them individually. This is the Actions
+      # equivalent, and it reads the same trx files that step already wrote. On the run that added
+      # it: 1342 passed, 0 failed, 10 skipped, each named.
       #
-      # It creates a check run named Tests listing every suite and every test, attaches the failures
-      # to the lines they happened on as annotations, and writes the same report into the job
-      # summary. list-suites and list-tests are at their defaults of "all" and named anyway, because
-      # they are the whole point of this step: a summary of counts was the earlier version of it,
-      # and counts are what AppVeyor's tab is not.
+      # use-actions-summary is the input that decides where that lands, and it is off here against
+      # the action's own default. Left on, the report goes to the job summary and NO check run is
+      # created - which is how this was first written, and it is worth naming because the step
+      # passes either way and the difference is invisible unless you go looking for the check.
+      #
+      # Off, the report becomes a check run named Tests: the same full listing, plus failures
+      # annotated on the lines they happened on, and a check visible from the pull request rather
+      # than one page further in. Annotations are the half that matters on the day something breaks,
+      # which is the argument for paying what this costs.
+      #
+      # What it costs is the checks: write permission, which a pull request raised from a fork does
+      # not get. On such a run this step goes red on its own and there is no report at all - the trx
+      # files in the coverage artifact are the only fallback. Setting use-actions-summary back to
+      # true trades the annotations for a report that works everywhere, if that turns out to matter
+      # more here.
+      #
+      # list-suites and list-tests are at their defaults of "all" and named anyway, because they are
+      # the whole point of this step: a summary of counts was the earlier version of it, and counts
+      # are what AppVeyor's tab is not.
       #
       # max-annotations is at 50, the highest the action accepts. A run with more than fifty
       # distinct failures has a problem the annotations were not going to explain anyway, and the
-      # full list is still in the check run and the summary.
+      # full list is still in the check run.
       #
       # fail-on-error and fail-on-empty are both off, and both would otherwise fail the job a second
       # time for something already reported: the Test step above fails when a test fails, and fails
@@ -179,9 +194,6 @@ jobs:
       # run's outcome, only describe it.
       #
       # always(), because a failing test run is exactly the run whose results are worth reading.
-      # continue-on-error, because creating a check run needs the checks: write permission that a
-      # pull request raised from a fork does not get. On such a run this step goes red on its own
-      # and the trx files in the coverage artifact are the fallback.
       - name: Report tests
         if: always()
         continue-on-error: true
@@ -190,6 +202,7 @@ jobs:
           name: Tests
           path: coverage/**/*.trx
           reporter: dotnet-trx
+          use-actions-summary: false
           list-suites: all
           list-tests: all
           max-annotations: 50
