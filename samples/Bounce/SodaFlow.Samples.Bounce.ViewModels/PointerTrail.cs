@@ -28,7 +28,7 @@ internal readonly struct PointerTrail
         this.Y = y;
     }
 
-    public static PointerTrail Empty { get; } = default;
+    public static PointerTrail Empty => default;
 
     private bool HasPrevious { get; }
 
