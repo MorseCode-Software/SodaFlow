@@ -35,9 +35,9 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - uses: actions/setup-dotnet@v4
+      - uses: actions/setup-dotnet@v6
         with:
           # 6.0 for the net60 target the docs are generated against, 8.0 to run DocFX itself.
           dotnet-version: |
@@ -60,7 +60,14 @@ jobs:
       - name: Build site
         run: dotnet docfx docs/docfx.json --warningsAsErrors
 
-      - uses: actions/upload-pages-artifact@v3
+      # v5 rather than v3 for Node 24, which this action does not declare itself: it is a
+      # composite, and the Node 20 came from the actions/upload-artifact it calls - v4 there in
+      # its own v3, v7 in its v5.
+      #
+      # v4 of this action stopped including hidden files in the artifact. Checked rather than
+      # assumed: a local docfx build produces 917 files under docs/_site and not one dotfile
+      # among them, so there is nothing here for that change to drop.
+      - uses: actions/upload-pages-artifact@v5
         with:
           path: docs/_site
 
@@ -74,4 +81,4 @@ jobs:
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - id: deployment
-        uses: actions/deploy-pages@v4
+        uses: actions/deploy-pages@v5
