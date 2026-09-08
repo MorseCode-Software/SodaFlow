@@ -1,0 +1,54 @@
+# Builds the sample solutions under samples/.
+#
+# Independent of appveyor.yml, which builds, tests, packs and publishes the libraries under src/,
+# and of docs.yml, which builds the documentation site. Nothing is shared between the three.
+#
+# Deliberately not triggered by changes under src/. The samples reference published NuGet packages
+# rather than the projects in this repository - see the comment in any sample's .csproj - so a
+# change to src/ cannot affect them, and this filter has no false negative to worry about. The other
+# side of that is what this build does NOT tell you: because each sample pins a package version, a
+# newly released package breaking a sample shows up only when someone bumps that version here.
+name: Samples
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - 'samples/**'
+      - '.github/workflows/samples.yml'
+  pull_request:
+    paths:
+      - 'samples/**'
+      - '.github/workflows/samples.yml'
+  workflow_dispatch:
+
+jobs:
+  build:
+    # Windows because the WPF head of every sample targets net8.0-windows. The Avalonia heads and
+    # the view models would build anywhere; splitting the job to save that is not worth the noise.
+    runs-on: windows-latest
+
+    strategy:
+      # One sample failing should not hide the state of the other two.
+      fail-fast: false
+      matrix:
+        sample: [ Counter, Search, Bounce ]
+
+    name: ${{ matrix.sample }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          # 10.0 is what global.json pins, and is what actually runs the build. 8.0 is installed
+          # alongside it so the net8.0 and net8.0-windows targets have their targeting packs
+          # present rather than acquired during the build.
+          dotnet-version: |
+            8.0.x
+            10.0.x
+
+      # Warnings are errors here because these are teaching code. All three solutions build clean
+      # today, so anything new is a regression rather than a backlog.
+      - name: Build
+        run: dotnet build samples/${{ matrix.sample }}/SodaFlow.Samples.${{ matrix.sample }}.slnx --configuration Release -warnaserror
