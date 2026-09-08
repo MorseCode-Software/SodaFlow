@@ -1,0 +1,257 @@
+# Builds, tests, packs and inspects the .NET solution under src/ - the same build appveyor.yml
+# drives, run on GitHub Actions instead.
+#
+# THIS RUNS ALONGSIDE APPVEYOR, NOT INSTEAD OF IT. Both are wired to the same events on purpose, so
+# that one commit produces one run on each and the two can be compared on what actually decides
+# this: wall-clock time, what a failure looks like from the outside, and how much of a result is
+# readable without opening a log. Neither is the other's fallback. If the two ever disagree about a
+# commit, that disagreement is itself the finding.
+#
+# NOTHING HERE PUBLISHES, and three separate things have to change before it could:
+#
+#   1. No step below invokes build.cake's Publish target. AppVeyor's deploy_script does; this
+#      workflow deliberately stops after the inspection.
+#   2. Publish would refuse anyway. It returns early unless BuildSystem.IsRunningOnAppVeyor, so
+#      even `dotnet cake --target=Publish` from here is a no-op that logs and exits.
+#   3. There is no key to push with. NUGET_API_KEY lives in appveyor.yml as an AppVeyor-encrypted
+#      value, which only AppVeyor can decrypt, and no GitHub secret of that name is read here.
+#
+# Releases stay AppVeyor's until the comparison this workflow exists for is settled. Whoever
+# settles it in favour of Actions has to undo all three, which is the point: none of them can be
+# tripped by accident.
+#
+# Coverage is likewise collected but not uploaded. build.cake's Upload-Coverage task already skips
+# the Coveralls submission when it is not on AppVeyor, and that is left alone rather than taught
+# about Actions: two CI systems submitting a different partial view of the same commit to the same
+# Coveralls repository would make both numbers untrustworthy, and coverage reporting is one of the
+# things being compared. The reports are kept as an artifact instead.
+name: Build
+
+# No paths filter, unlike docs.yml and samples.yml. Those two guard narrow, self-contained corners
+# of the repository; this builds the libraries, and AppVeyor builds them on every push. A filter
+# here would mean the two systems were sometimes asked different questions, and a speed comparison
+# between a run that happened and a run that was skipped says nothing.
+#
+# Tags are not built. AppVeyor starts a build per tag because a tag build is what releases a
+# package, and that is the one part of its job this workflow is explicitly not doing.
+# workflow_dispatch covers running this against any branch by hand.
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  # Uploading the inspection results to code scanning, as samples.yml does. Naming one permission
+  # drops every other to none, so the read that checkout needs is spelled out rather than inherited.
+  contents: read
+  security-events: write
+
+# Superseded runs on a branch are cancelled; main is not, so every commit that lands keeps a
+# complete run to compare against. A cancelled run has no duration worth reading anyway.
+concurrency:
+  group: build-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+
+env:
+  # appveyor.yml sets these three in its environment block, and its configuration at the top level.
+  # Repeated here rather than left to differ, because a build comparison in which one side is
+  # quietly doing first-run telemetry setup and the other is not is not a comparison.
+  CONFIGURATION: Release
+  DOTNET_CLI_TELEMETRY_OPTOUT: true
+  DOTNET_NOLOGO: true
+  DOTNET_SKIP_FIRST_TIME_EXPERIENCE: true
+
+defaults:
+  run:
+    shell: pwsh
+
+jobs:
+  build:
+    name: Build
+    # Windows because src targets net472 alongside net60 and netstandard2.0, and the test projects
+    # target net472 alongside net10.0. AppVeyor runs this on its Visual Studio 2026 image; this is
+    # the nearest thing Actions offers, and the difference between the two images is one of the
+    # things worth watching while both are running.
+    runs-on: windows-latest
+
+    # AppVeyor's own hard limit on a free build is an hour. Matching it means a hang shows up here
+    # the same way it shows up there, rather than running on to Actions' six.
+    timeout-minutes: 60
+
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          # The equivalent of shallow_clone: false and clone_depth: 0 in appveyor.yml, and just as
+          # load-bearing. MinVer reads the full commit graph and every tag; Actions' default is a
+          # depth-1 clone with no tags, which gives every package a wrong version or none at all.
+          fetch-depth: 0
+
+      - uses: actions/setup-dotnet@v6
+        with:
+          # 10.0 is what global.json pins and what runs the build; the test projects run on it too.
+          # 8.0 and 6.0 are here for their targeting packs, so the net8.0 target of the benchmark
+          # project and the net60 target of every library resolve locally instead of restoring a
+          # reference pack from NuGet mid-build.
+          #
+          # If setup time turns out to matter to the comparison, dropping 6.0 and 8.0 is the first
+          # thing to try: the packs they provide are downloadable, so the build still works without
+          # them - it just pays for them somewhere less visible than a named step.
+          dotnet-version: |
+            6.0.x
+            8.0.x
+            10.0.x
+
+      # appveyor.yml's install phase, unchanged. Cake and the ReSharper command line tools are
+      # pinned in .config/dotnet-tools.json, so both CI systems and a developer all run the same
+      # versions.
+      #
+      # Deliberately no NuGet package cache, though actions/setup-dotnet offers one. AppVeyor has
+      # none configured, and adding one to only this side would make the first thing being measured
+      # - how long a build takes - a measurement of caching rather than of the platform. It is the
+      # obvious lever to pull if Actions wins on everything else and loses on time.
+      - name: Restore tools
+        run: dotnet tool restore
+
+      # The steps below mirror appveyor.yml's phases, one step per phase, with the same --exclusive
+      # flags and in the same order. That is what makes the two runs readable side by side: a step
+      # here and a phase there ran the same Cake target the same way, so a difference in what they
+      # took or what they said is a difference between the two CI systems rather than between two
+      # builds.
+      #
+      # --exclusive runs the named target without its dependencies, which have already run in an
+      # earlier step. The dependency chain in build.cake remains the truth for a local `dotnet
+      # cake`; here, as on AppVeyor, the CI system supplies the sequencing.
+      - name: Build
+        run: dotnet cake --target=Build --configuration=${{ env.CONFIGURATION }}
+
+      - name: Test
+        run: dotnet cake --target=Test --exclusive --configuration=${{ env.CONFIGURATION }}
+
+      # AppVeyor gets a Tests tab for free: build.cake hands it the trx files through its API as
+      # soon as the run finishes, and it renders individual tests. Actions has no equivalent, so
+      # this reads those same trx files and writes a job summary from them.
+      #
+      # Worth being clear that this step IS the comparison on this point rather than a workaround
+      # for it. What AppVeyor gives without being asked costs a step and a script here, and this is
+      # about the cheapest honest version of it: no third-party action, no extra permission, and
+      # nothing that behaves differently on a pull request raised from a fork.
+      #
+      # always(), because a failing test run is exactly the run whose results are worth reading,
+      # and the step before this one fails when tests fail.
+      - name: Summarize tests
+        if: always()
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $results = @(Get-ChildItem -Path coverage -Recurse -Filter *.trx -ErrorAction SilentlyContinue)
+
+          if ($results.Count -eq 0) {
+              Add-Content -Path $env:GITHUB_STEP_SUMMARY -Value '## Tests', '', 'No .trx results were produced.'
+              exit 0
+          }
+
+          $rows = @()
+          $failures = @()
+
+          # One file per test project per framework, named for both, so the file name is the row
+          # label and nothing else has to be looked up to say which suite a number belongs to.
+          foreach ($file in $results | Sort-Object Name) {
+              $run = [xml](Get-Content -LiteralPath $file.FullName -Raw)
+              $counters = $run.TestRun.ResultSummary.Counters
+              $total = [int]$counters.total
+              $skipped = $total - [int]$counters.executed
+              $rows += '| {0} | {1} | {2} | {3} | {4} |' -f $file.BaseName, $total, [int]$counters.passed, [int]$counters.failed, $skipped
+
+              foreach ($test in @($run.TestRun.Results.UnitTestResult)) {
+                  if ($test.outcome -ne 'Failed') { continue }
+
+                  # The first line of the assertion only. The whole message, with its stack, is in
+                  # the log and in the uploaded trx; a summary that reproduced all of it would bury
+                  # the list of which tests failed, which is the part this is for.
+                  $message = @($test.Output.ErrorInfo.Message -split "`r?`n" | Where-Object { $_.Trim() })[0]
+                  $failures += '- `{0}` - {1}' -f $test.testName, $message
+              }
+          }
+
+          $lines = @('## Tests', '', '| Results | Total | Passed | Failed | Skipped |', '| --- | --: | --: | --: | --: |') + $rows
+
+          if ($failures.Count -gt 0) {
+              $lines += @('', '### Failures', '') + $failures
+          }
+
+          Add-Content -Path $env:GITHUB_STEP_SUMMARY -Value $lines
+
+      # Runs, and deliberately uploads nothing - see the note at the top of this file. What it does
+      # do is find the Cobertura reports and fail if there are none, which is the check worth
+      # keeping: a coverage collector that has silently stopped collecting looks exactly like a
+      # build that got faster.
+      #
+      # No overall percentage is written to the job summary. A solution-level run produces one
+      # report per test project per framework, each covering only the assemblies that project
+      # touched, and merging them is precisely what Coveralls does. A number invented here by
+      # picking one of them, or by averaging them, would be worse than no number.
+      - name: Upload coverage
+        run: dotnet cake --target=Upload-Coverage --exclusive --configuration=${{ env.CONFIGURATION }}
+
+      - name: Pack
+        run: dotnet cake --target=Pack --exclusive --configuration=${{ env.CONFIGURATION }}
+
+      # Last, as it is on AppVeyor and for the same reason: it fails the build on anything it
+      # finds, and a build failed by the inspection should still have packed its packages and
+      # collected its coverage, because those are what say whether the run was otherwise sound.
+      - name: Inspect
+        run: dotnet cake --target=Inspect-Code --exclusive --configuration=${{ env.CONFIGURATION }}
+
+      # The other half of the reporting comparison. AppVeyor gets these findings as messages on its
+      # messages tab, which build.cake posts itself; Actions gets the SARIF that same task already
+      # wrote, so the findings land on the lines they are about - in the Files tab of a pull request
+      # and in the Security tab - instead of only in a log that has to be opened and scrolled.
+      #
+      # Nothing about the inspection changes to make this work. It is the same report AppVeyor keeps
+      # as an artifact, uploaded the way samples.yml uploads the samples' reports.
+      #
+      # always(), because the step above fails by design while there are findings, and those are
+      # exactly the runs worth annotating. continue-on-error, because this is presentation: if the
+      # upload breaks, the inspection result is still the one that failed the job, and an upload
+      # problem should not be mistaken for a code problem.
+      #
+      # category keeps this apart from the three samples.yml uploads. Without it, the two workflows
+      # would replace each other's results on a commit that ran both.
+      - name: Upload inspection results
+        if: always()
+        continue-on-error: true
+        uses: github/codeql-action/upload-sarif@v4
+        with:
+          sarif_file: inspection/inspectcode.sarif
+          category: src
+
+      # The same three artifacts appveyor.yml collects, under the same names, so that what one run
+      # leaves behind can be compared against what the other does.
+      #
+      # always() rather than on success, because AppVeyor collects artifacts from a failed build
+      # too, and a run failed by the inspection still has packages and coverage worth having.
+      # upload-artifact warns rather than fails on a path that matched nothing, so a build that fell
+      # over before producing any of these does not then fail a second time on the collection.
+      - name: Collect packages
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: packages
+          path: artifacts/*.nupkg
+
+      # Kept for the same reason AppVeyor keeps it: a run whose coverage upload was skipped - which,
+      # here, is every run - can still be inspected. The trx files ride along in the same directory.
+      - name: Collect coverage
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: coverage
+          path: coverage
+
+      # The raw SARIF, for opening in a viewer rather than reading off the Security tab.
+      - name: Collect inspection
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: inspection
+          path: inspection

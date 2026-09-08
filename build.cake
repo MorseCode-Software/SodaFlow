@@ -11,10 +11,16 @@
 // which restores, builds, tests with coverage, packs, and runs the inspection. Publishing is
 // deliberately not part of the default target; see the Publish task.
 //
-// On AppVeyor the tasks are driven one phase at a time, with --exclusive, so that a failure is
+// On CI the tasks are driven one phase at a time, with --exclusive, so that a failure is
 // attributed to the phase it happened in rather than all of them reading as a build failure. The
 // dependencies below are therefore what a local run follows, not what CI relies on; keep them
 // accurate anyway, since `dotnet cake --target=Pack` on a clean tree has to work.
+//
+// Two CI systems drive them that way at the moment, deliberately: appveyor.yml and
+// .github/workflows/build.yml run the same targets with the same flags on the same commits, so
+// that AppVeyor and GitHub Actions can be compared on speed and on reporting before one of them is
+// dropped. That comparison is the reason this file stays neutral about which is running it. The
+// Actions workflow does not publish - see the note at the top of it, and the guard in Publish.
 //
 // Package versions are NOT set here. Each packable project derives its own version from git tags
 // via MinVer (see src/Directory.Build.props), so pushing sodaflow-async-2.1.0 releases only
@@ -183,6 +189,11 @@ Task("Test")
     //
     // Uploaded here rather than in a later task because a failing test run stops the build, and the
     // results of the run that failed are exactly the ones worth having.
+    //
+    // GitHub Actions has no equivalent API to hand them to, so nothing is added here for it. The
+    // workflow reads the same files from the results directory afterwards and writes a job summary
+    // itself; keeping that on its side of the line is what makes the two systems' reporting
+    // comparable rather than something this file has already evened out.
     if (BuildSystem.IsRunningOnAppVeyor)
     {
         foreach (var results in GetFiles($"{coverageDirectory.Path}/**/*.trx"))
@@ -224,6 +235,12 @@ Task("Upload-Coverage")
         Information("  {0}", report.FullPath);
     }
 
+    // Still AppVeyor-only, and that now covers GitHub Actions as well as a developer's machine.
+    // Coveralls holds one view of a commit, so two CI systems each submitting the partial reports
+    // from their own run would leave whichever finished last standing - and coverage reporting is
+    // one of the things the two are being compared on. The Actions workflow keeps these reports as
+    // an artifact instead. Everything above this line still runs there, which is the part worth
+    // keeping: a collector that has quietly stopped collecting looks exactly like a faster build.
     if (!BuildSystem.IsRunningOnAppVeyor)
     {
         Information("Not running on AppVeyor - skipping the coverage upload.");
@@ -525,6 +542,13 @@ Task("Publish")
     //
     // Note what this does and does not do. It makes the order controllable; it does not impose one.
     // Push the tags in dependency order, and wait for each build to publish before pushing the next.
+    //
+    // The IsRunningOnAppVeyor half of the guard below is doing a second job while GitHub Actions is
+    // being trialled alongside AppVeyor: it means this task cannot push from there even if someone
+    // adds it to .github/workflows/build.yml. That workflow does not invoke it and has no NuGet key
+    // to push with, so this is the third of three independent things that would have to change
+    // before Actions could release anything. Releases stay AppVeyor's until that trial is settled;
+    // whoever settles it in favour of Actions has to teach this guard about the new home first.
     if (!BuildSystem.IsRunningOnAppVeyor || !AppVeyor.Environment.Repository.Tag.IsTag)
     {
         Information("Not a tag build - skipping NuGet push.");

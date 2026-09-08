@@ -3,6 +3,12 @@
 # NOTE: committing this file supersedes the configuration currently held in the AppVeyor UI.
 # Compare the two before enabling "use YAML from repository".
 #
+# NOTE: .github/workflows/build.yml now runs the same build on GitHub Actions, on the same commits,
+# so the two can be compared on speed and on reporting before either is dropped. This file is still
+# the one that releases: the Actions workflow does not invoke the Publish target, has no NuGet key,
+# and could not push if it did - see the note at the top of it. Nothing here changes while both are
+# running; if Actions wins, this file goes away rather than being split with it.
+#
 # The steps themselves live in build.cake, not here. What is left in this file is the part that is
 # genuinely AppVeyor's: which image to run on, what the environment holds, what to keep as an
 # artifact, and when to invoke the build. Anything describing what the build *does* belongs next to
