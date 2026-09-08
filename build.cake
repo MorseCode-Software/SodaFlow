@@ -110,6 +110,7 @@ Task("Restore")
 
 Task("Build")
     .Description("Builds the solution.")
+    .IsDependentOn("Verify-Inspection-Settings")
     .IsDependentOn("Restore")
     .Does(() =>
 {
@@ -313,8 +314,13 @@ string Describe(IIssue issue) =>
     $"{issue.AffectedFileRelativePath?.FullPath ?? "<solution>"}"
     + $"({issue.Line?.ToString() ?? "-"}): {issue.RuleId}: {issue.MessageText}";
 
-// No dependencies: this compares files and needs nothing built, so it can fail a run in seconds
-// rather than after the build it would otherwise wait for.
+// Hung off Build rather than given a phase of its own in appveyor.yml, which would have read
+// better and would not have run: that file documents the intended configuration, but the project
+// builds from the configuration held in AppVeyor's UI until someone enables "use YAML from
+// repository" - as the note at the top of appveyor.yml says. A dependency runs under either one.
+//
+// It needs nothing compiled, so as a dependency of Build it still runs before anything is built
+// and costs milliseconds.
 Task("Verify-Inspection-Settings")
     .Description("Checks that every solution's inspection settings match the canonical ones.")
     .Does(() =>

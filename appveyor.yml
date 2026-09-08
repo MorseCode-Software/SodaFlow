@@ -44,16 +44,6 @@ environment:
 install:
   - dotnet tool restore
 
-# Its own phase, before anything is built, because that is where a failure reads correctly: a
-# settings file out of step is not a broken build. It compares four files and needs nothing
-# compiled, so it costs milliseconds and fails the run in seconds rather than after a twenty
-# minute build that was never going to mean anything.
-#
-# Why the files are duplicated at all, and why CI reads only one of them, is explained where the
-# task is defined in build.cake.
-before_build:
-  - dotnet cake --target=Verify-Inspection-Settings
-
 # The build is driven one phase at a time so that AppVeyor attributes a failure to the phase it
 # happened in: a failing test reads as a failed test phase, not as a failed build.
 #
