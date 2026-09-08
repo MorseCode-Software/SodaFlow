@@ -4,7 +4,7 @@
         xmlns:local="clr-namespace:SodaFlow.Samples.Bounce.Avalonia"
         x:Class="SodaFlow.Samples.Bounce.Avalonia.MainWindow"
         Title="SodaFlow Bounce (Avalonia)"
-        Width="560"
+        Width="620"
         SizeToContent="Height"
         WindowStartupLocation="CenterScreen"
         x:DataType="viewModels:IBounceViewModel">
