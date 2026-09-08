@@ -249,10 +249,15 @@ separation stops being a straight line, and the quadratic that says when two bal
 quartic. **Every ball has to share one acceleration or none of it works.**
 
 So a ball that has damped away to nothing keeps bouncing, at a floor speed low enough that the
-bounce is 0.9px high and lands every 89ms. That is under a pixel: what a settled ball in this scene
-looks like is a ball at rest, and what it is is a ball bouncing too little to see. It also answers
-Zeno, which is the other job resting does elsewhere — the interval between floor bounces stops
-shrinking rather than closing up forever.
+bounce is 0.22px high and lands every 44ms. A fifth of a pixel rounds away in nearly every frame:
+what a settled ball in this scene looks like is a ball at rest, and what it is is a ball bouncing
+too little to see. It also answers Zeno, which is the other job resting does elsewhere — the
+interval between floor bounces stops shrinking rather than closing up forever.
+
+How small that bounce can be is a straight trade against how much the clock is asked to do. The
+amplitude falls with the *square* of the speed while the event rate only rises with it, so shrinking
+it is cheap in appearance and linear in cost: four resting balls take 6.2s of processor over a 78s
+run at 40px/s, 10.4s at 20, and 14.2s at 12.
 
 Sideways needs none of this. That axis has no acceleration to begin with, so a ball that damps to a
 horizontal standstill still matches its neighbours and costs nothing.

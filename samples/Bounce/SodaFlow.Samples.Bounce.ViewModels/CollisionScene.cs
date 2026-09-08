@@ -68,14 +68,17 @@ internal sealed class CollisionScene : IScene
     ///     </para>
     ///     <para>
     ///         So a ball that has damped away to nothing keeps bouncing at this speed instead, which
-    ///         under this gravity carries it 0.9px off the floor every 89ms. That is under a pixel,
-    ///         which is what a settled ball in this scene amounts to, and slow enough that four of
-    ///         them resting together do not flood the clock with events. It also
+    ///         under this gravity carries it 0.22px off the floor every 44ms - a fifth of a pixel,
+    ///         which rounds away in nearly every frame drawn. The amplitude falls with the square
+    ///         of this number while the event rate only rises with it, so there is room to make the
+    ///         bounce invisible; what stops it going lower is the cost of the events. Four resting
+    ///         balls cost 6.2s of processor over a 78s run at 40px/s, 10.4s at this 20, and 14.2s
+    ///         at 12. It also
     ///         answers Zeno, which is the other thing resting exists to do: the interval between
     ///         floor bounces stops shrinking here rather than closing up forever.
     ///     </para>
     /// </remarks>
-    private const double MinimumFloorBounce = 40.0;
+    private const double MinimumFloorBounce = 20.0;
 
     /// <summary>
     ///     The speed no ball is allowed past, however much the damping keeps handing it.
