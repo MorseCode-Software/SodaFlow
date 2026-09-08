@@ -34,6 +34,12 @@ on:
       - '.github/workflows/samples.yml'
   workflow_dispatch:
 
+permissions:
+  # Uploading the inspection results to code scanning. Naming one permission drops every other to
+  # none, so the read that checkout needs is spelled out rather than inherited.
+  contents: read
+  security-events: write
+
 jobs:
   build:
     # Windows because the WPF head of every sample targets net8.0-windows. The Avalonia heads and
@@ -87,3 +93,25 @@ jobs:
           cake-version: tool-manifest
           arguments: |
             sample: ${{ matrix.sample }}
+
+      # The SARIF the step above already wrote, handed to code scanning so the findings land on the
+      # lines they are about - in the Files tab of a pull request and in the Security tab - instead
+      # of only in a log that has to be opened and scrolled.
+      #
+      # Nothing about the inspection changes to make this work: it is the same report build.cake
+      # writes for its own reporting, and the same one AppVeyor keeps as an artifact.
+      #
+      # always(), because the step that produces it fails by design while there are findings, and
+      # those are exactly the runs worth annotating. continue-on-error, because this is
+      # presentation: if the upload breaks, the inspection result is still the one that failed the
+      # job, and an upload problem should not be mistaken for a code problem.
+      #
+      # category keeps the three samples apart. Without it each upload replaces the last for this
+      # commit, and only whichever job finished last would be visible.
+      - name: Upload inspection results
+        if: always()
+        continue-on-error: true
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: inspection/inspectcode-${{ matrix.sample }}.sarif
+          category: samples-${{ matrix.sample }}
