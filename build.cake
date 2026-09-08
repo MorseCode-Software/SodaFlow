@@ -235,38 +235,54 @@ Task("Upload-Coverage")
         Information("  {0}", report.FullPath);
     }
 
-    // Still AppVeyor-only, and that now covers GitHub Actions as well as a developer's machine.
-    // Coveralls holds one view of a commit, so two CI systems each submitting the partial reports
-    // from their own run would leave whichever finished last standing - and coverage reporting is
-    // one of the things the two are being compared on. The Actions workflow keeps these reports as
-    // an artifact instead. Everything above this line still runs there, which is the part worth
-    // keeping: a collector that has quietly stopped collecting looks exactly like a faster build.
-    if (!BuildSystem.IsRunningOnAppVeyor)
+    // Everything above this line runs wherever this task does, and that is the part worth keeping
+    // on a machine that submits nothing: a collector that has quietly stopped collecting looks
+    // exactly like a build that got faster.
+    //
+    // Who is allowed to submit is a narrower question. Coveralls holds one view of a commit, so
+    // while AppVeyor and GitHub Actions are both building every commit, two submissions per commit
+    // would mean two Coveralls builds and two pull request statuses for one set of numbers. They
+    // would be the same numbers - the two run the same tests through the same collector - so this
+    // is noise rather than a wrong figure, which is why the Actions side is a switch and not a
+    // refusal.
+    //
+    // AppVeyor submits, as it always has. Actions submits only when COVERALLS_FROM_ACTIONS is
+    // "true", which is a repository variable rather than something in the workflow file, so
+    // turning the Actions path on for a run or two and off again is two clicks in settings and
+    // leaves no commit behind. It is unset today, and unset is off.
+    //
+    // The point of the switch is that coverage reporting is the one part of AppVeyor's job the
+    // trial otherwise never exercises on Actions. Retiring AppVeyor without having run this once
+    // would mean building that path having never seen it work.
+    var onAppVeyor = BuildSystem.IsRunningOnAppVeyor;
+    var onGitHubActions = BuildSystem.IsRunningOnGitHubActions;
+    var fromActions =
+        onGitHubActions &&
+        string.Equals(
+            EnvironmentVariable("COVERALLS_FROM_ACTIONS"),
+            "true",
+            StringComparison.OrdinalIgnoreCase);
+
+    if (!onAppVeyor && !fromActions)
     {
-        Information("Not running on AppVeyor - skipping the coverage upload.");
+        Information(
+            onGitHubActions
+                ? "COVERALLS_FROM_ACTIONS is not \"true\" - skipping the coverage upload."
+                : "Not running on AppVeyor - skipping the coverage upload.");
         return;
     }
 
     var repoToken = EnvironmentVariable("COVERALLS_REPO_TOKEN");
     if (string.IsNullOrEmpty(repoToken))
     {
-        // Secure variables are withheld from pull requests raised on forks, so this logs and skips
-        // rather than failing a build that could never have had the token.
+        // Secure variables are withheld from pull requests raised on forks, and the GitHub secret
+        // of the same name is only there once someone has added it, so this logs and skips rather
+        // than failing a build that could never have had the token.
         Information("COVERALLS_REPO_TOKEN is not set - skipping the coverage upload.");
         return;
     }
 
     DownloadFile(CoverallsDownloadUrl, coverallsExecutable);
-
-    // AppVeyor is not one of the CI services the reporter auto-detects, so every piece of build
-    // metadata is supplied explicitly. Without it the upload lands with no job, branch or commit
-    // attached.
-    // Taken from the environment rather than through Cake's typed AppVeyor properties: the three
-    // parts of this URL are the ones Cake either does not surface or names differently, and a URL
-    // assembled half one way and half the other is harder to check against AppVeyor's own docs.
-    var buildUrl =
-        $"https://ci.appveyor.com/project/{EnvironmentVariable("APPVEYOR_ACCOUNT_NAME")}" +
-        $"/{EnvironmentVariable("APPVEYOR_PROJECT_SLUG")}/builds/{EnvironmentVariable("APPVEYOR_BUILD_ID")}";
 
     var arguments = new ProcessArgumentBuilder().Append("report");
 
@@ -278,18 +294,45 @@ Task("Upload-Coverage")
     arguments
         .Append("--format=cobertura")
         .AppendSwitchQuotedSecret("--repo-token", "=", repoToken)
-        .AppendSwitchQuoted("--base-path", "=", Context.Environment.WorkingDirectory.FullPath)
-        .Append("--service-name=appveyor")
-        .AppendSwitchQuoted("--service-job-id", "=", AppVeyor.Environment.JobId)
-        .AppendSwitchQuoted("--service-branch", "=", AppVeyor.Environment.Repository.Branch)
-        .AppendSwitchQuoted("--service-build-url", "=", buildUrl);
+        .AppendSwitchQuoted("--base-path", "=", Context.Environment.WorkingDirectory.FullPath);
 
-    if (AppVeyor.Environment.PullRequest.IsPullRequest)
+    if (onAppVeyor)
     {
-        arguments.AppendSwitchQuoted(
-            "--service-pull-request",
-            "=",
-            AppVeyor.Environment.PullRequest.Number.ToString());
+        // AppVeyor is not one of the CI services the reporter auto-detects, so every piece of build
+        // metadata is supplied explicitly. Without it the upload lands with no job, branch or commit
+        // attached.
+        // Taken from the environment rather than through Cake's typed AppVeyor properties: the three
+        // parts of this URL are the ones Cake either does not surface or names differently, and a URL
+        // assembled half one way and half the other is harder to check against AppVeyor's own docs.
+        var buildUrl =
+            $"https://ci.appveyor.com/project/{EnvironmentVariable("APPVEYOR_ACCOUNT_NAME")}" +
+            $"/{EnvironmentVariable("APPVEYOR_PROJECT_SLUG")}/builds/{EnvironmentVariable("APPVEYOR_BUILD_ID")}";
+
+        arguments
+            .Append("--service-name=appveyor")
+            .AppendSwitchQuoted("--service-job-id", "=", AppVeyor.Environment.JobId)
+            .AppendSwitchQuoted("--service-branch", "=", AppVeyor.Environment.Repository.Branch)
+            .AppendSwitchQuoted("--service-build-url", "=", buildUrl);
+
+        if (AppVeyor.Environment.PullRequest.IsPullRequest)
+        {
+            arguments.AppendSwitchQuoted(
+                "--service-pull-request",
+                "=",
+                AppVeyor.Environment.PullRequest.Number.ToString());
+        }
+    }
+    else
+    {
+        // Nothing to supply. GitHub Actions is one of the services the reporter does auto-detect,
+        // reading the workflow's own environment for the job, branch, commit and pull request - so
+        // the Actions path needs less configuration than AppVeyor's, not more, and duplicating any
+        // of it here would only create something to disagree with what it found.
+        //
+        // That claim is worth checking the first time this runs rather than trusting: if the
+        // submission lands on Coveralls with no branch or no job attached, this else branch is
+        // where the metadata AppVeyor spells out above has to be spelled out too.
+        Information("Letting the reporter detect GitHub Actions for itself.");
     }
 
     // RenderSafe rather than Render: the repo token is appended as a secret and comes back
