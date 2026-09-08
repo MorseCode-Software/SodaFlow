@@ -37,7 +37,7 @@ public sealed class GrabScene : IInteractiveScene
     {
         double now = timers.Time.Sample();
 
-        Stream<double> restarted = restarts.Snapshot(timers.Time, (_, time) => time);
+        Stream<double> restarted = restarts.Snapshot(b: timers.Time, f: (_, time) => time);
 
         this.held = Cell.CreateSink(Maybe<int>.None);
         this.pointer = Cell.CreateSink(new Point(x: 0.0, y: 0.0));
@@ -48,7 +48,7 @@ public sealed class GrabScene : IInteractiveScene
         Cell<PointerTrail> trail =
             this.pointer
                 .Updates()
-                .Snapshot(timers.Time, (p, time) => new Point(x: p.X, y: p.Y, time: time))
+                .Snapshot(b: timers.Time, f: (p, time) => new Point(x: p.X, y: p.Y, time: time))
                 .Accum(
                     initialState: PointerTrail.Empty,
                     f: (p, previous) => previous.Add(time: p.Time, x: p.X, y: p.Y));
@@ -60,8 +60,8 @@ public sealed class GrabScene : IInteractiveScene
             this.released
                 .Snapshot(c1: this.held, c2: trail, f: (_, index, t) => new Grabbed(index: index, trail: t))
                 .Snapshot(
-                    timers.Time,
-                    (grabbed, time) =>
+                    b: timers.Time,
+                    f: (grabbed, time) =>
                         grabbed.Index.Match(
                             onSome: index => Maybe.Some(new Throw(index: index, trail: grabbed.Trail, time: time)),
                             onNone: static () => Maybe<Throw>.None))
@@ -94,8 +94,8 @@ public sealed class GrabScene : IInteractiveScene
                         // from outside - so they arrive on one stream rather than the axis being
                         // told about two.
                         restarts: mine
-                            .Map(
-                                t => new Flight(
+                            .Map(t =>
+                                new Flight(
                                     startTime: t.Time,
                                     position: Clamp(value: t.Trail.X, min: minX, max: maxX),
                                     velocity: t.Trail.VelocityX,
@@ -112,8 +112,8 @@ public sealed class GrabScene : IInteractiveScene
                         min: minY,
                         max: maxY,
                         restarts: mine
-                            .Map(
-                                t => new Flight(
+                            .Map(t =>
+                                new Flight(
                                     startTime: t.Time,
                                     position: Clamp(value: t.Trail.Y, min: minY, max: maxY),
                                     velocity: t.Trail.VelocityY,
@@ -167,12 +167,11 @@ public sealed class GrabScene : IInteractiveScene
         // a question about where things are now, and the answer to it is what gets sent.
         Maybe<int> index = this.BallAt(x: x, y: y);
 
-        Transaction.RunVoid(
-            () =>
-            {
-                this.pointer.Send(new Point(x: x, y: y));
-                this.held.Send(index);
-            });
+        Transaction.RunVoid(() =>
+        {
+            this.pointer.Send(new Point(x: x, y: y));
+            this.held.Send(index);
+        });
     }
 
     /// <inheritdoc />
@@ -182,15 +181,18 @@ public sealed class GrabScene : IInteractiveScene
     public void Release() =>
         // Both in one transaction. The throw's snapshot of held sees the value from before this
         // transaction, so clearing it here does not race the reading of it.
-        Transaction.RunVoid(
-            () =>
-            {
-                this.released.Send(Unit.Value);
-                this.held.Send(Maybe<int>.None);
-            });
+        Transaction.RunVoid(() =>
+        {
+            this.released.Send(Unit.Value);
+            this.held.Send(Maybe<int>.None);
+        });
 
     private static double Clamp(double value, double min, double max) =>
-        value < min ? min : value > max ? max : value;
+        value < min
+            ? min
+            : value > max
+                ? max
+                : value;
 
     /// <summary>The ball under the given point, preferring the one whose centre is nearest.</summary>
     private Maybe<int> BallAt(double x, double y)
@@ -204,7 +206,7 @@ public sealed class GrabScene : IInteractiveScene
             (double ballX, double ballY) = ball.SampleAt();
             double dx = ballX - x;
             double dy = ballY - y;
-            double distance = (dx * dx) + (dy * dy);
+            double distance = dx * dx + dy * dy;
 
             if (distance <= ball.Radius * ball.Radius && distance < best)
             {

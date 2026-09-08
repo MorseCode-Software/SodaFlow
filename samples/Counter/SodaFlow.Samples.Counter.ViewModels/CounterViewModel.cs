@@ -99,7 +99,9 @@ public sealed class CounterViewModel
             Stream<Func<int, int>> edits =
                 new[]
                 {
-                    increment.MapTo(static (int n) => n + 1), decrement.MapTo(static (int n) => n - 1), reset.MapTo(static (int _) => 0)
+                    increment.MapTo(static (int n) => n + 1),
+                    decrement.MapTo(static (int n) => n - 1),
+                    reset.MapTo(static (int _) => 0)
                 }.OrElse();
 
             Cell<int> count = edits.Accum(initialState: 0, f: static (edit, n) => edit(n));

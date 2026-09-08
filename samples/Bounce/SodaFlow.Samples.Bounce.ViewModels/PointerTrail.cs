@@ -10,7 +10,14 @@ namespace SodaFlow.Samples.Bounce.ViewModels;
 /// </remarks>
 internal readonly struct PointerTrail
 {
-    private PointerTrail(bool hasPrevious, double previousTime, double previousX, double previousY, double time, double x, double y)
+    private PointerTrail(
+        bool hasPrevious,
+        double previousTime,
+        double previousX,
+        double previousY,
+        double time,
+        double x,
+        double y)
     {
         this.HasPrevious = hasPrevious;
         this.PreviousTime = previousTime;
@@ -23,15 +30,15 @@ internal readonly struct PointerTrail
 
     public static PointerTrail Empty { get; } = default;
 
-    public bool HasPrevious { get; }
+    private bool HasPrevious { get; }
 
-    public double PreviousTime { get; }
+    private double PreviousTime { get; }
 
-    public double PreviousX { get; }
+    private double PreviousX { get; }
 
-    public double PreviousY { get; }
+    private double PreviousY { get; }
 
-    public double Time { get; }
+    private double Time { get; }
 
     public double X { get; }
 

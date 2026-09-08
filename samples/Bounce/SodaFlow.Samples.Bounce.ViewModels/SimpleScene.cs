@@ -12,9 +12,10 @@ namespace SodaFlow.Samples.Bounce.ViewModels;
 ///     moment it reaches the floor is solved rather than detected, and the bounce replaces the
 ///     equation with the next one. Everything the busier scenes do is this, more than once.
 /// </remarks>
-public sealed class SimpleScene : IScene
+// ReSharper disable once InheritdocConsiderUsage
+internal sealed class SimpleScene : IScene
 {
-    /// <summary>Downward, because the y axis of a screen points down.</summary>
+    /// <summary>Downward, because the y-axis of a screen points down.</summary>
     private const double Gravity = 900.0;
 
     private const double BallRadius = 18.0;
@@ -37,13 +38,13 @@ public sealed class SimpleScene : IScene
                             initial: Initial(now),
                             min: BallRadius,
                             max: this.Height - BallRadius,
-                            restarts: restarts.Snapshot(timers.Time, (_, time) => Initial(time)),
+                            restarts: restarts.Snapshot(b: timers.Time, f: static (_, time) => Initial(time)),
 
                             // Elastic, and not offered as a choice: this scene is here to be the
                             // smallest thing that makes the point.
                             restitution: Cell.Constant(1.0))),
                     radius: BallRadius,
-                    color: "#E2574C"),
+                    color: "#E2574C")
             };
     }
 

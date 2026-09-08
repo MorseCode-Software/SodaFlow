@@ -4,7 +4,7 @@
         x:Class="SodaFlow.Samples.Counter.Avalonia.MainWindow"
         Title="SodaFlow Counter (Avalonia)"
         Width="340"
-        Height="240"
+        SizeToContent="Height"
         WindowStartupLocation="CenterScreen"
         x:DataType="viewModels:ICounterViewModel">
 

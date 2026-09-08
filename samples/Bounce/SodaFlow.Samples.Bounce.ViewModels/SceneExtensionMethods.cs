@@ -24,16 +24,15 @@ public static class SceneExtensionMethods
     ///     </para>
     /// </remarks>
     public static IReadOnlyList<(double X, double Y)> SamplePositions(this IScene scene) =>
-        Transaction.Run(
-            () =>
+        Transaction.Run(() =>
+        {
+            (double X, double Y)[] positions = new (double X, double Y)[scene.Balls.Count];
+
+            for (int i = 0; i < positions.Length; i++)
             {
-                (double X, double Y)[] positions = new (double X, double Y)[scene.Balls.Count];
+                positions[i] = scene.Balls[i].SampleAt();
+            }
 
-                for (int i = 0; i < positions.Length; i++)
-                {
-                    positions[i] = scene.Balls[i].SampleAt();
-                }
-
-                return (IReadOnlyList<(double X, double Y)>)positions;
-            });
+            return positions;
+        });
 }

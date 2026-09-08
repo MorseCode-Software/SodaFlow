@@ -24,7 +24,8 @@ namespace SodaFlow.Samples.Bounce.ViewModels;
 ///         them has to be told when it changes.
 ///     </para>
 /// </remarks>
-public sealed class WallsScene : IScene
+// ReSharper disable once InheritdocConsiderUsage
+internal sealed class WallsScene : IScene
 {
     /// <param name="restitution">
     ///     What a bounce multiplies the speed by, shared by every axis of every ball. See
@@ -39,7 +40,7 @@ public sealed class WallsScene : IScene
         // settled one up with - so coming back to it is what puts it back on its feet. The
         // restart is the input the axes already accept: the same one a throw arrives on in the
         // scene next door.
-        Stream<double> restarted = restarts.Snapshot(timers.Time, (_, time) => time);
+        Stream<double> restarted = restarts.Snapshot(b: timers.Time, f: static (_, time) => time);
 
         Ball[] balls = new Ball[Arrangement.Starts.Count];
 

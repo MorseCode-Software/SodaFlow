@@ -3,8 +3,7 @@
         xmlns:viewModels="clr-namespace:SodaFlow.Samples.Search.ViewModels;assembly=SodaFlow.Samples.Search.ViewModels"
         x:Class="SodaFlow.Samples.Search.Avalonia.MainWindow"
         Title="SodaFlow Search (Avalonia)"
-        Width="440"
-        Height="520"
+        SizeToContent="WidthAndHeight"
         WindowStartupLocation="CenterScreen"
         x:DataType="viewModels:ISearchViewModel">
 

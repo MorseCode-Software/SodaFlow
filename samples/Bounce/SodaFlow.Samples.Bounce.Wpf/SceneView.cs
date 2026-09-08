@@ -24,21 +24,23 @@ namespace SodaFlow.Samples.Bounce.Wpf;
 ///         last frame.
 ///     </para>
 /// </remarks>
-public sealed class SceneView : FrameworkElement
+// ReSharper disable once InheritdocConsiderUsage
+internal sealed class SceneView : FrameworkElement
 {
     public static readonly DependencyProperty SceneProperty =
         DependencyProperty.Register(
-            name: nameof(SceneView.Scene),
+            name: nameof(Scene),
             propertyType: typeof(IScene),
             ownerType: typeof(SceneView),
             typeMetadata: new FrameworkPropertyMetadata(
                 defaultValue: null,
-                flags: FrameworkPropertyMetadataOptions.AffectsMeasure | FrameworkPropertyMetadataOptions.AffectsRender));
+                flags: FrameworkPropertyMetadataOptions.AffectsMeasure |
+                       FrameworkPropertyMetadataOptions.AffectsRender));
 
     private static readonly Brush BoxBrush = Freeze(new SolidColorBrush(Color.FromRgb(r: 250, g: 250, b: 252)));
 
     private static readonly Pen BoxPen =
-        Freeze(new Pen(Freeze(new SolidColorBrush(Color.FromRgb(r: 208, g: 212, b: 220))), thickness: 1.0));
+        Freeze(new Pen(brush: Freeze(new SolidColorBrush(Color.FromRgb(r: 208, g: 212, b: 220))), thickness: 1.0));
 
     private readonly Dictionary<string, Brush> brushes = new();
 
@@ -50,8 +52,8 @@ public sealed class SceneView : FrameworkElement
 
     public IScene? Scene
     {
-        get => (IScene?)this.GetValue(SceneView.SceneProperty);
-        set => this.SetValue(SceneView.SceneProperty, value);
+        get => (IScene?)this.GetValue(SceneProperty);
+        set => this.SetValue(dp: SceneProperty, value: value);
     }
 
     protected override Size MeasureOverride(Size availableSize) =>
@@ -67,8 +69,8 @@ public sealed class SceneView : FrameworkElement
         }
 
         drawingContext.DrawRectangle(
-            brush: SceneView.BoxBrush,
-            pen: SceneView.BoxPen,
+            brush: BoxBrush,
+            pen: BoxPen,
             rectangle: new Rect(x: 0.0, y: 0.0, width: scene.Width, height: scene.Height));
 
         // One transaction for the frame, so every ball is drawn as of the same instant.
@@ -121,7 +123,7 @@ public sealed class SceneView : FrameworkElement
         }
     }
 
-    /// <summary>Frozen so that the render thread can use them without marshalling.</summary>
+    /// <summary>Frozen so that the render thread can use them without marshaling.</summary>
     private static T Freeze<T>(T freezable)
         where T : Freezable
     {
@@ -133,9 +135,9 @@ public sealed class SceneView : FrameworkElement
 
     private Brush BrushFor(string color)
     {
-        if (!this.brushes.TryGetValue(color, out Brush? brush))
+        if (!this.brushes.TryGetValue(key: color, value: out Brush? brush))
         {
-            brush = SceneView.Freeze(new SolidColorBrush((Color)ColorConverter.ConvertFromString(color)));
+            brush = Freeze(new SolidColorBrush((Color)ColorConverter.ConvertFromString(color)));
             this.brushes.Add(key: color, value: brush);
         }
 

@@ -136,7 +136,7 @@ public sealed class SearchViewModel : ISearchViewModel
                     cancelAll: cancel);
 
             // Results survive until the next search replaces them.
-            Cell<IReadOnlyList<string>> results = found.Hold(SearchViewModel.NoResults);
+            Cell<IReadOnlyList<string>> results = found.Hold(NoResults);
 
             // The error is cleared by the same stream that starts a search, so a stale
             // message cannot outlive the request that produced it. Failures win a tie

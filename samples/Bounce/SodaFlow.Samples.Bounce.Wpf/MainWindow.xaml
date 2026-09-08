@@ -8,9 +8,10 @@
         mc:Ignorable="d"
         Title="SodaFlow Bounce (WPF)"
         Width="560"
-        Height="620"
+        SizeToContent="Height"
         WindowStartupLocation="CenterScreen"
-        d:DataContext="{d:DesignInstance viewModels:IBounceViewModel}">
+        d:DataContext="{d:DesignInstance viewModels:IBounceViewModel}"
+        x:ClassModifier="internal">
 
     <Window.Resources>
         <!-- WPF has no IsVisible, so the same bool reaches Visibility through the converter the
@@ -34,7 +35,6 @@
                    TextWrapping="Wrap"
                    Foreground="Gray"
                    Margin="0,0,0,12" />
-
 
         <!--
             Shown only for the scenes the damping applies to, which is a value on the view model

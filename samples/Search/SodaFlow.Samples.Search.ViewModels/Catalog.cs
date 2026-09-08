@@ -98,7 +98,7 @@ internal static class Catalog
             throw new InvalidOperationException("The catalog is unavailable. Try again shortly.");
         }
 
-        return Catalog.Entries
+        return Entries
             .Where(e => e.IndexOf(value: query.Trim(), comparisonType: StringComparison.OrdinalIgnoreCase) >= 0)
             .ToList();
     }

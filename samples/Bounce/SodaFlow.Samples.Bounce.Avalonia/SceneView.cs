@@ -26,10 +26,11 @@ namespace SodaFlow.Samples.Bounce.Avalonia;
 ///         between a behavior and a value something has to keep up to date.
 ///     </para>
 /// </remarks>
-public sealed class SceneView : Control
+// ReSharper disable once InheritdocConsiderUsage
+internal sealed class SceneView : Control
 {
     public static readonly StyledProperty<IScene?> SceneProperty =
-        AvaloniaProperty.Register<SceneView, IScene?>(nameof(SceneView.Scene));
+        AvaloniaProperty.Register<SceneView, IScene?>(nameof(Scene));
 
     private static readonly IBrush BoxBrush = new SolidColorBrush(Color.FromRgb(r: 250, g: 250, b: 252));
 
@@ -49,8 +50,8 @@ public sealed class SceneView : Control
 
     public IScene? Scene
     {
-        get => this.GetValue(SceneView.SceneProperty);
-        set => this.SetValue(SceneView.SceneProperty, value);
+        get => this.GetValue(SceneProperty);
+        set => this.SetValue(property: SceneProperty, value: value);
     }
 
     public override void Render(DrawingContext context)
@@ -63,8 +64,8 @@ public sealed class SceneView : Control
         }
 
         context.DrawRectangle(
-            brush: SceneView.BoxBrush,
-            pen: SceneView.BoxPen,
+            brush: BoxBrush,
+            pen: BoxPen,
             rect: new Rect(x: 0.0, y: 0.0, width: scene.Width, height: scene.Height));
 
         // One transaction for the frame, so every ball is drawn as of the same instant.
@@ -134,7 +135,7 @@ public sealed class SceneView : Control
 
     private IBrush BrushFor(string color)
     {
-        if (!this.brushes.TryGetValue(color, out IBrush? brush))
+        if (!this.brushes.TryGetValue(key: color, value: out IBrush? brush))
         {
             brush = new SolidColorBrush(Color.Parse(color));
             this.brushes.Add(key: color, value: brush);

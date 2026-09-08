@@ -21,7 +21,8 @@ namespace SodaFlow.Samples.Bounce.Avalonia;
 // Namespace AvaloniaUi rather than Avalonia: a namespace whose last segment is Avalonia hides
 // the framework's own root namespace from anything written inside it, which turns ordinary
 // qualified names like Avalonia.Controls.Window into errors that read very strangely.
-public class App : Application
+// ReSharper disable once InheritdocConsiderUsage
+internal sealed class App : Application
 {
     /// <inheritdoc />
     public override void Initialize() => AvaloniaXamlLoader.Load(this);
@@ -31,7 +32,7 @@ public class App : Application
     {
         if (this.ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
         {
-            // Pinned before anything bindable exists, so nothing afterwards depends on
+            // Pinned before anything bindable exists, so nothing afterward depends on
             // which thread a bindable happened to be built on. Without it each one
             // captures the synchronization context of its constructing thread, and a view
             // model built off the UI thread would quietly get the wrong one - or none, and
@@ -41,7 +42,7 @@ public class App : Application
             // The handler is called with anything raised while waiting for or firing a timer.
             // Timer callbacks run outside any call stack of yours, so an exception in one has
             // nowhere else to go.
-            IBounceViewModel viewModel = BounceViewModel.Create(ex => Debug.WriteLine(ex));
+            IBounceViewModel viewModel = BounceViewModel.Create(static ex => Debug.WriteLine(ex));
 
             // Assigned rather than shown: the lifetime shows this window once this method
             // returns, so the data context is in place before anything is on screen.

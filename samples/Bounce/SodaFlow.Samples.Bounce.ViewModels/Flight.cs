@@ -1,5 +1,3 @@
-using System;
-
 namespace SodaFlow.Samples.Bounce.ViewModels;
 
 /// <summary>
@@ -47,9 +45,9 @@ internal readonly struct Flight
     public double PositionAt(double time)
     {
         double dt = time - this.StartTime;
-        return this.Position + (this.Velocity * dt) + (0.5 * this.Acceleration * dt * dt);
+        return this.Position + this.Velocity * dt + 0.5 * this.Acceleration * dt * dt;
     }
 
     /// <summary>The velocity at <paramref name="time" />.</summary>
-    public double VelocityAt(double time) => this.Velocity + (this.Acceleration * (time - this.StartTime));
+    public double VelocityAt(double time) => this.Velocity + this.Acceleration * (time - this.StartTime);
 }
