@@ -260,13 +260,13 @@ it is cheap in appearance and linear in cost: four resting balls take 6.2s of pr
 run at 40px/s, 10.4s at 20, and 14.2s at 12.
 
 Sideways needs none of this. That axis has no acceleration to begin with, so a ball that damps to a
-horizontal standstill still matches its neighbours and costs nothing.
+horizontal standstill still matches its neighbors and costs nothing.
 
 ## The one thing the solve cannot fix
 
-At the fastest impacts the balls visibly overlap by a few pixels before springing apart — around
-ten at the worst, measured over seventy-eight seconds — and it is worth knowing that this is not
-the collision being computed loosely.
+At the fastest impacts the balls visibly overlap before springing apart, and can briefly leave the
+box altogether — 57px for one frame at the worst, measured over seventy-eight seconds — and it is
+worth knowing that this is not the collision being computed loosely.
 
 The moment of contact is exact. What is not instantaneous is being *told* about it: an alarm is a
 wait on a real clock, and it fires a few milliseconds late. Until it does, both balls are still
