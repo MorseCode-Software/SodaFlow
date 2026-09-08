@@ -298,12 +298,12 @@ internal sealed class CollisionScene : IScene
             double min = body.Radius;
             double max = limit - body.Radius;
 
-            // Inclusive on purpose; see the note in WallTime.
-            bool escaping =
-                (flight.Position <= min && flight.Velocity < 0.0)
-                || (flight.Position >= max && flight.Velocity > 0.0);
+            // Position alone; see the note in WallTime. Reflected reverses only if the ball is
+            // on its way out, but it clamps either way, and clamping is the half that matters
+            // here.
+            bool outside = flight.Position < min || flight.Position > max;
 
-            if (escaping)
+            if (outside)
             {
                 body = body.Reflected(
                     horizontal: horizontal,
@@ -372,16 +372,19 @@ internal sealed class CollisionScene : IScene
     /// </remarks>
     private static Maybe<double> WallTime(Flight flight, double min, double max)
     {
-        // Note the inclusive comparison. A ball sitting exactly on a bound and moving out of it
-        // gets no bounce from NextBounceTime - the root is zero distance away, which the minimum
-        // interval rejects - so on an axis with no acceleration nothing would ever turn it round
-        // and it would leave the box for good. Rare, and it happens: an impact resolved at the
-        // instant a ball is against a wall produces exactly this.
-        bool escaping =
-            (flight.Position <= min && flight.Velocity < 0.0)
-            || (flight.Position >= max && flight.Velocity > 0.0);
+        // Being outside at all, whichever way it is going. A ball beyond a bound cannot recover
+        // on its own: NextBounceTime looks for the moment it *reaches* the bound, and from the
+        // wrong side of it there may be no such moment. A settled ball is the sharp case - it
+        // rises 0.22px, so a collision that pushes it a third of a pixel under the floor leaves it
+        // unable to climb back to the floor and, while it is still moving up, not yet leaving
+        // either. Nothing scheduled it, and it sank for half a second before anything noticed.
+        //
+        // Testing position alone rather than position and direction is what closes that. It cannot
+        // spin: the step that answers this puts the ball back on the legal side, so the next look
+        // finds it inside.
+        bool outside = flight.Position < min || flight.Position > max;
 
-        return escaping
+        return outside
             ? Maybe.Some(flight.StartTime + MinimumInterval)
             : BouncingAxis.NextBounceTime(flight: flight, min: min, max: max);
     }
