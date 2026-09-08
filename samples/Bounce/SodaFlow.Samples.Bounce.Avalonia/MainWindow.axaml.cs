@@ -1,26 +1,13 @@
 using Avalonia.Controls;
 using Avalonia.Markup.Xaml;
-using SodaFlow.Samples.Bounce.ViewModels;
 
 namespace SodaFlow.Samples.Bounce.Avalonia;
 
 /// <summary>
-///     The entire Avalonia side of this sample. Compare it with the WPF window: different
-///     framework, different XAML dialect, same view model with nothing changed.
+///     Markup and nothing else. The data context is supplied by <see cref="App" /> before this is
+///     shown - compare the WPF window, which is now the same.
 /// </summary>
 public partial class MainWindow : Window
 {
-    private readonly IBounceViewModel viewModel =
-        BounceViewModel.Create(ex => System.Diagnostics.Debug.WriteLine(ex));
-
-    public MainWindow()
-    {
-        AvaloniaXamlLoader.Load(this);
-
-        this.DataContext = this.viewModel;
-
-        // Only the bindable properties need this. The balls do not: they are behaviors, and
-        // nothing subscribes to a behavior.
-        this.Closed += (_, _) => this.viewModel.Dispose();
-    }
+    public MainWindow() => AvaloniaXamlLoader.Load(this);
 }

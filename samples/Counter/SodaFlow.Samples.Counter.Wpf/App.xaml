@@ -1,4 +1,8 @@
+<!--
+    No StartupUri. The window is created in App.xaml.cs so that its data context can be set
+    before it is shown; StartupUri constructs and shows it in one step, leaving nowhere to do
+    that except the window's own constructor.
+-->
 <Application x:Class="SodaFlow.Samples.Counter.Wpf.App"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
-             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-             StartupUri="MainWindow.xaml" />
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" />

@@ -1,23 +1,13 @@
 using Avalonia.Controls;
 using Avalonia.Markup.Xaml;
-using SodaFlow.Samples.Search.ViewModels;
 
 namespace SodaFlow.Samples.Search.Avalonia;
 
 /// <summary>
-///     Compare with the WPF window: a different framework and a different XAML dialect, over
-///     the same view model with nothing changed.
+///     Markup and nothing else. The data context is supplied by <see cref="App" /> before this is
+///     shown - compare the WPF window, which is now the same.
 /// </summary>
 public partial class MainWindow : Window
 {
-    private readonly ISearchViewModel viewModel = SearchViewModel.Create();
-
-    public MainWindow()
-    {
-        AvaloniaXamlLoader.Load(this);
-
-        this.DataContext = this.viewModel;
-
-        this.Closed += (_, _) => this.viewModel.Dispose();
-    }
+    public MainWindow() => AvaloniaXamlLoader.Load(this);
 }

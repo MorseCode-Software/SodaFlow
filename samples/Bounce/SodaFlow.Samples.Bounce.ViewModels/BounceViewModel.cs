@@ -145,8 +145,9 @@ public sealed class BounceViewModel : IBounceViewModel
                 IScene[] scenes = { simple, walls, grab };
 
                 // The simplest two-way case: the view is the only writer and the sink is the
-                // authoritative value. No scheduler is passed, so one is captured from the
-                // synchronization context in force here - build this on the UI thread.
+                // authoritative value. No scheduler is passed, so the ambient one is resolved -
+                // which the application pins at startup, so this does not care what thread it
+                // is built on.
                 CellSink<IScene> selected = Cell.CreateSink(scenes[0]);
 
                 // Updates and not the cell itself, so the scene showing at startup is not restarted
