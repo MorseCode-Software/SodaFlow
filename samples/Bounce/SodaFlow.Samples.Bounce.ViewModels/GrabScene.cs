@@ -20,7 +20,8 @@ namespace SodaFlow.Samples.Bounce.ViewModels;
 ///         <c>Accum</c> over its movements rather than anything remembered on the side.
 ///     </para>
 /// </remarks>
-public sealed class GrabScene : IInteractiveScene
+// ReSharper disable once InheritdocConsiderUsage
+internal sealed class GrabScene : IInteractiveScene
 {
     private readonly CellSink<Maybe<int>> held;
 
@@ -37,7 +38,7 @@ public sealed class GrabScene : IInteractiveScene
     {
         double now = timers.Time.Sample();
 
-        Stream<double> restarted = restarts.Snapshot(b: timers.Time, f: (_, time) => time);
+        Stream<double> restarted = restarts.Snapshot(b: timers.Time, f: static (_, time) => time);
 
         this.held = Cell.CreateSink(Maybe<int>.None);
         this.pointer = Cell.CreateSink(new Point(x: 0.0, y: 0.0));
@@ -48,20 +49,20 @@ public sealed class GrabScene : IInteractiveScene
         Cell<PointerTrail> trail =
             this.pointer
                 .Updates()
-                .Snapshot(b: timers.Time, f: (p, time) => new Point(x: p.X, y: p.Y, time: time))
+                .Snapshot(b: timers.Time, f: static (p, time) => new Point(x: p.X, y: p.Y, time: time))
                 .Accum(
                     initialState: PointerTrail.Empty,
-                    f: (p, previous) => previous.Add(time: p.Time, x: p.X, y: p.Y));
+                    f: static (p, previous) => previous.Add(time: p.Time, x: p.X, y: p.Y));
 
         // What was let go of, and when. The snapshot of held reads the value it had when the
         // transaction opened, which is what lets Release clear it in the same transaction that
         // reports it.
         Stream<Throw> thrown =
             this.released
-                .Snapshot(c1: this.held, c2: trail, f: (_, index, t) => new Grabbed(index: index, trail: t))
+                .Snapshot(c1: this.held, c2: trail, f: static (_, index, t) => new Grabbed(index: index, trail: t))
                 .Snapshot(
                     b: timers.Time,
-                    f: (grabbed, time) =>
+                    f: static (grabbed, time) =>
                         grabbed.Index.Match(
                             onSome: index => Maybe.Some(new Throw(index: index, trail: grabbed.Trail, time: time)),
                             onNone: static () => Maybe<Throw>.None))
@@ -194,7 +195,7 @@ public sealed class GrabScene : IInteractiveScene
                 ? max
                 : value;
 
-    /// <summary>The ball under the given point, preferring the one whose centre is nearest.</summary>
+    /// <summary>The ball under the given point, preferring the one whose center is nearest.</summary>
     private Maybe<int> BallAt(double x, double y)
     {
         Maybe<int> found = Maybe<int>.None;
