@@ -98,19 +98,26 @@ internal sealed class CollisionScene : IScene
     private const double TouchingDistance = 1.0;
 
     /// <summary>
-    ///     The closing speed below which an overlapping pair is left where it is.
+    ///     How long to wait before looking again at a pair that is already overlapping.
     /// </summary>
     /// <remarks>
-    ///     Two balls that are already overlapping and still closing have no root ahead of them, so
-    ///     the only way to handle them is to look again immediately. That is fine once. It is not
-    ///     fine for a pair that cannot be separated - balls heaped against a wall, where every
-    ///     impulse is undone by the clamp that keeps them in the box - because the immediate look
-    ///     comes back forever and the simulation advances a microsecond per step while the clock
-    ///     runs away from it. Requiring some real closing speed is what makes that terminate; a
-    ///     pair drifting together at under a pixel a second is going nowhere worth interrupting
-    ///     the world for.
+    ///     <para>
+    ///         An overlapping pair has no root ahead of it, so there is nothing to solve for and
+    ///         the only thing to do is look again shortly. Normally once is enough: the look pushes
+    ///         them apart, and the next one finds a proper contact to solve. A pile against a wall
+    ///         is what makes it more than once - separating one pair drives a ball into a third,
+    ///         and a pairwise solve can only unpick that a pair at a time.
+    ///     </para>
+    ///     <para>
+    ///         So this is what bounds the cost of unpicking it. At the arithmetic minimum the
+    ///         simulation can spend a whole second of the clock going round a pile a microsecond at
+    ///         a time, which is a freeze; at a millisecond the worst a pile can cost is a thousand
+    ///         steps a second, and the clock keeps up. A millisecond is also about what an alarm
+    ///         can actually be delivered in, so asking for less is asking for a step the timer
+    ///         cannot honor anyway.
+    ///     </para>
     /// </remarks>
-    private const double MinimumApproach = 1.0;
+    private const double OverlapRetry = 0.001;
 
     /// <summary>
     ///     The speed no ball is allowed past, however much the damping keeps handing it.
@@ -483,19 +490,7 @@ internal sealed class CollisionScene : IScene
         // separating.
         if (c <= 0.0)
         {
-            // Only if they are closing fast enough to be worth an instant of the clock. Balls
-            // heaped against a wall creep into each other at a fraction of a pixel a second, and
-            // there is no resolving that: the impulse pushes them apart, the wall clamps one of
-            // them back, and they are overlapping and closing again. Asking for an immediate look
-            // every time is a loop the simulation never leaves - it steps a microsecond at a time
-            // and the clock runs away from it.
-            //
-            // Below the threshold the pair is simply left alone. They are barely moving, so the
-            // overlap barely grows, and the next real event picks it up.
-            double separation = Math.Sqrt(dx * dx + dy * dy);
-            double approach = separation > double.Epsilon ? -b / (2.0 * separation) : 0.0;
-
-            return approach > MinimumApproach ? Maybe.Some(startTime + MinimumInterval) : Maybe.None;
+            return Maybe.Some(startTime + OverlapRetry);
         }
 
         double discriminant = b * b - 4.0 * a * c;
@@ -556,50 +551,97 @@ internal sealed class CollisionScene : IScene
         // resolved, and applying it twice would draw energy out of nothing.
         double approach = (a.X.Velocity - b.X.Velocity) * nx + (a.Y.Velocity - b.Y.Velocity) * ny;
 
-        if (approach <= 0.0)
+        if (approach > 0.0)
+        {
+            // One plus the restitution: at one this is the elastic 2, and momentum and energy both
+            // come through untouched. Below it the pair keeps its momentum - the two impulses are
+            // equal and opposite whatever this number is - and gives up energy, which is what
+            // damping means.
+            double impulse = (1.0 + restitution) * approach / (a.Mass + b.Mass);
+
+            bodies[first] =
+                a.WithVelocity(
+                    velocityX: a.X.Velocity - impulse * b.Mass * nx,
+                    velocityY: a.Y.Velocity - impulse * b.Mass * ny);
+
+            bodies[second] =
+                b.WithVelocity(
+                    velocityX: b.X.Velocity + impulse * a.Mass * nx,
+                    velocityY: b.Y.Velocity + impulse * a.Mass * ny);
+        }
+
+        // Reversing the approach is not enough on its own, and it is not always even available:
+        // several balls meeting at once shove each other into further overlaps that the impulse
+        // has already been spent on. Whatever the velocities are doing, a pair found overlapping
+        // here is pushed apart, and that is what makes the retry above terminate - every look
+        // leaves the pair further out than it found it.
+        //
+        // Split by mass, so the heavier ball yields less here for the same reason it yields less
+        // to the impulse.
+        double overlap = a.Radius + b.Radius - distance;
+
+        if (overlap <= 0.0)
         {
             return;
         }
 
-        // One plus the restitution: at one this is the elastic 2, and momentum and energy both
-        // come through untouched. Below it the pair keeps its momentum - the two impulses are equal
-        // and opposite whatever this number is - and gives up energy, which is what damping means.
-        double impulse = (1.0 + restitution) * approach / (a.Mass + b.Mass);
+        double firstShare = overlap * (b.Mass / (a.Mass + b.Mass));
+        double secondShare = overlap - firstShare;
 
-        bodies[first] =
-            a.WithVelocity(
-                velocityX: a.X.Velocity - impulse * b.Mass * nx,
-                velocityY: a.Y.Velocity - impulse * b.Mass * ny);
+        // A wall in the way is the case that used to defeat this. Pushing a ball out through a
+        // wall achieves nothing, because the pass that keeps everyone in the box puts it straight
+        // back where it was and the pair is overlapping again - a loop with no way out of it. So
+        // whatever the box refuses to let one ball have, the other one takes.
+        double firstRoom = Room(body: bodies[first], directionX: -nx, directionY: -ny);
+        double secondRoom = Room(body: bodies[second], directionX: nx, directionY: ny);
 
-        bodies[second] =
-            b.WithVelocity(
-                velocityX: b.X.Velocity + impulse * a.Mass * nx,
-                velocityY: b.Y.Velocity + impulse * a.Mass * ny);
-
-        // Reversing the approach is not enough on its own. If the pair is already overlapping when
-        // this runs - which happens when several balls meet at once, each impact shoving one of
-        // them into the next - then a low restitution separates them so slowly that they are still
-        // overlapping afterwards. ContactTime sees an overlapping pair that is closing and asks for
-        // another look immediately, and the whole simulation goes round that loop forever, stepping
-        // a microsecond at a time and never getting anywhere. The balls stop moving and the drawing
-        // keeps extrapolating the last flight it was given, so they sail off the screen.
-        //
-        // Pushing them apart is what guarantees the step made progress. Split by mass, so the
-        // heavier ball yields less here for the same reason it yields less to the impulse.
-        double overlap = a.Radius + b.Radius - distance;
-
-        if (overlap > 0.0)
+        if (firstShare > firstRoom)
         {
-            double total = a.Mass + b.Mass;
-
-            bodies[first] = bodies[first].MovedBy(
-                x: -nx * overlap * (b.Mass / total),
-                y: -ny * overlap * (b.Mass / total));
-
-            bodies[second] = bodies[second].MovedBy(
-                x: nx * overlap * (a.Mass / total),
-                y: ny * overlap * (a.Mass / total));
+            secondShare += firstShare - firstRoom;
+            firstShare = firstRoom;
         }
+
+        if (secondShare > secondRoom)
+        {
+            firstShare = Math.Min(val1: firstShare + (secondShare - secondRoom), val2: firstRoom);
+            secondShare = secondRoom;
+        }
+
+        bodies[first] = bodies[first].MovedBy(x: -nx * firstShare, y: -ny * firstShare);
+        bodies[second] = bodies[second].MovedBy(x: nx * secondShare, y: ny * secondShare);
+    }
+
+    /// <summary>
+    ///     How far the given ball can travel in the given direction before it reaches a wall.
+    /// </summary>
+    /// <remarks>
+    ///     Zero for a ball already at or beyond the wall it is being pushed toward. The direction
+    ///     is a unit vector, so the answer is a distance in the same units as everything else here.
+    /// </remarks>
+    private static double Room(Body body, double directionX, double directionY) =>
+        Math.Max(
+            val1: 0.0,
+            val2: Math.Min(
+                val1: RoomOnAxis(
+                    position: body.X.Position,
+                    direction: directionX,
+                    min: body.Radius,
+                    max: Arrangement.Width - body.Radius),
+                val2: RoomOnAxis(
+                    position: body.Y.Position,
+                    direction: directionY,
+                    min: body.Radius,
+                    max: Arrangement.Height - body.Radius)));
+
+    /// <summary>How far one axis of a ball can move before that axis leaves the box.</summary>
+    private static double RoomOnAxis(double position, double direction, double min, double max)
+    {
+        if (direction > 0.0)
+        {
+            return (max - position) / direction;
+        }
+
+        return direction < 0.0 ? (min - position) / direction : double.PositiveInfinity;
     }
 
     /// <summary>One ball, as the pair of equations it is currently following.</summary>
