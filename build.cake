@@ -32,6 +32,9 @@ using System.Xml.Linq;
 var target = Argument("target", "Default");
 var configuration = Argument("configuration", "Release");
 
+// Which sample Inspect-Sample looks at. Empty for every other target.
+var sampleName = Argument("sample", string.Empty);
+
 var solution = File("./src/SodaFlow.slnx");
 var artifactsDirectory = Directory("./artifacts");
 var coverageDirectory = Directory("./coverage");
@@ -363,36 +366,35 @@ Task("Verify-Inspection-Settings")
         inspectionSettings.Path);
 });
 
-Task("Inspect-Code")
-    .Description("Runs JetBrains InspectCode over the solution and reports what it finds.")
-    .IsDependentOn("Build")
-    .Does(() =>
+// The whole of an inspection run, shared by the solution under src and by each sample. Extracted
+// rather than duplicated because the reporting is the interesting part - the zero threshold, the
+// AppVeyor messages, the listing before the throw - and two copies of that would drift.
+void RunInspection(FilePath solutionPath, FilePath reportPath, string description)
 {
-    CleanDirectory(inspectionDirectory);
-
-    var report = inspectionDirectory + File("inspectcode.sarif");
-
     // inspectcode comes from the jetbrains.resharper.globaltools local tool, pinned alongside Cake
     // in .config/dotnet-tools.json, so the agent inspects with the version a developer does. There
     // is no Cake alias for it; a process call is the whole of the integration.
     var arguments = new ProcessArgumentBuilder()
         .Append("jb")
         .Append("inspectcode")
-        .AppendQuoted(MakeAbsolute(solution.Path).FullPath)
-        .AppendSwitchQuoted("--output", "=", MakeAbsolute(report.Path).FullPath)
+        .AppendQuoted(MakeAbsolute(solutionPath).FullPath)
+        .AppendSwitchQuoted("--output", "=", MakeAbsolute(reportPath).FullPath)
         .Append("--format=Sarif")
         // The same settings Rider applies, named explicitly rather than left to inspectcode's
-        // lookup: that lookup pairs a .DotSettings file with a solution of the same name, and this
-        // solution is SodaFlow.slnx while the settings are SodaFlow.sln.DotSettings.
+        // lookup: that lookup pairs a .DotSettings file with a solution of the same name, and the
+        // solutions here are .slnx while the settings are .sln.DotSettings.
+        //
+        // Absolute, and that is load-bearing rather than tidy: inspectcode ignores a relative
+        // --settings path without saying so, and inspects with its own defaults instead.
         .AppendSwitchQuoted("--settings", "=", MakeAbsolute(inspectionSettings.Path).FullPath)
         // Absolute paths in the SARIF, which is what lets the issues be reported against paths from
         // the repository root. Left relative, they come out relative to the solution directory -
         // CSharp/SodaFlow/Foo.cs for a file that lives at src/CSharp/SodaFlow/Foo.cs - because the
         // reader takes the URI as written rather than rebasing it.
         .Append("--absolute-paths")
-        // The solution was built by the Build task this depends on. Building it again would double
-        // the cost of the phase for no gain, so tell inspectcode which configuration it is looking
-        // at instead of letting it pick one and build it.
+        // Already built by whatever depends on this. Building it again would double the cost of the
+        // phase for no gain, so tell inspectcode which configuration it is looking at instead of
+        // letting it pick one and build it.
         .Append("--no-build")
         .Append($"--properties:Configuration={configuration}")
         .Append("--verbosity=WARN");
@@ -404,7 +406,7 @@ Task("Inspect-Code")
     }
 
     var issues = ReadIssues(
-            SarifIssuesFromFilePath(report),
+            SarifIssuesFromFilePath(reportPath),
             Context.Environment.WorkingDirectory)
         .OrderBy(i => i.AffectedFileRelativePath?.FullPath ?? string.Empty, StringComparer.Ordinal)
         .ThenBy(i => i.Line ?? 0)
@@ -412,7 +414,7 @@ Task("Inspect-Code")
 
     // Logged as well as reported. The AppVeyor messages tab is the readable form, but it is only
     // populated on AppVeyor, and a local run should not have to guess what was found.
-    Information("InspectCode found {0} issue(s).", issues.Count);
+    Information("InspectCode found {0} issue(s) in {1}.", issues.Count, description);
     foreach (var issue in issues)
     {
         Information("  {0}", Describe(issue));
@@ -457,9 +459,54 @@ Task("Inspect-Code")
     if (issues.Count > 0)
     {
         throw new Exception(
-            $"InspectCode found {issues.Count} issue(s), listed above. Fix them, or change the rule "
-            + "in src/SodaFlow.sln.DotSettings.");
+            $"InspectCode found {issues.Count} issue(s) in {description}, listed above. Fix them, or "
+            + "change the rule in src/SodaFlow.sln.DotSettings.");
     }
+}
+
+Task("Inspect-Code")
+    .Description("Runs JetBrains InspectCode over the solution and reports what it finds.")
+    .IsDependentOn("Build")
+    .Does(() =>
+{
+    CleanDirectory(inspectionDirectory);
+
+    RunInspection(
+        solution.Path,
+        (inspectionDirectory + File("inspectcode.sarif")).Path,
+        solution.Path.FullPath);
+});
+
+// One sample per run, named by --sample, because that is the shape of the samples workflow: a job
+// per sample, so a failure says which sample rather than only which repository.
+//
+// Not dependent on Build, which compiles the solution under src. A sample does not use it - the
+// samples reference published packages - and the workflow has already built the sample itself by
+// the time this runs.
+Task("Inspect-Sample")
+    .Description("Runs JetBrains InspectCode over one sample solution. Pass --sample=Counter.")
+    .Does(() =>
+{
+    if (string.IsNullOrWhiteSpace(sampleName))
+    {
+        throw new Exception("Pass which sample to inspect, for example --sample=Counter.");
+    }
+
+    var sampleSolution = File($"./samples/{sampleName}/SodaFlow.Samples.{sampleName}.slnx");
+
+    if (!FileExists(sampleSolution))
+    {
+        throw new Exception($"No sample solution at {sampleSolution.Path}.");
+    }
+
+    // Not cleaned, unlike the inspection above: each sample writes its own report, and running all
+    // three locally should end with all three rather than only the last.
+    EnsureDirectoryExists(inspectionDirectory);
+
+    RunInspection(
+        sampleSolution.Path,
+        (inspectionDirectory + File($"inspectcode-{sampleName}.sarif")).Path,
+        $"the {sampleName} sample");
 });
 
 Task("Publish")

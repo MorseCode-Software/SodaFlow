@@ -1,9 +1,13 @@
-# Builds the sample solutions under samples/.
+# Builds and inspects the sample solutions under samples/.
 #
 # Independent of appveyor.yml, which builds, tests, packs and publishes the libraries under src/,
 # and of docs.yml, which builds the documentation site. Nothing is shared between the three.
 #
-# Deliberately not triggered by changes under src/. The samples reference published NuGet packages
+# Triggered by the shared rule set and by build.cake as well as by samples/ itself, because the
+# inspection below reads both - a rule changed in one place has to be re-run against all three
+# samples, not just noticed the next time someone edits one.
+#
+# Otherwise not triggered by changes under src/. The samples reference published NuGet packages
 # rather than the projects in this repository - see the comment in any sample's .csproj - so a
 # change to src/ cannot affect them, and this filter has no false negative to worry about. The other
 # side of that is what this build does NOT tell you: because each sample pins a package version, a
@@ -15,10 +19,14 @@ on:
     branches: [ main ]
     paths:
       - 'samples/**'
+      - 'src/SodaFlow.sln.DotSettings'
+      - 'build.cake'
       - '.github/workflows/samples.yml'
   pull_request:
     paths:
       - 'samples/**'
+      - 'src/SodaFlow.sln.DotSettings'
+      - 'build.cake'
       - '.github/workflows/samples.yml'
   workflow_dispatch:
 
@@ -52,3 +60,20 @@ jobs:
       # today, so anything new is a regression rather than a backlog.
       - name: Build
         run: dotnet build samples/${{ matrix.sample }}/SodaFlow.Samples.${{ matrix.sample }}.slnx --configuration Release -warnaserror
+
+      # inspectcode ships as a local tool, pinned in .config/dotnet-tools.json alongside Cake, so
+      # CI inspects with the version a developer does.
+      - name: Restore tools
+        run: dotnet tool restore
+
+      # The step lives in build.cake rather than here, so it can be run locally the same way:
+      #
+      #     dotnet cake --target=Inspect-Sample --sample=Bounce
+      #
+      # It reads src/SodaFlow.sln.DotSettings - the one rule set every solution is held to - and
+      # fails on anything it finds, suggestions included, exactly as the inspection over src does.
+      #
+      # THESE STEPS FAIL TODAY, and are added ahead of the fixes on purpose: 121 issues across the
+      # three samples, none of them yet addressed. The build going red is the point until they are.
+      - name: Inspect
+        run: dotnet cake --target=Inspect-Sample --sample=${{ matrix.sample }}
