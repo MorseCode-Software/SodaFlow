@@ -616,21 +616,25 @@ Task("Publish")
             "package it releases.");
     }
 
+    // Read from the environment, and deliberately incurious about where it came from. Nothing here
+    // stores a key: the workflow trades this run's OIDC token with nuget.org for one that expires
+    // shortly afterwards - trusted publishing - and hands it to this task the same way a stored
+    // secret used to be handed over. That is why the move off AppVeyor's encrypted variable changed
+    // nothing in this file.
+    //
     // Thrown rather than skipped, unlike every other missing-credential check here. Those guard
     // work that is worth doing anyway; this one guards the release itself, and a tag build that
     // quietly published nothing is the failure that is hardest to notice - the tag exists, the run
     // is green, and only nuget.org disagrees.
-    //
-    // Worth revisiting once: nuget.org supports trusted publishing, where a workflow exchanges its
-    // OIDC token for a short-lived key and no long-lived secret exists to leak or rotate. That is a
-    // thing Actions can do and AppVeyor could not, so it is the natural follow-up to this move
-    // rather than part of it.
     var apiKey = EnvironmentVariable("NUGET_API_KEY");
     if (string.IsNullOrEmpty(apiKey))
     {
         throw new Exception(
-            "NUGET_API_KEY is not set. Add it as a repository secret under Settings > Secrets and "
-            + "variables > Actions, and pass it to the publish step in .github/workflows/build.yml.");
+            "NUGET_API_KEY is not set. It is minted by the NuGet login step in "
+            + ".github/workflows/build.yml, which exchanges this run's OIDC token for a short-lived "
+            + "key. An empty value means that exchange did not happen or was refused - check that a "
+            + "trusted publishing policy for this repository and workflow exists on nuget.org under "
+            + "the MorseCodeSoftware account.");
     }
 
     // The tag prefix to package id map is read from the projects rather than written out here. Both

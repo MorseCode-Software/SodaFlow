@@ -14,10 +14,18 @@
 # first. AppVeyor still builds every commit, so the comparison stays readable - it just no longer
 # releases anything.
 #
-# Before the first tag push, NUGET_API_KEY has to exist as a repository secret. It cannot be
-# carried over from appveyor.yml, whose copy is encrypted under that AppVeyor account and cannot be
-# read back out; it has to come from nuget.org. Publish throws rather than skips when it is
-# missing, because a tag build that quietly released nothing is the failure hardest to notice.
+# There is NO NuGet API key anywhere in this repository, and that is the point. Releases authenticate
+# by trusted publishing: the publish step exchanges this run's OIDC token for a key that nuget.org
+# mints on the spot and expires shortly after, so there is no long-lived secret to leak, to rotate,
+# or to hand to a step that had no business reading it. AppVeyor could not do this - its copy of the
+# old key was an encrypted blob in appveyor.yml - so it is the one capability the move actually
+# gained rather than merely matched.
+#
+# It does need setting up once, on nuget.org rather than here: a trusted publishing policy under the
+# MorseCodeSoftware account, naming this repository and this workflow file. Until that exists the
+# exchange is refused and the release fails loudly, which is the right way round - Publish throws
+# rather than skips on a missing key, because a tag build that quietly released nothing is the
+# failure hardest to notice.
 #
 # Coverage is collected on every run and submitted to Coveralls on none of them, unless someone
 # deliberately switches that on. AppVeyor is the one that submits while both systems are building
@@ -64,6 +72,12 @@ permissions:
   contents: read
   # Uploading the inspection results to code scanning, as samples.yml does.
   security-events: write
+  # Minting the OIDC token that the publish step trades for a short-lived nuget.org key. It is
+  # granted to every step of the job, not only that one, because permissions have no finer grain
+  # than a job - so the narrower version of this is a separate publish job, which would have to
+  # download the packages artifact and check out the repository again to do the same work. Worth
+  # doing if this job ever runs anything less trusted than the repository's own build.
+  id-token: write
   #
   # Deliberately no checks: write. Creating the Tests check run needs it, and a fork pull request
   # would never be granted it, which is exactly why that work is in test-report.yml instead.
@@ -293,11 +307,31 @@ jobs:
       # approval on it, which is worth considering later; as a step it needs no artifact handoff and
       # keeps the phase order identical to the build it replaces.
       #
-      # NUGET_API_KEY has to exist as a repository secret before the first tag push, and Publish
-      # throws rather than skips when it does not - the reasoning is in build.cake. Scoped to this
-      # step so the key is not in the environment of the build, the tests or the inspection.
+      # The key Publish pushes with, minted here rather than stored anywhere. The action sends this
+      # run's OIDC token to nuget.org, which checks it against the trusted publishing policy for the
+      # account below and returns a short-lived key. Nothing to rotate, and nothing that outlives
+      # the run.
+      #
+      # MorseCodeSoftware is the nuget.org account that owns every package this repository
+      # publishes - it is the owner listed on nuget.org for SodaFlow and its siblings - and it has
+      # to be the account the policy sits under. It is a username rather than a secret, so it is
+      # written here where it can be read, not hidden in settings where a mismatch would only show
+      # up as a refused exchange during a release.
+      #
+      # Gated on the same tag condition as the step below, so an ordinary run neither requests a
+      # token nor asks nuget.org for anything.
+      - name: NuGet login
+        if: startsWith(github.ref, 'refs/tags/')
+        id: nuget-login
+        uses: NuGet/login@v1
+        with:
+          user: MorseCodeSoftware
+
+      # Publish reads NUGET_API_KEY from the environment and does not care where it came from, which
+      # is why moving from a stored key to a minted one changed nothing in build.cake. Scoped to this
+      # step, so even the short-lived key is absent from the build, the tests and the inspection.
       - name: Publish
         if: startsWith(github.ref, 'refs/tags/')
         env:
-          NUGET_API_KEY: ${{ secrets.NUGET_API_KEY }}
+          NUGET_API_KEY: ${{ steps.nuget-login.outputs.NUGET_API_KEY }}
         run: dotnet cake --target=Publish --configuration=${{ env.CONFIGURATION }}
