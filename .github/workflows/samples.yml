@@ -3,9 +3,15 @@
 # Independent of appveyor.yml, which builds, tests, packs and publishes the libraries under src/,
 # and of docs.yml, which builds the documentation site. Nothing is shared between the three.
 #
-# Triggered by the shared rule set and by build.cake as well as by samples/ itself, because the
-# inspection below reads both - a rule changed in one place has to be re-run against all three
-# samples, not just noticed the next time someone edits one.
+# build.cake is in the filter as well as samples/ itself, because the inspection step below lives
+# there: a change to how it is invoked - a rule excluded, a threshold moved - changes what these
+# samples are held to, and nothing else would re-run them.
+#
+# The rule set it reads, src/SodaFlow.sln.DotSettings, is deliberately NOT in the filter, though
+# the inspection reads that too. It cannot change on its own: Verify-Inspection-Settings requires
+# the three copies beside the sample solutions to be byte-identical to it, and that runs on every
+# AppVeyor build. So either a rule change carries those copies with it - and they are under
+# samples/, which is already here - or the build is red. Listing it as well would only add runs.
 #
 # Otherwise not triggered by changes under src/. The samples reference published NuGet packages
 # rather than the projects in this repository - see the comment in any sample's .csproj - so a
@@ -19,13 +25,11 @@ on:
     branches: [ main ]
     paths:
       - 'samples/**'
-      - 'src/SodaFlow.sln.DotSettings'
       - 'build.cake'
       - '.github/workflows/samples.yml'
   pull_request:
     paths:
       - 'samples/**'
-      - 'src/SodaFlow.sln.DotSettings'
       - 'build.cake'
       - '.github/workflows/samples.yml'
   workflow_dispatch:
