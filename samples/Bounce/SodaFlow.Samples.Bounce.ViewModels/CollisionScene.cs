@@ -81,6 +81,23 @@ internal sealed class CollisionScene : IScene
     private const double MinimumFloorBounce = 20.0;
 
     /// <summary>
+    ///     How close to a wall counts as touching it, for the purpose of bouncing now rather than
+    ///     scheduling it.
+    /// </summary>
+    /// <remarks>
+    ///     A ball struck toward a wall it is already all but against reaches it in well under a
+    ///     millisecond, and no alarm is that punctual - it arrives a few milliseconds later with
+    ///     the ball a dozen pixels through the wall, which is what three settled balls colliding
+    ///     look like when they all dip below the floor together.
+    ///
+    ///     Bouncing it here instead resolves it in the same instant. The bounce is then up to this
+    ///     much early, which is why the tolerance is a distance and not a time: a pixel early is
+    ///     invisible at any speed, where a millisecond early is a pixel for a slow ball and ten for
+    ///     a fast one.
+    /// </remarks>
+    private const double TouchingDistance = 1.0;
+
+    /// <summary>
     ///     The speed no ball is allowed past, however much the damping keeps handing it.
     /// </summary>
     /// <remarks>
@@ -298,12 +315,18 @@ internal sealed class CollisionScene : IScene
             double min = body.Radius;
             double max = limit - body.Radius;
 
-            // Position alone; see the note in WallTime. Reflected reverses only if the ball is
-            // on its way out, but it clamps either way, and clamping is the half that matters
-            // here.
-            bool outside = flight.Position < min || flight.Position > max;
+            // At a bound as well as beyond one, which is the case that shows. A ball sitting on
+            // the floor and struck downward is exactly on the bound, not past it, so nothing here
+            // used to touch it - it was left to travel down and come back on its own bounce, an
+            // alarm away, and three of them struck at once dip together for long enough to see.
+            //
+            // A floor does not work like that. It pushes back in the same instant, which is what
+            // reflecting here rather than scheduling it does. Reflected reverses only if the ball
+            // is on its way out, so a ball resting and rising through this costs nothing.
+            bool atOrBeyond =
+                flight.Position <= min + TouchingDistance || flight.Position >= max - TouchingDistance;
 
-            if (outside)
+            if (atOrBeyond)
             {
                 body = body.Reflected(
                     horizontal: horizontal,
@@ -382,9 +405,13 @@ internal sealed class CollisionScene : IScene
         // Testing position alone rather than position and direction is what closes that. It cannot
         // spin: the step that answers this puts the ball back on the legal side, so the next look
         // finds it inside.
+        bool leavingAtBound =
+            (flight.Position <= min && flight.Velocity < 0.0)
+            || (flight.Position >= max && flight.Velocity > 0.0);
+
         bool outside = flight.Position < min || flight.Position > max;
 
-        return outside
+        return outside || leavingAtBound
             ? Maybe.Some(flight.StartTime + MinimumInterval)
             : BouncingAxis.NextBounceTime(flight: flight, min: min, max: max);
     }
