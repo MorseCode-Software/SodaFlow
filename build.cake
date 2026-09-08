@@ -334,10 +334,15 @@ string Describe(IIssue issue) =>
     $"{issue.AffectedFileRelativePath?.FullPath ?? "<solution>"}"
     + $"({issue.Line?.ToString() ?? "-"}): {issue.RuleId}: {issue.MessageText}";
 
-// Hung off Build rather than given a phase of its own in appveyor.yml, which would have read
-// better and would not have run: that file documents the intended configuration, but the project
-// builds from the configuration held in AppVeyor's UI until someone enables "use YAML from
-// repository" - as the note at the top of appveyor.yml says. A dependency runs under either one.
+// Hung off Build rather than given a phase of its own in appveyor.yml. The original reason was
+// that a phase there would not have run, the project having built from the settings held in
+// AppVeyor's UI, and that reason is gone: "use YAML from repository" is enabled, so appveyor.yml
+// is what AppVeyor runs and a phase of its own would work.
+//
+// It stays a dependency anyway, and now for a better reason than the one it was written for: as a
+// dependency it runs everywhere without being listed anywhere. A local `dotnet cake`, AppVeyor and
+// the GitHub Actions workflow all reach it through Build, so there is no per-CI-system list of
+// phases for it to fall off.
 //
 // It needs nothing compiled, so as a dependency of Build it still runs before anything is built
 // and costs milliseconds.

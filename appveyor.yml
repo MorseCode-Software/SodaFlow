@@ -1,7 +1,15 @@
 ﻿# AppVeyor build for the .NET implementation under src.
 #
-# NOTE: committing this file supersedes the configuration currently held in the AppVeyor UI.
-# Compare the two before enabling "use YAML from repository".
+# NOTE: this file is what AppVeyor runs. The project has "use YAML from repository" enabled, so
+# the settings still sitting in the AppVeyor UI - which name the Visual Studio 2015 image - are
+# dead, and editing them changes nothing. Edit here.
+#
+# The check, if that ever needs confirming again from a build log alone: the image below runs
+# Windows Server 2019, so `dotnet --info` reports OS Version 10.0.17763. The UI's Visual Studio
+# 2015 image is Windows Server 2012 R2 and would report 6.3.9600. Reading 17763 as "an old image,
+# therefore the UI settings" has the mapping backwards - see the image matrix at
+# https://www.appveyor.com/docs/windows-images-software/, where Visual Studio 2019 through 2026 all
+# share Windows Server 2019.
 #
 # NOTE: .github/workflows/build.yml now runs the same build on GitHub Actions, on the same commits,
 # so the two can be compared on speed and on reporting before either is dropped. This file is still

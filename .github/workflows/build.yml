@@ -70,9 +70,13 @@ jobs:
   build:
     name: Build
     # Windows because src targets net472 alongside net60 and netstandard2.0, and the test projects
-    # target net472 alongside net10.0. AppVeyor runs this on its Visual Studio 2026 image; this is
-    # the nearest thing Actions offers, and the difference between the two images is one of the
-    # things worth watching while both are running.
+    # target net472 alongside net10.0.
+    #
+    # The two sides are NOT running the same operating system, and a timing comparison has to
+    # account for it. appveyor.yml asks for the Visual Studio 2026 image, which is Windows Server
+    # 2019; windows-latest is Windows Server 2025. Actions offers nothing as old, so this cannot be
+    # evened out from here - the honest options are to read any speed difference as image-and-
+    # platform together, or to move AppVeyor forward first and re-measure.
     runs-on: windows-latest
 
     # AppVeyor's own hard limit on a free build is an hour. Matching it means a hang shows up here
