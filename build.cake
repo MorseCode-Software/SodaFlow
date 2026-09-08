@@ -1,4 +1,4 @@
-// Build script for the .NET implementation under src.
+﻿// Build script for the .NET implementation under src.
 //
 // This reproduces what appveyor.yml used to run inline, step for step. The reasoning behind each
 // step lives here now rather than in the YAML, because the steps do.
@@ -36,7 +36,20 @@ var solution = File("./src/SodaFlow.slnx");
 var artifactsDirectory = Directory("./artifacts");
 var coverageDirectory = Directory("./coverage");
 var inspectionDirectory = Directory("./inspection");
+// The canonical inspection settings, and the only ones CI reads. Rider pairs a .DotSettings file
+// with the solution beside it, so every solution needs a copy of its own; CI is under no such
+// constraint and points every inspection here. The copies therefore exist for the editor alone,
+// which is what makes them worth guarding: drift between them is drift between what CI enforces
+// and what Rider shows, and that disagreement is the thing this whole setup exists to prevent.
 var inspectionSettings = File("./src/SodaFlow.sln.DotSettings");
+
+// The editor-only copies, which must match it byte for byte.
+var mirroredInspectionSettings = new[]
+{
+    File("./samples/Counter/SodaFlow.Samples.Counter.sln.DotSettings"),
+    File("./samples/Search/SodaFlow.Samples.Search.sln.DotSettings"),
+    File("./samples/Bounce/SodaFlow.Samples.Bounce.sln.DotSettings"),
+};
 var coverallsExecutable = File("./coveralls.exe");
 
 const string CoverallsDownloadUrl =
@@ -299,6 +312,50 @@ Task("Pack")
 string Describe(IIssue issue) =>
     $"{issue.AffectedFileRelativePath?.FullPath ?? "<solution>"}"
     + $"({issue.Line?.ToString() ?? "-"}): {issue.RuleId}: {issue.MessageText}";
+
+// No dependencies: this compares files and needs nothing built, so it can fail a run in seconds
+// rather than after the build it would otherwise wait for.
+Task("Verify-Inspection-Settings")
+    .Description("Checks that every solution's inspection settings match the canonical ones.")
+    .Does(() =>
+{
+    var canonicalPath = MakeAbsolute(inspectionSettings.Path).FullPath;
+    var expected = System.IO.File.ReadAllBytes(canonicalPath);
+    var problems = new List<string>();
+
+    foreach (var mirrored in mirroredInspectionSettings)
+    {
+        var path = MakeAbsolute(mirrored.Path).FullPath;
+
+        if (!System.IO.File.Exists(path))
+        {
+            problems.Add($"{mirrored.Path} is missing.");
+            continue;
+        }
+
+        if (!System.IO.File.ReadAllBytes(path).SequenceEqual(expected))
+        {
+            problems.Add($"{mirrored.Path} differs from {inspectionSettings.Path}.");
+        }
+    }
+
+    foreach (var problem in problems)
+    {
+        Error("  {0}", problem);
+    }
+
+    if (problems.Count > 0)
+    {
+        throw new Exception(
+            $"{problems.Count} inspection settings file(s) out of step with {inspectionSettings.Path}, "
+            + "listed above. Copy that file over them - they are meant to be byte-identical.");
+    }
+
+    Information(
+        "All {0} mirrored inspection settings match {1}.",
+        mirroredInspectionSettings.Length,
+        inspectionSettings.Path);
+});
 
 Task("Inspect-Code")
     .Description("Runs JetBrains InspectCode over the solution and reports what it finds.")
