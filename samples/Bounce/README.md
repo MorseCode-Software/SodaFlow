@@ -19,9 +19,9 @@ derived from.
 | **Grab and throw** | Drag a ball and let go. Its position switches between the pointer's and its own flight. |
 | **Ricochets** | The balls hit each other. The one scene where the axes are not independent. |
 
-The middle two share a checkbox and a slider setting what a bounce does to a ball's speed. The
+All but the first share a checkbox and a slider setting what a bounce does to a ball's speed. The
 first is deliberately elastic, so that the smallest scene stays the smallest thing that makes the
-point, and so is the last: what it is there to show is what an impact preserves.
+point. In the last, the damping reaches the walls only — see below.
 
 ## The idea
 
@@ -231,8 +231,27 @@ Mass is the radius squared: the balls are discs of one density, and area is what
 the ratio that shows. A big ball meeting a small one barely changes course while the small one
 comes back hard; two equal balls meeting head on simply trade velocities.
 
-Momentum and kinetic energy both survive, which is why this scene is not offered the damping
-controls — a multiplier below one would quietly spoil the thing it exists to show.
+Momentum and kinetic energy both survive, and they survive *whatever the damping slider says*.
+The damping in this scene reaches the walls and nothing else: a wall is a static surface and takes
+what it is given, while an impact between two balls is the thing this scene exists to show and is
+left alone.
+
+## Which is why nothing here is allowed to rest
+
+Damping at the walls means a ball eventually runs out of bounce, and in the other scenes that ends
+with it stopping — velocity zero, acceleration zero. This scene cannot do that, and the reason is
+the pairwise solve above. A resting ball has a different acceleration from a falling one, their
+separation stops being a straight line, and the quadratic that says when two balls touch becomes a
+quartic. **Every ball has to share one acceleration or none of it works.**
+
+So a ball that has damped away to nothing keeps bouncing, at a floor speed low enough that the
+bounce is 0.9px high and lands every 89ms. That is under a pixel: what a settled ball in this scene
+looks like is a ball at rest, and what it is is a ball bouncing too little to see. It also answers
+Zeno, which is the other job resting does elsewhere — the interval between floor bounces stops
+shrinking rather than closing up forever.
+
+Sideways needs none of this. That axis has no acceleration to begin with, so a ball that damps to a
+horizontal standstill still matches its neighbours and costs nothing.
 
 ## The one thing the solve cannot fix
 

@@ -149,9 +149,11 @@ public sealed class BounceViewModel : IBounceViewModel
             IScene grab =
                 new GrabScene(timers: timers, restitution: restitution, restarts: ActivatedAt(2));
 
-            // Elastic, and not offered the damping: the point of it is that momentum and energy
-            // survive an impact, which a multiplier below one would quietly spoil.
-            IScene ricochets = new CollisionScene(timers: timers, restarts: ActivatedAt(3));
+            // Damped at the walls like the other two, but not at the impacts between balls -
+            // those stay elastic whatever the slider says, because what they conserve is the point
+            // of the scene. See CollisionScene.Reflected.
+            IScene ricochets =
+                new CollisionScene(timers: timers, restitution: restitution, restarts: ActivatedAt(3));
 
             IScene[] scenes = { simple, walls, grab, ricochets };
 
@@ -175,7 +177,11 @@ public sealed class BounceViewModel : IBounceViewModel
                 // every scene has to carry.
                 isDampingAvailable:
                 selected
-                    .Map(scene => ReferenceEquals(objA: scene, objB: walls) || ReferenceEquals(objA: scene, objB: grab))
+                    .Map(
+                        scene =>
+                            ReferenceEquals(objA: scene, objB: walls)
+                            || ReferenceEquals(objA: scene, objB: grab)
+                            || ReferenceEquals(objA: scene, objB: ricochets))
                     .ToOneWay(),
                 dampingEnabled: dampingEnabled.ToTwoWay(),
                 damping: damping.ToTwoWay());

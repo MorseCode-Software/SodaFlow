@@ -54,9 +54,41 @@ internal sealed class CollisionScene : IScene
     /// <summary>Matches the interval <see cref="BouncingAxis" /> uses, for the same reason.</summary>
     private const double MinimumInterval = 1e-6;
 
+    /// <summary>
+    ///     The speed a damped ball leaves the floor with, however slowly it arrived.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         A ball in this scene is never allowed to come properly to rest, and that is the
+    ///         collision solver dictating terms to the rest of the scene. Resting means no velocity
+    ///         and no acceleration, and a ball with a different acceleration to its neighbors would
+    ///         make the separation between that pair curve - turning the contact solve from a
+    ///         quadratic into a quartic. Every ball has to share one acceleration or none of this
+    ///         works.
+    ///     </para>
+    ///     <para>
+    ///         So a ball that has damped away to nothing keeps bouncing at this speed instead, which
+    ///         under this gravity carries it 0.9px off the floor every 89ms. That is under a pixel,
+    ///         which is what a settled ball in this scene amounts to, and slow enough that four of
+    ///         them resting together do not flood the clock with events. It also
+    ///         answers Zeno, which is the other thing resting exists to do: the interval between
+    ///         floor bounces stops shrinking here rather than closing up forever.
+    ///     </para>
+    /// </remarks>
+    private const double MinimumFloorBounce = 40.0;
+
     /// <param name="timers">The clock every ball's position is a function of.</param>
+    /// <param name="restitution">
+    ///     What a bounce off a wall multiplies the speed by, the same cell the other two damped
+    ///     scenes read. It reaches the walls and nothing else: an impact between two balls stays
+    ///     elastic whatever this says, because conserving momentum and energy is the thing this
+    ///     scene is for.
+    /// </param>
     /// <param name="restarts">Fires when this scene's tab becomes the selected one.</param>
-    internal CollisionScene(ITimerSystem<double> timers, Stream<Unit> restarts)
+    internal CollisionScene(
+        ITimerSystem<double> timers,
+        Cell<double> restitution,
+        Stream<Unit> restarts)
     {
         double now = timers.Time.Sample();
 
@@ -73,7 +105,10 @@ internal sealed class CollisionScene : IScene
                         Stream<IReadOnlyList<Body>> stepped =
                             timers
                                 .At(nextEvent)
-                                .Snapshot(c: bodies, f: static (time, w) => Step(world: w, time: time));
+                                .Snapshot(
+                                    c1: bodies,
+                                    c2: restitution,
+                                    f: static (time, w, e) => Step(world: w, time: time, restitution: e));
 
                         return restarts
                             .Snapshot(b: timers.Time, f: static (_, time) => Initial(time))
@@ -102,8 +137,9 @@ internal sealed class CollisionScene : IScene
     /// <inheritdoc />
     public string Summary =>
         "The same four balls, now hitting each other as well as the walls. Every impact is solved "
-        + "for ahead of time rather than noticed afterwards, and it is elastic: momentum and "
-        + "energy both survive it, and the heavier ball gives way less.";
+        + "for ahead of time rather than noticed afterwards, and stays elastic whatever the damping "
+        + "says: momentum and energy survive it, and the heavier ball gives way less. The damping "
+        + "reaches the walls only.";
 
     /// <inheritdoc />
     public double Width => Arrangement.Width;
@@ -169,7 +205,7 @@ internal sealed class CollisionScene : IScene
     ///     separation and the relative velocity as of a single instant rather than reconciling
     ///     four equations that each began somewhere else.
     /// </remarks>
-    private static IReadOnlyList<Body> Step(IReadOnlyList<Body> world, double time)
+    private static IReadOnlyList<Body> Step(IReadOnlyList<Body> world, double time, double restitution)
     {
         Body[] next = world.Select(body => body.RebasedTo(time)).ToArray();
 
@@ -183,7 +219,8 @@ internal sealed class CollisionScene : IScene
                     next[e.Index].Reflected(
                         horizontal: e.Horizontal,
                         min: next[e.Index].Radius,
-                        max: limit - next[e.Index].Radius);
+                        max: limit - next[e.Index].Radius,
+                        restitution: restitution);
             }
             else
             {
@@ -191,7 +228,47 @@ internal sealed class CollisionScene : IScene
             }
         }
 
+        // An impact can drive a ball into a wall it was already resting against, which leaves it
+        // outside the box. WallTime would catch that and schedule a reflection, but only for the
+        // next instant, and an alarm takes a few milliseconds to arrive - long enough at these
+        // speeds to see the ball outside. Putting it right here costs nothing and removes the
+        // window entirely; what remains of the rescue in WallTime is the case this cannot reach.
+        for (int i = 0; i < next.Length; i++)
+        {
+            next[i] = Contained(body: next[i], restitution: restitution);
+        }
+
         return next;
+    }
+
+    /// <summary>
+    ///     The same ball, reflected off any wall it is currently outside of and still leaving.
+    /// </summary>
+    private static Body Contained(Body body, double restitution)
+    {
+        foreach (bool horizontal in new[] { true, false })
+        {
+            Flight flight = horizontal ? body.X : body.Y;
+            double limit = horizontal ? Arrangement.Width : Arrangement.Height;
+            double min = body.Radius;
+            double max = limit - body.Radius;
+
+            // Inclusive on purpose; see the note in WallTime.
+            bool escaping =
+                (flight.Position <= min && flight.Velocity < 0.0)
+                || (flight.Position >= max && flight.Velocity > 0.0);
+
+            if (escaping)
+            {
+                body = body.Reflected(
+                    horizontal: horizontal,
+                    min: min,
+                    max: max,
+                    restitution: restitution);
+            }
+        }
+
+        return body;
     }
 
     /// <summary>Everything that is going to happen, unordered: walls first, then pairs.</summary>
@@ -250,9 +327,14 @@ internal sealed class CollisionScene : IScene
     /// </remarks>
     private static Maybe<double> WallTime(Flight flight, double min, double max)
     {
+        // Note the inclusive comparison. A ball sitting exactly on a bound and moving out of it
+        // gets no bounce from NextBounceTime - the root is zero distance away, which the minimum
+        // interval rejects - so on an axis with no acceleration nothing would ever turn it round
+        // and it would leave the box for good. Rare, and it happens: an impact resolved at the
+        // instant a ball is against a wall produces exactly this.
         bool escaping =
-            (flight.Position < min && flight.Velocity < 0.0)
-            || (flight.Position > max && flight.Velocity > 0.0);
+            (flight.Position <= min && flight.Velocity < 0.0)
+            || (flight.Position >= max && flight.Velocity > 0.0);
 
         return escaping
             ? Maybe.Some(flight.StartTime + MinimumInterval)
@@ -436,22 +518,41 @@ internal sealed class CollisionScene : IScene
         ///     The same ball with one axis reversed, having just reached a wall.
         /// </summary>
         /// <remarks>
-        ///     Elastic, and unlike <see cref="BouncingAxis" /> this never lets a ball come to rest.
-        ///     Resting sets the acceleration to zero, and a ball with a different acceleration to
-        ///     its neighbors would break the very thing that makes the pairwise solve a quadratic.
-        ///     Nothing loses speed in this scene, so nothing needs to be allowed to stop.
+        ///     <para>
+        ///         The only place the damping applies. An impact between two balls is elastic
+        ///         whatever the setting says; a wall is a static surface and takes what it is given.
+        ///     </para>
+        ///     <para>
+        ///         Unlike <see cref="BouncingAxis" /> this never lets a ball stop falling. See
+        ///         <see cref="MinimumFloorBounce" /> for why it may not, and what a settled ball is
+        ///         here instead. Sideways is different and needs no floor: that axis has no
+        ///         acceleration to begin with, so a ball that damps to a horizontal standstill still
+        ///         matches its neighbors and costs nothing.
+        ///     </para>
         /// </remarks>
-        public Body Reflected(bool horizontal, double min, double max)
+        public Body Reflected(bool horizontal, double min, double max, double restitution)
         {
             Flight flight = horizontal ? this.X : this.Y;
 
             // Clamped as well as reversed. On the ordinary path the ball is exactly on the bound
             // and this changes nothing; it matters only when it arrived here already past it.
+            double position = Math.Min(val1: Math.Max(val1: flight.Position, val2: min), val2: max);
+            double velocity = -flight.Velocity * restitution;
+
+            bool onTheFloor = Math.Abs(position - max) < Math.Abs(position - min);
+
+            // Only while something is actually being taken away. Undamped, the speed never decays
+            // toward this and forcing it up to the minimum would be handing out energy.
+            if (!horizontal && onTheFloor && restitution < 1.0 && Math.Abs(velocity) < MinimumFloorBounce)
+            {
+                velocity = -MinimumFloorBounce;
+            }
+
             Flight reflected =
                 new(
                     startTime: flight.StartTime,
-                    position: Math.Min(val1: Math.Max(val1: flight.Position, val2: min), val2: max),
-                    velocity: -flight.Velocity,
+                    position: position,
+                    velocity: velocity,
                     acceleration: flight.Acceleration);
 
             return horizontal
