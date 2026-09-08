@@ -84,43 +84,39 @@ internal sealed class GrabScene : IInteractiveScene
             // While a ball is held its free flight goes on running, unseen. The throw replaces it,
             // so what it did in the meantime never shows.
             Behavior<double> freeX =
-                BouncingAxis.Position(
+                BouncingAxis.Create(
                     timers: timers,
-                    flight: BouncingAxis.Flights(
-                        timers: timers,
-                        initial: Arrangement.InitialX(start: start, now: now),
-                        min: minX,
-                        max: maxX,
-                        // A throw and a fresh start are the same kind of thing - a flight imposed
-                        // from outside - so they arrive on one stream rather than the axis being
-                        // told about two.
-                        restarts: mine
-                            .Map(t =>
-                                new Flight(
-                                    startTime: t.Time,
-                                    position: Clamp(value: t.Trail.X, min: minX, max: maxX),
-                                    velocity: t.Trail.VelocityX,
-                                    acceleration: 0.0))
-                            .OrElse(restarted.Map(time => Arrangement.InitialX(start: start, now: time))),
-                        restitution: restitution));
+                    initial: Arrangement.InitialX(start: start, now: now),
+                    min: minX,
+                    max: maxX,
+                    // A throw and a fresh start are the same kind of thing - a flight imposed
+                    // from outside - so they arrive on one stream rather than the axis being
+                    // told about two.
+                    restarts: mine
+                        .Map(t =>
+                            new Flight(
+                                startTime: t.Time,
+                                position: Clamp(value: t.Trail.X, min: minX, max: maxX),
+                                velocity: t.Trail.VelocityX,
+                                acceleration: 0.0))
+                        .OrElse(restarted.Map(time => Arrangement.InitialX(start: start, now: time))),
+                    restitution: restitution);
 
             Behavior<double> freeY =
-                BouncingAxis.Position(
+                BouncingAxis.Create(
                     timers: timers,
-                    flight: BouncingAxis.Flights(
-                        timers: timers,
-                        initial: Arrangement.InitialY(start: start, now: now),
-                        min: minY,
-                        max: maxY,
-                        restarts: mine
-                            .Map(t =>
-                                new Flight(
-                                    startTime: t.Time,
-                                    position: Clamp(value: t.Trail.Y, min: minY, max: maxY),
-                                    velocity: t.Trail.VelocityY,
-                                    acceleration: Arrangement.Gravity))
-                            .OrElse(restarted.Map(time => Arrangement.InitialY(start: start, now: time))),
-                        restitution: restitution));
+                    initial: Arrangement.InitialY(start: start, now: now),
+                    min: minY,
+                    max: maxY,
+                    restarts: mine
+                        .Map(t =>
+                            new Flight(
+                                startTime: t.Time,
+                                position: Clamp(value: t.Trail.Y, min: minY, max: maxY),
+                                velocity: t.Trail.VelocityY,
+                                acceleration: Arrangement.Gravity))
+                        .OrElse(restarted.Map(time => Arrangement.InitialY(start: start, now: time))),
+                    restitution: restitution);
 
             Cell<bool> isHeld =
                 this.held.Map(m => m.Match(onSome: h => h == index, onNone: static () => false));

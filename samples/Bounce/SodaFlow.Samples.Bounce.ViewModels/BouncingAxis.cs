@@ -61,11 +61,23 @@ internal static class BouncingAxis
     ///     Builds the position along one axis: a behavior defined at every instant, bouncing
     ///     between <paramref name="min" /> and <paramref name="max" />.
     /// </summary>
+    /// <param name="restarts">
+    ///     Flights imposed from outside, which take precedence over a bounce arriving in the same
+    ///     transaction. Releasing a thrown ball arrives here, and so does relaunching a scene that
+    ///     has damped itself to a standstill; the one-ball scene has nothing to impose and passes a
+    ///     stream that never fires.
+    /// </param>
+    /// <param name="restitution">
+    ///     What the speed is multiplied by at each bounce. One is a perfectly elastic bounce, less
+    ///     loses speed, more gains it. Read at the moment of the bounce, so changing it affects the
+    ///     next bounce rather than the flight already under way.
+    /// </param>
     public static Behavior<double> Create(
         ITimerSystem<double> timers,
         Flight initial,
         double min,
         double max,
+        Stream<Flight> restarts,
         Cell<double> restitution) =>
         Position(
             timers: timers,
@@ -80,18 +92,7 @@ internal static class BouncingAxis
     /// <summary>
     ///     The equation in force at each moment, each bounce replacing the one before it.
     /// </summary>
-    /// <param name="restarts">
-    ///     Flights imposed from outside, which take precedence over a bounce arriving in the same
-    ///     transaction. Releasing a thrown ball arrives here, and so does relaunching a scene that
-    ///     has damped itself to a standstill; the one-ball scene has nothing to impose and passes a
-    ///     stream that never fires.
-    /// </param>
-    /// <param name="restitution">
-    ///     What the speed is multiplied by at each bounce. One is a perfectly elastic bounce, less
-    ///     loses speed, more gains it. Read at the moment of the bounce, so changing it affects the
-    ///     next bounce rather than the flight already under way.
-    /// </param>
-    public static Cell<Flight> Flights(
+    private static Cell<Flight> Flights(
         ITimerSystem<double> timers,
         Flight initial,
         double min,
@@ -121,7 +122,7 @@ internal static class BouncingAxis
     /// <summary>
     ///     The position, following whichever flight is current.
     /// </summary>
-    public static Behavior<double> Position(ITimerSystem<double> timers, Cell<Flight> flight) =>
+    private static Behavior<double> Position(ITimerSystem<double> timers, Cell<Flight> flight) =>
         // Each flight becomes its own behavior - a function of time and nothing else - and
         // SwitchB flattens the cell of them back into a single continuous position.
         flight.Map(f => timers.Time.Map(f.PositionAt)).SwitchB();

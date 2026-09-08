@@ -50,24 +50,20 @@ internal sealed class WallsScene : IScene
 
             balls[i] =
                 new Ball(
-                    x: BouncingAxis.Position(
+                    x: BouncingAxis.Create(
                         timers: timers,
-                        flight: BouncingAxis.Flights(
-                            timers: timers,
-                            initial: Arrangement.InitialX(start: start, now: now),
-                            min: start.Radius,
-                            max: Arrangement.Width - start.Radius,
-                            restarts: restarted.Map(time => Arrangement.InitialX(start: start, now: time)),
-                            restitution: restitution)),
-                    y: BouncingAxis.Position(
+                        initial: Arrangement.InitialX(start: start, now: now),
+                        min: start.Radius,
+                        max: Arrangement.Width - start.Radius,
+                        restarts: restarted.Map(time => Arrangement.InitialX(start: start, now: time)),
+                        restitution: restitution),
+                    y: BouncingAxis.Create(
                         timers: timers,
-                        flight: BouncingAxis.Flights(
-                            timers: timers,
-                            initial: Arrangement.InitialY(start: start, now: now),
-                            min: start.Radius,
-                            max: Arrangement.Height - start.Radius,
-                            restarts: restarted.Map(time => Arrangement.InitialY(start: start, now: time)),
-                            restitution: restitution)),
+                        initial: Arrangement.InitialY(start: start, now: now),
+                        min: start.Radius,
+                        max: Arrangement.Height - start.Radius,
+                        restarts: restarted.Map(time => Arrangement.InitialY(start: start, now: time)),
+                        restitution: restitution),
                     radius: start.Radius,
                     color: start.Color);
         }

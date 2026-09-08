@@ -31,18 +31,16 @@ internal sealed class SimpleScene : IScene
                 new Ball(
                     // Nothing moves it sideways, and a constant is a perfectly good behavior.
                     x: Behavior.Constant(this.Width / 2.0),
-                    y: BouncingAxis.Position(
+                    y: BouncingAxis.Create(
                         timers: timers,
-                        flight: BouncingAxis.Flights(
-                            timers: timers,
-                            initial: Initial(now),
-                            min: BallRadius,
-                            max: this.Height - BallRadius,
-                            restarts: restarts.Snapshot(b: timers.Time, f: static (_, time) => Initial(time)),
+                        initial: Initial(now),
+                        min: BallRadius,
+                        max: this.Height - BallRadius,
+                        restarts: restarts.Snapshot(b: timers.Time, f: static (_, time) => Initial(time)),
 
-                            // Elastic, and not offered as a choice: this scene is here to be the
-                            // smallest thing that makes the point.
-                            restitution: Cell.Constant(1.0))),
+                        // Elastic, and not offered as a choice: this scene is here to be the
+                        // smallest thing that makes the point.
+                        restitution: Cell.Constant(1.0)),
                     radius: BallRadius,
                     color: "#E2574C")
             };
