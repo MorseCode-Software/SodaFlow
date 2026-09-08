@@ -1,4 +1,5 @@
-[![Build status](https://ci.appveyor.com/api/projects/status/ydsbwm9udk9yd1mk/branch/main?svg=true)](https://ci.appveyor.com/project/jam40jeff/sodaflow/branch/main)
+[![Build status (AppVeyor)](https://ci.appveyor.com/api/projects/status/ydsbwm9udk9yd1mk/branch/main?svg=true)](https://ci.appveyor.com/project/jam40jeff/sodaflow/branch/main)
+[![Build status (GitHub Actions)](https://github.com/MorseCode-Software/SodaFlow/actions/workflows/build.yml/badge.svg?branch=main)](https://github.com/MorseCode-Software/SodaFlow/actions/workflows/build.yml)
 [![Coverage Status](https://coveralls.io/repos/github/MorseCode-Software/SodaFlow/badge.svg)](https://coveralls.io/github/MorseCode-Software/SodaFlow)
 [![Total Downloads](https://img.shields.io/nuget/dt/SodaFlow.svg)](http://www.nuget.org/packages/SodaFlow/)
 [![Latest Stable Version](https://img.shields.io/nuget/v/SodaFlow.svg)](http://www.nuget.org/packages/SodaFlow/)
@@ -32,6 +33,14 @@ the F# libraries simply use the built-in types `option`, discriminated unions, a
 dotnet build src/SodaFlow.slnx
 dotnet test  src/CSharp/SodaFlow.Tests/SodaFlow.Tests.csproj
 ```
+
+The full CI build — restore, build, test with coverage, pack, inspect — lives in `build.cake` and
+runs locally with `dotnet tool restore && dotnet cake`.
+
+There are two build badges above because that build currently runs twice per commit, on AppVeyor
+and on GitHub Actions, while the two are compared on speed and on reporting. AppVeyor is still the
+one that releases packages; the GitHub Actions workflow deliberately publishes nothing. See the
+notes at the top of `appveyor.yml` and `.github/workflows/build.yml`.
 
 ## Documentation
 

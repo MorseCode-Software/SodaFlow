@@ -11,10 +11,20 @@
 // which restores, builds, tests with coverage, packs, and runs the inspection. Publishing is
 // deliberately not part of the default target; see the Publish task.
 //
-// On AppVeyor the tasks are driven one phase at a time, with --exclusive, so that a failure is
+// On CI the tasks are driven one phase at a time, with --exclusive, so that a failure is
 // attributed to the phase it happened in rather than all of them reading as a build failure. The
 // dependencies below are therefore what a local run follows, not what CI relies on; keep them
 // accurate anyway, since `dotnet cake --target=Pack` on a clean tree has to work.
+//
+// Two CI systems drive them that way at the moment: appveyor.yml and .github/workflows/build.yml
+// run the same targets with the same flags on the same commits. That started as a comparison and
+// has been decided - Actions won, on queue time above all - so what remains is a migration with
+// AppVeyor still building alongside until the last of it is finished. This file stays neutral
+// about which is running it for as long as that is true.
+//
+// Releasing is the one thing that has already moved outright, because it is the one thing that
+// must never happen twice: Publish pushes only from Actions with a tag ref, and appveyor.yml has
+// no deploy_script.
 //
 // Package versions are NOT set here. Each packable project derives its own version from git tags
 // via MinVer (see src/Directory.Build.props), so pushing sodaflow-async-2.1.0 releases only
@@ -183,6 +193,11 @@ Task("Test")
     //
     // Uploaded here rather than in a later task because a failing test run stops the build, and the
     // results of the run that failed are exactly the ones worth having.
+    //
+    // GitHub Actions has no equivalent API to hand them to, so nothing is added here for it. The
+    // workflow reads the same files from the results directory afterwards and writes a job summary
+    // itself; keeping that on its side of the line is what makes the two systems' reporting
+    // comparable rather than something this file has already evened out.
     if (BuildSystem.IsRunningOnAppVeyor)
     {
         foreach (var results in GetFiles($"{coverageDirectory.Path}/**/*.trx"))
@@ -224,32 +239,54 @@ Task("Upload-Coverage")
         Information("  {0}", report.FullPath);
     }
 
-    if (!BuildSystem.IsRunningOnAppVeyor)
+    // Everything above this line runs wherever this task does, and that is the part worth keeping
+    // on a machine that submits nothing: a collector that has quietly stopped collecting looks
+    // exactly like a build that got faster.
+    //
+    // Who is allowed to submit is a narrower question. Coveralls holds one view of a commit, so
+    // while AppVeyor and GitHub Actions are both building every commit, two submissions per commit
+    // would mean two Coveralls builds and two pull request statuses for one set of numbers. They
+    // would be the same numbers - the two run the same tests through the same collector - so this
+    // is noise rather than a wrong figure, which is why the Actions side is a switch and not a
+    // refusal.
+    //
+    // AppVeyor submits, as it always has. Actions submits only when COVERALLS_FROM_ACTIONS is
+    // "true", which is a repository variable rather than something in the workflow file, so
+    // turning the Actions path on for a run or two and off again is two clicks in settings and
+    // leaves no commit behind. It is unset today, and unset is off.
+    //
+    // The point of the switch is that coverage reporting is the one part of AppVeyor's job the
+    // trial otherwise never exercises on Actions. Retiring AppVeyor without having run this once
+    // would mean building that path having never seen it work.
+    var onAppVeyor = BuildSystem.IsRunningOnAppVeyor;
+    var onGitHubActions = BuildSystem.IsRunningOnGitHubActions;
+    var fromActions =
+        onGitHubActions &&
+        string.Equals(
+            EnvironmentVariable("COVERALLS_FROM_ACTIONS"),
+            "true",
+            StringComparison.OrdinalIgnoreCase);
+
+    if (!onAppVeyor && !fromActions)
     {
-        Information("Not running on AppVeyor - skipping the coverage upload.");
+        Information(
+            onGitHubActions
+                ? "COVERALLS_FROM_ACTIONS is not \"true\" - skipping the coverage upload."
+                : "Not running on AppVeyor - skipping the coverage upload.");
         return;
     }
 
     var repoToken = EnvironmentVariable("COVERALLS_REPO_TOKEN");
     if (string.IsNullOrEmpty(repoToken))
     {
-        // Secure variables are withheld from pull requests raised on forks, so this logs and skips
-        // rather than failing a build that could never have had the token.
+        // Secure variables are withheld from pull requests raised on forks, and the GitHub secret
+        // of the same name is only there once someone has added it, so this logs and skips rather
+        // than failing a build that could never have had the token.
         Information("COVERALLS_REPO_TOKEN is not set - skipping the coverage upload.");
         return;
     }
 
     DownloadFile(CoverallsDownloadUrl, coverallsExecutable);
-
-    // AppVeyor is not one of the CI services the reporter auto-detects, so every piece of build
-    // metadata is supplied explicitly. Without it the upload lands with no job, branch or commit
-    // attached.
-    // Taken from the environment rather than through Cake's typed AppVeyor properties: the three
-    // parts of this URL are the ones Cake either does not surface or names differently, and a URL
-    // assembled half one way and half the other is harder to check against AppVeyor's own docs.
-    var buildUrl =
-        $"https://ci.appveyor.com/project/{EnvironmentVariable("APPVEYOR_ACCOUNT_NAME")}" +
-        $"/{EnvironmentVariable("APPVEYOR_PROJECT_SLUG")}/builds/{EnvironmentVariable("APPVEYOR_BUILD_ID")}";
 
     var arguments = new ProcessArgumentBuilder().Append("report");
 
@@ -261,18 +298,45 @@ Task("Upload-Coverage")
     arguments
         .Append("--format=cobertura")
         .AppendSwitchQuotedSecret("--repo-token", "=", repoToken)
-        .AppendSwitchQuoted("--base-path", "=", Context.Environment.WorkingDirectory.FullPath)
-        .Append("--service-name=appveyor")
-        .AppendSwitchQuoted("--service-job-id", "=", AppVeyor.Environment.JobId)
-        .AppendSwitchQuoted("--service-branch", "=", AppVeyor.Environment.Repository.Branch)
-        .AppendSwitchQuoted("--service-build-url", "=", buildUrl);
+        .AppendSwitchQuoted("--base-path", "=", Context.Environment.WorkingDirectory.FullPath);
 
-    if (AppVeyor.Environment.PullRequest.IsPullRequest)
+    if (onAppVeyor)
     {
-        arguments.AppendSwitchQuoted(
-            "--service-pull-request",
-            "=",
-            AppVeyor.Environment.PullRequest.Number.ToString());
+        // AppVeyor is not one of the CI services the reporter auto-detects, so every piece of build
+        // metadata is supplied explicitly. Without it the upload lands with no job, branch or commit
+        // attached.
+        // Taken from the environment rather than through Cake's typed AppVeyor properties: the three
+        // parts of this URL are the ones Cake either does not surface or names differently, and a URL
+        // assembled half one way and half the other is harder to check against AppVeyor's own docs.
+        var buildUrl =
+            $"https://ci.appveyor.com/project/{EnvironmentVariable("APPVEYOR_ACCOUNT_NAME")}" +
+            $"/{EnvironmentVariable("APPVEYOR_PROJECT_SLUG")}/builds/{EnvironmentVariable("APPVEYOR_BUILD_ID")}";
+
+        arguments
+            .Append("--service-name=appveyor")
+            .AppendSwitchQuoted("--service-job-id", "=", AppVeyor.Environment.JobId)
+            .AppendSwitchQuoted("--service-branch", "=", AppVeyor.Environment.Repository.Branch)
+            .AppendSwitchQuoted("--service-build-url", "=", buildUrl);
+
+        if (AppVeyor.Environment.PullRequest.IsPullRequest)
+        {
+            arguments.AppendSwitchQuoted(
+                "--service-pull-request",
+                "=",
+                AppVeyor.Environment.PullRequest.Number.ToString());
+        }
+    }
+    else
+    {
+        // Nothing to supply. GitHub Actions is one of the services the reporter does auto-detect,
+        // reading the workflow's own environment for the job, branch, commit and pull request - so
+        // the Actions path needs less configuration than AppVeyor's, not more, and duplicating any
+        // of it here would only create something to disagree with what it found.
+        //
+        // That claim is worth checking the first time this runs rather than trusting: if the
+        // submission lands on Coveralls with no branch or no job attached, this else branch is
+        // where the metadata AppVeyor spells out above has to be spelled out too.
+        Information("Letting the reporter detect GitHub Actions for itself.");
     }
 
     // RenderSafe rather than Render: the repo token is appended as a secret and comes back
@@ -317,10 +381,15 @@ string Describe(IIssue issue) =>
     $"{issue.AffectedFileRelativePath?.FullPath ?? "<solution>"}"
     + $"({issue.Line?.ToString() ?? "-"}): {issue.RuleId}: {issue.MessageText}";
 
-// Hung off Build rather than given a phase of its own in appveyor.yml, which would have read
-// better and would not have run: that file documents the intended configuration, but the project
-// builds from the configuration held in AppVeyor's UI until someone enables "use YAML from
-// repository" - as the note at the top of appveyor.yml says. A dependency runs under either one.
+// Hung off Build rather than given a phase of its own in appveyor.yml. The original reason was
+// that a phase there would not have run, the project having built from the settings held in
+// AppVeyor's UI, and that reason is gone: "use YAML from repository" is enabled, so appveyor.yml
+// is what AppVeyor runs and a phase of its own would work.
+//
+// It stays a dependency anyway, and now for a better reason than the one it was written for: as a
+// dependency it runs everywhere without being listed anywhere. A local `dotnet cake`, AppVeyor and
+// the GitHub Actions workflow all reach it through Build, so there is no per-CI-system list of
+// phases for it to fall off.
 //
 // It needs nothing compiled, so as a dependency of Build it still runs before anything is built
 // and costs milliseconds.
@@ -517,21 +586,29 @@ Task("Publish")
     // gives a tagged build a stable version and every other build a prerelease one, so only
     // deliberate tags can ever produce something publishable.
     //
-    // A tag build publishes exactly one package: the one its own tag names. AppVeyor starts a
-    // separate build per tag even when several are pushed together, and each of those builds sees
-    // the same artifacts directory holding every package. Pushing all of them from every build made
-    // the publish order the order the builds happened to run in, which is not something a release
-    // can control - so a package could reach nuget.org before the dependency it was built against.
+    // A tag build publishes exactly one package: the one its own tag names. A run sees the whole
+    // artifacts directory, holding every package the solution produces, so pushing all of them from
+    // every tag build made the publish order the order the builds happened to run in - which is not
+    // something a release can control, and which let a package reach nuget.org before the
+    // dependency it was built against.
     //
     // Note what this does and does not do. It makes the order controllable; it does not impose one.
-    // Push the tags in dependency order, and wait for each build to publish before pushing the next.
-    if (!BuildSystem.IsRunningOnAppVeyor || !AppVeyor.Environment.Repository.Tag.IsTag)
+    // Push the tags in dependency order, and wait for each run to publish before pushing the next.
+    // That advice does not depend on how many runs a multi-tag push produces, because each run
+    // publishes only the package named by the tag it was started for.
+    //
+    // GitHub Actions is the only place this pushes from. AppVeyor published until the main build
+    // moved here, and stopped in the same commit that started this: appveyor.yml no longer has a
+    // deploy_script, so there is no commit at which both could push the same tag and race for it.
+    // AppVeyor still builds every commit while the two are compared - it just does not release.
+    if (!BuildSystem.IsRunningOnGitHubActions ||
+        GitHubActions.Environment.Workflow.RefType != GitHubActionsRefType.Tag)
     {
         Information("Not a tag build - skipping NuGet push.");
         return;
     }
 
-    var tag = AppVeyor.Environment.Repository.Tag.Name;
+    var tag = GitHubActions.Environment.Workflow.RefName;
     if (string.IsNullOrEmpty(tag))
     {
         throw new Exception(
@@ -539,10 +616,25 @@ Task("Publish")
             "package it releases.");
     }
 
+    // Read from the environment, and deliberately incurious about where it came from. Nothing here
+    // stores a key: the workflow trades this run's OIDC token with nuget.org for one that expires
+    // shortly afterwards - trusted publishing - and hands it to this task the same way a stored
+    // secret used to be handed over. That is why the move off AppVeyor's encrypted variable changed
+    // nothing in this file.
+    //
+    // Thrown rather than skipped, unlike every other missing-credential check here. Those guard
+    // work that is worth doing anyway; this one guards the release itself, and a tag build that
+    // quietly published nothing is the failure that is hardest to notice - the tag exists, the run
+    // is green, and only nuget.org disagrees.
     var apiKey = EnvironmentVariable("NUGET_API_KEY");
     if (string.IsNullOrEmpty(apiKey))
     {
-        throw new Exception("NUGET_API_KEY is not set. Add it as a secure variable in AppVeyor.");
+        throw new Exception(
+            "NUGET_API_KEY is not set. It is minted by the NuGet login step in "
+            + ".github/workflows/build.yml, which exchanges this run's OIDC token for a short-lived "
+            + "key. An empty value means that exchange did not happen or was refused - check that a "
+            + "trusted publishing policy for this repository and workflow exists on nuget.org under "
+            + "the MorseCodeSoftware account.");
     }
 
     // The tag prefix to package id map is read from the projects rather than written out here. Both

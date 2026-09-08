@@ -1,0 +1,337 @@
+# Builds, tests, packs and inspects the .NET solution under src/ - the same build appveyor.yml
+# drives, run on GitHub Actions instead.
+#
+# THIS RUNS ALONGSIDE APPVEYOR, NOT INSTEAD OF IT. Both are wired to the same events on purpose, so
+# that one commit produces one run on each and the two can be compared on what actually decides
+# this: wall-clock time, what a failure looks like from the outside, and how much of a result is
+# readable without opening a log. Neither is the other's fallback. If the two ever disagree about a
+# commit, that disagreement is itself the finding.
+#
+# THIS WORKFLOW NOW RELEASES. It did not while the two systems were being compared; the comparison
+# came out in favour of Actions, so the publish step at the bottom is live and appveyor.yml's
+# deploy_script was deleted in the same commit that added it. That pairing is deliberate: there is
+# no commit at which both systems would push the same tag and race for which reached nuget.org
+# first. AppVeyor still builds every commit, so the comparison stays readable - it just no longer
+# releases anything.
+#
+# There is NO NuGet API key anywhere in this repository, and that is the point. Releases authenticate
+# by trusted publishing: the publish step exchanges this run's OIDC token for a key that nuget.org
+# mints on the spot and expires shortly after, so there is no long-lived secret to leak, to rotate,
+# or to hand to a step that had no business reading it. AppVeyor could not do this - its copy of the
+# old key was an encrypted blob in appveyor.yml - so it is the one capability the move actually
+# gained rather than merely matched.
+#
+# It does need setting up once, on nuget.org rather than here: a trusted publishing policy under the
+# MorseCodeSoftware account, naming this repository and this workflow file. Until that exists the
+# exchange is refused and the release fails loudly, which is the right way round - Publish throws
+# rather than skips on a missing key, because a tag build that quietly released nothing is the
+# failure hardest to notice.
+#
+# Coverage is collected on every run and submitted to Coveralls on none of them, unless someone
+# deliberately switches that on. AppVeyor is the one that submits while both systems are building
+# every commit: two submissions per commit would be two Coveralls builds and two pull request
+# statuses for one set of numbers - the same numbers, since the two run the same tests through the
+# same collector - so this is noise rather than a wrong figure. The reports are kept as an artifact
+# here instead.
+#
+# The switch exists because coverage reporting would otherwise be the one part of AppVeyor's job
+# this trial never exercises on Actions, and retiring AppVeyor without having run it once would
+# mean building that path having never seen it work. To try it for a run or two:
+#
+#   1. Add a COVERALLS_REPO_TOKEN repository secret, taken from the Coveralls project page. The
+#      value AppVeyor uses is encrypted under that account and cannot be read back out.
+#   2. Set a COVERALLS_FROM_ACTIONS repository variable to "true".
+#   3. Re-run this workflow, check what lands on Coveralls, then clear the variable again.
+#
+# Clearing the variable is enough to stop it; the secret can stay. Neither step touches this file,
+# which is the point - the trial should not need a commit to start and another to stop.
+name: Build
+
+# No paths filter, unlike docs.yml and samples.yml. Those two guard narrow, self-contained corners
+# of the repository; this builds the libraries, and AppVeyor builds them on every push. A filter
+# here would mean the two systems were sometimes asked different questions, and a speed comparison
+# between a run that happened and a run that was skipped says nothing.
+#
+# Tags are built, and a tag build is what releases a package - see the publish step at the bottom.
+# The pattern is every tag this repository uses: MinVerTagPrefix is per project and they all begin
+# sodaflow-, from sodaflow- itself through sodaflow-fsharp-bindable-objectmodel-. It is only a
+# trigger, not the mapping - which tag names which package is worked out in build.cake, from the
+# projects themselves, and a tag matching this pattern but naming nothing is logged and skipped.
+#
+# workflow_dispatch covers running this against any branch by hand.
+on:
+  push:
+    branches: [ main ]
+    tags: [ 'sodaflow-*' ]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  # Naming one permission drops every other to none, so the read that checkout needs is spelled out
+  # rather than inherited.
+  contents: read
+  # Uploading the inspection results to code scanning, as samples.yml does.
+  security-events: write
+  # Minting the OIDC token that the publish step trades for a short-lived nuget.org key. It is
+  # granted to every step of the job, not only that one, because permissions have no finer grain
+  # than a job - so the narrower version of this is a separate publish job, which would have to
+  # download the packages artifact and check out the repository again to do the same work. Worth
+  # doing if this job ever runs anything less trusted than the repository's own build.
+  id-token: write
+  #
+  # Deliberately no checks: write. Creating the Tests check run needs it, and a fork pull request
+  # would never be granted it, which is exactly why that work is in test-report.yml instead.
+
+# Superseded pull request runs are cancelled, and nothing else is. A cancelled run has no duration
+# worth reading, so main keeps a complete run per commit to compare against.
+#
+# Cancellation is keyed on the event rather than on "not main", which is what this said first and
+# which would have swept up tag runs: a tag run publishes, and a publish killed part-way through
+# because another tag arrived is the one cancellation that could do real damage. Tags also get
+# their own concurrency group by virtue of github.ref, so two tag runs never queue behind each
+# other in the first place.
+concurrency:
+  group: build-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+env:
+  # appveyor.yml sets these three in its environment block, and its configuration at the top level.
+  # Repeated here rather than left to differ, because a build comparison in which one side is
+  # quietly doing first-run telemetry setup and the other is not is not a comparison.
+  CONFIGURATION: Release
+  DOTNET_CLI_TELEMETRY_OPTOUT: true
+  DOTNET_NOLOGO: true
+  DOTNET_SKIP_FIRST_TIME_EXPERIENCE: true
+
+defaults:
+  run:
+    shell: pwsh
+
+jobs:
+  build:
+    name: Build
+    # Windows because src targets net472 alongside net60 and netstandard2.0, and the test projects
+    # target net472 alongside net10.0.
+    #
+    # The two sides are NOT running the same operating system, and a timing comparison has to
+    # account for it. appveyor.yml asks for the Visual Studio 2026 image, which is Windows Server
+    # 2019; windows-latest is Windows Server 2025. Actions offers nothing as old, so this cannot be
+    # evened out from here - the honest options are to read any speed difference as image-and-
+    # platform together, or to move AppVeyor forward first and re-measure.
+    runs-on: windows-latest
+
+    # AppVeyor's own hard limit on a free build is an hour. Matching it means a hang shows up here
+    # the same way it shows up there, rather than running on to Actions' six.
+    timeout-minutes: 60
+
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          # The equivalent of shallow_clone: false and clone_depth: 0 in appveyor.yml, and just as
+          # load-bearing. MinVer reads the full commit graph and every tag; Actions' default is a
+          # depth-1 clone with no tags, which gives every package a wrong version or none at all.
+          fetch-depth: 0
+
+      - uses: actions/setup-dotnet@v6
+        with:
+          # 10.0 is what global.json pins and what runs the build; the test projects run on it too.
+          # 8.0 and 6.0 are here for their targeting packs, so the net8.0 target of the benchmark
+          # project and the net60 target of every library resolve locally instead of restoring a
+          # reference pack from NuGet mid-build.
+          #
+          # If setup time turns out to matter to the comparison, dropping 6.0 and 8.0 is the first
+          # thing to try: the packs they provide are downloadable, so the build still works without
+          # them - it just pays for them somewhere less visible than a named step.
+          dotnet-version: |
+            6.0.x
+            8.0.x
+            10.0.x
+
+      # appveyor.yml's install phase, unchanged. Cake and the ReSharper command line tools are
+      # pinned in .config/dotnet-tools.json, so both CI systems and a developer all run the same
+      # versions.
+      #
+      # Deliberately no NuGet package cache, though actions/setup-dotnet offers one. AppVeyor has
+      # none configured, and adding one to only this side would make the first thing being measured
+      # - how long a build takes - a measurement of caching rather than of the platform. It is the
+      # obvious lever to pull if Actions wins on everything else and loses on time.
+      - name: Restore tools
+        run: dotnet tool restore
+
+      # The steps below mirror appveyor.yml's phases, one step per phase, with the same --exclusive
+      # flags and in the same order. That is what makes the two runs readable side by side: a step
+      # here and a phase there ran the same Cake target the same way, so a difference in what they
+      # took or what they said is a difference between the two CI systems rather than between two
+      # builds.
+      #
+      # --exclusive runs the named target without its dependencies, which have already run in an
+      # earlier step. The dependency chain in build.cake remains the truth for a local `dotnet
+      # cake`; here, as on AppVeyor, the CI system supplies the sequencing.
+      - name: Build
+        run: dotnet cake --target=Build --configuration=${{ env.CONFIGURATION }}
+
+      - name: Test
+        run: dotnet cake --target=Test --exclusive --configuration=${{ env.CONFIGURATION }}
+
+      # AppVeyor gets a Tests tab for free: build.cake hands it the trx files through its API as
+      # soon as the run finishes, and it renders every one of them individually. The Actions
+      # equivalent is NOT here - it is test-report.yml, and this step is the half of it that this
+      # workflow can do.
+      #
+      # The split is the reporter's own recommended setup for a public repository, and the reason is
+      # that a pull request raised from a fork runs with a read-only token and cannot create a check
+      # run at all. Reporting from inside this workflow therefore either annotates failures and
+      # abandons fork contributors, or serves everyone and annotates nobody - both of which this
+      # file did at one point. Handing the results to a workflow_run workflow, which runs in this
+      # repository's context with a token that can write, gets both.
+      #
+      # A dedicated artifact rather than reusing the coverage one below, though the trx files are in
+      # both. This one is a contract between two workflows and says so; that one exists so a run's
+      # coverage can be read back. Narrowing either should not silently break the other.
+      #
+      # !cancelled() rather than always(): a cancelled run has nothing worth reporting, and
+      # uploading anyway would have test-report.yml create a check run for a superseded commit.
+      - name: Collect test results
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: test-results
+          path: coverage/**/*.trx
+
+      # Finds the Cobertura reports and fails if there are none, which is the check worth keeping
+      # even on a run that submits nothing: a collector that has silently stopped collecting looks
+      # exactly like a build that got faster.
+      #
+      # Whether it then submits to Coveralls is off by default and switched on from outside this
+      # file - see the note at the top, and the gate in build.cake's Upload-Coverage task.
+      #
+      # No overall percentage is written to the job summary either way. A solution-level run
+      # produces one report per test project per framework, each covering only the assemblies that
+      # project touched, and merging them is precisely what Coveralls does. A number invented here
+      # by picking one of them, or by averaging them, would be worse than no number.
+      - name: Upload coverage
+        env:
+          # Both of these have to be present before anything is sent, and each is missing in a
+          # different way today.
+          #
+          # COVERALLS_FROM_ACTIONS is a repository variable, so it is empty until someone sets it
+          # to "true" in Settings > Secrets and variables > Actions > Variables, and emptying it
+          # again turns the upload back off without a commit.
+          #
+          # COVERALLS_REPO_TOKEN is a repository secret, and there is not one yet - the token
+          # AppVeyor uses is encrypted under that account and cannot be read back out, so it has to
+          # come from the Coveralls project page. Absent, or withheld as it is from a pull request
+          # raised on a fork, the task logs and skips rather than failing the build. That is the
+          # same shape the AppVeyor path has always had for fork pull requests.
+          #
+          # Scoped to this step rather than declared at the top of the file, so the token is not in
+          # the environment of every other step, the inspection and the packing included.
+          COVERALLS_FROM_ACTIONS: ${{ vars.COVERALLS_FROM_ACTIONS }}
+          COVERALLS_REPO_TOKEN: ${{ secrets.COVERALLS_REPO_TOKEN }}
+        run: dotnet cake --target=Upload-Coverage --exclusive --configuration=${{ env.CONFIGURATION }}
+
+      - name: Pack
+        run: dotnet cake --target=Pack --exclusive --configuration=${{ env.CONFIGURATION }}
+
+      # Last, as it is on AppVeyor and for the same reason: it fails the build on anything it
+      # finds, and a build failed by the inspection should still have packed its packages and
+      # collected its coverage, because those are what say whether the run was otherwise sound.
+      - name: Inspect
+        run: dotnet cake --target=Inspect-Code --exclusive --configuration=${{ env.CONFIGURATION }}
+
+      # The other half of the reporting comparison. AppVeyor gets these findings as messages on its
+      # messages tab, which build.cake posts itself; Actions gets the SARIF that same task already
+      # wrote, so the findings land on the lines they are about - in the Files tab of a pull request
+      # and in the Security tab - instead of only in a log that has to be opened and scrolled.
+      #
+      # Nothing about the inspection changes to make this work. It is the same report AppVeyor keeps
+      # as an artifact, uploaded the way samples.yml uploads the samples' reports.
+      #
+      # always(), because the step above fails by design while there are findings, and those are
+      # exactly the runs worth annotating. continue-on-error, because this is presentation: if the
+      # upload breaks, the inspection result is still the one that failed the job, and an upload
+      # problem should not be mistaken for a code problem.
+      #
+      # category keeps this apart from the three samples.yml uploads. Without it, the two workflows
+      # would replace each other's results on a commit that ran both.
+      - name: Upload inspection results
+        if: always()
+        continue-on-error: true
+        uses: github/codeql-action/upload-sarif@v4
+        with:
+          sarif_file: inspection/inspectcode.sarif
+          category: src
+
+      # The same three artifacts appveyor.yml collects, under the same names, so that what one run
+      # leaves behind can be compared against what the other does.
+      #
+      # always() rather than on success, because AppVeyor collects artifacts from a failed build
+      # too, and a run failed by the inspection still has packages and coverage worth having.
+      # upload-artifact warns rather than fails on a path that matched nothing, so a build that fell
+      # over before producing any of these does not then fail a second time on the collection.
+      - name: Collect packages
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: packages
+          path: artifacts/*.nupkg
+
+      # Kept for the same reason AppVeyor keeps it: a run whose coverage upload was skipped - which,
+      # here, is every run - can still be inspected. The trx files ride along in the same directory.
+      - name: Collect coverage
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: coverage
+          path: coverage
+
+      # The raw SARIF, for opening in a viewer rather than reading off the Security tab.
+      - name: Collect inspection
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: inspection
+          path: inspection
+
+      # Last, and after the artifacts, which is where appveyor.yml's deploy_script ran for the same
+      # reason: a release should not be the thing that decides whether the packages and the coverage
+      # from this run are kept.
+      #
+      # Two conditions have to hold, and only one of them is written here. The `if` restricts this
+      # to a tag push - and because it names no status function, GitHub implies success(), so a run
+      # whose tests or inspection failed skips it rather than releasing a red build. The second
+      # condition is inside build.cake: Publish returns early unless it is on Actions with a tag
+      # ref, so `dotnet cake` on a developer's machine cannot push no matter what it is handed.
+      #
+      # Not a separate job. It could be one, and a job could carry an environment with a manual
+      # approval on it, which is worth considering later; as a step it needs no artifact handoff and
+      # keeps the phase order identical to the build it replaces.
+      #
+      # The key Publish pushes with, minted here rather than stored anywhere. The action sends this
+      # run's OIDC token to nuget.org, which checks it against the trusted publishing policy for the
+      # account below and returns a short-lived key. Nothing to rotate, and nothing that outlives
+      # the run.
+      #
+      # MorseCodeSoftware is the nuget.org account that owns every package this repository
+      # publishes - it is the owner listed on nuget.org for SodaFlow and its siblings - and it has
+      # to be the account the policy sits under. It is a username rather than a secret, so it is
+      # written here where it can be read, not hidden in settings where a mismatch would only show
+      # up as a refused exchange during a release.
+      #
+      # Gated on the same tag condition as the step below, so an ordinary run neither requests a
+      # token nor asks nuget.org for anything.
+      - name: NuGet login
+        if: startsWith(github.ref, 'refs/tags/')
+        id: nuget-login
+        uses: NuGet/login@v1
+        with:
+          user: MorseCodeSoftware
+
+      # Publish reads NUGET_API_KEY from the environment and does not care where it came from, which
+      # is why moving from a stored key to a minted one changed nothing in build.cake. Scoped to this
+      # step, so even the short-lived key is absent from the build, the tests and the inspection.
+      - name: Publish
+        if: startsWith(github.ref, 'refs/tags/')
+        env:
+          NUGET_API_KEY: ${{ steps.nuget-login.outputs.NUGET_API_KEY }}
+        run: dotnet cake --target=Publish --configuration=${{ env.CONFIGURATION }}

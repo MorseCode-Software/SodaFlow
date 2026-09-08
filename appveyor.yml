@@ -1,7 +1,25 @@
 ﻿# AppVeyor build for the .NET implementation under src.
 #
-# NOTE: committing this file supersedes the configuration currently held in the AppVeyor UI.
-# Compare the two before enabling "use YAML from repository".
+# NOTE: this file is what AppVeyor runs. The project has "use YAML from repository" enabled, so
+# the settings still sitting in the AppVeyor UI - which name the Visual Studio 2015 image - are
+# dead, and editing them changes nothing. Edit here.
+#
+# The check, if that ever needs confirming again from a build log alone: the image below runs
+# Windows Server 2019, so `dotnet --info` reports OS Version 10.0.17763. The UI's Visual Studio
+# 2015 image is Windows Server 2012 R2 and would report 6.3.9600. Reading 17763 as "an old image,
+# therefore the UI settings" has the mapping backwards - see the image matrix at
+# https://www.appveyor.com/docs/windows-images-software/, where Visual Studio 2019 through 2026 all
+# share Windows Server 2019.
+#
+# NOTE: .github/workflows/build.yml runs the same build on GitHub Actions, and that is where this
+# repository is going. The comparison the two were set up for has been decided in Actions' favour,
+# largely on queue time: execution was 16 minutes here against 9 there, but the wait before a build
+# started ran past an hour on a single concurrent job, and that is the number a person actually
+# experiences.
+#
+# Releasing has already moved - see the deploy_script note at the bottom of this file. Everything
+# else still runs here, so the two remain comparable while the rest of the migration is finished.
+# This file goes away at the end of it rather than being split with the workflow.
 #
 # The steps themselves live in build.cake, not here. What is left in this file is the part that is
 # genuinely AppVeyor's: which image to run on, what the environment holds, what to keep as an
@@ -79,8 +97,11 @@ artifacts:
   - path: inspection
     name: inspection
 
-# Publishing stays in its own phase rather than joining the target above, because this is the phase
-# AppVeyor runs after the artifacts are collected and only when everything before it succeeded.
-# Which package a tag publishes, and why exactly one, is explained in build.cake.
-deploy_script:
-  - dotnet cake --target=Publish --configuration=%CONFIGURATION%
+# There is deliberately no deploy_script any more. Publishing moved to GitHub Actions, and the
+# phase was deleted in the same commit that gave that workflow its publish step, so no commit ever
+# had both able to push the same tag. build.cake enforces the same thing from the other side:
+# Publish returns early unless it is running on Actions with a tag ref, so restoring the phase here
+# would produce a no-op rather than a second release.
+#
+# This file is otherwise unchanged, because AppVeyor is still building every commit alongside
+# Actions while the two are compared. What it no longer does is release.

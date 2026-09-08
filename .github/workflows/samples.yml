@@ -1,37 +1,37 @@
 # Builds and inspects the sample solutions under samples/.
 #
-# Independent of appveyor.yml, which builds, tests, packs and publishes the libraries under src/,
-# and of docs.yml, which builds the documentation site. Nothing is shared between the three.
+# Independent of build.yml, which builds, tests, packs, inspects and publishes the libraries under
+# src/, and of docs.yml, which builds the documentation site. Nothing is shared between the three.
 #
-# build.cake is in the filter as well as samples/ itself, because the inspection step below lives
-# there: a change to how it is invoked - a rule excluded, a threshold moved - changes what these
-# samples are held to, and nothing else would re-run them.
+# THERE IS NO PATHS FILTER ANY MORE, and its absence is load-bearing. Counter, Search and Bounce
+# are required status checks on main. A required check reports nothing at all when its workflow is
+# filtered out of a run - GitHub does not read that as "passed", it reads it as "still waiting" -
+# so a pull request touching only src/ would have sat unmergeable forever. Skipping a job inside a
+# workflow that ran is fine and reports as success; skipping the workflow is not.
 #
-# The rule set it reads, src/SodaFlow.sln.DotSettings, is deliberately NOT in the filter, though
-# the inspection reads that too. It cannot change on its own: Verify-Inspection-Settings requires
-# the three copies beside the sample solutions to be byte-identical to it, and that runs on every
-# AppVeyor build. So either a rule change carries those copies with it - and they are under
-# samples/, which is already here - or the build is red. Listing it as well would only add runs.
+# So these three jobs now run on every pull request and every push to main, which costs three
+# parallel jobs of about three minutes against a Build that takes nine. That is the price of the
+# gate, and it is worth saying plainly that it buys nothing else: what the filter used to say is
+# still true, and is still worth knowing.
 #
-# Otherwise not triggered by changes under src/. The samples reference published NuGet packages
-# rather than the projects in this repository - see the comment in any sample's .csproj - so a
-# change to src/ cannot affect them, and this filter has no false negative to worry about. The other
-# side of that is what this build does NOT tell you: because each sample pins a package version, a
-# newly released package breaking a sample shows up only when someone bumps that version here.
+#   - A change under src/ cannot affect these samples. They reference published NuGet packages
+#     rather than the projects in this repository - see the comment in any sample's .csproj - so
+#     these runs will pass for reasons that have nothing to do with the change that started them.
+#   - The other side of that, unchanged: because each sample pins a package version, a newly
+#     released package breaking a sample shows up only when someone bumps that version here.
+#   - build.cake matters to these jobs even though it lives elsewhere, because the inspection step
+#     below is defined there: a rule excluded or a threshold moved changes what these samples are
+#     held to.
+#   - So does src/SodaFlow.sln.DotSettings, the rule set that inspection reads. It cannot change
+#     on its own: Verify-Inspection-Settings requires the three copies beside the sample solutions
+#     to be byte-identical to it, and that runs as a dependency of Build on every main build. So
+#     either a rule change carries those copies with it, or the build is red.
 name: Samples
 
 on:
   push:
     branches: [ main ]
-    paths:
-      - 'samples/**'
-      - 'build.cake'
-      - '.github/workflows/samples.yml'
   pull_request:
-    paths:
-      - 'samples/**'
-      - 'build.cake'
-      - '.github/workflows/samples.yml'
   workflow_dispatch:
 
 permissions:
