@@ -21,7 +21,7 @@ derived from.
 
 All but the first share a checkbox and a slider setting what a bounce does to a ball's speed. The
 first is deliberately elastic, so that the smallest scene stays the smallest thing that makes the
-point. In the last, the damping reaches the walls only — see below.
+point.
 
 ## The idea
 
@@ -231,15 +231,19 @@ Mass is the radius squared: the balls are discs of one density, and area is what
 the ratio that shows. A big ball meeting a small one barely changes course while the small one
 comes back hard; two equal balls meeting head on simply trade velocities.
 
-Momentum and kinetic energy both survive, and they survive *whatever the damping slider says*.
-The damping in this scene reaches the walls and nothing else: a wall is a static surface and takes
-what it is given, while an impact between two balls is the thing this scene exists to show and is
-left alone.
+Undamped, momentum and kinetic energy both survive an impact. Damped, momentum still does and
+energy does not — and that asymmetry is not a choice, it is what the two conservation laws are.
+The two impulses in a collision are equal and opposite by construction, so a ball can only take
+momentum from another ball by giving it up itself, however much of the energy the impact throws
+away. A wall is different: it is bolted to the world, so it can absorb momentum without appearing
+to have any.
+
+The slider reaches both kinds of impact — a wall, and one ball against another.
 
 ## Which is why nothing here is allowed to rest
 
-Damping at the walls means a ball eventually runs out of bounce, and in the other scenes that ends
-with it stopping — velocity zero, acceleration zero. This scene cannot do that, and the reason is
+Damping means a ball eventually runs out of bounce, and in the other scenes that ends with it
+stopping — velocity zero, acceleration zero. This scene cannot do that, and the reason is
 the pairwise solve above. A resting ball has a different acceleration from a falling one, their
 separation stops being a straight line, and the quadratic that says when two balls touch becomes a
 quartic. **Every ball has to share one acceleration or none of it works.**

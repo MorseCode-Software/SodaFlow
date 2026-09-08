@@ -79,10 +79,8 @@ internal sealed class CollisionScene : IScene
 
     /// <param name="timers">The clock every ball's position is a function of.</param>
     /// <param name="restitution">
-    ///     What a bounce off a wall multiplies the speed by, the same cell the other two damped
-    ///     scenes read. It reaches the walls and nothing else: an impact between two balls stays
-    ///     elastic whatever this says, because conserving momentum and energy is the thing this
-    ///     scene is for.
+    ///     What a bounce multiplies the speed by, the same cell the other two damped scenes read.
+    ///     It reaches both kinds of impact here - a wall, and one ball against another.
     /// </param>
     /// <param name="restarts">Fires when this scene's tab becomes the selected one.</param>
     internal CollisionScene(
@@ -137,9 +135,9 @@ internal sealed class CollisionScene : IScene
     /// <inheritdoc />
     public string Summary =>
         "The same four balls, now hitting each other as well as the walls. Every impact is solved "
-        + "for ahead of time rather than noticed afterwards, and stays elastic whatever the damping "
-        + "says: momentum and energy survive it, and the heavier ball gives way less. The damping "
-        + "reaches the walls only.";
+        + "for ahead of time rather than noticed afterwards, and the heavier ball gives way less. "
+        + "Undamped the impacts conserve momentum and energy both; damped they still conserve "
+        + "momentum, because two balls cannot take it from each other.";
 
     /// <inheritdoc />
     public double Width => Arrangement.Width;
@@ -224,7 +222,7 @@ internal sealed class CollisionScene : IScene
             }
             else
             {
-                Collide(bodies: next, first: e.Index, second: e.Other);
+                Collide(bodies: next, first: e.Index, second: e.Other, restitution: restitution);
             }
         }
 
@@ -415,10 +413,16 @@ internal sealed class CollisionScene : IScene
     /// </summary>
     /// <remarks>
     ///     <para>
-    ///         The standard elastic result. Only the component along the line joining the centers
-    ///         changes; the tangential component is untouched, which is what makes a glancing blow
-    ///         glance rather than stop. So the angle out follows from the geometry rather than
-    ///         from anything written here.
+    ///         The standard result. Only the component along the line joining the centers changes;
+    ///         the tangential component is untouched, which is what makes a glancing blow glance
+    ///         rather than stop. So the angle out follows from the geometry rather than from
+    ///         anything written here.
+    ///     </para>
+    ///     <para>
+    ///         Momentum survives at any restitution, because the two impulses are equal and
+    ///         opposite by construction. Energy survives only at one. That is the difference
+    ///         between the two halves of the damping: a wall can take momentum away because it is
+    ///         bolted to the world, and two balls cannot take it from each other.
     ///     </para>
     ///     <para>
     ///         Mass is the radius squared, because the balls are drawn as discs of one density and
@@ -427,7 +431,7 @@ internal sealed class CollisionScene : IScene
     ///         meeting head on simply exchange velocities.
     ///     </para>
     /// </remarks>
-    private static void Collide(IList<Body> bodies, int first, int second)
+    private static void Collide(IList<Body> bodies, int first, int second, double restitution)
     {
         Body a = bodies[first];
         Body b = bodies[second];
@@ -453,7 +457,10 @@ internal sealed class CollisionScene : IScene
             return;
         }
 
-        double impulse = 2.0 * approach / (a.Mass + b.Mass);
+        // One plus the restitution: at one this is the elastic 2, and momentum and energy both
+        // come through untouched. Below it the pair keeps its momentum - the two impulses are equal
+        // and opposite whatever this number is - and gives up energy, which is what damping means.
+        double impulse = (1.0 + restitution) * approach / (a.Mass + b.Mass);
 
         bodies[first] =
             a.WithVelocity(
@@ -518,10 +525,6 @@ internal sealed class CollisionScene : IScene
         ///     The same ball with one axis reversed, having just reached a wall.
         /// </summary>
         /// <remarks>
-        ///     <para>
-        ///         The only place the damping applies. An impact between two balls is elastic
-        ///         whatever the setting says; a wall is a static surface and takes what it is given.
-        ///     </para>
         ///     <para>
         ///         Unlike <see cref="BouncingAxis" /> this never lets a ball stop falling. See
         ///         <see cref="MinimumFloorBounce" /> for why it may not, and what a settled ball is
