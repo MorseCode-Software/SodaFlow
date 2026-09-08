@@ -101,9 +101,9 @@ internal sealed class CollisionScene : IScene
 
     /// <inheritdoc />
     public string Summary =>
-        "The same four balls on a level table, now hitting each other as well as the walls. Every "
-        + "impact is solved for ahead of time rather than noticed afterwards, and it is elastic: "
-        + "momentum and energy both survive it, and the heavier ball gives way less.";
+        "The same four balls, now hitting each other as well as the walls. Every impact is solved "
+        + "for ahead of time rather than noticed afterwards, and it is elastic: momentum and "
+        + "energy both survive it, and the heavier ball gives way less.";
 
     /// <inheritdoc />
     public double Width => Arrangement.Width;
@@ -123,31 +123,13 @@ internal sealed class CollisionScene : IScene
         {
             Arrangement.Start start = Arrangement.Starts[i];
 
-            // No gravity, unlike every other scene: a level table seen from above. Two
-            // reasons, and the second is the one that decided it.
-            //
-            // Falling balls spend their time doing what the other scenes already show, and the
-            // impacts are over before the eye can read them. Level, the collisions are the only
-            // thing that happens, and the angles and the mass ratios are legible.
-            //
-            // It also keeps them slow. Every alarm in this library is a wait on a real clock,
-            // which on Windows wakes on about a fifteen millisecond granularity, so between the
-            // instant two balls truly touch and the instant the graph is told, they carry on
-            // closing. That error is speed multiplied by that granularity, and gravity is what
-            // makes the speed. It is the same artifact the other scenes have at a wall, and this
-            // is the scene where it would show most.
+            // The same gravity as every other scene, which is what keeps the relative
+            // acceleration between any two balls at zero and the contact solve a quadratic. What
+            // it costs is visible: see the note on the clock above ContactTime.
             bodies[i] =
                 new Body(
-                    x: new Flight(
-                        startTime: time,
-                        position: start.X,
-                        velocity: start.VelocityX,
-                        acceleration: 0.0),
-                    y: new Flight(
-                        startTime: time,
-                        position: start.Y,
-                        velocity: start.VelocityY,
-                        acceleration: 0.0),
+                    x: Arrangement.InitialX(start: start, now: time),
+                    y: Arrangement.InitialY(start: start, now: time),
                     radius: start.Radius);
         }
 
@@ -281,11 +263,25 @@ internal sealed class CollisionScene : IScene
     ///     When two balls are next exactly touching, or none if they never are.
     /// </summary>
     /// <remarks>
-    ///     Both are under the same gravity, so the acceleration cancels out of the difference and
-    ///     their separation moves in a straight line. What is left is
-    ///     <c>|dp + dv t| = r1 + r2</c>, a quadratic in <c>t</c>, and the answer is its smaller
-    ///     positive root. Balls already moving apart are ignored: they are either separating or
-    ///     have just been resolved, and either way the next thing to happen to them is not this.
+    ///     <para>
+    ///         Worth knowing what this cannot do anything about. The moment is solved exactly, but
+    ///         the graph only hears about it when an alarm fires, and an alarm is a wait on a real
+    ///         clock - a few milliseconds late in practice. Until it fires the two balls are still
+    ///         following the equations they had, so they carry on closing, and at the fastest
+    ///         impacts they visibly overlap by a few pixels before springing apart. The error is
+    ///         closing speed multiplied by that lateness, which is why it shows here and barely
+    ///         shows at a wall in the other scenes: two balls can close on each other faster than
+    ///         either one approaches a wall.
+    ///     </para>
+    ///     <para>
+    ///         Both are under the same gravity, so the acceleration cancels out of the difference
+    ///         and their separation moves in a straight line. What is left is
+    ///         <c>|dp + dv t| = r1 + r2</c>, a quadratic in <c>t</c>, and the answer is its
+    ///         smaller positive root. Balls already moving apart are ignored: they are either
+    ///         separating or
+    ///         have just been resolved, and either way the next thing to happen to them is not
+    ///         this.
+    ///     </para>
     /// </remarks>
     private static Maybe<double> ContactTime(Body first, Body second)
     {

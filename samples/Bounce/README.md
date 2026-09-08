@@ -17,7 +17,7 @@ derived from.
 | **One ball** | A single ball on one axis. The whole idea, with nothing else in the way. |
 | **Several balls** | Four balls, each a pair of independent axes, bouncing off walls as well as the floor. |
 | **Grab and throw** | Drag a ball and let go. Its position switches between the pointer's and its own flight. |
-| **Ricochets** | The balls hit each other, on a level table. The one scene where the axes are not independent. |
+| **Ricochets** | The balls hit each other. The one scene where the axes are not independent. |
 
 The middle two share a checkbox and a slider setting what a bounce does to a ball's speed. The
 first is deliberately elastic, so that the smallest scene stays the smallest thing that makes the
@@ -234,21 +234,22 @@ comes back hard; two equal balls meeting head on simply trade velocities.
 Momentum and kinetic energy both survive, which is why this scene is not offered the damping
 controls — a multiplier below one would quietly spoil the thing it exists to show.
 
-## Why this table is level
+## The one thing the solve cannot fix
 
-It is the one scene without gravity, and that is a deliberate trade rather than an omission.
+At the fastest impacts the balls visibly overlap by a few pixels before springing apart — around
+ten at the worst, measured over seventy-eight seconds — and it is worth knowing that this is not
+the collision being computed loosely.
 
-Falling balls spend most of their time doing what the other three scenes already show, and the
-impacts are over before the eye can read them. Level, the collisions are the only thing that
-happens, and the angles and the mass ratios are legible.
+The moment of contact is exact. What is not instantaneous is being *told* about it: an alarm is a
+wait on a real clock, and it fires a few milliseconds late. Until it does, both balls are still
+following the equations they already had, so they carry on closing. The error is closing speed
+multiplied by that lateness, and it corrects itself the moment the alarm arrives — the impact is
+still resolved at the instant it truly happened, not at the instant the alarm ran, so nothing
+downstream of it is wrong.
 
-It also keeps them slow, which matters more than it sounds. Every alarm here is a wait on a real
-clock, and on Windows that wakes on roughly a fifteen millisecond granularity — so between the
-instant two balls truly touch and the instant the graph is told, they carry on closing. The error
-is closing speed multiplied by that granularity, and gravity is what supplies the speed. Under
-gravity the balls visibly interpenetrate by around nine pixels at the worst impacts; level, the
-worst measured over seventy-eight seconds is under two. It is the same artifact the other scenes
-have at a wall, and this is the scene where it would show most.
+It shows here more than at a wall in the other scenes for a simple reason: two balls can close on
+each other faster than either one approaches a wall. Gravity supplies most of that speed, which is
+the one lever available — a scene with less of it, or none, shows the artifact proportionally less.
 
 ## A note on the physics
 
