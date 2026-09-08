@@ -23,10 +23,11 @@ namespace SodaFlow.Samples.Bounce.Wpf;
 ///     </para>
 ///     <para>
 ///         The binding scheduler is pinned here too, before anything bindable exists, so that
-///         nothing afterwards depends on which thread a bindable happened to be built on.
+///         nothing afterward depends on which thread a bindable happened to be built on.
 ///     </para>
 /// </remarks>
-public partial class App
+// ReSharper disable once InheritdocConsiderUsage
+internal sealed partial class App
 {
     private IBounceViewModel? viewModel;
 
@@ -35,7 +36,7 @@ public partial class App
     {
         base.OnStartup(e);
 
-        // Pinned before anything bindable exists, so nothing afterwards depends on which
+        // Pinned before anything bindable exists, so nothing afterward depends on which
         // thread a bindable happened to be built on. Without it each one captures the
         // synchronization context of its constructing thread, and a view model built off
         // the UI thread would quietly get the wrong one - or none, and run inline.
@@ -44,7 +45,7 @@ public partial class App
         // The handler is called with anything raised while waiting for or firing a timer.
         // Timer callbacks run outside any call stack of yours, so an exception in one has
         // nowhere else to go.
-        this.viewModel = BounceViewModel.Create(ex => Debug.WriteLine(ex));
+        this.viewModel = BounceViewModel.Create(static ex => Debug.WriteLine(ex));
 
         MainWindow window = new() { DataContext = this.viewModel };
 

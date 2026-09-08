@@ -7,9 +7,10 @@
         mc:Ignorable="d"
         Title="SodaFlow Counter (WPF)"
         Width="340"
-        Height="240"
+        SizeToContent="Height"
         WindowStartupLocation="CenterScreen"
-        d:DataContext="{d:DesignInstance viewModels:ICounterViewModel}">
+        d:DataContext="{d:DesignInstance viewModels:ICounterViewModel}"
+        x:ClassModifier="internal">
 
     <!--
         Every binding path ends in .Value. A bindable property is an object that raises

@@ -1,4 +1,5 @@
 using System;
+using JetBrains.Annotations;
 using SodaFlow.Bindable.ObjectModel;
 
 namespace SodaFlow.Samples.Counter.ViewModels;
@@ -23,9 +24,11 @@ namespace SodaFlow.Samples.Counter.ViewModels;
 ///         this interface as through the class.
 ///     </para>
 /// </remarks>
+// ReSharper disable once InheritdocConsiderUsage
 public interface ICounterViewModel : IDisposable
 {
     /// <summary>The current count, for anything that wants the number itself.</summary>
+    [UsedImplicitly] // This property is actually unused, but provided simply as a sample
     IOneWayBindableValue<int> Count { get; }
 
     /// <summary>The count as text, formatted for the current culture.</summary>

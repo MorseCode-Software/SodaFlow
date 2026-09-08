@@ -19,7 +19,8 @@ namespace SodaFlow.Samples.Search.Avalonia;
 /// </remarks>
 // Namespace AvaloniaUi rather than Avalonia: a namespace whose last segment is Avalonia hides
 // the framework's own root namespace from anything written inside it.
-public class App : Application
+// ReSharper disable once InheritdocConsiderUsage
+internal sealed class App : Application
 {
     /// <inheritdoc />
     public override void Initialize() => AvaloniaXamlLoader.Load(this);
@@ -29,7 +30,7 @@ public class App : Application
     {
         if (this.ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
         {
-            // Pinned before anything bindable exists, so nothing afterwards depends on
+            // Pinned before anything bindable exists, so nothing afterward depends on
             // which thread a bindable happened to be built on. Without it each one
             // captures the synchronization context of its constructing thread, and a view
             // model built off the UI thread would quietly get the wrong one - or none, and

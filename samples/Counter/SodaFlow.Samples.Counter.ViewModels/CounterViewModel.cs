@@ -1,7 +1,6 @@
 using System;
 using System.Collections.Generic;
 using System.Globalization;
-using JetBrains.Annotations;
 using SodaFlow.Bindable.ObjectModel;
 using SodaFlow.Functional;
 
@@ -24,6 +23,7 @@ namespace SodaFlow.Samples.Counter.ViewModels;
 ///         PropertyChanged for "Value".
 ///     </para>
 /// </remarks>
+// ReSharper disable once InheritdocConsiderUsage
 public sealed class CounterViewModel
     : ICounterViewModel
 {
@@ -51,7 +51,6 @@ public sealed class CounterViewModel
     #endregion
 
     /// <inheritdoc />
-    [UsedImplicitly] // This property is actually unused, but provided simply as a sample
     public IOneWayBindableValue<int> Count { get; }
 
     /// <inheritdoc />
@@ -74,7 +73,7 @@ public sealed class CounterViewModel
     ///     The list is of <see cref="IDisposable" /> rather than of bindables because a view
     ///     model's disposables are not all bindables in general - a graph using MapAsync also
     ///     holds an AsyncMapStatus, as the search sample does - and disposal is the only thing
-    ///     being asked of any of them here.
+    ///     being asked of them here.
     /// </remarks>
     public void Dispose()
     {
@@ -88,7 +87,7 @@ public sealed class CounterViewModel
         // One transaction for the whole graph. Nothing here fires during construction, so it
         // changes no behavior in this sample - but it is the habit worth having: a graph
         // containing a Values() stream loses its first firing without it, silently.
-        Transaction.Run(() =>
+        Transaction.Run(static () =>
         {
             StreamSink<Unit> increment = Stream.CreateSink<Unit>();
             StreamSink<Unit> decrement = Stream.CreateSink<Unit>();
@@ -100,19 +99,21 @@ public sealed class CounterViewModel
             Stream<Func<int, int>> edits =
                 new[]
                 {
-                    increment.MapTo((int n) => n + 1), decrement.MapTo((int n) => n - 1), reset.MapTo((int _) => 0)
+                    increment.MapTo(static (int n) => n + 1),
+                    decrement.MapTo(static (int n) => n - 1),
+                    reset.MapTo(static (int _) => 0)
                 }.OrElse();
 
-            Cell<int> count = edits.Accum(initialState: 0, f: (edit, n) => edit(n));
+            Cell<int> count = edits.Accum(initialState: 0, f: static (edit, n) => edit(n));
 
             return new CounterViewModel(
                 count: count.ToOneWay(),
-                countText: count.Map(n => n.ToString(CultureInfo.CurrentCulture)).ToOneWay(),
+                countText: count.Map(static n => n.ToString(CultureInfo.CurrentCulture)).ToOneWay(),
                 increment: increment.ToBindableAction(),
                 decrement: decrement.ToBindableAction(),
 
                 // Enablement is just another cell. Nothing raises CanExecuteChanged by
                 // hand; the command follows the cell, and the cell follows the count.
-                reset: reset.ToBindableAction(count.Map(n => n != 0)));
+                reset: reset.ToBindableAction(count.Map(static n => n != 0)));
         });
 }

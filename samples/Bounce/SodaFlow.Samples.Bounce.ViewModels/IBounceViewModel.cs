@@ -25,6 +25,7 @@ namespace SodaFlow.Samples.Bounce.ViewModels;
 ///         this interface as through the class.
 ///     </para>
 /// </remarks>
+// ReSharper disable once InheritdocConsiderUsage
 public interface IBounceViewModel : IDisposable
 {
     /// <summary>The scenes to offer, smallest first.</summary>
@@ -44,7 +45,7 @@ public interface IBounceViewModel : IDisposable
     IOneWayBindableValue<string> SelectedSummary { get; }
 
     /// <summary>
-    ///     Whether the selected scene is one the damping applies to.
+    ///     Whether damping applies to the selected scene.
     /// </summary>
     /// <remarks>
     ///     The one-ball scene is deliberately elastic, so the controls appear only for the other

@@ -12,7 +12,7 @@ namespace SodaFlow.Samples.Search.ViewModels;
 ///     cancellation token, which is what makes cancellation actually stop work rather than
 ///     merely discard its result.
 /// </summary>
-public static class Catalog
+internal static class Catalog
 {
     private static readonly string[] Entries =
     {
@@ -98,7 +98,7 @@ public static class Catalog
             throw new InvalidOperationException("The catalog is unavailable. Try again shortly.");
         }
 
-        return Catalog.Entries
+        return Entries
             .Where(e => e.IndexOf(value: query.Trim(), comparisonType: StringComparison.OrdinalIgnoreCase) >= 0)
             .ToList();
     }

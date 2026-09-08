@@ -1,4 +1,4 @@
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using SodaFlow.Functional;
 using SodaFlow.Time;
 
@@ -24,8 +24,10 @@ namespace SodaFlow.Samples.Bounce.ViewModels;
 ///         them has to be told when it changes.
 ///     </para>
 /// </remarks>
-public sealed class WallsScene : IScene
+// ReSharper disable once InheritdocConsiderUsage
+internal sealed class WallsScene : IScene
 {
+    /// <param name="timers">The clock every ball's position is a function of.</param>
     /// <param name="restitution">
     ///     What a bounce multiplies the speed by, shared by every axis of every ball. See
     ///     <see cref="BounceViewModel" />, which owns the value the controls write.
@@ -39,7 +41,7 @@ public sealed class WallsScene : IScene
         // settled one up with - so coming back to it is what puts it back on its feet. The
         // restart is the input the axes already accept: the same one a throw arrives on in the
         // scene next door.
-        Stream<double> restarted = restarts.Snapshot(timers.Time, (_, time) => time);
+        Stream<double> restarted = restarts.Snapshot(b: timers.Time, f: static (_, time) => time);
 
         Ball[] balls = new Ball[Arrangement.Starts.Count];
 
@@ -49,24 +51,20 @@ public sealed class WallsScene : IScene
 
             balls[i] =
                 new Ball(
-                    x: BouncingAxis.Position(
+                    x: BouncingAxis.Create(
                         timers: timers,
-                        flight: BouncingAxis.Flights(
-                            timers: timers,
-                            initial: Arrangement.InitialX(start: start, now: now),
-                            min: start.Radius,
-                            max: Arrangement.Width - start.Radius,
-                            restarts: restarted.Map(time => Arrangement.InitialX(start: start, now: time)),
-                            restitution: restitution)),
-                    y: BouncingAxis.Position(
+                        initial: Arrangement.InitialX(start: start, now: now),
+                        min: start.Radius,
+                        max: Arrangement.Width - start.Radius,
+                        restarts: restarted.Map(time => Arrangement.InitialX(start: start, now: time)),
+                        restitution: restitution),
+                    y: BouncingAxis.Create(
                         timers: timers,
-                        flight: BouncingAxis.Flights(
-                            timers: timers,
-                            initial: Arrangement.InitialY(start: start, now: now),
-                            min: start.Radius,
-                            max: Arrangement.Height - start.Radius,
-                            restarts: restarted.Map(time => Arrangement.InitialY(start: start, now: time)),
-                            restitution: restitution)),
+                        initial: Arrangement.InitialY(start: start, now: now),
+                        min: start.Radius,
+                        max: Arrangement.Height - start.Radius,
+                        restarts: restarted.Map(time => Arrangement.InitialY(start: start, now: time)),
+                        restitution: restitution),
                     radius: start.Radius,
                     color: start.Color);
         }

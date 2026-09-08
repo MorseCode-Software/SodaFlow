@@ -36,6 +36,7 @@ public interface IScene
 ///     obliged to say so with three empty methods. A view asks whether the scene it is showing is
 ///     one of these.
 /// </remarks>
+// ReSharper disable once InheritdocConsiderUsage
 public interface IInteractiveScene : IScene
 {
     /// <summary>Takes hold of whichever ball is under the given point, if any.</summary>
@@ -44,6 +45,6 @@ public interface IInteractiveScene : IScene
     /// <summary>Moves the held ball, if one is held.</summary>
     void MoveTo(double x, double y);
 
-    /// <summary>Lets go, throwing the held ball at the speed the pointer was moving.</summary>
+    /// <summary>Releases the ball, throwing the held ball at the speed the pointer was moving.</summary>
     void Release();
 }

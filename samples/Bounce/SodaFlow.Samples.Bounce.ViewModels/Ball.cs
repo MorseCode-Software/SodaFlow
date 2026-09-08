@@ -1,5 +1,3 @@
-using System;
-
 namespace SodaFlow.Samples.Bounce.ViewModels;
 
 /// <summary>
@@ -21,14 +19,15 @@ public sealed class Ball
         this.Color = color;
     }
 
-    /// <summary>The centre's distance from the left edge, at any instant.</summary>
-    public Behavior<double> X { get; }
+    /// <summary>The center's distance from the left edge, at any instant.</summary>
+    private Behavior<double> X { get; }
 
-    /// <summary>The centre's distance from the top edge, at any instant.</summary>
-    public Behavior<double> Y { get; }
+    /// <summary>The center's distance from the top edge, at any instant.</summary>
+    private Behavior<double> Y { get; }
 
     public double Radius { get; }
 
+    // ReSharper disable once CommentTypo
     /// <summary>The fill, as <c>#RRGGBB</c>, so that either UI framework can read it.</summary>
     public string Color { get; }
 
@@ -38,5 +37,5 @@ public sealed class Ball
     ///     <c>Listen</c> and no <c>Updates</c>, because there is no discrete sequence of moments
     ///     for it to offer. A view samples when it draws.
     /// </remarks>
-    public (double X, double Y) SampleAt() => (this.X.Sample(), this.Y.Sample());
+    internal (double X, double Y) SampleAt() => (this.X.Sample(), this.Y.Sample());
 }

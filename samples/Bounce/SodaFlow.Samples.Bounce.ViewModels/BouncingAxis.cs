@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using SodaFlow.Functional;
 using SodaFlow.Time;
 
@@ -48,12 +48,12 @@ internal static class BouncingAxis
     /// </summary>
     /// <remarks>
     ///     The other end of the same problem <see cref="RestSpeed" /> answers. Multiply the speed
-    ///     by more than one at every bounce and it grows without bound, so the bounces get closer
+    ///     by more than one at every bounce, and it grows without bound, so the bounces get closer
     ///     together without limit - and once they are closer together than the timer can service
     ///     them, the flight in force is older than the moment being drawn and the body is drawn
     ///     wherever an equation it should have stopped following says. A speed the gaining stops at
     ///     keeps the bounces far enough apart to stay ahead of, which is what makes a multiplier
-    ///     above one something the simulation can honour rather than merely accept.
+    ///     above one something the simulation can honor rather than merely accept.
     /// </remarks>
     private const double MaximumSpeed = 2000.0;
 
@@ -61,25 +61,13 @@ internal static class BouncingAxis
     ///     Builds the position along one axis: a behavior defined at every instant, bouncing
     ///     between <paramref name="min" /> and <paramref name="max" />.
     /// </summary>
-    public static Behavior<double> Create(
-        ITimerSystem<double> timers,
-        Flight initial,
-        double min,
-        double max,
-        Cell<double> restitution) =>
-        Position(
-            timers: timers,
-            flight: Flights(
-                timers: timers,
-                initial: initial,
-                min: min,
-                max: max,
-                restarts: Stream.Never<Flight>(),
-                restitution: restitution));
-
-    /// <summary>
-    ///     The equation in force at each moment, each bounce replacing the one before it.
-    /// </summary>
+    /// <param name="timers">
+    ///     The clock the position is a function of, and the source of the alarms each bounce is
+    ///     scheduled on.
+    /// </param>
+    /// <param name="initial">The flight the body is following before any bounce or restart.</param>
+    /// <param name="min">The lower bound, which is the ceiling on an axis that points down.</param>
+    /// <param name="max">The upper bound, which is the floor on an axis that points down.</param>
     /// <param name="restarts">
     ///     Flights imposed from outside, which take precedence over a bounce arriving in the same
     ///     transaction. Releasing a thrown ball arrives here, and so does relaunching a scene that
@@ -91,7 +79,27 @@ internal static class BouncingAxis
     ///     loses speed, more gains it. Read at the moment of the bounce, so changing it affects the
     ///     next bounce rather than the flight already under way.
     /// </param>
-    public static Cell<Flight> Flights(
+    public static Behavior<double> Create(
+        ITimerSystem<double> timers,
+        Flight initial,
+        double min,
+        double max,
+        Stream<Flight> restarts,
+        Cell<double> restitution) =>
+        Position(
+            timers: timers,
+            flight: Flights(
+                timers: timers,
+                initial: initial,
+                min: min,
+                max: max,
+                restarts: restarts,
+                restitution: restitution));
+
+    /// <summary>
+    ///     The equation in force at each moment, each bounce replacing the one before it.
+    /// </summary>
+    private static Cell<Flight> Flights(
         ITimerSystem<double> timers,
         Flight initial,
         double min,
@@ -121,7 +129,7 @@ internal static class BouncingAxis
     /// <summary>
     ///     The position, following whichever flight is current.
     /// </summary>
-    public static Behavior<double> Position(ITimerSystem<double> timers, Cell<Flight> flight) =>
+    private static Behavior<double> Position(ITimerSystem<double> timers, Cell<Flight> flight) =>
         // Each flight becomes its own behavior - a function of time and nothing else - and
         // SwitchB flattens the cell of them back into a single continuous position.
         flight.Map(f => timers.Time.Map(f.PositionAt)).SwitchB();
@@ -129,13 +137,13 @@ internal static class BouncingAxis
     /// <summary>
     ///     When the given flight next reaches a bound, or none if it never does.
     /// </summary>
-    public static Maybe<double> NextBounceTime(Flight flight, double min, double max)
+    private static Maybe<double> NextBounceTime(Flight flight, double min, double max)
     {
         Maybe<double> toMin = TimeToReach(flight: flight, bound: min);
         Maybe<double> toMax = TimeToReach(flight: flight, bound: max);
 
         return toMin.Match(
-            onSome: a => toMax.Match(onSome: b => Maybe.Some(Math.Min(a, b)), onNone: () => Maybe.Some(a)),
+            onSome: a => toMax.Match(onSome: b => Maybe.Some(Math.Min(val1: a, val2: b)), onNone: () => Maybe.Some(a)),
             onNone: () => toMax);
     }
 
@@ -158,7 +166,7 @@ internal static class BouncingAxis
     ///         over one cannot do without, and for the mirror-image reason.
     ///     </para>
     /// </remarks>
-    public static Flight Reflect(Flight flight, double time, double min, double max, double restitution)
+    private static Flight Reflect(Flight flight, double time, double min, double max, double restitution)
     {
         double position = flight.PositionAt(time);
         double bound = Math.Abs(position - min) < Math.Abs(position - max) ? min : max;
@@ -178,7 +186,11 @@ internal static class BouncingAxis
 
     /// <summary>The given speed, in the direction it is going, held to <see cref="MaximumSpeed" />.</summary>
     private static double Clamp(double velocity) =>
-        velocity > MaximumSpeed ? MaximumSpeed : velocity < -MaximumSpeed ? -MaximumSpeed : velocity;
+        velocity > MaximumSpeed
+            ? MaximumSpeed
+            : velocity < -MaximumSpeed
+                ? -MaximumSpeed
+                : velocity;
 
     /// <summary>
     ///     How long until the flight reaches the bound, or none if it does not reach it going
@@ -197,7 +209,7 @@ internal static class BouncingAxis
         }
 
         // 0.5at^2 + vt + offset = 0, whose roots are the two moments the body is at the bound.
-        double discriminant = (flight.Velocity * flight.Velocity) - (2.0 * flight.Acceleration * offset);
+        double discriminant = flight.Velocity * flight.Velocity - 2.0 * flight.Acceleration * offset;
 
         if (discriminant < 0.0)
         {
@@ -209,7 +221,7 @@ internal static class BouncingAxis
         Maybe<double> second = Reached(flight: flight, dt: (-flight.Velocity + root) / flight.Acceleration);
 
         return first.Match(
-            onSome: a => second.Match(onSome: b => Maybe.Some(Math.Min(a, b)), onNone: () => Maybe.Some(a)),
+            onSome: a => second.Match(onSome: b => Maybe.Some(Math.Min(val1: a, val2: b)), onNone: () => Maybe.Some(a)),
             onNone: () => second);
     }
 

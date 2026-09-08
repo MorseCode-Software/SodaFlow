@@ -5,7 +5,7 @@
         x:Class="SodaFlow.Samples.Bounce.Avalonia.MainWindow"
         Title="SodaFlow Bounce (Avalonia)"
         Width="560"
-        Height="620"
+        SizeToContent="Height"
         WindowStartupLocation="CenterScreen"
         x:DataType="viewModels:IBounceViewModel">
 
@@ -25,7 +25,6 @@
                    TextWrapping="Wrap"
                    Foreground="Gray"
                    Margin="0,0,0,12" />
-
 
         <!--
             Shown only for the scenes the damping applies to, which is a value on the view model

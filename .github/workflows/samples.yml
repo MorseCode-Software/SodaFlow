@@ -1,9 +1,19 @@
-# Builds the sample solutions under samples/.
+# Builds and inspects the sample solutions under samples/.
 #
 # Independent of appveyor.yml, which builds, tests, packs and publishes the libraries under src/,
 # and of docs.yml, which builds the documentation site. Nothing is shared between the three.
 #
-# Deliberately not triggered by changes under src/. The samples reference published NuGet packages
+# build.cake is in the filter as well as samples/ itself, because the inspection step below lives
+# there: a change to how it is invoked - a rule excluded, a threshold moved - changes what these
+# samples are held to, and nothing else would re-run them.
+#
+# The rule set it reads, src/SodaFlow.sln.DotSettings, is deliberately NOT in the filter, though
+# the inspection reads that too. It cannot change on its own: Verify-Inspection-Settings requires
+# the three copies beside the sample solutions to be byte-identical to it, and that runs on every
+# AppVeyor build. So either a rule change carries those copies with it - and they are under
+# samples/, which is already here - or the build is red. Listing it as well would only add runs.
+#
+# Otherwise not triggered by changes under src/. The samples reference published NuGet packages
 # rather than the projects in this repository - see the comment in any sample's .csproj - so a
 # change to src/ cannot affect them, and this filter has no false negative to worry about. The other
 # side of that is what this build does NOT tell you: because each sample pins a package version, a
@@ -15,12 +25,20 @@ on:
     branches: [ main ]
     paths:
       - 'samples/**'
+      - 'build.cake'
       - '.github/workflows/samples.yml'
   pull_request:
     paths:
       - 'samples/**'
+      - 'build.cake'
       - '.github/workflows/samples.yml'
   workflow_dispatch:
+
+permissions:
+  # Uploading the inspection results to code scanning. Naming one permission drops every other to
+  # none, so the read that checkout needs is spelled out rather than inherited.
+  contents: read
+  security-events: write
 
 jobs:
   build:
@@ -37,9 +55,9 @@ jobs:
     name: ${{ matrix.sample }}
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - uses: actions/setup-dotnet@v4
+      - uses: actions/setup-dotnet@v6
         with:
           # 10.0 is what global.json pins, and is what actually runs the build. 8.0 is installed
           # alongside it so the net8.0 and net8.0-windows targets have their targeting packs
@@ -52,3 +70,53 @@ jobs:
       # today, so anything new is a regression rather than a backlog.
       - name: Build
         run: dotnet build samples/${{ matrix.sample }}/SodaFlow.Samples.${{ matrix.sample }}.slnx --configuration Release -warnaserror
+
+      # The step lives in build.cake rather than here, so it can be run locally the same way:
+      #
+      #     dotnet cake --target=Inspect-Sample --sample=Bounce
+      #
+      # It reads src/SodaFlow.sln.DotSettings - the one rule set every solution is held to - and
+      # fails on anything it finds, suggestions included, exactly as the inspection over src does.
+      #
+      # Still on v3 while every other action here is on a Node 24 major. cake-action has moved to
+      # Node 24 on its default branch but has not released it - v3.0.1, and the v3 tag, are still
+      # Node 20 - so this step keeps the deprecation notice until upstream cuts a release. Pinning
+      # to an unreleased commit to silence a warning is the worse trade.
+      #
+      # cake-version: tool-manifest is the load-bearing input. Without it the action installs a
+      # Cake of its own choosing, and CI would stop running the version pinned in
+      # .config/dotnet-tools.json - which is the whole reason that manifest exists. With it, the
+      # action restores the local tools, so inspectcode's `jb` arrives too and needs no step of
+      # its own.
+      #
+      # THIS STEP FAILS TODAY, and is here ahead of the fixes on purpose: 121 issues across the
+      # three samples, none of them yet addressed. The build going red is the point until they are.
+      - name: Inspect
+        uses: cake-build/cake-action@v3
+        with:
+          target: Inspect-Sample
+          cake-version: tool-manifest
+          arguments: |
+            sample: ${{ matrix.sample }}
+
+      # The SARIF the step above already wrote, handed to code scanning so the findings land on the
+      # lines they are about - in the Files tab of a pull request and in the Security tab - instead
+      # of only in a log that has to be opened and scrolled.
+      #
+      # Nothing about the inspection changes to make this work: it is the same report build.cake
+      # writes for its own reporting, and the same one AppVeyor keeps as an artifact.
+      #
+      # always(), because the step that produces it fails by design while there are findings, and
+      # those are exactly the runs worth annotating. continue-on-error, because this is
+      # presentation: if the upload breaks, the inspection result is still the one that failed the
+      # job, and an upload problem should not be mistaken for a code problem.
+      #
+      # category keeps the three samples apart. Without it each upload replaces the last for this
+      # commit, and only whichever job finished last would be visible.
+      - name: Upload inspection results
+        if: always()
+        continue-on-error: true
+        uses: github/codeql-action/upload-sarif@v4
+        with:
+          sarif_file: inspection/inspectcode-${{ matrix.sample }}.sarif
+          category: samples-${{ matrix.sample }}

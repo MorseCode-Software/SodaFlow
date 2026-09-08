@@ -30,6 +30,7 @@ namespace SodaFlow.Samples.Bounce.ViewModels;
 ///         exposed as an ordinary bindable property, exactly as in the other samples.
 ///     </para>
 /// </remarks>
+// ReSharper disable once InheritdocConsiderUsage
 public sealed class BounceViewModel : IBounceViewModel
 {
     private const double SmallestDamping = 0.1;
@@ -57,10 +58,7 @@ public sealed class BounceViewModel : IBounceViewModel
         this.Damping = damping;
 
         this.disposables =
-            new IDisposable[]
-            {
-                selectedScene, selectedSummary, isDampingAvailable, dampingEnabled, damping,
-            };
+            new IDisposable[] { selectedScene, selectedSummary, isDampingAvailable, dampingEnabled, damping };
     }
 
     /// <inheritdoc />
@@ -94,82 +92,10 @@ public sealed class BounceViewModel : IBounceViewModel
     public ITwoWayBindableValue<double> Damping { get; }
 
     /// <inheritdoc />
-    public double MinimumDamping => BounceViewModel.SmallestDamping;
+    public double MinimumDamping => SmallestDamping;
 
     /// <inheritdoc />
-    public double MaximumDamping => BounceViewModel.LargestDamping;
-
-    /// <param name="handleException">
-    ///     Called with anything raised while waiting for or firing a timer. Timer callbacks run
-    ///     outside any call stack of yours, so an exception in one has nowhere else to go.
-    /// </param>
-    public static IBounceViewModel Create(Action<Exception> handleException)
-    {
-        SecondsTimerSystem timers = new(handleException);
-
-        // One transaction for the whole construction, so that every scene starts from the same
-        // instant rather than from whatever the clock said as each one was built.
-        return Transaction.Run(
-            () =>
-            {
-                // The checkbox and the slider are two values, and what the physics wants is one:
-                // the multiplier a bounce applies. Turning damping off is the same as a multiplier
-                // of one, so that is what the graph says, rather than the bounce asking twice.
-                CellSink<bool> dampingEnabled = Cell.CreateSink(false);
-                CellSink<double> damping = Cell.CreateSink(BounceViewModel.InitialDamping);
-
-                Cell<double> restitution =
-                    dampingEnabled.Lift(c2: damping, f: (enabled, value) => enabled ? value : 1.0);
-
-                // A scene starts again when its tab becomes the selected one. That is a fact about
-                // the selection rather than something a view has to remember to call, and it is
-                // what a damped scene needs: below one every ball ends up at rest, and coming back
-                // to the tab is what puts it on its feet again.
-                //
-                // The selection cannot exist until the scenes do, and the scenes want the stream,
-                // so the stream is looped - declared now, defined once the selection is there. The
-                // index passed to each scene is its position in the array just below.
-                StreamLoop<int> activated = Stream.CreateLoop<int>();
-
-                Stream<Unit> ActivatedAt(int index) =>
-                    activated.Filter(i => i == index).Map(static _ => Unit.Value);
-
-                IScene simple = new SimpleScene(timers: timers, restarts: ActivatedAt(0));
-
-                IScene walls =
-                    new WallsScene(timers: timers, restitution: restitution, restarts: ActivatedAt(1));
-
-                IScene grab =
-                    new GrabScene(timers: timers, restitution: restitution, restarts: ActivatedAt(2));
-
-                IScene[] scenes = { simple, walls, grab };
-
-                // The simplest two-way case: the view is the only writer and the sink is the
-                // authoritative value. No scheduler is passed, so the ambient one is resolved -
-                // which the application pins at startup, so this does not care what thread it
-                // is built on.
-                CellSink<IScene> selected = Cell.CreateSink(scenes[0]);
-
-                // Updates and not the cell itself, so the scene showing at startup is not restarted
-                // the moment it is built.
-                activated.Loop(selected.Updates().Map(scene => Array.IndexOf(scenes, scene)));
-
-                return new BounceViewModel(
-                    scenes: scenes,
-                    selectedScene: selected.ToTwoWay(),
-                    selectedSummary: selected.Map(scene => scene.Summary).ToOneWay(),
-
-                    // Which scenes damping applies to is known here because this is where it was
-                    // handed over, so the answer is which scenes those were rather than a flag
-                    // every scene has to carry.
-                    isDampingAvailable:
-                    selected
-                        .Map(scene => ReferenceEquals(scene, walls) || ReferenceEquals(scene, grab))
-                        .ToOneWay(),
-                    dampingEnabled: dampingEnabled.ToTwoWay(),
-                    damping: damping.ToTwoWay());
-            });
-    }
+    public double MaximumDamping => LargestDamping;
 
     /// <inheritdoc />
     /// <remarks>
@@ -182,5 +108,75 @@ public sealed class BounceViewModel : IBounceViewModel
         {
             disposable.Dispose();
         }
+    }
+
+    /// <param name="handleException">
+    ///     Called with anything raised while waiting for or firing a timer. Timer callbacks run
+    ///     outside any call stack of yours, so an exception in one has nowhere else to go.
+    /// </param>
+    public static IBounceViewModel Create(Action<Exception> handleException)
+    {
+        SecondsTimerSystem timers = new(handleException);
+
+        // One transaction for the whole construction, so that every scene starts from the same
+        // instant rather than from whatever the clock said as each one was built.
+        return Transaction.Run(() =>
+        {
+            // The checkbox and the slider are two values, and what the physics wants is one:
+            // the multiplier a bounce applies. Turning damping off is the same as a multiplier
+            // of one, so that is what the graph says, rather than the bounce asking twice.
+            CellSink<bool> dampingEnabled = Cell.CreateSink(false);
+            CellSink<double> damping = Cell.CreateSink(InitialDamping);
+
+            Cell<double> restitution =
+                dampingEnabled.Lift(c2: damping, f: static (enabled, value) => enabled ? value : 1.0);
+
+            // A scene starts again when its tab becomes the selected one. That is a fact about
+            // the selection rather than something a view has to remember to call, and it is
+            // what a damped scene needs: below one every ball ends up at rest, and coming back
+            // to the tab is what puts it on its feet again.
+            //
+            // The selection cannot exist until the scenes do, and the scenes want the stream,
+            // so the stream is looped - declared now, defined once the selection is there. The
+            // index passed to each scene is its position in the array just below.
+            StreamLoop<int> activated = Stream.CreateLoop<int>();
+
+            IScene simple = new SimpleScene(timers: timers, restarts: ActivatedAt(0));
+
+            IScene walls =
+                new WallsScene(timers: timers, restitution: restitution, restarts: ActivatedAt(1));
+
+            IScene grab =
+                new GrabScene(timers: timers, restitution: restitution, restarts: ActivatedAt(2));
+
+            IScene[] scenes = { simple, walls, grab };
+
+            // The simplest two-way case: the view is the only writer and the sink is the
+            // authoritative value. No scheduler is passed, so the ambient one is resolved -
+            // which the application pins at startup, so this does not care what thread it
+            // is built on.
+            CellSink<IScene> selected = Cell.CreateSink(scenes[0]);
+
+            // Updates and not the cell itself, so the scene showing at startup is not restarted
+            // the moment it is built.
+            activated.Loop(selected.Updates().Map(scene => Array.IndexOf(array: scenes, value: scene)));
+
+            return new BounceViewModel(
+                scenes: scenes,
+                selectedScene: selected.ToTwoWay(),
+                selectedSummary: selected.Map(static scene => scene.Summary).ToOneWay(),
+
+                // Which scenes damping applies to is known here because this is where it was
+                // handed over, so the answer is which scenes those were rather than a flag
+                // every scene has to carry.
+                isDampingAvailable:
+                selected
+                    .Map(scene => ReferenceEquals(objA: scene, objB: walls) || ReferenceEquals(objA: scene, objB: grab))
+                    .ToOneWay(),
+                dampingEnabled: dampingEnabled.ToTwoWay(),
+                damping: damping.ToTwoWay());
+
+            Stream<Unit> ActivatedAt(int index) => activated.Filter(i => i == index).Map(static _ => Unit.Value);
+        });
     }
 }
