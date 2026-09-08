@@ -1,0 +1,73 @@
+# Turns the test results from a Build run into a Tests check run.
+#
+# This is the second half of build.yml's test reporting, and it is a separate workflow for one
+# reason: a pull request raised from a fork runs with a read-only token and cannot create a check
+# run. Anything reporting from inside build.yml therefore has to choose - annotate failures and give
+# fork contributors nothing, or serve everyone and annotate nobody. Both of those were tried there
+# before this file existed.
+#
+# workflow_run is the way out, and it is the reporter's own recommended setup for a public
+# repository. A workflow_run workflow is not the pull request's code: it runs from the default
+# branch, in this repository's context, with whatever permissions it declares - so it can write a
+# check run for a fork's commit without the fork's build ever holding a token that could. It sees
+# only the artifact, never the fork's code, which is what makes that safe.
+#
+# THE CATCH, and it is worth knowing before wondering why nothing appeared: a workflow_run workflow
+# only runs once it is on the default branch. Until this file is merged to main, Build produces the
+# artifact and no Tests check run follows it, on this pull request included.
+name: Test Report
+
+on:
+  workflow_run:
+    workflows: [ 'Build' ]
+    types: [ completed ]
+
+permissions:
+  # contents to read the repository, actions to list and download the artifact from the run that
+  # triggered this, checks to create the check run. Naming one drops every other to none.
+  contents: read
+  actions: read
+  checks: write
+
+jobs:
+  report:
+    name: Report
+    # ubuntu, unlike everything else here. Nothing is built or run: the action pulls an artifact
+    # through the API and parses XML, and none of that needs the Windows image the tests needed.
+    runs-on: ubuntu-latest
+
+    # A cancelled Build uploads no results - see the !cancelled() on that step - so there would be
+    # nothing to report and the download would be the only thing to notice. Skipped explicitly
+    # instead, because completed includes cancelled and a check run for a superseded commit is worse
+    # than no check run.
+    if: github.event.workflow_run.conclusion != 'cancelled'
+
+    steps:
+      # No checkout. The action reaches the artifact through the API, and checking out the code
+      # would only add a way for this workflow to run something it was handed.
+      #
+      # The artifact name is the contract with build.yml's Collect test results step; path is a
+      # glob inside the unpacked artifact, and stays broad because upload-artifact roots an archive
+      # at the common ancestor of what it matched, which is a detail neither file should depend on.
+      #
+      # fail-on-error and fail-on-empty are both off for the same reason they were in build.yml:
+      # this describes a run's outcome and must not be able to change it. A Build that failed before
+      # writing any results should be read as a failed Build, not as a failed report of one.
+      - name: Report tests
+        uses: dorny/test-reporter@v3
+        with:
+          artifact: test-results
+          name: Tests
+          path: '**/*.trx'
+          reporter: dotnet-trx
+          # The point of this whole arrangement. Every suite and every test, with failures annotated
+          # on the lines they happened on, rather than the counts a summary would give.
+          use-actions-summary: false
+          list-suites: all
+          list-tests: all
+          # 50 is the highest the action accepts. A run with more than fifty distinct failures has a
+          # problem the annotations were not going to explain, and the full list is in the check run
+          # either way.
+          max-annotations: 50
+          fail-on-error: false
+          fail-on-empty: false
