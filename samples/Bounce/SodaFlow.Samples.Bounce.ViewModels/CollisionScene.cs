@@ -77,6 +77,27 @@ internal sealed class CollisionScene : IScene
     /// </remarks>
     private const double MinimumFloorBounce = 40.0;
 
+    /// <summary>
+    ///     The speed no ball is allowed past, however much the damping keeps handing it.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         The mirror of <see cref="MinimumFloorBounce" />, and the same reason
+    ///         <see cref="BouncingAxis" /> has one. Above a restitution of one every impact returns
+    ///         more than it took, so the speed grows without bound and the events close up without
+    ///         limit - and once they are closer together than an alarm can be delivered, the graph
+    ///         is being told about a bounce after the ball has already gone through the wall. The
+    ///         balls leave the box and do not come back.
+    ///     </para>
+    ///     <para>
+    ///         2000px/s matches <see cref="BouncingAxis" />. It is chosen to be out of reach rather
+    ///         than to bite: with all of this scene's energy concentrated in its lightest ball, that
+    ///         ball would be doing about 2050px/s, and that is the theoretical worst an elastic run
+    ///         can produce. So the ceiling is only ever reached by a run that is being fed.
+    ///     </para>
+    /// </remarks>
+    private const double MaximumSpeed = 2000.0;
+
     /// <param name="timers">The clock every ball's position is a function of.</param>
     /// <param name="restitution">
     ///     What a bounce multiplies the speed by, the same cell the other two damped scenes read.
@@ -233,10 +254,33 @@ internal sealed class CollisionScene : IScene
         // window entirely; what remains of the rescue in WallTime is the case this cannot reach.
         for (int i = 0; i < next.Length; i++)
         {
-            next[i] = Contained(body: next[i], restitution: restitution);
+            next[i] = Bounded(Contained(body: next[i], restitution: restitution));
         }
 
         return next;
+    }
+
+    /// <summary>The same ball, with its speed held to <see cref="MaximumSpeed" />.</summary>
+    /// <remarks>
+    ///     The whole velocity is scaled rather than either axis clipped, so a ball held at the
+    ///     ceiling keeps the direction it was travelling. Applied after the impacts rather than
+    ///     inside them: the impulse conserves momentum exactly, and it is worth leaving that alone
+    ///     and doing the clamping somewhere it can be seen.
+    /// </remarks>
+    private static Body Bounded(Body body)
+    {
+        double vx = body.X.Velocity;
+        double vy = body.Y.Velocity;
+        double speed = Math.Sqrt(vx * vx + vy * vy);
+
+        if (speed <= MaximumSpeed)
+        {
+            return body;
+        }
+
+        double scale = MaximumSpeed / speed;
+
+        return body.WithVelocity(velocityX: vx * scale, velocityY: vy * scale);
     }
 
     /// <summary>
@@ -537,10 +581,23 @@ internal sealed class CollisionScene : IScene
         {
             Flight flight = horizontal ? this.X : this.Y;
 
-            // Clamped as well as reversed. On the ordinary path the ball is exactly on the bound
-            // and this changes nothing; it matters only when it arrived here already past it.
+            // Only if it is actually on its way out. A ball that has ended up beyond a bound and
+            // is coming back still meets that bound on the way in, and the solve reports it as a
+            // bounce - reversing there would throw the ball straight back out, and above a
+            // restitution of one it would leave harder each time. That is the oscillation that
+            // walked balls out of the box.
+            // Decided by which bound it is at rather than by comparing against one, because on
+            // the ordinary path the position lands on the bound to within a rounding error and
+            // either side of it has to count as arriving.
+            bool atMax = Math.Abs(flight.Position - max) < Math.Abs(flight.Position - min);
+            bool leaving = atMax ? flight.Velocity > 0.0 : flight.Velocity < 0.0;
+
+            // Clamped whichever way this goes. On the ordinary path the ball is exactly on the
+            // bound and this changes nothing; it matters when it arrived here already past it,
+            // and a ball on its way back in has to be put back on the legal side too - leaving it
+            // outside is what let one wander a hundred pixels clear of the box.
             double position = Math.Min(val1: Math.Max(val1: flight.Position, val2: min), val2: max);
-            double velocity = -flight.Velocity * restitution;
+            double velocity = leaving ? -flight.Velocity * restitution : flight.Velocity;
 
             bool onTheFloor = Math.Abs(position - max) < Math.Abs(position - min);
 
