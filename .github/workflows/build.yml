@@ -59,10 +59,14 @@ on:
   workflow_dispatch:
 
 permissions:
-  # Uploading the inspection results to code scanning, as samples.yml does. Naming one permission
-  # drops every other to none, so the read that checkout needs is spelled out rather than inherited.
+  # Naming one permission drops every other to none, so the read that checkout needs is spelled out
+  # rather than inherited.
   contents: read
+  # Uploading the inspection results to code scanning, as samples.yml does.
   security-events: write
+  # Creating the Tests check run. This is the permission a pull request raised from a fork does not
+  # get, which is why the step that needs it is allowed to fail without failing the job.
+  checks: write
 
 # Superseded pull request runs are cancelled, and nothing else is. A cancelled run has no duration
 # worth reading, so main keeps a complete run per commit to compare against.
@@ -156,57 +160,41 @@ jobs:
         run: dotnet cake --target=Test --exclusive --configuration=${{ env.CONFIGURATION }}
 
       # AppVeyor gets a Tests tab for free: build.cake hands it the trx files through its API as
-      # soon as the run finishes, and it renders individual tests. Actions has no equivalent, so
-      # this reads those same trx files and writes a job summary from them.
+      # soon as the run finishes, and it renders all 1300 of them individually. This is the Actions
+      # equivalent, and it reads the same trx files that step already wrote.
       #
-      # Worth being clear that this step IS the comparison on this point rather than a workaround
-      # for it. What AppVeyor gives without being asked costs a step and a script here, and this is
-      # about the cheapest honest version of it: no third-party action, no extra permission, and
-      # nothing that behaves differently on a pull request raised from a fork.
+      # It creates a check run named Tests listing every suite and every test, attaches the failures
+      # to the lines they happened on as annotations, and writes the same report into the job
+      # summary. list-suites and list-tests are at their defaults of "all" and named anyway, because
+      # they are the whole point of this step: a summary of counts was the earlier version of it,
+      # and counts are what AppVeyor's tab is not.
       #
-      # always(), because a failing test run is exactly the run whose results are worth reading,
-      # and the step before this one fails when tests fail.
-      - name: Summarize tests
+      # max-annotations is at 50, the highest the action accepts. A run with more than fifty
+      # distinct failures has a problem the annotations were not going to explain anyway, and the
+      # full list is still in the check run and the summary.
+      #
+      # fail-on-error and fail-on-empty are both off, and both would otherwise fail the job a second
+      # time for something already reported: the Test step above fails when a test fails, and fails
+      # before writing anything when it falls over early. Reporting should not be able to change a
+      # run's outcome, only describe it.
+      #
+      # always(), because a failing test run is exactly the run whose results are worth reading.
+      # continue-on-error, because creating a check run needs the checks: write permission that a
+      # pull request raised from a fork does not get. On such a run this step goes red on its own
+      # and the trx files in the coverage artifact are the fallback.
+      - name: Report tests
         if: always()
-        run: |
-          $ErrorActionPreference = 'Stop'
-          $results = @(Get-ChildItem -Path coverage -Recurse -Filter *.trx -ErrorAction SilentlyContinue)
-
-          if ($results.Count -eq 0) {
-              Add-Content -Path $env:GITHUB_STEP_SUMMARY -Value '## Tests', '', 'No .trx results were produced.'
-              exit 0
-          }
-
-          $rows = @()
-          $failures = @()
-
-          # One file per test project per framework, named for both, so the file name is the row
-          # label and nothing else has to be looked up to say which suite a number belongs to.
-          foreach ($file in $results | Sort-Object Name) {
-              $run = [xml](Get-Content -LiteralPath $file.FullName -Raw)
-              $counters = $run.TestRun.ResultSummary.Counters
-              $total = [int]$counters.total
-              $skipped = $total - [int]$counters.executed
-              $rows += '| {0} | {1} | {2} | {3} | {4} |' -f $file.BaseName, $total, [int]$counters.passed, [int]$counters.failed, $skipped
-
-              foreach ($test in @($run.TestRun.Results.UnitTestResult)) {
-                  if ($test.outcome -ne 'Failed') { continue }
-
-                  # The first line of the assertion only. The whole message, with its stack, is in
-                  # the log and in the uploaded trx; a summary that reproduced all of it would bury
-                  # the list of which tests failed, which is the part this is for.
-                  $message = @($test.Output.ErrorInfo.Message -split "`r?`n" | Where-Object { $_.Trim() })[0]
-                  $failures += '- `{0}` - {1}' -f $test.testName, $message
-              }
-          }
-
-          $lines = @('## Tests', '', '| Results | Total | Passed | Failed | Skipped |', '| --- | --: | --: | --: | --: |') + $rows
-
-          if ($failures.Count -gt 0) {
-              $lines += @('', '### Failures', '') + $failures
-          }
-
-          Add-Content -Path $env:GITHUB_STEP_SUMMARY -Value $lines
+        continue-on-error: true
+        uses: dorny/test-reporter@v3
+        with:
+          name: Tests
+          path: coverage/**/*.trx
+          reporter: dotnet-trx
+          list-suites: all
+          list-tests: all
+          max-annotations: 50
+          fail-on-error: false
+          fail-on-empty: false
 
       # Finds the Cobertura reports and fails if there are none, which is the check worth keeping
       # even on a run that submits nothing: a collector that has silently stopped collecting looks
