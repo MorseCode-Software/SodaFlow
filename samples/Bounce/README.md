@@ -219,7 +219,8 @@ move in straight lines, and "when are these two exactly touching" is
 |dp + dv t| = r1 + r2
 ```
 
-Give one ball a different acceleration and this scene needs a different solver.
+Give one ball a different acceleration and this scene needs a different solver — which is a
+thing it could have, and the section after next is about why it does not.
 
 ## What the impact does
 
@@ -261,6 +262,61 @@ run at 40px/s, 10.4s at 20, and 14.2s at 12.
 
 Sideways needs none of this. That axis has no acceleration to begin with, so a ball that damps to a
 horizontal standstill still matches its neighbors and costs nothing.
+
+## Why not just solve the quartic
+
+The obvious answer to a constraint like that is to drop it: let a resting ball keep its own
+acceleration and solve the harder equation. The solve is not what stands in the way, and it is
+worth being exact about that, because its cost is easy to overestimate.
+
+Contact becomes `|dp + dv t + ½ da t²| = r1 + r2`, and squaring it gives a quartic in `t`. Measured
+against the quadratic it would replace, it costs 128ns per pair against 10ns — twelve times as much
+of very little. Six pairs at a thousand steps a second, which is the most a pile of balls can
+force, is 0.08% of one core. It holds its accuracy too, sorted by how squarely the pair meets: the
+radial share of the closing speed at contact, where one is head on and a thousandth is the graze a
+settled ball is nearly always struck with.
+
+| radial share of the closing speed | worst error over 10,000 contacts | contacts missed |
+| --- | --- | --- |
+| 1 (head on) | none | 0% |
+| 0.01 | 2.1µs | 0% |
+| 0.001 (a graze) | 17.4µs | 0% |
+
+How it is solved is the part that matters. Not by the closed form: a quartic solved in radicals
+loses most of its digits on the near-double roots a grazing contact produces, and around a resting
+pile grazing contacts are most of them. Differentiating gives a cubic, which is far better behaved,
+and the roots of that cubic cut the horizon into intervals on which the quartic is monotone — so
+each interval holds at most one root, and a bracketed Newton cannot run away inside it. That is
+where the numbers above come from. It is also worth noticing that sharing an acceleration is a
+*pairwise* requirement rather than a global one: two resting balls agree with each other and two
+falling balls agree with each other, so only a mixed pair would ever pay for the quartic at all.
+
+What stands in the way is everything around the solve. Resting is a property of a contact rather
+than of a ball — a ball rests only while something holds it up — so allowing it needs a rule for
+waking as much as a rule for stopping. Against the floor that is easy, because the floor never
+moves: a resting ball wakes when something hits it, and that is an event this scene already
+computes. One layer up it stops being easy. A ball that comes to rest on *another ball* is held up
+by something that can move, and whether it is held up at all depends on what is holding up the ball
+beneath it. The forces in a stack are not decided pair by pair, and that is the point where a
+demonstration turns into a physics engine. A second problem waits behind that one: nothing here
+models friction or rolling, so a ball balanced on top of another would simply sit there.
+
+Zeno would move rather than leave, as well. Resting on the floor is what would kill the endless
+floor bounce, which is the whole prize — but a ball settling onto another ball has the same
+infinite sequence of ever smaller impacts, now against a curved surface that is itself moving,
+where coming back at a minimum speed has no equivalent that stays stable.
+
+Set against all that, what it buys is small. The bounce it would remove is already too small to
+see. The visible artifact that remains is the one described next, which comes from when the alarm
+arrives rather than from how the contact was solved, so a better solve does not touch it. What is
+left is the processor time above, and a paragraph of explanation.
+
+A bounded version would work — rest allowed against the floor and never on another ball, so no
+stack ever has to be reasoned about, and a ball that would have settled on another keeps its
+minimum bounce as it does today. It is left undone on purpose. The quadratic is part of what this
+scene is for: the sentence about a shared acceleration is what makes the event-driven solve worth
+reading, and a scene that needed a root isolator to explain itself would demonstrate less than one
+that needs the quadratic formula.
 
 ## The one thing the solve cannot fix
 
