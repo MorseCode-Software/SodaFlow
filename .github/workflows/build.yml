@@ -127,22 +127,53 @@ jobs:
           # project and the net60 target of every library resolve locally instead of restoring a
           # reference pack from NuGet mid-build.
           #
-          # If setup time turns out to matter to the comparison, dropping 6.0 and 8.0 is the first
-          # thing to try: the packs they provide are downloadable, so the build still works without
-          # them - it just pays for them somewhere less visible than a named step.
+          # If setup time turns out to matter, dropping 6.0 and 8.0 is the first thing to try: the
+          # packs they provide are downloadable, so the build still works without them - it just
+          # pays for them somewhere less visible than a named step.
           dotnet-version: |
             6.0.x
             8.0.x
             10.0.x
 
+          # Caches the NuGet packages folder, which is where both halves of this build's downloads
+          # land: the local tools from .config/dotnet-tools.json - Cake, DocFX, and the ReSharper
+          # command line tools, much the largest of them - and every PackageReference the solution
+          # restores. Restore tools alone was a minute of a nine minute run.
+          #
+          # There was deliberately no cache while AppVeyor and Actions were being compared, because
+          # AppVeyor had none configured and caching one side only would have measured the cache
+          # rather than the platform. That comparison is settled.
+          #
+          # This is setup-dotnet's own caching rather than an actions/cache step with a key built by
+          # hand, which is what this was first written as and could only have been written as: the
+          # input keys on lock files, and until every project got a packages.lock.json there was
+          # nothing for it to hash. Now there is, and a key hashed from the lock files is a better
+          # key than one hashed from project files - it changes when the resolved package graph
+          # changes, rather than when any line of any csproj does.
+          #
+          # Two things go into the key, because two things decide what ends up in that folder. The
+          # lock files cover every PackageReference; .config/dotnet-tools.json covers Cake, DocFX and
+          # the ReSharper command line tools, which the lock files say nothing about. Keyed on the
+          # lock files alone, bumping a tool version left the key unchanged - so a run restored the
+          # old cache, downloaded the new tool, saved no new entry, and repeated that download until
+          # something happened to move a lock file.
+          #
+          # One entry with both inputs rather than two entries, and that is not a shortcut: both
+          # halves live in the same NuGet packages folder, so a second cache over the same path would
+          # race the first on save and one would overwrite the other. What is wanted is a key that
+          # moves when either input moves, which is what a list here gives.
+          cache: true
+          cache-dependency-path: |
+            **/packages.lock.json
+            .config/dotnet-tools.json
+
       # appveyor.yml's install phase, unchanged. Cake and the ReSharper command line tools are
       # pinned in .config/dotnet-tools.json, so both CI systems and a developer all run the same
       # versions.
       #
-      # Deliberately no NuGet package cache, though actions/setup-dotnet offers one. AppVeyor has
-      # none configured, and adding one to only this side would make the first thing being measured
-      # - how long a build takes - a measurement of caching rather than of the platform. It is the
-      # obvious lever to pull if Actions wins on everything else and loses on time.
+      # Not cached: the tools/ directory Cake resolves its two #addin packages into. They are small,
+      # they change only when build.cake's addin lines do, and a second cache entry to save a couple
+      # of seconds is not worth the second thing to reason about.
       - name: Restore tools
         run: dotnet tool restore
 
