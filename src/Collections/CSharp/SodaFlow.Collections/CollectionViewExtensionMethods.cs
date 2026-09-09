@@ -163,6 +163,32 @@ public static class CollectionViewExtensionMethods
         CollectionViewUtility.SortByImpl(upstream, selector, sortComparer, keyComparer, descending);
 
     /// <summary>
+    ///     Narrows the view by a predicate over each item's immutable half — its identity — which a
+    ///     state edit cannot change.
+    /// </summary>
+    /// <typeparam name="TKey">The type of the keys.</typeparam>
+    /// <typeparam name="TId">The type of the immutable portion of an item.</typeparam>
+    /// <typeparam name="TState">The type of the mutable portion of an item.</typeparam>
+    /// <param name="upstream">The collection or view to narrow.</param>
+    /// <param name="predicate">Whether an item belongs in the view, given its identity.</param>
+    /// <returns>A view holding the items which pass.</returns>
+    /// <remarks>
+    ///     The same membership <c>Filter</c> gives for the same answers, and cheaper to keep. A
+    ///     state edit cannot move a key into this filter or out of it, so the stage neither
+    ///     re-tests the predicate nor asks whether the key was already in — it forwards the update
+    ///     and is done.
+    ///     Nothing is being promised on trust: the predicate is handed the identity and not the
+    ///     state, so it cannot read what it says it does not.
+    /// </remarks>
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    public static IReactiveCollection<TKey, TId, TState> FilterById<TKey, TId, TState>(
+        this IReactiveCollection<TKey, TId, TState> upstream,
+        Func<TId, bool> predicate)
+        where TKey : notnull
+        where TId : notnull =>
+        CollectionViewUtility.FilterByIdImpl(upstream, predicate);
+
+    /// <summary>
     ///     Reorders the view by a value projected from each item's immutable half — its identity —
     ///     which a state edit cannot change.
     /// </summary>

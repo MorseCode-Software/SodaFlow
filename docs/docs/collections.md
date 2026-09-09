@@ -102,6 +102,7 @@ IReactiveCollection<Guid, AccountId, AccountState> topTen = accounts
 | `Filter` | A predicate, a `Cell<Func<TId, TState, bool>>`, or a criteria cell plus a predicate |
 | `SortBy` / `SortByDescending` | A selector, or a selector with explicit comparers |
 | `SortById` / `SortByIdDescending` | The same, over the identity alone — see below |
+| `FilterById` | A predicate over the identity alone — see below |
 | `SortByKey` | The root's own order, over any stage |
 | `Take` | A count, or a `Cell<int>` |
 | `Switch` | Follows whichever view a cell holds |
@@ -221,14 +222,14 @@ the only per-item graph nodes it builds are the twenty a view actually asked for
 Keeping "the top twenty unfrozen items by score" current, against re-deriving it from a cell
 holding the whole collection with `Where`, `OrderByDescending` and `Take`:
 
-| Operation | Items | Re-derived | Chained | Chained, sorted by identity |
+| Operation | Items | Re-derived | Chained | Chained, identity only |
 | --- | --- | --- | --- | --- |
-| Edit one item | 1,000 | 70 µs | 11.7 µs | 10.1 µs |
-| Edit one item | 10,000 | 710 µs | 12.5 µs | 11.9 µs |
-| Add and remove an item | 1,000 | 134 µs | 27 µs | |
-| Add and remove an item | 10,000 | 1,447 µs | 30 µs | |
-| Change the threshold | 1,000 | 68 µs | 657 µs | 610 µs |
-| Change the threshold | 10,000 | 719 µs | 10,995 µs | 10,620 µs |
+| Edit one item | 1,000 | 68 µs | 11.5 µs | 10.1 µs |
+| Edit one item | 10,000 | 725 µs | 12.9 µs | 10.4 µs |
+| Add and remove an item | 1,000 | 136 µs | 28 µs | |
+| Add and remove an item | 10,000 | 1,428 µs | 30 µs | |
+| Change the threshold | 1,000 | 68 µs | 666 µs | 627 µs |
+| Change the threshold | 10,000 | 718 µs | 11,069 µs | 10,308 µs |
 
 Read the three rows separately, because they do not agree.
 
@@ -241,17 +242,22 @@ inherits the root's order, which sorts by key — and a key cannot change, so a 
 never move anything in it. Saying so rather than removing and re-adding the key to find out is
 worth about a tenth of an edit and a fifth of its allocation.
 
-`SortById` is how you say the same thing about a sort of your own: order by something in the
-identity — an account number, a code — and a state edit cannot move a key under it either. The
-last column is that. Its allocation is the steadier measure at about a fifth less, since the
-timing on an operation this small sits close to the benchmark's own noise; between the two, an
-edit at ten thousand items has gone from 13.8 µs and 17.7 KB to 11.9 µs and 11.1 KB over the
-course of these optimisations.
+`SortById` and `FilterById` are how you say the same thing about a sort or a filter of your own:
+order or select by something in the identity — an account number, a code, a type — and a state
+edit can move a key neither into the view nor within it. The last column is a chain of both.
 
-Do not read that column as a reason to sort by identity when you meant to sort by state. It is
-worth having when the sort was going to be over the identity anyway, which is common — and the
-selector is handed the identity and not the state, so it is a claim the signature keeps rather
-than one you make.
+They are not equal contributors. Of that column at ten thousand items, `SortById` accounts for
+almost all of it — 12.9 µs to 10.9 µs, and every byte of the allocation, because what it skips
+is re-filing, which copies tree paths. `FilterById` takes it to 10.4 µs and allocates exactly
+the same, because what it skips is lookups, and lookups allocate nothing. Its saving is a few
+percent here, and it should be a larger share of a filter that actually excludes most of what it
+sees, where an update for a key the view does not hold currently pays a membership test and a
+predicate test to conclude it should do nothing.
+
+Do not read the column as a reason to sort or filter by identity when you meant to use the
+state. It is worth having when the view was going to be over the identity anyway, which is
+common — and the selector and the predicate are handed the identity and not the state, so it is
+a claim the signature keeps rather than one you make.
 
 **Adding and removing** is flat too — twenty-nine microseconds and twenty-nine — which is fifty
 times a re-derivation at ten thousand items. It was not always: the identity map used to be a

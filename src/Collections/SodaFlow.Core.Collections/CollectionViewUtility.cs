@@ -119,6 +119,28 @@ internal static class CollectionViewUtility
     }
 
     /// <summary>
+    ///     Narrows the view by a predicate over each item's immutable half alone, which a state
+    ///     edit cannot change.
+    /// </summary>
+    /// <remarks>
+    ///     The same membership <see cref="FilterImpl{TKey,TId,TState}" /> would give for the same
+    ///     answers, and cheaper to keep. A state edit cannot move a key into this filter or out of
+    ///     it, so the stage neither re-tests the predicate nor asks whether the key was already in
+    ///     - it forwards the update and is done. The predicate is not handed the state, which is
+    ///     what makes that checkable rather than promised.
+    /// </remarks>
+    internal static IReactiveCollection<TKey, TId, TState> FilterByIdImpl<TKey, TId, TState>(
+        IReactiveCollection<TKey, TId, TState> upstream,
+        Func<TId, bool> predicate)
+        where TKey : notnull
+        where TId : notnull =>
+        BuildStage(
+            upstream,
+            CellInternal.ConstantImpl(predicate),
+            RebuildFilterById,
+            ProcessFilterById);
+
+    /// <summary>
     ///     Reorders the view by a value projected from each item's immutable half alone, which a
     ///     state edit cannot change.
     /// </summary>
@@ -389,6 +411,97 @@ internal static class CollectionViewUtility
             snapshot);
     }
 
+    private static IOrderedKeys<TKey, TId, TState> RebuildFilterById<TKey, TId, TState>(
+        Func<TId, bool> predicate,
+        IOrderedKeys<TKey, TId, TState> upstreamKeys,
+        CollectionSnapshot<TKey, TId, TState> snapshot)
+        where TKey : notnull
+        where TId : notnull =>
+        FileAll(
+            upstreamKeys.Order,
+            upstreamKeys.Where(key => PassesById(key, predicate, snapshot)),
+            snapshot);
+
+    /// <summary>
+    ///     What an identity-only filter does with a change, which on an update is nothing but pass
+    ///     it on.
+    /// </summary>
+    /// <remarks>
+    ///     An update carries a new state and nothing else, so it cannot have moved a key into this
+    ///     filter or out of it - the ordinary path's <c>Contains</c> and predicate test would both
+    ///     be computing a foregone conclusion. What is left is the index, which has to be looked up
+    ///     anyway to report the update, and which answers -1 for a key this stage does not hold, so
+    ///     one lookup settles both questions.
+    ///     Nothing guards that with a snapshot lookup, because an update names a key the snapshot
+    ///     holds by construction: the root emits one only for a key in its change's new states, and
+    ///     every stage below it only forwards.
+    /// </remarks>
+    private static StageOutcome<TKey, TId, TState> ProcessFilterById<TKey, TId, TState>(
+        Func<TId, bool> predicate,
+        IOrderedKeys<TKey, TId, TState> state,
+        CollectionViewChange<TKey, TId, TState> change)
+        where TKey : notnull
+        where TId : notnull
+    {
+        IOrderedKeys<TKey, TId, TState> keys = state;
+        List<ViewOperation<TKey>> operations = new();
+
+        foreach (ViewOperation<TKey> operation in change.Operations)
+        {
+            switch (operation)
+            {
+                case ViewInsert<TKey> insert:
+                {
+                    if (!PassesById(insert.Key, predicate, change.Snapshot))
+                    {
+                        break;
+                    }
+
+                    keys = keys.Add(insert.Key, change.Snapshot);
+
+                    int inserted = keys.IndexOf(insert.Key);
+
+                    if (inserted >= 0)
+                    {
+                        operations.Add(new ViewInsert<TKey>(insert.Key, inserted));
+                    }
+
+                    break;
+                }
+
+                case ViewRemove<TKey> remove:
+                {
+                    int removed = keys.IndexOf(remove.Key);
+
+                    if (removed >= 0)
+                    {
+                        operations.Add(new ViewRemove<TKey>(remove.Key, removed));
+                        keys = keys.Remove(remove.Key);
+                    }
+
+                    break;
+                }
+
+                case ViewUpdate<TKey> update:
+                {
+                    int updated = keys.IndexOf(update.Key);
+
+                    if (updated >= 0)
+                    {
+                        operations.Add(new ViewUpdate<TKey>(update.Key, updated));
+                    }
+
+                    break;
+                }
+
+                // A move upstream needs no action, for the reason it needs none in the ordinary
+                // filter: this stage's order is the upstream's applied to its own members.
+            }
+        }
+
+        return new StageOutcome<TKey, TId, TState>(keys, operations);
+    }
+
     private static StageOutcome<TKey, TId, TState> ProcessFilter<TKey, TId, TState>(
         Func<TId, TState, bool> predicate,
         IOrderedKeys<TKey, TId, TState> state,
@@ -608,6 +721,18 @@ internal static class CollectionViewUtility
         where TKey : notnull
         where TId : notnull =>
         order.CreateFrom(keys, snapshot);
+
+    /// <summary>
+    ///     Whether an item passes a predicate that reads its identity and not its state, which is
+    ///     one lookup rather than two.
+    /// </summary>
+    private static bool PassesById<TKey, TId, TState>(
+        TKey key,
+        Func<TId, bool> predicate,
+        CollectionSnapshot<TKey, TId, TState> snapshot)
+        where TKey : notnull
+        where TId : notnull =>
+        snapshot.TryGetIdentity(key, out TId identity) && predicate(identity);
 
     private static bool Passes<TKey, TId, TState>(
         TKey key,

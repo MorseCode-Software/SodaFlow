@@ -237,6 +237,91 @@ public sealed class CollectionViewTests
     }
 
     [Test]
+    public async Task FilterByIdNarrowsAndDoesNotReTestOnAStateEdit()
+    {
+        StreamSink<CollectionEdit<int, ItemId, ItemState>> edits =
+            Stream.CreateSink<CollectionEdit<int, ItemId, ItemState>>();
+
+        ReactiveCollection<int, ItemId, ItemState> collection = Create(
+            edits,
+            TestUtil.Item(1, "one", 10),
+            TestUtil.Item(2, "two", 20),
+            TestUtil.Item(3, "three", 30),
+            TestUtil.Item(4, "four", 40));
+
+        IReactiveCollection<int, ItemId, ItemState> evens =
+            collection.FilterById(static identity => identity.Number % 2 == 0);
+
+        await Assert.That(KeysOf(evens)).IsEquivalentTo([2, 4]);
+
+        List<string> operations = [];
+        IListener l = evens.ChangesStream.ListenStrong(
+            change => operations.AddRange(change.Operations.Select(Describe)));
+
+        // In the view: a score change cannot move it out, so this reports the update and nothing
+        // else - the membership was never in question.
+        edits.Send(TestUtil.Score(2, -1));
+
+        // Not in the view: an update for a key this filter does not hold reports nothing at all.
+        edits.Send(TestUtil.Score(1, -1));
+
+        l.Unlisten();
+
+        await Assert.That(operations).IsEquivalentTo(["ViewUpdate:2"]);
+        await Assert.That(KeysOf(evens)).IsEquivalentTo([2, 4]);
+    }
+
+    [Test]
+    public async Task FilterByIdStillFollowsStructuralChange()
+    {
+        StreamSink<CollectionEdit<int, ItemId, ItemState>> edits =
+            Stream.CreateSink<CollectionEdit<int, ItemId, ItemState>>();
+
+        ReactiveCollection<int, ItemId, ItemState> collection =
+            Create(edits, TestUtil.Item(2, "two", 20));
+
+        IReactiveCollection<int, ItemId, ItemState> evens =
+            collection.FilterById(static identity => identity.Number % 2 == 0);
+
+        await Assert.That(KeysOf(evens)).IsEquivalentTo([2]);
+
+        // An identity arriving is the one thing that can change this membership, and it is tested.
+        edits.Send(TestUtil.Add(TestUtil.Item(4, "four", 40)));
+        await Assert.That(KeysOf(evens)).IsEquivalentTo([2, 4]);
+
+        edits.Send(TestUtil.Add(TestUtil.Item(5, "five", 50)));
+        await Assert.That(KeysOf(evens)).IsEquivalentTo([2, 4]);
+
+        edits.Send(TestUtil.Remove(2));
+        await Assert.That(KeysOf(evens)).IsEquivalentTo([4]);
+    }
+
+    [Test]
+    public async Task FilterByIdComposesWithSortById()
+    {
+        StreamSink<CollectionEdit<int, ItemId, ItemState>> edits =
+            Stream.CreateSink<CollectionEdit<int, ItemId, ItemState>>();
+
+        ReactiveCollection<int, ItemId, ItemState> collection = Create(
+            edits,
+            TestUtil.Item(1, "one", 10),
+            TestUtil.Item(2, "two", 20),
+            TestUtil.Item(3, "three", 30),
+            TestUtil.Item(4, "four", 40));
+
+        // Neither stage reads the state, so nothing a state edit does can reach either of them.
+        IReactiveCollection<int, ItemId, ItemState> view = collection
+            .FilterById(static identity => identity.Number % 2 == 0)
+            .SortByIdDescending(static identity => identity.Number);
+
+        await Assert.That(KeysOf(view)).IsEquivalentTo([4, 2]);
+
+        edits.Send(TestUtil.Score(4, -1000));
+
+        await Assert.That(KeysOf(view)).IsEquivalentTo([4, 2]);
+    }
+
+    [Test]
     public async Task SortByIdOrdersByTheIdentityAndDoesNotReFileOnAStateEdit()
     {
         StreamSink<CollectionEdit<int, ItemId, ItemState>> edits =

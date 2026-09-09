@@ -155,6 +155,22 @@ internal sealed class RederivedViewShape : IKeyedCollectionViewShape
     public void SetThreshold(int threshold) => this.threshold.Send(threshold);
 }
 
+/// <summary>Which halves of an item the chain's two stages read.</summary>
+internal enum ChainStyle
+{
+    /// <summary>Filter on the score, sort on the score.</summary>
+    ByState,
+
+    /// <summary>Filter on the score, sort on the number.</summary>
+    SortById,
+
+    /// <summary>
+    ///     Neither stage reads the state, so nothing a state edit carries can reach either of them
+    ///     beyond the update they are obliged to forward.
+    /// </summary>
+    ByIdentity,
+}
+
 /// <summary>
 ///     <c>Filter</c>, then <c>SortByDescending</c>, then <c>Take</c> — each stage keeping its own
 ///     ordered key set and adjusting it.
@@ -185,13 +201,13 @@ internal sealed class ChainedViewShape : IKeyedCollectionViewShape
     public IReadOnlyList<int> Keys => [.. this.view.KeysCell.Sample()];
 
     /// <param name="itemCount">How many items the collection holds.</param>
-    /// <param name="sortByIdentity">
-    ///     Whether to order by the identity rather than the state. The seed gives every item a
-    ///     score equal to its number, so both orders put the same keys in the same places and the
-    ///     only thing that differs is which half the sort reads - and therefore whether a state
-    ///     edit can move anything.
+    /// <param name="style">
+    ///     Which halves the two stages read. Every arrangement holds the same keys in the same
+    ///     places: the seed gives every item a score equal to its number, and the initial threshold
+    ///     admits all of them - so what differs between them is only which half each stage reads,
+    ///     and therefore how much of a state edit it can ignore.
     /// </param>
-    internal static ChainedViewShape Build(int itemCount, bool sortByIdentity)
+    internal static ChainedViewShape Build(int itemCount, ChainStyle style)
     {
         List<Entry<ItemIdentity, ItemState>> entries = new(itemCount);
 
@@ -215,13 +231,18 @@ internal sealed class ChainedViewShape : IKeyedCollectionViewShape
 
             CellSink<int> threshold = Cell.CreateSink(ViewSeed.InitialThreshold);
 
+            // The identity filter admits everything, as the threshold one does at its initial
+            // value. What is being measured is not what the predicate answers - the ordinary
+            // filter looks the item up and asks either way - but whether it has to ask at all.
             IReactiveCollection<int, ItemIdentity, ItemState> filtered =
-                collection.Filter(threshold, static (limit, _, state) => ViewSeed.Passes(state, limit));
+                style == ChainStyle.ByIdentity
+                    ? collection.FilterById(static _ => true)
+                    : collection.Filter(threshold, static (limit, _, state) => ViewSeed.Passes(state, limit));
 
             IReactiveCollection<int, ItemIdentity, ItemState> view =
-                (sortByIdentity
-                    ? filtered.SortByIdDescending(static identity => identity.Number)
-                    : filtered.SortByDescending(static (_, state) => state.Score))
+                (style == ChainStyle.ByState
+                    ? filtered.SortByDescending(static (_, state) => state.Score)
+                    : filtered.SortByIdDescending(static identity => identity.Number))
                 .Take(ViewSeed.Limit);
 
             return new ChainedViewShape(

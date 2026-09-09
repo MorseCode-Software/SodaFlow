@@ -331,6 +331,23 @@ let sortByDescending
         true)
 
 /// <summary>
+///     Narrows the view by a predicate over each item's immutable half - its identity - which a
+///     state edit cannot change.
+/// </summary>
+/// <param name="predicate">Whether an item belongs in the view, given its identity.</param>
+/// <param name="upstream">The collection or view to narrow.</param>
+/// <returns>A view holding the items which pass.</returns>
+/// <remarks>
+///     The same membership <c>filter</c> gives for the same answers, and cheaper to keep: a state
+///     edit cannot move a key into this filter or out of it, so the stage neither re-tests the
+///     predicate nor asks whether the key was already in. The predicate is handed the identity and
+///     not the state, so it cannot read what it says it does not.
+/// </remarks>
+[<MethodImpl(MethodImplOptions.NoInlining)>]
+let filterById (predicate: 'TId -> bool) (upstream: IReactiveCollection<'TKey, 'TId, 'TState>) =
+    CollectionViewUtility.FilterByIdImpl(upstream, Func<_, _> predicate)
+
+/// <summary>
 ///     Reorders the view by a value projected from each item's immutable half - its identity -
 ///     which a state edit cannot change.
 /// </summary>

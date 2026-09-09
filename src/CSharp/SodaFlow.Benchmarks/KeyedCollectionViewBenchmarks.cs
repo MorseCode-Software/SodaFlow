@@ -55,8 +55,11 @@ public class KeyedCollectionViewBenchmarks
 {
     // Populated for real in the setup; built small here so the fields never have to be nullable.
     private IKeyedCollectionViewShape rederived = RederivedViewShape.Build(1);
-    private IKeyedCollectionViewShape chained = ChainedViewShape.Build(1, sortByIdentity: false);
-    private IKeyedCollectionViewShape chainedById = ChainedViewShape.Build(1, sortByIdentity: true);
+    private IKeyedCollectionViewShape chained = ChainedViewShape.Build(1, ChainStyle.ByState);
+    private IKeyedCollectionViewShape chainedById = ChainedViewShape.Build(1, ChainStyle.SortById);
+
+    private IKeyedCollectionViewShape chainedByIdentity =
+        ChainedViewShape.Build(1, ChainStyle.ByIdentity);
 
     private int editCount;
     private int thresholdCount;
@@ -72,8 +75,18 @@ public class KeyedCollectionViewBenchmarks
     public void Setup()
     {
         this.rederived = RederivedViewShape.Build(this.ItemCount);
-        this.chained = ChainedViewShape.Build(this.ItemCount, sortByIdentity: false);
-        this.chainedById = ChainedViewShape.Build(this.ItemCount, sortByIdentity: true);
+        this.chained = ChainedViewShape.Build(this.ItemCount, ChainStyle.ByState);
+        this.chainedById = ChainedViewShape.Build(this.ItemCount, ChainStyle.SortById);
+        this.chainedByIdentity = ChainedViewShape.Build(this.ItemCount, ChainStyle.ByIdentity);
+
+        if (!this.rederived.Keys.SequenceEqual(this.chainedByIdentity.Keys))
+        {
+            throw new InvalidOperationException(
+                "The chain reading only identities disagrees with the re-derived view, which it "
+                + "should not: its filter admits everything, as the threshold one does to begin "
+                + "with, and its sort orders by a number equal to the score. Chained on identity "
+                + $"throughout: [{Describe(this.chainedByIdentity.Keys)}].");
+        }
 
         if (!this.rederived.Keys.SequenceEqual(this.chainedById.Keys))
         {
@@ -107,6 +120,16 @@ public class KeyedCollectionViewBenchmarks
     /// </summary>
     [Benchmark(Description = "edit an item, chained on an identity sort")]
     public void EditChainedById() => this.chainedById.Replace(EditedKey, this.NextState());
+
+    /// <summary>
+    ///     And again, through a chain where neither stage reads the state. Membership cannot have
+    ///     changed and neither can any position, so between them the two stages do nothing but
+    ///     look up an index and forward the update — which is the floor, because a stage cannot
+    ///     know whether something below it sorts on what just changed.
+    /// </summary>
+    [Benchmark(Description = "edit an item, chained on identity throughout")]
+    public void EditChainedByIdentity() =>
+        this.chainedByIdentity.Replace(EditedKey, this.NextState());
 
     /// <summary>An item enters the collection and leaves it again.</summary>
     [Benchmark(Description = "add and remove an item, re-derived")]
