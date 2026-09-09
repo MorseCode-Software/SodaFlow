@@ -115,22 +115,28 @@ jobs:
 
       - uses: actions/setup-dotnet@v6
         with:
-          # 10.0 is what global.json pins, what runs the build, and what every test project and
-          # the benchmarks target. 6.0 is here only for its targeting pack, so the net60 half of
-          # every library resolves against something already on disk.
+          # 6.0 and nothing else, which is the whole list of what this build needs and the image
+          # does not already have. Measured on the runner rather than assumed: windows-latest ships
+          # SDKs 8.0.130 through 10.0.400 and reference packs for 8.0, 9.0 and 10.0, and
+          # `dotnet --version` from this repository root resolves to 10.0.400 with no setup-dotnet
+          # in front of it - so global.json is satisfied before this step runs. Installing 10.0 was
+          # about 26 seconds of installing something already present, twice per run.
           #
-          # 8.0 used to be here too, for one project: the benchmarks targeted net8.0 and nothing
-          # else did. Moving them to net10.0 removed the only reason to install a third SDK, which
-          # measured about 26 seconds on each of these two jobs.
+          # 8.0 was here for one project, the benchmarks, and went when they moved to net10.0.
           #
-          # 6.0 is not removable the same way, and it is worth saying why rather than leaving it as
-          # the obvious next cut. Without that SDK the net60 reference pack has to come from NuGet
-          # instead of from disk, and the lock files record no such package today - so a download
-          # appearing where the lock file expects none is exactly the shape of NU1004 that a locked
-          # restore refuses. Dropping it means proving that first, not assuming it.
-          dotnet-version: |
-            6.0.x
-            10.0.x
+          # 6.0 is the one thing genuinely missing: no 6.0 SDK, no 6.0 runtime, and - the part that
+          # matters - no 6.0 entry under the reference packs on disk. That absence is why the lock
+          # files record no framework package for net60: with the SDK installed the pack is found
+          # locally and nothing is downloaded. Drop this and the build has to fetch
+          # Microsoft.NETCore.App.Ref from NuGet, which is a package appearing where the lock file
+          # expects none - the shape of NU1004 that a locked restore refuses. Dropping it means
+          # proving that first, not assuming it.
+          #
+          # What this trades away is worth naming: the build now depends on the runner image
+          # continuing to ship an SDK that satisfies global.json. If it ever stops, every job here
+          # fails at once on the next pull request rather than releasing something wrong, and the
+          # fix is to put a version back in this list.
+          dotnet-version: 6.0.x
 
           # Caches the NuGet packages folder, which is where both halves of this build's downloads
           # land: the local tools from .config/dotnet-tools.json - Cake, DocFX, and the ReSharper
@@ -318,9 +324,7 @@ jobs:
       - uses: actions/setup-dotnet@v6
         with:
           # Same set as the build job, and for the same reasons - see there.
-          dotnet-version: |
-            6.0.x
-            10.0.x
+          dotnet-version: 6.0.x
           # Identical to the build job's, deliberately: same inputs, same key, one shared cache
           # entry. See there for why the key is what it is.
           cache: true
@@ -402,8 +406,11 @@ jobs:
 
       - uses: actions/setup-dotnet@v6
         with:
-          # Only 10.0 here. Nothing is compiled in this job, so the targeting packs the other two
-          # install for net60 and net8.0 have nothing to target.
+          # Deliberately still pinned, where the other two jobs now rely on whatever the image
+          # ships. Nothing is compiled here, so the 6.0 pack those two need has nothing to target -
+          # but this is the one path that cannot be re-run to fix a mistake, since nuget.org will
+          # not take a version twice, and the twenty-odd seconds an SDK install costs are invisible
+          # on a job that runs a few times a year.
           dotnet-version: 10.0.x
           cache: true
           cache-dependency-path: |
