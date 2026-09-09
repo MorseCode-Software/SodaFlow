@@ -147,8 +147,8 @@ item whose sort position has already moved underneath it.
 - Changing a predicate or a limit rebuilds that stage and everything below it and reports
   `IsReset`. This is much more expensive than it sounds, and more expensive than not having a
   chain at all: a rebuild is one immutable sorted-set insertion per surviving key, so at ten
-  thousand items one threshold change measures about thirty-nine times the cost of re-deriving
-  the same view with LINQ, and allocates thirty-four megabytes doing it. Debounce keystroke-driven
+  thousand items one threshold change measures about forty times the cost of re-deriving the
+  same view with LINQ, and allocates thirty-four megabytes doing it. Debounce keystroke-driven
   criteria upstream, and do not drive a chain from something that changes per frame.
 - `Take` diffs its old and new windows rather than translating operations: O(limit) per
   transaction, and a reorder inside the window reports as removes and inserts from the first
@@ -185,11 +185,11 @@ developer machine:
 
 | Items | Sinks per field | Cells per field from a stream | Reactive collection |
 | --- | --- | --- | --- |
-| 1,000 | 0.66 µs | 99 µs | 5.7 µs |
-| 10,000 | 0.72 µs | 2,757 µs | 5.9 µs |
+| 1,000 | 0.70 µs | 108 µs | 5.9 µs |
+| 10,000 | 0.71 µs | 3,010 µs | 6.3 µs |
 
 Ten times the items costs the stream-fed cells twenty-eight times the work and the collection
-four percent. That is the property the design is for: the cost of an edit follows the number of
+seven percent. That is the property the design is for: the cost of an edit follows the number of
 bound rows, not the size of the collection. Sinks per field are flat too, and faster — they are
 also the shape you cannot feed from a stream.
 
@@ -197,14 +197,13 @@ Standing the same collections up, on the same machine:
 
 | Items | Sinks per field | Cells per field from a stream | Reactive collection |
 | --- | --- | --- | --- |
-| 1,000 | 4.5 ms, 3.8 MB | 15.0 ms, 5.5 MB | 0.34 ms, 0.6 MB |
-| 10,000 | 114 ms, 36.8 MB | 220 ms, 54.6 MB | 6.6 ms, 4.8 MB |
+| 1,000 | 4.6 ms, 3.8 MB | 15.3 ms, 5.5 MB | 0.44 ms, 0.55 MB |
+| 10,000 | 115 ms, 36.9 MB | 217 ms, 54.4 MB | 7.3 ms, 4.5 MB |
 
 A cell per mutable value is `items × fields` graph nodes, and at ten thousand items that is a
-hundred and fourteen milliseconds and thirty-seven megabytes spent before anything is on
-screen. The collection is seventeen times less of the first and nearly eight times less of the
-second, because the only per-item graph nodes it builds are the twenty a view actually asked
-for.
+hundred and fifteen milliseconds and thirty-seven megabytes spent before anything is on screen.
+The collection is sixteen times less of the first and eight times less of the second, because
+the only per-item graph nodes it builds are the twenty a view actually asked for.
 
 ### What the view chain costs
 
@@ -213,25 +212,27 @@ holding the whole collection with `Where`, `OrderByDescending` and `Take`:
 
 | Operation | Items | Re-derived | Chained |
 | --- | --- | --- | --- |
-| Edit one item | 1,000 | 68 µs | 13 µs |
-| Edit one item | 10,000 | 736 µs | 14 µs |
-| Add and remove an item | 1,000 | 139 µs | 61 µs |
-| Add and remove an item | 10,000 | 1,400 µs | 384 µs |
-| Change the threshold | 1,000 | 67 µs | 1,790 µs |
-| Change the threshold | 10,000 | 711 µs | 27,988 µs |
+| Edit one item | 1,000 | 69 µs | 13 µs |
+| Edit one item | 10,000 | 717 µs | 14 µs |
+| Add and remove an item | 1,000 | 136 µs | 28 µs |
+| Add and remove an item | 10,000 | 1,472 µs | 30 µs |
+| Change the threshold | 1,000 | 68 µs | 1,893 µs |
+| Change the threshold | 10,000 | 707 µs | 29,421 µs |
 
 Read the three rows separately, because they do not agree.
 
 An **edit** is what the chain is for, and it is flat: thirteen microseconds at a thousand items
 and fourteen at ten thousand, against a re-derivation that grows with the collection. At ten
-thousand that is fifty-three times.
+thousand that is fifty-two times.
 
-**Adding and removing** wins too, but by less, and by less as the collection grows rather than
-more. That is not the stages: it is `Resolve` rebuilding the whole identity dictionary on any
-structural edit, which is O(n) whatever the chain below it does.
+**Adding and removing** is flat too — twenty-eight microseconds and thirty — which is fifty
+times a re-derivation at ten thousand items. It was not always: the identity map used to be a
+plain dictionary, which can only produce its next version by being copied, so a structural edit
+was O(n) however cheaply the stages below it absorbed the change. This benchmark is what found
+that, and the map is a trie now.
 
-**Changing the threshold** loses, by twenty-seven times at a thousand items and thirty-nine at
-ten thousand — twenty-eight milliseconds and thirty-four megabytes for one change of mind. A
+**Changing the threshold** loses, by twenty-eight times at a thousand items and forty-two at ten
+thousand — twenty-nine milliseconds and thirty-four megabytes for one change of mind. A
 rebuild is one sorted-set insertion per surviving key, so the chain pays n insertions where
 re-deriving pays one sort. If your criteria change as often as your data does, a chain is the
 wrong shape and a plain `Lift` is the right one.

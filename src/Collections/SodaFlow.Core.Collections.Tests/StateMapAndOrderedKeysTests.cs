@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Collections.Immutable;
 using System.Threading.Tasks;
 using TUnit.Assertions;
 using TUnit.Assertions.Extensions;
@@ -50,7 +51,9 @@ public sealed class OrderedKeysTests
     private static CollectionSnapshot<int, ItemId, ItemState> Snapshot(
         params Entry<ItemId, ItemState>[] entries)
     {
-        Dictionary<int, ItemId> identities = new();
+        ImmutableDictionary<int, ItemId>.Builder identities =
+            ImmutableDictionary.CreateBuilder<int, ItemId>();
+
         Dictionary<int, ItemState> states = new();
 
         foreach (Entry<ItemId, ItemState> entry in entries)
@@ -60,7 +63,7 @@ public sealed class OrderedKeysTests
         }
 
         return new CollectionSnapshot<int, ItemId, ItemState>(
-            identities,
+            identities.ToImmutable(),
             ImmutableStateMap<int, ItemState>.Empty.With(states, []));
     }
 

@@ -27,11 +27,12 @@ namespace SodaFlow.Benchmarks;
 ///         re-windows twenty.
 ///     </para>
 ///     <para>
-///         An <b>add and remove</b> is the same story for structural change, but a weaker version
-///         of it, and the reason is worth knowing: a structural edit copies the whole identity
-///         dictionary in <c>ReactiveCollection.Resolve</c>, so it is O(n) however cheaply the
-///         stages below it absorb the change. The chain still wins, and it stops winning by more
-///         as the collection grows, which is what that copy looks like from here.
+///         An <b>add and remove</b> is the same story for structural change, and this benchmark is
+///         what made it true. The identity map in <c>CollectionSnapshot</c> was a plain dictionary,
+///         which can only produce its next version by being copied, so a structural edit was O(n)
+///         however cheaply the stages below it absorbed the change — and it showed up here as a
+///         chain that won by less as the collection grew rather than more. The map is a trie now,
+///         and this is flat.
 ///     </para>
 ///     <para>
 ///         A <b>threshold change</b> is the case the chain loses, and loses badly rather than

@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Collections.Immutable;
 using JetBrains.Annotations;
 
 namespace SodaFlow.Collections;
@@ -16,10 +17,10 @@ public sealed class CollectionSnapshot<TKey, TId, TState>
     where TId : notnull
 {
     internal CollectionSnapshot(
-        IReadOnlyDictionary<TKey, TId> identities,
+        ImmutableDictionary<TKey, TId> identities,
         IStateMap<TKey, TState> states)
     {
-        this.Identities = identities;
+        this.IdentitiesImpl = identities;
         this.States = states;
     }
 
@@ -27,18 +28,32 @@ public sealed class CollectionSnapshot<TKey, TId, TState>
     ///     The immutable portion of every item. This object is replaced only on a structural edit,
     ///     which is what makes reference equality a sound test for "did the shape change".
     /// </summary>
-    public IReadOnlyDictionary<TKey, TId> Identities { get; }
+    public IReadOnlyDictionary<TKey, TId> Identities => this.IdentitiesImpl;
 
     /// <summary>The mutable portion of every item.</summary>
     public IStateMap<TKey, TState> States { get; }
 
+    /// <summary>
+    ///     The identity map as its concrete type, which is what lets the next version of it be
+    ///     built from this one rather than copied out of it.
+    /// </summary>
+    /// <remarks>
+    ///     A trie rather than the plain dictionary this was. A plain one is faster to read and costs
+    ///     O(n) to write, because the only way to produce its next version is to copy it — so a
+    ///     structural edit scaled with the collection however cheaply the view stages below it
+    ///     absorbed the change. <c>KeyedCollectionViewBenchmarks</c>'s add-and-remove is what found
+    ///     that; it costs O(log32 n) per key touched now, which puts the identity map on the same
+    ///     footing as the state map beside it, and that was always a trie.
+    /// </remarks>
+    internal ImmutableDictionary<TKey, TId> IdentitiesImpl { get; }
+
     /// <summary>The number of items.</summary>
-    public int Count => this.Identities.Count;
+    public int Count => this.IdentitiesImpl.Count;
 
     /// <summary>Whether a key is present.</summary>
     /// <param name="key">The key to look for.</param>
     /// <returns><see langword="true" /> if the key is present.</returns>
-    public bool ContainsKey(TKey key) => this.Identities.ContainsKey(key);
+    public bool ContainsKey(TKey key) => this.IdentitiesImpl.ContainsKey(key);
 
     /// <summary>Returns both halves of the item stored under a key, if there is one.</summary>
     /// <param name="key">The key to look up.</param>
@@ -51,7 +66,9 @@ public sealed class CollectionSnapshot<TKey, TId, TState>
     /// </remarks>
     public bool TryGetEntry(TKey key, out Entry<TId, TState>? entry)
     {
-        if (this.Identities.TryGet(key, out TId identity) &&
+        // Through the assembly's own helper rather than the concrete TryGetValue, which is
+        // annotated to leave its output null on false and so warns against a notnull TId.
+        if (this.IdentitiesImpl.TryGet(key, out TId identity) &&
             this.States.TryGetState(key, out TState state))
         {
             entry = new Entry<TId, TState>(identity, state);
@@ -62,6 +79,31 @@ public sealed class CollectionSnapshot<TKey, TId, TState>
         entry = null;
 
         return false;
+    }
+
+    /// <summary>
+    ///     The next version of the identity map, with <paramref name="removed" /> dropped and
+    ///     <paramref name="added" /> put in. Built from this one rather than copied out of it.
+    /// </summary>
+    internal ImmutableDictionary<TKey, TId> WithIdentities(
+        IEnumerable<KeyValuePair<TKey, TId>> added,
+        IEnumerable<TKey> removed)
+    {
+        // ToBuilder and ToImmutable are both O(1) - the builder wraps this map's root rather than
+        // copying it - so what this costs is one O(log32 n) write per key touched.
+        ImmutableDictionary<TKey, TId>.Builder builder = this.IdentitiesImpl.ToBuilder();
+
+        foreach (TKey key in removed)
+        {
+            builder.Remove(key);
+        }
+
+        foreach (KeyValuePair<TKey, TId> pair in added)
+        {
+            builder[pair.Key] = pair.Value;
+        }
+
+        return builder.ToImmutable();
     }
 
     internal MaybeInternal<Entry<TId, TState>> LookupInternal(TKey key) =>

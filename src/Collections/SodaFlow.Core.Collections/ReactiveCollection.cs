@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Collections.Immutable;
 using System.Linq;
 using System.Threading;
 using JetBrains.Annotations;
@@ -126,15 +127,17 @@ public sealed class ReactiveCollection<TKey, TId, TState> : IReactiveCollection<
         IStateMap<TKey, TState> emptyStateMap,
         params Stream<CollectionEdit<TKey, TId, TState>>[] editStreams)
     {
-        Dictionary<TKey, TId> identities = new();
+        ImmutableDictionary<TKey, TId>.Builder identities =
+            ImmutableDictionary.CreateBuilder<TKey, TId>();
+
         Dictionary<TKey, TState> states = new();
 
         foreach (Entry<TId, TState> entry in initialEntries)
         {
             TKey key = keySelector(entry.Identity);
 
-            // ContainsKey rather than Dictionary.TryAdd, which netstandard2.0 and net472 do not
-            // have.
+            // ContainsKey rather than TryAdd, which netstandard2.0 and net472 do not have on a
+            // dictionary and which a builder does not have at all.
             if (identities.ContainsKey(key))
             {
                 throw new ArgumentException($"Duplicate key '{key}' in the initial entries.");
@@ -145,7 +148,7 @@ public sealed class ReactiveCollection<TKey, TId, TState> : IReactiveCollection<
         }
 
         CollectionSnapshot<TKey, TId, TState> initial =
-            new(identities, emptyStateMap.With(states, Array.Empty<TKey>()));
+            new(identities.ToImmutable(), emptyStateMap.With(states, Array.Empty<TKey>()));
 
         Stream<CollectionEdit<TKey, TId, TState>> editsStream = MergeEdits(editStreams);
 
@@ -282,29 +285,16 @@ public sealed class ReactiveCollection<TKey, TId, TState> : IReactiveCollection<
             return MaybeInternal<CollectionChange<TKey, TId, TState>>.None;
         }
 
-        IReadOnlyDictionary<TKey, TId> identities = before.Identities;
-
-        if (added.Count > 0 || removed.Count > 0)
-        {
-            Dictionary<TKey, TId> next = new(before.Identities.Count);
-
-            foreach (KeyValuePair<TKey, TId> pair in before.Identities)
-            {
-                next.Add(pair.Key, pair.Value);
-            }
-
-            foreach (TKey key in removed)
-            {
-                next.Remove(key);
-            }
-
-            foreach (Entry<TId, TState> entry in edit.Adds)
-            {
-                next[keySelector(entry.Identity)] = entry.Identity;
-            }
-
-            identities = next;
-        }
+        // Only a structural edit moves the identity map, and it moves it by building the next
+        // version from this one rather than copying it - so an add costs one write rather than a
+        // pass over the collection.
+        ImmutableDictionary<TKey, TId> identities =
+            added.Count > 0 || removed.Count > 0
+                ? before.WithIdentities(
+                    edit.Adds.Select(entry =>
+                        new KeyValuePair<TKey, TId>(keySelector(entry.Identity), entry.Identity)),
+                    removed)
+                : before.IdentitiesImpl;
 
         CollectionSnapshot<TKey, TId, TState> after = new(
             identities,
