@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using SodaFlow.Bindable.ObjectModel;
 using SodaFlow.Functional;
@@ -149,7 +149,13 @@ public sealed class BounceViewModel : IBounceViewModel
             IScene grab =
                 new GrabScene(timers: timers, restitution: restitution, restarts: ActivatedAt(2));
 
-            IScene[] scenes = { simple, walls, grab };
+            // Damped at the walls like the other two, but not at the impacts between balls -
+            // those stay elastic whatever the slider says, because what they conserve is the point
+            // of the scene. See CollisionScene.Reflected.
+            IScene ricochets =
+                new CollisionScene(timers: timers, restitution: restitution, restarts: ActivatedAt(3));
+
+            IScene[] scenes = { simple, walls, grab, ricochets };
 
             // The simplest two-way case: the view is the only writer and the sink is the
             // authoritative value. No scheduler is passed, so the ambient one is resolved -
@@ -171,7 +177,11 @@ public sealed class BounceViewModel : IBounceViewModel
                 // every scene has to carry.
                 isDampingAvailable:
                 selected
-                    .Map(scene => ReferenceEquals(objA: scene, objB: walls) || ReferenceEquals(objA: scene, objB: grab))
+                    .Map(
+                        scene =>
+                            ReferenceEquals(objA: scene, objB: walls)
+                            || ReferenceEquals(objA: scene, objB: grab)
+                            || ReferenceEquals(objA: scene, objB: ricochets))
                     .ToOneWay(),
                 dampingEnabled: dampingEnabled.ToTwoWay(),
                 damping: damping.ToTwoWay());

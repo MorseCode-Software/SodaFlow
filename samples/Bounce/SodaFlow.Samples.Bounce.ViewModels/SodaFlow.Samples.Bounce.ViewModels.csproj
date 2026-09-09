@@ -1,4 +1,4 @@
-<Project Sdk="Microsoft.NET.Sdk">
+﻿<Project Sdk="Microsoft.NET.Sdk">
 
     <PropertyGroup>
         <!--
@@ -20,6 +20,7 @@
         <Compile Include="SimpleScene.cs"/>
         <Compile Include="WallsScene.cs"/>
         <Compile Include="GrabScene.cs"/>
+        <Compile Include="CollisionScene.cs"/>
         <Compile Include="Arrangement.cs"/>
         <Compile Include="Ball.cs"/>
         <Compile Include="BouncingAxis.cs"/>

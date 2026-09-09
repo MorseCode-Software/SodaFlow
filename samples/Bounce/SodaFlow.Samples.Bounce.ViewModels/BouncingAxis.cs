@@ -137,7 +137,7 @@ internal static class BouncingAxis
     /// <summary>
     ///     When the given flight next reaches a bound, or none if it never does.
     /// </summary>
-    private static Maybe<double> NextBounceTime(Flight flight, double min, double max)
+    internal static Maybe<double> NextBounceTime(Flight flight, double min, double max)
     {
         Maybe<double> toMin = TimeToReach(flight: flight, bound: min);
         Maybe<double> toMax = TimeToReach(flight: flight, bound: max);
