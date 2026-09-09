@@ -144,8 +144,12 @@ item whose sort position has already moved underneath it.
 
 ## Three costs worth knowing
 
-- Changing a predicate or a limit rebuilds that stage and everything below it, reports
-  `IsReset`, and costs O(m log m). Debounce keystroke-driven criteria upstream.
+- Changing a predicate or a limit rebuilds that stage and everything below it and reports
+  `IsReset`. This is much more expensive than it sounds, and more expensive than not having a
+  chain at all: a rebuild is one immutable sorted-set insertion per surviving key, so at ten
+  thousand items one threshold change measures about thirty-nine times the cost of re-deriving
+  the same view with LINQ, and allocates thirty-four megabytes doing it. Debounce keystroke-driven
+  criteria upstream, and do not drive a chain from something that changes per frame.
 - `Take` diffs its old and new windows rather than translating operations: O(limit) per
   transaction, and a reorder inside the window reports as removes and inserts from the first
   differing position rather than as moves. For a top-n that is the cheap direction to be wrong
@@ -160,7 +164,9 @@ independent of the collection size — is what
 `src/CSharp/SodaFlow.Benchmarks/KeyedCollectionEditBenchmarks.cs` measures, against the two
 shapes people reach for instead: a cell sink per mutable value per object, and the same cells
 fed from one shared edit stream.
-`KeyedCollectionBuildBenchmarks` measures what each of them costs to stand up.
+`KeyedCollectionBuildBenchmarks` measures what each of them costs to stand up, and
+`KeyedCollectionViewBenchmarks` measures the view chain — `Filter`, `SortBy` and `Take` — against
+re-deriving the same view from a cell holding the whole collection.
 
 ```bash
 dotnet run -c Release --project src/CSharp/SodaFlow.Benchmarks -- --filter *KeyedCollection*
@@ -199,6 +205,36 @@ hundred and fourteen milliseconds and thirty-seven megabytes spent before anythi
 screen. The collection is seventeen times less of the first and nearly eight times less of the
 second, because the only per-item graph nodes it builds are the twenty a view actually asked
 for.
+
+### What the view chain costs
+
+Keeping "the top twenty unfrozen items by score" current, against re-deriving it from a cell
+holding the whole collection with `Where`, `OrderByDescending` and `Take`:
+
+| Operation | Items | Re-derived | Chained |
+| --- | --- | --- | --- |
+| Edit one item | 1,000 | 68 µs | 13 µs |
+| Edit one item | 10,000 | 736 µs | 14 µs |
+| Add and remove an item | 1,000 | 139 µs | 61 µs |
+| Add and remove an item | 10,000 | 1,400 µs | 384 µs |
+| Change the threshold | 1,000 | 67 µs | 1,790 µs |
+| Change the threshold | 10,000 | 711 µs | 27,988 µs |
+
+Read the three rows separately, because they do not agree.
+
+An **edit** is what the chain is for, and it is flat: thirteen microseconds at a thousand items
+and fourteen at ten thousand, against a re-derivation that grows with the collection. At ten
+thousand that is fifty-three times.
+
+**Adding and removing** wins too, but by less, and by less as the collection grows rather than
+more. That is not the stages: it is `Resolve` rebuilding the whole identity dictionary on any
+structural edit, which is O(n) whatever the chain below it does.
+
+**Changing the threshold** loses, by twenty-seven times at a thousand items and thirty-nine at
+ten thousand — twenty-eight milliseconds and thirty-four megabytes for one change of mind. A
+rebuild is one sorted-set insertion per surviving key, so the chain pays n insertions where
+re-deriving pays one sort. If your criteria change as often as your data does, a chain is the
+wrong shape and a plain `Lift` is the right one.
 
 ## Simultaneous edits
 

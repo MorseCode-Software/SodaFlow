@@ -40,6 +40,8 @@
         <Compile Include="KeyedCollectionBuildBenchmarks.cs"/>
         <Compile Include="KeyedCollectionEditBenchmarks.cs"/>
         <Compile Include="KeyedCollectionShapes.cs"/>
+        <Compile Include="KeyedCollectionViewBenchmarks.cs"/>
+        <Compile Include="KeyedCollectionViewShapes.cs"/>
         <Compile Include="Program.cs"/>
         <Compile Include="SelectAllBenchmarks.cs"/>
     </ItemGroup>
