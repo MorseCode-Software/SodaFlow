@@ -35,6 +35,32 @@
     </PropertyGroup>
 
     <!--
+        The .NET Framework reference assemblies come from this package on every operating system,
+        rather than from whatever is installed on the machine.
+
+        Without this the package graph for net472 is not the same on Windows as it is elsewhere. The
+        SDK adds this reference itself when it cannot use an installed targeting pack, which is to
+        say on Linux and macOS but not on Windows, so a lock file generated here would not describe
+        a restore there. That is not theoretical: docs.yml builds on ubuntu, and the first locked
+        restore it ran failed NU1004 naming exactly this package.
+
+        Declaring it explicitly and turning the automatic version off makes both halves deterministic
+        - the same reference whoever restores, so one lock file is true everywhere. The version is
+        the one the SDK was asking for.
+
+        The side benefit is worth having on its own: net472 no longer depends on a targeting pack
+        being installed, so it builds anywhere rather than only on an image that happens to carry
+        the right Visual Studio components.
+    -->
+    <PropertyGroup>
+        <AutomaticallyUseReferenceAssemblyPackages>false</AutomaticallyUseReferenceAssemblyPackages>
+    </PropertyGroup>
+
+    <ItemGroup Condition="'$(TargetFrameworkIdentifier)' == '.NETFramework'">
+        <PackageReference Include="Microsoft.NETFramework.ReferenceAssemblies" Version="1.0.3" PrivateAssets="all"/>
+    </ItemGroup>
+
+    <!--
         Package metadata shared by every packable project here. Anything that identifies an
         individual package — PackageId, Title, Product, Description, AssemblyName, RootNamespace —
         stays in that project's own file.

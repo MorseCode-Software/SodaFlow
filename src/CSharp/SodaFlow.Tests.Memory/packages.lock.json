@@ -14,6 +14,15 @@
         "resolved": "3.2.20220510",
         "contentHash": "jhzqT6zXFN0S6zxNXKmiEoNIqAEtlbsteQEhDA8TkTFfQpE/noktqU1HXfJ4P2PPczW48aFW9h69nHY8pSbnXw=="
       },
+      "Microsoft.NETFramework.ReferenceAssemblies": {
+        "type": "Direct",
+        "requested": "[1.0.3, )",
+        "resolved": "1.0.3",
+        "contentHash": "vUc9Npcs14QsyOD01tnv/m8sQUnGTGOw1BCmKcv77LBJY7OxhJ+zJF7UD/sCL3lYNFuqmQEVlkfS4Quif6FyYg==",
+        "dependencies": {
+          "Microsoft.NETFramework.ReferenceAssemblies.net472": "1.0.3"
+        }
+      },
       "MinVer": {
         "type": "Direct",
         "requested": "[8.0.0, )",
@@ -70,6 +79,11 @@
           "System.Text.Encodings.Web": "10.0.10",
           "System.Text.Json": "10.0.10"
         }
+      },
+      "Microsoft.NETFramework.ReferenceAssemblies.net472": {
+        "type": "Transitive",
+        "resolved": "1.0.3",
+        "contentHash": "0E7evZXHXaDYYiLRfpyXvCh+yzM2rNTyuZDI+ZO7UUqSc6GfjePiXTdqJGtgIKUwdI81tzQKmaWprnUiPj9hAw=="
       },
       "Microsoft.Testing.Extensions.CodeCoverage": {
         "type": "Transitive",
