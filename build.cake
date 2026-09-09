@@ -63,11 +63,6 @@ var mirroredInspectionSettings = new[]
     File("./samples/Search/SodaFlow.Samples.Search.sln.DotSettings"),
     File("./samples/Bounce/SodaFlow.Samples.Bounce.sln.DotSettings"),
 };
-var coverallsExecutable = File("./coveralls.exe");
-
-const string CoverallsDownloadUrl =
-    "https://github.com/coverallsapp/coverage-reporter/releases/latest/download/coveralls-windows.exe";
-
 // Overridable so that a release can be rehearsed against a local folder feed - pass
 // --nuget-source=<path> - without the rehearsal being one typo away from a real publish. nuget.org
 // does not allow a version to be deleted or reused, so the default being the only reachable value
@@ -206,24 +201,21 @@ Task("Test")
             AppVeyor.UploadTestResults(results, AppVeyorTestResultsType.MSTest);
         }
     }
-});
 
-Task("Upload-Coverage")
-    .Description("Sends the Cobertura report to Coveralls.")
-    .IsDependentOn("Test")
-    .Does(() =>
-{
-    // The collector names each report after a GUID, so they have to be found rather than assumed.
+    // Checked here, where the reports are made, rather than wherever they are next read. Sending
+    // them to Coveralls is the workflow's job now, and a run that submitted nothing because nothing
+    // was written would look exactly like a build that got faster - so the check belongs to the step
+    // that was supposed to produce them, and fails it.
     //
-    // There is more than one. A solution-level run writes a report per test project per framework,
-    // each covering only the assemblies that project touched. Sending the first uploaded a partial
-    // view, and which partial view depended on the order the filesystem happened to return them in.
-    // The reporter takes several files in one invocation and merges them, so all of them go up as a
-    // single submission.
+    // Not a recursive glob, and that matters to whoever globs these next: the collector writes every
+    // report twice, once here and once under a machine-and-timestamp directory in the layout VSTest
+    // used. The two copies are byte for byte the same file, so a `**` pattern finds every report
+    // twice and submits it twice. .github/workflows/build.yml globs the same way for the same
+    // reason.
     //
-    // Not a recursive glob, and that matters: the collector writes every report twice, once here and
-    // once under a machine-and-timestamp directory in the layout VSTest used. The two copies are
-    // byte for byte the same file, and sending both would submit every report twice.
+    // There is more than one report even so. A solution-level run writes one per test project per
+    // framework, each covering only the assemblies that project touched, which is why they all have
+    // to go up together rather than one standing in for the rest.
     var reports = GetFiles($"{coverageDirectory.Path}/*.cobertura.xml")
         .OrderBy(r => r.FullPath, StringComparer.Ordinal)
         .ToList();
@@ -238,112 +230,11 @@ Task("Upload-Coverage")
     {
         Information("  {0}", report.FullPath);
     }
-
-    // Everything above this line runs wherever this task does, and that is the part worth keeping
-    // on a machine that submits nothing: a collector that has quietly stopped collecting looks
-    // exactly like a build that got faster.
-    //
-    // Who submits is a narrower question, and the answer is now "either CI system", where it used
-    // to be "AppVeyor, or Actions if a switch says so".
-    //
-    // That switch was a repository variable, COVERALLS_FROM_ACTIONS, and it existed because
-    // coverage reporting was the one part of AppVeyor's job the Actions trial never exercised:
-    // retiring AppVeyor without having run this path once would have meant building it having
-    // never seen it work. The trial is over and Actions won, so the switch is gone rather than
-    // left permanently on, which is all it would have been.
-    //
-    // What it was holding off is worth naming, because removing it brings it back. While both
-    // systems build every commit, both now submit, so a commit gets two Coveralls builds and two
-    // pull request statuses for one set of numbers. They are the same numbers - the two run the
-    // same tests through the same collector - so this is noise and not a wrong figure. AppVeyor's
-    // queue means its submission is usually the later one and therefore the one left standing.
-    // It stops being true when AppVeyor stops building, which is the last step of this migration.
-    var onAppVeyor = BuildSystem.IsRunningOnAppVeyor;
-    var onGitHubActions = BuildSystem.IsRunningOnGitHubActions;
-
-    if (!onAppVeyor && !onGitHubActions)
-    {
-        Information("Not running on CI - skipping the coverage upload.");
-        return;
-    }
-
-    var repoToken = EnvironmentVariable("COVERALLS_REPO_TOKEN");
-    if (string.IsNullOrEmpty(repoToken))
-    {
-        // Secure variables are withheld from pull requests raised on forks, and the GitHub secret
-        // of the same name is only there once someone has added it, so this logs and skips rather
-        // than failing a build that could never have had the token.
-        Information("COVERALLS_REPO_TOKEN is not set - skipping the coverage upload.");
-        return;
-    }
-
-    DownloadFile(CoverallsDownloadUrl, coverallsExecutable);
-
-    var arguments = new ProcessArgumentBuilder().Append("report");
-
-    foreach (var report in reports)
-    {
-        arguments.AppendQuoted(report.FullPath);
-    }
-
-    arguments
-        .Append("--format=cobertura")
-        .AppendSwitchQuotedSecret("--repo-token", "=", repoToken)
-        .AppendSwitchQuoted("--base-path", "=", Context.Environment.WorkingDirectory.FullPath);
-
-    if (onAppVeyor)
-    {
-        // AppVeyor is not one of the CI services the reporter auto-detects, so every piece of build
-        // metadata is supplied explicitly. Without it the upload lands with no job, branch or commit
-        // attached.
-        // Taken from the environment rather than through Cake's typed AppVeyor properties: the three
-        // parts of this URL are the ones Cake either does not surface or names differently, and a URL
-        // assembled half one way and half the other is harder to check against AppVeyor's own docs.
-        var buildUrl =
-            $"https://ci.appveyor.com/project/{EnvironmentVariable("APPVEYOR_ACCOUNT_NAME")}" +
-            $"/{EnvironmentVariable("APPVEYOR_PROJECT_SLUG")}/builds/{EnvironmentVariable("APPVEYOR_BUILD_ID")}";
-
-        arguments
-            .Append("--service-name=appveyor")
-            .AppendSwitchQuoted("--service-job-id", "=", AppVeyor.Environment.JobId)
-            .AppendSwitchQuoted("--service-branch", "=", AppVeyor.Environment.Repository.Branch)
-            .AppendSwitchQuoted("--service-build-url", "=", buildUrl);
-
-        if (AppVeyor.Environment.PullRequest.IsPullRequest)
-        {
-            arguments.AppendSwitchQuoted(
-                "--service-pull-request",
-                "=",
-                AppVeyor.Environment.PullRequest.Number.ToString());
-        }
-    }
-    else
-    {
-        // Nothing to supply. GitHub Actions is one of the services the reporter does auto-detect,
-        // reading the workflow's own environment for the job, branch, commit and pull request - so
-        // the Actions path needs less configuration than AppVeyor's, not more, and duplicating any
-        // of it here would only create something to disagree with what it found.
-        //
-        // That claim is worth checking the first time this runs rather than trusting: if the
-        // submission lands on Coveralls with no branch or no job attached, this else branch is
-        // where the metadata AppVeyor spells out above has to be spelled out too.
-        Information("Letting the reporter detect GitHub Actions for itself.");
-    }
-
-    // RenderSafe rather than Render: the repo token is appended as a secret and comes back
-    // redacted, so this is safe to leave in a public build log.
-    Verbose("coveralls {0}", arguments.RenderSafe());
-
-    var exitCode = StartProcess(coverallsExecutable, new ProcessSettings { Arguments = arguments });
-    if (exitCode != 0)
-    {
-        throw new Exception($"Coveralls upload failed (exit {exitCode}).");
-    }
 });
 
 Task("Pack")
     .Description("Packs every publishable project.")
-    .IsDependentOn("Upload-Coverage")
+    .IsDependentOn("Test")
     .Does(() =>
 {
     CleanDirectory(artifactsDirectory);
