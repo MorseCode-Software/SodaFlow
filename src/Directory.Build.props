@@ -11,9 +11,18 @@
         lock file, because restore regenerates it - a dependency bump that only edits a csproj will
         show up as an uncommitted lock file rather than as a passing build.
 
-        A plain restore regenerates them in place, so the fix is always to restore and commit what
-        changes. Setting RestoreLockedMode does the opposite, failing instead of regenerating, which
-        is what a build wanting to prove nothing moved would ask for.
+        RestoreLockedMode is what makes the second half of that stick, and it is deliberately set on
+        CI only. On an agent, restore fails rather than rewriting a lock file, so a dependency bump
+        whose lock file was never committed is a red build instead of a green one with an
+        uncommitted file nobody sees. On a developer's machine restore regenerates in place as
+        usual, because the alternative is that editing a PackageReference fails with NU1004 until
+        you know to pass an extra flag - which teaches people to pass that flag by reflex, and the
+        habit outlives the reason.
+
+        $(CI) rather than an MSBuild property of our own: GitHub Actions and AppVeyor both set it,
+        MSBuild reads environment variables as properties, and no build file has to be taught which
+        CI system it is on. Tested against emptiness rather than against "true" because what the
+        various systems put in it is not worth depending on.
 
         The samples carry their own copy of this property rather than inheriting it, in
         samples/Directory.Build.props. They are deliberately independent of this file - they build
@@ -22,6 +31,7 @@
     -->
     <PropertyGroup>
         <RestorePackagesWithLockFile>true</RestorePackagesWithLockFile>
+        <RestoreLockedMode Condition="'$(CI)' != ''">true</RestoreLockedMode>
     </PropertyGroup>
 
     <!--

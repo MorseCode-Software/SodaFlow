@@ -17,9 +17,15 @@
 
         What this changes day to day: bumping a sample's pinned SodaFlow version now means restoring
         that sample and committing the lock file it rewrites, not just editing the csproj.
+
+        RestoreLockedMode is what makes that stick, and it is set on CI only, for the reasons spelled
+        out in src/Directory.Build.props. It matters more here than there: bumping a pinned version
+        is the entire maintenance story for these samples, so forgetting the lock file is not an
+        edge case but the most likely mistake anyone will make in this directory.
     -->
     <PropertyGroup>
         <RestorePackagesWithLockFile>true</RestorePackagesWithLockFile>
+        <RestoreLockedMode Condition="'$(CI)' != ''">true</RestoreLockedMode>
     </PropertyGroup>
 
 </Project>
