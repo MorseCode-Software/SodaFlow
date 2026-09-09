@@ -1,0 +1,25 @@
+<Project>
+
+    <!--
+        Every sample project restores through a committed packages.lock.json, one per project beside
+        its own file, exactly as the projects under src/ do.
+
+        This file exists rather than the property being inherited because MSBuild takes the nearest
+        Directory.Build.props walking up from a project and stops, so nothing under samples/ would
+        ever reach src/Directory.Build.props. A file at the repository root would reach these
+        projects but no longer reach those, for the same reason.
+
+        Keeping the two separate suits the samples anyway. They are deliberately not part of the
+        build under src/: each references published NuGet packages rather than the projects in this
+        repository - see the comment in any sample's .csproj - and each has its own solution. The
+        one property they share with src/ is duplicated here, which is a smaller cost than an import
+        chain that would imply the two builds are one.
+
+        What this changes day to day: bumping a sample's pinned SodaFlow version now means restoring
+        that sample and committing the lock file it rewrites, not just editing the csproj.
+    -->
+    <PropertyGroup>
+        <RestorePackagesWithLockFile>true</RestorePackagesWithLockFile>
+    </PropertyGroup>
+
+</Project>

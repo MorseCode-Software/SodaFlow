@@ -1,6 +1,30 @@
 <Project>
 
     <!--
+        Every project here restores through a committed packages.lock.json, one per project beside
+        its own file.
+
+        Two things follow from that, and the second is the one that bites. Restores become
+        reproducible: the lock file pins the whole transitive graph, so a floating version resolved
+        on a build agent months from now cannot quietly differ from the one resolved today. And a
+        change to any PackageReference now has to be carried by a matching change to that project's
+        lock file, because restore regenerates it - a dependency bump that only edits a csproj will
+        show up as an uncommitted lock file rather than as a passing build.
+
+        A plain restore regenerates them in place, so the fix is always to restore and commit what
+        changes. Setting RestoreLockedMode does the opposite, failing instead of regenerating, which
+        is what a build wanting to prove nothing moved would ask for.
+
+        The samples carry their own copy of this property rather than inheriting it, in
+        samples/Directory.Build.props. They are deliberately independent of this file - they build
+        against published packages, not these projects - and MSBuild would not reach this one from
+        there anyway, since it takes the nearest Directory.Build.props and stops.
+    -->
+    <PropertyGroup>
+        <RestorePackagesWithLockFile>true</RestorePackagesWithLockFile>
+    </PropertyGroup>
+
+    <!--
         Package metadata shared by every packable project here. Anything that identifies an
         individual package — PackageId, Title, Product, Description, AssemblyName, RootNamespace —
         stays in that project's own file.
