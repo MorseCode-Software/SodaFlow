@@ -256,6 +256,10 @@ artifacts/
 coverage/
 # build.cake writes the InspectCode SARIF here.
 inspection/
+
+# inspectcode's analysis caches, kept between runs because a warm inspection is five times faster
+# than a cold one. build.cake points --caches-home here; CI carries it between runs.
+.inspectcode-cache/
 # Where the benchmark runner writes its reports and logs.
 BenchmarkDotNet.Artifacts/
 # Where Cake caches the addins its #addin directives resolve.
