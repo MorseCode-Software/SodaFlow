@@ -4,9 +4,9 @@
   "metadata": [
     {
       "//": [
-        "Only the C# packages are listed. SodaFlow.FSharp, SodaFlow.FSharp.Async and",
-        "SodaFlow.FSharp.Bindable.ObjectModel are deliberately absent: DocFX reads compiled",
-        "metadata, so an F# assembly renders in its",
+        "Only the C# packages are listed. SodaFlow.FSharp, SodaFlow.FSharp.Async,",
+        "SodaFlow.FSharp.Bindable.ObjectModel and SodaFlow.FSharp.Collections are deliberately",
+        "absent: DocFX reads compiled metadata, so an F# assembly renders in its",
         "compiled shape (modules as static classes, FSharpFunc in every signature), and those",
         "assemblies carry no /// comments to render anyway. See docs/fsharp-api.md.",
         "",
@@ -24,7 +24,9 @@
             "Async/SodaFlow.Core.Async/SodaFlow.Core.Async.csproj",
             "Async/CSharp/SodaFlow.Async/SodaFlow.Async.csproj",
             "Bindable/ObjectModel/SodaFlow.Core.Bindable.ObjectModel/SodaFlow.Core.Bindable.ObjectModel.csproj",
-            "Bindable/ObjectModel/CSharp/SodaFlow.Bindable.ObjectModel/SodaFlow.Bindable.ObjectModel.csproj"
+            "Bindable/ObjectModel/CSharp/SodaFlow.Bindable.ObjectModel/SodaFlow.Bindable.ObjectModel.csproj",
+            "Collections/SodaFlow.Core.Collections/SodaFlow.Core.Collections.csproj",
+            "Collections/CSharp/SodaFlow.Collections/SodaFlow.Collections.csproj"
           ]
         }
       ],

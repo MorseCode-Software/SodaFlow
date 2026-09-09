@@ -11,3 +11,6 @@
 [assembly: InternalsVisibleTo("SodaFlow.Core.Bindable.ObjectModel")]
 [assembly: InternalsVisibleTo("SodaFlow.Bindable.ObjectModel")]
 [assembly: InternalsVisibleTo("SodaFlow.FSharp.Bindable.ObjectModel")]
+[assembly: InternalsVisibleTo("SodaFlow.Core.Collections")]
+[assembly: InternalsVisibleTo("SodaFlow.Collections")]
+[assembly: InternalsVisibleTo("SodaFlow.FSharp.Collections")]

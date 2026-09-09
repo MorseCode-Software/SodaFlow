@@ -1,0 +1,54 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <AssemblyName>SodaFlow.FSharp.Collections</AssemblyName>
+        <RootNamespace>SodaFlow.Collections</RootNamespace>
+        <TargetFrameworks>net472;net60;netstandard2.0</TargetFrameworks>
+        <EnableDefaultItems>false</EnableDefaultItems>
+    </PropertyGroup>
+
+    <PropertyGroup>
+        <PackageId>SodaFlow.FSharp.Collections</PackageId>
+        <MinVerTagPrefix>sodaflow-fsharp-collections-</MinVerTagPrefix>
+        <Product>SodaFlow Collections for F#</Product>
+        <Title>SodaFlow Collections for F#</Title>
+        <Description>SodaFlow Reactive Collections library for F#.</Description>
+    </PropertyGroup>
+
+    <PropertyGroup>
+        <!--
+            GenerateDocumentationFile rather than an explicit DocumentationFile path: this project
+            multi-targets, and a single hard-coded path would make all three target frameworks write
+            over one another's XML.
+        -->
+        <GenerateDocumentationFile>true</GenerateDocumentationFile>
+
+        <!--
+            F# has no equivalent of CS1591, so nothing reports a member that carries no documentation at
+            all. FS3390 is the next best thing and is off by default: it checks the comments that do
+            exist, catching a <param> naming an argument that does not exist and a documented function
+            with an argument left undocumented.
+        -->
+        <OtherFlags>$(OtherFlags) --warnon:3390</OtherFlags>
+    </PropertyGroup>
+
+    <ItemGroup>
+    </ItemGroup>
+
+    <ItemGroup>
+        <Compile Include="Collections.fs"/>
+    </ItemGroup>
+
+    <ItemGroup>
+        <ProjectReference Include="..\..\SodaFlow.Core.Collections\SodaFlow.Core.Collections.csproj"/>
+        <!--
+            SodaFlow.FSharp itself, so installing this package brings the F# API it extends. A
+            reactive collection is built from and observed through cells and streams, and only those
+            operations produce them, so a consumer needs both; declaring it here means they get both
+            from one install rather than discovering the second the first time they try to build a
+            graph.
+        -->
+        <ProjectReference Include="..\..\..\FSharp\SodaFlow.FSharp\SodaFlow.FSharp.fsproj"/>
+    </ItemGroup>
+
+</Project>

@@ -1,0 +1,40 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <TargetFrameworks>net472;net60;netstandard2.0</TargetFrameworks>
+        <LangVersion>latest</LangVersion>
+        <Nullable>enable</Nullable>
+    </PropertyGroup>
+
+    <PropertyGroup>
+        <PackageId>SodaFlow.Collections.Core</PackageId>
+        <MinVerTagPrefix>sodaflow-collections-core-</MinVerTagPrefix>
+        <Product>SodaFlow Collections Core for .NET</Product>
+        <Title>SodaFlow Collections Core for .NET</Title>
+        <Description>SodaFlow Reactive Collections library for .NET core library.</Description>
+        <AssemblyName>SodaFlow.Core.Collections</AssemblyName>
+        <RootNamespace>SodaFlow.Collections</RootNamespace>
+        <EnableDefaultItems>false</EnableDefaultItems>
+        <Nullable>enable</Nullable>
+        <LangVersion>10</LangVersion>
+        <!--
+            As in SodaFlow.Core.Async: the types a consumer actually holds are declared here rather
+            than in the language wrappers, so their documentation has to be emitted here too.
+            GenerateDocumentationFile rather than an explicit path, because this multi-targets.
+        -->
+        <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <PackageReference Include="System.ValueTuple" Version="4.6.2"/>
+    </ItemGroup>
+
+    <ItemGroup>
+        <Compile Include="AssemblyInfo.cs"/>
+    </ItemGroup>
+
+    <ItemGroup>
+        <ProjectReference Include="..\..\SodaFlow.Core\SodaFlow.Core.csproj"/>
+    </ItemGroup>
+
+</Project>
