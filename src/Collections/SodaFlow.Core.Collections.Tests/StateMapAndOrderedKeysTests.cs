@@ -72,8 +72,7 @@ public sealed class OrderedKeysTests
             static (_, _, state) => state.Score,
             Comparer<int>.Default,
             Comparer<int>.Default,
-            descending,
-            dependsOnState: true);
+            descending);
 
     private static IOrderedKeys<int, ItemId, ItemState> Empty(
         bool descending,

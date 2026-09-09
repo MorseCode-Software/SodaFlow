@@ -55,7 +55,8 @@ public class KeyedCollectionViewBenchmarks
 {
     // Populated for real in the setup; built small here so the fields never have to be nullable.
     private IKeyedCollectionViewShape rederived = RederivedViewShape.Build(1);
-    private IKeyedCollectionViewShape chained = ChainedViewShape.Build(1);
+    private IKeyedCollectionViewShape chained = ChainedViewShape.Build(1, sortByIdentity: false);
+    private IKeyedCollectionViewShape chainedById = ChainedViewShape.Build(1, sortByIdentity: true);
 
     private int editCount;
     private int thresholdCount;
@@ -71,7 +72,17 @@ public class KeyedCollectionViewBenchmarks
     public void Setup()
     {
         this.rederived = RederivedViewShape.Build(this.ItemCount);
-        this.chained = ChainedViewShape.Build(this.ItemCount);
+        this.chained = ChainedViewShape.Build(this.ItemCount, sortByIdentity: false);
+        this.chainedById = ChainedViewShape.Build(this.ItemCount, sortByIdentity: true);
+
+        if (!this.rederived.Keys.SequenceEqual(this.chainedById.Keys))
+        {
+            throw new InvalidOperationException(
+                "The identity-ordered chain disagrees with the re-derived view, which it should "
+                + "not: the seed gives every item a score equal to its number, so ordering by "
+                + "either puts the same keys in the same places. Chained by identity: "
+                + $"[{Describe(this.chainedById.Keys)}].");
+        }
 
         if (!this.rederived.Keys.SequenceEqual(this.chained.Keys))
         {
@@ -90,6 +101,13 @@ public class KeyedCollectionViewBenchmarks
     [Benchmark(Description = "edit an item, chained")]
     public void EditChained() => this.chained.Replace(EditedKey, this.NextState());
 
+    /// <summary>
+    ///     The same edit again, through a chain whose sort reads the identity rather than the
+    ///     state — so nothing it holds can have moved, and it is allowed to say so.
+    /// </summary>
+    [Benchmark(Description = "edit an item, chained on an identity sort")]
+    public void EditChainedById() => this.chainedById.Replace(EditedKey, this.NextState());
+
     /// <summary>An item enters the collection and leaves it again.</summary>
     [Benchmark(Description = "add and remove an item, re-derived")]
     public void AddAndRemoveRederived() => this.rederived.AddAndRemove(AddedKey, AddedState);
@@ -105,6 +123,15 @@ public class KeyedCollectionViewBenchmarks
     /// <summary>The same change, through the chain, which rebuilds the stage and reports a reset.</summary>
     [Benchmark(Description = "change the threshold, chained")]
     public void SetThresholdChained() => this.chained.SetThreshold(this.NextThreshold());
+
+    /// <summary>
+    ///     The same change again, through the identity-ordered chain. A rebuild reads every key it
+    ///     keeps, and an order projecting from the identity reads one map where the other reads
+    ///     two — so this is the rebuild half of what an identity sort buys, which the re-filing
+    ///     benchmarks above cannot see.
+    /// </summary>
+    [Benchmark(Description = "change the threshold, chained on an identity sort")]
+    public void SetThresholdChainedById() => this.chainedById.SetThreshold(this.NextThreshold());
 
     /// <summary>
     ///     The key both shapes edit. Which one hardly matters, because <see cref="NextState" />

@@ -101,6 +101,7 @@ IReactiveCollection<Guid, AccountId, AccountState> topTen = accounts
 | --- | --- |
 | `Filter` | A predicate, a `Cell<Func<TId, TState, bool>>`, or a criteria cell plus a predicate |
 | `SortBy` / `SortByDescending` | A selector, or a selector with explicit comparers |
+| `SortById` / `SortByIdDescending` | The same, over the identity alone — see below |
 | `SortByKey` | The root's own order, over any stage |
 | `Take` | A count, or a `Cell<int>` |
 | `Switch` | Follows whichever view a cell holds |
@@ -220,14 +221,14 @@ the only per-item graph nodes it builds are the twenty a view actually asked for
 Keeping "the top twenty unfrozen items by score" current, against re-deriving it from a cell
 holding the whole collection with `Where`, `OrderByDescending` and `Take`:
 
-| Operation | Items | Re-derived | Chained |
-| --- | --- | --- | --- |
-| Edit one item | 1,000 | 68 µs | 11 µs |
-| Edit one item | 10,000 | 709 µs | 13 µs |
-| Add and remove an item | 1,000 | 134 µs | 29 µs |
-| Add and remove an item | 10,000 | 1,447 µs | 29 µs |
-| Change the threshold | 1,000 | 68 µs | 703 µs |
-| Change the threshold | 10,000 | 720 µs | 11,418 µs |
+| Operation | Items | Re-derived | Chained | Chained, sorted by identity |
+| --- | --- | --- | --- | --- |
+| Edit one item | 1,000 | 70 µs | 11.7 µs | 10.1 µs |
+| Edit one item | 10,000 | 710 µs | 12.5 µs | 11.9 µs |
+| Add and remove an item | 1,000 | 134 µs | 27 µs | |
+| Add and remove an item | 10,000 | 1,447 µs | 30 µs | |
+| Change the threshold | 1,000 | 68 µs | 657 µs | 610 µs |
+| Change the threshold | 10,000 | 719 µs | 10,995 µs | 10,620 µs |
 
 Read the three rows separately, because they do not agree.
 
@@ -240,13 +241,25 @@ inherits the root's order, which sorts by key — and a key cannot change, so a 
 never move anything in it. Saying so rather than removing and re-adding the key to find out is
 worth about a tenth of an edit and a fifth of its allocation.
 
+`SortById` is how you say the same thing about a sort of your own: order by something in the
+identity — an account number, a code — and a state edit cannot move a key under it either. The
+last column is that. Its allocation is the steadier measure at about a fifth less, since the
+timing on an operation this small sits close to the benchmark's own noise; between the two, an
+edit at ten thousand items has gone from 13.8 µs and 17.7 KB to 11.9 µs and 11.1 KB over the
+course of these optimisations.
+
+Do not read that column as a reason to sort by identity when you meant to sort by state. It is
+worth having when the sort was going to be over the identity anyway, which is common — and the
+selector is handed the identity and not the state, so it is a claim the signature keeps rather
+than one you make.
+
 **Adding and removing** is flat too — twenty-nine microseconds and twenty-nine — which is fifty
 times a re-derivation at ten thousand items. It was not always: the identity map used to be a
 plain dictionary, which can only produce its next version by being copied, so a structural edit
 was O(n) however cheaply the stages below it absorbed the change. This benchmark is what found
 that, and the map is a trie now.
 
-**Changing the threshold** loses, by ten times at a thousand items and sixteen at ten
+**Changing the threshold** loses, by ten times at a thousand items and fifteen at ten
 thousand. A rebuild files every surviving key into a fresh ordered set, so the chain builds a
 persistent tree where re-deriving sorts an array — and a tree costs an allocation per node where
 an array sort costs none. That gap is the data structure rather than a constant waiting to be

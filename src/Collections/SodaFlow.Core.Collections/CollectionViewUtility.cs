@@ -29,11 +29,10 @@ internal static class CollectionViewUtility
         where TId : notnull
     {
         SortKeyOrder<TKey, TId, TState, TKey> order = new(
-            static (key, _, _) => key,
+            static (key, _) => key,
             keyComparer,
             keyComparer,
-            descending: false,
-            dependsOnState: false);
+            descending: false);
 
         return TransactionInternal.Apply<IReactiveCollection<TKey, TId, TState>>((trans, _) =>
         {
@@ -64,11 +63,10 @@ internal static class CollectionViewUtility
         where TId : notnull
     {
         SortKeyOrder<TKey, TId, TState, TKey> order = new(
-            static (key, _, _) => key,
+            static (key, _) => key,
             keyComparer,
             keyComparer,
-            descending: false,
-            dependsOnState: false);
+            descending: false);
 
         return BuildStage(
             upstream,
@@ -111,8 +109,39 @@ internal static class CollectionViewUtility
             (_, identity, state) => selector(identity, state),
             sortComparer,
             keyComparer,
-            descending,
-            dependsOnState: true);
+            descending);
+
+        return BuildStage(
+            upstream,
+            CellInternal.ConstantImpl(UnitInternal.Value),
+            (_, upstreamKeys, snapshot) => RebuildSort(order, upstreamKeys, snapshot),
+            static (_, keys, change) => ProcessSort(keys, change));
+    }
+
+    /// <summary>
+    ///     Reorders the view by a value projected from each item's immutable half alone, which a
+    ///     state edit cannot change.
+    /// </summary>
+    /// <remarks>
+    ///     The same ordering <see cref="SortByImpl{TKey,TId,TState,TSortKey}" /> would give for the
+    ///     same values, and cheaper to keep: a stage under this order skips re-filing a key it is
+    ///     told merely changed, and building one never reads the state map. The selector is not
+    ///     handed the state, which is what makes the claim checkable rather than promised.
+    /// </remarks>
+    internal static IReactiveCollection<TKey, TId, TState> SortByIdImpl<TKey, TId, TState, TSortKey>(
+        IReactiveCollection<TKey, TId, TState> upstream,
+        Func<TId, TSortKey> selector,
+        IComparer<TSortKey> sortComparer,
+        IComparer<TKey> keyComparer,
+        bool descending)
+        where TKey : notnull
+        where TId : notnull
+    {
+        SortKeyOrder<TKey, TId, TState, TSortKey> order = new(
+            (_, identity) => selector(identity),
+            sortComparer,
+            keyComparer,
+            descending);
 
         return BuildStage(
             upstream,

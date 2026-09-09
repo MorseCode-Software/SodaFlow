@@ -184,7 +184,14 @@ internal sealed class ChainedViewShape : IKeyedCollectionViewShape
 
     public IReadOnlyList<int> Keys => [.. this.view.KeysCell.Sample()];
 
-    internal static ChainedViewShape Build(int itemCount)
+    /// <param name="itemCount">How many items the collection holds.</param>
+    /// <param name="sortByIdentity">
+    ///     Whether to order by the identity rather than the state. The seed gives every item a
+    ///     score equal to its number, so both orders put the same keys in the same places and the
+    ///     only thing that differs is which half the sort reads - and therefore whether a state
+    ///     edit can move anything.
+    /// </param>
+    internal static ChainedViewShape Build(int itemCount, bool sortByIdentity)
     {
         List<Entry<ItemIdentity, ItemState>> entries = new(itemCount);
 
@@ -208,9 +215,13 @@ internal sealed class ChainedViewShape : IKeyedCollectionViewShape
 
             CellSink<int> threshold = Cell.CreateSink(ViewSeed.InitialThreshold);
 
-            IReactiveCollection<int, ItemIdentity, ItemState> view = collection
-                .Filter(threshold, static (limit, _, state) => ViewSeed.Passes(state, limit))
-                .SortByDescending(static (_, state) => state.Score)
+            IReactiveCollection<int, ItemIdentity, ItemState> filtered =
+                collection.Filter(threshold, static (limit, _, state) => ViewSeed.Passes(state, limit));
+
+            IReactiveCollection<int, ItemIdentity, ItemState> view =
+                (sortByIdentity
+                    ? filtered.SortByIdDescending(static identity => identity.Number)
+                    : filtered.SortByDescending(static (_, state) => state.Score))
                 .Take(ViewSeed.Limit);
 
             return new ChainedViewShape(

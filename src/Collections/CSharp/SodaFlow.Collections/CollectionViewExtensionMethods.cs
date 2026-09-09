@@ -163,6 +163,76 @@ public static class CollectionViewExtensionMethods
         CollectionViewUtility.SortByImpl(upstream, selector, sortComparer, keyComparer, descending);
 
     /// <summary>
+    ///     Reorders the view by a value projected from each item's immutable half — its identity —
+    ///     which a state edit cannot change.
+    /// </summary>
+    /// <typeparam name="TKey">The type of the keys.</typeparam>
+    /// <typeparam name="TId">The type of the immutable portion of an item.</typeparam>
+    /// <typeparam name="TState">The type of the mutable portion of an item.</typeparam>
+    /// <typeparam name="TSortKey">The type of the projected sort value.</typeparam>
+    /// <param name="upstream">The collection or view to reorder.</param>
+    /// <param name="selector">Projects the sort value from an item's identity.</param>
+    /// <returns>A view ordered by that value.</returns>
+    /// <remarks>
+    ///     The same ordering <c>SortBy</c> gives for the same values, and cheaper to keep. A state
+    ///     edit cannot move a key under this order, so a stage skips re-filing one it is told
+    ///     merely changed, and building the stage never reads the state map at all.
+    ///     Nothing is being promised on trust here: the selector is handed the identity and not
+    ///     the state, so it cannot read what it says it does not.
+    /// </remarks>
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    public static IReactiveCollection<TKey, TId, TState> SortById<TKey, TId, TState, TSortKey>(
+        this IReactiveCollection<TKey, TId, TState> upstream,
+        Func<TId, TSortKey> selector)
+        where TKey : notnull
+        where TId : notnull =>
+        upstream.SortById(selector, Comparer<TSortKey>.Default, Comparer<TKey>.Default, false);
+
+    /// <summary>
+    ///     Reorders the view, descending, by a value projected from each item's identity.
+    /// </summary>
+    /// <typeparam name="TKey">The type of the keys.</typeparam>
+    /// <typeparam name="TId">The type of the immutable portion of an item.</typeparam>
+    /// <typeparam name="TState">The type of the mutable portion of an item.</typeparam>
+    /// <typeparam name="TSortKey">The type of the projected sort value.</typeparam>
+    /// <param name="upstream">The collection or view to reorder.</param>
+    /// <param name="selector">Projects the sort value from an item's identity.</param>
+    /// <returns>A view ordered by that value, descending.</returns>
+    /// <remarks>See <see cref="SortById{TKey,TId,TState,TSortKey}(IReactiveCollection{TKey,TId,TState},Func{TId,TSortKey})" />.</remarks>
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    public static IReactiveCollection<TKey, TId, TState> SortByIdDescending<TKey, TId, TState, TSortKey>(
+        this IReactiveCollection<TKey, TId, TState> upstream,
+        Func<TId, TSortKey> selector)
+        where TKey : notnull
+        where TId : notnull =>
+        upstream.SortById(selector, Comparer<TSortKey>.Default, Comparer<TKey>.Default, true);
+
+    /// <summary>
+    ///     Reorders the view by a value projected from each item's identity, with explicit
+    ///     comparers.
+    /// </summary>
+    /// <typeparam name="TKey">The type of the keys.</typeparam>
+    /// <typeparam name="TId">The type of the immutable portion of an item.</typeparam>
+    /// <typeparam name="TState">The type of the mutable portion of an item.</typeparam>
+    /// <typeparam name="TSortKey">The type of the projected sort value.</typeparam>
+    /// <param name="upstream">The collection or view to reorder.</param>
+    /// <param name="selector">Projects the sort value from an item's identity.</param>
+    /// <param name="sortComparer">Compares two projected sort values.</param>
+    /// <param name="keyComparer">Breaks ties, so that the order is total.</param>
+    /// <param name="descending">Whether to reverse the sort comparison.</param>
+    /// <returns>A view in that order.</returns>
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    public static IReactiveCollection<TKey, TId, TState> SortById<TKey, TId, TState, TSortKey>(
+        this IReactiveCollection<TKey, TId, TState> upstream,
+        Func<TId, TSortKey> selector,
+        IComparer<TSortKey> sortComparer,
+        IComparer<TKey> keyComparer,
+        bool descending)
+        where TKey : notnull
+        where TId : notnull =>
+        CollectionViewUtility.SortByIdImpl(upstream, selector, sortComparer, keyComparer, descending);
+
+    /// <summary>
     ///     The first <paramref name="limit" /> keys of the upstream — the top-n of whatever ordering
     ///     and filtering precedes it.
     /// </summary>

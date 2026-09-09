@@ -237,6 +237,62 @@ public sealed class CollectionViewTests
     }
 
     [Test]
+    public async Task SortByIdOrdersByTheIdentityAndDoesNotReFileOnAStateEdit()
+    {
+        StreamSink<CollectionEdit<int, ItemId, ItemState>> edits =
+            Stream.CreateSink<CollectionEdit<int, ItemId, ItemState>>();
+
+        ReactiveCollection<int, ItemId, ItemState> collection = Create(
+            edits,
+            TestUtil.Item(1, "one", 10),
+            TestUtil.Item(2, "two", 20),
+            TestUtil.Item(3, "three", 30));
+
+        // Codes are "C1", "C2", "C3", so descending by code is descending by number here.
+        IReactiveCollection<int, ItemId, ItemState> byCode =
+            collection.SortByIdDescending(static identity => identity.Code);
+
+        await Assert.That(KeysOf(byCode)).IsEquivalentTo([3, 2, 1]);
+
+        List<string> operations = [];
+        IListener l = byCode.ChangesStream.ListenStrong(
+            change => operations.AddRange(change.Operations.Select(Describe)));
+
+        // A score change cannot touch a code, so this must report the update and move nothing -
+        // which is the licence the identity-only selector buys.
+        edits.Send(TestUtil.Score(3, -99));
+
+        l.Unlisten();
+
+        await Assert.That(operations).IsEquivalentTo(["ViewUpdate:3"]);
+        await Assert.That(KeysOf(byCode)).IsEquivalentTo([3, 2, 1]);
+    }
+
+    [Test]
+    public async Task SortByIdStillFollowsStructuralChange()
+    {
+        StreamSink<CollectionEdit<int, ItemId, ItemState>> edits =
+            Stream.CreateSink<CollectionEdit<int, ItemId, ItemState>>();
+
+        ReactiveCollection<int, ItemId, ItemState> collection = Create(
+            edits,
+            TestUtil.Item(1, "one", 10),
+            TestUtil.Item(3, "three", 30));
+
+        IReactiveCollection<int, ItemId, ItemState> byCode =
+            collection.SortById(static identity => identity.Code);
+
+        await Assert.That(KeysOf(byCode)).IsEquivalentTo([1, 3]);
+
+        // An identity arriving or leaving is exactly what this order does follow.
+        edits.Send(TestUtil.Add(TestUtil.Item(2, "two", 20)));
+        await Assert.That(KeysOf(byCode)).IsEquivalentTo([1, 2, 3]);
+
+        edits.Send(TestUtil.Remove(1));
+        await Assert.That(KeysOf(byCode)).IsEquivalentTo([2, 3]);
+    }
+
+    [Test]
     public async Task TakeWindowsTheUpstream()
     {
         StreamSink<CollectionEdit<int, ItemId, ItemState>> edits =

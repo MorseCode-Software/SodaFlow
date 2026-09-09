@@ -331,6 +331,70 @@ let sortByDescending
         true)
 
 /// <summary>
+///     Reorders the view by a value projected from each item's immutable half - its identity -
+///     which a state edit cannot change.
+/// </summary>
+/// <param name="selector">Projects the sort value from an item's identity.</param>
+/// <param name="upstream">The collection or view to reorder.</param>
+/// <returns>A view ordered by that value.</returns>
+/// <remarks>
+///     The same ordering <c>sortBy</c> gives for the same values, and cheaper to keep: a state
+///     edit cannot move a key under this order, so a stage skips re-filing one it is told merely
+///     changed, and building the stage never reads the state map. The selector is handed the
+///     identity and not the state, so it cannot read what it says it does not.
+/// </remarks>
+[<MethodImpl(MethodImplOptions.NoInlining)>]
+let sortById (selector: 'TId -> 'TSortKey) (upstream: IReactiveCollection<'TKey, 'TId, 'TState>) =
+    CollectionViewUtility.SortByIdImpl(
+        upstream,
+        Func<_, _> selector,
+        Comparer<'TSortKey>.Default,
+        Comparer<'TKey>.Default,
+        false)
+
+/// <summary>
+///     Reorders the view, descending, by a value projected from each item's identity.
+/// </summary>
+/// <param name="selector">Projects the sort value from an item's identity.</param>
+/// <param name="upstream">The collection or view to reorder.</param>
+/// <returns>A view ordered by that value, descending.</returns>
+[<MethodImpl(MethodImplOptions.NoInlining)>]
+let sortByIdDescending
+    (selector: 'TId -> 'TSortKey)
+    (upstream: IReactiveCollection<'TKey, 'TId, 'TState>)
+    =
+    CollectionViewUtility.SortByIdImpl(
+        upstream,
+        Func<_, _> selector,
+        Comparer<'TSortKey>.Default,
+        Comparer<'TKey>.Default,
+        true)
+
+/// <summary>
+///     Reorders the view by a value projected from each item's identity, with explicit comparers.
+/// </summary>
+/// <param name="selector">Projects the sort value from an item's identity.</param>
+/// <param name="sortComparer">Compares two projected sort values.</param>
+/// <param name="keyComparer">Breaks ties, so that the order is total.</param>
+/// <param name="descending">Whether to reverse the sort comparison.</param>
+/// <param name="upstream">The collection or view to reorder.</param>
+/// <returns>A view in that order.</returns>
+[<MethodImpl(MethodImplOptions.NoInlining)>]
+let sortByIdWith
+    (selector: 'TId -> 'TSortKey)
+    (sortComparer: IComparer<'TSortKey>)
+    (keyComparer: IComparer<'TKey>)
+    (descending: bool)
+    (upstream: IReactiveCollection<'TKey, 'TId, 'TState>)
+    =
+    CollectionViewUtility.SortByIdImpl(
+        upstream,
+        Func<_, _> selector,
+        sortComparer,
+        keyComparer,
+        descending)
+
+/// <summary>
 ///     Reorders the view with explicit comparers. The sort key type stays a real generic
 ///     parameter all the way down to the comparer, so sort values are compared as themselves and
 ///     never boxed.

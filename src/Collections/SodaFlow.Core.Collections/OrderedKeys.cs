@@ -181,35 +181,61 @@ public sealed class SortKeyOrder<TKey, TId, TState, TSortKey> : IKeyOrder<TKey, 
     where TKey : notnull
     where TId : notnull
 {
-    private readonly Func<TKey, TId, TState, TSortKey> selector;
+    /// <summary>
+    ///     Exactly one of these is set, and which one is what <see cref="DependsOnState" />
+    ///     answers. That is deliberate: an order cannot claim not to read the state while reading
+    ///     it, because the selector that claims it is never handed any.
+    /// </summary>
+    private readonly Func<TKey, TId, TState, TSortKey>? selector;
+
+    private readonly Func<TKey, TId, TSortKey>? identitySelector;
+
     private readonly IComparer<SortedEntry<TKey, TSortKey>> comparer;
 
-    /// <summary>Creates an order.</summary>
+    /// <summary>Creates an order whose sort value is projected from the whole item.</summary>
     /// <param name="selector">Projects the sort value from a key and its item.</param>
     /// <param name="sortComparer">Compares two projected sort values.</param>
     /// <param name="keyComparer">Breaks ties, so that the order is total.</param>
     /// <param name="descending">Whether to reverse the sort comparison.</param>
-    /// <param name="dependsOnState">
-    ///     Whether <paramref name="selector" /> reads the state it is handed. Say false only when
-    ///     it demonstrably does not: a stage takes it as licence to skip work on an edit.
-    /// </param>
     public SortKeyOrder(
         Func<TKey, TId, TState, TSortKey> selector,
         IComparer<TSortKey> sortComparer,
         IComparer<TKey> keyComparer,
-        bool descending,
-        bool dependsOnState)
-    {
-        this.DependsOnState = dependsOnState;
+        bool descending)
+        : this(sortComparer, keyComparer, descending) =>
         this.selector = selector;
+
+    /// <summary>
+    ///     Creates an order whose sort value is projected from the key and the immutable half
+    ///     alone, neither of which a state edit can touch.
+    /// </summary>
+    /// <param name="selector">Projects the sort value from a key and its identity.</param>
+    /// <param name="sortComparer">Compares two projected sort values.</param>
+    /// <param name="keyComparer">Breaks ties, so that the order is total.</param>
+    /// <param name="descending">Whether to reverse the sort comparison.</param>
+    /// <remarks>
+    ///     What this buys is in <see cref="DependsOnState" />: a stage under this order skips
+    ///     re-filing a key on a state edit, and building one skips reading the state map at all.
+    /// </remarks>
+    public SortKeyOrder(
+        Func<TKey, TId, TSortKey> selector,
+        IComparer<TSortKey> sortComparer,
+        IComparer<TKey> keyComparer,
+        bool descending)
+        : this(sortComparer, keyComparer, descending) =>
+        this.identitySelector = selector;
+
+    private SortKeyOrder(
+        IComparer<TSortKey> sortComparer,
+        IComparer<TKey> keyComparer,
+        bool descending) =>
         this.comparer = new SortedEntryComparer<TKey, TSortKey>(
             sortComparer,
             keyComparer,
             descending);
-    }
 
     /// <inheritdoc />
-    public bool DependsOnState { get; }
+    public bool DependsOnState => this.identitySelector is null;
 
     /// <inheritdoc />
     public IOrderedKeys<TKey, TId, TState> CreateFrom(
@@ -224,12 +250,12 @@ public sealed class SortKeyOrder<TKey, TId, TState, TSortKey> : IKeyOrder<TKey, 
 
         foreach (TKey key in keys)
         {
-            if (!snapshot.TryGetHalves(key, out TId identity, out TState state))
+            if (!this.TryProject(key, snapshot, out TSortKey sortValue))
             {
                 continue;
             }
 
-            SortedEntry<TKey, TSortKey> entry = new(key, this.Project(key, identity, state));
+            SortedEntry<TKey, TSortKey> entry = new(key, sortValue);
 
             entries.Add(entry);
             byKey[key] = entry;
@@ -241,8 +267,49 @@ public sealed class SortKeyOrder<TKey, TId, TState, TSortKey> : IKeyOrder<TKey, 
             byKey.ToImmutable());
     }
 
-    internal TSortKey Project(TKey key, TId identity, TState state) =>
-        this.selector(key, identity, state);
+    /// <summary>
+    ///     The sort value this order files <paramref name="key" /> under, if the snapshot still
+    ///     holds it.
+    /// </summary>
+    /// <remarks>
+    ///     An order that does not read the state does not read the state map either, which is one
+    ///     fewer lookup per key - and a rebuild does this for every key it keeps.
+    ///     The two branches disagree only for a key the identity map holds and the state map does
+    ///     not, which the two being written together in <c>Resolve</c> rules out.
+    /// </remarks>
+    internal bool TryProject(
+        TKey key,
+        CollectionSnapshot<TKey, TId, TState> snapshot,
+        out TSortKey sortValue)
+    {
+        // ReSharper disable once NullableWarningSuppressionIsUsed - an out parameter of an
+        // unconstrained type can promise nothing beyond the default when it answers false, which is
+        // the contract every TryGet in the framework keeps.
+        sortValue = default!;
+
+        if (this.identitySelector is not null)
+        {
+            if (!snapshot.TryGetIdentity(key, out TId identityOnly))
+            {
+                return false;
+            }
+
+            sortValue = this.identitySelector(key, identityOnly);
+
+            return true;
+        }
+
+        if (!snapshot.TryGetHalves(key, out TId identity, out TState state))
+        {
+            return false;
+        }
+
+        // ReSharper disable once NullableWarningSuppressionIsUsed - exactly one of the two
+        // selectors is set, and identitySelector being null is what says it is this one.
+        sortValue = this.selector!(key, identity, state);
+
+        return true;
+    }
 }
 
 internal sealed class SortedKeys<TKey, TId, TState, TSortKey> : IOrderedKeys<TKey, TId, TState>
@@ -280,12 +347,12 @@ internal sealed class SortedKeys<TKey, TId, TState, TSortKey> : IOrderedKeys<TKe
         TKey key,
         CollectionSnapshot<TKey, TId, TState> snapshot)
     {
-        if (!snapshot.TryGetHalves(key, out TId identity, out TState state))
+        if (!this.order.TryProject(key, snapshot, out TSortKey sortValue))
         {
             return this;
         }
 
-        SortedEntry<TKey, TSortKey> entry = new(key, this.order.Project(key, identity, state));
+        SortedEntry<TKey, TSortKey> entry = new(key, sortValue);
 
         return new SortedKeys<TKey, TId, TState, TSortKey>(
             this.order,

@@ -78,6 +78,14 @@ public sealed class CollectionSnapshot<TKey, TId, TState>
         return false;
     }
 
+    /// <summary>The immutable half of an item, without reading the state map for it.</summary>
+    /// <remarks>
+    ///     For an order that projects its sort value from the identity alone, which then costs one
+    ///     lookup per key rather than two - and a rebuild does this for every key it keeps.
+    /// </remarks>
+    internal bool TryGetIdentity(TKey key, out TId identity) =>
+        this.IdentitiesImpl.TryGet(key, out identity);
+
     /// <summary>
     ///     Both halves of an item, without the <see cref="Entry{TId,TState}" /> that
     ///     <see cref="TryGetEntry" /> wraps them in.
