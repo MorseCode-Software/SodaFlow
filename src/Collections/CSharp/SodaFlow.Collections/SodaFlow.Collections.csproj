@@ -29,9 +29,8 @@
         <PackageReference Include="System.ValueTuple" Version="4.6.2"/>
     </ItemGroup>
 
-    <!-- Scaffold: the collections themselves are still to come. Files are listed one by one here,
-         as everywhere else in this repository, because EnableDefaultItems is off. -->
     <ItemGroup>
+        <Compile Include="CollectionViewExtensionMethods.cs"/>
     </ItemGroup>
 
     <ItemGroup>

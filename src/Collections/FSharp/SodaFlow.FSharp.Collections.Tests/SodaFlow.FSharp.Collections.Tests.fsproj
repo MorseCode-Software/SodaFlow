@@ -23,7 +23,7 @@
 
     <ItemGroup>
         <Compile Include="AssemblyInfo.fs"/>
-        <Compile Include="ScaffoldTests.fs"/>
+        <Compile Include="CollectionsTests.fs"/>
     </ItemGroup>
 
     <ItemGroup>
