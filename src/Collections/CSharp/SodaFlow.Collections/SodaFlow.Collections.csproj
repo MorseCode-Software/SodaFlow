@@ -30,6 +30,7 @@
     </ItemGroup>
 
     <ItemGroup>
+        <Compile Include="CollectionExtensionMethods.cs"/>
         <Compile Include="CollectionViewExtensionMethods.cs"/>
     </ItemGroup>
 

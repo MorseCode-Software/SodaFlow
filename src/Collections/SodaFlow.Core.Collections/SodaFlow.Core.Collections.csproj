@@ -46,28 +46,14 @@
         <Compile Include="CollectionViewStage.cs"/>
         <Compile Include="CollectionViewUtility.cs"/>
         <Compile Include="Entry.cs"/>
-        <Compile Include="FrpCollection.cs"/>
-        <Compile Include="IFrpCollection.cs"/>
+        <Compile Include="IReactiveCollection.cs"/>
         <Compile Include="IStateMap.cs"/>
         <Compile Include="OrderedKeys.cs"/>
+        <Compile Include="ReactiveCollection.cs"/>
     </ItemGroup>
 
     <ItemGroup>
         <ProjectReference Include="..\..\SodaFlow.Core\SodaFlow.Core.csproj"/>
-        <!--
-            SodaFlow.Functional, which neither SodaFlow.Async.Core nor
-            SodaFlow.Bindable.ObjectModel.Core needs. Optionality is Maybe<T> throughout this API
-            rather than null - StateCell is a Cell<Maybe<TState>>, IndexOf answers Maybe<int>,
-            CollectionChange.ChangeFor nests two of them to say "moved" and "still present"
-            separately - so the type is in the public surface and cannot be an implementation
-            detail of a wrapper.
-
-            The consequence worth knowing about: SodaFlow.FSharp.Collections therefore acquires
-            SodaFlow.Functional transitively, where SodaFlow.FSharp deliberately does not. F# has
-            option, and this API answers with Maybe. Converting at the F# boundary would mean a
-            graph node per cell to gain nothing the two types do not both say.
-        -->
-        <ProjectReference Include="..\..\CSharp\SodaFlow.Functional\SodaFlow.Functional.csproj"/>
     </ItemGroup>
 
 </Project>

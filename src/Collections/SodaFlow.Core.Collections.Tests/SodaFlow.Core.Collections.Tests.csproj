@@ -44,7 +44,7 @@
     <ItemGroup>
         <Compile Include="..\..\TestPolyfills.cs" Link="TestPolyfills.cs"/>
         <Compile Include="..\..\TestParallelism.cs" Link="TestParallelism.cs"/>
-        <Compile Include="FrpCollectionTests.cs"/>
+        <Compile Include="ReactiveCollectionTests.cs"/>
         <Compile Include="StateMapAndOrderedKeysTests.cs"/>
         <Compile Include="TestUtil.cs"/>
     </ItemGroup>

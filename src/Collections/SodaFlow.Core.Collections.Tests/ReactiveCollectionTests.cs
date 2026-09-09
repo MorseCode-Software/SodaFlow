@@ -1,22 +1,36 @@
 using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
-using SodaFlow.Functional;
 using TUnit.Assertions;
 using TUnit.Assertions.Extensions;
 using TUnit.Core;
 
 namespace SodaFlow.Collections.Tests;
 
-public sealed class FrpCollectionTests
+public sealed class ReactiveCollectionTests
 {
+    private static string NameOf(CollectionSnapshot<int, ItemId, ItemState> snapshot, int key) =>
+        snapshot.TryGetEntry(key, out Entry<ItemId, ItemState>? entry) && entry is not null
+            ? entry.State.Name
+            : "?";
+
+    private static string CodeOf(CollectionSnapshot<int, ItemId, ItemState> snapshot, int key) =>
+        snapshot.TryGetEntry(key, out Entry<ItemId, ItemState>? entry) && entry is not null
+            ? entry.Identity.Code
+            : "?";
+
+    private static int ScoreOf(CollectionSnapshot<int, ItemId, ItemState> snapshot, int key) =>
+        snapshot.TryGetEntry(key, out Entry<ItemId, ItemState>? entry) && entry is not null
+            ? entry.State.Score
+            : -1;
+
     [Test]
     public async Task InitialEntriesAreInTheSnapshot()
     {
         StreamSink<CollectionEdit<int, ItemId, ItemState>> edits =
             Stream.CreateSink<CollectionEdit<int, ItemId, ItemState>>();
 
-        FrpCollection<int, ItemId, ItemState> collection = FrpCollection<int, ItemId, ItemState>.Create(
+        ReactiveCollection<int, ItemId, ItemState> collection = ReactiveCollection<int, ItemId, ItemState>.Create(
             TestUtil.KeyOf,
             [TestUtil.Item(1, "one", 10), TestUtil.Item(2, "two", 20)],
             edits);
@@ -24,7 +38,8 @@ public sealed class FrpCollectionTests
         CollectionSnapshot<int, ItemId, ItemState> snapshot = collection.SnapshotCell.Sample();
 
         await Assert.That(snapshot.Count).IsEqualTo(2);
-        await Assert.That(snapshot.Lookup(1).Match(static e => e.State.Name, static () => "?")).IsEqualTo("one");
+        await Assert.That(NameOf(snapshot, 1)).IsEqualTo("one");
+        await Assert.That(CodeOf(snapshot, 1)).IsEqualTo("C1");
         await Assert.That(snapshot.ContainsKey(3)).IsFalse();
     }
 
@@ -35,7 +50,7 @@ public sealed class FrpCollectionTests
             Stream.CreateSink<CollectionEdit<int, ItemId, ItemState>>();
 
         await Assert.That(
-                () => FrpCollection<int, ItemId, ItemState>.Create(
+                () => ReactiveCollection<int, ItemId, ItemState>.Create(
                     TestUtil.KeyOf,
                     [TestUtil.Item(1, "one", 10), TestUtil.Item(1, "again", 20)],
                     edits))
@@ -48,7 +63,7 @@ public sealed class FrpCollectionTests
         StreamSink<CollectionEdit<int, ItemId, ItemState>> edits =
             Stream.CreateSink<CollectionEdit<int, ItemId, ItemState>>();
 
-        FrpCollection<int, ItemId, ItemState> collection = FrpCollection<int, ItemId, ItemState>.Create(
+        ReactiveCollection<int, ItemId, ItemState> collection = ReactiveCollection<int, ItemId, ItemState>.Create(
             TestUtil.KeyOf,
             [TestUtil.Item(1, "one", 10)],
             edits);
@@ -77,7 +92,7 @@ public sealed class FrpCollectionTests
         StreamSink<CollectionEdit<int, ItemId, ItemState>> edits =
             Stream.CreateSink<CollectionEdit<int, ItemId, ItemState>>();
 
-        FrpCollection<int, ItemId, ItemState> collection = FrpCollection<int, ItemId, ItemState>.Create(
+        ReactiveCollection<int, ItemId, ItemState> collection = ReactiveCollection<int, ItemId, ItemState>.Create(
             TestUtil.KeyOf,
             [TestUtil.Item(1, "one", 10)],
             edits);
@@ -99,7 +114,7 @@ public sealed class FrpCollectionTests
         StreamSink<CollectionEdit<int, ItemId, ItemState>> edits =
             Stream.CreateSink<CollectionEdit<int, ItemId, ItemState>>();
 
-        FrpCollection<int, ItemId, ItemState>.Create(
+        ReactiveCollection<int, ItemId, ItemState>.Create(
             TestUtil.KeyOf,
             [TestUtil.Item(1, "one", 10)],
             edits);
@@ -114,7 +129,7 @@ public sealed class FrpCollectionTests
         StreamSink<CollectionEdit<int, ItemId, ItemState>> edits =
             Stream.CreateSink<CollectionEdit<int, ItemId, ItemState>>();
 
-        FrpCollection<int, ItemId, ItemState>.Create(
+        ReactiveCollection<int, ItemId, ItemState>.Create(
             TestUtil.KeyOf,
             [TestUtil.Item(1, "one", 10)],
             edits);
@@ -128,7 +143,7 @@ public sealed class FrpCollectionTests
         StreamSink<CollectionEdit<int, ItemId, ItemState>> edits =
             Stream.CreateSink<CollectionEdit<int, ItemId, ItemState>>();
 
-        FrpCollection<int, ItemId, ItemState> collection = FrpCollection<int, ItemId, ItemState>.Create(
+        ReactiveCollection<int, ItemId, ItemState> collection = ReactiveCollection<int, ItemId, ItemState>.Create(
             TestUtil.KeyOf,
             [TestUtil.Item(1, "one", 10)],
             edits);
@@ -139,7 +154,7 @@ public sealed class FrpCollectionTests
         CollectionSnapshot<int, ItemId, ItemState> snapshot = collection.SnapshotCell.Sample();
 
         await Assert.That(snapshot.Count).IsEqualTo(1);
-        await Assert.That(snapshot.Lookup(1).Match(static e => e.State.Name, static () => "?")).IsEqualTo("replacement");
+        await Assert.That(NameOf(snapshot, 1)).IsEqualTo("replacement");
     }
 
     [Test]
@@ -150,7 +165,7 @@ public sealed class FrpCollectionTests
         StreamSink<CollectionEdit<int, ItemId, ItemState>> updates =
             Stream.CreateSink<CollectionEdit<int, ItemId, ItemState>>();
 
-        FrpCollection<int, ItemId, ItemState> collection = FrpCollection<int, ItemId, ItemState>.Create(
+        ReactiveCollection<int, ItemId, ItemState> collection = ReactiveCollection<int, ItemId, ItemState>.Create(
             TestUtil.KeyOf,
             [TestUtil.Item(1, "one", 10)],
             adds,
@@ -170,7 +185,7 @@ public sealed class FrpCollectionTests
         await Assert.That(changes.Count).IsEqualTo(1);
         await Assert.That(changes[0].After.Count).IsEqualTo(2);
         await Assert.That(changes[0].Added).IsEquivalentTo([2]);
-        await Assert.That(changes[0].After.Lookup(1).Match(static e => e.State.Score, static () => -1)).IsEqualTo(11);
+        await Assert.That(ScoreOf(changes[0].After, 1)).IsEqualTo(11);
     }
 
     [Test]
@@ -181,7 +196,7 @@ public sealed class FrpCollectionTests
         StreamSink<CollectionEdit<int, ItemId, ItemState>> second =
             Stream.CreateSink<CollectionEdit<int, ItemId, ItemState>>();
 
-        FrpCollection<int, ItemId, ItemState>.Create(
+        ReactiveCollection<int, ItemId, ItemState>.Create(
             TestUtil.KeyOf,
             [TestUtil.Item(1, "one", 10)],
             first,
@@ -204,7 +219,7 @@ public sealed class FrpCollectionTests
         StreamSink<CollectionEdit<int, ItemId, ItemState>> edits =
             Stream.CreateSink<CollectionEdit<int, ItemId, ItemState>>();
 
-        FrpCollection<int, ItemId, ItemState>.Create(
+        ReactiveCollection<int, ItemId, ItemState>.Create(
             TestUtil.KeyOf,
             [TestUtil.Item(1, "one", 10)],
             edits);
@@ -214,12 +229,12 @@ public sealed class FrpCollectionTests
     }
 
     [Test]
-    public async Task ChangeForSeparatesMovedFromPresent()
+    public async Task AChangeSeparatesMovedFromStillPresent()
     {
         StreamSink<CollectionEdit<int, ItemId, ItemState>> edits =
             Stream.CreateSink<CollectionEdit<int, ItemId, ItemState>>();
 
-        FrpCollection<int, ItemId, ItemState> collection = FrpCollection<int, ItemId, ItemState>.Create(
+        ReactiveCollection<int, ItemId, ItemState> collection = ReactiveCollection<int, ItemId, ItemState>.Create(
             TestUtil.KeyOf,
             [TestUtil.Item(1, "one", 10), TestUtil.Item(2, "two", 20)],
             edits);
@@ -233,112 +248,12 @@ public sealed class FrpCollectionTests
 
         CollectionChange<int, ItemId, ItemState> change = changes[0];
 
-        // Removed: it moved, and it is not present afterwards.
-        await Assert.That(change.ChangeFor(1).Match(
-                static inner => inner.Match(static _ => "some", static () => "none"),
-                static () => "no event"))
-            .IsEqualTo("none");
+        // Removed: it moved, and it is not present afterwards. The two questions are separate
+        // members here; the C# wrapper folds them back into one nested optional.
+        await Assert.That(change.WasChanged(1)).IsTrue();
+        await Assert.That(change.TryGetNewState(1, out ItemState _)).IsFalse();
 
         // Untouched: no event for an observer of this key at all.
-        await Assert.That(change.ChangeFor(2).Match(static _ => "event", static () => "no event")).IsEqualTo("no event");
-    }
-
-    [Test]
-    public async Task StateCellTracksOneKeyAcrossAddAndRemove()
-    {
-        StreamSink<CollectionEdit<int, ItemId, ItemState>> edits =
-            Stream.CreateSink<CollectionEdit<int, ItemId, ItemState>>();
-
-        FrpCollection<int, ItemId, ItemState> collection = FrpCollection<int, ItemId, ItemState>.Create(
-            TestUtil.KeyOf,
-            [],
-            edits);
-
-        // Built before the key exists, which is the point: a bound view can outlive its item, and
-        // can be created before it.
-        Cell<Maybe<ItemState>> stateCell = collection.StateCell(7);
-
-        List<string> seen = [];
-        IListener l = stateCell.Updates().ListenStrong(
-            state => seen.Add(state.Match(static s => s.Name, static () => "gone")));
-
-        await Assert.That(stateCell.Sample().Match(static _ => "some", static () => "none")).IsEqualTo("none");
-
-        edits.Send(TestUtil.Add(TestUtil.Item(7, "seven", 70)));
-        edits.Send(TestUtil.Remove(7));
-        edits.Send(TestUtil.Add(TestUtil.Item(7, "seven again", 71)));
-
-        l.Unlisten();
-
-        await Assert.That(seen).IsEquivalentTo(["seven", "gone", "seven again"]);
-    }
-
-    [Test]
-    public async Task StateCellBuiltInTheTransactionThatAddsItsKeySeesTheNewValue()
-    {
-        StreamSink<CollectionEdit<int, ItemId, ItemState>> edits =
-            Stream.CreateSink<CollectionEdit<int, ItemId, ItemState>>();
-
-        FrpCollection<int, ItemId, ItemState> collection = FrpCollection<int, ItemId, ItemState>.Create(
-            TestUtil.KeyOf,
-            [],
-            edits);
-
-        Cell<Maybe<ItemState>>? built = null;
-
-        // A row constructed in response to the structural change that created its item. By the time
-        // this runs the change stream has already fired, so the lazy seed is all the cell has - an
-        // eager sample would read the pre-transaction snapshot and sit at no value.
-        IListener l = collection.ShapeCell.Updates().ListenStrong(_ => built ??= collection.StateCell(5));
-
-        edits.Send(TestUtil.Add(TestUtil.Item(5, "five", 50)));
-
-        l.Unlisten();
-
-        await Assert.That(built).IsNotNull();
-
-        // ReSharper disable once NullableWarningSuppressionIsUsed - the assertion above is what
-        // rules out null, and the compiler cannot see through it.
-        await Assert.That(built!.Sample().Match(static s => s.Name, static () => "none")).IsEqualTo("five");
-    }
-
-    [Test]
-    public async Task StateCellIsSharedPerKeyWhileSomethingHoldsIt()
-    {
-        StreamSink<CollectionEdit<int, ItemId, ItemState>> edits =
-            Stream.CreateSink<CollectionEdit<int, ItemId, ItemState>>();
-
-        FrpCollection<int, ItemId, ItemState> collection = FrpCollection<int, ItemId, ItemState>.Create(
-            TestUtil.KeyOf,
-            [TestUtil.Item(1, "one", 10)],
-            edits);
-
-        Cell<Maybe<ItemState>> first = collection.StateCell(1);
-        Cell<Maybe<ItemState>> second = collection.StateCell(1);
-
-        await Assert.That(second).IsSameReferenceAs(first);
-    }
-
-    [Test]
-    public async Task IdentityCellMovesOnlyOnStructuralChange()
-    {
-        StreamSink<CollectionEdit<int, ItemId, ItemState>> edits =
-            Stream.CreateSink<CollectionEdit<int, ItemId, ItemState>>();
-
-        FrpCollection<int, ItemId, ItemState> collection = FrpCollection<int, ItemId, ItemState>.Create(
-            TestUtil.KeyOf,
-            [TestUtil.Item(1, "one", 10)],
-            edits);
-
-        List<string> seen = [];
-        IListener l = collection.IdentityCell(1).Updates().ListenStrong(
-            identity => seen.Add(identity.Match(static i => i.Code, static () => "gone")));
-
-        edits.Send(TestUtil.Score(1, 11));
-        edits.Send(TestUtil.Remove(1));
-
-        l.Unlisten();
-
-        await Assert.That(seen).IsEquivalentTo(["gone"]);
+        await Assert.That(change.WasChanged(2)).IsFalse();
     }
 }

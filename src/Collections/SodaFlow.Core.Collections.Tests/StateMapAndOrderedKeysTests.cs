@@ -8,6 +8,9 @@ namespace SodaFlow.Collections.Tests;
 
 public sealed class StateMapTests
 {
+    private static string StateOf(IStateMap<int, string> states, int key) =>
+        states.TryGetState(key, out string state) ? state : "?";
+
     [Test]
     public async Task WithAppliesUpdatesAndRemovalsAndLeavesTheOriginalAlone()
     {
@@ -20,13 +23,13 @@ public sealed class StateMapTests
             [1]);
 
         await Assert.That(first.Count).IsEqualTo(2);
-        await Assert.That(first.Lookup(1).Match(static v => v, static () => "?")).IsEqualTo("one");
-        await Assert.That(first.Lookup(2).Match(static v => v, static () => "?")).IsEqualTo("two");
+        await Assert.That(StateOf(first, 1)).IsEqualTo("one");
+        await Assert.That(StateOf(first, 2)).IsEqualTo("two");
 
         await Assert.That(second.Count).IsEqualTo(2);
         await Assert.That(second.ContainsKey(1)).IsFalse();
-        await Assert.That(second.Lookup(2).Match(static v => v, static () => "?")).IsEqualTo("TWO");
-        await Assert.That(second.Lookup(3).Match(static v => v, static () => "?")).IsEqualTo("three");
+        await Assert.That(StateOf(second, 2)).IsEqualTo("TWO");
+        await Assert.That(StateOf(second, 3)).IsEqualTo("three");
     }
 
     [Test]
@@ -83,8 +86,8 @@ public sealed class OrderedKeysTests
             .Add(3, snapshot);
 
         await Assert.That(TestUtil.Keys(keys)).IsEquivalentTo([2, 3, 1]);
-        await Assert.That(keys.IndexOf(1).Match(static i => i, static () => -1)).IsEqualTo(2);
-        await Assert.That(keys.IndexOf(99).Match(static i => i, static () => -1)).IsEqualTo(-1);
+        await Assert.That(keys.IndexOf(1)).IsEqualTo(2);
+        await Assert.That(keys.IndexOf(99)).IsEqualTo(-1);
         await Assert.That(keys.Contains(3)).IsTrue();
         await Assert.That(keys[0]).IsEqualTo(2);
     }

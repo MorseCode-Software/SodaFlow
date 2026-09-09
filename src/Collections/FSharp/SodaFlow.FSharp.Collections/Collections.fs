@@ -11,9 +11,10 @@
 ///         than <c>Func</c>, converted at this boundary.
 ///     </para>
 ///     <para>
-///         Optionality is <c>Maybe&lt;'T&gt;</c> from SodaFlow.Functional rather than F#'s
-///         <c>option</c>, because that is the type the collection itself answers with and
-///         converting here would mean a graph node per cell to say the same thing twice.
+///         Optionality is F#'s own <c>option</c>. The core answers in <c>TryGet</c>s and
+///         integers rather than in any optional type, precisely so that each language surface can
+///         put its own back on top: this module never sees SodaFlow.Functional, and neither does
+///         anything that installs this package.
 ///     </para>
 /// </remarks>
 module SodaFlow.Collections
@@ -25,7 +26,6 @@ open SodaFlow
 // The types this module wraps live in the namespace SodaFlow.Collections, which this module
 // shadows by having the same name - as SodaFlow.FSharp.Async's module does over SodaFlow.Async.
 open SodaFlow.Collections
-open SodaFlow.Functional
 
 // --- construction -------------------------------------------------------------------------
 
@@ -43,7 +43,7 @@ let create
     (initialEntries: seq<Entry<'TId, 'TState>>)
     (editStreams: seq<Stream<CollectionEdit<'TKey, 'TId, 'TState>>>)
     =
-    FrpCollection<'TKey, 'TId, 'TState>.Create(Func<_, _> keySelector, initialEntries, Array.ofSeq editStreams)
+    ReactiveCollection<'TKey, 'TId, 'TState>.Create(Func<_, _> keySelector, initialEntries, Array.ofSeq editStreams)
 
 /// <summary>
 ///     Defines a collection, choosing the storage strategy rather than taking the default hash
@@ -61,7 +61,7 @@ let createWith
     (initialEntries: seq<Entry<'TId, 'TState>>)
     (editStreams: seq<Stream<CollectionEdit<'TKey, 'TId, 'TState>>>)
     =
-    FrpCollection<'TKey, 'TId, 'TState>.Create(
+    ReactiveCollection<'TKey, 'TId, 'TState>.Create(
         Func<_, _> keySelector,
         initialEntries,
         emptyStateMap,
@@ -154,49 +154,114 @@ let fromRemoves
 
 // --- observation --------------------------------------------------------------------------
 
-/// <summary>The item's mutable portion, no value while the key is absent from the store.</summary>
+/// <summary>
+///     The item's mutable portion, <c>None</c> while the key is absent from the store.
+/// </summary>
 /// <param name="key">The key to observe.</param>
 /// <param name="collection">The collection or view to ask.</param>
 /// <returns>A cell tracking that key's state.</returns>
+/// <remarks>
+///     Cheap enough to create per bound row: it filters on a single hash lookup and never touches
+///     the rest of the collection. Cached weakly per key, so N observers of one key share a node,
+///     and asking two views of the same root gives the same cell.
+///     The key need not exist yet. A removal fires <c>None</c> and a later add under the same key
+///     fires <c>Some</c> again, so a view bound to a key can outlive the item.
+/// </remarks>
 [<MethodImpl(MethodImplOptions.NoInlining)>]
-let stateCell (key: 'TKey) (collection: IFrpCollection<'TKey, 'TId, 'TState>) = collection.StateCell key
+let stateCell (key: 'TKey) (collection: IReactiveCollection<'TKey, 'TId, 'TState>) =
+    collection.Root.StateCellImpl(key, Func<_, _> Some, Func<_>(fun () -> None))
 
-/// <summary>The item's immutable portion, no value while the key is absent.</summary>
+/// <summary>The item's immutable portion, <c>None</c> while the key is absent.</summary>
 /// <param name="key">The key to observe.</param>
 /// <param name="collection">The collection or view to ask.</param>
 /// <returns>A cell tracking that key's identity.</returns>
+/// <remarks>Fires only on structural change, so it is near-free to hold.</remarks>
 [<MethodImpl(MethodImplOptions.NoInlining)>]
-let identityCell (key: 'TKey) (collection: IFrpCollection<'TKey, 'TId, 'TState>) = collection.IdentityCell key
+let identityCell (key: 'TKey) (collection: IReactiveCollection<'TKey, 'TId, 'TState>) =
+    collection.Root.ShapeCell
+    |> mapC (fun identities ->
+        match identities.TryGetValue key with
+        | true, identity -> Some identity
+        | _ -> None)
+
+/// <summary>Both halves of the item stored under a key, if there is one.</summary>
+/// <param name="key">The key to look up.</param>
+/// <param name="snapshot">The snapshot to look in.</param>
+/// <returns>The entry, or <c>None</c> if the key is absent.</returns>
+[<MethodImpl(MethodImplOptions.NoInlining)>]
+let lookup (key: 'TKey) (snapshot: CollectionSnapshot<'TKey, 'TId, 'TState>) =
+    match snapshot.TryGetEntry key with
+    | true, entry -> Some entry
+    | _ -> None
+
+/// <summary>The state stored under a key, if there is one.</summary>
+/// <param name="key">The key to look up.</param>
+/// <param name="states">The state map to look in.</param>
+/// <returns>The state, or <c>None</c> if the key is absent.</returns>
+[<MethodImpl(MethodImplOptions.NoInlining)>]
+let lookupState (key: 'TKey) (states: IStateMap<'TKey, 'TState>) =
+    match states.TryGetState key with
+    | true, state -> Some state
+    | _ -> None
+
+/// <summary>
+///     What a change did to one key. The nesting is deliberate and the two levels mean different
+///     things: the outer <c>option</c> is whether the key moved at all - <c>None</c> meaning no
+///     event for this observer - and the inner one is whether the key is present afterwards, so a
+///     removal arrives as <c>Some None</c>.
+/// </summary>
+/// <param name="key">The key to ask about.</param>
+/// <param name="change">The change to ask about.</param>
+/// <returns>What happened to that key, if anything.</returns>
+[<MethodImpl(MethodImplOptions.NoInlining)>]
+let changeFor (key: 'TKey) (change: CollectionChange<'TKey, 'TId, 'TState>) =
+    match change.TryGetNewState key with
+    | true, state -> Some(Some state)
+    | _ -> if change.WasChanged key then Some None else None
+
+/// <summary>The position of a key in an ordered set, if it is present.</summary>
+/// <param name="key">The key to look for.</param>
+/// <param name="keys">The ordered set to look in.</param>
+/// <returns>Its position, or <c>None</c> if the key is absent.</returns>
+/// <remarks>
+///     <c>IOrderedKeys.IndexOf</c> itself answers -1, following the convention every other
+///     <c>IndexOf</c> in the framework does. This is the same question asked the F# way.
+/// </remarks>
+[<MethodImpl(MethodImplOptions.NoInlining)>]
+let indexOf (key: 'TKey) (keys: IOrderedKeys<'TKey, 'TId, 'TState>) =
+    match keys.IndexOf key with
+    | index when index >= 0 -> Some index
+    | _ -> None
 
 /// <summary>The shared item store, spanning every view of the same root.</summary>
 /// <param name="collection">The collection or view to ask.</param>
 /// <returns>A cell holding the whole store.</returns>
 [<MethodImpl(MethodImplOptions.NoInlining)>]
-let snapshotCell (collection: IFrpCollection<'TKey, 'TId, 'TState>) = collection.SnapshotCell
+let snapshotCell (collection: IReactiveCollection<'TKey, 'TId, 'TState>) = collection.SnapshotCell
 
 /// <summary>This collection's keys, in order.</summary>
 /// <param name="collection">The collection or view to ask.</param>
 /// <returns>A cell holding the ordered keys.</returns>
 [<MethodImpl(MethodImplOptions.NoInlining)>]
-let keysCell (collection: IFrpCollection<'TKey, 'TId, 'TState>) = collection.KeysCell
+let keysCell (collection: IReactiveCollection<'TKey, 'TId, 'TState>) = collection.KeysCell
 
 /// <summary>Membership and ordering changes, as operations to apply in sequence.</summary>
 /// <param name="collection">The collection or view to ask.</param>
 /// <returns>The stream of changes.</returns>
 [<MethodImpl(MethodImplOptions.NoInlining)>]
-let changesStream (collection: IFrpCollection<'TKey, 'TId, 'TState>) = collection.ChangesStream
+let changesStream (collection: IReactiveCollection<'TKey, 'TId, 'TState>) = collection.ChangesStream
 
 /// <summary>The outer view: fires only when the item count changes or a key changes.</summary>
 /// <param name="collection">The collection to ask.</param>
 /// <returns>A cell holding the identity map.</returns>
 [<MethodImpl(MethodImplOptions.NoInlining)>]
-let shapeCell (collection: FrpCollection<'TKey, 'TId, 'TState>) = collection.ShapeCell
+let shapeCell (collection: ReactiveCollection<'TKey, 'TId, 'TState>) = collection.ShapeCell
 
 /// <summary>Every resolved change as keyed deltas, carrying the new state of each key that moved.</summary>
 /// <param name="collection">The collection to ask.</param>
 /// <returns>The stream of keyed changes.</returns>
 [<MethodImpl(MethodImplOptions.NoInlining)>]
-let itemChangesStream (collection: FrpCollection<'TKey, 'TId, 'TState>) = collection.ItemChangesStream
+let itemChangesStream (collection: ReactiveCollection<'TKey, 'TId, 'TState>) = collection.ItemChangesStream
 
 // --- views --------------------------------------------------------------------------------
 
@@ -205,7 +270,7 @@ let itemChangesStream (collection: FrpCollection<'TKey, 'TId, 'TState>) = collec
 /// <param name="upstream">The collection or view to reorder.</param>
 /// <returns>A view ordered by key.</returns>
 [<MethodImpl(MethodImplOptions.NoInlining)>]
-let sortByKey (keyComparer: IComparer<'TKey>) (upstream: IFrpCollection<'TKey, 'TId, 'TState>) =
+let sortByKey (keyComparer: IComparer<'TKey>) (upstream: IReactiveCollection<'TKey, 'TId, 'TState>) =
     CollectionViewUtility.SortByKeyImpl(upstream, keyComparer)
 
 /// <summary>Narrows the view, preserving the upstream order.</summary>
@@ -213,7 +278,7 @@ let sortByKey (keyComparer: IComparer<'TKey>) (upstream: IFrpCollection<'TKey, '
 /// <param name="upstream">The collection or view to narrow.</param>
 /// <returns>A view holding the items which pass.</returns>
 [<MethodImpl(MethodImplOptions.NoInlining)>]
-let filter (predicate: 'TId -> 'TState -> bool) (upstream: IFrpCollection<'TKey, 'TId, 'TState>) =
+let filter (predicate: 'TId -> 'TState -> bool) (upstream: IReactiveCollection<'TKey, 'TId, 'TState>) =
     CollectionViewUtility.FilterImpl(upstream, CellInternal.ConstantImpl(Func<_, _, _> predicate))
 
 /// <summary>
@@ -227,7 +292,7 @@ let filter (predicate: 'TId -> 'TState -> bool) (upstream: IFrpCollection<'TKey,
 [<MethodImpl(MethodImplOptions.NoInlining)>]
 let filterC
     (predicateCell: Cell<'TId -> 'TState -> bool>)
-    (upstream: IFrpCollection<'TKey, 'TId, 'TState>)
+    (upstream: IReactiveCollection<'TKey, 'TId, 'TState>)
     =
     CollectionViewUtility.FilterImpl(
         upstream,
@@ -240,7 +305,7 @@ let filterC
 [<MethodImpl(MethodImplOptions.NoInlining)>]
 let sortBy
     (selector: 'TId -> 'TState -> 'TSortKey)
-    (upstream: IFrpCollection<'TKey, 'TId, 'TState>)
+    (upstream: IReactiveCollection<'TKey, 'TId, 'TState>)
     =
     CollectionViewUtility.SortByImpl(
         upstream,
@@ -256,7 +321,7 @@ let sortBy
 [<MethodImpl(MethodImplOptions.NoInlining)>]
 let sortByDescending
     (selector: 'TId -> 'TState -> 'TSortKey)
-    (upstream: IFrpCollection<'TKey, 'TId, 'TState>)
+    (upstream: IReactiveCollection<'TKey, 'TId, 'TState>)
     =
     CollectionViewUtility.SortByImpl(
         upstream,
@@ -282,7 +347,7 @@ let sortByWith
     (sortComparer: IComparer<'TSortKey>)
     (keyComparer: IComparer<'TKey>)
     (descending: bool)
-    (upstream: IFrpCollection<'TKey, 'TId, 'TState>)
+    (upstream: IReactiveCollection<'TKey, 'TId, 'TState>)
     =
     CollectionViewUtility.SortByImpl(
         upstream,
@@ -299,7 +364,7 @@ let sortByWith
 /// <param name="upstream">The collection or view to window.</param>
 /// <returns>A view of that window.</returns>
 [<MethodImpl(MethodImplOptions.NoInlining)>]
-let take (limit: int) (upstream: IFrpCollection<'TKey, 'TId, 'TState>) =
+let take (limit: int) (upstream: IReactiveCollection<'TKey, 'TId, 'TState>) =
     CollectionViewUtility.TakeImpl(upstream, CellInternal.ConstantImpl limit)
 
 /// <summary>The first however many keys of the upstream, where that count can itself change.</summary>
@@ -307,7 +372,7 @@ let take (limit: int) (upstream: IFrpCollection<'TKey, 'TId, 'TState>) =
 /// <param name="upstream">The collection or view to window.</param>
 /// <returns>A view of that window.</returns>
 [<MethodImpl(MethodImplOptions.NoInlining)>]
-let takeC (limitCell: Cell<int>) (upstream: IFrpCollection<'TKey, 'TId, 'TState>) =
+let takeC (limitCell: Cell<int>) (upstream: IReactiveCollection<'TKey, 'TId, 'TState>) =
     CollectionViewUtility.TakeImpl(upstream, limitCell)
 
 /// <summary>
@@ -319,7 +384,7 @@ let takeC (limitCell: Cell<int>) (upstream: IFrpCollection<'TKey, 'TId, 'TState>
 /// <returns>A view following whichever view the cell holds.</returns>
 [<MethodImpl(MethodImplOptions.NoInlining)>]
 let switchView
-    (viewCell: Cell<IFrpCollection<'TKey, 'TId, 'TState>>)
-    (source: IFrpCollection<'TKey, 'TId, 'TState>)
+    (viewCell: Cell<IReactiveCollection<'TKey, 'TId, 'TState>>)
+    (source: IReactiveCollection<'TKey, 'TId, 'TState>)
     =
     CollectionViewUtility.SwitchImpl(source, viewCell)

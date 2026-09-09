@@ -9,12 +9,12 @@ namespace SodaFlow.Collections.Tests;
 
 public sealed class CollectionViewTests
 {
-    private static FrpCollection<int, ItemId, ItemState> Create(
+    private static ReactiveCollection<int, ItemId, ItemState> Create(
         Stream<CollectionEdit<int, ItemId, ItemState>> edits,
         params Entry<ItemId, ItemState>[] initial) =>
-        FrpCollection<int, ItemId, ItemState>.Create(TestUtil.KeyOf, initial, edits);
+        ReactiveCollection<int, ItemId, ItemState>.Create(TestUtil.KeyOf, initial, edits);
 
-    private static List<int> KeysOf(IFrpCollection<int, ItemId, ItemState> view) =>
+    private static List<int> KeysOf(IReactiveCollection<int, ItemId, ItemState> view) =>
         TestUtil.Keys(view.KeysCell.Sample());
 
     /// <summary>An operation as "kind:key", which is what these tests assert on.</summary>
@@ -27,7 +27,7 @@ public sealed class CollectionViewTests
         StreamSink<CollectionEdit<int, ItemId, ItemState>> edits =
             Stream.CreateSink<CollectionEdit<int, ItemId, ItemState>>();
 
-        FrpCollection<int, ItemId, ItemState> collection = Create(
+        ReactiveCollection<int, ItemId, ItemState> collection = Create(
             edits,
             TestUtil.Item(3, "three", 30),
             TestUtil.Item(1, "one", 10),
@@ -46,13 +46,13 @@ public sealed class CollectionViewTests
         StreamSink<CollectionEdit<int, ItemId, ItemState>> edits =
             Stream.CreateSink<CollectionEdit<int, ItemId, ItemState>>();
 
-        FrpCollection<int, ItemId, ItemState> collection = Create(
+        ReactiveCollection<int, ItemId, ItemState> collection = Create(
             edits,
             TestUtil.Item(1, "one", 30),
             TestUtil.Item(2, "two", 10),
             TestUtil.Item(3, "three", 20));
 
-        IFrpCollection<int, ItemId, ItemState> byScore =
+        IReactiveCollection<int, ItemId, ItemState> byScore =
             collection.SortBy(static (_, state) => state.Score);
 
         await Assert.That(KeysOf(byScore)).IsEquivalentTo([2, 3, 1]);
@@ -69,13 +69,13 @@ public sealed class CollectionViewTests
         StreamSink<CollectionEdit<int, ItemId, ItemState>> edits =
             Stream.CreateSink<CollectionEdit<int, ItemId, ItemState>>();
 
-        FrpCollection<int, ItemId, ItemState> collection = Create(
+        ReactiveCollection<int, ItemId, ItemState> collection = Create(
             edits,
             TestUtil.Item(1, "one", 30),
             TestUtil.Item(2, "two", 10),
             TestUtil.Item(3, "three", 20));
 
-        IFrpCollection<int, ItemId, ItemState> byScore =
+        IReactiveCollection<int, ItemId, ItemState> byScore =
             collection.SortByDescending(static (_, state) => state.Score);
 
         await Assert.That(KeysOf(byScore)).IsEquivalentTo([1, 3, 2]);
@@ -87,13 +87,13 @@ public sealed class CollectionViewTests
         StreamSink<CollectionEdit<int, ItemId, ItemState>> edits =
             Stream.CreateSink<CollectionEdit<int, ItemId, ItemState>>();
 
-        FrpCollection<int, ItemId, ItemState> collection = Create(
+        ReactiveCollection<int, ItemId, ItemState> collection = Create(
             edits,
             TestUtil.Item(1, "one", 10),
             TestUtil.Item(2, "two", 20),
             TestUtil.Item(3, "three", 30));
 
-        IFrpCollection<int, ItemId, ItemState> byScore =
+        IReactiveCollection<int, ItemId, ItemState> byScore =
             collection.SortBy(static (_, state) => state.Score);
 
         List<string> operations = [];
@@ -114,7 +114,7 @@ public sealed class CollectionViewTests
         StreamSink<CollectionEdit<int, ItemId, ItemState>> edits =
             Stream.CreateSink<CollectionEdit<int, ItemId, ItemState>>();
 
-        FrpCollection<int, ItemId, ItemState> collection = Create(
+        ReactiveCollection<int, ItemId, ItemState> collection = Create(
             edits,
             TestUtil.Item(1, "one", 10),
             TestUtil.Item(2, "two", 20));
@@ -138,14 +138,14 @@ public sealed class CollectionViewTests
         StreamSink<CollectionEdit<int, ItemId, ItemState>> edits =
             Stream.CreateSink<CollectionEdit<int, ItemId, ItemState>>();
 
-        FrpCollection<int, ItemId, ItemState> collection = Create(
+        ReactiveCollection<int, ItemId, ItemState> collection = Create(
             edits,
             TestUtil.Item(1, "one", 30),
             TestUtil.Item(2, "two", 10),
             TestUtil.Item(3, "three", 20),
             TestUtil.Item(4, "four", 40));
 
-        IFrpCollection<int, ItemId, ItemState> passing = collection
+        IReactiveCollection<int, ItemId, ItemState> passing = collection
             .SortBy(static (_, state) => state.Score)
             .Filter(static (_, state) => state.Score >= 20);
 
@@ -158,12 +158,12 @@ public sealed class CollectionViewTests
         StreamSink<CollectionEdit<int, ItemId, ItemState>> edits =
             Stream.CreateSink<CollectionEdit<int, ItemId, ItemState>>();
 
-        FrpCollection<int, ItemId, ItemState> collection = Create(
+        ReactiveCollection<int, ItemId, ItemState> collection = Create(
             edits,
             TestUtil.Item(1, "one", 10),
             TestUtil.Item(2, "two", 30));
 
-        IFrpCollection<int, ItemId, ItemState> passing =
+        IReactiveCollection<int, ItemId, ItemState> passing =
             collection.Filter(static (_, state) => state.Score >= 20);
 
         await Assert.That(KeysOf(passing)).IsEquivalentTo([2]);
@@ -182,13 +182,13 @@ public sealed class CollectionViewTests
             Stream.CreateSink<CollectionEdit<int, ItemId, ItemState>>();
         CellSink<int> threshold = Cell.CreateSink(20);
 
-        FrpCollection<int, ItemId, ItemState> collection = Create(
+        ReactiveCollection<int, ItemId, ItemState> collection = Create(
             edits,
             TestUtil.Item(1, "one", 10),
             TestUtil.Item(2, "two", 20),
             TestUtil.Item(3, "three", 30));
 
-        IFrpCollection<int, ItemId, ItemState> passing = collection.Filter(
+        IReactiveCollection<int, ItemId, ItemState> passing = collection.Filter(
             threshold,
             static (limit, _, state) => state.Score >= limit);
 
@@ -211,14 +211,14 @@ public sealed class CollectionViewTests
         StreamSink<CollectionEdit<int, ItemId, ItemState>> edits =
             Stream.CreateSink<CollectionEdit<int, ItemId, ItemState>>();
 
-        FrpCollection<int, ItemId, ItemState> collection = Create(
+        ReactiveCollection<int, ItemId, ItemState> collection = Create(
             edits,
             TestUtil.Item(1, "one", 10),
             TestUtil.Item(2, "two", 20),
             TestUtil.Item(3, "three", 30),
             TestUtil.Item(4, "four", 40));
 
-        IFrpCollection<int, ItemId, ItemState> topTwo = collection
+        IReactiveCollection<int, ItemId, ItemState> topTwo = collection
             .SortByDescending(static (_, state) => state.Score)
             .Take(2);
 
@@ -237,13 +237,13 @@ public sealed class CollectionViewTests
             Stream.CreateSink<CollectionEdit<int, ItemId, ItemState>>();
         CellSink<int> limit = Cell.CreateSink(1);
 
-        FrpCollection<int, ItemId, ItemState> collection = Create(
+        ReactiveCollection<int, ItemId, ItemState> collection = Create(
             edits,
             TestUtil.Item(1, "one", 10),
             TestUtil.Item(2, "two", 20),
             TestUtil.Item(3, "three", 30));
 
-        IFrpCollection<int, ItemId, ItemState> window = collection.Take(limit);
+        IReactiveCollection<int, ItemId, ItemState> window = collection.Take(limit);
 
         await Assert.That(KeysOf(window)).IsEquivalentTo([1]);
 
@@ -258,7 +258,7 @@ public sealed class CollectionViewTests
         StreamSink<CollectionEdit<int, ItemId, ItemState>> edits =
             Stream.CreateSink<CollectionEdit<int, ItemId, ItemState>>();
 
-        FrpCollection<int, ItemId, ItemState> collection = Create(
+        ReactiveCollection<int, ItemId, ItemState> collection = Create(
             edits,
             TestUtil.Item(1, "one", 50),
             TestUtil.Item(2, "two", 40),
@@ -266,7 +266,7 @@ public sealed class CollectionViewTests
             TestUtil.Item(4, "four", 20),
             TestUtil.Item(5, "five", 10));
 
-        IFrpCollection<int, ItemId, ItemState> topTwoOfTheEvens = collection
+        IReactiveCollection<int, ItemId, ItemState> topTwoOfTheEvens = collection
             .SortByDescending(static (_, state) => state.Score)
             .Filter(static (identity, _) => identity.Number % 2 == 0)
             .Take(2);
@@ -285,12 +285,12 @@ public sealed class CollectionViewTests
         StreamSink<CollectionEdit<int, ItemId, ItemState>> edits =
             Stream.CreateSink<CollectionEdit<int, ItemId, ItemState>>();
 
-        FrpCollection<int, ItemId, ItemState> collection = Create(
+        ReactiveCollection<int, ItemId, ItemState> collection = Create(
             edits,
             TestUtil.Item(1, "one", 10),
             TestUtil.Item(2, "two", 20));
 
-        IFrpCollection<int, ItemId, ItemState> passing =
+        IReactiveCollection<int, ItemId, ItemState> passing =
             collection.Filter(static (_, state) => state.Score >= 20);
 
         // The same cell, not an equal one: sharing is what falls out of a view never copying.
@@ -309,13 +309,13 @@ public sealed class CollectionViewTests
         StreamSink<CollectionEdit<int, ItemId, ItemState>> edits =
             Stream.CreateSink<CollectionEdit<int, ItemId, ItemState>>();
 
-        FrpCollection<int, ItemId, ItemState> collection = Create(
+        ReactiveCollection<int, ItemId, ItemState> collection = Create(
             edits,
             TestUtil.Item(1, "one", 10),
             TestUtil.Item(2, "two", 20),
             TestUtil.Item(3, "three", 30));
 
-        IFrpCollection<int, ItemId, ItemState> passing = collection
+        IReactiveCollection<int, ItemId, ItemState> passing = collection
             .SortByDescending(static (_, state) => state.Score)
             .Filter(static (_, state) => state.Score >= 20);
 
@@ -336,19 +336,19 @@ public sealed class CollectionViewTests
         StreamSink<CollectionEdit<int, ItemId, ItemState>> edits =
             Stream.CreateSink<CollectionEdit<int, ItemId, ItemState>>();
 
-        FrpCollection<int, ItemId, ItemState> collection = Create(
+        ReactiveCollection<int, ItemId, ItemState> collection = Create(
             edits,
             TestUtil.Item(1, "one", 30),
             TestUtil.Item(2, "two", 10),
             TestUtil.Item(3, "three", 20));
 
-        IFrpCollection<int, ItemId, ItemState> byScore =
+        IReactiveCollection<int, ItemId, ItemState> byScore =
             collection.SortBy(static (_, state) => state.Score);
-        IFrpCollection<int, ItemId, ItemState> byName =
+        IReactiveCollection<int, ItemId, ItemState> byName =
             collection.SortBy(static (_, state) => state.Name);
 
-        CellSink<IFrpCollection<int, ItemId, ItemState>> which = Cell.CreateSink(byScore);
-        IFrpCollection<int, ItemId, ItemState> switched = collection.Switch(which);
+        CellSink<IReactiveCollection<int, ItemId, ItemState>> which = Cell.CreateSink(byScore);
+        IReactiveCollection<int, ItemId, ItemState> switched = collection.Switch(which);
 
         await Assert.That(KeysOf(switched)).IsEquivalentTo([2, 3, 1]);
 

@@ -4,7 +4,6 @@ using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Linq;
 using JetBrains.Annotations;
-using SodaFlow.Functional;
 
 namespace SodaFlow.Collections;
 
@@ -54,10 +53,15 @@ public interface IOrderedKeys<TKey, TId, TState> : IReadOnlyList<TKey>
     /// <returns><see langword="true" /> if the key is present.</returns>
     bool Contains(TKey key);
 
-    /// <summary>The position of a key in this set, if it is present.</summary>
+    /// <summary>The position of a key in this set.</summary>
     /// <param name="key">The key to look for.</param>
-    /// <returns>Its position, or no value if the key is absent.</returns>
-    Maybe<int> IndexOf(TKey key);
+    /// <returns>Its position, or -1 if the key is absent.</returns>
+    /// <remarks>
+    ///     -1 rather than an optional value, both because this assembly does not reference
+    ///     SodaFlow.Functional and because it is the convention every <c>IndexOf</c> in the
+    ///     framework already follows.
+    /// </remarks>
+    int IndexOf(TKey key);
 
     /// <summary>
     ///     Files the key under the sort value it projects from <paramref name="snapshot" />. A key
@@ -205,20 +209,15 @@ internal sealed class SortedKeys<TKey, TId, TState, TSortKey> : IOrderedKeys<TKe
 
     public bool Contains(TKey key) => this.byKey.ContainsKey(key);
 
-    public Maybe<int> IndexOf(TKey key) =>
-        this.byKey.TryGetValue(key).Match(
-            entry =>
-            {
-                int index = this.entries.IndexOf(entry);
-
-                return index >= 0 ? Maybe.Some(index) : Maybe<int>.None;
-            },
-            static () => Maybe<int>.None);
+    public int IndexOf(TKey key) =>
+        this.byKey.TryGet(key, out SortedEntry<TKey, TSortKey> entry)
+            ? this.entries.IndexOf(entry)
+            : -1;
 
     public IOrderedKeys<TKey, TId, TState> Add(
         TKey key,
         CollectionSnapshot<TKey, TId, TState> snapshot) =>
-        snapshot.Lookup(key).Match<IOrderedKeys<TKey, TId, TState>>(
+        snapshot.LookupInternal(key).Match<IOrderedKeys<TKey, TId, TState>>(
             item =>
             {
                 SortedEntry<TKey, TSortKey> entry = new(
@@ -233,12 +232,12 @@ internal sealed class SortedKeys<TKey, TId, TState, TSortKey> : IOrderedKeys<TKe
             () => this);
 
     public IOrderedKeys<TKey, TId, TState> Remove(TKey key) =>
-        this.byKey.TryGetValue(key).Match<IOrderedKeys<TKey, TId, TState>>(
-            entry => new SortedKeys<TKey, TId, TState, TSortKey>(
+        this.byKey.TryGet(key, out SortedEntry<TKey, TSortKey> entry)
+            ? new SortedKeys<TKey, TId, TState, TSortKey>(
                 this.order,
                 this.entries.Remove(entry),
-                this.byKey.Remove(key)),
-            () => this);
+                this.byKey.Remove(key))
+            : this;
 
     public IEnumerator<TKey> GetEnumerator() =>
         this.entries.Select(static entry => entry.Key).GetEnumerator();
@@ -273,12 +272,14 @@ internal sealed class PrefixKeys<TKey, TId, TState> : IOrderedKeys<TKey, TId, TS
         ? this.source[index]
         : throw new ArgumentOutOfRangeException(nameof(index));
 
-    public bool Contains(TKey key) => this.IndexOf(key).Match(static _ => true, static () => false);
+    public bool Contains(TKey key) => this.IndexOf(key) >= 0;
 
-    public Maybe<int> IndexOf(TKey key) =>
-        this.source.IndexOf(key).Match(
-            index => index < this.Count ? Maybe.Some(index) : Maybe<int>.None,
-            static () => Maybe<int>.None);
+    public int IndexOf(TKey key)
+    {
+        int index = this.source.IndexOf(key);
+
+        return index >= 0 && index < this.Count ? index : -1;
+    }
 
     public IOrderedKeys<TKey, TId, TState> Add(
         TKey key,

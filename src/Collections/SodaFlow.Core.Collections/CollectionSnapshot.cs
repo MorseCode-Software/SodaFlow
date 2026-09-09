@@ -1,6 +1,5 @@
 using System.Collections.Generic;
 using JetBrains.Annotations;
-using SodaFlow.Functional;
 
 namespace SodaFlow.Collections;
 
@@ -43,11 +42,30 @@ public sealed class CollectionSnapshot<TKey, TId, TState>
 
     /// <summary>Returns both halves of the item stored under a key, if there is one.</summary>
     /// <param name="key">The key to look up.</param>
-    /// <returns>The entry, or no value if the key is absent.</returns>
-    public Maybe<Entry<TId, TState>> Lookup(TKey key) =>
-        this.Identities.TryGetValue(key).Match(
-            identity => this.States.Lookup(key).Match(
-                state => Maybe.Some(new Entry<TId, TState>(identity, state)),
-                static () => Maybe<Entry<TId, TState>>.None),
-            static () => Maybe<Entry<TId, TState>>.None);
+    /// <param name="entry">The item stored under it, when this returns true.</param>
+    /// <returns><see langword="true" /> if the key is present.</returns>
+    /// <remarks>
+    ///     A <c>TryGet</c> rather than an optional value because this assembly does not reference
+    ///     SodaFlow.Functional; the language wrappers add <c>Lookup</c> over this, answering with
+    ///     each language's own optional type.
+    /// </remarks>
+    public bool TryGetEntry(TKey key, out Entry<TId, TState>? entry)
+    {
+        if (this.Identities.TryGet(key, out TId identity) &&
+            this.States.TryGetState(key, out TState state))
+        {
+            entry = new Entry<TId, TState>(identity, state);
+
+            return true;
+        }
+
+        entry = null;
+
+        return false;
+    }
+
+    internal MaybeInternal<Entry<TId, TState>> LookupInternal(TKey key) =>
+        this.TryGetEntry(key, out Entry<TId, TState>? entry) && entry is not null
+            ? MaybeInternal.Some(entry)
+            : MaybeInternal<Entry<TId, TState>>.None;
 }

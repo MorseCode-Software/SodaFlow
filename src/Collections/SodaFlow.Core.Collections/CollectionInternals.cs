@@ -1,26 +1,35 @@
-using System;
-using SodaFlow.Functional;
+using System.Collections.Generic;
 
 namespace SodaFlow.Collections;
 
 /// <summary>
-///     The two shorthands this assembly needs more than once, kept together rather than repeated.
+///     The one shorthand this assembly needs more than once.
 /// </summary>
 internal static class CollectionInternals
 {
     /// <summary>
-    ///     The core's <c>FilterSomeImpl</c> applied to <see cref="SodaFlow.Functional.Maybe{T}" />,
-    ///     which is what <c>SodaFlow.FilterSome</c> is in the C# wrapper. Restated here because
-    ///     this assembly does not reference that wrapper — it sits underneath it.
+    ///     A dictionary lookup whose output is a plain <typeparamref name="TValue" /> rather than a
+    ///     nullable one, so that a <c>TryGet</c> declared over an unconstrained type parameter can
+    ///     forward to it without every call site restating why that is sound.
     /// </summary>
-    internal static Stream<T> FilterSome<T>(this Stream<Maybe<T>> s) =>
-        s.FilterSomeImpl<T, Maybe<T>>(static (m, a) => m.MatchSome(a));
+    /// <remarks>
+    ///     This is the one place in the assembly that suppresses a nullable warning, and it is here
+    ///     rather than at the six call sites which would otherwise each need it.
+    ///     <see cref="IReadOnlyDictionary{TKey,TValue}.TryGetValue" /> leaves its output at the
+    ///     default when it answers false, which is the whole of what an <see langword="out" />
+    ///     parameter of an unconstrained type can promise. net6.0 says so in an annotation; net472
+    ///     and netstandard2.0 carry none, which is what the compiler is complaining about.
+    /// </remarks>
+    internal static bool TryGet<TKey, TValue>(
+        this IReadOnlyDictionary<TKey, TValue> dictionary,
+        TKey key,
+        out TValue value)
+    {
+        bool found = dictionary.TryGetValue(key, out TValue? stored);
 
-    /// <summary>
-    ///     A weak reference read as an optional value rather than a <see langword="bool" /> plus an
-    ///     <see langword="out" /> parameter.
-    /// </summary>
-    internal static Maybe<T> Target<T>(this WeakReference<T> reference)
-        where T : class =>
-        reference.TryGetTarget(out T? target) ? Maybe.Some(target) : Maybe<T>.None;
+        // ReSharper disable once NullableWarningSuppressionIsUsed - see the remarks above.
+        value = stored!;
+
+        return found;
+    }
 }

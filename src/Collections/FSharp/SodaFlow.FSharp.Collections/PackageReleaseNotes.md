@@ -5,11 +5,10 @@ First release.
 Requires SodaFlow.FSharp 4.x and SodaFlow.Collections.Core 1.x. Installing this
 brings the F# API it extends, so one install gives you the whole surface.
 
-SodaFlow.Functional arrives with it, transitively, where SodaFlow.FSharp
-deliberately leaves it out. Optionality here is Maybe<'T> rather than option,
-because that is what the collection itself answers with; converting at this
-boundary would cost a graph node per cell to restate what both types already
-say.
+Optionality is option, not Maybe, and it brings no more with it than
+SodaFlow.FSharp does. The core carries no optional type at all - its lookups
+are TryGets - so the projection into option happens inside the map a per-item
+cell already had, costing no extra graph node.
 
 ---
 

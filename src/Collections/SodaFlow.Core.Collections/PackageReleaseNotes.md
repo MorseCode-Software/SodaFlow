@@ -2,12 +2,12 @@
 
 First release.
 
-Requires SodaFlow.Core 4.x and SodaFlow.Functional 3.x.
+Requires SodaFlow.Core 4.x, and nothing else from this repository.
 
-SodaFlow.Functional is a dependency here where it is not one of the other core
-packages. Optionality in this API is Maybe<T> rather than null throughout, so
-the type is in the public surface rather than an implementation detail of a
-language wrapper.
+There is no optional type in this API. Lookups are TryGetEntry, TryGetState and
+TryGetNewState, and IndexOf answers -1, so that each language surface can put
+its own optional type on top - Maybe in SodaFlow.Collections, option in
+SodaFlow.FSharp.Collections - and neither pays for the other's.
 
 ---
 
@@ -16,7 +16,7 @@ About this package
 The engine behind SodaFlow.Collections and SodaFlow.FSharp.Collections. It
 declares the types a consumer holds - Entry, CollectionSnapshot,
 CollectionChange, CollectionEdit, IStateMap, IOrderedKeys, CollectionViewChange
-and the ViewOperation hierarchy - along with FrpCollection itself and the view
+and the ViewOperation hierarchy - along with ReactiveCollection itself and the view
 chain the language wrappers expose.
 
 Install one of those two rather than this. On its own this package gives you

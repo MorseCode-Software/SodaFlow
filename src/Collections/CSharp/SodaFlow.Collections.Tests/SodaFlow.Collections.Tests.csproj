@@ -45,6 +45,7 @@
         <Compile Include="..\..\..\TestPolyfills.cs" Link="TestPolyfills.cs"/>
         <Compile Include="..\..\..\TestParallelism.cs" Link="TestParallelism.cs"/>
         <Compile Include="CollectionViewTests.cs"/>
+        <Compile Include="PerItemCellTests.cs"/>
         <Compile Include="TestUtil.cs"/>
     </ItemGroup>
 

@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using JetBrains.Annotations;
-using SodaFlow.Functional;
 
 namespace SodaFlow.Collections;
 
@@ -30,11 +29,16 @@ namespace SodaFlow.Collections;
 /// <typeparam name="TState">The type of the mutable portion of an item.</typeparam>
 [PublicAPI]
 // ReSharper disable once InheritdocConsiderUsage
-public sealed class FrpCollection<TKey, TId, TState> : IFrpCollection<TKey, TId, TState>
+public sealed class ReactiveCollection<TKey, TId, TState> : IReactiveCollection<TKey, TId, TState>
     where TKey : notnull
     where TId : notnull
 {
-    private readonly Dictionary<TKey, WeakReference<Cell<Maybe<TState>>>> stateCellCache = new();
+    /// <summary>
+    ///     The per-key cells, keyed by the projected type as well as the key. What a per-item cell
+    ///     holds is whatever the language wrapper asked for - Maybe in C#, option in F# - and two
+    ///     wrappers over one collection must not be handed each other's cells.
+    /// </summary>
+    private readonly Dictionary<ProjectedKey, WeakReference<object>> stateCellCache = new();
 
     /// <summary>
     ///     A plain object rather than <c>System.Threading.Lock</c>, which arrived in .NET 9 and is
@@ -42,9 +46,9 @@ public sealed class FrpCollection<TKey, TId, TState> : IFrpCollection<TKey, TId,
     /// </summary>
     private readonly object cacheGate = new();
 
-    private readonly Lazy<IFrpCollection<TKey, TId, TState>> orderedByKey;
+    private readonly Lazy<IReactiveCollection<TKey, TId, TState>> orderedByKey;
 
-    private FrpCollection(
+    private ReactiveCollection(
         Stream<CollectionChange<TKey, TId, TState>> itemChangesStream,
         Cell<CollectionSnapshot<TKey, TId, TState>> snapshotCell,
         Cell<IReadOnlyDictionary<TKey, TId>> shapeCell)
@@ -56,7 +60,7 @@ public sealed class FrpCollection<TKey, TId, TState> : IFrpCollection<TKey, TId,
         // The ordering is built on first use. A collection nobody sorts or lists never pays for a
         // sorted key set, and TKey only has to be comparable if something actually asks for keys in
         // order.
-        this.orderedByKey = new Lazy<IFrpCollection<TKey, TId, TState>>(
+        this.orderedByKey = new Lazy<IReactiveCollection<TKey, TId, TState>>(
             () => CollectionViewUtility.CreateRootImpl(this, Comparer<TKey>.Default),
             LazyThreadSafetyMode.ExecutionAndPublication);
     }
@@ -82,6 +86,10 @@ public sealed class FrpCollection<TKey, TId, TState> : IFrpCollection<TKey, TId,
     /// <summary>The outer view: fires only when the item count changes or a key changes.</summary>
     public Cell<IReadOnlyDictionary<TKey, TId>> ShapeCell { get; }
 
+    /// <inheritdoc />
+    /// <remarks>A root owns the store, so this is itself.</remarks>
+    public ReactiveCollection<TKey, TId, TState> Root => this;
+
     /// <summary>
     ///     Defines a collection from its initial contents and every stream that will ever edit it.
     ///     There is no imperative entry point: what can change the collection is fixed here, at
@@ -97,7 +105,7 @@ public sealed class FrpCollection<TKey, TId, TState> : IFrpCollection<TKey, TId,
     ///     itself, close the circle with a stream loop at the call site rather than reaching for a
     ///     sink.
     /// </remarks>
-    public static FrpCollection<TKey, TId, TState> Create(
+    public static ReactiveCollection<TKey, TId, TState> Create(
         Func<TId, TKey> keySelector,
         IEnumerable<Entry<TId, TState>> initialEntries,
         params Stream<CollectionEdit<TKey, TId, TState>>[] editStreams) =>
@@ -112,7 +120,7 @@ public sealed class FrpCollection<TKey, TId, TState> : IFrpCollection<TKey, TId,
     /// <param name="emptyStateMap">The empty map to build the initial contents on.</param>
     /// <param name="editStreams">Every stream that will ever edit the collection.</param>
     /// <returns>The collection.</returns>
-    public static FrpCollection<TKey, TId, TState> Create(
+    public static ReactiveCollection<TKey, TId, TState> Create(
         Func<TId, TKey> keySelector,
         IEnumerable<Entry<TId, TState>> initialEntries,
         IStateMap<TKey, TState> emptyStateMap,
@@ -151,7 +159,7 @@ public sealed class FrpCollection<TKey, TId, TState> : IFrpCollection<TKey, TId,
                 .SnapshotImpl(
                     snapshotLoopCell,
                     (edit, before) => Resolve(keySelector, edit, before))
-                .FilterSome();
+                .FilterSomeInternal();
 
             Cell<CollectionSnapshot<TKey, TId, TState>> snapshotCell = itemChangesStream
                 .MapImpl(static change => change.After)
@@ -168,36 +176,44 @@ public sealed class FrpCollection<TKey, TId, TState> : IFrpCollection<TKey, TId,
                 .MapImpl(static change => change.After.Identities)
                 .HoldImpl(initial.Identities);
 
-            return new FrpCollection<TKey, TId, TState>(
+            return new ReactiveCollection<TKey, TId, TState>(
                 itemChangesStream,
                 snapshotCell,
                 shapeCell);
         });
     }
 
-    /// <inheritdoc cref="IFrpCollection{TKey,TId,TState}.StateCell" />
+    /// <summary>
+    ///     A cell tracking one item's mutable portion, shaped by the projection the language
+    ///     wrapper supplies. Cheap enough to create per bound view: it filters on a single hash
+    ///     lookup and never touches the rest of the collection.
+    /// </summary>
     /// <remarks>
-    ///     Cheap enough to create per bound view: it filters on a single hash lookup and never
-    ///     touches the rest of the collection.
-    ///     The key need not exist yet. Removal fires no value and a later add under the same key
-    ///     fires one again, so a view bound to a key can outlive the item.
+    ///     The key need not exist yet. Removal fires <paramref name="onAbsent" /> and a later add
+    ///     under the same key fires <paramref name="onPresent" /> again, so a view bound to a key
+    ///     can outlive the item.
+    ///     Cached weakly per key, so N observers of one key share a node and the node goes away
+    ///     when the last observer does. Two projections of the same key are two cells, which is
+    ///     what keeps the C# and F# surfaces from handing each other the wrong one.
     /// </remarks>
-    public Cell<Maybe<TState>> StateCell(TKey key)
+    internal Cell<TProjected> StateCellImpl<TProjected>(
+        TKey key,
+        Func<TState, TProjected> onPresent,
+        Func<TProjected> onAbsent)
     {
+        ProjectedKey cacheKey = new(typeof(TProjected), key);
+
         lock (this.cacheGate)
         {
-            Maybe<Cell<Maybe<TState>>> cached = this.stateCellCache
-                .TryGetValue(key)
-                .Match(static reference => reference.Target(), static () => Maybe<Cell<Maybe<TState>>>.None);
+            if (this.stateCellCache.TryGet(cacheKey, out WeakReference<object> reference) &&
+                reference.TryGetTarget(out object? cached))
+            {
+                return (Cell<TProjected>)cached;
+            }
 
-            return cached.Match(static stateCell => stateCell, () => this.CreateStateCell(key));
+            return this.CreateStateCell(cacheKey, key, onPresent, onAbsent);
         }
     }
-
-    /// <inheritdoc />
-    /// <remarks>Fires only on structural change, so it is near-free to hold.</remarks>
-    public Cell<Maybe<TId>> IdentityCell(TKey key) =>
-        this.ShapeCell.MapImpl(identities => identities.TryGetValue(key));
 
     /// <summary>
     ///     Merges the input streams into one. Edits arriving from different streams in the same
@@ -214,7 +230,7 @@ public sealed class FrpCollection<TKey, TId, TState> : IFrpCollection<TKey, TId,
                 s: editStream,
                 f: static (left, right) => left.CombineWith(right)));
 
-    private static Maybe<CollectionChange<TKey, TId, TState>> Resolve(
+    private static MaybeInternal<CollectionChange<TKey, TId, TState>> Resolve(
         Func<TId, TKey> keySelector,
         CollectionEdit<TKey, TId, TState> edit,
         CollectionSnapshot<TKey, TId, TState> before)
@@ -251,19 +267,19 @@ public sealed class FrpCollection<TKey, TId, TState> : IFrpCollection<TKey, TId,
                     $"Key '{update.Key}' is updated and removed in the same transaction.");
             }
 
-            TState current = newStates.TryGetValue(update.Key).Match(
-                static pending => pending,
-                () => before.States.Lookup(update.Key).Match(
-                    static state => state,
-                    () => throw new KeyNotFoundException(
-                        $"Cannot update key '{update.Key}': no such item in the collection.")));
+            if (!newStates.TryGet(update.Key, out TState current) &&
+                !before.States.TryGetState(update.Key, out current))
+            {
+                throw new KeyNotFoundException(
+                    $"Cannot update key '{update.Key}': no such item in the collection.");
+            }
 
             newStates[update.Key] = update.Value(current);
         }
 
         if (newStates.Count == 0 && removed.Count == 0)
         {
-            return Maybe<CollectionChange<TKey, TId, TState>>.None;
+            return MaybeInternal<CollectionChange<TKey, TId, TState>>.None;
         }
 
         IReadOnlyDictionary<TKey, TId> identities = before.Identities;
@@ -294,31 +310,40 @@ public sealed class FrpCollection<TKey, TId, TState> : IFrpCollection<TKey, TId,
             identities,
             before.States.With(newStates, removed));
 
-        return Maybe.Some(
+        return MaybeInternal.Some(
             new CollectionChange<TKey, TId, TState>(after, newStates, added, removed));
     }
 
-    private Cell<Maybe<TState>> CreateStateCell(TKey key)
+    private Cell<TProjected> CreateStateCell<TProjected>(
+        ProjectedKey cacheKey,
+        TKey key,
+        Func<TState, TProjected> onPresent,
+        Func<TProjected> onAbsent)
     {
-        Cell<Maybe<TState>> stateCell = TransactionInternal.RunImpl(() =>
+        Cell<TProjected> stateCell = TransactionInternal.RunImpl(() =>
             // Read the new value off the event rather than snapshotting the snapshot cell: a cell
             // sampled during a transaction still holds its pre-transaction value.
             //
             // The seed is lazy for the same reason. This cell may well be built during the very
-            // transaction that adds its key — a row constructed in response to a structural change
-            // — and by then the change stream has already fired, so the seed is all the cell has to
+            // transaction that adds its key - a row constructed in response to a structural change
+            // - and by then the change stream has already fired, so the seed is all the cell has to
             // go on. An eager sample here would read the pre-transaction snapshot, in which the key
             // does not yet exist, and the cell would sit at no value until the next edit touching
             // that key. A lazy sample is forced after the transaction settles and yields the
             // correct value.
+            //
+            // The projection happens inside this map rather than in one chained after it, so a
+            // wrapper's choice of optional type costs no extra node.
             this.ItemChangesStream
-                .MapImpl(change => change.ChangeFor(key))
-                .FilterSome()
+                .MapImpl(change => change.ProjectChangeFor(key, onPresent, onAbsent))
+                .FilterSomeInternal()
                 .HoldLazyImpl(this.SnapshotCell.SampleLazyImpl().MapImpl(
-                    snapshot => snapshot.States.Lookup(key))));
+                    snapshot => snapshot.States.TryGetState(key, out TState state)
+                        ? onPresent(state)
+                        : onAbsent())));
 
         this.PruneCache();
-        this.stateCellCache[key] = new WeakReference<Cell<Maybe<TState>>>(stateCell);
+        this.stateCellCache[cacheKey] = new WeakReference<object>(stateCell);
 
         return stateCell;
     }
@@ -330,16 +355,50 @@ public sealed class FrpCollection<TKey, TId, TState> : IFrpCollection<TKey, TId,
             return;
         }
 
-        List<TKey> dead = new();
+        List<ProjectedKey> dead = new();
 
-        foreach (KeyValuePair<TKey, WeakReference<Cell<Maybe<TState>>>> pair in this.stateCellCache)
+        foreach (KeyValuePair<ProjectedKey, WeakReference<object>> pair in this.stateCellCache)
         {
-            pair.Value.Target().MatchVoid(static _ => { }, () => dead.Add(pair.Key));
+            if (!pair.Value.TryGetTarget(out object? _))
+            {
+                dead.Add(pair.Key);
+            }
         }
 
-        foreach (TKey key in dead)
+        foreach (ProjectedKey key in dead)
         {
             this.stateCellCache.Remove(key);
+        }
+    }
+
+    /// <summary>
+    ///     A cache key: which key, and what the wrapper asked the cell to hold.
+    /// </summary>
+    // ReSharper disable once InheritdocConsiderUsage
+    private readonly struct ProjectedKey : IEquatable<ProjectedKey>
+    {
+        private readonly Type projectedType;
+        private readonly TKey key;
+
+        internal ProjectedKey(Type projectedType, TKey key)
+        {
+            this.projectedType = projectedType;
+            this.key = key;
+        }
+
+        public bool Equals(ProjectedKey other) =>
+            this.projectedType == other.projectedType &&
+            EqualityComparer<TKey>.Default.Equals(this.key, other.key);
+
+        public override bool Equals(object? obj) => obj is ProjectedKey other && this.Equals(other);
+
+        public override int GetHashCode()
+        {
+            unchecked
+            {
+                return (this.projectedType.GetHashCode() * 397) ^
+                    EqualityComparer<TKey>.Default.GetHashCode(this.key);
+            }
         }
     }
 }

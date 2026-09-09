@@ -1,7 +1,6 @@
 using System.Collections.Generic;
 using System.Collections.Immutable;
 using JetBrains.Annotations;
-using SodaFlow.Functional;
 
 namespace SodaFlow.Collections;
 
@@ -25,6 +24,11 @@ namespace SodaFlow.Collections;
 ///         version its storage and serve older instances from a log — it must not simply hand back
 ///         the live map.
 ///     </para>
+///     <para>
+///         Lookup is a <c>TryGet</c> rather than an optional value because this assembly does not
+///         reference SodaFlow.Functional; the language wrappers add
+///         <c>Lookup</c> over this, answering with each language's own optional type.
+///     </para>
 /// </remarks>
 /// <typeparam name="TKey">The type of the keys.</typeparam>
 /// <typeparam name="TState">The type of the mutable portion of an item.</typeparam>
@@ -40,8 +44,9 @@ public interface IStateMap<TKey, TState>
 
     /// <summary>Returns the state stored under a key, if there is one.</summary>
     /// <param name="key">The key to look up.</param>
-    /// <returns>The state, or no value if the key is absent.</returns>
-    Maybe<TState> Lookup(TKey key);
+    /// <param name="state">The state stored under it, when this returns true.</param>
+    /// <returns><see langword="true" /> if the key is present.</returns>
+    bool TryGetState(TKey key, out TState state);
 
     /// <summary>Whether a key is present in this version of the map.</summary>
     /// <param name="key">The key to look for.</param>
@@ -99,7 +104,7 @@ public sealed class ImmutableStateMap<TKey, TState> : IStateMap<TKey, TState>
         new(ImmutableDictionary.CreateRange(states));
 
     /// <inheritdoc />
-    public Maybe<TState> Lookup(TKey key) => this.states.TryGetValue(key);
+    public bool TryGetState(TKey key, out TState state) => this.states.TryGet(key, out state);
 
     /// <inheritdoc />
     public bool ContainsKey(TKey key) => this.states.ContainsKey(key);
@@ -129,3 +134,4 @@ public sealed class ImmutableStateMap<TKey, TState> : IStateMap<TKey, TState>
         return new ImmutableStateMap<TKey, TState>(builder.ToImmutable());
     }
 }
+

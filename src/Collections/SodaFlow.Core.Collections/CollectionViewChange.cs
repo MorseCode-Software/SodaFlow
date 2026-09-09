@@ -130,8 +130,8 @@ public sealed class ViewMove<TKey> : ViewOperation<TKey>
 /// <remarks>
 ///     This is what makes chaining work. A downstream filter or sort has to re-test an item whose
 ///     state changed even when the stage above it saw no positional consequence, and this is how it
-///     hears about it. A UI consumer can ignore it — the row's own
-///     <see cref="IFrpCollection{TKey,TId,TState}.StateCell" /> already reports the value.
+///     hears about it. A UI consumer can ignore it — the row's own <c>StateCell</c> already
+///     reports the value.
 /// </remarks>
 /// <typeparam name="TKey">The type of the keys.</typeparam>
 [PublicAPI]

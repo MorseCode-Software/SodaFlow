@@ -1,5 +1,4 @@
 using System.Collections.Generic;
-using SodaFlow.Functional;
 
 namespace SodaFlow.Collections;
 
@@ -8,14 +7,14 @@ namespace SodaFlow.Collections;
 ///     shares with every other stage over the same root.
 /// </summary>
 // ReSharper disable once InheritdocConsiderUsage
-internal sealed class CollectionViewStage<TKey, TId, TState> : IFrpCollection<TKey, TId, TState>
+internal sealed class CollectionViewStage<TKey, TId, TState> : IReactiveCollection<TKey, TId, TState>
     where TKey : notnull
     where TId : notnull
 {
-    private readonly IFrpCollection<TKey, TId, TState> source;
+    private readonly IReactiveCollection<TKey, TId, TState> source;
 
     internal CollectionViewStage(
-        IFrpCollection<TKey, TId, TState> source,
+        IReactiveCollection<TKey, TId, TState> source,
         Cell<IOrderedKeys<TKey, TId, TState>> keysCell,
         Stream<CollectionViewChange<TKey, TId, TState>> changesStream)
     {
@@ -30,9 +29,7 @@ internal sealed class CollectionViewStage<TKey, TId, TState> : IFrpCollection<TK
 
     public Cell<CollectionSnapshot<TKey, TId, TState>> SnapshotCell => this.source.SnapshotCell;
 
-    public Cell<Maybe<TState>> StateCell(TKey key) => this.source.StateCell(key);
-
-    public Cell<Maybe<TId>> IdentityCell(TKey key) => this.source.IdentityCell(key);
+    public ReactiveCollection<TKey, TId, TState> Root => this.source.Root;
 }
 
 /// <summary>
@@ -68,16 +65,16 @@ internal sealed class StageInput<TKey, TId, TState, TCriteria>
     where TId : notnull
 {
     internal StageInput(
-        Maybe<CollectionViewChange<TKey, TId, TState>> change,
-        Maybe<TCriteria> criteria)
+        MaybeInternal<CollectionViewChange<TKey, TId, TState>> change,
+        MaybeInternal<TCriteria> criteria)
     {
         this.Change = change;
         this.Criteria = criteria;
     }
 
-    internal Maybe<CollectionViewChange<TKey, TId, TState>> Change { get; }
+    internal MaybeInternal<CollectionViewChange<TKey, TId, TState>> Change { get; }
 
-    internal Maybe<TCriteria> Criteria { get; }
+    internal MaybeInternal<TCriteria> Criteria { get; }
 }
 
 /// <summary>What a stage produced in one transaction, before it becomes a change event.</summary>

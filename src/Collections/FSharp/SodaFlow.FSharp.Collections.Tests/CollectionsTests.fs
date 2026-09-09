@@ -3,7 +3,6 @@ module SodaFlow.Collections.Tests.CollectionsTests
 open System.Collections.Generic
 open SodaFlow
 open SodaFlow.Collections
-open SodaFlow.Functional
 open SodaFlow.Tests
 open TUnit.Core
 
@@ -18,7 +17,7 @@ let private keyOf (identity: ItemId) = identity.Number
 let private item number name score =
     entry { Number = number; Code = sprintf "C%d" number } { Name = name; Score = score }
 
-let private keysOf (view: IFrpCollection<int, ItemId, ItemState>) =
+let private keysOf (view: IReactiveCollection<int, ItemId, ItemState>) =
     List<int>(view |> keysCell |> sampleC)
 
 type ``Collections Tests``() =
@@ -34,7 +33,12 @@ type ``Collections Tests``() =
             let snapshot = collection |> snapshotCell |> sampleC
 
             do! Expect.Equal(2, snapshot.Count)
-            do! Expect.Equal("one", snapshot.Lookup(1).Match((fun e -> e.State.Name), (fun () -> "?")))
+
+            // option rather than Maybe: the core answers in TryGets so that each language surface
+            // can put its own optional type on top.
+            do! Expect.Equal(
+                    Some "one",
+                    snapshot |> lookup 1 |> Option.map (fun e -> e.State.Name))
         }
 
     [<Test>]
@@ -44,14 +48,18 @@ type ``Collections Tests``() =
             let collection = create keyOf [] [ edits ]
 
             // Built before the key exists: a bound view can be created before its item and outlive
-            // it, because this is a cell of Maybe rather than something that throws.
+            // it, because this is a cell of option rather than something that throws.
             let seven = collection |> stateCell 7
             let seen = List<string>()
 
             let l =
                 seven
                 |> updatesC
-                |> listenStrongS (fun state -> seen.Add(state.Match((fun s -> s.Name), (fun () -> "gone"))))
+                |> listenStrongS (fun state ->
+                    seen.Add(
+                        match state with
+                        | Some s -> s.Name
+                        | None -> "gone"))
 
             edits |> sendS (addEdit [ item 7 "seven" 70 ])
             edits |> sendS (removeEdit [ 7 ])
@@ -74,7 +82,9 @@ type ``Collections Tests``() =
 
             let snapshot = collection |> snapshotCell |> sampleC
 
-            do! Expect.Equal(99, snapshot.Lookup(1).Match((fun e -> e.State.Score), (fun () -> -1)))
+            do! Expect.Equal(
+                    Some 99,
+                    snapshot |> lookup 1 |> Option.map (fun e -> e.State.Score))
         }
 
     [<Test>]
@@ -146,4 +156,10 @@ type ``Collections Tests``() =
 
             do! Expect.Same(collection |> stateCell 1, passing |> stateCell 1)
             do! Expect.False((passing |> keysCell |> sampleC).Contains 1)
+
+            // The store answers for a key the view filtered out, which is the seam the unification
+            // leaves; membership questions belong to the keys.
+            do! Expect.Equal(
+                    Some "one",
+                    collection |> stateCell 1 |> sampleC |> Option.map (fun s -> s.Name))
         }

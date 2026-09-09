@@ -35,8 +35,8 @@ Stream<Entry<AccountId, AccountState>> opened = ...;
 Stream<Guid> closed = ...;
 Stream<(Guid Key, Func<AccountState, AccountState> Transform)> deposits = ...;
 
-FrpCollection<Guid, AccountId, AccountState> accounts =
-    FrpCollection<Guid, AccountId, AccountState>.Create(
+ReactiveCollection<Guid, AccountId, AccountState> accounts =
+    ReactiveCollection<Guid, AccountId, AccountState>.Create(
         static id => id.Value,
         initialAccounts,
         CollectionEdit<Guid, AccountId, AccountState>.FromAdds(opened),
@@ -67,28 +67,31 @@ which is where you wanted it.
 | Count or key changes | `ShapeCell` | Only on structural change |
 | A view's keys, in order | `KeysCell` | When that view's membership or order changes |
 | A view's changes as operations | `ChangesStream` | Same, as a delta |
+| The collection a view came from | `Root` | Never — it is the root itself |
 
-`StateCell` is the one that matters for a bound row. It returns `Cell<Maybe<TState>>`, filters
-the change stream on a single hash lookup, and takes the new value straight off the change
-event rather than sampling `SnapshotCell` — a cell sampled *during* a transaction still holds
-its pre-transaction value, which is exactly wrong here.
+`StateCell` is the one that matters for a bound row. It returns `Cell<Maybe<TState>>` in C#
+and `Cell<'TState option>` in F#, filters the change stream on a single hash lookup, and takes
+the new value straight off the change event rather than sampling `SnapshotCell` — a cell
+sampled *during* a transaction still holds its pre-transaction value, which is exactly wrong
+here.
 
 The key need not exist yet. A removal fires no value and a later add under the same key fires
 one again, so a view bound to a key can outlive its item and can be built before it. Feed it
 straight into `IOneWayBindableValue<T>` for the bound row; see [Data binding](bindable.md).
 
 `StateCell` caches weakly per key, so N observers of one key share a node and the node goes
-away when the last observer does.
+away when the last observer does. The cache is keyed by the projected type as well as the key,
+so the C# and F# surfaces over one collection cannot be handed each other's cells.
 
 ## Views
 
 A collection is two separable things: an item store, and a sequence of keys into it. The root
 owns the store; a view differs only in which keys it holds and in what order. So both are
-`IFrpCollection<TKey, TId, TState>`, and `Filter` and `SortBy` take one and return one, the
+`IReactiveCollection<TKey, TId, TState>`, and `Filter` and `SortBy` take one and return one, the
 way `Where` takes and returns an `IEnumerable`.
 
 ```csharp
-IFrpCollection<Guid, AccountId, AccountState> topTen = accounts
+IReactiveCollection<Guid, AccountId, AccountState> topTen = accounts
     .SortByDescending(static (_, state) => state.Balance)
     .Filter(static (_, state) => !state.IsFrozen)
     .Take(10);
@@ -164,13 +167,21 @@ all fires nothing.
 
 ## Optionality
 
-`Maybe<T>` throughout, never null: `IStateMap.Lookup`, `CollectionSnapshot.Lookup`,
-`IdentityCell` and `StateCell` all answer with one. See [Maybe, Either and Unit](functional.md).
+Never null, and each language gets its own optional type. In C# that is `Maybe<T>` —
+`StateCell`, `IdentityCell`, `snapshot.Lookup`, `states.Lookup` and `IndexOfMaybe` all answer
+with one. See [Maybe, Either and Unit](functional.md). In F# it is `option`.
 
-`CollectionChange.ChangeFor` returns `Maybe<Maybe<TState>>`, and the nesting carries real
-information. The outer level is whether the key moved at all — no value meaning no event for
-this observer — and the inner is whether it is present afterwards, so a removal arrives as a
-value containing no value.
+That works because `SodaFlow.Collections.Core` has no optional type of its own. It answers in
+`TryGetEntry`, `TryGetState`, `TryGetNewState` and an `IndexOf` returning `-1`, and each
+language surface puts its own optional type back on top. It is the same reason
+`SodaFlow.FSharp` does not depend on `SodaFlow.Functional`, applied one layer down: nothing
+that installs the F# collections package acquires `Maybe<T>` it has no use for.
+
+`ChangeFor` returns `Maybe<Maybe<TState>>` in C# and `'TState option option` in F#, and the
+nesting carries real information. The outer level is whether the key moved at all — no value
+meaning no event for this observer — and the inner is whether it is present afterwards, so a
+removal arrives as a value containing no value. The core says the same thing as two questions:
+`WasChanged(key)` and `TryGetNewState(key, out state)`.
 
 ## Storage
 
@@ -206,7 +217,7 @@ let topTen =
 let selected = accounts |> stateCell selectedKey
 ```
 
-Optionality stays `Maybe<'T>` rather than becoming `option`, because that is what the
-collection itself answers with; converting at the boundary would cost a graph node per cell to
-restate what both types already say. `SodaFlow.FSharp.Collections` therefore brings
-`SodaFlow.Functional` with it, where `SodaFlow.FSharp` does not.
+Optionality is `option`, not `Maybe`, and it costs nothing to get it: the projection into
+`option` happens inside the same map the per-item cell already had, so there is no extra graph
+node and no second cache. `SodaFlow.FSharp.Collections` brings no more with it than
+`SodaFlow.FSharp` does.

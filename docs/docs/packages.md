@@ -68,18 +68,21 @@ the small functional vocabulary the C# API needs and C# does not ship with. It h
 it and can be used on its own. F# already has `option`, `Result` and `unit`, which is why
 `SodaFlow.FSharp` does not depend on it.
 
-## Why `SodaFlow.Collections.Core` needs `SodaFlow.Functional`
+## Where optionality lives in the collections packages
 
-It is the one core package that does. Optionality in the collections API is `Maybe<T>`
-rather than null throughout — `StateCell` is a `Cell<Maybe<TState>>`, `IndexOf` answers
-`Maybe<int>`, and `CollectionChange.ChangeFor` nests two of them to say "this key moved" and
-"this key still exists" separately — so the type is in the public surface and cannot be an
-implementation detail of a language wrapper.
+`SodaFlow.Collections.Core` has no optional type of its own, and depends on neither
+`SodaFlow.Functional` nor anything else beyond `SodaFlow.Core`. It answers in `TryGetEntry`,
+`TryGetState`, `TryGetNewState` and an `IndexOf` returning `-1`.
 
-The consequence is that `SodaFlow.FSharp.Collections` acquires `SodaFlow.Functional`
-transitively, where `SodaFlow.FSharp` deliberately does not. F# has `option`, and this API
-answers with `Maybe`; converting at the F# boundary would mean a graph node per cell to
-restate what both types already say.
+Each language surface puts its own optional type back on top: `SodaFlow.Collections` adds
+`Maybe<T>`, and `SodaFlow.FSharp.Collections` adds `option`. That is the rule two paragraphs
+up applied one layer down — nothing that installs the F# collections package acquires
+`Maybe<T>`, which F# has no use for.
+
+The one member where this could have cost something is `StateCell`, which caches its per-key
+cells weakly so that N observers of one key share a node. The cache stays in the core and
+takes the projection from the wrapper, keyed by the projected type as well as the key, so
+neither surface pays for an extra graph node and neither can be handed the other's cells.
 
 ## The bindable object model
 

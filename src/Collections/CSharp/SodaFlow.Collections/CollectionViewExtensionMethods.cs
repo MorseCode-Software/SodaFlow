@@ -7,7 +7,7 @@ namespace SodaFlow.Collections;
 
 /// <summary>
 ///     The C# surface over a collection's view chain: <c>Filter</c>, <c>SortBy</c> and
-///     <c>Take</c> take an <see cref="IFrpCollection{TKey,TId,TState}" /> and return one, the way
+///     <c>Take</c> take an <see cref="IReactiveCollection{TKey,TId,TState}" /> and return one, the way
 ///     <c>Where</c> takes and returns an <c>IEnumerable</c>.
 /// </summary>
 /// <remarks>
@@ -20,7 +20,7 @@ namespace SodaFlow.Collections;
 ///         Three costs are worth knowing before writing a chain. Changing a predicate or a limit
 ///         rebuilds that stage and everything below it, reports the change as a reset, and costs
 ///         O(m log m) — debounce keystroke-driven criteria upstream.
-///         <see cref="Take{TKey,TId,TState}(IFrpCollection{TKey,TId,TState},int)" /> diffs its old
+///         <see cref="Take{TKey,TId,TState}(IReactiveCollection{TKey,TId,TState},int)" /> diffs its old
 ///         and new windows rather than translating operations, so a reorder inside the window
 ///         arrives as removes and inserts rather than as moves. And <c>Filter</c> after <c>Take</c>
 ///         filters the window, so it yields at most <c>limit</c> items; write <c>Filter</c> first
@@ -38,8 +38,8 @@ public static class CollectionViewExtensionMethods
     /// <param name="keyComparer">The comparer to order keys by.</param>
     /// <returns>A view of <paramref name="upstream" /> ordered by key.</returns>
     [MethodImpl(MethodImplOptions.NoInlining)]
-    public static IFrpCollection<TKey, TId, TState> SortByKey<TKey, TId, TState>(
-        this IFrpCollection<TKey, TId, TState> upstream,
+    public static IReactiveCollection<TKey, TId, TState> SortByKey<TKey, TId, TState>(
+        this IReactiveCollection<TKey, TId, TState> upstream,
         IComparer<TKey> keyComparer)
         where TKey : notnull
         where TId : notnull =>
@@ -53,8 +53,8 @@ public static class CollectionViewExtensionMethods
     /// <param name="predicate">Whether an item belongs in the view.</param>
     /// <returns>A view holding the items which pass.</returns>
     [MethodImpl(MethodImplOptions.NoInlining)]
-    public static IFrpCollection<TKey, TId, TState> Filter<TKey, TId, TState>(
-        this IFrpCollection<TKey, TId, TState> upstream,
+    public static IReactiveCollection<TKey, TId, TState> Filter<TKey, TId, TState>(
+        this IReactiveCollection<TKey, TId, TState> upstream,
         Func<TId, TState, bool> predicate)
         where TKey : notnull
         where TId : notnull =>
@@ -71,8 +71,8 @@ public static class CollectionViewExtensionMethods
     /// <param name="predicateCell">The predicate in force.</param>
     /// <returns>A view holding the items which pass.</returns>
     [MethodImpl(MethodImplOptions.NoInlining)]
-    public static IFrpCollection<TKey, TId, TState> Filter<TKey, TId, TState>(
-        this IFrpCollection<TKey, TId, TState> upstream,
+    public static IReactiveCollection<TKey, TId, TState> Filter<TKey, TId, TState>(
+        this IReactiveCollection<TKey, TId, TState> upstream,
         Cell<Func<TId, TState, bool>> predicateCell)
         where TKey : notnull
         where TId : notnull =>
@@ -92,8 +92,8 @@ public static class CollectionViewExtensionMethods
     /// <param name="predicate">Whether an item belongs in the view, given the criteria.</param>
     /// <returns>A view holding the items which pass.</returns>
     [MethodImpl(MethodImplOptions.NoInlining)]
-    public static IFrpCollection<TKey, TId, TState> Filter<TKey, TId, TState, TCriteria>(
-        this IFrpCollection<TKey, TId, TState> upstream,
+    public static IReactiveCollection<TKey, TId, TState> Filter<TKey, TId, TState, TCriteria>(
+        this IReactiveCollection<TKey, TId, TState> upstream,
         Cell<TCriteria> criteriaCell,
         Func<TCriteria, TId, TState, bool> predicate)
         where TKey : notnull
@@ -113,8 +113,8 @@ public static class CollectionViewExtensionMethods
     /// <param name="selector">Projects the sort value from an item.</param>
     /// <returns>A view ordered by that value.</returns>
     [MethodImpl(MethodImplOptions.NoInlining)]
-    public static IFrpCollection<TKey, TId, TState> SortBy<TKey, TId, TState, TSortKey>(
-        this IFrpCollection<TKey, TId, TState> upstream,
+    public static IReactiveCollection<TKey, TId, TState> SortBy<TKey, TId, TState, TSortKey>(
+        this IReactiveCollection<TKey, TId, TState> upstream,
         Func<TId, TState, TSortKey> selector)
         where TKey : notnull
         where TId : notnull =>
@@ -129,8 +129,8 @@ public static class CollectionViewExtensionMethods
     /// <param name="selector">Projects the sort value from an item.</param>
     /// <returns>A view ordered by that value, descending.</returns>
     [MethodImpl(MethodImplOptions.NoInlining)]
-    public static IFrpCollection<TKey, TId, TState> SortByDescending<TKey, TId, TState, TSortKey>(
-        this IFrpCollection<TKey, TId, TState> upstream,
+    public static IReactiveCollection<TKey, TId, TState> SortByDescending<TKey, TId, TState, TSortKey>(
+        this IReactiveCollection<TKey, TId, TState> upstream,
         Func<TId, TState, TSortKey> selector)
         where TKey : notnull
         where TId : notnull =>
@@ -152,8 +152,8 @@ public static class CollectionViewExtensionMethods
     /// <param name="descending">Whether to reverse the sort comparison.</param>
     /// <returns>A view in that order.</returns>
     [MethodImpl(MethodImplOptions.NoInlining)]
-    public static IFrpCollection<TKey, TId, TState> SortBy<TKey, TId, TState, TSortKey>(
-        this IFrpCollection<TKey, TId, TState> upstream,
+    public static IReactiveCollection<TKey, TId, TState> SortBy<TKey, TId, TState, TSortKey>(
+        this IReactiveCollection<TKey, TId, TState> upstream,
         Func<TId, TState, TSortKey> selector,
         IComparer<TSortKey> sortComparer,
         IComparer<TKey> keyComparer,
@@ -173,8 +173,8 @@ public static class CollectionViewExtensionMethods
     /// <param name="limit">How many keys to keep.</param>
     /// <returns>A view of that window.</returns>
     [MethodImpl(MethodImplOptions.NoInlining)]
-    public static IFrpCollection<TKey, TId, TState> Take<TKey, TId, TState>(
-        this IFrpCollection<TKey, TId, TState> upstream,
+    public static IReactiveCollection<TKey, TId, TState> Take<TKey, TId, TState>(
+        this IReactiveCollection<TKey, TId, TState> upstream,
         int limit)
         where TKey : notnull
         where TId : notnull =>
@@ -188,8 +188,8 @@ public static class CollectionViewExtensionMethods
     /// <param name="limitCell">How many keys to keep.</param>
     /// <returns>A view of that window.</returns>
     [MethodImpl(MethodImplOptions.NoInlining)]
-    public static IFrpCollection<TKey, TId, TState> Take<TKey, TId, TState>(
-        this IFrpCollection<TKey, TId, TState> upstream,
+    public static IReactiveCollection<TKey, TId, TState> Take<TKey, TId, TState>(
+        this IReactiveCollection<TKey, TId, TState> upstream,
         Cell<int> limitCell)
         where TKey : notnull
         where TId : notnull =>
@@ -206,9 +206,9 @@ public static class CollectionViewExtensionMethods
     /// <param name="viewCell">The view in force.</param>
     /// <returns>A view following whichever view <paramref name="viewCell" /> holds.</returns>
     [MethodImpl(MethodImplOptions.NoInlining)]
-    public static IFrpCollection<TKey, TId, TState> Switch<TKey, TId, TState>(
-        this IFrpCollection<TKey, TId, TState> source,
-        Cell<IFrpCollection<TKey, TId, TState>> viewCell)
+    public static IReactiveCollection<TKey, TId, TState> Switch<TKey, TId, TState>(
+        this IReactiveCollection<TKey, TId, TState> source,
+        Cell<IReactiveCollection<TKey, TId, TState>> viewCell)
         where TKey : notnull
         where TId : notnull =>
         CollectionViewUtility.SwitchImpl(source, viewCell);

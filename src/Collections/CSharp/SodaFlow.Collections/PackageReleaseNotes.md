@@ -29,7 +29,7 @@ method that mutates a live collection.
   SnapshotCell       the whole store, on every change
 
 Views chain and stay incremental. Filter, SortBy, SortByDescending, SortByKey,
-Take and Switch each take an IFrpCollection and return one, the way Where takes
+Take and Switch each take an IReactiveCollection and return one, the way Where takes
 and returns an IEnumerable, and an item seen through two views is literally the
 same cell.
 
