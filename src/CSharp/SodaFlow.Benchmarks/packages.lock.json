@@ -414,6 +414,23 @@
           "System.ValueTuple": "[4.6.2, )"
         }
       },
+      "sodaflow.collections": {
+        "type": "Project",
+        "dependencies": {
+          "SodaFlow": "[1.0.0, )",
+          "SodaFlow.Collections.Core": "[1.0.0, )",
+          "SodaFlow.Functional": "[1.0.0, )",
+          "System.ValueTuple": "[4.6.2, )"
+        }
+      },
+      "SodaFlow.Collections.Core": {
+        "type": "Project",
+        "dependencies": {
+          "SodaFlow.Core": "[1.0.0, )",
+          "System.Collections.Immutable": "[8.0.0, )",
+          "System.ValueTuple": "[4.6.2, )"
+        }
+      },
       "sodaflow.core": {
         "type": "Project",
         "dependencies": {
@@ -658,6 +675,22 @@
         }
       },
       "SodaFlow.Bindable.ObjectModel.Core": {
+        "type": "Project",
+        "dependencies": {
+          "SodaFlow.Core": "[1.0.0, )",
+          "System.ValueTuple": "[4.6.2, )"
+        }
+      },
+      "sodaflow.collections": {
+        "type": "Project",
+        "dependencies": {
+          "SodaFlow": "[1.0.0, )",
+          "SodaFlow.Collections.Core": "[1.0.0, )",
+          "SodaFlow.Functional": "[1.0.0, )",
+          "System.ValueTuple": "[4.6.2, )"
+        }
+      },
+      "SodaFlow.Collections.Core": {
         "type": "Project",
         "dependencies": {
           "SodaFlow.Core": "[1.0.0, )",
