@@ -1,0 +1,57 @@
+<Project>
+
+    <!--
+        Every sample project restores through a committed packages.lock.json, one per project beside
+        its own file, exactly as the projects under src/ do.
+
+        This file exists rather than the property being inherited because MSBuild takes the nearest
+        Directory.Build.props walking up from a project and stops, so nothing under samples/ would
+        ever reach src/Directory.Build.props. A file at the repository root would reach these
+        projects but no longer reach those, for the same reason.
+
+        Keeping the two separate suits the samples anyway. They are deliberately not part of the
+        build under src/: each references published NuGet packages rather than the projects in this
+        repository - see the comment in any sample's .csproj - and each has its own solution. The
+        one property they share with src/ is duplicated here, which is a smaller cost than an import
+        chain that would imply the two builds are one.
+
+        What this changes day to day: bumping a sample's pinned SodaFlow version now means restoring
+        that sample and committing the lock file it rewrites, not just editing the csproj.
+
+        RestoreLockedMode is what makes that stick, and it is set on CI only, for the reasons spelled
+        out in src/Directory.Build.props. It matters more here than there: bumping a pinned version
+        is the entire maintenance story for these samples, so forgetting the lock file is not an
+        edge case but the most likely mistake anyone will make in this directory.
+    -->
+    <PropertyGroup>
+        <RestorePackagesWithLockFile>true</RestorePackagesWithLockFile>
+        <RestoreLockedMode Condition="'$(CI)' != ''">true</RestoreLockedMode>
+    </PropertyGroup>
+
+    <!--
+        The same .NET Framework reference assembly handling src/Directory.Build.props carries, and
+        for the same reason: the SDK adds this package itself when it cannot use an installed
+        targeting pack - on Linux and macOS but not on Windows - so a graph that leaves it implicit
+        is a different graph depending on where it was restored, and a lock file cannot describe
+        both.
+
+        This changes nothing today. No sample targets .NET Framework: the heads are net8.0-windows
+        and net8.0, the view models netstandard2.0, and the condition below is false for all of them,
+        so no package is added and no lock file moves.
+
+        It is here for the two ways that could stop being true, both of which are one small edit
+        away and neither of which announces itself. A sample gaining a net472 head would restore
+        differently on a Linux agent than on a Windows one; so would this workflow moving off
+        windows-latest, which is only pinned there because the WPF heads need it. Either would fail
+        the same NU1004 the projects under src/ failed, and finding that out from a red build is
+        worse than carrying four inert lines.
+    -->
+    <PropertyGroup>
+        <AutomaticallyUseReferenceAssemblyPackages>false</AutomaticallyUseReferenceAssemblyPackages>
+    </PropertyGroup>
+
+    <ItemGroup Condition="'$(TargetFrameworkIdentifier)' == '.NETFramework'">
+        <PackageReference Include="Microsoft.NETFramework.ReferenceAssemblies" Version="1.0.3" PrivateAssets="all"/>
+    </ItemGroup>
+
+</Project>

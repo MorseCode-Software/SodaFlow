@@ -1,0 +1,77 @@
+{
+  "version": 1,
+  "dependencies": {
+    ".NETStandard,Version=v2.0": {
+      "JetBrains.Annotations": {
+        "type": "Direct",
+        "requested": "[2026.2.0, )",
+        "resolved": "2026.2.0",
+        "contentHash": "drvAEaI7Xf4wU6dx4UTB9MoZWXZlraaQ0qoeThPQ411FxNhId7QdUTukIC9I8aUHP0ycAaGwZNKqSvfOZQvUlg=="
+      },
+      "NETStandard.Library": {
+        "type": "Direct",
+        "requested": "[2.0.3, )",
+        "resolved": "2.0.3",
+        "contentHash": "st47PosZSHrjECdjeIzZQbzivYBJFv6P2nv4cj2ypdI204DO+vZ7l5raGMiX4eXMJ53RfOIg+/s4DHVZ54Nu2A==",
+        "dependencies": {
+          "Microsoft.NETCore.Platforms": "1.1.0"
+        }
+      },
+      "SodaFlow": {
+        "type": "Direct",
+        "requested": "[4.0.0, )",
+        "resolved": "4.0.0",
+        "contentHash": "s9EAg6KcD5snnlLqz1nKCLSgOcZMZmoOzm07Fzxm77fTtteAT3LHnjC0NjyWzDnhWzR5dnFD5lDqfp3b1fg6sg==",
+        "dependencies": {
+          "SodaFlow.Core": "[4.0.0, 5.0.0)",
+          "SodaFlow.Functional": "[3.0.0, 4.0.0)",
+          "System.ValueTuple": "4.6.2"
+        }
+      },
+      "SodaFlow.Bindable.ObjectModel": {
+        "type": "Direct",
+        "requested": "[3.0.1, )",
+        "resolved": "3.0.1",
+        "contentHash": "p9dau9DdItSqUKoLd7+8ui7xL/gWtmuBfy7ZGzW9fTM7PvFKF74XE+s7arc6g6Vgyxiap2R1pUZbWopBa9wbSA==",
+        "dependencies": {
+          "SodaFlow": "[4.0.0, 5.0.0)",
+          "SodaFlow.Bindable.ObjectModel.Core": "[3.0.1, 4.0.0)",
+          "SodaFlow.Functional": "[3.0.0, 4.0.0)",
+          "System.ValueTuple": "4.6.2"
+        }
+      },
+      "Microsoft.NETCore.Platforms": {
+        "type": "Transitive",
+        "resolved": "1.1.0",
+        "contentHash": "kz0PEW2lhqygehI/d6XsPCQzD7ff7gUJaVGPVETX611eadGsA3A877GdSlU0LRVMCTH/+P3o2iDTak+S08V2+A=="
+      },
+      "SodaFlow.Bindable.ObjectModel.Core": {
+        "type": "Transitive",
+        "resolved": "3.0.1",
+        "contentHash": "/9PTaQs2bb/cU3TPt0wNXe5yQPnWTBwoyMqCZ1g0KKY4T04LWdS7eo3CWfD4YUkTCzGr70hYtuKWvyNKl9xSBw==",
+        "dependencies": {
+          "SodaFlow.Core": "[4.0.0, 5.0.0)",
+          "System.ValueTuple": "4.6.2"
+        }
+      },
+      "SodaFlow.Core": {
+        "type": "Transitive",
+        "resolved": "4.0.0",
+        "contentHash": "nWCwyGc7YC1vf1EmOPyRcckDzZqol6ouCK+imQ7ZXwH8rwlBvUVaCvKpQOpMVfLRDiDC3hN8sY5efkPlir9l3w==",
+        "dependencies": {
+          "System.ValueTuple": "4.6.2"
+        }
+      },
+      "SodaFlow.Functional": {
+        "type": "Transitive",
+        "resolved": "3.0.0",
+        "contentHash": "/Wg7COu6tAOHpeztFLTM8nWZc6p5qPr6KJtbjSo9g1qbIFe869WM8ZdWRKOaKI0A52A0Nt6fB+3GEackyhnH8w=="
+      },
+      "System.ValueTuple": {
+        "type": "Transitive",
+        "resolved": "4.6.2",
+        "contentHash": "yQgmjfFximrNm9LIV3mL6T5MzjeC+epeE5rl4hXxAlYmxby7RM1dPSkIKXk9HNkl6G54h2JHOmLD46+Pey+IRg=="
+      }
+    }
+  }
+}
