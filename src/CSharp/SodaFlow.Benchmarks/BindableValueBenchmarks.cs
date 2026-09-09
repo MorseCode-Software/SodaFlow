@@ -41,7 +41,7 @@ namespace SodaFlow.Benchmarks;
 /// </remarks>
 [MemoryDiagnoser]
 [SimpleJob(RuntimeMoniker.Net472)]
-[SimpleJob(RuntimeMoniker.Net80)]
+[SimpleJob(RuntimeMoniker.Net10_0)]
 // Not sealed, and not private to this file, whatever the inspections say: BenchmarkDotNet
 // generates a class deriving from this one and finds it by reflection, so neither "has no
 // inheritors" nor "nothing here uses it" is true. Sealing it fails at run time rather than

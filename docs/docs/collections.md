@@ -174,16 +174,16 @@ that they compose, and every edit in the collection evaluates one filter per ite
 proportional to the collection rather than to what is on screen.
 
 What the numbers look like is machine-specific and will drift; what they are *shaped* like is
-the point. One edit to a key nothing is watching, twenty rows bound, on .NET 8 on one
+the point. One edit to a key nothing is watching, twenty rows bound, on .NET 10 on one
 developer machine:
 
 | Items | Sinks per field | Cells per field from a stream | Reactive collection |
 | --- | --- | --- | --- |
-| 1,000 | 0.76 µs | 107 µs | 6.8 µs |
-| 10,000 | 0.85 µs | 2,798 µs | 7.1 µs |
+| 1,000 | 0.66 µs | 99 µs | 5.7 µs |
+| 10,000 | 0.72 µs | 2,757 µs | 5.9 µs |
 
-Ten times the items costs the stream-fed cells twenty-six times the work and the collection
-five percent. That is the property the design is for: the cost of an edit follows the number of
+Ten times the items costs the stream-fed cells twenty-eight times the work and the collection
+four percent. That is the property the design is for: the cost of an edit follows the number of
 bound rows, not the size of the collection. Sinks per field are flat too, and faster — they are
 also the shape you cannot feed from a stream.
 
@@ -191,13 +191,14 @@ Standing the same collections up, on the same machine:
 
 | Items | Sinks per field | Cells per field from a stream | Reactive collection |
 | --- | --- | --- | --- |
-| 1,000 | 4.5 ms, 3.9 MB | 15.3 ms, 5.6 MB | 0.4 ms, 0.6 MB |
-| 10,000 | 113 ms, 37.7 MB | 219 ms, 55.9 MB | 8.0 ms, 4.9 MB |
+| 1,000 | 4.5 ms, 3.8 MB | 15.0 ms, 5.5 MB | 0.34 ms, 0.6 MB |
+| 10,000 | 114 ms, 36.8 MB | 220 ms, 54.6 MB | 6.6 ms, 4.8 MB |
 
 A cell per mutable value is `items × fields` graph nodes, and at ten thousand items that is a
-hundred milliseconds and thirty-seven megabytes spent before anything is on screen. The
-collection is an order of magnitude less of both, because the only per-item graph nodes it
-builds are the twenty a view actually asked for.
+hundred and fourteen milliseconds and thirty-seven megabytes spent before anything is on
+screen. The collection is seventeen times less of the first and nearly eight times less of the
+second, because the only per-item graph nodes it builds are the twenty a view actually asked
+for.
 
 ## Simultaneous edits
 

@@ -26,7 +26,7 @@ namespace SodaFlow.Benchmarks;
 /// </remarks>
 [MemoryDiagnoser]
 [SimpleJob(RuntimeMoniker.Net472)]
-[SimpleJob(RuntimeMoniker.Net80)]
+[SimpleJob(RuntimeMoniker.Net10_0)]
 // Not sealed, and not private to this file: BenchmarkDotNet derives from this and finds it by
 // reflection. See BindableValueBenchmarks.
 // ReSharper disable once ClassCanBeSealed.Global
