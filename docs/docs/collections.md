@@ -174,10 +174,20 @@ dotnet run -c Release --project src/CSharp/SodaFlow.Benchmarks -- --filter *Keye
 
 Sinks per field win on the time an individual edit takes, and the benchmark says so. What they
 cost is everything the build benchmark shows — `items × fields` graph nodes whether or not
-anything reads them — and the fact that an edit can only arrive by someone holding a reference
-to the right sink and calling into it. Wire those same cells to a stream of edits instead, so
-that they compose, and every edit in the collection evaluates one filter per item — a cost
-proportional to the collection rather than to what is on screen.
+anything reads them.
+
+They also describe a collection most applications do not have, which is the more important
+caveat. A sink is how an event from *outside* the graph gets in, and that is enforced rather
+than advised: `Send` throws `Send may not be called inside a callback` when it is reached from
+within a transaction. So a cell per field fed by sinks holds only while every mutable value in
+the collection arrives whole from the outside world, with no logic anywhere between the source
+and the value. Derive one field from another — a balance from a running total, a status from two
+other fields — and you cannot send it any more. Read that column as the floor a collection would
+hit if none of its data were computed, rather than as the alternative you are choosing against.
+
+The alternative you are actually choosing against is the next column. Wire those same cells to a
+stream of edits so that they compose, and every edit in the collection evaluates one filter per
+item — a cost proportional to the collection rather than to what is on screen.
 
 What the numbers look like is machine-specific and will drift; what they are *shaped* like is
 the point. One edit to a key nothing is watching, twenty rows bound, on .NET 10 on one

@@ -51,10 +51,21 @@ internal sealed class ItemState
 ///     <para>
 ///         <b>Sinks per field</b> is the shape people reach for first: every mutable value on every
 ///         object gets its own <see cref="CellSink{T}" />, and an edit is a send straight into the
-///         one it concerns. Nothing fans out, so an edit is O(1) — but the graph holds
-///         <c>items × fields</c> cells whether anything is watching them or not, and an edit can
-///         only get in by someone holding a reference to the right sink and poking it. There is no
-///         way to feed it from a stream without becoming the second shape.
+///         one it concerns. Nothing fans out, so an edit is O(1) — and it is the quickest thing in
+///         these benchmarks by an order of magnitude. What it costs is <c>items × fields</c> cells
+///         held whether anything is watching them or not.
+///     </para>
+///     <para>
+///         It is also the shape you are least likely to be able to use, which is worth saying next
+///         to the numbers rather than leaving them to flatter it. A sink is how an event from
+///         <i>outside</i> the graph gets in, and SodaFlow enforces that rather than advising it:
+///         <c>Send</c> throws "Send may not be called inside a callback" when it is reached from
+///         within a transaction. So this shape holds only while every mutable value in the
+///         collection is one the outside world hands over whole. Put any logic between the source
+///         and the value — a balance derived from a running total, a status computed from two other
+///         fields, anything downstream of another cell at all — and you cannot send it, and you are
+///         in the second shape. Which is the one that costs three milliseconds an edit at ten
+///         thousand items.
 ///     </para>
 ///     <para>
 ///         <b>Cells per field, fed from one edit stream</b> is what that turns into as soon as the

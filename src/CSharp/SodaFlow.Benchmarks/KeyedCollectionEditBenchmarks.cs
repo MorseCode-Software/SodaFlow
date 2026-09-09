@@ -21,10 +21,16 @@ namespace SodaFlow.Benchmarks;
 ///     <para>
 ///         Expect sinks per field to win on time here and to keep winning as
 ///         <see cref="ItemCount" /> grows: a send into one cell fans out to that cell's listeners
-///         and to nothing else. That is a real result and not one to hide. What it costs is
-///         everything in <see cref="KeyedCollectionBuildBenchmarks" />, plus the fact that an edit
-///         can only arrive as a method call on a reference to the right sink — which is why the
-///         second shape exists.
+///         and to nothing else. That is a real result and not one to hide.
+///     </para>
+///     <para>
+///         It is also a result about a shape most collections cannot have. A sink takes events from
+///         outside the graph and nothing else — <c>Send</c> throws when it is reached from inside a
+///         transaction — so a cell per field fed by sinks requires every mutable value in the
+///         collection to arrive whole from the outside world, with no logic anywhere between the
+///         two. One derived field and it is the second shape instead. See
+///         <see cref="IKeyedCollectionShape" />, and read this row as the floor rather than as the
+///         alternative.
 ///     </para>
 ///     <para>
 ///         Cells per field fed from a stream is the one to watch scale. Every edit evaluates one
