@@ -153,6 +153,52 @@ item whose sort position has already moved underneath it.
 - `Filter` after `Take` filters the window, so it yields at most `limit` items. That is what
   the chain says; write `Filter` before `Take` if you meant the other thing.
 
+## Measuring it
+
+The claim above — that per-item observation is proportional to the number of bound rows and
+independent of the collection size — is what
+`src/CSharp/SodaFlow.Benchmarks/KeyedCollectionEditBenchmarks.cs` measures, against the two
+shapes people reach for instead: a cell sink per mutable value per object, and the same cells
+fed from one shared edit stream.
+`KeyedCollectionBuildBenchmarks` measures what each of them costs to stand up.
+
+```bash
+dotnet run -c Release --project src/CSharp/SodaFlow.Benchmarks -- --filter *KeyedCollection*
+```
+
+Sinks per field win on the time an individual edit takes, and the benchmark says so. What they
+cost is everything the build benchmark shows — `items × fields` graph nodes whether or not
+anything reads them — and the fact that an edit can only arrive by someone holding a reference
+to the right sink and calling into it. Wire those same cells to a stream of edits instead, so
+that they compose, and every edit in the collection evaluates one filter per item — a cost
+proportional to the collection rather than to what is on screen.
+
+What the numbers look like is machine-specific and will drift; what they are *shaped* like is
+the point. One edit to a key nothing is watching, twenty rows bound, on .NET 8 on one
+developer machine:
+
+| Items | Sinks per field | Cells per field from a stream | Reactive collection |
+| --- | --- | --- | --- |
+| 1,000 | 0.76 µs | 107 µs | 6.8 µs |
+| 10,000 | 0.85 µs | 2,798 µs | 7.1 µs |
+
+Ten times the items costs the stream-fed cells twenty-six times the work and the collection
+five percent. That is the property the design is for: the cost of an edit follows the number of
+bound rows, not the size of the collection. Sinks per field are flat too, and faster — they are
+also the shape you cannot feed from a stream.
+
+Standing the same collections up, on the same machine:
+
+| Items | Sinks per field | Cells per field from a stream | Reactive collection |
+| --- | --- | --- | --- |
+| 1,000 | 4.5 ms, 3.9 MB | 15.3 ms, 5.6 MB | 0.4 ms, 0.6 MB |
+| 10,000 | 113 ms, 37.7 MB | 219 ms, 55.9 MB | 8.0 ms, 4.9 MB |
+
+A cell per mutable value is `items × fields` graph nodes, and at ten thousand items that is a
+hundred milliseconds and thirty-seven megabytes spent before anything is on screen. The
+collection is an order of magnitude less of both, because the only per-item graph nodes it
+builds are the twenty a view actually asked for.
+
 ## Simultaneous edits
 
 Edits arriving from different input streams in the same transaction merge into one change
