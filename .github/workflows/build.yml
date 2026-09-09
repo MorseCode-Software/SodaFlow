@@ -161,10 +161,6 @@ jobs:
           #
           # Both jobs declare this identically and share one cache entry, since the key is a hash of
           # files and not of the job. Whichever starts first populates it; the other reads it.
-          cache: true
-          cache-dependency-path: |
-            **/packages.lock.json
-            .config/dotnet-tools.json
 
       # Cake and the ReSharper command line tools are pinned in .config/dotnet-tools.json, so CI and
       # a developer run the same versions.
@@ -172,6 +168,22 @@ jobs:
       # Not cached: the tools/ directory Cake resolves its two #addin packages into. They are small,
       # they change only when build.cake's addin lines do, and a second cache entry to save a couple
       # of seconds is not worth the second thing to reason about.
+      # BENCHMARK BRANCH: actions/cache in place of setup-dotnet's own caching, to measure the one
+      # thing that differs between them - restore-keys. setup-dotnet's cache input keys on lock
+      # files with no prefix fallback, so any lock file change is a full cold miss; this falls back
+      # to the most recent entry and downloads only what moved.
+      #
+      # CACHE_EPOCH is in the key so a miss can be forced without touching the build. Changing it
+      # is exactly what a lock file change does to the key, minus every other variable.
+      - name: Cache NuGet packages
+        uses: actions/cache@v6
+        with:
+          path: ~/.nuget/packages
+          key: nuget-${{ runner.os }}-${{ vars.CACHE_EPOCH }}-${{ hashFiles('**/packages.lock.json', '.config/dotnet-tools.json') }}
+          restore-keys: |
+            nuget-${{ runner.os }}-${{ vars.CACHE_EPOCH }}-
+            nuget-${{ runner.os }}-
+
       - name: Restore tools
         run: dotnet tool restore
 
@@ -327,10 +339,6 @@ jobs:
           dotnet-version: 6.0.x
           # Identical to the build job's, deliberately: same inputs, same key, one shared cache
           # entry. See there for why the key is what it is.
-          cache: true
-          cache-dependency-path: |
-            **/packages.lock.json
-            .config/dotnet-tools.json
 
       # inspectcode's analysis caches, which are the difference between a 135 second inspection and
       # a 26 second one. Measured on this solution rather than hoped for, and measured again for the
@@ -353,6 +361,22 @@ jobs:
           key: inspectcode-${{ runner.os }}-${{ hashFiles('src/**/*.cs', 'src/**/*.fs', 'src/**/*.csproj', 'src/**/*.fsproj', 'src/SodaFlow.slnx', 'src/SodaFlow.sln.DotSettings') }}
           restore-keys: |
             inspectcode-${{ runner.os }}-
+
+      # BENCHMARK BRANCH: actions/cache in place of setup-dotnet's own caching, to measure the one
+      # thing that differs between them - restore-keys. setup-dotnet's cache input keys on lock
+      # files with no prefix fallback, so any lock file change is a full cold miss; this falls back
+      # to the most recent entry and downloads only what moved.
+      #
+      # CACHE_EPOCH is in the key so a miss can be forced without touching the build. Changing it
+      # is exactly what a lock file change does to the key, minus every other variable.
+      - name: Cache NuGet packages
+        uses: actions/cache@v6
+        with:
+          path: ~/.nuget/packages
+          key: nuget-${{ runner.os }}-${{ vars.CACHE_EPOCH }}-${{ hashFiles('**/packages.lock.json', '.config/dotnet-tools.json') }}
+          restore-keys: |
+            nuget-${{ runner.os }}-${{ vars.CACHE_EPOCH }}-
+            nuget-${{ runner.os }}-
 
       - name: Restore tools
         run: dotnet tool restore
@@ -434,10 +458,22 @@ jobs:
           # not take a version twice, and the twenty-odd seconds an SDK install costs are invisible
           # on a job that runs a few times a year.
           dotnet-version: 10.0.x
-          cache: true
-          cache-dependency-path: |
-            **/packages.lock.json
-            .config/dotnet-tools.json
+
+      # BENCHMARK BRANCH: actions/cache in place of setup-dotnet's own caching, to measure the one
+      # thing that differs between them - restore-keys. setup-dotnet's cache input keys on lock
+      # files with no prefix fallback, so any lock file change is a full cold miss; this falls back
+      # to the most recent entry and downloads only what moved.
+      #
+      # CACHE_EPOCH is in the key so a miss can be forced without touching the build. Changing it
+      # is exactly what a lock file change does to the key, minus every other variable.
+      - name: Cache NuGet packages
+        uses: actions/cache@v6
+        with:
+          path: ~/.nuget/packages
+          key: nuget-${{ runner.os }}-${{ vars.CACHE_EPOCH }}-${{ hashFiles('**/packages.lock.json', '.config/dotnet-tools.json') }}
+          restore-keys: |
+            nuget-${{ runner.os }}-${{ vars.CACHE_EPOCH }}-
+            nuget-${{ runner.os }}-
 
       - name: Restore tools
         run: dotnet tool restore
