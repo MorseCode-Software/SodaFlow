@@ -24,6 +24,18 @@ public interface IKeyOrder<TKey, TId, TState>
     where TId : notnull
 {
     /// <summary>
+    ///     Whether a key's position under this order can be changed by a state edit.
+    /// </summary>
+    /// <remarks>
+    ///     False for an order that projects its sort value from the key or the identity alone,
+    ///     neither of which a state edit can touch - which is what lets a stage skip re-filing a
+    ///     key it has been told merely changed. The root's order and <c>SortByKey</c>'s are both
+    ///     false; a <c>SortBy</c> over a caller's selector is conservatively true, because nothing
+    ///     here can see whether that selector read the state it was handed.
+    /// </remarks>
+    bool DependsOnState { get; }
+
+    /// <summary>
     ///     A key set holding <paramref name="keys" />, ordered the way this order orders them.
     /// </summary>
     /// <param name="keys">The keys to file. Any the snapshot does not have are skipped.</param>
@@ -177,18 +189,27 @@ public sealed class SortKeyOrder<TKey, TId, TState, TSortKey> : IKeyOrder<TKey, 
     /// <param name="sortComparer">Compares two projected sort values.</param>
     /// <param name="keyComparer">Breaks ties, so that the order is total.</param>
     /// <param name="descending">Whether to reverse the sort comparison.</param>
+    /// <param name="dependsOnState">
+    ///     Whether <paramref name="selector" /> reads the state it is handed. Say false only when
+    ///     it demonstrably does not: a stage takes it as licence to skip work on an edit.
+    /// </param>
     public SortKeyOrder(
         Func<TKey, TId, TState, TSortKey> selector,
         IComparer<TSortKey> sortComparer,
         IComparer<TKey> keyComparer,
-        bool descending)
+        bool descending,
+        bool dependsOnState)
     {
+        this.DependsOnState = dependsOnState;
         this.selector = selector;
         this.comparer = new SortedEntryComparer<TKey, TSortKey>(
             sortComparer,
             keyComparer,
             descending);
     }
+
+    /// <inheritdoc />
+    public bool DependsOnState { get; }
 
     /// <inheritdoc />
     public IOrderedKeys<TKey, TId, TState> CreateFrom(

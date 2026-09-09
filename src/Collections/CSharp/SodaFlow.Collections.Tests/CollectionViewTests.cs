@@ -133,6 +133,37 @@ public sealed class CollectionViewTests
     }
 
     [Test]
+    public async Task AnUpdateUnderAKeyOrderedStageReportsAnUpdateAndMovesNothing()
+    {
+        StreamSink<CollectionEdit<int, ItemId, ItemState>> edits =
+            Stream.CreateSink<CollectionEdit<int, ItemId, ItemState>>();
+
+        ReactiveCollection<int, ItemId, ItemState> collection = Create(
+            edits,
+            TestUtil.Item(1, "one", 10),
+            TestUtil.Item(2, "two", 20),
+            TestUtil.Item(3, "three", 30));
+
+        // Sitting directly on the collection, so this stage inherits the root's order, which
+        // projects the key - and a key cannot change. A state edit therefore cannot move anything
+        // here, which is the case Refile short-circuits rather than removing and re-adding.
+        IReactiveCollection<int, ItemId, ItemState> passing =
+            collection.Filter(static (_, state) => state.Score >= 0);
+
+        List<string> operations = [];
+        IListener l = passing.ChangesStream.ListenStrong(
+            change => operations.AddRange(change.Operations.Select(Describe)));
+
+        edits.Send(TestUtil.Score(2, 99));
+
+        l.Unlisten();
+
+        // One update, no move, and the order untouched.
+        await Assert.That(operations).IsEquivalentTo(["ViewUpdate:2"]);
+        await Assert.That(KeysOf(passing)).IsEquivalentTo([1, 2, 3]);
+    }
+
+    [Test]
     public async Task FilterNarrowsAndPreservesTheUpstreamOrder()
     {
         StreamSink<CollectionEdit<int, ItemId, ItemState>> edits =

@@ -32,7 +32,8 @@ internal static class CollectionViewUtility
             static (key, _, _) => key,
             keyComparer,
             keyComparer,
-            false);
+            descending: false,
+            dependsOnState: false);
 
         return TransactionInternal.Apply<IReactiveCollection<TKey, TId, TState>>((trans, _) =>
         {
@@ -66,7 +67,8 @@ internal static class CollectionViewUtility
             static (key, _, _) => key,
             keyComparer,
             keyComparer,
-            false);
+            descending: false,
+            dependsOnState: false);
 
         return BuildStage(
             upstream,
@@ -109,7 +111,8 @@ internal static class CollectionViewUtility
             (_, identity, state) => selector(identity, state),
             sortComparer,
             keyComparer,
-            descending);
+            descending,
+            dependsOnState: true);
 
         return BuildStage(
             upstream,
@@ -590,6 +593,15 @@ internal static class CollectionViewUtility
     ///     Removes and re-adds a key so it is filed under its new sort value, reporting a move if
     ///     that changed its position and an update either way.
     /// </summary>
+    /// <remarks>
+    ///     Unless the order cannot have moved it, in which case the removing and re-adding is four
+    ///     tree operations that put the key back where it already was. Both callers reach this on
+    ///     every state edit that touches a key they hold, so that is the incremental path, and an
+    ///     order projecting its sort value from the key or the identity - the root's, and any
+    ///     filter sitting directly on it - can never move a key on a state edit.
+    ///     The snapshot is still consulted, because a key the snapshot has dropped does have to
+    ///     leave the set, and one lookup is cheaper than the four operations it replaces.
+    /// </remarks>
     private static void Refile<TKey, TId, TState>(
         ref IOrderedKeys<TKey, TId, TState> keys,
         ICollection<ViewOperation<TKey>> operations,
@@ -598,6 +610,18 @@ internal static class CollectionViewUtility
         where TKey : notnull
         where TId : notnull
     {
+        if (!keys.Order.DependsOnState && snapshot.ContainsKey(key))
+        {
+            int at = keys.IndexOf(key);
+
+            if (at >= 0)
+            {
+                operations.Add(new ViewUpdate<TKey>(key, at));
+            }
+
+            return;
+        }
+
         int fromIndex = keys.IndexOf(key);
 
         IOrderedKeys<TKey, TId, TState> updated = keys.Remove(key).Add(key, snapshot);

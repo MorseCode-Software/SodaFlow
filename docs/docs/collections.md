@@ -222,26 +222,31 @@ holding the whole collection with `Where`, `OrderByDescending` and `Take`:
 
 | Operation | Items | Re-derived | Chained |
 | --- | --- | --- | --- |
-| Edit one item | 1,000 | 67 µs | 15 µs |
-| Edit one item | 10,000 | 717 µs | 14 µs |
-| Add and remove an item | 1,000 | 135 µs | 27 µs |
-| Add and remove an item | 10,000 | 1,404 µs | 30 µs |
-| Change the threshold | 1,000 | 67 µs | 706 µs |
-| Change the threshold | 10,000 | 713 µs | 11,616 µs |
+| Edit one item | 1,000 | 68 µs | 11 µs |
+| Edit one item | 10,000 | 709 µs | 13 µs |
+| Add and remove an item | 1,000 | 134 µs | 29 µs |
+| Add and remove an item | 10,000 | 1,447 µs | 29 µs |
+| Change the threshold | 1,000 | 68 µs | 703 µs |
+| Change the threshold | 10,000 | 720 µs | 11,418 µs |
 
 Read the three rows separately, because they do not agree.
 
-An **edit** is what the chain is for, and it is flat: thirteen microseconds at a thousand items
-and fourteen at ten thousand, against a re-derivation that grows with the collection. At ten
-thousand that is fifty-two times.
+An **edit** is what the chain is for, and it is flat: eleven microseconds at a thousand items
+and thirteen at ten thousand, against a re-derivation that grows with the collection. At ten
+thousand that is fifty-six times.
 
-**Adding and removing** is flat too — twenty-eight microseconds and thirty — which is fifty
+Part of that is a stage knowing it has nothing to do. A stage sitting directly on a collection
+inherits the root's order, which sorts by key — and a key cannot change, so a state edit can
+never move anything in it. Saying so rather than removing and re-adding the key to find out is
+worth about a tenth of an edit and a fifth of its allocation.
+
+**Adding and removing** is flat too — twenty-nine microseconds and twenty-nine — which is fifty
 times a re-derivation at ten thousand items. It was not always: the identity map used to be a
 plain dictionary, which can only produce its next version by being copied, so a structural edit
 was O(n) however cheaply the stages below it absorbed the change. This benchmark is what found
 that, and the map is a trie now.
 
-**Changing the threshold** loses, by eleven times at a thousand items and sixteen at ten
+**Changing the threshold** loses, by ten times at a thousand items and sixteen at ten
 thousand. A rebuild files every surviving key into a fresh ordered set, so the chain builds a
 persistent tree where re-deriving sorts an array — and a tree costs an allocation per node where
 an array sort costs none. That gap is the data structure rather than a constant waiting to be
