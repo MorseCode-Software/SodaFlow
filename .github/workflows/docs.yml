@@ -1,7 +1,7 @@
 # Builds the DocFX site under docs/ and publishes it to GitHub Pages.
 #
-# This is independent of appveyor.yml, which builds and packs the .NET solution. The two do not
-# share state: AppVeyor owns NuGet releases, this owns the documentation site.
+# This is independent of build.yml, which builds, tests, packs and releases the .NET solution. The
+# two do not share state: that one owns NuGet releases, this owns the documentation site.
 name: Documentation
 
 on:

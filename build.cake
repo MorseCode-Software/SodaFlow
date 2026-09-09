@@ -1,7 +1,9 @@
 ﻿// Build script for the .NET implementation under src.
 //
-// This reproduces what appveyor.yml used to run inline, step for step. The reasoning behind each
-// step lives here now rather than in the YAML, because the steps do.
+// The steps live here rather than in the workflow that calls them, and so does the reasoning behind
+// each one, because a change to a step and a change to its explanation should be the same edit.
+// What is left to the workflow is the part that is genuinely the CI system's: which machine to run
+// on, what the environment holds, what to keep, and what to report where.
 //
 // Run it locally with:
 //
@@ -16,24 +18,18 @@
 // dependencies below are therefore what a local run follows, not what CI relies on; keep them
 // accurate anyway, since `dotnet cake --target=Pack` on a clean tree has to work.
 //
-// Two CI systems drive them that way at the moment: appveyor.yml and .github/workflows/build.yml
-// run the same targets with the same flags on the same commits. That started as a comparison and
-// has been decided - Actions won, on queue time above all - so what remains is a migration with
-// AppVeyor still building alongside until the last of it is finished. This file stays neutral
-// about which is running it for as long as that is true.
-//
-// Releasing is the one thing that has already moved outright, because it is the one thing that
-// must never happen twice: Publish pushes only from Actions with a tag ref, and appveyor.yml has
-// no deploy_script.
+// .github/workflows/build.yml is what drives them that way. It used to be that and appveyor.yml
+// both, running the same targets on the same commits while the two were compared; Actions won, on
+// queue time above all, and AppVeyor is gone. Nothing in this file knows which CI is running it any
+// more, which is the state it was always meant to reach.
 //
 // Package versions are NOT set here. Each packable project derives its own version from git tags
 // via MinVer (see src/Directory.Build.props), so pushing sodaflow-async-2.1.0 releases only
 // SodaFlow.Async and leaves every other package on its own last tag.
 
-// Reading the SARIF only. Reporting what was read is done through Cake's own AppVeyor provider,
-// not through Cake.Issues.PullRequests.AppVeyor - see the Inspect-Code task for why - which is what
-// lets these two track the Cake version instead of being held at 5.9.1 to agree with an addin that
-// has no Cake 6 release.
+// Reading the SARIF only. Nothing here reports it: the workflow hands the same file to code
+// scanning. Keeping these two to the reading half is what lets them track the Cake version rather
+// than being held at 5.9.1 to agree with a reporting addin that has no Cake 6 release.
 #addin nuget:?package=Cake.Issues&version=6.0.0
 #addin nuget:?package=Cake.Issues.Sarif&version=6.0.0
 
@@ -76,17 +72,6 @@ var nugetSource = Argument("nuget-source", "https://api.nuget.org/v3/index.json"
 Setup(context =>
 {
     Information("Building SodaFlow in {0}.", configuration);
-
-    if (BuildSystem.IsRunningOnAppVeyor)
-    {
-        Information(
-            "AppVeyor build {0}, branch {1}{2}.",
-            AppVeyor.Environment.Build.Number,
-            AppVeyor.Environment.Repository.Branch,
-            AppVeyor.Environment.Repository.Tag.IsTag
-                ? ", tag " + AppVeyor.Environment.Repository.Tag.Name
-                : string.Empty);
-    }
 });
 
 //////////////////////////////////////////////////////////////////////
@@ -182,25 +167,10 @@ Task("Test")
                 .Append("--report-trx"),
         });
 
-    // AppVeyor shows a Tests tab only for results handed to its API; a passing or failing phase on
-    // its own says how many suites ran, not which test failed. --report-trx writes one file per test
-    // project per framework, named for both, and AppVeyor reads that format as MSTest.
-    //
-    // Uploaded here rather than in a later task because a failing test run stops the build, and the
-    // results of the run that failed are exactly the ones worth having.
-    //
-    // GitHub Actions has no equivalent API to hand them to, so nothing is added here for it. The
-    // workflow reads the same files from the results directory afterwards and writes a job summary
-    // itself; keeping that on its side of the line is what makes the two systems' reporting
-    // comparable rather than something this file has already evened out.
-    if (BuildSystem.IsRunningOnAppVeyor)
-    {
-        foreach (var results in GetFiles($"{coverageDirectory.Path}/**/*.trx"))
-        {
-            Information("Uploading {0}", results.GetFilename());
-            AppVeyor.UploadTestResults(results, AppVeyorTestResultsType.MSTest);
-        }
-    }
+    // --report-trx writes one file per test project per framework, named for both. Nothing is done
+    // with them here: the workflow uploads them as an artifact, and test-report.yml turns them into
+    // a check run listing every test. This file produces them and stops, which is the line it draws
+    // everywhere - build steps here, reporting surfaces in the workflow that has one.
 
     // Checked here, where the reports are made, rather than wherever they are next read. Sending
     // them to Coveralls is the workflow's job now, and a run that submitted nothing because nothing
@@ -263,15 +233,9 @@ string Describe(IIssue issue) =>
     $"{issue.AffectedFileRelativePath?.FullPath ?? "<solution>"}"
     + $"({issue.Line?.ToString() ?? "-"}): {issue.RuleId}: {issue.MessageText}";
 
-// Hung off Build rather than given a phase of its own in appveyor.yml. The original reason was
-// that a phase there would not have run, the project having built from the settings held in
-// AppVeyor's UI, and that reason is gone: "use YAML from repository" is enabled, so appveyor.yml
-// is what AppVeyor runs and a phase of its own would work.
-//
-// It stays a dependency anyway, and now for a better reason than the one it was written for: as a
-// dependency it runs everywhere without being listed anywhere. A local `dotnet cake`, AppVeyor and
-// the GitHub Actions workflow all reach it through Build, so there is no per-CI-system list of
-// phases for it to fall off.
+// A dependency of Build rather than a step of its own in the workflow. As a dependency it runs
+// everywhere without being listed anywhere - a local `dotnet cake` and CI both reach it through
+// Build - so there is no list of steps for it to quietly fall off.
 //
 // It needs nothing compiled, so as a dependency of Build it still runs before anything is built
 // and costs milliseconds.
@@ -319,7 +283,7 @@ Task("Verify-Inspection-Settings")
 
 // The whole of an inspection run, shared by the solution under src and by each sample. Extracted
 // rather than duplicated because the reporting is the interesting part - the zero threshold, the
-// AppVeyor messages, the listing before the throw - and two copies of that would drift.
+// listing before the throw - and two copies of that would drift.
 void RunInspection(FilePath solutionPath, FilePath reportPath, string description)
 {
     // inspectcode comes from the jetbrains.resharper.globaltools local tool, pinned alongside Cake
@@ -363,39 +327,21 @@ void RunInspection(FilePath solutionPath, FilePath reportPath, string descriptio
         .ThenBy(i => i.Line ?? 0)
         .ToList();
 
-    // Logged as well as reported. The AppVeyor messages tab is the readable form, but it is only
-    // populated on AppVeyor, and a local run should not have to guess what was found.
+    // Listed before the throw below, not after, because a build that fails on the inspection is
+    // exactly the build that needs to say what the inspection found. This log is the whole of the
+    // reporting done here; the SARIF it was read from is handed to code scanning by the workflow,
+    // which puts the findings on the lines they are about.
+    //
+    // There used to be a second copy of this, pushed to AppVeyor's messages tab through Cake's own
+    // AppVeyor provider. Worth recording why it was that and not Cake.Issues.PullRequests.AppVeyor,
+    // in case anyone reaches for the equivalent again: that addin has no release built against Cake
+    // 6, and under Cake 6 it dies with MissingMethodException on
+    // Spectre.Console.Text..ctor(String, Style) as soon as it formats anything. Keeping it would
+    // have meant holding the entire build at Cake 5 to satisfy one package.
     Information("InspectCode found {0} issue(s) in {1}.", issues.Count, description);
     foreach (var issue in issues)
     {
         Information("  {0}", Describe(issue));
-    }
-
-    // Reported before the throw below, not after, because a build that fails on the inspection is
-    // exactly the build that needs to say what the inspection found.
-    //
-    // Cake's own AppVeyor provider rather than Cake.Issues.PullRequests.AppVeyor, which is the
-    // obvious choice and does not work: it has no release built against Cake 6, and under Cake 6 it
-    // dies with MissingMethodException on Spectre.Console.Text..ctor(String, Style) as soon as it
-    // formats anything. That break is invisible locally, because IsRunningOnAppVeyor is the only
-    // thing standing between a local run and this code. Keeping the addin would have meant holding
-    // the entire build at Cake 5 to satisfy one package; AddMessage is the API it was reaching for
-    // anyway.
-    if (BuildSystem.IsRunningOnAppVeyor)
-    {
-        foreach (var issue in issues)
-        {
-            AppVeyor.AddMessage(
-                Describe(issue),
-                // Error for all of them, whatever JetBrains graded them. The category says what
-                // the issue did to this build, and what every one of them did to this build was
-                // fail it; a suggestion filed as a warning reads as something to get to later,
-                // which is the opposite of what a zero threshold means.
-                AppVeyorMessageCategoryType.Error,
-                // The severity as reported survives here, along with the rule's documentation,
-                // which is the part that says what to actually do about it.
-                $"{issue.PriorityName}. {issue.RuleUrl}".Trim());
-        }
     }
 
     // Anything at all fails the build, suggestions included - inspectcode reports SUGGESTION and
@@ -479,10 +425,9 @@ Task("Publish")
     // That advice does not depend on how many runs a multi-tag push produces, because each run
     // publishes only the package named by the tag it was started for.
     //
-    // GitHub Actions is the only place this pushes from. AppVeyor published until the main build
-    // moved here, and stopped in the same commit that started this: appveyor.yml no longer has a
-    // deploy_script, so there is no commit at which both could push the same tag and race for it.
-    // AppVeyor still builds every commit while the two are compared - it just does not release.
+    // GitHub Actions is the only place this pushes from, and the only CI there is. AppVeyor
+    // published until the main build moved, and stopped in the same commit that gave the workflow
+    // its publish step, so no commit ever had both able to push one tag.
     if (!BuildSystem.IsRunningOnGitHubActions ||
         GitHubActions.Environment.Workflow.RefType != GitHubActionsRefType.Tag)
     {
@@ -501,8 +446,7 @@ Task("Publish")
     // Read from the environment, and deliberately incurious about where it came from. Nothing here
     // stores a key: the workflow trades this run's OIDC token with nuget.org for one that expires
     // shortly afterwards - trusted publishing - and hands it to this task the same way a stored
-    // secret used to be handed over. That is why the move off AppVeyor's encrypted variable changed
-    // nothing in this file.
+    // secret used to be handed over. That is why moving off a stored key changed nothing here.
     //
     // Thrown rather than skipped, unlike every other missing-credential check here. Those guard
     // work that is worth doing anyway; this one guards the release itself, and a tag build that

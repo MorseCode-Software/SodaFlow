@@ -1,25 +1,17 @@
-# Builds, tests, packs and inspects the .NET solution under src/ - the same build appveyor.yml
-# drives, run on GitHub Actions instead.
+# Builds, tests, packs, inspects and releases the .NET solution under src/. This is the build - the
+# only one. It replaced an AppVeyor build running the same Cake targets, after the two were run side
+# by side for a while and Actions won, mostly on how long a commit waited before anything started:
+# execution was around 16 minutes there against 9 here, but a single concurrent job meant builds
+# queued for up to an hour before they began.
 #
-# THIS RUNS ALONGSIDE APPVEYOR, NOT INSTEAD OF IT. Both are wired to the same events on purpose, so
-# that one commit produces one run on each and the two can be compared on what actually decides
-# this: wall-clock time, what a failure looks like from the outside, and how much of a result is
-# readable without opening a log. Neither is the other's fallback. If the two ever disagree about a
-# commit, that disagreement is itself the finding.
-#
-# THIS WORKFLOW NOW RELEASES. It did not while the two systems were being compared; the comparison
-# came out in favour of Actions, so the publish step at the bottom is live and appveyor.yml's
-# deploy_script was deleted in the same commit that added it. That pairing is deliberate: there is
-# no commit at which both systems would push the same tag and race for which reached nuget.org
-# first. AppVeyor still builds every commit, so the comparison stays readable - it just no longer
-# releases anything.
+# THIS WORKFLOW RELEASES. The publish step at the bottom is live and tag-gated.
 #
 # There is NO NuGet API key anywhere in this repository, and that is the point. Releases authenticate
 # by trusted publishing: the publish step exchanges this run's OIDC token for a key that nuget.org
 # mints on the spot and expires shortly after, so there is no long-lived secret to leak, to rotate,
-# or to hand to a step that had no business reading it. AppVeyor could not do this - its copy of the
-# old key was an encrypted blob in appveyor.yml - so it is the one capability the move actually
-# gained rather than merely matched.
+# or to hand to a step that had no business reading it. This is the one thing the move to Actions
+# gained outright rather than merely matched - the build it replaced kept an encrypted copy of a
+# permanent key.
 #
 # It does need setting up once, on nuget.org rather than here: a trusted publishing policy under the
 # MorseCodeSoftware account, naming this repository and this workflow file. Until that exists the
@@ -31,14 +23,14 @@
 # run. No secret is involved: the action authenticates with this run's GITHUB_TOKEN, so
 # COVERALLS_REPO_TOKEN is not read and does not need to exist.
 #
-# AppVeyor no longer submits. Its Upload-Coverage phase is gone from appveyor.yml, which ends the
-# two-builds-per-commit overlap the two systems had while both were reporting.
+# This is the only thing that submits. Coverage briefly went up from both CI systems at once, which
+# produced two Coveralls builds per commit for one set of numbers; that ended with the build that
+# was producing the second one.
 name: Build
 
-# No paths filter, unlike docs.yml and samples.yml. Those two guard narrow, self-contained corners
-# of the repository; this builds the libraries, and AppVeyor builds them on every push. A filter
-# here would mean the two systems were sometimes asked different questions, and a speed comparison
-# between a run that happened and a run that was skipped says nothing.
+# No paths filter, unlike docs.yml. That one guards a narrow, self-contained corner of the
+# repository; this builds the libraries, and there is nothing under src/ whose change could not
+# affect them. A filter here would mean trusting a list of globs to know what a compiler does.
 #
 # Tags are built, and a tag build is what releases a package - see the publish step at the bottom.
 # The pattern is every tag this repository uses: MinVerTagPrefix is per project and they all begin
@@ -83,9 +75,9 @@ concurrency:
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 env:
-  # appveyor.yml sets these three in its environment block, and its configuration at the top level.
-  # Repeated here rather than left to differ, because a build comparison in which one side is
-  # quietly doing first-run telemetry setup and the other is not is not a comparison.
+  # Configuration is the value every Cake invocation below is given. The three DOTNET_ variables
+  # keep the SDK from printing its first-run banner and from phoning home, which is noise on an
+  # agent thrown away after one build.
   CONFIGURATION: Release
   DOTNET_CLI_TELEMETRY_OPTOUT: true
   DOTNET_NOLOGO: true
@@ -99,25 +91,21 @@ jobs:
   build:
     name: Build
     # Windows because src targets net472 alongside net60 and netstandard2.0, and the test projects
-    # target net472 alongside net10.0.
-    #
-    # The two sides are NOT running the same operating system, and a timing comparison has to
-    # account for it. appveyor.yml asks for the Visual Studio 2026 image, which is Windows Server
-    # 2019; windows-latest is Windows Server 2025. Actions offers nothing as old, so this cannot be
-    # evened out from here - the honest options are to read any speed difference as image-and-
-    # platform together, or to move AppVeyor forward first and re-measure.
+    # target net472 alongside net10.0. The .NET Framework reference assemblies come from a package
+    # rather than an installed targeting pack - see src/Directory.Build.props - so this is a choice
+    # about running the net472 tests, not about being able to build them.
     runs-on: windows-latest
 
-    # AppVeyor's own hard limit on a free build is an hour. Matching it means a hang shows up here
-    # the same way it shows up there, rather than running on to Actions' six.
+    # An hour, against the six a job gets by default. A run that has gone past an hour has hung, and
+    # waiting five more to be told so helps nobody.
     timeout-minutes: 60
 
     steps:
       - uses: actions/checkout@v7
         with:
-          # The equivalent of shallow_clone: false and clone_depth: 0 in appveyor.yml, and just as
-          # load-bearing. MinVer reads the full commit graph and every tag; Actions' default is a
-          # depth-1 clone with no tags, which gives every package a wrong version or none at all.
+          # Load-bearing. MinVer reads the full commit graph and every tag to work out each
+          # package's version; the default here is a depth-1 clone with no tags, which gives every
+          # package a wrong version or none at all.
           fetch-depth: 0
 
       - uses: actions/setup-dotnet@v6
@@ -140,9 +128,8 @@ jobs:
           # command line tools, much the largest of them - and every PackageReference the solution
           # restores. Restore tools alone was a minute of a nine minute run.
           #
-          # There was deliberately no cache while AppVeyor and Actions were being compared, because
-          # AppVeyor had none configured and caching one side only would have measured the cache
-          # rather than the platform. That comparison is settled.
+          # Worth about a minute on a warm run, measured rather than assumed: the packages folder
+          # comes back in roughly half a minute and saves both the tool restore and the cache write.
           #
           # This is setup-dotnet's own caching rather than an actions/cache step with a key built by
           # hand, which is what this was first written as and could only have been written as: the
@@ -167,9 +154,8 @@ jobs:
             **/packages.lock.json
             .config/dotnet-tools.json
 
-      # appveyor.yml's install phase, unchanged. Cake and the ReSharper command line tools are
-      # pinned in .config/dotnet-tools.json, so both CI systems and a developer all run the same
-      # versions.
+      # Cake and the ReSharper command line tools are pinned in .config/dotnet-tools.json, so CI and
+      # a developer run the same versions.
       #
       # Not cached: the tools/ directory Cake resolves its two #addin packages into. They are small,
       # they change only when build.cake's addin lines do, and a second cache entry to save a couple
@@ -177,25 +163,20 @@ jobs:
       - name: Restore tools
         run: dotnet tool restore
 
-      # The steps below mirror appveyor.yml's phases, one step per phase, with the same --exclusive
-      # flags and in the same order. That is what makes the two runs readable side by side: a step
-      # here and a phase there ran the same Cake target the same way, so a difference in what they
-      # took or what they said is a difference between the two CI systems rather than between two
-      # builds.
+      # One step per phase, so a failure is attributed to the phase it happened in rather than to
+      # the build as a whole: a failing test reads as a failed test step, not a failed build.
       #
       # --exclusive runs the named target without its dependencies, which have already run in an
       # earlier step. The dependency chain in build.cake remains the truth for a local `dotnet
-      # cake`; here, as on AppVeyor, the CI system supplies the sequencing.
+      # cake`; here the workflow supplies the sequencing, at the cost of a Cake startup per step.
       - name: Build
         run: dotnet cake --target=Build --configuration=${{ env.CONFIGURATION }}
 
       - name: Test
         run: dotnet cake --target=Test --exclusive --configuration=${{ env.CONFIGURATION }}
 
-      # AppVeyor gets a Tests tab for free: build.cake hands it the trx files through its API as
-      # soon as the run finishes, and it renders every one of them individually. The Actions
-      # equivalent is NOT here - it is test-report.yml, and this step is the half of it that this
-      # workflow can do.
+      # Test reporting is NOT here - it is test-report.yml, and this step is the half of it that
+      # this workflow can do.
       #
       # The split is the reporter's own recommended setup for a public repository, and the reason is
       # that a pull request raised from a fork runs with a read-only token and cannot create a check
@@ -282,19 +263,18 @@ jobs:
       - name: Pack
         run: dotnet cake --target=Pack --exclusive --configuration=${{ env.CONFIGURATION }}
 
-      # Last, as it is on AppVeyor and for the same reason: it fails the build on anything it
-      # finds, and a build failed by the inspection should still have packed its packages and
-      # collected its coverage, because those are what say whether the run was otherwise sound.
+      # Last, deliberately: it fails the build on anything it finds, and a build failed by the
+      # inspection should still have packed its packages and submitted its coverage, because those
+      # are what say whether the run was otherwise sound.
       - name: Inspect
         run: dotnet cake --target=Inspect-Code --exclusive --configuration=${{ env.CONFIGURATION }}
 
-      # The other half of the reporting comparison. AppVeyor gets these findings as messages on its
-      # messages tab, which build.cake posts itself; Actions gets the SARIF that same task already
-      # wrote, so the findings land on the lines they are about - in the Files tab of a pull request
-      # and in the Security tab - instead of only in a log that has to be opened and scrolled.
+      # The SARIF the inspection already wrote, handed to code scanning so the findings land on the
+      # lines they are about - in the Files tab of a pull request and in the Security tab - instead
+      # of only in a log that has to be opened and scrolled.
       #
-      # Nothing about the inspection changes to make this work. It is the same report AppVeyor keeps
-      # as an artifact, uploaded the way samples.yml uploads the samples' reports.
+      # Nothing about the inspection changes to make this work; it is the same report kept as an
+      # artifact below, uploaded the way samples.yml uploads the samples' reports.
       #
       # always(), because the step above fails by design while there are findings, and those are
       # exactly the runs worth annotating. continue-on-error, because this is presentation: if the
@@ -311,13 +291,10 @@ jobs:
           sarif_file: inspection/inspectcode.sarif
           category: src
 
-      # The same three artifacts appveyor.yml collects, under the same names, so that what one run
-      # leaves behind can be compared against what the other does.
-      #
-      # always() rather than on success, because AppVeyor collects artifacts from a failed build
-      # too, and a run failed by the inspection still has packages and coverage worth having.
-      # upload-artifact warns rather than fails on a path that matched nothing, so a build that fell
-      # over before producing any of these does not then fail a second time on the collection.
+      # always() rather than on success, because a run failed by the inspection still has packages
+      # and coverage worth having. upload-artifact warns rather than fails on a path that matched
+      # nothing, so a build that fell over before producing any of these does not then fail a second
+      # time on the collection.
       - name: Collect packages
         if: always()
         uses: actions/upload-artifact@v7
@@ -325,8 +302,9 @@ jobs:
           name: packages
           path: artifacts/*.nupkg
 
-      # Kept for the same reason AppVeyor keeps it: a run whose coverage upload was skipped - which,
-      # here, is every run - can still be inspected. The trx files ride along in the same directory.
+      # Kept so a run whose Coveralls submission was refused can still be inspected, and so the raw
+      # numbers behind a percentage are recoverable. The trx files ride along in the same
+      # directory.
       - name: Collect coverage
         if: always()
         uses: actions/upload-artifact@v7
@@ -342,9 +320,9 @@ jobs:
           name: inspection
           path: inspection
 
-      # Last, and after the artifacts, which is where appveyor.yml's deploy_script ran for the same
-      # reason: a release should not be the thing that decides whether the packages and the coverage
-      # from this run are kept.
+      # Last, and after the artifacts, for the same reason the inspection comes before them: a
+      # release should not be the thing that decides whether this run's packages and coverage are
+      # kept.
       #
       # Two conditions have to hold, and only one of them is written here. The `if` restricts this
       # to a tag push - and because it names no status function, GitHub implies success(), so a run

@@ -104,7 +104,7 @@ jobs:
       # of only in a log that has to be opened and scrolled.
       #
       # Nothing about the inspection changes to make this work: it is the same report build.cake
-      # writes for its own reporting, and the same one AppVeyor keeps as an artifact.
+      # writes for its own logging.
       #
       # always(), because the step that produces it fails by design while there are findings, and
       # those are exactly the runs worth annotating. continue-on-error, because this is
