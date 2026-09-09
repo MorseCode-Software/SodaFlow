@@ -35,13 +35,13 @@ namespace SodaFlow.Benchmarks;
 ///         and this is flat.
 ///     </para>
 ///     <para>
-///         A <b>threshold change</b> is the case the chain loses, and loses badly rather than
-///         merely failing to win. Changing a criteria rebuilds that stage and every stage below it,
-///         and a rebuild is one immutable sorted-set insertion per surviving key — so where
-///         re-deriving pays one LINQ sort, the chain pays n insertions each allocating a path
-///         through a tree. It is measured here precisely because it does not flatter the design,
-///         and it is the number to point at when telling someone to debounce a search box rather
-///         than filtering on every keystroke.
+///         A <b>threshold change</b> is the case the chain loses. Changing a criteria rebuilds that
+///         stage and every stage below it, and a rebuild files every surviving key into a fresh
+///         ordered set — so where re-deriving sorts an array, the chain builds a persistent tree,
+///         which costs an allocation per node where the sort costs none. Both are Θ(n), so parity
+///         is the ceiling and this does not reach it. It is measured here precisely because it does
+///         not flatter the design, and it is the number to point at when telling someone to
+///         debounce a search box rather than filtering on every keystroke.
 ///     </para>
 /// </remarks>
 [MemoryDiagnoser]

@@ -564,14 +564,18 @@ internal static class CollectionViewUtility
 
     // --- shared -------------------------------------------------------------------------------
 
-    /// <summary>Files every key into an empty set under one order.</summary>
+    /// <summary>Files every key into a new set under one order.</summary>
+    /// <remarks>
+    ///     In bulk, which is what keeps a rebuild from costing one persistent write per key. See
+    ///     <see cref="IKeyOrder{TKey,TId,TState}.CreateFrom" />.
+    /// </remarks>
     private static IOrderedKeys<TKey, TId, TState> FileAll<TKey, TId, TState>(
         IKeyOrder<TKey, TId, TState> order,
         IEnumerable<TKey> keys,
         CollectionSnapshot<TKey, TId, TState> snapshot)
         where TKey : notnull
         where TId : notnull =>
-        keys.Aggregate(order.CreateEmpty(), (filed, key) => filed.Add(key, snapshot));
+        order.CreateFrom(keys, snapshot);
 
     private static bool Passes<TKey, TId, TState>(
         TKey key,
@@ -579,9 +583,8 @@ internal static class CollectionViewUtility
         CollectionSnapshot<TKey, TId, TState> snapshot)
         where TKey : notnull
         where TId : notnull =>
-        snapshot.LookupInternal(key).Match(
-            entry => predicate(entry.Identity, entry.State),
-            static () => false);
+        snapshot.TryGetHalves(key, out TId identity, out TState state) &&
+        predicate(identity, state);
 
     /// <summary>
     ///     Removes and re-adds a key so it is filed under its new sort value, reporting a move if

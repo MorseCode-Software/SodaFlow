@@ -66,10 +66,7 @@ public sealed class CollectionSnapshot<TKey, TId, TState>
     /// </remarks>
     public bool TryGetEntry(TKey key, out Entry<TId, TState>? entry)
     {
-        // Through the assembly's own helper rather than the concrete TryGetValue, which is
-        // annotated to leave its output null on false and so warns against a notnull TId.
-        if (this.IdentitiesImpl.TryGet(key, out TId identity) &&
-            this.States.TryGetState(key, out TState state))
+        if (this.TryGetHalves(key, out TId identity, out TState state))
         {
             entry = new Entry<TId, TState>(identity, state);
 
@@ -79,6 +76,29 @@ public sealed class CollectionSnapshot<TKey, TId, TState>
         entry = null;
 
         return false;
+    }
+
+    /// <summary>
+    ///     Both halves of an item, without the <see cref="Entry{TId,TState}" /> that
+    ///     <see cref="TryGetEntry" /> wraps them in.
+    /// </summary>
+    /// <remarks>
+    ///     For the paths that read every key rather than one - rebuilding a view stage, testing a
+    ///     filter's predicate - where that wrapper is an allocation per key per rebuild and nothing
+    ///     keeps it afterwards.
+    ///     Both lookups happen either way, rather than the second being skipped when the first
+    ///     misses, so that both outputs are definitely assigned without a suppression. A key absent
+    ///     from the identity map is absent from the state map too, so the wasted lookup only
+    ///     happens for a key that is not there at all.
+    /// </remarks>
+    internal bool TryGetHalves(TKey key, out TId identity, out TState state)
+    {
+        // Through the assembly's own helper rather than the concrete TryGetValue, which is
+        // annotated to leave its output null on false and so warns against a notnull TId.
+        bool hasIdentity = this.IdentitiesImpl.TryGet(key, out identity);
+        bool hasState = this.States.TryGetState(key, out state);
+
+        return hasIdentity && hasState;
     }
 
     /// <summary>
@@ -105,9 +125,4 @@ public sealed class CollectionSnapshot<TKey, TId, TState>
 
         return builder.ToImmutable();
     }
-
-    internal MaybeInternal<Entry<TId, TState>> LookupInternal(TKey key) =>
-        this.TryGetEntry(key, out Entry<TId, TState>? entry) && entry is not null
-            ? MaybeInternal.Some(entry)
-            : MaybeInternal<Entry<TId, TState>>.None;
 }

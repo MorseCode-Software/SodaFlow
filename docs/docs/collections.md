@@ -135,7 +135,7 @@ the state that just moved. UI consumers can ignore it — the row's own `StateCe
 reports the value.
 
 `Filter` preserves upstream order without tracking positions in the upstream list: it asks the
-upstream's key set for an empty set under *the same order* and files its own members into it.
+upstream's key set for a new set under *the same order*, holding the members it kept.
 That keeps it O(log n) per changed key instead of needing rank queries over a subsequence.
 
 Re-filing a key on update stores the sort value it was filed under, so the old entry is
@@ -145,11 +145,11 @@ item whose sort position has already moved underneath it.
 ## Three costs worth knowing
 
 - Changing a predicate or a limit rebuilds that stage and everything below it and reports
-  `IsReset`. This is much more expensive than it sounds, and more expensive than not having a
-  chain at all: a rebuild is one immutable sorted-set insertion per surviving key, so at ten
-  thousand items one threshold change measures about forty times the cost of re-deriving the
-  same view with LINQ, and allocates thirty-four megabytes doing it. Debounce keystroke-driven
-  criteria upstream, and do not drive a chain from something that changes per frame.
+  `IsReset`. This is more expensive than it sounds, and more expensive than not having a chain at
+  all: a rebuild files every surviving key into a fresh ordered set, so at ten thousand items one
+  criteria change measures about sixteen times the cost of re-deriving the same view with LINQ.
+  Debounce keystroke-driven criteria upstream, and do not drive a chain from something that
+  changes per frame.
 - `Take` diffs its old and new windows rather than translating operations: O(limit) per
   transaction, and a reorder inside the window reports as removes and inserts from the first
   differing position rather than as moves. For a top-n that is the cheap direction to be wrong
@@ -212,12 +212,12 @@ holding the whole collection with `Where`, `OrderByDescending` and `Take`:
 
 | Operation | Items | Re-derived | Chained |
 | --- | --- | --- | --- |
-| Edit one item | 1,000 | 69 µs | 13 µs |
+| Edit one item | 1,000 | 67 µs | 15 µs |
 | Edit one item | 10,000 | 717 µs | 14 µs |
-| Add and remove an item | 1,000 | 136 µs | 28 µs |
-| Add and remove an item | 10,000 | 1,472 µs | 30 µs |
-| Change the threshold | 1,000 | 68 µs | 1,893 µs |
-| Change the threshold | 10,000 | 707 µs | 29,421 µs |
+| Add and remove an item | 1,000 | 135 µs | 27 µs |
+| Add and remove an item | 10,000 | 1,404 µs | 30 µs |
+| Change the threshold | 1,000 | 67 µs | 706 µs |
+| Change the threshold | 10,000 | 713 µs | 11,616 µs |
 
 Read the three rows separately, because they do not agree.
 
@@ -231,11 +231,16 @@ plain dictionary, which can only produce its next version by being copied, so a 
 was O(n) however cheaply the stages below it absorbed the change. This benchmark is what found
 that, and the map is a trie now.
 
-**Changing the threshold** loses, by twenty-eight times at a thousand items and forty-two at ten
-thousand — twenty-nine milliseconds and thirty-four megabytes for one change of mind. A
-rebuild is one sorted-set insertion per surviving key, so the chain pays n insertions where
-re-deriving pays one sort. If your criteria change as often as your data does, a chain is the
-wrong shape and a plain `Lift` is the right one.
+**Changing the threshold** loses, by eleven times at a thousand items and sixteen at ten
+thousand. A rebuild files every surviving key into a fresh ordered set, so the chain builds a
+persistent tree where re-deriving sorts an array — and a tree costs an allocation per node where
+an array sort costs none. That gap is the data structure rather than a constant waiting to be
+shaved: the tree is what makes every *other* row of this table cheap.
+
+Both are Θ(n), so no amount of work on the chain will beat re-deriving here — the honest ceiling
+is parity, and this is not at it. If your criteria change as often as your data does, a chain is
+the wrong shape and a plain `Lift` is the right one. If they change on a keystroke, debounce
+them.
 
 ## Simultaneous edits
 

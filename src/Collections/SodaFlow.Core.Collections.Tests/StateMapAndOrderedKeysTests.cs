@@ -67,13 +67,17 @@ public sealed class OrderedKeysTests
             ImmutableStateMap<int, ItemState>.Empty.With(states, []));
     }
 
-    private static IOrderedKeys<int, ItemId, ItemState> ByScore(bool descending) =>
-        new SortKeyOrder<int, ItemId, ItemState, int>(
-                static (_, _, state) => state.Score,
-                Comparer<int>.Default,
-                Comparer<int>.Default,
-                descending)
-            .CreateEmpty();
+    private static SortKeyOrder<int, ItemId, ItemState, int> ByScore(bool descending) =>
+        new(
+            static (_, _, state) => state.Score,
+            Comparer<int>.Default,
+            Comparer<int>.Default,
+            descending);
+
+    private static IOrderedKeys<int, ItemId, ItemState> Empty(
+        bool descending,
+        CollectionSnapshot<int, ItemId, ItemState> snapshot) =>
+        ByScore(descending).CreateFrom([], snapshot);
 
     [Test]
     public async Task KeysComeBackInSortOrderAndIndexOfAgrees()
@@ -83,7 +87,7 @@ public sealed class OrderedKeysTests
             TestUtil.Item(2, "two", 10),
             TestUtil.Item(3, "three", 20));
 
-        IOrderedKeys<int, ItemId, ItemState> keys = ByScore(false)
+        IOrderedKeys<int, ItemId, ItemState> keys = Empty(false, snapshot)
             .Add(1, snapshot)
             .Add(2, snapshot)
             .Add(3, snapshot);
@@ -103,7 +107,7 @@ public sealed class OrderedKeysTests
             TestUtil.Item(2, "two", 10),
             TestUtil.Item(9, "nine", 10));
 
-        IOrderedKeys<int, ItemId, ItemState> keys = ByScore(false)
+        IOrderedKeys<int, ItemId, ItemState> keys = Empty(false, snapshot)
             .Add(5, snapshot)
             .Add(2, snapshot)
             .Add(9, snapshot);
@@ -119,7 +123,7 @@ public sealed class OrderedKeysTests
             TestUtil.Item(2, "two", 10),
             TestUtil.Item(3, "three", 20));
 
-        IOrderedKeys<int, ItemId, ItemState> keys = ByScore(true)
+        IOrderedKeys<int, ItemId, ItemState> keys = Empty(true, snapshot)
             .Add(1, snapshot)
             .Add(2, snapshot)
             .Add(3, snapshot);
@@ -132,9 +136,37 @@ public sealed class OrderedKeysTests
     {
         CollectionSnapshot<int, ItemId, ItemState> snapshot = Snapshot(TestUtil.Item(1, "one", 30));
 
-        IOrderedKeys<int, ItemId, ItemState> keys = ByScore(false).Add(99, snapshot);
+        IOrderedKeys<int, ItemId, ItemState> keys = Empty(false, snapshot).Add(99, snapshot);
 
         await Assert.That(keys.Count).IsEqualTo(0);
+    }
+
+    [Test]
+    public async Task CreateFromFilesEveryKeyAsAddWouldHaveOneAtATime()
+    {
+        CollectionSnapshot<int, ItemId, ItemState> snapshot = Snapshot(
+            TestUtil.Item(1, "one", 30),
+            TestUtil.Item(2, "two", 10),
+            TestUtil.Item(3, "three", 20));
+
+        // What a stage rebuild takes, against what it used to take. The bulk path exists because
+        // filing n keys one at a time is n persistent writes; it has to land them in the same
+        // places.
+        IOrderedKeys<int, ItemId, ItemState> inBulk =
+            ByScore(false).CreateFrom([1, 2, 3, 99], snapshot);
+
+        IOrderedKeys<int, ItemId, ItemState> oneAtATime = Empty(false, snapshot)
+            .Add(1, snapshot)
+            .Add(2, snapshot)
+            .Add(3, snapshot)
+            .Add(99, snapshot);
+
+        await Assert.That(TestUtil.Keys(inBulk)).IsEquivalentTo([2, 3, 1]);
+        await Assert.That(TestUtil.Keys(inBulk)).IsEquivalentTo(TestUtil.Keys(oneAtATime));
+
+        // Including the key the snapshot does not have, which neither path files.
+        await Assert.That(inBulk.Contains(99)).IsFalse();
+        await Assert.That(inBulk.IndexOf(3)).IsEqualTo(1);
     }
 
     [Test]
@@ -144,7 +176,7 @@ public sealed class OrderedKeysTests
             TestUtil.Item(1, "one", 30),
             TestUtil.Item(2, "two", 10));
 
-        IOrderedKeys<int, ItemId, ItemState> keys = ByScore(false).Add(1, before).Add(2, before);
+        IOrderedKeys<int, ItemId, ItemState> keys = Empty(false, before).Add(1, before).Add(2, before);
 
         // The item's sort value has moved underneath the set. Removal still finds it, because the
         // entry carries the value it was filed under rather than being re-projected here.
