@@ -4,14 +4,29 @@
 # execution was around 16 minutes there against 9 here, but a single concurrent job meant builds
 # queued for up to an hour before they began.
 #
-# THIS WORKFLOW RELEASES. The publish step at the bottom is live and tag-gated.
+# THREE JOBS, and the shape is deliberate. Build and Inspect are independent of each other and run
+# at the same time; Publish waits for both. The inspection was the largest single thing in this
+# workflow - 3m22s of an 8m34s run, more than a third - and it needs nothing the tests produce, so
+# running it after them was costing its whole duration in wall clock for no reason.
+#
+# The price is that both jobs compile the solution, because there is no cheap way to hand a built
+# tree between jobs: the obj and bin trees for 23 projects across three frameworks are large, and
+# uploading and downloading them costs more than the compile it saves. Two builds on two machines at
+# once is the trade, and on a public repository the minutes are free while the wall clock is not.
+#
+# Publish is its own job rather than a step, which it has to be now: a release must not happen when
+# the inspection failed, and once the two are separate jobs the only thing that can express that is
+# needs. It has a second benefit worth having - id-token: write is granted there and nowhere else,
+# so the build and the tests never hold a token that could mint a nuget.org key.
+#
+# THIS WORKFLOW RELEASES. The publish job is live and tag-gated.
 #
 # There is NO NuGet API key anywhere in this repository, and that is the point. Releases authenticate
-# by trusted publishing: the publish step exchanges this run's OIDC token for a key that nuget.org
-# mints on the spot and expires shortly after, so there is no long-lived secret to leak, to rotate,
-# or to hand to a step that had no business reading it. This is the one thing the move to Actions
-# gained outright rather than merely matched - the build it replaced kept an encrypted copy of a
-# permanent key.
+# by trusted publishing: the publish job exchanges its OIDC token for a key that nuget.org mints on
+# the spot and expires shortly after, so there is no long-lived secret to leak, to rotate, or to hand
+# to a step that had no business reading it. This is the one thing the move to Actions gained
+# outright rather than merely matched - the build it replaced kept an encrypted copy of a permanent
+# key.
 #
 # It does need setting up once, on nuget.org rather than here: a trusted publishing policy under the
 # MorseCodeSoftware account, naming this repository and this workflow file. Until that exists the
@@ -19,20 +34,16 @@
 # rather than skips on a missing key, because a tag build that quietly released nothing is the
 # failure hardest to notice.
 #
-# Coverage is collected by the test run and submitted from here, by Coveralls' own action, on every
-# run. No secret is involved: the action authenticates with this run's GITHUB_TOKEN, so
-# COVERALLS_REPO_TOKEN is not read and does not need to exist.
-#
-# This is the only thing that submits. Coverage briefly went up from both CI systems at once, which
-# produced two Coveralls builds per commit for one set of numbers; that ended with the build that
-# was producing the second one.
+# Coverage is collected by the test run and submitted by Coveralls' own action on every run. No
+# secret is involved: the action authenticates with the run's GITHUB_TOKEN, so COVERALLS_REPO_TOKEN
+# is not read and does not need to exist.
 name: Build
 
 # No paths filter, unlike docs.yml. That one guards a narrow, self-contained corner of the
 # repository; this builds the libraries, and there is nothing under src/ whose change could not
 # affect them. A filter here would mean trusting a list of globs to know what a compiler does.
 #
-# Tags are built, and a tag build is what releases a package - see the publish step at the bottom.
+# Tags are built, and a tag build is what releases a package - see the publish job at the bottom.
 # The pattern is every tag this repository uses: MinVerTagPrefix is per project and they all begin
 # sodaflow-, from sodaflow- itself through sodaflow-fsharp-bindable-objectmodel-. It is only a
 # trigger, not the mapping - which tag names which package is worked out in build.cake, from the
@@ -46,24 +57,15 @@ on:
   pull_request:
   workflow_dispatch:
 
+# The floor every job starts from. Naming one permission drops every other to none, so the read that
+# checkout needs is spelled out rather than inherited, and the two jobs that need more say so
+# themselves. Nothing here grants security-events or id-token: those belong to one job each, and a
+# permission granted at this level would be held by all three.
 permissions:
-  # Naming one permission drops every other to none, so the read that checkout needs is spelled out
-  # rather than inherited.
   contents: read
-  # Uploading the inspection results to code scanning, as samples.yml does.
-  security-events: write
-  # Minting the OIDC token that the publish step trades for a short-lived nuget.org key. It is
-  # granted to every step of the job, not only that one, because permissions have no finer grain
-  # than a job - so the narrower version of this is a separate publish job, which would have to
-  # download the packages artifact and check out the repository again to do the same work. Worth
-  # doing if this job ever runs anything less trusted than the repository's own build.
-  id-token: write
-  #
-  # Deliberately no checks: write. Creating the Tests check run needs it, and a fork pull request
-  # would never be granted it, which is exactly why that work is in test-report.yml instead.
 
 # Superseded pull request runs are cancelled, and nothing else is. A cancelled run has no duration
-# worth reading, so main keeps a complete run per commit to compare against.
+# worth reading, so main keeps a complete run per commit.
 #
 # Cancellation is keyed on the event rather than on "not main", which is what this said first and
 # which would have swept up tag runs: a tag run publishes, and a publish killed part-way through
@@ -88,6 +90,9 @@ defaults:
     shell: pwsh
 
 jobs:
+  # The job name is the status check name, and Build is a required check on main. Renaming this job
+  # renames that check, which does not fail the ruleset so much as leave it waiting for something
+  # that will never report - so any rename here has to be paired with a ruleset change.
   build:
     name: Build
     # Windows because src targets net472 alongside net60 and netstandard2.0, and the test projects
@@ -114,10 +119,6 @@ jobs:
           # 8.0 and 6.0 are here for their targeting packs, so the net8.0 target of the benchmark
           # project and the net60 target of every library resolve locally instead of restoring a
           # reference pack from NuGet mid-build.
-          #
-          # If setup time turns out to matter, dropping 6.0 and 8.0 is the first thing to try: the
-          # packs they provide are downloadable, so the build still works without them - it just
-          # pays for them somewhere less visible than a named step.
           dotnet-version: |
             6.0.x
             8.0.x
@@ -126,29 +127,26 @@ jobs:
           # Caches the NuGet packages folder, which is where both halves of this build's downloads
           # land: the local tools from .config/dotnet-tools.json - Cake, DocFX, and the ReSharper
           # command line tools, much the largest of them - and every PackageReference the solution
-          # restores. Restore tools alone was a minute of a nine minute run.
-          #
-          # Worth about a minute on a warm run, measured rather than assumed: the packages folder
-          # comes back in roughly half a minute and saves both the tool restore and the cache write.
+          # restores. Worth about a minute on a warm run, measured rather than assumed.
           #
           # This is setup-dotnet's own caching rather than an actions/cache step with a key built by
-          # hand, which is what this was first written as and could only have been written as: the
+          # hand, which is what it was first written as and could only have been written as: the
           # input keys on lock files, and until every project got a packages.lock.json there was
-          # nothing for it to hash. Now there is, and a key hashed from the lock files is a better
-          # key than one hashed from project files - it changes when the resolved package graph
-          # changes, rather than when any line of any csproj does.
+          # nothing for it to hash. A lock file key is the better one anyway - it changes when the
+          # resolved package graph changes, rather than when any line of any csproj does.
           #
           # Two things go into the key, because two things decide what ends up in that folder. The
-          # lock files cover every PackageReference; .config/dotnet-tools.json covers Cake, DocFX and
-          # the ReSharper command line tools, which the lock files say nothing about. Keyed on the
-          # lock files alone, bumping a tool version left the key unchanged - so a run restored the
-          # old cache, downloaded the new tool, saved no new entry, and repeated that download until
-          # something happened to move a lock file.
+          # lock files cover every PackageReference; .config/dotnet-tools.json covers the tools,
+          # which the lock files say nothing about. Keyed on the lock files alone, bumping a tool
+          # version left the key unchanged - so a run restored the old cache, downloaded the new
+          # tool, saved no new entry, and repeated that download until something moved a lock file.
           #
           # One entry with both inputs rather than two entries, and that is not a shortcut: both
           # halves live in the same NuGet packages folder, so a second cache over the same path would
-          # race the first on save and one would overwrite the other. What is wanted is a key that
-          # moves when either input moves, which is what a list here gives.
+          # race the first on save and one would overwrite the other.
+          #
+          # Both jobs declare this identically and share one cache entry, since the key is a hash of
+          # files and not of the job. Whichever starts first populates it; the other reads it.
           cache: true
           cache-dependency-path: |
             **/packages.lock.json
@@ -211,7 +209,7 @@ jobs:
       #
       # Sorted for a stable order, and failing when there are none. build.cake fails first for the
       # same reason, so this should be unreachable; it is here because the thing it guards against is
-      # this step quietly sending nothing, which is exactly what just happened.
+      # this step quietly sending nothing, which is exactly what once happened.
       - name: List coverage reports
         id: coverage-files
         run: |
@@ -226,15 +224,10 @@ jobs:
           "files=$(($reports | ForEach-Object { $_.FullName }) -join ' ')" |
               Out-File -FilePath $env:GITHUB_OUTPUT -Append
 
-      # Coveralls' own action rather than a Cake step invoking the reporter by hand, which is what
-      # this was and which got the metadata wrong in a way nobody would have noticed from a green
-      # check. The reporter does not auto-detect GitHub Actions: submissions arrived with no service
-      # name, no job id and no link back to the run, attributed to the ephemeral merge commit rather
-      # than the pull request head. The action is Coveralls' own and knows all of that.
-      #
-      # It also removes a secret. github-token defaults to this run's own GITHUB_TOKEN, which expires
-      # with the job, so COVERALLS_REPO_TOKEN no longer has to exist - the same trade the publish
-      # step makes by minting a NuGet key from an OIDC token instead of storing one.
+      # Coveralls' own action rather than invoking the reporter by hand, which is what build.cake
+      # used to do. It removes a secret: github-token defaults to this run's own GITHUB_TOKEN, which
+      # expires with the job, so COVERALLS_REPO_TOKEN no longer has to exist - the same trade the
+      # publish job makes by minting a NuGet key from an OIDC token instead of storing one.
       #
       # All of the reports go up in one submission because each covers only the assemblies its own
       # test project touched - a solution-level run writes one per test project per framework - so
@@ -260,21 +253,90 @@ jobs:
           base-path: ${{ github.workspace }}
           fail-on-error: true
 
+      # Packing lives with the tests rather than with the inspection because the publish job takes
+      # its packages from here, and because this is the shorter of the two jobs - the release is
+      # already waiting on the inspection, and there is nothing to gain by queueing a pack behind it
+      # as well.
       - name: Pack
         run: dotnet cake --target=Pack --exclusive --configuration=${{ env.CONFIGURATION }}
 
-      # Last, deliberately: it fails the build on anything it finds, and a build failed by the
-      # inspection should still have packed its packages and submitted its coverage, because those
-      # are what say whether the run was otherwise sound.
+      # always() rather than on success, because a run whose tests failed still has packages and
+      # coverage worth having. upload-artifact warns rather than fails on a path that matched
+      # nothing, so a build that fell over before producing any of these does not then fail a second
+      # time on the collection.
+      - name: Collect packages
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: packages
+          path: artifacts/*.nupkg
+
+      # Kept so a run whose Coveralls submission was refused can still be inspected, and so the raw
+      # numbers behind a percentage are recoverable. The trx files ride along in the same directory.
+      - name: Collect coverage
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: coverage
+          path: coverage
+
+  # Parallel with Build, not after it. The inspection needs the solution compiled and nothing else -
+  # no tests, no packages - so the only thing it shared with that job was the compile, and paying for
+  # a second compile here is cheaper in wall clock than waiting for the first one's tests.
+  #
+  # This is a status check named Inspect. It is separate from InspectCode, which is code scanning's
+  # own check on the SARIF uploaded below: this one says whether the inspection passed, that one
+  # says whether the findings introduced anything new.
+  inspect:
+    name: Inspect
+    runs-on: windows-latest
+    timeout-minutes: 60
+
+    permissions:
+      contents: read
+      # Uploading the inspection results to code scanning, as samples.yml does. Granted here rather
+      # than at the top of the file, so the job that runs the tests and the job that publishes never
+      # hold it.
+      security-events: write
+
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          # Same reason as the build job: MinVer wants the full graph. The inspection itself does
+          # not care, but it compiles the solution to have something to inspect, and a wrong version
+          # there would be a difference between the two jobs for no reason.
+          fetch-depth: 0
+
+      - uses: actions/setup-dotnet@v6
+        with:
+          dotnet-version: |
+            6.0.x
+            8.0.x
+            10.0.x
+          # Identical to the build job's, deliberately: same inputs, same key, one shared cache
+          # entry. See there for why the key is what it is.
+          cache: true
+          cache-dependency-path: |
+            **/packages.lock.json
+            .config/dotnet-tools.json
+
+      - name: Restore tools
+        run: dotnet tool restore
+
+      # The same target the build job runs, and the reason this job exists in this shape at all:
+      # inspectcode is invoked with --no-build, so something has to have compiled the solution in
+      # this workspace first. Handing the built tree over from the other job instead would mean
+      # uploading and downloading the obj and bin trees of 23 projects across three frameworks,
+      # which costs more than the compile it saves.
+      - name: Build
+        run: dotnet cake --target=Build --configuration=${{ env.CONFIGURATION }}
+
       - name: Inspect
         run: dotnet cake --target=Inspect-Code --exclusive --configuration=${{ env.CONFIGURATION }}
 
       # The SARIF the inspection already wrote, handed to code scanning so the findings land on the
       # lines they are about - in the Files tab of a pull request and in the Security tab - instead
       # of only in a log that has to be opened and scrolled.
-      #
-      # Nothing about the inspection changes to make this work; it is the same report kept as an
-      # artifact below, uploaded the way samples.yml uploads the samples' reports.
       #
       # always(), because the step above fails by design while there are findings, and those are
       # exactly the runs worth annotating. continue-on-error, because this is presentation: if the
@@ -291,27 +353,6 @@ jobs:
           sarif_file: inspection/inspectcode.sarif
           category: src
 
-      # always() rather than on success, because a run failed by the inspection still has packages
-      # and coverage worth having. upload-artifact warns rather than fails on a path that matched
-      # nothing, so a build that fell over before producing any of these does not then fail a second
-      # time on the collection.
-      - name: Collect packages
-        if: always()
-        uses: actions/upload-artifact@v7
-        with:
-          name: packages
-          path: artifacts/*.nupkg
-
-      # Kept so a run whose Coveralls submission was refused can still be inspected, and so the raw
-      # numbers behind a percentage are recoverable. The trx files ride along in the same
-      # directory.
-      - name: Collect coverage
-        if: always()
-        uses: actions/upload-artifact@v7
-        with:
-          name: coverage
-          path: coverage
-
       # The raw SARIF, for opening in a viewer rather than reading off the Security tab.
       - name: Collect inspection
         if: always()
@@ -320,45 +361,78 @@ jobs:
           name: inspection
           path: inspection
 
-      # Last, and after the artifacts, for the same reason the inspection comes before them: a
-      # release should not be the thing that decides whether this run's packages and coverage are
-      # kept.
-      #
-      # Two conditions have to hold, and only one of them is written here. The `if` restricts this
-      # to a tag push - and because it names no status function, GitHub implies success(), so a run
-      # whose tests or inspection failed skips it rather than releasing a red build. The second
-      # condition is inside build.cake: Publish returns early unless it is on Actions with a tag
-      # ref, so `dotnet cake` on a developer's machine cannot push no matter what it is handed.
-      #
-      # Not a separate job. It could be one, and a job could carry an environment with a manual
-      # approval on it, which is worth considering later; as a step it needs no artifact handoff and
-      # keeps the phase order identical to the build it replaces.
-      #
+  # A tag build releases exactly one package: the one its own tag names. Which one, and why exactly
+  # one, is worked out in build.cake from the projects themselves.
+  #
+  # needs is what keeps a release honest now that the build is split. It used to be enough that
+  # publishing was the last step of a job the inspection had already failed; with two jobs, this is
+  # the only thing that can say a package is not published when either of them went red.
+  #
+  # The if names no status function, so GitHub implies success() over those needs - a failed build or
+  # a failed inspection skips this rather than releasing. build.cake carries the same gate from the
+  # other side: Publish returns early unless it is on Actions with a tag ref, so `dotnet cake` on a
+  # developer's machine cannot push no matter what it is handed.
+  publish:
+    name: Publish
+    needs: [ build, inspect ]
+    if: startsWith(github.ref, 'refs/tags/')
+    runs-on: windows-latest
+    timeout-minutes: 20
+
+    permissions:
+      contents: read
+      # Minting the OIDC token traded for a short-lived nuget.org key. This is what publishing gains
+      # from its own job beyond the needs above: the permission lives here, so the build and the
+      # tests never hold a token that could mint a key.
+      id-token: write
+
+    steps:
+      # No fetch-depth here, unlike the other two. Nothing in this job asks git anything: the
+      # packages were versioned by MinVer when they were built, and all Publish reads from the tree
+      # is build.cake and the project files it takes the tag-prefix-to-package-id map from.
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-dotnet@v6
+        with:
+          # Only 10.0 here. Nothing is compiled in this job, so the targeting packs the other two
+          # install for net60 and net8.0 have nothing to target.
+          dotnet-version: 10.0.x
+          cache: true
+          cache-dependency-path: |
+            **/packages.lock.json
+            .config/dotnet-tools.json
+
+      - name: Restore tools
+        run: dotnet tool restore
+
+      # The packages this run built, back from the build job. Publish looks in ./artifacts and
+      # expects exactly one package there matching the tag's id - which is also why this downloads
+      # that one artifact by name rather than everything the run produced.
+      - name: Download packages
+        uses: actions/download-artifact@v8
+        with:
+          name: packages
+          path: artifacts
+
       # The key Publish pushes with, minted here rather than stored anywhere. The action sends this
-      # run's OIDC token to nuget.org, which checks it against the trusted publishing policy for the
+      # job's OIDC token to nuget.org, which checks it against the trusted publishing policy for the
       # account below and returns a short-lived key. Nothing to rotate, and nothing that outlives
-      # the run.
+      # the job.
       #
       # MorseCodeSoftware is the nuget.org account that owns every package this repository
       # publishes - it is the owner listed on nuget.org for SodaFlow and its siblings - and it has
       # to be the account the policy sits under. It is a username rather than a secret, so it is
       # written here where it can be read, not hidden in settings where a mismatch would only show
       # up as a refused exchange during a release.
-      #
-      # Gated on the same tag condition as the step below, so an ordinary run neither requests a
-      # token nor asks nuget.org for anything.
       - name: NuGet login
-        if: startsWith(github.ref, 'refs/tags/')
         id: nuget-login
         uses: NuGet/login@v1
         with:
           user: MorseCodeSoftware
 
       # Publish reads NUGET_API_KEY from the environment and does not care where it came from, which
-      # is why moving from a stored key to a minted one changed nothing in build.cake. Scoped to this
-      # step, so even the short-lived key is absent from the build, the tests and the inspection.
+      # is why moving from a stored key to a minted one changed nothing in build.cake.
       - name: Publish
-        if: startsWith(github.ref, 'refs/tags/')
         env:
           NUGET_API_KEY: ${{ steps.nuget-login.outputs.NUGET_API_KEY }}
         run: dotnet cake --target=Publish --configuration=${{ env.CONFIGURATION }}
