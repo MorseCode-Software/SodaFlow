@@ -45,6 +45,15 @@ var solution = File("./src/SodaFlow.slnx");
 var artifactsDirectory = Directory("./artifacts");
 var coverageDirectory = Directory("./coverage");
 var inspectionDirectory = Directory("./inspection");
+// Where inspectcode keeps its analysis caches, named explicitly so they land somewhere stable
+// rather than in a temporary directory it picks itself. That is what makes them worth keeping
+// between runs: a cold inspection of this solution takes 135 seconds and a warm one 26, and even a
+// cache taken from before an edit comes in at 36 - it revalidates what changed rather than
+// trusting itself, which is the property that makes reusing one safe against a zero threshold.
+//
+// Deliberately not inspectionDirectory: that one is cleaned at the start of every inspection,
+// which is exactly what must not happen to this.
+var inspectionCacheDirectory = Directory("./.inspectcode-cache");
 // The canonical inspection settings, and the only ones CI reads. Rider pairs a .DotSettings file
 // with the solution beside it, so every solution needs a copy of its own; CI is under no such
 // constraint and points every inspection here. The copies therefore exist for the editor alone,
@@ -286,6 +295,10 @@ Task("Verify-Inspection-Settings")
 // listing before the throw - and two copies of that would drift.
 void RunInspection(FilePath solutionPath, FilePath reportPath, string description)
 {
+    // inspectcode creates this itself, but only after deciding it is usable; making it first keeps
+    // a first run on a clean tree from differing from every run after it.
+    EnsureDirectoryExists(inspectionCacheDirectory);
+
     // inspectcode comes from the jetbrains.resharper.globaltools local tool, pinned alongside Cake
     // in .config/dotnet-tools.json, so the agent inspects with the version a developer does. There
     // is no Cake alias for it; a process call is the whole of the integration.
@@ -302,6 +315,10 @@ void RunInspection(FilePath solutionPath, FilePath reportPath, string descriptio
         // Absolute, and that is load-bearing rather than tidy: inspectcode ignores a relative
         // --settings path without saying so, and inspects with its own defaults instead.
         .AppendSwitchQuoted("--settings", "=", MakeAbsolute(inspectionSettings.Path).FullPath)
+        // See the declaration of this directory for what it buys and why reusing it is safe. It is
+        // given here rather than left to inspectcode's own temporary location so that CI can carry
+        // it between runs and a developer keeps one between invocations.
+        .AppendSwitchQuoted("--caches-home", "=", MakeAbsolute(inspectionCacheDirectory).FullPath)
         // Absolute paths in the SARIF, which is what lets the issues be reported against paths from
         // the repository root. Left relative, they come out relative to the solution directory -
         // CSharp/SodaFlow/Foo.cs for a file that lives at src/CSharp/SodaFlow/Foo.cs - because the

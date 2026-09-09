@@ -115,14 +115,28 @@ jobs:
 
       - uses: actions/setup-dotnet@v6
         with:
-          # 10.0 is what global.json pins and what runs the build; the test projects run on it too.
-          # 8.0 and 6.0 are here for their targeting packs, so the net8.0 target of the benchmark
-          # project and the net60 target of every library resolve locally instead of restoring a
-          # reference pack from NuGet mid-build.
-          dotnet-version: |
-            6.0.x
-            8.0.x
-            10.0.x
+          # 6.0 and nothing else, which is the whole list of what this build needs and the image
+          # does not already have. Measured on the runner rather than assumed: windows-latest ships
+          # SDKs 8.0.130 through 10.0.400 and reference packs for 8.0, 9.0 and 10.0, and
+          # `dotnet --version` from this repository root resolves to 10.0.400 with no setup-dotnet
+          # in front of it - so global.json is satisfied before this step runs. Installing 10.0 was
+          # about 26 seconds of installing something already present, twice per run.
+          #
+          # 8.0 was here for one project, the benchmarks, and went when they moved to net10.0.
+          #
+          # 6.0 is the one thing genuinely missing: no 6.0 SDK, no 6.0 runtime, and - the part that
+          # matters - no 6.0 entry under the reference packs on disk. That absence is why the lock
+          # files record no framework package for net60: with the SDK installed the pack is found
+          # locally and nothing is downloaded. Drop this and the build has to fetch
+          # Microsoft.NETCore.App.Ref from NuGet, which is a package appearing where the lock file
+          # expects none - the shape of NU1004 that a locked restore refuses. Dropping it means
+          # proving that first, not assuming it.
+          #
+          # What this trades away is worth naming: the build now depends on the runner image
+          # continuing to ship an SDK that satisfies global.json. If it ever stops, every job here
+          # fails at once on the next pull request rather than releasing something wrong, and the
+          # fix is to put a version back in this list.
+          dotnet-version: 6.0.x
 
           # Caches the NuGet packages folder, which is where both halves of this build's downloads
           # land: the local tools from .config/dotnet-tools.json - Cake, DocFX, and the ReSharper
@@ -309,16 +323,36 @@ jobs:
 
       - uses: actions/setup-dotnet@v6
         with:
-          dotnet-version: |
-            6.0.x
-            8.0.x
-            10.0.x
+          # Same set as the build job, and for the same reasons - see there.
+          dotnet-version: 6.0.x
           # Identical to the build job's, deliberately: same inputs, same key, one shared cache
           # entry. See there for why the key is what it is.
           cache: true
           cache-dependency-path: |
             **/packages.lock.json
             .config/dotnet-tools.json
+
+      # inspectcode's analysis caches, which are the difference between a 135 second inspection and
+      # a 26 second one. Measured on this solution rather than hoped for, and measured again for the
+      # case that actually matters: a cache taken from before a source edit still found exactly the
+      # issues a fresh one did - same rules, same files, same lines - in 36 seconds. It revalidates
+      # what changed instead of trusting itself, which is the property that makes reusing one safe
+      # against a threshold of zero.
+      #
+      # 26 MB across 46 files, so unlike the built tree this is small enough that moving it costs
+      # seconds. build.cake points --caches-home at this directory; see there.
+      #
+      # The key hashes the sources, the projects and the rule set - everything the analysis depends
+      # on. An unchanged re-run hits exactly and saves nothing; a changed one misses, falls back
+      # through restore-keys to the most recent cache there is, and saves a new entry. That fallback
+      # is the whole design: a stale cache is worth having, so the miss path must not start cold.
+      - name: Cache inspection analysis
+        uses: actions/cache@v6
+        with:
+          path: .inspectcode-cache
+          key: inspectcode-${{ runner.os }}-${{ hashFiles('src/**/*.cs', 'src/**/*.fs', 'src/**/*.csproj', 'src/**/*.fsproj', 'src/SodaFlow.slnx', 'src/SodaFlow.sln.DotSettings') }}
+          restore-keys: |
+            inspectcode-${{ runner.os }}-
 
       - name: Restore tools
         run: dotnet tool restore
@@ -394,8 +428,11 @@ jobs:
 
       - uses: actions/setup-dotnet@v6
         with:
-          # Only 10.0 here. Nothing is compiled in this job, so the targeting packs the other two
-          # install for net60 and net8.0 have nothing to target.
+          # Deliberately still pinned, where the other two jobs now rely on whatever the image
+          # ships. Nothing is compiled here, so the 6.0 pack those two need has nothing to target -
+          # but this is the one path that cannot be re-run to fix a mistake, since nuget.org will
+          # not take a version twice, and the twenty-odd seconds an SDK install costs are invisible
+          # on a job that runs a few times a year.
           dotnet-version: 10.0.x
           cache: true
           cache-dependency-path: |
