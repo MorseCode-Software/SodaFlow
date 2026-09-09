@@ -28,6 +28,8 @@
       href: async.md
     - name: Data binding
       href: bindable.md
+    - name: Reactive collections
+      href: collections.md
     - name: Maybe, Either and Unit
       href: functional.md
     - name: F# and the API reference
