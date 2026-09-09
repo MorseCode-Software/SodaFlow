@@ -115,13 +115,21 @@ jobs:
 
       - uses: actions/setup-dotnet@v6
         with:
-          # 10.0 is what global.json pins and what runs the build; the test projects run on it too.
-          # 8.0 and 6.0 are here for their targeting packs, so the net8.0 target of the benchmark
-          # project and the net60 target of every library resolve locally instead of restoring a
-          # reference pack from NuGet mid-build.
+          # 10.0 is what global.json pins, what runs the build, and what every test project and
+          # the benchmarks target. 6.0 is here only for its targeting pack, so the net60 half of
+          # every library resolves against something already on disk.
+          #
+          # 8.0 used to be here too, for one project: the benchmarks targeted net8.0 and nothing
+          # else did. Moving them to net10.0 removed the only reason to install a third SDK, which
+          # measured about 26 seconds on each of these two jobs.
+          #
+          # 6.0 is not removable the same way, and it is worth saying why rather than leaving it as
+          # the obvious next cut. Without that SDK the net60 reference pack has to come from NuGet
+          # instead of from disk, and the lock files record no such package today - so a download
+          # appearing where the lock file expects none is exactly the shape of NU1004 that a locked
+          # restore refuses. Dropping it means proving that first, not assuming it.
           dotnet-version: |
             6.0.x
-            8.0.x
             10.0.x
 
           # Caches the NuGet packages folder, which is where both halves of this build's downloads
@@ -309,9 +317,9 @@ jobs:
 
       - uses: actions/setup-dotnet@v6
         with:
+          # Same set as the build job, and for the same reasons - see there.
           dotnet-version: |
             6.0.x
-            8.0.x
             10.0.x
           # Identical to the build job's, deliberately: same inputs, same key, one shared cache
           # entry. See there for why the key is what it is.
