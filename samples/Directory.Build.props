@@ -28,4 +28,30 @@
         <RestoreLockedMode Condition="'$(CI)' != ''">true</RestoreLockedMode>
     </PropertyGroup>
 
+    <!--
+        The same .NET Framework reference assembly handling src/Directory.Build.props carries, and
+        for the same reason: the SDK adds this package itself when it cannot use an installed
+        targeting pack - on Linux and macOS but not on Windows - so a graph that leaves it implicit
+        is a different graph depending on where it was restored, and a lock file cannot describe
+        both.
+
+        This changes nothing today. No sample targets .NET Framework: the heads are net8.0-windows
+        and net8.0, the view models netstandard2.0, and the condition below is false for all of them,
+        so no package is added and no lock file moves.
+
+        It is here for the two ways that could stop being true, both of which are one small edit
+        away and neither of which announces itself. A sample gaining a net472 head would restore
+        differently on a Linux agent than on a Windows one; so would this workflow moving off
+        windows-latest, which is only pinned there because the WPF heads need it. Either would fail
+        the same NU1004 the projects under src/ failed, and finding that out from a red build is
+        worse than carrying four inert lines.
+    -->
+    <PropertyGroup>
+        <AutomaticallyUseReferenceAssemblyPackages>false</AutomaticallyUseReferenceAssemblyPackages>
+    </PropertyGroup>
+
+    <ItemGroup Condition="'$(TargetFrameworkIdentifier)' == '.NETFramework'">
+        <PackageReference Include="Microsoft.NETFramework.ReferenceAssemblies" Version="1.0.3" PrivateAssets="all"/>
+    </ItemGroup>
+
 </Project>
