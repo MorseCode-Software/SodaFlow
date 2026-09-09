@@ -260,8 +260,6 @@ inspection/
 BenchmarkDotNet.Artifacts/
 # Where Cake caches the addins its #addin directives resolve.
 tools/
-# build.cake downloads this when it is about to upload coverage.
-coveralls.exe
 _site/
 [Tt]est[Rr]esults/
 

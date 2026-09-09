@@ -27,20 +27,12 @@
 # rather than skips on a missing key, because a tag build that quietly released nothing is the
 # failure hardest to notice.
 #
-# Coverage is collected on every run and submitted to Coveralls whenever there is a token to submit
-# with. There was a COVERALLS_FROM_ACTIONS repository variable gating that while it was still an
-# open question whether Actions would replace AppVeyor; the question is settled and the variable is
-# gone.
+# Coverage is collected by the test run and submitted from here, by Coveralls' own action, on every
+# run. No secret is involved: the action authenticates with this run's GITHUB_TOKEN, so
+# COVERALLS_REPO_TOKEN is not read and does not need to exist.
 #
-# ONE THING STILL HAS TO BE ADDED BY HAND: a COVERALLS_REPO_TOKEN repository secret, taken from the
-# Coveralls project page. The value AppVeyor uses is encrypted under that account and cannot be read
-# back out. Until that secret exists this workflow submits nothing - build.cake logs and skips
-# rather than failing, the same way it does for a pull request raised from a fork, where secrets are
-# withheld. The reports are kept as an artifact either way.
-#
-# While AppVeyor is still building every commit, both systems submit, so a commit gets two Coveralls
-# builds for one set of numbers. They are the same numbers, and AppVeyor's queue means its
-# submission is usually the one left standing. That ends when AppVeyor does.
+# AppVeyor no longer submits. Its Upload-Coverage phase is gone from appveyor.yml, which ends the
+# two-builds-per-commit overlap the two systems had while both were reporting.
 name: Build
 
 # No paths filter, unlike docs.yml and samples.yml. Those two guard narrow, self-contained corners
@@ -194,29 +186,67 @@ jobs:
           name: test-results
           path: coverage/**/*.trx
 
-      # Finds the Cobertura reports and fails if there are none, which is the check worth keeping
-      # even on a run that submits nothing: a collector that has silently stopped collecting looks
-      # exactly like a build that got faster.
+      # The reports to send, expanded here rather than handed to the action as a pattern. Its files
+      # input is a space-separated list of paths and not a glob - passed "coverage/*.cobertura.xml"
+      # the reporter answers "Couldn't find specified file" and uploads nothing, which is how this
+      # step spent its first run reporting success and submitting no coverage at all.
       #
-      # Whether it then submits to Coveralls is off by default and switched on from outside this
-      # file - see the note at the top, and the gate in build.cake's Upload-Coverage task.
+      # Get-ChildItem without -Recurse, and that is load-bearing rather than tidy: the collector
+      # writes every report twice, once here and once under a machine-and-timestamp directory in the
+      # layout VSTest used. The two copies are byte for byte identical - 22 reports become 44 - so
+      # recursing would submit every one of them twice. build.cake globs the same way where it checks
+      # that any were produced.
       #
-      # No overall percentage is written to the job summary either way. A solution-level run
-      # produces one report per test project per framework, each covering only the assemblies that
-      # project touched, and merging them is precisely what Coveralls does. A number invented here
-      # by picking one of them, or by averaging them, would be worse than no number.
+      # Sorted for a stable order, and failing when there are none. build.cake fails first for the
+      # same reason, so this should be unreachable; it is here because the thing it guards against is
+      # this step quietly sending nothing, which is exactly what just happened.
+      - name: List coverage reports
+        id: coverage-files
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $reports = @(Get-ChildItem -Path coverage -Filter *.cobertura.xml | Sort-Object Name)
+
+          if ($reports.Count -eq 0) {
+              throw "No Cobertura report was produced, so there is nothing to send to Coveralls."
+          }
+
+          Write-Host "Sending $($reports.Count) report(s) to Coveralls."
+          "files=$(($reports | ForEach-Object { $_.FullName }) -join ' ')" |
+              Out-File -FilePath $env:GITHUB_OUTPUT -Append
+
+      # Coveralls' own action rather than a Cake step invoking the reporter by hand, which is what
+      # this was and which got the metadata wrong in a way nobody would have noticed from a green
+      # check. The reporter does not auto-detect GitHub Actions: submissions arrived with no service
+      # name, no job id and no link back to the run, attributed to the ephemeral merge commit rather
+      # than the pull request head. The action is Coveralls' own and knows all of that.
+      #
+      # It also removes a secret. github-token defaults to this run's own GITHUB_TOKEN, which expires
+      # with the job, so COVERALLS_REPO_TOKEN no longer has to exist - the same trade the publish
+      # step makes by minting a NuGet key from an OIDC token instead of storing one.
+      #
+      # All of the reports go up in one submission because each covers only the assemblies its own
+      # test project touched - a solution-level run writes one per test project per framework - so
+      # any single file is a partial view, and which partial view depended on the order the
+      # filesystem happened to return them in.
+      #
+      # base-path is the repository root, so the paths in the reports resolve to files Coveralls can
+      # show. Left off, the source lines are unreachable and the report is a percentage with nothing
+      # behind it.
+      #
+      # fail-on-error is ON, with continue-on-error carrying the consequence. That pairing is
+      # deliberate and was learned the hard way: with the action told not to fail, it reported
+      # success while uploading nothing, and only the absence of a Coveralls check gave it away.
+      # Now a refused or broken submission turns this step red where it can be seen, while the job
+      # still passes - the same shape the inspection upload and the test report already use, because
+      # reporting should be visible when it breaks without deciding whether the code is good.
       - name: Upload coverage
-        env:
-          # The only thing standing between this run and a Coveralls submission, and there is not
-          # one yet: the token AppVeyor uses is encrypted under that account and cannot be read back
-          # out, so it has to come from the Coveralls project page. Absent, or withheld as it is
-          # from a pull request raised on a fork, the task logs and skips rather than failing the
-          # build - the same shape the AppVeyor path has always had for fork pull requests.
-          #
-          # Scoped to this step rather than declared at the top of the file, so the token is not in
-          # the environment of every other step, the inspection and the packing included.
-          COVERALLS_REPO_TOKEN: ${{ secrets.COVERALLS_REPO_TOKEN }}
-        run: dotnet cake --target=Upload-Coverage --exclusive --configuration=${{ env.CONFIGURATION }}
+        continue-on-error: true
+        uses: coverallsapp/github-action@v2
+        with:
+          files: ${{ steps.coverage-files.outputs.files }}
+          format: cobertura
+          base-path: ${{ github.workspace }}
+          fail-on-error: true
 
       - name: Pack
         run: dotnet cake --target=Pack --exclusive --configuration=${{ env.CONFIGURATION }}

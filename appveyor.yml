@@ -82,8 +82,11 @@ test_script:
 # failed by the inspection should still have uploaded its coverage and collected its packages -
 # those are what tell you whether the run was otherwise sound. Failing here still stops the deploy
 # phase, which only runs when everything before it succeeded.
+# Upload-Coverage is gone from this list, and with it AppVeyor's Coveralls submission. Coverage now
+# goes up from GitHub Actions, through Coveralls' own action, which knows how to attribute a build to
+# the run and the pull request that produced it. Two systems submitting the same numbers for one
+# commit only ever produced two Coveralls builds and an argument about which was the later.
 after_test:
-  - dotnet cake --target=Upload-Coverage --exclusive --configuration=%CONFIGURATION%
   - dotnet cake --target=Pack --exclusive --configuration=%CONFIGURATION%
   - dotnet cake --target=Inspect-Code --exclusive --configuration=%CONFIGURATION%
 
