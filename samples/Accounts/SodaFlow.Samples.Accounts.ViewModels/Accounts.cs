@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Linq;
 using SodaFlow.Collections;
 
 namespace SodaFlow.Samples.Accounts.ViewModels;
@@ -12,45 +13,46 @@ namespace SodaFlow.Samples.Accounts.ViewModels;
 ///     positional record needs an <c>IsExternalInit</c> shim - noise about the target framework
 ///     rather than about SodaFlow.
 /// </remarks>
-public sealed class AccountIdentity : IIdentity<int>
+// ReSharper disable once InheritdocConsiderUsage
+internal sealed class AccountIdentity : IIdentity<int>
 {
     /// <param name="number">The account number, which is its key.</param>
     /// <param name="holder">Whose account it is.</param>
-    public AccountIdentity(int number, string holder)
+    internal AccountIdentity(int number, string holder)
     {
         this.Number = number;
         this.Holder = holder;
     }
 
     /// <summary>The account number.</summary>
-    public int Number { get; }
+    internal int Number { get; }
 
     /// <summary>Whose account it is.</summary>
-    public string Holder { get; }
+    internal string Holder { get; }
 
     /// <inheritdoc />
     public int Key => this.Number;
 }
 
 /// <summary>The half that moves: what the account currently holds.</summary>
-public sealed class AccountState
+internal sealed class AccountState
 {
     /// <param name="balance">Pence, so the sample never shows a rounding artifact.</param>
     /// <param name="isFrozen">Whether the account is frozen, which the view filters on.</param>
-    public AccountState(long balance, bool isFrozen)
+    internal AccountState(long balance, bool isFrozen)
     {
         this.Balance = balance;
         this.IsFrozen = isFrozen;
     }
 
     /// <summary>The balance, in pence.</summary>
-    public long Balance { get; }
+    internal long Balance { get; }
 
     /// <summary>Whether the account is frozen.</summary>
-    public bool IsFrozen { get; }
+    internal bool IsFrozen { get; }
 
     /// <summary>The same account with a different balance.</summary>
-    public AccountState WithBalance(long balance) => new(balance, this.IsFrozen);
+    internal AccountState WithBalance(long balance) => new(balance, this.IsFrozen);
 }
 
 /// <summary>The accounts this sample starts with.</summary>
@@ -67,23 +69,13 @@ internal static class AccountSeed
         "Quill", "Rasmussen", "Sørensen", "Tanaka",
     };
 
-    internal static IReadOnlyList<Item<AccountIdentity, AccountState>> Items
-    {
-        get
-        {
-            List<Item<AccountIdentity, AccountState>> items = new(Holders.Length);
+    internal static IReadOnlyList<Item<AccountIdentity, AccountState>> Items =>
+        Holders
+            .Select(static (holder, index) => new Item<AccountIdentity, AccountState>(
+                new AccountIdentity(1000 + index, holder),
 
-            for (int index = 0; index < Holders.Length; index++)
-            {
-                items.Add(new Item<AccountIdentity, AccountState>(
-                    new AccountIdentity(1000 + index, Holders[index]),
-
-                    // Balances that are not in account-number order, so sorting by balance is
-                    // visibly doing something. Every fourth account starts frozen.
-                    new AccountState(((index * 37) % 20 + 1) * 125_00L, index % 4 == 3)));
-            }
-
-            return items;
-        }
-    }
+                // Balances that are not in account-number order, so sorting by balance is visibly
+                // doing something. Every fourth account starts frozen.
+                new AccountState(((index * 37) % 20 + 1) * 125_00L, index % 4 == 3)))
+            .ToList();
 }
