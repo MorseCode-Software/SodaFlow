@@ -236,7 +236,7 @@ internal static class CollectionViewUtility
         TransactionInternal.RunImpl<IReactiveCollection<TKey, TIdentity, TState>>(() =>
         {
             Stream<CollectionViewChange<TKey, TIdentity, TState>> switchedChangesStream = viewCell
-                .MapImpl(static view => view.ChangesStream)
+                .MapImpl(static view => view.KeyChangesStream)
                 .SwitchSImpl<CollectionViewChange<TKey, TIdentity, TState>,
                     Stream<CollectionViewChange<TKey, TIdentity, TState>>>();
 
@@ -280,7 +280,7 @@ internal static class CollectionViewUtility
                 static (criteria, upstreamKeys, snapshot) =>
                     new StageContext<TKey, TIdentity, TState, TCriteria>(criteria, upstreamKeys, snapshot));
 
-            Stream<StageInput<TKey, TIdentity, TState, TCriteria>> inputStream = upstream.ChangesStream
+            Stream<StageInput<TKey, TIdentity, TState, TCriteria>> inputStream = upstream.KeyChangesStream
                 .MapImpl(static change => new StageInput<TKey, TIdentity, TState, TCriteria>(
                     MaybeInternal.Some(change),
                     MaybeInternal<TCriteria>.None))
@@ -376,7 +376,7 @@ internal static class CollectionViewUtility
         FileAll(order, snapshot.Identities.Keys, snapshot);
 
     private static StageResult<TKey, TIdentity, TState> ProcessRoot<TKey, TIdentity, TState>(
-        CollectionChange<TKey, TIdentity, TState> change,
+        ItemChange<TKey, TIdentity, TState> change,
         IOrderedKeys<TKey, TIdentity, TState> state)
         where TKey : notnull
         where TIdentity : notnull

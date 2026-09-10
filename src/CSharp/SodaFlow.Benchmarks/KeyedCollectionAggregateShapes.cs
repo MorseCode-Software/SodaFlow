@@ -227,7 +227,7 @@ internal sealed class IncrementalAggregateShape : IKeyedAggregateShape
     ///     of its old one. Neither needs a special case beyond looking.
     /// </remarks>
     private static long DeltaOf(
-        CollectionChange<int, ItemIdentity, ItemState> change,
+        ItemChange<int, ItemIdentity, ItemState> change,
         CollectionSnapshot<int, ItemIdentity, ItemState> before)
     {
         long delta = 0;

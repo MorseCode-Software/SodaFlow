@@ -97,7 +97,7 @@ public sealed class CollectionViewTests
             collection.SortBy(static (_, state) => state.Score);
 
         List<string> operations = [];
-        IListener l = byScore.ChangesStream.ListenStrong(
+        IListener l = byScore.KeyChangesStream.ListenStrong(
             change => operations.AddRange(change.Operations.Select(Describe)));
 
         edits.Send(TestUtil.Score(1, 99));
@@ -120,7 +120,7 @@ public sealed class CollectionViewTests
             TestUtil.Item(2, "two", 20));
 
         List<string> operations = [];
-        IListener l = collection.ChangesStream.ListenStrong(
+        IListener l = collection.KeyChangesStream.ListenStrong(
             change => operations.AddRange(change.Operations.Select(Describe)));
 
         // The root orders by key, so this moves nothing - but a stage below might sort on exactly
@@ -151,7 +151,7 @@ public sealed class CollectionViewTests
             collection.Filter(static (_, state) => state.Score >= 0);
 
         List<string> operations = [];
-        IListener l = passing.ChangesStream.ListenStrong(
+        IListener l = passing.KeyChangesStream.ListenStrong(
             change => operations.AddRange(change.Operations.Select(Describe)));
 
         edits.Send(TestUtil.Score(2, 99));
@@ -226,7 +226,7 @@ public sealed class CollectionViewTests
         await Assert.That(KeysOf(passing)).IsEquivalentTo([2, 3]);
 
         List<bool> resets = [];
-        IListener l = passing.ChangesStream.ListenStrong(change => resets.Add(change.IsReset));
+        IListener l = passing.KeyChangesStream.ListenStrong(change => resets.Add(change.IsReset));
 
         threshold.Send(5);
 
@@ -255,7 +255,7 @@ public sealed class CollectionViewTests
         await Assert.That(KeysOf(evens)).IsEquivalentTo([2, 4]);
 
         List<string> operations = [];
-        IListener l = evens.ChangesStream.ListenStrong(
+        IListener l = evens.KeyChangesStream.ListenStrong(
             change => operations.AddRange(change.Operations.Select(Describe)));
 
         // In the view: a score change cannot move it out, so this reports the update and nothing
@@ -340,7 +340,7 @@ public sealed class CollectionViewTests
         await Assert.That(KeysOf(byCode)).IsEquivalentTo([3, 2, 1]);
 
         List<string> operations = [];
-        IListener l = byCode.ChangesStream.ListenStrong(
+        IListener l = byCode.KeyChangesStream.ListenStrong(
             change => operations.AddRange(change.Operations.Select(Describe)));
 
         // A score change cannot touch a code, so this must report the update and move nothing -
@@ -635,7 +635,7 @@ public sealed class CollectionViewTests
         await Assert.That(KeysOf(switched)).IsEquivalentTo([2, 3, 1]);
 
         List<bool> resets = [];
-        IListener l = switched.ChangesStream.ListenStrong(change => resets.Add(change.IsReset));
+        IListener l = switched.KeyChangesStream.ListenStrong(change => resets.Add(change.IsReset));
 
         which.Send(byName);
 

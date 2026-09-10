@@ -246,7 +246,7 @@ let lookupState (key: 'TKey) (states: IStateMap<'TKey, 'TState>) =
 /// <param name="change">The change to ask about.</param>
 /// <returns>What happened to that key, if anything.</returns>
 [<MethodImpl(MethodImplOptions.NoInlining)>]
-let changeFor (key: 'TKey) (change: CollectionChange<'TKey, 'TIdentity, 'TState>) =
+let changeFor (key: 'TKey) (change: ItemChange<'TKey, 'TIdentity, 'TState>) =
     match change.TryGetNewState key with
     | true, state -> Some(Some state)
     | _ -> if change.WasChanged key then Some None else None
@@ -277,11 +277,15 @@ let snapshotCell (collection: IReactiveCollection<'TKey, 'TIdentity, 'TState>) =
 [<MethodImpl(MethodImplOptions.NoInlining)>]
 let keysCell (collection: IReactiveCollection<'TKey, 'TIdentity, 'TState>) = collection.KeysCell
 
-/// <summary>Membership and ordering changes, as operations to apply in sequence.</summary>
+/// <summary>
+///     How this view's keys changed: which entered, which left, which moved, and to what position.
+///     Positions and no states, where <c>itemChangesStream</c> carries states and no positions.
+/// </summary>
 /// <param name="collection">The collection or view to ask.</param>
 /// <returns>The stream of changes.</returns>
 [<MethodImpl(MethodImplOptions.NoInlining)>]
-let changesStream (collection: IReactiveCollection<'TKey, 'TIdentity, 'TState>) = collection.ChangesStream
+let keyChangesStream (collection: IReactiveCollection<'TKey, 'TIdentity, 'TState>) =
+    collection.KeyChangesStream
 
 /// <summary>The outer view: fires only when the item count changes or a key changes.</summary>
 /// <param name="collection">The collection to ask.</param>
@@ -289,11 +293,18 @@ let changesStream (collection: IReactiveCollection<'TKey, 'TIdentity, 'TState>) 
 [<MethodImpl(MethodImplOptions.NoInlining)>]
 let shapeCell (collection: ReactiveCollection<'TKey, 'TIdentity, 'TState>) = collection.ShapeCell
 
-/// <summary>Every resolved change as keyed deltas, carrying the new state of each key that moved.</summary>
-/// <param name="collection">The collection to ask.</param>
+/// <summary>
+///     How the store changed: the keys whose items were added, removed or altered, carrying the new
+///     state of each. States and no positions, where <c>keyChangesStream</c> carries positions and
+///     no states.
+///     On the root only, because it reports the shared store rather than any one view. For a total
+///     over a filtered view, fold <c>keyChangesStream</c> instead.
+/// </summary>
+/// <param name="collection">The root collection to ask.</param>
 /// <returns>The stream of keyed changes.</returns>
 [<MethodImpl(MethodImplOptions.NoInlining)>]
-let itemChangesStream (collection: ReactiveCollection<'TKey, 'TIdentity, 'TState>) = collection.ItemChangesStream
+let itemChangesStream (collection: ReactiveCollection<'TKey, 'TIdentity, 'TState>) =
+    collection.ItemChangesStream
 
 // --- views --------------------------------------------------------------------------------
 

@@ -23,10 +23,17 @@ Everything that can change the collection is declared at construction. Create
 takes the initial contents and every edit stream; there is no Send, no sink, no
 method that mutates a live collection.
 
-  StateCell(key)     one item, no value while the key is absent
-  IdentityCell(key)  its immutable half, moving only on structural change
-  ShapeCell          fires on count or key change only
-  SnapshotCell       the whole store, on every change
+  StateCell(key)      one item, no value while the key is absent
+  IdentityCell(key)   its immutable half, moving only on structural change
+  ShapeCell           fires on count or key change only
+  SnapshotCell        the whole store, on every change
+  KeyChangesStream    how the keys moved: positions, no states
+  ItemChangesStream   how the items changed: states, no positions
+
+The last two are a pair rather than one thing in two shapes. Bind a list to the
+first, because a list has to know where a row went; fold the second for a total
+or an average, because it names what changed and so costs what changed rather
+than what the collection holds.
 
 Views chain and stay incremental. Filter, FilterByIdentity, SortBy, SortByDescending,
 SortByIdentity, SortByIdentityDescending, SortByKey, Take, Slice and Switch each take an

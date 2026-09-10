@@ -119,7 +119,7 @@ public static class CollectionExtensionMethods
     [Pure]
     [MethodImpl(MethodImplOptions.NoInlining)]
     public static Maybe<Maybe<TState>> ChangeFor<TKey, TIdentity, TState>(
-        this CollectionChange<TKey, TIdentity, TState> change,
+        this ItemChange<TKey, TIdentity, TState> change,
         TKey key)
         where TKey : notnull
         where TIdentity : notnull

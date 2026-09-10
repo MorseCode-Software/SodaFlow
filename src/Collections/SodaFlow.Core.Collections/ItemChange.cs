@@ -21,7 +21,7 @@ namespace SodaFlow.Collections;
 /// <typeparam name="TIdentity">The type of the immutable portion of an item.</typeparam>
 /// <typeparam name="TState">The type of the mutable portion of an item.</typeparam>
 [PublicAPI]
-public sealed class CollectionChange<TKey, TIdentity, TState>
+public sealed class ItemChange<TKey, TIdentity, TState>
     where TKey : notnull
     where TIdentity : notnull
 {
@@ -35,7 +35,7 @@ public sealed class CollectionChange<TKey, TIdentity, TState>
 
     private readonly HashSet<TKey> removed;
 
-    internal CollectionChange(
+    internal ItemChange(
         CollectionSnapshot<TKey, TIdentity, TState> after,
         IReadOnlyDictionary<TKey, TState> newStates,
         HashSet<TKey> added,

@@ -171,7 +171,7 @@ public sealed class ReactiveCollectionTests
             adds,
             updates);
 
-        List<CollectionChange<int, ItemIdentity, ItemState>> changes = [];
+        List<ItemChange<int, ItemIdentity, ItemState>> changes = [];
         IListener l = collection.ItemChangesStream.ListenStrong(changes.Add);
 
         Transaction.RunVoid(() =>
@@ -239,14 +239,14 @@ public sealed class ReactiveCollectionTests
             [TestUtil.Item(1, "one", 10), TestUtil.Item(2, "two", 20)],
             edits);
 
-        List<CollectionChange<int, ItemIdentity, ItemState>> changes = [];
+        List<ItemChange<int, ItemIdentity, ItemState>> changes = [];
         IListener l = collection.ItemChangesStream.ListenStrong(changes.Add);
 
         edits.Send(TestUtil.Remove(1));
 
         l.Unlisten();
 
-        CollectionChange<int, ItemIdentity, ItemState> change = changes[0];
+        ItemChange<int, ItemIdentity, ItemState> change = changes[0];
 
         // Removed: it moved, and it is not present afterwards. The two questions are separate
         // members here; the C# wrapper folds them back into one nested optional.

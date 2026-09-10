@@ -55,7 +55,7 @@ public sealed class ReactiveCollection<TKey, TIdentity, TState> : IReactiveColle
     private readonly Lazy<IReactiveCollection<TKey, TIdentity, TState>> orderedByKey;
 
     private ReactiveCollection(
-        Stream<CollectionChange<TKey, TIdentity, TState>> itemChangesStream,
+        Stream<ItemChange<TKey, TIdentity, TState>> itemChangesStream,
         Cell<CollectionSnapshot<TKey, TIdentity, TState>> snapshotCell,
         Cell<IReadOnlyDictionary<TKey, TIdentity>> shapeCell)
     {
@@ -71,18 +71,17 @@ public sealed class ReactiveCollection<TKey, TIdentity, TState> : IReactiveColle
             LazyThreadSafetyMode.ExecutionAndPublication);
     }
 
-    /// <summary>
-    ///     Every resolved change as keyed deltas, carrying the new state of each key that moved.
-    ///     Unordered — see <see cref="ChangesStream" /> for the positional view of the same thing.
-    /// </summary>
-    public Stream<CollectionChange<TKey, TIdentity, TState>> ItemChangesStream { get; }
+    /// <summary>Fires on every change, structural or otherwise, as keyed deltas.</summary>
+    // ReSharper disable once InheritdocConsiderUsage - the interface says what this is; the summary
+    // above says when it fires, which is what a reader of the root wants. Same as SnapshotCell.
+    public Stream<ItemChange<TKey, TIdentity, TState>> ItemChangesStream { get; }
 
     /// <inheritdoc />
     public Cell<IOrderedKeys<TKey, TIdentity, TState>> KeysCell => this.orderedByKey.Value.KeysCell;
 
     /// <inheritdoc />
-    public Stream<CollectionViewChange<TKey, TIdentity, TState>> ChangesStream =>
-        this.orderedByKey.Value.ChangesStream;
+    public Stream<CollectionViewChange<TKey, TIdentity, TState>> KeyChangesStream =>
+        this.orderedByKey.Value.KeyChangesStream;
 
     /// <summary>Fires on every change, structural or otherwise.</summary>
     // ReSharper disable once InheritdocConsiderUsage - the interface says what this is; the
@@ -163,7 +162,7 @@ public sealed class ReactiveCollection<TKey, TIdentity, TState> : IReactiveColle
             // is produced by resolving edits: an explicit loop.
             LoopedCell<CollectionSnapshot<TKey, TIdentity, TState>> snapshotLoopCell = new();
 
-            Stream<CollectionChange<TKey, TIdentity, TState>> itemChangesStream = editsStream
+            Stream<ItemChange<TKey, TIdentity, TState>> itemChangesStream = editsStream
                 .SnapshotImpl(
                     snapshotLoopCell,
                     (edit, before) => Resolve(keySelector, edit, before))
@@ -253,7 +252,7 @@ public sealed class ReactiveCollection<TKey, TIdentity, TState> : IReactiveColle
                 s: editStream,
                 f: static (left, right) => left.CombineWith(right)));
 
-    private static MaybeInternal<CollectionChange<TKey, TIdentity, TState>> Resolve(
+    private static MaybeInternal<ItemChange<TKey, TIdentity, TState>> Resolve(
         Func<TIdentity, TKey> keySelector,
         CollectionEdit<TKey, TIdentity, TState> edit,
         CollectionSnapshot<TKey, TIdentity, TState> before)
@@ -302,7 +301,7 @@ public sealed class ReactiveCollection<TKey, TIdentity, TState> : IReactiveColle
 
         if (newStates.Count == 0 && removed.Count == 0)
         {
-            return MaybeInternal<CollectionChange<TKey, TIdentity, TState>>.None;
+            return MaybeInternal<ItemChange<TKey, TIdentity, TState>>.None;
         }
 
         // Only a structural edit moves the identity map, and it moves it by building the next
@@ -321,7 +320,7 @@ public sealed class ReactiveCollection<TKey, TIdentity, TState> : IReactiveColle
             before.States.With(newStates, removed));
 
         return MaybeInternal.Some(
-            new CollectionChange<TKey, TIdentity, TState>(after, newStates, added, removed));
+            new ItemChange<TKey, TIdentity, TState>(after, newStates, added, removed));
     }
 
     private Cell<TProjected> CreateStateCell<TProjected>(

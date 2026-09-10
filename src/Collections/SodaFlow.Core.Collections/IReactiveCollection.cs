@@ -37,18 +37,30 @@ public interface IReactiveCollection<TKey, TIdentity, TState>
     /// <summary>This collection's keys, in order.</summary>
     Cell<IOrderedKeys<TKey, TIdentity, TState>> KeysCell { get; }
 
-    /// <summary>Membership and ordering changes, as operations to apply in sequence.</summary>
-    Stream<CollectionViewChange<TKey, TIdentity, TState>> ChangesStream { get; }
+    /// <summary>
+    ///     How those keys changed: which entered, which left, which moved, and to what position —
+    ///     operations to apply in sequence.
+    /// </summary>
+    /// <remarks>
+    ///     This carries positions and no states. It is what a list binds to, because a list has to
+    ///     know where a row went. It is not
+    ///     <see cref="ReactiveCollection{TKey,TIdentity,TState}.ItemChangesStream" /> in a different shape: an item whose state changed
+    ///     without moving arrives here as an update carrying an index, and what the new state
+    ///     actually is has to be looked up in <see cref="SnapshotCell" /> or read from the other
+    ///     stream.
+    /// </remarks>
+    Stream<CollectionViewChange<TKey, TIdentity, TState>> KeyChangesStream { get; }
 
     /// <summary>
     ///     The shared item store, spanning every view of the same root — not this collection's
     ///     contents.
     /// </summary>
     /// <remarks>
-    ///     This is the one place the unification shows a seam. A view of ten items still exposes the
-    ///     store of all hundred thousand, because the store is what makes sharing work and
-    ///     restricting it per view would mean either copying or a wrapper per stage. Ask
-    ///     <see cref="KeysCell" /> what is in the collection; ask this what an item is.
+    ///     This is the one place on this interface where the unification shows a seam. A view of
+    ///     ten items still exposes the store of all hundred thousand,
+    ///     because the store is what makes sharing work and restricting it per view would mean
+    ///     either copying or a wrapper per stage. Ask <see cref="KeysCell" /> what is in the
+    ///     collection; ask this what an item is.
     /// </remarks>
     Cell<CollectionSnapshot<TKey, TIdentity, TState>> SnapshotCell { get; }
 

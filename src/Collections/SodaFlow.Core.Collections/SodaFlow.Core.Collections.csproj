@@ -38,7 +38,7 @@
 
     <ItemGroup>
         <Compile Include="AssemblyInfo.cs"/>
-        <Compile Include="CollectionChange.cs"/>
+        <Compile Include="ItemChange.cs"/>
         <Compile Include="CollectionEdit.cs"/>
         <Compile Include="CollectionInternals.cs"/>
         <Compile Include="CollectionSnapshot.cs"/>

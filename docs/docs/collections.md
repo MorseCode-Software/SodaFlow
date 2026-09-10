@@ -88,8 +88,28 @@ which is where you wanted it.
 | The whole store | `SnapshotCell` | On every change |
 | Count or key changes | `ShapeCell` | Only on structural change |
 | A view's keys, in order | `KeysCell` | When that view's membership or order changes |
-| A view's changes as operations | `ChangesStream` | Same, as a delta |
+| How those keys changed | `KeyChangesStream` | Same, as positional operations |
+| How the items changed | `Root.ItemChangesStream` | On every change, as keyed deltas |
 | The collection a view came from | `Root` | Never — it is the root itself |
+
+The last two are a pair, and picking the wrong one is the easy mistake:
+
+| | `KeyChangesStream` | `ItemChangesStream` |
+| --- | --- | --- |
+| Carries | positions, no states | states, no positions |
+| Says | which key entered, left or moved, and to where | which keys were added, removed or altered, and what they hold now |
+| Scope | this view's keys | the shared store |
+| Lives on | every view | the root only |
+| Bind it to | a list, which has to know where a row went | a total, an average, a count — anything that follows values rather than order |
+
+Neither is the other rearranged. An item whose state changed without moving arrives on
+`KeyChangesStream` as an update carrying an index and nothing else; what the new state *is* has to
+be read from the snapshot.
+
+`ItemChangesStream` is deliberately on the root rather than on the interface, and the `Root.` you
+have to write is the point: it reports the shared store, so folding it on a filtered view totals
+every item including the ones the filter excludes. That answer is wrong and nothing about it looks
+wrong, so the reach through `Root` is there to say out loud that you are leaving the view.
 
 `StateCell` is the one that matters for a bound row. It returns `Cell<Maybe<TState>>` in C#
 and `Cell<'TState option>` in F#, filters the change stream on a single hash lookup, and takes
@@ -306,6 +326,33 @@ re-derivation that follows the collection, so 1,933 times at a hundred thousand.
 *identical* between them and near-constant in the collection, which is the one way this differs
 from every other table here: summing builds nothing per item, so this is a pure processor win with
 no allocation story at all.
+
+### A total over a filtered view
+
+The fold above is over the root, and it totals the root. `ItemChangesStream` reports the shared
+store, so folding it on a filtered view counts items the filter excludes — silently, and it is on
+the root rather than the interface so that reaching for it off a view has to be written out.
+
+A view-scoped total folds `KeyChangesStream`, which carries exactly the four cases that can move
+one:
+
+| Operation | Contribution |
+| --- | --- |
+| `ViewInsert` | `+ new` — the key entered the view |
+| `ViewRemove` | `− old` — it left |
+| `ViewUpdate` | `+ new − old` — it stayed and changed |
+| `ViewMove` | nothing — position only, and a re-file pairs it with an update |
+
+Both values are to hand without keeping anything alongside. The **new** one is on the change:
+`CollectionViewChange` carries `Snapshot`, the store as it now stands. The **old** one comes from
+sampling `SnapshotCell` in the same transaction, because a cell read during a transaction still
+holds the value it started with. The stage code reads the same pair — `Passes(key, predicate,
+change.Snapshot)` is asking whether a key passes *now*.
+
+The one case with no delta is `IsReset`. A criteria change — moving a filter's threshold — rebuilds
+the stage and reports a reset carrying no operations, so a view-scoped fold has to recompute from
+`change.Keys`, which is Θ(view). The root fold has no such case, which is the price of a total that
+follows a view rather than a store.
 
 Use `Pairs` rather than `Keys` with a lookup for each. Both answer the same question; the second
 costs an O(log32 n) search per item and reads the trie in key order rather than in storage order,

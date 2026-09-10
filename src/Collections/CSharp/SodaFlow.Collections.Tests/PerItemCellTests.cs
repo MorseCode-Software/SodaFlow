@@ -120,14 +120,14 @@ public sealed class PerItemCellTests
             TestUtil.Item(1, "one", 10),
             TestUtil.Item(2, "two", 20));
 
-        List<CollectionChange<int, ItemIdentity, ItemState>> changes = [];
+        List<ItemChange<int, ItemIdentity, ItemState>> changes = [];
         IListener l = collection.ItemChangesStream.ListenStrong(changes.Add);
 
         edits.Send(TestUtil.Remove(1));
 
         l.Unlisten();
 
-        CollectionChange<int, ItemIdentity, ItemState> change = changes[0];
+        ItemChange<int, ItemIdentity, ItemState> change = changes[0];
 
         // Removed: it moved, and it is not present afterwards.
         await Assert.That(change.ChangeFor(1).Match(

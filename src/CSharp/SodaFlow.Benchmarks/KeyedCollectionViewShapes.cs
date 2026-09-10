@@ -269,7 +269,7 @@ internal sealed class ChainedViewShape : IKeyedCollectionViewShape
                 edits,
                 threshold,
                 view,
-                view.ChangesStream.ListenStrong(static _ => { }));
+                view.KeyChangesStream.ListenStrong(static _ => { }));
         });
     }
 
@@ -353,7 +353,7 @@ internal sealed class RootOnlyViewShape : IKeyedCollectionViewShape
             return new RootOnlyViewShape(
                 edits,
                 collection,
-                collection.ChangesStream.ListenStrong(static _ => { }));
+                collection.KeyChangesStream.ListenStrong(static _ => { }));
         });
     }
 
@@ -538,7 +538,7 @@ internal sealed class ChainedPageShape : IKeyedPagingShape
                 edits,
                 offset,
                 page,
-                page.ChangesStream.ListenStrong(static _ => { }));
+                page.KeyChangesStream.ListenStrong(static _ => { }));
         });
     }
 

@@ -16,16 +16,16 @@ internal sealed class CollectionViewStage<TKey, TIdentity, TState> : IReactiveCo
     internal CollectionViewStage(
         IReactiveCollection<TKey, TIdentity, TState> source,
         Cell<IOrderedKeys<TKey, TIdentity, TState>> keysCell,
-        Stream<CollectionViewChange<TKey, TIdentity, TState>> changesStream)
+        Stream<CollectionViewChange<TKey, TIdentity, TState>> keyChangesStream)
     {
         this.source = source;
         this.KeysCell = keysCell;
-        this.ChangesStream = changesStream;
+        this.KeyChangesStream = keyChangesStream;
     }
 
     public Cell<IOrderedKeys<TKey, TIdentity, TState>> KeysCell { get; }
 
-    public Stream<CollectionViewChange<TKey, TIdentity, TState>> ChangesStream { get; }
+    public Stream<CollectionViewChange<TKey, TIdentity, TState>> KeyChangesStream { get; }
 
     public Cell<CollectionSnapshot<TKey, TIdentity, TState>> SnapshotCell => this.source.SnapshotCell;
 
