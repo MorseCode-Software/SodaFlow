@@ -343,11 +343,29 @@ one:
 | `ViewUpdate` | `+ new − old` — it stayed and changed |
 | `ViewMove` | nothing — position only, and a re-file pairs it with an update |
 
-Both values are to hand without keeping anything alongside. The **new** one is on the change:
-`CollectionViewChange` carries `Snapshot`, the store as it now stands. The **old** one comes from
-sampling `SnapshotCell` in the same transaction, because a cell read during a transaction still
-holds the value it started with. The stage code reads the same pair — `Passes(key, predicate,
-change.Snapshot)` is asking whether a key passes *now*.
+Both values are on the change. `CollectionViewChange` carries `Before` and `After` — the store as
+the transaction found it and as it left it — so a delta needs nothing kept alongside and no second
+stream to correlate against:
+
+```csharp
+long DeltaOf(CollectionViewChange<Guid, AccountId, AccountState> change, Guid key)
+{
+    change.Before.States.TryGetState(key, out AccountState was);
+    change.After.States.TryGetState(key, out AccountState now);
+
+    return now.Balance - was.Balance;
+}
+```
+
+Both are the *store*, not this view's contents — those are `change.Keys`. `Before` is the same
+object as the previous change's `After`, so following a sequence of changes retains no more than
+following their `After` alone would, and a transaction that moved only a criteria leaves the two
+the same instance.
+
+Before these carried `Before`, the old value had to come from sampling `SnapshotCell` inside the
+same transaction, which works because a cell read during a transaction still holds the value it
+started with. That still works and the stage code still does it, but it is knowledge the API should
+not have required.
 
 The one case with no delta is `IsReset`. A criteria change — moving a filter's threshold — rebuilds
 the stage and reports a reset carrying no operations, so a view-scoped fold has to recompute from

@@ -86,12 +86,14 @@ internal sealed class StageResult<TKey, TIdentity, TState>
         IOrderedKeys<TKey, TIdentity, TState> keys,
         IReadOnlyList<ViewOperation<TKey>> operations,
         bool isReset,
-        CollectionSnapshot<TKey, TIdentity, TState> snapshot)
+        CollectionSnapshot<TKey, TIdentity, TState> before,
+        CollectionSnapshot<TKey, TIdentity, TState> after)
     {
         this.Keys = keys;
         this.Operations = operations;
         this.IsReset = isReset;
-        this.Snapshot = snapshot;
+        this.Before = before;
+        this.After = after;
     }
 
     internal IOrderedKeys<TKey, TIdentity, TState> Keys { get; }
@@ -100,5 +102,7 @@ internal sealed class StageResult<TKey, TIdentity, TState>
 
     internal bool IsReset { get; }
 
-    internal CollectionSnapshot<TKey, TIdentity, TState> Snapshot { get; }
+    internal CollectionSnapshot<TKey, TIdentity, TState> Before { get; }
+
+    internal CollectionSnapshot<TKey, TIdentity, TState> After { get; }
 }

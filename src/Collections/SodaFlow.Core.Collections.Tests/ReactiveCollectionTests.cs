@@ -292,4 +292,60 @@ public sealed class ReactiveCollectionTests
 
         await Assert.That(TestUtil.Keys(collection.KeysCell.Sample())).IsEquivalentTo([1]);
     }
+
+    [Test]
+    public async Task AChangeCarriesTheStoreOnBothSidesOfIt()
+    {
+        StreamSink<CollectionEdit<int, ItemIdentity, ItemState>> edits =
+            Stream.CreateSink<CollectionEdit<int, ItemIdentity, ItemState>>();
+
+        ReactiveCollection<int, ItemIdentity, ItemState> collection =
+            ReactiveCollection<int, ItemIdentity, ItemState>.Create(
+                TestUtil.KeyOf,
+                [TestUtil.Item(1, "one", 10)],
+                edits);
+
+        List<ItemChange<int, ItemIdentity, ItemState>> changes = [];
+        IListener l = collection.ItemChangesStream.ListenStrong(changes.Add);
+
+        edits.Send(TestUtil.Score(1, 99));
+
+        l.Unlisten();
+
+        ItemChange<int, ItemIdentity, ItemState> change = changes[0];
+
+        // The whole point of the pair: a delta needs no copy of the previous value kept alongside.
+        await Assert.That(change.Before.States.TryGetState(1, out ItemState was)).IsTrue();
+        await Assert.That(was.Score).IsEqualTo(10);
+
+        await Assert.That(change.After.States.TryGetState(1, out ItemState now)).IsTrue();
+        await Assert.That(now.Score).IsEqualTo(99);
+    }
+
+    [Test]
+    public async Task OneChangeStartsWhereTheLastOneEnded()
+    {
+        StreamSink<CollectionEdit<int, ItemIdentity, ItemState>> edits =
+            Stream.CreateSink<CollectionEdit<int, ItemIdentity, ItemState>>();
+
+        ReactiveCollection<int, ItemIdentity, ItemState> collection =
+            ReactiveCollection<int, ItemIdentity, ItemState>.Create(
+                TestUtil.KeyOf,
+                [TestUtil.Item(1, "one", 10)],
+                edits);
+
+        List<ItemChange<int, ItemIdentity, ItemState>> changes = [];
+        IListener l = collection.ItemChangesStream.ListenStrong(changes.Add);
+
+        edits.Send(TestUtil.Score(1, 20));
+        edits.Send(TestUtil.Score(1, 30));
+
+        l.Unlisten();
+
+        await Assert.That(changes.Count).IsEqualTo(2);
+
+        // Reference equality, not just equal contents: this is what makes holding a sequence of
+        // changes cost no more than holding their After alone would.
+        await Assert.That(ReferenceEquals(changes[1].Before, changes[0].After)).IsTrue();
+    }
 }

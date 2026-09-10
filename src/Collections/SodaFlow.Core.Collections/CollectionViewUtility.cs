@@ -247,7 +247,10 @@ internal static class CollectionViewUtility
                 .UpdatesImpl
                 .SnapshotImpl(
                     source.SnapshotCell,
+                    // Switching changes which view is followed, not the store, so the two
+                    // versions here are one object.
                     static (view, snapshot) => new CollectionViewChange<TKey, TIdentity, TState>(
+                        snapshot,
                         snapshot,
                         view.KeysCell.SampleImpl(),
                         Array.Empty<ViewOperation<TKey>>(),
@@ -303,7 +306,7 @@ internal static class CollectionViewUtility
                     TCriteria criteria = input.Criteria.Match(static c => c, () => context.Criteria);
 
                     CollectionSnapshot<TKey, TIdentity, TState> snapshot = input.Change.Match(
-                        static change => change.Snapshot,
+                        static change => change.After,
                         () => context.Snapshot);
 
                     IOrderedKeys<TKey, TIdentity, TState> upstreamKeys = input.Change.Match(
@@ -320,6 +323,7 @@ internal static class CollectionViewUtility
                             rebuild(criteria, upstreamKeys, snapshot),
                             Array.Empty<ViewOperation<TKey>>(),
                             true,
+                            context.Snapshot,
                             snapshot);
                     }
 
@@ -332,12 +336,14 @@ internal static class CollectionViewUtility
                                 outcome.Keys,
                                 outcome.Operations,
                                 false,
+                                context.Snapshot,
                                 snapshot);
                         },
                         () => new StageResult<TKey, TIdentity, TState>(
                             state,
                             Array.Empty<ViewOperation<TKey>>(),
                             false,
+                            context.Snapshot,
                             snapshot));
                 });
 
@@ -360,7 +366,8 @@ internal static class CollectionViewUtility
         where TIdentity : notnull =>
         resultsStream
             .MapImpl(static result => new CollectionViewChange<TKey, TIdentity, TState>(
-                result.Snapshot,
+                result.Before,
+                result.After,
                 result.Keys,
                 result.Operations,
                 result.IsReset))
@@ -422,7 +429,12 @@ internal static class CollectionViewUtility
             }
         }
 
-        return new StageResult<TKey, TIdentity, TState>(keys, operations, false, change.After);
+        return new StageResult<TKey, TIdentity, TState>(
+            keys,
+            operations,
+            false,
+            change.Before,
+            change.After);
     }
 
     // --- filter -------------------------------------------------------------------------------
@@ -483,12 +495,12 @@ internal static class CollectionViewUtility
             {
                 case ViewInsert<TKey> insert:
                 {
-                    if (!PassesByIdentity(insert.Key, predicate, change.Snapshot))
+                    if (!PassesByIdentity(insert.Key, predicate, change.After))
                     {
                         break;
                     }
 
-                    keys = keys.Add(insert.Key, change.Snapshot);
+                    keys = keys.Add(insert.Key, change.After);
 
                     int inserted = keys.IndexOf(insert.Key);
 
@@ -569,12 +581,12 @@ internal static class CollectionViewUtility
 
         void Include(TKey key)
         {
-            if (!Passes(key, predicate, change.Snapshot))
+            if (!Passes(key, predicate, change.After))
             {
                 return;
             }
 
-            keys = keys.Add(key, change.Snapshot);
+            keys = keys.Add(key, change.After);
 
             int index = keys.IndexOf(key);
 
@@ -598,12 +610,12 @@ internal static class CollectionViewUtility
         void Refresh(TKey key)
         {
             bool was = keys.Contains(key);
-            bool now = Passes(key, predicate, change.Snapshot);
+            bool now = Passes(key, predicate, change.After);
 
             switch (was)
             {
                 case true when now:
-                    Refile(ref keys, operations, key, change.Snapshot);
+                    Refile(ref keys, operations, key, change.After);
                     break;
 
                 case true:
@@ -646,7 +658,7 @@ internal static class CollectionViewUtility
             {
                 case ViewInsert<TKey> insert:
                 {
-                    keys = keys.Add(insert.Key, change.Snapshot);
+                    keys = keys.Add(insert.Key, change.After);
 
                     int index = keys.IndexOf(insert.Key);
 
@@ -672,7 +684,7 @@ internal static class CollectionViewUtility
                 }
 
                 case ViewUpdate<TKey> update:
-                    Refile(ref keys, operations, update.Key, change.Snapshot);
+                    Refile(ref keys, operations, update.Key, change.After);
                     break;
 
                 // Upstream moves are irrelevant: this stage imposes its own order.

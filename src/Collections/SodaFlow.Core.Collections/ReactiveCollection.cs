@@ -320,7 +320,7 @@ public sealed class ReactiveCollection<TKey, TIdentity, TState> : IReactiveColle
             before.States.With(newStates, removed));
 
         return MaybeInternal.Some(
-            new ItemChange<TKey, TIdentity, TState>(after, newStates, added, removed));
+            new ItemChange<TKey, TIdentity, TState>(before, after, newStates, added, removed));
     }
 
     private Cell<TProjected> CreateStateCell<TProjected>(

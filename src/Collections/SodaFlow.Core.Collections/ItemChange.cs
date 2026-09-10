@@ -36,19 +36,33 @@ public sealed class ItemChange<TKey, TIdentity, TState>
     private readonly HashSet<TKey> removed;
 
     internal ItemChange(
+        CollectionSnapshot<TKey, TIdentity, TState> before,
         CollectionSnapshot<TKey, TIdentity, TState> after,
         IReadOnlyDictionary<TKey, TState> newStates,
         HashSet<TKey> added,
         HashSet<TKey> removed)
     {
+        this.Before = before;
         this.After = after;
         this.NewStates = newStates;
         this.added = added;
         this.removed = removed;
     }
 
-    /// <summary>The collection as of this change.</summary>
+    /// <summary>The store as this transaction left it.</summary>
+    /// <remarks>
+    ///     Paired with <see cref="Before" />, so a delta over any value an item carries - a total,
+    ///     an average, a count - needs no copy of the previous values kept alongside.
+    ///     <see cref="NewStates" /> says which keys to ask about; these two say what they held.
+    /// </remarks>
     public CollectionSnapshot<TKey, TIdentity, TState> After { get; }
+
+    /// <summary>The store as this transaction found it.</summary>
+    /// <remarks>
+    ///     The same instance as the previous change's <see cref="After" />, so following a sequence
+    ///     of these retains no more than following their <see cref="After" /> alone would.
+    /// </remarks>
+    public CollectionSnapshot<TKey, TIdentity, TState> Before { get; }
 
     /// <summary>The resolved state of every added or updated key.</summary>
     public IReadOnlyDictionary<TKey, TState> NewStates { get; }

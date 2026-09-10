@@ -9,11 +9,12 @@ namespace SodaFlow.Collections;
 /// </summary>
 /// <remarks>
 ///     <para>
-///         The event carries its resulting <see cref="Keys" /> and the <see cref="Snapshot" /> it
-///         was computed against, rather than leaving the next stage to sample them. A downstream
-///         stage runs inside the same transaction, where sampling a cell still yields the
-///         pre-transaction value — so passing the results along the event is the only way the chain
-///         stays consistent.
+///         The event carries its resulting <see cref="Keys" /> and the store on both sides of it,
+///         <see cref="Before" /> and <see cref="After" />, rather than leaving the next stage to
+///         sample them. A downstream stage runs inside the same transaction, where sampling a cell
+///         still yields the pre-transaction value — so passing the results along the event is the
+///         only way the chain stays consistent, and it is also what lets a consumer take a delta
+///         without keeping its own copy of the previous values.
 ///     </para>
 ///     <para>
 ///         Operation indices are valid for a consumer applying them in order to the previous key
@@ -29,19 +30,35 @@ public sealed class CollectionViewChange<TKey, TIdentity, TState>
     where TIdentity : notnull
 {
     internal CollectionViewChange(
-        CollectionSnapshot<TKey, TIdentity, TState> snapshot,
+        CollectionSnapshot<TKey, TIdentity, TState> before,
+        CollectionSnapshot<TKey, TIdentity, TState> after,
         IOrderedKeys<TKey, TIdentity, TState> keys,
         IReadOnlyList<ViewOperation<TKey>> operations,
         bool isReset)
     {
-        this.Snapshot = snapshot;
+        this.Before = before;
+        this.After = after;
         this.Keys = keys;
         this.Operations = operations;
         this.IsReset = isReset;
     }
 
-    /// <summary>The collection as of this transaction.</summary>
-    public CollectionSnapshot<TKey, TIdentity, TState> Snapshot { get; }
+    /// <summary>The store as this transaction left it.</summary>
+    /// <remarks>
+    ///     The store, not this view's contents - those are <see cref="Keys" />. Paired with
+    ///     <see cref="Before" />, which is the same store as the transaction found it, so a delta
+    ///     over any value an item carries needs nothing kept alongside.
+    /// </remarks>
+    public CollectionSnapshot<TKey, TIdentity, TState> After { get; }
+
+    /// <summary>The store as this transaction found it.</summary>
+    /// <remarks>
+    ///     The same instance as the previous change's <see cref="After" />, so following a sequence
+    ///     of these retains no more than following their <see cref="After" /> alone would. A
+    ///     transaction that changed only a criteria leaves the store alone, and then this and
+    ///     <see cref="After" /> are the same object.
+    /// </remarks>
+    public CollectionSnapshot<TKey, TIdentity, TState> Before { get; }
 
     /// <summary>This stage's keys after the change.</summary>
     public IOrderedKeys<TKey, TIdentity, TState> Keys { get; }
