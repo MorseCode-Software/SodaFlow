@@ -213,9 +213,9 @@ reports the value.
 upstream's key set for a new set under *the same order*, holding the members it kept.
 That keeps it O(log n) per changed key instead of needing rank queries over a subsequence.
 
-Re-filing a key on update stores the sort value it was filed under, so the old item is
+Re-filing a key on update stores the sort value it was filed under, so the old entry is
 removed with the comparison that placed it — otherwise you are hunting a sorted set for an
-item whose sort position has already moved underneath it.
+entry whose sort position has already moved underneath it.
 
 ## Three costs worth knowing
 

@@ -42,7 +42,7 @@ implements IIdentity<'TKey> and so carries its own key.
 
 Everything that can change the collection is declared at construction: create
 takes the initial contents and every edit stream, lifted from domain streams by
-fromAdds, fromRemoves, fromUpdates and fromStates. There is no imperative item
+fromAdds, fromRemoves, fromUpdates and fromStates. There is no imperative entry
 point.
 
 Full notes: https://github.com/MorseCode-Software/SodaFlow/releases

@@ -179,7 +179,7 @@ public sealed class OrderedKeysTests
         IOrderedKeys<int, ItemIdentity, ItemState> keys = Empty(false, before).Add(1, before).Add(2, before);
 
         // The item's sort value has moved underneath the set. Removal still finds it, because the
-        // item carries the value it was filed under rather than being re-projected here.
+        // entry carries the value it was filed under rather than being re-projected here.
         CollectionSnapshot<int, ItemIdentity, ItemState> after = Snapshot(
             TestUtil.Item(1, "one", 5),
             TestUtil.Item(2, "two", 10));
