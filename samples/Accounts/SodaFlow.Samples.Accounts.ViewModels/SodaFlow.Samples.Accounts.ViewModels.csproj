@@ -1,0 +1,42 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <!--
+            netstandard2.0, not a platform target, and deliberately so: this project is the whole
+            sample. If it ever needed a UI framework to compile, the point the sample is making would
+            already be lost.
+        -->
+        <TargetFramework>netstandard2.0</TargetFramework>
+        <Nullable>enable</Nullable>
+        <EnableDefaultItems>false</EnableDefaultItems>
+        <LangVersion>10</LangVersion>
+        <IsPackable>false</IsPackable>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <!--
+            Project references into src/, which the other samples deliberately do not use.
+
+            This one is temporary and is here for a reason: the collections packages are not
+            published yet, and this sample exists to find out whether their API needs changing
+            before they are. Referencing the projects is what lets a change to the library and a
+            change to the sample happen in the same commit.
+
+            The cost is the invariant the other three keep: work in progress under src/ can break
+            this sample, and the samples workflow can go red for a reason that has nothing to do
+            with samples. That is the trade until the packages ship, at which point this becomes
+            PackageReference with a pinned version like the rest and the invariant comes back.
+        -->
+        <PackageReference Include="JetBrains.Annotations" Version="2026.2.0" PrivateAssets="all"/>
+        <ProjectReference Include="../../../src/CSharp/SodaFlow/SodaFlow.csproj"/>
+        <ProjectReference Include="../../../src/Collections/CSharp/SodaFlow.Collections/SodaFlow.Collections.csproj"/>
+        <ProjectReference Include="../../../src/Bindable/ObjectModel/CSharp/SodaFlow.Bindable.ObjectModel/SodaFlow.Bindable.ObjectModel.csproj"/>
+    </ItemGroup>
+
+    <ItemGroup>
+        <Compile Include="Accounts.cs"/>
+        <Compile Include="IAccountsViewModel.cs"/>
+        <Compile Include="AccountsViewModel.cs"/>
+    </ItemGroup>
+
+</Project>

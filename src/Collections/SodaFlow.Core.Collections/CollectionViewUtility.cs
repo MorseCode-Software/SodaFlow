@@ -777,6 +777,37 @@ internal static class CollectionViewUtility
         return new StageOutcome<TKey, TIdentity, TState>(keys, operations);
     }
 
+    /// <summary>
+    ///     One object per key, in the collection's order, rebuilt only when the keys move.
+    /// </summary>
+    /// <remarks>
+    ///     The projection runs once per key and the object is kept, so a collection whose items
+    ///     changed but whose membership and order did not yields the same objects in the same
+    ///     order - which is what keeps a bound list from rebuilding when one row's value moves.
+    /// </remarks>
+    internal static MappedItems<TResult> MapImpl<TKey, TIdentity, TState, TResult>(
+        ReactiveCollection<TKey, TIdentity, TState> collection,
+        Func<TKey, TResult> project,
+        int retainedBeyondTheView,
+        Action<TResult>? onEvicted)
+        where TKey : notnull
+        where TIdentity : notnull
+    {
+        if (retainedBeyondTheView < 0)
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(retainedBeyondTheView),
+                retainedBeyondTheView,
+                "A projection cannot retain a negative number of departed keys.");
+        }
+
+        MappedItemCache<TKey, TResult> cache = new(project, retainedBeyondTheView, onEvicted);
+
+        return new MappedItems<TResult>(
+            collection.KeysCell.MapImpl(cache.Project),
+            cache.ReleaseAll);
+    }
+
     // --- shared -------------------------------------------------------------------------------
 
     /// <summary>Files every key into a new set under one order.</summary>

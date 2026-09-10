@@ -33,6 +33,18 @@ namespace SodaFlow.Collections;
 [PublicAPI]
 public static class CollectionViewExtensionMethods
 {
+    /// <summary>
+    ///     How many departed keys <see cref="Map{TKey,TIdentity,TState,TResult}" /> keeps objects
+    ///     for unless told otherwise.
+    /// </summary>
+    /// <remarks>
+    ///     Chosen for the shape this is for: a screen showing tens of rows and paging over
+    ///     thousands. It covers a good many pages either side of the one showing, and bounds what a
+    ///     projection over a hundred thousand items can hold to something a screen would have
+    ///     touched rather than something the collection contains.
+    /// </remarks>
+    public const int DefaultRetainedBeyondTheView = 512;
+
     /// <summary>Reorders by key — the root's own order, available over any stage.</summary>
     /// <typeparam name="TKey">The type of the keys.</typeparam>
     /// <typeparam name="TIdentity">The type of the immutable portion of an item.</typeparam>
@@ -356,4 +368,61 @@ public static class CollectionViewExtensionMethods
         where TKey : notnull
         where TIdentity : notnull =>
         CollectionViewUtility.SwitchImpl(source, viewCell);
+
+    /// <summary>
+    ///     One object per key, in this collection's order, so a list can bind to something stable.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         The last step of a chain rather than another stage of one: what comes back is a cell
+    ///         of projected objects, not a collection, because a projection has no identity and no
+    ///         state for a later stage to filter or sort on.
+    ///     </para>
+    ///     <para>
+    ///         <paramref name="project" /> runs once per key and the object is kept, so a collection
+    ///         whose items changed but whose membership and order did not yields the same objects in
+    ///         the same order. That is what keeps a bound list from rebuilding every row when one
+    ///         row's value moves - build the row's bindings from
+    ///         <see cref="CollectionExtensionMethods.StateCell{TKey,TIdentity,TState}" /> and
+    ///         <see cref="CollectionExtensionMethods.IdentityCell{TKey,TIdentity,TState}" /> inside
+    ///         the projection, and each row then follows its own item.
+    ///     </para>
+    ///     <para>
+    ///         What is kept is bounded, or a projection over a large collection would hold an object
+    ///         for every key ever shown. The bound counts keys that have <i>left</i>: everything
+    ///         currently here is kept whatever it says, so a bound smaller than the collection
+    ///         cannot make the projection evict rows it is about to be asked for again. Departed
+    ///         keys go oldest first, oldest meaning longest since it left, so paging back and forth
+    ///         over the same rows costs nothing.
+    ///     </para>
+    /// </remarks>
+    /// <typeparam name="TKey">The type of the keys.</typeparam>
+    /// <typeparam name="TIdentity">The type of the immutable portion of an item.</typeparam>
+    /// <typeparam name="TState">The type of the mutable portion of an item.</typeparam>
+    /// <typeparam name="TResult">What each key is projected to.</typeparam>
+    /// <param name="collection">The collection or view to project.</param>
+    /// <param name="project">Builds the object for one key. Runs once per key retained.</param>
+    /// <param name="retainedBeyondTheView">
+    ///     How many departed keys to keep objects for. The default suits a screen that pages over a
+    ///     large collection; raise it if returning to a page is common and rebuilding a row is
+    ///     expensive, lower it if the objects are heavy.
+    /// </param>
+    /// <param name="onEvicted">
+    ///     Called with an object whose key has been dropped, which is where anything the projection
+    ///     built and owns gets released. A projection that builds bindables should dispose them
+    ///     here, or they outlive the rows that held them.
+    /// </param>
+    /// <returns>
+    ///     The projected objects and the means to release them. Take <c>Items</c> to bind to, and
+    ///     dispose this with whatever else the caller owns.
+    /// </returns>
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    public static MappedItems<TResult> Map<TKey, TIdentity, TState, TResult>(
+        this ReactiveCollection<TKey, TIdentity, TState> collection,
+        Func<TKey, TResult> project,
+        int retainedBeyondTheView = DefaultRetainedBeyondTheView,
+        Action<TResult>? onEvicted = null)
+        where TKey : notnull
+        where TIdentity : notnull =>
+        CollectionViewUtility.MapImpl(collection, project, retainedBeyondTheView, onEvicted);
 }

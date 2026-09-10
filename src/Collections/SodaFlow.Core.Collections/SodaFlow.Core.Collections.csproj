@@ -47,6 +47,7 @@
         <Compile Include="CollectionViewUtility.cs"/>
         <Compile Include="Item.cs"/>
         <Compile Include="StateMap.cs"/>
+        <Compile Include="MappedItems.cs"/>
         <Compile Include="OrderedKeys.cs"/>
         <Compile Include="ProjectedCellCache.cs"/>
         <Compile Include="ReactiveCollection.cs"/>

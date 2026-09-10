@@ -920,4 +920,114 @@ public sealed class CollectionViewTests
 
         l.Unlisten();
     }
+
+    [Test]
+    public async Task MapKeepsAnObjectPerKeyAndReusesIt()
+    {
+        StreamSink<CollectionEdit<int, ItemIdentity, ItemState>> edits =
+            Stream.CreateSink<CollectionEdit<int, ItemIdentity, ItemState>>();
+
+        ReactiveCollection<int, ItemIdentity, ItemState> collection = Create(
+            edits,
+            TestUtil.Item(1, "one", 10),
+            TestUtil.Item(2, "two", 20));
+
+        int projections = 0;
+
+        using MappedItems<string> mapped = collection.Map(
+            key =>
+            {
+                projections++;
+
+                return "row " + key;
+            });
+
+        await Assert.That(mapped.Items.Sample()).IsEquivalentTo(["row 1", "row 2"]);
+        await Assert.That(projections).IsEqualTo(2);
+
+        // An edit that moves no key projects nothing new, and hands back the same objects.
+        IReadOnlyList<string> before = mapped.Items.Sample();
+
+        edits.Send(TestUtil.Rename(1, "renamed"));
+
+        await Assert.That(projections).IsEqualTo(2);
+        await Assert.That(ReferenceEquals(mapped.Items.Sample()[0], before[0])).IsTrue();
+
+        // A new key projects once.
+        edits.Send(TestUtil.Add(TestUtil.Item(3, "three", 30)));
+
+        await Assert.That(projections).IsEqualTo(3);
+        await Assert.That(mapped.Items.Sample()).IsEquivalentTo(["row 1", "row 2", "row 3"]);
+    }
+
+    [Test]
+    public async Task MapKeepsWhatIsInViewHoweverSmallTheBound()
+    {
+        StreamSink<CollectionEdit<int, ItemIdentity, ItemState>> edits =
+            Stream.CreateSink<CollectionEdit<int, ItemIdentity, ItemState>>();
+
+        ReactiveCollection<int, ItemIdentity, ItemState> collection = Create(
+            edits,
+            TestUtil.Item(1, "one", 10),
+            TestUtil.Item(2, "two", 20),
+            TestUtil.Item(3, "three", 30));
+
+        List<string> evicted = [];
+        int projections = 0;
+
+        // A bound of zero retains nothing that has left, and everything that has not.
+        using MappedItems<string> mapped = collection.Map(
+            key =>
+            {
+                projections++;
+
+                return "row " + key;
+            },
+            retainedBeyondTheView: 0,
+            onEvicted: evicted.Add);
+
+        IReadOnlyList<string> first = mapped.Items.Sample();
+
+        await Assert.That(projections).IsEqualTo(3);
+        await Assert.That(evicted).IsEmpty();
+
+        // Nothing left the view, so nothing was evicted and nothing is rebuilt.
+        edits.Send(TestUtil.Rename(2, "renamed"));
+
+        await Assert.That(projections).IsEqualTo(3);
+        await Assert.That(ReferenceEquals(mapped.Items.Sample()[1], first[1])).IsTrue();
+
+        // Removing one does evict it, because it has left and the bound keeps none.
+        edits.Send(TestUtil.Remove(2));
+
+        await Assert.That(evicted).IsEquivalentTo(["row 2"]);
+    }
+
+    [Test]
+    public async Task DisposingAMapReleasesWhatItStillHolds()
+    {
+        StreamSink<CollectionEdit<int, ItemIdentity, ItemState>> edits =
+            Stream.CreateSink<CollectionEdit<int, ItemIdentity, ItemState>>();
+
+        ReactiveCollection<int, ItemIdentity, ItemState> collection = Create(
+            edits,
+            TestUtil.Item(1, "one", 10),
+            TestUtil.Item(2, "two", 20));
+
+        List<string> released = [];
+
+        MappedItems<string> mapped = collection.Map(
+            static key => "row " + key,
+            onEvicted: released.Add);
+
+        _ = mapped.Items.Sample();
+
+        await Assert.That(released).IsEmpty();
+
+        // The rows never left the view, so eviction never fired for them. Disposal is what
+        // releases them, and without it they would outlive the thing that built them.
+        mapped.Dispose();
+
+        await Assert.That(released).IsEquivalentTo(["row 1", "row 2"]);
+    }
 }
