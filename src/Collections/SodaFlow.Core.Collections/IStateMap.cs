@@ -42,6 +42,23 @@ public interface IStateMap<TKey, TState>
     /// <summary>The keys in this version of the map, in no particular order.</summary>
     IEnumerable<TKey> Keys { get; }
 
+    /// <summary>
+    ///     Every key with its state, in no particular order - one walk of the map rather than a
+    ///     lookup per key.
+    /// </summary>
+    /// <remarks>
+    ///     For anything that reads the whole collection: a total, an average, a count of items
+    ///     matching something. Iterating <see cref="Keys" /> and calling
+    ///     <see cref="TryGetState" /> for each answers the same question and costs a lookup per
+    ///     item, which on the default trie is O(log32 n) of pointer chasing apiece and touches the
+    ///     whole structure in key order rather than in storage order. This was measured: on a
+    ///     hundred thousand items, summing one field by lookup-per-key cost more than sorting the
+    ///     entire collection.
+    ///     An implementation must honor the same contract the rest of this interface does - what
+    ///     this yields for a given instance never changes.
+    /// </remarks>
+    IEnumerable<KeyValuePair<TKey, TState>> Pairs { get; }
+
     /// <summary>Returns the state stored under a key, if there is one.</summary>
     /// <param name="key">The key to look up.</param>
     /// <param name="state">The state stored under it, when this returns true.</param>
@@ -95,6 +112,10 @@ public sealed class ImmutableStateMap<TKey, TState> : IStateMap<TKey, TState>
 
     /// <inheritdoc />
     public IEnumerable<TKey> Keys => this.states.Keys;
+
+    /// <inheritdoc />
+    /// <remarks>The trie walks itself, which is where its enumeration is cheapest.</remarks>
+    public IEnumerable<KeyValuePair<TKey, TState>> Pairs => this.states;
 
     /// <summary>Creates a map holding the given states.</summary>
     /// <param name="states">The states to store.</param>

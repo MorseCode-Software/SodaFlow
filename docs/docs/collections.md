@@ -241,6 +241,77 @@ criteria changes.
 A page turn is also cheaper than an *edit* through the same chain, which is not a contradiction:
 a reset carries no operations, so the stages below have nothing to process.
 
+### What an edit costs inside a page
+
+The same chain, editing one item rather than moving the window — a field that is not the sort key,
+so nothing can move and what is measured is the window's own per-edit cost:
+
+| Items | In the page, re-derived | In the page, chained | Outside the page, chained |
+| --- | --- | --- | --- |
+| 1,000 | 65.6 µs | 8.9 µs | 9.0 µs |
+| 10,000 | 705 µs | 10.4 µs | 9.6 µs |
+| 100,000 | 10,662 µs | 11.0 µs | 10.9 µs |
+
+Flat again, and 971 times a re-derivation at a hundred thousand items. The third column is the one
+worth reading twice: **editing an item the page does not hold costs the same as editing one it
+does**, and the difference has no consistent direction across sizes.
+
+That is not true of a filter, where an edit to an excluded key costs about half an edit to an
+included one, because the filter rejects the key and the stages below it never run. A slice cannot
+do that. It keeps its window current by diffing the old one against the new one, and that diff is
+*how* it discovers the edit was irrelevant — so it always pays O(limit), about two microseconds at
+a twenty-row window. Put a `Filter` in front to avoid work; a `Slice` is not a place work gets
+avoided.
+
+## Totals and other aggregates
+
+Everything above depends on a screenful. A total depends on every item, which makes it the honest
+test of whether this collection is good for anything but windows.
+
+It is, but not by holding a cell over the store:
+
+```csharp
+// Reads the whole collection on every edit.
+Cell<long> total = accounts.SnapshotCell.Map(static snapshot =>
+{
+    long sum = 0;
+
+    foreach (KeyValuePair<Guid, AccountState> pair in snapshot.States.Pairs)
+    {
+        sum += pair.Value.Balance;
+    }
+
+    return sum;
+});
+```
+
+Fold the change stream instead. The change carries the keys that moved and their new states, and
+snapshotting `SnapshotCell` *inside* the transaction still yields the version the transaction
+started from — which is where the old values come from, so nothing has to be kept alongside:
+
+```csharp
+Cell<long> total = accounts.ItemChangesStream
+    .Snapshot(accounts.SnapshotCell, static (change, before) => DeltaOf(change, before))
+    .Accum(initialTotal, static (delta, running) => running + delta);
+```
+
+| Items | Re-derived | Folded |
+| --- | --- | --- |
+| 1,000 | 28.2 µs | 2.15 µs |
+| 10,000 | 293 µs | 2.26 µs |
+| 100,000 | 4,955 µs | 2.56 µs |
+
+The folded column is flat — 2.15 to 2.56 microseconds for a hundred times the items — against a
+re-derivation that follows the collection, so 1,933 times at a hundred thousand. Allocation is
+*identical* between them and near-constant in the collection, which is the one way this differs
+from every other table here: summing builds nothing per item, so this is a pure processor win with
+no allocation story at all.
+
+Use `Pairs` rather than `Keys` with a lookup for each. Both answer the same question; the second
+costs an O(log32 n) search per item and reads the trie in key order rather than in storage order,
+which measured three times slower at every size and made summing one field cost more than sorting
+the whole collection. That was found by writing this benchmark the wrong way first.
+
 ## Measuring it
 
 The claim above — that per-item observation is proportional to the number of bound rows and
@@ -251,7 +322,9 @@ fed from one shared edit stream.
 `KeyedCollectionBuildBenchmarks` measures what each of them costs to stand up,
 `KeyedCollectionViewBenchmarks` measures the view chain — `Filter`, `SortBy` and `Take` — against
 re-deriving the same view from a cell holding the whole collection, and
-`KeyedCollectionPagingBenchmarks` measures turning a `Slice`'s page against re-deriving that.
+`KeyedCollectionPagingBenchmarks` measures turning a `Slice`'s page and editing within one
+against re-deriving those, and `KeyedCollectionAggregateBenchmarks` measures a total over the whole
+collection folded from the change stream against one re-read from the store.
 `KeyedCollectionScaleBenchmarks` takes one question — what a selective filter costs per edit — up
 to a million items.
 

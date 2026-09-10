@@ -376,7 +376,7 @@ internal sealed class RootOnlyViewShape : IKeyedCollectionViewShape
     }
 }
 
-/// <summary>Turning a page of a sorted collection, the two ways.</summary>
+/// <summary>A page of a sorted collection, the two ways of keeping one.</summary>
 /// <remarks>
 ///     Both hold the same page of the same ordering, and the benchmark checks that in its setup
 ///     before timing either.
@@ -388,14 +388,18 @@ internal interface IKeyedPagingShape
 
     /// <summary>Moves the window to a new offset.</summary>
     void TurnTo(int offset);
+
+    /// <summary>Replaces one item's state.</summary>
+    void Replace(int key, ItemState state);
 }
 
 /// <summary>
-///     One cell holding every item, re-sorted and re-windowed on every page turn.
+///     One cell holding every item, re-sorted and re-windowed on every page turn and every edit.
 /// </summary>
 // ReSharper disable once InheritdocConsiderUsage
 internal sealed class RederivedPageShape : IKeyedPagingShape
 {
+    private readonly CellSink<ImmutableDictionary<int, Entry<ItemIdentity, ItemState>>> items;
     private readonly CellSink<int> offset;
     private readonly Cell<IReadOnlyList<int>> page;
 
@@ -404,10 +408,12 @@ internal sealed class RederivedPageShape : IKeyedPagingShape
     private readonly IListener listener;
 
     private RederivedPageShape(
+        CellSink<ImmutableDictionary<int, Entry<ItemIdentity, ItemState>>> items,
         CellSink<int> offset,
         Cell<IReadOnlyList<int>> page,
         IListener listener)
     {
+        this.items = items;
         this.offset = offset;
         this.page = page;
         this.listener = listener;
@@ -427,16 +433,21 @@ internal sealed class RederivedPageShape : IKeyedPagingShape
                 new Entry<ItemIdentity, ItemState>(ItemSeed.Identity(number), ItemSeed.State(number)));
         }
 
-        ImmutableDictionary<int, Entry<ItemIdentity, ItemState>> items = builder.ToImmutable();
-
         return Transaction.Run(() =>
         {
+            CellSink<ImmutableDictionary<int, Entry<ItemIdentity, ItemState>>> items =
+                Cell.CreateSink(builder.ToImmutable());
+
             CellSink<int> offset = Cell.CreateSink(0);
 
-            Cell<IReadOnlyList<int>> page = offset.Map<int, IReadOnlyList<int>>(
-                at =>
+            Cell<IReadOnlyList<int>> page = items.Lift<
+                ImmutableDictionary<int, Entry<ItemIdentity, ItemState>>,
+                int,
+                IReadOnlyList<int>>(
+                offset,
+                static (map, at) =>
                 [
-                    .. items.Values
+                    .. map.Values
                         .OrderByDescending(static entry => entry.State.Score)
                         .Skip(at)
                         .Take(ViewSeed.Limit)
@@ -444,6 +455,7 @@ internal sealed class RederivedPageShape : IKeyedPagingShape
                 ]);
 
             return new RederivedPageShape(
+                items,
                 offset,
                 page,
                 page.Updates().ListenStrong(static _ => { }));
@@ -451,6 +463,12 @@ internal sealed class RederivedPageShape : IKeyedPagingShape
     }
 
     public void TurnTo(int offset) => this.offset.Send(offset);
+
+    public void Replace(int key, ItemState state) =>
+        this.items.Send(
+            this.items.Sample().SetItem(
+                key,
+                new Entry<ItemIdentity, ItemState>(ItemSeed.Identity(key), state)));
 }
 
 /// <summary>
@@ -461,11 +479,12 @@ internal sealed class RederivedPageShape : IKeyedPagingShape
 ///     A criteria change rebuilds the stage that owns the criteria, and for most stages that is the
 ///     expensive path - a filter files every surviving key into a fresh ordered set. A slice's
 ///     rebuild is a <c>RangeKeys</c> over the ordering it already had, which is a lazy view and
-///     costs nothing to construct. That is the asymmetry this benchmark exists to show.
+///     costs nothing to construct. That is the asymmetry the page-turn benchmarks exist to show.
 /// </remarks>
 // ReSharper disable once InheritdocConsiderUsage
 internal sealed class ChainedPageShape : IKeyedPagingShape
 {
+    private readonly StreamSink<CollectionEdit<int, ItemIdentity, ItemState>> edits;
     private readonly CellSink<int> offset;
     private readonly IReactiveCollection<int, ItemIdentity, ItemState> page;
 
@@ -474,10 +493,12 @@ internal sealed class ChainedPageShape : IKeyedPagingShape
     private readonly IListener listener;
 
     private ChainedPageShape(
+        StreamSink<CollectionEdit<int, ItemIdentity, ItemState>> edits,
         CellSink<int> offset,
         IReactiveCollection<int, ItemIdentity, ItemState> page,
         IListener listener)
     {
+        this.edits = edits;
         this.offset = offset;
         this.page = page;
         this.listener = listener;
@@ -514,6 +535,7 @@ internal sealed class ChainedPageShape : IKeyedPagingShape
                 .Slice(offset, Cell.Constant(ViewSeed.Limit));
 
             return new ChainedPageShape(
+                edits,
                 offset,
                 page,
                 page.ChangesStream.ListenStrong(static _ => { }));
@@ -521,4 +543,7 @@ internal sealed class ChainedPageShape : IKeyedPagingShape
     }
 
     public void TurnTo(int offset) => this.offset.Send(offset);
+
+    public void Replace(int key, ItemState state) =>
+        this.edits.Send(CollectionEdit<int, ItemIdentity, ItemState>.Update(key, _ => state));
 }

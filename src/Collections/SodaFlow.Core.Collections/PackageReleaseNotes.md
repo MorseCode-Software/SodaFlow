@@ -4,6 +4,11 @@ First release.
 
 Requires SodaFlow.Core 4.x, and nothing else from this repository.
 
+IStateMap exposes Pairs as well as Keys, for anything that reads the whole
+collection - a total, an average, a count. Iterating Keys and looking up each
+one answers the same question and costs an O(log32 n) search per item; on a
+hundred thousand items that measured three times slower.
+
 There is no optional type in this API. Lookups are TryGetEntry, TryGetState and
 TryGetNewState, and IndexOf answers -1, so that each language surface can put
 its own optional type on top - Maybe in SodaFlow.Collections, option in

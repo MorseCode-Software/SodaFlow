@@ -44,6 +44,7 @@ public class KeyedCollectionPagingBenchmarks
     private IKeyedPagingShape chained = ChainedPageShape.Build(1);
 
     private int pageCount;
+    private int editCount;
 
     /// <summary>How many items the collection holds.</summary>
     [Params(1_000, 10_000, 100_000)]
@@ -76,8 +77,26 @@ public class KeyedCollectionPagingBenchmarks
                 + $"[{Describe(this.rederived.Keys)}]. Chained: [{Describe(this.chained.Keys)}].");
         }
 
-        this.rederived.TurnTo(0);
-        this.chained.TurnTo(0);
+        // Left on the second page rather than the first, so the edit benchmarks below exercise a
+        // non-zero offset - the whole point of a slice, and the case a Take could not stand in for.
+
+        // The edit arms depend on one key being in that page and the other being outside it, which
+        // is arithmetic on the seed rather than anything the code enforces. Checked, because an
+        // in-page key that had quietly fallen outside would measure the cheap path under the
+        // expensive path's name.
+        if (!this.chained.Keys.Contains(this.InPageKey))
+        {
+            throw new InvalidOperationException(
+                $"Key {this.InPageKey} was meant to be inside the second page, which holds "
+                + $"[{Describe(this.chained.Keys)}].");
+        }
+
+        if (this.chained.Keys.Contains(OutsidePageKey))
+        {
+            throw new InvalidOperationException(
+                $"Key {OutsidePageKey} was meant to be outside the second page, which holds "
+                + $"[{Describe(this.chained.Keys)}].");
+        }
     }
 
     /// <summary>Turning the page by re-sorting the collection and re-windowing it.</summary>
@@ -87,6 +106,29 @@ public class KeyedCollectionPagingBenchmarks
     /// <summary>The same turn, by moving a slice's offset.</summary>
     [Benchmark(Description = "turn the page, chained")]
     public void TurnChained() => this.chained.TurnTo(this.NextOffset());
+
+    /// <summary>An edit to an item the page holds, which the window has to forward.</summary>
+    [Benchmark(Description = "edit an item in the page, re-derived")]
+    public void EditInPageRederived() =>
+        this.rederived.Replace(this.InPageKey, this.NextStateFor(this.InPageKey));
+
+    /// <summary>The same edit, through the slice.</summary>
+    [Benchmark(Description = "edit an item in the page, chained")]
+    public void EditInPageChained() =>
+        this.chained.Replace(this.InPageKey, this.NextStateFor(this.InPageKey));
+
+    /// <summary>
+    ///     An edit to an item the page does not hold, which the window has to conclude changes
+    ///     nothing it shows.
+    /// </summary>
+    [Benchmark(Description = "edit an item outside the page, re-derived")]
+    public void EditOutsidePageRederived() =>
+        this.rederived.Replace(OutsidePageKey, this.NextStateFor(OutsidePageKey));
+
+    /// <summary>The same edit, through the slice.</summary>
+    [Benchmark(Description = "edit an item outside the page, chained")]
+    public void EditOutsidePageChained() =>
+        this.chained.Replace(OutsidePageKey, this.NextStateFor(OutsidePageKey));
 
     private static string Describe(IEnumerable<int> keys) => string.Join(", ", keys);
 
@@ -100,5 +142,38 @@ public class KeyedCollectionPagingBenchmarks
         this.pageCount++;
 
         return ViewSeed.Limit * (this.pageCount % 2);
+    }
+
+    /// <summary>
+    ///     A key the second page holds. The seed scores every item with its own number and the sort
+    ///     is descending, so position p holds key <c>ItemCount - 1 - p</c> and the second page runs
+    ///     from <c>ItemCount - 21</c> down to <c>ItemCount - 40</c>. This sits in the middle of it.
+    /// </summary>
+    private int InPageKey => this.ItemCount - 30;
+
+    /// <summary>
+    ///     The lowest-scoring key, which sorts last and so is as far outside the second page as a
+    ///     key can be.
+    /// </summary>
+    private static int OutsidePageKey => 0;
+
+    /// <summary>
+    ///     A new state for a key that leaves its sort value alone, so nothing can move and what is
+    ///     measured is the window's per-edit cost rather than a re-file.
+    /// </summary>
+    /// <remarks>
+    ///     Only the name changes. An edit that moved the item is a different question, measured by
+    ///     <see cref="KeyedCollectionViewBenchmarks" />; mixing the two here would leave the two
+    ///     arms doing visibly different amounts of work depending on where the item landed, and the
+    ///     comparison would stop being about the window.
+    /// </remarks>
+    private ItemState NextStateFor(int key)
+    {
+        this.editCount++;
+
+        return new ItemState(
+            this.editCount % 2 == 0 ? "edited" : "re-edited",
+            key,
+            false);
     }
 }

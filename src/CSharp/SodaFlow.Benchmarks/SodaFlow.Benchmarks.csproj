@@ -37,6 +37,8 @@
     <ItemGroup>
         <Compile Include="BindableRefreshBenchmarks.cs"/>
         <Compile Include="BindableValueBenchmarks.cs"/>
+        <Compile Include="KeyedCollectionAggregateBenchmarks.cs"/>
+        <Compile Include="KeyedCollectionAggregateShapes.cs"/>
         <Compile Include="KeyedCollectionBuildBenchmarks.cs"/>
         <Compile Include="KeyedCollectionEditBenchmarks.cs"/>
         <Compile Include="KeyedCollectionPagingBenchmarks.cs"/>
