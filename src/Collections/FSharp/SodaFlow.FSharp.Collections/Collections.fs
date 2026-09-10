@@ -67,6 +67,38 @@ let createWith
         emptyStateMap,
         Array.ofSeq editStreams)
 
+/// <summary>
+///     Defines a collection whose identities carry their own key, so no selector is needed.
+/// </summary>
+/// <param name="initialEntries">The collection's initial contents.</param>
+/// <param name="editStreams">Every stream that will ever edit the collection.</param>
+/// <returns>The collection.</returns>
+[<MethodImpl(MethodImplOptions.NoInlining)>]
+let createById
+    (initialEntries: seq<Entry<'TId, 'TState>>)
+    (editStreams: seq<Stream<CollectionEdit<'TKey, 'TId, 'TState>>>)
+    =
+    ReactiveCollection.Create<'TKey, 'TId, 'TState>(initialEntries, Array.ofSeq editStreams)
+
+/// <summary>
+///     The same, choosing the storage strategy rather than taking the default hash array mapped
+///     trie.
+/// </summary>
+/// <param name="emptyStateMap">The empty map to build the initial contents on.</param>
+/// <param name="initialEntries">The collection's initial contents.</param>
+/// <param name="editStreams">Every stream that will ever edit the collection.</param>
+/// <returns>The collection.</returns>
+[<MethodImpl(MethodImplOptions.NoInlining)>]
+let createByIdWith
+    (emptyStateMap: IStateMap<'TKey, 'TState>)
+    (initialEntries: seq<Entry<'TId, 'TState>>)
+    (editStreams: seq<Stream<CollectionEdit<'TKey, 'TId, 'TState>>>)
+    =
+    ReactiveCollection.Create<'TKey, 'TId, 'TState>(
+        initialEntries,
+        emptyStateMap,
+        Array.ofSeq editStreams)
+
 /// <summary>An item, from its immutable and mutable portions.</summary>
 /// <param name="identity">The immutable portion, which the key is derived from.</param>
 /// <param name="state">The mutable portion.</param>

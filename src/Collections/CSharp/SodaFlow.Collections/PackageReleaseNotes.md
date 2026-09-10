@@ -37,6 +37,10 @@ Slice(offset, limit) is the paging window, and Take is the case of it that
 starts at zero. There is no Skip: a window with both ends is bounded, which is
 what keeps the stage at O(limit) per transaction.
 
+An identity that implements IIdentity<TKey> carries its own key, and
+ReactiveCollection.Create - on the non-generic companion - takes it from there
+rather than asking for a selector. Optional; the selector overloads remain.
+
   collection.SortByDescending((_, s) => s.Balance)
             .Filter((_, s) => !s.IsFrozen)
             .Take(10)

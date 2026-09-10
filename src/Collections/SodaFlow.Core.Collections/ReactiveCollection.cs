@@ -357,3 +357,68 @@ public sealed class ReactiveCollection<TKey, TId, TState> : IReactiveCollection<
         return stateCell;
     }
 }
+
+/// <summary>
+///     Creates collections whose identities carry their own key, so the selector every other
+///     overload asks for can be left out.
+/// </summary>
+/// <remarks>
+///     <para>
+///         A companion to <see cref="ReactiveCollection{TKey,TId,TState}" /> rather than more
+///         overloads on it, because a static method cannot add a constraint to the type parameters
+///         of the class declaring it - and <c>TId : IIdentity&lt;TKey&gt;</c> is the whole of what
+///         these are. The same shape as <c>Cell</c> beside <c>Cell&lt;T&gt;</c>.
+///     </para>
+///     <para>
+///         <c>TKey</c> is inferred from the edit streams. Type inference does not read constraints,
+///         so it cannot come from <see cref="IIdentity{TKey}" /> alone: a collection created with no
+///         edit streams at all has to name the three type arguments, or use the selector overloads
+///         instead.
+///     </para>
+/// </remarks>
+[PublicAPI]
+public static class ReactiveCollection
+{
+    /// <summary>
+    ///     Defines a collection from its initial contents and every stream that will ever edit it,
+    ///     taking each item's key from the identity itself.
+    /// </summary>
+    /// <typeparam name="TKey">The type of the keys.</typeparam>
+    /// <typeparam name="TId">The type of the immutable portion of an item.</typeparam>
+    /// <typeparam name="TState">The type of the mutable portion of an item.</typeparam>
+    /// <param name="initialEntries">The collection's initial contents.</param>
+    /// <param name="editStreams">Every stream that will ever edit the collection.</param>
+    /// <returns>The collection.</returns>
+    public static ReactiveCollection<TKey, TId, TState> Create<TKey, TId, TState>(
+        IEnumerable<Entry<TId, TState>> initialEntries,
+        params Stream<CollectionEdit<TKey, TId, TState>>[] editStreams)
+        where TKey : notnull
+        where TId : IIdentity<TKey> =>
+        ReactiveCollection<TKey, TId, TState>.Create(
+            static identity => identity.Key,
+            initialEntries,
+            editStreams);
+
+    /// <summary>
+    ///     The same, choosing the storage strategy rather than taking the default hash array mapped
+    ///     trie.
+    /// </summary>
+    /// <typeparam name="TKey">The type of the keys.</typeparam>
+    /// <typeparam name="TId">The type of the immutable portion of an item.</typeparam>
+    /// <typeparam name="TState">The type of the mutable portion of an item.</typeparam>
+    /// <param name="initialEntries">The collection's initial contents.</param>
+    /// <param name="emptyStateMap">The empty map to build the initial contents on.</param>
+    /// <param name="editStreams">Every stream that will ever edit the collection.</param>
+    /// <returns>The collection.</returns>
+    public static ReactiveCollection<TKey, TId, TState> Create<TKey, TId, TState>(
+        IEnumerable<Entry<TId, TState>> initialEntries,
+        IStateMap<TKey, TState> emptyStateMap,
+        params Stream<CollectionEdit<TKey, TId, TState>>[] editStreams)
+        where TKey : notnull
+        where TId : IIdentity<TKey> =>
+        ReactiveCollection<TKey, TId, TState>.Create(
+            static identity => identity.Key,
+            initialEntries,
+            emptyStateMap,
+            editStreams);
+}

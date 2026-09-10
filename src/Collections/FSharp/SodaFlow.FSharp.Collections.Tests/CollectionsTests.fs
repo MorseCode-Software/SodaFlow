@@ -12,12 +12,26 @@ type ItemId = { Number: int; Code: string }
 /// The mutable portion of a test item.
 type ItemState = { Name: string; Score: int }
 
+/// The same identity, carrying its own key, for the create overloads that take no selector.
+/// The fields are named apart from ItemId's deliberately: F# resolves a record expression by its
+/// field names, last declaration winning, so reusing Number and Code here would silently re-point
+/// every { Number = _; Code = _ } in this file at this type.
+type SelfKeyedItemId =
+    { SelfNumber: int
+      SelfCode: string }
+
+    interface IIdentity<int> with
+        member this.Key = this.SelfNumber
+
 let private keyOf (identity: ItemId) = identity.Number
 
 let private item number name score =
     entry { Number = number; Code = sprintf "C%d" number } { Name = name; Score = score }
 
-let private keysOf (view: IReactiveCollection<int, ItemId, ItemState>) =
+let private selfKeyedItem number name score : Entry<SelfKeyedItemId, ItemState> =
+    entry { SelfNumber = number; SelfCode = sprintf "C%d" number } { Name = name; Score = score }
+
+let private keysOf (view: IReactiveCollection<int, 'TId, ItemState>) =
     List<int>(view |> keysCell |> sampleC)
 
 type ``Collections Tests``() =
@@ -125,6 +139,23 @@ type ``Collections Tests``() =
             edits |> sendS (updateEdit 1 (fun state -> { state with Score = 99 }))
 
             do! Expect.Sequence([ 2; 4 ], keysOf topTwoOfTheEvens)
+        }
+
+    [<Test>]
+    member _.``createById takes the key from the identity``() =
+        task {
+            let edits = sinkS<CollectionEdit<int, SelfKeyedItemId, ItemState>> ()
+
+            // No keyOf: the identity implements IIdentity<int>.
+            let collection =
+                createById [ selfKeyedItem 1 "one" 10; selfKeyedItem 2 "two" 20 ] [ edits ]
+
+            do! Expect.Sequence([ 1; 2 ], keysOf collection)
+
+            // The derived selector is used for later adds too, not only the initial contents.
+            edits |> sendS (addEdit [ selfKeyedItem 3 "three" 30 ])
+
+            do! Expect.Sequence([ 1; 2; 3 ], keysOf collection)
         }
 
     [<Test>]

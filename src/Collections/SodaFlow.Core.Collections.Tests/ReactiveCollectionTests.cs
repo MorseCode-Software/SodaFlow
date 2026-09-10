@@ -256,4 +256,40 @@ public sealed class ReactiveCollectionTests
         // Untouched: no event for an observer of this key at all.
         await Assert.That(change.WasChanged(2)).IsFalse();
     }
+
+    [Test]
+    public async Task CreateTakesTheKeyFromASelfKeyedIdentity()
+    {
+        StreamSink<CollectionEdit<int, SelfKeyedItemId, ItemState>> edits =
+            Stream.CreateSink<CollectionEdit<int, SelfKeyedItemId, ItemState>>();
+
+        // No key selector: the identity implements IIdentity<int>, and TKey is inferred from the
+        // edit stream rather than from the constraint, which inference does not read.
+        ReactiveCollection<int, SelfKeyedItemId, ItemState> collection = ReactiveCollection.Create(
+            [TestUtil.SelfKeyedItem(1, "one", 10), TestUtil.SelfKeyedItem(2, "two", 20)],
+            edits);
+
+        await Assert.That(TestUtil.Keys(collection.KeysCell.Sample())).IsEquivalentTo([1, 2]);
+
+        // The derived selector is used for later adds too, not only the initial contents.
+        edits.Send(
+            CollectionEdit<int, SelfKeyedItemId, ItemState>.Add(
+                TestUtil.SelfKeyedItem(3, "three", 30)));
+
+        await Assert.That(TestUtil.Keys(collection.KeysCell.Sample())).IsEquivalentTo([1, 2, 3]);
+    }
+
+    [Test]
+    public async Task CreateFromASelfKeyedIdentityTakesAStateMapToo()
+    {
+        StreamSink<CollectionEdit<int, SelfKeyedItemId, ItemState>> edits =
+            Stream.CreateSink<CollectionEdit<int, SelfKeyedItemId, ItemState>>();
+
+        ReactiveCollection<int, SelfKeyedItemId, ItemState> collection = ReactiveCollection.Create(
+            [TestUtil.SelfKeyedItem(1, "one", 10)],
+            ImmutableStateMap<int, ItemState>.Empty,
+            edits);
+
+        await Assert.That(TestUtil.Keys(collection.KeysCell.Sample())).IsEquivalentTo([1]);
+    }
 }

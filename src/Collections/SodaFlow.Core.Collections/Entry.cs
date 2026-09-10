@@ -35,10 +35,16 @@ public sealed class Entry<TId, TState>
 }
 
 /// <summary>
-///     Optional convenience for identities that carry their own key. Use the
-///     <c>Func&lt;TId, TKey&gt;</c> selector overloads instead when the identity type cannot or
-///     should not implement this.
+///     Optional convenience for identities that carry their own key: implement this and
+///     <see cref="ReactiveCollection" />'s <c>Create</c> overloads will take the key from the
+///     identity rather than asking for a selector.
 /// </summary>
+/// <remarks>
+///     Entirely optional, and the selector overloads on
+///     <see cref="ReactiveCollection{TKey,TId,TState}" /> remain the way to do this when the
+///     identity type cannot or should not implement an interface - a record from another assembly,
+///     or one whose key is a projection rather than a property.
+/// </remarks>
 /// <typeparam name="TKey">The type of the key this identity carries.</typeparam>
 [PublicAPI]
 public interface IIdentity<out TKey>
