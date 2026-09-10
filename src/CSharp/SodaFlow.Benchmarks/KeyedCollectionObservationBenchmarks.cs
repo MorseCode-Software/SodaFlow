@@ -48,6 +48,15 @@ public class KeyedCollectionObservationBenchmarks
     private ObservationShape viewNative =
         ObservationShape.Build(ObservationShape.ObserverCount, ObservationStyle.ViewNative);
 
+    private ObservationShape identityOnRoot =
+        ObservationShape.Build(ObservationShape.ObserverCount, ObservationStyle.IdentityOnRoot);
+
+    private ObservationShape identityThroughView =
+        ObservationShape.Build(ObservationShape.ObserverCount, ObservationStyle.IdentityThroughView);
+
+    private ObservationShape identityShapeMapped =
+        ObservationShape.Build(ObservationShape.ObserverCount, ObservationStyle.IdentityShapeMapped);
+
     private int editCount;
 
     /// <summary>How many items the collection holds.</summary>
@@ -66,6 +75,11 @@ public class KeyedCollectionObservationBenchmarks
         this.viewScopedPerKey =
             ObservationShape.Build(this.ItemCount, ObservationStyle.ViewScopedPerKey);
         this.viewNative = ObservationShape.Build(this.ItemCount, ObservationStyle.ViewNative);
+        this.identityOnRoot = ObservationShape.Build(this.ItemCount, ObservationStyle.IdentityOnRoot);
+        this.identityThroughView =
+            ObservationShape.Build(this.ItemCount, ObservationStyle.IdentityThroughView);
+        this.identityShapeMapped =
+            ObservationShape.Build(this.ItemCount, ObservationStyle.IdentityShapeMapped);
     }
 
     /// <summary>An edit to a watched item, observed on the collection.</summary>
@@ -125,6 +139,35 @@ public class KeyedCollectionObservationBenchmarks
     [Benchmark(Description = "edit an unwatched item, observed by the view itself")]
     public void EditUnwatchedViewNative() =>
         this.viewNative.Replace(ObservationShape.UnobservedKeyInView, this.NextState());
+
+    /// <summary>
+    ///     A structural change touching nobody's key, with identities observed the way this library
+    ///     used to answer them. The shape cell is replaced, so all twenty observers wake.
+    /// </summary>
+    [Benchmark(Description = "add and remove, identity by mapping the shape cell")]
+    public void AddAndRemoveIdentityShapeMapped() =>
+        this.identityShapeMapped.AddAndRemove(ObservationShape.UnobservedStructuralKey, AddedState);
+
+    /// <summary>The same, with identities observed on the collection as it answers them now.</summary>
+    [Benchmark(Description = "add and remove, identity observed on the collection")]
+    public void AddAndRemoveIdentityOnRoot() =>
+        this.identityOnRoot.AddAndRemove(ObservationShape.UnobservedStructuralKey, AddedState);
+
+    /// <summary>And through a view, which sees the structural change too.</summary>
+    [Benchmark(Description = "add and remove, identity observed through a view")]
+    public void AddAndRemoveIdentityThroughView() =>
+        this.identityThroughView.AddAndRemove(ObservationShape.UnobservedStructuralKey, AddedState);
+
+    /// <summary>
+    ///     A state edit with identities observed through a view. An identity cannot change while
+    ///     its key stays put, so no observer should hear anything however the view reorders.
+    /// </summary>
+    [Benchmark(Description = "edit an unwatched item, identity observed through a view")]
+    public void EditUnwatchedIdentityThroughView() =>
+        this.identityThroughView.Replace(ObservationShape.UnobservedKeyInView, this.NextState());
+
+    /// <summary>A state added and removed; its value is never read, only its identity's arrival.</summary>
+    private static ItemState AddedState => new("added", 1234, false);
 
     /// <summary>A key an observer is bound to, and which the filter keeps.</summary>
     private int WatchedKey => ObservationShape.ObservedKeys(this.ItemCount)[0];

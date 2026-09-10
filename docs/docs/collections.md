@@ -177,8 +177,13 @@ twenty observers and ten thousand items, that is 14.1 microseconds against 14.2 
 `IdentityCell` answers the same way and moves even less: an identity cannot change while its key
 stays put, so only the key entering or leaving reaches it — on a view, that includes a criteria
 deciding differently about an item the store never touched. A state edit never wakes one, which is
-what makes it near-free to hold for the life of a row. It is cached per key per view, as the state
-cell is.
+what makes it near-free to hold for the life of a row, and holding twenty of them through a state
+edit measures the same as holding none. It is cached per key per view, as the state cell is.
+
+This used to be a map over the collection's shape cell, per observer and uncached, which meant
+every observer woke on every structural change anywhere in the collection. On an add and a remove
+touching nobody's key, at twenty observers and ten thousand items, that is 45.5 microseconds
+against 33.8 — a quarter of the cost, and all of it processor rather than allocation.
 
 Membership questions belong to `KeysCell`.
 

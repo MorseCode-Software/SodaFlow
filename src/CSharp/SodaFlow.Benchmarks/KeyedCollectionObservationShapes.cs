@@ -54,6 +54,23 @@ internal enum ObservationStyle
     ///     before and after.
     /// </remarks>
     ViewNative,
+
+    /// <summary>One item's identity, observed on the collection.</summary>
+    IdentityOnRoot,
+
+    /// <summary>One item's identity, observed through a filtered view.</summary>
+    IdentityThroughView,
+
+    /// <summary>
+    ///     One item's identity, observed the way this library used to answer it: a map over the
+    ///     collection's shape cell, per observer, uncached.
+    /// </summary>
+    /// <remarks>
+    ///     Kept so the change has something to be measured against. The shape cell is replaced on
+    ///     every structural change, so every observer built this way is woken by every add and
+    ///     every remove anywhere in the collection, whether or not it touched their key.
+    /// </remarks>
+    IdentityShapeMapped,
 }
 
 /// <summary>
@@ -206,21 +223,42 @@ internal sealed class ObservationShape
     /// <summary>An even key no observer watches, which the view holds.</summary>
     internal static int UnobservedKeyInView => 2;
 
+    // The legacy identity arm needs ShapeCell, which only the collection has.
+    // ReSharper disable once SuggestBaseTypeForParameter
     private static IListener Observe(
-        IReactiveCollection<int, ItemIdentity, ItemState> collection,
+        ReactiveCollection<int, ItemIdentity, ItemState> collection,
         IReactiveCollection<int, ItemIdentity, ItemState> view,
         int key,
         ObservationStyle style)
     {
-        Cell<Maybe<ItemState>> cell = style switch
+        return style switch
+        {
+            ObservationStyle.IdentityOnRoot =>
+                collection.IdentityCell(key).Updates().ListenStrong(static _ => { }),
+
+            ObservationStyle.IdentityThroughView =>
+                view.IdentityCell(key).Updates().ListenStrong(static _ => { }),
+
+            ObservationStyle.IdentityShapeMapped => collection.ShapeCell
+                .Map(identities => identities.TryGetValue(key))
+                .Updates()
+                .ListenStrong(static _ => { }),
+
+            _ => StateCellFor(collection, view, key, style).Updates().ListenStrong(static _ => { }),
+        };
+    }
+
+    /// <summary>The per-item state cell one of the four state styles asks for.</summary>
+    private static Cell<Maybe<ItemState>> StateCellFor(
+        IReactiveCollection<int, ItemIdentity, ItemState> collection,
+        IReactiveCollection<int, ItemIdentity, ItemState> view,
+        int key,
+        ObservationStyle style) =>
+        style switch
         {
             ObservationStyle.OnRoot => collection.StateCell(key),
             ObservationStyle.ThroughView or ObservationStyle.ViewNative => view.StateCell(key),
 
-            // The shape view-scoping would produce: the collection's cell, and nothing for a key
-            // this view does not hold. Lifting against KeysCell is the natural way to write it,
-            // and it is also why this is worth measuring - KeysCell moves when the view reorders,
-            // not only when its membership changes.
             ObservationStyle.ViewScoped =>
                 collection.StateCell(key).Lift<Maybe<ItemState>, IOrderedKeys<int, ItemIdentity, ItemState>, Maybe<ItemState>>(
                     view.KeysCell,
@@ -235,9 +273,25 @@ internal sealed class ObservationShape
                 static (state, isMember) => isMember ? state : Maybe<ItemState>.None),
         };
 
-        return cell.Updates().ListenStrong(static _ => { });
-    }
-
     internal void Replace(int key, ItemState state) =>
         this.edits.Send(CollectionEdit<int, ItemIdentity, ItemState>.Update(key, _ => state));
+
+    /// <summary>
+    ///     Adds an item and removes it again, which is the only thing an identity observer can hear.
+    ///     Two structural changes that leave the collection the size it started.
+    /// </summary>
+    internal void AddAndRemove(int key, ItemState state)
+    {
+        this.edits.Send(
+            CollectionEdit<int, ItemIdentity, ItemState>.Add(
+                new Item<ItemIdentity, ItemState>(ItemSeed.Identity(key), state)));
+
+        this.edits.Send(CollectionEdit<int, ItemIdentity, ItemState>.Remove(key));
+    }
+
+    /// <summary>
+    ///     An even key - so the filter keeps it, and the view sees the structural change - that no
+    ///     observer watches and no seeded item uses.
+    /// </summary>
+    internal static int UnobservedStructuralKey => -2;
 }
