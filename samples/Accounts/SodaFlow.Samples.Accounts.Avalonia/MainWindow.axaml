@@ -15,6 +15,9 @@
         The rows are the point. Rows.Value moves only when the page's membership or order moves,
         and each row's own bindings follow its own account - so paying into one account updates one
         Balance and leaves the rest of this list untouched.
+
+        The headers are three buttons and one sort stage, not three chains to choose between: the
+        stage holds its order in a cell, so a click re-files the keys it already has.
     -->
     <StackPanel Margin="16" Spacing="12">
 
@@ -25,22 +28,53 @@
                 BorderThickness="1"
                 CornerRadius="4"
                 Padding="8">
-            <ItemsControl ItemsSource="{Binding Rows.Value}">
-                <ItemsControl.ItemTemplate>
-                    <DataTemplate x:DataType="viewModels:IAccountRowViewModel">
-                        <Grid ColumnDefinitions="70,*,Auto" Margin="0,3">
-                            <TextBlock Grid.Column="0"
-                                       Text="{Binding Number.Value}"
-                                       Opacity="0.6"/>
-                            <TextBlock Grid.Column="1"
-                                       Text="{Binding Holder.Value}"/>
-                            <TextBlock Grid.Column="2"
-                                       Text="{Binding Balance.Value}"
-                                       FontFamily="Consolas,Menlo,monospace"/>
-                        </Grid>
-                    </DataTemplate>
-                </ItemsControl.ItemTemplate>
-            </ItemsControl>
+            <StackPanel Spacing="6">
+
+                <!-- Each caption carries its own marker, so which column is in force and which
+                     way it runs are one piece of view model state rather than three. -->
+                <Grid ColumnDefinitions="70,*,90">
+                    <Button Grid.Column="0"
+                            Content="{Binding NumberHeader.Value}"
+                            Command="{Binding SortByNumber}"
+                            HorizontalAlignment="Stretch"
+                            HorizontalContentAlignment="Left"
+                            Padding="0,2"/>
+                    <Button Grid.Column="1"
+                            Content="{Binding HolderHeader.Value}"
+                            Command="{Binding SortByHolder}"
+                            HorizontalAlignment="Stretch"
+                            HorizontalContentAlignment="Left"
+                            Padding="0,2"/>
+                    <Button Grid.Column="2"
+                            Content="{Binding BalanceHeader.Value}"
+                            Command="{Binding SortByBalance}"
+                            HorizontalAlignment="Stretch"
+                            HorizontalContentAlignment="Right"
+                            Padding="0,2"/>
+                </Grid>
+
+                <Border BorderBrush="{DynamicResource SystemControlForegroundBaseMediumLowBrush}"
+                        BorderThickness="0,0,0,1"/>
+
+                <ItemsControl ItemsSource="{Binding Rows.Value}">
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate x:DataType="viewModels:IAccountRowViewModel">
+                            <Grid ColumnDefinitions="70,*,90" Margin="0,3">
+                                <TextBlock Grid.Column="0"
+                                           Text="{Binding Number.Value}"
+                                           Opacity="0.6"/>
+                                <TextBlock Grid.Column="1"
+                                           Text="{Binding Holder.Value}"/>
+                                <TextBlock Grid.Column="2"
+                                           Text="{Binding Balance.Value}"
+                                           HorizontalAlignment="Right"
+                                           FontFamily="Consolas,Menlo,monospace"/>
+                            </Grid>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+
+            </StackPanel>
         </Border>
 
         <TextBlock Text="{Binding Total.Value}"/>

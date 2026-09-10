@@ -67,6 +67,15 @@ public interface IAccountsViewModel : IDisposable
     /// <summary>Whether the list is showing frozen accounts as well as active ones.</summary>
     IOneWayBindableValue<string> FilterDescription { get; }
 
+    /// <summary>The account number header, marked when the list is sorted by it.</summary>
+    IOneWayBindableValue<string> NumberHeader { get; }
+
+    /// <summary>The holder header, marked when the list is sorted by it.</summary>
+    IOneWayBindableValue<string> HolderHeader { get; }
+
+    /// <summary>The balance header, marked when the list is sorted by it.</summary>
+    IOneWayBindableValue<string> BalanceHeader { get; }
+
     /// <summary>Moves the window on, and is disabled on the last page.</summary>
     IBindableAction NextPage { get; }
 
@@ -82,4 +91,23 @@ public interface IAccountsViewModel : IDisposable
 
     /// <summary>Shows or hides frozen accounts, which is a criteria change and rebuilds the view.</summary>
     IBindableAction ToggleFrozen { get; }
+
+    /// <summary>Sorts by account number, or reverses it if the list is sorted by it already.</summary>
+    /// <remarks>
+    ///     Sorting by an account number orders on the identity half of an account, which no edit
+    ///     can change - so under this one a deposit moves a balance and cannot move a row. The
+    ///     collection knows that rather than being told it: the selector is handed the identity
+    ///     and never the state, so a state edit is not even offered to the sort.
+    /// </remarks>
+    IBindableAction SortByNumber { get; }
+
+    /// <summary>Sorts by holder, or reverses it. Also over the identity alone.</summary>
+    IBindableAction SortByHolder { get; }
+
+    /// <summary>Sorts by balance, or reverses it.</summary>
+    /// <remarks>
+    ///     The one that sorts on the half that moves, so this is where a deposit can carry a row
+    ///     up or down the list. Try the deposit button under this and under the other two.
+    /// </remarks>
+    IBindableAction SortByBalance { get; }
 }

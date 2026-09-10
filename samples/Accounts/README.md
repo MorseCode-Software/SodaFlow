@@ -1,8 +1,8 @@
 # Accounts
 
-A list of twenty accounts, filtered, sorted, and shown a page at a time, with a running total over
-all of them. It exists to show what `SodaFlow.Collections` is for: **an edit reaches the rows bound
-to it, not the rows next to them.**
+A list of twenty accounts, filtered, sortable by any column, and shown a page at a time, with a
+running total over all of them. It exists to show what `SodaFlow.Collections` is for: **an edit
+reaches the rows bound to it, not the rows next to them.**
 
 Run either head — they bind the same view model:
 
@@ -21,12 +21,27 @@ does not rebuild, even though the sort could have moved that account. Bind a lis
 holding the whole list — which is right for the [Search](../Search) sample, whose results really are
 one answer — and every row would be rebuilt instead.
 
-**Turn the page.** A slice moves a window over an ordering that did not move, so this costs
-essentially nothing however large the collection.
+**Click a column header.** The sort takes its order from a cell, so a click re-files the stage
+that is already there rather than building a second chain and choosing between the two. The three
+orders sort by an `int`, a `string` and a `long`, and one cell holds whichever is in force —
+a `KeyOrder` keeps its sort value's type to itself, which is what makes them one type.
 
-**Show or hide frozen accounts.** Also a criteria change, but this one rebuilds the filter, which is
-the expensive kind. Both are one line in the view model and the difference between them is invisible
-in the code, which is why the [reference page](../../docs/docs/collections.md) spells the costs out.
+Two of the three sort on the *identity* half of an account, which no edit can change. Sort by
+holder or by number and then deposit: the balance moves and the row does not, and the collection
+knows that rather than being told it — the selector is handed the identity and never the state, so
+a state edit is not offered to the sort at all. Sort by balance and the same deposit can carry the
+row up the list, because that order reads the half that moves.
+
+**Turn the page.** A slice moves a window over an ordering that did not move, so this costs
+essentially nothing however large the collection. Sorting while paged leaves the page number where
+it was, because a sort reorders the members rather than choosing different ones — unlike the
+filter, which can shorten the list out from under an offset and so sends it back to the first
+page.
+
+**Show or hide frozen accounts.** A criteria change too, but this one rebuilds the filter, which
+is the expensive kind — where a page turn is the cheap kind and a re-sort is in between. All three
+are one line in the view model and the differences between them are invisible in the code, which is
+why the [reference page](../../docs/docs/collections.md) spells the costs out.
 
 **The total.** Over every account rather than the page, and folded from what changed rather than
 recomputed — the change carries the store on both sides, so a delta needs nothing kept alongside.
@@ -37,14 +52,18 @@ Everything is in `SodaFlow.Samples.Accounts.ViewModels`; the two heads only draw
 
 - `Accounts.cs` — the two halves of an account. `AccountIdentity` implements `IIdentity<int>`, so
   `Create` takes the key from the identity rather than asking for a selector.
-- `AccountsViewModel.cs` — the graph. The chain is
-  `Filter` → `SortByDescending` → `Slice` → `Map`, and `Map` is what turns it into rows.
+- `AccountsViewModel.cs` — the graph. The chain is `Filter` → `SortBy` → `Slice` → `Map`, and
+  `Map` is what turns it into rows.
 
-Two things in there are worth a second look.
+Three things in there are worth a second look.
 
 The deposit button pays into whichever account is at the top of the current page, so the edit
 depends on the view and the view depends on the edit. That is a real cycle, closed with
 `Stream.CreateLoop`.
+
+The header row is one piece of state — a column and a direction — and everything else follows
+from it: the order the sort holds, and the caption each header shows with its marker. Three
+buttons merge into one stream of columns, and a fold over that stream is the whole of it.
 
 `Map` hands back a `MappedItems`, which holds the rows and is disposable. Rows are released when
 their key leaves and the bound is exceeded, and the ones that never leave are released when the

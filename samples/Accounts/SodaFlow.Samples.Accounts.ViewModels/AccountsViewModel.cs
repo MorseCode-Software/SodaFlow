@@ -5,8 +5,93 @@ using System.Linq;
 using SodaFlow.Bindable.ObjectModel;
 using SodaFlow.Collections;
 using SodaFlow.Functional;
+using AccountOrder = SodaFlow.Collections.KeyOrder<
+    int,
+    SodaFlow.Samples.Accounts.ViewModels.AccountIdentity,
+    SodaFlow.Samples.Accounts.ViewModels.AccountState>;
 
 namespace SodaFlow.Samples.Accounts.ViewModels;
+
+/// <summary>A column of the list, which is a thing the list can be sorted by.</summary>
+internal enum AccountColumn
+{
+    /// <summary>The account number, which is part of the identity.</summary>
+    Number,
+
+    /// <summary>Whose account it is, also part of the identity.</summary>
+    Holder,
+
+    /// <summary>The balance, which is the part that moves.</summary>
+    Balance,
+}
+
+/// <summary>Which column the list is sorted by, and which way.</summary>
+/// <remarks>
+///     <para>
+///         Two of the three sort on the identity half of an account, which no edit can touch, so
+///         under either of those a deposit moves a balance and can never move a row. Sorting by
+///         balance is the one that re-files, and switching between them with the deposit button is
+///         how the difference is seen.
+///     </para>
+///     <para>
+///         The order is derived from this rather than stored beside it, so there is one piece of
+///         state on screen - a column and a direction - and the sort follows from it.
+///     </para>
+/// </remarks>
+internal sealed class SortSelection
+{
+    internal SortSelection(AccountColumn column, bool descending)
+    {
+        this.Column = column;
+        this.Descending = descending;
+    }
+
+    private AccountColumn Column { get; }
+
+    private bool Descending { get; }
+
+    /// <summary>This selection as an order the sort stage can hold.</summary>
+    /// <remarks>
+    ///     Three orders projecting sort values of three types - an <c>int</c>, a <c>string</c> and
+    ///     a <c>long</c> - and all three are the same type here, which is what lets one cell hold
+    ///     whichever is in force. The comparers are spelled out because the direction is decided at
+    ///     run time rather than written into the call, and because holders want comparing the way
+    ///     names are read rather than the way their code units happen to fall.
+    /// </remarks>
+    internal AccountOrder Order =>
+        this.Column switch
+        {
+            AccountColumn.Number => AccountOrder.ByIdentity(
+                static identity => identity.Number,
+                Comparer<int>.Default,
+                Comparer<int>.Default,
+                this.Descending),
+            AccountColumn.Holder => AccountOrder.ByIdentity(
+                static identity => identity.Holder,
+                StringComparer.CurrentCultureIgnoreCase,
+                Comparer<int>.Default,
+                this.Descending),
+            _ => AccountOrder.By(
+                static (_, state) => state.Balance,
+                Comparer<long>.Default,
+                Comparer<int>.Default,
+                this.Descending),
+        };
+
+    /// <summary>What clicking a header does: the same column reverses, another one selects.</summary>
+    /// <remarks>
+    ///     A newly chosen column starts ascending, except the balance, which starts at the largest
+    ///     because that is the way a list of balances is usually wanted.
+    /// </remarks>
+    internal SortSelection Clicked(AccountColumn column) =>
+        column == this.Column
+            ? new SortSelection(column, !this.Descending)
+            : new SortSelection(column, column == AccountColumn.Balance);
+
+    /// <summary>A header's caption, marked if it is the column in force.</summary>
+    internal string Caption(AccountColumn column, string name) =>
+        column == this.Column ? name + (this.Descending ? " \u25bc" : " \u25b2") : name;
+}
 
 /// <summary>One row, holding cells that follow one account through the view showing it.</summary>
 // ReSharper disable once InheritdocConsiderUsage
@@ -77,27 +162,40 @@ public sealed class AccountsViewModel : IAccountsViewModel
         IOneWayBindableValue<string> total,
         IOneWayBindableValue<string> page,
         IOneWayBindableValue<string> filterDescription,
+        IOneWayBindableValue<string> numberHeader,
+        IOneWayBindableValue<string> holderHeader,
+        IOneWayBindableValue<string> balanceHeader,
         IBindableAction nextPage,
         IBindableAction previousPage,
         IBindableAction depositIntoTopOfPage,
         IBindableAction toggleFrozen,
+        IBindableAction sortByNumber,
+        IBindableAction sortByHolder,
+        IBindableAction sortByBalance,
         MappedItems<IAccountRowViewModel> projectedRows)
     {
         this.Rows = rows;
         this.Total = total;
         this.Page = page;
         this.FilterDescription = filterDescription;
+        this.NumberHeader = numberHeader;
+        this.HolderHeader = holderHeader;
+        this.BalanceHeader = balanceHeader;
         this.NextPage = nextPage;
         this.PreviousPage = previousPage;
         this.DepositIntoTopOfPage = depositIntoTopOfPage;
         this.ToggleFrozen = toggleFrozen;
+        this.SortByNumber = sortByNumber;
+        this.SortByHolder = sortByHolder;
+        this.SortByBalance = sortByBalance;
 
         // The projection is in here too. Disposing it releases every row it still holds, which is
         // the ones that never left the view and so never triggered the eviction callback.
         this.disposables = new IDisposable[]
         {
-            rows, total, page, filterDescription, nextPage, previousPage, depositIntoTopOfPage,
-            toggleFrozen, projectedRows,
+            rows, total, page, filterDescription, numberHeader, holderHeader, balanceHeader,
+            nextPage, previousPage, depositIntoTopOfPage, toggleFrozen, sortByNumber, sortByHolder,
+            sortByBalance, projectedRows,
         };
     }
 
@@ -114,6 +212,15 @@ public sealed class AccountsViewModel : IAccountsViewModel
     public IOneWayBindableValue<string> FilterDescription { get; }
 
     /// <inheritdoc />
+    public IOneWayBindableValue<string> NumberHeader { get; }
+
+    /// <inheritdoc />
+    public IOneWayBindableValue<string> HolderHeader { get; }
+
+    /// <inheritdoc />
+    public IOneWayBindableValue<string> BalanceHeader { get; }
+
+    /// <inheritdoc />
     public IBindableAction NextPage { get; }
 
     /// <inheritdoc />
@@ -124,6 +231,15 @@ public sealed class AccountsViewModel : IAccountsViewModel
 
     /// <inheritdoc />
     public IBindableAction ToggleFrozen { get; }
+
+    /// <inheritdoc />
+    public IBindableAction SortByNumber { get; }
+
+    /// <inheritdoc />
+    public IBindableAction SortByHolder { get; }
+
+    /// <inheritdoc />
+    public IBindableAction SortByBalance { get; }
 
     /// <inheritdoc />
     /// <remarks>
@@ -146,9 +262,25 @@ public sealed class AccountsViewModel : IAccountsViewModel
             StreamSink<Unit> previousPage = Stream.CreateSink<Unit>();
             StreamSink<Unit> deposit = Stream.CreateSink<Unit>();
             StreamSink<Unit> toggleFrozen = Stream.CreateSink<Unit>();
+            StreamSink<Unit> sortByNumber = Stream.CreateSink<Unit>();
+            StreamSink<Unit> sortByHolder = Stream.CreateSink<Unit>();
+            StreamSink<Unit> sortByBalance = Stream.CreateSink<Unit>();
 
             Cell<bool> showFrozen =
                 toggleFrozen.Accum(initialState: false, f: static (_, showing) => !showing);
+
+            // One piece of state for the whole header row: which column, and which way. Three
+            // buttons become one stream of columns, and the selection folds over it.
+            Cell<SortSelection> sort = new[]
+                {
+                    sortByNumber.MapTo(AccountColumn.Number),
+                    sortByHolder.MapTo(AccountColumn.Holder),
+                    sortByBalance.MapTo(AccountColumn.Balance),
+                }
+                .OrElse()
+                .Accum(
+                    initialState: new SortSelection(AccountColumn.Balance, descending: true),
+                    f: static (column, current) => current.Clicked(column));
 
             // The deposit pays into whichever account is at the top of the page, so the edit
             // depends on the view, and the view depends on the edits. That is a real cycle and the
@@ -160,12 +292,18 @@ public sealed class AccountsViewModel : IAccountsViewModel
             ReactiveCollection<int, AccountIdentity, AccountState> accounts =
                 ReactiveCollection.Create(AccountSeed.Items, deposits);
 
+            // The sort takes its order from a cell, so clicking a header re-files this stage
+            // rather than building a second chain and choosing between the two. The three orders
+            // sort by an int, a string and a long, and one cell holds all of them: an order keeps
+            // its sort value's type to itself.
             ReactiveCollection<int, AccountIdentity, AccountState> filtered = accounts
                 .Filter(showFrozen, static (showing, _, state) => showing || !state.IsFrozen)
-                .SortByDescending(static (_, state) => state.Balance);
+                .SortBy(sort.Map(static selection => selection.Order));
 
             // Paging moves an offset. Toggling the filter sends it back to the first page, because
-            // an offset that outlived the rows it pointed at would show an empty list.
+            // an offset that outlived the rows it pointed at would show an empty list. Sorting
+            // deliberately does not: it reorders the same members rather than choosing different
+            // ones, so every offset that was valid before it still is.
             Cell<int> offset = new[]
                 {
                     nextPage.MapTo(static (int at) => at + PageSize),
@@ -237,12 +375,24 @@ public sealed class AccountsViewModel : IAccountsViewModel
                 filterDescription: showFrozen.Map(static showing =>
                         showing ? "Showing all accounts" : "Showing active accounts only")
                     .ToOneWay(),
+                numberHeader: sort
+                    .Map(static selection => selection.Caption(AccountColumn.Number, "Number"))
+                    .ToOneWay(),
+                holderHeader: sort
+                    .Map(static selection => selection.Caption(AccountColumn.Holder, "Holder"))
+                    .ToOneWay(),
+                balanceHeader: sort
+                    .Map(static selection => selection.Caption(AccountColumn.Balance, "Balance"))
+                    .ToOneWay(),
                 nextPage: nextPage.ToBindableAction(
                     offset.Lift(filtered.KeysCell, static (at, keys) => at + PageSize < keys.Count)),
                 previousPage: previousPage.ToBindableAction(offset.Map(static at => at > 0)),
                 depositIntoTopOfPage: deposit.ToBindableAction(
                     page.KeysCell.Map(static keys => keys.Count > 0)),
                 toggleFrozen: toggleFrozen.ToBindableAction(),
+                sortByNumber: sortByNumber.ToBindableAction(),
+                sortByHolder: sortByHolder.ToBindableAction(),
+                sortByBalance: sortByBalance.ToBindableAction(),
                 projectedRows: rows);
         });
 
