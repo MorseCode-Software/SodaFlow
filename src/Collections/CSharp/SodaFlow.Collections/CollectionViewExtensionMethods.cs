@@ -20,11 +20,14 @@ namespace SodaFlow.Collections;
 ///         Three costs are worth knowing before writing a chain. Changing a predicate or a limit
 ///         rebuilds that stage and everything below it, reports the change as a reset, and costs
 ///         O(m log m) — debounce keystroke-driven criteria upstream.
-///         <see cref="Take{TKey,TId,TState}(IReactiveCollection{TKey,TId,TState},int)" /> diffs its old
-///         and new windows rather than translating operations, so a reorder inside the window
-///         arrives as removes and inserts rather than as moves. And <c>Filter</c> after <c>Take</c>
-///         filters the window, so it yields at most <c>limit</c> items; write <c>Filter</c> first
-///         if that is not what was meant.
+///         <see cref="Take{TKey,TId,TState}(IReactiveCollection{TKey,TId,TState},int)" /> - and
+///         <see cref="Slice{TKey,TId,TState}(IReactiveCollection{TKey,TId,TState},int,int)" />, which
+///         it is a zero-offset case of - diff their old and new windows rather than translating
+///         operations, so a reorder inside the window arrives as removes and inserts rather than as
+///         moves. That is also why there is no <c>Skip</c>: the diff is affordable because the
+///         window is bounded at both ends. And <c>Filter</c> after <c>Take</c> filters the window,
+///         so it yields at most <c>limit</c> items; write <c>Filter</c> first if that is not what
+///         was meant.
 ///     </para>
 /// </remarks>
 [PublicAPI]
@@ -290,6 +293,51 @@ public static class CollectionViewExtensionMethods
         where TKey : notnull
         where TId : notnull =>
         CollectionViewUtility.TakeImpl(upstream, limitCell);
+
+    /// <summary>
+    ///     <paramref name="limit" /> keys of the upstream starting at <paramref name="offset" /> —
+    ///     a page of whatever ordering and filtering precedes it.
+    /// </summary>
+    /// <remarks>
+    ///     There is no <c>Skip</c> to pair with <c>Take</c>, and this is why: a window with both
+    ///     ends is bounded, so this stage stays O(limit) per transaction, where a skip alone would
+    ///     yield a view whose size follows the collection. Paging wants both ends anyway.
+    /// </remarks>
+    /// <typeparam name="TKey">The type of the keys.</typeparam>
+    /// <typeparam name="TId">The type of the immutable portion of an item.</typeparam>
+    /// <typeparam name="TState">The type of the mutable portion of an item.</typeparam>
+    /// <param name="upstream">The collection or view to window.</param>
+    /// <param name="offset">How many keys to pass over before the window begins.</param>
+    /// <param name="limit">How many keys to keep.</param>
+    /// <returns>A view of that window.</returns>
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    public static IReactiveCollection<TKey, TId, TState> Slice<TKey, TId, TState>(
+        this IReactiveCollection<TKey, TId, TState> upstream,
+        int offset,
+        int limit)
+        where TKey : notnull
+        where TId : notnull =>
+        CollectionViewUtility.SliceImpl(upstream, Cell.Constant(offset), Cell.Constant(limit));
+
+    /// <summary>
+    ///     A page of the upstream where either end can itself change — send a new offset to turn
+    ///     the page.
+    /// </summary>
+    /// <typeparam name="TKey">The type of the keys.</typeparam>
+    /// <typeparam name="TId">The type of the immutable portion of an item.</typeparam>
+    /// <typeparam name="TState">The type of the mutable portion of an item.</typeparam>
+    /// <param name="upstream">The collection or view to window.</param>
+    /// <param name="offsetCell">How many keys to pass over before the window begins.</param>
+    /// <param name="limitCell">How many keys to keep.</param>
+    /// <returns>A view of that window.</returns>
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    public static IReactiveCollection<TKey, TId, TState> Slice<TKey, TId, TState>(
+        this IReactiveCollection<TKey, TId, TState> upstream,
+        Cell<int> offsetCell,
+        Cell<int> limitCell)
+        where TKey : notnull
+        where TId : notnull =>
+        CollectionViewUtility.SliceImpl(upstream, offsetCell, limitCell);
 
     /// <summary>
     ///     Follows whichever view the cell currently holds — the way to switch between sorts whose

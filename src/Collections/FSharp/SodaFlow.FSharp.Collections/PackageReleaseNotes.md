@@ -32,6 +32,11 @@ and F# functions rather than Func for predicates and selectors.
 
   let selected = accounts |> stateCell selectedKey
 
+slice offset limit is the paging window, and take is the case of it that starts
+at zero; sliceC takes cells for either end, so turning the page is one send.
+There is no skip - a window with both ends is bounded, which is what keeps the
+stage at O(limit) per transaction.
+
 Everything that can change the collection is declared at construction: create
 takes the initial contents and every edit stream, lifted from domain streams by
 fromAdds, fromRemoves, fromUpdates and fromStates. There is no imperative entry

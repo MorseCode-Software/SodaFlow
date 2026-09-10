@@ -375,30 +375,39 @@ internal sealed class SortedKeys<TKey, TId, TState, TSortKey> : IOrderedKeys<TKe
 }
 
 /// <summary>
-///     The first <c>Count</c> keys of another ordered set, without copying it. This is what a
-///     <c>Take</c> stage holds, so a stage chained after it still sees a real ordered set and can
-///     index into it in O(log n).
+///     A contiguous window of another ordered set, without copying it. This is what a
+///     <c>Slice</c> stage holds - and a <c>Take</c> stage too, which is a window starting at zero
+///     - so a stage chained after one still sees a real ordered set and can index into it in
+///     O(log n).
 /// </summary>
+/// <remarks>
+///     The window is bounded, and that is what makes the stage above it affordable: its process
+///     step diffs the old window against the new one rather than translating operations, which
+///     costs O(limit) and not O(n). A skip with no limit would have no such bound, which is why
+///     there is no stage offering one.
+/// </remarks>
 // ReSharper disable once InheritdocConsiderUsage
-internal sealed class PrefixKeys<TKey, TId, TState> : IOrderedKeys<TKey, TId, TState>
+internal sealed class RangeKeys<TKey, TId, TState> : IOrderedKeys<TKey, TId, TState>
     where TKey : notnull
     where TId : notnull
 {
     private readonly IOrderedKeys<TKey, TId, TState> source;
+    private readonly int offset;
     private readonly int limit;
 
-    internal PrefixKeys(IOrderedKeys<TKey, TId, TState> source, int limit)
+    internal RangeKeys(IOrderedKeys<TKey, TId, TState> source, int offset, int limit)
     {
         this.source = source;
-        this.limit = limit;
+        this.offset = Math.Max(offset, 0);
+        this.limit = Math.Max(limit, 0);
     }
 
     public IKeyOrder<TKey, TId, TState> Order => this.source.Order;
 
-    public int Count => Math.Min(this.source.Count, Math.Max(this.limit, 0));
+    public int Count => Math.Min(Math.Max(this.source.Count - this.offset, 0), this.limit);
 
-    public TKey this[int index] => index < this.Count
-        ? this.source[index]
+    public TKey this[int index] => index >= 0 && index < this.Count
+        ? this.source[index + this.offset]
         : throw new ArgumentOutOfRangeException(nameof(index));
 
     public bool Contains(TKey key) => this.IndexOf(key) >= 0;
@@ -407,22 +416,31 @@ internal sealed class PrefixKeys<TKey, TId, TState> : IOrderedKeys<TKey, TId, TS
     {
         int index = this.source.IndexOf(key);
 
-        return index >= 0 && index < this.Count ? index : -1;
+        if (index < this.offset)
+        {
+            return -1;
+        }
+
+        int shifted = index - this.offset;
+
+        return shifted < this.Count ? shifted : -1;
     }
 
     public IOrderedKeys<TKey, TId, TState> Add(
         TKey key,
         CollectionSnapshot<TKey, TId, TState> snapshot) =>
-        new PrefixKeys<TKey, TId, TState>(this.source.Add(key, snapshot), this.limit);
+        new RangeKeys<TKey, TId, TState>(this.source.Add(key, snapshot), this.offset, this.limit);
 
     public IOrderedKeys<TKey, TId, TState> Remove(TKey key) =>
-        new PrefixKeys<TKey, TId, TState>(this.source.Remove(key), this.limit);
+        new RangeKeys<TKey, TId, TState>(this.source.Remove(key), this.offset, this.limit);
 
     public IEnumerator<TKey> GetEnumerator()
     {
-        for (int index = 0; index < this.Count; index++)
+        int count = this.Count;
+
+        for (int index = 0; index < count; index++)
         {
-            yield return this.source[index];
+            yield return this.source[index + this.offset];
         }
     }
 

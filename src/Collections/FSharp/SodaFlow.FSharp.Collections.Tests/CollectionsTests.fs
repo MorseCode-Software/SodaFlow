@@ -128,6 +128,66 @@ type ``Collections Tests``() =
         }
 
     [<Test>]
+    member _.``slice windows the middle of the upstream``() =
+        task {
+            let edits = sinkS<CollectionEdit<int, ItemId, ItemState>> ()
+
+            let collection =
+                create
+                    keyOf
+                    [ item 1 "one" 10
+                      item 2 "two" 20
+                      item 3 "three" 30
+                      item 4 "four" 40
+                      item 5 "five" 50 ]
+                    [ edits ]
+
+            let page = collection |> slice 1 2
+
+            do! Expect.Sequence([ 2; 3 ], keysOf page)
+
+            // A key below the window shifts everything down one, so the window holds different
+            // items without its bounds having changed.
+            edits |> sendS (addEdit [ item 0 "zero" 5 ])
+
+            do! Expect.Sequence([ 1; 2 ], keysOf page)
+        }
+
+    [<Test>]
+    member _.``sliceC turns the page when the offset changes``() =
+        task {
+            let edits = sinkS<CollectionEdit<int, ItemId, ItemState>> ()
+            let offset = sinkC 0
+
+            let collection =
+                create
+                    keyOf
+                    [ item 1 "one" 10
+                      item 2 "two" 20
+                      item 3 "three" 30
+                      item 4 "four" 40
+                      item 5 "five" 50 ]
+                    [ edits ]
+
+            let page = collection |> sliceC offset (constantC 2)
+
+            do! Expect.Sequence([ 1; 2 ], keysOf page)
+
+            offset |> sendC 2
+
+            do! Expect.Sequence([ 3; 4 ], keysOf page)
+
+            // The last page is short rather than padded, and an offset past the end is empty.
+            offset |> sendC 4
+
+            do! Expect.Sequence([ 5 ], keysOf page)
+
+            offset |> sendC 99
+
+            do! Expect.Sequence([], keysOf page)
+        }
+
+    [<Test>]
     member _.``sortBy re-files an item whose sort value moved``() =
         task {
             let edits = sinkS<CollectionEdit<int, ItemId, ItemState>> ()

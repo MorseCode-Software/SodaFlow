@@ -457,6 +457,43 @@ let takeC (limitCell: Cell<int>) (upstream: IReactiveCollection<'TKey, 'TId, 'TS
     CollectionViewUtility.TakeImpl(upstream, limitCell)
 
 /// <summary>
+///     <c>limit</c> keys of the upstream starting at <c>offset</c> — a page of whatever ordering
+///     and filtering precedes it.
+/// </summary>
+/// <remarks>
+///     There is no <c>skip</c> to pair with <c>take</c>, and this is why: a window with both ends
+///     is bounded, so this stage stays O(limit) per transaction, where a skip alone would yield a
+///     view whose size follows the collection. Paging wants both ends anyway.
+/// </remarks>
+/// <param name="offset">How many keys to pass over before the window begins.</param>
+/// <param name="limit">How many keys to keep.</param>
+/// <param name="upstream">The collection or view to window.</param>
+/// <returns>A view of that window.</returns>
+[<MethodImpl(MethodImplOptions.NoInlining)>]
+let slice (offset: int) (limit: int) (upstream: IReactiveCollection<'TKey, 'TId, 'TState>) =
+    CollectionViewUtility.SliceImpl(
+        upstream,
+        CellInternal.ConstantImpl offset,
+        CellInternal.ConstantImpl limit
+    )
+
+/// <summary>
+///     A page of the upstream where either end can itself change — send a new offset to turn the
+///     page.
+/// </summary>
+/// <param name="offsetCell">How many keys to pass over before the window begins.</param>
+/// <param name="limitCell">How many keys to keep.</param>
+/// <param name="upstream">The collection or view to window.</param>
+/// <returns>A view of that window.</returns>
+[<MethodImpl(MethodImplOptions.NoInlining)>]
+let sliceC
+    (offsetCell: Cell<int>)
+    (limitCell: Cell<int>)
+    (upstream: IReactiveCollection<'TKey, 'TId, 'TState>)
+    =
+    CollectionViewUtility.SliceImpl(upstream, offsetCell, limitCell)
+
+/// <summary>
 ///     Follows whichever view the cell currently holds — the way to switch between sorts whose
 ///     sort keys are different types, as clickable column headers need.
 /// </summary>

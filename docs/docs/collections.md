@@ -105,6 +105,7 @@ IReactiveCollection<Guid, AccountId, AccountState> topTen = accounts
 | `FilterById` | A predicate over the identity alone — see below |
 | `SortByKey` | The root's own order, over any stage |
 | `Take` | A count, or a `Cell<int>` |
+| `Slice` | An offset and a count, or a `Cell<int>` for either — see below |
 | `Switch` | Follows whichever view a cell holds |
 
 `StateCell` and `IdentityCell` answer for the store, so an item seen through two views is
@@ -158,6 +159,35 @@ item whose sort position has already moved underneath it.
   in.
 - `Filter` after `Take` filters the window, so it yields at most `limit` items. That is what
   the chain says; write `Filter` before `Take` if you meant the other thing.
+
+### Paging, and why there is no `Skip`
+
+`Slice(offset, limit)` is the window `Take` is a special case of — a take being a slice whose
+offset is zero, which is literally how it is built. With a `Cell<int>` for the offset, turning
+the page is one send:
+
+```csharp
+CellSink<int> page = Cell.CreateSink(0);
+
+IReactiveCollection<int, AccountId, AccountState> rows = accounts
+    .SortByDescending(static (_, state) => state.Balance)
+    .Slice(page.Map(static p => p * 20), Cell.Constant(20));
+
+page.Send(1);
+```
+
+There is no `Skip`, and the omission is deliberate rather than an oversight. This stage keeps
+its window current by diffing the old one against the new one rather than by translating the
+operations it is handed, which is what holds it to O(limit) per transaction and what makes a
+reorder inside the window report as removes and inserts rather than as moves. A skip has no
+limit, so the same strategy would materialize the whole remainder of the collection twice on
+every edit.
+
+Translating operations instead would bound that — an insert above the window pushes exactly one
+key into it, a remove above it pops exactly one out — so a `Skip` is implementable, and if you
+want one the argument to make is that it composes. What it cannot do is stop being a view whose
+size follows the collection, which is the one property this design exists to avoid. Paging wants
+both ends of the window anyway, and that is `Slice`.
 
 ## Measuring it
 

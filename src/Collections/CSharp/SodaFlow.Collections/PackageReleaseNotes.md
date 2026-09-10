@@ -28,10 +28,14 @@ method that mutates a live collection.
   ShapeCell          fires on count or key change only
   SnapshotCell       the whole store, on every change
 
-Views chain and stay incremental. Filter, SortBy, SortByDescending, SortByKey,
-Take and Switch each take an IReactiveCollection and return one, the way Where takes
-and returns an IEnumerable, and an item seen through two views is literally the
-same cell.
+Views chain and stay incremental. Filter, FilterById, SortBy, SortByDescending,
+SortById, SortByIdDescending, SortByKey, Take, Slice and Switch each take an
+IReactiveCollection and return one, the way Where takes and returns an
+IEnumerable, and an item seen through two views is literally the same cell.
+
+Slice(offset, limit) is the paging window, and Take is the case of it that
+starts at zero. There is no Skip: a window with both ends is bounded, which is
+what keeps the stage at O(limit) per transaction.
 
   collection.SortByDescending((_, s) => s.Balance)
             .Filter((_, s) => !s.IsFrozen)

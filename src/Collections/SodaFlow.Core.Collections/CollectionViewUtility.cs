@@ -187,11 +187,42 @@ internal static class CollectionViewUtility
         Cell<int> limitCell)
         where TKey : notnull
         where TId : notnull =>
+        SliceImpl(upstream, CellInternal.ConstantImpl(0), limitCell);
+
+    /// <summary>
+    ///     A window of <c>limit</c> keys starting at <c>offset</c> - the page of whatever ordering
+    ///     and filtering precedes it.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         This is the stage <see cref="TakeImpl{TKey,TId,TState}" /> is built from, a take
+    ///         being a window whose offset is zero.
+    ///     </para>
+    ///     <para>
+    ///         There is deliberately no skip. This stage diffs its old window against its new one
+    ///         rather than translating operations, which is what keeps it at O(limit) per
+    ///         transaction; a skip has no limit, so the same strategy would materialize the whole
+    ///         remainder of the collection twice per edit. Translating operations instead would
+    ///         bound it, at the cost of boundary logic - an insert above the window pushes one key
+    ///         into it, a remove above it pops one out - and a skip on its own yields a view whose
+    ///         size follows the collection, which is the property this design exists to avoid.
+    ///         Paging wants both halves anyway, and that is this.
+    ///     </para>
+    /// </remarks>
+    internal static IReactiveCollection<TKey, TId, TState> SliceImpl<TKey, TId, TState>(
+        IReactiveCollection<TKey, TId, TState> upstream,
+        Cell<int> offsetCell,
+        Cell<int> limitCell)
+        where TKey : notnull
+        where TId : notnull =>
         BuildStage(
             upstream,
-            limitCell,
-            static (limit, upstreamKeys, _) => new PrefixKeys<TKey, TId, TState>(upstreamKeys, limit),
-            static (limit, keys, change) => ProcessTake(limit, keys, change));
+            offsetCell.LiftImpl(
+                limitCell,
+                static (offset, limit) => (Offset: offset, Limit: limit)),
+            static (bounds, upstreamKeys, _) =>
+                new RangeKeys<TKey, TId, TState>(upstreamKeys, bounds.Offset, bounds.Limit),
+            static (bounds, keys, change) => ProcessSlice(bounds, keys, change));
 
     /// <summary>
     ///     Follows whichever view the cell currently holds — the way to switch between sorts whose
@@ -653,15 +684,15 @@ internal static class CollectionViewUtility
 
     // --- take ---------------------------------------------------------------------------------
 
-    private static StageOutcome<TKey, TId, TState> ProcessTake<TKey, TId, TState>(
-        int limit,
+    private static StageOutcome<TKey, TId, TState> ProcessSlice<TKey, TId, TState>(
+        (int Offset, int Limit) bounds,
         IEnumerable<TKey> state,
         CollectionViewChange<TKey, TId, TState> change)
         where TKey : notnull
         where TId : notnull
     {
         IOrderedKeys<TKey, TId, TState> keys =
-            new PrefixKeys<TKey, TId, TState>(change.Keys, limit);
+            new RangeKeys<TKey, TId, TState>(change.Keys, bounds.Offset, bounds.Limit);
 
         List<TKey> before = new(state);
         List<TKey> after = new(keys);

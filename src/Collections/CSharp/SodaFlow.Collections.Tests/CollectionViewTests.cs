@@ -425,6 +425,116 @@ public sealed class CollectionViewTests
     }
 
     [Test]
+    public async Task SliceWindowsTheMiddleOfTheUpstream()
+    {
+        StreamSink<CollectionEdit<int, ItemId, ItemState>> edits =
+            Stream.CreateSink<CollectionEdit<int, ItemId, ItemState>>();
+
+        ReactiveCollection<int, ItemId, ItemState> collection = Create(
+            edits,
+            TestUtil.Item(1, "one", 10),
+            TestUtil.Item(2, "two", 20),
+            TestUtil.Item(3, "three", 30),
+            TestUtil.Item(4, "four", 40),
+            TestUtil.Item(5, "five", 50));
+
+        IReactiveCollection<int, ItemId, ItemState> page = collection.Slice(1, 2);
+
+        await Assert.That(KeysOf(page)).IsEquivalentTo([2, 3]);
+
+        // Asserted by position as well as by content, because which keys land in the window is the
+        // whole of what an offset does and a set comparison would not see it move.
+        await Assert.That(KeysOf(page)[0]).IsEqualTo(2);
+        await Assert.That(KeysOf(page)[1]).IsEqualTo(3);
+
+        // A new key below the window shifts everything down one, so the window holds different
+        // items without its bounds having changed.
+        edits.Send(TestUtil.Add(TestUtil.Item(0, "zero", 5)));
+
+        await Assert.That(KeysOf(page)).IsEquivalentTo([1, 2]);
+    }
+
+    [Test]
+    public async Task SliceFollowsAChangingOffset()
+    {
+        StreamSink<CollectionEdit<int, ItemId, ItemState>> edits =
+            Stream.CreateSink<CollectionEdit<int, ItemId, ItemState>>();
+        CellSink<int> offset = Cell.CreateSink(0);
+
+        ReactiveCollection<int, ItemId, ItemState> collection = Create(
+            edits,
+            TestUtil.Item(1, "one", 10),
+            TestUtil.Item(2, "two", 20),
+            TestUtil.Item(3, "three", 30),
+            TestUtil.Item(4, "four", 40),
+            TestUtil.Item(5, "five", 50));
+
+        IReactiveCollection<int, ItemId, ItemState> page =
+            collection.Slice(offset, Cell.Constant(2));
+
+        await Assert.That(KeysOf(page)).IsEquivalentTo([1, 2]);
+
+        // Turning the page is one send.
+        offset.Send(2);
+
+        await Assert.That(KeysOf(page)).IsEquivalentTo([3, 4]);
+
+        // The last page is short rather than padded, and an offset past the end is empty rather
+        // than an error.
+        offset.Send(4);
+
+        await Assert.That(KeysOf(page)).IsEquivalentTo([5]);
+
+        offset.Send(99);
+
+        await Assert.That(KeysOf(page)).IsEmpty();
+    }
+
+    [Test]
+    public async Task SliceComposesWithASortAbove()
+    {
+        StreamSink<CollectionEdit<int, ItemId, ItemState>> edits =
+            Stream.CreateSink<CollectionEdit<int, ItemId, ItemState>>();
+
+        ReactiveCollection<int, ItemId, ItemState> collection = Create(
+            edits,
+            TestUtil.Item(1, "one", 10),
+            TestUtil.Item(2, "two", 20),
+            TestUtil.Item(3, "three", 30),
+            TestUtil.Item(4, "four", 40));
+
+        // Scores descending are 4, 3, 2, 1 - so the second page of two is keys 2 and 1.
+        IReactiveCollection<int, ItemId, ItemState> page = collection
+            .SortByDescending(static (_, state) => state.Score)
+            .Slice(2, 2);
+
+        await Assert.That(KeysOf(page)[0]).IsEqualTo(2);
+        await Assert.That(KeysOf(page)[1]).IsEqualTo(1);
+    }
+
+    [Test]
+    public async Task TakeIsASliceFromZero()
+    {
+        StreamSink<CollectionEdit<int, ItemId, ItemState>> edits =
+            Stream.CreateSink<CollectionEdit<int, ItemId, ItemState>>();
+
+        ReactiveCollection<int, ItemId, ItemState> collection = Create(
+            edits,
+            TestUtil.Item(1, "one", 10),
+            TestUtil.Item(2, "two", 20),
+            TestUtil.Item(3, "three", 30));
+
+        IReactiveCollection<int, ItemId, ItemState> taken = collection.Take(2);
+        IReactiveCollection<int, ItemId, ItemState> sliced = collection.Slice(0, 2);
+
+        await Assert.That(KeysOf(sliced)).IsEquivalentTo(KeysOf(taken));
+
+        edits.Send(TestUtil.Add(TestUtil.Item(0, "zero", 5)));
+
+        await Assert.That(KeysOf(sliced)).IsEquivalentTo(KeysOf(taken));
+    }
+
+    [Test]
     public async Task AChainRunsInTheOrderItIsWritten()
     {
         StreamSink<CollectionEdit<int, ItemId, ItemState>> edits =
