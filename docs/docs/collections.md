@@ -603,12 +603,14 @@ all fires nothing.
 ## Optionality
 
 Never null, and each language gets its own optional type. In C# that is `Maybe<T>` —
-`StateCell`, `IdentityCell`, `snapshot.Lookup`, `states.Lookup` and `IndexOfMaybe` all answer
+`StateCell`, `IdentityCell`, `snapshot.Lookup`, `states.Lookup` and `IndexOf` all answer
 with one. See [Maybe, Either and Unit](functional.md). In F# it is `option`.
 
 That works because `SodaFlow.Collections.Core` has no optional type of its own. It answers in
-`TryGetItem`, `TryGetState`, `TryGetNewState` and an `IndexOf` returning `-1`, and each
-language surface puts its own optional type back on top. It is the same reason
+`TryGetItem`, `TryGetState`, `TryGetNewState` and an internal index lookup returning `-1`, and
+each language surface puts its own optional type back on top. The sentinel does not escape:
+the only `IndexOf` either surface exposes is the one answering `Maybe<int>` or `int option`. It
+is the same reason
 `SodaFlow.FSharp` does not depend on `SodaFlow.Functional`, applied one layer down: nothing
 that installs the F# collections package acquires `Maybe<T>` it has no use for.
 

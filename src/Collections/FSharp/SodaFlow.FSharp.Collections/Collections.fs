@@ -211,12 +211,13 @@ let changeFor (key: 'TKey) (change: ItemChange<'TKey, 'TIdentity, 'TState>) =
 /// <param name="keys">The ordered set to look in.</param>
 /// <returns>Its position, or <c>None</c> if the key is absent.</returns>
 /// <remarks>
-///     <c>IOrderedKeys.IndexOf</c> itself answers -1, following the convention every other
-///     <c>IndexOf</c> in the framework does. This is the same question asked the F# way.
+///     The core answers -1 for an absent key, following the convention every other
+///     <c>IndexOf</c> in the framework does, and keeps that answer to itself. This is the only
+///     <c>IndexOf</c> the F# API exposes, and it answers the F# way.
 /// </remarks>
 [<MethodImpl(MethodImplOptions.NoInlining)>]
 let indexOf (key: 'TKey) (keys: OrderedKeys<'TKey, 'TIdentity, 'TState>) =
-    match keys.IndexOf key with
+    match keys.IndexOfInternal key with
     | index when index >= 0 -> Some index
     | _ -> None
 

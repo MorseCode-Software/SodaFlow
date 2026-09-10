@@ -71,8 +71,8 @@ it and can be used on its own. F# already has `option`, `Result` and `unit`, whi
 ## Where optionality lives in the collections packages
 
 `SodaFlow.Collections.Core` has no optional type of its own, and depends on neither
-`SodaFlow.Functional` nor anything else beyond `SodaFlow.Core`. It answers in `TryGetEntry`,
-`TryGetState`, `TryGetNewState` and an `IndexOf` returning `-1`.
+`SodaFlow.Functional` nor anything else beyond `SodaFlow.Core`. It answers in `TryGetItem`,
+`TryGetState`, `TryGetNewState` and an internal index lookup returning `-1`.
 
 Each language surface puts its own optional type back on top: `SodaFlow.Collections` adds
 `Maybe<T>`, and `SodaFlow.FSharp.Collections` adds `option`. That is the rule two paragraphs

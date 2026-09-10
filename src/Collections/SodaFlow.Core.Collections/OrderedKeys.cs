@@ -113,9 +113,12 @@ public abstract class OrderedKeys<TKey, TIdentity, TState> : IReadOnlyList<TKey>
     /// <remarks>
     ///     -1 rather than an optional value, both because this assembly does not reference
     ///     SodaFlow.Functional and because it is the convention every <c>IndexOf</c> in the
-    ///     framework already follows.
+    ///     framework already follows. Internal because that sentinel is an arrangement between
+    ///     this assembly and the language surfaces rather than something a caller should have to
+    ///     know: each surface exposes an <c>IndexOf</c> of its own answering with that language's
+    ///     optional type.
     /// </remarks>
-    public abstract int IndexOf(TKey key);
+    internal abstract int IndexOfInternal(TKey key);
 
     /// <summary>
     ///     Files the key under the sort value it projects from <paramref name="snapshot" />. A key
@@ -391,7 +394,7 @@ internal sealed class SortedKeys<TKey, TIdentity, TState, TSortKey> : OrderedKey
     ///     returning -1 for it would report a broken set as an ordinary absence and leave a stage
     ///     quietly filing keys into something that no longer describes itself.
     /// </remarks>
-    public override int IndexOf(TKey key)
+    internal override int IndexOfInternal(TKey key)
     {
         if (!this.byKey.TryGet(key, out SortedEntry<TKey, TSortKey> entry))
         {
@@ -482,11 +485,11 @@ internal sealed class RangeKeys<TKey, TIdentity, TState> : OrderedKeys<TKey, TId
         ? this.source[index + this.offset]
         : throw new ArgumentOutOfRangeException(nameof(index));
 
-    public override bool Contains(TKey key) => this.IndexOf(key) >= 0;
+    public override bool Contains(TKey key) => this.IndexOfInternal(key) >= 0;
 
-    public override int IndexOf(TKey key)
+    internal override int IndexOfInternal(TKey key)
     {
-        int index = this.source.IndexOf(key);
+        int index = this.source.IndexOfInternal(key);
 
         if (index < this.offset)
         {

@@ -420,7 +420,7 @@ internal static class CollectionViewUtility
 
         foreach (TKey key in change.Removed)
         {
-            int index = keys.IndexOf(key);
+            int index = keys.IndexOfInternal(key);
 
             if (index >= 0)
             {
@@ -435,7 +435,7 @@ internal static class CollectionViewUtility
             {
                 keys = keys.Add(key, change.After);
 
-                int index = keys.IndexOf(key);
+                int index = keys.IndexOfInternal(key);
 
                 if (index >= 0)
                 {
@@ -447,7 +447,7 @@ internal static class CollectionViewUtility
                 // The root orders by key, and a key cannot change, so an update never moves
                 // anything here. It still has to be reported: a stage further down may sort or
                 // filter on the state that just changed.
-                int index = keys.IndexOf(key);
+                int index = keys.IndexOfInternal(key);
 
                 if (index >= 0)
                 {
@@ -529,7 +529,7 @@ internal static class CollectionViewUtility
 
                     keys = keys.Add(insert.Key, change.After);
 
-                    int inserted = keys.IndexOf(insert.Key);
+                    int inserted = keys.IndexOfInternal(insert.Key);
 
                     if (inserted >= 0)
                     {
@@ -541,7 +541,7 @@ internal static class CollectionViewUtility
 
                 case ViewRemove<TKey> remove:
                 {
-                    int removed = keys.IndexOf(remove.Key);
+                    int removed = keys.IndexOfInternal(remove.Key);
 
                     if (removed >= 0)
                     {
@@ -554,7 +554,7 @@ internal static class CollectionViewUtility
 
                 case ViewUpdate<TKey> update:
                 {
-                    int updated = keys.IndexOf(update.Key);
+                    int updated = keys.IndexOfInternal(update.Key);
 
                     if (updated >= 0)
                     {
@@ -615,7 +615,7 @@ internal static class CollectionViewUtility
 
             keys = keys.Add(key, change.After);
 
-            int index = keys.IndexOf(key);
+            int index = keys.IndexOfInternal(key);
 
             if (index >= 0)
             {
@@ -625,7 +625,7 @@ internal static class CollectionViewUtility
 
         void Exclude(TKey key)
         {
-            int index = keys.IndexOf(key);
+            int index = keys.IndexOfInternal(key);
 
             if (index >= 0)
             {
@@ -687,7 +687,7 @@ internal static class CollectionViewUtility
                 {
                     keys = keys.Add(insert.Key, change.After);
 
-                    int index = keys.IndexOf(insert.Key);
+                    int index = keys.IndexOfInternal(insert.Key);
 
                     if (index >= 0)
                     {
@@ -699,7 +699,7 @@ internal static class CollectionViewUtility
 
                 case ViewRemove<TKey> remove:
                 {
-                    int index = keys.IndexOf(remove.Key);
+                    int index = keys.IndexOfInternal(remove.Key);
 
                     if (index >= 0)
                     {
@@ -867,7 +867,7 @@ internal static class CollectionViewUtility
     {
         if (!keys.Order.DependsOnState && snapshot.ContainsKey(key))
         {
-            int at = keys.IndexOf(key);
+            int at = keys.IndexOfInternal(key);
 
             if (at >= 0)
             {
@@ -877,10 +877,10 @@ internal static class CollectionViewUtility
             return;
         }
 
-        int fromIndex = keys.IndexOf(key);
+        int fromIndex = keys.IndexOfInternal(key);
 
         OrderedKeys<TKey, TIdentity, TState> updated = keys.Remove(key).Add(key, snapshot);
-        int toIndex = updated.IndexOf(key);
+        int toIndex = updated.IndexOfInternal(key);
 
         keys = updated;
 

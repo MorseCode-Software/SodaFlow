@@ -162,8 +162,8 @@ public sealed class PerItemCellTests
 
         OrderedKeys<int, ItemIdentity, ItemState> keys = collection.KeysCell.Sample();
 
-        await Assert.That(keys.IndexOfMaybe(2).Match(static i => i, static () => -1)).IsEqualTo(1);
-        await Assert.That(keys.IndexOfMaybe(9).Match(static _ => "some", static () => "none"))
+        await Assert.That(keys.IndexOf(2).Match(static i => i, static () => -1)).IsEqualTo(1);
+        await Assert.That(keys.IndexOf(9).Match(static _ => "some", static () => "none"))
             .IsEqualTo("none");
     }
 }

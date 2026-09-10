@@ -94,8 +94,8 @@ public sealed class OrderedKeysTests
             .Add(3, snapshot);
 
         await Assert.That(TestUtil.Keys(keys)).IsEquivalentTo([2, 3, 1]);
-        await Assert.That(keys.IndexOf(1)).IsEqualTo(2);
-        await Assert.That(keys.IndexOf(99)).IsEqualTo(-1);
+        await Assert.That(keys.IndexOfInternal(1)).IsEqualTo(2);
+        await Assert.That(keys.IndexOfInternal(99)).IsEqualTo(-1);
         await Assert.That(keys.Contains(3)).IsTrue();
         await Assert.That(keys[0]).IsEqualTo(2);
     }
@@ -167,7 +167,7 @@ public sealed class OrderedKeysTests
 
         // Including the key the snapshot does not have, which neither path files.
         await Assert.That(inBulk.Contains(99)).IsFalse();
-        await Assert.That(inBulk.IndexOf(3)).IsEqualTo(1);
+        await Assert.That(inBulk.IndexOfInternal(3)).IsEqualTo(1);
     }
 
     [Test]
@@ -267,7 +267,7 @@ public sealed class OrderedKeysTests
 
             // IndexOf reads the map and then the ordering, so agreeing with the position the
             // enumeration gave is the two of them agreeing.
-            await Assert.That(keys.IndexOf(key)).IsEqualTo(index);
+            await Assert.That(keys.IndexOfInternal(key)).IsEqualTo(index);
             await Assert.That(keys.Contains(key)).IsTrue();
             await Assert.That(keys[index]).IsEqualTo(key);
         }

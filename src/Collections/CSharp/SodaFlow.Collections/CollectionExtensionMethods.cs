@@ -145,19 +145,19 @@ public static class CollectionExtensionMethods
     /// <param name="key">The key to look for.</param>
     /// <returns>Its position, or no value if the key is absent.</returns>
     /// <remarks>
-    ///     <see cref="OrderedKeys{TKey,TIdentity,TState}.IndexOf" /> itself answers -1, following the
-    ///     convention every other <c>IndexOf</c> in the framework does. This is the same question
-    ///     asked the way the rest of the C# API answers.
+    ///     The core answers -1 for an absent key, following the convention every other
+    ///     <c>IndexOf</c> in the framework does, and keeps that answer to itself. This is the only
+    ///     <c>IndexOf</c> the C# API exposes, and it answers the way the rest of the C# API does.
     /// </remarks>
     [Pure]
     [MethodImpl(MethodImplOptions.NoInlining)]
-    public static Maybe<int> IndexOfMaybe<TKey, TIdentity, TState>(
+    public static Maybe<int> IndexOf<TKey, TIdentity, TState>(
         this OrderedKeys<TKey, TIdentity, TState> keys,
         TKey key)
         where TKey : notnull
         where TIdentity : notnull
     {
-        int index = keys.IndexOf(key);
+        int index = keys.IndexOfInternal(key);
 
         return index >= 0 ? Maybe.Some(index) : Maybe<int>.None;
     }
