@@ -23,7 +23,9 @@ Everything that can change the collection is declared at construction. Create
 takes the initial contents and every edit stream; there is no Send, no sink, no
 method that mutates a live collection.
 
-  StateCell(key)      one item, no value while the key is absent
+  StateCell(key)      one item, no value while the collection you asked
+                      does not hold it - so a filtered view answers for
+                      itself, at the same cost as asking the collection
   IdentityCell(key)   its immutable half, moving only on structural change
   ShapeCell           fires on count or key change only
   SnapshotCell        the whole store, on every change

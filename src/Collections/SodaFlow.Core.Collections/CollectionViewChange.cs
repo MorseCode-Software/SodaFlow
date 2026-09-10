@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using JetBrains.Annotations;
 
@@ -72,6 +73,67 @@ public sealed class CollectionViewChange<TKey, TIdentity, TState>
     ///     wholesale.
     /// </summary>
     public bool IsReset { get; }
+
+    /// <summary>
+    ///     What this change means for one key, or nothing if it means nothing for it.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         The view equivalent of the root's per-item projection, and the reason a view's
+    ///         per-item cell can hang off this stream rather than being lifted against the view's
+    ///         keys. An observer built this way is a stream node that filters itself out when the
+    ///         change did not touch its key; one built by lifting is a cell node the propagation
+    ///         walks whenever the view moves at all, which measured about four times the cost.
+    ///     </para>
+    ///     <para>
+    ///         A move carries a position and no value, and a re-file pairs one with an update, so
+    ///         the update is what answers and the move is skipped. A reset carries no operations at
+    ///         all - every position may differ - so the answer is recomputed from the store, but
+    ///         only for a key one side or the other holds.
+    ///     </para>
+    /// </remarks>
+    internal MaybeInternal<TProjected> ProjectChangeFor<TProjected>(
+        TKey key,
+        Func<TState, TProjected> onPresent,
+        Func<TProjected> onAbsent)
+    {
+        if (this.IsReset)
+        {
+            return this.Before.ContainsKey(key) || this.After.ContainsKey(key)
+                ? this.Project(key, onPresent, onAbsent)
+                : MaybeInternal<TProjected>.None;
+        }
+
+        // Indexed rather than enumerated. Operations is an interface-typed list, so a foreach
+        // boxes an enumerator - once per observer per change, which is exactly the traffic this
+        // method exists to keep cheap. A LINQ query would box one too.
+        // ReSharper disable once ForCanBeConvertedToForeach
+        // ReSharper disable once LoopCanBeConvertedToQuery
+        for (int index = 0; index < this.Operations.Count; index++)
+        {
+            ViewOperation<TKey> operation = this.Operations[index];
+
+            if (operation is ViewMove<TKey> ||
+                !EqualityComparer<TKey>.Default.Equals(operation.Key, key))
+            {
+                continue;
+            }
+
+            return this.Project(key, onPresent, onAbsent);
+        }
+
+        return MaybeInternal<TProjected>.None;
+    }
+
+    /// <summary>The key's value as this change left it, or its absence.</summary>
+    private MaybeInternal<TProjected> Project<TProjected>(
+        TKey key,
+        Func<TState, TProjected> onPresent,
+        Func<TProjected> onAbsent) =>
+        MaybeInternal.Some(
+            this.After.TryGetHalves(key, out TIdentity _, out TState state)
+                ? onPresent(state)
+                : onAbsent());
 }
 
 /// <summary>One change to a view's key list.</summary>

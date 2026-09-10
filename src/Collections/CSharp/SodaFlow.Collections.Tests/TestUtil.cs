@@ -24,5 +24,9 @@ internal static class TestUtil
     internal static CollectionEdit<int, ItemIdentity, ItemState> Score(int key, int score) =>
         CollectionEdit<int, ItemIdentity, ItemState>.Update(key, state => state with { Score = score });
 
+    /// <summary>An edit that leaves the sort value alone, so nothing can move because of it.</summary>
+    internal static CollectionEdit<int, ItemIdentity, ItemState> Rename(int key, string name) =>
+        CollectionEdit<int, ItemIdentity, ItemState>.Update(key, state => state with { Name = name });
+
     internal static List<int> Keys(IEnumerable<int> keys) => [.. keys];
 }

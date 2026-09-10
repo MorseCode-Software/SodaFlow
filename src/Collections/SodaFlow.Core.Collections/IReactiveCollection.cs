@@ -1,3 +1,4 @@
+using System;
 using JetBrains.Annotations;
 
 namespace SodaFlow.Collections;
@@ -84,4 +85,23 @@ internal interface IReactiveCollectionInternal<TKey, TIdentity, TState>
 {
     /// <summary>The collection that owns the store. A root's own is itself.</summary>
     ReactiveCollection<TKey, TIdentity, TState> Root { get; }
+
+    /// <summary>
+    ///     A cell tracking one item's mutable portion as this collection sees it, shaped by the
+    ///     projection the language wrapper supplies.
+    /// </summary>
+    /// <remarks>
+    ///     On the root this answers for the store. On a view it answers for the view: no value while
+    ///     the view does not hold the key. That is why it is here rather than being reached through
+    ///     <see cref="Root" /> - a view's per-item cell is the view's, not the collection's.
+    /// </remarks>
+    /// <typeparam name="TProjected">What the wrapper asked the cell to hold.</typeparam>
+    /// <param name="key">The key to observe.</param>
+    /// <param name="onPresent">Projects the value the cell holds while the key is there.</param>
+    /// <param name="onAbsent">Projects the value it holds while the key is not.</param>
+    /// <returns>The cell.</returns>
+    Cell<TProjected> StateCellImpl<TProjected>(
+        TKey key,
+        Func<TState, TProjected> onPresent,
+        Func<TProjected> onAbsent);
 }

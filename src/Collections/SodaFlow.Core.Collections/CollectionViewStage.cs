@@ -16,6 +16,12 @@ internal sealed class CollectionViewStage<TKey, TIdentity, TState>
 {
     private readonly IReactiveCollection<TKey, TIdentity, TState> source;
 
+    /// <summary>One per-key cell cache per projected type, as the root keeps.</summary>
+    private readonly Dictionary<Type, object> projectedCaches = new();
+
+    /// <summary>A plain object, for the reason the root's gate is one.</summary>
+    private readonly object cacheGate = new();
+
     /// <summary>
     ///     Built on first use, because a stage that nobody asks for a snapshot should not pay for
     ///     one.
@@ -48,6 +54,78 @@ internal sealed class CollectionViewStage<TKey, TIdentity, TState>
     public Stream<CollectionViewChange<TKey, TIdentity, TState>> KeyChangesStream { get; }
 
     public Cell<CollectionSnapshot<TKey, TIdentity, TState>> SnapshotCell => this.snapshotCell.Value;
+
+    /// <inheritdoc />
+    /// <remarks>
+    ///     <para>
+    ///         Hung off this stage's own change stream, which is what makes it affordable. The
+    ///         alternative - the collection's cell lifted against this view's keys - puts a cell node
+    ///         per observer in the view's propagation path, and every one of them is walked whenever
+    ///         the view moves at all, including a reorder that touched nobody's key. Measured at
+    ///         twenty observers that cost about four times an ordinary edit, and roughly three times
+    ///         even with the membership held per key and calmed. This filters itself out instead: a
+    ///         change that named no operation for this key yields nothing and propagates no further.
+    ///     </para>
+    ///     <para>
+    ///         Cached weakly per key and per projected type, as the root's are, so observers of one
+    ///         key through one view share a node - and two views of the same key are two cells,
+    ///         because they are two answers.
+    ///     </para>
+    /// </remarks>
+    Cell<TProjected> IReactiveCollectionInternal<TKey, TIdentity, TState>.StateCellImpl<TProjected>(
+        TKey key,
+        Func<TState, TProjected> onPresent,
+        Func<TProjected> onAbsent)
+    {
+        lock (this.cacheGate)
+        {
+            ProjectedCellCache<TKey, TProjected> cache = this.CacheFor<TProjected>();
+
+            return cache.Get(key) ?? this.CreateStateCell(cache, key, onPresent, onAbsent);
+        }
+    }
+
+    /// <summary>The cache for one projected type, created the first time that type is asked for.</summary>
+    /// <remarks>The cast is sound for the reason it is sound on the root: see its <c>CacheFor</c>.</remarks>
+    private ProjectedCellCache<TKey, TProjected> CacheFor<TProjected>()
+    {
+        if (this.projectedCaches.TryGetValue(typeof(TProjected), out object? existing))
+        {
+            return (ProjectedCellCache<TKey, TProjected>)existing;
+        }
+
+        ProjectedCellCache<TKey, TProjected> created = new();
+        this.projectedCaches[typeof(TProjected)] = created;
+
+        return created;
+    }
+
+    private Cell<TProjected> CreateStateCell<TProjected>(
+        ProjectedCellCache<TKey, TProjected> cache,
+        TKey key,
+        Func<TState, TProjected> onPresent,
+        Func<TProjected> onAbsent)
+    {
+        // This stage's keys and the store, rather than this stage's snapshot. Seeding from
+        // SnapshotCell would read better and would force the lazy scoped cell of this stage and
+        // every stage above it - the node that measured about a fifth of an edit and was deferred
+        // for it. Membership comes from the keys, the value from the store, and neither is new.
+        ReactiveCollection<TKey, TIdentity, TState> root = this.source.RootOf();
+
+        Cell<TProjected> stateCell = TransactionInternal.RunImpl(() =>
+            this.KeyChangesStream
+                .MapImpl(change => change.ProjectChangeFor(key, onPresent, onAbsent))
+                .FilterSomeInternal()
+                .HoldLazyImpl(this.KeysCell.SampleLazyImpl().MapImpl(
+                    keys => keys.Contains(key) &&
+                        root.SnapshotCell.SampleImpl().States.TryGetState(key, out TState state)
+                            ? onPresent(state)
+                            : onAbsent())));
+
+        cache.Set(key, stateCell);
+
+        return stateCell;
+    }
 
     ReactiveCollection<TKey, TIdentity, TState>
         IReactiveCollectionInternal<TKey, TIdentity, TState>.Root => this.source.RootOf();

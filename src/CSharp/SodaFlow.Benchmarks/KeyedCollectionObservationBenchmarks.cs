@@ -45,6 +45,9 @@ public class KeyedCollectionObservationBenchmarks
     private ObservationShape viewScopedPerKey =
         ObservationShape.Build(ObservationShape.ObserverCount, ObservationStyle.ViewScopedPerKey);
 
+    private ObservationShape viewNative =
+        ObservationShape.Build(ObservationShape.ObserverCount, ObservationStyle.ViewNative);
+
     private int editCount;
 
     /// <summary>How many items the collection holds.</summary>
@@ -62,6 +65,7 @@ public class KeyedCollectionObservationBenchmarks
         this.viewScoped = ObservationShape.Build(this.ItemCount, ObservationStyle.ViewScoped);
         this.viewScopedPerKey =
             ObservationShape.Build(this.ItemCount, ObservationStyle.ViewScopedPerKey);
+        this.viewNative = ObservationShape.Build(this.ItemCount, ObservationStyle.ViewNative);
     }
 
     /// <summary>An edit to a watched item, observed on the collection.</summary>
@@ -83,6 +87,10 @@ public class KeyedCollectionObservationBenchmarks
     [Benchmark(Description = "edit a watched item, observed with membership per key")]
     public void EditWatchedViewScopedPerKey() =>
         this.viewScopedPerKey.Replace(this.WatchedKey, this.NextState());
+
+    /// <summary>The same again, through the view's own cell, which is what the library builds.</summary>
+    [Benchmark(Description = "edit a watched item, observed by the view itself")]
+    public void EditWatchedViewNative() => this.viewNative.Replace(this.WatchedKey, this.NextState());
 
     /// <summary>
     ///     An edit to an item in the view that nobody watches. Observers bound to their own items
@@ -108,6 +116,15 @@ public class KeyedCollectionObservationBenchmarks
     [Benchmark(Description = "edit an unwatched item, observed with membership per key")]
     public void EditUnwatchedViewScopedPerKey() =>
         this.viewScopedPerKey.Replace(ObservationShape.UnobservedKeyInView, this.NextState());
+
+    /// <summary>
+    ///     The edit the whole exercise is about: nobody watches this item and nobody's membership
+    ///     moves, so an observer that filters itself out of a change naming another key should cost
+    ///     what observing the collection costs.
+    /// </summary>
+    [Benchmark(Description = "edit an unwatched item, observed by the view itself")]
+    public void EditUnwatchedViewNative() =>
+        this.viewNative.Replace(ObservationShape.UnobservedKeyInView, this.NextState());
 
     /// <summary>A key an observer is bound to, and which the filter keeps.</summary>
     private int WatchedKey => ObservationShape.ObservedKeys(this.ItemCount)[0];

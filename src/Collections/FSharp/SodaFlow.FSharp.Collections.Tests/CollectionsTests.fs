@@ -240,7 +240,7 @@ type ``Collections Tests``() =
         }
 
     [<Test>]
-    member _.``a view shares the store with its root``() =
+    member _.``a view answers for itself, not for the store behind it``() =
         task {
             let edits = sinkS<CollectionEdit<int, ItemIdentity, ItemState>> ()
 
@@ -249,12 +249,18 @@ type ``Collections Tests``() =
 
             let passing = collection |> filter (fun _ state -> state.Score >= 20)
 
-            do! Expect.Same(collection |> stateCell 1, passing |> stateCell 1)
             do! Expect.False((passing |> keysCell |> sampleC).Contains 1)
 
-            // The store answers for a key the view filtered out, which is the seam the unification
-            // leaves; membership questions belong to the keys.
+            // The view has no value for a key it does not hold; the collection still does. This
+            // asserted that they were the same cell until a view became a collection in its own
+            // right.
+            do! Expect.Equal(None, passing |> stateCell 1 |> sampleC |> Option.map (fun s -> s.Name))
+
             do! Expect.Equal(
                     Some "one",
                     collection |> stateCell 1 |> sampleC |> Option.map (fun s -> s.Name))
+
+            // Sharing still falls out of never copying, within the one view where it means
+            // something.
+            do! Expect.Same(passing |> stateCell 2, passing |> stateCell 2)
         }

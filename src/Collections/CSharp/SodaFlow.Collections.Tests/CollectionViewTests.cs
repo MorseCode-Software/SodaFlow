@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using SodaFlow.Functional;
 using TUnit.Assertions;
 using TUnit.Assertions.Extensions;
 using TUnit.Core;
@@ -562,7 +563,7 @@ public sealed class CollectionViewTests
     }
 
     [Test]
-    public async Task AViewSharesTheStoreWithItsRoot()
+    public async Task AViewsItemCellAnswersForTheView()
     {
         StreamSink<CollectionEdit<int, ItemIdentity, ItemState>> edits =
             Stream.CreateSink<CollectionEdit<int, ItemIdentity, ItemState>>();
@@ -575,14 +576,55 @@ public sealed class CollectionViewTests
         IReactiveCollection<int, ItemIdentity, ItemState> passing =
             collection.Filter(static (_, state) => state.Score >= 20);
 
-        // The same cell, not an equal one: sharing is what falls out of a view never copying.
-        await Assert.That(passing.StateCell(1)).IsSameReferenceAs(collection.StateCell(1));
+        // Two answers, so two cells. This asserted the opposite until a view became a collection
+        // rather than a window onto one.
+        await Assert.That(passing.StateCell(1)).IsNotSameReferenceAs(collection.StateCell(1));
 
-        // And it answers for the store rather than for membership, so a key the view filtered out
-        // still has its state.
+        // The view has no value for a key it does not hold; the collection still does.
         await Assert.That(passing.StateCell(1).Sample().Match(static s => s.Name, static () => "none"))
+            .IsEqualTo("none");
+        await Assert.That(collection.StateCell(1).Sample().Match(static s => s.Name, static () => "none"))
             .IsEqualTo("one");
         await Assert.That(passing.KeysCell.Sample().Contains(1)).IsFalse();
+
+        // Sharing still falls out of never copying - within one view, which is where it means
+        // something.
+        await Assert.That(passing.StateCell(2)).IsSameReferenceAs(passing.StateCell(2));
+    }
+
+    [Test]
+    public async Task AViewsItemCellFollowsTheKeyInAndOutOfTheView()
+    {
+        StreamSink<CollectionEdit<int, ItemIdentity, ItemState>> edits =
+            Stream.CreateSink<CollectionEdit<int, ItemIdentity, ItemState>>();
+
+        ReactiveCollection<int, ItemIdentity, ItemState> collection = Create(
+            edits,
+            TestUtil.Item(1, "one", 10),
+            TestUtil.Item(2, "two", 20));
+
+        IReactiveCollection<int, ItemIdentity, ItemState> passing =
+            collection.Filter(static (_, state) => state.Score >= 20);
+
+        Cell<Maybe<ItemState>> cell = passing.StateCell(1);
+
+        await Assert.That(cell.Sample().Match(static s => s.Name, static () => "none")).IsEqualTo("none");
+
+        // Scoring it into the view gives the cell a value.
+        edits.Send(TestUtil.Score(1, 99));
+
+        await Assert.That(cell.Sample().Match(static s => s.Name, static () => "none")).IsEqualTo("one");
+
+        // A later edit while it is in the view reaches the cell.
+        edits.Send(TestUtil.Rename(1, "renamed"));
+
+        await Assert.That(cell.Sample().Match(static s => s.Name, static () => "none"))
+            .IsEqualTo("renamed");
+
+        // And scoring it back out takes the value away again.
+        edits.Send(TestUtil.Score(1, 1));
+
+        await Assert.That(cell.Sample().Match(static s => s.Name, static () => "none")).IsEqualTo("none");
     }
 
     [Test]

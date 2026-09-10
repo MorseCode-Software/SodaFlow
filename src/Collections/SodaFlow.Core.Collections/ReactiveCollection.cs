@@ -192,12 +192,10 @@ public sealed class ReactiveCollection<TKey, TIdentity, TState>
         });
     }
 
-    /// <summary>
-    ///     A cell tracking one item's mutable portion, shaped by the projection the language
-    ///     wrapper supplies. Cheap enough to create per bound view: it filters on a single hash
-    ///     lookup and never touches the rest of the collection.
-    /// </summary>
+    /// <inheritdoc />
     /// <remarks>
+    ///     Cheap enough to create per bound view: it filters on a single hash lookup and never
+    ///     touches the rest of the collection.
     ///     The key need not exist yet. Removal fires <paramref name="onAbsent" /> and a later add
     ///     under the same key fires <paramref name="onPresent" /> again, so a view bound to a key
     ///     can outlive the item.
@@ -205,7 +203,7 @@ public sealed class ReactiveCollection<TKey, TIdentity, TState>
     ///     when the last observer does. Two projections of the same key are two cells, which is
     ///     what keeps the C# and F# surfaces from handing each other the wrong one.
     /// </remarks>
-    internal Cell<TProjected> StateCellImpl<TProjected>(
+    Cell<TProjected> IReactiveCollectionInternal<TKey, TIdentity, TState>.StateCellImpl<TProjected>(
         TKey key,
         Func<TState, TProjected> onPresent,
         Func<TProjected> onAbsent)

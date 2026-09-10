@@ -49,7 +49,7 @@ public static class CollectionExtensionMethods
         TKey key)
         where TKey : notnull
         where TIdentity : notnull =>
-        collection.RootOf().StateCellImpl(
+        collection.AsInternal().StateCellImpl(
             key,
             static state => Maybe.Some(state),
             static () => Maybe<TState>.None);

@@ -43,6 +43,17 @@ internal enum ObservationStyle
     ///     is how much of that cost was the idea and how much was the writing.
     /// </remarks>
     ViewScopedPerKey,
+
+    /// <summary>
+    ///     Through a filtered view, using what the library now does: the view's own per-item cell,
+    ///     hung off the view's change stream rather than lifted against its keys.
+    /// </summary>
+    /// <remarks>
+    ///     This is <see cref="ThroughView" /> after the change, and the two are the same call - the
+    ///     difference is what the library builds behind it. Both are kept because the pair is the
+    ///     before and after.
+    /// </remarks>
+    ViewNative,
 }
 
 /// <summary>
@@ -111,11 +122,15 @@ internal sealed class ObservationShape
                 .FilterByIdentity(static identity => Passes(identity))
                 .SortByDescending(static (_, state) => state.Score);
 
-            List<IListener> listeners = [.. ObservedKeys(itemCount).Select(key => Observe(
-                collection,
-                view,
-                key,
-                style))];
+            // The view is listened to whatever the style, because otherwise the arm observing the
+            // collection would measure a chain nobody had asked to run and the arms would not be
+            // comparable. What differs between them is where the per-item observers are bound, not
+            // whether the view is alive.
+            List<IListener> listeners =
+            [
+                .. ObservedKeys(itemCount).Select(key => Observe(collection, view, key, style)),
+                view.KeyChangesStream.ListenStrong(static _ => { }),
+            ];
 
             return new ObservationShape(edits, listeners);
         });
@@ -179,11 +194,11 @@ internal sealed class ObservationShape
             IReactiveCollection<int, ItemIdentity, ItemState> view =
                 collection.FilterByIdentity(static identity => Passes(identity));
 
-            if (!ReferenceEquals(collection.StateCell(0), view.StateCell(0)))
+            if (ReferenceEquals(collection.StateCell(0), view.StateCell(0)))
             {
                 throw new InvalidOperationException(
-                    "Observing through a view is no longer the collection's own cell, so the arm "
-                    + "that assumes it is now measures something else and should be re-read.");
+                    "Observing through a view is the collection's own cell again, so the view-scoped "
+                    + "arms are measuring the collection and mean nothing.");
             }
         });
     }
@@ -200,7 +215,7 @@ internal sealed class ObservationShape
         Cell<Maybe<ItemState>> cell = style switch
         {
             ObservationStyle.OnRoot => collection.StateCell(key),
-            ObservationStyle.ThroughView => view.StateCell(key),
+            ObservationStyle.ThroughView or ObservationStyle.ViewNative => view.StateCell(key),
 
             // The shape view-scoping would produce: the collection's cell, and nothing for a key
             // this view does not hold. Lifting against KeysCell is the natural way to write it,

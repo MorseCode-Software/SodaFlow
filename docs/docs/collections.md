@@ -83,7 +83,7 @@ which is where you wanted it.
 
 | You want | You read | It fires |
 | --- | --- | --- |
-| One item's state | `StateCell(key)` | When that key changes |
+| One item's state | `StateCell(key)` | When that key changes, in the collection you asked |
 | One item's identity | `IdentityCell(key)` | Only on structural change |
 | What this collection holds | `SnapshotCell` | On every change |
 | Count or key changes | `ShapeCell` | Only on structural change, root only |
@@ -161,17 +161,21 @@ IReactiveCollection<Guid, AccountId, AccountState> topTen = accounts
 | `Slice` | An offset and a count, or a `Cell<int>` for either — see below |
 | `Switch` | Follows whichever view a cell holds |
 
-`StateCell` and `IdentityCell` answer for the store, so an item seen through two views is
-literally the same cell — sharing is not arranged, it is what falls out of never copying.
+`StateCell` answers for the collection you ask. On a filtered view it has no value for a key the
+filter excluded, and gains one the moment that key scores into the view. Observers of one key
+through one view share a cell; two views are two cells, because they are two answers.
 
-That is also the one seam left, and it is the last one: asking a *filtered view* for
-`StateCell(key)` on a key the filter excluded still gives that item's state, because the cell
-belongs to the collection that owns it and is shared by every view of it. Everything else a view
-exposes — its keys, its changes, its snapshot — is the view's own. Closing this one would mean a
-view's `StateCell` is the root's cell lifted against view membership: a graph node per observer
-per view, against a design whose central property is that observing an item costs one hash lookup
-per observer per transaction. It is open deliberately rather than by oversight. Membership
-questions belong to `KeysCell`.
+That costs nothing, which was not obvious and had to be measured. The natural way to write it —
+the collection's cell lifted against the view's keys — costs about twice an ordinary edit, because
+every observer becomes a node the propagation walks whenever the view moves at all, and a reorder
+counts as moving. Holding membership per observer and calming it recovers about a quarter of that.
+Neither is how this works. A view's per-item cell hangs off the view's own change stream, exactly
+as the collection's hangs off its item change stream: an observer whose key was not named filters
+itself out and propagates no further. Measured against observing the collection directly, at
+twenty observers and ten thousand items, that is 14.1 microseconds against 14.2 — the same number.
+
+`IdentityCell` still answers for the store, which is the one asymmetry left. Membership questions
+belong to `KeysCell`.
 
 Ordering the root is lazy. A collection nobody sorts or lists never builds a sorted key set,
 and `TKey` only has to be comparable if something actually asks for keys in order. The keyed,

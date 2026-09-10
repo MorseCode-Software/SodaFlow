@@ -201,7 +201,7 @@ let fromRemoves
 /// </remarks>
 [<MethodImpl(MethodImplOptions.NoInlining)>]
 let stateCell (key: 'TKey) (collection: IReactiveCollection<'TKey, 'TIdentity, 'TState>) =
-    CollectionInternals.RootOf(collection).StateCellImpl(key, Func<_, _> Some, Func<_>(fun () -> None))
+    CollectionInternals.AsInternal(collection).StateCellImpl(key, Func<_, _> Some, Func<_>(fun () -> None))
 
 /// <summary>The item's immutable portion, <c>None</c> while the key is absent.</summary>
 /// <param name="key">The key to observe.</param>
