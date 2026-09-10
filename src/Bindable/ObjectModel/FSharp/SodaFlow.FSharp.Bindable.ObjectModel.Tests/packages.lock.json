@@ -29,12 +29,6 @@
         "resolved": "8.0.0",
         "contentHash": "AJy/KVjXgUbgjf6HiI8wAk4DSSq0SCmvXQF8aU6IB+pnIQq+YJvofvMczug2hqO8yEvnQY557ryew66KPpyCsA=="
       },
-      "Polyfill": {
-        "type": "Direct",
-        "requested": "[11.2.0, )",
-        "resolved": "11.2.0",
-        "contentHash": "3dDzS+dsKI9Qlb0lm0svPk/hFx1CuX2RHM0jHenTGuNI0jTw8fsXi3u4r/PI8sTf5PGKZKS4TaWQVybuiKSbVQ=="
-      },
       "TUnit": {
         "type": "Direct",
         "requested": "[1.66.10, )",
@@ -47,16 +41,6 @@
           "System.Threading.Tasks.Extensions": "4.6.3",
           "TUnit.Assertions": "1.66.10",
           "TUnit.Engine": "1.66.10"
-        }
-      },
-      "TUnit.Assertions.FSharp": {
-        "type": "Direct",
-        "requested": "[*, )",
-        "resolved": "1.66.27",
-        "contentHash": "1E0dlWX+ty1EWiii2HHzNhLsU30xcWqkQk7q5GFRroXhnHU9+xjt2l+PJxXlh9qKV12nAQXkoEyfDqYAhXgDqg==",
-        "dependencies": {
-          "System.Threading.Tasks.Extensions": "4.6.3",
-          "TUnit.Assertions": "1.66.27"
         }
       },
       "Microsoft.ApplicationInsights": {
@@ -334,7 +318,7 @@
       "sodaflow.fsharp.tests.assertions": {
         "type": "Project",
         "dependencies": {
-          "TUnit.Assertions": "[1.66.10, )"
+          "TUnit.Assertions": "[1.66.27, )"
         }
       }
     },
@@ -389,15 +373,6 @@
           "Microsoft.Testing.Extensions.TrxReport": "2.3.3",
           "TUnit.Assertions": "1.66.10",
           "TUnit.Engine": "1.66.10"
-        }
-      },
-      "TUnit.Assertions.FSharp": {
-        "type": "Direct",
-        "requested": "[*, )",
-        "resolved": "1.66.27",
-        "contentHash": "1E0dlWX+ty1EWiii2HHzNhLsU30xcWqkQk7q5GFRroXhnHU9+xjt2l+PJxXlh9qKV12nAQXkoEyfDqYAhXgDqg==",
-        "dependencies": {
-          "TUnit.Assertions": "1.66.27"
         }
       },
       "Microsoft.ApplicationInsights": {
@@ -521,7 +496,7 @@
       "sodaflow.fsharp.tests.assertions": {
         "type": "Project",
         "dependencies": {
-          "TUnit.Assertions": "[1.66.10, )"
+          "TUnit.Assertions": "[1.66.27, )"
         }
       }
     },

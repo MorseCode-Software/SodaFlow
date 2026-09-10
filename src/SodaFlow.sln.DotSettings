@@ -259,6 +259,8 @@
 	<s:String x:Key="/Default/CustomTools/CustomToolsData/@EntryValue"></s:String>
 	<s:String x:Key="/Default/dotCover/Filtering/ExcludedAssembliesString/@EntryValue">System.*||Microsoft.*||JetBrains.*</s:String>
 	<s:String x:Key="/Default/dotCover/Filtering/ExcludedAttributesString/@EntryValue">System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverageAttribute||System.CodeDom.Compiler.GeneratedCodeAttribute||System.Runtime.CompilerServices.CompilerGeneratedAttribute</s:String>
+	<s:String x:Key="/Default/Environment/Hierarchy/NuGetOptions/IntegratedRestoreEngine/@EntryValue">Console</s:String>
+	<s:String x:Key="/Default/Environment/Hierarchy/PMCOptions/CustomExecutablePath/@EntryValue">C:\WINDOWS\System32\WindowsPowerShell\v1.0\powershell.exe</s:String>
 	<s:Boolean x:Key="/Default/Environment/SettingsMigration/IsMigratorApplied/=JetBrains_002EReSharper_002EPsi_002ECSharp_002ECodeStyle_002ECSharpAttributeForSingleLineMethodUpgrade/@EntryIndexedValue">True</s:Boolean>
 	<s:Boolean x:Key="/Default/Environment/SettingsMigration/IsMigratorApplied/=JetBrains_002EReSharper_002EPsi_002ECSharp_002ECodeStyle_002ECSharpKeepExistingMigration/@EntryIndexedValue">True</s:Boolean>
 	<s:Boolean x:Key="/Default/Environment/SettingsMigration/IsMigratorApplied/=JetBrains_002EReSharper_002EPsi_002ECSharp_002ECodeStyle_002ECSharpPlaceEmbeddedOnSameLineMigration/@EntryIndexedValue">True</s:Boolean>
