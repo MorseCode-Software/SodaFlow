@@ -775,4 +775,67 @@ public sealed class CollectionViewTests
         await Assert.That(change.Before.Count).IsEqualTo(1);
         await Assert.That(change.After.Count).IsEqualTo(2);
     }
+
+    [Test]
+    public async Task AViewsIdentityCellAnswersForTheView()
+    {
+        StreamSink<CollectionEdit<int, ItemIdentity, ItemState>> edits =
+            Stream.CreateSink<CollectionEdit<int, ItemIdentity, ItemState>>();
+
+        ReactiveCollection<int, ItemIdentity, ItemState> collection = Create(
+            edits,
+            TestUtil.Item(1, "one", 10),
+            TestUtil.Item(2, "two", 20));
+
+        IReactiveCollection<int, ItemIdentity, ItemState> passing =
+            collection.Filter(static (_, state) => state.Score >= 20);
+
+        Cell<Maybe<ItemIdentity>> cell = passing.IdentityCell(1);
+
+        await Assert.That(cell.Sample().Match(static i => i.Code, static () => "none")).IsEqualTo("none");
+        await Assert.That(
+                collection.IdentityCell(1).Sample().Match(static i => i.Code, static () => "none"))
+            .IsEqualTo("C1");
+
+        // Observers of one key through one view share a cell. The old implementation mapped the
+        // collection's shape cell and built a new node for every caller.
+        await Assert.That(passing.IdentityCell(1)).IsSameReferenceAs(cell);
+
+        // Scoring it into the view gives the identity a value.
+        edits.Send(TestUtil.Score(1, 99));
+
+        await Assert.That(cell.Sample().Match(static i => i.Code, static () => "none")).IsEqualTo("C1");
+    }
+
+    [Test]
+    public async Task AnIdentityCellSleepsThroughAStateEdit()
+    {
+        StreamSink<CollectionEdit<int, ItemIdentity, ItemState>> edits =
+            Stream.CreateSink<CollectionEdit<int, ItemIdentity, ItemState>>();
+
+        ReactiveCollection<int, ItemIdentity, ItemState> collection = Create(
+            edits,
+            TestUtil.Item(1, "one", 10),
+            TestUtil.Item(2, "two", 20));
+
+        IReactiveCollection<int, ItemIdentity, ItemState> passing =
+            collection.Filter(static (_, state) => state.Score >= 20);
+
+        List<Maybe<ItemIdentity>> onCollection = [];
+        List<Maybe<ItemIdentity>> onView = [];
+
+        IListener a = collection.IdentityCell(2).Updates().ListenStrong(onCollection.Add);
+        IListener b = passing.IdentityCell(2).Updates().ListenStrong(onView.Add);
+
+        // An identity cannot change while its key stays put, so neither observer should hear
+        // anything - not the rename, and not the reorder the score edit causes in the view.
+        edits.Send(TestUtil.Rename(2, "renamed"));
+        edits.Send(TestUtil.Score(1, 99));
+
+        a.Unlisten();
+        b.Unlisten();
+
+        await Assert.That(onCollection).IsEmpty();
+        await Assert.That(onView).IsEmpty();
+    }
 }

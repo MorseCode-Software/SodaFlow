@@ -70,7 +70,10 @@ public static class CollectionExtensionMethods
         TKey key)
         where TKey : notnull
         where TIdentity : notnull =>
-        collection.RootOf().ShapeCell.Map(identities => identities.TryGetValue(key));
+        collection.AsInternal().IdentityCellImpl(
+            key,
+            static identity => Maybe.Some(identity),
+            static () => Maybe<TIdentity>.None);
 
     /// <summary>Returns both halves of the item stored under a key, if there is one.</summary>
     /// <typeparam name="TKey">The type of the keys.</typeparam>

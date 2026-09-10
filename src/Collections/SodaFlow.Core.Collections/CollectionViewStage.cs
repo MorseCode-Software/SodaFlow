@@ -14,10 +14,21 @@ internal sealed class CollectionViewStage<TKey, TIdentity, TState>
     where TKey : notnull
     where TIdentity : notnull
 {
+    /// <summary>The stage above this one, or the collection if this is the first.</summary>
+    /// <remarks>
+    ///     Read both inside <see cref="cacheGate" /> and outside it, which is sound and is flagged
+    ///     anyway: the gate guards the two cache dictionaries, which are mutated, and this is
+    ///     assigned once in the constructor and never again. Widening the lock to cover it would
+    ///     protect nothing and would put a lock on the path that answers <c>Root</c>.
+    /// </remarks>
+    // ReSharper disable once InconsistentlySynchronizedField
     private readonly IReactiveCollection<TKey, TIdentity, TState> source;
 
     /// <summary>One per-key cell cache per projected type, as the root keeps.</summary>
     private readonly Dictionary<Type, object> projectedCaches = new();
+
+    /// <summary>The same for identities, kept apart for the reason the root keeps its apart.</summary>
+    private readonly Dictionary<Type, object> identityCaches = new();
 
     /// <summary>A plain object, for the reason the root's gate is one.</summary>
     private readonly object cacheGate = new();
@@ -79,23 +90,64 @@ internal sealed class CollectionViewStage<TKey, TIdentity, TState>
     {
         lock (this.cacheGate)
         {
-            ProjectedCellCache<TKey, TProjected> cache = this.CacheFor<TProjected>();
+            ProjectedCellCache<TKey, TProjected> cache = CacheFor<TProjected>(this.projectedCaches);
 
             return cache.Get(key) ?? this.CreateStateCell(cache, key, onPresent, onAbsent);
         }
     }
 
+    /// <inheritdoc />
+    /// <remarks>
+    ///     Hung off this stage's change stream as the state cell is, and for the same reason. An
+    ///     update or a move never reaches it, so an observer of one item's identity through a view
+    ///     wakes only when that key enters or leaves the view.
+    /// </remarks>
+    Cell<TProjected> IReactiveCollectionInternal<TKey, TIdentity, TState>.IdentityCellImpl<TProjected>(
+        TKey key,
+        Func<TIdentity, TProjected> onPresent,
+        Func<TProjected> onAbsent)
+    {
+        lock (this.cacheGate)
+        {
+            ProjectedCellCache<TKey, TProjected> cache = CacheFor<TProjected>(this.identityCaches);
+
+            Cell<TProjected>? cached = cache.Get(key);
+
+            if (cached is not null)
+            {
+                return cached;
+            }
+
+            ReactiveCollection<TKey, TIdentity, TState> root = this.source.RootOf();
+
+            Cell<TProjected> identityCell = TransactionInternal.RunImpl(() =>
+                this.KeyChangesStream
+                    .MapImpl(change => change.ProjectIdentityChangeFor(key, onPresent, onAbsent))
+                    .FilterSomeInternal()
+                    .HoldLazyImpl(this.KeysCell.SampleLazyImpl().MapImpl(
+                        keys => keys.Contains(key) &&
+                            root.SnapshotCell.SampleImpl().TryGetIdentity(key, out TIdentity identity)
+                                ? onPresent(identity)
+                                : onAbsent())));
+
+            cache.Set(key, identityCell);
+
+            return identityCell;
+        }
+    }
+
     /// <summary>The cache for one projected type, created the first time that type is asked for.</summary>
     /// <remarks>The cast is sound for the reason it is sound on the root: see its <c>CacheFor</c>.</remarks>
-    private ProjectedCellCache<TKey, TProjected> CacheFor<TProjected>()
+    private static ProjectedCellCache<TKey, TProjected> CacheFor<TProjected>(
+        IDictionary<Type, object> caches)
     {
-        if (this.projectedCaches.TryGetValue(typeof(TProjected), out object? existing))
+        if (caches.TryGetValue(typeof(TProjected), out object? existing))
         {
             return (ProjectedCellCache<TKey, TProjected>)existing;
         }
 
         ProjectedCellCache<TKey, TProjected> created = new();
-        this.projectedCaches[typeof(TProjected)] = created;
+        caches[typeof(TProjected)] = created;
 
         return created;
     }
@@ -127,6 +179,8 @@ internal sealed class CollectionViewStage<TKey, TIdentity, TState>
         return stateCell;
     }
 
+    // ReSharper disable once InconsistentlySynchronizedField - see the field's own remarks: the
+    // gate guards the cache dictionaries, and this is assigned once in the constructor.
     ReactiveCollection<TKey, TIdentity, TState>
         IReactiveCollectionInternal<TKey, TIdentity, TState>.Root => this.source.RootOf();
 }

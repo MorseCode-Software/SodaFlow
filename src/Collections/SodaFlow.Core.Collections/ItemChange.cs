@@ -106,6 +106,33 @@ public sealed class ItemChange<TKey, TIdentity, TState>
     ///     per-item cell filters on: no value means no event for that observer, and the projection
     ///     is applied inside the same map rather than needing a second one.
     /// </summary>
+    /// <summary>
+    ///     What this change means for one key's identity, or nothing if it means nothing for it.
+    /// </summary>
+    /// <remarks>
+    ///     An identity is fixed for as long as its key is present, so only an add or a remove can
+    ///     move one. A state edit is nothing to an observer of the identity and yields nothing here,
+    ///     which is what lets such an observer be held for the life of a row and cost nothing to
+    ///     hold.
+    /// </remarks>
+    internal MaybeInternal<TProjected> ProjectIdentityChangeFor<TProjected>(
+        TKey key,
+        Func<TIdentity, TProjected> onPresent,
+        Func<TProjected> onAbsent)
+    {
+        if (this.WasAdded(key))
+        {
+            return MaybeInternal.Some(
+                this.After.TryGetIdentity(key, out TIdentity identity)
+                    ? onPresent(identity)
+                    : onAbsent());
+        }
+
+        return this.removed.Contains(key)
+            ? MaybeInternal.Some(onAbsent())
+            : MaybeInternal<TProjected>.None;
+    }
+
     internal MaybeInternal<TProjected> ProjectChangeFor<TProjected>(
         TKey key,
         Func<TState, TProjected> onPresent,

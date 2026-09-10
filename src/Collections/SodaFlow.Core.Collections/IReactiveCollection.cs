@@ -104,4 +104,24 @@ internal interface IReactiveCollectionInternal<TKey, TIdentity, TState>
         TKey key,
         Func<TState, TProjected> onPresent,
         Func<TProjected> onAbsent);
+
+    /// <summary>
+    ///     A cell tracking one item's immutable portion as this collection sees it, shaped by the
+    ///     projection the language wrapper supplies.
+    /// </summary>
+    /// <remarks>
+    ///     Moves only when the key enters or leaves - on the root that is the store gaining or
+    ///     losing the item, on a view it also includes a criteria deciding differently about an item
+    ///     the store never touched. A state edit never reaches it, which is what makes one of these
+    ///     near-free to hold for the life of a row.
+    /// </remarks>
+    /// <typeparam name="TProjected">What the wrapper asked the cell to hold.</typeparam>
+    /// <param name="key">The key to observe.</param>
+    /// <param name="onPresent">Projects the value the cell holds while the key is there.</param>
+    /// <param name="onAbsent">Projects the value it holds while the key is not.</param>
+    /// <returns>The cell.</returns>
+    Cell<TProjected> IdentityCellImpl<TProjected>(
+        TKey key,
+        Func<TIdentity, TProjected> onPresent,
+        Func<TProjected> onAbsent);
 }

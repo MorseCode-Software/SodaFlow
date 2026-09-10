@@ -125,6 +125,56 @@ public sealed class CollectionViewChange<TKey, TIdentity, TState>
         return MaybeInternal<TProjected>.None;
     }
 
+    /// <summary>
+    ///     What this change means for one key's identity as this view sees it, or nothing.
+    /// </summary>
+    /// <remarks>
+    ///     An update is a new state and a move is a new position; neither is a new identity, so an
+    ///     observer of the identity wakes for neither. What moves it is the key entering or leaving
+    ///     this view - which, unlike on the collection, includes a criteria deciding differently
+    ///     about an item the store never touched.
+    /// </remarks>
+    internal MaybeInternal<TProjected> ProjectIdentityChangeFor<TProjected>(
+        TKey key,
+        Func<TIdentity, TProjected> onPresent,
+        Func<TProjected> onAbsent)
+    {
+        if (this.IsReset)
+        {
+            return this.Before.ContainsKey(key) || this.After.ContainsKey(key)
+                ? this.ProjectIdentity(key, onPresent, onAbsent)
+                : MaybeInternal<TProjected>.None;
+        }
+
+        // Indexed rather than enumerated, for the reason the projection above is.
+        // ReSharper disable once ForCanBeConvertedToForeach
+        // ReSharper disable once LoopCanBeConvertedToQuery
+        for (int index = 0; index < this.Operations.Count; index++)
+        {
+            ViewOperation<TKey> operation = this.Operations[index];
+
+            if (operation is ViewUpdate<TKey> or ViewMove<TKey> ||
+                !EqualityComparer<TKey>.Default.Equals(operation.Key, key))
+            {
+                continue;
+            }
+
+            return this.ProjectIdentity(key, onPresent, onAbsent);
+        }
+
+        return MaybeInternal<TProjected>.None;
+    }
+
+    /// <summary>The key's identity as this change left it, or its absence.</summary>
+    private MaybeInternal<TProjected> ProjectIdentity<TProjected>(
+        TKey key,
+        Func<TIdentity, TProjected> onPresent,
+        Func<TProjected> onAbsent) =>
+        MaybeInternal.Some(
+            this.After.TryGetIdentity(key, out TIdentity identity)
+                ? onPresent(identity)
+                : onAbsent());
+
     /// <summary>The key's value as this change left it, or its absence.</summary>
     private MaybeInternal<TProjected> Project<TProjected>(
         TKey key,

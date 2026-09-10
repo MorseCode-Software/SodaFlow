@@ -210,11 +210,7 @@ let stateCell (key: 'TKey) (collection: IReactiveCollection<'TKey, 'TIdentity, '
 /// <remarks>Fires only on structural change, so it is near-free to hold.</remarks>
 [<MethodImpl(MethodImplOptions.NoInlining)>]
 let identityCell (key: 'TKey) (collection: IReactiveCollection<'TKey, 'TIdentity, 'TState>) =
-    CollectionInternals.RootOf(collection).ShapeCell
-    |> mapC (fun identities ->
-        match identities.TryGetValue key with
-        | true, identity -> Some identity
-        | _ -> None)
+    CollectionInternals.AsInternal(collection).IdentityCellImpl(key, Func<_, _> Some, Func<_>(fun () -> None))
 
 /// <summary>Both halves of the item stored under a key, if there is one.</summary>
 /// <param name="key">The key to look up.</param>

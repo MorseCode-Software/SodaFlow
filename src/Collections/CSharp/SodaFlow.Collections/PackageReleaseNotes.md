@@ -26,7 +26,9 @@ method that mutates a live collection.
   StateCell(key)      one item, no value while the collection you asked
                       does not hold it - so a filtered view answers for
                       itself, at the same cost as asking the collection
-  IdentityCell(key)   its immutable half, moving only on structural change
+  IdentityCell(key)   its immutable half, moving only when that key enters
+                      or leaves the collection you asked - so a view answers
+                      for itself here too, and a state edit never wakes one
   ShapeCell           fires on count or key change only
   SnapshotCell        the whole store, on every change
   KeyChangesStream    how the keys moved: positions, no states

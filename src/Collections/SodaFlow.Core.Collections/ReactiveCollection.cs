@@ -48,6 +48,13 @@ public sealed class ReactiveCollection<TKey, TIdentity, TState>
     private readonly Dictionary<Type, object> projectedCaches = new();
 
     /// <summary>
+    ///     The same, for identities. Kept apart from the states rather than sharing one dictionary,
+    ///     because a collection whose identity and state are the same type would otherwise file two
+    ///     different questions under one key and answer the second with the first.
+    /// </summary>
+    private readonly Dictionary<Type, object> identityCaches = new();
+
+    /// <summary>
     ///     A plain object rather than <c>System.Threading.Lock</c>, which arrived in .NET 9 and is
     ///     not available on any of this package's target frameworks.
     /// </summary>
@@ -210,9 +217,41 @@ public sealed class ReactiveCollection<TKey, TIdentity, TState>
     {
         lock (this.cacheGate)
         {
-            ProjectedCellCache<TKey, TProjected> cache = this.CacheFor<TProjected>();
+            ProjectedCellCache<TKey, TProjected> cache = CacheFor<TProjected>(this.projectedCaches);
 
             return cache.Get(key) ?? this.CreateStateCell(cache, key, onPresent, onAbsent);
+        }
+    }
+
+    /// <inheritdoc />
+    Cell<TProjected> IReactiveCollectionInternal<TKey, TIdentity, TState>.IdentityCellImpl<TProjected>(
+        TKey key,
+        Func<TIdentity, TProjected> onPresent,
+        Func<TProjected> onAbsent)
+    {
+        lock (this.cacheGate)
+        {
+            ProjectedCellCache<TKey, TProjected> cache = CacheFor<TProjected>(this.identityCaches);
+
+            Cell<TProjected>? cached = cache.Get(key);
+
+            if (cached is not null)
+            {
+                return cached;
+            }
+
+            Cell<TProjected> identityCell = TransactionInternal.RunImpl(() =>
+                this.ItemChangesStream
+                    .MapImpl(change => change.ProjectIdentityChangeFor(key, onPresent, onAbsent))
+                    .FilterSomeInternal()
+                    .HoldLazyImpl(this.SnapshotCell.SampleLazyImpl().MapImpl(
+                        snapshot => snapshot.TryGetIdentity(key, out TIdentity identity)
+                            ? onPresent(identity)
+                            : onAbsent())));
+
+            cache.Set(key, identityCell);
+
+            return identityCell;
         }
     }
 
@@ -224,15 +263,16 @@ public sealed class ReactiveCollection<TKey, TIdentity, TState>
     ///     thing parameterized by that type is a higher-kinded thing, which C# cannot express - so
     ///     the claim is made here once rather than at every lookup.
     /// </remarks>
-    private ProjectedCellCache<TKey, TProjected> CacheFor<TProjected>()
+    private static ProjectedCellCache<TKey, TProjected> CacheFor<TProjected>(
+        Dictionary<Type, object> caches)
     {
-        if (this.projectedCaches.TryGetValue(typeof(TProjected), out object? existing))
+        if (caches.TryGetValue(typeof(TProjected), out object? existing))
         {
             return (ProjectedCellCache<TKey, TProjected>)existing;
         }
 
         ProjectedCellCache<TKey, TProjected> created = new();
-        this.projectedCaches[typeof(TProjected)] = created;
+        caches[typeof(TProjected)] = created;
 
         return created;
     }

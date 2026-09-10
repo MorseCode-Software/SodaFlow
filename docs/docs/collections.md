@@ -84,7 +84,7 @@ which is where you wanted it.
 | You want | You read | It fires |
 | --- | --- | --- |
 | One item's state | `StateCell(key)` | When that key changes, in the collection you asked |
-| One item's identity | `IdentityCell(key)` | Only on structural change |
+| One item's identity | `IdentityCell(key)` | Only when that key enters or leaves the collection you asked |
 | What this collection holds | `SnapshotCell` | On every change |
 | Count or key changes | `ShapeCell` | Only on structural change, root only |
 | A view's keys, in order | `KeysCell` | When that view's membership or order changes |
@@ -174,8 +174,13 @@ as the collection's hangs off its item change stream: an observer whose key was 
 itself out and propagates no further. Measured against observing the collection directly, at
 twenty observers and ten thousand items, that is 14.1 microseconds against 14.2 — the same number.
 
-`IdentityCell` still answers for the store, which is the one asymmetry left. Membership questions
-belong to `KeysCell`.
+`IdentityCell` answers the same way and moves even less: an identity cannot change while its key
+stays put, so only the key entering or leaving reaches it — on a view, that includes a criteria
+deciding differently about an item the store never touched. A state edit never wakes one, which is
+what makes it near-free to hold for the life of a row. It is cached per key per view, as the state
+cell is.
+
+Membership questions belong to `KeysCell`.
 
 Ordering the root is lazy. A collection nobody sorts or lists never builds a sorted key set,
 and `TKey` only has to be comparable if something actually asks for keys in order. The keyed,
