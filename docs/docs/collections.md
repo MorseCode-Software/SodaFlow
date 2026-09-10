@@ -159,6 +159,7 @@ ReactiveCollection<Guid, AccountId, AccountState> topTen = accounts
 | `Take` | A count, or a `Cell<int>` |
 | `Slice` | An offset and a count, or a `Cell<int>` for either — see below |
 | `Switch` | Follows whichever view a cell holds |
+| `Map` | One object per key, in order — see below |
 
 `StateCell` answers for the collection you ask. On a filtered view it has no value for a key the
 filter excluded, and gains one the moment that key scores into the view. Observers of one key
@@ -233,6 +234,37 @@ entry whose sort position has already moved underneath it.
   in.
 - `Filter` after `Take` filters the window, so it yields at most `limit` items. That is what
   the chain says; write `Filter` before `Take` if you meant the other thing.
+
+### Binding a list
+
+`Map` is what turns a view into something a list binds to: one object per key, in the view's order,
+kept so that the same key gives back the same object.
+
+```csharp
+MappedItems<IAccountRowViewModel> rows = page.Map(
+    key => new AccountRowViewModel(
+        page.IdentityCell(key).Map(...).ToOneWay(),
+        page.StateCell(key).Map(...).ToOneWay()),
+    onEvicted: static row => row.Dispose());
+```
+
+Build each row's bindings from `StateCell` and `IdentityCell` *inside* the projection and every row
+follows its own item — so an edit to one account moves that row and leaves the list, and the other
+rows, alone. Bind to `rows.Items`; put `rows` itself in whatever the caller disposes, the way
+`MapAsync`'s status is handled.
+
+It is the end of a chain rather than a stage of one. What comes back is objects, and an object has
+no identity and no state for a later `Filter` or `SortBy` to work on.
+
+What it keeps is bounded, or a projection over a hundred thousand items would hold an object for
+every key ever shown. **The bound counts keys that have left**: everything currently in the view is
+kept whatever it says, so a bound smaller than the view cannot evict rows it is about to be asked
+for again. Departed keys go oldest first — oldest meaning longest since departure — which makes
+paging back and forth over the same rows free.
+
+`onEvicted` is where anything a row owns gets released, and disposing the `MappedItems` releases
+everything still held, including the rows that never left and so were never evicted. A projection
+that builds bindables needs both halves of that or it leaks the ones still on screen.
 
 ### Paging, and why there is no `Skip`
 

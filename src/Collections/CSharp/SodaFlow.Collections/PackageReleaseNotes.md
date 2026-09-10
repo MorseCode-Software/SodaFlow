@@ -48,6 +48,13 @@ There is no interface, and that is deliberate: one implementation, not meant to
 be substituted or mocked, and concrete so the language surfaces can reach what
 they need without a cast.
 
+Map ends a chain: one object per key, in order, kept so the same key gives back
+the same object. It is what a list binds to - build each row from StateCell and
+IdentityCell inside the projection and every row follows its own item, so one
+edit moves one row rather than rebuilding the list. What it keeps is bounded,
+counting keys that have left rather than keys in the view, and it hands back a
+MappedItems to dispose the way MapAsync hands back a status.
+
 Views chain and stay incremental. Filter, FilterByIdentity, SortBy, SortByDescending,
 SortByIdentity, SortByIdentityDescending, SortByKey, Take, Slice and Switch each take an
 IReactiveCollection and return one, the way Where takes and returns an
