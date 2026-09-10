@@ -277,6 +277,29 @@ type ``Collections Tests``() =
         }
 
     [<Test>]
+    member _.``sortByOrder follows whichever order the cell holds``() =
+        task {
+            let edits = sinkS<CollectionEdit<int, ItemIdentity, ItemState>> ()
+
+            let collection =
+                create keyOf [ item 1 "one" 30; item 2 "two" 10; item 3 "three" 20 ] [ edits ]
+
+            // One projects an int and the other a string, and the same cell holds both: an order
+            // carries its own sort value type inside itself rather than in its own type.
+            let byScore = orderBy (fun _ state -> state.Score)
+            let byName = orderBy (fun _ (state: ItemState) -> state.Name)
+
+            let order = sinkC byScore
+            let sorted = collection |> sortByOrder order
+
+            do! Expect.Sequence([ 2; 3; 1 ], keysOf sorted)
+
+            order |> sendC byName
+
+            do! Expect.Sequence([ 1; 3; 2 ], keysOf sorted)
+        }
+
+    [<Test>]
     member _.``a view answers for itself, not for the store behind it``() =
         task {
             let edits = sinkS<CollectionEdit<int, ItemIdentity, ItemState>> ()

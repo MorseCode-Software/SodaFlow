@@ -655,6 +655,103 @@ public sealed class CollectionViewTests
     }
 
     [Test]
+    public async Task ASortFollowsWhicheverOrderTheCellHolds()
+    {
+        StreamSink<CollectionEdit<int, ItemIdentity, ItemState>> edits =
+            Stream.CreateSink<CollectionEdit<int, ItemIdentity, ItemState>>();
+
+        ReactiveCollection<int, ItemIdentity, ItemState> collection = Create(
+            edits,
+            TestUtil.Item(1, "one", 30),
+            TestUtil.Item(2, "two", 10),
+            TestUtil.Item(3, "three", 20));
+
+        // One sorts by an int and the other by a string. The cell holds either, because the sort
+        // value's type lives inside the order rather than in the type of the order.
+        KeyOrder<int, ItemIdentity, ItemState> byScore =
+            KeyOrder<int, ItemIdentity, ItemState>.By(static (_, state) => state.Score);
+        KeyOrder<int, ItemIdentity, ItemState> byName =
+            KeyOrder<int, ItemIdentity, ItemState>.By(static (_, state) => state.Name);
+
+        CellSink<KeyOrder<int, ItemIdentity, ItemState>> order = Cell.CreateSink(byScore);
+        ReactiveCollection<int, ItemIdentity, ItemState> sorted = collection.SortBy(order);
+
+        await Assert.That(KeysOf(sorted)).IsEquivalentTo([2, 3, 1]);
+
+        List<bool> resets = [];
+        IListener l = sorted.KeyChangesStream.ListenStrong(change => resets.Add(change.IsReset));
+
+        order.Send(byName);
+
+        l.Unlisten();
+
+        // A new order is a criteria change, and a criteria change is a reset.
+        await Assert.That(resets).IsEquivalentTo([true]);
+        await Assert.That(KeysOf(sorted)).IsEquivalentTo([1, 3, 2]);
+    }
+
+    [Test]
+    public async Task AStageBelowASortRefilesWhenTheOrderChanges()
+    {
+        StreamSink<CollectionEdit<int, ItemIdentity, ItemState>> edits =
+            Stream.CreateSink<CollectionEdit<int, ItemIdentity, ItemState>>();
+
+        ReactiveCollection<int, ItemIdentity, ItemState> collection = Create(
+            edits,
+            TestUtil.Item(1, "one", 30),
+            TestUtil.Item(2, "two", 10),
+            TestUtil.Item(3, "three", 20),
+            TestUtil.Item(4, "four", 40));
+
+        CellSink<KeyOrder<int, ItemIdentity, ItemState>> order = Cell.CreateSink(
+            KeyOrder<int, ItemIdentity, ItemState>.By(static (_, state) => state.Score));
+
+        // The filter is told nothing about the order. It builds from whatever its upstream's set
+        // orders by, so re-filing under the new one needs no wiring of its own.
+        ReactiveCollection<int, ItemIdentity, ItemState> filtered = collection
+            .SortBy(order)
+            .Filter(static (_, state) => state.Score < 40);
+
+        await Assert.That(KeysOf(filtered)).IsEquivalentTo([2, 3, 1]);
+
+        order.Send(KeyOrder<int, ItemIdentity, ItemState>.ByDescending(
+            static (_, state) => state.Score));
+
+        await Assert.That(KeysOf(filtered)).IsEquivalentTo([1, 3, 2]);
+    }
+
+    [Test]
+    public async Task AnOrderOverIdentityAloneSurvivesAStateEdit()
+    {
+        StreamSink<CollectionEdit<int, ItemIdentity, ItemState>> edits =
+            Stream.CreateSink<CollectionEdit<int, ItemIdentity, ItemState>>();
+
+        ReactiveCollection<int, ItemIdentity, ItemState> collection = Create(
+            edits,
+            TestUtil.Item(1, "one", 30),
+            TestUtil.Item(2, "two", 10));
+
+        // Swapping a whole-item order for an identity-only one changes what a state edit costs,
+        // because the stage reads DependsOnState off whichever order built its current set.
+        CellSink<KeyOrder<int, ItemIdentity, ItemState>> order = Cell.CreateSink(
+            KeyOrder<int, ItemIdentity, ItemState>.By(static (_, state) => state.Score));
+
+        ReactiveCollection<int, ItemIdentity, ItemState> sorted = collection.SortBy(order);
+
+        await Assert.That(KeysOf(sorted)).IsEquivalentTo([2, 1]);
+
+        order.Send(KeyOrder<int, ItemIdentity, ItemState>.ByIdentity(
+            static identity => identity.Code));
+
+        await Assert.That(KeysOf(sorted)).IsEquivalentTo([1, 2]);
+
+        // Under an identity order a state edit cannot move anything, and does not.
+        edits.Send(TestUtil.Score(2, 99));
+
+        await Assert.That(KeysOf(sorted)).IsEquivalentTo([1, 2]);
+    }
+
+    [Test]
     public async Task SwitchFollowsWhicheverViewTheCellHolds()
     {
         StreamSink<CollectionEdit<int, ItemIdentity, ItemState>> edits =

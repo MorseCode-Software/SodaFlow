@@ -31,7 +31,7 @@ About this package
 
 The engine behind SodaFlow.Collections and SodaFlow.FSharp.Collections. It
 declares the types a consumer holds - Item, CollectionSnapshot,
-ItemChange, CollectionEdit, IStateMap, IOrderedKeys, CollectionViewChange
+ItemChange, CollectionEdit, StateMap, OrderedKeys, KeyOrder, CollectionViewChange
 and the ViewOperation hierarchy - along with ReactiveCollection itself and the view
 chain the language wrappers expose.
 

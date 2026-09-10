@@ -436,6 +436,137 @@ let sortByWith
         keyComparer,
         descending)
 
+/// <summary>Reorders the view by whichever order the cell currently holds.</summary>
+/// <param name="orderCell">The order to sort by, which may change.</param>
+/// <param name="upstream">The collection or view to reorder.</param>
+/// <returns>A view in whichever order that cell holds.</returns>
+/// <remarks>
+///     This is the stage the other sorts are built from, they being sorts whose order never
+///     changes, and it is how a clickable column header is written. Build the orders with
+///     <c>orderBy</c> and its siblings below, which mirror those sorts one for one - and because
+///     an order carries its own sort value type inside itself, one cell can hold orders that sort
+///     by values of different types.
+///     A new order is a criteria change like any other: it rebuilds this stage and reports a
+///     reset, and a stage below re-files under the new order without being told, because a filter
+///     builds from its upstream's own order whatever that has become.
+/// </remarks>
+[<MethodImpl(MethodImplOptions.NoInlining)>]
+let sortByOrder
+    (orderCell: Cell<KeyOrder<'TKey, 'TIdentity, 'TState>>)
+    (upstream: ReactiveCollection<'TKey, 'TIdentity, 'TState>)
+    =
+    CollectionViewUtility.SortByImpl(upstream, orderCell)
+
+/// <summary>An order by a value projected from each item.</summary>
+/// <param name="selector">Projects the sort value from an item.</param>
+/// <returns>The order.</returns>
+[<MethodImpl(MethodImplOptions.NoInlining)>]
+let orderBy (selector: 'TIdentity -> 'TState -> 'TSortKey) : KeyOrder<'TKey, 'TIdentity, 'TState> =
+    KeyOrder<'TKey, 'TIdentity, 'TState>.By(
+        Func<_, _, _> selector,
+        Comparer<'TSortKey>.Default,
+        Comparer<'TKey>.Default,
+        false)
+
+/// <summary>An order, descending, by a value projected from each item.</summary>
+/// <param name="selector">Projects the sort value from an item.</param>
+/// <returns>The order.</returns>
+[<MethodImpl(MethodImplOptions.NoInlining)>]
+let orderByDescending
+    (selector: 'TIdentity -> 'TState -> 'TSortKey)
+    : KeyOrder<'TKey, 'TIdentity, 'TState> =
+    KeyOrder<'TKey, 'TIdentity, 'TState>.By(
+        Func<_, _, _> selector,
+        Comparer<'TSortKey>.Default,
+        Comparer<'TKey>.Default,
+        true)
+
+/// <summary>
+///     An order by a value projected from each item, with explicit comparers. The sort key type
+///     stays a real generic parameter all the way down to the comparer, so sort values are
+///     compared as themselves and never boxed.
+/// </summary>
+/// <param name="selector">Projects the sort value from an item.</param>
+/// <param name="sortComparer">Compares two projected sort values.</param>
+/// <param name="keyComparer">Breaks ties, so that the order is total.</param>
+/// <param name="descending">Whether to reverse the sort comparison.</param>
+/// <returns>The order.</returns>
+[<MethodImpl(MethodImplOptions.NoInlining)>]
+let orderByWith
+    (selector: 'TIdentity -> 'TState -> 'TSortKey)
+    (sortComparer: IComparer<'TSortKey>)
+    (keyComparer: IComparer<'TKey>)
+    (descending: bool)
+    : KeyOrder<'TKey, 'TIdentity, 'TState> =
+    KeyOrder<'TKey, 'TIdentity, 'TState>.By(
+        Func<_, _, _> selector,
+        sortComparer,
+        keyComparer,
+        descending)
+
+/// <summary>
+///     An order by a value projected from each item's immutable half alone, which a state edit
+///     cannot change.
+/// </summary>
+/// <param name="selector">Projects the sort value from an identity.</param>
+/// <returns>The order.</returns>
+/// <remarks>
+///     Cheaper to keep than <c>orderBy</c> for the same values: a stage under this order skips
+///     re-filing a key it is told merely changed, and building one never reads the state map. The
+///     selector is not handed the state, so it cannot read what it says it does not.
+/// </remarks>
+[<MethodImpl(MethodImplOptions.NoInlining)>]
+let orderByIdentity (selector: 'TIdentity -> 'TSortKey) : KeyOrder<'TKey, 'TIdentity, 'TState> =
+    KeyOrder<'TKey, 'TIdentity, 'TState>.ByIdentity(
+        Func<_, _> selector,
+        Comparer<'TSortKey>.Default,
+        Comparer<'TKey>.Default,
+        false)
+
+/// <summary>
+///     An order, descending, by a value projected from each item's immutable half alone.
+/// </summary>
+/// <param name="selector">Projects the sort value from an identity.</param>
+/// <returns>The order.</returns>
+[<MethodImpl(MethodImplOptions.NoInlining)>]
+let orderByIdentityDescending
+    (selector: 'TIdentity -> 'TSortKey)
+    : KeyOrder<'TKey, 'TIdentity, 'TState> =
+    KeyOrder<'TKey, 'TIdentity, 'TState>.ByIdentity(
+        Func<_, _> selector,
+        Comparer<'TSortKey>.Default,
+        Comparer<'TKey>.Default,
+        true)
+
+/// <summary>
+///     An order by a value projected from each item's immutable half alone, with explicit
+///     comparers.
+/// </summary>
+/// <param name="selector">Projects the sort value from an identity.</param>
+/// <param name="sortComparer">Compares two projected sort values.</param>
+/// <param name="keyComparer">Breaks ties, so that the order is total.</param>
+/// <param name="descending">Whether to reverse the sort comparison.</param>
+/// <returns>The order.</returns>
+[<MethodImpl(MethodImplOptions.NoInlining)>]
+let orderByIdentityWith
+    (selector: 'TIdentity -> 'TSortKey)
+    (sortComparer: IComparer<'TSortKey>)
+    (keyComparer: IComparer<'TKey>)
+    (descending: bool)
+    : KeyOrder<'TKey, 'TIdentity, 'TState> =
+    KeyOrder<'TKey, 'TIdentity, 'TState>.ByIdentity(
+        Func<_, _> selector,
+        sortComparer,
+        keyComparer,
+        descending)
+
+/// <summary>An order by key — the root's own order, available over any stage.</summary>
+/// <param name="keyComparer">The comparer to order keys by.</param>
+/// <returns>The order.</returns>
+[<MethodImpl(MethodImplOptions.NoInlining)>]
+let orderByKey (keyComparer: IComparer<'TKey>) : KeyOrder<'TKey, 'TIdentity, 'TState> =
+    KeyOrder<'TKey, 'TIdentity, 'TState>.ByKey keyComparer
+
 /// <summary>
 ///     The first <c>limit</c> keys of the upstream — the top-n of whatever ordering and filtering
 ///     precedes it.

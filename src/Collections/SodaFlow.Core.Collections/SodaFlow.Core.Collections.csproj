@@ -46,6 +46,7 @@
         <Compile Include="ViewStage.cs"/>
         <Compile Include="CollectionViewUtility.cs"/>
         <Compile Include="Item.cs"/>
+        <Compile Include="KeyOrder.cs"/>
         <Compile Include="StateMap.cs"/>
         <Compile Include="MappedItems.cs"/>
         <Compile Include="OrderedKeys.cs"/>

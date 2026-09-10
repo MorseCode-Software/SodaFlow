@@ -152,7 +152,7 @@ ReactiveCollection<Guid, AccountId, AccountState> topTen = accounts
 | Operation | Overloads |
 | --- | --- |
 | `Filter` | A predicate, a `Cell<Func<TIdentity, TState, bool>>`, or a criteria cell plus a predicate |
-| `SortBy` / `SortByDescending` | A selector, or a selector with explicit comparers |
+| `SortBy` / `SortByDescending` | A selector, a selector with explicit comparers, or a `Cell<KeyOrder<…>>` — see below |
 | `SortByIdentity` / `SortByIdentityDescending` | The same, over the identity alone — see below |
 | `FilterByIdentity` | A predicate over the identity alone — see below |
 | `SortByKey` | The root's own order, over any stage |
@@ -191,9 +191,30 @@ Ordering the root is lazy. A collection nobody sorts or lists never builds a sor
 and `TKey` only has to be comparable if something actually asks for keys in order. The keyed,
 unordered deltas remain available as `ItemChangesStream`, on the root.
 
-To switch between sorts whose keys are *different* types, as clickable column headers need,
-hold the views in a cell and use `Switch` — a chain's type does not grow at each step, but the
-sort key stays a real generic parameter down to the comparer, so sort values are never boxed.
+To change what a view sorts by — as clickable column headers need — hold the order in a cell
+and pass it to `SortBy`. A `KeyOrder<TKey, TIdentity, TState>` carries its own sort value type
+inside itself, so one cell holds orders that sort by an `int` and by a `string` alike, while the
+sort key stays a real generic parameter down to the comparer and sort values are never boxed.
+Build them with the factories on `KeyOrder` itself, which mirror the sort methods one for one:
+
+```csharp
+using Orders = SodaFlow.Collections.KeyOrder<Guid, AccountId, AccountState>;
+
+CellSink<KeyOrder<Guid, AccountId, AccountState>> order =
+    Cell.CreateSink(Orders.ByDescending(static (_, state) => state.Balance));
+
+ReactiveCollection<Guid, AccountId, AccountState> page = accounts.SortBy(order).Slice(0, 20);
+
+order.Send(Orders.By(static (identity, _) => identity.Holder));
+```
+
+In F# the orders come from `orderBy`, `orderByIdentity`, `orderByKey` and their siblings, and
+the stage from `sortByOrder`.
+
+A new order is a criteria change like any other: it rebuilds that stage and reports `IsReset`,
+at the cost the table below gives for a sort's rebuild. A stage below re-files under the new
+order without being told anything, because a filter builds from its upstream's own order
+whatever that order has become.
 
 ## How the chain stays incremental
 

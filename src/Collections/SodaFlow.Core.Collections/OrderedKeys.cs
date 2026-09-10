@@ -8,66 +8,6 @@ using JetBrains.Annotations;
 namespace SodaFlow.Collections;
 
 /// <summary>
-///     Knows how to build an empty ordered key set under one particular order.
-/// </summary>
-/// <remarks>
-///     This is what lets a filter preserve its upstream's order without knowing what that order
-///     sorts by: it asks the upstream's set for <see cref="CreateFrom" /> and gets back a set that
-///     compares exactly the same way, holding whichever of its members it chose to keep.
-/// </remarks>
-/// <typeparam name="TKey">The type of the keys.</typeparam>
-/// <typeparam name="TIdentity">The type of the immutable portion of an item.</typeparam>
-/// <typeparam name="TState">The type of the mutable portion of an item.</typeparam>
-internal abstract class KeyOrder<TKey, TIdentity, TState>
-    where TKey : notnull
-    where TIdentity : notnull
-{
-    /// <summary>
-    ///     Internal, like everything else here. This exists to forget a type parameter rather than
-    ///     to abstract over implementations: an order is a projection to some sort value, and the
-    ///     sets that hold one must not carry that value's type through every signature that touches
-    ///     them.
-    /// </summary>
-    internal KeyOrder()
-    {
-    }
-
-    /// <summary>
-    ///     Whether a key's position under this order can be changed by a state edit.
-    /// </summary>
-    /// <remarks>
-    ///     False for an order that projects its sort value from the key or the identity alone,
-    ///     neither of which a state edit can touch - which is what lets a stage skip re-filing a
-    ///     key it has been told merely changed. The root's order and <c>SortByKey</c>'s are both
-    ///     false; a <c>SortBy</c> over a caller's selector is conservatively true, because nothing
-    ///     here can see whether that selector read the state it was handed.
-    /// </remarks>
-    internal abstract bool DependsOnState { get; }
-
-    /// <summary>
-    ///     A key set holding <paramref name="keys" />, ordered the way this order orders them.
-    /// </summary>
-    /// <param name="keys">The keys to file. Any the snapshot does not have are skipped.</param>
-    /// <param name="snapshot">The collection to project each key's sort value from.</param>
-    /// <returns>The set.</returns>
-    /// <remarks>
-    ///     Bulk rather than a sequence of <see cref="OrderedKeys{TKey,TIdentity,TState}.Add" /> calls,
-    ///     and that is the whole reason it exists. Filing n keys one at a time means n persistent
-    ///     writes, each copying its path through the tree and allocating a wrapper, which is what a
-    ///     stage rebuild used to cost. Building through a builder writes into unfrozen nodes and
-    ///     freezes once: two and a half times quicker and a thirteenth of the allocation, measured
-    ///     on the criteria change in <c>KeyedCollectionViewBenchmarks</c>.
-    ///     It does not make a rebuild cheap, and nothing here could. Building a persistent tree
-    ///     costs an allocation per node where re-deriving the same view with LINQ sorts an array
-    ///     for none, so a criteria change stays several times dearer than not having a chain -
-    ///     which is the thing the documentation tells people to debounce for.
-    /// </remarks>
-    internal abstract OrderedKeys<TKey, TIdentity, TState> CreateFrom(
-        IEnumerable<TKey> keys,
-        CollectionSnapshot<TKey, TIdentity, TState> snapshot);
-}
-
-/// <summary>
 ///     An immutable ordered set of keys. Every stage of a view chain holds one of these.
 /// </summary>
 /// <remarks>

@@ -165,6 +165,35 @@ public static class CollectionViewExtensionMethods
         where TIdentity : notnull =>
         CollectionViewUtility.SortByImpl(upstream, selector, sortComparer, keyComparer, descending);
 
+    /// <summary>Reorders the view by whichever order the cell currently holds.</summary>
+    /// <typeparam name="TKey">The type of the keys.</typeparam>
+    /// <typeparam name="TIdentity">The type of the immutable portion of an item.</typeparam>
+    /// <typeparam name="TState">The type of the mutable portion of an item.</typeparam>
+    /// <param name="upstream">The collection or view to reorder.</param>
+    /// <param name="orderCell">The order to sort by, which may change.</param>
+    /// <returns>A view in whichever order that cell holds.</returns>
+    /// <remarks>
+    ///     <para>
+    ///         This is the stage the other sorts are built from, they being sorts whose order never
+    ///         changes, and it is how a clickable column header is written. Build the orders with
+    ///         <see cref="KeyOrder{TKey,TIdentity,TState}" />'s factories, which mirror those sorts
+    ///         one for one — and because an order carries its own sort value type inside itself,
+    ///         one cell can hold orders that sort by values of different types.
+    ///     </para>
+    ///     <para>
+    ///         A new order is a criteria change like any other: it rebuilds this stage and reports
+    ///         a reset, and a stage below re-files under the new order without being told, because
+    ///         a filter builds from its upstream's own order whatever that has become.
+    ///     </para>
+    /// </remarks>
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    public static ReactiveCollection<TKey, TIdentity, TState> SortBy<TKey, TIdentity, TState>(
+        this ReactiveCollection<TKey, TIdentity, TState> upstream,
+        Cell<KeyOrder<TKey, TIdentity, TState>> orderCell)
+        where TKey : notnull
+        where TIdentity : notnull =>
+        CollectionViewUtility.SortByImpl(upstream, orderCell);
+
     /// <summary>
     ///     Narrows the view by a predicate over each item's immutable half — its identity — which a
     ///     state edit cannot change.

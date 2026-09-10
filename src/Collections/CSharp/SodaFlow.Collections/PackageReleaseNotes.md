@@ -56,9 +56,16 @@ counting keys that have left rather than keys in the view, and it hands back a
 MappedItems to dispose the way MapAsync hands back a status.
 
 Views chain and stay incremental. Filter, FilterByIdentity, SortBy, SortByDescending,
-SortByIdentity, SortByIdentityDescending, SortByKey, Take, Slice and Switch each take an
-IReactiveCollection and return one, the way Where takes and returns an
+SortByIdentity, SortByIdentityDescending, SortByKey, Take, Slice and Switch each take a
+ReactiveCollection and return one, the way Where takes and returns an
 IEnumerable, and an item seen through two views is literally the same cell.
+
+SortBy also takes a Cell<KeyOrder<TKey, TIdentity, TState>>, which is how a
+clickable column header is written. An order carries its own sort value type
+inside itself, so one cell holds orders sorting by an int and by a string
+alike, while the sort key stays a real generic parameter down to the comparer.
+Build them with the factories on KeyOrder - By, ByDescending, ByIdentity,
+ByIdentityDescending and ByKey - which mirror those sorts one for one.
 
 Slice(offset, limit) is the paging window, and Take is the case of it that
 starts at zero. There is no Skip: a window with both ends is bounded, which is
