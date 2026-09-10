@@ -1,0 +1,10 @@
+<Solution>
+    <Configurations>
+        <Platform Name="Any CPU"/>
+        <Platform Name="x64"/>
+        <Platform Name="x86"/>
+    </Configurations>
+    <Project Path="SodaFlow.Samples.Accounts.Avalonia/SodaFlow.Samples.Accounts.Avalonia.csproj"/>
+    <Project Path="SodaFlow.Samples.Accounts.ViewModels/SodaFlow.Samples.Accounts.ViewModels.csproj"/>
+    <Project Path="SodaFlow.Samples.Accounts.Wpf/SodaFlow.Samples.Accounts.Wpf.csproj"/>
+</Solution>

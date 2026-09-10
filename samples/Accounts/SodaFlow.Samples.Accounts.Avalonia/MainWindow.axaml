@@ -1,0 +1,76 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:viewModels="clr-namespace:SodaFlow.Samples.Accounts.ViewModels;assembly=SodaFlow.Samples.Accounts.ViewModels"
+        x:Class="SodaFlow.Samples.Accounts.Avalonia.MainWindow"
+        Title="SodaFlow Accounts (Avalonia)"
+        Width="460"
+        SizeToContent="Height"
+        WindowStartupLocation="CenterScreen"
+        x:DataType="viewModels:IAccountsViewModel">
+
+    <!--
+        Every path ends in .Value, because a bindable property is an object that raises
+        PropertyChanged for "Value".
+
+        The rows are the point. Rows.Value moves only when the page's membership or order moves,
+        and each row's own bindings follow its own account - so paying into one account updates one
+        Balance and leaves the rest of this list untouched.
+    -->
+    <StackPanel Margin="16" Spacing="12">
+
+        <TextBlock Text="{Binding FilterDescription.Value}"
+                   FontWeight="SemiBold"/>
+
+        <Border BorderBrush="{DynamicResource SystemControlForegroundBaseMediumLowBrush}"
+                BorderThickness="1"
+                CornerRadius="4"
+                Padding="8">
+            <ItemsControl ItemsSource="{Binding Rows.Value}">
+                <ItemsControl.ItemTemplate>
+                    <DataTemplate x:DataType="viewModels:IAccountRowViewModel">
+                        <Grid ColumnDefinitions="70,*,Auto" Margin="0,3">
+                            <TextBlock Grid.Column="0"
+                                       Text="{Binding Number.Value}"
+                                       Opacity="0.6"/>
+                            <TextBlock Grid.Column="1"
+                                       Text="{Binding Holder.Value}"/>
+                            <TextBlock Grid.Column="2"
+                                       Text="{Binding Balance.Value}"
+                                       FontFamily="Consolas,Menlo,monospace"/>
+                        </Grid>
+                    </DataTemplate>
+                </ItemsControl.ItemTemplate>
+            </ItemsControl>
+        </Border>
+
+        <TextBlock Text="{Binding Total.Value}"/>
+
+        <Grid ColumnDefinitions="Auto,Auto,*" ColumnSpacing="8">
+            <Button Grid.Column="0"
+                    Content="Previous"
+                    Command="{Binding PreviousPage}"/>
+            <Button Grid.Column="1"
+                    Content="Next"
+                    Command="{Binding NextPage}"/>
+            <TextBlock Grid.Column="2"
+                       Text="{Binding Page.Value}"
+                       HorizontalAlignment="Right"
+                       VerticalAlignment="Center"/>
+        </Grid>
+
+        <Grid ColumnDefinitions="*,*" ColumnSpacing="8">
+            <Button Grid.Column="0"
+                    Content="Pay £100 into the top account"
+                    HorizontalAlignment="Stretch"
+                    HorizontalContentAlignment="Center"
+                    Command="{Binding DepositIntoTopOfPage}"/>
+            <Button Grid.Column="1"
+                    Content="Show or hide frozen"
+                    HorizontalAlignment="Stretch"
+                    HorizontalContentAlignment="Center"
+                    Command="{Binding ToggleFrozen}"/>
+        </Grid>
+
+    </StackPanel>
+
+</Window>

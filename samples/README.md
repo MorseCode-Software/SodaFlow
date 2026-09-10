@@ -7,6 +7,12 @@ model that knows about neither.
 | --- | --- | --- |
 | [Counter](Counter) | `SodaFlow`, `SodaFlow.Bindable.ObjectModel` | The whole idea on one screen |
 | [Search](Search) | those two plus `SodaFlow.Async` | Search-as-you-type against a slow service |
+| [Accounts](Accounts) | those two plus `SodaFlow.Collections` | A large keyed collection behind a paged list |
+
+Accounts is the odd one out for now: it references the projects under `src/` rather than published
+packages, because the collections packages are not published yet and the sample is part of deciding
+what their API should be. It is also not in the samples workflow, since a sample that work in
+progress can break has no business gating a merge. Both change when the packages ship.
 
 Each sample is a folder with its own solution. Open
 `Counter/SodaFlow.Samples.Counter.slnx` or `Search/SodaFlow.Samples.Search.slnx` and run either

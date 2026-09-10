@@ -1,0 +1,96 @@
+<Window x:Class="SodaFlow.Samples.Accounts.Wpf.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:viewModels="clr-namespace:SodaFlow.Samples.Accounts.ViewModels;assembly=SodaFlow.Samples.Accounts.ViewModels"
+        x:ClassModifier="internal"
+        Title="SodaFlow Accounts (WPF)"
+        Width="460"
+        SizeToContent="Height"
+        WindowStartupLocation="CenterScreen"
+        d:DataContext="{d:DesignInstance Type=viewModels:IAccountsViewModel}"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        mc:Ignorable="d">
+
+    <!--
+        The same bindings as the Avalonia window, against the same view model. Every path ends in
+        .Value, because a bindable property is an object that raises PropertyChanged for "Value".
+
+        The rows are the point. Rows.Value moves only when the page's membership or order moves,
+        and each row's own bindings follow its own account - so paying into one account updates one
+        Balance and leaves the rest of this list untouched.
+    -->
+    <StackPanel Margin="16">
+        <StackPanel.Resources>
+            <Style TargetType="Button">
+                <Setter Property="Padding" Value="10,4"/>
+                <Setter Property="Margin" Value="0,0,8,0"/>
+            </Style>
+        </StackPanel.Resources>
+
+        <TextBlock Text="{Binding FilterDescription.Value}"
+                   FontWeight="SemiBold"
+                   Margin="0,0,0,12"/>
+
+        <Border BorderBrush="Gainsboro"
+                BorderThickness="1"
+                CornerRadius="4"
+                Padding="8"
+                Margin="0,0,0,12">
+            <ItemsControl ItemsSource="{Binding Rows.Value}">
+                <ItemsControl.ItemTemplate>
+                    <DataTemplate DataType="{x:Type viewModels:IAccountRowViewModel}">
+                        <Grid Margin="0,3">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="70"/>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Grid.Column="0"
+                                       Text="{Binding Number.Value}"
+                                       Foreground="Gray"/>
+                            <TextBlock Grid.Column="1"
+                                       Text="{Binding Holder.Value}"/>
+                            <TextBlock Grid.Column="2"
+                                       Text="{Binding Balance.Value}"
+                                       FontFamily="Consolas"/>
+                        </Grid>
+                    </DataTemplate>
+                </ItemsControl.ItemTemplate>
+            </ItemsControl>
+        </Border>
+
+        <TextBlock Text="{Binding Total.Value}"
+                   Margin="0,0,0,12"/>
+
+        <Grid Margin="0,0,0,8">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto"/>
+                <ColumnDefinition Width="Auto"/>
+                <ColumnDefinition Width="*"/>
+            </Grid.ColumnDefinitions>
+            <Button Grid.Column="0" Content="Previous" Command="{Binding PreviousPage}"/>
+            <Button Grid.Column="1" Content="Next" Command="{Binding NextPage}"/>
+            <TextBlock Grid.Column="2"
+                       Text="{Binding Page.Value}"
+                       HorizontalAlignment="Right"
+                       VerticalAlignment="Center"/>
+        </Grid>
+
+        <Grid>
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="*"/>
+            </Grid.ColumnDefinitions>
+            <Button Grid.Column="0"
+                    Content="Pay £100 into the top account"
+                    Command="{Binding DepositIntoTopOfPage}"/>
+            <Button Grid.Column="1"
+                    Content="Show or hide frozen"
+                    Margin="0"
+                    Command="{Binding ToggleFrozen}"/>
+        </Grid>
+
+    </StackPanel>
+
+</Window>
