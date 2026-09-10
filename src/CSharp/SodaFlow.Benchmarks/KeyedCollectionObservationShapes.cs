@@ -260,7 +260,7 @@ internal sealed class ObservationShape
             ObservationStyle.ThroughView or ObservationStyle.ViewNative => view.StateCell(key),
 
             ObservationStyle.ViewScoped =>
-                collection.StateCell(key).Lift<Maybe<ItemState>, IOrderedKeys<int, ItemIdentity, ItemState>, Maybe<ItemState>>(
+                collection.StateCell(key).Lift<Maybe<ItemState>, OrderedKeys<int, ItemIdentity, ItemState>, Maybe<ItemState>>(
                     view.KeysCell,
                     (state, keys) => keys.Contains(key) ? state : Maybe<ItemState>.None),
 

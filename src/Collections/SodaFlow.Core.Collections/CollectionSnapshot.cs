@@ -27,7 +27,7 @@ public sealed class CollectionSnapshot<TKey, TIdentity, TState>
     where TIdentity : notnull
 {
     /// <summary>The keys this snapshot admits, or <see langword="null" /> for the whole store.</summary>
-    private readonly IOrderedKeys<TKey, TIdentity, TState>? visible;
+    private readonly OrderedKeys<TKey, TIdentity, TState>? visible;
 
     /// <summary>
     ///     The state map as stored, before any scoping. Concrete, because the collection advances
@@ -58,7 +58,7 @@ public sealed class CollectionSnapshot<TKey, TIdentity, TState>
     private CollectionSnapshot(
         ImmutableDictionary<TKey, TIdentity> identities,
         ImmutableStateMap<TKey, TState> states,
-        IOrderedKeys<TKey, TIdentity, TState>? visible)
+        OrderedKeys<TKey, TIdentity, TState>? visible)
     {
         this.IdentitiesImpl = identities;
         this.StatesImpl = states;
@@ -71,7 +71,7 @@ public sealed class CollectionSnapshot<TKey, TIdentity, TState>
     ///     a subset of the keys of the stage above it.
     /// </remarks>
     internal CollectionSnapshot<TKey, TIdentity, TState> ScopedTo(
-        IOrderedKeys<TKey, TIdentity, TState> keys) =>
+        OrderedKeys<TKey, TIdentity, TState> keys) =>
         new(this.IdentitiesImpl, this.StatesImpl, keys);
 
     /// <summary>Whether a key is one this snapshot admits.</summary>
@@ -213,11 +213,11 @@ internal sealed class ScopedIdentityMap<TKey, TIdentity, TState> : IReadOnlyDict
     where TIdentity : notnull
 {
     private readonly ImmutableDictionary<TKey, TIdentity> inner;
-    private readonly IOrderedKeys<TKey, TIdentity, TState> visible;
+    private readonly OrderedKeys<TKey, TIdentity, TState> visible;
 
     internal ScopedIdentityMap(
         ImmutableDictionary<TKey, TIdentity> inner,
-        IOrderedKeys<TKey, TIdentity, TState> visible)
+        OrderedKeys<TKey, TIdentity, TState> visible)
     {
         this.inner = inner;
         this.visible = visible;
@@ -267,11 +267,11 @@ internal sealed class ScopedStateMap<TKey, TIdentity, TState> : StateMap<TKey, T
     where TIdentity : notnull
 {
     private readonly StateMap<TKey, TState> inner;
-    private readonly IOrderedKeys<TKey, TIdentity, TState> visible;
+    private readonly OrderedKeys<TKey, TIdentity, TState> visible;
 
     internal ScopedStateMap(
         StateMap<TKey, TState> inner,
-        IOrderedKeys<TKey, TIdentity, TState> visible)
+        OrderedKeys<TKey, TIdentity, TState> visible)
     {
         this.inner = inner;
         this.visible = visible;

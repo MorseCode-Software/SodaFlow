@@ -37,7 +37,7 @@ internal sealed class ViewStage<TKey, TIdentity, TState> : ReactiveCollection<TK
 
     internal ViewStage(
         ReactiveCollection<TKey, TIdentity, TState> source,
-        Cell<IOrderedKeys<TKey, TIdentity, TState>> keysCell,
+        Cell<OrderedKeys<TKey, TIdentity, TState>> keysCell,
         Func<Cell<CollectionSnapshot<TKey, TIdentity, TState>>> snapshotCell,
         Stream<CollectionViewChange<TKey, TIdentity, TState>> keyChangesStream)
     {
@@ -70,7 +70,7 @@ internal sealed class ViewStage<TKey, TIdentity, TState> : ReactiveCollection<TK
     }
 
     /// <inheritdoc />
-    public override Cell<IOrderedKeys<TKey, TIdentity, TState>> KeysCell { get; }
+    public override Cell<OrderedKeys<TKey, TIdentity, TState>> KeysCell { get; }
 
     /// <inheritdoc />
     public override Stream<CollectionViewChange<TKey, TIdentity, TState>> KeyChangesStream { get; }
@@ -153,7 +153,7 @@ internal sealed class StageContext<TKey, TIdentity, TState, TCriteria>
 {
     internal StageContext(
         TCriteria criteria,
-        IOrderedKeys<TKey, TIdentity, TState> upstreamKeys,
+        OrderedKeys<TKey, TIdentity, TState> upstreamKeys,
         CollectionSnapshot<TKey, TIdentity, TState> snapshot)
     {
         this.Criteria = criteria;
@@ -163,7 +163,7 @@ internal sealed class StageContext<TKey, TIdentity, TState, TCriteria>
 
     internal TCriteria Criteria { get; }
 
-    internal IOrderedKeys<TKey, TIdentity, TState> UpstreamKeys { get; }
+    internal OrderedKeys<TKey, TIdentity, TState> UpstreamKeys { get; }
 
     internal CollectionSnapshot<TKey, TIdentity, TState> Snapshot { get; }
 }
@@ -194,7 +194,7 @@ internal sealed class StageResult<TKey, TIdentity, TState>
     where TIdentity : notnull
 {
     internal StageResult(
-        IOrderedKeys<TKey, TIdentity, TState> keys,
+        OrderedKeys<TKey, TIdentity, TState> keys,
         IReadOnlyList<ViewOperation<TKey>> operations,
         bool isReset,
         CollectionSnapshot<TKey, TIdentity, TState> before,
@@ -207,7 +207,7 @@ internal sealed class StageResult<TKey, TIdentity, TState>
         this.After = after;
     }
 
-    internal IOrderedKeys<TKey, TIdentity, TState> Keys { get; }
+    internal OrderedKeys<TKey, TIdentity, TState> Keys { get; }
 
     internal IReadOnlyList<ViewOperation<TKey>> Operations { get; }
 

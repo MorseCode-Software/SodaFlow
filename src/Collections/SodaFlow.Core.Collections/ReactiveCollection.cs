@@ -67,7 +67,7 @@ public abstract class ReactiveCollection<TKey, TIdentity, TState>
     }
 
     /// <summary>This collection's keys, in order.</summary>
-    public abstract Cell<IOrderedKeys<TKey, TIdentity, TState>> KeysCell { get; }
+    public abstract Cell<OrderedKeys<TKey, TIdentity, TState>> KeysCell { get; }
 
     /// <summary>
     ///     How those keys changed: which entered, which left, which moved, and to what position -

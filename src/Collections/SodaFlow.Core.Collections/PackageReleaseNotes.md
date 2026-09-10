@@ -9,12 +9,16 @@ collection - a total, an average, a count. Iterating Keys and looking up each
 one answers the same question and costs an O(log32 n) search per item; on a
 hundred thousand items that measured three times slower.
 
-StateMap is an abstract class with an internal constructor rather than an
-interface, so what a snapshot answers with is closed: one storage strategy and
-one filtered face of it. Advancing a map is not on it - that belongs to the
-collection, and a map advanced by anyone else would hold a version the
-collection had never heard of. The Create overloads that took one are gone with
-it, since nothing outside could supply one.
+OrderedKeys and StateMap are abstract classes with internal constructors rather
+than interfaces, so what a snapshot answers with is closed: one storage strategy and
+one filtered face of it, and two kinds of key set. What builds the next version
+of either is not on them - that is the protocol between stages, and a version
+built by anyone else would be one the collection had never heard of. The Create
+overloads that took a state map are gone with it, since nothing outside could
+supply one.
+
+IIdentity is the one interface left, and it is the one meant to be implemented:
+say an identity carries its own key and Create will take it from there.
 
 There is no optional type in this API. Lookups are TryGetItem, TryGetState and
 TryGetNewState, and IndexOf answers -1, so that each language surface can put

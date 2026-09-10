@@ -74,7 +74,7 @@ public sealed class OrderedKeysTests
             Comparer<int>.Default,
             descending);
 
-    private static IOrderedKeys<int, ItemIdentity, ItemState> Empty(
+    private static OrderedKeys<int, ItemIdentity, ItemState> Empty(
         bool descending,
         CollectionSnapshot<int, ItemIdentity, ItemState> snapshot) =>
         ByScore(descending).CreateFrom([], snapshot);
@@ -87,7 +87,7 @@ public sealed class OrderedKeysTests
             TestUtil.Item(2, "two", 10),
             TestUtil.Item(3, "three", 20));
 
-        IOrderedKeys<int, ItemIdentity, ItemState> keys = Empty(false, snapshot)
+        OrderedKeys<int, ItemIdentity, ItemState> keys = Empty(false, snapshot)
             .Add(1, snapshot)
             .Add(2, snapshot)
             .Add(3, snapshot);
@@ -107,7 +107,7 @@ public sealed class OrderedKeysTests
             TestUtil.Item(2, "two", 10),
             TestUtil.Item(9, "nine", 10));
 
-        IOrderedKeys<int, ItemIdentity, ItemState> keys = Empty(false, snapshot)
+        OrderedKeys<int, ItemIdentity, ItemState> keys = Empty(false, snapshot)
             .Add(5, snapshot)
             .Add(2, snapshot)
             .Add(9, snapshot);
@@ -123,7 +123,7 @@ public sealed class OrderedKeysTests
             TestUtil.Item(2, "two", 10),
             TestUtil.Item(3, "three", 20));
 
-        IOrderedKeys<int, ItemIdentity, ItemState> keys = Empty(true, snapshot)
+        OrderedKeys<int, ItemIdentity, ItemState> keys = Empty(true, snapshot)
             .Add(1, snapshot)
             .Add(2, snapshot)
             .Add(3, snapshot);
@@ -136,7 +136,7 @@ public sealed class OrderedKeysTests
     {
         CollectionSnapshot<int, ItemIdentity, ItemState> snapshot = Snapshot(TestUtil.Item(1, "one", 30));
 
-        IOrderedKeys<int, ItemIdentity, ItemState> keys = Empty(false, snapshot).Add(99, snapshot);
+        OrderedKeys<int, ItemIdentity, ItemState> keys = Empty(false, snapshot).Add(99, snapshot);
 
         await Assert.That(keys.Count).IsEqualTo(0);
     }
@@ -152,10 +152,10 @@ public sealed class OrderedKeysTests
         // What a stage rebuild takes, against what it used to take. The bulk path exists because
         // filing n keys one at a time is n persistent writes; it has to land them in the same
         // places.
-        IOrderedKeys<int, ItemIdentity, ItemState> inBulk =
+        OrderedKeys<int, ItemIdentity, ItemState> inBulk =
             ByScore(false).CreateFrom([1, 2, 3, 99], snapshot);
 
-        IOrderedKeys<int, ItemIdentity, ItemState> oneAtATime = Empty(false, snapshot)
+        OrderedKeys<int, ItemIdentity, ItemState> oneAtATime = Empty(false, snapshot)
             .Add(1, snapshot)
             .Add(2, snapshot)
             .Add(3, snapshot)
@@ -176,7 +176,7 @@ public sealed class OrderedKeysTests
             TestUtil.Item(1, "one", 30),
             TestUtil.Item(2, "two", 10));
 
-        IOrderedKeys<int, ItemIdentity, ItemState> keys = Empty(false, before).Add(1, before).Add(2, before);
+        OrderedKeys<int, ItemIdentity, ItemState> keys = Empty(false, before).Add(1, before).Add(2, before);
 
         // The item's sort value has moved underneath the set. Removal still finds it, because the
         // entry carries the value it was filed under rather than being re-projected here.
@@ -184,7 +184,7 @@ public sealed class OrderedKeysTests
             TestUtil.Item(1, "one", 5),
             TestUtil.Item(2, "two", 10));
 
-        IOrderedKeys<int, ItemIdentity, ItemState> refiled = keys.Remove(1).Add(1, after);
+        OrderedKeys<int, ItemIdentity, ItemState> refiled = keys.Remove(1).Add(1, after);
 
         await Assert.That(TestUtil.Keys(refiled)).IsEquivalentTo([1, 2]);
     }

@@ -56,7 +56,7 @@ internal sealed class RootCollection<TKey, TIdentity, TState>
     public override Stream<ItemChange<TKey, TIdentity, TState>> ItemChangesStream { get; }
 
     /// <inheritdoc />
-    public override Cell<IOrderedKeys<TKey, TIdentity, TState>> KeysCell => this.orderedByKey.Value.KeysCell;
+    public override Cell<OrderedKeys<TKey, TIdentity, TState>> KeysCell => this.orderedByKey.Value.KeysCell;
 
     /// <inheritdoc />
     public override Stream<CollectionViewChange<TKey, TIdentity, TState>> KeyChangesStream =>

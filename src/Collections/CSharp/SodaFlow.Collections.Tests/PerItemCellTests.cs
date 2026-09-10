@@ -160,7 +160,7 @@ public sealed class PerItemCellTests
         await Assert.That(snapshot.States.Lookup(2).Match(static s => s.Score, static () => -1))
             .IsEqualTo(20);
 
-        IOrderedKeys<int, ItemIdentity, ItemState> keys = collection.KeysCell.Sample();
+        OrderedKeys<int, ItemIdentity, ItemState> keys = collection.KeysCell.Sample();
 
         await Assert.That(keys.IndexOfMaybe(2).Match(static i => i, static () => -1)).IsEqualTo(1);
         await Assert.That(keys.IndexOfMaybe(9).Match(static _ => "some", static () => "none"))

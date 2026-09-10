@@ -34,7 +34,7 @@ public sealed class CollectionViewChange<TKey, TIdentity, TState>
     internal CollectionViewChange(
         CollectionSnapshot<TKey, TIdentity, TState> before,
         CollectionSnapshot<TKey, TIdentity, TState> after,
-        IOrderedKeys<TKey, TIdentity, TState> keys,
+        OrderedKeys<TKey, TIdentity, TState> keys,
         IReadOnlyList<ViewOperation<TKey>> operations,
         bool isReset)
     {
@@ -63,7 +63,7 @@ public sealed class CollectionViewChange<TKey, TIdentity, TState>
     public CollectionSnapshot<TKey, TIdentity, TState> Before { get; }
 
     /// <summary>This stage's keys after the change.</summary>
-    public IOrderedKeys<TKey, TIdentity, TState> Keys { get; }
+    public OrderedKeys<TKey, TIdentity, TState> Keys { get; }
 
     /// <summary>The operations to apply, in order, to the previous key list.</summary>
     public IReadOnlyList<ViewOperation<TKey>> Operations { get; }

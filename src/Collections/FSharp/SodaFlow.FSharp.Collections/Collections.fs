@@ -215,7 +215,7 @@ let changeFor (key: 'TKey) (change: ItemChange<'TKey, 'TIdentity, 'TState>) =
 ///     <c>IndexOf</c> in the framework does. This is the same question asked the F# way.
 /// </remarks>
 [<MethodImpl(MethodImplOptions.NoInlining)>]
-let indexOf (key: 'TKey) (keys: IOrderedKeys<'TKey, 'TIdentity, 'TState>) =
+let indexOf (key: 'TKey) (keys: OrderedKeys<'TKey, 'TIdentity, 'TState>) =
     match keys.IndexOf key with
     | index when index >= 0 -> Some index
     | _ -> None
