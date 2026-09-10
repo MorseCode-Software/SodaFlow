@@ -403,7 +403,7 @@ internal static class CollectionViewUtility
     // --- root ---------------------------------------------------------------------------------
 
     private static OrderedKeys<TKey, TIdentity, TState> RebuildRoot<TKey, TIdentity, TState>(
-        IKeyOrder<TKey, TIdentity, TState> order,
+        KeyOrder<TKey, TIdentity, TState> order,
         CollectionSnapshot<TKey, TIdentity, TState> snapshot)
         where TKey : notnull
         where TIdentity : notnull =>
@@ -663,7 +663,7 @@ internal static class CollectionViewUtility
     // --- sort ---------------------------------------------------------------------------------
 
     private static OrderedKeys<TKey, TIdentity, TState> RebuildSort<TKey, TIdentity, TState>(
-        IKeyOrder<TKey, TIdentity, TState> order,
+        KeyOrder<TKey, TIdentity, TState> order,
         IEnumerable<TKey> upstreamKeys,
         CollectionSnapshot<TKey, TIdentity, TState> snapshot)
         where TKey : notnull
@@ -782,10 +782,10 @@ internal static class CollectionViewUtility
     /// <summary>Files every key into a new set under one order.</summary>
     /// <remarks>
     ///     In bulk, which is what keeps a rebuild from costing one persistent write per key. See
-    ///     <see cref="IKeyOrder{TKey,TIdentity,TState}.CreateFrom" />.
+    ///     <see cref="KeyOrder{TKey,TIdentity,TState}.CreateFrom" />.
     /// </remarks>
     private static OrderedKeys<TKey, TIdentity, TState> FileAll<TKey, TIdentity, TState>(
-        IKeyOrder<TKey, TIdentity, TState> order,
+        KeyOrder<TKey, TIdentity, TState> order,
         IEnumerable<TKey> keys,
         CollectionSnapshot<TKey, TIdentity, TState> snapshot)
         where TKey : notnull

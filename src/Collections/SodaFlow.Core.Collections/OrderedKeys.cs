@@ -18,10 +18,20 @@ namespace SodaFlow.Collections;
 /// <typeparam name="TKey">The type of the keys.</typeparam>
 /// <typeparam name="TIdentity">The type of the immutable portion of an item.</typeparam>
 /// <typeparam name="TState">The type of the mutable portion of an item.</typeparam>
-internal interface IKeyOrder<TKey, TIdentity, TState>
+internal abstract class KeyOrder<TKey, TIdentity, TState>
     where TKey : notnull
     where TIdentity : notnull
 {
+    /// <summary>
+    ///     Internal, like everything else here. This exists to forget a type parameter rather than
+    ///     to abstract over implementations: an order is a projection to some sort value, and the
+    ///     sets that hold one must not carry that value's type through every signature that touches
+    ///     them.
+    /// </summary>
+    internal KeyOrder()
+    {
+    }
+
     /// <summary>
     ///     Whether a key's position under this order can be changed by a state edit.
     /// </summary>
@@ -32,7 +42,7 @@ internal interface IKeyOrder<TKey, TIdentity, TState>
     ///     false; a <c>SortBy</c> over a caller's selector is conservatively true, because nothing
     ///     here can see whether that selector read the state it was handed.
     /// </remarks>
-    bool DependsOnState { get; }
+    internal abstract bool DependsOnState { get; }
 
     /// <summary>
     ///     A key set holding <paramref name="keys" />, ordered the way this order orders them.
@@ -52,7 +62,7 @@ internal interface IKeyOrder<TKey, TIdentity, TState>
     ///     for none, so a criteria change stays several times dearer than not having a chain -
     ///     which is the thing the documentation tells people to debounce for.
     /// </remarks>
-    OrderedKeys<TKey, TIdentity, TState> CreateFrom(
+    internal abstract OrderedKeys<TKey, TIdentity, TState> CreateFrom(
         IEnumerable<TKey> keys,
         CollectionSnapshot<TKey, TIdentity, TState> snapshot);
 }
@@ -90,7 +100,7 @@ public abstract class OrderedKeys<TKey, TIdentity, TState> : IReadOnlyList<TKey>
     public abstract TKey this[int index] { get; }
 
     /// <summary>The order this set files keys under.</summary>
-    internal abstract IKeyOrder<TKey, TIdentity, TState> Order { get; }
+    internal abstract KeyOrder<TKey, TIdentity, TState> Order { get; }
 
     /// <summary>Whether a key is in this set.</summary>
     /// <param name="key">The key to look for.</param>
@@ -199,14 +209,15 @@ internal sealed class SortedEntryComparer<TKey, TSortKey> : IComparer<SortedEntr
 /// <typeparam name="TSortKey">The type of the projected sort value.</typeparam>
 /// <remarks>
 ///     Internal, because nothing outside this assembly can put an order into a view: the sort
-///     stages build their own from the selector they are handed. <see cref="IKeyOrder{TKey,TIdentity,TState}" />
+///     stages build their own from the selector they are handed. <see cref="KeyOrder{TKey,TIdentity,TState}" />
 ///     stays public because <see cref="OrderedKeys{TKey,TIdentity,TState}.Order" /> answers with one, so
 ///     an order can be read and not supplied - which is what keeps the claim
 ///     <see cref="DependsOnState" /> makes checkable. An order that could be supplied from outside
 ///     could assert it falsely, and a view would silently stop re-filing.
 /// </remarks>
 // ReSharper disable once InheritdocConsiderUsage
-internal sealed class SortKeyOrder<TKey, TIdentity, TState, TSortKey> : IKeyOrder<TKey, TIdentity, TState>
+internal sealed class SortKeyOrder<TKey, TIdentity, TState, TSortKey>
+    : KeyOrder<TKey, TIdentity, TState>
     where TKey : notnull
     where TIdentity : notnull
 {
@@ -264,10 +275,10 @@ internal sealed class SortKeyOrder<TKey, TIdentity, TState, TSortKey> : IKeyOrde
             descending);
 
     /// <inheritdoc />
-    public bool DependsOnState => this.identitySelector is null;
+    internal override bool DependsOnState => this.identitySelector is null;
 
     /// <inheritdoc />
-    public OrderedKeys<TKey, TIdentity, TState> CreateFrom(
+    internal override OrderedKeys<TKey, TIdentity, TState> CreateFrom(
         IEnumerable<TKey> keys,
         CollectionSnapshot<TKey, TIdentity, TState> snapshot)
     {
@@ -359,7 +370,7 @@ internal sealed class SortedKeys<TKey, TIdentity, TState, TSortKey> : OrderedKey
         this.byKey = byKey;
     }
 
-    internal override IKeyOrder<TKey, TIdentity, TState> Order => this.order;
+    internal override KeyOrder<TKey, TIdentity, TState> Order => this.order;
 
     public override int Count => this.entries.Count;
 
@@ -429,7 +440,7 @@ internal sealed class RangeKeys<TKey, TIdentity, TState> : OrderedKeys<TKey, TId
         this.limit = Math.Max(limit, 0);
     }
 
-    internal override IKeyOrder<TKey, TIdentity, TState> Order => this.source.Order;
+    internal override KeyOrder<TKey, TIdentity, TState> Order => this.source.Order;
 
     public override int Count => Math.Min(Math.Max(this.source.Count - this.offset, 0), this.limit);
 
