@@ -163,6 +163,43 @@ type ``Collections Tests``() =
         }
 
     [<Test>]
+    member _.``map keeps an object per key and releases them all``() =
+        task {
+            let edits = sinkS<CollectionEdit<int, ItemIdentity, ItemState>> ()
+
+            let collection =
+                create keyOf [ item 1 "one" 10; item 2 "two" 20 ] [ edits ]
+
+            let projections = ref 0
+            let released = ResizeArray<string>()
+
+            let mapped =
+                collection
+                |> mapWith 0 released.Add (fun key ->
+                    incr projections
+                    sprintf "row %d" key)
+
+            do! Expect.Sequence([ "row 1"; "row 2" ], List<string>(mapped.Items |> sampleC))
+            do! Expect.Equal(2, projections.Value)
+
+            // An edit that moves no key projects nothing new.
+            edits |> sendS (updateEdit 1 (fun state -> { state with Name = "renamed" }))
+
+            do! Expect.Equal(2, projections.Value)
+            do! Expect.Equal(0, released.Count)
+
+            // Removing one drops it, because it has left and this bound keeps none.
+            edits |> sendS (removeEdit [ 2 ])
+
+            do! Expect.Sequence([ "row 2" ], released)
+
+            // Disposal releases what never left, which eviction never reaches.
+            (mapped :> System.IDisposable).Dispose()
+
+            do! Expect.Sequence([ "row 2"; "row 1" ], released)
+        }
+
+    [<Test>]
     member _.``slice windows the middle of the upstream``() =
         task {
             let edits = sinkS<CollectionEdit<int, ItemIdentity, ItemState>> ()

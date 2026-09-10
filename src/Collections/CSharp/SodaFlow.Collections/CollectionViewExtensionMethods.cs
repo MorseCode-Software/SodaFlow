@@ -33,18 +33,6 @@ namespace SodaFlow.Collections;
 [PublicAPI]
 public static class CollectionViewExtensionMethods
 {
-    /// <summary>
-    ///     How many departed keys <see cref="Map{TKey,TIdentity,TState,TResult}" /> keeps objects
-    ///     for unless told otherwise.
-    /// </summary>
-    /// <remarks>
-    ///     Chosen for the shape this is for: a screen showing tens of rows and paging over
-    ///     thousands. It covers a good many pages either side of the one showing, and bounds what a
-    ///     projection over a hundred thousand items can hold to something a screen would have
-    ///     touched rather than something the collection contains.
-    /// </remarks>
-    public const int DefaultRetainedBeyondTheView = 512;
-
     /// <summary>Reorders by key — the root's own order, available over any stage.</summary>
     /// <typeparam name="TKey">The type of the keys.</typeparam>
     /// <typeparam name="TIdentity">The type of the immutable portion of an item.</typeparam>
@@ -420,7 +408,7 @@ public static class CollectionViewExtensionMethods
     public static MappedItems<TResult> Map<TKey, TIdentity, TState, TResult>(
         this ReactiveCollection<TKey, TIdentity, TState> collection,
         Func<TKey, TResult> project,
-        int retainedBeyondTheView = DefaultRetainedBeyondTheView,
+        int retainedBeyondTheView = MappedItems.DefaultRetainedBeyondTheView,
         Action<TResult>? onEvicted = null)
         where TKey : notnull
         where TIdentity : notnull =>

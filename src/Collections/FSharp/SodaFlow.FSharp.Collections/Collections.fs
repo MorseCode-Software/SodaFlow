@@ -492,6 +492,59 @@ let sliceC
     CollectionViewUtility.SliceImpl(upstream, offsetCell, limitCell)
 
 /// <summary>
+///     One object per key, in this collection's order, so a list can bind to something stable.
+/// </summary>
+/// <remarks>
+///     The end of a chain rather than a stage of one: what comes back is objects, which have no
+///     identity and no state for a later stage to work on. <c>project</c> runs once per key and the
+///     object is kept, so a collection whose items changed but whose membership and order did not
+///     yields the same objects in the same order - build each one from <c>stateCell</c> and
+///     <c>identityCell</c> and it will then follow its own item.
+///     <para />
+///     What is kept is bounded by <c>MappedItems.DefaultRetainedBeyondTheView</c>; use
+///     <c>mapWith</c> to choose the bound or to be told when something is dropped.
+/// </remarks>
+/// <param name="project">Builds the object for one key.</param>
+/// <param name="collection">The collection or view to project.</param>
+/// <returns>The projected objects, and the means to release them.</returns>
+[<MethodImpl(MethodImplOptions.NoInlining)>]
+let map (project: 'TKey -> 'TResult) (collection: ReactiveCollection<'TKey, 'TIdentity, 'TState>) =
+    CollectionViewUtility.MapImpl(
+        collection,
+        Func<_, _> project,
+        MappedItems.DefaultRetainedBeyondTheView,
+        null
+    )
+
+/// <summary>
+///     The same, choosing how much to keep and hearing about what is dropped.
+/// </summary>
+/// <remarks>
+///     The bound counts keys that have <i>left</i>: everything currently here is kept whatever it
+///     says, so a bound smaller than the collection cannot evict what is on screen. <c>onEvicted</c>
+///     is where anything a projected object owns is released - and disposing the result releases
+///     what is still held, which eviction never reaches.
+/// </remarks>
+/// <param name="retainedBeyondTheView">How many departed keys to keep objects for.</param>
+/// <param name="onEvicted">Called with an object whose key has been dropped.</param>
+/// <param name="project">Builds the object for one key.</param>
+/// <param name="collection">The collection or view to project.</param>
+/// <returns>The projected objects, and the means to release them.</returns>
+[<MethodImpl(MethodImplOptions.NoInlining)>]
+let mapWith
+    (retainedBeyondTheView: int)
+    (onEvicted: 'TResult -> unit)
+    (project: 'TKey -> 'TResult)
+    (collection: ReactiveCollection<'TKey, 'TIdentity, 'TState>)
+    =
+    CollectionViewUtility.MapImpl(
+        collection,
+        Func<_, _> project,
+        retainedBeyondTheView,
+        Action<_> onEvicted
+    )
+
+/// <summary>
 ///     Follows whichever view the cell currently holds — the way to switch between sorts whose
 ///     sort keys are different types, as clickable column headers need.
 /// </summary>

@@ -37,6 +37,12 @@ at zero; sliceC takes cells for either end, so turning the page is one send.
 There is no skip - a window with both ends is bounded, which is what keeps the
 stage at O(limit) per transaction.
 
+map ends a chain: one object per key, in order, kept so the same key gives back
+the same object - which is what a list binds to. Build each one from stateCell
+and identityCell and it follows its own item, so one edit moves one row rather
+than rebuilding the list. mapWith chooses how much to keep and hears about what
+is dropped; disposing the result releases what is still held.
+
 createByIdentity and createByIdentityWith drop the key selector when the identity
 implements IIdentity<'TKey> and so carries its own key.
 

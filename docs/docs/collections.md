@@ -266,6 +266,8 @@ paging back and forth over the same rows free.
 everything still held, including the rows that never left and so were never evicted. A projection
 that builds bindables needs both halves of that or it leaks the ones still on screen.
 
+F# has `map` and `mapWith`, the second taking the bound and the eviction callback.
+
 ### Paging, and why there is no `Skip`
 
 `Slice(offset, limit)` is the window `Take` is a special case of — a take being a slice whose

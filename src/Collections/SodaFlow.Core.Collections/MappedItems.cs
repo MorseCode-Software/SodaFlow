@@ -4,6 +4,22 @@ using JetBrains.Annotations;
 
 namespace SodaFlow.Collections;
 
+/// <summary>Where a projection's default bound lives, so both language surfaces name one value.</summary>
+[PublicAPI]
+public static class MappedItems
+{
+    /// <summary>
+    ///     How many departed keys a projection keeps objects for unless told otherwise.
+    /// </summary>
+    /// <remarks>
+    ///     Chosen for the shape this is for: a screen showing tens of rows and paging over
+    ///     thousands. It covers a good many pages either side of the one showing, and bounds what a
+    ///     projection over a hundred thousand items can hold to something a screen would have
+    ///     touched rather than something the collection contains.
+    /// </remarks>
+    public const int DefaultRetainedBeyondTheView = 512;
+}
+
 /// <summary>
 ///     What a projection over a collection yields: the projected objects, and the means to let go
 ///     of them.
