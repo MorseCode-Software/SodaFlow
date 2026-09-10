@@ -40,7 +40,7 @@ public static class Expect
 {
     /// <summary>Asserts that <paramref name="actual" /> equals <paramref name="expected" />.</summary>
     public static Task Equal<T>(T expected, T actual, string? because = null) =>
-        Run(Assert.That(actual).IsEqualTo(expected), because);
+        Run(assertion: Assert.That(actual).IsEqualTo(expected), because: because);
 
     /// <summary>Asserts that <paramref name="actual" /> is the same object as <paramref name="expected" />.</summary>
     /// <remarks>
@@ -48,38 +48,38 @@ public static class Expect
     ///     static type, and some of these call sites compare an exception to one held as its base.
     /// </remarks>
     public static Task Same(object? expected, object? actual, string? because = null) =>
-        Run(Assert.That(actual).IsSameReferenceAs(expected), because);
+        Run(assertion: Assert.That(actual).IsSameReferenceAs(expected), because: because);
 
     /// <summary>Asserts that <paramref name="actual" /> holds exactly <paramref name="expected" />, in that order.</summary>
     public static Task Sequence<T>(IEnumerable<T> expected, IEnumerable<T> actual, string? because = null) =>
-        Run(Assert.That(actual).IsEquivalentTo(expected, CollectionOrdering.Matching), because);
+        Run(assertion: Assert.That(actual).IsEquivalentTo(expected: expected, ordering: CollectionOrdering.Matching), because: because);
 
     /// <summary>Asserts that <paramref name="actual" /> holds exactly <paramref name="expected" />, in any order.</summary>
     public static Task SameItems<T>(IEnumerable<T> expected, IEnumerable<T> actual, string? because = null) =>
-        Run(Assert.That(actual).IsEquivalentTo(expected), because);
+        Run(assertion: Assert.That(actual).IsEquivalentTo(expected), because: because);
 
     /// <summary>Asserts that <paramref name="actual" /> is <see langword="true" />.</summary>
     public static Task True(bool actual, string? because = null) =>
-        Run(Assert.That(actual).IsTrue(), because);
+        Run(assertion: Assert.That(actual).IsTrue(), because: because);
 
     /// <summary>Asserts that <paramref name="actual" /> is <see langword="false" />.</summary>
     public static Task False(bool actual, string? because = null) =>
-        Run(Assert.That(actual).IsFalse(), because);
+        Run(assertion: Assert.That(actual).IsFalse(), because: because);
 
     /// <summary>Asserts that <paramref name="actual" /> is not <see langword="null" />.</summary>
     public static Task NotNull<T>(T actual, string? because = null)
         where T : class =>
-        Run(Assert.That(actual).IsNotNull(), because);
+        Run(assertion: Assert.That(actual).IsNotNull(), because: because);
 
     /// <summary>Asserts that <paramref name="actual" /> is less than <paramref name="limit" />.</summary>
     public static Task LessThan<T>(T limit, T actual, string? because = null)
         where T : IComparable<T> =>
-        Run(Assert.That(actual).IsLessThan(limit), because);
+        Run(assertion: Assert.That(actual).IsLessThan(limit), because: because);
 
     /// <summary>Asserts that <paramref name="action" /> throws exactly <typeparamref name="TException" />.</summary>
     public static Task Throws<TException>(Action action, string? because = null)
         where TException : Exception =>
-        Run(Assert.That(action).ThrowsExactly<TException>(), because);
+        Run(assertion: Assert.That(action).ThrowsExactly<TException>(), because: because);
 
     /// <summary>
     ///     Awaits an assertion, attaching <paramref name="because" /> when the call supplied the

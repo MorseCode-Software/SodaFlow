@@ -19,7 +19,7 @@ public sealed class EnumerableExtensionMethodsTests
 
         IEnumerable<int> result = source.Choose(static s => s.TryParseInt32());
 
-        await Assert.That(result).IsEquivalentTo([1, 3, 5], CollectionOrdering.Matching);
+        await Assert.That(result).IsEquivalentTo(expected: [1, 3, 5], ordering: CollectionOrdering.Matching);
     }
 
     [Test]
@@ -29,7 +29,7 @@ public sealed class EnumerableExtensionMethodsTests
 
         IEnumerable<int> result = source.Choose(static s => s.TryParseInt32());
 
-        await Assert.That(result).IsEquivalentTo(Array.Empty<int>(), CollectionOrdering.Matching);
+        await Assert.That(result).IsEquivalentTo(expected: Array.Empty<int>(), ordering: CollectionOrdering.Matching);
     }
 
     [Test]
@@ -39,7 +39,7 @@ public sealed class EnumerableExtensionMethodsTests
 
         IEnumerable<int> result = source.Choose(static s => s.TryParseInt32());
 
-        await Assert.That(result).IsEquivalentTo(Array.Empty<int>(), CollectionOrdering.Matching);
+        await Assert.That(result).IsEquivalentTo(expected: Array.Empty<int>(), ordering: CollectionOrdering.Matching);
     }
 
     [Test]
@@ -69,7 +69,7 @@ public sealed class EnumerableExtensionMethodsTests
 
         IEnumerable<string> result = source.Choose(static (v, i) => Maybe.SomeIf(condition: i % 2 == 0, value: v + i));
 
-        await Assert.That(result).IsEquivalentTo(["a0", "c2"], CollectionOrdering.Matching);
+        await Assert.That(result).IsEquivalentTo(expected: ["a0", "c2"], ordering: CollectionOrdering.Matching);
     }
 
     [Test]

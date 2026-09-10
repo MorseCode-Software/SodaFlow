@@ -36,7 +36,7 @@ public sealed class PerformanceTests
 
         int[] values = [.. obj.Select(static v => v.CurrentValue)];
 
-        await Assert.That(values).IsEquivalentTo(Enumerable.Range(start: 1, count: 5000).Select(static _ => 0), CollectionOrdering.Matching);
+        await Assert.That(values).IsEquivalentTo(expected: Enumerable.Range(start: 1, count: 5000).Select(static _ => 0), ordering: CollectionOrdering.Matching);
     }
 
     private sealed class TestObject
@@ -242,7 +242,7 @@ public sealed class PerformanceTests
             });
         }
 
-        await Assert.That(@out).IsEquivalentTo([1500, 500], CollectionOrdering.Matching);
+        await Assert.That(@out).IsEquivalentTo(expected: [1500, 500], ordering: CollectionOrdering.Matching);
     }
 
     private sealed class TestObject2

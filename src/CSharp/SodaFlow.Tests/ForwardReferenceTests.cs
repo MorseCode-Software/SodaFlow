@@ -74,7 +74,7 @@ public sealed class ForwardReferenceTests
         {
         }
 
-        await Assert.That(@out).IsEquivalentTo([node], CollectionOrdering.Matching);
+        await Assert.That(@out).IsEquivalentTo(expected: [node], ordering: CollectionOrdering.Matching);
     }
 
     [Test]

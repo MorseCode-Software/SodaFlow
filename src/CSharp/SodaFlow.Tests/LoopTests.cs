@@ -35,7 +35,7 @@ public sealed class LoopTests
             s.Send(3);
         }
 
-        await Assert.That(@out).IsEquivalentTo([1, 3, 6], CollectionOrdering.Matching);
+        await Assert.That(@out).IsEquivalentTo(expected: [1, 3, 6], ordering: CollectionOrdering.Matching);
     }
 
     [Test]
@@ -184,7 +184,7 @@ public sealed class LoopTests
             s.Send(3);
         }
 
-        await Assert.That(@out).IsEquivalentTo([1, 3, 6], CollectionOrdering.Matching);
+        await Assert.That(@out).IsEquivalentTo(expected: [1, 3, 6], ordering: CollectionOrdering.Matching);
     }
 
     [Test]
@@ -209,8 +209,8 @@ public sealed class LoopTests
             s.Send(3);
         }
 
-        await Assert.That(@out).IsEquivalentTo([1, 3, 6], CollectionOrdering.Matching);
-        await Assert.That(out2).IsEquivalentTo([2, 4, 6], CollectionOrdering.Matching);
+        await Assert.That(@out).IsEquivalentTo(expected: [1, 3, 6], ordering: CollectionOrdering.Matching);
+        await Assert.That(out2).IsEquivalentTo(expected: [2, 4, 6], ordering: CollectionOrdering.Matching);
     }
 
     [Test]
@@ -239,7 +239,7 @@ public sealed class LoopTests
             s.Send(3);
         }
 
-        await Assert.That(@out).IsEquivalentTo([0, 1, 3, 6], CollectionOrdering.Matching);
+        await Assert.That(@out).IsEquivalentTo(expected: [0, 1, 3, 6], ordering: CollectionOrdering.Matching);
     }
 
     [Test]
@@ -396,7 +396,7 @@ public sealed class LoopTests
             s.Send(3);
         }
 
-        await Assert.That(@out).IsEquivalentTo([0, 1, 3, 6], CollectionOrdering.Matching);
+        await Assert.That(@out).IsEquivalentTo(expected: [0, 1, 3, 6], ordering: CollectionOrdering.Matching);
     }
 
     [Test]
@@ -422,8 +422,8 @@ public sealed class LoopTests
             s.Send(3);
         }
 
-        await Assert.That(@out).IsEquivalentTo([0, 1, 3, 6], CollectionOrdering.Matching);
-        await Assert.That(out2).IsEquivalentTo([0, 2, 4, 6], CollectionOrdering.Matching);
+        await Assert.That(@out).IsEquivalentTo(expected: [0, 1, 3, 6], ordering: CollectionOrdering.Matching);
+        await Assert.That(out2).IsEquivalentTo(expected: [0, 2, 4, 6], ordering: CollectionOrdering.Matching);
     }
 
     [Test]
@@ -449,7 +449,7 @@ public sealed class LoopTests
             s.Send(3);
         }
 
-        await Assert.That(@out).IsEquivalentTo([0, 1, 3, 6], CollectionOrdering.Matching);
+        await Assert.That(@out).IsEquivalentTo(expected: [0, 1, 3, 6], ordering: CollectionOrdering.Matching);
     }
 
     [Test]
@@ -598,7 +598,7 @@ public sealed class LoopTests
             s.Send(3);
         }
 
-        await Assert.That(@out).IsEquivalentTo([0, 1, 3, 6], CollectionOrdering.Matching);
+        await Assert.That(@out).IsEquivalentTo(expected: [0, 1, 3, 6], ordering: CollectionOrdering.Matching);
     }
 
     [Test]
@@ -624,8 +624,8 @@ public sealed class LoopTests
             s.Send(3);
         }
 
-        await Assert.That(@out).IsEquivalentTo([0, 1, 3, 6], CollectionOrdering.Matching);
-        await Assert.That(out2).IsEquivalentTo([0, 2, 4, 6], CollectionOrdering.Matching);
+        await Assert.That(@out).IsEquivalentTo(expected: [0, 1, 3, 6], ordering: CollectionOrdering.Matching);
+        await Assert.That(out2).IsEquivalentTo(expected: [0, 2, 4, 6], ordering: CollectionOrdering.Matching);
     }
 
     // Desired behavior:
