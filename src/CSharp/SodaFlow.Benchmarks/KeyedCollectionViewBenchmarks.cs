@@ -61,6 +61,12 @@ public class KeyedCollectionViewBenchmarks
     private IKeyedCollectionViewShape chainedByIdentity =
         ChainedViewShape.Build(1, ChainStyle.ByIdentity);
 
+    private IKeyedCollectionViewShape selectiveByState =
+        ChainedViewShape.Build(1, ChainStyle.SelectiveByState);
+
+    private IKeyedCollectionViewShape selectiveById =
+        ChainedViewShape.Build(1, ChainStyle.SelectiveById);
+
     private int editCount;
     private int thresholdCount;
 
@@ -78,6 +84,20 @@ public class KeyedCollectionViewBenchmarks
         this.chained = ChainedViewShape.Build(this.ItemCount, ChainStyle.ByState);
         this.chainedById = ChainedViewShape.Build(this.ItemCount, ChainStyle.SortById);
         this.chainedByIdentity = ChainedViewShape.Build(this.ItemCount, ChainStyle.ByIdentity);
+        this.selectiveByState = ChainedViewShape.Build(this.ItemCount, ChainStyle.SelectiveByState);
+        this.selectiveById = ChainedViewShape.Build(this.ItemCount, ChainStyle.SelectiveById);
+
+        // These two are checked against each other rather than against the re-derived view, whose
+        // predicate keeps everything: what has to match is that asking the state and asking the
+        // identity select the same half.
+        if (!this.selectiveByState.Keys.SequenceEqual(this.selectiveById.Keys))
+        {
+            throw new InvalidOperationException(
+                "The two selective filters disagree about what they keep, so timing them against "
+                + "each other would compare different work. By state: "
+                + $"[{Describe(this.selectiveByState.Keys)}]. By identity: "
+                + $"[{Describe(this.selectiveById.Keys)}].");
+        }
 
         if (!this.rederived.Keys.SequenceEqual(this.chainedByIdentity.Keys))
         {
@@ -131,6 +151,22 @@ public class KeyedCollectionViewBenchmarks
     public void EditChainedByIdentity() =>
         this.chainedByIdentity.Replace(EditedKey, this.NextState());
 
+    /// <summary>
+    ///     An edit to an item a selective filter does not keep, tested against the state — which
+    ///     costs a membership test and a predicate test to conclude there is nothing to do.
+    /// </summary>
+    [Benchmark(Description = "edit an excluded item, state filter")]
+    public void EditExcludedByState() =>
+        this.selectiveByState.Replace(ExcludedKey, this.NextExcludedState());
+
+    /// <summary>
+    ///     The same edit, against a filter that selects from the identity — which cannot have
+    ///     changed, so one failed index lookup settles it.
+    /// </summary>
+    [Benchmark(Description = "edit an excluded item, identity filter")]
+    public void EditExcludedById() =>
+        this.selectiveById.Replace(ExcludedKey, this.NextExcludedState());
+
     /// <summary>An item enters the collection and leaves it again.</summary>
     [Benchmark(Description = "add and remove an item, re-derived")]
     public void AddAndRemoveRederived() => this.rederived.AddAndRemove(AddedKey, AddedState);
@@ -177,7 +213,27 @@ public class KeyedCollectionViewBenchmarks
     /// </summary>
     private static ItemState AddedState => new("added", int.MaxValue, false);
 
+    /// <summary>
+    ///     An odd key, which both selective filters exclude and neither can be made to admit: the
+    ///     identity one because a number cannot change, and the state one because
+    ///     <see cref="NextExcludedState" /> keeps the score odd.
+    /// </summary>
+    private static int ExcludedKey => 1;
+
     private static string Describe(IEnumerable<int> keys) => string.Join(", ", keys);
+
+    /// <summary>
+    ///     Two states, alternating, both scoring odd. If the score's parity moved, the state filter
+    ///     would admit the item and do a stage's worth of real work while the identity filter did
+    ///     none - which would be a difference in what they were asked, not in what they cost to
+    ///     ask.
+    /// </summary>
+    private ItemState NextExcludedState()
+    {
+        this.editCount++;
+
+        return new ItemState("edited", 1 + (2 * (this.editCount % 2)), false);
+    }
 
     /// <summary>
     ///     Two states, alternating. A score that only ever climbed would migrate the edited item

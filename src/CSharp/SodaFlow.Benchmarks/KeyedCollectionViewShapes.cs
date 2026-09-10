@@ -169,6 +169,16 @@ internal enum ChainStyle
     ///     beyond the update they are obliged to forward.
     /// </summary>
     ByIdentity,
+
+    /// <summary>
+    ///     A filter that keeps half of what it sees, tested against the state, over an identity
+    ///     sort. Paired with <see cref="SelectiveById" />, which keeps the same half by asking the
+    ///     identity instead.
+    /// </summary>
+    SelectiveByState,
+
+    /// <summary>The same half, selected from the identity.</summary>
+    SelectiveById,
 }
 
 /// <summary>
@@ -234,10 +244,20 @@ internal sealed class ChainedViewShape : IKeyedCollectionViewShape
             // The identity filter admits everything, as the threshold one does at its initial
             // value. What is being measured is not what the predicate answers - the ordinary
             // filter looks the item up and asks either way - but whether it has to ask at all.
-            IReactiveCollection<int, ItemIdentity, ItemState> filtered =
-                style == ChainStyle.ByIdentity
-                    ? collection.FilterById(static _ => true)
-                    : collection.Filter(threshold, static (limit, _, state) => ViewSeed.Passes(state, limit));
+            // The two selective arrangements keep the same items - the seed gives every item a
+            // score equal to its number, so even scores and even numbers are the same half - and
+            // differ only in which half they had to read to find that out.
+            IReactiveCollection<int, ItemIdentity, ItemState> filtered = style switch
+            {
+                ChainStyle.ByIdentity => collection.FilterById(static _ => true),
+                ChainStyle.SelectiveById =>
+                    collection.FilterById(static identity => identity.Number % 2 == 0),
+                ChainStyle.SelectiveByState =>
+                    collection.Filter(static (_, state) => state.Score % 2 == 0),
+                _ => collection.Filter(
+                    threshold,
+                    static (limit, _, state) => ViewSeed.Passes(state, limit)),
+            };
 
             IReactiveCollection<int, ItemIdentity, ItemState> view =
                 (style == ChainStyle.ByState
@@ -266,4 +286,92 @@ internal sealed class ChainedViewShape : IKeyedCollectionViewShape
     }
 
     public void SetThreshold(int threshold) => this.threshold.Send(threshold);
+}
+
+/// <summary>
+///     The collection with no view stages at all, listening to its own change stream — the floor
+///     an edit cannot go below however little the stages above it choose to do.
+/// </summary>
+/// <remarks>
+///     <para>
+///         This exists because without it the view benchmarks cannot be read. An edit through a
+///         chain pays for the transaction, the send, the trie write to the state map, the snapshot
+///         and the change object before any stage is consulted, and at ten thousand items that is
+///         2.8 of the 6.5 microseconds an excluded-key edit costs. Report the 6.5 and a
+///         stage-level difference of a fifth of a microsecond reads as noise; subtract the floor
+///         and the same difference is six percent of what the chain actually does.
+///     </para>
+///     <para>
+///         Subtract this from the arms beside it and what is left is what the chain actually
+///         costs.
+///     </para>
+/// </remarks>
+// ReSharper disable once InheritdocConsiderUsage
+internal sealed class RootOnlyViewShape : IKeyedCollectionViewShape
+{
+    private readonly StreamSink<CollectionEdit<int, ItemIdentity, ItemState>> edits;
+    private readonly ReactiveCollection<int, ItemIdentity, ItemState> collection;
+
+    // Load-bearing, as in the other shapes: something must be listening or nothing is evaluated.
+    // ReSharper disable once NotAccessedField.Local
+    private readonly IListener listener;
+
+    private RootOnlyViewShape(
+        StreamSink<CollectionEdit<int, ItemIdentity, ItemState>> edits,
+        ReactiveCollection<int, ItemIdentity, ItemState> collection,
+        IListener listener)
+    {
+        this.edits = edits;
+        this.collection = collection;
+        this.listener = listener;
+    }
+
+    public IReadOnlyList<int> Keys => [.. this.collection.KeysCell.Sample()];
+
+    internal static RootOnlyViewShape Build(int itemCount)
+    {
+        List<Entry<ItemIdentity, ItemState>> entries = new(itemCount);
+
+        for (int number = 0; number < itemCount; number++)
+        {
+            entries.Add(new Entry<ItemIdentity, ItemState>(
+                ItemSeed.Identity(number),
+                ItemSeed.State(number)));
+        }
+
+        return Transaction.Run(() =>
+        {
+            StreamSink<CollectionEdit<int, ItemIdentity, ItemState>> edits =
+                Stream.CreateSink<CollectionEdit<int, ItemIdentity, ItemState>>();
+
+            ReactiveCollection<int, ItemIdentity, ItemState> collection =
+                ReactiveCollection<int, ItemIdentity, ItemState>.Create(
+                    static identity => identity.Number,
+                    entries,
+                    edits);
+
+            return new RootOnlyViewShape(
+                edits,
+                collection,
+                collection.ChangesStream.ListenStrong(static _ => { }));
+        });
+    }
+
+    public void Replace(int key, ItemState state) =>
+        this.edits.Send(CollectionEdit<int, ItemIdentity, ItemState>.Update(key, _ => state));
+
+    public void AddAndRemove(int key, ItemState state)
+    {
+        this.edits.Send(
+            CollectionEdit<int, ItemIdentity, ItemState>.Add(
+                new Entry<ItemIdentity, ItemState>(ItemSeed.Identity(key), state)));
+
+        this.edits.Send(CollectionEdit<int, ItemIdentity, ItemState>.Remove(key));
+    }
+
+    /// <inheritdoc />
+    /// <remarks>Nothing here filters, so there is no threshold to change.</remarks>
+    public void SetThreshold(int threshold)
+    {
+    }
 }

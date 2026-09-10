@@ -248,11 +248,33 @@ edit can move a key neither into the view nor within it. The last column is a ch
 
 They are not equal contributors. Of that column at ten thousand items, `SortById` accounts for
 almost all of it — 12.9 µs to 10.9 µs, and every byte of the allocation, because what it skips
-is re-filing, which copies tree paths. `FilterById` takes it to 10.4 µs and allocates exactly
-the same, because what it skips is lookups, and lookups allocate nothing. Its saving is a few
-percent here, and it should be a larger share of a filter that actually excludes most of what it
-sees, where an update for a key the view does not hold currently pays a membership test and a
-predicate test to conclude it should do nothing.
+is re-filing, which copies tree paths. `FilterById` barely registers here, and that is the wrong
+place to look at it.
+
+Where it earns its place is a key the view does not hold. An update for one costs the ordinary
+filter a membership test and a predicate test to conclude there is nothing to do; the identity
+one settles it with a single failed index lookup. `KeyedCollectionScaleBenchmarks` measures that
+against a third arm with no view stages at all, because without one the question cannot be
+answered — most of what an edit costs is spent before any stage is consulted, and a stage-level
+saving disappears into it. Subtract that floor and what is left is the chain's own cost:
+
+| Items | Floor, no chain | Excluded, state | Excluded, identity | Chain cost, state | Chain cost, identity |
+| --- | --- | --- | --- | --- | --- |
+| 10,000 | 2.79 µs | 6.46 µs | 6.22 µs | 3.67 µs | 3.44 µs |
+| 100,000 | 3.16 µs | 6.85 µs | 6.74 µs | 3.69 µs | 3.57 µs |
+| 1,000,000 | 3.33 µs | 7.20 µs | 7.07 µs | 3.87 µs | 3.74 µs |
+
+Three to six percent of what the chain costs, consistently — the identity filter was ahead in
+every paired measurement, on both runtimes — and it does not grow with the collection. It is
+largest at ten thousand items and flat above that, because both things it skips are trie
+lookups costing O(log32 n), and log32 of a million is four where log32 of ten thousand is nearly
+three. There was never much room for the gap to open. Allocation is identical to the byte at
+every size, which is the row above's story again: what this skips is reading, and reading
+allocates nothing.
+
+The same table says something better about the collection than it does about `FilterById`. A
+hundred times the items costs an edit nineteen percent more — 2.77 µs to 3.36 µs with no chain,
+10.3 µs to 12.3 µs through a filter, a sort and a window.
 
 Do not read the column as a reason to sort or filter by identity when you meant to use the
 state. It is worth having when the view was going to be over the identity anyway, which is
