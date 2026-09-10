@@ -48,8 +48,15 @@ var inspectionDirectory = Directory("./inspection");
 // Where inspectcode keeps its analysis caches, named explicitly so they land somewhere stable
 // rather than in a temporary directory it picks itself. That is what makes them worth keeping
 // between runs: a cold inspection of this solution takes 135 seconds and a warm one 26, and even a
-// cache taken from before an edit comes in at 36 - it revalidates what changed rather than
-// trusting itself, which is the property that makes reusing one safe against a zero threshold.
+// cache taken from before a source edit comes in at 36 - it revalidates the sources that changed
+// rather than trusting itself.
+//
+// It does not revalidate against the settings, which was found by measuring rather than assumed.
+// After code style preferences were added to the rule set, a warm cache reported 11 findings - the
+// rules whose severity had changed - where a cold one reported 2,401. Severities are applied when
+// the report is written; the analysis underneath was still the one made under the old preferences.
+// So the caches live a level down, in a directory named for the settings they were built under. See
+// InspectionCacheFor.
 //
 // Deliberately not inspectionDirectory: that one is cleaned at the start of every inspection,
 // which is exactly what must not happen to this.
@@ -307,17 +314,18 @@ Task("Verify-Inspection-Settings")
 // costs little: it reuses the caches the first has just warmed, measured at 25 seconds here.
 void RunInspection(FilePath solutionPath, FilePath reportPath, FilePath gatePath, string description)
 {
-    // inspectcode creates this itself, but only after deciding it is usable; making it first keeps
-    // a first run on a clean tree from differing from every run after it.
-    EnsureDirectoryExists(inspectionCacheDirectory);
+    // The cache for the settings in force, made before either run. inspectcode creates a cache
+    // directory itself, but only after deciding it is usable; making it first keeps a first run on
+    // a clean tree from differing from every run after it.
+    var cacheDirectory = InspectionCacheFor();
 
     // Everything, for code scanning. INFO rather than HINT, so that no tier below hints can be left
     // out without someone deciding to leave it out.
-    InvokeInspectCode(solutionPath, reportPath, "INFO");
+    InvokeInspectCode(solutionPath, reportPath, "INFO", cacheDirectory);
 
     // What fails the build. Named although it is inspectcode's default, so the two thresholds read
     // side by side and neither depends on a default nobody wrote down.
-    InvokeInspectCode(solutionPath, gatePath, "SUGGESTION");
+    InvokeInspectCode(solutionPath, gatePath, "SUGGESTION", cacheDirectory);
 
     var workingDirectory = Context.Environment.WorkingDirectory;
 
@@ -369,8 +377,76 @@ void RunInspection(FilePath solutionPath, FilePath reportPath, FilePath gatePath
     }
 }
 
+// The cache directory for the settings in force: a subdirectory of inspectionCacheDirectory named by
+// a hash of every file that decides what an inspection reports - the rule set, and the .editorconfig
+// files, which carry code style too. A settings change therefore starts cold instead of reusing
+// analysis made under the old settings. Any sibling left by other settings is removed on the way, so
+// a cache carried between CI runs does not keep every version of the rule set it has ever seen, and
+// anything at the top level from before caches were keyed goes with them.
+//
+// build.yml hashes the same files into its cache key. If it did not, a change to one of them would
+// hit that key exactly, restore a cache built under the old settings, and never save the cold cache
+// that replaced it - so every run after would start cold again.
+DirectoryPath InspectionCacheFor()
+{
+    var inputs = new List<FilePath> { inspectionSettings.Path };
+    inputs.AddRange(GetFiles("./.editorconfig"));
+    inputs.AddRange(GetFiles("./src/**/.editorconfig"));
+    inputs.AddRange(GetFiles("./samples/**/.editorconfig"));
+
+    var root = MakeAbsolute(Directory("."));
+    var ordered = inputs
+        .Select(input => MakeAbsolute(input))
+        .GroupBy(input => input.FullPath, StringComparer.Ordinal)
+        .Select(group => group.First())
+        .OrderBy(input => input.FullPath, StringComparer.Ordinal)
+        .ToList();
+
+    string key;
+    using (var sha = System.Security.Cryptography.SHA256.Create())
+    {
+        foreach (var input in ordered)
+        {
+            // The path goes in as well as the content, so moving a file is a change too.
+            var name = System.Text.Encoding.UTF8.GetBytes(root.GetRelativePath(input).FullPath + "\n");
+            sha.TransformBlock(name, 0, name.Length, null, 0);
+
+            var content = System.IO.File.ReadAllBytes(input.FullPath);
+            sha.TransformBlock(content, 0, content.Length, null, 0);
+        }
+
+        sha.TransformFinalBlock(Array.Empty<byte>(), 0, 0);
+        key = BitConverter.ToString(sha.Hash, 0, 8).Replace("-", string.Empty).ToLowerInvariant();
+    }
+
+    EnsureDirectoryExists(inspectionCacheDirectory);
+
+    foreach (var other in GetDirectories("./.inspectcode-cache/*"))
+    {
+        if (!string.Equals(other.GetDirectoryName(), key, StringComparison.Ordinal))
+        {
+            DeleteDirectory(other, new DeleteDirectorySettings { Recursive = true, Force = true });
+        }
+    }
+
+    foreach (var loose in GetFiles("./.inspectcode-cache/*"))
+    {
+        DeleteFile(loose);
+    }
+
+    var current = inspectionCacheDirectory + Directory(key);
+    EnsureDirectoryExists(current);
+
+    Information(
+        "Inspection cache {0}, keyed by {1}.",
+        key,
+        string.Join(", ", ordered.Select(input => root.GetRelativePath(input).FullPath)));
+
+    return current;
+}
+
 // One inspectcode run over one solution, writing SARIF at one threshold.
-void InvokeInspectCode(FilePath solutionPath, FilePath outputPath, string severity)
+void InvokeInspectCode(FilePath solutionPath, FilePath outputPath, string severity, DirectoryPath cacheDirectory)
 {
     // inspectcode comes from the jetbrains.resharper.globaltools local tool, pinned alongside Cake
     // in .config/dotnet-tools.json, so the agent inspects with the version a developer does. There
@@ -388,10 +464,11 @@ void InvokeInspectCode(FilePath solutionPath, FilePath outputPath, string severi
         // Absolute, and that is load-bearing rather than tidy: inspectcode ignores a relative
         // --settings path without saying so, and inspects with its own defaults instead.
         .AppendSwitchQuoted("--settings", "=", MakeAbsolute(inspectionSettings.Path).FullPath)
-        // See the declaration of this directory for what it buys and why reusing it is safe. It is
-        // given here rather than left to inspectcode's own temporary location so that CI can carry
-        // it between runs and a developer keeps one between invocations.
-        .AppendSwitchQuoted("--caches-home", "=", MakeAbsolute(inspectionCacheDirectory).FullPath)
+        // See the declaration of inspectionCacheDirectory for what a cache buys, and
+        // InspectionCacheFor for when reusing one is safe. It is given here rather than left to
+        // inspectcode's own temporary location so that CI can carry it between runs and a developer
+        // keeps one between invocations.
+        .AppendSwitchQuoted("--caches-home", "=", MakeAbsolute(cacheDirectory).FullPath)
         // Absolute paths in the SARIF, which is what lets the issues be reported against paths from
         // the repository root. Left relative, they come out relative to the solution directory -
         // CSharp/SodaFlow/Foo.cs for a file that lives at src/CSharp/SodaFlow/Foo.cs - because the

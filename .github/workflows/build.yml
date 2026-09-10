@@ -336,21 +336,28 @@ jobs:
       # a 26 second one. Measured on this solution rather than hoped for, and measured again for the
       # case that actually matters: a cache taken from before a source edit still found exactly the
       # issues a fresh one did - same rules, same files, same lines - in 36 seconds. It revalidates
-      # what changed instead of trusting itself, which is the property that makes reusing one safe
-      # against a threshold of zero.
+      # the sources that changed instead of trusting itself, which is the property that makes reusing
+      # one safe against a threshold of zero.
+      #
+      # It does not revalidate against the settings: after code style preferences were added to the
+      # rule set, a warm cache reported 11 findings where a cold one reported 2,401. build.cake keeps
+      # the caches in a subdirectory named for the settings and removes the others, so the fallback
+      # below can restore a cache from older settings and the inspection still starts cold for new
+      # ones. See InspectionCacheFor there.
       #
       # 26 MB across 46 files, so unlike the built tree this is small enough that moving it costs
-      # seconds. build.cake points --caches-home at this directory; see there.
+      # seconds. build.cake points --caches-home at a subdirectory of this directory; see there.
       #
-      # The key hashes the sources, the projects and the rule set - everything the analysis depends
-      # on. An unchanged re-run hits exactly and saves nothing; a changed one misses, falls back
-      # through restore-keys to the most recent cache there is, and saves a new entry. That fallback
-      # is the whole design: a stale cache is worth having, so the miss path must not start cold.
+      # The key hashes the sources, the projects, the rule set and the .editorconfig files -
+      # everything the analysis depends on, and the settings build.cake names that subdirectory for.
+      # An unchanged re-run hits exactly and saves nothing; a changed one misses, falls back through
+      # restore-keys to the most recent cache there is, and saves a new entry. That fallback is the
+      # whole design: a stale cache is worth having, so the miss path must not start cold.
       - name: Cache inspection analysis
         uses: actions/cache@v6
         with:
           path: .inspectcode-cache
-          key: inspectcode-${{ runner.os }}-${{ hashFiles('src/**/*.cs', 'src/**/*.fs', 'src/**/*.csproj', 'src/**/*.fsproj', 'src/SodaFlow.slnx', 'src/SodaFlow.sln.DotSettings') }}
+          key: inspectcode-${{ runner.os }}-${{ hashFiles('src/**/*.cs', 'src/**/*.fs', 'src/**/*.csproj', 'src/**/*.fsproj', 'src/SodaFlow.slnx', 'src/SodaFlow.sln.DotSettings', '.editorconfig', 'src/**/.editorconfig', 'samples/**/.editorconfig') }}
           restore-keys: |
             inspectcode-${{ runner.os }}-
 
