@@ -22,7 +22,7 @@ internal static class CollectionViewUtility
     ///     <see cref="ReactiveCollection{TKey,TIdentity,TState}" /> the first time anything asks it for keys in
     ///     order.
     /// </summary>
-    internal static IReactiveCollection<TKey, TIdentity, TState> CreateRootImpl<TKey, TIdentity, TState>(
+    internal static ReactiveCollection<TKey, TIdentity, TState> CreateRootImpl<TKey, TIdentity, TState>(
         ReactiveCollection<TKey, TIdentity, TState> collection,
         IComparer<TKey> keyComparer)
         where TKey : notnull
@@ -34,7 +34,7 @@ internal static class CollectionViewUtility
             keyComparer,
             descending: false);
 
-        return TransactionInternal.Apply<IReactiveCollection<TKey, TIdentity, TState>>((trans, _) =>
+        return TransactionInternal.Apply<ReactiveCollection<TKey, TIdentity, TState>>((trans, _) =>
         {
             LoopedCell<IOrderedKeys<TKey, TIdentity, TState>> stateLoopCell = new();
 
@@ -48,7 +48,7 @@ internal static class CollectionViewUtility
 
             stateLoopCell.Loop(trans, keysCell);
 
-            return new CollectionViewStage<TKey, TIdentity, TState>(
+            return new ViewStage<TKey, TIdentity, TState>(
                 collection,
                 keysCell,
                 // The root's ordering holds every key, so scoping it would wrap the store in a
@@ -59,8 +59,8 @@ internal static class CollectionViewUtility
     }
 
     /// <summary>Reorders by key — the root's own order, available over any stage.</summary>
-    internal static IReactiveCollection<TKey, TIdentity, TState> SortByKeyImpl<TKey, TIdentity, TState>(
-        IReactiveCollection<TKey, TIdentity, TState> upstream,
+    internal static ReactiveCollection<TKey, TIdentity, TState> SortByKeyImpl<TKey, TIdentity, TState>(
+        ReactiveCollection<TKey, TIdentity, TState> upstream,
         IComparer<TKey> keyComparer)
         where TKey : notnull
         where TIdentity : notnull
@@ -83,8 +83,8 @@ internal static class CollectionViewUtility
     ///     built from the upstream's own order, so it does not need to know what that order sorts by
     ///     and it does not have to track positions within the upstream list.
     /// </summary>
-    internal static IReactiveCollection<TKey, TIdentity, TState> FilterImpl<TKey, TIdentity, TState>(
-        IReactiveCollection<TKey, TIdentity, TState> upstream,
+    internal static ReactiveCollection<TKey, TIdentity, TState> FilterImpl<TKey, TIdentity, TState>(
+        ReactiveCollection<TKey, TIdentity, TState> upstream,
         Cell<Func<TIdentity, TState, bool>> predicateCell)
         where TKey : notnull
         where TIdentity : notnull =>
@@ -99,8 +99,8 @@ internal static class CollectionViewUtility
     ///     the way down to the comparer, so sort values are stored and compared as themselves and
     ///     never boxed.
     /// </summary>
-    internal static IReactiveCollection<TKey, TIdentity, TState> SortByImpl<TKey, TIdentity, TState, TSortKey>(
-        IReactiveCollection<TKey, TIdentity, TState> upstream,
+    internal static ReactiveCollection<TKey, TIdentity, TState> SortByImpl<TKey, TIdentity, TState, TSortKey>(
+        ReactiveCollection<TKey, TIdentity, TState> upstream,
         Func<TIdentity, TState, TSortKey> selector,
         IComparer<TSortKey> sortComparer,
         IComparer<TKey> keyComparer,
@@ -132,8 +132,8 @@ internal static class CollectionViewUtility
     ///     - it forwards the update and is done. The predicate is not handed the state, which is
     ///     what makes that checkable rather than promised.
     /// </remarks>
-    internal static IReactiveCollection<TKey, TIdentity, TState> FilterByIdentityImpl<TKey, TIdentity, TState>(
-        IReactiveCollection<TKey, TIdentity, TState> upstream,
+    internal static ReactiveCollection<TKey, TIdentity, TState> FilterByIdentityImpl<TKey, TIdentity, TState>(
+        ReactiveCollection<TKey, TIdentity, TState> upstream,
         Func<TIdentity, bool> predicate)
         where TKey : notnull
         where TIdentity : notnull =>
@@ -153,8 +153,8 @@ internal static class CollectionViewUtility
     ///     told merely changed, and building one never reads the state map. The selector is not
     ///     handed the state, which is what makes the claim checkable rather than promised.
     /// </remarks>
-    internal static IReactiveCollection<TKey, TIdentity, TState> SortByIdentityImpl<TKey, TIdentity, TState, TSortKey>(
-        IReactiveCollection<TKey, TIdentity, TState> upstream,
+    internal static ReactiveCollection<TKey, TIdentity, TState> SortByIdentityImpl<TKey, TIdentity, TState, TSortKey>(
+        ReactiveCollection<TKey, TIdentity, TState> upstream,
         Func<TIdentity, TSortKey> selector,
         IComparer<TSortKey> sortComparer,
         IComparer<TKey> keyComparer,
@@ -185,8 +185,8 @@ internal static class CollectionViewUtility
     ///     inside the window is reported as removes and inserts from the first differing position
     ///     rather than as moves. For a top-n that is the cheap direction to be wrong in.
     /// </remarks>
-    internal static IReactiveCollection<TKey, TIdentity, TState> TakeImpl<TKey, TIdentity, TState>(
-        IReactiveCollection<TKey, TIdentity, TState> upstream,
+    internal static ReactiveCollection<TKey, TIdentity, TState> TakeImpl<TKey, TIdentity, TState>(
+        ReactiveCollection<TKey, TIdentity, TState> upstream,
         Cell<int> limitCell)
         where TKey : notnull
         where TIdentity : notnull =>
@@ -212,8 +212,8 @@ internal static class CollectionViewUtility
     ///         Paging wants both halves anyway, and that is this.
     ///     </para>
     /// </remarks>
-    internal static IReactiveCollection<TKey, TIdentity, TState> SliceImpl<TKey, TIdentity, TState>(
-        IReactiveCollection<TKey, TIdentity, TState> upstream,
+    internal static ReactiveCollection<TKey, TIdentity, TState> SliceImpl<TKey, TIdentity, TState>(
+        ReactiveCollection<TKey, TIdentity, TState> upstream,
         Cell<int> offsetCell,
         Cell<int> limitCell)
         where TKey : notnull
@@ -231,12 +231,12 @@ internal static class CollectionViewUtility
     ///     Follows whichever view the cell currently holds — the way to switch between sorts whose
     ///     sort keys are different types, as clickable column headers need.
     /// </summary>
-    internal static IReactiveCollection<TKey, TIdentity, TState> SwitchImpl<TKey, TIdentity, TState>(
-        IReactiveCollection<TKey, TIdentity, TState> source,
-        Cell<IReactiveCollection<TKey, TIdentity, TState>> viewCell)
+    internal static ReactiveCollection<TKey, TIdentity, TState> SwitchImpl<TKey, TIdentity, TState>(
+        ReactiveCollection<TKey, TIdentity, TState> source,
+        Cell<ReactiveCollection<TKey, TIdentity, TState>> viewCell)
         where TKey : notnull
         where TIdentity : notnull =>
-        TransactionInternal.RunImpl<IReactiveCollection<TKey, TIdentity, TState>>(() =>
+        TransactionInternal.RunImpl<ReactiveCollection<TKey, TIdentity, TState>>(() =>
         {
             Stream<CollectionViewChange<TKey, TIdentity, TState>> switchedChangesStream = viewCell
                 .MapImpl(static view => view.KeyChangesStream)
@@ -271,7 +271,7 @@ internal static class CollectionViewUtility
                 .MapImpl(static view => view.KeysCell)
                 .SwitchCImpl<IOrderedKeys<TKey, TIdentity, TState>, Cell<IOrderedKeys<TKey, TIdentity, TState>>>();
 
-            return new CollectionViewStage<TKey, TIdentity, TState>(
+            return new ViewStage<TKey, TIdentity, TState>(
                 source,
                 switchedKeysCell,
                 () => TransactionInternal.RunImpl(() => source.SnapshotCell.LiftImpl(
@@ -280,8 +280,8 @@ internal static class CollectionViewUtility
                 switchResetsStream.OrElseImpl(switchedChangesStream));
         });
 
-    private static IReactiveCollection<TKey, TIdentity, TState> BuildStage<TKey, TIdentity, TState, TCriteria>(
-        IReactiveCollection<TKey, TIdentity, TState> upstream,
+    private static ReactiveCollection<TKey, TIdentity, TState> BuildStage<TKey, TIdentity, TState, TCriteria>(
+        ReactiveCollection<TKey, TIdentity, TState> upstream,
         Cell<TCriteria> criteriaCell,
         Func<TCriteria, IOrderedKeys<TKey, TIdentity, TState>, CollectionSnapshot<TKey, TIdentity, TState>,
             IOrderedKeys<TKey, TIdentity, TState>> rebuild,
@@ -289,7 +289,7 @@ internal static class CollectionViewUtility
             StageOutcome<TKey, TIdentity, TState>> process)
         where TKey : notnull
         where TIdentity : notnull =>
-        TransactionInternal.Apply<IReactiveCollection<TKey, TIdentity, TState>>((trans, _) =>
+        TransactionInternal.Apply<ReactiveCollection<TKey, TIdentity, TState>>((trans, _) =>
         {
             LoopedCell<IOrderedKeys<TKey, TIdentity, TState>> stateLoopCell = new();
 
@@ -299,7 +299,7 @@ internal static class CollectionViewUtility
             // is scoped explicitly below.
             Cell<StageContext<TKey, TIdentity, TState, TCriteria>> contextCell = criteriaCell.LiftImpl(
                 upstream.KeysCell,
-                upstream.RootOf().SnapshotCell,
+                upstream.Root.SnapshotCell,
                 static (criteria, upstreamKeys, snapshot) =>
                     new StageContext<TKey, TIdentity, TState, TCriteria>(criteria, upstreamKeys, snapshot));
 
@@ -377,7 +377,7 @@ internal static class CollectionViewUtility
 
             stateLoopCell.Loop(trans, keysCell);
 
-            return new CollectionViewStage<TKey, TIdentity, TState>(
+            return new ViewStage<TKey, TIdentity, TState>(
                 upstream,
                 keysCell,
                 // The one above it behind this stage's keys, built only if something asks.

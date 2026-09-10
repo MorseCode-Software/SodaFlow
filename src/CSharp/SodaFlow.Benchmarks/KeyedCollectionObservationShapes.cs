@@ -135,7 +135,7 @@ internal sealed class ObservationShape
                     items,
                     edits);
 
-            IReactiveCollection<int, ItemIdentity, ItemState> view = collection
+            ReactiveCollection<int, ItemIdentity, ItemState> view = collection
                 .FilterByIdentity(static identity => Passes(identity))
                 .SortByDescending(static (_, state) => state.Score);
 
@@ -208,7 +208,7 @@ internal sealed class ObservationShape
                     [new Item<ItemIdentity, ItemState>(ItemSeed.Identity(0), ItemSeed.State(0))],
                     edits);
 
-            IReactiveCollection<int, ItemIdentity, ItemState> view =
+            ReactiveCollection<int, ItemIdentity, ItemState> view =
                 collection.FilterByIdentity(static identity => Passes(identity));
 
             if (ReferenceEquals(collection.StateCell(0), view.StateCell(0)))
@@ -227,7 +227,7 @@ internal sealed class ObservationShape
     // ReSharper disable once SuggestBaseTypeForParameter
     private static IListener Observe(
         ReactiveCollection<int, ItemIdentity, ItemState> collection,
-        IReactiveCollection<int, ItemIdentity, ItemState> view,
+        ReactiveCollection<int, ItemIdentity, ItemState> view,
         int key,
         ObservationStyle style)
     {
@@ -250,8 +250,8 @@ internal sealed class ObservationShape
 
     /// <summary>The per-item state cell one of the four state styles asks for.</summary>
     private static Cell<Maybe<ItemState>> StateCellFor(
-        IReactiveCollection<int, ItemIdentity, ItemState> collection,
-        IReactiveCollection<int, ItemIdentity, ItemState> view,
+        ReactiveCollection<int, ItemIdentity, ItemState> collection,
+        ReactiveCollection<int, ItemIdentity, ItemState> view,
         int key,
         ObservationStyle style) =>
         style switch

@@ -190,7 +190,7 @@ internal sealed class ChainedViewShape : IKeyedCollectionViewShape
 {
     private readonly StreamSink<CollectionEdit<int, ItemIdentity, ItemState>> edits;
     private readonly CellSink<int> threshold;
-    private readonly IReactiveCollection<int, ItemIdentity, ItemState> view;
+    private readonly ReactiveCollection<int, ItemIdentity, ItemState> view;
 
     // Load-bearing, as in the other shape.
     // ReSharper disable once NotAccessedField.Local
@@ -199,7 +199,7 @@ internal sealed class ChainedViewShape : IKeyedCollectionViewShape
     private ChainedViewShape(
         StreamSink<CollectionEdit<int, ItemIdentity, ItemState>> edits,
         CellSink<int> threshold,
-        IReactiveCollection<int, ItemIdentity, ItemState> view,
+        ReactiveCollection<int, ItemIdentity, ItemState> view,
         IListener listener)
     {
         this.edits = edits;
@@ -247,7 +247,7 @@ internal sealed class ChainedViewShape : IKeyedCollectionViewShape
             // The two selective arrangements keep the same items - the seed gives every item a
             // score equal to its number, so even scores and even numbers are the same half - and
             // differ only in which half they had to read to find that out.
-            IReactiveCollection<int, ItemIdentity, ItemState> filtered = style switch
+            ReactiveCollection<int, ItemIdentity, ItemState> filtered = style switch
             {
                 ChainStyle.ByIdentity => collection.FilterByIdentity(static _ => true),
                 ChainStyle.SelectiveByIdentity =>
@@ -259,7 +259,7 @@ internal sealed class ChainedViewShape : IKeyedCollectionViewShape
                     static (limit, _, state) => ViewSeed.Passes(state, limit)),
             };
 
-            IReactiveCollection<int, ItemIdentity, ItemState> view =
+            ReactiveCollection<int, ItemIdentity, ItemState> view =
                 (style == ChainStyle.ByState
                     ? filtered.SortByDescending(static (_, state) => state.Score)
                     : filtered.SortByIdentityDescending(static identity => identity.Number))
@@ -486,7 +486,7 @@ internal sealed class ChainedPageShape : IKeyedPagingShape
 {
     private readonly StreamSink<CollectionEdit<int, ItemIdentity, ItemState>> edits;
     private readonly CellSink<int> offset;
-    private readonly IReactiveCollection<int, ItemIdentity, ItemState> page;
+    private readonly ReactiveCollection<int, ItemIdentity, ItemState> page;
 
     // Load-bearing, as above.
     // ReSharper disable once NotAccessedField.Local
@@ -495,7 +495,7 @@ internal sealed class ChainedPageShape : IKeyedPagingShape
     private ChainedPageShape(
         StreamSink<CollectionEdit<int, ItemIdentity, ItemState>> edits,
         CellSink<int> offset,
-        IReactiveCollection<int, ItemIdentity, ItemState> page,
+        ReactiveCollection<int, ItemIdentity, ItemState> page,
         IListener listener)
     {
         this.edits = edits;
@@ -530,7 +530,7 @@ internal sealed class ChainedPageShape : IKeyedPagingShape
 
             CellSink<int> offset = Cell.CreateSink(0);
 
-            IReactiveCollection<int, ItemIdentity, ItemState> page = collection
+            ReactiveCollection<int, ItemIdentity, ItemState> page = collection
                 .SortByDescending(static (_, state) => state.Score)
                 .Slice(offset, Cell.Constant(ViewSeed.Limit));
 

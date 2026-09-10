@@ -15,7 +15,7 @@ public sealed class CollectionViewTests
         params Item<ItemIdentity, ItemState>[] initial) =>
         ReactiveCollection<int, ItemIdentity, ItemState>.Create(TestUtil.KeyOf, initial, edits);
 
-    private static List<int> KeysOf(IReactiveCollection<int, ItemIdentity, ItemState> view) =>
+    private static List<int> KeysOf(ReactiveCollection<int, ItemIdentity, ItemState> view) =>
         TestUtil.Keys(view.KeysCell.Sample());
 
     /// <summary>An operation as "kind:key", which is what these tests assert on.</summary>
@@ -53,7 +53,7 @@ public sealed class CollectionViewTests
             TestUtil.Item(2, "two", 10),
             TestUtil.Item(3, "three", 20));
 
-        IReactiveCollection<int, ItemIdentity, ItemState> byScore =
+        ReactiveCollection<int, ItemIdentity, ItemState> byScore =
             collection.SortBy(static (_, state) => state.Score);
 
         await Assert.That(KeysOf(byScore)).IsEquivalentTo([2, 3, 1]);
@@ -76,7 +76,7 @@ public sealed class CollectionViewTests
             TestUtil.Item(2, "two", 10),
             TestUtil.Item(3, "three", 20));
 
-        IReactiveCollection<int, ItemIdentity, ItemState> byScore =
+        ReactiveCollection<int, ItemIdentity, ItemState> byScore =
             collection.SortByDescending(static (_, state) => state.Score);
 
         await Assert.That(KeysOf(byScore)).IsEquivalentTo([1, 3, 2]);
@@ -94,7 +94,7 @@ public sealed class CollectionViewTests
             TestUtil.Item(2, "two", 20),
             TestUtil.Item(3, "three", 30));
 
-        IReactiveCollection<int, ItemIdentity, ItemState> byScore =
+        ReactiveCollection<int, ItemIdentity, ItemState> byScore =
             collection.SortBy(static (_, state) => state.Score);
 
         List<string> operations = [];
@@ -148,7 +148,7 @@ public sealed class CollectionViewTests
         // Sitting directly on the collection, so this stage inherits the root's order, which
         // projects the key - and a key cannot change. A state edit therefore cannot move anything
         // here, which is the case Refile short-circuits rather than removing and re-adding.
-        IReactiveCollection<int, ItemIdentity, ItemState> passing =
+        ReactiveCollection<int, ItemIdentity, ItemState> passing =
             collection.Filter(static (_, state) => state.Score >= 0);
 
         List<string> operations = [];
@@ -177,7 +177,7 @@ public sealed class CollectionViewTests
             TestUtil.Item(3, "three", 20),
             TestUtil.Item(4, "four", 40));
 
-        IReactiveCollection<int, ItemIdentity, ItemState> passing = collection
+        ReactiveCollection<int, ItemIdentity, ItemState> passing = collection
             .SortBy(static (_, state) => state.Score)
             .Filter(static (_, state) => state.Score >= 20);
 
@@ -195,7 +195,7 @@ public sealed class CollectionViewTests
             TestUtil.Item(1, "one", 10),
             TestUtil.Item(2, "two", 30));
 
-        IReactiveCollection<int, ItemIdentity, ItemState> passing =
+        ReactiveCollection<int, ItemIdentity, ItemState> passing =
             collection.Filter(static (_, state) => state.Score >= 20);
 
         await Assert.That(KeysOf(passing)).IsEquivalentTo([2]);
@@ -220,7 +220,7 @@ public sealed class CollectionViewTests
             TestUtil.Item(2, "two", 20),
             TestUtil.Item(3, "three", 30));
 
-        IReactiveCollection<int, ItemIdentity, ItemState> passing = collection.Filter(
+        ReactiveCollection<int, ItemIdentity, ItemState> passing = collection.Filter(
             threshold,
             static (limit, _, state) => state.Score >= limit);
 
@@ -250,7 +250,7 @@ public sealed class CollectionViewTests
             TestUtil.Item(3, "three", 30),
             TestUtil.Item(4, "four", 40));
 
-        IReactiveCollection<int, ItemIdentity, ItemState> evens =
+        ReactiveCollection<int, ItemIdentity, ItemState> evens =
             collection.FilterByIdentity(static identity => identity.Number % 2 == 0);
 
         await Assert.That(KeysOf(evens)).IsEquivalentTo([2, 4]);
@@ -281,7 +281,7 @@ public sealed class CollectionViewTests
         ReactiveCollection<int, ItemIdentity, ItemState> collection =
             Create(edits, TestUtil.Item(2, "two", 20));
 
-        IReactiveCollection<int, ItemIdentity, ItemState> evens =
+        ReactiveCollection<int, ItemIdentity, ItemState> evens =
             collection.FilterByIdentity(static identity => identity.Number % 2 == 0);
 
         await Assert.That(KeysOf(evens)).IsEquivalentTo([2]);
@@ -311,7 +311,7 @@ public sealed class CollectionViewTests
             TestUtil.Item(4, "four", 40));
 
         // Neither stage reads the state, so nothing a state edit does can reach either of them.
-        IReactiveCollection<int, ItemIdentity, ItemState> view = collection
+        ReactiveCollection<int, ItemIdentity, ItemState> view = collection
             .FilterByIdentity(static identity => identity.Number % 2 == 0)
             .SortByIdentityDescending(static identity => identity.Number);
 
@@ -335,7 +335,7 @@ public sealed class CollectionViewTests
             TestUtil.Item(3, "three", 30));
 
         // Codes are "C1", "C2", "C3", so descending by code is descending by number here.
-        IReactiveCollection<int, ItemIdentity, ItemState> byCode =
+        ReactiveCollection<int, ItemIdentity, ItemState> byCode =
             collection.SortByIdentityDescending(static identity => identity.Code);
 
         await Assert.That(KeysOf(byCode)).IsEquivalentTo([3, 2, 1]);
@@ -365,7 +365,7 @@ public sealed class CollectionViewTests
             TestUtil.Item(1, "one", 10),
             TestUtil.Item(3, "three", 30));
 
-        IReactiveCollection<int, ItemIdentity, ItemState> byCode =
+        ReactiveCollection<int, ItemIdentity, ItemState> byCode =
             collection.SortByIdentity(static identity => identity.Code);
 
         await Assert.That(KeysOf(byCode)).IsEquivalentTo([1, 3]);
@@ -391,7 +391,7 @@ public sealed class CollectionViewTests
             TestUtil.Item(3, "three", 30),
             TestUtil.Item(4, "four", 40));
 
-        IReactiveCollection<int, ItemIdentity, ItemState> topTwo = collection
+        ReactiveCollection<int, ItemIdentity, ItemState> topTwo = collection
             .SortByDescending(static (_, state) => state.Score)
             .Take(2);
 
@@ -416,7 +416,7 @@ public sealed class CollectionViewTests
             TestUtil.Item(2, "two", 20),
             TestUtil.Item(3, "three", 30));
 
-        IReactiveCollection<int, ItemIdentity, ItemState> window = collection.Take(limit);
+        ReactiveCollection<int, ItemIdentity, ItemState> window = collection.Take(limit);
 
         await Assert.That(KeysOf(window)).IsEquivalentTo([1]);
 
@@ -439,7 +439,7 @@ public sealed class CollectionViewTests
             TestUtil.Item(4, "four", 40),
             TestUtil.Item(5, "five", 50));
 
-        IReactiveCollection<int, ItemIdentity, ItemState> page = collection.Slice(1, 2);
+        ReactiveCollection<int, ItemIdentity, ItemState> page = collection.Slice(1, 2);
 
         await Assert.That(KeysOf(page)).IsEquivalentTo([2, 3]);
 
@@ -470,7 +470,7 @@ public sealed class CollectionViewTests
             TestUtil.Item(4, "four", 40),
             TestUtil.Item(5, "five", 50));
 
-        IReactiveCollection<int, ItemIdentity, ItemState> page =
+        ReactiveCollection<int, ItemIdentity, ItemState> page =
             collection.Slice(offset, Cell.Constant(2));
 
         await Assert.That(KeysOf(page)).IsEquivalentTo([1, 2]);
@@ -505,7 +505,7 @@ public sealed class CollectionViewTests
             TestUtil.Item(4, "four", 40));
 
         // Scores descending are 4, 3, 2, 1 - so the second page of two is keys 2 and 1.
-        IReactiveCollection<int, ItemIdentity, ItemState> page = collection
+        ReactiveCollection<int, ItemIdentity, ItemState> page = collection
             .SortByDescending(static (_, state) => state.Score)
             .Slice(2, 2);
 
@@ -525,8 +525,8 @@ public sealed class CollectionViewTests
             TestUtil.Item(2, "two", 20),
             TestUtil.Item(3, "three", 30));
 
-        IReactiveCollection<int, ItemIdentity, ItemState> taken = collection.Take(2);
-        IReactiveCollection<int, ItemIdentity, ItemState> sliced = collection.Slice(0, 2);
+        ReactiveCollection<int, ItemIdentity, ItemState> taken = collection.Take(2);
+        ReactiveCollection<int, ItemIdentity, ItemState> sliced = collection.Slice(0, 2);
 
         await Assert.That(KeysOf(sliced)).IsEquivalentTo(KeysOf(taken));
 
@@ -549,7 +549,7 @@ public sealed class CollectionViewTests
             TestUtil.Item(4, "four", 20),
             TestUtil.Item(5, "five", 10));
 
-        IReactiveCollection<int, ItemIdentity, ItemState> topTwoOfTheEvens = collection
+        ReactiveCollection<int, ItemIdentity, ItemState> topTwoOfTheEvens = collection
             .SortByDescending(static (_, state) => state.Score)
             .Filter(static (identity, _) => identity.Number % 2 == 0)
             .Take(2);
@@ -573,7 +573,7 @@ public sealed class CollectionViewTests
             TestUtil.Item(1, "one", 10),
             TestUtil.Item(2, "two", 20));
 
-        IReactiveCollection<int, ItemIdentity, ItemState> passing =
+        ReactiveCollection<int, ItemIdentity, ItemState> passing =
             collection.Filter(static (_, state) => state.Score >= 20);
 
         // Two answers, so two cells. This asserted the opposite until a view became a collection
@@ -603,7 +603,7 @@ public sealed class CollectionViewTests
             TestUtil.Item(1, "one", 10),
             TestUtil.Item(2, "two", 20));
 
-        IReactiveCollection<int, ItemIdentity, ItemState> passing =
+        ReactiveCollection<int, ItemIdentity, ItemState> passing =
             collection.Filter(static (_, state) => state.Score >= 20);
 
         Cell<Maybe<ItemState>> cell = passing.StateCell(1);
@@ -639,7 +639,7 @@ public sealed class CollectionViewTests
             TestUtil.Item(2, "two", 20),
             TestUtil.Item(3, "three", 30));
 
-        IReactiveCollection<int, ItemIdentity, ItemState> passing = collection
+        ReactiveCollection<int, ItemIdentity, ItemState> passing = collection
             .SortByDescending(static (_, state) => state.Score)
             .Filter(static (_, state) => state.Score >= 20);
 
@@ -666,13 +666,13 @@ public sealed class CollectionViewTests
             TestUtil.Item(2, "two", 10),
             TestUtil.Item(3, "three", 20));
 
-        IReactiveCollection<int, ItemIdentity, ItemState> byScore =
+        ReactiveCollection<int, ItemIdentity, ItemState> byScore =
             collection.SortBy(static (_, state) => state.Score);
-        IReactiveCollection<int, ItemIdentity, ItemState> byName =
+        ReactiveCollection<int, ItemIdentity, ItemState> byName =
             collection.SortBy(static (_, state) => state.Name);
 
-        CellSink<IReactiveCollection<int, ItemIdentity, ItemState>> which = Cell.CreateSink(byScore);
-        IReactiveCollection<int, ItemIdentity, ItemState> switched = collection.Switch(which);
+        CellSink<ReactiveCollection<int, ItemIdentity, ItemState>> which = Cell.CreateSink(byScore);
+        ReactiveCollection<int, ItemIdentity, ItemState> switched = collection.Switch(which);
 
         await Assert.That(KeysOf(switched)).IsEquivalentTo([2, 3, 1]);
 
@@ -700,7 +700,7 @@ public sealed class CollectionViewTests
             TestUtil.Item(2, "two", 20),
             TestUtil.Item(3, "three", 30));
 
-        IReactiveCollection<int, ItemIdentity, ItemState> passing =
+        ReactiveCollection<int, ItemIdentity, ItemState> passing =
             collection.Filter(static (_, state) => state.Score >= 20);
 
         CollectionSnapshot<int, ItemIdentity, ItemState> view = passing.SnapshotCell.Sample();
@@ -733,7 +733,7 @@ public sealed class CollectionViewTests
             TestUtil.Item(1, "one", 10),
             TestUtil.Item(2, "two", 20));
 
-        IReactiveCollection<int, ItemIdentity, ItemState> passing =
+        ReactiveCollection<int, ItemIdentity, ItemState> passing =
             collection.Filter(static (_, state) => state.Score >= 20);
 
         await Assert.That(passing.SnapshotCell.Sample().ContainsKey(1)).IsFalse();
@@ -756,7 +756,7 @@ public sealed class CollectionViewTests
             TestUtil.Item(1, "one", 10),
             TestUtil.Item(2, "two", 20));
 
-        IReactiveCollection<int, ItemIdentity, ItemState> passing =
+        ReactiveCollection<int, ItemIdentity, ItemState> passing =
             collection.Filter(static (_, state) => state.Score >= 20);
 
         List<CollectionViewChange<int, ItemIdentity, ItemState>> changes = [];
@@ -787,7 +787,7 @@ public sealed class CollectionViewTests
             TestUtil.Item(1, "one", 10),
             TestUtil.Item(2, "two", 20));
 
-        IReactiveCollection<int, ItemIdentity, ItemState> passing =
+        ReactiveCollection<int, ItemIdentity, ItemState> passing =
             collection.Filter(static (_, state) => state.Score >= 20);
 
         Cell<Maybe<ItemIdentity>> cell = passing.IdentityCell(1);
@@ -818,7 +818,7 @@ public sealed class CollectionViewTests
             TestUtil.Item(1, "one", 10),
             TestUtil.Item(2, "two", 20));
 
-        IReactiveCollection<int, ItemIdentity, ItemState> passing =
+        ReactiveCollection<int, ItemIdentity, ItemState> passing =
             collection.Filter(static (_, state) => state.Score >= 20);
 
         List<Maybe<ItemIdentity>> onCollection = [];
@@ -837,5 +837,87 @@ public sealed class CollectionViewTests
 
         await Assert.That(onCollection).IsEmpty();
         await Assert.That(onView).IsEmpty();
+    }
+
+    [Test]
+    public async Task AViewsItemChangesReportOnlyItsOwnItems()
+    {
+        StreamSink<CollectionEdit<int, ItemIdentity, ItemState>> edits =
+            Stream.CreateSink<CollectionEdit<int, ItemIdentity, ItemState>>();
+
+        ReactiveCollection<int, ItemIdentity, ItemState> collection = Create(
+            edits,
+            TestUtil.Item(1, "one", 10),
+            TestUtil.Item(2, "two", 20));
+
+        ReactiveCollection<int, ItemIdentity, ItemState> passing =
+            collection.Filter(static (_, state) => state.Score >= 20);
+
+        List<ItemChange<int, ItemIdentity, ItemState>> onView = [];
+        List<ItemChange<int, ItemIdentity, ItemState>> onCollection = [];
+
+        IListener a = passing.ItemChangesStream.ListenStrong(onView.Add);
+        IListener b = collection.ItemChangesStream.ListenStrong(onCollection.Add);
+
+        // An item the view does not hold changes. The collection hears it; the view does not.
+        edits.Send(TestUtil.Rename(1, "renamed"));
+
+        await Assert.That(onCollection.Count).IsEqualTo(1);
+        await Assert.That(onView).IsEmpty();
+
+        // Scoring it in reads to the view as the item arriving.
+        edits.Send(TestUtil.Score(1, 99));
+
+        await Assert.That(onView.Count).IsEqualTo(1);
+        await Assert.That(onView[0].Added).Contains(1);
+        await Assert.That(onView[0].TryGetNewState(1, out ItemState state)).IsTrue();
+        await Assert.That(state.Name).IsEqualTo("renamed");
+
+        // And scoring it back out reads as the item leaving, though the store still has it.
+        edits.Send(TestUtil.Score(1, 1));
+
+        await Assert.That(onView.Count).IsEqualTo(2);
+        await Assert.That(onView[1].Removed).Contains(1);
+
+        a.Unlisten();
+        b.Unlisten();
+
+        await Assert.That(collection.SnapshotCell.Sample().ContainsKey(1)).IsTrue();
+    }
+
+    [Test]
+    public async Task AViewsShapeCellHoldsItsOwnKeysAndSleepsThroughAStateEdit()
+    {
+        StreamSink<CollectionEdit<int, ItemIdentity, ItemState>> edits =
+            Stream.CreateSink<CollectionEdit<int, ItemIdentity, ItemState>>();
+
+        ReactiveCollection<int, ItemIdentity, ItemState> collection = Create(
+            edits,
+            TestUtil.Item(1, "one", 10),
+            TestUtil.Item(2, "two", 20),
+            TestUtil.Item(3, "three", 30));
+
+        ReactiveCollection<int, ItemIdentity, ItemState> passing =
+            collection.Filter(static (_, state) => state.Score >= 20);
+
+        await Assert.That(TestUtil.Keys(passing.ShapeCell.Sample().Keys)).IsEquivalentTo([2, 3]);
+        await Assert.That(TestUtil.Keys(collection.ShapeCell.Sample().Keys))
+            .IsEquivalentTo([1, 2, 3]);
+
+        List<IReadOnlyDictionary<int, ItemIdentity>> shapes = [];
+        IListener l = passing.ShapeCell.Updates().ListenStrong(shapes.Add);
+
+        // A rename changes no membership anywhere, so nothing fires.
+        edits.Send(TestUtil.Rename(2, "renamed"));
+
+        await Assert.That(shapes).IsEmpty();
+
+        // Scoring an item into the view does.
+        edits.Send(TestUtil.Score(1, 99));
+
+        await Assert.That(shapes.Count).IsEqualTo(1);
+        await Assert.That(TestUtil.Keys(shapes[0].Keys)).IsEquivalentTo([1, 2, 3]);
+
+        l.Unlisten();
     }
 }

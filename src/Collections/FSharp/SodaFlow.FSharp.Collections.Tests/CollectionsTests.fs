@@ -35,7 +35,7 @@ let private item number name score =
 let private selfKeyedItem number name score : Item<SelfKeyedItemIdentity, ItemState> =
     ofHalves { SelfNumber = number; SelfCode = sprintf "C%d" number } { Name = name; Score = score }
 
-let private keysOf (view: IReactiveCollection<int, 'TIdentity, ItemState>) =
+let private keysOf (view: ReactiveCollection<int, 'TIdentity, ItemState>) =
     List<int>(view |> keysCell |> sampleC)
 
 type ``Collections Tests``() =

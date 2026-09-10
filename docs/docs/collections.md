@@ -108,19 +108,18 @@ The last two are a pair, and picking the wrong one is the easy mistake:
 | Carries | positions, no states | states, no positions |
 | Says | which key entered, left or moved, and to where | which keys were added, removed or altered, and what they hold now |
 | Scope | this view's keys | the shared store |
-| Lives on | every view | the root only |
+| Lives on | every collection | every collection |
 | Bind it to | a list, which has to know where a row went | a total, an average, a count — anything that follows values rather than order |
 
 Neither is the other rearranged. An item whose state changed without moving arrives on
 `KeyChangesStream` as an update carrying an index and nothing else; what the new state *is* has to
 be read from the snapshot.
 
-`ItemChangesStream` exists only on the collection you created, not on views derived from it, and
-that is deliberate. It reports the store as keyed deltas, which is the right thing to fold for a
-total over the whole collection and the wrong thing for a total over a filtered view — it would
-count items the filter excludes. A view has no such stream to reach for, so the mistake is not
-available: fold a view's `KeyChangesStream` instead, which is scoped to the view and carries both
-sides of the store on each change.
+`ItemChangesStream` answers for whichever collection you ask, the same way everything else here
+does. On a filtered view it reports that view's items: an edit to something the filter excludes is
+not a change to the view, a key scoring into the view reads as an item arriving, and a key scoring
+out reads as one leaving — even though the store still holds it. So a total over a filtered view
+folds the view's own stream, and there is no way to reach past it to a broader one.
 
 `StateCell` is the one that matters for a bound row. It returns `Cell<Maybe<TState>>` in C#
 and `Cell<'TState option>` in F#, filters the change stream on a single hash lookup, and takes
@@ -140,11 +139,11 @@ so the C# and F# surfaces over one collection cannot be handed each other's cell
 
 A collection is two separable things: an item store, and a sequence of keys into it. The root
 owns the store; a view differs only in which keys it holds and in what order. So both are
-`IReactiveCollection<TKey, TIdentity, TState>`, and `Filter` and `SortBy` take one and return one, the
+`ReactiveCollection<TKey, TIdentity, TState>`, and `Filter` and `SortBy` take one and return one, the
 way `Where` takes and returns an `IEnumerable`.
 
 ```csharp
-IReactiveCollection<Guid, AccountId, AccountState> topTen = accounts
+ReactiveCollection<Guid, AccountId, AccountState> topTen = accounts
     .SortByDescending(static (_, state) => state.Balance)
     .Filter(static (_, state) => !state.IsFrozen)
     .Take(10);
@@ -244,7 +243,7 @@ the page is one send:
 ```csharp
 CellSink<int> page = Cell.CreateSink(0);
 
-IReactiveCollection<int, AccountId, AccountState> rows = accounts
+ReactiveCollection<int, AccountId, AccountState> rows = accounts
     .SortByDescending(static (_, state) => state.Balance)
     .Slice(page.Map(static p => p * 20), Cell.Constant(20));
 

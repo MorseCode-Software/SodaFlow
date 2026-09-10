@@ -31,7 +31,7 @@ open SodaFlow.Collections
 
 /// <summary>
 ///     Defines a collection from its initial contents and every stream that will ever edit it.
-///     There is no imperative item point: what can change the collection is fixed here.
+///     There is no imperative entry point: what can change the collection is fixed here.
 /// </summary>
 /// <param name="keySelector">Derives an item's key from its immutable portion.</param>
 /// <param name="initialEntries">The collection's initial contents.</param>
@@ -200,8 +200,8 @@ let fromRemoves
 ///     fires <c>Some</c> again, so a view bound to a key can outlive the item.
 /// </remarks>
 [<MethodImpl(MethodImplOptions.NoInlining)>]
-let stateCell (key: 'TKey) (collection: IReactiveCollection<'TKey, 'TIdentity, 'TState>) =
-    CollectionInternals.AsInternal(collection).StateCellImpl(key, Func<_, _> Some, Func<_>(fun () -> None))
+let stateCell (key: 'TKey) (collection: ReactiveCollection<'TKey, 'TIdentity, 'TState>) =
+    collection.StateCellImpl(key, Func<_, _> Some, Func<_>(fun () -> None))
 
 /// <summary>The item's immutable portion, <c>None</c> while the key is absent.</summary>
 /// <param name="key">The key to observe.</param>
@@ -209,8 +209,8 @@ let stateCell (key: 'TKey) (collection: IReactiveCollection<'TKey, 'TIdentity, '
 /// <returns>A cell tracking that key's identity.</returns>
 /// <remarks>Fires only on structural change, so it is near-free to hold.</remarks>
 [<MethodImpl(MethodImplOptions.NoInlining)>]
-let identityCell (key: 'TKey) (collection: IReactiveCollection<'TKey, 'TIdentity, 'TState>) =
-    CollectionInternals.AsInternal(collection).IdentityCellImpl(key, Func<_, _> Some, Func<_>(fun () -> None))
+let identityCell (key: 'TKey) (collection: ReactiveCollection<'TKey, 'TIdentity, 'TState>) =
+    collection.IdentityCellImpl(key, Func<_, _> Some, Func<_>(fun () -> None))
 
 /// <summary>Both halves of the item stored under a key, if there is one.</summary>
 /// <param name="key">The key to look up.</param>
@@ -265,13 +265,13 @@ let indexOf (key: 'TKey) (keys: IOrderedKeys<'TKey, 'TIdentity, 'TState>) =
 /// <param name="collection">The collection or view to ask.</param>
 /// <returns>A cell holding the whole store.</returns>
 [<MethodImpl(MethodImplOptions.NoInlining)>]
-let snapshotCell (collection: IReactiveCollection<'TKey, 'TIdentity, 'TState>) = collection.SnapshotCell
+let snapshotCell (collection: ReactiveCollection<'TKey, 'TIdentity, 'TState>) = collection.SnapshotCell
 
 /// <summary>This collection's keys, in order.</summary>
 /// <param name="collection">The collection or view to ask.</param>
 /// <returns>A cell holding the ordered keys.</returns>
 [<MethodImpl(MethodImplOptions.NoInlining)>]
-let keysCell (collection: IReactiveCollection<'TKey, 'TIdentity, 'TState>) = collection.KeysCell
+let keysCell (collection: ReactiveCollection<'TKey, 'TIdentity, 'TState>) = collection.KeysCell
 
 /// <summary>
 ///     How this view's keys changed: which entered, which left, which moved, and to what position.
@@ -280,7 +280,7 @@ let keysCell (collection: IReactiveCollection<'TKey, 'TIdentity, 'TState>) = col
 /// <param name="collection">The collection or view to ask.</param>
 /// <returns>The stream of changes.</returns>
 [<MethodImpl(MethodImplOptions.NoInlining)>]
-let keyChangesStream (collection: IReactiveCollection<'TKey, 'TIdentity, 'TState>) =
+let keyChangesStream (collection: ReactiveCollection<'TKey, 'TIdentity, 'TState>) =
     collection.KeyChangesStream
 
 /// <summary>The outer view: fires only when the item count changes or a key changes.</summary>
@@ -309,7 +309,7 @@ let itemChangesStream (collection: ReactiveCollection<'TKey, 'TIdentity, 'TState
 /// <param name="upstream">The collection or view to reorder.</param>
 /// <returns>A view ordered by key.</returns>
 [<MethodImpl(MethodImplOptions.NoInlining)>]
-let sortByKey (keyComparer: IComparer<'TKey>) (upstream: IReactiveCollection<'TKey, 'TIdentity, 'TState>) =
+let sortByKey (keyComparer: IComparer<'TKey>) (upstream: ReactiveCollection<'TKey, 'TIdentity, 'TState>) =
     CollectionViewUtility.SortByKeyImpl(upstream, keyComparer)
 
 /// <summary>Narrows the view, preserving the upstream order.</summary>
@@ -317,7 +317,7 @@ let sortByKey (keyComparer: IComparer<'TKey>) (upstream: IReactiveCollection<'TK
 /// <param name="upstream">The collection or view to narrow.</param>
 /// <returns>A view holding the items which pass.</returns>
 [<MethodImpl(MethodImplOptions.NoInlining)>]
-let filter (predicate: 'TIdentity -> 'TState -> bool) (upstream: IReactiveCollection<'TKey, 'TIdentity, 'TState>) =
+let filter (predicate: 'TIdentity -> 'TState -> bool) (upstream: ReactiveCollection<'TKey, 'TIdentity, 'TState>) =
     CollectionViewUtility.FilterImpl(upstream, CellInternal.ConstantImpl(Func<_, _, _> predicate))
 
 /// <summary>
@@ -331,7 +331,7 @@ let filter (predicate: 'TIdentity -> 'TState -> bool) (upstream: IReactiveCollec
 [<MethodImpl(MethodImplOptions.NoInlining)>]
 let filterC
     (predicateCell: Cell<'TIdentity -> 'TState -> bool>)
-    (upstream: IReactiveCollection<'TKey, 'TIdentity, 'TState>)
+    (upstream: ReactiveCollection<'TKey, 'TIdentity, 'TState>)
     =
     CollectionViewUtility.FilterImpl(
         upstream,
@@ -344,7 +344,7 @@ let filterC
 [<MethodImpl(MethodImplOptions.NoInlining)>]
 let sortBy
     (selector: 'TIdentity -> 'TState -> 'TSortKey)
-    (upstream: IReactiveCollection<'TKey, 'TIdentity, 'TState>)
+    (upstream: ReactiveCollection<'TKey, 'TIdentity, 'TState>)
     =
     CollectionViewUtility.SortByImpl(
         upstream,
@@ -360,7 +360,7 @@ let sortBy
 [<MethodImpl(MethodImplOptions.NoInlining)>]
 let sortByDescending
     (selector: 'TIdentity -> 'TState -> 'TSortKey)
-    (upstream: IReactiveCollection<'TKey, 'TIdentity, 'TState>)
+    (upstream: ReactiveCollection<'TKey, 'TIdentity, 'TState>)
     =
     CollectionViewUtility.SortByImpl(
         upstream,
@@ -383,7 +383,7 @@ let sortByDescending
 ///     not the state, so it cannot read what it says it does not.
 /// </remarks>
 [<MethodImpl(MethodImplOptions.NoInlining)>]
-let filterByIdentity (predicate: 'TIdentity -> bool) (upstream: IReactiveCollection<'TKey, 'TIdentity, 'TState>) =
+let filterByIdentity (predicate: 'TIdentity -> bool) (upstream: ReactiveCollection<'TKey, 'TIdentity, 'TState>) =
     CollectionViewUtility.FilterByIdentityImpl(upstream, Func<_, _> predicate)
 
 /// <summary>
@@ -400,7 +400,7 @@ let filterByIdentity (predicate: 'TIdentity -> bool) (upstream: IReactiveCollect
 ///     identity and not the state, so it cannot read what it says it does not.
 /// </remarks>
 [<MethodImpl(MethodImplOptions.NoInlining)>]
-let sortByIdentity (selector: 'TIdentity -> 'TSortKey) (upstream: IReactiveCollection<'TKey, 'TIdentity, 'TState>) =
+let sortByIdentity (selector: 'TIdentity -> 'TSortKey) (upstream: ReactiveCollection<'TKey, 'TIdentity, 'TState>) =
     CollectionViewUtility.SortByIdentityImpl(
         upstream,
         Func<_, _> selector,
@@ -417,7 +417,7 @@ let sortByIdentity (selector: 'TIdentity -> 'TSortKey) (upstream: IReactiveColle
 [<MethodImpl(MethodImplOptions.NoInlining)>]
 let sortByIdentityDescending
     (selector: 'TIdentity -> 'TSortKey)
-    (upstream: IReactiveCollection<'TKey, 'TIdentity, 'TState>)
+    (upstream: ReactiveCollection<'TKey, 'TIdentity, 'TState>)
     =
     CollectionViewUtility.SortByIdentityImpl(
         upstream,
@@ -441,7 +441,7 @@ let sortByIdentityWith
     (sortComparer: IComparer<'TSortKey>)
     (keyComparer: IComparer<'TKey>)
     (descending: bool)
-    (upstream: IReactiveCollection<'TKey, 'TIdentity, 'TState>)
+    (upstream: ReactiveCollection<'TKey, 'TIdentity, 'TState>)
     =
     CollectionViewUtility.SortByIdentityImpl(
         upstream,
@@ -467,7 +467,7 @@ let sortByWith
     (sortComparer: IComparer<'TSortKey>)
     (keyComparer: IComparer<'TKey>)
     (descending: bool)
-    (upstream: IReactiveCollection<'TKey, 'TIdentity, 'TState>)
+    (upstream: ReactiveCollection<'TKey, 'TIdentity, 'TState>)
     =
     CollectionViewUtility.SortByImpl(
         upstream,
@@ -484,7 +484,7 @@ let sortByWith
 /// <param name="upstream">The collection or view to window.</param>
 /// <returns>A view of that window.</returns>
 [<MethodImpl(MethodImplOptions.NoInlining)>]
-let take (limit: int) (upstream: IReactiveCollection<'TKey, 'TIdentity, 'TState>) =
+let take (limit: int) (upstream: ReactiveCollection<'TKey, 'TIdentity, 'TState>) =
     CollectionViewUtility.TakeImpl(upstream, CellInternal.ConstantImpl limit)
 
 /// <summary>The first however many keys of the upstream, where that count can itself change.</summary>
@@ -492,7 +492,7 @@ let take (limit: int) (upstream: IReactiveCollection<'TKey, 'TIdentity, 'TState>
 /// <param name="upstream">The collection or view to window.</param>
 /// <returns>A view of that window.</returns>
 [<MethodImpl(MethodImplOptions.NoInlining)>]
-let takeC (limitCell: Cell<int>) (upstream: IReactiveCollection<'TKey, 'TIdentity, 'TState>) =
+let takeC (limitCell: Cell<int>) (upstream: ReactiveCollection<'TKey, 'TIdentity, 'TState>) =
     CollectionViewUtility.TakeImpl(upstream, limitCell)
 
 /// <summary>
@@ -509,7 +509,7 @@ let takeC (limitCell: Cell<int>) (upstream: IReactiveCollection<'TKey, 'TIdentit
 /// <param name="upstream">The collection or view to window.</param>
 /// <returns>A view of that window.</returns>
 [<MethodImpl(MethodImplOptions.NoInlining)>]
-let slice (offset: int) (limit: int) (upstream: IReactiveCollection<'TKey, 'TIdentity, 'TState>) =
+let slice (offset: int) (limit: int) (upstream: ReactiveCollection<'TKey, 'TIdentity, 'TState>) =
     CollectionViewUtility.SliceImpl(
         upstream,
         CellInternal.ConstantImpl offset,
@@ -528,7 +528,7 @@ let slice (offset: int) (limit: int) (upstream: IReactiveCollection<'TKey, 'TIde
 let sliceC
     (offsetCell: Cell<int>)
     (limitCell: Cell<int>)
-    (upstream: IReactiveCollection<'TKey, 'TIdentity, 'TState>)
+    (upstream: ReactiveCollection<'TKey, 'TIdentity, 'TState>)
     =
     CollectionViewUtility.SliceImpl(upstream, offsetCell, limitCell)
 
@@ -541,7 +541,7 @@ let sliceC
 /// <returns>A view following whichever view the cell holds.</returns>
 [<MethodImpl(MethodImplOptions.NoInlining)>]
 let switchView
-    (viewCell: Cell<IReactiveCollection<'TKey, 'TIdentity, 'TState>>)
-    (source: IReactiveCollection<'TKey, 'TIdentity, 'TState>)
+    (viewCell: Cell<ReactiveCollection<'TKey, 'TIdentity, 'TState>>)
+    (source: ReactiveCollection<'TKey, 'TIdentity, 'TState>)
     =
     CollectionViewUtility.SwitchImpl(source, viewCell)

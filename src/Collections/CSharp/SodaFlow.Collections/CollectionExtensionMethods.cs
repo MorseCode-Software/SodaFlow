@@ -40,16 +40,16 @@ public static class CollectionExtensionMethods
     ///     <para>
     ///         This answers for the store rather than for membership: asking a filtered view about a
     ///         key it filtered out still gives that item's state. Membership questions belong to
-    ///         <see cref="IReactiveCollection{TKey,TIdentity,TState}.KeysCell" />.
+    ///         <see cref="ReactiveCollection{TKey,TIdentity,TState}.KeysCell" />.
     ///     </para>
     /// </remarks>
     [MethodImpl(MethodImplOptions.NoInlining)]
     public static Cell<Maybe<TState>> StateCell<TKey, TIdentity, TState>(
-        this IReactiveCollection<TKey, TIdentity, TState> collection,
+        this ReactiveCollection<TKey, TIdentity, TState> collection,
         TKey key)
         where TKey : notnull
         where TIdentity : notnull =>
-        collection.AsInternal().StateCellImpl(
+        collection.StateCellImpl(
             key,
             static state => Maybe.Some(state),
             static () => Maybe<TState>.None);
@@ -66,11 +66,11 @@ public static class CollectionExtensionMethods
     /// <remarks>Fires only on structural change, so it is near-free to hold.</remarks>
     [MethodImpl(MethodImplOptions.NoInlining)]
     public static Cell<Maybe<TIdentity>> IdentityCell<TKey, TIdentity, TState>(
-        this IReactiveCollection<TKey, TIdentity, TState> collection,
+        this ReactiveCollection<TKey, TIdentity, TState> collection,
         TKey key)
         where TKey : notnull
         where TIdentity : notnull =>
-        collection.AsInternal().IdentityCellImpl(
+        collection.IdentityCellImpl(
             key,
             static identity => Maybe.Some(identity),
             static () => Maybe<TIdentity>.None);

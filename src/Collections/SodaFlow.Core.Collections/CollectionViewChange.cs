@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using JetBrains.Annotations;
 
 namespace SodaFlow.Collections;
@@ -174,6 +175,114 @@ public sealed class CollectionViewChange<TKey, TIdentity, TState>
             this.After.TryGetIdentity(key, out TIdentity identity)
                 ? onPresent(identity)
                 : onAbsent());
+
+    /// <summary>Whether this change alters what the view holds, rather than only where.</summary>
+    /// <remarks>
+    ///     A reorder is not a membership change, which is what lets a shape cell sleep through one.
+    /// </remarks>
+    internal bool ChangesMembership
+    {
+        get
+        {
+            if (this.IsReset)
+            {
+                return true;
+            }
+
+            // Indexed rather than enumerated, for the reason the projections above are.
+            // ReSharper disable once ForCanBeConvertedToForeach
+            // ReSharper disable once LoopCanBeConvertedToQuery
+            for (int index = 0; index < this.Operations.Count; index++)
+            {
+                if (this.Operations[index] is ViewInsert<TKey> or ViewRemove<TKey>)
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+    }
+
+    /// <summary>This change as keyed deltas, which is what an item change is.</summary>
+    /// <remarks>
+    ///     A translation rather than a derivation: a view change already names the keys that
+    ///     entered, left and changed, and carries the store on both sides to read their values
+    ///     from. A reset names none of them, so it is answered by walking what the view holds and
+    ///     held - which costs the view rather than the collection, and only when a criteria moves.
+    /// </remarks>
+    internal ItemChange<TKey, TIdentity, TState> ToItemChange()
+    {
+        HashSet<TKey> added = new();
+        HashSet<TKey> removed = new();
+        Dictionary<TKey, TState> newStates = new();
+
+        if (this.IsReset)
+        {
+            foreach (TKey key in this.Keys)
+            {
+                if (!this.Before.ContainsKey(key))
+                {
+                    added.Add(key);
+                }
+
+                if (this.After.States.TryGetState(key, out TState state))
+                {
+                    newStates[key] = state;
+                }
+            }
+
+            foreach (TKey key in this.Before.Identities.Keys.Where(key => !this.After.ContainsKey(key)))
+            {
+                removed.Add(key);
+            }
+
+            return new ItemChange<TKey, TIdentity, TState>(
+                this.Before,
+                this.After,
+                newStates,
+                added,
+                removed);
+        }
+
+        // ReSharper disable once ForCanBeConvertedToForeach
+        for (int index = 0; index < this.Operations.Count; index++)
+        {
+            ViewOperation<TKey> operation = this.Operations[index];
+
+            switch (operation)
+            {
+                case ViewInsert<TKey>:
+                    added.Add(operation.Key);
+
+                    break;
+
+                case ViewRemove<TKey>:
+                    removed.Add(operation.Key);
+
+                    continue;
+
+                case ViewUpdate<TKey>:
+                    break;
+
+                // A move carries a position and no value, so it is nothing to a keyed delta.
+                default:
+                    continue;
+            }
+
+            if (this.After.States.TryGetState(operation.Key, out TState state))
+            {
+                newStates[operation.Key] = state;
+            }
+        }
+
+        return new ItemChange<TKey, TIdentity, TState>(
+            this.Before,
+            this.After,
+            newStates,
+            added,
+            removed);
+    }
 
     /// <summary>The key's value as this change left it, or its absence.</summary>
     private MaybeInternal<TProjected> Project<TProjected>(

@@ -7,7 +7,7 @@ namespace SodaFlow.Collections;
 
 /// <summary>
 ///     The C# surface over a collection's view chain: <c>Filter</c>, <c>SortBy</c> and
-///     <c>Take</c> take an <see cref="IReactiveCollection{TKey,TIdentity,TState}" /> and return one, the way
+///     <c>Take</c> take an <see cref="ReactiveCollection{TKey,TIdentity,TState}" /> and return one, the way
 ///     <c>Where</c> takes and returns an <c>IEnumerable</c>.
 /// </summary>
 /// <remarks>
@@ -20,8 +20,8 @@ namespace SodaFlow.Collections;
 ///         Three costs are worth knowing before writing a chain. Changing a predicate or a limit
 ///         rebuilds that stage and everything below it, reports the change as a reset, and costs
 ///         O(m log m) — debounce keystroke-driven criteria upstream.
-///         <see cref="Take{TKey,TIdentity,TState}(IReactiveCollection{TKey,TIdentity,TState},int)" /> - and
-///         <see cref="Slice{TKey,TIdentity,TState}(IReactiveCollection{TKey,TIdentity,TState},int,int)" />, which
+///         <see cref="Take{TKey,TIdentity,TState}(ReactiveCollection{TKey,TIdentity,TState},int)" /> - and
+///         <see cref="Slice{TKey,TIdentity,TState}(ReactiveCollection{TKey,TIdentity,TState},int,int)" />, which
 ///         it is a zero-offset case of - diff their old and new windows rather than translating
 ///         operations, so a reorder inside the window arrives as removes and inserts rather than as
 ///         moves. That is also why there is no <c>Skip</c>: the diff is affordable because the
@@ -41,8 +41,8 @@ public static class CollectionViewExtensionMethods
     /// <param name="keyComparer">The comparer to order keys by.</param>
     /// <returns>A view of <paramref name="upstream" /> ordered by key.</returns>
     [MethodImpl(MethodImplOptions.NoInlining)]
-    public static IReactiveCollection<TKey, TIdentity, TState> SortByKey<TKey, TIdentity, TState>(
-        this IReactiveCollection<TKey, TIdentity, TState> upstream,
+    public static ReactiveCollection<TKey, TIdentity, TState> SortByKey<TKey, TIdentity, TState>(
+        this ReactiveCollection<TKey, TIdentity, TState> upstream,
         IComparer<TKey> keyComparer)
         where TKey : notnull
         where TIdentity : notnull =>
@@ -56,8 +56,8 @@ public static class CollectionViewExtensionMethods
     /// <param name="predicate">Whether an item belongs in the view.</param>
     /// <returns>A view holding the items which pass.</returns>
     [MethodImpl(MethodImplOptions.NoInlining)]
-    public static IReactiveCollection<TKey, TIdentity, TState> Filter<TKey, TIdentity, TState>(
-        this IReactiveCollection<TKey, TIdentity, TState> upstream,
+    public static ReactiveCollection<TKey, TIdentity, TState> Filter<TKey, TIdentity, TState>(
+        this ReactiveCollection<TKey, TIdentity, TState> upstream,
         Func<TIdentity, TState, bool> predicate)
         where TKey : notnull
         where TIdentity : notnull =>
@@ -74,8 +74,8 @@ public static class CollectionViewExtensionMethods
     /// <param name="predicateCell">The predicate in force.</param>
     /// <returns>A view holding the items which pass.</returns>
     [MethodImpl(MethodImplOptions.NoInlining)]
-    public static IReactiveCollection<TKey, TIdentity, TState> Filter<TKey, TIdentity, TState>(
-        this IReactiveCollection<TKey, TIdentity, TState> upstream,
+    public static ReactiveCollection<TKey, TIdentity, TState> Filter<TKey, TIdentity, TState>(
+        this ReactiveCollection<TKey, TIdentity, TState> upstream,
         Cell<Func<TIdentity, TState, bool>> predicateCell)
         where TKey : notnull
         where TIdentity : notnull =>
@@ -95,8 +95,8 @@ public static class CollectionViewExtensionMethods
     /// <param name="predicate">Whether an item belongs in the view, given the criteria.</param>
     /// <returns>A view holding the items which pass.</returns>
     [MethodImpl(MethodImplOptions.NoInlining)]
-    public static IReactiveCollection<TKey, TIdentity, TState> Filter<TKey, TIdentity, TState, TCriteria>(
-        this IReactiveCollection<TKey, TIdentity, TState> upstream,
+    public static ReactiveCollection<TKey, TIdentity, TState> Filter<TKey, TIdentity, TState, TCriteria>(
+        this ReactiveCollection<TKey, TIdentity, TState> upstream,
         Cell<TCriteria> criteriaCell,
         Func<TCriteria, TIdentity, TState, bool> predicate)
         where TKey : notnull
@@ -116,8 +116,8 @@ public static class CollectionViewExtensionMethods
     /// <param name="selector">Projects the sort value from an item.</param>
     /// <returns>A view ordered by that value.</returns>
     [MethodImpl(MethodImplOptions.NoInlining)]
-    public static IReactiveCollection<TKey, TIdentity, TState> SortBy<TKey, TIdentity, TState, TSortKey>(
-        this IReactiveCollection<TKey, TIdentity, TState> upstream,
+    public static ReactiveCollection<TKey, TIdentity, TState> SortBy<TKey, TIdentity, TState, TSortKey>(
+        this ReactiveCollection<TKey, TIdentity, TState> upstream,
         Func<TIdentity, TState, TSortKey> selector)
         where TKey : notnull
         where TIdentity : notnull =>
@@ -132,8 +132,8 @@ public static class CollectionViewExtensionMethods
     /// <param name="selector">Projects the sort value from an item.</param>
     /// <returns>A view ordered by that value, descending.</returns>
     [MethodImpl(MethodImplOptions.NoInlining)]
-    public static IReactiveCollection<TKey, TIdentity, TState> SortByDescending<TKey, TIdentity, TState, TSortKey>(
-        this IReactiveCollection<TKey, TIdentity, TState> upstream,
+    public static ReactiveCollection<TKey, TIdentity, TState> SortByDescending<TKey, TIdentity, TState, TSortKey>(
+        this ReactiveCollection<TKey, TIdentity, TState> upstream,
         Func<TIdentity, TState, TSortKey> selector)
         where TKey : notnull
         where TIdentity : notnull =>
@@ -155,8 +155,8 @@ public static class CollectionViewExtensionMethods
     /// <param name="descending">Whether to reverse the sort comparison.</param>
     /// <returns>A view in that order.</returns>
     [MethodImpl(MethodImplOptions.NoInlining)]
-    public static IReactiveCollection<TKey, TIdentity, TState> SortBy<TKey, TIdentity, TState, TSortKey>(
-        this IReactiveCollection<TKey, TIdentity, TState> upstream,
+    public static ReactiveCollection<TKey, TIdentity, TState> SortBy<TKey, TIdentity, TState, TSortKey>(
+        this ReactiveCollection<TKey, TIdentity, TState> upstream,
         Func<TIdentity, TState, TSortKey> selector,
         IComparer<TSortKey> sortComparer,
         IComparer<TKey> keyComparer,
@@ -184,8 +184,8 @@ public static class CollectionViewExtensionMethods
     ///     state, so it cannot read what it says it does not.
     /// </remarks>
     [MethodImpl(MethodImplOptions.NoInlining)]
-    public static IReactiveCollection<TKey, TIdentity, TState> FilterByIdentity<TKey, TIdentity, TState>(
-        this IReactiveCollection<TKey, TIdentity, TState> upstream,
+    public static ReactiveCollection<TKey, TIdentity, TState> FilterByIdentity<TKey, TIdentity, TState>(
+        this ReactiveCollection<TKey, TIdentity, TState> upstream,
         Func<TIdentity, bool> predicate)
         where TKey : notnull
         where TIdentity : notnull =>
@@ -210,8 +210,8 @@ public static class CollectionViewExtensionMethods
     ///     the state, so it cannot read what it says it does not.
     /// </remarks>
     [MethodImpl(MethodImplOptions.NoInlining)]
-    public static IReactiveCollection<TKey, TIdentity, TState> SortByIdentity<TKey, TIdentity, TState, TSortKey>(
-        this IReactiveCollection<TKey, TIdentity, TState> upstream,
+    public static ReactiveCollection<TKey, TIdentity, TState> SortByIdentity<TKey, TIdentity, TState, TSortKey>(
+        this ReactiveCollection<TKey, TIdentity, TState> upstream,
         Func<TIdentity, TSortKey> selector)
         where TKey : notnull
         where TIdentity : notnull =>
@@ -227,10 +227,10 @@ public static class CollectionViewExtensionMethods
     /// <param name="upstream">The collection or view to reorder.</param>
     /// <param name="selector">Projects the sort value from an item's identity.</param>
     /// <returns>A view ordered by that value, descending.</returns>
-    /// <remarks>See <see cref="SortByIdentity{TKey,TIdentity,TState,TSortKey}(IReactiveCollection{TKey,TIdentity,TState},Func{TIdentity,TSortKey})" />.</remarks>
+    /// <remarks>See <see cref="SortByIdentity{TKey,TIdentity,TState,TSortKey}(ReactiveCollection{TKey,TIdentity,TState},Func{TIdentity,TSortKey})" />.</remarks>
     [MethodImpl(MethodImplOptions.NoInlining)]
-    public static IReactiveCollection<TKey, TIdentity, TState> SortByIdentityDescending<TKey, TIdentity, TState, TSortKey>(
-        this IReactiveCollection<TKey, TIdentity, TState> upstream,
+    public static ReactiveCollection<TKey, TIdentity, TState> SortByIdentityDescending<TKey, TIdentity, TState, TSortKey>(
+        this ReactiveCollection<TKey, TIdentity, TState> upstream,
         Func<TIdentity, TSortKey> selector)
         where TKey : notnull
         where TIdentity : notnull =>
@@ -251,8 +251,8 @@ public static class CollectionViewExtensionMethods
     /// <param name="descending">Whether to reverse the sort comparison.</param>
     /// <returns>A view in that order.</returns>
     [MethodImpl(MethodImplOptions.NoInlining)]
-    public static IReactiveCollection<TKey, TIdentity, TState> SortByIdentity<TKey, TIdentity, TState, TSortKey>(
-        this IReactiveCollection<TKey, TIdentity, TState> upstream,
+    public static ReactiveCollection<TKey, TIdentity, TState> SortByIdentity<TKey, TIdentity, TState, TSortKey>(
+        this ReactiveCollection<TKey, TIdentity, TState> upstream,
         Func<TIdentity, TSortKey> selector,
         IComparer<TSortKey> sortComparer,
         IComparer<TKey> keyComparer,
@@ -272,8 +272,8 @@ public static class CollectionViewExtensionMethods
     /// <param name="limit">How many keys to keep.</param>
     /// <returns>A view of that window.</returns>
     [MethodImpl(MethodImplOptions.NoInlining)]
-    public static IReactiveCollection<TKey, TIdentity, TState> Take<TKey, TIdentity, TState>(
-        this IReactiveCollection<TKey, TIdentity, TState> upstream,
+    public static ReactiveCollection<TKey, TIdentity, TState> Take<TKey, TIdentity, TState>(
+        this ReactiveCollection<TKey, TIdentity, TState> upstream,
         int limit)
         where TKey : notnull
         where TIdentity : notnull =>
@@ -287,8 +287,8 @@ public static class CollectionViewExtensionMethods
     /// <param name="limitCell">How many keys to keep.</param>
     /// <returns>A view of that window.</returns>
     [MethodImpl(MethodImplOptions.NoInlining)]
-    public static IReactiveCollection<TKey, TIdentity, TState> Take<TKey, TIdentity, TState>(
-        this IReactiveCollection<TKey, TIdentity, TState> upstream,
+    public static ReactiveCollection<TKey, TIdentity, TState> Take<TKey, TIdentity, TState>(
+        this ReactiveCollection<TKey, TIdentity, TState> upstream,
         Cell<int> limitCell)
         where TKey : notnull
         where TIdentity : notnull =>
@@ -311,8 +311,8 @@ public static class CollectionViewExtensionMethods
     /// <param name="limit">How many keys to keep.</param>
     /// <returns>A view of that window.</returns>
     [MethodImpl(MethodImplOptions.NoInlining)]
-    public static IReactiveCollection<TKey, TIdentity, TState> Slice<TKey, TIdentity, TState>(
-        this IReactiveCollection<TKey, TIdentity, TState> upstream,
+    public static ReactiveCollection<TKey, TIdentity, TState> Slice<TKey, TIdentity, TState>(
+        this ReactiveCollection<TKey, TIdentity, TState> upstream,
         int offset,
         int limit)
         where TKey : notnull
@@ -331,8 +331,8 @@ public static class CollectionViewExtensionMethods
     /// <param name="limitCell">How many keys to keep.</param>
     /// <returns>A view of that window.</returns>
     [MethodImpl(MethodImplOptions.NoInlining)]
-    public static IReactiveCollection<TKey, TIdentity, TState> Slice<TKey, TIdentity, TState>(
-        this IReactiveCollection<TKey, TIdentity, TState> upstream,
+    public static ReactiveCollection<TKey, TIdentity, TState> Slice<TKey, TIdentity, TState>(
+        this ReactiveCollection<TKey, TIdentity, TState> upstream,
         Cell<int> offsetCell,
         Cell<int> limitCell)
         where TKey : notnull
@@ -350,9 +350,9 @@ public static class CollectionViewExtensionMethods
     /// <param name="viewCell">The view in force.</param>
     /// <returns>A view following whichever view <paramref name="viewCell" /> holds.</returns>
     [MethodImpl(MethodImplOptions.NoInlining)]
-    public static IReactiveCollection<TKey, TIdentity, TState> Switch<TKey, TIdentity, TState>(
-        this IReactiveCollection<TKey, TIdentity, TState> source,
-        Cell<IReactiveCollection<TKey, TIdentity, TState>> viewCell)
+    public static ReactiveCollection<TKey, TIdentity, TState> Switch<TKey, TIdentity, TState>(
+        this ReactiveCollection<TKey, TIdentity, TState> source,
+        Cell<ReactiveCollection<TKey, TIdentity, TState>> viewCell)
         where TKey : notnull
         where TIdentity : notnull =>
         CollectionViewUtility.SwitchImpl(source, viewCell);

@@ -39,6 +39,15 @@ first, because a list has to know where a row went; fold the second for a total
 or an average, because it names what changed and so costs what changed rather
 than what the collection holds.
 
+A view is a collection, not a handle on one. Filter, SortBy and the rest take a
+ReactiveCollection and return one, and what comes back answers for itself: its
+keys, its changes, its snapshot, its items and its per-item cells all hold what
+it holds and nothing else. Nothing on it leads back to what it came from.
+
+There is no interface, and that is deliberate: one implementation, not meant to
+be substituted or mocked, and concrete so the language surfaces can reach what
+they need without a cast.
+
 Views chain and stay incremental. Filter, FilterByIdentity, SortBy, SortByDescending,
 SortByIdentity, SortByIdentityDescending, SortByKey, Take, Slice and Switch each take an
 IReactiveCollection and return one, the way Where takes and returns an

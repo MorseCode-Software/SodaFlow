@@ -43,14 +43,14 @@
         <Compile Include="CollectionInternals.cs"/>
         <Compile Include="CollectionSnapshot.cs"/>
         <Compile Include="CollectionViewChange.cs"/>
-        <Compile Include="CollectionViewStage.cs"/>
+        <Compile Include="ViewStage.cs"/>
         <Compile Include="CollectionViewUtility.cs"/>
         <Compile Include="Item.cs"/>
-        <Compile Include="IReactiveCollection.cs"/>
         <Compile Include="IStateMap.cs"/>
         <Compile Include="OrderedKeys.cs"/>
         <Compile Include="ProjectedCellCache.cs"/>
         <Compile Include="ReactiveCollection.cs"/>
+        <Compile Include="RootCollection.cs"/>
     </ItemGroup>
 
     <ItemGroup>
