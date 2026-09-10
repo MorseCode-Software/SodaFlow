@@ -375,3 +375,150 @@ internal sealed class RootOnlyViewShape : IKeyedCollectionViewShape
     {
     }
 }
+
+/// <summary>Turning a page of a sorted collection, the two ways.</summary>
+/// <remarks>
+///     Both hold the same page of the same ordering, and the benchmark checks that in its setup
+///     before timing either.
+/// </remarks>
+internal interface IKeyedPagingShape
+{
+    /// <summary>The page's keys, in order, as they stand.</summary>
+    IReadOnlyList<int> Keys { get; }
+
+    /// <summary>Moves the window to a new offset.</summary>
+    void TurnTo(int offset);
+}
+
+/// <summary>
+///     One cell holding every item, re-sorted and re-windowed on every page turn.
+/// </summary>
+// ReSharper disable once InheritdocConsiderUsage
+internal sealed class RederivedPageShape : IKeyedPagingShape
+{
+    private readonly CellSink<int> offset;
+    private readonly Cell<IReadOnlyList<int>> page;
+
+    // Load-bearing, as in the other shapes: without a listener the projection is never evaluated.
+    // ReSharper disable once NotAccessedField.Local
+    private readonly IListener listener;
+
+    private RederivedPageShape(
+        CellSink<int> offset,
+        Cell<IReadOnlyList<int>> page,
+        IListener listener)
+    {
+        this.offset = offset;
+        this.page = page;
+        this.listener = listener;
+    }
+
+    public IReadOnlyList<int> Keys => this.page.Sample();
+
+    internal static RederivedPageShape Build(int itemCount)
+    {
+        ImmutableDictionary<int, Entry<ItemIdentity, ItemState>>.Builder builder =
+            ImmutableDictionary.CreateBuilder<int, Entry<ItemIdentity, ItemState>>();
+
+        for (int number = 0; number < itemCount; number++)
+        {
+            builder.Add(
+                number,
+                new Entry<ItemIdentity, ItemState>(ItemSeed.Identity(number), ItemSeed.State(number)));
+        }
+
+        ImmutableDictionary<int, Entry<ItemIdentity, ItemState>> items = builder.ToImmutable();
+
+        return Transaction.Run(() =>
+        {
+            CellSink<int> offset = Cell.CreateSink(0);
+
+            Cell<IReadOnlyList<int>> page = offset.Map<int, IReadOnlyList<int>>(
+                at =>
+                [
+                    .. items.Values
+                        .OrderByDescending(static entry => entry.State.Score)
+                        .Skip(at)
+                        .Take(ViewSeed.Limit)
+                        .Select(static entry => entry.Identity.Number)
+                ]);
+
+            return new RederivedPageShape(
+                offset,
+                page,
+                page.Updates().ListenStrong(static _ => { }));
+        });
+    }
+
+    public void TurnTo(int offset) => this.offset.Send(offset);
+}
+
+/// <summary>
+///     <c>SortByDescending</c> then <c>Slice</c>, where turning the page changes the slice's offset
+///     cell and nothing else.
+/// </summary>
+/// <remarks>
+///     A criteria change rebuilds the stage that owns the criteria, and for most stages that is the
+///     expensive path - a filter files every surviving key into a fresh ordered set. A slice's
+///     rebuild is a <c>RangeKeys</c> over the ordering it already had, which is a lazy view and
+///     costs nothing to construct. That is the asymmetry this benchmark exists to show.
+/// </remarks>
+// ReSharper disable once InheritdocConsiderUsage
+internal sealed class ChainedPageShape : IKeyedPagingShape
+{
+    private readonly CellSink<int> offset;
+    private readonly IReactiveCollection<int, ItemIdentity, ItemState> page;
+
+    // Load-bearing, as above.
+    // ReSharper disable once NotAccessedField.Local
+    private readonly IListener listener;
+
+    private ChainedPageShape(
+        CellSink<int> offset,
+        IReactiveCollection<int, ItemIdentity, ItemState> page,
+        IListener listener)
+    {
+        this.offset = offset;
+        this.page = page;
+        this.listener = listener;
+    }
+
+    public IReadOnlyList<int> Keys => [.. this.page.KeysCell.Sample()];
+
+    internal static ChainedPageShape Build(int itemCount)
+    {
+        List<Entry<ItemIdentity, ItemState>> entries = new(itemCount);
+
+        for (int number = 0; number < itemCount; number++)
+        {
+            entries.Add(new Entry<ItemIdentity, ItemState>(
+                ItemSeed.Identity(number),
+                ItemSeed.State(number)));
+        }
+
+        return Transaction.Run(() =>
+        {
+            StreamSink<CollectionEdit<int, ItemIdentity, ItemState>> edits =
+                Stream.CreateSink<CollectionEdit<int, ItemIdentity, ItemState>>();
+
+            ReactiveCollection<int, ItemIdentity, ItemState> collection =
+                ReactiveCollection<int, ItemIdentity, ItemState>.Create(
+                    static identity => identity.Number,
+                    entries,
+                    edits);
+
+            CellSink<int> offset = Cell.CreateSink(0);
+
+            IReactiveCollection<int, ItemIdentity, ItemState> page = collection
+                .SortByDescending(static (_, state) => state.Score)
+                .Slice(offset, Cell.Constant(ViewSeed.Limit));
+
+            return new ChainedPageShape(
+                offset,
+                page,
+                page.ChangesStream.ListenStrong(static _ => { }));
+        });
+    }
+
+    public void TurnTo(int offset) => this.offset.Send(offset);
+}

@@ -169,12 +169,14 @@ item whose sort position has already moved underneath it.
 
 ## Three costs worth knowing
 
-- Changing a predicate or a limit rebuilds that stage and everything below it and reports
-  `IsReset`. This is more expensive than it sounds, and more expensive than not having a chain at
-  all: a rebuild files every surviving key into a fresh ordered set, so at ten thousand items one
-  criteria change measures about sixteen times the cost of re-deriving the same view with LINQ.
-  Debounce keystroke-driven criteria upstream, and do not drive a chain from something that
-  changes per frame.
+- Changing a criteria rebuilds that stage and everything below it and reports `IsReset`, and
+  what that costs is whatever the rebuild has to re-file. Changing a *predicate* is the expensive
+  end: a filter's rebuild files every surviving key into a fresh ordered set, so at ten thousand
+  items one such change measures about sixteen times the cost of re-deriving the same view with
+  LINQ. Debounce keystroke-driven predicates upstream, and do not drive a filter from something
+  that changes per frame. Changing a **slice's offset** is the cheap end, and by a wide margin -
+  an offset cannot reorder anything, so the rebuild is a lazy window over an ordering that did
+  not move. See [Paging](#paging-and-why-there-is-no-skip).
 - `Take` diffs its old and new windows rather than translating operations: O(limit) per
   transaction, and a reorder inside the window reports as removes and inserts from the first
   differing position rather than as moves. For a top-n that is the cheap direction to be wrong
@@ -211,6 +213,34 @@ want one the argument to make is that it composes. What it cannot do is stop bei
 size follows the collection, which is the one property this design exists to avoid. Paging wants
 both ends of the window anyway, and that is `Slice`.
 
+### What turning a page costs
+
+Turning a page is a criteria change, and every other criteria change in this document is the
+case a chain loses. This one is the exception, measured by
+`KeyedCollectionPagingBenchmarks` against re-deriving the same page from a cell with
+`OrderByDescending`, `Skip` and `Take`, on .NET 10:
+
+| Items | Re-derived | Chained | Chained allocates |
+| --- | --- | --- | --- |
+| 1,000 | 66.7 µs, 17.6 KB | 2.62 µs, 3.2 KB | 5.6× less |
+| 10,000 | 713 µs, 158 KB | 2.65 µs, 3.2 KB | 50× less |
+| 100,000 | 10,737 µs, 1,564 KB | 2.67 µs, 3.2 KB | 495× less |
+
+The chained column is flat — 2.62 microseconds to 2.67 for a hundred times the items — and the
+allocation does not move at all. That is not an optimization, it is the shape of the operation:
+an offset cannot reorder anything, so the rebuild constructs one lazy window over the ordering
+the sort above it already holds and touches nothing else. Re-deriving has to sort the collection
+again to discover what is on the page.
+
+It is worth being precise about why this differs so completely from the threshold change above,
+because both take the same path. A criteria change rebuilds the stage either way. A filter's
+rebuild has to re-file every surviving key; a slice's has nothing to re-file. The cost of a
+criteria change is the cost of its rebuild, and that is a property of the stage rather than of
+criteria changes.
+
+A page turn is also cheaper than an *edit* through the same chain, which is not a contradiction:
+a reset carries no operations, so the stages below have nothing to process.
+
 ## Measuring it
 
 The claim above — that per-item observation is proportional to the number of bound rows and
@@ -218,9 +248,12 @@ independent of the collection size — is what
 `src/CSharp/SodaFlow.Benchmarks/KeyedCollectionEditBenchmarks.cs` measures, against the two
 shapes people reach for instead: a cell sink per mutable value per object, and the same cells
 fed from one shared edit stream.
-`KeyedCollectionBuildBenchmarks` measures what each of them costs to stand up, and
+`KeyedCollectionBuildBenchmarks` measures what each of them costs to stand up,
 `KeyedCollectionViewBenchmarks` measures the view chain — `Filter`, `SortBy` and `Take` — against
-re-deriving the same view from a cell holding the whole collection.
+re-deriving the same view from a cell holding the whole collection, and
+`KeyedCollectionPagingBenchmarks` measures turning a `Slice`'s page against re-deriving that.
+`KeyedCollectionScaleBenchmarks` takes one question — what a selective filter costs per edit — up
+to a million items.
 
 ```bash
 dotnet run -c Release --project src/CSharp/SodaFlow.Benchmarks -- --filter *KeyedCollection*
@@ -345,10 +378,13 @@ persistent tree where re-deriving sorts an array — and a tree costs an allocat
 an array sort costs none. That gap is the data structure rather than a constant waiting to be
 shaved: the tree is what makes every *other* row of this table cheap.
 
-Both are Θ(n), so no amount of work on the chain will beat re-deriving here — the honest ceiling
-is parity, and this is not at it. If your criteria change as often as your data does, a chain is
-the wrong shape and a plain `Lift` is the right one. If they change on a keystroke, debounce
-them.
+Both are Θ(n), so no amount of work on the chain will beat re-deriving *this*  — the honest
+ceiling is parity, and this is not at it. If your predicate changes as often as your data does, a
+chain is the wrong shape and a plain `Lift` is the right one. If it changes on a keystroke,
+debounce it.
+
+Read that as a claim about predicates rather than about criteria in general, because a slice's
+offset is a criteria too and it goes the other way by three orders of magnitude — see below.
 
 ## Simultaneous edits
 

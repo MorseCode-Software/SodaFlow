@@ -39,6 +39,7 @@
         <Compile Include="BindableValueBenchmarks.cs"/>
         <Compile Include="KeyedCollectionBuildBenchmarks.cs"/>
         <Compile Include="KeyedCollectionEditBenchmarks.cs"/>
+        <Compile Include="KeyedCollectionPagingBenchmarks.cs"/>
         <Compile Include="KeyedCollectionScaleBenchmarks.cs"/>
         <Compile Include="KeyedCollectionShapes.cs"/>
         <Compile Include="KeyedCollectionViewBenchmarks.cs"/>
