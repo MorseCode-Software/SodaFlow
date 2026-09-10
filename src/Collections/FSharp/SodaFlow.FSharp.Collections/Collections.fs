@@ -675,17 +675,3 @@ let mapWith
         retainedBeyondTheView,
         Action<_> onEvicted
     )
-
-/// <summary>
-///     Follows whichever view the cell currently holds — the way to switch between sorts whose
-///     sort keys are different types, as clickable column headers need.
-/// </summary>
-/// <param name="viewCell">The view in force.</param>
-/// <param name="source">The collection the views are derived from, which owns the store.</param>
-/// <returns>A view following whichever view the cell holds.</returns>
-[<MethodImpl(MethodImplOptions.NoInlining)>]
-let switchView
-    (viewCell: Cell<ReactiveCollection<'TKey, 'TIdentity, 'TState>>)
-    (source: ReactiveCollection<'TKey, 'TIdentity, 'TState>)
-    =
-    CollectionViewUtility.SwitchImpl(source, viewCell)

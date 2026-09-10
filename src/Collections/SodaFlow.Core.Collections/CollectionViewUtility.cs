@@ -225,59 +225,6 @@ internal static class CollectionViewUtility
                 new RangeKeys<TKey, TIdentity, TState>(upstreamKeys, bounds.Offset, bounds.Limit),
             static (bounds, keys, change) => ProcessSlice(bounds, keys, change));
 
-    /// <summary>
-    ///     Follows whichever view the cell currently holds — the way to switch between sorts whose
-    ///     sort keys are different types, as clickable column headers need.
-    /// </summary>
-    internal static ReactiveCollection<TKey, TIdentity, TState> SwitchImpl<TKey, TIdentity, TState>(
-        ReactiveCollection<TKey, TIdentity, TState> source,
-        Cell<ReactiveCollection<TKey, TIdentity, TState>> viewCell)
-        where TKey : notnull
-        where TIdentity : notnull =>
-        TransactionInternal.RunImpl<ReactiveCollection<TKey, TIdentity, TState>>(() =>
-        {
-            Stream<CollectionViewChange<TKey, TIdentity, TState>> switchedChangesStream = viewCell
-                .MapImpl(static view => view.KeyChangesStream)
-                .SwitchSImpl<CollectionViewChange<TKey, TIdentity, TState>,
-                    Stream<CollectionViewChange<TKey, TIdentity, TState>>>();
-
-            // Switching is itself a reset: every position potentially differs. The new view already
-            // exists and did not change in this transaction, so sampling its keys here gives the
-            // right answer.
-            Stream<CollectionViewChange<TKey, TIdentity, TState>> switchResetsStream = viewCell
-                .UpdatesImpl
-                .SnapshotImpl(
-                    source.SnapshotCell,
-                    static (view, snapshot) =>
-                    {
-                        OrderedKeys<TKey, TIdentity, TState> keys = view.KeysCell.SampleImpl();
-                        CollectionSnapshot<TKey, TIdentity, TState> scoped = snapshot.ScopedTo(keys);
-
-                        // Both sides are the newly followed view. A switch reports a reset, which
-                        // says to recompute rather than to apply a delta, so there is no before for
-                        // a delta to be taken against - and scoping one to the view just abandoned
-                        // would suggest otherwise.
-                        return new CollectionViewChange<TKey, TIdentity, TState>(
-                            scoped,
-                            scoped,
-                            keys,
-                            Array.Empty<ViewOperation<TKey>>(),
-                            true);
-                    });
-
-            Cell<OrderedKeys<TKey, TIdentity, TState>> switchedKeysCell = viewCell
-                .MapImpl(static view => view.KeysCell)
-                .SwitchCImpl<OrderedKeys<TKey, TIdentity, TState>, Cell<OrderedKeys<TKey, TIdentity, TState>>>();
-
-            return new ViewStage<TKey, TIdentity, TState>(
-                source,
-                switchedKeysCell,
-                () => TransactionInternal.RunImpl(() => source.SnapshotCell.LiftImpl(
-                    switchedKeysCell,
-                    static (snapshot, keys) => snapshot.ScopedTo(keys))),
-                switchResetsStream.OrElseImpl(switchedChangesStream));
-        });
-
     private static ReactiveCollection<TKey, TIdentity, TState> BuildStage<TKey, TIdentity, TState, TCriteria>(
         ReactiveCollection<TKey, TIdentity, TState> upstream,
         Cell<TCriteria> criteriaCell,

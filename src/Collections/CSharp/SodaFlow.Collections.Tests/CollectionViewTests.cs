@@ -752,40 +752,6 @@ public sealed class CollectionViewTests
     }
 
     [Test]
-    public async Task SwitchFollowsWhicheverViewTheCellHolds()
-    {
-        StreamSink<CollectionEdit<int, ItemIdentity, ItemState>> edits =
-            Stream.CreateSink<CollectionEdit<int, ItemIdentity, ItemState>>();
-
-        ReactiveCollection<int, ItemIdentity, ItemState> collection = Create(
-            edits,
-            TestUtil.Item(1, "one", 30),
-            TestUtil.Item(2, "two", 10),
-            TestUtil.Item(3, "three", 20));
-
-        ReactiveCollection<int, ItemIdentity, ItemState> byScore =
-            collection.SortBy(static (_, state) => state.Score);
-        ReactiveCollection<int, ItemIdentity, ItemState> byName =
-            collection.SortBy(static (_, state) => state.Name);
-
-        CellSink<ReactiveCollection<int, ItemIdentity, ItemState>> which = Cell.CreateSink(byScore);
-        ReactiveCollection<int, ItemIdentity, ItemState> switched = collection.Switch(which);
-
-        await Assert.That(KeysOf(switched)).IsEquivalentTo([2, 3, 1]);
-
-        List<bool> resets = [];
-        IListener l = switched.KeyChangesStream.ListenStrong(change => resets.Add(change.IsReset));
-
-        which.Send(byName);
-
-        l.Unlisten();
-
-        // Switching is itself a reset: every position potentially differs.
-        await Assert.That(resets).IsEquivalentTo([true]);
-        await Assert.That(KeysOf(switched)).IsEquivalentTo([1, 3, 2]);
-    }
-
-    [Test]
     public async Task AViewsSnapshotHoldsOnlyWhatTheViewHolds()
     {
         StreamSink<CollectionEdit<int, ItemIdentity, ItemState>> edits =

@@ -12,8 +12,9 @@ namespace SodaFlow.Collections;
 ///         An order carries its own sort value type inside itself, so this type does not mention
 ///         it. That is the whole point: two orders projecting sort values of different types are
 ///         still the same type here, so a cell can hold either and a sort stage can follow one -
-///         which is what a clickable column header needs, and what would otherwise take switching
-///         between two separately built views.
+///         which is what a clickable column header needs. Without it a header would need a
+///         separately built view per column and something to choose between them, which is a graph
+///         rebuilt on every click rather than a key set re-filed.
 ///     </para>
 ///     <para>
 ///         Nothing outside this assembly can implement one. Build them with the factories here,

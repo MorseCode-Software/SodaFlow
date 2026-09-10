@@ -369,24 +369,6 @@ public static class CollectionViewExtensionMethods
         CollectionViewUtility.SliceImpl(upstream, offsetCell, limitCell);
 
     /// <summary>
-    ///     Follows whichever view the cell currently holds — the way to switch between sorts whose
-    ///     sort keys are different types, as clickable column headers need.
-    /// </summary>
-    /// <typeparam name="TKey">The type of the keys.</typeparam>
-    /// <typeparam name="TIdentity">The type of the immutable portion of an item.</typeparam>
-    /// <typeparam name="TState">The type of the mutable portion of an item.</typeparam>
-    /// <param name="source">The collection the views are derived from, which owns the store.</param>
-    /// <param name="viewCell">The view in force.</param>
-    /// <returns>A view following whichever view <paramref name="viewCell" /> holds.</returns>
-    [MethodImpl(MethodImplOptions.NoInlining)]
-    public static ReactiveCollection<TKey, TIdentity, TState> Switch<TKey, TIdentity, TState>(
-        this ReactiveCollection<TKey, TIdentity, TState> source,
-        Cell<ReactiveCollection<TKey, TIdentity, TState>> viewCell)
-        where TKey : notnull
-        where TIdentity : notnull =>
-        CollectionViewUtility.SwitchImpl(source, viewCell);
-
-    /// <summary>
     ///     One object per key, in this collection's order, so a list can bind to something stable.
     /// </summary>
     /// <remarks>

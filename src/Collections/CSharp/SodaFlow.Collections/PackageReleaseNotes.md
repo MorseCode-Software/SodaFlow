@@ -56,7 +56,7 @@ counting keys that have left rather than keys in the view, and it hands back a
 MappedItems to dispose the way MapAsync hands back a status.
 
 Views chain and stay incremental. Filter, FilterByIdentity, SortBy, SortByDescending,
-SortByIdentity, SortByIdentityDescending, SortByKey, Take, Slice and Switch each take a
+SortByIdentity, SortByIdentityDescending, SortByKey, Take and Slice each take a
 ReactiveCollection and return one, the way Where takes and returns an
 IEnumerable, and an item seen through two views is literally the same cell.
 

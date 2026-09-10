@@ -158,7 +158,6 @@ ReactiveCollection<Guid, AccountId, AccountState> topTen = accounts
 | `SortByKey` | The root's own order, over any stage |
 | `Take` | A count, or a `Cell<int>` |
 | `Slice` | An offset and a count, or a `Cell<int>` for either — see below |
-| `Switch` | Follows whichever view a cell holds |
 | `Map` | One object per key, in order — see below |
 
 `StateCell` answers for the collection you ask. On a filtered view it has no value for a key the
