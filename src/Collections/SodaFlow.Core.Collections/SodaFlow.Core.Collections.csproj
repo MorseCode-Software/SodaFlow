@@ -49,6 +49,7 @@
         <Compile Include="IReactiveCollection.cs"/>
         <Compile Include="IStateMap.cs"/>
         <Compile Include="OrderedKeys.cs"/>
+        <Compile Include="ProjectedCellCache.cs"/>
         <Compile Include="ReactiveCollection.cs"/>
     </ItemGroup>
 

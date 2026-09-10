@@ -39,7 +39,12 @@ public sealed class ReactiveCollection<TKey, TId, TState> : IReactiveCollection<
     ///     holds is whatever the language wrapper asked for - Maybe in C#, option in F# - and two
     ///     wrappers over one collection must not be handed each other's cells.
     /// </summary>
-    private readonly Dictionary<ProjectedKey, WeakReference<object>> stateCellCache = new();
+    /// <summary>
+    ///     One cache per projected type. The value is typed <see cref="object" /> because the type
+    ///     it really has depends on the key it is stored under, which C# has no way to say; see
+    ///     <see cref="CacheFor{TProjected}" />, where that is said once.
+    /// </summary>
+    private readonly Dictionary<Type, object> projectedCaches = new();
 
     /// <summary>
     ///     A plain object rather than <c>System.Threading.Lock</c>, which arrived in .NET 9 and is
@@ -204,18 +209,33 @@ public sealed class ReactiveCollection<TKey, TId, TState> : IReactiveCollection<
         Func<TState, TProjected> onPresent,
         Func<TProjected> onAbsent)
     {
-        ProjectedKey cacheKey = new(typeof(TProjected), key);
-
         lock (this.cacheGate)
         {
-            if (this.stateCellCache.TryGet(cacheKey, out WeakReference<object> reference) &&
-                reference.TryGetTarget(out object? cached))
-            {
-                return (Cell<TProjected>)cached;
-            }
+            ProjectedCellCache<TKey, TProjected> cache = this.CacheFor<TProjected>();
 
-            return this.CreateStateCell(cacheKey, key, onPresent, onAbsent);
+            return cache.Get(key) ?? this.CreateStateCell(cache, key, onPresent, onAbsent);
         }
+    }
+
+    /// <summary>The cache for one projected type, created the first time that type is asked for.</summary>
+    /// <remarks>
+    ///     This is where the one cast lives, and it is sound because the dictionary is keyed by the
+    ///     very type being cast to: an entry under <c>typeof(TProjected)</c> can only have been put
+    ///     there by a call whose <c>TProjected</c> was that type. A dictionary from a type to a
+    ///     thing parameterized by that type is a higher-kinded thing, which C# cannot express - so
+    ///     the claim is made here once rather than at every lookup.
+    /// </remarks>
+    private ProjectedCellCache<TKey, TProjected> CacheFor<TProjected>()
+    {
+        if (this.projectedCaches.TryGetValue(typeof(TProjected), out object? existing))
+        {
+            return (ProjectedCellCache<TKey, TProjected>)existing;
+        }
+
+        ProjectedCellCache<TKey, TProjected> created = new();
+        this.projectedCaches[typeof(TProjected)] = created;
+
+        return created;
     }
 
     /// <summary>
@@ -305,7 +325,7 @@ public sealed class ReactiveCollection<TKey, TId, TState> : IReactiveCollection<
     }
 
     private Cell<TProjected> CreateStateCell<TProjected>(
-        ProjectedKey cacheKey,
+        ProjectedCellCache<TKey, TProjected> cache,
         TKey key,
         Func<TState, TProjected> onPresent,
         Func<TProjected> onAbsent)
@@ -332,63 +352,8 @@ public sealed class ReactiveCollection<TKey, TId, TState> : IReactiveCollection<
                         ? onPresent(state)
                         : onAbsent())));
 
-        this.PruneCache();
-        this.stateCellCache[cacheKey] = new WeakReference<object>(stateCell);
+        cache.Set(key, stateCell);
 
         return stateCell;
-    }
-
-    private void PruneCache()
-    {
-        if (this.stateCellCache.Count < 64)
-        {
-            return;
-        }
-
-        List<ProjectedKey> dead = new();
-
-        foreach (KeyValuePair<ProjectedKey, WeakReference<object>> pair in this.stateCellCache)
-        {
-            if (!pair.Value.TryGetTarget(out object? _))
-            {
-                dead.Add(pair.Key);
-            }
-        }
-
-        foreach (ProjectedKey key in dead)
-        {
-            this.stateCellCache.Remove(key);
-        }
-    }
-
-    /// <summary>
-    ///     A cache key: which key, and what the wrapper asked the cell to hold.
-    /// </summary>
-    // ReSharper disable once InheritdocConsiderUsage
-    private readonly struct ProjectedKey : IEquatable<ProjectedKey>
-    {
-        private readonly Type projectedType;
-        private readonly TKey key;
-
-        internal ProjectedKey(Type projectedType, TKey key)
-        {
-            this.projectedType = projectedType;
-            this.key = key;
-        }
-
-        public bool Equals(ProjectedKey other) =>
-            this.projectedType == other.projectedType &&
-            EqualityComparer<TKey>.Default.Equals(this.key, other.key);
-
-        public override bool Equals(object? obj) => obj is ProjectedKey other && this.Equals(other);
-
-        public override int GetHashCode()
-        {
-            unchecked
-            {
-                return (this.projectedType.GetHashCode() * 397) ^
-                    EqualityComparer<TKey>.Default.GetHashCode(this.key);
-            }
-        }
     }
 }

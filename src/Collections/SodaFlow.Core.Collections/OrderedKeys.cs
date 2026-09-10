@@ -175,9 +175,16 @@ internal sealed class SortedEntryComparer<TKey, TSortKey> : IComparer<SortedEntr
 /// <typeparam name="TId">The type of the immutable portion of an item.</typeparam>
 /// <typeparam name="TState">The type of the mutable portion of an item.</typeparam>
 /// <typeparam name="TSortKey">The type of the projected sort value.</typeparam>
-[PublicAPI]
+/// <remarks>
+///     Internal, because nothing outside this assembly can put an order into a view: the sort
+///     stages build their own from the selector they are handed. <see cref="IKeyOrder{TKey,TId,TState}" />
+///     stays public because <see cref="IOrderedKeys{TKey,TId,TState}.Order" /> answers with one, so
+///     an order can be read and not supplied - which is what keeps the claim
+///     <see cref="DependsOnState" /> makes checkable. An order that could be supplied from outside
+///     could assert it falsely, and a view would silently stop re-filing.
+/// </remarks>
 // ReSharper disable once InheritdocConsiderUsage
-public sealed class SortKeyOrder<TKey, TId, TState, TSortKey> : IKeyOrder<TKey, TId, TState>
+internal sealed class SortKeyOrder<TKey, TId, TState, TSortKey> : IKeyOrder<TKey, TId, TState>
     where TKey : notnull
     where TId : notnull
 {
