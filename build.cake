@@ -291,14 +291,87 @@ Task("Verify-Inspection-Settings")
 });
 
 // The whole of an inspection run, shared by the solution under src and by each sample. Extracted
-// rather than duplicated because the reporting is the interesting part - the zero threshold, the
-// listing before the throw - and two copies of that would drift.
-void RunInspection(FilePath solutionPath, FilePath reportPath, string description)
+// rather than duplicated because the reporting is the interesting part - the two reports, the zero
+// threshold, the listing before the throw - and two copies of that would drift.
+//
+// Two reports from two runs, and neither is redundant. reportPath holds everything inspectcode can
+// say, hints included, and is what the workflows hand to code scanning so each finding lands on the
+// line it is about. gatePath holds suggestions and above, and is the only thing that fails the
+// build. A hint is worth seeing where it applies; it is not worth a red build.
+//
+// One run filtered afterwards would be cheaper, and cannot be made to agree with the threshold. The
+// SARIF grades a hint and a suggestion alike - both are "note" - so it cannot tell them apart. The
+// XML report grades each rule once rather than each finding, and was seen grading
+// RedundantBoolCompare a WARNING in a run whose suggestion threshold did not report the finding at
+// all. So the gate is inspectcode's own threshold rather than an imitation of it, and the second run
+// costs little: it reuses the caches the first has just warmed, measured at 25 seconds here.
+void RunInspection(FilePath solutionPath, FilePath reportPath, FilePath gatePath, string description)
 {
     // inspectcode creates this itself, but only after deciding it is usable; making it first keeps
     // a first run on a clean tree from differing from every run after it.
     EnsureDirectoryExists(inspectionCacheDirectory);
 
+    // Everything, for code scanning. INFO rather than HINT, so that no tier below hints can be left
+    // out without someone deciding to leave it out.
+    InvokeInspectCode(solutionPath, reportPath, "INFO");
+
+    // What fails the build. Named although it is inspectcode's default, so the two thresholds read
+    // side by side and neither depends on a default nobody wrote down.
+    InvokeInspectCode(solutionPath, gatePath, "SUGGESTION");
+
+    var workingDirectory = Context.Environment.WorkingDirectory;
+
+    var reported = ReadIssues(SarifIssuesFromFilePath(reportPath), workingDirectory).Count();
+
+    var issues = ReadIssues(
+            SarifIssuesFromFilePath(gatePath),
+            workingDirectory)
+        .OrderBy(i => i.AffectedFileRelativePath?.FullPath ?? string.Empty, StringComparer.Ordinal)
+        .ThenBy(i => i.Line ?? 0)
+        .ToList();
+
+    // Listed before the throw below, not after, because a build that fails on the inspection is
+    // exactly the build that needs to say what the inspection found. This log is the whole of the
+    // reporting done here; the full SARIF is handed to code scanning by the workflow, which puts the
+    // findings on the lines they are about.
+    //
+    // There used to be a second copy of this, pushed to AppVeyor's messages tab through Cake's own
+    // AppVeyor provider. Worth recording why it was that and not Cake.Issues.PullRequests.AppVeyor,
+    // in case anyone reaches for the equivalent again: that addin has no release built against Cake
+    // 6, and under Cake 6 it dies with MissingMethodException on
+    // Spectre.Console.Text..ctor(String, Style) as soon as it formats anything. Keeping it would
+    // have meant holding the entire build at Cake 5 to satisfy one package.
+    Information("InspectCode found {0} issue(s) in {1}.", issues.Count, description);
+    foreach (var issue in issues)
+    {
+        Information("  {0}", Describe(issue));
+    }
+
+    // Said even when it is zero, so the log shows that the full report was written and what it holds.
+    Information(
+        "{0} finding(s) below suggestion went to code scanning, where they are shown and do not fail the build.",
+        Math.Max(0, reported - issues.Count));
+
+    // Anything at suggestion or above fails the build. The threshold is zero rather than a count
+    // because a count is a number that only ever goes up: it has to be raised to land the change that
+    // raised it, and raising it is easier than fixing the thing. Below suggestion, nothing fails -
+    // those findings are reported, on their lines, and that is all.
+    //
+    // The way to make an inspection stop failing the build, other than fixing it, is to turn the
+    // rule off or lower it in src/SodaFlow.sln.DotSettings, where Rider will then agree with CI.
+    // Silencing something here would put CI and the editor into disagreement, which is the problem
+    // this whole task exists to avoid.
+    if (issues.Count > 0)
+    {
+        throw new Exception(
+            $"InspectCode found {issues.Count} issue(s) in {description}, listed above. Fix them, or "
+            + "change the rule in src/SodaFlow.sln.DotSettings.");
+    }
+}
+
+// One inspectcode run over one solution, writing SARIF at one threshold.
+void InvokeInspectCode(FilePath solutionPath, FilePath outputPath, string severity)
+{
     // inspectcode comes from the jetbrains.resharper.globaltools local tool, pinned alongside Cake
     // in .config/dotnet-tools.json, so the agent inspects with the version a developer does. There
     // is no Cake alias for it; a process call is the whole of the integration.
@@ -306,7 +379,7 @@ void RunInspection(FilePath solutionPath, FilePath reportPath, string descriptio
         .Append("jb")
         .Append("inspectcode")
         .AppendQuoted(MakeAbsolute(solutionPath).FullPath)
-        .AppendSwitchQuoted("--output", "=", MakeAbsolute(reportPath).FullPath)
+        .AppendSwitchQuoted("--output", "=", MakeAbsolute(outputPath).FullPath)
         .Append("--format=Sarif")
         // The same settings Rider applies, named explicitly rather than left to inspectcode's
         // lookup: that lookup pairs a .DotSettings file with a solution of the same name, and the
@@ -329,52 +402,13 @@ void RunInspection(FilePath solutionPath, FilePath reportPath, string descriptio
         // letting it pick one and build it.
         .Append("--no-build")
         .Append($"--properties:Configuration={configuration}")
+        .Append($"--severity={severity}")
         .Append("--verbosity=WARN");
 
     var exitCode = StartProcess("dotnet", new ProcessSettings { Arguments = arguments });
     if (exitCode != 0)
     {
         throw new Exception($"inspectcode failed (exit {exitCode}).");
-    }
-
-    var issues = ReadIssues(
-            SarifIssuesFromFilePath(reportPath),
-            Context.Environment.WorkingDirectory)
-        .OrderBy(i => i.AffectedFileRelativePath?.FullPath ?? string.Empty, StringComparer.Ordinal)
-        .ThenBy(i => i.Line ?? 0)
-        .ToList();
-
-    // Listed before the throw below, not after, because a build that fails on the inspection is
-    // exactly the build that needs to say what the inspection found. This log is the whole of the
-    // reporting done here; the SARIF it was read from is handed to code scanning by the workflow,
-    // which puts the findings on the lines they are about.
-    //
-    // There used to be a second copy of this, pushed to AppVeyor's messages tab through Cake's own
-    // AppVeyor provider. Worth recording why it was that and not Cake.Issues.PullRequests.AppVeyor,
-    // in case anyone reaches for the equivalent again: that addin has no release built against Cake
-    // 6, and under Cake 6 it dies with MissingMethodException on
-    // Spectre.Console.Text..ctor(String, Style) as soon as it formats anything. Keeping it would
-    // have meant holding the entire build at Cake 5 to satisfy one package.
-    Information("InspectCode found {0} issue(s) in {1}.", issues.Count, description);
-    foreach (var issue in issues)
-    {
-        Information("  {0}", Describe(issue));
-    }
-
-    // Anything at all fails the build, suggestions included - inspectcode reports SUGGESTION and
-    // above by default, so this gates on everything it is willing to say. The threshold is zero
-    // rather than a count because a count is a number that only ever goes up: it has to be raised
-    // to land the change that raised it, and raising it is easier than fixing the thing.
-    //
-    // The way to make an inspection stop failing the build, other than fixing it, is to turn the
-    // rule off or lower it in src/SodaFlow.sln.DotSettings, where Rider will then agree with CI.
-    // Silencing something here would put CI and the editor into disagreement, which is the problem
-    // this whole task exists to avoid.
-    if (issues.Count > 0)
-    {
-        throw new Exception(
-            $"InspectCode found {issues.Count} issue(s) in {description}, listed above. Fix them, or "
-            + "change the rule in src/SodaFlow.sln.DotSettings.");
     }
 }
 
@@ -388,6 +422,7 @@ Task("Inspect-Code")
     RunInspection(
         solution.Path,
         (inspectionDirectory + File("inspectcode.sarif")).Path,
+        (inspectionDirectory + File("inspectcode-gate.sarif")).Path,
         solution.Path.FullPath);
 });
 
@@ -420,6 +455,7 @@ Task("Inspect-Sample")
     RunInspection(
         sampleSolution.Path,
         (inspectionDirectory + File($"inspectcode-{sampleName}.sarif")).Path,
+        (inspectionDirectory + File($"inspectcode-{sampleName}-gate.sarif")).Path,
         $"the {sampleName} sample");
 });
 
