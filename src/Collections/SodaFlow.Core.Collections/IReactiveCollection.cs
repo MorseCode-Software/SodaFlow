@@ -22,8 +22,8 @@ namespace SodaFlow.Collections;
 ///     <para>
 ///         The per-item cells are deliberately not on this interface. They answer with an optional
 ///         value, and which optional value differs by language — <c>Maybe</c> in C# and
-///         <c>option</c> in F# — so each wrapper declares its own over <see cref="Root" />, which
-///         is what owns the store and the cache behind them.
+///         <c>option</c> in F# — so each wrapper declares its own over the collection that owns the
+///         store and the cache behind them, reached inside the assembly rather than from here.
 ///     </para>
 /// </remarks>
 /// <typeparam name="TKey">The type of the keys.</typeparam>
@@ -63,10 +63,25 @@ public interface IReactiveCollection<TKey, TIdentity, TState>
     ///     collection; ask this what an item is.
     /// </remarks>
     Cell<CollectionSnapshot<TKey, TIdentity, TState>> SnapshotCell { get; }
+}
 
-    /// <summary>
-    ///     The collection this view was ultimately derived from, which owns the item store. A
-    ///     root's own <see cref="Root" /> is itself.
-    /// </summary>
+/// <summary>
+///     What the language wrappers need and consumers do not: the collection a view was derived
+///     from, which owns the item store and the per-item cell cache.
+/// </summary>
+/// <remarks>
+///     Off <see cref="IReactiveCollection{TKey,TIdentity,TState}" /> deliberately. A view answers
+///     for itself - its keys, its changes, its snapshot - and nothing on it leads back to the
+///     collection it came from, the way nothing on an <c>IEnumerable</c> leads back to the sequence
+///     it was projected from. The wrappers still need the root to reach the shared per-item cells,
+///     so they reach it here, inside the assembly boundary rather than through the public surface.
+/// </remarks>
+/// <inheritdoc />
+internal interface IReactiveCollectionInternal<TKey, TIdentity, TState>
+    : IReactiveCollection<TKey, TIdentity, TState>
+    where TKey : notnull
+    where TIdentity : notnull
+{
+    /// <summary>The collection that owns the store. A root's own is itself.</summary>
     ReactiveCollection<TKey, TIdentity, TState> Root { get; }
 }

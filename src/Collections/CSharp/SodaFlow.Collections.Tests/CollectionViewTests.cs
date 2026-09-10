@@ -645,4 +645,92 @@ public sealed class CollectionViewTests
         await Assert.That(resets).IsEquivalentTo([true]);
         await Assert.That(KeysOf(switched)).IsEquivalentTo([1, 3, 2]);
     }
+
+    [Test]
+    public async Task AViewsSnapshotHoldsOnlyWhatTheViewHolds()
+    {
+        StreamSink<CollectionEdit<int, ItemIdentity, ItemState>> edits =
+            Stream.CreateSink<CollectionEdit<int, ItemIdentity, ItemState>>();
+
+        ReactiveCollection<int, ItemIdentity, ItemState> collection = Create(
+            edits,
+            TestUtil.Item(1, "one", 10),
+            TestUtil.Item(2, "two", 20),
+            TestUtil.Item(3, "three", 30));
+
+        IReactiveCollection<int, ItemIdentity, ItemState> passing =
+            collection.Filter(static (_, state) => state.Score >= 20);
+
+        CollectionSnapshot<int, ItemIdentity, ItemState> view = passing.SnapshotCell.Sample();
+
+        // The view's snapshot counts the view, not the store behind it.
+        await Assert.That(view.Count).IsEqualTo(2);
+        await Assert.That(view.ContainsKey(1)).IsFalse();
+        await Assert.That(view.ContainsKey(2)).IsTrue();
+        await Assert.That(view.TryGetItem(1, out Item<ItemIdentity, ItemState>? _)).IsFalse();
+        await Assert.That(view.TryGetItem(2, out Item<ItemIdentity, ItemState>? _)).IsTrue();
+
+        // And the two maps behind it agree with it rather than with the store.
+        await Assert.That(view.States.Count).IsEqualTo(2);
+        await Assert.That(TestUtil.Keys(view.Identities.Keys)).IsEquivalentTo([2, 3]);
+        await Assert.That(view.States.TryGetState(1, out ItemState _)).IsFalse();
+
+        // The root still sees everything, which is what makes it the root.
+        await Assert.That(collection.SnapshotCell.Sample().Count).IsEqualTo(3);
+        await Assert.That(collection.SnapshotCell.Sample().ContainsKey(1)).IsTrue();
+    }
+
+    [Test]
+    public async Task AViewsSnapshotFollowsItsMembership()
+    {
+        StreamSink<CollectionEdit<int, ItemIdentity, ItemState>> edits =
+            Stream.CreateSink<CollectionEdit<int, ItemIdentity, ItemState>>();
+
+        ReactiveCollection<int, ItemIdentity, ItemState> collection = Create(
+            edits,
+            TestUtil.Item(1, "one", 10),
+            TestUtil.Item(2, "two", 20));
+
+        IReactiveCollection<int, ItemIdentity, ItemState> passing =
+            collection.Filter(static (_, state) => state.Score >= 20);
+
+        await Assert.That(passing.SnapshotCell.Sample().ContainsKey(1)).IsFalse();
+
+        // Scoring it into the view puts it in the view's snapshot too.
+        edits.Send(TestUtil.Score(1, 99));
+
+        await Assert.That(passing.SnapshotCell.Sample().ContainsKey(1)).IsTrue();
+        await Assert.That(passing.SnapshotCell.Sample().Count).IsEqualTo(2);
+    }
+
+    [Test]
+    public async Task AViewChangeCarriesTheViewOnBothSides()
+    {
+        StreamSink<CollectionEdit<int, ItemIdentity, ItemState>> edits =
+            Stream.CreateSink<CollectionEdit<int, ItemIdentity, ItemState>>();
+
+        ReactiveCollection<int, ItemIdentity, ItemState> collection = Create(
+            edits,
+            TestUtil.Item(1, "one", 10),
+            TestUtil.Item(2, "two", 20));
+
+        IReactiveCollection<int, ItemIdentity, ItemState> passing =
+            collection.Filter(static (_, state) => state.Score >= 20);
+
+        List<CollectionViewChange<int, ItemIdentity, ItemState>> changes = [];
+        IListener l = passing.KeyChangesStream.ListenStrong(changes.Add);
+
+        edits.Send(TestUtil.Score(1, 99));
+
+        l.Unlisten();
+
+        CollectionViewChange<int, ItemIdentity, ItemState> change = changes[0];
+
+        // Before is the view as it stood, which did not hold key 1; After is the view now, which
+        // does. Neither is the store, and that is the whole point of the scoping.
+        await Assert.That(change.Before.ContainsKey(1)).IsFalse();
+        await Assert.That(change.After.ContainsKey(1)).IsTrue();
+        await Assert.That(change.Before.Count).IsEqualTo(1);
+        await Assert.That(change.After.Count).IsEqualTo(2);
+    }
 }

@@ -30,7 +30,8 @@ namespace SodaFlow.Collections;
 /// <typeparam name="TState">The type of the mutable portion of an item.</typeparam>
 [PublicAPI]
 // ReSharper disable once InheritdocConsiderUsage
-public sealed class ReactiveCollection<TKey, TIdentity, TState> : IReactiveCollection<TKey, TIdentity, TState>
+public sealed class ReactiveCollection<TKey, TIdentity, TState>
+    : IReactiveCollectionInternal<TKey, TIdentity, TState>
     where TKey : notnull
     where TIdentity : notnull
 {
@@ -93,7 +94,8 @@ public sealed class ReactiveCollection<TKey, TIdentity, TState> : IReactiveColle
 
     /// <inheritdoc />
     /// <remarks>A root owns the store, so this is itself.</remarks>
-    public ReactiveCollection<TKey, TIdentity, TState> Root => this;
+    ReactiveCollection<TKey, TIdentity, TState>
+        IReactiveCollectionInternal<TKey, TIdentity, TState>.Root => this;
 
     /// <summary>
     ///     Defines a collection from its initial contents and every stream that will ever edit it.

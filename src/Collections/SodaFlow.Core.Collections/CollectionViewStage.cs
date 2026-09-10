@@ -1,4 +1,6 @@
+using System;
 using System.Collections.Generic;
+using System.Threading;
 
 namespace SodaFlow.Collections;
 
@@ -7,19 +9,37 @@ namespace SodaFlow.Collections;
 ///     shares with every other stage over the same root.
 /// </summary>
 // ReSharper disable once InheritdocConsiderUsage
-internal sealed class CollectionViewStage<TKey, TIdentity, TState> : IReactiveCollection<TKey, TIdentity, TState>
+internal sealed class CollectionViewStage<TKey, TIdentity, TState>
+    : IReactiveCollectionInternal<TKey, TIdentity, TState>
     where TKey : notnull
     where TIdentity : notnull
 {
     private readonly IReactiveCollection<TKey, TIdentity, TState> source;
 
+    /// <summary>
+    ///     Built on first use, because a stage that nobody asks for a snapshot should not pay for
+    ///     one.
+    /// </summary>
+    /// <remarks>
+    ///     Scoping the snapshot means a cell per stage, recomputed every transaction, and that
+    ///     measured about a fifth of what an edit costs across the whole chain - against consumers
+    ///     who overwhelmingly read <see cref="KeysCell" />, the per-item cells and
+    ///     <see cref="KeyChangesStream" /> and never ask a view what it holds in bulk. Deferring it
+    ///     is the same bargain the root's ordering already makes.
+    /// </remarks>
+    private readonly Lazy<Cell<CollectionSnapshot<TKey, TIdentity, TState>>> snapshotCell;
+
     internal CollectionViewStage(
         IReactiveCollection<TKey, TIdentity, TState> source,
         Cell<IOrderedKeys<TKey, TIdentity, TState>> keysCell,
+        Func<Cell<CollectionSnapshot<TKey, TIdentity, TState>>> snapshotCell,
         Stream<CollectionViewChange<TKey, TIdentity, TState>> keyChangesStream)
     {
         this.source = source;
         this.KeysCell = keysCell;
+        this.snapshotCell = new Lazy<Cell<CollectionSnapshot<TKey, TIdentity, TState>>>(
+            snapshotCell,
+            LazyThreadSafetyMode.ExecutionAndPublication);
         this.KeyChangesStream = keyChangesStream;
     }
 
@@ -27,9 +47,10 @@ internal sealed class CollectionViewStage<TKey, TIdentity, TState> : IReactiveCo
 
     public Stream<CollectionViewChange<TKey, TIdentity, TState>> KeyChangesStream { get; }
 
-    public Cell<CollectionSnapshot<TKey, TIdentity, TState>> SnapshotCell => this.source.SnapshotCell;
+    public Cell<CollectionSnapshot<TKey, TIdentity, TState>> SnapshotCell => this.snapshotCell.Value;
 
-    public ReactiveCollection<TKey, TIdentity, TState> Root => this.source.Root;
+    ReactiveCollection<TKey, TIdentity, TState>
+        IReactiveCollectionInternal<TKey, TIdentity, TState>.Root => this.source.RootOf();
 }
 
 /// <summary>

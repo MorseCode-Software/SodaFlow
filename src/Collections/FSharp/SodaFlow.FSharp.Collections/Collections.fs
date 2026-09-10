@@ -201,7 +201,7 @@ let fromRemoves
 /// </remarks>
 [<MethodImpl(MethodImplOptions.NoInlining)>]
 let stateCell (key: 'TKey) (collection: IReactiveCollection<'TKey, 'TIdentity, 'TState>) =
-    collection.Root.StateCellImpl(key, Func<_, _> Some, Func<_>(fun () -> None))
+    CollectionInternals.RootOf(collection).StateCellImpl(key, Func<_, _> Some, Func<_>(fun () -> None))
 
 /// <summary>The item's immutable portion, <c>None</c> while the key is absent.</summary>
 /// <param name="key">The key to observe.</param>
@@ -210,7 +210,7 @@ let stateCell (key: 'TKey) (collection: IReactiveCollection<'TKey, 'TIdentity, '
 /// <remarks>Fires only on structural change, so it is near-free to hold.</remarks>
 [<MethodImpl(MethodImplOptions.NoInlining)>]
 let identityCell (key: 'TKey) (collection: IReactiveCollection<'TKey, 'TIdentity, 'TState>) =
-    collection.Root.ShapeCell
+    CollectionInternals.RootOf(collection).ShapeCell
     |> mapC (fun identities ->
         match identities.TryGetValue key with
         | true, identity -> Some identity

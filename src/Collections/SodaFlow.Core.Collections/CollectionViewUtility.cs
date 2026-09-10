@@ -51,6 +51,9 @@ internal static class CollectionViewUtility
             return new CollectionViewStage<TKey, TIdentity, TState>(
                 collection,
                 keysCell,
+                // The root's ordering holds every key, so scoping it would wrap the store in a
+                // filter that admits all of it.
+                () => collection.SnapshotCell,
                 ToChangesStream(resultsStream));
         });
     }
@@ -247,20 +250,33 @@ internal static class CollectionViewUtility
                 .UpdatesImpl
                 .SnapshotImpl(
                     source.SnapshotCell,
-                    // Switching changes which view is followed, not the store, so the two
-                    // versions here are one object.
-                    static (view, snapshot) => new CollectionViewChange<TKey, TIdentity, TState>(
-                        snapshot,
-                        snapshot,
-                        view.KeysCell.SampleImpl(),
-                        Array.Empty<ViewOperation<TKey>>(),
-                        true));
+                    static (view, snapshot) =>
+                    {
+                        IOrderedKeys<TKey, TIdentity, TState> keys = view.KeysCell.SampleImpl();
+                        CollectionSnapshot<TKey, TIdentity, TState> scoped = snapshot.ScopedTo(keys);
+
+                        // Both sides are the newly followed view. A switch reports a reset, which
+                        // says to recompute rather than to apply a delta, so there is no before for
+                        // a delta to be taken against - and scoping one to the view just abandoned
+                        // would suggest otherwise.
+                        return new CollectionViewChange<TKey, TIdentity, TState>(
+                            scoped,
+                            scoped,
+                            keys,
+                            Array.Empty<ViewOperation<TKey>>(),
+                            true);
+                    });
+
+            Cell<IOrderedKeys<TKey, TIdentity, TState>> switchedKeysCell = viewCell
+                .MapImpl(static view => view.KeysCell)
+                .SwitchCImpl<IOrderedKeys<TKey, TIdentity, TState>, Cell<IOrderedKeys<TKey, TIdentity, TState>>>();
 
             return new CollectionViewStage<TKey, TIdentity, TState>(
                 source,
-                viewCell
-                    .MapImpl(static view => view.KeysCell)
-                    .SwitchCImpl<IOrderedKeys<TKey, TIdentity, TState>, Cell<IOrderedKeys<TKey, TIdentity, TState>>>(),
+                switchedKeysCell,
+                () => TransactionInternal.RunImpl(() => source.SnapshotCell.LiftImpl(
+                    switchedKeysCell,
+                    static (snapshot, keys) => snapshot.ScopedTo(keys))),
                 switchResetsStream.OrElseImpl(switchedChangesStream));
         });
 
@@ -277,9 +293,13 @@ internal static class CollectionViewUtility
         {
             LoopedCell<IOrderedKeys<TKey, TIdentity, TState>> stateLoopCell = new();
 
+            // The store, not the stage above's view of it. Reading upstream.SnapshotCell here would
+            // force the lazy scoped cell of every stage in the chain, which is the whole cost
+            // deferring it was meant to avoid - and this needs no scoping, because what it feeds
+            // is scoped explicitly below.
             Cell<StageContext<TKey, TIdentity, TState, TCriteria>> contextCell = criteriaCell.LiftImpl(
                 upstream.KeysCell,
-                upstream.SnapshotCell,
+                upstream.RootOf().SnapshotCell,
                 static (criteria, upstreamKeys, snapshot) =>
                     new StageContext<TKey, TIdentity, TState, TCriteria>(criteria, upstreamKeys, snapshot));
 
@@ -319,12 +339,15 @@ internal static class CollectionViewUtility
 
                     if (mustRebuild)
                     {
+                        IOrderedKeys<TKey, TIdentity, TState> rebuilt =
+                            rebuild(criteria, upstreamKeys, snapshot);
+
                         return new StageResult<TKey, TIdentity, TState>(
-                            rebuild(criteria, upstreamKeys, snapshot),
+                            rebuilt,
                             Array.Empty<ViewOperation<TKey>>(),
                             true,
-                            context.Snapshot,
-                            snapshot);
+                            context.Snapshot.ScopedTo(state),
+                            snapshot.ScopedTo(rebuilt));
                     }
 
                     return input.Change.Match(
@@ -336,15 +359,15 @@ internal static class CollectionViewUtility
                                 outcome.Keys,
                                 outcome.Operations,
                                 false,
-                                context.Snapshot,
-                                snapshot);
+                                context.Snapshot.ScopedTo(state),
+                                snapshot.ScopedTo(outcome.Keys));
                         },
                         () => new StageResult<TKey, TIdentity, TState>(
                             state,
                             Array.Empty<ViewOperation<TKey>>(),
                             false,
-                            context.Snapshot,
-                            snapshot));
+                            context.Snapshot.ScopedTo(state),
+                            snapshot.ScopedTo(state)));
                 });
 
             Cell<IOrderedKeys<TKey, TIdentity, TState>> keysCell = resultsStream
@@ -357,6 +380,10 @@ internal static class CollectionViewUtility
             return new CollectionViewStage<TKey, TIdentity, TState>(
                 upstream,
                 keysCell,
+                // The one above it behind this stage's keys, built only if something asks.
+                () => TransactionInternal.RunImpl(() => upstream.SnapshotCell.LiftImpl(
+                    keysCell,
+                    static (snapshot, keys) => snapshot.ScopedTo(keys))),
                 ToChangesStream(resultsStream));
         });
 

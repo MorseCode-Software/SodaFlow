@@ -85,12 +85,21 @@ which is where you wanted it.
 | --- | --- | --- |
 | One item's state | `StateCell(key)` | When that key changes |
 | One item's identity | `IdentityCell(key)` | Only on structural change |
-| The whole store | `SnapshotCell` | On every change |
-| Count or key changes | `ShapeCell` | Only on structural change |
+| What this collection holds | `SnapshotCell` | On every change |
+| Count or key changes | `ShapeCell` | Only on structural change, root only |
 | A view's keys, in order | `KeysCell` | When that view's membership or order changes |
 | How those keys changed | `KeyChangesStream` | Same, as positional operations |
-| How the items changed | `Root.ItemChangesStream` | On every change, as keyed deltas |
-| The collection a view came from | `Root` | Never — it is the root itself |
+| How the items changed | `ItemChangesStream` | On every change, as keyed deltas, root only |
+
+`SnapshotCell` answers for whatever you ask. On the root it is the store; on a filtered view it
+holds that view's items and nothing else — `Count` counts the view, `ContainsKey` answers for the
+view, and a key the filter excluded is simply not there. A view is not a window onto a collection
+you can see past; it *is* a collection, the way a `Where` is an `IEnumerable` and not a handle on
+the sequence behind it. There is no `Root` to reach through, because there is nothing a view should
+need it for.
+
+That costs one small object per stage per change — the two maps behind a set of visible keys,
+never a copy — and one graph node per stage to keep the cell current.
 
 The last two are a pair, and picking the wrong one is the easy mistake:
 
@@ -106,10 +115,12 @@ Neither is the other rearranged. An item whose state changed without moving arri
 `KeyChangesStream` as an update carrying an index and nothing else; what the new state *is* has to
 be read from the snapshot.
 
-`ItemChangesStream` is deliberately on the root rather than on the interface, and the `Root.` you
-have to write is the point: it reports the shared store, so folding it on a filtered view totals
-every item including the ones the filter excludes. That answer is wrong and nothing about it looks
-wrong, so the reach through `Root` is there to say out loud that you are leaving the view.
+`ItemChangesStream` exists only on the collection you created, not on views derived from it, and
+that is deliberate. It reports the store as keyed deltas, which is the right thing to fold for a
+total over the whole collection and the wrong thing for a total over a filtered view — it would
+count items the filter excludes. A view has no such stream to reach for, so the mistake is not
+available: fold a view's `KeyChangesStream` instead, which is scoped to the view and carries both
+sides of the store on each change.
 
 `StateCell` is the one that matters for a bound row. It returns `Cell<Maybe<TState>>` in C#
 and `Cell<'TState option>` in F#, filters the change stream on a single hash lookup, and takes
@@ -151,14 +162,20 @@ IReactiveCollection<Guid, AccountId, AccountState> topTen = accounts
 | `Switch` | Follows whichever view a cell holds |
 
 `StateCell` and `IdentityCell` answer for the store, so an item seen through two views is
-literally the same cell — sharing is not arranged, it is what falls out of never copying. That
-is also the one seam the unification leaves: `SnapshotCell` on a view is the whole store, not
-the view's contents, and asking a filtered view about a key it filtered out still gives that
-item's state. Membership questions belong to `KeysCell`.
+literally the same cell — sharing is not arranged, it is what falls out of never copying.
+
+That is also the one seam left, and it is the last one: asking a *filtered view* for
+`StateCell(key)` on a key the filter excluded still gives that item's state, because the cell
+belongs to the collection that owns it and is shared by every view of it. Everything else a view
+exposes — its keys, its changes, its snapshot — is the view's own. Closing this one would mean a
+view's `StateCell` is the root's cell lifted against view membership: a graph node per observer
+per view, against a design whose central property is that observing an item costs one hash lookup
+per observer per transaction. It is open deliberately rather than by oversight. Membership
+questions belong to `KeysCell`.
 
 Ordering the root is lazy. A collection nobody sorts or lists never builds a sorted key set,
 and `TKey` only has to be comparable if something actually asks for keys in order. The keyed,
-unordered deltas remain available as `ItemChangesStream`.
+unordered deltas remain available as `ItemChangesStream`, on the root.
 
 To switch between sorts whose keys are *different* types, as clickable column headers need,
 hold the views in a cell and use `Switch` — a chain's type does not grow at each step, but the

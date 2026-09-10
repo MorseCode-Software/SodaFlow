@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 
 namespace SodaFlow.Collections;
@@ -32,4 +33,21 @@ internal static class CollectionInternals
 
         return found;
     }
+
+    /// <summary>The collection that owns the store behind a view.</summary>
+    /// <remarks>
+    ///     Every collection this assembly builds implements the internal interface, so the cast
+    ///     holds for anything the library produced. It can only fail for a type someone else wrote
+    ///     against the public interface, which is why the message says so rather than letting an
+    ///     <see cref="InvalidCastException" /> surface with nothing to act on.
+    /// </remarks>
+    internal static ReactiveCollection<TKey, TIdentity, TState> RootOf<TKey, TIdentity, TState>(
+        this IReactiveCollection<TKey, TIdentity, TState> collection)
+        where TKey : notnull
+        where TIdentity : notnull =>
+        collection is IReactiveCollectionInternal<TKey, TIdentity, TState> internals
+            ? internals.Root
+            : throw new NotSupportedException(
+                $"{collection.GetType()} does not come from this library, and the per-item cells "
+                + "are answered by the collection that owns the store.");
 }
