@@ -28,11 +28,7 @@ internal static class CollectionViewUtility
         where TKey : notnull
         where TIdentity : notnull
     {
-        SortKeyOrder<TKey, TIdentity, TState, TKey> order = new(
-            static (key, _) => key,
-            keyComparer,
-            keyComparer,
-            descending: false);
+        KeyOrder<TKey, TIdentity, TState> order = ByKeyOrder<TKey, TIdentity, TState>(keyComparer);
 
         return TransactionInternal.Apply<ReactiveCollection<TKey, TIdentity, TState>>((trans, _) =>
         {
@@ -63,20 +59,10 @@ internal static class CollectionViewUtility
         ReactiveCollection<TKey, TIdentity, TState> upstream,
         IComparer<TKey> keyComparer)
         where TKey : notnull
-        where TIdentity : notnull
-    {
-        SortKeyOrder<TKey, TIdentity, TState, TKey> order = new(
-            static (key, _) => key,
-            keyComparer,
-            keyComparer,
-            descending: false);
-
-        return BuildStage(
+        where TIdentity : notnull =>
+        SortByImpl(
             upstream,
-            CellInternal.ConstantImpl(UnitInternal.Value),
-            (_, upstreamKeys, snapshot) => RebuildSort(order, upstreamKeys, snapshot),
-            static (_, keys, change) => ProcessSort(keys, change));
-    }
+            CellInternal.ConstantImpl(ByKeyOrder<TKey, TIdentity, TState>(keyComparer)));
 
     /// <summary>
     ///     Narrows the view, preserving the upstream order. The stage files its members into a set
@@ -106,20 +92,10 @@ internal static class CollectionViewUtility
         IComparer<TKey> keyComparer,
         bool descending)
         where TKey : notnull
-        where TIdentity : notnull
-    {
-        SortKeyOrder<TKey, TIdentity, TState, TSortKey> order = new(
-            (_, identity, state) => selector(identity, state),
-            sortComparer,
-            keyComparer,
-            descending);
-
-        return BuildStage(
+        where TIdentity : notnull =>
+        SortByImpl(
             upstream,
-            CellInternal.ConstantImpl(UnitInternal.Value),
-            (_, upstreamKeys, snapshot) => RebuildSort(order, upstreamKeys, snapshot),
-            static (_, keys, change) => ProcessSort(keys, change));
-    }
+            CellInternal.ConstantImpl(ByOrder(selector, sortComparer, keyComparer, descending)));
 
     /// <summary>
     ///     Narrows the view by a predicate over each item's immutable half alone, which a state
@@ -160,20 +136,80 @@ internal static class CollectionViewUtility
         IComparer<TKey> keyComparer,
         bool descending)
         where TKey : notnull
-        where TIdentity : notnull
-    {
-        SortKeyOrder<TKey, TIdentity, TState, TSortKey> order = new(
+        where TIdentity : notnull =>
+        SortByImpl(
+            upstream,
+            CellInternal.ConstantImpl(
+                ByIdentityOrder<TKey, TIdentity, TState, TSortKey>(
+                    selector,
+                    sortComparer,
+                    keyComparer,
+                    descending)));
+
+    /// <summary>Reorders the view by whichever order the cell currently holds.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         This is the stage every other sort is built from, those being sorts whose order never
+    ///         changes. Holding the order as criteria rather than closing over it is what lets one
+    ///         stage follow a clickable column header: an order carries its own sort key type
+    ///         inside itself, so the cell's type does not mention that type and two orders held in
+    ///         one cell need not agree on it.
+    ///     </para>
+    ///     <para>
+    ///         A new order is an ordinary criteria change - it rebuilds this stage and reports a
+    ///         reset - and a stage below re-files under the new order without being told anything,
+    ///         because a filter builds from its upstream's own order whatever that has become.
+    ///     </para>
+    /// </remarks>
+    private static ReactiveCollection<TKey, TIdentity, TState> SortByImpl<TKey, TIdentity, TState>(
+        ReactiveCollection<TKey, TIdentity, TState> upstream,
+        Cell<KeyOrder<TKey, TIdentity, TState>> orderCell)
+        where TKey : notnull
+        where TIdentity : notnull =>
+        BuildStage(
+            upstream,
+            orderCell,
+            static (order, upstreamKeys, snapshot) => RebuildSort(order, upstreamKeys, snapshot),
+            static (_, keys, change) => ProcessSort(keys, change));
+
+    /// <summary>An order projecting its sort value from the whole item.</summary>
+    private static KeyOrder<TKey, TIdentity, TState> ByOrder<TKey, TIdentity, TState, TSortKey>(
+        Func<TIdentity, TState, TSortKey> selector,
+        IComparer<TSortKey> sortComparer,
+        IComparer<TKey> keyComparer,
+        bool descending)
+        where TKey : notnull
+        where TIdentity : notnull =>
+        new SortKeyOrder<TKey, TIdentity, TState, TSortKey>(
+            (_, identity, state) => selector(identity, state),
+            sortComparer,
+            keyComparer,
+            descending);
+
+    /// <summary>An order projecting its sort value from the immutable half alone.</summary>
+    private static KeyOrder<TKey, TIdentity, TState> ByIdentityOrder<TKey, TIdentity, TState, TSortKey>(
+        Func<TIdentity, TSortKey> selector,
+        IComparer<TSortKey> sortComparer,
+        IComparer<TKey> keyComparer,
+        bool descending)
+        where TKey : notnull
+        where TIdentity : notnull =>
+        new SortKeyOrder<TKey, TIdentity, TState, TSortKey>(
             (_, identity) => selector(identity),
             sortComparer,
             keyComparer,
             descending);
 
-        return BuildStage(
-            upstream,
-            CellInternal.ConstantImpl(UnitInternal.Value),
-            (_, upstreamKeys, snapshot) => RebuildSort(order, upstreamKeys, snapshot),
-            static (_, keys, change) => ProcessSort(keys, change));
-    }
+    /// <summary>An order by key alone — the root's own order, available over any stage.</summary>
+    private static KeyOrder<TKey, TIdentity, TState> ByKeyOrder<TKey, TIdentity, TState>(
+        IComparer<TKey> keyComparer)
+        where TKey : notnull
+        where TIdentity : notnull =>
+        new SortKeyOrder<TKey, TIdentity, TState, TKey>(
+            static (key, _) => key,
+            keyComparer,
+            keyComparer,
+            descending: false);
 
     /// <summary>
     ///     The first <c>limit</c> keys of the upstream — the top-n of whatever ordering and
