@@ -378,10 +378,34 @@ internal sealed class SortedKeys<TKey, TIdentity, TState, TSortKey> : OrderedKey
 
     public override bool Contains(TKey key) => this.byKey.ContainsKey(key);
 
-    public override int IndexOf(TKey key) =>
-        this.byKey.TryGet(key, out SortedEntry<TKey, TSortKey> entry)
-            ? this.entries.IndexOf(entry)
-            : -1;
+    /// <inheritdoc />
+    /// <exception cref="InvalidOperationException">
+    ///     If the key is filed but its entry is not in the ordering, which cannot happen and would
+    ///     mean this set had been built wrongly.
+    /// </exception>
+    /// <remarks>
+    ///     The two answers here are not the same kind of thing. A key this set does not hold is
+    ///     absent, which is what -1 says and what every caller reads it as. A key it does hold whose
+    ///     entry is not in the ordering is not an answer at all: the map and the ordering are only
+    ///     ever written together, so one having what the other does not means they have drifted, and
+    ///     returning -1 for it would report a broken set as an ordinary absence and leave a stage
+    ///     quietly filing keys into something that no longer describes itself.
+    /// </remarks>
+    public override int IndexOf(TKey key)
+    {
+        if (!this.byKey.TryGet(key, out SortedEntry<TKey, TSortKey> entry))
+        {
+            return -1;
+        }
+
+        int index = this.entries.IndexOf(entry);
+
+        return index >= 0
+            ? index
+            : throw new InvalidOperationException(
+                $"The key {key} is filed under a sort value that is not in the ordering. The two "
+                + "are only ever written together, so this set was not built by this library.");
+    }
 
     internal override OrderedKeys<TKey, TIdentity, TState> Add(
         TKey key,
@@ -394,9 +418,19 @@ internal sealed class SortedKeys<TKey, TIdentity, TState, TSortKey> : OrderedKey
 
         SortedEntry<TKey, TSortKey> entry = new(key, sortValue);
 
+        // A key already filed is re-filed rather than filed again. The map holds one entry per key
+        // and the ordering holds one per sort value, so adding a key that is already in under a
+        // different value would leave the old entry orphaned in the ordering - the set would count
+        // it, enumerate the key twice, and disagree with its own map. No stage does that today,
+        // because a re-file removes before it adds; nothing about this type said they had to.
+        ImmutableSortedSet<SortedEntry<TKey, TSortKey>> ordering =
+            this.byKey.TryGet(key, out SortedEntry<TKey, TSortKey> filed)
+                ? this.entries.Remove(filed)
+                : this.entries;
+
         return new SortedKeys<TKey, TIdentity, TState, TSortKey>(
             this.order,
-            this.entries.Add(entry),
+            ordering.Add(entry),
             this.byKey.SetItem(key, entry));
     }
 

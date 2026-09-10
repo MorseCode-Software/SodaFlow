@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Linq;
 using System.Collections.Immutable;
 using System.Threading.Tasks;
 using TUnit.Assertions;
@@ -187,5 +188,88 @@ public sealed class OrderedKeysTests
         OrderedKeys<int, ItemIdentity, ItemState> refiled = keys.Remove(1).Add(1, after);
 
         await Assert.That(TestUtil.Keys(refiled)).IsEquivalentTo([1, 2]);
+    }
+
+    [Test]
+    public async Task TheKeyMapAndTheOrderingStayInStepThroughAnySequence()
+    {
+        CollectionSnapshot<int, ItemIdentity, ItemState> snapshot = Snapshot(
+            TestUtil.Item(1, "one", 30),
+            TestUtil.Item(2, "two", 10),
+            TestUtil.Item(3, "three", 20),
+            TestUtil.Item(4, "four", 40),
+            TestUtil.Item(5, "five", 50));
+
+        OrderedKeys<int, ItemIdentity, ItemState> keys = Empty(false, snapshot);
+
+        // A sequence that adds, removes, re-adds and removes again, checked after every step. The
+        // two structures are only ever written together, and this is what says so: Contains reads
+        // the map, IndexOf reads both, and Count and the enumeration read the ordering - so they
+        // can only agree if nothing has drifted.
+        int[] toAdd = [3, 1, 5, 2, 4];
+
+        foreach (int key in toAdd)
+        {
+            keys = keys.Add(key, snapshot);
+            await AssertConsistent(keys);
+        }
+
+        foreach (int key in new[] { 5, 1 })
+        {
+            keys = keys.Remove(key);
+            await AssertConsistent(keys);
+        }
+
+        keys = keys.Add(5, snapshot);
+        await AssertConsistent(keys);
+
+        await Assert.That(TestUtil.Keys(keys)).IsEquivalentTo([2, 3, 4, 5]);
+    }
+
+    [Test]
+    public async Task ReAddingAKeyAlreadyFiledDoesNotFileItTwice()
+    {
+        CollectionSnapshot<int, ItemIdentity, ItemState> before = Snapshot(
+            TestUtil.Item(1, "one", 10),
+            TestUtil.Item(2, "two", 20));
+
+        OrderedKeys<int, ItemIdentity, ItemState> keys =
+            Empty(false, before).Add(1, before).Add(2, before);
+
+        // The stages never do this - a re-file removes before it adds - but nothing about the type
+        // says they must, and adding a key twice under two different sort values would put two
+        // entries in the ordering under one entry in the map. That is the one way these two can be
+        // made to disagree, so it is the one worth pinning down.
+        CollectionSnapshot<int, ItemIdentity, ItemState> after = Snapshot(
+            TestUtil.Item(1, "one", 99),
+            TestUtil.Item(2, "two", 20));
+
+        keys = keys.Add(1, after);
+
+        await AssertConsistent(keys);
+        await Assert.That(keys.Count).IsEqualTo(2);
+        await Assert.That(TestUtil.Keys(keys)).IsEquivalentTo([2, 1]);
+    }
+
+    /// <summary>
+    ///     Everything a key set says about itself, asked of both structures at once.
+    /// </summary>
+    private static async Task AssertConsistent(OrderedKeys<int, ItemIdentity, ItemState> keys)
+    {
+        List<int> enumerated = TestUtil.Keys(keys);
+
+        await Assert.That(enumerated.Count).IsEqualTo(keys.Count);
+        await Assert.That(enumerated.Distinct().Count()).IsEqualTo(keys.Count);
+
+        for (int index = 0; index < enumerated.Count; index++)
+        {
+            int key = enumerated[index];
+
+            // IndexOf reads the map and then the ordering, so agreeing with the position the
+            // enumeration gave is the two of them agreeing.
+            await Assert.That(keys.IndexOf(key)).IsEqualTo(index);
+            await Assert.That(keys.Contains(key)).IsTrue();
+            await Assert.That(keys[index]).IsEqualTo(key);
+        }
     }
 }
