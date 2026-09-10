@@ -49,18 +49,18 @@ file static class AggregateSeed
     internal static long ValueOf(ItemState state) => state.Score;
 
     /// <summary>The initial contents both shapes are built on.</summary>
-    internal static List<Entry<ItemIdentity, ItemState>> Entries(int itemCount)
+    internal static List<Item<ItemIdentity, ItemState>> Entries(int itemCount)
     {
-        List<Entry<ItemIdentity, ItemState>> entries = new(itemCount);
+        List<Item<ItemIdentity, ItemState>> items = new(itemCount);
 
         for (int number = 0; number < itemCount; number++)
         {
-            entries.Add(new Entry<ItemIdentity, ItemState>(
+            items.Add(new Item<ItemIdentity, ItemState>(
                 ItemSeed.Identity(number),
                 ItemSeed.State(number)));
         }
 
-        return entries;
+        return items;
     }
 }
 
@@ -92,7 +92,7 @@ internal sealed class RederivedAggregateShape : IKeyedAggregateShape
 
     internal static RederivedAggregateShape Build(int itemCount)
     {
-        List<Entry<ItemIdentity, ItemState>> entries = AggregateSeed.Entries(itemCount);
+        List<Item<ItemIdentity, ItemState>> items = AggregateSeed.Entries(itemCount);
 
         return Transaction.Run(() =>
         {
@@ -102,7 +102,7 @@ internal sealed class RederivedAggregateShape : IKeyedAggregateShape
             ReactiveCollection<int, ItemIdentity, ItemState> collection =
                 ReactiveCollection<int, ItemIdentity, ItemState>.Create(
                     static identity => identity.Number,
-                    entries,
+                    items,
                     edits);
 
             // Through Pairs rather than Keys plus a lookup each. The first version of this
@@ -141,7 +141,7 @@ internal sealed class RederivedAggregateShape : IKeyedAggregateShape
     {
         this.edits.Send(
             CollectionEdit<int, ItemIdentity, ItemState>.Add(
-                new Entry<ItemIdentity, ItemState>(ItemSeed.Identity(key), state)));
+                new Item<ItemIdentity, ItemState>(ItemSeed.Identity(key), state)));
 
         this.edits.Send(CollectionEdit<int, ItemIdentity, ItemState>.Remove(key));
     }
@@ -180,9 +180,9 @@ internal sealed class IncrementalAggregateShape : IKeyedAggregateShape
 
     internal static IncrementalAggregateShape Build(int itemCount)
     {
-        List<Entry<ItemIdentity, ItemState>> entries = AggregateSeed.Entries(itemCount);
+        List<Item<ItemIdentity, ItemState>> items = AggregateSeed.Entries(itemCount);
 
-        long initial = entries.Sum(static entry => AggregateSeed.ValueOf(entry.State));
+        long initial = items.Sum(static item => AggregateSeed.ValueOf(item.State));
 
         return Transaction.Run(() =>
         {
@@ -192,7 +192,7 @@ internal sealed class IncrementalAggregateShape : IKeyedAggregateShape
             ReactiveCollection<int, ItemIdentity, ItemState> collection =
                 ReactiveCollection<int, ItemIdentity, ItemState>.Create(
                     static identity => identity.Number,
-                    entries,
+                    items,
                     edits);
 
             Cell<long> total = collection.ItemChangesStream
@@ -213,7 +213,7 @@ internal sealed class IncrementalAggregateShape : IKeyedAggregateShape
     {
         this.edits.Send(
             CollectionEdit<int, ItemIdentity, ItemState>.Add(
-                new Entry<ItemIdentity, ItemState>(ItemSeed.Identity(key), state)));
+                new Item<ItemIdentity, ItemState>(ItemSeed.Identity(key), state)));
 
         this.edits.Send(CollectionEdit<int, ItemIdentity, ItemState>.Remove(key));
     }

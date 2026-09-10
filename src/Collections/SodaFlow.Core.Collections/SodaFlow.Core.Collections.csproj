@@ -45,7 +45,7 @@
         <Compile Include="CollectionViewChange.cs"/>
         <Compile Include="CollectionViewStage.cs"/>
         <Compile Include="CollectionViewUtility.cs"/>
-        <Compile Include="Entry.cs"/>
+        <Compile Include="Item.cs"/>
         <Compile Include="IReactiveCollection.cs"/>
         <Compile Include="IStateMap.cs"/>
         <Compile Include="OrderedKeys.cs"/>

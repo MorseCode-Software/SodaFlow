@@ -18,12 +18,12 @@ namespace SodaFlow.Collections;
 ///     (<see langword="true" />, <see langword="false" />).
 /// </remarks>
 /// <typeparam name="TKey">The type of the keys.</typeparam>
-/// <typeparam name="TId">The type of the immutable portion of an item.</typeparam>
+/// <typeparam name="TIdentity">The type of the immutable portion of an item.</typeparam>
 /// <typeparam name="TState">The type of the mutable portion of an item.</typeparam>
 [PublicAPI]
-public sealed class CollectionChange<TKey, TId, TState>
+public sealed class CollectionChange<TKey, TIdentity, TState>
     where TKey : notnull
-    where TId : notnull
+    where TIdentity : notnull
 {
     /// <summary>
     ///     Held as sets rather than reached for through <see cref="Added" />, so that the membership
@@ -36,7 +36,7 @@ public sealed class CollectionChange<TKey, TId, TState>
     private readonly HashSet<TKey> removed;
 
     internal CollectionChange(
-        CollectionSnapshot<TKey, TId, TState> after,
+        CollectionSnapshot<TKey, TIdentity, TState> after,
         IReadOnlyDictionary<TKey, TState> newStates,
         HashSet<TKey> added,
         HashSet<TKey> removed)
@@ -48,7 +48,7 @@ public sealed class CollectionChange<TKey, TId, TState>
     }
 
     /// <summary>The collection as of this change.</summary>
-    public CollectionSnapshot<TKey, TId, TState> After { get; }
+    public CollectionSnapshot<TKey, TIdentity, TState> After { get; }
 
     /// <summary>The resolved state of every added or updated key.</summary>
     public IReadOnlyDictionary<TKey, TState> NewStates { get; }

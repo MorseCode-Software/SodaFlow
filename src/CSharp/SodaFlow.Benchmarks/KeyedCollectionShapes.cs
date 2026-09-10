@@ -301,11 +301,11 @@ internal sealed class ReactiveCollectionShape : IKeyedCollectionShape
 
     internal static ReactiveCollectionShape Build(int itemCount)
     {
-        List<Entry<ItemIdentity, ItemState>> entries = new(itemCount);
+        List<Item<ItemIdentity, ItemState>> items = new(itemCount);
 
         for (int number = 0; number < itemCount; number++)
         {
-            entries.Add(new Entry<ItemIdentity, ItemState>(
+            items.Add(new Item<ItemIdentity, ItemState>(
                 ItemSeed.Identity(number),
                 ItemSeed.State(number)));
         }
@@ -317,7 +317,7 @@ internal sealed class ReactiveCollectionShape : IKeyedCollectionShape
             edits,
             ReactiveCollection<int, ItemIdentity, ItemState>.Create(
                 static identity => identity.Number,
-                entries,
+                items,
                 edits));
     }
 

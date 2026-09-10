@@ -9,12 +9,12 @@ namespace SodaFlow.Collections;
 ///     whatever the state is when the transaction runs.
 /// </summary>
 /// <typeparam name="TKey">The type of the keys.</typeparam>
-/// <typeparam name="TId">The type of the immutable portion of an item.</typeparam>
+/// <typeparam name="TIdentity">The type of the immutable portion of an item.</typeparam>
 /// <typeparam name="TState">The type of the mutable portion of an item.</typeparam>
 [PublicAPI]
-public sealed class CollectionEdit<TKey, TId, TState>
+public sealed class CollectionEdit<TKey, TIdentity, TState>
     where TKey : notnull
-    where TId : notnull
+    where TIdentity : notnull
 {
     /// <summary>Creates an edit from its three parts.</summary>
     /// <param name="updates">Transforms to apply, by key.</param>
@@ -22,7 +22,7 @@ public sealed class CollectionEdit<TKey, TId, TState>
     /// <param name="removes">Keys to remove.</param>
     public CollectionEdit(
         IReadOnlyDictionary<TKey, Func<TState, TState>> updates,
-        IReadOnlyCollection<Entry<TId, TState>> adds,
+        IReadOnlyCollection<Item<TIdentity, TState>> adds,
         IReadOnlyCollection<TKey> removes)
     {
         this.Updates = updates;
@@ -31,16 +31,16 @@ public sealed class CollectionEdit<TKey, TId, TState>
     }
 
     /// <summary>The edit that changes nothing.</summary>
-    public static CollectionEdit<TKey, TId, TState> Empty { get; } = new(
+    public static CollectionEdit<TKey, TIdentity, TState> Empty { get; } = new(
         new Dictionary<TKey, Func<TState, TState>>(),
-        Array.Empty<Entry<TId, TState>>(),
+        Array.Empty<Item<TIdentity, TState>>(),
         Array.Empty<TKey>());
 
     /// <summary>The transforms to apply, by key.</summary>
     public IReadOnlyDictionary<TKey, Func<TState, TState>> Updates { get; }
 
     /// <summary>The items to add.</summary>
-    public IReadOnlyCollection<Entry<TId, TState>> Adds { get; }
+    public IReadOnlyCollection<Item<TIdentity, TState>> Adds { get; }
 
     /// <summary>The keys to remove.</summary>
     public IReadOnlyCollection<TKey> Removes { get; }
@@ -49,30 +49,30 @@ public sealed class CollectionEdit<TKey, TId, TState>
     /// <param name="key">The key to transform.</param>
     /// <param name="transform">The transform to apply to that key's state.</param>
     /// <returns>The edit.</returns>
-    public static CollectionEdit<TKey, TId, TState> Update(TKey key, Func<TState, TState> transform) =>
+    public static CollectionEdit<TKey, TIdentity, TState> Update(TKey key, Func<TState, TState> transform) =>
         new(
             new Dictionary<TKey, Func<TState, TState>> { [key] = transform },
-            Array.Empty<Entry<TId, TState>>(),
+            Array.Empty<Item<TIdentity, TState>>(),
             Array.Empty<TKey>());
 
     /// <summary>An edit adding one or more items.</summary>
-    /// <param name="entries">The items to add.</param>
+    /// <param name="items">The items to add.</param>
     /// <returns>The edit.</returns>
-    public static CollectionEdit<TKey, TId, TState> Add(params Entry<TId, TState>[] entries) =>
-        new(new Dictionary<TKey, Func<TState, TState>>(), entries, Array.Empty<TKey>());
+    public static CollectionEdit<TKey, TIdentity, TState> Add(params Item<TIdentity, TState>[] items) =>
+        new(new Dictionary<TKey, Func<TState, TState>>(), items, Array.Empty<TKey>());
 
     /// <summary>An edit removing one or more keys.</summary>
     /// <param name="keys">The keys to remove.</param>
     /// <returns>The edit.</returns>
-    public static CollectionEdit<TKey, TId, TState> Remove(params TKey[] keys) =>
-        new(new Dictionary<TKey, Func<TState, TState>>(), Array.Empty<Entry<TId, TState>>(), keys);
+    public static CollectionEdit<TKey, TIdentity, TState> Remove(params TKey[] keys) =>
+        new(new Dictionary<TKey, Func<TState, TState>>(), Array.Empty<Item<TIdentity, TState>>(), keys);
 
     /// <summary>
     ///     Lifts a stream of keyed transforms into edits, for wiring at collection construction.
     /// </summary>
     /// <param name="updatesStream">The stream of keyed transforms.</param>
     /// <returns>The stream of edits.</returns>
-    public static Stream<CollectionEdit<TKey, TId, TState>> FromUpdates(
+    public static Stream<CollectionEdit<TKey, TIdentity, TState>> FromUpdates(
         Stream<(TKey Key, Func<TState, TState> Transform)> updatesStream) =>
         updatesStream.MapImpl(static update => Update(update.Key, update.Transform));
 
@@ -83,7 +83,7 @@ public sealed class CollectionEdit<TKey, TId, TState>
     /// <param name="key">The key the transforms apply to.</param>
     /// <param name="transformsStream">The stream of transforms.</param>
     /// <returns>The stream of edits.</returns>
-    public static Stream<CollectionEdit<TKey, TId, TState>> FromUpdates(
+    public static Stream<CollectionEdit<TKey, TIdentity, TState>> FromUpdates(
         TKey key,
         Stream<Func<TState, TState>> transformsStream) =>
         transformsStream.MapImpl(transform => Update(key, transform));
@@ -92,7 +92,7 @@ public sealed class CollectionEdit<TKey, TId, TState>
     /// <param name="key">The key the states apply to.</param>
     /// <param name="statesStream">The stream of new states.</param>
     /// <returns>The stream of edits.</returns>
-    public static Stream<CollectionEdit<TKey, TId, TState>> FromStates(
+    public static Stream<CollectionEdit<TKey, TIdentity, TState>> FromStates(
         TKey key,
         Stream<TState> statesStream) =>
         statesStream.MapImpl(state => Update(key, _ => state));
@@ -100,14 +100,14 @@ public sealed class CollectionEdit<TKey, TId, TState>
     /// <summary>Lifts a stream of items into edits which add them.</summary>
     /// <param name="addsStream">The stream of items to add.</param>
     /// <returns>The stream of edits.</returns>
-    public static Stream<CollectionEdit<TKey, TId, TState>> FromAdds(
-        Stream<Entry<TId, TState>> addsStream) =>
-        addsStream.MapImpl(static entry => Add(entry));
+    public static Stream<CollectionEdit<TKey, TIdentity, TState>> FromAdds(
+        Stream<Item<TIdentity, TState>> addsStream) =>
+        addsStream.MapImpl(static item => Add(item));
 
     /// <summary>Lifts a stream of keys into edits which remove them.</summary>
     /// <param name="removesStream">The stream of keys to remove.</param>
     /// <returns>The stream of edits.</returns>
-    public static Stream<CollectionEdit<TKey, TId, TState>> FromRemoves(
+    public static Stream<CollectionEdit<TKey, TIdentity, TState>> FromRemoves(
         Stream<TKey> removesStream) =>
         removesStream.MapImpl(static key => Remove(key));
 
@@ -118,7 +118,7 @@ public sealed class CollectionEdit<TKey, TId, TState>
     /// </summary>
     /// <param name="other">The edit to combine with this one.</param>
     /// <returns>The combined edit.</returns>
-    public CollectionEdit<TKey, TId, TState> CombineWith(CollectionEdit<TKey, TId, TState> other)
+    public CollectionEdit<TKey, TIdentity, TState> CombineWith(CollectionEdit<TKey, TIdentity, TState> other)
     {
         Dictionary<TKey, Func<TState, TState>> updates = new(this.Updates.Count + other.Updates.Count);
 
@@ -142,7 +142,7 @@ public sealed class CollectionEdit<TKey, TId, TState>
             updates.Add(pair.Key, pair.Value);
         }
 
-        List<Entry<TId, TState>> adds = new(this.Adds.Count + other.Adds.Count);
+        List<Item<TIdentity, TState>> adds = new(this.Adds.Count + other.Adds.Count);
         adds.AddRange(this.Adds);
         adds.AddRange(other.Adds);
 
@@ -150,6 +150,6 @@ public sealed class CollectionEdit<TKey, TId, TState>
         removes.AddRange(this.Removes);
         removes.AddRange(other.Removes);
 
-        return new CollectionEdit<TKey, TId, TState>(updates, adds, removes);
+        return new CollectionEdit<TKey, TIdentity, TState>(updates, adds, removes);
     }
 }

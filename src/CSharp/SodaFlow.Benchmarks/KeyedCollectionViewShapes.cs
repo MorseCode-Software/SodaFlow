@@ -71,7 +71,7 @@ internal static class ViewSeed
 // ReSharper disable once InheritdocConsiderUsage
 internal sealed class RederivedViewShape : IKeyedCollectionViewShape
 {
-    private readonly CellSink<ImmutableDictionary<int, Entry<ItemIdentity, ItemState>>> items;
+    private readonly CellSink<ImmutableDictionary<int, Item<ItemIdentity, ItemState>>> items;
     private readonly CellSink<int> threshold;
     private readonly Cell<IReadOnlyList<int>> view;
 
@@ -81,7 +81,7 @@ internal sealed class RederivedViewShape : IKeyedCollectionViewShape
     private readonly IListener listener;
 
     private RederivedViewShape(
-        CellSink<ImmutableDictionary<int, Entry<ItemIdentity, ItemState>>> items,
+        CellSink<ImmutableDictionary<int, Item<ItemIdentity, ItemState>>> items,
         CellSink<int> threshold,
         Cell<IReadOnlyList<int>> view,
         IListener listener)
@@ -96,36 +96,36 @@ internal sealed class RederivedViewShape : IKeyedCollectionViewShape
 
     internal static RederivedViewShape Build(int itemCount)
     {
-        ImmutableDictionary<int, Entry<ItemIdentity, ItemState>>.Builder builder =
-            ImmutableDictionary.CreateBuilder<int, Entry<ItemIdentity, ItemState>>();
+        ImmutableDictionary<int, Item<ItemIdentity, ItemState>>.Builder builder =
+            ImmutableDictionary.CreateBuilder<int, Item<ItemIdentity, ItemState>>();
 
         for (int number = 0; number < itemCount; number++)
         {
             builder.Add(
                 number,
-                new Entry<ItemIdentity, ItemState>(ItemSeed.Identity(number), ItemSeed.State(number)));
+                new Item<ItemIdentity, ItemState>(ItemSeed.Identity(number), ItemSeed.State(number)));
         }
 
         return Transaction.Run(() =>
         {
-            CellSink<ImmutableDictionary<int, Entry<ItemIdentity, ItemState>>> items =
+            CellSink<ImmutableDictionary<int, Item<ItemIdentity, ItemState>>> items =
                 Cell.CreateSink(builder.ToImmutable());
 
             CellSink<int> threshold = Cell.CreateSink(ViewSeed.InitialThreshold);
 
             Cell<IReadOnlyList<int>> view = items.Lift<
-                ImmutableDictionary<int, Entry<ItemIdentity, ItemState>>,
+                ImmutableDictionary<int, Item<ItemIdentity, ItemState>>,
                 int,
                 IReadOnlyList<int>>(
                 threshold,
                 static (map, limit) =>
                 [
                     .. map.Values
-                        .Where(entry => ViewSeed.Passes(entry.State, limit))
-                        .OrderByDescending(static entry => entry.State.Score)
-                        .ThenBy(static entry => entry.Identity.Number)
+                        .Where(item => ViewSeed.Passes(item.State, limit))
+                        .OrderByDescending(static item => item.State.Score)
+                        .ThenBy(static item => item.Identity.Number)
                         .Take(ViewSeed.Limit)
-                        .Select(static entry => entry.Identity.Number)
+                        .Select(static item => item.Identity.Number)
                 ]);
 
             return new RederivedViewShape(
@@ -140,14 +140,14 @@ internal sealed class RederivedViewShape : IKeyedCollectionViewShape
         this.items.Send(
             this.items.Sample().SetItem(
                 key,
-                new Entry<ItemIdentity, ItemState>(ItemSeed.Identity(key), state)));
+                new Item<ItemIdentity, ItemState>(ItemSeed.Identity(key), state)));
 
     public void AddAndRemove(int key, ItemState state)
     {
         this.items.Send(
             this.items.Sample().Add(
                 key,
-                new Entry<ItemIdentity, ItemState>(ItemSeed.Identity(key), state)));
+                new Item<ItemIdentity, ItemState>(ItemSeed.Identity(key), state)));
 
         this.items.Send(this.items.Sample().Remove(key));
     }
@@ -162,7 +162,7 @@ internal enum ChainStyle
     ByState,
 
     /// <summary>Filter on the score, sort on the number.</summary>
-    SortById,
+    SortByIdentity,
 
     /// <summary>
     ///     Neither stage reads the state, so nothing a state edit carries can reach either of them
@@ -172,13 +172,13 @@ internal enum ChainStyle
 
     /// <summary>
     ///     A filter that keeps half of what it sees, tested against the state, over an identity
-    ///     sort. Paired with <see cref="SelectiveById" />, which keeps the same half by asking the
+    ///     sort. Paired with <see cref="SelectiveByIdentity" />, which keeps the same half by asking the
     ///     identity instead.
     /// </summary>
     SelectiveByState,
 
     /// <summary>The same half, selected from the identity.</summary>
-    SelectiveById,
+    SelectiveByIdentity,
 }
 
 /// <summary>
@@ -219,11 +219,11 @@ internal sealed class ChainedViewShape : IKeyedCollectionViewShape
     /// </param>
     internal static ChainedViewShape Build(int itemCount, ChainStyle style)
     {
-        List<Entry<ItemIdentity, ItemState>> entries = new(itemCount);
+        List<Item<ItemIdentity, ItemState>> items = new(itemCount);
 
         for (int number = 0; number < itemCount; number++)
         {
-            entries.Add(new Entry<ItemIdentity, ItemState>(
+            items.Add(new Item<ItemIdentity, ItemState>(
                 ItemSeed.Identity(number),
                 ItemSeed.State(number)));
         }
@@ -236,7 +236,7 @@ internal sealed class ChainedViewShape : IKeyedCollectionViewShape
             ReactiveCollection<int, ItemIdentity, ItemState> collection =
                 ReactiveCollection<int, ItemIdentity, ItemState>.Create(
                     static identity => identity.Number,
-                    entries,
+                    items,
                     edits);
 
             CellSink<int> threshold = Cell.CreateSink(ViewSeed.InitialThreshold);
@@ -249,9 +249,9 @@ internal sealed class ChainedViewShape : IKeyedCollectionViewShape
             // differ only in which half they had to read to find that out.
             IReactiveCollection<int, ItemIdentity, ItemState> filtered = style switch
             {
-                ChainStyle.ByIdentity => collection.FilterById(static _ => true),
-                ChainStyle.SelectiveById =>
-                    collection.FilterById(static identity => identity.Number % 2 == 0),
+                ChainStyle.ByIdentity => collection.FilterByIdentity(static _ => true),
+                ChainStyle.SelectiveByIdentity =>
+                    collection.FilterByIdentity(static identity => identity.Number % 2 == 0),
                 ChainStyle.SelectiveByState =>
                     collection.Filter(static (_, state) => state.Score % 2 == 0),
                 _ => collection.Filter(
@@ -262,7 +262,7 @@ internal sealed class ChainedViewShape : IKeyedCollectionViewShape
             IReactiveCollection<int, ItemIdentity, ItemState> view =
                 (style == ChainStyle.ByState
                     ? filtered.SortByDescending(static (_, state) => state.Score)
-                    : filtered.SortByIdDescending(static identity => identity.Number))
+                    : filtered.SortByIdentityDescending(static identity => identity.Number))
                 .Take(ViewSeed.Limit);
 
             return new ChainedViewShape(
@@ -280,7 +280,7 @@ internal sealed class ChainedViewShape : IKeyedCollectionViewShape
     {
         this.edits.Send(
             CollectionEdit<int, ItemIdentity, ItemState>.Add(
-                new Entry<ItemIdentity, ItemState>(ItemSeed.Identity(key), state)));
+                new Item<ItemIdentity, ItemState>(ItemSeed.Identity(key), state)));
 
         this.edits.Send(CollectionEdit<int, ItemIdentity, ItemState>.Remove(key));
     }
@@ -330,11 +330,11 @@ internal sealed class RootOnlyViewShape : IKeyedCollectionViewShape
 
     internal static RootOnlyViewShape Build(int itemCount)
     {
-        List<Entry<ItemIdentity, ItemState>> entries = new(itemCount);
+        List<Item<ItemIdentity, ItemState>> items = new(itemCount);
 
         for (int number = 0; number < itemCount; number++)
         {
-            entries.Add(new Entry<ItemIdentity, ItemState>(
+            items.Add(new Item<ItemIdentity, ItemState>(
                 ItemSeed.Identity(number),
                 ItemSeed.State(number)));
         }
@@ -347,7 +347,7 @@ internal sealed class RootOnlyViewShape : IKeyedCollectionViewShape
             ReactiveCollection<int, ItemIdentity, ItemState> collection =
                 ReactiveCollection<int, ItemIdentity, ItemState>.Create(
                     static identity => identity.Number,
-                    entries,
+                    items,
                     edits);
 
             return new RootOnlyViewShape(
@@ -364,7 +364,7 @@ internal sealed class RootOnlyViewShape : IKeyedCollectionViewShape
     {
         this.edits.Send(
             CollectionEdit<int, ItemIdentity, ItemState>.Add(
-                new Entry<ItemIdentity, ItemState>(ItemSeed.Identity(key), state)));
+                new Item<ItemIdentity, ItemState>(ItemSeed.Identity(key), state)));
 
         this.edits.Send(CollectionEdit<int, ItemIdentity, ItemState>.Remove(key));
     }
@@ -399,7 +399,7 @@ internal interface IKeyedPagingShape
 // ReSharper disable once InheritdocConsiderUsage
 internal sealed class RederivedPageShape : IKeyedPagingShape
 {
-    private readonly CellSink<ImmutableDictionary<int, Entry<ItemIdentity, ItemState>>> items;
+    private readonly CellSink<ImmutableDictionary<int, Item<ItemIdentity, ItemState>>> items;
     private readonly CellSink<int> offset;
     private readonly Cell<IReadOnlyList<int>> page;
 
@@ -408,7 +408,7 @@ internal sealed class RederivedPageShape : IKeyedPagingShape
     private readonly IListener listener;
 
     private RederivedPageShape(
-        CellSink<ImmutableDictionary<int, Entry<ItemIdentity, ItemState>>> items,
+        CellSink<ImmutableDictionary<int, Item<ItemIdentity, ItemState>>> items,
         CellSink<int> offset,
         Cell<IReadOnlyList<int>> page,
         IListener listener)
@@ -423,35 +423,35 @@ internal sealed class RederivedPageShape : IKeyedPagingShape
 
     internal static RederivedPageShape Build(int itemCount)
     {
-        ImmutableDictionary<int, Entry<ItemIdentity, ItemState>>.Builder builder =
-            ImmutableDictionary.CreateBuilder<int, Entry<ItemIdentity, ItemState>>();
+        ImmutableDictionary<int, Item<ItemIdentity, ItemState>>.Builder builder =
+            ImmutableDictionary.CreateBuilder<int, Item<ItemIdentity, ItemState>>();
 
         for (int number = 0; number < itemCount; number++)
         {
             builder.Add(
                 number,
-                new Entry<ItemIdentity, ItemState>(ItemSeed.Identity(number), ItemSeed.State(number)));
+                new Item<ItemIdentity, ItemState>(ItemSeed.Identity(number), ItemSeed.State(number)));
         }
 
         return Transaction.Run(() =>
         {
-            CellSink<ImmutableDictionary<int, Entry<ItemIdentity, ItemState>>> items =
+            CellSink<ImmutableDictionary<int, Item<ItemIdentity, ItemState>>> items =
                 Cell.CreateSink(builder.ToImmutable());
 
             CellSink<int> offset = Cell.CreateSink(0);
 
             Cell<IReadOnlyList<int>> page = items.Lift<
-                ImmutableDictionary<int, Entry<ItemIdentity, ItemState>>,
+                ImmutableDictionary<int, Item<ItemIdentity, ItemState>>,
                 int,
                 IReadOnlyList<int>>(
                 offset,
                 static (map, at) =>
                 [
                     .. map.Values
-                        .OrderByDescending(static entry => entry.State.Score)
+                        .OrderByDescending(static item => item.State.Score)
                         .Skip(at)
                         .Take(ViewSeed.Limit)
-                        .Select(static entry => entry.Identity.Number)
+                        .Select(static item => item.Identity.Number)
                 ]);
 
             return new RederivedPageShape(
@@ -468,7 +468,7 @@ internal sealed class RederivedPageShape : IKeyedPagingShape
         this.items.Send(
             this.items.Sample().SetItem(
                 key,
-                new Entry<ItemIdentity, ItemState>(ItemSeed.Identity(key), state)));
+                new Item<ItemIdentity, ItemState>(ItemSeed.Identity(key), state)));
 }
 
 /// <summary>
@@ -508,11 +508,11 @@ internal sealed class ChainedPageShape : IKeyedPagingShape
 
     internal static ChainedPageShape Build(int itemCount)
     {
-        List<Entry<ItemIdentity, ItemState>> entries = new(itemCount);
+        List<Item<ItemIdentity, ItemState>> items = new(itemCount);
 
         for (int number = 0; number < itemCount; number++)
         {
-            entries.Add(new Entry<ItemIdentity, ItemState>(
+            items.Add(new Item<ItemIdentity, ItemState>(
                 ItemSeed.Identity(number),
                 ItemSeed.State(number)));
         }
@@ -525,7 +525,7 @@ internal sealed class ChainedPageShape : IKeyedPagingShape
             ReactiveCollection<int, ItemIdentity, ItemState> collection =
                 ReactiveCollection<int, ItemIdentity, ItemState>.Create(
                     static identity => identity.Number,
-                    entries,
+                    items,
                     edits);
 
             CellSink<int> offset = Cell.CreateSink(0);

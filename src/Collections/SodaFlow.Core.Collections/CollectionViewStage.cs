@@ -7,43 +7,43 @@ namespace SodaFlow.Collections;
 ///     shares with every other stage over the same root.
 /// </summary>
 // ReSharper disable once InheritdocConsiderUsage
-internal sealed class CollectionViewStage<TKey, TId, TState> : IReactiveCollection<TKey, TId, TState>
+internal sealed class CollectionViewStage<TKey, TIdentity, TState> : IReactiveCollection<TKey, TIdentity, TState>
     where TKey : notnull
-    where TId : notnull
+    where TIdentity : notnull
 {
-    private readonly IReactiveCollection<TKey, TId, TState> source;
+    private readonly IReactiveCollection<TKey, TIdentity, TState> source;
 
     internal CollectionViewStage(
-        IReactiveCollection<TKey, TId, TState> source,
-        Cell<IOrderedKeys<TKey, TId, TState>> keysCell,
-        Stream<CollectionViewChange<TKey, TId, TState>> changesStream)
+        IReactiveCollection<TKey, TIdentity, TState> source,
+        Cell<IOrderedKeys<TKey, TIdentity, TState>> keysCell,
+        Stream<CollectionViewChange<TKey, TIdentity, TState>> changesStream)
     {
         this.source = source;
         this.KeysCell = keysCell;
         this.ChangesStream = changesStream;
     }
 
-    public Cell<IOrderedKeys<TKey, TId, TState>> KeysCell { get; }
+    public Cell<IOrderedKeys<TKey, TIdentity, TState>> KeysCell { get; }
 
-    public Stream<CollectionViewChange<TKey, TId, TState>> ChangesStream { get; }
+    public Stream<CollectionViewChange<TKey, TIdentity, TState>> ChangesStream { get; }
 
-    public Cell<CollectionSnapshot<TKey, TId, TState>> SnapshotCell => this.source.SnapshotCell;
+    public Cell<CollectionSnapshot<TKey, TIdentity, TState>> SnapshotCell => this.source.SnapshotCell;
 
-    public ReactiveCollection<TKey, TId, TState> Root => this.source.Root;
+    public ReactiveCollection<TKey, TIdentity, TState> Root => this.source.Root;
 }
 
 /// <summary>
 ///     The pre-transaction inputs a stage reads when the event it is processing does not carry a
 ///     newer value for them.
 /// </summary>
-internal sealed class StageContext<TKey, TId, TState, TCriteria>
+internal sealed class StageContext<TKey, TIdentity, TState, TCriteria>
     where TKey : notnull
-    where TId : notnull
+    where TIdentity : notnull
 {
     internal StageContext(
         TCriteria criteria,
-        IOrderedKeys<TKey, TId, TState> upstreamKeys,
-        CollectionSnapshot<TKey, TId, TState> snapshot)
+        IOrderedKeys<TKey, TIdentity, TState> upstreamKeys,
+        CollectionSnapshot<TKey, TIdentity, TState> snapshot)
     {
         this.Criteria = criteria;
         this.UpstreamKeys = upstreamKeys;
@@ -52,41 +52,41 @@ internal sealed class StageContext<TKey, TId, TState, TCriteria>
 
     internal TCriteria Criteria { get; }
 
-    internal IOrderedKeys<TKey, TId, TState> UpstreamKeys { get; }
+    internal IOrderedKeys<TKey, TIdentity, TState> UpstreamKeys { get; }
 
-    internal CollectionSnapshot<TKey, TId, TState> Snapshot { get; }
+    internal CollectionSnapshot<TKey, TIdentity, TState> Snapshot { get; }
 }
 
 /// <summary>
 ///     What reached a stage in one transaction: an upstream change, a new criteria, or both.
 /// </summary>
-internal sealed class StageInput<TKey, TId, TState, TCriteria>
+internal sealed class StageInput<TKey, TIdentity, TState, TCriteria>
     where TKey : notnull
-    where TId : notnull
+    where TIdentity : notnull
 {
     internal StageInput(
-        MaybeInternal<CollectionViewChange<TKey, TId, TState>> change,
+        MaybeInternal<CollectionViewChange<TKey, TIdentity, TState>> change,
         MaybeInternal<TCriteria> criteria)
     {
         this.Change = change;
         this.Criteria = criteria;
     }
 
-    internal MaybeInternal<CollectionViewChange<TKey, TId, TState>> Change { get; }
+    internal MaybeInternal<CollectionViewChange<TKey, TIdentity, TState>> Change { get; }
 
     internal MaybeInternal<TCriteria> Criteria { get; }
 }
 
 /// <summary>What a stage produced in one transaction, before it becomes a change event.</summary>
-internal sealed class StageResult<TKey, TId, TState>
+internal sealed class StageResult<TKey, TIdentity, TState>
     where TKey : notnull
-    where TId : notnull
+    where TIdentity : notnull
 {
     internal StageResult(
-        IOrderedKeys<TKey, TId, TState> keys,
+        IOrderedKeys<TKey, TIdentity, TState> keys,
         IReadOnlyList<ViewOperation<TKey>> operations,
         bool isReset,
-        CollectionSnapshot<TKey, TId, TState> snapshot)
+        CollectionSnapshot<TKey, TIdentity, TState> snapshot)
     {
         this.Keys = keys;
         this.Operations = operations;
@@ -94,11 +94,11 @@ internal sealed class StageResult<TKey, TId, TState>
         this.Snapshot = snapshot;
     }
 
-    internal IOrderedKeys<TKey, TId, TState> Keys { get; }
+    internal IOrderedKeys<TKey, TIdentity, TState> Keys { get; }
 
     internal IReadOnlyList<ViewOperation<TKey>> Operations { get; }
 
     internal bool IsReset { get; }
 
-    internal CollectionSnapshot<TKey, TId, TState> Snapshot { get; }
+    internal CollectionSnapshot<TKey, TIdentity, TState> Snapshot { get; }
 }

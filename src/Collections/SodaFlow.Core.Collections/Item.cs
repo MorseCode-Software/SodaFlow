@@ -12,23 +12,23 @@ namespace SodaFlow.Collections;
 ///     stability is structural rather than validated at runtime. Changing an identity is therefore
 ///     expressed as a remove followed by an add, which is a structural edit.
 /// </remarks>
-/// <typeparam name="TId">The type of the immutable portion.</typeparam>
+/// <typeparam name="TIdentity">The type of the immutable portion.</typeparam>
 /// <typeparam name="TState">The type of the mutable portion.</typeparam>
 [PublicAPI]
-public sealed class Entry<TId, TState>
-    where TId : notnull
+public sealed class Item<TIdentity, TState>
+    where TIdentity : notnull
 {
-    /// <summary>Creates an entry from its two halves.</summary>
+    /// <summary>Creates an item from its two halves.</summary>
     /// <param name="identity">The immutable portion, which the key is derived from.</param>
     /// <param name="state">The mutable portion.</param>
-    public Entry(TId identity, TState state)
+    public Item(TIdentity identity, TState state)
     {
         this.Identity = identity;
         this.State = state;
     }
 
     /// <summary>The immutable portion, which the key is derived from.</summary>
-    public TId Identity { get; }
+    public TIdentity Identity { get; }
 
     /// <summary>The mutable portion.</summary>
     public TState State { get; }
@@ -41,7 +41,7 @@ public sealed class Entry<TId, TState>
 /// </summary>
 /// <remarks>
 ///     Entirely optional, and the selector overloads on
-///     <see cref="ReactiveCollection{TKey,TId,TState}" /> remain the way to do this when the
+///     <see cref="ReactiveCollection{TKey,TIdentity,TState}" /> remain the way to do this when the
 ///     identity type cannot or should not implement an interface - a record from another assembly,
 ///     or one whose key is a projection rather than a property.
 /// </remarks>

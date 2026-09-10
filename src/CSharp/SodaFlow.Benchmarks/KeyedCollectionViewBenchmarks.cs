@@ -56,16 +56,16 @@ public class KeyedCollectionViewBenchmarks
     // Populated for real in the setup; built small here so the fields never have to be nullable.
     private IKeyedCollectionViewShape rederived = RederivedViewShape.Build(1);
     private IKeyedCollectionViewShape chained = ChainedViewShape.Build(1, ChainStyle.ByState);
-    private IKeyedCollectionViewShape chainedById = ChainedViewShape.Build(1, ChainStyle.SortById);
+    private IKeyedCollectionViewShape chainedByIdentitySort = ChainedViewShape.Build(1, ChainStyle.SortByIdentity);
 
-    private IKeyedCollectionViewShape chainedByIdentity =
+    private IKeyedCollectionViewShape chainedByIdentityThroughout =
         ChainedViewShape.Build(1, ChainStyle.ByIdentity);
 
     private IKeyedCollectionViewShape selectiveByState =
         ChainedViewShape.Build(1, ChainStyle.SelectiveByState);
 
-    private IKeyedCollectionViewShape selectiveById =
-        ChainedViewShape.Build(1, ChainStyle.SelectiveById);
+    private IKeyedCollectionViewShape selectiveByIdentity =
+        ChainedViewShape.Build(1, ChainStyle.SelectiveByIdentity);
 
     private int editCount;
     private int thresholdCount;
@@ -82,39 +82,39 @@ public class KeyedCollectionViewBenchmarks
     {
         this.rederived = RederivedViewShape.Build(this.ItemCount);
         this.chained = ChainedViewShape.Build(this.ItemCount, ChainStyle.ByState);
-        this.chainedById = ChainedViewShape.Build(this.ItemCount, ChainStyle.SortById);
-        this.chainedByIdentity = ChainedViewShape.Build(this.ItemCount, ChainStyle.ByIdentity);
+        this.chainedByIdentitySort = ChainedViewShape.Build(this.ItemCount, ChainStyle.SortByIdentity);
+        this.chainedByIdentityThroughout = ChainedViewShape.Build(this.ItemCount, ChainStyle.ByIdentity);
         this.selectiveByState = ChainedViewShape.Build(this.ItemCount, ChainStyle.SelectiveByState);
-        this.selectiveById = ChainedViewShape.Build(this.ItemCount, ChainStyle.SelectiveById);
+        this.selectiveByIdentity = ChainedViewShape.Build(this.ItemCount, ChainStyle.SelectiveByIdentity);
 
         // These two are checked against each other rather than against the re-derived view, whose
         // predicate keeps everything: what has to match is that asking the state and asking the
         // identity select the same half.
-        if (!this.selectiveByState.Keys.SequenceEqual(this.selectiveById.Keys))
+        if (!this.selectiveByState.Keys.SequenceEqual(this.selectiveByIdentity.Keys))
         {
             throw new InvalidOperationException(
                 "The two selective filters disagree about what they keep, so timing them against "
                 + "each other would compare different work. By state: "
                 + $"[{Describe(this.selectiveByState.Keys)}]. By identity: "
-                + $"[{Describe(this.selectiveById.Keys)}].");
+                + $"[{Describe(this.selectiveByIdentity.Keys)}].");
         }
 
-        if (!this.rederived.Keys.SequenceEqual(this.chainedByIdentity.Keys))
+        if (!this.rederived.Keys.SequenceEqual(this.chainedByIdentityThroughout.Keys))
         {
             throw new InvalidOperationException(
                 "The chain reading only identities disagrees with the re-derived view, which it "
                 + "should not: its filter admits everything, as the threshold one does to begin "
                 + "with, and its sort orders by a number equal to the score. Chained on identity "
-                + $"throughout: [{Describe(this.chainedByIdentity.Keys)}].");
+                + $"throughout: [{Describe(this.chainedByIdentityThroughout.Keys)}].");
         }
 
-        if (!this.rederived.Keys.SequenceEqual(this.chainedById.Keys))
+        if (!this.rederived.Keys.SequenceEqual(this.chainedByIdentitySort.Keys))
         {
             throw new InvalidOperationException(
                 "The identity-ordered chain disagrees with the re-derived view, which it should "
                 + "not: the seed gives every item a score equal to its number, so ordering by "
                 + "either puts the same keys in the same places. Chained by identity: "
-                + $"[{Describe(this.chainedById.Keys)}].");
+                + $"[{Describe(this.chainedByIdentitySort.Keys)}].");
         }
 
         if (!this.rederived.Keys.SequenceEqual(this.chained.Keys))
@@ -139,7 +139,7 @@ public class KeyedCollectionViewBenchmarks
     ///     state — so nothing it holds can have moved, and it is allowed to say so.
     /// </summary>
     [Benchmark(Description = "edit an item, chained on an identity sort")]
-    public void EditChainedById() => this.chainedById.Replace(EditedKey, this.NextState());
+    public void EditChainedByIdentitySort() => this.chainedByIdentitySort.Replace(EditedKey, this.NextState());
 
     /// <summary>
     ///     And again, through a chain where neither stage reads the state. Membership cannot have
@@ -148,8 +148,8 @@ public class KeyedCollectionViewBenchmarks
     ///     know whether something below it sorts on what just changed.
     /// </summary>
     [Benchmark(Description = "edit an item, chained on identity throughout")]
-    public void EditChainedByIdentity() =>
-        this.chainedByIdentity.Replace(EditedKey, this.NextState());
+    public void EditChainedByIdentityThroughout() =>
+        this.chainedByIdentityThroughout.Replace(EditedKey, this.NextState());
 
     /// <summary>
     ///     An edit to an item a selective filter does not keep, tested against the state — which
@@ -164,8 +164,8 @@ public class KeyedCollectionViewBenchmarks
     ///     changed, so one failed index lookup settles it.
     /// </summary>
     [Benchmark(Description = "edit an excluded item, identity filter")]
-    public void EditExcludedById() =>
-        this.selectiveById.Replace(ExcludedKey, this.NextExcludedState());
+    public void EditExcludedByIdentity() =>
+        this.selectiveByIdentity.Replace(ExcludedKey, this.NextExcludedState());
 
     /// <summary>An item enters the collection and leaves it again.</summary>
     [Benchmark(Description = "add and remove an item, re-derived")]
@@ -190,7 +190,7 @@ public class KeyedCollectionViewBenchmarks
     ///     benchmarks above cannot see.
     /// </summary>
     [Benchmark(Description = "change the threshold, chained on an identity sort")]
-    public void SetThresholdChainedById() => this.chainedById.SetThreshold(this.NextThreshold());
+    public void SetThresholdChainedByIdentitySort() => this.chainedByIdentitySort.SetThreshold(this.NextThreshold());
 
     /// <summary>
     ///     The key both shapes edit. Which one hardly matters, because <see cref="NextState" />

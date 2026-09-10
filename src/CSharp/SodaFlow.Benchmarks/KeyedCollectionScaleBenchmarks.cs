@@ -50,7 +50,7 @@ public class KeyedCollectionScaleBenchmarks
     // Populated for real in the setup; built small here so the fields never have to be nullable.
     private IKeyedCollectionViewShape rootOnly = RootOnlyViewShape.Build(1);
     private IKeyedCollectionViewShape byState = ChainedViewShape.Build(1, ChainStyle.SelectiveByState);
-    private IKeyedCollectionViewShape byIdentity = ChainedViewShape.Build(1, ChainStyle.SelectiveById);
+    private IKeyedCollectionViewShape byIdentity = ChainedViewShape.Build(1, ChainStyle.SelectiveByIdentity);
 
     private int editCount;
 
@@ -64,7 +64,7 @@ public class KeyedCollectionScaleBenchmarks
     {
         this.rootOnly = RootOnlyViewShape.Build(this.ItemCount);
         this.byState = ChainedViewShape.Build(this.ItemCount, ChainStyle.SelectiveByState);
-        this.byIdentity = ChainedViewShape.Build(this.ItemCount, ChainStyle.SelectiveById);
+        this.byIdentity = ChainedViewShape.Build(this.ItemCount, ChainStyle.SelectiveByIdentity);
 
         if (!this.byState.Keys.SequenceEqual(this.byIdentity.Keys))
         {
@@ -88,7 +88,7 @@ public class KeyedCollectionScaleBenchmarks
 
     /// <summary>The same edit, against a filter that selects from the identity.</summary>
     [Benchmark(Description = "edit an item in view, identity filter")]
-    public void EditInViewById() => this.byIdentity.Replace(InViewKey, this.NextInViewState());
+    public void EditInViewByIdentity() => this.byIdentity.Replace(InViewKey, this.NextInViewState());
 
     /// <summary>
     ///     An edit to an item the filter does not keep, tested against the state — a membership
@@ -103,7 +103,7 @@ public class KeyedCollectionScaleBenchmarks
     ///     changed, so one failed index lookup settles it.
     /// </summary>
     [Benchmark(Description = "edit an excluded item, identity filter")]
-    public void EditExcludedById() =>
+    public void EditExcludedByIdentity() =>
         this.byIdentity.Replace(ExcludedKey, this.NextExcludedState());
 
     /// <summary>An even key, which both filters keep.</summary>

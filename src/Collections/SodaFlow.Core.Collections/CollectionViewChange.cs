@@ -21,16 +21,16 @@ namespace SodaFlow.Collections;
 ///     </para>
 /// </remarks>
 /// <typeparam name="TKey">The type of the keys.</typeparam>
-/// <typeparam name="TId">The type of the immutable portion of an item.</typeparam>
+/// <typeparam name="TIdentity">The type of the immutable portion of an item.</typeparam>
 /// <typeparam name="TState">The type of the mutable portion of an item.</typeparam>
 [PublicAPI]
-public sealed class CollectionViewChange<TKey, TId, TState>
+public sealed class CollectionViewChange<TKey, TIdentity, TState>
     where TKey : notnull
-    where TId : notnull
+    where TIdentity : notnull
 {
     internal CollectionViewChange(
-        CollectionSnapshot<TKey, TId, TState> snapshot,
-        IOrderedKeys<TKey, TId, TState> keys,
+        CollectionSnapshot<TKey, TIdentity, TState> snapshot,
+        IOrderedKeys<TKey, TIdentity, TState> keys,
         IReadOnlyList<ViewOperation<TKey>> operations,
         bool isReset)
     {
@@ -41,10 +41,10 @@ public sealed class CollectionViewChange<TKey, TId, TState>
     }
 
     /// <summary>The collection as of this transaction.</summary>
-    public CollectionSnapshot<TKey, TId, TState> Snapshot { get; }
+    public CollectionSnapshot<TKey, TIdentity, TState> Snapshot { get; }
 
     /// <summary>This stage's keys after the change.</summary>
-    public IOrderedKeys<TKey, TId, TState> Keys { get; }
+    public IOrderedKeys<TKey, TIdentity, TState> Keys { get; }
 
     /// <summary>The operations to apply, in order, to the previous key list.</summary>
     public IReadOnlyList<ViewOperation<TKey>> Operations { get; }

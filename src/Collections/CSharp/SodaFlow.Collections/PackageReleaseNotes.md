@@ -28,8 +28,8 @@ method that mutates a live collection.
   ShapeCell          fires on count or key change only
   SnapshotCell       the whole store, on every change
 
-Views chain and stay incremental. Filter, FilterById, SortBy, SortByDescending,
-SortById, SortByIdDescending, SortByKey, Take, Slice and Switch each take an
+Views chain and stay incremental. Filter, FilterByIdentity, SortBy, SortByDescending,
+SortByIdentity, SortByIdentityDescending, SortByKey, Take, Slice and Switch each take an
 IReactiveCollection and return one, the way Where takes and returns an
 IEnumerable, and an item seen through two views is literally the same cell.
 

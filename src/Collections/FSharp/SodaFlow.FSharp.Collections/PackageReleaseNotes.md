@@ -37,12 +37,12 @@ at zero; sliceC takes cells for either end, so turning the page is one send.
 There is no skip - a window with both ends is bounded, which is what keeps the
 stage at O(limit) per transaction.
 
-createById and createByIdWith drop the key selector when the identity
+createByIdentity and createByIdentityWith drop the key selector when the identity
 implements IIdentity<'TKey> and so carries its own key.
 
 Everything that can change the collection is declared at construction: create
 takes the initial contents and every edit stream, lifted from domain streams by
-fromAdds, fromRemoves, fromUpdates and fromStates. There is no imperative entry
+fromAdds, fromRemoves, fromUpdates and fromStates. There is no imperative item
 point.
 
 Full notes: https://github.com/MorseCode-Software/SodaFlow/releases

@@ -9,7 +9,7 @@ collection - a total, an average, a count. Iterating Keys and looking up each
 one answers the same question and costs an O(log32 n) search per item; on a
 hundred thousand items that measured three times slower.
 
-There is no optional type in this API. Lookups are TryGetEntry, TryGetState and
+There is no optional type in this API. Lookups are TryGetItem, TryGetState and
 TryGetNewState, and IndexOf answers -1, so that each language surface can put
 its own optional type on top - Maybe in SodaFlow.Collections, option in
 SodaFlow.FSharp.Collections - and neither pays for the other's.
@@ -19,7 +19,7 @@ SodaFlow.FSharp.Collections - and neither pays for the other's.
 About this package
 
 The engine behind SodaFlow.Collections and SodaFlow.FSharp.Collections. It
-declares the types a consumer holds - Entry, CollectionSnapshot,
+declares the types a consumer holds - Item, CollectionSnapshot,
 CollectionChange, CollectionEdit, IStateMap, IOrderedKeys, CollectionViewChange
 and the ViewOperation hierarchy - along with ReactiveCollection itself and the view
 chain the language wrappers expose.

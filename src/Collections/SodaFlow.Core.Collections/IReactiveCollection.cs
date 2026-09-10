@@ -27,18 +27,18 @@ namespace SodaFlow.Collections;
 ///     </para>
 /// </remarks>
 /// <typeparam name="TKey">The type of the keys.</typeparam>
-/// <typeparam name="TId">The type of the immutable portion of an item.</typeparam>
+/// <typeparam name="TIdentity">The type of the immutable portion of an item.</typeparam>
 /// <typeparam name="TState">The type of the mutable portion of an item.</typeparam>
 [PublicAPI]
-public interface IReactiveCollection<TKey, TId, TState>
+public interface IReactiveCollection<TKey, TIdentity, TState>
     where TKey : notnull
-    where TId : notnull
+    where TIdentity : notnull
 {
     /// <summary>This collection's keys, in order.</summary>
-    Cell<IOrderedKeys<TKey, TId, TState>> KeysCell { get; }
+    Cell<IOrderedKeys<TKey, TIdentity, TState>> KeysCell { get; }
 
     /// <summary>Membership and ordering changes, as operations to apply in sequence.</summary>
-    Stream<CollectionViewChange<TKey, TId, TState>> ChangesStream { get; }
+    Stream<CollectionViewChange<TKey, TIdentity, TState>> ChangesStream { get; }
 
     /// <summary>
     ///     The shared item store, spanning every view of the same root — not this collection's
@@ -50,11 +50,11 @@ public interface IReactiveCollection<TKey, TId, TState>
     ///     restricting it per view would mean either copying or a wrapper per stage. Ask
     ///     <see cref="KeysCell" /> what is in the collection; ask this what an item is.
     /// </remarks>
-    Cell<CollectionSnapshot<TKey, TId, TState>> SnapshotCell { get; }
+    Cell<CollectionSnapshot<TKey, TIdentity, TState>> SnapshotCell { get; }
 
     /// <summary>
     ///     The collection this view was ultimately derived from, which owns the item store. A
     ///     root's own <see cref="Root" /> is itself.
     /// </summary>
-    ReactiveCollection<TKey, TId, TState> Root { get; }
+    ReactiveCollection<TKey, TIdentity, TState> Root { get; }
 }

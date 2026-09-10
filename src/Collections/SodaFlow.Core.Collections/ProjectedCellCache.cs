@@ -4,12 +4,12 @@ using System.Collections.Generic;
 namespace SodaFlow.Collections;
 
 /// <summary>
-///     The per-item cells one language surface has asked for, held weakly and keyed by item.
+///     The per-entry cells one language surface has asked for, held weakly and keyed by entry.
 /// </summary>
 /// <remarks>
 ///     <para>
 ///         One of these per projected type, which is what keeps the cells typed. The alternative -
-///         a single dictionary keyed by the pair of type and item key, holding <see cref="object" />
+///         a single dictionary keyed by the pair of type and entry key, holding <see cref="object" />
 ///         - needs a cast on every lookup to recover what the type in the key had already promised.
 ///         Here the cast happens once, when the root first hands out a cache for a projection, and
 ///         everything downstream of it is a <c>Cell&lt;TProjected&gt;</c> the compiler can see.

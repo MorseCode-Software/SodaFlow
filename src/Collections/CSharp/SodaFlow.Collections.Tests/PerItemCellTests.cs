@@ -13,18 +13,18 @@ namespace SodaFlow.Collections.Tests;
 /// </summary>
 public sealed class PerItemCellTests
 {
-    private static ReactiveCollection<int, ItemId, ItemState> Create(
-        Stream<CollectionEdit<int, ItemId, ItemState>> edits,
-        params Entry<ItemId, ItemState>[] initial) =>
-        ReactiveCollection<int, ItemId, ItemState>.Create(TestUtil.KeyOf, initial, edits);
+    private static ReactiveCollection<int, ItemIdentity, ItemState> Create(
+        Stream<CollectionEdit<int, ItemIdentity, ItemState>> edits,
+        params Item<ItemIdentity, ItemState>[] initial) =>
+        ReactiveCollection<int, ItemIdentity, ItemState>.Create(TestUtil.KeyOf, initial, edits);
 
     [Test]
     public async Task StateCellTracksOneKeyAcrossAddAndRemove()
     {
-        StreamSink<CollectionEdit<int, ItemId, ItemState>> edits =
-            Stream.CreateSink<CollectionEdit<int, ItemId, ItemState>>();
+        StreamSink<CollectionEdit<int, ItemIdentity, ItemState>> edits =
+            Stream.CreateSink<CollectionEdit<int, ItemIdentity, ItemState>>();
 
-        ReactiveCollection<int, ItemId, ItemState> collection = Create(edits);
+        ReactiveCollection<int, ItemIdentity, ItemState> collection = Create(edits);
 
         // Built before the key exists, which is the point: a bound view can outlive its item, and
         // can be created before it.
@@ -49,10 +49,10 @@ public sealed class PerItemCellTests
     [Test]
     public async Task StateCellBuiltInTheTransactionThatAddsItsKeySeesTheNewValue()
     {
-        StreamSink<CollectionEdit<int, ItemId, ItemState>> edits =
-            Stream.CreateSink<CollectionEdit<int, ItemId, ItemState>>();
+        StreamSink<CollectionEdit<int, ItemIdentity, ItemState>> edits =
+            Stream.CreateSink<CollectionEdit<int, ItemIdentity, ItemState>>();
 
-        ReactiveCollection<int, ItemId, ItemState> collection = Create(edits);
+        ReactiveCollection<int, ItemIdentity, ItemState> collection = Create(edits);
 
         Cell<Maybe<ItemState>>? built = null;
 
@@ -76,10 +76,10 @@ public sealed class PerItemCellTests
     [Test]
     public async Task StateCellIsSharedPerKeyWhileSomethingHoldsIt()
     {
-        StreamSink<CollectionEdit<int, ItemId, ItemState>> edits =
-            Stream.CreateSink<CollectionEdit<int, ItemId, ItemState>>();
+        StreamSink<CollectionEdit<int, ItemIdentity, ItemState>> edits =
+            Stream.CreateSink<CollectionEdit<int, ItemIdentity, ItemState>>();
 
-        ReactiveCollection<int, ItemId, ItemState> collection =
+        ReactiveCollection<int, ItemIdentity, ItemState> collection =
             Create(edits, TestUtil.Item(1, "one", 10));
 
         Cell<Maybe<ItemState>> first = collection.StateCell(1);
@@ -91,10 +91,10 @@ public sealed class PerItemCellTests
     [Test]
     public async Task IdentityCellMovesOnlyOnStructuralChange()
     {
-        StreamSink<CollectionEdit<int, ItemId, ItemState>> edits =
-            Stream.CreateSink<CollectionEdit<int, ItemId, ItemState>>();
+        StreamSink<CollectionEdit<int, ItemIdentity, ItemState>> edits =
+            Stream.CreateSink<CollectionEdit<int, ItemIdentity, ItemState>>();
 
-        ReactiveCollection<int, ItemId, ItemState> collection =
+        ReactiveCollection<int, ItemIdentity, ItemState> collection =
             Create(edits, TestUtil.Item(1, "one", 10));
 
         List<string> seen = [];
@@ -112,22 +112,22 @@ public sealed class PerItemCellTests
     [Test]
     public async Task ChangeForNestsMovedInsideStillPresent()
     {
-        StreamSink<CollectionEdit<int, ItemId, ItemState>> edits =
-            Stream.CreateSink<CollectionEdit<int, ItemId, ItemState>>();
+        StreamSink<CollectionEdit<int, ItemIdentity, ItemState>> edits =
+            Stream.CreateSink<CollectionEdit<int, ItemIdentity, ItemState>>();
 
-        ReactiveCollection<int, ItemId, ItemState> collection = Create(
+        ReactiveCollection<int, ItemIdentity, ItemState> collection = Create(
             edits,
             TestUtil.Item(1, "one", 10),
             TestUtil.Item(2, "two", 20));
 
-        List<CollectionChange<int, ItemId, ItemState>> changes = [];
+        List<CollectionChange<int, ItemIdentity, ItemState>> changes = [];
         IListener l = collection.ItemChangesStream.ListenStrong(changes.Add);
 
         edits.Send(TestUtil.Remove(1));
 
         l.Unlisten();
 
-        CollectionChange<int, ItemId, ItemState> change = changes[0];
+        CollectionChange<int, ItemIdentity, ItemState> change = changes[0];
 
         // Removed: it moved, and it is not present afterwards.
         await Assert.That(change.ChangeFor(1).Match(
@@ -143,15 +143,15 @@ public sealed class PerItemCellTests
     [Test]
     public async Task LookupAndIndexOfAnswerWithMaybe()
     {
-        StreamSink<CollectionEdit<int, ItemId, ItemState>> edits =
-            Stream.CreateSink<CollectionEdit<int, ItemId, ItemState>>();
+        StreamSink<CollectionEdit<int, ItemIdentity, ItemState>> edits =
+            Stream.CreateSink<CollectionEdit<int, ItemIdentity, ItemState>>();
 
-        ReactiveCollection<int, ItemId, ItemState> collection = Create(
+        ReactiveCollection<int, ItemIdentity, ItemState> collection = Create(
             edits,
             TestUtil.Item(1, "one", 10),
             TestUtil.Item(2, "two", 20));
 
-        CollectionSnapshot<int, ItemId, ItemState> snapshot = collection.SnapshotCell.Sample();
+        CollectionSnapshot<int, ItemIdentity, ItemState> snapshot = collection.SnapshotCell.Sample();
 
         await Assert.That(snapshot.Lookup(1).Match(static e => e.State.Name, static () => "?"))
             .IsEqualTo("one");
@@ -160,7 +160,7 @@ public sealed class PerItemCellTests
         await Assert.That(snapshot.States.Lookup(2).Match(static s => s.Score, static () => -1))
             .IsEqualTo(20);
 
-        IOrderedKeys<int, ItemId, ItemState> keys = collection.KeysCell.Sample();
+        IOrderedKeys<int, ItemIdentity, ItemState> keys = collection.KeysCell.Sample();
 
         await Assert.That(keys.IndexOfMaybe(2).Match(static i => i, static () => -1)).IsEqualTo(1);
         await Assert.That(keys.IndexOfMaybe(9).Match(static _ => "some", static () => "none"))

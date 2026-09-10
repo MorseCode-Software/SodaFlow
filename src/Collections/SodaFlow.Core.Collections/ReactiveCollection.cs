@@ -26,13 +26,13 @@ namespace SodaFlow.Collections;
 ///     </para>
 /// </remarks>
 /// <typeparam name="TKey">The type of the keys.</typeparam>
-/// <typeparam name="TId">The type of the immutable portion of an item.</typeparam>
+/// <typeparam name="TIdentity">The type of the immutable portion of an item.</typeparam>
 /// <typeparam name="TState">The type of the mutable portion of an item.</typeparam>
 [PublicAPI]
 // ReSharper disable once InheritdocConsiderUsage
-public sealed class ReactiveCollection<TKey, TId, TState> : IReactiveCollection<TKey, TId, TState>
+public sealed class ReactiveCollection<TKey, TIdentity, TState> : IReactiveCollection<TKey, TIdentity, TState>
     where TKey : notnull
-    where TId : notnull
+    where TIdentity : notnull
 {
     /// <summary>
     ///     The per-key cells, keyed by the projected type as well as the key. What a per-item cell
@@ -52,12 +52,12 @@ public sealed class ReactiveCollection<TKey, TId, TState> : IReactiveCollection<
     /// </summary>
     private readonly object cacheGate = new();
 
-    private readonly Lazy<IReactiveCollection<TKey, TId, TState>> orderedByKey;
+    private readonly Lazy<IReactiveCollection<TKey, TIdentity, TState>> orderedByKey;
 
     private ReactiveCollection(
-        Stream<CollectionChange<TKey, TId, TState>> itemChangesStream,
-        Cell<CollectionSnapshot<TKey, TId, TState>> snapshotCell,
-        Cell<IReadOnlyDictionary<TKey, TId>> shapeCell)
+        Stream<CollectionChange<TKey, TIdentity, TState>> itemChangesStream,
+        Cell<CollectionSnapshot<TKey, TIdentity, TState>> snapshotCell,
+        Cell<IReadOnlyDictionary<TKey, TIdentity>> shapeCell)
     {
         this.ItemChangesStream = itemChangesStream;
         this.SnapshotCell = snapshotCell;
@@ -66,7 +66,7 @@ public sealed class ReactiveCollection<TKey, TId, TState> : IReactiveCollection<
         // The ordering is built on first use. A collection nobody sorts or lists never pays for a
         // sorted key set, and TKey only has to be comparable if something actually asks for keys in
         // order.
-        this.orderedByKey = new Lazy<IReactiveCollection<TKey, TId, TState>>(
+        this.orderedByKey = new Lazy<IReactiveCollection<TKey, TIdentity, TState>>(
             () => CollectionViewUtility.CreateRootImpl(this, Comparer<TKey>.Default),
             LazyThreadSafetyMode.ExecutionAndPublication);
     }
@@ -75,30 +75,30 @@ public sealed class ReactiveCollection<TKey, TId, TState> : IReactiveCollection<
     ///     Every resolved change as keyed deltas, carrying the new state of each key that moved.
     ///     Unordered — see <see cref="ChangesStream" /> for the positional view of the same thing.
     /// </summary>
-    public Stream<CollectionChange<TKey, TId, TState>> ItemChangesStream { get; }
+    public Stream<CollectionChange<TKey, TIdentity, TState>> ItemChangesStream { get; }
 
     /// <inheritdoc />
-    public Cell<IOrderedKeys<TKey, TId, TState>> KeysCell => this.orderedByKey.Value.KeysCell;
+    public Cell<IOrderedKeys<TKey, TIdentity, TState>> KeysCell => this.orderedByKey.Value.KeysCell;
 
     /// <inheritdoc />
-    public Stream<CollectionViewChange<TKey, TId, TState>> ChangesStream =>
+    public Stream<CollectionViewChange<TKey, TIdentity, TState>> ChangesStream =>
         this.orderedByKey.Value.ChangesStream;
 
     /// <summary>Fires on every change, structural or otherwise.</summary>
     // ReSharper disable once InheritdocConsiderUsage - the interface says what this is; the
     // summary above says when it fires, which is what a reader of the root wants.
-    public Cell<CollectionSnapshot<TKey, TId, TState>> SnapshotCell { get; }
+    public Cell<CollectionSnapshot<TKey, TIdentity, TState>> SnapshotCell { get; }
 
     /// <summary>The outer view: fires only when the item count changes or a key changes.</summary>
-    public Cell<IReadOnlyDictionary<TKey, TId>> ShapeCell { get; }
+    public Cell<IReadOnlyDictionary<TKey, TIdentity>> ShapeCell { get; }
 
     /// <inheritdoc />
     /// <remarks>A root owns the store, so this is itself.</remarks>
-    public ReactiveCollection<TKey, TId, TState> Root => this;
+    public ReactiveCollection<TKey, TIdentity, TState> Root => this;
 
     /// <summary>
     ///     Defines a collection from its initial contents and every stream that will ever edit it.
-    ///     There is no imperative entry point: what can change the collection is fixed here, at
+    ///     There is no imperative item point: what can change the collection is fixed here, at
     ///     construction, and is visible in one place.
     /// </summary>
     /// <param name="keySelector">Derives an item's key from its immutable portion.</param>
@@ -106,15 +106,15 @@ public sealed class ReactiveCollection<TKey, TId, TState> : IReactiveCollection<
     /// <param name="editStreams">Every stream that will ever edit the collection.</param>
     /// <returns>The collection.</returns>
     /// <remarks>
-    ///     Use <see cref="CollectionEdit{TKey,TId,TState}" />'s lifting factories to turn domain
+    ///     Use <see cref="CollectionEdit{TKey,TIdentity,TState}" />'s lifting factories to turn domain
     ///     streams into edits. Where the edits depend on something derived from the collection
     ///     itself, close the circle with a stream loop at the call site rather than reaching for a
     ///     sink.
     /// </remarks>
-    public static ReactiveCollection<TKey, TId, TState> Create(
-        Func<TId, TKey> keySelector,
-        IEnumerable<Entry<TId, TState>> initialEntries,
-        params Stream<CollectionEdit<TKey, TId, TState>>[] editStreams) =>
+    public static ReactiveCollection<TKey, TIdentity, TState> Create(
+        Func<TIdentity, TKey> keySelector,
+        IEnumerable<Item<TIdentity, TState>> initialEntries,
+        params Stream<CollectionEdit<TKey, TIdentity, TState>>[] editStreams) =>
         Create(keySelector, initialEntries, ImmutableStateMap<TKey, TState>.Empty, editStreams);
 
     /// <summary>
@@ -126,50 +126,50 @@ public sealed class ReactiveCollection<TKey, TId, TState> : IReactiveCollection<
     /// <param name="emptyStateMap">The empty map to build the initial contents on.</param>
     /// <param name="editStreams">Every stream that will ever edit the collection.</param>
     /// <returns>The collection.</returns>
-    public static ReactiveCollection<TKey, TId, TState> Create(
-        Func<TId, TKey> keySelector,
-        IEnumerable<Entry<TId, TState>> initialEntries,
+    public static ReactiveCollection<TKey, TIdentity, TState> Create(
+        Func<TIdentity, TKey> keySelector,
+        IEnumerable<Item<TIdentity, TState>> initialEntries,
         IStateMap<TKey, TState> emptyStateMap,
-        params Stream<CollectionEdit<TKey, TId, TState>>[] editStreams)
+        params Stream<CollectionEdit<TKey, TIdentity, TState>>[] editStreams)
     {
-        ImmutableDictionary<TKey, TId>.Builder identities =
-            ImmutableDictionary.CreateBuilder<TKey, TId>();
+        ImmutableDictionary<TKey, TIdentity>.Builder identities =
+            ImmutableDictionary.CreateBuilder<TKey, TIdentity>();
 
         Dictionary<TKey, TState> states = new();
 
-        foreach (Entry<TId, TState> entry in initialEntries)
+        foreach (Item<TIdentity, TState> item in initialEntries)
         {
-            TKey key = keySelector(entry.Identity);
+            TKey key = keySelector(item.Identity);
 
             // ContainsKey rather than TryAdd, which netstandard2.0 and net472 do not have on a
             // dictionary and which a builder does not have at all.
             if (identities.ContainsKey(key))
             {
-                throw new ArgumentException($"Duplicate key '{key}' in the initial entries.");
+                throw new ArgumentException($"Duplicate key '{key}' in the initial items.");
             }
 
-            identities.Add(key, entry.Identity);
-            states.Add(key, entry.State);
+            identities.Add(key, item.Identity);
+            states.Add(key, item.State);
         }
 
-        CollectionSnapshot<TKey, TId, TState> initial =
+        CollectionSnapshot<TKey, TIdentity, TState> initial =
             new(identities.ToImmutable(), emptyStateMap.With(states, Array.Empty<TKey>()));
 
-        Stream<CollectionEdit<TKey, TId, TState>> editsStream = MergeEdits(editStreams);
+        Stream<CollectionEdit<TKey, TIdentity, TState>> editsStream = MergeEdits(editStreams);
 
         return TransactionInternal.Apply((trans, _) =>
         {
             // The resolution of an edit depends on the state it is resolved against, and that state
             // is produced by resolving edits: an explicit loop.
-            LoopedCell<CollectionSnapshot<TKey, TId, TState>> snapshotLoopCell = new();
+            LoopedCell<CollectionSnapshot<TKey, TIdentity, TState>> snapshotLoopCell = new();
 
-            Stream<CollectionChange<TKey, TId, TState>> itemChangesStream = editsStream
+            Stream<CollectionChange<TKey, TIdentity, TState>> itemChangesStream = editsStream
                 .SnapshotImpl(
                     snapshotLoopCell,
                     (edit, before) => Resolve(keySelector, edit, before))
                 .FilterSomeInternal();
 
-            Cell<CollectionSnapshot<TKey, TId, TState>> snapshotCell = itemChangesStream
+            Cell<CollectionSnapshot<TKey, TIdentity, TState>> snapshotCell = itemChangesStream
                 .MapImpl(static change => change.After)
                 .HoldImpl(initial);
 
@@ -179,12 +179,12 @@ public sealed class ReactiveCollection<TKey, TId, TState> : IReactiveCollection<
             // snapshot cell — both holds see the same transaction, so the two views can never
             // disagree, and this one fires on exactly the stated condition: the item count changed,
             // or a key changed.
-            Cell<IReadOnlyDictionary<TKey, TId>> shapeCell = itemChangesStream
+            Cell<IReadOnlyDictionary<TKey, TIdentity>> shapeCell = itemChangesStream
                 .FilterImpl(static change => change.IsStructural)
                 .MapImpl(static change => change.After.Identities)
                 .HoldImpl(initial.Identities);
 
-            return new ReactiveCollection<TKey, TId, TState>(
+            return new ReactiveCollection<TKey, TIdentity, TState>(
                 itemChangesStream,
                 snapshotCell,
                 shapeCell);
@@ -220,7 +220,7 @@ public sealed class ReactiveCollection<TKey, TId, TState> : IReactiveCollection<
     /// <summary>The cache for one projected type, created the first time that type is asked for.</summary>
     /// <remarks>
     ///     This is where the one cast lives, and it is sound because the dictionary is keyed by the
-    ///     very type being cast to: an entry under <c>typeof(TProjected)</c> can only have been put
+    ///     very type being cast to: an item under <c>typeof(TProjected)</c> can only have been put
     ///     there by a call whose <c>TProjected</c> was that type. A dictionary from a type to a
     ///     thing parameterized by that type is a higher-kinded thing, which C# cannot express - so
     ///     the claim is made here once rather than at every lookup.
@@ -242,21 +242,21 @@ public sealed class ReactiveCollection<TKey, TId, TState> : IReactiveCollection<
     ///     Merges the input streams into one. Edits arriving from different streams in the same
     ///     transaction combine into a single change event and a single cell update; the ambiguous
     ///     case is rejected inside
-    ///     <see cref="CollectionEdit{TKey,TId,TState}.CombineWith" /> rather than resolved by merge
+    ///     <see cref="CollectionEdit{TKey,TIdentity,TState}.CombineWith" /> rather than resolved by merge
     ///     order, which SodaFlow does not define.
     /// </summary>
-    private static Stream<CollectionEdit<TKey, TId, TState>> MergeEdits(
-        IReadOnlyList<Stream<CollectionEdit<TKey, TId, TState>>> editStreams) =>
+    private static Stream<CollectionEdit<TKey, TIdentity, TState>> MergeEdits(
+        IReadOnlyList<Stream<CollectionEdit<TKey, TIdentity, TState>>> editStreams) =>
         editStreams.Aggregate(
-            StreamInternal.NeverImpl<CollectionEdit<TKey, TId, TState>>(),
+            StreamInternal.NeverImpl<CollectionEdit<TKey, TIdentity, TState>>(),
             static (mergedStream, editStream) => mergedStream.MergeImpl(
                 s: editStream,
                 f: static (left, right) => left.CombineWith(right)));
 
-    private static MaybeInternal<CollectionChange<TKey, TId, TState>> Resolve(
-        Func<TId, TKey> keySelector,
-        CollectionEdit<TKey, TId, TState> edit,
-        CollectionSnapshot<TKey, TId, TState> before)
+    private static MaybeInternal<CollectionChange<TKey, TIdentity, TState>> Resolve(
+        Func<TIdentity, TKey> keySelector,
+        CollectionEdit<TKey, TIdentity, TState> edit,
+        CollectionSnapshot<TKey, TIdentity, TState> before)
     {
         Dictionary<TKey, TState> newStates = new();
         HashSet<TKey> added = new();
@@ -267,9 +267,9 @@ public sealed class ReactiveCollection<TKey, TId, TState> : IReactiveCollection<
             removed.Add(key);
         }
 
-        foreach (Entry<TId, TState> entry in edit.Adds)
+        foreach (Item<TIdentity, TState> item in edit.Adds)
         {
-            TKey key = keySelector(entry.Identity);
+            TKey key = keySelector(item.Identity);
 
             if (before.ContainsKey(key) && !removed.Contains(key))
             {
@@ -279,7 +279,7 @@ public sealed class ReactiveCollection<TKey, TId, TState> : IReactiveCollection<
 
             added.Add(key);
             removed.Remove(key);
-            newStates[key] = entry.State;
+            newStates[key] = item.State;
         }
 
         foreach (KeyValuePair<TKey, Func<TState, TState>> update in edit.Updates)
@@ -302,26 +302,26 @@ public sealed class ReactiveCollection<TKey, TId, TState> : IReactiveCollection<
 
         if (newStates.Count == 0 && removed.Count == 0)
         {
-            return MaybeInternal<CollectionChange<TKey, TId, TState>>.None;
+            return MaybeInternal<CollectionChange<TKey, TIdentity, TState>>.None;
         }
 
         // Only a structural edit moves the identity map, and it moves it by building the next
         // version from this one rather than copying it - so an add costs one write rather than a
         // pass over the collection.
-        ImmutableDictionary<TKey, TId> identities =
+        ImmutableDictionary<TKey, TIdentity> identities =
             added.Count > 0 || removed.Count > 0
                 ? before.WithIdentities(
-                    edit.Adds.Select(entry =>
-                        new KeyValuePair<TKey, TId>(keySelector(entry.Identity), entry.Identity)),
+                    edit.Adds.Select(item =>
+                        new KeyValuePair<TKey, TIdentity>(keySelector(item.Identity), item.Identity)),
                     removed)
                 : before.IdentitiesImpl;
 
-        CollectionSnapshot<TKey, TId, TState> after = new(
+        CollectionSnapshot<TKey, TIdentity, TState> after = new(
             identities,
             before.States.With(newStates, removed));
 
         return MaybeInternal.Some(
-            new CollectionChange<TKey, TId, TState>(after, newStates, added, removed));
+            new CollectionChange<TKey, TIdentity, TState>(after, newStates, added, removed));
     }
 
     private Cell<TProjected> CreateStateCell<TProjected>(
@@ -364,9 +364,9 @@ public sealed class ReactiveCollection<TKey, TId, TState> : IReactiveCollection<
 /// </summary>
 /// <remarks>
 ///     <para>
-///         A companion to <see cref="ReactiveCollection{TKey,TId,TState}" /> rather than more
+///         A companion to <see cref="ReactiveCollection{TKey,TIdentity,TState}" /> rather than more
 ///         overloads on it, because a static method cannot add a constraint to the type parameters
-///         of the class declaring it - and <c>TId : IIdentity&lt;TKey&gt;</c> is the whole of what
+///         of the class declaring it - and <c>TIdentity : IIdentity&lt;TKey&gt;</c> is the whole of what
 ///         these are. The same shape as <c>Cell</c> beside <c>Cell&lt;T&gt;</c>.
 ///     </para>
 ///     <para>
@@ -384,17 +384,17 @@ public static class ReactiveCollection
     ///     taking each item's key from the identity itself.
     /// </summary>
     /// <typeparam name="TKey">The type of the keys.</typeparam>
-    /// <typeparam name="TId">The type of the immutable portion of an item.</typeparam>
+    /// <typeparam name="TIdentity">The type of the immutable portion of an item.</typeparam>
     /// <typeparam name="TState">The type of the mutable portion of an item.</typeparam>
     /// <param name="initialEntries">The collection's initial contents.</param>
     /// <param name="editStreams">Every stream that will ever edit the collection.</param>
     /// <returns>The collection.</returns>
-    public static ReactiveCollection<TKey, TId, TState> Create<TKey, TId, TState>(
-        IEnumerable<Entry<TId, TState>> initialEntries,
-        params Stream<CollectionEdit<TKey, TId, TState>>[] editStreams)
+    public static ReactiveCollection<TKey, TIdentity, TState> Create<TKey, TIdentity, TState>(
+        IEnumerable<Item<TIdentity, TState>> initialEntries,
+        params Stream<CollectionEdit<TKey, TIdentity, TState>>[] editStreams)
         where TKey : notnull
-        where TId : IIdentity<TKey> =>
-        ReactiveCollection<TKey, TId, TState>.Create(
+        where TIdentity : IIdentity<TKey> =>
+        ReactiveCollection<TKey, TIdentity, TState>.Create(
             static identity => identity.Key,
             initialEntries,
             editStreams);
@@ -404,19 +404,19 @@ public static class ReactiveCollection
     ///     trie.
     /// </summary>
     /// <typeparam name="TKey">The type of the keys.</typeparam>
-    /// <typeparam name="TId">The type of the immutable portion of an item.</typeparam>
+    /// <typeparam name="TIdentity">The type of the immutable portion of an item.</typeparam>
     /// <typeparam name="TState">The type of the mutable portion of an item.</typeparam>
     /// <param name="initialEntries">The collection's initial contents.</param>
     /// <param name="emptyStateMap">The empty map to build the initial contents on.</param>
     /// <param name="editStreams">Every stream that will ever edit the collection.</param>
     /// <returns>The collection.</returns>
-    public static ReactiveCollection<TKey, TId, TState> Create<TKey, TId, TState>(
-        IEnumerable<Entry<TId, TState>> initialEntries,
+    public static ReactiveCollection<TKey, TIdentity, TState> Create<TKey, TIdentity, TState>(
+        IEnumerable<Item<TIdentity, TState>> initialEntries,
         IStateMap<TKey, TState> emptyStateMap,
-        params Stream<CollectionEdit<TKey, TId, TState>>[] editStreams)
+        params Stream<CollectionEdit<TKey, TIdentity, TState>>[] editStreams)
         where TKey : notnull
-        where TId : IIdentity<TKey> =>
-        ReactiveCollection<TKey, TId, TState>.Create(
+        where TIdentity : IIdentity<TKey> =>
+        ReactiveCollection<TKey, TIdentity, TState>.Create(
             static identity => identity.Key,
             initialEntries,
             emptyStateMap,

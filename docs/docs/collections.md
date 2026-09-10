@@ -31,7 +31,7 @@ using SodaFlow;
 using SodaFlow.Collections;
 
 // Domain streams, however they are produced.
-Stream<Entry<AccountId, AccountState>> opened = ...;
+Stream<Item<AccountId, AccountState>> opened = ...;
 Stream<Guid> closed = ...;
 Stream<(Guid Key, Func<AccountState, AccountState> Transform)> deposits = ...;
 
@@ -62,8 +62,8 @@ ReactiveCollection<Guid, AccountId, AccountState> accounts =
 
 `TKey` is inferred from the edit streams rather than from the interface, because C# type
 inference does not read constraints — so a collection created with no edit streams at all has to
-name its three type arguments, or use the selector overloads. F# has `createById` and
-`createByIdWith` for the same thing. Neither is required: the selector overloads stay the way to
+name its three type arguments, or use the selector overloads. F# has `createByIdentity` and
+`createByIdentityWith` for the same thing. Neither is required: the selector overloads stay the way to
 do this when the identity cannot or should not implement an interface.
 
 Sinks still belong at the edge of the program — that is how UI events and I/O enter the graph
@@ -73,7 +73,7 @@ an edit stream depends on something derived from the collection, close the circl
 
 ## An item is two halves
 
-`Entry<TId, TState>` splits an item into an immutable `Identity` and a mutable `State`, and
+`Item<TIdentity, TState>` splits an item into an immutable `Identity` and a mutable `State`, and
 the key is derived from the identity alone. Nothing in the update path can reach the identity
 — an update carries `Func<TState, TState>` — so key stability is structural rather than
 checked at run time. Re-keying is therefore a remove plus an add, which is a structural edit,
@@ -109,7 +109,7 @@ so the C# and F# surfaces over one collection cannot be handed each other's cell
 
 A collection is two separable things: an item store, and a sequence of keys into it. The root
 owns the store; a view differs only in which keys it holds and in what order. So both are
-`IReactiveCollection<TKey, TId, TState>`, and `Filter` and `SortBy` take one and return one, the
+`IReactiveCollection<TKey, TIdentity, TState>`, and `Filter` and `SortBy` take one and return one, the
 way `Where` takes and returns an `IEnumerable`.
 
 ```csharp
@@ -121,10 +121,10 @@ IReactiveCollection<Guid, AccountId, AccountState> topTen = accounts
 
 | Operation | Overloads |
 | --- | --- |
-| `Filter` | A predicate, a `Cell<Func<TId, TState, bool>>`, or a criteria cell plus a predicate |
+| `Filter` | A predicate, a `Cell<Func<TIdentity, TState, bool>>`, or a criteria cell plus a predicate |
 | `SortBy` / `SortByDescending` | A selector, or a selector with explicit comparers |
-| `SortById` / `SortByIdDescending` | The same, over the identity alone — see below |
-| `FilterById` | A predicate over the identity alone — see below |
+| `SortByIdentity` / `SortByIdentityDescending` | The same, over the identity alone — see below |
+| `FilterByIdentity` | A predicate over the identity alone — see below |
 | `SortByKey` | The root's own order, over any stage |
 | `Take` | A count, or a `Cell<int>` |
 | `Slice` | An offset and a count, or a `Cell<int>` for either — see below |
@@ -163,7 +163,7 @@ reports the value.
 upstream's key set for a new set under *the same order*, holding the members it kept.
 That keeps it O(log n) per changed key instead of needing rank queries over a subsequence.
 
-Re-filing a key on update stores the sort value it was filed under, so the old entry is
+Re-filing a key on update stores the sort value it was filed under, so the old item is
 removed with the comparison that placed it — otherwise you are hunting a sorted set for an
 item whose sort position has already moved underneath it.
 
@@ -400,13 +400,13 @@ inherits the root's order, which sorts by key — and a key cannot change, so a 
 never move anything in it. Saying so rather than removing and re-adding the key to find out is
 worth about a tenth of an edit and a fifth of its allocation.
 
-`SortById` and `FilterById` are how you say the same thing about a sort or a filter of your own:
+`SortByIdentity` and `FilterByIdentity` are how you say the same thing about a sort or a filter of your own:
 order or select by something in the identity — an account number, a code, a type — and a state
 edit can move a key neither into the view nor within it. The last column is a chain of both.
 
-They are not equal contributors. Of that column at ten thousand items, `SortById` accounts for
+They are not equal contributors. Of that column at ten thousand items, `SortByIdentity` accounts for
 almost all of it — 12.9 µs to 10.9 µs, and every byte of the allocation, because what it skips
-is re-filing, which copies tree paths. `FilterById` barely registers here, and that is the wrong
+is re-filing, which copies tree paths. `FilterByIdentity` barely registers here, and that is the wrong
 place to look at it.
 
 Where it earns its place is a key the view does not hold. An update for one costs the ordinary
@@ -430,7 +430,7 @@ three. There was never much room for the gap to open. Allocation is identical to
 every size, which is the row above's story again: what this skips is reading, and reading
 allocates nothing.
 
-The same table says something better about the collection than it does about `FilterById`. A
+The same table says something better about the collection than it does about `FilterByIdentity`. A
 hundred times the items costs an edit nineteen percent more — 2.77 µs to 3.36 µs with no chain,
 10.3 µs to 12.3 µs through a filter, a sort and a window.
 
@@ -478,7 +478,7 @@ Never null, and each language gets its own optional type. In C# that is `Maybe<T
 with one. See [Maybe, Either and Unit](functional.md). In F# it is `option`.
 
 That works because `SodaFlow.Collections.Core` has no optional type of its own. It answers in
-`TryGetEntry`, `TryGetState`, `TryGetNewState` and an `IndexOf` returning `-1`, and each
+`TryGetItem`, `TryGetState`, `TryGetNewState` and an `IndexOf` returning `-1`, and each
 language surface puts its own optional type back on top. It is the same reason
 `SodaFlow.FSharp` does not depend on `SodaFlow.Functional`, applied one layer down: nothing
 that installs the F# collections package acquires `Maybe<T>` it has no use for.

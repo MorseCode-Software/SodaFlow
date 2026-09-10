@@ -7,39 +7,43 @@ open SodaFlow.Tests
 open TUnit.Core
 
 /// The immutable portion of a test item. The key is its Number.
-type ItemId = { Number: int; Code: string }
+type ItemIdentity = { Number: int; Code: string }
 
 /// The mutable portion of a test item.
 type ItemState = { Name: string; Score: int }
 
 /// The same identity, carrying its own key, for the create overloads that take no selector.
-/// The fields are named apart from ItemId's deliberately: F# resolves a record expression by its
+/// The fields are named apart from ItemIdentity's deliberately: F# resolves a record expression by its
 /// field names, last declaration winning, so reusing Number and Code here would silently re-point
 /// every { Number = _; Code = _ } in this file at this type.
-type SelfKeyedItemId =
+type SelfKeyedItemIdentity =
     { SelfNumber: int
       SelfCode: string }
 
     interface IIdentity<int> with
         member this.Key = this.SelfNumber
 
-let private keyOf (identity: ItemId) = identity.Number
+let private keyOf (identity: ItemIdentity) = identity.Number
+
+/// The library's item constructor, bound under another name because the helper below wants to be
+/// called `item` too and would otherwise shadow it. Eta-expanded so it generalizes.
+let private ofHalves identity state = item identity state
 
 let private item number name score =
-    entry { Number = number; Code = sprintf "C%d" number } { Name = name; Score = score }
+    ofHalves { Number = number; Code = sprintf "C%d" number } { Name = name; Score = score }
 
-let private selfKeyedItem number name score : Entry<SelfKeyedItemId, ItemState> =
-    entry { SelfNumber = number; SelfCode = sprintf "C%d" number } { Name = name; Score = score }
+let private selfKeyedItem number name score : Item<SelfKeyedItemIdentity, ItemState> =
+    ofHalves { SelfNumber = number; SelfCode = sprintf "C%d" number } { Name = name; Score = score }
 
-let private keysOf (view: IReactiveCollection<int, 'TId, ItemState>) =
+let private keysOf (view: IReactiveCollection<int, 'TIdentity, ItemState>) =
     List<int>(view |> keysCell |> sampleC)
 
 type ``Collections Tests``() =
 
     [<Test>]
-    member _.``create holds its initial entries``() =
+    member _.``create holds its initial items``() =
         task {
-            let edits = sinkS<CollectionEdit<int, ItemId, ItemState>> ()
+            let edits = sinkS<CollectionEdit<int, ItemIdentity, ItemState>> ()
 
             let collection =
                 create keyOf [ item 1 "one" 10; item 2 "two" 20 ] [ edits ]
@@ -58,7 +62,7 @@ type ``Collections Tests``() =
     [<Test>]
     member _.``an add edit reaches the shape cell and the state cell``() =
         task {
-            let edits = sinkS<CollectionEdit<int, ItemId, ItemState>> ()
+            let edits = sinkS<CollectionEdit<int, ItemIdentity, ItemState>> ()
             let collection = create keyOf [] [ edits ]
 
             // Built before the key exists: a bound view can be created before its item and outlive
@@ -104,7 +108,7 @@ type ``Collections Tests``() =
     [<Test>]
     member _.``the root is ordered by key``() =
         task {
-            let edits = sinkS<CollectionEdit<int, ItemId, ItemState>> ()
+            let edits = sinkS<CollectionEdit<int, ItemIdentity, ItemState>> ()
 
             let collection =
                 create keyOf [ item 3 "three" 30; item 1 "one" 10; item 2 "two" 20 ] [ edits ]
@@ -115,7 +119,7 @@ type ``Collections Tests``() =
     [<Test>]
     member _.``a chain runs in the order it is written``() =
         task {
-            let edits = sinkS<CollectionEdit<int, ItemId, ItemState>> ()
+            let edits = sinkS<CollectionEdit<int, ItemIdentity, ItemState>> ()
 
             let collection =
                 create
@@ -142,13 +146,13 @@ type ``Collections Tests``() =
         }
 
     [<Test>]
-    member _.``createById takes the key from the identity``() =
+    member _.``createByIdentity takes the key from the identity``() =
         task {
-            let edits = sinkS<CollectionEdit<int, SelfKeyedItemId, ItemState>> ()
+            let edits = sinkS<CollectionEdit<int, SelfKeyedItemIdentity, ItemState>> ()
 
             // No keyOf: the identity implements IIdentity<int>.
             let collection =
-                createById [ selfKeyedItem 1 "one" 10; selfKeyedItem 2 "two" 20 ] [ edits ]
+                createByIdentity [ selfKeyedItem 1 "one" 10; selfKeyedItem 2 "two" 20 ] [ edits ]
 
             do! Expect.Sequence([ 1; 2 ], keysOf collection)
 
@@ -161,7 +165,7 @@ type ``Collections Tests``() =
     [<Test>]
     member _.``slice windows the middle of the upstream``() =
         task {
-            let edits = sinkS<CollectionEdit<int, ItemId, ItemState>> ()
+            let edits = sinkS<CollectionEdit<int, ItemIdentity, ItemState>> ()
 
             let collection =
                 create
@@ -187,7 +191,7 @@ type ``Collections Tests``() =
     [<Test>]
     member _.``sliceC turns the page when the offset changes``() =
         task {
-            let edits = sinkS<CollectionEdit<int, ItemId, ItemState>> ()
+            let edits = sinkS<CollectionEdit<int, ItemIdentity, ItemState>> ()
             let offset = sinkC 0
 
             let collection =
@@ -221,7 +225,7 @@ type ``Collections Tests``() =
     [<Test>]
     member _.``sortBy re-files an item whose sort value moved``() =
         task {
-            let edits = sinkS<CollectionEdit<int, ItemId, ItemState>> ()
+            let edits = sinkS<CollectionEdit<int, ItemIdentity, ItemState>> ()
 
             let collection =
                 create keyOf [ item 1 "one" 30; item 2 "two" 10; item 3 "three" 20 ] [ edits ]
@@ -238,7 +242,7 @@ type ``Collections Tests``() =
     [<Test>]
     member _.``a view shares the store with its root``() =
         task {
-            let edits = sinkS<CollectionEdit<int, ItemId, ItemState>> ()
+            let edits = sinkS<CollectionEdit<int, ItemIdentity, ItemState>> ()
 
             let collection =
                 create keyOf [ item 1 "one" 10; item 2 "two" 20 ] [ edits ]

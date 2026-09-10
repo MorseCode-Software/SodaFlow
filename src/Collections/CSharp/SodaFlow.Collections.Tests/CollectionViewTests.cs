@@ -9,12 +9,12 @@ namespace SodaFlow.Collections.Tests;
 
 public sealed class CollectionViewTests
 {
-    private static ReactiveCollection<int, ItemId, ItemState> Create(
-        Stream<CollectionEdit<int, ItemId, ItemState>> edits,
-        params Entry<ItemId, ItemState>[] initial) =>
-        ReactiveCollection<int, ItemId, ItemState>.Create(TestUtil.KeyOf, initial, edits);
+    private static ReactiveCollection<int, ItemIdentity, ItemState> Create(
+        Stream<CollectionEdit<int, ItemIdentity, ItemState>> edits,
+        params Item<ItemIdentity, ItemState>[] initial) =>
+        ReactiveCollection<int, ItemIdentity, ItemState>.Create(TestUtil.KeyOf, initial, edits);
 
-    private static List<int> KeysOf(IReactiveCollection<int, ItemId, ItemState> view) =>
+    private static List<int> KeysOf(IReactiveCollection<int, ItemIdentity, ItemState> view) =>
         TestUtil.Keys(view.KeysCell.Sample());
 
     /// <summary>An operation as "kind:key", which is what these tests assert on.</summary>
@@ -24,10 +24,10 @@ public sealed class CollectionViewTests
     [Test]
     public async Task TheRootIsOrderedByKey()
     {
-        StreamSink<CollectionEdit<int, ItemId, ItemState>> edits =
-            Stream.CreateSink<CollectionEdit<int, ItemId, ItemState>>();
+        StreamSink<CollectionEdit<int, ItemIdentity, ItemState>> edits =
+            Stream.CreateSink<CollectionEdit<int, ItemIdentity, ItemState>>();
 
-        ReactiveCollection<int, ItemId, ItemState> collection = Create(
+        ReactiveCollection<int, ItemIdentity, ItemState> collection = Create(
             edits,
             TestUtil.Item(3, "three", 30),
             TestUtil.Item(1, "one", 10),
@@ -43,16 +43,16 @@ public sealed class CollectionViewTests
     [Test]
     public async Task SortByOrdersByTheProjectedValueAndReFilesOnUpdate()
     {
-        StreamSink<CollectionEdit<int, ItemId, ItemState>> edits =
-            Stream.CreateSink<CollectionEdit<int, ItemId, ItemState>>();
+        StreamSink<CollectionEdit<int, ItemIdentity, ItemState>> edits =
+            Stream.CreateSink<CollectionEdit<int, ItemIdentity, ItemState>>();
 
-        ReactiveCollection<int, ItemId, ItemState> collection = Create(
+        ReactiveCollection<int, ItemIdentity, ItemState> collection = Create(
             edits,
             TestUtil.Item(1, "one", 30),
             TestUtil.Item(2, "two", 10),
             TestUtil.Item(3, "three", 20));
 
-        IReactiveCollection<int, ItemId, ItemState> byScore =
+        IReactiveCollection<int, ItemIdentity, ItemState> byScore =
             collection.SortBy(static (_, state) => state.Score);
 
         await Assert.That(KeysOf(byScore)).IsEquivalentTo([2, 3, 1]);
@@ -66,16 +66,16 @@ public sealed class CollectionViewTests
     [Test]
     public async Task SortByDescendingReversesTheOrder()
     {
-        StreamSink<CollectionEdit<int, ItemId, ItemState>> edits =
-            Stream.CreateSink<CollectionEdit<int, ItemId, ItemState>>();
+        StreamSink<CollectionEdit<int, ItemIdentity, ItemState>> edits =
+            Stream.CreateSink<CollectionEdit<int, ItemIdentity, ItemState>>();
 
-        ReactiveCollection<int, ItemId, ItemState> collection = Create(
+        ReactiveCollection<int, ItemIdentity, ItemState> collection = Create(
             edits,
             TestUtil.Item(1, "one", 30),
             TestUtil.Item(2, "two", 10),
             TestUtil.Item(3, "three", 20));
 
-        IReactiveCollection<int, ItemId, ItemState> byScore =
+        IReactiveCollection<int, ItemIdentity, ItemState> byScore =
             collection.SortByDescending(static (_, state) => state.Score);
 
         await Assert.That(KeysOf(byScore)).IsEquivalentTo([1, 3, 2]);
@@ -84,16 +84,16 @@ public sealed class CollectionViewTests
     [Test]
     public async Task AReFilingUpdateReportsAMoveAndAnUpdate()
     {
-        StreamSink<CollectionEdit<int, ItemId, ItemState>> edits =
-            Stream.CreateSink<CollectionEdit<int, ItemId, ItemState>>();
+        StreamSink<CollectionEdit<int, ItemIdentity, ItemState>> edits =
+            Stream.CreateSink<CollectionEdit<int, ItemIdentity, ItemState>>();
 
-        ReactiveCollection<int, ItemId, ItemState> collection = Create(
+        ReactiveCollection<int, ItemIdentity, ItemState> collection = Create(
             edits,
             TestUtil.Item(1, "one", 10),
             TestUtil.Item(2, "two", 20),
             TestUtil.Item(3, "three", 30));
 
-        IReactiveCollection<int, ItemId, ItemState> byScore =
+        IReactiveCollection<int, ItemIdentity, ItemState> byScore =
             collection.SortBy(static (_, state) => state.Score);
 
         List<string> operations = [];
@@ -111,10 +111,10 @@ public sealed class CollectionViewTests
     [Test]
     public async Task AnUpdateThatDoesNotMoveAnythingIsStillReported()
     {
-        StreamSink<CollectionEdit<int, ItemId, ItemState>> edits =
-            Stream.CreateSink<CollectionEdit<int, ItemId, ItemState>>();
+        StreamSink<CollectionEdit<int, ItemIdentity, ItemState>> edits =
+            Stream.CreateSink<CollectionEdit<int, ItemIdentity, ItemState>>();
 
-        ReactiveCollection<int, ItemId, ItemState> collection = Create(
+        ReactiveCollection<int, ItemIdentity, ItemState> collection = Create(
             edits,
             TestUtil.Item(1, "one", 10),
             TestUtil.Item(2, "two", 20));
@@ -135,10 +135,10 @@ public sealed class CollectionViewTests
     [Test]
     public async Task AnUpdateUnderAKeyOrderedStageReportsAnUpdateAndMovesNothing()
     {
-        StreamSink<CollectionEdit<int, ItemId, ItemState>> edits =
-            Stream.CreateSink<CollectionEdit<int, ItemId, ItemState>>();
+        StreamSink<CollectionEdit<int, ItemIdentity, ItemState>> edits =
+            Stream.CreateSink<CollectionEdit<int, ItemIdentity, ItemState>>();
 
-        ReactiveCollection<int, ItemId, ItemState> collection = Create(
+        ReactiveCollection<int, ItemIdentity, ItemState> collection = Create(
             edits,
             TestUtil.Item(1, "one", 10),
             TestUtil.Item(2, "two", 20),
@@ -147,7 +147,7 @@ public sealed class CollectionViewTests
         // Sitting directly on the collection, so this stage inherits the root's order, which
         // projects the key - and a key cannot change. A state edit therefore cannot move anything
         // here, which is the case Refile short-circuits rather than removing and re-adding.
-        IReactiveCollection<int, ItemId, ItemState> passing =
+        IReactiveCollection<int, ItemIdentity, ItemState> passing =
             collection.Filter(static (_, state) => state.Score >= 0);
 
         List<string> operations = [];
@@ -166,17 +166,17 @@ public sealed class CollectionViewTests
     [Test]
     public async Task FilterNarrowsAndPreservesTheUpstreamOrder()
     {
-        StreamSink<CollectionEdit<int, ItemId, ItemState>> edits =
-            Stream.CreateSink<CollectionEdit<int, ItemId, ItemState>>();
+        StreamSink<CollectionEdit<int, ItemIdentity, ItemState>> edits =
+            Stream.CreateSink<CollectionEdit<int, ItemIdentity, ItemState>>();
 
-        ReactiveCollection<int, ItemId, ItemState> collection = Create(
+        ReactiveCollection<int, ItemIdentity, ItemState> collection = Create(
             edits,
             TestUtil.Item(1, "one", 30),
             TestUtil.Item(2, "two", 10),
             TestUtil.Item(3, "three", 20),
             TestUtil.Item(4, "four", 40));
 
-        IReactiveCollection<int, ItemId, ItemState> passing = collection
+        IReactiveCollection<int, ItemIdentity, ItemState> passing = collection
             .SortBy(static (_, state) => state.Score)
             .Filter(static (_, state) => state.Score >= 20);
 
@@ -186,15 +186,15 @@ public sealed class CollectionViewTests
     [Test]
     public async Task AnUpdateCanMoveAnItemIntoAndOutOfAFilter()
     {
-        StreamSink<CollectionEdit<int, ItemId, ItemState>> edits =
-            Stream.CreateSink<CollectionEdit<int, ItemId, ItemState>>();
+        StreamSink<CollectionEdit<int, ItemIdentity, ItemState>> edits =
+            Stream.CreateSink<CollectionEdit<int, ItemIdentity, ItemState>>();
 
-        ReactiveCollection<int, ItemId, ItemState> collection = Create(
+        ReactiveCollection<int, ItemIdentity, ItemState> collection = Create(
             edits,
             TestUtil.Item(1, "one", 10),
             TestUtil.Item(2, "two", 30));
 
-        IReactiveCollection<int, ItemId, ItemState> passing =
+        IReactiveCollection<int, ItemIdentity, ItemState> passing =
             collection.Filter(static (_, state) => state.Score >= 20);
 
         await Assert.That(KeysOf(passing)).IsEquivalentTo([2]);
@@ -209,17 +209,17 @@ public sealed class CollectionViewTests
     [Test]
     public async Task ChangingThePredicateRebuildsTheStageAndReportsAReset()
     {
-        StreamSink<CollectionEdit<int, ItemId, ItemState>> edits =
-            Stream.CreateSink<CollectionEdit<int, ItemId, ItemState>>();
+        StreamSink<CollectionEdit<int, ItemIdentity, ItemState>> edits =
+            Stream.CreateSink<CollectionEdit<int, ItemIdentity, ItemState>>();
         CellSink<int> threshold = Cell.CreateSink(20);
 
-        ReactiveCollection<int, ItemId, ItemState> collection = Create(
+        ReactiveCollection<int, ItemIdentity, ItemState> collection = Create(
             edits,
             TestUtil.Item(1, "one", 10),
             TestUtil.Item(2, "two", 20),
             TestUtil.Item(3, "three", 30));
 
-        IReactiveCollection<int, ItemId, ItemState> passing = collection.Filter(
+        IReactiveCollection<int, ItemIdentity, ItemState> passing = collection.Filter(
             threshold,
             static (limit, _, state) => state.Score >= limit);
 
@@ -237,20 +237,20 @@ public sealed class CollectionViewTests
     }
 
     [Test]
-    public async Task FilterByIdNarrowsAndDoesNotReTestOnAStateEdit()
+    public async Task FilterByIdentityNarrowsAndDoesNotReTestOnAStateEdit()
     {
-        StreamSink<CollectionEdit<int, ItemId, ItemState>> edits =
-            Stream.CreateSink<CollectionEdit<int, ItemId, ItemState>>();
+        StreamSink<CollectionEdit<int, ItemIdentity, ItemState>> edits =
+            Stream.CreateSink<CollectionEdit<int, ItemIdentity, ItemState>>();
 
-        ReactiveCollection<int, ItemId, ItemState> collection = Create(
+        ReactiveCollection<int, ItemIdentity, ItemState> collection = Create(
             edits,
             TestUtil.Item(1, "one", 10),
             TestUtil.Item(2, "two", 20),
             TestUtil.Item(3, "three", 30),
             TestUtil.Item(4, "four", 40));
 
-        IReactiveCollection<int, ItemId, ItemState> evens =
-            collection.FilterById(static identity => identity.Number % 2 == 0);
+        IReactiveCollection<int, ItemIdentity, ItemState> evens =
+            collection.FilterByIdentity(static identity => identity.Number % 2 == 0);
 
         await Assert.That(KeysOf(evens)).IsEquivalentTo([2, 4]);
 
@@ -272,16 +272,16 @@ public sealed class CollectionViewTests
     }
 
     [Test]
-    public async Task FilterByIdStillFollowsStructuralChange()
+    public async Task FilterByIdentityStillFollowsStructuralChange()
     {
-        StreamSink<CollectionEdit<int, ItemId, ItemState>> edits =
-            Stream.CreateSink<CollectionEdit<int, ItemId, ItemState>>();
+        StreamSink<CollectionEdit<int, ItemIdentity, ItemState>> edits =
+            Stream.CreateSink<CollectionEdit<int, ItemIdentity, ItemState>>();
 
-        ReactiveCollection<int, ItemId, ItemState> collection =
+        ReactiveCollection<int, ItemIdentity, ItemState> collection =
             Create(edits, TestUtil.Item(2, "two", 20));
 
-        IReactiveCollection<int, ItemId, ItemState> evens =
-            collection.FilterById(static identity => identity.Number % 2 == 0);
+        IReactiveCollection<int, ItemIdentity, ItemState> evens =
+            collection.FilterByIdentity(static identity => identity.Number % 2 == 0);
 
         await Assert.That(KeysOf(evens)).IsEquivalentTo([2]);
 
@@ -297,12 +297,12 @@ public sealed class CollectionViewTests
     }
 
     [Test]
-    public async Task FilterByIdComposesWithSortById()
+    public async Task FilterByIdentityComposesWithSortByIdentity()
     {
-        StreamSink<CollectionEdit<int, ItemId, ItemState>> edits =
-            Stream.CreateSink<CollectionEdit<int, ItemId, ItemState>>();
+        StreamSink<CollectionEdit<int, ItemIdentity, ItemState>> edits =
+            Stream.CreateSink<CollectionEdit<int, ItemIdentity, ItemState>>();
 
-        ReactiveCollection<int, ItemId, ItemState> collection = Create(
+        ReactiveCollection<int, ItemIdentity, ItemState> collection = Create(
             edits,
             TestUtil.Item(1, "one", 10),
             TestUtil.Item(2, "two", 20),
@@ -310,9 +310,9 @@ public sealed class CollectionViewTests
             TestUtil.Item(4, "four", 40));
 
         // Neither stage reads the state, so nothing a state edit does can reach either of them.
-        IReactiveCollection<int, ItemId, ItemState> view = collection
-            .FilterById(static identity => identity.Number % 2 == 0)
-            .SortByIdDescending(static identity => identity.Number);
+        IReactiveCollection<int, ItemIdentity, ItemState> view = collection
+            .FilterByIdentity(static identity => identity.Number % 2 == 0)
+            .SortByIdentityDescending(static identity => identity.Number);
 
         await Assert.That(KeysOf(view)).IsEquivalentTo([4, 2]);
 
@@ -322,20 +322,20 @@ public sealed class CollectionViewTests
     }
 
     [Test]
-    public async Task SortByIdOrdersByTheIdentityAndDoesNotReFileOnAStateEdit()
+    public async Task SortByIdentityOrdersByTheIdentityAndDoesNotReFileOnAStateEdit()
     {
-        StreamSink<CollectionEdit<int, ItemId, ItemState>> edits =
-            Stream.CreateSink<CollectionEdit<int, ItemId, ItemState>>();
+        StreamSink<CollectionEdit<int, ItemIdentity, ItemState>> edits =
+            Stream.CreateSink<CollectionEdit<int, ItemIdentity, ItemState>>();
 
-        ReactiveCollection<int, ItemId, ItemState> collection = Create(
+        ReactiveCollection<int, ItemIdentity, ItemState> collection = Create(
             edits,
             TestUtil.Item(1, "one", 10),
             TestUtil.Item(2, "two", 20),
             TestUtil.Item(3, "three", 30));
 
         // Codes are "C1", "C2", "C3", so descending by code is descending by number here.
-        IReactiveCollection<int, ItemId, ItemState> byCode =
-            collection.SortByIdDescending(static identity => identity.Code);
+        IReactiveCollection<int, ItemIdentity, ItemState> byCode =
+            collection.SortByIdentityDescending(static identity => identity.Code);
 
         await Assert.That(KeysOf(byCode)).IsEquivalentTo([3, 2, 1]);
 
@@ -354,18 +354,18 @@ public sealed class CollectionViewTests
     }
 
     [Test]
-    public async Task SortByIdStillFollowsStructuralChange()
+    public async Task SortByIdentityStillFollowsStructuralChange()
     {
-        StreamSink<CollectionEdit<int, ItemId, ItemState>> edits =
-            Stream.CreateSink<CollectionEdit<int, ItemId, ItemState>>();
+        StreamSink<CollectionEdit<int, ItemIdentity, ItemState>> edits =
+            Stream.CreateSink<CollectionEdit<int, ItemIdentity, ItemState>>();
 
-        ReactiveCollection<int, ItemId, ItemState> collection = Create(
+        ReactiveCollection<int, ItemIdentity, ItemState> collection = Create(
             edits,
             TestUtil.Item(1, "one", 10),
             TestUtil.Item(3, "three", 30));
 
-        IReactiveCollection<int, ItemId, ItemState> byCode =
-            collection.SortById(static identity => identity.Code);
+        IReactiveCollection<int, ItemIdentity, ItemState> byCode =
+            collection.SortByIdentity(static identity => identity.Code);
 
         await Assert.That(KeysOf(byCode)).IsEquivalentTo([1, 3]);
 
@@ -380,17 +380,17 @@ public sealed class CollectionViewTests
     [Test]
     public async Task TakeWindowsTheUpstream()
     {
-        StreamSink<CollectionEdit<int, ItemId, ItemState>> edits =
-            Stream.CreateSink<CollectionEdit<int, ItemId, ItemState>>();
+        StreamSink<CollectionEdit<int, ItemIdentity, ItemState>> edits =
+            Stream.CreateSink<CollectionEdit<int, ItemIdentity, ItemState>>();
 
-        ReactiveCollection<int, ItemId, ItemState> collection = Create(
+        ReactiveCollection<int, ItemIdentity, ItemState> collection = Create(
             edits,
             TestUtil.Item(1, "one", 10),
             TestUtil.Item(2, "two", 20),
             TestUtil.Item(3, "three", 30),
             TestUtil.Item(4, "four", 40));
 
-        IReactiveCollection<int, ItemId, ItemState> topTwo = collection
+        IReactiveCollection<int, ItemIdentity, ItemState> topTwo = collection
             .SortByDescending(static (_, state) => state.Score)
             .Take(2);
 
@@ -405,17 +405,17 @@ public sealed class CollectionViewTests
     [Test]
     public async Task TakeFollowsAChangingLimit()
     {
-        StreamSink<CollectionEdit<int, ItemId, ItemState>> edits =
-            Stream.CreateSink<CollectionEdit<int, ItemId, ItemState>>();
+        StreamSink<CollectionEdit<int, ItemIdentity, ItemState>> edits =
+            Stream.CreateSink<CollectionEdit<int, ItemIdentity, ItemState>>();
         CellSink<int> limit = Cell.CreateSink(1);
 
-        ReactiveCollection<int, ItemId, ItemState> collection = Create(
+        ReactiveCollection<int, ItemIdentity, ItemState> collection = Create(
             edits,
             TestUtil.Item(1, "one", 10),
             TestUtil.Item(2, "two", 20),
             TestUtil.Item(3, "three", 30));
 
-        IReactiveCollection<int, ItemId, ItemState> window = collection.Take(limit);
+        IReactiveCollection<int, ItemIdentity, ItemState> window = collection.Take(limit);
 
         await Assert.That(KeysOf(window)).IsEquivalentTo([1]);
 
@@ -427,10 +427,10 @@ public sealed class CollectionViewTests
     [Test]
     public async Task SliceWindowsTheMiddleOfTheUpstream()
     {
-        StreamSink<CollectionEdit<int, ItemId, ItemState>> edits =
-            Stream.CreateSink<CollectionEdit<int, ItemId, ItemState>>();
+        StreamSink<CollectionEdit<int, ItemIdentity, ItemState>> edits =
+            Stream.CreateSink<CollectionEdit<int, ItemIdentity, ItemState>>();
 
-        ReactiveCollection<int, ItemId, ItemState> collection = Create(
+        ReactiveCollection<int, ItemIdentity, ItemState> collection = Create(
             edits,
             TestUtil.Item(1, "one", 10),
             TestUtil.Item(2, "two", 20),
@@ -438,7 +438,7 @@ public sealed class CollectionViewTests
             TestUtil.Item(4, "four", 40),
             TestUtil.Item(5, "five", 50));
 
-        IReactiveCollection<int, ItemId, ItemState> page = collection.Slice(1, 2);
+        IReactiveCollection<int, ItemIdentity, ItemState> page = collection.Slice(1, 2);
 
         await Assert.That(KeysOf(page)).IsEquivalentTo([2, 3]);
 
@@ -457,11 +457,11 @@ public sealed class CollectionViewTests
     [Test]
     public async Task SliceFollowsAChangingOffset()
     {
-        StreamSink<CollectionEdit<int, ItemId, ItemState>> edits =
-            Stream.CreateSink<CollectionEdit<int, ItemId, ItemState>>();
+        StreamSink<CollectionEdit<int, ItemIdentity, ItemState>> edits =
+            Stream.CreateSink<CollectionEdit<int, ItemIdentity, ItemState>>();
         CellSink<int> offset = Cell.CreateSink(0);
 
-        ReactiveCollection<int, ItemId, ItemState> collection = Create(
+        ReactiveCollection<int, ItemIdentity, ItemState> collection = Create(
             edits,
             TestUtil.Item(1, "one", 10),
             TestUtil.Item(2, "two", 20),
@@ -469,7 +469,7 @@ public sealed class CollectionViewTests
             TestUtil.Item(4, "four", 40),
             TestUtil.Item(5, "five", 50));
 
-        IReactiveCollection<int, ItemId, ItemState> page =
+        IReactiveCollection<int, ItemIdentity, ItemState> page =
             collection.Slice(offset, Cell.Constant(2));
 
         await Assert.That(KeysOf(page)).IsEquivalentTo([1, 2]);
@@ -493,10 +493,10 @@ public sealed class CollectionViewTests
     [Test]
     public async Task SliceComposesWithASortAbove()
     {
-        StreamSink<CollectionEdit<int, ItemId, ItemState>> edits =
-            Stream.CreateSink<CollectionEdit<int, ItemId, ItemState>>();
+        StreamSink<CollectionEdit<int, ItemIdentity, ItemState>> edits =
+            Stream.CreateSink<CollectionEdit<int, ItemIdentity, ItemState>>();
 
-        ReactiveCollection<int, ItemId, ItemState> collection = Create(
+        ReactiveCollection<int, ItemIdentity, ItemState> collection = Create(
             edits,
             TestUtil.Item(1, "one", 10),
             TestUtil.Item(2, "two", 20),
@@ -504,7 +504,7 @@ public sealed class CollectionViewTests
             TestUtil.Item(4, "four", 40));
 
         // Scores descending are 4, 3, 2, 1 - so the second page of two is keys 2 and 1.
-        IReactiveCollection<int, ItemId, ItemState> page = collection
+        IReactiveCollection<int, ItemIdentity, ItemState> page = collection
             .SortByDescending(static (_, state) => state.Score)
             .Slice(2, 2);
 
@@ -515,17 +515,17 @@ public sealed class CollectionViewTests
     [Test]
     public async Task TakeIsASliceFromZero()
     {
-        StreamSink<CollectionEdit<int, ItemId, ItemState>> edits =
-            Stream.CreateSink<CollectionEdit<int, ItemId, ItemState>>();
+        StreamSink<CollectionEdit<int, ItemIdentity, ItemState>> edits =
+            Stream.CreateSink<CollectionEdit<int, ItemIdentity, ItemState>>();
 
-        ReactiveCollection<int, ItemId, ItemState> collection = Create(
+        ReactiveCollection<int, ItemIdentity, ItemState> collection = Create(
             edits,
             TestUtil.Item(1, "one", 10),
             TestUtil.Item(2, "two", 20),
             TestUtil.Item(3, "three", 30));
 
-        IReactiveCollection<int, ItemId, ItemState> taken = collection.Take(2);
-        IReactiveCollection<int, ItemId, ItemState> sliced = collection.Slice(0, 2);
+        IReactiveCollection<int, ItemIdentity, ItemState> taken = collection.Take(2);
+        IReactiveCollection<int, ItemIdentity, ItemState> sliced = collection.Slice(0, 2);
 
         await Assert.That(KeysOf(sliced)).IsEquivalentTo(KeysOf(taken));
 
@@ -537,10 +537,10 @@ public sealed class CollectionViewTests
     [Test]
     public async Task AChainRunsInTheOrderItIsWritten()
     {
-        StreamSink<CollectionEdit<int, ItemId, ItemState>> edits =
-            Stream.CreateSink<CollectionEdit<int, ItemId, ItemState>>();
+        StreamSink<CollectionEdit<int, ItemIdentity, ItemState>> edits =
+            Stream.CreateSink<CollectionEdit<int, ItemIdentity, ItemState>>();
 
-        ReactiveCollection<int, ItemId, ItemState> collection = Create(
+        ReactiveCollection<int, ItemIdentity, ItemState> collection = Create(
             edits,
             TestUtil.Item(1, "one", 50),
             TestUtil.Item(2, "two", 40),
@@ -548,7 +548,7 @@ public sealed class CollectionViewTests
             TestUtil.Item(4, "four", 20),
             TestUtil.Item(5, "five", 10));
 
-        IReactiveCollection<int, ItemId, ItemState> topTwoOfTheEvens = collection
+        IReactiveCollection<int, ItemIdentity, ItemState> topTwoOfTheEvens = collection
             .SortByDescending(static (_, state) => state.Score)
             .Filter(static (identity, _) => identity.Number % 2 == 0)
             .Take(2);
@@ -564,15 +564,15 @@ public sealed class CollectionViewTests
     [Test]
     public async Task AViewSharesTheStoreWithItsRoot()
     {
-        StreamSink<CollectionEdit<int, ItemId, ItemState>> edits =
-            Stream.CreateSink<CollectionEdit<int, ItemId, ItemState>>();
+        StreamSink<CollectionEdit<int, ItemIdentity, ItemState>> edits =
+            Stream.CreateSink<CollectionEdit<int, ItemIdentity, ItemState>>();
 
-        ReactiveCollection<int, ItemId, ItemState> collection = Create(
+        ReactiveCollection<int, ItemIdentity, ItemState> collection = Create(
             edits,
             TestUtil.Item(1, "one", 10),
             TestUtil.Item(2, "two", 20));
 
-        IReactiveCollection<int, ItemId, ItemState> passing =
+        IReactiveCollection<int, ItemIdentity, ItemState> passing =
             collection.Filter(static (_, state) => state.Score >= 20);
 
         // The same cell, not an equal one: sharing is what falls out of a view never copying.
@@ -588,16 +588,16 @@ public sealed class CollectionViewTests
     [Test]
     public async Task RemovingAnItemDropsItFromEveryStageOfTheChain()
     {
-        StreamSink<CollectionEdit<int, ItemId, ItemState>> edits =
-            Stream.CreateSink<CollectionEdit<int, ItemId, ItemState>>();
+        StreamSink<CollectionEdit<int, ItemIdentity, ItemState>> edits =
+            Stream.CreateSink<CollectionEdit<int, ItemIdentity, ItemState>>();
 
-        ReactiveCollection<int, ItemId, ItemState> collection = Create(
+        ReactiveCollection<int, ItemIdentity, ItemState> collection = Create(
             edits,
             TestUtil.Item(1, "one", 10),
             TestUtil.Item(2, "two", 20),
             TestUtil.Item(3, "three", 30));
 
-        IReactiveCollection<int, ItemId, ItemState> passing = collection
+        IReactiveCollection<int, ItemIdentity, ItemState> passing = collection
             .SortByDescending(static (_, state) => state.Score)
             .Filter(static (_, state) => state.Score >= 20);
 
@@ -615,22 +615,22 @@ public sealed class CollectionViewTests
     [Test]
     public async Task SwitchFollowsWhicheverViewTheCellHolds()
     {
-        StreamSink<CollectionEdit<int, ItemId, ItemState>> edits =
-            Stream.CreateSink<CollectionEdit<int, ItemId, ItemState>>();
+        StreamSink<CollectionEdit<int, ItemIdentity, ItemState>> edits =
+            Stream.CreateSink<CollectionEdit<int, ItemIdentity, ItemState>>();
 
-        ReactiveCollection<int, ItemId, ItemState> collection = Create(
+        ReactiveCollection<int, ItemIdentity, ItemState> collection = Create(
             edits,
             TestUtil.Item(1, "one", 30),
             TestUtil.Item(2, "two", 10),
             TestUtil.Item(3, "three", 20));
 
-        IReactiveCollection<int, ItemId, ItemState> byScore =
+        IReactiveCollection<int, ItemIdentity, ItemState> byScore =
             collection.SortBy(static (_, state) => state.Score);
-        IReactiveCollection<int, ItemId, ItemState> byName =
+        IReactiveCollection<int, ItemIdentity, ItemState> byName =
             collection.SortBy(static (_, state) => state.Name);
 
-        CellSink<IReactiveCollection<int, ItemId, ItemState>> which = Cell.CreateSink(byScore);
-        IReactiveCollection<int, ItemId, ItemState> switched = collection.Switch(which);
+        CellSink<IReactiveCollection<int, ItemIdentity, ItemState>> which = Cell.CreateSink(byScore);
+        IReactiveCollection<int, ItemIdentity, ItemState> switched = collection.Switch(which);
 
         await Assert.That(KeysOf(switched)).IsEquivalentTo([2, 3, 1]);
 

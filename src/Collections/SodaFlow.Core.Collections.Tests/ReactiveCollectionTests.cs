@@ -9,33 +9,33 @@ namespace SodaFlow.Collections.Tests;
 
 public sealed class ReactiveCollectionTests
 {
-    private static string NameOf(CollectionSnapshot<int, ItemId, ItemState> snapshot, int key) =>
-        snapshot.TryGetEntry(key, out Entry<ItemId, ItemState>? entry) && entry is not null
-            ? entry.State.Name
+    private static string NameOf(CollectionSnapshot<int, ItemIdentity, ItemState> snapshot, int key) =>
+        snapshot.TryGetItem(key, out Item<ItemIdentity, ItemState>? item) && item is not null
+            ? item.State.Name
             : "?";
 
-    private static string CodeOf(CollectionSnapshot<int, ItemId, ItemState> snapshot, int key) =>
-        snapshot.TryGetEntry(key, out Entry<ItemId, ItemState>? entry) && entry is not null
-            ? entry.Identity.Code
+    private static string CodeOf(CollectionSnapshot<int, ItemIdentity, ItemState> snapshot, int key) =>
+        snapshot.TryGetItem(key, out Item<ItemIdentity, ItemState>? item) && item is not null
+            ? item.Identity.Code
             : "?";
 
-    private static int ScoreOf(CollectionSnapshot<int, ItemId, ItemState> snapshot, int key) =>
-        snapshot.TryGetEntry(key, out Entry<ItemId, ItemState>? entry) && entry is not null
-            ? entry.State.Score
+    private static int ScoreOf(CollectionSnapshot<int, ItemIdentity, ItemState> snapshot, int key) =>
+        snapshot.TryGetItem(key, out Item<ItemIdentity, ItemState>? item) && item is not null
+            ? item.State.Score
             : -1;
 
     [Test]
     public async Task InitialEntriesAreInTheSnapshot()
     {
-        StreamSink<CollectionEdit<int, ItemId, ItemState>> edits =
-            Stream.CreateSink<CollectionEdit<int, ItemId, ItemState>>();
+        StreamSink<CollectionEdit<int, ItemIdentity, ItemState>> edits =
+            Stream.CreateSink<CollectionEdit<int, ItemIdentity, ItemState>>();
 
-        ReactiveCollection<int, ItemId, ItemState> collection = ReactiveCollection<int, ItemId, ItemState>.Create(
+        ReactiveCollection<int, ItemIdentity, ItemState> collection = ReactiveCollection<int, ItemIdentity, ItemState>.Create(
             TestUtil.KeyOf,
             [TestUtil.Item(1, "one", 10), TestUtil.Item(2, "two", 20)],
             edits);
 
-        CollectionSnapshot<int, ItemId, ItemState> snapshot = collection.SnapshotCell.Sample();
+        CollectionSnapshot<int, ItemIdentity, ItemState> snapshot = collection.SnapshotCell.Sample();
 
         await Assert.That(snapshot.Count).IsEqualTo(2);
         await Assert.That(NameOf(snapshot, 1)).IsEqualTo("one");
@@ -46,11 +46,11 @@ public sealed class ReactiveCollectionTests
     [Test]
     public async Task DuplicateKeyInTheInitialEntriesThrows()
     {
-        StreamSink<CollectionEdit<int, ItemId, ItemState>> edits =
-            Stream.CreateSink<CollectionEdit<int, ItemId, ItemState>>();
+        StreamSink<CollectionEdit<int, ItemIdentity, ItemState>> edits =
+            Stream.CreateSink<CollectionEdit<int, ItemIdentity, ItemState>>();
 
         await Assert.That(
-                () => ReactiveCollection<int, ItemId, ItemState>.Create(
+                () => ReactiveCollection<int, ItemIdentity, ItemState>.Create(
                     TestUtil.KeyOf,
                     [TestUtil.Item(1, "one", 10), TestUtil.Item(1, "again", 20)],
                     edits))
@@ -60,10 +60,10 @@ public sealed class ReactiveCollectionTests
     [Test]
     public async Task AddAndRemoveMoveTheShapeCellAndAnUpdateDoesNot()
     {
-        StreamSink<CollectionEdit<int, ItemId, ItemState>> edits =
-            Stream.CreateSink<CollectionEdit<int, ItemId, ItemState>>();
+        StreamSink<CollectionEdit<int, ItemIdentity, ItemState>> edits =
+            Stream.CreateSink<CollectionEdit<int, ItemIdentity, ItemState>>();
 
-        ReactiveCollection<int, ItemId, ItemState> collection = ReactiveCollection<int, ItemId, ItemState>.Create(
+        ReactiveCollection<int, ItemIdentity, ItemState> collection = ReactiveCollection<int, ItemIdentity, ItemState>.Create(
             TestUtil.KeyOf,
             [TestUtil.Item(1, "one", 10)],
             edits);
@@ -89,10 +89,10 @@ public sealed class ReactiveCollectionTests
     [Test]
     public async Task AnEditTouchingNothingFiresNothing()
     {
-        StreamSink<CollectionEdit<int, ItemId, ItemState>> edits =
-            Stream.CreateSink<CollectionEdit<int, ItemId, ItemState>>();
+        StreamSink<CollectionEdit<int, ItemIdentity, ItemState>> edits =
+            Stream.CreateSink<CollectionEdit<int, ItemIdentity, ItemState>>();
 
-        ReactiveCollection<int, ItemId, ItemState> collection = ReactiveCollection<int, ItemId, ItemState>.Create(
+        ReactiveCollection<int, ItemIdentity, ItemState> collection = ReactiveCollection<int, ItemIdentity, ItemState>.Create(
             TestUtil.KeyOf,
             [TestUtil.Item(1, "one", 10)],
             edits);
@@ -111,10 +111,10 @@ public sealed class ReactiveCollectionTests
     [Test]
     public async Task AddingAnExistingKeyThrows()
     {
-        StreamSink<CollectionEdit<int, ItemId, ItemState>> edits =
-            Stream.CreateSink<CollectionEdit<int, ItemId, ItemState>>();
+        StreamSink<CollectionEdit<int, ItemIdentity, ItemState>> edits =
+            Stream.CreateSink<CollectionEdit<int, ItemIdentity, ItemState>>();
 
-        ReactiveCollection<int, ItemId, ItemState>.Create(
+        ReactiveCollection<int, ItemIdentity, ItemState>.Create(
             TestUtil.KeyOf,
             [TestUtil.Item(1, "one", 10)],
             edits);
@@ -126,10 +126,10 @@ public sealed class ReactiveCollectionTests
     [Test]
     public async Task UpdatingAnAbsentKeyThrows()
     {
-        StreamSink<CollectionEdit<int, ItemId, ItemState>> edits =
-            Stream.CreateSink<CollectionEdit<int, ItemId, ItemState>>();
+        StreamSink<CollectionEdit<int, ItemIdentity, ItemState>> edits =
+            Stream.CreateSink<CollectionEdit<int, ItemIdentity, ItemState>>();
 
-        ReactiveCollection<int, ItemId, ItemState>.Create(
+        ReactiveCollection<int, ItemIdentity, ItemState>.Create(
             TestUtil.KeyOf,
             [TestUtil.Item(1, "one", 10)],
             edits);
@@ -140,10 +140,10 @@ public sealed class ReactiveCollectionTests
     [Test]
     public async Task RemovingAndReAddingAKeyInOneTransactionIsARekey()
     {
-        StreamSink<CollectionEdit<int, ItemId, ItemState>> edits =
-            Stream.CreateSink<CollectionEdit<int, ItemId, ItemState>>();
+        StreamSink<CollectionEdit<int, ItemIdentity, ItemState>> edits =
+            Stream.CreateSink<CollectionEdit<int, ItemIdentity, ItemState>>();
 
-        ReactiveCollection<int, ItemId, ItemState> collection = ReactiveCollection<int, ItemId, ItemState>.Create(
+        ReactiveCollection<int, ItemIdentity, ItemState> collection = ReactiveCollection<int, ItemIdentity, ItemState>.Create(
             TestUtil.KeyOf,
             [TestUtil.Item(1, "one", 10)],
             edits);
@@ -151,7 +151,7 @@ public sealed class ReactiveCollectionTests
         edits.Send(
             TestUtil.Remove(1).CombineWith(TestUtil.Add(TestUtil.Item(1, "replacement", 99))));
 
-        CollectionSnapshot<int, ItemId, ItemState> snapshot = collection.SnapshotCell.Sample();
+        CollectionSnapshot<int, ItemIdentity, ItemState> snapshot = collection.SnapshotCell.Sample();
 
         await Assert.That(snapshot.Count).IsEqualTo(1);
         await Assert.That(NameOf(snapshot, 1)).IsEqualTo("replacement");
@@ -160,18 +160,18 @@ public sealed class ReactiveCollectionTests
     [Test]
     public async Task EditsFromSeparateStreamsInOneTransactionCombineIntoOneChange()
     {
-        StreamSink<CollectionEdit<int, ItemId, ItemState>> adds =
-            Stream.CreateSink<CollectionEdit<int, ItemId, ItemState>>();
-        StreamSink<CollectionEdit<int, ItemId, ItemState>> updates =
-            Stream.CreateSink<CollectionEdit<int, ItemId, ItemState>>();
+        StreamSink<CollectionEdit<int, ItemIdentity, ItemState>> adds =
+            Stream.CreateSink<CollectionEdit<int, ItemIdentity, ItemState>>();
+        StreamSink<CollectionEdit<int, ItemIdentity, ItemState>> updates =
+            Stream.CreateSink<CollectionEdit<int, ItemIdentity, ItemState>>();
 
-        ReactiveCollection<int, ItemId, ItemState> collection = ReactiveCollection<int, ItemId, ItemState>.Create(
+        ReactiveCollection<int, ItemIdentity, ItemState> collection = ReactiveCollection<int, ItemIdentity, ItemState>.Create(
             TestUtil.KeyOf,
             [TestUtil.Item(1, "one", 10)],
             adds,
             updates);
 
-        List<CollectionChange<int, ItemId, ItemState>> changes = [];
+        List<CollectionChange<int, ItemIdentity, ItemState>> changes = [];
         IListener l = collection.ItemChangesStream.ListenStrong(changes.Add);
 
         Transaction.RunVoid(() =>
@@ -191,12 +191,12 @@ public sealed class ReactiveCollectionTests
     [Test]
     public async Task TwoTransformsForOneKeyInOneTransactionThrow()
     {
-        StreamSink<CollectionEdit<int, ItemId, ItemState>> first =
-            Stream.CreateSink<CollectionEdit<int, ItemId, ItemState>>();
-        StreamSink<CollectionEdit<int, ItemId, ItemState>> second =
-            Stream.CreateSink<CollectionEdit<int, ItemId, ItemState>>();
+        StreamSink<CollectionEdit<int, ItemIdentity, ItemState>> first =
+            Stream.CreateSink<CollectionEdit<int, ItemIdentity, ItemState>>();
+        StreamSink<CollectionEdit<int, ItemIdentity, ItemState>> second =
+            Stream.CreateSink<CollectionEdit<int, ItemIdentity, ItemState>>();
 
-        ReactiveCollection<int, ItemId, ItemState>.Create(
+        ReactiveCollection<int, ItemIdentity, ItemState>.Create(
             TestUtil.KeyOf,
             [TestUtil.Item(1, "one", 10)],
             first,
@@ -216,10 +216,10 @@ public sealed class ReactiveCollectionTests
     [Test]
     public async Task UpdatingAndRemovingOneKeyInOneTransactionThrows()
     {
-        StreamSink<CollectionEdit<int, ItemId, ItemState>> edits =
-            Stream.CreateSink<CollectionEdit<int, ItemId, ItemState>>();
+        StreamSink<CollectionEdit<int, ItemIdentity, ItemState>> edits =
+            Stream.CreateSink<CollectionEdit<int, ItemIdentity, ItemState>>();
 
-        ReactiveCollection<int, ItemId, ItemState>.Create(
+        ReactiveCollection<int, ItemIdentity, ItemState>.Create(
             TestUtil.KeyOf,
             [TestUtil.Item(1, "one", 10)],
             edits);
@@ -231,22 +231,22 @@ public sealed class ReactiveCollectionTests
     [Test]
     public async Task AChangeSeparatesMovedFromStillPresent()
     {
-        StreamSink<CollectionEdit<int, ItemId, ItemState>> edits =
-            Stream.CreateSink<CollectionEdit<int, ItemId, ItemState>>();
+        StreamSink<CollectionEdit<int, ItemIdentity, ItemState>> edits =
+            Stream.CreateSink<CollectionEdit<int, ItemIdentity, ItemState>>();
 
-        ReactiveCollection<int, ItemId, ItemState> collection = ReactiveCollection<int, ItemId, ItemState>.Create(
+        ReactiveCollection<int, ItemIdentity, ItemState> collection = ReactiveCollection<int, ItemIdentity, ItemState>.Create(
             TestUtil.KeyOf,
             [TestUtil.Item(1, "one", 10), TestUtil.Item(2, "two", 20)],
             edits);
 
-        List<CollectionChange<int, ItemId, ItemState>> changes = [];
+        List<CollectionChange<int, ItemIdentity, ItemState>> changes = [];
         IListener l = collection.ItemChangesStream.ListenStrong(changes.Add);
 
         edits.Send(TestUtil.Remove(1));
 
         l.Unlisten();
 
-        CollectionChange<int, ItemId, ItemState> change = changes[0];
+        CollectionChange<int, ItemIdentity, ItemState> change = changes[0];
 
         // Removed: it moved, and it is not present afterwards. The two questions are separate
         // members here; the C# wrapper folds them back into one nested optional.
@@ -260,12 +260,12 @@ public sealed class ReactiveCollectionTests
     [Test]
     public async Task CreateTakesTheKeyFromASelfKeyedIdentity()
     {
-        StreamSink<CollectionEdit<int, SelfKeyedItemId, ItemState>> edits =
-            Stream.CreateSink<CollectionEdit<int, SelfKeyedItemId, ItemState>>();
+        StreamSink<CollectionEdit<int, SelfKeyedItemIdentity, ItemState>> edits =
+            Stream.CreateSink<CollectionEdit<int, SelfKeyedItemIdentity, ItemState>>();
 
         // No key selector: the identity implements IIdentity<int>, and TKey is inferred from the
         // edit stream rather than from the constraint, which inference does not read.
-        ReactiveCollection<int, SelfKeyedItemId, ItemState> collection = ReactiveCollection.Create(
+        ReactiveCollection<int, SelfKeyedItemIdentity, ItemState> collection = ReactiveCollection.Create(
             [TestUtil.SelfKeyedItem(1, "one", 10), TestUtil.SelfKeyedItem(2, "two", 20)],
             edits);
 
@@ -273,7 +273,7 @@ public sealed class ReactiveCollectionTests
 
         // The derived selector is used for later adds too, not only the initial contents.
         edits.Send(
-            CollectionEdit<int, SelfKeyedItemId, ItemState>.Add(
+            CollectionEdit<int, SelfKeyedItemIdentity, ItemState>.Add(
                 TestUtil.SelfKeyedItem(3, "three", 30)));
 
         await Assert.That(TestUtil.Keys(collection.KeysCell.Sample())).IsEquivalentTo([1, 2, 3]);
@@ -282,10 +282,10 @@ public sealed class ReactiveCollectionTests
     [Test]
     public async Task CreateFromASelfKeyedIdentityTakesAStateMapToo()
     {
-        StreamSink<CollectionEdit<int, SelfKeyedItemId, ItemState>> edits =
-            Stream.CreateSink<CollectionEdit<int, SelfKeyedItemId, ItemState>>();
+        StreamSink<CollectionEdit<int, SelfKeyedItemIdentity, ItemState>> edits =
+            Stream.CreateSink<CollectionEdit<int, SelfKeyedItemIdentity, ItemState>>();
 
-        ReactiveCollection<int, SelfKeyedItemId, ItemState> collection = ReactiveCollection.Create(
+        ReactiveCollection<int, SelfKeyedItemIdentity, ItemState> collection = ReactiveCollection.Create(
             [TestUtil.SelfKeyedItem(1, "one", 10)],
             ImmutableStateMap<int, ItemState>.Empty,
             edits);

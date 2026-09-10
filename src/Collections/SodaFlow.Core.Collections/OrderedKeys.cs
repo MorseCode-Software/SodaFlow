@@ -16,12 +16,12 @@ namespace SodaFlow.Collections;
 ///     compares exactly the same way, holding whichever of its members it chose to keep.
 /// </remarks>
 /// <typeparam name="TKey">The type of the keys.</typeparam>
-/// <typeparam name="TId">The type of the immutable portion of an item.</typeparam>
+/// <typeparam name="TIdentity">The type of the immutable portion of an item.</typeparam>
 /// <typeparam name="TState">The type of the mutable portion of an item.</typeparam>
 [PublicAPI]
-public interface IKeyOrder<TKey, TId, TState>
+public interface IKeyOrder<TKey, TIdentity, TState>
     where TKey : notnull
-    where TId : notnull
+    where TIdentity : notnull
 {
     /// <summary>
     ///     Whether a key's position under this order can be changed by a state edit.
@@ -42,7 +42,7 @@ public interface IKeyOrder<TKey, TId, TState>
     /// <param name="snapshot">The collection to project each key's sort value from.</param>
     /// <returns>The set.</returns>
     /// <remarks>
-    ///     Bulk rather than a sequence of <see cref="IOrderedKeys{TKey,TId,TState}.Add" /> calls,
+    ///     Bulk rather than a sequence of <see cref="IOrderedKeys{TKey,TIdentity,TState}.Add" /> calls,
     ///     and that is the whole reason it exists. Filing n keys one at a time means n persistent
     ///     writes, each copying its path through the tree and allocating a wrapper, which is what a
     ///     stage rebuild used to cost. Building through a builder writes into unfrozen nodes and
@@ -53,9 +53,9 @@ public interface IKeyOrder<TKey, TId, TState>
     ///     for none, so a criteria change stays several times dearer than not having a chain -
     ///     which is the thing the documentation tells people to debounce for.
     /// </remarks>
-    IOrderedKeys<TKey, TId, TState> CreateFrom(
+    IOrderedKeys<TKey, TIdentity, TState> CreateFrom(
         IEnumerable<TKey> keys,
-        CollectionSnapshot<TKey, TId, TState> snapshot);
+        CollectionSnapshot<TKey, TIdentity, TState> snapshot);
 }
 
 /// <summary>
@@ -67,16 +67,16 @@ public interface IKeyOrder<TKey, TId, TState>
 ///     at this interface and its type does not grow with each stage.
 /// </remarks>
 /// <typeparam name="TKey">The type of the keys.</typeparam>
-/// <typeparam name="TId">The type of the immutable portion of an item.</typeparam>
+/// <typeparam name="TIdentity">The type of the immutable portion of an item.</typeparam>
 /// <typeparam name="TState">The type of the mutable portion of an item.</typeparam>
 [PublicAPI]
 // ReSharper disable once InheritdocConsiderUsage
-public interface IOrderedKeys<TKey, TId, TState> : IReadOnlyList<TKey>
+public interface IOrderedKeys<TKey, TIdentity, TState> : IReadOnlyList<TKey>
     where TKey : notnull
-    where TId : notnull
+    where TIdentity : notnull
 {
     /// <summary>The order this set files keys under.</summary>
-    IKeyOrder<TKey, TId, TState> Order { get; }
+    IKeyOrder<TKey, TIdentity, TState> Order { get; }
 
     /// <summary>Whether a key is in this set.</summary>
     /// <param name="key">The key to look for.</param>
@@ -100,12 +100,12 @@ public interface IOrderedKeys<TKey, TId, TState> : IReadOnlyList<TKey>
     /// <param name="key">The key to file.</param>
     /// <param name="snapshot">The collection to project the sort value from.</param>
     /// <returns>The set with the key filed in it.</returns>
-    IOrderedKeys<TKey, TId, TState> Add(TKey key, CollectionSnapshot<TKey, TId, TState> snapshot);
+    IOrderedKeys<TKey, TIdentity, TState> Add(TKey key, CollectionSnapshot<TKey, TIdentity, TState> snapshot);
 
     /// <summary>Removes a key.</summary>
     /// <param name="key">The key to remove.</param>
     /// <returns>The set without that key.</returns>
-    IOrderedKeys<TKey, TId, TState> Remove(TKey key);
+    IOrderedKeys<TKey, TIdentity, TState> Remove(TKey key);
 }
 
 /// <summary>A key together with the sort value it was filed under.</summary>
@@ -162,7 +162,7 @@ internal sealed class SortedEntryComparer<TKey, TSortKey> : IComparer<SortedEntr
             return this.descending ? -result : result;
         }
 
-        // The key breaks ties, so the order is total and two items that sort equally are never
+        // The key breaks ties, so the order is total and two entries that sort equally are never
         // conflated.
         return this.keyComparer.Compare(left.Key, right.Key);
     }
@@ -172,30 +172,30 @@ internal sealed class SortedEntryComparer<TKey, TSortKey> : IComparer<SortedEntr
 ///     An order which files each key under a value projected from its item.
 /// </summary>
 /// <typeparam name="TKey">The type of the keys.</typeparam>
-/// <typeparam name="TId">The type of the immutable portion of an item.</typeparam>
+/// <typeparam name="TIdentity">The type of the immutable portion of an item.</typeparam>
 /// <typeparam name="TState">The type of the mutable portion of an item.</typeparam>
 /// <typeparam name="TSortKey">The type of the projected sort value.</typeparam>
 /// <remarks>
 ///     Internal, because nothing outside this assembly can put an order into a view: the sort
-///     stages build their own from the selector they are handed. <see cref="IKeyOrder{TKey,TId,TState}" />
-///     stays public because <see cref="IOrderedKeys{TKey,TId,TState}.Order" /> answers with one, so
+///     stages build their own from the selector they are handed. <see cref="IKeyOrder{TKey,TIdentity,TState}" />
+///     stays public because <see cref="IOrderedKeys{TKey,TIdentity,TState}.Order" /> answers with one, so
 ///     an order can be read and not supplied - which is what keeps the claim
 ///     <see cref="DependsOnState" /> makes checkable. An order that could be supplied from outside
 ///     could assert it falsely, and a view would silently stop re-filing.
 /// </remarks>
 // ReSharper disable once InheritdocConsiderUsage
-internal sealed class SortKeyOrder<TKey, TId, TState, TSortKey> : IKeyOrder<TKey, TId, TState>
+internal sealed class SortKeyOrder<TKey, TIdentity, TState, TSortKey> : IKeyOrder<TKey, TIdentity, TState>
     where TKey : notnull
-    where TId : notnull
+    where TIdentity : notnull
 {
     /// <summary>
     ///     Exactly one of these is set, and which one is what <see cref="DependsOnState" />
     ///     answers. That is deliberate: an order cannot claim not to read the state while reading
     ///     it, because the selector that claims it is never handed any.
     /// </summary>
-    private readonly Func<TKey, TId, TState, TSortKey>? selector;
+    private readonly Func<TKey, TIdentity, TState, TSortKey>? selector;
 
-    private readonly Func<TKey, TId, TSortKey>? identitySelector;
+    private readonly Func<TKey, TIdentity, TSortKey>? identitySelector;
 
     private readonly IComparer<SortedEntry<TKey, TSortKey>> comparer;
 
@@ -205,7 +205,7 @@ internal sealed class SortKeyOrder<TKey, TId, TState, TSortKey> : IKeyOrder<TKey
     /// <param name="keyComparer">Breaks ties, so that the order is total.</param>
     /// <param name="descending">Whether to reverse the sort comparison.</param>
     public SortKeyOrder(
-        Func<TKey, TId, TState, TSortKey> selector,
+        Func<TKey, TIdentity, TState, TSortKey> selector,
         IComparer<TSortKey> sortComparer,
         IComparer<TKey> keyComparer,
         bool descending)
@@ -225,7 +225,7 @@ internal sealed class SortKeyOrder<TKey, TId, TState, TSortKey> : IKeyOrder<TKey
     ///     re-filing a key on a state edit, and building one skips reading the state map at all.
     /// </remarks>
     public SortKeyOrder(
-        Func<TKey, TId, TSortKey> selector,
+        Func<TKey, TIdentity, TSortKey> selector,
         IComparer<TSortKey> sortComparer,
         IComparer<TKey> keyComparer,
         bool descending)
@@ -245,9 +245,9 @@ internal sealed class SortKeyOrder<TKey, TId, TState, TSortKey> : IKeyOrder<TKey
     public bool DependsOnState => this.identitySelector is null;
 
     /// <inheritdoc />
-    public IOrderedKeys<TKey, TId, TState> CreateFrom(
+    public IOrderedKeys<TKey, TIdentity, TState> CreateFrom(
         IEnumerable<TKey> keys,
-        CollectionSnapshot<TKey, TId, TState> snapshot)
+        CollectionSnapshot<TKey, TIdentity, TState> snapshot)
     {
         ImmutableSortedSet<SortedEntry<TKey, TSortKey>>.Builder entries =
             ImmutableSortedSet.CreateBuilder(this.comparer);
@@ -268,7 +268,7 @@ internal sealed class SortKeyOrder<TKey, TId, TState, TSortKey> : IKeyOrder<TKey
             byKey[key] = entry;
         }
 
-        return new SortedKeys<TKey, TId, TState, TSortKey>(
+        return new SortedKeys<TKey, TIdentity, TState, TSortKey>(
             this,
             entries.ToImmutable(),
             byKey.ToImmutable());
@@ -286,7 +286,7 @@ internal sealed class SortKeyOrder<TKey, TId, TState, TSortKey> : IKeyOrder<TKey
     /// </remarks>
     internal bool TryProject(
         TKey key,
-        CollectionSnapshot<TKey, TId, TState> snapshot,
+        CollectionSnapshot<TKey, TIdentity, TState> snapshot,
         out TSortKey sortValue)
     {
         // ReSharper disable once NullableWarningSuppressionIsUsed - an out parameter of an
@@ -296,7 +296,7 @@ internal sealed class SortKeyOrder<TKey, TId, TState, TSortKey> : IKeyOrder<TKey
 
         if (this.identitySelector is not null)
         {
-            if (!snapshot.TryGetIdentity(key, out TId identityOnly))
+            if (!snapshot.TryGetIdentity(key, out TIdentity identityOnly))
             {
                 return false;
             }
@@ -306,7 +306,7 @@ internal sealed class SortKeyOrder<TKey, TId, TState, TSortKey> : IKeyOrder<TKey
             return true;
         }
 
-        if (!snapshot.TryGetHalves(key, out TId identity, out TState state))
+        if (!snapshot.TryGetHalves(key, out TIdentity identity, out TState state))
         {
             return false;
         }
@@ -319,16 +319,16 @@ internal sealed class SortKeyOrder<TKey, TId, TState, TSortKey> : IKeyOrder<TKey
     }
 }
 
-internal sealed class SortedKeys<TKey, TId, TState, TSortKey> : IOrderedKeys<TKey, TId, TState>
+internal sealed class SortedKeys<TKey, TIdentity, TState, TSortKey> : IOrderedKeys<TKey, TIdentity, TState>
     where TKey : notnull
-    where TId : notnull
+    where TIdentity : notnull
 {
-    private readonly SortKeyOrder<TKey, TId, TState, TSortKey> order;
+    private readonly SortKeyOrder<TKey, TIdentity, TState, TSortKey> order;
     private readonly ImmutableSortedSet<SortedEntry<TKey, TSortKey>> entries;
     private readonly ImmutableDictionary<TKey, SortedEntry<TKey, TSortKey>> byKey;
 
     internal SortedKeys(
-        SortKeyOrder<TKey, TId, TState, TSortKey> order,
+        SortKeyOrder<TKey, TIdentity, TState, TSortKey> order,
         ImmutableSortedSet<SortedEntry<TKey, TSortKey>> entries,
         ImmutableDictionary<TKey, SortedEntry<TKey, TSortKey>> byKey)
     {
@@ -337,7 +337,7 @@ internal sealed class SortedKeys<TKey, TId, TState, TSortKey> : IOrderedKeys<TKe
         this.byKey = byKey;
     }
 
-    public IKeyOrder<TKey, TId, TState> Order => this.order;
+    public IKeyOrder<TKey, TIdentity, TState> Order => this.order;
 
     public int Count => this.entries.Count;
 
@@ -350,9 +350,9 @@ internal sealed class SortedKeys<TKey, TId, TState, TSortKey> : IOrderedKeys<TKe
             ? this.entries.IndexOf(entry)
             : -1;
 
-    public IOrderedKeys<TKey, TId, TState> Add(
+    public IOrderedKeys<TKey, TIdentity, TState> Add(
         TKey key,
-        CollectionSnapshot<TKey, TId, TState> snapshot)
+        CollectionSnapshot<TKey, TIdentity, TState> snapshot)
     {
         if (!this.order.TryProject(key, snapshot, out TSortKey sortValue))
         {
@@ -361,15 +361,15 @@ internal sealed class SortedKeys<TKey, TId, TState, TSortKey> : IOrderedKeys<TKe
 
         SortedEntry<TKey, TSortKey> entry = new(key, sortValue);
 
-        return new SortedKeys<TKey, TId, TState, TSortKey>(
+        return new SortedKeys<TKey, TIdentity, TState, TSortKey>(
             this.order,
             this.entries.Add(entry),
             this.byKey.SetItem(key, entry));
     }
 
-    public IOrderedKeys<TKey, TId, TState> Remove(TKey key) =>
+    public IOrderedKeys<TKey, TIdentity, TState> Remove(TKey key) =>
         this.byKey.TryGet(key, out SortedEntry<TKey, TSortKey> entry)
-            ? new SortedKeys<TKey, TId, TState, TSortKey>(
+            ? new SortedKeys<TKey, TIdentity, TState, TSortKey>(
                 this.order,
                 this.entries.Remove(entry),
                 this.byKey.Remove(key))
@@ -394,22 +394,22 @@ internal sealed class SortedKeys<TKey, TId, TState, TSortKey> : IOrderedKeys<TKe
 ///     there is no stage offering one.
 /// </remarks>
 // ReSharper disable once InheritdocConsiderUsage
-internal sealed class RangeKeys<TKey, TId, TState> : IOrderedKeys<TKey, TId, TState>
+internal sealed class RangeKeys<TKey, TIdentity, TState> : IOrderedKeys<TKey, TIdentity, TState>
     where TKey : notnull
-    where TId : notnull
+    where TIdentity : notnull
 {
-    private readonly IOrderedKeys<TKey, TId, TState> source;
+    private readonly IOrderedKeys<TKey, TIdentity, TState> source;
     private readonly int offset;
     private readonly int limit;
 
-    internal RangeKeys(IOrderedKeys<TKey, TId, TState> source, int offset, int limit)
+    internal RangeKeys(IOrderedKeys<TKey, TIdentity, TState> source, int offset, int limit)
     {
         this.source = source;
         this.offset = Math.Max(offset, 0);
         this.limit = Math.Max(limit, 0);
     }
 
-    public IKeyOrder<TKey, TId, TState> Order => this.source.Order;
+    public IKeyOrder<TKey, TIdentity, TState> Order => this.source.Order;
 
     public int Count => Math.Min(Math.Max(this.source.Count - this.offset, 0), this.limit);
 
@@ -433,13 +433,13 @@ internal sealed class RangeKeys<TKey, TId, TState> : IOrderedKeys<TKey, TId, TSt
         return shifted < this.Count ? shifted : -1;
     }
 
-    public IOrderedKeys<TKey, TId, TState> Add(
+    public IOrderedKeys<TKey, TIdentity, TState> Add(
         TKey key,
-        CollectionSnapshot<TKey, TId, TState> snapshot) =>
-        new RangeKeys<TKey, TId, TState>(this.source.Add(key, snapshot), this.offset, this.limit);
+        CollectionSnapshot<TKey, TIdentity, TState> snapshot) =>
+        new RangeKeys<TKey, TIdentity, TState>(this.source.Add(key, snapshot), this.offset, this.limit);
 
-    public IOrderedKeys<TKey, TId, TState> Remove(TKey key) =>
-        new RangeKeys<TKey, TId, TState>(this.source.Remove(key), this.offset, this.limit);
+    public IOrderedKeys<TKey, TIdentity, TState> Remove(TKey key) =>
+        new RangeKeys<TKey, TIdentity, TState>(this.source.Remove(key), this.offset, this.limit);
 
     public IEnumerator<TKey> GetEnumerator()
     {
