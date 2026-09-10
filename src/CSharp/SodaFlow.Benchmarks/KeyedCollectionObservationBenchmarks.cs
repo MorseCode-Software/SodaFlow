@@ -42,6 +42,9 @@ public class KeyedCollectionObservationBenchmarks
     private ObservationShape viewScoped =
         ObservationShape.Build(ObservationShape.ObserverCount, ObservationStyle.ViewScoped);
 
+    private ObservationShape viewScopedPerKey =
+        ObservationShape.Build(ObservationShape.ObserverCount, ObservationStyle.ViewScopedPerKey);
+
     private int editCount;
 
     /// <summary>How many items the collection holds.</summary>
@@ -57,6 +60,8 @@ public class KeyedCollectionObservationBenchmarks
         this.onRoot = ObservationShape.Build(this.ItemCount, ObservationStyle.OnRoot);
         this.throughView = ObservationShape.Build(this.ItemCount, ObservationStyle.ThroughView);
         this.viewScoped = ObservationShape.Build(this.ItemCount, ObservationStyle.ViewScoped);
+        this.viewScopedPerKey =
+            ObservationShape.Build(this.ItemCount, ObservationStyle.ViewScopedPerKey);
     }
 
     /// <summary>An edit to a watched item, observed on the collection.</summary>
@@ -74,6 +79,11 @@ public class KeyedCollectionObservationBenchmarks
     [Benchmark(Description = "edit a watched item, observed with membership")]
     public void EditWatchedViewScoped() => this.viewScoped.Replace(this.WatchedKey, this.NextState());
 
+    /// <summary>The same again, with membership held per observer and calmed.</summary>
+    [Benchmark(Description = "edit a watched item, observed with membership per key")]
+    public void EditWatchedViewScopedPerKey() =>
+        this.viewScopedPerKey.Replace(this.WatchedKey, this.NextState());
+
     /// <summary>
     ///     An edit to an item in the view that nobody watches. Observers bound to their own items
     ///     have nothing to do here.
@@ -89,6 +99,15 @@ public class KeyedCollectionObservationBenchmarks
     [Benchmark(Description = "edit an unwatched item, observed with membership")]
     public void EditUnwatchedViewScoped() =>
         this.viewScoped.Replace(ObservationShape.UnobservedKeyInView, this.NextState());
+
+    /// <summary>
+    ///     The edit that decides it. Nobody watches this item and nobody's membership moves, so an
+    ///     observer that asks only about its own key has nothing to do - if the calming works, this
+    ///     costs what observing the collection costs.
+    /// </summary>
+    [Benchmark(Description = "edit an unwatched item, observed with membership per key")]
+    public void EditUnwatchedViewScopedPerKey() =>
+        this.viewScopedPerKey.Replace(ObservationShape.UnobservedKeyInView, this.NextState());
 
     /// <summary>A key an observer is bound to, and which the filter keeps.</summary>
     private int WatchedKey => ObservationShape.ObservedKeys(this.ItemCount)[0];

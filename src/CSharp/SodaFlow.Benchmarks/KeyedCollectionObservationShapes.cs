@@ -31,6 +31,18 @@ internal enum ObservationStyle
     ///     whether to make it.
     /// </remarks>
     ViewScoped,
+
+    /// <summary>
+    ///     The same, with each observer's membership held as its own value and calmed, so that a
+    ///     change to the view which does not move <i>this</i> key propagates no further than the
+    ///     comparison that says so.
+    /// </summary>
+    /// <remarks>
+    ///     <see cref="ViewScoped" /> is the obvious way to write view-scoping and wakes every
+    ///     observer whenever the view reorders. This is the careful way, and the question it answers
+    ///     is how much of that cost was the idea and how much was the writing.
+    /// </remarks>
+    ViewScopedPerKey,
 }
 
 /// <summary>
@@ -194,9 +206,18 @@ internal sealed class ObservationShape
             // this view does not hold. Lifting against KeysCell is the natural way to write it,
             // and it is also why this is worth measuring - KeysCell moves when the view reorders,
             // not only when its membership changes.
-            _ => collection.StateCell(key).Lift<Maybe<ItemState>, IOrderedKeys<int, ItemIdentity, ItemState>, Maybe<ItemState>>(
-                view.KeysCell,
-                (state, keys) => keys.Contains(key) ? state : Maybe<ItemState>.None),
+            ObservationStyle.ViewScoped =>
+                collection.StateCell(key).Lift<Maybe<ItemState>, IOrderedKeys<int, ItemIdentity, ItemState>, Maybe<ItemState>>(
+                    view.KeysCell,
+                    (state, keys) => keys.Contains(key) ? state : Maybe<ItemState>.None),
+
+            // Membership as one boolean per observer. The map still runs when the view's keys move,
+            // because whether this key is among them has to be re-asked - but Calm stops there
+            // unless the answer changed, so the cell below it recomputes only when this key really
+            // enters or leaves.
+            _ => collection.StateCell(key).Lift<Maybe<ItemState>, bool, Maybe<ItemState>>(
+                view.KeysCell.Map(keys => keys.Contains(key)).Calm(),
+                static (state, isMember) => isMember ? state : Maybe<ItemState>.None),
         };
 
         return cell.Updates().ListenStrong(static _ => { });
