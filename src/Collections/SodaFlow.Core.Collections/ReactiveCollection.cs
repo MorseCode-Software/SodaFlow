@@ -128,31 +128,7 @@ public abstract class ReactiveCollection<TKey, TIdentity, TState>
         Func<TIdentity, TKey> keySelector,
         IEnumerable<Item<TIdentity, TState>> initialItems,
         params Stream<CollectionEdit<TKey, TIdentity, TState>>[] editStreams) =>
-        RootCollection<TKey, TIdentity, TState>.CreateImpl(
-            keySelector,
-            initialItems,
-            ImmutableStateMap<TKey, TState>.Empty,
-            editStreams);
-
-    /// <summary>
-    ///     Defines a collection, choosing the storage strategy rather than taking the default hash
-    ///     array mapped trie.
-    /// </summary>
-    /// <param name="keySelector">Derives an item's key from its immutable portion.</param>
-    /// <param name="initialItems">The collection's initial contents.</param>
-    /// <param name="emptyStateMap">The empty map to build the initial contents on.</param>
-    /// <param name="editStreams">Every stream that will ever edit the collection.</param>
-    /// <returns>The collection.</returns>
-    public static ReactiveCollection<TKey, TIdentity, TState> Create(
-        Func<TIdentity, TKey> keySelector,
-        IEnumerable<Item<TIdentity, TState>> initialItems,
-        IStateMap<TKey, TState> emptyStateMap,
-        params Stream<CollectionEdit<TKey, TIdentity, TState>>[] editStreams) =>
-        RootCollection<TKey, TIdentity, TState>.CreateImpl(
-            keySelector,
-            initialItems,
-            emptyStateMap,
-            editStreams);
+        RootCollection<TKey, TIdentity, TState>.CreateImpl(keySelector, initialItems, editStreams);
 
     /// <summary>
     ///     A cell tracking one item's mutable portion as this collection sees it, shaped by the
@@ -296,28 +272,5 @@ public static class ReactiveCollection
         ReactiveCollection<TKey, TIdentity, TState>.Create(
             static identity => identity.Key,
             initialEntries,
-            editStreams);
-
-    /// <summary>
-    ///     The same, choosing the storage strategy rather than taking the default hash array mapped
-    ///     trie.
-    /// </summary>
-    /// <typeparam name="TKey">The type of the keys.</typeparam>
-    /// <typeparam name="TIdentity">The type of the immutable portion of an item.</typeparam>
-    /// <typeparam name="TState">The type of the mutable portion of an item.</typeparam>
-    /// <param name="initialEntries">The collection's initial contents.</param>
-    /// <param name="emptyStateMap">The empty map to build the initial contents on.</param>
-    /// <param name="editStreams">Every stream that will ever edit the collection.</param>
-    /// <returns>The collection.</returns>
-    public static ReactiveCollection<TKey, TIdentity, TState> Create<TKey, TIdentity, TState>(
-        IEnumerable<Item<TIdentity, TState>> initialEntries,
-        IStateMap<TKey, TState> emptyStateMap,
-        params Stream<CollectionEdit<TKey, TIdentity, TState>>[] editStreams)
-        where TKey : notnull
-        where TIdentity : IIdentity<TKey> =>
-        ReactiveCollection<TKey, TIdentity, TState>.Create(
-            static identity => identity.Key,
-            initialEntries,
-            emptyStateMap,
             editStreams);
 }

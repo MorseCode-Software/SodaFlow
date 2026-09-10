@@ -9,17 +9,17 @@ namespace SodaFlow.Collections.Tests;
 
 public sealed class StateMapTests
 {
-    private static string StateOf(IStateMap<int, string> states, int key) =>
+    private static string StateOf(StateMap<int, string> states, int key) =>
         states.TryGetState(key, out string state) ? state : "?";
 
     [Test]
     public async Task WithAppliesUpdatesAndRemovalsAndLeavesTheOriginalAlone()
     {
-        IStateMap<int, string> first = ImmutableStateMap<int, string>.Empty.With(
+        ImmutableStateMap<int, string> first = ImmutableStateMap<int, string>.Empty.With(
             new Dictionary<int, string> { [1] = "one", [2] = "two" },
             []);
 
-        IStateMap<int, string> second = first.With(
+        ImmutableStateMap<int, string> second = first.With(
             new Dictionary<int, string> { [2] = "TWO", [3] = "three" },
             [1]);
 
@@ -36,11 +36,11 @@ public sealed class StateMapTests
     [Test]
     public async Task WithNothingToDoReturnsTheSameInstance()
     {
-        IStateMap<int, string> map = ImmutableStateMap<int, string>.Empty.With(
+        ImmutableStateMap<int, string> map = ImmutableStateMap<int, string>.Empty.With(
             new Dictionary<int, string> { [1] = "one" },
             []);
 
-        IStateMap<int, string> same = map.With(new Dictionary<int, string>(), []);
+        ImmutableStateMap<int, string> same = map.With(new Dictionary<int, string>(), []);
 
         await Assert.That(same).IsSameReferenceAs(map);
     }

@@ -102,7 +102,7 @@ public static class CollectionExtensionMethods
     [Pure]
     [MethodImpl(MethodImplOptions.NoInlining)]
     public static Maybe<TState> Lookup<TKey, TState>(
-        this IStateMap<TKey, TState> states,
+        this StateMap<TKey, TState> states,
         TKey key)
         where TKey : notnull =>
         states.TryGetState(key, out TState state) ? Maybe.Some(state) : Maybe<TState>.None;

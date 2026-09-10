@@ -79,13 +79,11 @@ internal sealed class RootCollection<TKey, TIdentity, TState>
     /// </summary>
     /// <param name="keySelector">Derives an item's key from its immutable portion.</param>
     /// <param name="initialEntries">The collection's initial contents.</param>
-    /// <param name="emptyStateMap">The empty map to build the initial contents on.</param>
     /// <param name="editStreams">Every stream that will ever edit the collection.</param>
     /// <returns>The collection.</returns>
     internal static ReactiveCollection<TKey, TIdentity, TState> CreateImpl(
         Func<TIdentity, TKey> keySelector,
         IEnumerable<Item<TIdentity, TState>> initialEntries,
-        IStateMap<TKey, TState> emptyStateMap,
         params Stream<CollectionEdit<TKey, TIdentity, TState>>[] editStreams)
     {
         ImmutableDictionary<TKey, TIdentity>.Builder identities =
@@ -109,7 +107,7 @@ internal sealed class RootCollection<TKey, TIdentity, TState>
         }
 
         CollectionSnapshot<TKey, TIdentity, TState> initial =
-            new(identities.ToImmutable(), emptyStateMap.With(states, Array.Empty<TKey>()));
+            new(identities.ToImmutable(), ImmutableStateMap<TKey, TState>.Empty.With(states, Array.Empty<TKey>()));
 
         Stream<CollectionEdit<TKey, TIdentity, TState>> editsStream = MergeEdits(editStreams);
 
@@ -251,7 +249,7 @@ internal sealed class RootCollection<TKey, TIdentity, TState>
 
         CollectionSnapshot<TKey, TIdentity, TState> after = new(
             identities,
-            before.States.With(newStates, removed));
+            before.StatesImpl.With(newStates, removed));
 
         return MaybeInternal.Some(
             new ItemChange<TKey, TIdentity, TState>(before, after, newStates, added, removed));

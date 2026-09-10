@@ -402,7 +402,7 @@ the stage and reports a reset carrying no operations, so a view-scoped fold has 
 `change.Keys`, which is Θ(view). The root fold has no such case, which is the price of a total that
 follows a view rather than a store.
 
-Use `Pairs` rather than `Keys` with a lookup for each. Both answer the same question; the second
+Use `StateMap`'s `Pairs` rather than `Keys` with a lookup for each. Both answer the same question; the second
 costs an O(log32 n) search per item and reads the trie in key order rather than in storage order,
 which measured three times slower at every size and made summing one field cost more than sorting
 the whole collection. That was found by writing this benchmark the wrong way first.
@@ -586,7 +586,7 @@ removal arrives as a value containing no value. The core says the same thing as 
 
 ## Storage
 
-`IStateMap<TKey, TState>` is the seam where the storage strategy is chosen.
+`StateMap<TKey, TState>` is the seam where the storage strategy is chosen.
 `ImmutableStateMap` is the default: a hash array mapped trie, about O(log32 n) per update,
 allocating only the path from the root — roughly four nodes per edit at 100k items. Measure
 before replacing it.

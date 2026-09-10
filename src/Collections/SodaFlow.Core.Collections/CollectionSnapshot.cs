@@ -1,4 +1,3 @@
-using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Collections.Immutable;
@@ -30,8 +29,11 @@ public sealed class CollectionSnapshot<TKey, TIdentity, TState>
     /// <summary>The keys this snapshot admits, or <see langword="null" /> for the whole store.</summary>
     private readonly IOrderedKeys<TKey, TIdentity, TState>? visible;
 
-    /// <summary>The state map as stored, before any scoping.</summary>
-    private readonly IStateMap<TKey, TState> statesImpl;
+    /// <summary>
+    ///     The state map as stored, before any scoping. Concrete, because the collection advances
+    ///     it and only this type can be advanced.
+    /// </summary>
+    internal ImmutableStateMap<TKey, TState> StatesImpl { get; }
 
     /// <summary>
     ///     The scoped faces of the two maps, built on first use because the paths that matter -
@@ -44,22 +46,22 @@ public sealed class CollectionSnapshot<TKey, TIdentity, TState>
     /// </remarks>
     private IReadOnlyDictionary<TKey, TIdentity>? scopedIdentities;
 
-    private IStateMap<TKey, TState>? scopedStates;
+    private StateMap<TKey, TState>? scopedStates;
 
     internal CollectionSnapshot(
         ImmutableDictionary<TKey, TIdentity> identities,
-        IStateMap<TKey, TState> states)
+        ImmutableStateMap<TKey, TState> states)
         : this(identities, states, visible: null)
     {
     }
 
     private CollectionSnapshot(
         ImmutableDictionary<TKey, TIdentity> identities,
-        IStateMap<TKey, TState> states,
+        ImmutableStateMap<TKey, TState> states,
         IOrderedKeys<TKey, TIdentity, TState>? visible)
     {
         this.IdentitiesImpl = identities;
-        this.statesImpl = states;
+        this.StatesImpl = states;
         this.visible = visible;
     }
 
@@ -70,7 +72,7 @@ public sealed class CollectionSnapshot<TKey, TIdentity, TState>
     /// </remarks>
     internal CollectionSnapshot<TKey, TIdentity, TState> ScopedTo(
         IOrderedKeys<TKey, TIdentity, TState> keys) =>
-        new(this.IdentitiesImpl, this.statesImpl, keys);
+        new(this.IdentitiesImpl, this.StatesImpl, keys);
 
     /// <summary>Whether a key is one this snapshot admits.</summary>
     private bool IsVisible(TKey key) => this.visible is null || this.visible.Contains(key);
@@ -86,11 +88,11 @@ public sealed class CollectionSnapshot<TKey, TIdentity, TState>
                 new ScopedIdentityMap<TKey, TIdentity, TState>(this.IdentitiesImpl, this.visible);
 
     /// <summary>The mutable portion of every item.</summary>
-    public IStateMap<TKey, TState> States =>
+    public StateMap<TKey, TState> States =>
         this.visible is null
-            ? this.statesImpl
+            ? this.StatesImpl
             : this.scopedStates ??=
-                new ScopedStateMap<TKey, TIdentity, TState>(this.statesImpl, this.visible);
+                new ScopedStateMap<TKey, TIdentity, TState>(this.StatesImpl, this.visible);
 
     /// <summary>
     ///     The identity map as its concrete type, which is what lets the next version of it be
@@ -164,7 +166,7 @@ public sealed class CollectionSnapshot<TKey, TIdentity, TState>
         // Through the assembly's own helper rather than the concrete TryGetValue, which is
         // annotated to leave its output null on false and so warns against a notnull TIdentity.
         bool hasIdentity = this.IdentitiesImpl.TryGet(key, out identity);
-        bool hasState = this.statesImpl.TryGetState(key, out state);
+        bool hasState = this.StatesImpl.TryGetState(key, out state);
 
         // The visibility test comes last so that the root, where it is a null check, pays nothing
         // for it, and so that both outputs are assigned on every path without a suppression.
@@ -232,7 +234,8 @@ internal sealed class ScopedIdentityMap<TKey, TIdentity, TState> : IReadOnlyDict
             ? identity
             : throw new KeyNotFoundException($"The view does not hold the key {key}.");
 
-    public bool ContainsKey(TKey key) => this.visible.Contains(key) && this.inner.ContainsKey(key);
+    public bool ContainsKey(TKey key) =>
+        this.visible.Contains(key) && this.inner.ContainsKey(key);
 
     public bool TryGetValue(TKey key, out TIdentity value) =>
         this.inner.TryGet(key, out value) && this.visible.Contains(key);
@@ -259,31 +262,31 @@ internal sealed class ScopedIdentityMap<TKey, TIdentity, TState> : IReadOnlyDict
 
 /// <summary>The state map of a snapshot, admitting only the keys one view holds.</summary>
 // ReSharper disable once InheritdocConsiderUsage
-internal sealed class ScopedStateMap<TKey, TIdentity, TState> : IStateMap<TKey, TState>
+internal sealed class ScopedStateMap<TKey, TIdentity, TState> : StateMap<TKey, TState>
     where TKey : notnull
     where TIdentity : notnull
 {
-    private readonly IStateMap<TKey, TState> inner;
+    private readonly StateMap<TKey, TState> inner;
     private readonly IOrderedKeys<TKey, TIdentity, TState> visible;
 
     internal ScopedStateMap(
-        IStateMap<TKey, TState> inner,
+        StateMap<TKey, TState> inner,
         IOrderedKeys<TKey, TIdentity, TState> visible)
     {
         this.inner = inner;
         this.visible = visible;
     }
 
-    public int Count => this.visible.Count;
+    public override int Count => this.visible.Count;
 
-    public IEnumerable<TKey> Keys => this.visible;
+    public override IEnumerable<TKey> Keys => this.visible;
 
     /// <inheritdoc />
     /// <remarks>
     ///     A lookup per key, unlike the unscoped map's single walk. See
     ///     <see cref="ScopedIdentityMap{TKey,TIdentity,TState}" /> for why that cannot be avoided.
     /// </remarks>
-    public IEnumerable<KeyValuePair<TKey, TState>> Pairs =>
+    public override IEnumerable<KeyValuePair<TKey, TState>> Pairs =>
         this.visible.Select(key => new KeyValuePair<TKey, TState>(key, this.StateOf(key)));
 
     /// <summary>The state of a key this view holds.</summary>
@@ -294,22 +297,9 @@ internal sealed class ScopedStateMap<TKey, TIdentity, TState> : IStateMap<TKey, 
             : throw new KeyNotFoundException(
                 $"The view holds the key {key} but the state map behind it does not.");
 
-    public bool TryGetState(TKey key, out TState state) =>
+    public override bool TryGetState(TKey key, out TState state) =>
         this.inner.TryGetState(key, out state) && this.visible.Contains(key);
 
-    public bool ContainsKey(TKey key) => this.visible.Contains(key) && this.inner.ContainsKey(key);
-
-    /// <inheritdoc />
-    /// <exception cref="NotSupportedException">Always.</exception>
-    /// <remarks>
-    ///     A view does not produce the next version of anything. The store is edited through the
-    ///     root, and every view sees the result; there is no meaning to be given to advancing a
-    ///     scoped map, so this says so rather than quietly advancing the map underneath it.
-    /// </remarks>
-    public IStateMap<TKey, TState> With(
-        IReadOnlyDictionary<TKey, TState> updated,
-        IReadOnlyCollection<TKey> removed) =>
-        throw new NotSupportedException(
-            "This is one view's slice of the store and cannot produce a next version of it. Edits "
-            + "go to the collection they were declared on, and every view sees the result.");
+    public override bool ContainsKey(TKey key) =>
+        this.visible.Contains(key) && this.inner.ContainsKey(key);
 }

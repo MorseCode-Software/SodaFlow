@@ -46,28 +46,6 @@ let create
     ReactiveCollection<'TKey, 'TIdentity, 'TState>.Create(Func<_, _> keySelector, initialEntries, Array.ofSeq editStreams)
 
 /// <summary>
-///     Defines a collection, choosing the storage strategy rather than taking the default hash
-///     array mapped trie.
-/// </summary>
-/// <param name="keySelector">Derives an item's key from its immutable portion.</param>
-/// <param name="emptyStateMap">The empty map to build the initial contents on.</param>
-/// <param name="initialEntries">The collection's initial contents.</param>
-/// <param name="editStreams">Every stream that will ever edit the collection.</param>
-/// <returns>The collection.</returns>
-[<MethodImpl(MethodImplOptions.NoInlining)>]
-let createWith
-    (keySelector: 'TIdentity -> 'TKey)
-    (emptyStateMap: IStateMap<'TKey, 'TState>)
-    (initialEntries: seq<Item<'TIdentity, 'TState>>)
-    (editStreams: seq<Stream<CollectionEdit<'TKey, 'TIdentity, 'TState>>>)
-    =
-    ReactiveCollection<'TKey, 'TIdentity, 'TState>.Create(
-        Func<_, _> keySelector,
-        initialEntries,
-        emptyStateMap,
-        Array.ofSeq editStreams)
-
-/// <summary>
 ///     Defines a collection whose identities carry their own key, so no selector is needed.
 /// </summary>
 /// <param name="initialEntries">The collection's initial contents.</param>
@@ -79,25 +57,6 @@ let createByIdentity
     (editStreams: seq<Stream<CollectionEdit<'TKey, 'TIdentity, 'TState>>>)
     =
     ReactiveCollection.Create<'TKey, 'TIdentity, 'TState>(initialEntries, Array.ofSeq editStreams)
-
-/// <summary>
-///     The same, choosing the storage strategy rather than taking the default hash array mapped
-///     trie.
-/// </summary>
-/// <param name="emptyStateMap">The empty map to build the initial contents on.</param>
-/// <param name="initialEntries">The collection's initial contents.</param>
-/// <param name="editStreams">Every stream that will ever edit the collection.</param>
-/// <returns>The collection.</returns>
-[<MethodImpl(MethodImplOptions.NoInlining)>]
-let createByIdentityWith
-    (emptyStateMap: IStateMap<'TKey, 'TState>)
-    (initialEntries: seq<Item<'TIdentity, 'TState>>)
-    (editStreams: seq<Stream<CollectionEdit<'TKey, 'TIdentity, 'TState>>>)
-    =
-    ReactiveCollection.Create<'TKey, 'TIdentity, 'TState>(
-        initialEntries,
-        emptyStateMap,
-        Array.ofSeq editStreams)
 
 /// <summary>An item, from its immutable and mutable portions.</summary>
 /// <param name="identity">The immutable portion, which the key is derived from.</param>
@@ -227,7 +186,7 @@ let lookup (key: 'TKey) (snapshot: CollectionSnapshot<'TKey, 'TIdentity, 'TState
 /// <param name="states">The state map to look in.</param>
 /// <returns>The state, or <c>None</c> if the key is absent.</returns>
 [<MethodImpl(MethodImplOptions.NoInlining)>]
-let lookupState (key: 'TKey) (states: IStateMap<'TKey, 'TState>) =
+let lookupState (key: 'TKey) (states: StateMap<'TKey, 'TState>) =
     match states.TryGetState key with
     | true, state -> Some state
     | _ -> None

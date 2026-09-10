@@ -280,20 +280,6 @@ public sealed class ReactiveCollectionTests
     }
 
     [Test]
-    public async Task CreateFromASelfKeyedIdentityTakesAStateMapToo()
-    {
-        StreamSink<CollectionEdit<int, SelfKeyedItemIdentity, ItemState>> edits =
-            Stream.CreateSink<CollectionEdit<int, SelfKeyedItemIdentity, ItemState>>();
-
-        ReactiveCollection<int, SelfKeyedItemIdentity, ItemState> collection = ReactiveCollection.Create(
-            [TestUtil.SelfKeyedItem(1, "one", 10)],
-            ImmutableStateMap<int, ItemState>.Empty,
-            edits);
-
-        await Assert.That(TestUtil.Keys(collection.KeysCell.Sample())).IsEquivalentTo([1]);
-    }
-
-    [Test]
     public async Task AChangeCarriesTheStoreOnBothSidesOfIt()
     {
         StreamSink<CollectionEdit<int, ItemIdentity, ItemState>> edits =
