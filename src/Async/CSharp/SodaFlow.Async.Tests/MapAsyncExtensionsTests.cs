@@ -85,7 +85,7 @@ public sealed class MapAsyncExtensionsTests
         source.Send("hello");
         TestUtil.WaitUntil(() => received.Count == 1);
 
-        await Assert.That(strategy.AdmittedValues).IsEquivalentTo([5], CollectionOrdering.Matching);
+        await Assert.That(strategy.AdmittedValues).IsEquivalentTo(expected: [5], ordering: CollectionOrdering.Matching);
         await Assert.That(received[0]).IsEqualTo("HELLO");
 
         status.Dispose();
@@ -138,7 +138,7 @@ public sealed class MapAsyncExtensionsTests
         source.Send("hello");
         TestUtil.WaitUntil(() => received.Count == 1);
 
-        await Assert.That(strategy.CompletedResults).IsEquivalentTo([5], CollectionOrdering.Matching);
+        await Assert.That(strategy.CompletedResults).IsEquivalentTo(expected: [5], ordering: CollectionOrdering.Matching);
         await Assert.That(received[0]).IsEqualTo("HELLO");
 
         status.Dispose();
@@ -192,7 +192,7 @@ public sealed class MapAsyncExtensionsTests
         source.Send("hello");
         TestUtil.WaitUntil(() => received.Count == 1);
 
-        await Assert.That(strategy.AdmittedValues).IsEquivalentTo([5], CollectionOrdering.Matching);
+        await Assert.That(strategy.AdmittedValues).IsEquivalentTo(expected: [5], ordering: CollectionOrdering.Matching);
         await Assert.That(received[0]).IsSameReferenceAs(dog);
 
         status.Dispose();
@@ -221,7 +221,7 @@ public sealed class MapAsyncExtensionsTests
         source.Send(dog);
         TestUtil.WaitUntil(() => received.Count == 1);
 
-        await Assert.That(strategy.CompletedResults).IsEquivalentTo([4], CollectionOrdering.Matching);
+        await Assert.That(strategy.CompletedResults).IsEquivalentTo(expected: [4], ordering: CollectionOrdering.Matching);
         await Assert.That(received[0]).IsEqualTo("done");
 
         status.Dispose();
@@ -252,8 +252,8 @@ public sealed class MapAsyncExtensionsTests
         source.Send("hello");
         TestUtil.WaitUntil(() => received.Count == 1);
 
-        await Assert.That(strategy.AdmittedValues).IsEquivalentTo([5], CollectionOrdering.Matching);
-        await Assert.That(strategy.CompletedResults).IsEquivalentTo([true], CollectionOrdering.Matching);
+        await Assert.That(strategy.AdmittedValues).IsEquivalentTo(expected: [5], ordering: CollectionOrdering.Matching);
+        await Assert.That(strategy.CompletedResults).IsEquivalentTo(expected: [true], ordering: CollectionOrdering.Matching);
         await Assert.That(received[0]).IsEqualTo("HELLO");
 
         status.Dispose();
@@ -322,7 +322,7 @@ public sealed class MapAsyncExtensionsTests
         TestUtil.WaitUntil(() => received.Count == 1);
 
         Thread.Sleep(100);
-        await Assert.That(received).IsEquivalentTo(["B"], CollectionOrdering.Matching);
+        await Assert.That(received).IsEquivalentTo(expected: ["B"], ordering: CollectionOrdering.Matching);
 
         status.Dispose();
         l.Unlisten();
@@ -382,7 +382,7 @@ public sealed class MapAsyncExtensionsTests
         op.Release(input: "a", result: "A");
 
         TestUtil.WaitUntil(() => received.Count == 1);
-        await Assert.That(received).IsEquivalentTo(["A"], CollectionOrdering.Matching);
+        await Assert.That(received).IsEquivalentTo(expected: ["A"], ordering: CollectionOrdering.Matching);
 
         l.Unlisten();
     }

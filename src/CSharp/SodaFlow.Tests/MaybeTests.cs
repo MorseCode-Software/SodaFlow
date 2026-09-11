@@ -234,7 +234,7 @@ public sealed class MaybeTests
     {
         Maybe<int>[] source = [Maybe.Some(1), Maybe<int>.None, Maybe.Some(1), Maybe<int>.None];
 
-        await Assert.That(source.Distinct()).IsEquivalentTo([Maybe.Some(1), Maybe<int>.None], CollectionOrdering.Matching);
+        await Assert.That(source.Distinct()).IsEquivalentTo(expected: [Maybe.Some(1), Maybe<int>.None], ordering: CollectionOrdering.Matching);
         await Assert.That(source.Contains(Maybe<int>.None)).IsTrue();
 
         Dictionary<Maybe<int>, string> d = new() { { Maybe.Some(1), "one" }, { Maybe<int>.None, "none" } };
@@ -293,12 +293,12 @@ public sealed class MaybeTests
     {
         Maybe<int>[] source = [Maybe.Some(3), Maybe<int>.None, Maybe.Some(1), Maybe<int>.None, Maybe.Some(2)];
 
-        await Assert.That(source.OrderBy(static v => v)).IsEquivalentTo([Maybe<int>.None, Maybe<int>.None, Maybe.Some(1), Maybe.Some(2), Maybe.Some(3)], CollectionOrdering.Matching);
+        await Assert.That(source.OrderBy(static v => v)).IsEquivalentTo(expected: [Maybe<int>.None, Maybe<int>.None, Maybe.Some(1), Maybe.Some(2), Maybe.Some(3)], ordering: CollectionOrdering.Matching);
 
         Maybe<int>[] sorted = (Maybe<int>[])source.Clone();
         Array.Sort(sorted);
 
-        await Assert.That(sorted).IsEquivalentTo([Maybe<int>.None, Maybe<int>.None, Maybe.Some(1), Maybe.Some(2), Maybe.Some(3)], CollectionOrdering.Matching);
+        await Assert.That(sorted).IsEquivalentTo(expected: [Maybe<int>.None, Maybe<int>.None, Maybe.Some(1), Maybe.Some(2), Maybe.Some(3)], ordering: CollectionOrdering.Matching);
     }
 
     [Test]

@@ -58,7 +58,7 @@ public sealed class BindingSchedulerTests
             BindingScheduler.Immediate.Post(() => order.Add(3));
         });
 
-        await Assert.That(order).IsEquivalentTo([1, 2, 3], CollectionOrdering.Matching);
+        await Assert.That(order).IsEquivalentTo(expected: [1, 2, 3], ordering: CollectionOrdering.Matching);
     }
 
     [Test]

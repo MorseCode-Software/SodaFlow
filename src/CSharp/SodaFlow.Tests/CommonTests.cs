@@ -19,7 +19,7 @@ public sealed class CommonTests
         s.Send("a");
         s.Send("b");
         l.Unlisten();
-        await Assert.That(@out).IsEquivalentTo(["a", "b"], CollectionOrdering.Matching);
+        await Assert.That(@out).IsEquivalentTo(expected: ["a", "b"], ordering: CollectionOrdering.Matching);
     }
 
     [Test]
@@ -31,7 +31,7 @@ public sealed class CommonTests
         IListener l = b.ListenStrong(@out.Add);
         a.Send(["a", "b"]);
         l.Unlisten();
-        await Assert.That(@out).IsEquivalentTo(["a", "b"], CollectionOrdering.Matching);
+        await Assert.That(@out).IsEquivalentTo(expected: ["a", "b"], ordering: CollectionOrdering.Matching);
     }
 
     [Test]
@@ -43,12 +43,12 @@ public sealed class CommonTests
         IListener l = b.ListenStrong(@out.Add);
         a.Send("a");
         l.Unlisten();
-        await Assert.That(@out).IsEquivalentTo(["a"], CollectionOrdering.Matching);
+        await Assert.That(@out).IsEquivalentTo(expected: ["a"], ordering: CollectionOrdering.Matching);
         List<string> out2 = [];
         IListener l2 = b.ListenStrong(out2.Add);
         a.Send("b");
         l2.Unlisten();
-        await Assert.That(out2).IsEquivalentTo(["b"], CollectionOrdering.Matching);
+        await Assert.That(out2).IsEquivalentTo(expected: ["b"], ordering: CollectionOrdering.Matching);
     }
 
     [Test]
@@ -61,7 +61,7 @@ public sealed class CommonTests
         IListener l = c.ListenStrong(@out.Add);
         a.Send("a");
         l.Unlisten();
-        await Assert.That(@out).IsEquivalentTo(["a"], CollectionOrdering.Matching);
+        await Assert.That(@out).IsEquivalentTo(expected: ["a"], ordering: CollectionOrdering.Matching);
         List<string> out2 = [];
         IListener l2 = c.ListenStrong(out2.Add);
 
@@ -72,7 +72,7 @@ public sealed class CommonTests
         });
 
         l2.Unlisten();
-        await Assert.That(out2).IsEquivalentTo(["B", "b"], CollectionOrdering.Matching);
+        await Assert.That(out2).IsEquivalentTo(expected: ["B", "b"], ordering: CollectionOrdering.Matching);
     }
 
     [Test]
@@ -85,12 +85,12 @@ public sealed class CommonTests
         IListener l = c.ListenStrong(@out.Add);
         a.Send(0);
         l.Unlisten();
-        await Assert.That(@out).IsEquivalentTo([0], CollectionOrdering.Matching);
+        await Assert.That(@out).IsEquivalentTo(expected: [0], ordering: CollectionOrdering.Matching);
         List<int> out2 = [];
         IListener l2 = c.ListenStrong(out2.Add);
         b.Send(10);
         l2.Unlisten();
-        await Assert.That(out2).IsEquivalentTo([10], CollectionOrdering.Matching);
+        await Assert.That(out2).IsEquivalentTo(expected: [10], ordering: CollectionOrdering.Matching);
         List<int> out3 = [];
         IListener l3 = c.ListenStrong(out3.Add);
 
@@ -101,12 +101,12 @@ public sealed class CommonTests
         });
 
         l3.Unlisten();
-        await Assert.That(out3).IsEquivalentTo([2], CollectionOrdering.Matching);
+        await Assert.That(out3).IsEquivalentTo(expected: [2], ordering: CollectionOrdering.Matching);
         List<int> out4 = [];
         IListener l4 = c.ListenStrong(out4.Add);
         b.Send(30);
         l4.Unlisten();
-        await Assert.That(out4).IsEquivalentTo([30], CollectionOrdering.Matching);
+        await Assert.That(out4).IsEquivalentTo(expected: [30], ordering: CollectionOrdering.Matching);
     }
 
     [Test]
@@ -119,7 +119,7 @@ public sealed class CommonTests
         IListener l = c.ListenStrong(@out.Add);
         b.Send("A");
         l.Unlisten();
-        await Assert.That(@out).IsEquivalentTo(["A"], CollectionOrdering.Matching);
+        await Assert.That(@out).IsEquivalentTo(expected: ["A"], ordering: CollectionOrdering.Matching);
         List<string> out2 = [];
         IListener l2 = c.ListenStrong(out2.Add);
 
@@ -130,7 +130,7 @@ public sealed class CommonTests
         });
 
         l2.Unlisten();
-        await Assert.That(out2).IsEquivalentTo(["b"], CollectionOrdering.Matching);
+        await Assert.That(out2).IsEquivalentTo(expected: ["b"], ordering: CollectionOrdering.Matching);
     }
 
     [Test]

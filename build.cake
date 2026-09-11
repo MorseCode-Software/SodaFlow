@@ -48,8 +48,15 @@ var inspectionDirectory = Directory("./inspection");
 // Where inspectcode keeps its analysis caches, named explicitly so they land somewhere stable
 // rather than in a temporary directory it picks itself. That is what makes them worth keeping
 // between runs: a cold inspection of this solution takes 135 seconds and a warm one 26, and even a
-// cache taken from before an edit comes in at 36 - it revalidates what changed rather than
-// trusting itself, which is the property that makes reusing one safe against a zero threshold.
+// cache taken from before a source edit comes in at 36 - it revalidates the sources that changed
+// rather than trusting itself.
+//
+// It does not revalidate against the settings, which was found by measuring rather than assumed.
+// After code style preferences were added to the rule set, a warm cache reported 11 findings - the
+// rules whose severity had changed - where a cold one reported 2,401. Severities are applied when
+// the report is written; the analysis underneath was still the one made under the old preferences.
+// So the caches live a level down, in a directory named for the settings they were built under. See
+// InspectionCacheFor.
 //
 // Deliberately not inspectionDirectory: that one is cleaned at the start of every inspection,
 // which is exactly what must not happen to this.
@@ -293,49 +300,20 @@ Task("Verify-Inspection-Settings")
 // The whole of an inspection run, shared by the solution under src and by each sample. Extracted
 // rather than duplicated because the reporting is the interesting part - the zero threshold, the
 // listing before the throw - and two copies of that would drift.
+//
+// One report, at every severity, and it is both what fails the build and what the workflows hand to
+// code scanning. Hints fail it too. inspectcode's default threshold is SUGGESTION, which reads like
+// everything it has to say and is not: below it are hints - ReSharper's own, and the .NET analyzers',
+// which inspectcode files as hints - and those are exactly what Rider shows while a suggestion-level
+// gate never sees them. A finding nothing makes anyone act on is one the editor and CI disagree about.
 void RunInspection(FilePath solutionPath, FilePath reportPath, string description)
 {
-    // inspectcode creates this itself, but only after deciding it is usable; making it first keeps
-    // a first run on a clean tree from differing from every run after it.
-    EnsureDirectoryExists(inspectionCacheDirectory);
+    // The cache for the settings in force. inspectcode creates a cache directory itself, but only
+    // after deciding it is usable; making it first keeps a first run on a clean tree from differing
+    // from every run after it.
+    var cacheDirectory = InspectionCacheFor();
 
-    // inspectcode comes from the jetbrains.resharper.globaltools local tool, pinned alongside Cake
-    // in .config/dotnet-tools.json, so the agent inspects with the version a developer does. There
-    // is no Cake alias for it; a process call is the whole of the integration.
-    var arguments = new ProcessArgumentBuilder()
-        .Append("jb")
-        .Append("inspectcode")
-        .AppendQuoted(MakeAbsolute(solutionPath).FullPath)
-        .AppendSwitchQuoted("--output", "=", MakeAbsolute(reportPath).FullPath)
-        .Append("--format=Sarif")
-        // The same settings Rider applies, named explicitly rather than left to inspectcode's
-        // lookup: that lookup pairs a .DotSettings file with a solution of the same name, and the
-        // solutions here are .slnx while the settings are .sln.DotSettings.
-        //
-        // Absolute, and that is load-bearing rather than tidy: inspectcode ignores a relative
-        // --settings path without saying so, and inspects with its own defaults instead.
-        .AppendSwitchQuoted("--settings", "=", MakeAbsolute(inspectionSettings.Path).FullPath)
-        // See the declaration of this directory for what it buys and why reusing it is safe. It is
-        // given here rather than left to inspectcode's own temporary location so that CI can carry
-        // it between runs and a developer keeps one between invocations.
-        .AppendSwitchQuoted("--caches-home", "=", MakeAbsolute(inspectionCacheDirectory).FullPath)
-        // Absolute paths in the SARIF, which is what lets the issues be reported against paths from
-        // the repository root. Left relative, they come out relative to the solution directory -
-        // CSharp/SodaFlow/Foo.cs for a file that lives at src/CSharp/SodaFlow/Foo.cs - because the
-        // reader takes the URI as written rather than rebasing it.
-        .Append("--absolute-paths")
-        // Already built by whatever depends on this. Building it again would double the cost of the
-        // phase for no gain, so tell inspectcode which configuration it is looking at instead of
-        // letting it pick one and build it.
-        .Append("--no-build")
-        .Append($"--properties:Configuration={configuration}")
-        .Append("--verbosity=WARN");
-
-    var exitCode = StartProcess("dotnet", new ProcessSettings { Arguments = arguments });
-    if (exitCode != 0)
-    {
-        throw new Exception($"inspectcode failed (exit {exitCode}).");
-    }
+    InvokeInspectCode(solutionPath, reportPath, cacheDirectory);
 
     var issues = ReadIssues(
             SarifIssuesFromFilePath(reportPath),
@@ -361,10 +339,9 @@ void RunInspection(FilePath solutionPath, FilePath reportPath, string descriptio
         Information("  {0}", Describe(issue));
     }
 
-    // Anything at all fails the build, suggestions included - inspectcode reports SUGGESTION and
-    // above by default, so this gates on everything it is willing to say. The threshold is zero
-    // rather than a count because a count is a number that only ever goes up: it has to be raised
-    // to land the change that raised it, and raising it is easier than fixing the thing.
+    // Anything at all fails the build, hints included. The threshold is zero rather than a count
+    // because a count is a number that only ever goes up: it has to be raised to land the change that
+    // raised it, and raising it is easier than fixing the thing.
     //
     // The way to make an inspection stop failing the build, other than fixing it, is to turn the
     // rule off or lower it in src/SodaFlow.sln.DotSettings, where Rider will then agree with CI.
@@ -375,6 +352,120 @@ void RunInspection(FilePath solutionPath, FilePath reportPath, string descriptio
         throw new Exception(
             $"InspectCode found {issues.Count} issue(s) in {description}, listed above. Fix them, or "
             + "change the rule in src/SodaFlow.sln.DotSettings.");
+    }
+}
+
+// The cache directory for the settings in force: a subdirectory of inspectionCacheDirectory named by
+// a hash of every file that decides what an inspection reports - the rule set, and the .editorconfig
+// files, which carry code style too. A settings change therefore starts cold instead of reusing
+// analysis made under the old settings. Any sibling left by other settings is removed on the way, so
+// a cache carried between CI runs does not keep every version of the rule set it has ever seen, and
+// anything at the top level from before caches were keyed goes with them.
+//
+// build.yml hashes the same files into its cache key. If it did not, a change to one of them would
+// hit that key exactly, restore a cache built under the old settings, and never save the cold cache
+// that replaced it - so every run after would start cold again.
+DirectoryPath InspectionCacheFor()
+{
+    var inputs = new List<FilePath> { inspectionSettings.Path };
+    inputs.AddRange(GetFiles("./.editorconfig"));
+    inputs.AddRange(GetFiles("./src/**/.editorconfig"));
+    inputs.AddRange(GetFiles("./samples/**/.editorconfig"));
+
+    var root = MakeAbsolute(Directory("."));
+    var ordered = inputs
+        .Select(input => MakeAbsolute(input))
+        .GroupBy(input => input.FullPath, StringComparer.Ordinal)
+        .Select(group => group.First())
+        .OrderBy(input => input.FullPath, StringComparer.Ordinal)
+        .ToList();
+
+    string key;
+    using (var sha = System.Security.Cryptography.SHA256.Create())
+    {
+        foreach (var input in ordered)
+        {
+            // The path goes in as well as the content, so moving a file is a change too.
+            var name = System.Text.Encoding.UTF8.GetBytes(root.GetRelativePath(input).FullPath + "\n");
+            sha.TransformBlock(name, 0, name.Length, null, 0);
+
+            var content = System.IO.File.ReadAllBytes(input.FullPath);
+            sha.TransformBlock(content, 0, content.Length, null, 0);
+        }
+
+        sha.TransformFinalBlock(Array.Empty<byte>(), 0, 0);
+        key = BitConverter.ToString(sha.Hash, 0, 8).Replace("-", string.Empty).ToLowerInvariant();
+    }
+
+    EnsureDirectoryExists(inspectionCacheDirectory);
+
+    foreach (var other in GetDirectories("./.inspectcode-cache/*"))
+    {
+        if (!string.Equals(other.GetDirectoryName(), key, StringComparison.Ordinal))
+        {
+            DeleteDirectory(other, new DeleteDirectorySettings { Recursive = true, Force = true });
+        }
+    }
+
+    foreach (var loose in GetFiles("./.inspectcode-cache/*"))
+    {
+        DeleteFile(loose);
+    }
+
+    var current = inspectionCacheDirectory + Directory(key);
+    EnsureDirectoryExists(current);
+
+    Information(
+        "Inspection cache {0}, keyed by {1}.",
+        key,
+        string.Join(", ", ordered.Select(input => root.GetRelativePath(input).FullPath)));
+
+    return current;
+}
+
+// One inspectcode run over one solution, writing SARIF at every severity.
+void InvokeInspectCode(FilePath solutionPath, FilePath outputPath, DirectoryPath cacheDirectory)
+{
+    // inspectcode comes from the jetbrains.resharper.globaltools local tool, pinned alongside Cake
+    // in .config/dotnet-tools.json, so the agent inspects with the version a developer does. There
+    // is no Cake alias for it; a process call is the whole of the integration.
+    var arguments = new ProcessArgumentBuilder()
+        .Append("jb")
+        .Append("inspectcode")
+        .AppendQuoted(MakeAbsolute(solutionPath).FullPath)
+        .AppendSwitchQuoted("--output", "=", MakeAbsolute(outputPath).FullPath)
+        .Append("--format=Sarif")
+        // The same settings Rider applies, named explicitly rather than left to inspectcode's
+        // lookup: that lookup pairs a .DotSettings file with a solution of the same name, and the
+        // solutions here are .slnx while the settings are .sln.DotSettings.
+        //
+        // Absolute, and that is load-bearing rather than tidy: inspectcode ignores a relative
+        // --settings path without saying so, and inspects with its own defaults instead.
+        .AppendSwitchQuoted("--settings", "=", MakeAbsolute(inspectionSettings.Path).FullPath)
+        // See the declaration of inspectionCacheDirectory for what a cache buys, and
+        // InspectionCacheFor for when reusing one is safe. It is given here rather than left to
+        // inspectcode's own temporary location so that CI can carry it between runs and a developer
+        // keeps one between invocations.
+        .AppendSwitchQuoted("--caches-home", "=", MakeAbsolute(cacheDirectory).FullPath)
+        // Absolute paths in the SARIF, which is what lets the issues be reported against paths from
+        // the repository root. Left relative, they come out relative to the solution directory -
+        // CSharp/SodaFlow/Foo.cs for a file that lives at src/CSharp/SodaFlow/Foo.cs - because the
+        // reader takes the URI as written rather than rebasing it.
+        .Append("--absolute-paths")
+        // Already built by whatever depends on this. Building it again would double the cost of the
+        // phase for no gain, so tell inspectcode which configuration it is looking at instead of
+        // letting it pick one and build it.
+        .Append("--no-build")
+        .Append($"--properties:Configuration={configuration}")
+        // Every severity inspectcode has. Its default is SUGGESTION, which leaves hints out. INFO
+        // rather than HINT, so that no tier below hints can be left out without someone deciding to.
+        .Append("--severity=INFO")
+        .Append("--verbosity=WARN");
+
+    var exitCode = StartProcess("dotnet", new ProcessSettings { Arguments = arguments });
+    if (exitCode != 0)
+    {
+        throw new Exception($"inspectcode failed (exit {exitCode}).");
     }
 }
 

@@ -78,7 +78,7 @@ public sealed class BindableValueConcurrencyTests
 
         c.Send(1);
 
-        await Assert.That(observed).IsEquivalentTo([1], CollectionOrdering.Matching).Because("the notification is delivered before Send returns, not left queued");
+        await Assert.That(observed).IsEquivalentTo(expected: [1], ordering: CollectionOrdering.Matching).Because("the notification is delivered before Send returns, not left queued");
     }
 
     // Transactions are serialized process-wide, and that guarantee reaches the binding thread: a
@@ -407,7 +407,7 @@ public sealed class BindableValueConcurrencyTests
 
         await Assert.That(ran).IsEqualTo(3).Because("one refresh queued per update");
 
-        await Assert.That(observed).IsEquivalentTo([3], CollectionOrdering.Matching).Because("but only one notification, because they all sample the same settled cell");
+        await Assert.That(observed).IsEquivalentTo(expected: [3], ordering: CollectionOrdering.Matching).Because("but only one notification, because they all sample the same settled cell");
 
         await Assert.That(b.Value).IsEqualTo(3);
     }
@@ -437,7 +437,7 @@ public sealed class BindableValueConcurrencyTests
 
         await Assert.That(ran).IsEqualTo(3).Because("one delivery queued per update");
 
-        await Assert.That(observed).IsEquivalentTo([1, 2, 3], CollectionOrdering.Matching).Because("each value the cell held is reported, in the order it held them");
+        await Assert.That(observed).IsEquivalentTo(expected: [1, 2, 3], ordering: CollectionOrdering.Matching).Because("each value the cell held is reported, in the order it held them");
 
         await Assert.That(b.Value).IsEqualTo(3).Because("and the last one delivered agrees with the cell");
     }

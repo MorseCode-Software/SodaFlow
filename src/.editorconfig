@@ -1,2 +1,10 @@
 [*.cs]
 dotnet_diagnostic.CA1859.severity = suggestion
+
+# ReSharper already makes both of these calls, under ObjectCreationAsStatement and
+# ReturnValueOfPureMethodIsNotUsed for CA1806, and MemberCanBeMadeStatic for CA1822, and the rule set
+# in SodaFlow.sln.DotSettings governs those. With both analyzers on, every deliberate exception has to
+# be suppressed twice under two names - the self-recreating sweep trigger, the loop constructed only
+# to see it throw, the benchmark method that has to be an instance method.
+dotnet_diagnostic.CA1806.severity = none
+dotnet_diagnostic.CA1822.severity = none

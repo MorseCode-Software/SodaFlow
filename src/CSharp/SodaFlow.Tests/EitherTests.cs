@@ -700,6 +700,6 @@ public sealed class EitherTests
     {
         Either<int, string>[] source = [Either.First(1), Either.Second("a"), Either.First(1), Either.Second("a")];
 
-        await Assert.That(source.Distinct()).IsEquivalentTo(new Either<int, string>[] { Either.First(1), Either.Second("a") }, CollectionOrdering.Matching);
+        await Assert.That(source.Distinct()).IsEquivalentTo(expected: new Either<int, string>[] { Either.First(1), Either.Second("a") }, ordering: CollectionOrdering.Matching);
     }
 }

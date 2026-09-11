@@ -61,6 +61,24 @@
     </ItemGroup>
 
     <!--
+        TUnit packages add package references of their own, from MSBuild files inside the packages:
+        TUnit.Core adds Polyfill to every .NET Framework and netstandard project, and TUnit.Assertions
+        adds TUnit.Assertions.FSharp, at a floating version, to every F# project. Restore evaluates a
+        project with package imports switched off, so the command line and CI never see either one.
+        An IDE evaluates with them on, so an IDE restore writes them into the lock files - and the
+        next locked restore on CI fails NU1004 naming them. That is not theoretical either: Rider did
+        exactly that.
+
+        So neither reference is allowed to exist in any evaluation. This turns the Polyfill one off
+        where it starts. Nothing is lost by it: CI builds never had the package, and TestPolyfills.cs
+        already supplies the two compiler types that generated test code needs on net472. The F# one
+        has no switch, so Directory.Build.targets removes it - the earliest file late enough to see it.
+    -->
+    <PropertyGroup>
+        <EnableTUnitPolyfills>false</EnableTUnitPolyfills>
+    </PropertyGroup>
+
+    <!--
         Package metadata shared by every packable project here. Anything that identifies an
         individual package — PackageId, Title, Product, Description, AssemblyName, RootNamespace —
         stays in that project's own file.

@@ -53,7 +53,7 @@ public sealed class BindableActionTests
         {
             a.Execute(42);
 
-            await Assert.That(fired).IsEquivalentTo([42], CollectionOrdering.Matching);
+            await Assert.That(fired).IsEquivalentTo(expected: [42], ordering: CollectionOrdering.Matching);
         }
     }
 
