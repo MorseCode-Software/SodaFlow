@@ -25,4 +25,13 @@ Cell<int> count = edits.Accum(0, (edit, n) => edit(n));
 Everything else is a function of `count`: the label, and whether Reset is enabled. Because they
 are derived rather than assigned, they cannot disagree with each other.
 
-Run either `SodaFlow.Samples.Counter.Wpf` or `SodaFlow.Samples.Counter.Avalonia`.
+Run any of the three heads, which all bind the same view model:
+
+- `SodaFlow.Samples.Counter.Wpf` — WPF on .NET 10
+- `SodaFlow.Samples.Counter.Wpf.NetFramework` — the same WPF head on .NET Framework 4.8.1
+- `SodaFlow.Samples.Counter.Avalonia` — Avalonia on .NET 10
+
+The view model stays on `netstandard2.0` so that the .NET Framework head can reference it at all.
+That head is a copy of the .NET 10 one with a different title, and running the two side by side is
+the whole demonstration: the graph, the bindables and the commands do not care which runtime is
+underneath them.

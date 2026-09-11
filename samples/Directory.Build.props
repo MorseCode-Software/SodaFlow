@@ -35,17 +35,17 @@
         is a different graph depending on where it was restored, and a lock file cannot describe
         both.
 
-        This changes nothing today. No sample targets .NET Framework: the heads are net10.0-windows
-        and net10.0 (net8.0-windows and net8.0 for Counter), the view models net10.0 (netstandard2.0
-        for Counter), and the condition below is false for all of them, so no package is added and no
-        lock file moves.
+        One project uses it: SodaFlow.Samples.Counter.Wpf.NetFramework, Counter's .NET Framework
+        head, which targets net481 and so restores the package below, and whose lock file names
+        it. Everything else leaves the condition false - the view models are net10.0
+        (netstandard2.0 for Counter) and the other heads net10.0-windows and net10.0 - so no
+        package is added to them.
 
-        It is here for the two ways that could stop being true, both of which are one small edit
-        away and neither of which announces itself. A sample gaining a net472 head would restore
-        differently on a Linux agent than on a Windows one; so would this workflow moving off
-        windows-latest, which is only pinned there because the WPF heads need it. Either would fail
-        the same NU1004 the projects under src/ failed, and finding that out from a red build is
-        worse than carrying four inert lines.
+        What it buys that head is one restore graph wherever it runs. Left to the SDK, the package
+        would appear on a machine without the 4.8.1 targeting pack and not on one with it - which is
+        the difference between a CI agent and a developer's machine as often as between Linux and
+        Windows - and the lock file could describe only one of them. That is the NU1004 the projects
+        under src/ failed.
     -->
     <PropertyGroup>
         <AutomaticallyUseReferenceAssemblyPackages>false</AutomaticallyUseReferenceAssemblyPackages>
