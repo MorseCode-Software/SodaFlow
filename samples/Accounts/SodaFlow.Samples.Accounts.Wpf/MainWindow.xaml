@@ -4,7 +4,7 @@
         xmlns:viewModels="clr-namespace:SodaFlow.Samples.Accounts.ViewModels;assembly=SodaFlow.Samples.Accounts.ViewModels"
         x:ClassModifier="internal"
         Title="SodaFlow Accounts (WPF)"
-        Width="460"
+        Width="560"
         SizeToContent="Height"
         WindowStartupLocation="CenterScreen"
         d:DataContext="{d:DesignInstance Type=viewModels:IAccountsViewModel}"
@@ -49,6 +49,7 @@
                         <ColumnDefinition Width="70"/>
                         <ColumnDefinition Width="*"/>
                         <ColumnDefinition Width="90"/>
+                        <ColumnDefinition Width="100"/>
                     </Grid.ColumnDefinitions>
                     <Button Grid.Column="0"
                             Content="{Binding NumberHeader.Value}"
@@ -74,25 +75,53 @@
                         BorderThickness="0,0,0,1"
                         Margin="0,0,0,6"/>
 
+                <!-- A frozen row greys out and says so where its button would be. That is only
+                     what the row looks like: the view model gates the deposit itself, so the
+                     button being absent is not what stops a frozen account being paid into. -->
                 <ItemsControl ItemsSource="{Binding Rows.Value}">
                     <ItemsControl.ItemTemplate>
                         <DataTemplate DataType="{x:Type viewModels:IAccountRowViewModel}">
-                            <Grid Margin="0,3">
+                            <Grid x:Name="Row" Margin="0,2">
                                 <Grid.ColumnDefinitions>
                                     <ColumnDefinition Width="70"/>
                                     <ColumnDefinition Width="*"/>
                                     <ColumnDefinition Width="90"/>
+                                    <ColumnDefinition Width="100"/>
                                 </Grid.ColumnDefinitions>
                                 <TextBlock Grid.Column="0"
                                            Text="{Binding Number.Value}"
-                                           Foreground="Gray"/>
+                                           Foreground="Gray"
+                                           VerticalAlignment="Center"/>
                                 <TextBlock Grid.Column="1"
-                                           Text="{Binding Holder.Value}"/>
+                                           Text="{Binding Holder.Value}"
+                                           VerticalAlignment="Center"/>
                                 <TextBlock Grid.Column="2"
                                            Text="{Binding Balance.Value}"
                                            HorizontalAlignment="Right"
+                                           VerticalAlignment="Center"
                                            FontFamily="Consolas"/>
+                                <Button x:Name="Deposit"
+                                        Grid.Column="3"
+                                        Content="Pay $100"
+                                        Command="{Binding Deposit}"
+                                        Padding="6,1"
+                                        Margin="12,0,0,0"/>
+                                <TextBlock x:Name="Frozen"
+                                           Grid.Column="3"
+                                           Text="Frozen"
+                                           Visibility="Collapsed"
+                                           HorizontalAlignment="Center"
+                                           VerticalAlignment="Center"
+                                           Margin="12,0,0,0"/>
                             </Grid>
+                            <DataTemplate.Triggers>
+                                <DataTrigger Binding="{Binding IsFrozen.Value}" Value="True">
+                                    <Setter TargetName="Row" Property="TextElement.Foreground" Value="Gray"/>
+                                    <Setter TargetName="Row" Property="TextElement.FontStyle" Value="Italic"/>
+                                    <Setter TargetName="Deposit" Property="Visibility" Value="Collapsed"/>
+                                    <Setter TargetName="Frozen" Property="Visibility" Value="Visible"/>
+                                </DataTrigger>
+                            </DataTemplate.Triggers>
                         </DataTemplate>
                     </ItemsControl.ItemTemplate>
                 </ItemsControl>
@@ -117,19 +146,9 @@
                        VerticalAlignment="Center"/>
         </Grid>
 
-        <Grid>
-            <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="*"/>
-                <ColumnDefinition Width="*"/>
-            </Grid.ColumnDefinitions>
-            <Button Grid.Column="0"
-                    Content="Pay $100 into the top account"
-                    Command="{Binding DepositIntoTopOfPage}"/>
-            <Button Grid.Column="1"
-                    Content="Show or hide frozen"
-                    Margin="0"
-                    Command="{Binding ToggleFrozen}"/>
-        </Grid>
+        <Button Content="Show or hide frozen"
+                Margin="0"
+                Command="{Binding ToggleFrozen}"/>
 
     </StackPanel>
 

@@ -19,9 +19,9 @@ namespace SodaFlow.Samples.Accounts.ViewModels;
 ///         that changes as a whole.
 ///     </para>
 ///     <para>
-///         <see cref="IDisposable" /> is on the contract because those cells are the row's to
-///         release, and the projection that built it only ever sees it through this interface -
-///         so eviction can dispose a row without knowing which class it is.
+///         <see cref="IDisposable" /> is on the contract because those cells and the deposit
+///         command are the row's to release, and that is as true of a row held through this
+///         interface as of one held through its class.
 ///     </para>
 /// </remarks>
 // ReSharper disable once InheritdocConsiderUsage
@@ -35,6 +35,17 @@ public interface IAccountRowViewModel : IDisposable
 
     /// <summary>The balance, which is the part that moves.</summary>
     IOneWayBindableValue<string> Balance { get; }
+
+    /// <summary>Whether the account is frozen, which the views show by greying the row out.</summary>
+    IOneWayBindableValue<bool> IsFrozen { get; }
+
+    /// <summary>Pays a hundred dollars into this row's account, and is disabled if it is frozen.</summary>
+    /// <remarks>
+    ///     A view may hide this for a frozen account, but hiding it is presentation rather than the
+    ///     rule. The view model gates the deposit itself, so a frozen account cannot be paid into
+    ///     however the command is reached.
+    /// </remarks>
+    IBindableAction Deposit { get; }
 }
 
 /// <summary>What the views bind to.</summary>
@@ -88,13 +99,6 @@ public interface IAccountsViewModel : IDisposable
 
     /// <summary>Moves it back, and is disabled on the first.</summary>
     IBindableAction PreviousPage { get; }
-
-    /// <summary>Pays a hundred dollars into the account at the top of the current page.</summary>
-    /// <remarks>
-    ///     Deliberately edits one account rather than many: the point on screen is that one row
-    ///     changes and the rest of the page sits still, even though the sort could have moved it.
-    /// </remarks>
-    IBindableAction DepositIntoTopOfPage { get; }
 
     /// <summary>Shows or hides frozen accounts, which is a criteria change and rebuilds the view.</summary>
     IBindableAction ToggleFrozen { get; }
