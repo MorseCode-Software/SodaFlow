@@ -174,6 +174,13 @@ public sealed class AccountsViewModel : IAccountsViewModel
     /// <summary>How every amount on screen is written.</summary>
     private static readonly NumberFormatInfo UsDollars = CultureInfo.GetCultureInfo("en-US").NumberFormat;
 
+    /// <summary>What a drain does to one account.</summary>
+    /// <remarks>
+    ///     One delegate shared by every update in a drain. A method group would allocate a fresh
+    ///     one for each of the thousands of accounts, at the language version this sample builds at.
+    /// </remarks>
+    private static readonly Func<AccountState, AccountState> Emptied = static state => state.WithBalance(0);
+
     private readonly IReadOnlyList<IDisposable> disposables;
 
     private AccountsViewModel(
@@ -187,6 +194,7 @@ public sealed class AccountsViewModel : IAccountsViewModel
         IBindableAction nextPage,
         IBindableAction previousPage,
         ITwoWayBindableValue<bool> showFrozen,
+        IBindableAction drainFrozenAccounts,
         IBindableAction sortByNumber,
         IBindableAction sortByHolder,
         IBindableAction sortByBalance,
@@ -202,6 +210,7 @@ public sealed class AccountsViewModel : IAccountsViewModel
         this.NextPage = nextPage;
         this.PreviousPage = previousPage;
         this.ShowFrozen = showFrozen;
+        this.DrainFrozenAccounts = drainFrozenAccounts;
         this.SortByNumber = sortByNumber;
         this.SortByHolder = sortByHolder;
         this.SortByBalance = sortByBalance;
@@ -211,8 +220,8 @@ public sealed class AccountsViewModel : IAccountsViewModel
         this.disposables = new IDisposable[]
         {
             rows, total, page, filterDescription, numberHeader, holderHeader, balanceHeader,
-            nextPage, previousPage, showFrozen, sortByNumber, sortByHolder, sortByBalance,
-            projectedRows,
+            nextPage, previousPage, showFrozen, drainFrozenAccounts, sortByNumber, sortByHolder,
+            sortByBalance, projectedRows,
         };
     }
 
@@ -247,6 +256,9 @@ public sealed class AccountsViewModel : IAccountsViewModel
     public ITwoWayBindableValue<bool> ShowFrozen { get; }
 
     /// <inheritdoc />
+    public IBindableAction DrainFrozenAccounts { get; }
+
+    /// <inheritdoc />
     public IBindableAction SortByNumber { get; }
 
     /// <inheritdoc />
@@ -274,6 +286,7 @@ public sealed class AccountsViewModel : IAccountsViewModel
         {
             StreamSink<Unit> nextPage = Stream.CreateSink<Unit>();
             StreamSink<Unit> previousPage = Stream.CreateSink<Unit>();
+            StreamSink<Unit> drainFrozenAccounts = Stream.CreateSink<Unit>();
             StreamSink<Unit> sortByNumber = Stream.CreateSink<Unit>();
             StreamSink<Unit> sortByHolder = Stream.CreateSink<Unit>();
             StreamSink<Unit> sortByBalance = Stream.CreateSink<Unit>();
@@ -301,9 +314,32 @@ public sealed class AccountsViewModel : IAccountsViewModel
             StreamLoop<CollectionEdit<int, AccountIdentity, AccountState>> deposits =
                 Stream.CreateLoop<CollectionEdit<int, AccountIdentity, AccountState>>();
 
+            // The drain is the same shape of cycle: which accounts it empties is read from the
+            // collection it empties them in.
+            StreamLoop<CollectionEdit<int, AccountIdentity, AccountState>> drains =
+                Stream.CreateLoop<CollectionEdit<int, AccountIdentity, AccountState>>();
+
             // No key selector: AccountIdentity implements IIdentity<int>.
             ReactiveCollection<int, AccountIdentity, AccountState> accounts =
-                ReactiveCollection.Create(AccountSeed.Items, deposits);
+                ReactiveCollection.Create(AccountSeed.Items, deposits, drains);
+
+            // Every frozen account with something left in it, across the whole collection rather
+            // than the page or the filter, because a drain empties accounts nobody is looking at.
+            // A second view over the same accounts, kept current alongside the first: the
+            // predicate reads only the state it is handed, so an edit to one account costs this
+            // view one test of that account.
+            ReactiveCollection<int, AccountIdentity, AccountState> drainable =
+                accounts.Filter(static (_, state) => state.IsFrozen && state.Balance != 0);
+
+            Cell<bool> canDrain = drainable.KeysCell.Map(static keys => keys.Count > 0);
+
+            // Gated in the graph as well as disabled on the command, for the reason a row's
+            // deposit is. The keys are read in the same transaction the edit lands in, so what is
+            // emptied is exactly what was frozen and non-empty at the moment of the click.
+            drains.Loop(
+                drainFrozenAccounts
+                    .Gate(canDrain)
+                    .Snapshot(drainable.KeysCell, static (_, keys) => Drain(keys)));
 
             // The sort takes its order from a cell, so clicking a header re-files this stage
             // rather than building a second chain and choosing between the two. The three orders
@@ -391,11 +427,36 @@ public sealed class AccountsViewModel : IAccountsViewModel
                     offset.Lift(filtered.KeysCell, static (at, keys) => at + PageSize < keys.Count)),
                 previousPage: previousPage.ToBindableAction(offset.Map(static at => at > 0)),
                 showFrozen: showFrozen.ToTwoWay(),
+                drainFrozenAccounts: drainFrozenAccounts.ToBindableAction(canDrain),
                 sortByNumber: sortByNumber.ToBindableAction(),
                 sortByHolder: sortByHolder.ToBindableAction(),
                 sortByBalance: sortByBalance.ToBindableAction(),
                 projectedRows: rows);
         });
+
+    /// <summary>One edit emptying every one of these accounts.</summary>
+    /// <remarks>
+    ///     One edit rather than one per account, so however many accounts are drained the
+    ///     collection moves once: every view re-files once, and the total folds one delta.
+    /// </remarks>
+    private static CollectionEdit<int, AccountIdentity, AccountState> Drain(IReadOnlyList<int> keys)
+    {
+        Dictionary<int, Func<AccountState, AccountState>> updates = new(keys.Count);
+
+        // Indexed rather than enumerated, because keys arrives interface-typed and a foreach over
+        // one boxes an enumerator.
+        // ReSharper disable once ForCanBeConvertedToForeach
+        for (int index = 0; index < keys.Count; index++)
+        {
+            updates.Add(keys[index], Emptied);
+        }
+
+        return new CollectionEdit<int, AccountIdentity, AccountState>(
+            updates: updates,
+            adds: Array.Empty<Item<AccountIdentity, AccountState>>(),
+            removes: Array.Empty<int>());
+    }
+
 
     /// <summary>The row for one account, built from the page it is showing on.</summary>
     /// <remarks>

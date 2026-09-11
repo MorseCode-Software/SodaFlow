@@ -121,10 +121,21 @@
         </Grid>
 
         <!-- The label is given as both the on and off content, so it sits beside the switch and
-             reads the same either way; the list's own caption above says which is in force. -->
-        <ToggleSwitch IsChecked="{Binding ShowFrozen.Value}"
-                      OnContent="Show frozen accounts"
-                      OffContent="Show frozen accounts"/>
+             reads the same either way; the list's own caption above says which is in force.
+
+             The drain empties every frozen account whether or not they are showing, and is
+             disabled once none has anything left. -->
+        <Grid ColumnDefinitions="*,Auto">
+            <ToggleSwitch Grid.Column="0"
+                          IsChecked="{Binding ShowFrozen.Value}"
+                          OnContent="Show frozen accounts"
+                          OffContent="Show frozen accounts"
+                          VerticalAlignment="Center"/>
+            <Button Grid.Column="1"
+                    Content="Drain frozen accounts"
+                    Command="{Binding DrainFrozenAccounts}"
+                    VerticalAlignment="Center"/>
+        </Grid>
 
     </StackPanel>
 

@@ -106,6 +106,17 @@ public interface IAccountsViewModel : IDisposable
     /// </summary>
     ITwoWayBindableValue<bool> ShowFrozen { get; }
 
+    /// <summary>
+    ///     Sets every frozen account's balance to zero, whether or not frozen accounts are showing,
+    ///     and is disabled once there is nothing left to drain.
+    /// </summary>
+    /// <remarks>
+    ///     The other end from a deposit: one click still, but a quarter of the collection edited in
+    ///     one transaction rather than one account. A row on the page moves only if its account was
+    ///     one of them.
+    /// </remarks>
+    IBindableAction DrainFrozenAccounts { get; }
+
     /// <summary>Sorts by account number, or reverses it if the list is sorted by it already.</summary>
     /// <remarks>
     ///     Sorting by an account number orders on the identity half of an account, which no edit

@@ -49,6 +49,14 @@ binds two-way to a cell sink rather than firing a command, because a switch hold
 only what the row looks like: the view model gates the deposit on the account not being frozen, so
 nothing that reaches the command — a stale binding, or code calling `Execute` — can pay into one.
 
+**Drain the frozen accounts.** Every frozen account's balance goes to zero, about twenty-five
+thousand of them, whether or not they are showing. It is the other end from a deposit: one edit
+carrying twenty-five thousand updates, applied in one transaction, so every view re-files once and
+the total folds one delta. That is the costly one — a few hundred milliseconds — where a deposit is
+a fraction of one. Which accounts to drain is itself a view, a second filter over the same
+collection holding the frozen accounts with money left in them, and the button is enabled only while
+that view has anything in it.
+
 **The total.** Over every account rather than the page, and folded from what changed rather than
 recomputed — the change carries the store on both sides, so a delta needs nothing kept alongside.
 

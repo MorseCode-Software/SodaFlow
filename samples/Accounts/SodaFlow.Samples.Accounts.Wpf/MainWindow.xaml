@@ -186,11 +186,24 @@
                        VerticalAlignment="Center"/>
         </Grid>
 
-        <CheckBox Style="{StaticResource ToggleSwitch}"
-                  Content="Show frozen accounts"
-                  IsChecked="{Binding ShowFrozen.Value, Mode=TwoWay}"
-                  HorizontalAlignment="Left"
-                  Margin="0,4,0,0"/>
+        <!-- The drain empties every frozen account whether or not they are showing, and is
+             disabled once none has anything left. -->
+        <Grid Margin="0,4,0,0">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="Auto"/>
+            </Grid.ColumnDefinitions>
+            <CheckBox Grid.Column="0"
+                      Style="{StaticResource ToggleSwitch}"
+                      Content="Show frozen accounts"
+                      IsChecked="{Binding ShowFrozen.Value, Mode=TwoWay}"
+                      HorizontalAlignment="Left"
+                      VerticalAlignment="Center"/>
+            <Button Grid.Column="1"
+                    Content="Drain frozen accounts"
+                    Command="{Binding DrainFrozenAccounts}"
+                    Margin="0"/>
+        </Grid>
 
     </StackPanel>
 
