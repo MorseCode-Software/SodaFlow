@@ -49,7 +49,7 @@ public sealed class MaybeExtensionMethodsTests
 
         IEnumerable<int> result = m.WhereSome();
 
-        await Assert.That(result).IsEquivalentTo(Array.Empty<int>(), CollectionOrdering.Matching);
+        await Assert.That(result).IsEquivalentTo(expected: Array.Empty<int>(), ordering: CollectionOrdering.Matching);
     }
 
     [Test]
@@ -59,7 +59,7 @@ public sealed class MaybeExtensionMethodsTests
 
         IEnumerable<int> result = m.WhereSome();
 
-        await Assert.That(result).IsEquivalentTo([2, 5, 7], CollectionOrdering.Matching);
+        await Assert.That(result).IsEquivalentTo(expected: [2, 5, 7], ordering: CollectionOrdering.Matching);
     }
 
     [Test]
@@ -69,7 +69,7 @@ public sealed class MaybeExtensionMethodsTests
 
         IEnumerable<int> result = m.WhereSome();
 
-        await Assert.That(result).IsEquivalentTo([3, 2, 5, 4, 7], CollectionOrdering.Matching);
+        await Assert.That(result).IsEquivalentTo(expected: [3, 2, 5, 4, 7], ordering: CollectionOrdering.Matching);
     }
 
     [Test]
@@ -101,14 +101,14 @@ public sealed class MaybeExtensionMethodsTests
 
         int[]? r = result.Match<IEnumerable<int>?>(onSome: static v => v, onNone: static () => null)?.ToArray();
         await Assert.That(r).IsNotNull();
-        await Assert.That(r).IsEquivalentTo([3, 2, 5, 4, 7], CollectionOrdering.Matching);
+        await Assert.That(r).IsEquivalentTo(expected: [3, 2, 5, 4, 7], ordering: CollectionOrdering.Matching);
     }
 
     [Test]
     public async Task TestWhereSomeEmptyAndNullSource()
     {
-        await Assert.That(Array.Empty<Maybe<int>>().WhereSome()).IsEquivalentTo(Array.Empty<int>(), CollectionOrdering.Matching);
-        await Assert.That(((IEnumerable<Maybe<int>>?)null).WhereSome()).IsEquivalentTo(Array.Empty<int>(), CollectionOrdering.Matching);
+        await Assert.That(Array.Empty<Maybe<int>>().WhereSome()).IsEquivalentTo(expected: Array.Empty<int>(), ordering: CollectionOrdering.Matching);
+        await Assert.That(((IEnumerable<Maybe<int>>?)null).WhereSome()).IsEquivalentTo(expected: Array.Empty<int>(), ordering: CollectionOrdering.Matching);
     }
 
     [Test]
@@ -116,7 +116,7 @@ public sealed class MaybeExtensionMethodsTests
     {
         Maybe<int>[] m = [Maybe.Some(0), Maybe<int>.None, Maybe.Some(0)];
 
-        await Assert.That(m.WhereSome()).IsEquivalentTo([0, 0], CollectionOrdering.Matching);
+        await Assert.That(m.WhereSome()).IsEquivalentTo(expected: [0, 0], ordering: CollectionOrdering.Matching);
     }
 
     [Test]
@@ -126,7 +126,7 @@ public sealed class MaybeExtensionMethodsTests
 
         Maybe<IEnumerable<int>> result = source.AllSomeOrNone(static s => s.TryParseInt32());
 
-        await Assert.That(result.Match<IEnumerable<int>?>(onSome: static v => v, onNone: static () => null)).IsEquivalentTo([1, 2, 3], CollectionOrdering.Matching);
+        await Assert.That(result.Match<IEnumerable<int>?>(onSome: static v => v, onNone: static () => null)).IsEquivalentTo(expected: [1, 2, 3], ordering: CollectionOrdering.Matching);
     }
 
     [Test]
@@ -144,14 +144,14 @@ public sealed class MaybeExtensionMethodsTests
     {
         Maybe<IEnumerable<int>> result = Array.Empty<string>().AllSomeOrNone(static s => s.TryParseInt32());
 
-        await Assert.That(result.Match<IEnumerable<int>?>(onSome: static v => v, onNone: static () => null)).IsEquivalentTo(Array.Empty<int>(), CollectionOrdering.Matching);
+        await Assert.That(result.Match<IEnumerable<int>?>(onSome: static v => v, onNone: static () => null)).IsEquivalentTo(expected: Array.Empty<int>(), ordering: CollectionOrdering.Matching);
     }
 
     [Test]
     public async Task TestToEnumerable()
     {
-        await Assert.That(Maybe.Some(2).ToEnumerable()).IsEquivalentTo([2], CollectionOrdering.Matching);
-        await Assert.That(Maybe<int>.None.ToEnumerable()).IsEquivalentTo(Array.Empty<int>(), CollectionOrdering.Matching);
+        await Assert.That(Maybe.Some(2).ToEnumerable()).IsEquivalentTo(expected: [2], ordering: CollectionOrdering.Matching);
+        await Assert.That(Maybe<int>.None.ToEnumerable()).IsEquivalentTo(expected: Array.Empty<int>(), ordering: CollectionOrdering.Matching);
     }
 
     [Test]
@@ -161,7 +161,7 @@ public sealed class MaybeExtensionMethodsTests
 
         IEnumerable<int> result = source.SelectMany(static s => s.TryParseInt32().ToEnumerable());
 
-        await Assert.That(result).IsEquivalentTo([1, 3], CollectionOrdering.Matching);
+        await Assert.That(result).IsEquivalentTo(expected: [1, 3], ordering: CollectionOrdering.Matching);
     }
 
     [Test]

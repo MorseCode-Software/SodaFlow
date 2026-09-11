@@ -42,7 +42,7 @@ public sealed class AsyncConcurrencyStrategyFactoryTests
         TestUtil.WaitUntil(() => received.Count == 2);
 
         // Completion order, not submission order.
-        await Assert.That(received).IsEquivalentTo(["B", "A"], CollectionOrdering.Matching);
+        await Assert.That(received).IsEquivalentTo(expected: ["B", "A"], ordering: CollectionOrdering.Matching);
 
         status.Dispose();
         l.Unlisten();
@@ -89,7 +89,7 @@ public sealed class AsyncConcurrencyStrategyFactoryTests
         TestUtil.WaitUntil(() => received.Count == 4);
 
         // Completion order, not submission order.
-        await Assert.That(received).IsEquivalentTo(new object[] { d, "C", b, "A" }, CollectionOrdering.Matching);
+        await Assert.That(received).IsEquivalentTo(expected: new object[] { d, "C", b, "A" }, ordering: CollectionOrdering.Matching);
 
         status.Dispose();
         l.Unlisten();
@@ -133,7 +133,7 @@ public sealed class AsyncConcurrencyStrategyFactoryTests
         op.Release(input: "c", result: "C");
         TestUtil.WaitUntil(() => received.Count == 3);
 
-        await Assert.That(received).IsEquivalentTo(["A", "B", "C"], CollectionOrdering.Matching);
+        await Assert.That(received).IsEquivalentTo(expected: ["A", "B", "C"], ordering: CollectionOrdering.Matching);
 
         status.Dispose();
         l.Unlisten();
@@ -216,7 +216,7 @@ public sealed class AsyncConcurrencyStrategyFactoryTests
         // Give object "a" a fair chance to have published if the supersede logic were broken.
         Thread.Sleep(100);
 
-        await Assert.That(received).IsEquivalentTo(["B"], CollectionOrdering.Matching);
+        await Assert.That(received).IsEquivalentTo(expected: ["B"], ordering: CollectionOrdering.Matching);
 
         status.Dispose();
         l.Unlisten();

@@ -41,7 +41,7 @@ public sealed class AsyncConcurrencyStrategyTests
         TestUtil.WaitUntil(() => received.Count == 2);
 
         // Completion order, not submission order.
-        await Assert.That(received).IsEquivalentTo(["B", "A"], CollectionOrdering.Matching);
+        await Assert.That(received).IsEquivalentTo(expected: ["B", "A"], ordering: CollectionOrdering.Matching);
 
         status.Dispose();
         l.Unlisten();
@@ -86,7 +86,7 @@ public sealed class AsyncConcurrencyStrategyTests
         TestUtil.WaitUntil(() => received.Count == 4);
 
         // Completion order, not submission order.
-        await Assert.That(received).IsEquivalentTo(new object[] { d, "C", b, "A" }, CollectionOrdering.Matching);
+        await Assert.That(received).IsEquivalentTo(expected: new object[] { d, "C", b, "A" }, ordering: CollectionOrdering.Matching);
 
         status.Dispose();
         l.Unlisten();
@@ -121,7 +121,7 @@ public sealed class AsyncConcurrencyStrategyTests
         op.Release(input: "b", result: "B");
 
         TestUtil.WaitUntil(() => received.Count == 2);
-        await Assert.That(received).IsEquivalentTo(["A", "B"], CollectionOrdering.Matching);
+        await Assert.That(received).IsEquivalentTo(expected: ["A", "B"], ordering: CollectionOrdering.Matching);
 
         status.Dispose();
         l.Unlisten();
@@ -194,7 +194,7 @@ public sealed class AsyncConcurrencyStrategyTests
         TestUtil.WaitUntil(() => received.Count == 1);
 
         Thread.Sleep(100);
-        await Assert.That(received).IsEquivalentTo(["B"], CollectionOrdering.Matching);
+        await Assert.That(received).IsEquivalentTo(expected: ["B"], ordering: CollectionOrdering.Matching);
 
         status.Dispose();
         l.Unlisten();

@@ -38,7 +38,7 @@ public sealed class GarbageCollectionTests
 
         WeakReference mapped = CreateMappedStreamAndUnlisten(s: s, @out: @out);
 
-        await Assert.That(@out).IsEquivalentTo(["3"], CollectionOrdering.Matching).Because("the mapped stream should have fired while it was listening");
+        await Assert.That(@out).IsEquivalentTo(expected: ["3"], ordering: CollectionOrdering.Matching).Because("the mapped stream should have fired while it was listening");
 
         Collect();
 
@@ -103,7 +103,7 @@ public sealed class GarbageCollectionTests
 
         s.Send(5);
 
-        await Assert.That(@out).IsEquivalentTo([5], CollectionOrdering.Matching).Because("a rooted listener should still be firing");
+        await Assert.That(@out).IsEquivalentTo(expected: [5], ordering: CollectionOrdering.Matching).Because("a rooted listener should still be firing");
     }
 
     [Test]

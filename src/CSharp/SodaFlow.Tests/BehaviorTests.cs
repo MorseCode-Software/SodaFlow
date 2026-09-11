@@ -22,7 +22,7 @@ public sealed class BehaviorTests
         s.Send(2);
         s.Send(9);
         l.Unlisten();
-        await Assert.That(@out).IsEquivalentTo([0, 2, 9], CollectionOrdering.Matching);
+        await Assert.That(@out).IsEquivalentTo(expected: [0, 2, 9], ordering: CollectionOrdering.Matching);
     }
 
     [Test]
@@ -35,7 +35,7 @@ public sealed class BehaviorTests
         c.Send(null);
         c.Send("1");
         l.Unlisten();
-        await Assert.That(@out).IsEquivalentTo([string.Empty, "0", null, "1"], CollectionOrdering.Matching);
+        await Assert.That(@out).IsEquivalentTo(expected: [string.Empty, "0", null, "1"], ordering: CollectionOrdering.Matching);
     }
 
     [Test]
@@ -48,7 +48,7 @@ public sealed class BehaviorTests
         s.Send(2);
         s.Send(9);
         l.Unlisten();
-        await Assert.That(@out).IsEquivalentTo([2, 9], CollectionOrdering.Matching);
+        await Assert.That(@out).IsEquivalentTo(expected: [2, 9], ordering: CollectionOrdering.Matching);
     }
 
     [Test]
@@ -65,7 +65,7 @@ public sealed class BehaviorTests
         b.Send(1);
         trigger.Send(300L);
         l.Unlisten();
-        await Assert.That(@out).IsEquivalentTo(["100 0", "200 2", "300 1"], CollectionOrdering.Matching);
+        await Assert.That(@out).IsEquivalentTo(expected: ["100 0", "200 2", "300 1"], ordering: CollectionOrdering.Matching);
     }
 
     [Test]
@@ -77,7 +77,7 @@ public sealed class BehaviorTests
         c.Send(2);
         c.Send(7);
         l.Unlisten();
-        await Assert.That(@out).IsEquivalentTo([9, 2, 7], CollectionOrdering.Matching);
+        await Assert.That(@out).IsEquivalentTo(expected: [9, 2, 7], ordering: CollectionOrdering.Matching);
     }
 
     [Test]
@@ -89,7 +89,7 @@ public sealed class BehaviorTests
         c.Send(2);
         c.Send(7);
         l.Unlisten();
-        await Assert.That(@out).IsEquivalentTo([9], CollectionOrdering.Matching);
+        await Assert.That(@out).IsEquivalentTo(expected: [9], ordering: CollectionOrdering.Matching);
     }
 
     [Test]
@@ -101,7 +101,7 @@ public sealed class BehaviorTests
         c.Send(2);
         c.Send(7);
         l.Unlisten();
-        await Assert.That(@out).IsEquivalentTo([2], CollectionOrdering.Matching);
+        await Assert.That(@out).IsEquivalentTo(expected: [2], ordering: CollectionOrdering.Matching);
     }
 
     [Test]
@@ -123,7 +123,7 @@ public sealed class BehaviorTests
         c.Send(2);
         c.Send(7);
         l.Unlisten();
-        await Assert.That(@out).IsEquivalentTo([2, 7], CollectionOrdering.Matching);
+        await Assert.That(@out).IsEquivalentTo(expected: [2, 7], ordering: CollectionOrdering.Matching);
     }
 
     [Test]
@@ -135,7 +135,7 @@ public sealed class BehaviorTests
         c.Send(2);
         c.Send(7);
         l.Unlisten();
-        await Assert.That(@out).IsEquivalentTo([9, 2, 7], CollectionOrdering.Matching);
+        await Assert.That(@out).IsEquivalentTo(expected: [9, 2, 7], ordering: CollectionOrdering.Matching);
     }
 
     [Test]
@@ -159,7 +159,7 @@ public sealed class BehaviorTests
         c.Send(7);
         l.Unlisten();
         l2?.Unlisten();
-        await Assert.That(@out).IsEquivalentTo([5, 2, 7], CollectionOrdering.Matching);
+        await Assert.That(@out).IsEquivalentTo(expected: [5, 2, 7], ordering: CollectionOrdering.Matching);
     }
 
     private sealed class TestObject
@@ -237,9 +237,10 @@ public sealed class BehaviorTests
                     .ListenStrong(c =>
                         Transaction.Post(() =>
                         {
-                            if (c.Any())
+                            if (c.Count > 0)
                             {
-                                (int n1, int n2) = c.Last().BothNumbersCell.Sample();
+                                // ReSharper disable once UseIndexFromEndExpression - net472 has no System.Index.
+                                (int n1, int n2) = c[c.Count - 1].BothNumbersCell.Sample();
 
                                 if (n1 == 9 && n2 == 9)
                                 {
@@ -261,11 +262,13 @@ public sealed class BehaviorTests
             Transaction.Run(() =>
                 listCell
                     .Map(static c =>
-                        c.Any()
-                            ? c.Last()
-                                .Number1Cell.Lift(c2: c.Last().Number2Cell, f: static (x, y) => x == 9 && y == 9)
+                        // ReSharper disable UseIndexFromEndExpression - net472 has no System.Index.
+                        c.Count > 0
+                            ? c[c.Count - 1]
+                                .Number1Cell.Lift(c2: c[c.Count - 1].Number2Cell, f: static (x, y) => x == 9 && y == 9)
                                 .Updates()
                             : Stream.Never<bool>())
+                    // ReSharper restore UseIndexFromEndExpression
                     .SwitchS()
                     .Filter(static v => v)
                     .ListenStrong(_ => Transaction.Post(() => addItemStreamSink.Send((Number1: 0, Number2: 0)))));
@@ -436,7 +439,7 @@ public sealed class BehaviorTests
         s.Send(8);
         l.Unlisten();
 
-        await Assert.That(@out).IsEquivalentTo([1, 4, 8, 15, 23], CollectionOrdering.Matching);
+        await Assert.That(@out).IsEquivalentTo(expected: [1, 4, 8, 15, 23], ordering: CollectionOrdering.Matching);
     }
 
     [Test]
@@ -537,7 +540,7 @@ public sealed class BehaviorTests
         addStreamSink.Send(t5);
         l.Unlisten();
 
-        await Assert.That(@out).IsEquivalentTo([0, 1, 2, 3, 2, 2, 3], CollectionOrdering.Matching);
+        await Assert.That(@out).IsEquivalentTo(expected: [0, 1, 2, 3, 2, 2, 3], ordering: CollectionOrdering.Matching);
     }
 
     [Test]
@@ -549,7 +552,7 @@ public sealed class BehaviorTests
         c.Send(2);
         c.Send(7);
         l.Unlisten();
-        await Assert.That(@out).IsEquivalentTo([9, 2, 7], CollectionOrdering.Matching);
+        await Assert.That(@out).IsEquivalentTo(expected: [9, 2, 7], ordering: CollectionOrdering.Matching);
     }
 
     [Test]
@@ -561,7 +564,7 @@ public sealed class BehaviorTests
         c.Send(2);
         c.Send(7);
         l.Unlisten();
-        await Assert.That(@out).IsEquivalentTo([2, 7], CollectionOrdering.Matching);
+        await Assert.That(@out).IsEquivalentTo(expected: [2, 7], ordering: CollectionOrdering.Matching);
     }
 
     [Test]
@@ -573,7 +576,7 @@ public sealed class BehaviorTests
         b.Send(2);
         b.Send(7);
         l.Unlisten();
-        await Assert.That(@out).IsEquivalentTo([109, 102, 107], CollectionOrdering.Matching);
+        await Assert.That(@out).IsEquivalentTo(expected: [109, 102, 107], ordering: CollectionOrdering.Matching);
     }
 
     [Test]
@@ -585,7 +588,7 @@ public sealed class BehaviorTests
         c.Send(2);
         c.Send(7);
         l.Unlisten();
-        await Assert.That(@out).IsEquivalentTo([109, 102, 107], CollectionOrdering.Matching);
+        await Assert.That(@out).IsEquivalentTo(expected: [109, 102, 107], ordering: CollectionOrdering.Matching);
     }
 
     [Test]
@@ -611,7 +614,7 @@ public sealed class BehaviorTests
         });
 
         l.Unlisten();
-        await Assert.That(@out).IsEquivalentTo([11, 1, 4, 12], CollectionOrdering.Matching);
+        await Assert.That(@out).IsEquivalentTo(expected: [11, 1, 4, 12], ordering: CollectionOrdering.Matching);
     }
 
     [Test]
@@ -634,7 +637,7 @@ public sealed class BehaviorTests
         });
 
         l.Unlisten();
-        await Assert.That(@out).IsEquivalentTo([11, 1, 4, 12], CollectionOrdering.Matching);
+        await Assert.That(@out).IsEquivalentTo(expected: [11, 1, 4, 12], ordering: CollectionOrdering.Matching);
     }
 
     [Test]
@@ -646,7 +649,7 @@ public sealed class BehaviorTests
         b.Send(2);
         b.Send(7);
         l.Unlisten();
-        await Assert.That(@out).IsEquivalentTo([9, 7], CollectionOrdering.Matching);
+        await Assert.That(@out).IsEquivalentTo(expected: [9, 7], ordering: CollectionOrdering.Matching);
     }
 
     [Test]
@@ -658,7 +661,7 @@ public sealed class BehaviorTests
         c.Send(2);
         c.Send(7);
         l.Unlisten();
-        await Assert.That(@out).IsEquivalentTo([9, 7], CollectionOrdering.Matching);
+        await Assert.That(@out).IsEquivalentTo(expected: [9, 7], ordering: CollectionOrdering.Matching);
     }
 
     [Test]
@@ -670,7 +673,7 @@ public sealed class BehaviorTests
         b.Send(2);
         b.Send(7);
         l.Unlisten();
-        await Assert.That(@out).IsEquivalentTo([9], CollectionOrdering.Matching);
+        await Assert.That(@out).IsEquivalentTo(expected: [9], ordering: CollectionOrdering.Matching);
     }
 
     [Test]
@@ -682,7 +685,7 @@ public sealed class BehaviorTests
         c.Send(2);
         c.Send(7);
         l.Unlisten();
-        await Assert.That(@out).IsEquivalentTo([9], CollectionOrdering.Matching);
+        await Assert.That(@out).IsEquivalentTo(expected: [9], ordering: CollectionOrdering.Matching);
     }
 
     [Test]
@@ -696,7 +699,7 @@ public sealed class BehaviorTests
         b.Send(2);
         b.Send(7);
         l.Unlisten();
-        await Assert.That(@out).IsEquivalentTo([2, 7], CollectionOrdering.Matching);
+        await Assert.That(@out).IsEquivalentTo(expected: [2, 7], ordering: CollectionOrdering.Matching);
     }
 
     [Test]
@@ -710,7 +713,7 @@ public sealed class BehaviorTests
         c.Send(2);
         c.Send(7);
         l.Unlisten();
-        await Assert.That(@out).IsEquivalentTo([2, 7], CollectionOrdering.Matching);
+        await Assert.That(@out).IsEquivalentTo(expected: [2, 7], ordering: CollectionOrdering.Matching);
     }
 
     [Test]
@@ -721,7 +724,7 @@ public sealed class BehaviorTests
         IListener l = c.Map(static x => x.ToString()).ListenStrong(@out.Add);
         c.Send(8);
         l.Unlisten();
-        await Assert.That(@out).IsEquivalentTo(["6", "8"], CollectionOrdering.Matching);
+        await Assert.That(@out).IsEquivalentTo(expected: ["6", "8"], ordering: CollectionOrdering.Matching);
     }
 
     [Test]
@@ -734,7 +737,7 @@ public sealed class BehaviorTests
         IListener l = cm.ListenStrong(@out.Add);
         c.Send(8);
         l.Unlisten();
-        await Assert.That(@out).IsEquivalentTo(["2", "8"], CollectionOrdering.Matching);
+        await Assert.That(@out).IsEquivalentTo(expected: ["2", "8"], ordering: CollectionOrdering.Matching);
     }
 
     [Test]
@@ -752,7 +755,7 @@ public sealed class BehaviorTests
         c.Send(2);
         c.Send(2);
         l.Unlisten();
-        await Assert.That(@out).IsEquivalentTo([2, 4, 2, 4, 2], CollectionOrdering.Matching);
+        await Assert.That(@out).IsEquivalentTo(expected: [2, 4, 2, 4, 2], ordering: CollectionOrdering.Matching);
     }
 
     [Test]
@@ -768,7 +771,7 @@ public sealed class BehaviorTests
         c.Send(2);
         c.Send(2);
         l.Unlisten();
-        await Assert.That(@out).IsEquivalentTo([2, 4, 2, 4, 2], CollectionOrdering.Matching);
+        await Assert.That(@out).IsEquivalentTo(expected: [2, 4, 2, 4, 2], ordering: CollectionOrdering.Matching);
     }
 
     [Test]
@@ -781,7 +784,7 @@ public sealed class BehaviorTests
         cf.Send(static x => "12 " + x);
         ca.Send(6L);
         l.Unlisten();
-        await Assert.That(@out).IsEquivalentTo(["1 5", "12 5", "12 6"], CollectionOrdering.Matching);
+        await Assert.That(@out).IsEquivalentTo(expected: ["1 5", "12 5", "12 6"], ordering: CollectionOrdering.Matching);
     }
 
     [Test]
@@ -794,7 +797,7 @@ public sealed class BehaviorTests
         c1.Send(12);
         c2.Send(6L);
         l.Unlisten();
-        await Assert.That(@out).IsEquivalentTo(["1 5", "12 5", "12 6"], CollectionOrdering.Matching);
+        await Assert.That(@out).IsEquivalentTo(expected: ["1 5", "12 5", "12 6"], ordering: CollectionOrdering.Matching);
     }
 
     [Test]
@@ -808,7 +811,7 @@ public sealed class BehaviorTests
         IListener l = c.ListenStrong(@out.Add);
         c1.Send(2);
         l.Unlisten();
-        await Assert.That(@out).IsEquivalentTo(["3 5", "6 10"], CollectionOrdering.Matching);
+        await Assert.That(@out).IsEquivalentTo(expected: ["3 5", "6 10"], ordering: CollectionOrdering.Matching);
     }
 
     [Test]
@@ -826,7 +829,7 @@ public sealed class BehaviorTests
         List<int> @out = [];
         IListener l = c1.Lift(c2: c2, f: static (x, y) => x + y).ListenStrong(@out.Add);
         l.Unlisten();
-        await Assert.That(@out).IsEquivalentTo([10], CollectionOrdering.Matching);
+        await Assert.That(@out).IsEquivalentTo(expected: [10], ordering: CollectionOrdering.Matching);
     }
 
     [Test]
@@ -840,7 +843,7 @@ public sealed class BehaviorTests
         s.Send(2);
         s.Send(3);
         l.Unlisten();
-        await Assert.That(@out).IsEquivalentTo(["2 0", "3 2"], CollectionOrdering.Matching);
+        await Assert.That(@out).IsEquivalentTo(expected: ["2 0", "3 2"], ordering: CollectionOrdering.Matching);
     }
 
     private sealed class Sc(Maybe<char> a, Maybe<char> b, Maybe<Cell<char>> sw)
@@ -874,7 +877,7 @@ public sealed class BehaviorTests
         ssc.Send(new Sc(a: Maybe.Some('I'), b: Maybe.Some('i'), sw: Maybe.Some(ca)));
         l.Unlisten();
 
-        await Assert.That(@out).IsEquivalentTo(['A', 'B', 'c', 'd', 'E', 'F', 'f', 'F', 'g', 'H', 'I'], CollectionOrdering.Matching);
+        await Assert.That(@out).IsEquivalentTo(expected: ['A', 'B', 'c', 'd', 'E', 'F', 'f', 'F', 'g', 'H', 'I'], ordering: CollectionOrdering.Matching);
     }
 
     private sealed class Sc2(int initialValue)
@@ -912,7 +915,7 @@ public sealed class BehaviorTests
 
         sc4.C.Send(9);
         l.Unlisten();
-        await Assert.That(@out).IsEquivalentTo([0, 1, 2, 3, 4, 5, 6, 7, 8, 9], CollectionOrdering.Matching);
+        await Assert.That(@out).IsEquivalentTo(expected: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9], ordering: CollectionOrdering.Matching);
     }
 
     private sealed class Ss(char a, char b, Maybe<Stream<char>> sw)
@@ -944,7 +947,7 @@ public sealed class BehaviorTests
         sss.Send(new Ss(a: 'H', b: 'h', sw: Maybe.Some(sa)));
         sss.Send(new Ss(a: 'I', b: 'i', sw: Maybe.Some(sa)));
         l.Unlisten();
-        await Assert.That(@out).IsEquivalentTo(['A', 'B', 'C', 'd', 'e', 'F', 'G', 'h', 'I'], CollectionOrdering.Matching);
+        await Assert.That(@out).IsEquivalentTo(expected: ['A', 'B', 'C', 'd', 'e', 'F', 'G', 'h', 'I'], ordering: CollectionOrdering.Matching);
     }
 
     private sealed class Ss2
@@ -985,7 +988,7 @@ public sealed class BehaviorTests
 
         ss4.S.Send(9);
         l.Unlisten();
-        await Assert.That(@out).IsEquivalentTo([0, 1, 2, 3, 4, 5, 6, 7, 8, 9], CollectionOrdering.Matching);
+        await Assert.That(@out).IsEquivalentTo(expected: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9], ordering: CollectionOrdering.Matching);
     }
 
     [Test]
@@ -1011,7 +1014,7 @@ public sealed class BehaviorTests
         });
 
         l.Unlisten();
-        await Assert.That(@out).IsEquivalentTo([50, 54, 58, 74], CollectionOrdering.Matching);
+        await Assert.That(@out).IsEquivalentTo(expected: [50, 54, 58, 74], ordering: CollectionOrdering.Matching);
     }
 
     // Lift builds one pulse stream that every input feeds, coalesced so a transaction produces a
@@ -1050,7 +1053,7 @@ public sealed class BehaviorTests
 
         l.Unlisten();
 
-        await Assert.That(@out).IsEquivalentTo(["1/10/100", "2/20/200", "3/20/300", "3/30/300"], CollectionOrdering.Matching);
+        await Assert.That(@out).IsEquivalentTo(expected: ["1/10/100", "2/20/200", "3/20/300", "3/30/300"], ordering: CollectionOrdering.Matching);
     }
 
     // Inputs updating one at a time across separate transactions: each firing has to pair the
@@ -1073,7 +1076,7 @@ public sealed class BehaviorTests
 
         l.Unlisten();
 
-        await Assert.That(@out).IsEquivalentTo(["1/10", "2/10", "2/20", "3/20", "3/30"], CollectionOrdering.Matching);
+        await Assert.That(@out).IsEquivalentTo(expected: ["1/10", "2/10", "2/20", "3/20", "3/30"], ordering: CollectionOrdering.Matching);
     }
 
     // Lift links every one of the input behaviors to a single output node, so updating them
@@ -1120,7 +1123,7 @@ public sealed class BehaviorTests
         // ReSharper disable once InlineTemporaryVariable - Done for test readability.
         const int afterAll = count;
         const int afterEvens = count / 2 * 3 + count / 2;
-        await Assert.That(@out).IsEquivalentTo([0, afterAll, afterEvens, afterEvens + 4], CollectionOrdering.Matching);
+        await Assert.That(@out).IsEquivalentTo(expected: [0, afterAll, afterEvens, afterEvens + 4], ordering: CollectionOrdering.Matching);
     }
 
     [Test]
@@ -1163,7 +1166,7 @@ public sealed class BehaviorTests
         });
 
         l.Unlisten();
-        await Assert.That(@out).IsEquivalentTo([50, 54, 58, 74], CollectionOrdering.Matching);
+        await Assert.That(@out).IsEquivalentTo(expected: [50, 54, 58, 74], ordering: CollectionOrdering.Matching);
     }
 
     [Test]
@@ -1189,7 +1192,7 @@ public sealed class BehaviorTests
         });
 
         l.Unlisten();
-        await Assert.That(@out).IsEquivalentTo([500, 504, 508, 524], CollectionOrdering.Matching);
+        await Assert.That(@out).IsEquivalentTo(expected: [500, 504, 508, 524], ordering: CollectionOrdering.Matching);
     }
 
     [Test]
@@ -1227,7 +1230,7 @@ public sealed class BehaviorTests
                 .SelectMany(static n => new[] { 500 + 20 * n + 4, 500 + 20 * n + 8, 500 + 20 * n + 20 })
         ];
 
-        await Assert.That(@out).IsEquivalentTo(expected, CollectionOrdering.Matching);
+        await Assert.That(@out).IsEquivalentTo(expected: expected, ordering: CollectionOrdering.Matching);
     }
 
     [Test]
@@ -1260,7 +1263,7 @@ public sealed class BehaviorTests
         });
 
         l.Unlisten();
-        await Assert.That(@out).IsEquivalentTo([58, 62, 74], CollectionOrdering.Matching);
+        await Assert.That(@out).IsEquivalentTo(expected: [58, 62, 74], ordering: CollectionOrdering.Matching);
     }
 
     [Test]
@@ -1296,7 +1299,7 @@ public sealed class BehaviorTests
 
         l.Unlisten();
 
-        await Assert.That(output).IsEquivalentTo([1, 2, 13, 14], CollectionOrdering.Matching);
+        await Assert.That(output).IsEquivalentTo(expected: [1, 2, 13, 14], ordering: CollectionOrdering.Matching);
     }
 
     [Test]
@@ -1332,7 +1335,7 @@ public sealed class BehaviorTests
 
         l.Unlisten();
 
-        await Assert.That(output).IsEquivalentTo([2, 3, 14], CollectionOrdering.Matching);
+        await Assert.That(output).IsEquivalentTo(expected: [2, 3, 14], ordering: CollectionOrdering.Matching);
     }
 
     [Test]
@@ -1372,7 +1375,7 @@ public sealed class BehaviorTests
 
         l.Unlisten();
 
-        await Assert.That(output).IsEquivalentTo([12, 13, 4, 5], CollectionOrdering.Matching);
+        await Assert.That(output).IsEquivalentTo(expected: [12, 13, 4, 5], ordering: CollectionOrdering.Matching);
     }
 
     [Test]
@@ -1412,7 +1415,7 @@ public sealed class BehaviorTests
 
         l.Unlisten();
 
-        await Assert.That(output).IsEquivalentTo([2, 13, 14, 5], CollectionOrdering.Matching);
+        await Assert.That(output).IsEquivalentTo(expected: [2, 13, 14, 5], ordering: CollectionOrdering.Matching);
     }
 
     [Test]
@@ -1453,7 +1456,7 @@ public sealed class BehaviorTests
 
         l.Unlisten();
 
-        await Assert.That(output).IsEquivalentTo([2, 13, 14, 5], CollectionOrdering.Matching);
+        await Assert.That(output).IsEquivalentTo(expected: [2, 13, 14, 5], ordering: CollectionOrdering.Matching);
     }
 
     [Test]
@@ -1492,15 +1495,15 @@ public sealed class BehaviorTests
         await Assert.That(streamOutput.Count).IsEqualTo(4);
         await Assert.That(behaviorOutput.Count).IsEqualTo(5);
 
-        await Assert.That(behaviorOutput[0]).IsEquivalentTo([0, 1, 2, 3, 4], CollectionOrdering.Matching);
-        await Assert.That(streamOutput[0]).IsEquivalentTo([0, 1, 12, 3, 4], CollectionOrdering.Matching);
-        await Assert.That(behaviorOutput[1]).IsEquivalentTo([0, 1, 12, 3, 4], CollectionOrdering.Matching);
-        await Assert.That(streamOutput[1]).IsEquivalentTo([0, 1, 12, 3, 14], CollectionOrdering.Matching);
-        await Assert.That(behaviorOutput[2]).IsEquivalentTo([0, 1, 12, 3, 14], CollectionOrdering.Matching);
-        await Assert.That(streamOutput[2]).IsEquivalentTo([5, 16, 17, 8, 9], CollectionOrdering.Matching);
-        await Assert.That(behaviorOutput[3]).IsEquivalentTo([5, 16, 17, 8, 9], CollectionOrdering.Matching);
-        await Assert.That(streamOutput[3]).IsEquivalentTo([5, 16, 17, 18, 9], CollectionOrdering.Matching);
-        await Assert.That(behaviorOutput[4]).IsEquivalentTo([5, 16, 17, 18, 9], CollectionOrdering.Matching);
+        await Assert.That(behaviorOutput[0]).IsEquivalentTo(expected: [0, 1, 2, 3, 4], ordering: CollectionOrdering.Matching);
+        await Assert.That(streamOutput[0]).IsEquivalentTo(expected: [0, 1, 12, 3, 4], ordering: CollectionOrdering.Matching);
+        await Assert.That(behaviorOutput[1]).IsEquivalentTo(expected: [0, 1, 12, 3, 4], ordering: CollectionOrdering.Matching);
+        await Assert.That(streamOutput[1]).IsEquivalentTo(expected: [0, 1, 12, 3, 14], ordering: CollectionOrdering.Matching);
+        await Assert.That(behaviorOutput[2]).IsEquivalentTo(expected: [0, 1, 12, 3, 14], ordering: CollectionOrdering.Matching);
+        await Assert.That(streamOutput[2]).IsEquivalentTo(expected: [5, 16, 17, 8, 9], ordering: CollectionOrdering.Matching);
+        await Assert.That(behaviorOutput[3]).IsEquivalentTo(expected: [5, 16, 17, 8, 9], ordering: CollectionOrdering.Matching);
+        await Assert.That(streamOutput[3]).IsEquivalentTo(expected: [5, 16, 17, 18, 9], ordering: CollectionOrdering.Matching);
+        await Assert.That(behaviorOutput[4]).IsEquivalentTo(expected: [5, 16, 17, 18, 9], ordering: CollectionOrdering.Matching);
     }
 
     [Test]
@@ -1540,15 +1543,15 @@ public sealed class BehaviorTests
         await Assert.That(streamOutput.Count).IsEqualTo(4);
         await Assert.That(behaviorOutput.Count).IsEqualTo(5);
 
-        await Assert.That(behaviorOutput[0]).IsEquivalentTo([0, 1, 2, 3, 4], CollectionOrdering.Matching);
-        await Assert.That(streamOutput[0]).IsEquivalentTo([0, 1, 12, 3, 4], CollectionOrdering.Matching);
-        await Assert.That(behaviorOutput[1]).IsEquivalentTo([0, 1, 12, 3, 4], CollectionOrdering.Matching);
-        await Assert.That(streamOutput[1]).IsEquivalentTo([0, 1, 12, 3, 14], CollectionOrdering.Matching);
-        await Assert.That(behaviorOutput[2]).IsEquivalentTo([0, 1, 12, 3, 14], CollectionOrdering.Matching);
-        await Assert.That(streamOutput[2]).IsEquivalentTo([5, 16, 17, 8, 9], CollectionOrdering.Matching);
-        await Assert.That(behaviorOutput[3]).IsEquivalentTo([5, 16, 17, 8, 9], CollectionOrdering.Matching);
-        await Assert.That(streamOutput[3]).IsEquivalentTo([5, 16, 17, 18, 9], CollectionOrdering.Matching);
-        await Assert.That(behaviorOutput[4]).IsEquivalentTo([5, 16, 17, 18, 9], CollectionOrdering.Matching);
+        await Assert.That(behaviorOutput[0]).IsEquivalentTo(expected: [0, 1, 2, 3, 4], ordering: CollectionOrdering.Matching);
+        await Assert.That(streamOutput[0]).IsEquivalentTo(expected: [0, 1, 12, 3, 4], ordering: CollectionOrdering.Matching);
+        await Assert.That(behaviorOutput[1]).IsEquivalentTo(expected: [0, 1, 12, 3, 4], ordering: CollectionOrdering.Matching);
+        await Assert.That(streamOutput[1]).IsEquivalentTo(expected: [0, 1, 12, 3, 14], ordering: CollectionOrdering.Matching);
+        await Assert.That(behaviorOutput[2]).IsEquivalentTo(expected: [0, 1, 12, 3, 14], ordering: CollectionOrdering.Matching);
+        await Assert.That(streamOutput[2]).IsEquivalentTo(expected: [5, 16, 17, 8, 9], ordering: CollectionOrdering.Matching);
+        await Assert.That(behaviorOutput[3]).IsEquivalentTo(expected: [5, 16, 17, 8, 9], ordering: CollectionOrdering.Matching);
+        await Assert.That(streamOutput[3]).IsEquivalentTo(expected: [5, 16, 17, 18, 9], ordering: CollectionOrdering.Matching);
+        await Assert.That(behaviorOutput[4]).IsEquivalentTo(expected: [5, 16, 17, 18, 9], ordering: CollectionOrdering.Matching);
     }
 
     private sealed class Test(int initialValue)

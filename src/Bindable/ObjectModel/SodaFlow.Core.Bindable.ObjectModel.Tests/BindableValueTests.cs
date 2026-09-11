@@ -57,7 +57,7 @@ public sealed class BindableValueTests
         await Assert.That(b.Value).IsEqualTo(2);
         string?[] expected = ["Value", "Value"];
 
-        await Assert.That(names).IsEquivalentTo(expected, CollectionOrdering.Matching);
+        await Assert.That(names).IsEquivalentTo(expected: expected, ordering: CollectionOrdering.Matching);
     }
 
     // The property name is load-bearing: the documented binding path is {Binding Foo.Value}, so a
@@ -75,7 +75,7 @@ public sealed class BindableValueTests
 
         string?[] expected = ["Value"];
 
-        await Assert.That(names).IsEquivalentTo(expected, CollectionOrdering.Matching);
+        await Assert.That(names).IsEquivalentTo(expected: expected, ordering: CollectionOrdering.Matching);
     }
 
     [Test]
@@ -131,7 +131,7 @@ public sealed class BindableValueTests
         await Assert.That(b.Value).IsEqualTo(4);
         string?[] expected = ["Value"];
 
-        await Assert.That(names).IsEquivalentTo(expected, CollectionOrdering.Matching);
+        await Assert.That(names).IsEquivalentTo(expected: expected, ordering: CollectionOrdering.Matching);
     }
 
     // A two-way value is bound by more than one control as a matter of course - a checkbox that
@@ -152,7 +152,7 @@ public sealed class BindableValueTests
         string?[] expected = ["Value"];
 
         await Assert.That(names)
-            .IsEquivalentTo(expected, CollectionOrdering.Matching)
+            .IsEquivalentTo(expected: expected, ordering: CollectionOrdering.Matching)
             .Because("a second binding to this property has no other way to learn of the write");
 
         await Assert.That(b.Value).IsEqualTo(5);
@@ -192,7 +192,7 @@ public sealed class BindableValueTests
 
         string?[] expected = ["Value", "Value"];
 
-        await Assert.That(names).IsEquivalentTo(expected, CollectionOrdering.Matching);
+        await Assert.That(names).IsEquivalentTo(expected: expected, ordering: CollectionOrdering.Matching);
     }
 
     // What the comparer calls unchanged is unchanged, all the way down. A cell value that differs
@@ -238,7 +238,7 @@ public sealed class BindableValueTests
         string?[] expected = ["Value"];
 
         await Assert.That(names)
-            .IsEquivalentTo(expected, CollectionOrdering.Matching)
+            .IsEquivalentTo(expected: expected, ordering: CollectionOrdering.Matching)
             .Because("announced once, carrying what the graph settled on rather than what was written");
     }
 

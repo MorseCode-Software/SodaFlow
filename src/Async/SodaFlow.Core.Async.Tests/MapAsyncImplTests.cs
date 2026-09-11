@@ -93,7 +93,7 @@ public sealed class MapAsyncImplTests
         TestUtil.WaitUntil(() => received.Count == 1);
 
         // The strategy only ever sees the converted int, never the original string.
-        await Assert.That(strategy.AdmittedValues).IsEquivalentTo([5], CollectionOrdering.Matching);
+        await Assert.That(strategy.AdmittedValues).IsEquivalentTo(expected: [5], ordering: CollectionOrdering.Matching);
 
         // Meanwhile the real TResult published is the untouched, unconverted operation output.
         await Assert.That(received[0]).IsEqualTo("HELLO");
@@ -129,7 +129,7 @@ public sealed class MapAsyncImplTests
         // -1 was rejected by the strategy — canceled and left permanently Queued, per the
         // documented "reject outright" idiom — and so never reached the operation; only the
         // non-negative value made it through.
-        await Assert.That(received).IsEquivalentTo([2], CollectionOrdering.Matching);
+        await Assert.That(received).IsEquivalentTo(expected: [2], ordering: CollectionOrdering.Matching);
 
         // The rejected item is still visible, forever Queued — that's the visible cost of this
         // idiom, called out in AsyncConcurrencyStrategy's own remarks.
@@ -268,7 +268,7 @@ public sealed class MapAsyncImplTests
         op.Release(input: "a", result: "A");
 
         TestUtil.WaitUntil(() => received.Count == 1);
-        await Assert.That(received).IsEquivalentTo(["A"], CollectionOrdering.Matching);
+        await Assert.That(received).IsEquivalentTo(expected: ["A"], ordering: CollectionOrdering.Matching);
 
         l.Unlisten();
     }

@@ -226,7 +226,7 @@ public sealed class StreamTests
         // The lambda above stays synchronous on purpose: it exists so that its locals are out of
         // scope by the time the snapshot below is taken. What the listener collected is checked
         // here instead, where @out still holds it and nothing has appended to it since.
-        await Assert.That(@out).IsEquivalentTo(["7", "5"], CollectionOrdering.Matching);
+        await Assert.That(@out).IsEquivalentTo(expected: ["7", "5"], ordering: CollectionOrdering.Matching);
 
         dotMemory.Check(memory =>
             afterListenerCount = memory.GetObjects(static where => where.Interface.Is<IListener>()).ObjectsCount);
@@ -284,7 +284,7 @@ public sealed class StreamTests
         // The lambda above stays synchronous on purpose: it exists so that its locals are out of
         // scope by the time the snapshot below is taken. What the listener collected is checked
         // here instead, where @out still holds it and nothing has appended to it since.
-        await Assert.That(@out).IsEquivalentTo(["15", "11"], CollectionOrdering.Matching);
+        await Assert.That(@out).IsEquivalentTo(expected: ["15", "11"], ordering: CollectionOrdering.Matching);
 
         dotMemory.Check(memory =>
             afterStreamCount =

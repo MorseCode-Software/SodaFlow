@@ -39,8 +39,8 @@ public static partial class BindableExtensionMethods
         {
         }
 
-        private static Exception GetInvalidTypeException() =>
-            new InvalidOperationException(
+        private static InvalidOperationException GetInvalidTypeException() =>
+            new(
                 "The command parameter must be of type " + typeof(T).FullName + ", " + typeof(Maybe<T>).FullName +
                 ", or null.");
 
