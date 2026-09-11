@@ -3,7 +3,7 @@
         xmlns:viewModels="clr-namespace:SodaFlow.Samples.Accounts.ViewModels;assembly=SodaFlow.Samples.Accounts.ViewModels"
         x:Class="SodaFlow.Samples.Accounts.Avalonia.MainWindow"
         Title="SodaFlow Accounts (Avalonia)"
-        Width="460"
+        Width="560"
         SizeToContent="Height"
         WindowStartupLocation="CenterScreen"
         x:DataType="viewModels:IAccountsViewModel">
@@ -32,7 +32,7 @@
 
                 <!-- Each caption carries its own marker, so which column is in force and which
                      way it runs are one piece of view model state rather than three. -->
-                <Grid ColumnDefinitions="70,*,90">
+                <Grid ColumnDefinitions="70,*,90,100">
                     <Button Grid.Column="0"
                             Content="{Binding NumberHeader.Value}"
                             Command="{Binding SortByNumber}"
@@ -56,19 +56,47 @@
                 <Border BorderBrush="{DynamicResource SystemControlForegroundBaseMediumLowBrush}"
                         BorderThickness="0,0,0,1"/>
 
+                <!-- A frozen row greys out and says so where its button would be. That is only
+                     what the row looks like: the view model gates the deposit itself, so the
+                     button being absent is not what stops a frozen account being paid into. -->
                 <ItemsControl ItemsSource="{Binding Rows.Value}">
+                    <ItemsControl.Styles>
+                        <Style Selector="Grid.frozen > TextBlock">
+                            <Setter Property="Foreground" Value="Gray"/>
+                            <Setter Property="FontStyle" Value="Italic"/>
+                        </Style>
+                    </ItemsControl.Styles>
                     <ItemsControl.ItemTemplate>
                         <DataTemplate x:DataType="viewModels:IAccountRowViewModel">
-                            <Grid ColumnDefinitions="70,*,90" Margin="0,3">
+                            <Grid ColumnDefinitions="70,*,90,100"
+                                  Margin="0,2"
+                                  Classes.frozen="{Binding IsFrozen.Value}">
                                 <TextBlock Grid.Column="0"
                                            Text="{Binding Number.Value}"
-                                           Opacity="0.6"/>
+                                           Opacity="0.6"
+                                           VerticalAlignment="Center"/>
                                 <TextBlock Grid.Column="1"
-                                           Text="{Binding Holder.Value}"/>
+                                           Text="{Binding Holder.Value}"
+                                           VerticalAlignment="Center"/>
                                 <TextBlock Grid.Column="2"
                                            Text="{Binding Balance.Value}"
                                            HorizontalAlignment="Right"
+                                           VerticalAlignment="Center"
                                            FontFamily="Consolas,Menlo,monospace"/>
+                                <Button Grid.Column="3"
+                                        Content="Pay $100"
+                                        Command="{Binding Deposit}"
+                                        IsVisible="{Binding !IsFrozen.Value}"
+                                        HorizontalAlignment="Stretch"
+                                        HorizontalContentAlignment="Center"
+                                        Padding="6,2"
+                                        Margin="12,0,0,0"/>
+                                <TextBlock Grid.Column="3"
+                                           Text="Frozen"
+                                           IsVisible="{Binding IsFrozen.Value}"
+                                           HorizontalAlignment="Center"
+                                           VerticalAlignment="Center"
+                                           Margin="12,0,0,0"/>
                             </Grid>
                         </DataTemplate>
                     </ItemsControl.ItemTemplate>
@@ -92,17 +120,21 @@
                        VerticalAlignment="Center"/>
         </Grid>
 
-        <Grid ColumnDefinitions="*,*" ColumnSpacing="8">
-            <Button Grid.Column="0"
-                    Content="Pay £100 into the top account"
-                    HorizontalAlignment="Stretch"
-                    HorizontalContentAlignment="Center"
-                    Command="{Binding DepositIntoTopOfPage}"/>
+        <!-- The label is given as both the on and off content, so it sits beside the switch and
+             reads the same either way; the list's own caption above says which is in force.
+
+             The drain empties every frozen account whether or not they are showing, and is
+             disabled once none has anything left. -->
+        <Grid ColumnDefinitions="*,Auto">
+            <ToggleSwitch Grid.Column="0"
+                          IsChecked="{Binding ShowFrozen.Value}"
+                          OnContent="Show frozen accounts"
+                          OffContent="Show frozen accounts"
+                          VerticalAlignment="Center"/>
             <Button Grid.Column="1"
-                    Content="Show or hide frozen"
-                    HorizontalAlignment="Stretch"
-                    HorizontalContentAlignment="Center"
-                    Command="{Binding ToggleFrozen}"/>
+                    Content="Drain frozen accounts"
+                    Command="{Binding DrainFrozenAccounts}"
+                    VerticalAlignment="Center"/>
         </Grid>
 
     </StackPanel>

@@ -95,19 +95,25 @@ internal sealed class SortSelection
 
 /// <summary>One row, holding cells that follow one account through the view showing it.</summary>
 // ReSharper disable once InheritdocConsiderUsage
-internal sealed class AccountRowViewModel : IAccountRowViewModel, IDisposable
+internal sealed class AccountRowViewModel : IAccountRowViewModel
 {
     private readonly IReadOnlyList<IDisposable> disposables;
 
     internal AccountRowViewModel(
         IOneWayBindableValue<string> number,
         IOneWayBindableValue<string> holder,
-        IOneWayBindableValue<string> balance)
+        IOneWayBindableValue<string> balance,
+        IOneWayBindableValue<bool> isFrozen,
+        IBindableAction deposit,
+        Stream<CollectionEdit<int, AccountIdentity, AccountState>> depositsStream)
     {
         this.Number = number;
         this.Holder = holder;
         this.Balance = balance;
-        this.disposables = new IDisposable[] { number, holder, balance };
+        this.IsFrozen = isFrozen;
+        this.Deposit = deposit;
+        this.DepositsStream = depositsStream;
+        this.disposables = new IDisposable[] { number, holder, balance, isFrozen, deposit };
     }
 
     /// <inheritdoc />
@@ -119,6 +125,16 @@ internal sealed class AccountRowViewModel : IAccountRowViewModel, IDisposable
     /// <inheritdoc />
     public IOneWayBindableValue<string> Balance { get; }
 
+    /// <inheritdoc />
+    public IOneWayBindableValue<bool> IsFrozen { get; }
+
+    /// <inheritdoc />
+    public IBindableAction Deposit { get; }
+
+    /// <summary>The edits this row's deposits make, already gated, for the list to feed back in.</summary>
+    internal Stream<CollectionEdit<int, AccountIdentity, AccountState>> DepositsStream { get; }
+
+    /// <inheritdoc />
     public void Dispose()
     {
         foreach (IDisposable disposable in this.disposables)
@@ -133,9 +149,9 @@ internal sealed class AccountRowViewModel : IAccountRowViewModel, IDisposable
 /// </summary>
 /// <remarks>
 ///     <para>
-///         What to watch on screen. Depositing into the top account moves that row's balance and
-///         nothing else - the other rows do not flicker, and the list itself does not rebuild, even
-///         though the sort could have moved the account. That is the collection doing its job: an
+///         What to watch on screen. Depositing into an account moves that row's balance and nothing
+///         else - the other rows do not flicker, and the list itself does not rebuild, even though
+///         the sort could have moved the account. That is the collection doing its job: an
 ///         edit reaches the rows bound to it, not the rows next to them.
 ///     </para>
 ///     <para>
@@ -152,8 +168,18 @@ public sealed class AccountsViewModel : IAccountsViewModel
     /// <summary>How many rows a page shows.</summary>
     private const int PageSize = 6;
 
-    /// <summary>What the deposit button pays in, in pence.</summary>
+    /// <summary>What the deposit button pays in, in cents.</summary>
     private const long DepositAmount = 100_00L;
+
+    /// <summary>How every amount on screen is written.</summary>
+    private static readonly NumberFormatInfo UsDollars = CultureInfo.GetCultureInfo("en-US").NumberFormat;
+
+    /// <summary>What a drain does to one account.</summary>
+    /// <remarks>
+    ///     One delegate shared by every update in a drain. A method group would allocate a fresh
+    ///     one for each of the thousands of accounts, at the language version this sample builds at.
+    /// </remarks>
+    private static readonly Func<AccountState, AccountState> Emptied = static state => state.WithBalance(0);
 
     private readonly IReadOnlyList<IDisposable> disposables;
 
@@ -167,12 +193,12 @@ public sealed class AccountsViewModel : IAccountsViewModel
         IOneWayBindableValue<string> balanceHeader,
         IBindableAction nextPage,
         IBindableAction previousPage,
-        IBindableAction depositIntoTopOfPage,
-        IBindableAction toggleFrozen,
+        ITwoWayBindableValue<bool> showFrozen,
+        IBindableAction drainFrozenAccounts,
         IBindableAction sortByNumber,
         IBindableAction sortByHolder,
         IBindableAction sortByBalance,
-        MappedItems<IAccountRowViewModel> projectedRows)
+        MappedItems<AccountRowViewModel> projectedRows)
     {
         this.Rows = rows;
         this.Total = total;
@@ -183,8 +209,8 @@ public sealed class AccountsViewModel : IAccountsViewModel
         this.BalanceHeader = balanceHeader;
         this.NextPage = nextPage;
         this.PreviousPage = previousPage;
-        this.DepositIntoTopOfPage = depositIntoTopOfPage;
-        this.ToggleFrozen = toggleFrozen;
+        this.ShowFrozen = showFrozen;
+        this.DrainFrozenAccounts = drainFrozenAccounts;
         this.SortByNumber = sortByNumber;
         this.SortByHolder = sortByHolder;
         this.SortByBalance = sortByBalance;
@@ -194,7 +220,7 @@ public sealed class AccountsViewModel : IAccountsViewModel
         this.disposables = new IDisposable[]
         {
             rows, total, page, filterDescription, numberHeader, holderHeader, balanceHeader,
-            nextPage, previousPage, depositIntoTopOfPage, toggleFrozen, sortByNumber, sortByHolder,
+            nextPage, previousPage, showFrozen, drainFrozenAccounts, sortByNumber, sortByHolder,
             sortByBalance, projectedRows,
         };
     }
@@ -227,10 +253,10 @@ public sealed class AccountsViewModel : IAccountsViewModel
     public IBindableAction PreviousPage { get; }
 
     /// <inheritdoc />
-    public IBindableAction DepositIntoTopOfPage { get; }
+    public ITwoWayBindableValue<bool> ShowFrozen { get; }
 
     /// <inheritdoc />
-    public IBindableAction ToggleFrozen { get; }
+    public IBindableAction DrainFrozenAccounts { get; }
 
     /// <inheritdoc />
     public IBindableAction SortByNumber { get; }
@@ -260,14 +286,14 @@ public sealed class AccountsViewModel : IAccountsViewModel
         {
             StreamSink<Unit> nextPage = Stream.CreateSink<Unit>();
             StreamSink<Unit> previousPage = Stream.CreateSink<Unit>();
-            StreamSink<Unit> deposit = Stream.CreateSink<Unit>();
-            StreamSink<Unit> toggleFrozen = Stream.CreateSink<Unit>();
+            StreamSink<Unit> drainFrozenAccounts = Stream.CreateSink<Unit>();
             StreamSink<Unit> sortByNumber = Stream.CreateSink<Unit>();
             StreamSink<Unit> sortByHolder = Stream.CreateSink<Unit>();
             StreamSink<Unit> sortByBalance = Stream.CreateSink<Unit>();
 
-            Cell<bool> showFrozen =
-                toggleFrozen.Accum(initialState: false, f: static (_, showing) => !showing);
+            // A switch holds its own position, so this is a value the view writes rather than a
+            // command whose presses are counted.
+            CellSink<bool> showFrozen = Cell.CreateSink(false);
 
             // One piece of state for the whole header row: which column, and which way. Three
             // buttons become one stream of columns, and the selection folds over it.
@@ -282,15 +308,38 @@ public sealed class AccountsViewModel : IAccountsViewModel
                     initialState: new SortSelection(AccountColumn.Balance, descending: true),
                     f: static (column, current) => current.Clicked(column));
 
-            // The deposit pays into whichever account is at the top of the page, so the edit
-            // depends on the view, and the view depends on the edits. That is a real cycle and the
-            // loop is how it is closed - declared here, tied off once the view exists.
+            // Each row pays into its own account, so the edits come from the rows, and the rows
+            // come from the collection the edits are for. That is a real cycle and the loop is how
+            // it is closed - declared here, tied off once the rows exist.
             StreamLoop<CollectionEdit<int, AccountIdentity, AccountState>> deposits =
+                Stream.CreateLoop<CollectionEdit<int, AccountIdentity, AccountState>>();
+
+            // The drain is the same shape of cycle: which accounts it empties is read from the
+            // collection it empties them in.
+            StreamLoop<CollectionEdit<int, AccountIdentity, AccountState>> drains =
                 Stream.CreateLoop<CollectionEdit<int, AccountIdentity, AccountState>>();
 
             // No key selector: AccountIdentity implements IIdentity<int>.
             ReactiveCollection<int, AccountIdentity, AccountState> accounts =
-                ReactiveCollection.Create(AccountSeed.Items, deposits);
+                ReactiveCollection.Create(AccountSeed.Items, deposits, drains);
+
+            // Every frozen account with something left in it, across the whole collection rather
+            // than the page or the filter, because a drain empties accounts nobody is looking at.
+            // A second view over the same accounts, kept current alongside the first: the
+            // predicate reads only the state it is handed, so an edit to one account costs this
+            // view one test of that account.
+            ReactiveCollection<int, AccountIdentity, AccountState> drainable =
+                accounts.Filter(static (_, state) => state.IsFrozen && state.Balance != 0);
+
+            Cell<bool> canDrain = drainable.KeysCell.Map(static keys => keys.Count > 0);
+
+            // Gated in the graph as well as disabled on the command, for the reason a row's
+            // deposit is. The keys are read in the same transaction the edit lands in, so what is
+            // emptied is exactly what was frozen and non-empty at the moment of the click.
+            drains.Loop(
+                drainFrozenAccounts
+                    .Gate(canDrain)
+                    .Snapshot(drainable.KeysCell, static (_, keys) => Drain(keys)));
 
             // The sort takes its order from a cell, so clicking a header re-files this stage
             // rather than building a second chain and choosing between the two. The three orders
@@ -308,7 +357,7 @@ public sealed class AccountsViewModel : IAccountsViewModel
                 {
                     nextPage.MapTo(static (int at) => at + PageSize),
                     previousPage.MapTo(static (int at) => at - PageSize),
-                    toggleFrozen.MapTo(static (int _) => 0),
+                    showFrozen.Updates().MapTo(static (int _) => 0),
                 }
                 .OrElse()
                 .Accum(initialState: 0, f: static (move, at) => Math.Max(0, move(at)));
@@ -316,38 +365,24 @@ public sealed class AccountsViewModel : IAccountsViewModel
             ReactiveCollection<int, AccountIdentity, AccountState> page =
                 filtered.Slice(offset, Cell.Constant(PageSize));
 
-            deposits.Loop(
-                deposit
-                    .Snapshot(page.KeysCell, static (_, keys) => keys)
-                    .Filter(static keys => keys.Count > 0)
-                    .Map(static keys => CollectionEdit<int, AccountIdentity, AccountState>.Update(
-                        keys[0],
-                        static state => state.WithBalance(state.Balance + DepositAmount))));
-
             // One row object per account, in the page's order. Map keeps them, so a deposit that
             // moves one balance leaves this list alone: the row follows its own account and the
             // list only moves when the page's membership or order does.
             //
             // The rows own bindables, so eviction disposes them. Nothing here has to know when
             // that happens - which is the point of the callback being where the projection is.
-            MappedItems<IAccountRowViewModel> rows = page.Map<int, AccountIdentity, AccountState, IAccountRowViewModel>(
-                key => new AccountRowViewModel(
-                    // Asked of the page rather than of the collection, so a row answers for the
-                    // view it belongs to: an account the filter excludes has no holder here.
-                    page.IdentityCell(key)
-                        .Map(static identity =>
-                            identity.Match(
-                                static value => value.Number.ToString(CultureInfo.CurrentCulture),
-                                static () => string.Empty))
-                        .ToOneWay(),
-                    page.IdentityCell(key)
-                        .Map(static identity =>
-                            identity.Match(static value => value.Holder, static () => string.Empty))
-                        .ToOneWay(),
-                    page.StateCell(key)
-                        .Map(static state => state.Match(Money, static () => string.Empty))
-                        .ToOneWay()),
-                onEvicted: static row => ((AccountRowViewModel)row).Dispose());
+            MappedItems<AccountRowViewModel> rows = page.Map(
+                key => Row(page, key),
+                onEvicted: static row => row.Dispose());
+
+            // The deposits are whatever the rows on the page are sending. Which rows those are
+            // moves with the page, so the merge is rebuilt from each version of the list and
+            // switched to: a row that has left the page is no longer listened to, whether or not
+            // it has been evicted yet. A page holds six rows, so the rebuild is six streams.
+            deposits.Loop(
+                rows.Items
+                    .Map(static items => items.Select(static row => row.DepositsStream).OrElse())
+                    .SwitchS());
 
             // The total is folded from what changed rather than recomputed from the store. The
             // change carries both sides of it, so a delta needs nothing kept alongside.
@@ -361,14 +396,19 @@ public sealed class AccountsViewModel : IAccountsViewModel
                 Math.Max(1, (keys.Count + PageSize - 1) / PageSize));
 
             return new AccountsViewModel(
-                rows: rows.Items.ToOneWay(),
-                total: total.Map(static pence => "Total across all accounts: " + Money(pence))
+                // A list of rows is a list of the interface they implement, but a cell is a class
+                // and cannot be covariant, so the conversion is spelled out as the lambda's return
+                // type.
+                rows: rows.Items
+                    .Map(static IReadOnlyList<IAccountRowViewModel> (items) => items)
+                    .ToOneWay(),
+                total: total.Map(static cents => "Total across all accounts: " + Money(cents))
                     .ToOneWay(),
                 page: offset.Lift(
                         pageCount,
                         static (at, count) => string.Format(
                             CultureInfo.CurrentCulture,
-                            "Page {0} of {1}",
+                            "Page {0:N0} of {1:N0}",
                             (at / PageSize) + 1,
                             count))
                     .ToOneWay(),
@@ -387,14 +427,83 @@ public sealed class AccountsViewModel : IAccountsViewModel
                 nextPage: nextPage.ToBindableAction(
                     offset.Lift(filtered.KeysCell, static (at, keys) => at + PageSize < keys.Count)),
                 previousPage: previousPage.ToBindableAction(offset.Map(static at => at > 0)),
-                depositIntoTopOfPage: deposit.ToBindableAction(
-                    page.KeysCell.Map(static keys => keys.Count > 0)),
-                toggleFrozen: toggleFrozen.ToBindableAction(),
+                showFrozen: showFrozen.ToTwoWay(),
+                drainFrozenAccounts: drainFrozenAccounts.ToBindableAction(canDrain),
                 sortByNumber: sortByNumber.ToBindableAction(),
                 sortByHolder: sortByHolder.ToBindableAction(),
                 sortByBalance: sortByBalance.ToBindableAction(),
                 projectedRows: rows);
         });
+
+    /// <summary>One edit emptying every one of these accounts.</summary>
+    /// <remarks>
+    ///     One edit rather than one per account, so however many accounts are drained the
+    ///     collection moves once: every view re-files once, and the total folds one delta.
+    /// </remarks>
+    private static CollectionEdit<int, AccountIdentity, AccountState> Drain(IReadOnlyList<int> keys)
+    {
+        Dictionary<int, Func<AccountState, AccountState>> updates = new(keys.Count);
+
+        // Indexed rather than enumerated, because keys arrives interface-typed and a foreach over
+        // one boxes an enumerator.
+        // ReSharper disable once ForCanBeConvertedToForeach
+        for (int index = 0; index < keys.Count; index++)
+        {
+            updates.Add(keys[index], Emptied);
+        }
+
+        return new CollectionEdit<int, AccountIdentity, AccountState>(
+            updates: updates,
+            adds: Array.Empty<Item<AccountIdentity, AccountState>>(),
+            removes: Array.Empty<int>());
+    }
+
+    /// <summary>The row for one account, built from the page it is showing on.</summary>
+    /// <remarks>
+    ///     Every cell here is asked of the page rather than of the collection, so a row answers for
+    ///     the view it belongs to: an account the page does not hold has no holder, no balance, and
+    ///     nothing that can be paid into.
+    /// </remarks>
+    private static AccountRowViewModel Row(ReactiveCollection<int, AccountIdentity, AccountState> page, int key)
+    {
+        Cell<Maybe<AccountIdentity>> identity = page.IdentityCell(key);
+        Cell<Maybe<AccountState>> state = page.StateCell(key);
+
+        Cell<bool> isFrozen =
+            state.Map(static current => current.Match(static value => value.IsFrozen, static () => false));
+
+        Cell<bool> canDeposit =
+            state.Map(static current => current.Match(static value => !value.IsFrozen, static () => false));
+
+        StreamSink<Unit> deposit = Stream.CreateSink<Unit>();
+
+        return new AccountRowViewModel(
+            number: identity
+                .Map(static current => current.Match(
+                    static value => value.Number.ToString(CultureInfo.CurrentCulture),
+                    static () => string.Empty))
+                .ToOneWay(),
+            holder: identity
+                .Map(static current => current.Match(static value => value.Holder, static () => string.Empty))
+                .ToOneWay(),
+            balance: state
+                .Map(static current => current.Match(Money, static () => string.Empty))
+                .ToOneWay(),
+            isFrozen: isFrozen.ToOneWay(),
+
+            // Disabled for a frozen account, which is what the view shows...
+            deposit: deposit.ToBindableAction(canDeposit),
+
+            // ...and gated in the graph, which is the rule. A command's enablement is a copy
+            // posted to the binding thread and can trail the graph, and anything holding the
+            // command can call Execute; the gate is sampled in the transaction the deposit lands
+            // in, so no path to this stream pays into a frozen account.
+            depositsStream: CollectionEdit<int, AccountIdentity, AccountState>.FromUpdates(
+                key,
+                deposit
+                    .Gate(canDeposit)
+                    .MapTo(static (AccountState current) => current.WithBalance(current.Balance + DepositAmount))));
+    }
 
     /// <summary>How much the total moved, from the keys this change touched.</summary>
     /// <remarks>
@@ -427,9 +536,13 @@ public sealed class AccountsViewModel : IAccountsViewModel
         return delta;
     }
 
-    /// <summary>Pence as a currency string.</summary>
+    /// <summary>Cents as a dollar amount.</summary>
     private static string Money(AccountState state) => Money(state.Balance);
 
-    private static string Money(long pence) =>
-        (pence / 100m).ToString("C", CultureInfo.CurrentCulture);
+    /// <remarks>
+    ///     Formatted as US dollars whatever the machine's culture, because the amounts are dollars:
+    ///     the current culture's currency format would put its own symbol on them.
+    /// </remarks>
+    private static string Money(long cents) =>
+        (cents / 100m).ToString("C", UsDollars);
 }
