@@ -237,9 +237,10 @@ public sealed class BehaviorTests
                     .ListenStrong(c =>
                         Transaction.Post(() =>
                         {
-                            if (c.Any())
+                            if (c.Count > 0)
                             {
-                                (int n1, int n2) = c.Last().BothNumbersCell.Sample();
+                                // ReSharper disable once UseIndexFromEndExpression - net472 has no System.Index.
+                                (int n1, int n2) = c[c.Count - 1].BothNumbersCell.Sample();
 
                                 if (n1 == 9 && n2 == 9)
                                 {
@@ -261,11 +262,13 @@ public sealed class BehaviorTests
             Transaction.Run(() =>
                 listCell
                     .Map(static c =>
-                        c.Any()
-                            ? c.Last()
-                                .Number1Cell.Lift(c2: c.Last().Number2Cell, f: static (x, y) => x == 9 && y == 9)
+                        // ReSharper disable UseIndexFromEndExpression - net472 has no System.Index.
+                        c.Count > 0
+                            ? c[c.Count - 1]
+                                .Number1Cell.Lift(c2: c[c.Count - 1].Number2Cell, f: static (x, y) => x == 9 && y == 9)
                                 .Updates()
                             : Stream.Never<bool>())
+                    // ReSharper restore UseIndexFromEndExpression
                     .SwitchS()
                     .Filter(static v => v)
                     .ListenStrong(_ => Transaction.Post(() => addItemStreamSink.Send((Number1: 0, Number2: 0)))));

@@ -48,7 +48,7 @@ public sealed class EnumerableExtensionMethodsTests
         int calls = 0;
 
         IEnumerable<int> result =
-            new[] { 1, 2, 3 }.Choose(v =>
+            Items(1, 2, 3).Choose(v =>
             {
                 calls++;
                 return Maybe.Some(v);
@@ -75,14 +75,14 @@ public sealed class EnumerableExtensionMethodsTests
     [Test]
     public async Task TestFirstOrNone()
     {
-        await Assert.That(new[] { 1, 2, 3 }.FirstOrNone()).IsEqualTo(Maybe.Some(1));
+        await Assert.That(Items(1, 2, 3).FirstOrNone()).IsEqualTo(Maybe.Some(1));
         await Assert.That(Array.Empty<int>().FirstOrNone()).IsEqualTo(Maybe<int>.None);
         await Assert.That(((IEnumerable<int>?)null).FirstOrNone()).IsEqualTo(Maybe<int>.None);
     }
 
     [Test]
     public async Task TestFirstOrNoneKeepsDefaultValue() =>
-        await Assert.That(new[] { 0, 1 }.FirstOrNone()).IsEqualTo(Maybe.Some(0));
+        await Assert.That(Items(0, 1).FirstOrNone()).IsEqualTo(Maybe.Some(0));
 
     [Test]
     public async Task TestFirstOrNoneReadsOneElement()
@@ -98,15 +98,15 @@ public sealed class EnumerableExtensionMethodsTests
     [Test]
     public async Task TestFirstOrNoneWithPredicate()
     {
-        await Assert.That(new[] { 1, 2, 3, 4 }.FirstOrNone(static v => v % 2 == 0)).IsEqualTo(Maybe.Some(2));
-        await Assert.That(new[] { 1, 3 }.FirstOrNone(static v => v % 2 == 0)).IsEqualTo(Maybe<int>.None);
+        await Assert.That(Items(1, 2, 3, 4).FirstOrNone(static v => v % 2 == 0)).IsEqualTo(Maybe.Some(2));
+        await Assert.That(Items(1, 3).FirstOrNone(static v => v % 2 == 0)).IsEqualTo(Maybe<int>.None);
         await Assert.That(((IEnumerable<int>?)null).FirstOrNone(static _ => true)).IsEqualTo(Maybe<int>.None);
     }
 
     [Test]
     public async Task TestLastOrNoneIndexable()
     {
-        await Assert.That(new[] { 1, 2, 3 }.LastOrNone()).IsEqualTo(Maybe.Some(3));
+        await Assert.That(Items(1, 2, 3).LastOrNone()).IsEqualTo(Maybe.Some(3));
         await Assert.That(Array.Empty<int>().LastOrNone()).IsEqualTo(Maybe<int>.None);
         await Assert.That(((IEnumerable<int>?)null).LastOrNone()).IsEqualTo(Maybe<int>.None);
     }
@@ -121,14 +121,14 @@ public sealed class EnumerableExtensionMethodsTests
     [Test]
     public async Task TestLastOrNoneWithPredicate()
     {
-        await Assert.That(new[] { 1, 2, 3, 4, 5 }.LastOrNone(static v => v % 2 == 0)).IsEqualTo(Maybe.Some(4));
-        await Assert.That(new[] { 1, 3 }.LastOrNone(static v => v % 2 == 0)).IsEqualTo(Maybe<int>.None);
+        await Assert.That(Items(1, 2, 3, 4, 5).LastOrNone(static v => v % 2 == 0)).IsEqualTo(Maybe.Some(4));
+        await Assert.That(Items(1, 3).LastOrNone(static v => v % 2 == 0)).IsEqualTo(Maybe<int>.None);
     }
 
     [Test]
     public async Task TestSingleOrNone()
     {
-        await Assert.That(new[] { 1 }.SingleOrNone()).IsEqualTo(Maybe.Some(1));
+        await Assert.That(Items(1).SingleOrNone()).IsEqualTo(Maybe.Some(1));
         await Assert.That(Array.Empty<int>().SingleOrNone()).IsEqualTo(Maybe<int>.None);
         await Assert.That(((IEnumerable<int>?)null).SingleOrNone()).IsEqualTo(Maybe<int>.None);
     }
@@ -136,7 +136,7 @@ public sealed class EnumerableExtensionMethodsTests
     [Test]
     public async Task TestSingleOrNoneThrowsOnMoreThanOne() =>
         // ReSharper disable once ReturnValueOfPureMethodIsNotUsed - Testing for side effect only.
-        await Assert.That(static () => new[] { 1, 2 }.SingleOrNone()).ThrowsExactly<InvalidOperationException>();
+        await Assert.That(static () => Items(1, 2).SingleOrNone()).ThrowsExactly<InvalidOperationException>();
 
     [Test]
     public async Task TestSingleOrNoneReadsTwoElements()
@@ -152,10 +152,10 @@ public sealed class EnumerableExtensionMethodsTests
     [Test]
     public async Task TestSingleOrNoneWithPredicate()
     {
-        await Assert.That(new[] { 1, 2, 3 }.SingleOrNone(static v => v % 2 == 0)).IsEqualTo(Maybe.Some(2));
-        await Assert.That(new[] { 1, 3 }.SingleOrNone(static v => v % 2 == 0)).IsEqualTo(Maybe<int>.None);
+        await Assert.That(Items(1, 2, 3).SingleOrNone(static v => v % 2 == 0)).IsEqualTo(Maybe.Some(2));
+        await Assert.That(Items(1, 3).SingleOrNone(static v => v % 2 == 0)).IsEqualTo(Maybe<int>.None);
         // ReSharper disable once ReturnValueOfPureMethodIsNotUsed - Testing for side effect only.
-        await Assert.That(static () => new[] { 2, 4 }.SingleOrNone(static v => v % 2 == 0)).ThrowsExactly<InvalidOperationException>();
+        await Assert.That(static () => Items(2, 4).SingleOrNone(static v => v % 2 == 0)).ThrowsExactly<InvalidOperationException>();
     }
 
     [Test]
@@ -193,8 +193,8 @@ public sealed class EnumerableExtensionMethodsTests
     [Test]
     public async Task TestAggregateOrNone()
     {
-        await Assert.That(new[] { 1, 2, 3, 4 }.AggregateOrNone(static (a, b) => a + b)).IsEqualTo(Maybe.Some(10));
-        await Assert.That(new[] { 7 }.AggregateOrNone(static (a, b) => a + b)).IsEqualTo(Maybe.Some(7));
+        await Assert.That(Items(1, 2, 3, 4).AggregateOrNone(static (a, b) => a + b)).IsEqualTo(Maybe.Some(10));
+        await Assert.That(Items(7).AggregateOrNone(static (a, b) => a + b)).IsEqualTo(Maybe.Some(7));
         await Assert.That(Array.Empty<int>().AggregateOrNone(static (a, b) => a + b)).IsEqualTo(Maybe<int>.None);
 
         await Assert.That(((IEnumerable<int>?)null).AggregateOrNone(static (a, b) => a + b)).IsEqualTo(Maybe<int>.None);
@@ -202,7 +202,7 @@ public sealed class EnumerableExtensionMethodsTests
 
     [Test]
     public async Task TestAggregateOrNoneIsLeftAssociative() =>
-        await Assert.That(new[] { "a", "b", "c" }.AggregateOrNone(static (a, b) => "(" + a + " " + b + ")")).IsEqualTo(Maybe.Some("((a b) c)"));
+        await Assert.That(Items("a", "b", "c").AggregateOrNone(static (a, b) => "(" + a + " " + b + ")")).IsEqualTo(Maybe.Some("((a b) c)"));
 
     [Test]
     public async Task TestAggregateOrNoneDoesNotRunFunctionForOneElement()
@@ -210,7 +210,7 @@ public sealed class EnumerableExtensionMethodsTests
         int calls = 0;
 
         Maybe<int> result =
-            new[] { 7 }.AggregateOrNone((a, b) =>
+            Items(7).AggregateOrNone((a, b) =>
             {
                 calls++;
                 return a + b;
@@ -236,7 +236,7 @@ public sealed class EnumerableExtensionMethodsTests
     [Test]
     public async Task TestMinOrNoneKeepsZero() =>
         // Min throws on an empty sequence precisely so it need not conflate it with this.
-        await Assert.That(new[] { 0, 1 }.MinOrNone()).IsEqualTo(Maybe.Some(0));
+        await Assert.That(Items(0, 1).MinOrNone()).IsEqualTo(Maybe.Some(0));
 
     [Test]
     public async Task TestMinOrNoneWithComparer()
@@ -297,7 +297,22 @@ public sealed class EnumerableExtensionMethodsTests
         await Assert.That(source.MaxOrNone()).IsEqualTo(Maybe.Some(2.0));
     }
 
-    private static IEnumerable<T> Yield<T>(params T[] items) => items;
+    // An array, which is what the indexable paths are for, built from the arguments rather than
+    // written inline as new[] { ... }: an array written inline as an argument is CA1861, and a params
+    // array is not.
+    private static T[] Items<T>(params T[] items) => items;
+
+    // A sequence that is only a sequence. Returning the params array itself would hand back something
+    // that is still an IReadOnlyList<T> at runtime, and the NotIndexable tests would take the very
+    // indexable path they exist to avoid.
+    private static IEnumerable<T> Yield<T>(params T[] items)
+    {
+        // ReSharper disable once LoopCanBeConvertedToQuery - A query operator is free to return something indexable, which is the one thing this must not be.
+        foreach (T item in items)
+        {
+            yield return item;
+        }
+    }
 
     private static IEnumerable<T> Counted<T>(IEnumerable<T> source, Action onRead)
     {

@@ -118,8 +118,8 @@ public static partial class BindableCoreExtensionMethods
             this.scheduler.Post(() => handler(sender: this, e: EventArgs.Empty));
         }
 
-        private static Exception GetInvalidTypeException() =>
-            new InvalidOperationException("The command parameter must be of type " + typeof(T).FullName + ".");
+        private static InvalidOperationException GetInvalidTypeException() =>
+            new("The command parameter must be of type " + typeof(T).FullName + ".");
 
         /// <summary>
         ///     Guards against a XAML author binding a <c>CommandParameter</c> to the wrong type.

@@ -44,8 +44,9 @@ internal sealed partial class App
 
         // The handler is called with anything raised while waiting for or firing a timer.
         // Timer callbacks run outside any call stack of yours, so an exception in one has
-        // nowhere else to go.
-        this.viewModel = BounceViewModel.Create(static ex => Debug.WriteLine(ex));
+        // nowhere else to go. Trace rather than Debug: Debug.WriteLine is compiled out of a
+        // release build, which would leave this handler doing nothing at all there.
+        this.viewModel = BounceViewModel.Create(static ex => Trace.WriteLine(ex));
 
         MainWindow window = new() { DataContext = this.viewModel };
 
