@@ -29,9 +29,13 @@ Counter/
   SodaFlow.Samples.Counter.Avalonia/     net8.0         - the same, in Avalonia
 ```
 
+Search, Bounce and Accounts have the same shape on .NET 10: a `net10.0` view model, a
+`net10.0-windows` WPF head and a `net10.0` Avalonia head, all at C# 14.
+
 The split is the point. A SodaFlow view model is built from cells, streams and bindables, none of
-which come from a UI framework, so the view model project targets `netstandard2.0` and references
-no UI package at all. If it ever needed one to compile, the claim would be empty.
+which come from a UI framework, so the view model project targets a framework with no platform in
+it - `netstandard2.0` for Counter, `net10.0` for the others - and references no UI package at all.
+If it ever needed one to compile, the claim would be empty.
 
 Read the view model first. The two heads are almost entirely XAML, and reading them side by side
 shows how little of an application has to know which framework it is running on.

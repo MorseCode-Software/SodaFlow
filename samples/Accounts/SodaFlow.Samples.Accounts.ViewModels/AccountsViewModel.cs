@@ -38,18 +38,11 @@ internal enum AccountColumn
 ///         state on screen - a column and a direction - and the sort follows from it.
 ///     </para>
 /// </remarks>
-internal sealed class SortSelection
+/// <param name="Column">The column the list is sorted by.</param>
+/// <param name="Descending">Whether it runs from the largest down.</param>
+// ReSharper disable once InheritdocConsiderUsage
+internal sealed record SortSelection(AccountColumn Column, bool Descending)
 {
-    internal SortSelection(AccountColumn column, bool descending)
-    {
-        this.Column = column;
-        this.Descending = descending;
-    }
-
-    private AccountColumn Column { get; }
-
-    private bool Descending { get; }
-
     /// <summary>This selection as an order the sort stage can hold.</summary>
     /// <remarks>
     ///     Three orders projecting sort values of three types - an <c>int</c>, a <c>string</c> and
@@ -85,7 +78,7 @@ internal sealed class SortSelection
     /// </remarks>
     internal SortSelection Clicked(AccountColumn column) =>
         column == this.Column
-            ? new SortSelection(column, !this.Descending)
+            ? this with { Descending = !this.Descending }
             : new SortSelection(column, column == AccountColumn.Balance);
 
     /// <summary>A header's caption, marked if it is the column in force.</summary>
@@ -113,7 +106,7 @@ internal sealed class AccountRowViewModel : IAccountRowViewModel
         this.IsFrozen = isFrozen;
         this.Deposit = deposit;
         this.DepositsStream = depositsStream;
-        this.disposables = new IDisposable[] { number, holder, balance, isFrozen, deposit };
+        this.disposables = [number, holder, balance, isFrozen, deposit];
     }
 
     /// <inheritdoc />
@@ -174,13 +167,6 @@ public sealed class AccountsViewModel : IAccountsViewModel
     /// <summary>How every amount on screen is written.</summary>
     private static readonly NumberFormatInfo UsDollars = CultureInfo.GetCultureInfo("en-US").NumberFormat;
 
-    /// <summary>What a drain does to one account.</summary>
-    /// <remarks>
-    ///     One delegate shared by every update in a drain. A method group would allocate a fresh
-    ///     one for each of the thousands of accounts, at the language version this sample builds at.
-    /// </remarks>
-    private static readonly Func<AccountState, AccountState> Emptied = static state => state.WithBalance(0);
-
     private readonly IReadOnlyList<IDisposable> disposables;
 
     private AccountsViewModel(
@@ -217,12 +203,12 @@ public sealed class AccountsViewModel : IAccountsViewModel
 
         // The projection is in here too. Disposing it releases every row it still holds, which is
         // the ones that never left the view and so never triggered the eviction callback.
-        this.disposables = new IDisposable[]
-        {
+        this.disposables =
+        [
             rows, total, page, filterDescription, numberHeader, holderHeader, balanceHeader,
             nextPage, previousPage, showFrozen, drainFrozenAccounts, sortByNumber, sortByHolder,
-            sortByBalance, projectedRows,
-        };
+            sortByBalance, projectedRows
+        ];
     }
 
     /// <inheritdoc />
@@ -305,7 +291,7 @@ public sealed class AccountsViewModel : IAccountsViewModel
                 }
                 .OrElse()
                 .Accum(
-                    initialState: new SortSelection(AccountColumn.Balance, descending: true),
+                    initialState: new SortSelection(AccountColumn.Balance, Descending: true),
                     f: static (column, current) => current.Clicked(column));
 
             // Each row pays into its own account, so the edits come from the rows, and the rows
@@ -440,12 +426,16 @@ public sealed class AccountsViewModel : IAccountsViewModel
     ///     One edit rather than one per account, so however many accounts are drained the
     ///     collection moves once: every view re-files once, and the total folds one delta.
     /// </remarks>
-    private static CollectionEdit<int, AccountIdentity, AccountState> Drain(IReadOnlyList<int> keys)
+    private static CollectionEdit<int, AccountIdentity, AccountState> Drain(
+        // The keys' own type rather than the list interface it implements, because a drain reads
+        // every one of them and a call through the class is cheaper than one through the interface.
+        // ReSharper disable once SuggestBaseTypeForParameter
+        OrderedKeys<int, AccountIdentity, AccountState> keys)
     {
         Dictionary<int, Func<AccountState, AccountState>> updates = new(keys.Count);
 
-        // Indexed rather than enumerated, because keys arrives interface-typed and a foreach over
-        // one boxes an enumerator.
+        // Indexed rather than enumerated, because the keys hand back their enumerator as an
+        // interface, so a foreach would allocate one.
         // ReSharper disable once ForCanBeConvertedToForeach
         for (int index = 0; index < keys.Count; index++)
         {
@@ -454,9 +444,16 @@ public sealed class AccountsViewModel : IAccountsViewModel
 
         return new CollectionEdit<int, AccountIdentity, AccountState>(
             updates: updates,
-            adds: Array.Empty<Item<AccountIdentity, AccountState>>(),
-            removes: Array.Empty<int>());
+            adds: [],
+            removes: []);
     }
+
+    /// <summary>What a drain does to one account.</summary>
+    /// <remarks>
+    ///     A static method, so every update in a drain shares one cached delegate rather than
+    ///     allocating one for each of the thousands of accounts.
+    /// </remarks>
+    private static AccountState Emptied(AccountState state) => state with { Balance = 0 };
 
     /// <summary>The row for one account, built from the page it is showing on.</summary>
     /// <remarks>
@@ -502,7 +499,7 @@ public sealed class AccountsViewModel : IAccountsViewModel
                 key,
                 deposit
                     .Gate(canDeposit)
-                    .MapTo(static (AccountState current) => current.WithBalance(current.Balance + DepositAmount))));
+                    .MapTo(static (AccountState current) => current with { Balance = current.Balance + DepositAmount })));
     }
 
     /// <summary>How much the total moved, from the keys this change touched.</summary>

@@ -8,52 +8,25 @@ namespace SodaFlow.Samples.Accounts.ViewModels;
 /// <remarks>
 ///     The key is derived from this alone, which is what lets the collection treat a state edit as
 ///     something that cannot move an item into or out of a view keyed on identity.
-///     <para />
-///     A class rather than a record because this sample targets netstandard2.0 at C# 10, where a
-///     positional record needs an <c>IsExternalInit</c> shim - noise about the target framework
-///     rather than about SodaFlow.
 /// </remarks>
+/// <param name="Number">The account number, which is its key.</param>
+/// <param name="Holder">Whose account it is.</param>
 // ReSharper disable once InheritdocConsiderUsage
-internal sealed class AccountIdentity : IIdentity<int>
+internal sealed record AccountIdentity(int Number, string Holder) : IIdentity<int>
 {
-    /// <param name="number">The account number, which is its key.</param>
-    /// <param name="holder">Whose account it is.</param>
-    internal AccountIdentity(int number, string holder)
-    {
-        this.Number = number;
-        this.Holder = holder;
-    }
-
-    /// <summary>The account number.</summary>
-    internal int Number { get; }
-
-    /// <summary>Whose account it is.</summary>
-    internal string Holder { get; }
-
     /// <inheritdoc />
     public int Key => this.Number;
 }
 
 /// <summary>The half that moves: what the account currently holds.</summary>
-internal sealed class AccountState
-{
-    /// <param name="balance">Cents, so the sample never shows a rounding artifact.</param>
-    /// <param name="isFrozen">Whether the account is frozen, which the view filters on.</param>
-    internal AccountState(long balance, bool isFrozen)
-    {
-        this.Balance = balance;
-        this.IsFrozen = isFrozen;
-    }
-
-    /// <summary>The balance, in cents.</summary>
-    internal long Balance { get; }
-
-    /// <summary>Whether the account is frozen.</summary>
-    internal bool IsFrozen { get; }
-
-    /// <summary>The same account with a different balance.</summary>
-    internal AccountState WithBalance(long balance) => new(balance, this.IsFrozen);
-}
+/// <remarks>
+///     A record, so an edit is a <c>with</c> expression naming the one thing it changes and the
+///     rest is carried across.
+/// </remarks>
+/// <param name="Balance">The balance, in cents, so the sample never shows a rounding artifact.</param>
+/// <param name="IsFrozen">Whether the account is frozen, which the view filters on.</param>
+// ReSharper disable once InheritdocConsiderUsage
+internal sealed record AccountState(long Balance, bool IsFrozen);
 
 /// <summary>The accounts this sample starts with.</summary>
 /// <remarks>
@@ -79,25 +52,25 @@ internal static class AccountSeed
     private const uint MaximumBalance = 50_000_00;
 
     private static readonly string[] Surnames =
-    {
+    [
         "Ackroyd", "Bhatt", "Calloway", "Dimitrova", "Eze", "Fairbairn", "Gruber", "Haddad",
         "Ivanov", "Jarrett", "Kowalski", "Lindqvist", "Moreau", "Nakamura", "Okonkwo", "Pereira",
         "Quill", "Rasmussen", "Sørensen", "Tanaka", "Urquhart", "Varga", "Whitlock", "Xu",
         "Yilmaz", "Zielinski", "Abernathy", "Brennan", "Castellano", "Delacroix", "Eriksson",
         "Fonseca", "Galloway", "Hartmann", "Ishikawa", "Jovanovic", "Kaur", "Lachance", "Mbeki",
         "Novak", "Oyelaran", "Petrakis", "Quintero", "Rahman", "Szabo", "Thorne", "Ueda", "Vasquez"
-    };
+    ];
 
     private static readonly string[] GivenNames =
-    {
+    [
         "Ada", "Bruno", "Chidi", "Dagny", "Elif", "Farid", "Greta", "Hiro", "Imani", "Jonas",
         "Kalani", "Leila", "Mateo", "Nadia", "Omar", "Priya", "Rafael", "Saoirse", "Tomasz",
         "Uma", "Viktor", "Wren", "Yusuf", "Zara"
-    };
+    ];
 
     /// <summary>The accounts, built once and shared, since nothing can change an item.</summary>
     internal static IReadOnlyList<Item<AccountIdentity, AccountState>> Items { get; } =
-        Enumerable.Range(0, Count).Select(Create).ToList();
+        [.. Enumerable.Range(0, Count).Select(Create)];
 
     private static Item<AccountIdentity, AccountState> Create(int index)
     {

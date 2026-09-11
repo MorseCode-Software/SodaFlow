@@ -30,7 +30,7 @@ namespace SodaFlow.Samples.Search.ViewModels;
 // ReSharper disable once InheritdocConsiderUsage
 public sealed class SearchViewModel : ISearchViewModel
 {
-    private static readonly IReadOnlyList<string> NoResults = Array.Empty<string>();
+    private static readonly IReadOnlyList<string> NoResults = [];
 
     private readonly IReadOnlyList<IDisposable> disposables;
 
@@ -57,7 +57,7 @@ public sealed class SearchViewModel : ISearchViewModel
         // The bindables each hold a subscription into the graph, and status is the async
         // pipeline itself: disposing it tears that down and cancels anything still in flight.
         // They differ in kind but not in what disposal asks of them, so one list holds both.
-        this.disposables = new IDisposable[] { query, results, summary, error, hasError, isBusy, cancel, status };
+        this.disposables = [query, results, summary, error, hasError, isBusy, cancel, status];
     }
 
     #endregion

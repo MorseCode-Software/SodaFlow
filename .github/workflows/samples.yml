@@ -42,8 +42,9 @@ permissions:
 
 jobs:
   build:
-    # Windows because the WPF head of every sample targets net8.0-windows. The Avalonia heads and
-    # the view models would build anywhere; splitting the job to save that is not worth the noise.
+    # Windows because the WPF head of every sample targets a -windows framework. The Avalonia heads
+    # and the view models would build anywhere; splitting the job to save that is not worth the
+    # noise.
     runs-on: windows-latest
 
     strategy:
@@ -59,9 +60,10 @@ jobs:
 
       - uses: actions/setup-dotnet@v6
         with:
-          # 10.0 is what global.json pins, and is what actually runs the build. 8.0 is installed
-          # alongside it so the net8.0 and net8.0-windows targets have their targeting packs
-          # present rather than acquired during the build.
+          # 10.0 is what global.json pins, and is what actually runs the build - and what Search and
+          # Bounce target. 8.0 is installed alongside it for Counter, so its net8.0 and
+          # net8.0-windows targets have their targeting packs present rather than acquired during
+          # the build.
           dotnet-version: |
             8.0.x
             10.0.x

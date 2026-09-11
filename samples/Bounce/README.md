@@ -161,7 +161,7 @@ becomes a stop:
 
 ```csharp
 return Math.Abs(velocity) < RestSpeed && canRest
-    ? new Flight(startTime: time, position: bound, velocity: 0.0, acceleration: 0.0)
+    ? new Flight(StartTime: time, Position: bound, Velocity: 0.0, Acceleration: 0.0)
     : ...
 ```
 
