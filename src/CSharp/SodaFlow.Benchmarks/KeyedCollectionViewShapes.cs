@@ -29,12 +29,14 @@ namespace SodaFlow.Benchmarks;
 ///         two things computing different results would not be worth running.
 ///     </para>
 /// </remarks>
-internal interface IKeyedCollectionViewShape
+file interface IKeyedCollectionViewShape
 {
     /// <summary>The view's keys, in order, as they stand.</summary>
+    // ReSharper disable once UnusedMemberInSuper.Global - Defines shape expected for implementers
     IReadOnlyList<int> Keys { get; }
 
     /// <summary>Replaces one item's state, which may move it within the view or out of it.</summary>
+    // ReSharper disable once UnusedMemberInSuper.Global - Defines shape expected for implementers
     void Replace(int key, ItemState state);
 
     /// <summary>
@@ -42,9 +44,11 @@ internal interface IKeyedCollectionViewShape
     ///     collection the size it started. A benchmark that only added would measure a collection
     ///     growing under it.
     /// </summary>
+    // ReSharper disable once UnusedMemberInSuper.Global - Defines shape expected for implementers
     void AddAndRemove(int key, ItemState state);
 
     /// <summary>Changes what the filter is filtering on, which rebuilds the stage.</summary>
+    // ReSharper disable once UnusedMemberInSuper.Global - Defines shape expected for implementers
     void SetThreshold(int threshold);
 }
 
@@ -306,7 +310,7 @@ internal sealed class ChainedViewShape : IKeyedCollectionViewShape
 /// <remarks>
 ///     <para>
 ///         This exists because without it the view benchmarks cannot be read. An edit through a
-///         chain pays for the transaction, the send, the trie write to the state map, the snapshot
+///         chain pays for the transaction, the send operation, the trie write to the state map, the snapshot
 ///         and the change object before any stage is consulted, and at ten thousand items that is
 ///         2.8 of the 6.5 microseconds an excluded-key edit costs. Report the 6.5 and a
 ///         stage-level difference of a fifth of a microsecond reads as noise; subtract the floor
@@ -395,15 +399,18 @@ internal sealed class RootOnlyViewShape : IKeyedCollectionViewShape
 ///     Both hold the same page of the same ordering, and the benchmark checks that in its setup
 ///     before timing either.
 /// </remarks>
-internal interface IKeyedPagingShape
+file interface IKeyedPagingShape
 {
     /// <summary>The page's keys, in order, as they stand.</summary>
+    // ReSharper disable once UnusedMemberInSuper.Global - Defines shape expected for implementers
     IReadOnlyList<int> Keys { get; }
 
     /// <summary>Moves the window to a new offset.</summary>
+    // ReSharper disable once UnusedMemberInSuper.Global - Defines shape expected for implementers
     void TurnTo(int offset);
 
     /// <summary>Replaces one item's state.</summary>
+    // ReSharper disable once UnusedMemberInSuper.Global - Defines shape expected for implementers
     void Replace(int key, ItemState state);
 }
 

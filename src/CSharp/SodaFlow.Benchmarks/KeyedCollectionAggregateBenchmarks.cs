@@ -38,10 +38,10 @@ public class KeyedCollectionAggregateBenchmarks
 {
     private int editCount;
 
-    private IKeyedAggregateShape incremental = IncrementalAggregateShape.Build(1);
+    private IncrementalAggregateShape incremental = IncrementalAggregateShape.Build(1);
 
     // Populated for real in the setup; built small here so the fields never have to be nullable.
-    private IKeyedAggregateShape rederived = RederivedAggregateShape.Build(1);
+    private RederivedAggregateShape rederived = RederivedAggregateShape.Build(1);
 
     /// <summary>How many items the collection holds.</summary>
     [Params(1_000, 10_000, 100_000)]

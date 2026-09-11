@@ -66,6 +66,7 @@ internal sealed class ProjectedCellCache<TKey, TProjected>
 
         List<TKey> dead = new();
 
+        // ReSharper disable once ForeachCanBeConvertedToQueryUsingAnotherGetEnumerator
         foreach (KeyValuePair<TKey, WeakReference<Cell<TProjected>>> pair in this.cells)
         {
             if (!pair.Value.TryGetTarget(out Cell<TProjected>? _))

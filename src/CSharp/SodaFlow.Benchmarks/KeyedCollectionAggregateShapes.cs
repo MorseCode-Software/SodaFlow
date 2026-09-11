@@ -26,12 +26,14 @@ namespace SodaFlow.Benchmarks;
 ///         no cheaper to compute than a correct one.
 ///     </para>
 /// </remarks>
-internal interface IKeyedAggregateShape
+file interface IKeyedAggregateShape
 {
     /// <summary>The total as it stands.</summary>
+    // ReSharper disable once UnusedMemberInSuper.Global - Defines shape expected for implementers
     long Total { get; }
 
     /// <summary>Replaces one item's state.</summary>
+    // ReSharper disable once UnusedMemberInSuper.Global - Defines shape expected for implementers
     void Replace(int key, ItemState state);
 
     /// <summary>
@@ -39,13 +41,14 @@ internal interface IKeyedAggregateShape
     ///     removed halves of an incremental fold. Not timed; the setup uses it to check the fold
     ///     agrees with the sum after a structural change as well as after a state change.
     /// </summary>
+    // ReSharper disable once UnusedMemberInSuper.Global - Defines shape expected for implementers
     void AddAndRemove(int key, ItemState state);
 }
 
 /// <summary>Shared by the two aggregate shapes, so they are asked for the same thing.</summary>
 file static class AggregateSeed
 {
-    /// <summary>The value being totalled, from one item.</summary>
+    /// <summary>The value being totaled, from one item.</summary>
     internal static long ValueOf(ItemState state) => state.Score;
 
     /// <summary>The initial contents both shapes are built on.</summary>
