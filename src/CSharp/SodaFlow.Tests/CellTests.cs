@@ -92,15 +92,32 @@ public sealed class CellTests
         await Assert.That(streamOutput.Count).IsEqualTo(4);
         await Assert.That(cellOutput.Count).IsEqualTo(5);
 
-        await Assert.That(cellOutput[0]).IsEquivalentTo(expected: [0, 1, 2, 3, 4], ordering: CollectionOrdering.Matching);
-        await Assert.That(streamOutput[0]).IsEquivalentTo(expected: [0, 1, 12, 3, 4], ordering: CollectionOrdering.Matching);
-        await Assert.That(cellOutput[1]).IsEquivalentTo(expected: [0, 1, 12, 3, 4], ordering: CollectionOrdering.Matching);
-        await Assert.That(streamOutput[1]).IsEquivalentTo(expected: [0, 1, 12, 3, 14], ordering: CollectionOrdering.Matching);
-        await Assert.That(cellOutput[2]).IsEquivalentTo(expected: [0, 1, 12, 3, 14], ordering: CollectionOrdering.Matching);
-        await Assert.That(streamOutput[2]).IsEquivalentTo(expected: [5, 16, 17, 8, 9], ordering: CollectionOrdering.Matching);
-        await Assert.That(cellOutput[3]).IsEquivalentTo(expected: [5, 16, 17, 8, 9], ordering: CollectionOrdering.Matching);
-        await Assert.That(streamOutput[3]).IsEquivalentTo(expected: [5, 16, 17, 18, 9], ordering: CollectionOrdering.Matching);
-        await Assert.That(cellOutput[4]).IsEquivalentTo(expected: [5, 16, 17, 18, 9], ordering: CollectionOrdering.Matching);
+        await Assert.That(cellOutput[0])
+            .IsEquivalentTo(expected: [0, 1, 2, 3, 4], ordering: CollectionOrdering.Matching);
+
+        await Assert.That(streamOutput[0])
+            .IsEquivalentTo(expected: [0, 1, 12, 3, 4], ordering: CollectionOrdering.Matching);
+
+        await Assert.That(cellOutput[1])
+            .IsEquivalentTo(expected: [0, 1, 12, 3, 4], ordering: CollectionOrdering.Matching);
+
+        await Assert.That(streamOutput[1])
+            .IsEquivalentTo(expected: [0, 1, 12, 3, 14], ordering: CollectionOrdering.Matching);
+
+        await Assert.That(cellOutput[2])
+            .IsEquivalentTo(expected: [0, 1, 12, 3, 14], ordering: CollectionOrdering.Matching);
+
+        await Assert.That(streamOutput[2])
+            .IsEquivalentTo(expected: [5, 16, 17, 8, 9], ordering: CollectionOrdering.Matching);
+
+        await Assert.That(cellOutput[3])
+            .IsEquivalentTo(expected: [5, 16, 17, 8, 9], ordering: CollectionOrdering.Matching);
+
+        await Assert.That(streamOutput[3])
+            .IsEquivalentTo(expected: [5, 16, 17, 18, 9], ordering: CollectionOrdering.Matching);
+
+        await Assert.That(cellOutput[4])
+            .IsEquivalentTo(expected: [5, 16, 17, 18, 9], ordering: CollectionOrdering.Matching);
     }
 
     [Test]
@@ -140,20 +157,32 @@ public sealed class CellTests
         await Assert.That(streamOutput.Count).IsEqualTo(4);
         await Assert.That(cellOutput.Count).IsEqualTo(5);
 
-        await Assert.That(cellOutput[0]).IsEquivalentTo(expected: [0, 1, 2, 3, 4], ordering: CollectionOrdering.Matching);
-        await Assert.That(streamOutput[0]).IsEquivalentTo(expected: [0, 1, 12, 3, 4], ordering: CollectionOrdering.Matching);
-        await Assert.That(cellOutput[1]).IsEquivalentTo(expected: [0, 1, 12, 3, 4], ordering: CollectionOrdering.Matching);
-        await Assert.That(streamOutput[1]).IsEquivalentTo(expected: [0, 1, 12, 3, 14], ordering: CollectionOrdering.Matching);
-        await Assert.That(cellOutput[2]).IsEquivalentTo(expected: [0, 1, 12, 3, 14], ordering: CollectionOrdering.Matching);
-        await Assert.That(streamOutput[2]).IsEquivalentTo(expected: [5, 16, 17, 8, 9], ordering: CollectionOrdering.Matching);
-        await Assert.That(cellOutput[3]).IsEquivalentTo(expected: [5, 16, 17, 8, 9], ordering: CollectionOrdering.Matching);
-        await Assert.That(streamOutput[3]).IsEquivalentTo(expected: [5, 16, 17, 18, 9], ordering: CollectionOrdering.Matching);
-        await Assert.That(cellOutput[4]).IsEquivalentTo(expected: [5, 16, 17, 18, 9], ordering: CollectionOrdering.Matching);
-    }
+        await Assert.That(cellOutput[0])
+            .IsEquivalentTo(expected: [0, 1, 2, 3, 4], ordering: CollectionOrdering.Matching);
 
-    private sealed class Test(int initialValue)
-    {
-        public CellSink<int> Value { get; } = Cell.CreateSink(initialValue);
+        await Assert.That(streamOutput[0])
+            .IsEquivalentTo(expected: [0, 1, 12, 3, 4], ordering: CollectionOrdering.Matching);
+
+        await Assert.That(cellOutput[1])
+            .IsEquivalentTo(expected: [0, 1, 12, 3, 4], ordering: CollectionOrdering.Matching);
+
+        await Assert.That(streamOutput[1])
+            .IsEquivalentTo(expected: [0, 1, 12, 3, 14], ordering: CollectionOrdering.Matching);
+
+        await Assert.That(cellOutput[2])
+            .IsEquivalentTo(expected: [0, 1, 12, 3, 14], ordering: CollectionOrdering.Matching);
+
+        await Assert.That(streamOutput[2])
+            .IsEquivalentTo(expected: [5, 16, 17, 8, 9], ordering: CollectionOrdering.Matching);
+
+        await Assert.That(cellOutput[3])
+            .IsEquivalentTo(expected: [5, 16, 17, 8, 9], ordering: CollectionOrdering.Matching);
+
+        await Assert.That(streamOutput[3])
+            .IsEquivalentTo(expected: [5, 16, 17, 18, 9], ordering: CollectionOrdering.Matching);
+
+        await Assert.That(cellOutput[4])
+            .IsEquivalentTo(expected: [5, 16, 17, 18, 9], ordering: CollectionOrdering.Matching);
     }
 
     [Test]
@@ -210,14 +239,17 @@ public sealed class CellTests
             s.Send(4);
         }
 
-        await Assert.That(@out).IsEquivalentTo(expected:
-        [
-                          (Current: 0, Previous: Maybe.None),
-                          (Current: 1, Previous: Maybe.Some(0)),
-                          (Current: 2, Previous: Maybe.Some(1)),
-                          (Current: 3, Previous: Maybe.Some(2)),
-                          (Current: 4, Previous: Maybe.Some(3))
-                      ], ordering: CollectionOrdering.Matching);
+        await Assert.That(@out)
+            .IsEquivalentTo(
+                expected:
+                [
+                    (Current: 0, Previous: Maybe.None),
+                    (Current: 1, Previous: Maybe.Some(0)),
+                    (Current: 2, Previous: Maybe.Some(1)),
+                    (Current: 3, Previous: Maybe.Some(2)),
+                    (Current: 4, Previous: Maybe.Some(3))
+                ],
+                ordering: CollectionOrdering.Matching);
     }
 
     [Test]
@@ -247,14 +279,17 @@ public sealed class CellTests
             s.Send(5);
         }
 
-        await Assert.That(@out).IsEquivalentTo(expected:
-        [
-                          (Current: 1, Previous: Maybe.Some(0)),
-                          (Current: 2, Previous: Maybe.Some(1)),
-                          (Current: 3, Previous: Maybe.Some(2)),
-                          (Current: 4, Previous: Maybe.Some(3)),
-                          (Current: 5, Previous: Maybe.Some(4))
-                      ], ordering: CollectionOrdering.Matching);
+        await Assert.That(@out)
+            .IsEquivalentTo(
+                expected:
+                [
+                    (Current: 1, Previous: Maybe.Some(0)),
+                    (Current: 2, Previous: Maybe.Some(1)),
+                    (Current: 3, Previous: Maybe.Some(2)),
+                    (Current: 4, Previous: Maybe.Some(3)),
+                    (Current: 5, Previous: Maybe.Some(4))
+                ],
+                ordering: CollectionOrdering.Matching);
     }
 
     [Test]
@@ -281,7 +316,8 @@ public sealed class CellTests
 
         await Assert.That(exception).IsNotNull();
 
-        await Assert.That(exception?.Message).IsEqualTo("ValueFactory attempted to access the Value property of this instance.");
+        await Assert.That(exception?.Message)
+            .IsEqualTo("ValueFactory attempted to access the Value property of this instance.");
     }
 
     [Test]
@@ -307,6 +343,11 @@ public sealed class CellTests
         }
 
         await Assert.That(@out).IsEquivalentTo(expected: [3, 5, 4, 7], ordering: CollectionOrdering.Matching);
+    }
+
+    private sealed class Test(int initialValue)
+    {
+        public CellSink<int> Value { get; } = Cell.CreateSink(initialValue);
     }
 
     private sealed class Inner

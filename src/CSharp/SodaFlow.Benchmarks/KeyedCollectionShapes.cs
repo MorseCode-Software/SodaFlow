@@ -100,10 +100,10 @@ internal interface IKeyedCollectionShape
 internal static class ItemSeed
 {
     internal static ItemIdentity Identity(int number) =>
-        new(number, "C" + number.ToString(CultureInfo.InvariantCulture));
+        new(number: number, code: "C" + number.ToString(CultureInfo.InvariantCulture));
 
     internal static ItemState State(int number) =>
-        new("item " + number.ToString(CultureInfo.InvariantCulture), number, false);
+        new(name: "item " + number.ToString(CultureInfo.InvariantCulture), score: number, isFrozen: false);
 
     /// <summary>The keys the benchmarks observe: evenly spread, so none of them cluster.</summary>
     internal static IReadOnlyList<int> ObservedKeys(int itemCount, int observerCount)
@@ -129,18 +129,6 @@ internal sealed class SinkPerFieldShape : IKeyedCollectionShape
 
     private SinkPerFieldShape(Dictionary<int, Item> items) => this.items = items;
 
-    internal static SinkPerFieldShape Build(int itemCount)
-    {
-        Dictionary<int, Item> items = new(itemCount);
-
-        for (int number = 0; number < itemCount; number++)
-        {
-            items.Add(number, new Item(ItemSeed.Identity(number), ItemSeed.State(number)));
-        }
-
-        return new SinkPerFieldShape(items);
-    }
-
     public IListener Observe(int key)
     {
         Item item = this.items[key];
@@ -150,11 +138,13 @@ internal sealed class SinkPerFieldShape : IKeyedCollectionShape
         return Transaction.Run(() =>
             item.Name
                 .Lift(
-                    item.Score,
-                    item.IsFrozen,
-                    static (name, score, isFrozen) => new ItemState(name, score, isFrozen))
+                    c2: item.Score,
+                    c3: item.IsFrozen,
+                    f: static (name, score, isFrozen) => new ItemState(name: name, score: score, isFrozen: isFrozen))
                 .Updates()
-                .ListenStrong(static _ => { }));
+                .ListenStrong(static _ =>
+                {
+                }));
     }
 
     public void Replace(int key, ItemState state)
@@ -169,6 +159,18 @@ internal sealed class SinkPerFieldShape : IKeyedCollectionShape
             item.Score.Send(state.Score);
             item.IsFrozen.Send(state.IsFrozen);
         });
+    }
+
+    internal static SinkPerFieldShape Build(int itemCount)
+    {
+        Dictionary<int, Item> items = new(itemCount);
+
+        for (int number = 0; number < itemCount; number++)
+        {
+            items.Add(key: number, value: new Item(identity: ItemSeed.Identity(number), state: ItemSeed.State(number)));
+        }
+
+        return new SinkPerFieldShape(items);
     }
 
     private sealed class Item
@@ -209,6 +211,24 @@ internal sealed class StreamFedCellShape : IKeyedCollectionShape
         this.items = items;
     }
 
+    public IListener Observe(int key)
+    {
+        Item item = this.items[key];
+
+        return Transaction.Run(() =>
+            item.Name
+                .Lift(
+                    c2: item.Score,
+                    c3: item.IsFrozen,
+                    f: static (name, score, isFrozen) => new ItemState(name: name, score: score, isFrozen: isFrozen))
+                .Updates()
+                .ListenStrong(static _ =>
+                {
+                }));
+    }
+
+    public void Replace(int key, ItemState state) => this.edits.Send(new Edit(key: key, state: state));
+
     internal static StreamFedCellShape Build(int itemCount) =>
         Transaction.Run(() =>
         {
@@ -217,27 +237,13 @@ internal sealed class StreamFedCellShape : IKeyedCollectionShape
 
             for (int number = 0; number < itemCount; number++)
             {
-                items.Add(number, new Item(edits, ItemSeed.Identity(number), ItemSeed.State(number)));
+                items.Add(
+                    key: number,
+                    value: new Item(edits: edits, identity: ItemSeed.Identity(number), state: ItemSeed.State(number)));
             }
 
-            return new StreamFedCellShape(edits, items);
+            return new StreamFedCellShape(edits: edits, items: items);
         });
-
-    public IListener Observe(int key)
-    {
-        Item item = this.items[key];
-
-        return Transaction.Run(() =>
-            item.Name
-                .Lift(
-                    item.Score,
-                    item.IsFrozen,
-                    static (name, score, isFrozen) => new ItemState(name, score, isFrozen))
-                .Updates()
-                .ListenStrong(static _ => { }));
-    }
-
-    public void Replace(int key, ItemState state) => this.edits.Send(new Edit(key, state));
 
     private sealed class Edit
     {
@@ -288,8 +294,8 @@ internal sealed class StreamFedCellShape : IKeyedCollectionShape
 // ReSharper disable once InheritdocConsiderUsage
 internal sealed class ReactiveCollectionShape : IKeyedCollectionShape
 {
-    private readonly StreamSink<CollectionEdit<int, ItemIdentity, ItemState>> edits;
     private readonly ReactiveCollection<int, ItemIdentity, ItemState> collection;
+    private readonly StreamSink<CollectionEdit<int, ItemIdentity, ItemState>> edits;
 
     private ReactiveCollectionShape(
         StreamSink<CollectionEdit<int, ItemIdentity, ItemState>> edits,
@@ -299,33 +305,37 @@ internal sealed class ReactiveCollectionShape : IKeyedCollectionShape
         this.collection = collection;
     }
 
+    public IListener Observe(int key) =>
+        Transaction.Run(() =>
+            this.collection.StateCell(key)
+                .Updates()
+                .ListenStrong(static _ =>
+                {
+                }));
+
+    public void Replace(int key, ItemState state) =>
+        this.edits.Send(CollectionEdit<int, ItemIdentity, ItemState>.Update(key: key, transform: _ => state));
+
     internal static ReactiveCollectionShape Build(int itemCount)
     {
         List<Item<ItemIdentity, ItemState>> items = new(itemCount);
 
         for (int number = 0; number < itemCount; number++)
         {
-            items.Add(new Item<ItemIdentity, ItemState>(
-                ItemSeed.Identity(number),
-                ItemSeed.State(number)));
+            items.Add(
+                new Item<ItemIdentity, ItemState>(
+                    identity: ItemSeed.Identity(number),
+                    state: ItemSeed.State(number)));
         }
 
         StreamSink<CollectionEdit<int, ItemIdentity, ItemState>> edits =
             Stream.CreateSink<CollectionEdit<int, ItemIdentity, ItemState>>();
 
         return new ReactiveCollectionShape(
-            edits,
-            ReactiveCollection<int, ItemIdentity, ItemState>.Create(
-                static identity => identity.Number,
-                items,
+            edits: edits,
+            collection: ReactiveCollection<int, ItemIdentity, ItemState>.Create(
+                keySelector: static identity => identity.Number,
+                initialItems: items,
                 edits));
     }
-
-    public IListener Observe(int key) =>
-        Transaction.Run(() =>
-            this.collection.StateCell(key).Updates().ListenStrong(static _ => { }));
-
-    public void Replace(int key, ItemState state) =>
-        this.edits.Send(
-            CollectionEdit<int, ItemIdentity, ItemState>.Update(key, _ => state));
 }

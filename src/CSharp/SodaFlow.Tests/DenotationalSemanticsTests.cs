@@ -102,7 +102,9 @@ public sealed class DenotationalSemanticsTests
 
                 return createFiringsListAndListener(arg1: firings, arg2: c.SwitchS().ListenStrong);
             },
-            assert: static async @out => await Assert.That(@out).IsEquivalentTo(expected: ['a', 'b', 'Y', 'Z'], ordering: CollectionOrdering.Matching));
+            assert: static async @out =>
+                await Assert.That(@out)
+                    .IsEquivalentTo(expected: ['a', 'b', 'Y', 'Z'], ordering: CollectionOrdering.Matching));
 
     [Test]
     public async Task Test_Updates_TestCase()
@@ -196,7 +198,8 @@ public sealed class DenotationalSemanticsTests
                 listenStrong: Operational.Split<char, IReadOnlyList<char>>(s).ListenStrong,
                 firings: [sf]);
 
-        await Assert.That(@out).IsEquivalentTo(expected: ['a', 'b', 'c', 'd', 'e'], ordering: CollectionOrdering.Matching);
+        await Assert.That(@out)
+            .IsEquivalentTo(expected: ['a', 'b', 'c', 'd', 'e'], ordering: CollectionOrdering.Matching);
     }
 
     [Test]
@@ -261,7 +264,8 @@ public sealed class DenotationalSemanticsTests
                 listenStrong: ca.Apply(cf).ListenStrong,
                 firings: (IReadOnlyList<Dictionary<int, Action>>)[s1F, s2F]);
 
-        await Assert.That(@out).IsEquivalentTo(expected: [100, 205, 305, 306, 406], ordering: CollectionOrdering.Matching);
+        await Assert.That(@out)
+            .IsEquivalentTo(expected: [100, 205, 305, 306, 406], ordering: CollectionOrdering.Matching);
     }
 
     [Test]
@@ -291,7 +295,9 @@ public sealed class DenotationalSemanticsTests
 
                 return createFiringsListAndListener(arg1: firings, arg2: c.SwitchC().ListenStrong);
             },
-            assert: static async @out => await Assert.That(@out).IsEquivalentTo(expected: ['b', 'X', 'Y', 'Z'], ordering: CollectionOrdering.Matching));
+            assert: static async @out =>
+                await Assert.That(@out)
+                    .IsEquivalentTo(expected: ['b', 'X', 'Y', 'Z'], ordering: CollectionOrdering.Matching));
 
     [Test]
     public async Task Test_SwitchC_TestCase2() =>
@@ -320,7 +326,9 @@ public sealed class DenotationalSemanticsTests
 
                 return createFiringsListAndListener(arg1: firings, arg2: c.SwitchC().ListenStrong);
             },
-            assert: static async @out => await Assert.That(@out).IsEquivalentTo(expected: ['b', 'X', 'Y', 'Z'], ordering: CollectionOrdering.Matching));
+            assert: static async @out =>
+                await Assert.That(@out)
+                    .IsEquivalentTo(expected: ['b', 'X', 'Y', 'Z'], ordering: CollectionOrdering.Matching));
 
     [Test]
     public async Task Test_SwitchC_TestCase3() =>
@@ -349,7 +357,9 @@ public sealed class DenotationalSemanticsTests
 
                 return createFiringsListAndListener(arg1: firings, arg2: c.SwitchC().ListenStrong);
             },
-            assert: static async @out => await Assert.That(@out).IsEquivalentTo(expected: ['b', 'X', 'Y', 'Z'], ordering: CollectionOrdering.Matching));
+            assert: static async @out =>
+                await Assert.That(@out)
+                    .IsEquivalentTo(expected: ['b', 'X', 'Y', 'Z'], ordering: CollectionOrdering.Matching));
 
     [Test]
     public async Task Test_SwitchC_TestCase4() =>
@@ -386,7 +396,9 @@ public sealed class DenotationalSemanticsTests
 
                 return createFiringsListAndListener(arg1: firings, arg2: c.SwitchC().ListenStrong);
             },
-            assert: static async @out => await Assert.That(@out).IsEquivalentTo(expected: ['b', 'X', 'Y', '5'], ordering: CollectionOrdering.Matching));
+            assert: static async @out =>
+                await Assert.That(@out)
+                    .IsEquivalentTo(expected: ['b', 'X', 'Y', '5'], ordering: CollectionOrdering.Matching));
 
     [Test]
     public async Task Test_Sample_TestCase()

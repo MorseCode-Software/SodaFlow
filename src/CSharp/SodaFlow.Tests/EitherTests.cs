@@ -374,22 +374,6 @@ public sealed class EitherTests
         await Assert.That(e1 != e2).IsTrue();
     }
 
-    private sealed class Test1;
-
-    private sealed class Test2;
-
-    private sealed class Test3;
-
-    private sealed class Test4;
-
-    private sealed class Test5;
-
-    private sealed class Test6;
-
-    private sealed class Test7;
-
-    private sealed class Test8;
-
     [Test]
     public async Task SwapTest()
     {
@@ -417,7 +401,8 @@ public sealed class EitherTests
         // first case is reached, and the second swap puts the result back where it started.
         Either<int, string> e = Either.First(2);
 
-        await Assert.That(e.Swap().MapSecond(static v => v.ToString()).Swap()).IsEqualTo(Either<string, string>.First("2"));
+        await Assert.That(e.Swap().MapSecond(static v => v.ToString()).Swap())
+            .IsEqualTo(Either<string, string>.First("2"));
     }
 
     private static int TestIt2(Either<Test1, Test2> e) => e.Match(onFirst: static _ => 1, onSecond: static _ => 2);
@@ -672,15 +657,19 @@ public sealed class EitherTests
     [Test]
     public async Task ImplementsIEquatable()
     {
-        await Assert.That(typeof(IEquatable<Either<int, string>>).IsAssignableFrom(typeof(Either<int, string>))).IsTrue();
+        await Assert.That(typeof(IEquatable<Either<int, string>>).IsAssignableFrom(typeof(Either<int, string>)))
+            .IsTrue();
 
-        await Assert.That(typeof(IEquatable<Either<int, string, bool, char, byte, long, short, uint>>).IsAssignableFrom(
-                typeof(Either<int, string, bool, char, byte, long, short, uint>))).IsTrue();
+        await Assert.That(
+                typeof(IEquatable<Either<int, string, bool, char, byte, long, short, uint>>).IsAssignableFrom(
+                    typeof(Either<int, string, bool, char, byte, long, short, uint>)))
+            .IsTrue();
     }
 
     [Test]
     public async Task DefaultComparerDoesNotBox() =>
-        await Assert.That(EqualityComparer<Either<int, string>>.Default.GetType().Name).IsNotEqualTo("ObjectEqualityComparer`1");
+        await Assert.That(EqualityComparer<Either<int, string>>.Default.GetType().Name)
+            .IsNotEqualTo("ObjectEqualityComparer`1");
 
     [Test]
     public async Task TypedEqualsAgreesWithOperator()
@@ -700,6 +689,25 @@ public sealed class EitherTests
     {
         Either<int, string>[] source = [Either.First(1), Either.Second("a"), Either.First(1), Either.Second("a")];
 
-        await Assert.That(source.Distinct()).IsEquivalentTo(expected: new Either<int, string>[] { Either.First(1), Either.Second("a") }, ordering: CollectionOrdering.Matching);
+        await Assert.That(source.Distinct())
+            .IsEquivalentTo(
+                expected: new Either<int, string>[] { Either.First(1), Either.Second("a") },
+                ordering: CollectionOrdering.Matching);
     }
+
+    private sealed class Test1;
+
+    private sealed class Test2;
+
+    private sealed class Test3;
+
+    private sealed class Test4;
+
+    private sealed class Test5;
+
+    private sealed class Test6;
+
+    private sealed class Test7;
+
+    private sealed class Test8;
 }

@@ -36,15 +36,24 @@ namespace SodaFlow.Benchmarks;
 // ReSharper disable once MemberCanBeFileLocal
 public class KeyedCollectionAggregateBenchmarks
 {
-    // Populated for real in the setup; built small here so the fields never have to be nullable.
-    private IKeyedAggregateShape rederived = RederivedAggregateShape.Build(1);
+    private int editCount;
+
     private IKeyedAggregateShape incremental = IncrementalAggregateShape.Build(1);
 
-    private int editCount;
+    // Populated for real in the setup; built small here so the fields never have to be nullable.
+    private IKeyedAggregateShape rederived = RederivedAggregateShape.Build(1);
 
     /// <summary>How many items the collection holds.</summary>
     [Params(1_000, 10_000, 100_000)]
     public int ItemCount { get; [UsedImplicitly] set; }
+
+    /// <summary>The key both shapes edit. Which one it is does not matter to either.</summary>
+    private static int EditedKey => 0;
+
+    /// <summary>
+    ///     A key no seeded item uses, so the setup's structural check cannot collide with one.
+    /// </summary>
+    private static int AddedKey => -1;
 
     /// <summary>
     ///     Builds both shapes and refuses to run unless they agree on the total, before an edit and
@@ -63,17 +72,17 @@ public class KeyedCollectionAggregateBenchmarks
         // a bug in the check rather than in either shape - and was, the first time this ran.
         ItemState edited = this.NextState();
 
-        this.rederived.Replace(EditedKey, edited);
-        this.incremental.Replace(EditedKey, edited);
+        this.rederived.Replace(key: EditedKey, state: edited);
+        this.incremental.Replace(key: EditedKey, state: edited);
 
         Agree("after one edit");
 
         // A structural change too, because adding and removing is the only thing that reaches the
         // added and removed halves of the fold, and nothing timed below goes near them.
-        ItemState added = new("added", 1234, false);
+        ItemState added = new(name: "added", score: 1234, isFrozen: false);
 
-        this.rederived.AddAndRemove(AddedKey, added);
-        this.incremental.AddAndRemove(AddedKey, added);
+        this.rederived.AddAndRemove(key: AddedKey, state: added);
+        this.incremental.AddAndRemove(key: AddedKey, state: added);
 
         Agree("after an add and a remove");
 
@@ -93,19 +102,11 @@ public class KeyedCollectionAggregateBenchmarks
 
     /// <summary>One edit, with the total recomputed from the whole store.</summary>
     [Benchmark(Description = "total after an edit, re-derived", Baseline = true)]
-    public void EditRederived() => this.rederived.Replace(EditedKey, this.NextState());
+    public void EditRederived() => this.rederived.Replace(key: EditedKey, state: this.NextState());
 
     /// <summary>The same edit, with the total adjusted by what changed.</summary>
     [Benchmark(Description = "total after an edit, folded")]
-    public void EditIncremental() => this.incremental.Replace(EditedKey, this.NextState());
-
-    /// <summary>The key both shapes edit. Which one it is does not matter to either.</summary>
-    private static int EditedKey => 0;
-
-    /// <summary>
-    ///     A key no seeded item uses, so the setup's structural check cannot collide with one.
-    /// </summary>
-    private static int AddedKey => -1;
+    public void EditIncremental() => this.incremental.Replace(key: EditedKey, state: this.NextState());
 
     /// <summary>
     ///     Two states, alternating, so the total oscillates between two values rather than climbing
@@ -117,6 +118,6 @@ public class KeyedCollectionAggregateBenchmarks
     {
         this.editCount++;
 
-        return new ItemState("edited", this.editCount % 2, false);
+        return new ItemState(name: "edited", score: this.editCount % 2, isFrozen: false);
     }
 }

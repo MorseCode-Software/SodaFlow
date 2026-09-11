@@ -46,16 +46,18 @@ public class KeyedCollectionBuildBenchmarks
 
     /// <summary>A cell sink per mutable value on every object, built up front.</summary>
     [Benchmark(Description = "build, sinks per field", Baseline = true)]
-    public void BuildSinkPerField() => Observe(SinkPerFieldShape.Build(this.ItemCount), this.ItemCount);
+    public void BuildSinkPerField() =>
+        Observe(shape: SinkPerFieldShape.Build(this.ItemCount), itemCount: this.ItemCount);
 
     /// <summary>The same cells, wired to one edit stream instead of poked directly.</summary>
     [Benchmark(Description = "build, cells per field from a stream")]
-    public void BuildStreamFedCells() => Observe(StreamFedCellShape.Build(this.ItemCount), this.ItemCount);
+    public void BuildStreamFedCells() =>
+        Observe(shape: StreamFedCellShape.Build(this.ItemCount), itemCount: this.ItemCount);
 
     /// <summary>One graph and a trie, with cells only for the keys observed.</summary>
     [Benchmark(Description = "build, reactive collection")]
     public void BuildReactiveCollection() =>
-        Observe(ReactiveCollectionShape.Build(this.ItemCount), this.ItemCount);
+        Observe(shape: ReactiveCollectionShape.Build(this.ItemCount), itemCount: this.ItemCount);
 
     /// <summary>
     ///     Binds a screenful and then releases it, so what is measured is building the collection
@@ -64,7 +66,9 @@ public class KeyedCollectionBuildBenchmarks
     private static void Observe(IKeyedCollectionShape shape, int itemCount)
     {
         List<IListener> listeners =
-            [.. ItemSeed.ObservedKeys(itemCount, ObserverCount).Select(shape.Observe)];
+        [
+            .. ItemSeed.ObservedKeys(itemCount: itemCount, observerCount: ObserverCount).Select(shape.Observe)
+        ];
 
         foreach (IListener listener in listeners)
         {

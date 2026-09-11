@@ -85,8 +85,7 @@ public sealed class ItemChange<TKey, TIdentity, TState>
     /// </summary>
     /// <param name="key">The key to ask about.</param>
     /// <returns><see langword="true" /> if the key was added, updated or removed.</returns>
-    public bool WasChanged(TKey key) =>
-        this.NewStates.ContainsKey(key) || this.removed.Contains(key);
+    public bool WasChanged(TKey key) => this.NewStates.ContainsKey(key) || this.removed.Contains(key);
 
     /// <summary>The key's state after this change, if it is still present.</summary>
     /// <param name="key">The key to ask about.</param>
@@ -96,8 +95,7 @@ public sealed class ItemChange<TKey, TIdentity, TState>
     ///     <see langword="false" /> for was either removed or left alone;
     ///     <see cref="WasChanged" /> is what separates those two.
     /// </returns>
-    public bool TryGetNewState(TKey key, out TState state) =>
-        this.NewStates.TryGet(key, out state);
+    public bool TryGetNewState(TKey key, out TState state) => this.NewStates.TryGet(key: key, value: out state);
 
     internal bool WasAdded(TKey key) => this.added.Contains(key);
 
@@ -123,7 +121,7 @@ public sealed class ItemChange<TKey, TIdentity, TState>
         if (this.WasAdded(key))
         {
             return MaybeInternal.Some(
-                this.After.TryGetIdentity(key, out TIdentity identity)
+                this.After.TryGetIdentity(key: key, identity: out TIdentity identity)
                     ? onPresent(identity)
                     : onAbsent());
         }
@@ -138,7 +136,7 @@ public sealed class ItemChange<TKey, TIdentity, TState>
         Func<TState, TProjected> onPresent,
         Func<TProjected> onAbsent)
     {
-        if (this.TryGetNewState(key, out TState state))
+        if (this.TryGetNewState(key: key, state: out TState state))
         {
             return MaybeInternal.Some(onPresent(state));
         }

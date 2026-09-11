@@ -56,12 +56,12 @@ public class KeyedCollectionEditBenchmarks
     /// <summary>How many rows a screenful is. See KeyedCollectionBuildBenchmarks.</summary>
     private const int ObserverCount = 20;
 
-    // Populated for real in the setup; built small here so the fields never have to be nullable.
-    private Bound sinkPerField = Bound.Of(SinkPerFieldShape.Build(1), 1);
-    private Bound streamFedCells = Bound.Of(StreamFedCellShape.Build(1), 1);
-    private Bound reactiveCollection = Bound.Of(ReactiveCollectionShape.Build(1), 1);
-
     private int nextScore;
+    private Bound reactiveCollection = Bound.Of(shape: ReactiveCollectionShape.Build(1), itemCount: 1);
+
+    // Populated for real in the setup; built small here so the fields never have to be nullable.
+    private Bound sinkPerField = Bound.Of(shape: SinkPerFieldShape.Build(1), itemCount: 1);
+    private Bound streamFedCells = Bound.Of(shape: StreamFedCellShape.Build(1), itemCount: 1);
 
     /// <summary>How many items the collection holds.</summary>
     [Params(1_000, 10_000)]
@@ -71,9 +71,11 @@ public class KeyedCollectionEditBenchmarks
     [GlobalSetup]
     public void Setup()
     {
-        this.sinkPerField = Bound.Of(SinkPerFieldShape.Build(this.ItemCount), this.ItemCount);
-        this.streamFedCells = Bound.Of(StreamFedCellShape.Build(this.ItemCount), this.ItemCount);
-        this.reactiveCollection = Bound.Of(ReactiveCollectionShape.Build(this.ItemCount), this.ItemCount);
+        this.sinkPerField = Bound.Of(shape: SinkPerFieldShape.Build(this.ItemCount), itemCount: this.ItemCount);
+        this.streamFedCells = Bound.Of(shape: StreamFedCellShape.Build(this.ItemCount), itemCount: this.ItemCount);
+
+        this.reactiveCollection =
+            Bound.Of(shape: ReactiveCollectionShape.Build(this.ItemCount), itemCount: this.ItemCount);
     }
 
     /// <summary>Releases the listeners holding the three graphs up.</summary>
@@ -87,33 +89,33 @@ public class KeyedCollectionEditBenchmarks
 
     /// <summary>An edit to a key a bound row is watching, in the sinks-per-field shape.</summary>
     [Benchmark(Description = "edit an observed item, sinks per field", Baseline = true)]
-    public void EditObservedSinkPerField() => this.Edit(this.sinkPerField, observed: true);
+    public void EditObservedSinkPerField() => this.Edit(bound: this.sinkPerField, observed: true);
 
     /// <summary>An edit to a key a bound row is watching, fed through one stream.</summary>
     [Benchmark(Description = "edit an observed item, cells per field from a stream")]
-    public void EditObservedStreamFedCells() => this.Edit(this.streamFedCells, observed: true);
+    public void EditObservedStreamFedCells() => this.Edit(bound: this.streamFedCells, observed: true);
 
     /// <summary>An edit to a key a bound row is watching, through the collection.</summary>
     [Benchmark(Description = "edit an observed item, reactive collection")]
-    public void EditObservedReactiveCollection() => this.Edit(this.reactiveCollection, observed: true);
+    public void EditObservedReactiveCollection() => this.Edit(bound: this.reactiveCollection, observed: true);
 
     /// <summary>An edit to a key nothing is watching, in the sinks-per-field shape.</summary>
     [Benchmark(Description = "edit an unobserved item, sinks per field")]
-    public void EditUnobservedSinkPerField() => this.Edit(this.sinkPerField, observed: false);
+    public void EditUnobservedSinkPerField() => this.Edit(bound: this.sinkPerField, observed: false);
 
     /// <summary>
     ///     An edit to a key nothing is watching, fed through one stream — which still evaluates
     ///     one filter per item in the collection.
     /// </summary>
     [Benchmark(Description = "edit an unobserved item, cells per field from a stream")]
-    public void EditUnobservedStreamFedCells() => this.Edit(this.streamFedCells, observed: false);
+    public void EditUnobservedStreamFedCells() => this.Edit(bound: this.streamFedCells, observed: false);
 
     /// <summary>
     ///     An edit to a key nothing is watching, through the collection — one resolution and one
     ///     hash lookup per observer.
     /// </summary>
     [Benchmark(Description = "edit an unobserved item, reactive collection")]
-    public void EditUnobservedReactiveCollection() => this.Edit(this.reactiveCollection, observed: false);
+    public void EditUnobservedReactiveCollection() => this.Edit(bound: this.reactiveCollection, observed: false);
 
     private void Edit(Bound bound, bool observed)
     {
@@ -122,7 +124,7 @@ public class KeyedCollectionEditBenchmarks
 
         int key = observed ? bound.ObservedKey : bound.UnobservedKey;
 
-        bound.Shape.Replace(key, new ItemState("edited", this.nextScore, false));
+        bound.Shape.Replace(key: key, state: new ItemState(name: "edited", score: this.nextScore, isFrozen: false));
     }
 
     /// <summary>
@@ -153,7 +155,7 @@ public class KeyedCollectionEditBenchmarks
 
         internal static Bound Of(IKeyedCollectionShape shape, int itemCount)
         {
-            IReadOnlyList<int> observedKeys = ItemSeed.ObservedKeys(itemCount, ObserverCount);
+            IReadOnlyList<int> observedKeys = ItemSeed.ObservedKeys(itemCount: itemCount, observerCount: ObserverCount);
             List<IListener> listeners = [.. observedKeys.Select(shape.Observe)];
 
             // The first observed key, and the one after it, which the even spread guarantees is
@@ -161,10 +163,10 @@ public class KeyedCollectionEditBenchmarks
             int observedKey = observedKeys[0];
 
             return new Bound(
-                shape,
-                listeners,
-                observedKey,
-                itemCount > ObserverCount ? observedKey + 1 : observedKey);
+                shape: shape,
+                listeners: listeners,
+                observedKey: observedKey,
+                unobservedKey: itemCount > ObserverCount ? observedKey + 1 : observedKey);
         }
 
         internal void Release()

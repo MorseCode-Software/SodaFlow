@@ -42,21 +42,40 @@ public abstract class KeyOrder<TKey, TIdentity, TState>
     {
     }
 
+    /// <summary>
+    ///     Whether a key's position under this order can be changed by a state edit.
+    /// </summary>
+    /// <remarks>
+    ///     False for an order that projects its sort value from the key or the identity alone,
+    ///     neither of which a state edit can touch - which is what lets a stage skip re-filing a
+    ///     key it has been told merely changed. <see cref="ByKey" /> is false and so is
+    ///     <c>ByIdentity</c>; an order over a caller's whole-item selector is conservatively true,
+    ///     because nothing here can see whether that selector read the state it was handed.
+    /// </remarks>
+    internal abstract bool DependsOnState { get; }
+
     /// <summary>Orders by a value projected from each item.</summary>
     /// <typeparam name="TSortKey">The type of the projected sort value.</typeparam>
     /// <param name="selector">Projects the sort value from an item.</param>
     /// <returns>The order.</returns>
-    public static KeyOrder<TKey, TIdentity, TState> By<TSortKey>(
-        Func<TIdentity, TState, TSortKey> selector) =>
-        By(selector, Comparer<TSortKey>.Default, Comparer<TKey>.Default, false);
+    public static KeyOrder<TKey, TIdentity, TState> By<TSortKey>(Func<TIdentity, TState, TSortKey> selector) =>
+        By(
+            selector: selector,
+            sortComparer: Comparer<TSortKey>.Default,
+            keyComparer: Comparer<TKey>.Default,
+            descending: false);
 
     /// <summary>Orders, descending, by a value projected from each item.</summary>
     /// <typeparam name="TSortKey">The type of the projected sort value.</typeparam>
     /// <param name="selector">Projects the sort value from an item.</param>
     /// <returns>The order.</returns>
-    public static KeyOrder<TKey, TIdentity, TState> ByDescending<TSortKey>(
-        Func<TIdentity, TState, TSortKey> selector) =>
-        By(selector, Comparer<TSortKey>.Default, Comparer<TKey>.Default, true);
+    public static KeyOrder<TKey, TIdentity, TState>
+        ByDescending<TSortKey>(Func<TIdentity, TState, TSortKey> selector) =>
+        By(
+            selector: selector,
+            sortComparer: Comparer<TSortKey>.Default,
+            keyComparer: Comparer<TKey>.Default,
+            descending: true);
 
     /// <summary>
     ///     Orders by a value projected from each item. <typeparamref name="TSortKey" /> stays a
@@ -75,10 +94,10 @@ public abstract class KeyOrder<TKey, TIdentity, TState>
         IComparer<TKey> keyComparer,
         bool descending) =>
         new SortKeyOrder<TKey, TIdentity, TState, TSortKey>(
-            (_, identity, state) => selector(identity, state),
-            sortComparer,
-            keyComparer,
-            descending);
+            selector: (_, identity, state) => selector(arg1: identity, arg2: state),
+            sortComparer: sortComparer,
+            keyComparer: keyComparer,
+            descending: descending);
 
     /// <summary>
     ///     Orders by a value projected from each item's immutable half alone, which a state edit
@@ -93,9 +112,12 @@ public abstract class KeyOrder<TKey, TIdentity, TState>
     ///     The selector is not handed the state, which is what makes that checkable rather than
     ///     promised.
     /// </remarks>
-    public static KeyOrder<TKey, TIdentity, TState> ByIdentity<TSortKey>(
-        Func<TIdentity, TSortKey> selector) =>
-        ByIdentity(selector, Comparer<TSortKey>.Default, Comparer<TKey>.Default, false);
+    public static KeyOrder<TKey, TIdentity, TState> ByIdentity<TSortKey>(Func<TIdentity, TSortKey> selector) =>
+        ByIdentity(
+            selector: selector,
+            sortComparer: Comparer<TSortKey>.Default,
+            keyComparer: Comparer<TKey>.Default,
+            descending: false);
 
     /// <summary>
     ///     Orders, descending, by a value projected from each item's immutable half alone.
@@ -103,9 +125,13 @@ public abstract class KeyOrder<TKey, TIdentity, TState>
     /// <typeparam name="TSortKey">The type of the projected sort value.</typeparam>
     /// <param name="selector">Projects the sort value from an identity.</param>
     /// <returns>The order.</returns>
-    public static KeyOrder<TKey, TIdentity, TState> ByIdentityDescending<TSortKey>(
-        Func<TIdentity, TSortKey> selector) =>
-        ByIdentity(selector, Comparer<TSortKey>.Default, Comparer<TKey>.Default, true);
+    public static KeyOrder<TKey, TIdentity, TState>
+        ByIdentityDescending<TSortKey>(Func<TIdentity, TSortKey> selector) =>
+        ByIdentity(
+            selector: selector,
+            sortComparer: Comparer<TSortKey>.Default,
+            keyComparer: Comparer<TKey>.Default,
+            descending: true);
 
     /// <summary>
     ///     Orders by a value projected from each item's immutable half alone, which a state edit
@@ -123,32 +149,20 @@ public abstract class KeyOrder<TKey, TIdentity, TState>
         IComparer<TKey> keyComparer,
         bool descending) =>
         new SortKeyOrder<TKey, TIdentity, TState, TSortKey>(
-            (_, identity) => selector(identity),
-            sortComparer,
-            keyComparer,
-            descending);
+            selector: (_, identity) => selector(identity),
+            sortComparer: sortComparer,
+            keyComparer: keyComparer,
+            descending: descending);
 
     /// <summary>Orders by key — the root's own order, available over any stage.</summary>
     /// <param name="keyComparer">The comparer to order keys by.</param>
     /// <returns>The order.</returns>
     public static KeyOrder<TKey, TIdentity, TState> ByKey(IComparer<TKey> keyComparer) =>
         new SortKeyOrder<TKey, TIdentity, TState, TKey>(
-            static (key, _) => key,
-            keyComparer,
-            keyComparer,
+            selector: static (key, _) => key,
+            sortComparer: keyComparer,
+            keyComparer: keyComparer,
             descending: false);
-
-    /// <summary>
-    ///     Whether a key's position under this order can be changed by a state edit.
-    /// </summary>
-    /// <remarks>
-    ///     False for an order that projects its sort value from the key or the identity alone,
-    ///     neither of which a state edit can touch - which is what lets a stage skip re-filing a
-    ///     key it has been told merely changed. <see cref="ByKey" /> is false and so is
-    ///     <c>ByIdentity</c>; an order over a caller's whole-item selector is conservatively true,
-    ///     because nothing here can see whether that selector read the state it was handed.
-    /// </remarks>
-    internal abstract bool DependsOnState { get; }
 
     /// <summary>
     ///     A key set holding <paramref name="keys" />, ordered the way this order orders them.

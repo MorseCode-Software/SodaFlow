@@ -89,7 +89,8 @@ public sealed class AsyncConcurrencyStrategyFactoryTests
         TestUtil.WaitUntil(() => received.Count == 4);
 
         // Completion order, not submission order.
-        await Assert.That(received).IsEquivalentTo(expected: new object[] { d, "C", b, "A" }, ordering: CollectionOrdering.Matching);
+        await Assert.That(received)
+            .IsEquivalentTo(expected: new object[] { d, "C", b, "A" }, ordering: CollectionOrdering.Matching);
 
         status.Dispose();
         l.Unlisten();

@@ -10,18 +10,6 @@ namespace SodaFlow.Tests;
 
 public sealed class ForwardReferenceTests
 {
-    private sealed class Child(Cell<Node> parent)
-    {
-        public Cell<Node> Parent { get; } = parent;
-    }
-
-    private sealed class Node(Child child)
-    {
-        public Child Child { get; } = child;
-
-        public static Node WithChildHolding(Cell<Node> reference) => new(new Child(reference));
-    }
-
     [Test]
     public async Task TestWithoutCapturesResolvesTheReference()
     {
@@ -133,6 +121,19 @@ public sealed class ForwardReferenceTests
         // The reference is a promise about what the value will be, not the value, so asking
         // for it before the constructing function has returned has no answer.
         await Assert.That(static () =>
-            // ReSharper disable once ReturnValueOfPureMethodIsNotUsed - Testing for side effect only.
-            ForwardReference<int>.WithoutCaptures(static reference => reference.Sample())).ThrowsExactly<InvalidOperationException>();
+                // ReSharper disable once ReturnValueOfPureMethodIsNotUsed - Testing for side effect only.
+                ForwardReference<int>.WithoutCaptures(static reference => reference.Sample()))
+            .ThrowsExactly<InvalidOperationException>();
+
+    private sealed class Child(Cell<Node> parent)
+    {
+        public Cell<Node> Parent { get; } = parent;
+    }
+
+    private sealed class Node(Child child)
+    {
+        public Child Child { get; } = child;
+
+        public static Node WithChildHolding(Cell<Node> reference) => new(new Child(reference));
+    }
 }

@@ -11,11 +11,11 @@
 #if !NET5_0_OR_GREATER
 namespace System.Runtime.CompilerServices
 {
-    [JetBrains.Annotations.UsedImplicitly]
+    [UsedImplicitly]
     internal static class IsExternalInit;
 
     [AttributeUsage(AttributeTargets.Method, Inherited = false)]
-    [JetBrains.Annotations.UsedImplicitly]
+    [UsedImplicitly]
     internal sealed class ModuleInitializerAttribute : Attribute;
 }
 #endif

@@ -53,26 +53,58 @@ namespace SodaFlow.Benchmarks;
 // ReSharper disable once MemberCanBeFileLocal
 public class KeyedCollectionViewBenchmarks
 {
-    // Populated for real in the setup; built small here so the fields never have to be nullable.
-    private IKeyedCollectionViewShape rederived = RederivedViewShape.Build(1);
-    private IKeyedCollectionViewShape chained = ChainedViewShape.Build(1, ChainStyle.ByState);
-    private IKeyedCollectionViewShape chainedByIdentitySort = ChainedViewShape.Build(1, ChainStyle.SortByIdentity);
+    private IKeyedCollectionViewShape chained = ChainedViewShape.Build(itemCount: 1, style: ChainStyle.ByState);
+
+    private IKeyedCollectionViewShape chainedByIdentitySort =
+        ChainedViewShape.Build(itemCount: 1, style: ChainStyle.SortByIdentity);
 
     private IKeyedCollectionViewShape chainedByIdentityThroughout =
-        ChainedViewShape.Build(1, ChainStyle.ByIdentity);
-
-    private IKeyedCollectionViewShape selectiveByState =
-        ChainedViewShape.Build(1, ChainStyle.SelectiveByState);
-
-    private IKeyedCollectionViewShape selectiveByIdentity =
-        ChainedViewShape.Build(1, ChainStyle.SelectiveByIdentity);
+        ChainedViewShape.Build(itemCount: 1, style: ChainStyle.ByIdentity);
 
     private int editCount;
+
+    // Populated for real in the setup; built small here so the fields never have to be nullable.
+    private IKeyedCollectionViewShape rederived = RederivedViewShape.Build(1);
+
+    private IKeyedCollectionViewShape selectiveByIdentity =
+        ChainedViewShape.Build(itemCount: 1, style: ChainStyle.SelectiveByIdentity);
+
+    private IKeyedCollectionViewShape selectiveByState =
+        ChainedViewShape.Build(itemCount: 1, style: ChainStyle.SelectiveByState);
+
     private int thresholdCount;
 
     /// <summary>How many items the collection holds.</summary>
     [Params(1_000, 10_000)]
     public int ItemCount { get; [UsedImplicitly] set; }
+
+    /// <summary>
+    ///     The key both shapes edit. Which one hardly matters, because <see cref="NextState" />
+    ///     scores it to the top of the range either way, so the edit lands inside the window rather
+    ///     than being filtered away before either shape has to do anything about it.
+    /// </summary>
+    private static int EditedKey => 0;
+
+    /// <summary>
+    ///     A key no seeded item uses, so adding it cannot collide and removing it cannot leave the
+    ///     collection short.
+    /// </summary>
+    private static int AddedKey => -1;
+
+    /// <summary>
+    ///     Scored to the top of the range, so the added item actually enters the window and every
+    ///     stage of the chain has to do something about it. Scored below the threshold instead, the
+    ///     filter would drop it and the sort and the window would never hear of it - which would
+    ///     measure the chain declining to work rather than the chain working.
+    /// </summary>
+    private static ItemState AddedState => new(name: "added", score: int.MaxValue, isFrozen: false);
+
+    /// <summary>
+    ///     An odd key, which both selective filters exclude and neither can be made to admit: the
+    ///     identity one because a number cannot change, and the state one because
+    ///     <see cref="NextExcludedState" /> keeps the score odd.
+    /// </summary>
+    private static int ExcludedKey => 1;
 
     /// <summary>
     ///     Builds both shapes, and refuses to run if they disagree about what the view contains.
@@ -81,11 +113,18 @@ public class KeyedCollectionViewBenchmarks
     public void Setup()
     {
         this.rederived = RederivedViewShape.Build(this.ItemCount);
-        this.chained = ChainedViewShape.Build(this.ItemCount, ChainStyle.ByState);
-        this.chainedByIdentitySort = ChainedViewShape.Build(this.ItemCount, ChainStyle.SortByIdentity);
-        this.chainedByIdentityThroughout = ChainedViewShape.Build(this.ItemCount, ChainStyle.ByIdentity);
-        this.selectiveByState = ChainedViewShape.Build(this.ItemCount, ChainStyle.SelectiveByState);
-        this.selectiveByIdentity = ChainedViewShape.Build(this.ItemCount, ChainStyle.SelectiveByIdentity);
+        this.chained = ChainedViewShape.Build(itemCount: this.ItemCount, style: ChainStyle.ByState);
+
+        this.chainedByIdentitySort =
+            ChainedViewShape.Build(itemCount: this.ItemCount, style: ChainStyle.SortByIdentity);
+
+        this.chainedByIdentityThroughout =
+            ChainedViewShape.Build(itemCount: this.ItemCount, style: ChainStyle.ByIdentity);
+
+        this.selectiveByState = ChainedViewShape.Build(itemCount: this.ItemCount, style: ChainStyle.SelectiveByState);
+
+        this.selectiveByIdentity =
+            ChainedViewShape.Build(itemCount: this.ItemCount, style: ChainStyle.SelectiveByIdentity);
 
         // These two are checked against each other rather than against the re-derived view, whose
         // predicate keeps everything: what has to match is that asking the state and asking the
@@ -128,18 +167,19 @@ public class KeyedCollectionViewBenchmarks
 
     /// <summary>One item's state changes, which may move it within the view or out of it.</summary>
     [Benchmark(Description = "edit an item, re-derived", Baseline = true)]
-    public void EditRederived() => this.rederived.Replace(EditedKey, this.NextState());
+    public void EditRederived() => this.rederived.Replace(key: EditedKey, state: this.NextState());
 
     /// <summary>The same edit, through the chain.</summary>
     [Benchmark(Description = "edit an item, chained")]
-    public void EditChained() => this.chained.Replace(EditedKey, this.NextState());
+    public void EditChained() => this.chained.Replace(key: EditedKey, state: this.NextState());
 
     /// <summary>
     ///     The same edit again, through a chain whose sort reads the identity rather than the
     ///     state — so nothing it holds can have moved, and it is allowed to say so.
     /// </summary>
     [Benchmark(Description = "edit an item, chained on an identity sort")]
-    public void EditChainedByIdentitySort() => this.chainedByIdentitySort.Replace(EditedKey, this.NextState());
+    public void EditChainedByIdentitySort() =>
+        this.chainedByIdentitySort.Replace(key: EditedKey, state: this.NextState());
 
     /// <summary>
     ///     And again, through a chain where neither stage reads the state. Membership cannot have
@@ -149,7 +189,7 @@ public class KeyedCollectionViewBenchmarks
     /// </summary>
     [Benchmark(Description = "edit an item, chained on identity throughout")]
     public void EditChainedByIdentityThroughout() =>
-        this.chainedByIdentityThroughout.Replace(EditedKey, this.NextState());
+        this.chainedByIdentityThroughout.Replace(key: EditedKey, state: this.NextState());
 
     /// <summary>
     ///     An edit to an item a selective filter does not keep, tested against the state — which
@@ -157,7 +197,7 @@ public class KeyedCollectionViewBenchmarks
     /// </summary>
     [Benchmark(Description = "edit an excluded item, state filter")]
     public void EditExcludedByState() =>
-        this.selectiveByState.Replace(ExcludedKey, this.NextExcludedState());
+        this.selectiveByState.Replace(key: ExcludedKey, state: this.NextExcludedState());
 
     /// <summary>
     ///     The same edit, against a filter that selects from the identity — which cannot have
@@ -165,15 +205,15 @@ public class KeyedCollectionViewBenchmarks
     /// </summary>
     [Benchmark(Description = "edit an excluded item, identity filter")]
     public void EditExcludedByIdentity() =>
-        this.selectiveByIdentity.Replace(ExcludedKey, this.NextExcludedState());
+        this.selectiveByIdentity.Replace(key: ExcludedKey, state: this.NextExcludedState());
 
     /// <summary>An item enters the collection and leaves it again.</summary>
     [Benchmark(Description = "add and remove an item, re-derived")]
-    public void AddAndRemoveRederived() => this.rederived.AddAndRemove(AddedKey, AddedState);
+    public void AddAndRemoveRederived() => this.rederived.AddAndRemove(key: AddedKey, state: AddedState);
 
     /// <summary>The same pair of structural edits, through the chain.</summary>
     [Benchmark(Description = "add and remove an item, chained")]
-    public void AddAndRemoveChained() => this.chained.AddAndRemove(AddedKey, AddedState);
+    public void AddAndRemoveChained() => this.chained.AddAndRemove(key: AddedKey, state: AddedState);
 
     /// <summary>The filter's criteria changes, which re-derives everything either way.</summary>
     [Benchmark(Description = "change the threshold, re-derived")]
@@ -192,35 +232,7 @@ public class KeyedCollectionViewBenchmarks
     [Benchmark(Description = "change the threshold, chained on an identity sort")]
     public void SetThresholdChainedByIdentitySort() => this.chainedByIdentitySort.SetThreshold(this.NextThreshold());
 
-    /// <summary>
-    ///     The key both shapes edit. Which one hardly matters, because <see cref="NextState" />
-    ///     scores it to the top of the range either way, so the edit lands inside the window rather
-    ///     than being filtered away before either shape has to do anything about it.
-    /// </summary>
-    private static int EditedKey => 0;
-
-    /// <summary>
-    ///     A key no seeded item uses, so adding it cannot collide and removing it cannot leave the
-    ///     collection short.
-    /// </summary>
-    private static int AddedKey => -1;
-
-    /// <summary>
-    ///     Scored to the top of the range, so the added item actually enters the window and every
-    ///     stage of the chain has to do something about it. Scored below the threshold instead, the
-    ///     filter would drop it and the sort and the window would never hear of it - which would
-    ///     measure the chain declining to work rather than the chain working.
-    /// </summary>
-    private static ItemState AddedState => new("added", int.MaxValue, false);
-
-    /// <summary>
-    ///     An odd key, which both selective filters exclude and neither can be made to admit: the
-    ///     identity one because a number cannot change, and the state one because
-    ///     <see cref="NextExcludedState" /> keeps the score odd.
-    /// </summary>
-    private static int ExcludedKey => 1;
-
-    private static string Describe(IEnumerable<int> keys) => string.Join(", ", keys);
+    private static string Describe(IEnumerable<int> keys) => string.Join(separator: ", ", values: keys);
 
     /// <summary>
     ///     Two states, alternating, both scoring odd. If the score's parity moved, the state filter
@@ -232,7 +244,7 @@ public class KeyedCollectionViewBenchmarks
     {
         this.editCount++;
 
-        return new ItemState("edited", 1 + (2 * (this.editCount % 2)), false);
+        return new ItemState(name: "edited", score: 1 + 2 * (this.editCount % 2), isFrozen: false);
     }
 
     /// <summary>
@@ -243,7 +255,7 @@ public class KeyedCollectionViewBenchmarks
     {
         this.editCount++;
 
-        return new ItemState("edited", int.MaxValue - (this.editCount % 2), false);
+        return new ItemState(name: "edited", score: int.MaxValue - this.editCount % 2, isFrozen: false);
     }
 
     /// <summary>
@@ -254,6 +266,6 @@ public class KeyedCollectionViewBenchmarks
     {
         this.thresholdCount++;
 
-        return ViewSeed.InitialThreshold + (this.thresholdCount % 2);
+        return ViewSeed.InitialThreshold + this.thresholdCount % 2;
     }
 }

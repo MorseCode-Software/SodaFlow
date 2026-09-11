@@ -379,7 +379,9 @@ public sealed class StreamTests
         s.Send(Maybe.None);
         s.Send(Maybe.Some("pear"));
         l.Unlisten();
-        await Assert.That(@out).IsEquivalentTo(expected: ["tomato", "peach", "pear"], ordering: CollectionOrdering.Matching);
+
+        await Assert.That(@out)
+            .IsEquivalentTo(expected: ["tomato", "peach", "pear"], ordering: CollectionOrdering.Matching);
     }
 
     [Test]
@@ -511,9 +513,11 @@ public sealed class StreamTests
         cGate.Send(true);
         sc.Send('I');
         l.Unlisten();
+
         // char?[] rather than char[]: this collection holds char?, and TUnit compares element
         // types where NUnit coerced them.
-        await Assert.That(@out).IsEquivalentTo(expected: new char?[] { 'H', 'I' }, ordering: CollectionOrdering.Matching);
+        await Assert.That(@out)
+            .IsEquivalentTo(expected: new char?[] { 'H', 'I' }, ordering: CollectionOrdering.Matching);
     }
 
     [Test]
@@ -569,7 +573,10 @@ public sealed class StreamTests
         s.Send(2);
         l.Unlisten();
 
-        await Assert.That(@out).IsEquivalentTo(expected: [2, 4, 2, 4, 2, 4, 2, 4, 2, 4, 2, 4, 2, 4, 2, 4, 2, 4, 2, 4, 2], ordering: CollectionOrdering.Matching);
+        await Assert.That(@out)
+            .IsEquivalentTo(
+                expected: [2, 4, 2, 4, 2, 4, 2, 4, 2, 4, 2, 4, 2, 4, 2, 4, 2, 4, 2, 4, 2],
+                ordering: CollectionOrdering.Matching);
     }
 
     [Test]
@@ -652,7 +659,9 @@ public sealed class StreamTests
         sa.Send(2);
         sa.Send(3);
         l.Unlisten();
-        await Assert.That(@out).IsEquivalentTo(expected: [115, 122, 125, 127, 130], ordering: CollectionOrdering.Matching);
+
+        await Assert.That(@out)
+            .IsEquivalentTo(expected: [115, 122, 125, 127, 130], ordering: CollectionOrdering.Matching);
     }
 
     [Test]
@@ -668,7 +677,9 @@ public sealed class StreamTests
         sa.Send(2);
         sa.Send(3);
         l.Unlisten();
-        await Assert.That(@out).IsEquivalentTo(expected: [100, 105, 112, 113, 115, 118], ordering: CollectionOrdering.Matching);
+
+        await Assert.That(@out)
+            .IsEquivalentTo(expected: [100, 105, 112, 113, 115, 118], ordering: CollectionOrdering.Matching);
     }
 
     // Collect carries state between firings, and that state has to survive the end of a
@@ -710,7 +721,8 @@ public sealed class StreamTests
 
         l.Unlisten();
 
-        await Assert.That(@out).IsEquivalentTo(expected: ["3/1", "13/2", "15/3"], ordering: CollectionOrdering.Matching);
+        await Assert.That(@out)
+            .IsEquivalentTo(expected: ["3/1", "13/2", "15/3"], ordering: CollectionOrdering.Matching);
     }
 
     // Accum shares Collect's state carrying, so the same boundary applies to it.
@@ -1163,7 +1175,9 @@ public sealed class StreamTests
             s.Send(0);
             l.Unlisten();
 
-            await Assert.That(@out).IsEquivalentTo(expected: [depth], ordering: CollectionOrdering.Matching).Because($"chain of depth {depth}");
+            await Assert.That(@out)
+                .IsEquivalentTo(expected: [depth], ordering: CollectionOrdering.Matching)
+                .Because($"chain of depth {depth}");
         }
 
         StreamSink<int> shallowSink = Stream.CreateSink<int>();

@@ -10,15 +10,6 @@ namespace SodaFlow.Tests;
 
 public sealed class StringExtensionMethodsTests
 {
-    // ReSharper disable UnusedMember.Local
-    private enum Color
-    {
-        Red = 0,
-        Green = 1,
-        Blue = 2
-    }
-    // ReSharper restore UnusedMember.Local
-
     [Test]
     public async Task TestTryParseInt32()
     {
@@ -33,11 +24,14 @@ public sealed class StringExtensionMethodsTests
     [Test]
     public async Task TestTryParseInt32WithStyles()
     {
-        await Assert.That("1,234".TryParseInt32(
-                styles: NumberStyles.Integer | NumberStyles.AllowThousands,
-                provider: CultureInfo.InvariantCulture)).IsEqualTo(Maybe.Some(1234));
+        await Assert.That(
+                "1,234".TryParseInt32(
+                    styles: NumberStyles.Integer | NumberStyles.AllowThousands,
+                    provider: CultureInfo.InvariantCulture))
+            .IsEqualTo(Maybe.Some(1234));
 
-        await Assert.That("1,234".TryParseInt32(styles: NumberStyles.Integer, provider: CultureInfo.InvariantCulture)).IsEqualTo(Maybe<int>.None);
+        await Assert.That("1,234".TryParseInt32(styles: NumberStyles.Integer, provider: CultureInfo.InvariantCulture))
+            .IsEqualTo(Maybe<int>.None);
     }
 
     [Test]
@@ -57,13 +51,17 @@ public sealed class StringExtensionMethodsTests
     [Test]
     public async Task TestTryParseRealTypes()
     {
-        await Assert.That("1.5".TryParseSingle(styles: NumberStyles.Float, provider: CultureInfo.InvariantCulture)).IsEqualTo(Maybe.Some(1.5f));
+        await Assert.That("1.5".TryParseSingle(styles: NumberStyles.Float, provider: CultureInfo.InvariantCulture))
+            .IsEqualTo(Maybe.Some(1.5f));
 
-        await Assert.That("1.5".TryParseDouble(styles: NumberStyles.Float, provider: CultureInfo.InvariantCulture)).IsEqualTo(Maybe.Some(1.5d));
+        await Assert.That("1.5".TryParseDouble(styles: NumberStyles.Float, provider: CultureInfo.InvariantCulture))
+            .IsEqualTo(Maybe.Some(1.5d));
 
-        await Assert.That("1.5".TryParseDecimal(styles: NumberStyles.Number, provider: CultureInfo.InvariantCulture)).IsEqualTo(Maybe.Some(1.5m));
+        await Assert.That("1.5".TryParseDecimal(styles: NumberStyles.Number, provider: CultureInfo.InvariantCulture))
+            .IsEqualTo(Maybe.Some(1.5m));
 
-        await Assert.That("x".TryParseDouble(styles: NumberStyles.Float, provider: CultureInfo.InvariantCulture)).IsEqualTo(Maybe<double>.None);
+        await Assert.That("x".TryParseDouble(styles: NumberStyles.Float, provider: CultureInfo.InvariantCulture))
+            .IsEqualTo(Maybe<double>.None);
     }
 
     [Test]
@@ -106,53 +104,67 @@ public sealed class StringExtensionMethodsTests
     [Test]
     public async Task TestTryParseDateTime()
     {
-        await Assert.That("2026-03-04".TryParseDateTime(
-                provider: CultureInfo.InvariantCulture,
-                styles: DateTimeStyles.None)).IsEqualTo(Maybe.Some(new DateTime(year: 2026, month: 3, day: 4)));
+        await Assert.That(
+                "2026-03-04".TryParseDateTime(
+                    provider: CultureInfo.InvariantCulture,
+                    styles: DateTimeStyles.None))
+            .IsEqualTo(Maybe.Some(new DateTime(year: 2026, month: 3, day: 4)));
 
-        await Assert.That("not a date".TryParseDateTime(
-                provider: CultureInfo.InvariantCulture,
-                styles: DateTimeStyles.None)).IsEqualTo(Maybe<DateTime>.None);
+        await Assert.That(
+                "not a date".TryParseDateTime(
+                    provider: CultureInfo.InvariantCulture,
+                    styles: DateTimeStyles.None))
+            .IsEqualTo(Maybe<DateTime>.None);
     }
 
     [Test]
     public async Task TestTryParseDateTimeExact()
     {
-        await Assert.That("04/03/2026".TryParseDateTimeExact(
-                format: "dd/MM/yyyy",
-                provider: CultureInfo.InvariantCulture,
-                styles: DateTimeStyles.None)).IsEqualTo(Maybe.Some(new DateTime(year: 2026, month: 3, day: 4)));
+        await Assert.That(
+                "04/03/2026".TryParseDateTimeExact(
+                    format: "dd/MM/yyyy",
+                    provider: CultureInfo.InvariantCulture,
+                    styles: DateTimeStyles.None))
+            .IsEqualTo(Maybe.Some(new DateTime(year: 2026, month: 3, day: 4)));
 
-        await Assert.That("2026-03-04".TryParseDateTimeExact(
-                format: "dd/MM/yyyy",
-                provider: CultureInfo.InvariantCulture,
-                styles: DateTimeStyles.None)).IsEqualTo(Maybe<DateTime>.None);
+        await Assert.That(
+                "2026-03-04".TryParseDateTimeExact(
+                    format: "dd/MM/yyyy",
+                    provider: CultureInfo.InvariantCulture,
+                    styles: DateTimeStyles.None))
+            .IsEqualTo(Maybe<DateTime>.None);
     }
 
     [Test]
     public async Task TestTryParseDateTimeOffset()
     {
-        await Assert.That("2026-03-04T00:00:00+00:00".TryParseDateTimeOffset(
-                provider: CultureInfo.InvariantCulture,
-                styles: DateTimeStyles.None)).IsEqualTo(Maybe.Some(
-                new DateTimeOffset(
-                    year: 2026,
-                    month: 3,
-                    day: 4,
-                    hour: 0,
-                    minute: 0,
-                    second: 0,
-                    offset: TimeSpan.Zero)));
+        await Assert.That(
+                "2026-03-04T00:00:00+00:00".TryParseDateTimeOffset(
+                    provider: CultureInfo.InvariantCulture,
+                    styles: DateTimeStyles.None))
+            .IsEqualTo(
+                Maybe.Some(
+                    new DateTimeOffset(
+                        year: 2026,
+                        month: 3,
+                        day: 4,
+                        hour: 0,
+                        minute: 0,
+                        second: 0,
+                        offset: TimeSpan.Zero)));
 
-        await Assert.That("x".TryParseDateTimeOffset(
-                provider: CultureInfo.InvariantCulture,
-                styles: DateTimeStyles.None)).IsEqualTo(Maybe<DateTimeOffset>.None);
+        await Assert.That(
+                "x".TryParseDateTimeOffset(
+                    provider: CultureInfo.InvariantCulture,
+                    styles: DateTimeStyles.None))
+            .IsEqualTo(Maybe<DateTimeOffset>.None);
     }
 
     [Test]
     public async Task TestTryParseTimeSpan()
     {
-        await Assert.That("01:30:00".TryParseTimeSpan(CultureInfo.InvariantCulture)).IsEqualTo(Maybe.Some(TimeSpan.FromMinutes(90)));
+        await Assert.That("01:30:00".TryParseTimeSpan(CultureInfo.InvariantCulture))
+            .IsEqualTo(Maybe.Some(TimeSpan.FromMinutes(90)));
 
         await Assert.That("x".TryParseTimeSpan(CultureInfo.InvariantCulture)).IsEqualTo(Maybe<TimeSpan>.None);
     }
@@ -160,11 +172,13 @@ public sealed class StringExtensionMethodsTests
     [Test]
     public async Task TestTryParseUri()
     {
-        await Assert.That("https://example.com/a".TryParseUri()).IsEqualTo(Maybe.Some(new Uri("https://example.com/a")));
+        await Assert.That("https://example.com/a".TryParseUri())
+            .IsEqualTo(Maybe.Some(new Uri("https://example.com/a")));
 
         await Assert.That("/a/b".TryParseUri()).IsEqualTo(Maybe<Uri>.None);
 
-        await Assert.That("/a/b".TryParseUri(UriKind.Relative)).IsEqualTo(Maybe.Some(new Uri(uriString: "/a/b", uriKind: UriKind.Relative)));
+        await Assert.That("/a/b".TryParseUri(UriKind.Relative))
+            .IsEqualTo(Maybe.Some(new Uri(uriString: "/a/b", uriKind: UriKind.Relative)));
     }
 
     [Test]
@@ -190,4 +204,13 @@ public sealed class StringExtensionMethodsTests
         await Assert.That("green".TryParseDefinedEnum<Color>()).IsEqualTo(Maybe<Color>.None);
         await Assert.That("green".TryParseDefinedEnum<Color>(true)).IsEqualTo(Maybe.Some(Color.Green));
     }
+
+    // ReSharper disable UnusedMember.Local
+    private enum Color
+    {
+        Red = 0,
+        Green = 1,
+        Blue = 2
+    }
+    // ReSharper restore UnusedMember.Local
 }

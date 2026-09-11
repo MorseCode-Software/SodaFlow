@@ -42,8 +42,11 @@ public abstract class ReactiveCollection<TKey, TIdentity, TState>
     where TKey : notnull
     where TIdentity : notnull
 {
-    /// <summary>One per-key cell cache per projected type, for states.</summary>
-    private readonly Dictionary<Type, object> stateCaches = new();
+    /// <summary>
+    ///     A plain object rather than <c>System.Threading.Lock</c>, which arrived in .NET 9 and is
+    ///     not available on any of this package's target frameworks.
+    /// </summary>
+    private readonly object cacheGate = new();
 
     /// <summary>
     ///     The same for identities. Kept apart from the states rather than sharing one dictionary,
@@ -52,11 +55,8 @@ public abstract class ReactiveCollection<TKey, TIdentity, TState>
     /// </summary>
     private readonly Dictionary<Type, object> identityCaches = new();
 
-    /// <summary>
-    ///     A plain object rather than <c>System.Threading.Lock</c>, which arrived in .NET 9 and is
-    ///     not available on any of this package's target frameworks.
-    /// </summary>
-    private readonly object cacheGate = new();
+    /// <summary>One per-key cell cache per projected type, for states.</summary>
+    private readonly Dictionary<Type, object> stateCaches = new();
 
     /// <summary>
     ///     Internal, so that this assembly is the only thing that can produce one. See the class
@@ -128,7 +128,10 @@ public abstract class ReactiveCollection<TKey, TIdentity, TState>
         Func<TIdentity, TKey> keySelector,
         IEnumerable<Item<TIdentity, TState>> initialItems,
         params Stream<CollectionEdit<TKey, TIdentity, TState>>[] editStreams) =>
-        RootCollection<TKey, TIdentity, TState>.CreateImpl(keySelector, initialItems, editStreams);
+        RootCollection<TKey, TIdentity, TState>.CreateImpl(
+            keySelector: keySelector,
+            initialEntries: initialItems,
+            editStreams: editStreams);
 
     /// <summary>
     ///     A cell tracking one item's mutable portion as this collection sees it, shaped by the
@@ -159,8 +162,8 @@ public abstract class ReactiveCollection<TKey, TIdentity, TState>
                 return cached;
             }
 
-            Cell<TProjected> created = this.CreateStateCell(key, onPresent, onAbsent);
-            cache.Set(key, created);
+            Cell<TProjected> created = this.CreateStateCell(key: key, onPresent: onPresent, onAbsent: onAbsent);
+            cache.Set(key: key, cell: created);
 
             return created;
         }
@@ -191,8 +194,8 @@ public abstract class ReactiveCollection<TKey, TIdentity, TState>
                 return cached;
             }
 
-            Cell<TProjected> created = this.CreateIdentityCell(key, onPresent, onAbsent);
-            cache.Set(key, created);
+            Cell<TProjected> created = this.CreateIdentityCell(key: key, onPresent: onPresent, onAbsent: onAbsent);
+            cache.Set(key: key, cell: created);
 
             return created;
         }
@@ -218,10 +221,9 @@ public abstract class ReactiveCollection<TKey, TIdentity, TState>
     ///     thing parameterized by that type is a higher-kinded thing, which C# cannot express - so
     ///     the claim is made here once rather than at every lookup.
     /// </remarks>
-    private static ProjectedCellCache<TKey, TProjected> CacheFor<TProjected>(
-        IDictionary<Type, object> caches)
+    private static ProjectedCellCache<TKey, TProjected> CacheFor<TProjected>(IDictionary<Type, object> caches)
     {
-        if (caches.TryGetValue(typeof(TProjected), out object? existing))
+        if (caches.TryGetValue(key: typeof(TProjected), value: out object? existing))
         {
             return (ProjectedCellCache<TKey, TProjected>)existing;
         }
@@ -270,7 +272,7 @@ public static class ReactiveCollection
         where TKey : notnull
         where TIdentity : IIdentity<TKey> =>
         ReactiveCollection<TKey, TIdentity, TState>.Create(
-            static identity => identity.Key,
-            initialEntries,
-            editStreams);
+            keySelector: static identity => identity.Key,
+            initialItems: initialEntries,
+            editStreams: editStreams);
 }

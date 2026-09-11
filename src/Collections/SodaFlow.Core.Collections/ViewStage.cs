@@ -19,8 +19,9 @@ internal sealed class ViewStage<TKey, TIdentity, TState> : ReactiveCollection<TK
     where TKey : notnull
     where TIdentity : notnull
 {
-    /// <summary>The stage above this one, or the collection if this is the first.</summary>
-    private readonly ReactiveCollection<TKey, TIdentity, TState> source;
+    private readonly Lazy<Stream<ItemChange<TKey, TIdentity, TState>>> itemChangesStream;
+
+    private readonly Lazy<Cell<IReadOnlyDictionary<TKey, TIdentity>>> shapeCell;
 
     /// <summary>Built on first use, because a stage nobody asks should not pay for one.</summary>
     /// <remarks>
@@ -31,9 +32,8 @@ internal sealed class ViewStage<TKey, TIdentity, TState> : ReactiveCollection<TK
     /// </remarks>
     private readonly Lazy<Cell<CollectionSnapshot<TKey, TIdentity, TState>>> snapshotCell;
 
-    private readonly Lazy<Stream<ItemChange<TKey, TIdentity, TState>>> itemChangesStream;
-
-    private readonly Lazy<Cell<IReadOnlyDictionary<TKey, TIdentity>>> shapeCell;
+    /// <summary>The stage above this one, or the collection if this is the first.</summary>
+    private readonly ReactiveCollection<TKey, TIdentity, TState> source;
 
     internal ViewStage(
         ReactiveCollection<TKey, TIdentity, TState> source,
@@ -45,28 +45,33 @@ internal sealed class ViewStage<TKey, TIdentity, TState> : ReactiveCollection<TK
         this.KeysCell = keysCell;
         this.KeyChangesStream = keyChangesStream;
 
-        this.snapshotCell = new Lazy<Cell<CollectionSnapshot<TKey, TIdentity, TState>>>(
-            snapshotCell,
-            LazyThreadSafetyMode.ExecutionAndPublication);
+        this.snapshotCell =
+            new Lazy<Cell<CollectionSnapshot<TKey, TIdentity, TState>>>(
+                valueFactory: snapshotCell,
+                mode: LazyThreadSafetyMode.ExecutionAndPublication);
 
         // This stage's items as keyed deltas. A view change already says which keys entered, left
         // and changed, so this is a translation rather than a derivation - and reading it never
         // asks the stage to order itself, which is what the collection's own item stream promises.
-        this.itemChangesStream = new Lazy<Stream<ItemChange<TKey, TIdentity, TState>>>(
-            () => TransactionInternal.RunImpl(() =>
-                this.KeyChangesStream.MapImpl(static change => change.ToItemChange())),
-            LazyThreadSafetyMode.ExecutionAndPublication);
+        this.itemChangesStream =
+            new Lazy<Stream<ItemChange<TKey, TIdentity, TState>>>(
+                valueFactory: () =>
+                    TransactionInternal.RunImpl(() =>
+                        this.KeyChangesStream.MapImpl(static change => change.ToItemChange())),
+                mode: LazyThreadSafetyMode.ExecutionAndPublication);
 
         // Only membership moves this, which is what makes it cheaper to hold than the snapshot: a
         // state edit reorders a view without changing what is in it, and this sleeps through that.
-        this.shapeCell = new Lazy<Cell<IReadOnlyDictionary<TKey, TIdentity>>>(
-            () => TransactionInternal.RunImpl(() =>
-                this.KeyChangesStream
-                    .FilterImpl(static change => change.ChangesMembership)
-                    .MapImpl(static change => change.After.Identities)
-                    .HoldLazyImpl(this.SnapshotCell.SampleLazyImpl().MapImpl(
-                        static snapshot => snapshot.Identities))),
-            LazyThreadSafetyMode.ExecutionAndPublication);
+        this.shapeCell =
+            new Lazy<Cell<IReadOnlyDictionary<TKey, TIdentity>>>(
+                valueFactory: () =>
+                    TransactionInternal.RunImpl(() =>
+                        this.KeyChangesStream
+                            .FilterImpl(static change => change.ChangesMembership)
+                            .MapImpl(static change => change.After.Identities)
+                            .HoldLazyImpl(
+                                this.SnapshotCell.SampleLazyImpl().MapImpl(static snapshot => snapshot.Identities))),
+                mode: LazyThreadSafetyMode.ExecutionAndPublication);
     }
 
     /// <inheritdoc />
@@ -76,12 +81,10 @@ internal sealed class ViewStage<TKey, TIdentity, TState> : ReactiveCollection<TK
     public override Stream<CollectionViewChange<TKey, TIdentity, TState>> KeyChangesStream { get; }
 
     /// <inheritdoc />
-    public override Cell<CollectionSnapshot<TKey, TIdentity, TState>> SnapshotCell =>
-        this.snapshotCell.Value;
+    public override Cell<CollectionSnapshot<TKey, TIdentity, TState>> SnapshotCell => this.snapshotCell.Value;
 
     /// <inheritdoc />
-    public override Stream<ItemChange<TKey, TIdentity, TState>> ItemChangesStream =>
-        this.itemChangesStream.Value;
+    public override Stream<ItemChange<TKey, TIdentity, TState>> ItemChangesStream => this.itemChangesStream.Value;
 
     /// <inheritdoc />
     public override Cell<IReadOnlyDictionary<TKey, TIdentity>> ShapeCell => this.shapeCell.Value;
@@ -109,13 +112,15 @@ internal sealed class ViewStage<TKey, TIdentity, TState> : ReactiveCollection<TK
 
         return TransactionInternal.RunImpl(() =>
             this.KeyChangesStream
-                .MapImpl(change => change.ProjectChangeFor(key, onPresent, onAbsent))
+                .MapImpl(change => change.ProjectChangeFor(key: key, onPresent: onPresent, onAbsent: onAbsent))
                 .FilterSomeInternal()
-                .HoldLazyImpl(this.KeysCell.SampleLazyImpl().MapImpl(
-                    keys => keys.Contains(key) &&
-                        root.SnapshotCell.SampleImpl().States.TryGetState(key, out TState state)
-                            ? onPresent(state)
-                            : onAbsent())));
+                .HoldLazyImpl(
+                    this.KeysCell.SampleLazyImpl()
+                        .MapImpl(keys =>
+                            keys.Contains(key) &&
+                            root.SnapshotCell.SampleImpl().States.TryGetState(key: key, state: out TState state)
+                                ? onPresent(state)
+                                : onAbsent())));
     }
 
     /// <inheritdoc />
@@ -133,13 +138,15 @@ internal sealed class ViewStage<TKey, TIdentity, TState> : ReactiveCollection<TK
 
         return TransactionInternal.RunImpl(() =>
             this.KeyChangesStream
-                .MapImpl(change => change.ProjectIdentityChangeFor(key, onPresent, onAbsent))
+                .MapImpl(change => change.ProjectIdentityChangeFor(key: key, onPresent: onPresent, onAbsent: onAbsent))
                 .FilterSomeInternal()
-                .HoldLazyImpl(this.KeysCell.SampleLazyImpl().MapImpl(
-                    keys => keys.Contains(key) &&
-                        root.SnapshotCell.SampleImpl().TryGetIdentity(key, out TIdentity identity)
-                            ? onPresent(identity)
-                            : onAbsent())));
+                .HoldLazyImpl(
+                    this.KeysCell.SampleLazyImpl()
+                        .MapImpl(keys =>
+                            keys.Contains(key) &&
+                            root.SnapshotCell.SampleImpl().TryGetIdentity(key: key, identity: out TIdentity identity)
+                                ? onPresent(identity)
+                                : onAbsent())));
     }
 }
 

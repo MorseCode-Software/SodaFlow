@@ -47,24 +47,34 @@ namespace SodaFlow.Benchmarks;
 // ReSharper disable once MemberCanBeFileLocal
 public class KeyedCollectionScaleBenchmarks
 {
-    // Populated for real in the setup; built small here so the fields never have to be nullable.
-    private IKeyedCollectionViewShape rootOnly = RootOnlyViewShape.Build(1);
-    private IKeyedCollectionViewShape byState = ChainedViewShape.Build(1, ChainStyle.SelectiveByState);
-    private IKeyedCollectionViewShape byIdentity = ChainedViewShape.Build(1, ChainStyle.SelectiveByIdentity);
+    private IKeyedCollectionViewShape byIdentity =
+        ChainedViewShape.Build(itemCount: 1, style: ChainStyle.SelectiveByIdentity);
+
+    private IKeyedCollectionViewShape
+        byState = ChainedViewShape.Build(itemCount: 1, style: ChainStyle.SelectiveByState);
 
     private int editCount;
+
+    // Populated for real in the setup; built small here so the fields never have to be nullable.
+    private IKeyedCollectionViewShape rootOnly = RootOnlyViewShape.Build(1);
 
     /// <summary>How many items the collection holds.</summary>
     [Params(10_000, 100_000, 1_000_000)]
     public int ItemCount { get; [UsedImplicitly] set; }
+
+    /// <summary>An even key, which both filters keep.</summary>
+    private static int InViewKey => 0;
+
+    /// <summary>An odd key, which neither filter keeps.</summary>
+    private static int ExcludedKey => 1;
 
     /// <summary>Stands both chains up, and refuses to run if they keep different items.</summary>
     [GlobalSetup]
     public void Setup()
     {
         this.rootOnly = RootOnlyViewShape.Build(this.ItemCount);
-        this.byState = ChainedViewShape.Build(this.ItemCount, ChainStyle.SelectiveByState);
-        this.byIdentity = ChainedViewShape.Build(this.ItemCount, ChainStyle.SelectiveByIdentity);
+        this.byState = ChainedViewShape.Build(itemCount: this.ItemCount, style: ChainStyle.SelectiveByState);
+        this.byIdentity = ChainedViewShape.Build(itemCount: this.ItemCount, style: ChainStyle.SelectiveByIdentity);
 
         if (!this.byState.Keys.SequenceEqual(this.byIdentity.Keys))
         {
@@ -80,37 +90,29 @@ public class KeyedCollectionScaleBenchmarks
     ///     asked about and this is how much of each of them is not that.
     /// </summary>
     [Benchmark(Description = "edit, no chain", Baseline = true)]
-    public void EditNoChain() => this.rootOnly.Replace(InViewKey, this.NextInViewState());
+    public void EditNoChain() => this.rootOnly.Replace(key: InViewKey, state: this.NextInViewState());
 
     /// <summary>An edit to an item the filter keeps, tested against the state.</summary>
     [Benchmark(Description = "edit an item in view, state filter")]
-    public void EditInViewByState() => this.byState.Replace(InViewKey, this.NextInViewState());
+    public void EditInViewByState() => this.byState.Replace(key: InViewKey, state: this.NextInViewState());
 
     /// <summary>The same edit, against a filter that selects from the identity.</summary>
     [Benchmark(Description = "edit an item in view, identity filter")]
-    public void EditInViewByIdentity() => this.byIdentity.Replace(InViewKey, this.NextInViewState());
+    public void EditInViewByIdentity() => this.byIdentity.Replace(key: InViewKey, state: this.NextInViewState());
 
     /// <summary>
     ///     An edit to an item the filter does not keep, tested against the state — a membership
     ///     test and a predicate test to conclude there is nothing to do.
     /// </summary>
     [Benchmark(Description = "edit an excluded item, state filter")]
-    public void EditExcludedByState() =>
-        this.byState.Replace(ExcludedKey, this.NextExcludedState());
+    public void EditExcludedByState() => this.byState.Replace(key: ExcludedKey, state: this.NextExcludedState());
 
     /// <summary>
     ///     The same edit, against a filter that selects from the identity — which cannot have
     ///     changed, so one failed index lookup settles it.
     /// </summary>
     [Benchmark(Description = "edit an excluded item, identity filter")]
-    public void EditExcludedByIdentity() =>
-        this.byIdentity.Replace(ExcludedKey, this.NextExcludedState());
-
-    /// <summary>An even key, which both filters keep.</summary>
-    private static int InViewKey => 0;
-
-    /// <summary>An odd key, which neither filter keeps.</summary>
-    private static int ExcludedKey => 1;
+    public void EditExcludedByIdentity() => this.byIdentity.Replace(key: ExcludedKey, state: this.NextExcludedState());
 
     /// <summary>
     ///     Two states, alternating, both scoring even — so the state filter keeps the item before
@@ -120,7 +122,7 @@ public class KeyedCollectionScaleBenchmarks
     {
         this.editCount++;
 
-        return new ItemState("edited", 2 * (this.editCount % 2), false);
+        return new ItemState(name: "edited", score: 2 * (this.editCount % 2), isFrozen: false);
     }
 
     /// <summary>
@@ -132,6 +134,6 @@ public class KeyedCollectionScaleBenchmarks
     {
         this.editCount++;
 
-        return new ItemState("edited", 1 + (2 * (this.editCount % 2)), false);
+        return new ItemState(name: "edited", score: 1 + 2 * (this.editCount % 2), isFrozen: false);
     }
 }

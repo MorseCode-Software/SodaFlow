@@ -33,14 +33,20 @@ public abstract class OrderedKeys<TKey, TIdentity, TState> : IReadOnlyList<TKey>
     {
     }
 
+    /// <summary>The order this set files keys under.</summary>
+    internal abstract KeyOrder<TKey, TIdentity, TState> Order { get; }
+
     /// <inheritdoc />
     public abstract int Count { get; }
 
     /// <inheritdoc />
     public abstract TKey this[int index] { get; }
 
-    /// <summary>The order this set files keys under.</summary>
-    internal abstract KeyOrder<TKey, TIdentity, TState> Order { get; }
+    /// <inheritdoc />
+    public abstract IEnumerator<TKey> GetEnumerator();
+
+    /// <inheritdoc />
+    IEnumerator IEnumerable.GetEnumerator() => this.GetEnumerator();
 
     /// <summary>Whether a key is in this set.</summary>
     /// <param name="key">The key to look for.</param>
@@ -75,12 +81,6 @@ public abstract class OrderedKeys<TKey, TIdentity, TState> : IReadOnlyList<TKey>
     /// <param name="key">The key to remove.</param>
     /// <returns>The set without that key.</returns>
     internal abstract OrderedKeys<TKey, TIdentity, TState> Remove(TKey key);
-
-    /// <inheritdoc />
-    public abstract IEnumerator<TKey> GetEnumerator();
-
-    /// <inheritdoc />
-    IEnumerator IEnumerable.GetEnumerator() => this.GetEnumerator();
 }
 
 /// <summary>A key together with the sort value it was filed under.</summary>
@@ -106,9 +106,9 @@ internal sealed class SortedEntry<TKey, TSortKey>
 internal sealed class SortedEntryComparer<TKey, TSortKey> : IComparer<SortedEntry<TKey, TSortKey>>
     where TKey : notnull
 {
-    private readonly IComparer<TSortKey> sortComparer;
-    private readonly IComparer<TKey> keyComparer;
     private readonly bool descending;
+    private readonly IComparer<TKey> keyComparer;
+    private readonly IComparer<TSortKey> sortComparer;
 
     internal SortedEntryComparer(
         IComparer<TSortKey> sortComparer,
@@ -122,14 +122,14 @@ internal sealed class SortedEntryComparer<TKey, TSortKey> : IComparer<SortedEntr
 
     public int Compare(SortedEntry<TKey, TSortKey>? left, SortedEntry<TKey, TSortKey>? right)
     {
-        if (ReferenceEquals(left, right))
+        if (ReferenceEquals(objA: left, objB: right))
         {
             return 0;
         }
 
         // ReSharper disable NullableWarningSuppressionIsUsed - The set only ever holds entries
         // filed by Add, and nothing outside this file constructs one, so neither side is null.
-        int result = this.sortComparer.Compare(left!.SortValue, right!.SortValue);
+        int result = this.sortComparer.Compare(x: left!.SortValue, y: right!.SortValue);
         // ReSharper restore NullableWarningSuppressionIsUsed
 
         if (result != 0)
@@ -139,7 +139,7 @@ internal sealed class SortedEntryComparer<TKey, TSortKey> : IComparer<SortedEntr
 
         // The key breaks ties, so the order is total and two entries that sort equally are never
         // conflated.
-        return this.keyComparer.Compare(left.Key, right.Key);
+        return this.keyComparer.Compare(x: left.Key, y: right.Key);
     }
 }
 
@@ -164,16 +164,16 @@ internal sealed class SortKeyOrder<TKey, TIdentity, TState, TSortKey>
     where TKey : notnull
     where TIdentity : notnull
 {
+    private readonly IComparer<SortedEntry<TKey, TSortKey>> comparer;
+
+    private readonly Func<TKey, TIdentity, TSortKey>? identitySelector;
+
     /// <summary>
     ///     Exactly one of these is set, and which one is what <see cref="DependsOnState" />
     ///     answers. That is deliberate: an order cannot claim not to read the state while reading
     ///     it, because the selector that claims it is never handed any.
     /// </summary>
     private readonly Func<TKey, TIdentity, TState, TSortKey>? selector;
-
-    private readonly Func<TKey, TIdentity, TSortKey>? identitySelector;
-
-    private readonly IComparer<SortedEntry<TKey, TSortKey>> comparer;
 
     /// <summary>Creates an order whose sort value is projected from the whole item.</summary>
     /// <param name="selector">Projects the sort value from a key and its item.</param>
@@ -185,7 +185,7 @@ internal sealed class SortKeyOrder<TKey, TIdentity, TState, TSortKey>
         IComparer<TSortKey> sortComparer,
         IComparer<TKey> keyComparer,
         bool descending)
-        : this(sortComparer, keyComparer, descending) =>
+        : this(sortComparer: sortComparer, keyComparer: keyComparer, descending: descending) =>
         this.selector = selector;
 
     /// <summary>
@@ -205,17 +205,18 @@ internal sealed class SortKeyOrder<TKey, TIdentity, TState, TSortKey>
         IComparer<TSortKey> sortComparer,
         IComparer<TKey> keyComparer,
         bool descending)
-        : this(sortComparer, keyComparer, descending) =>
+        : this(sortComparer: sortComparer, keyComparer: keyComparer, descending: descending) =>
         this.identitySelector = selector;
 
     private SortKeyOrder(
         IComparer<TSortKey> sortComparer,
         IComparer<TKey> keyComparer,
         bool descending) =>
-        this.comparer = new SortedEntryComparer<TKey, TSortKey>(
-            sortComparer,
-            keyComparer,
-            descending);
+        this.comparer =
+            new SortedEntryComparer<TKey, TSortKey>(
+                sortComparer: sortComparer,
+                keyComparer: keyComparer,
+                descending: descending);
 
     /// <inheritdoc />
     internal override bool DependsOnState => this.identitySelector is null;
@@ -233,21 +234,21 @@ internal sealed class SortKeyOrder<TKey, TIdentity, TState, TSortKey>
 
         foreach (TKey key in keys)
         {
-            if (!this.TryProject(key, snapshot, out TSortKey sortValue))
+            if (!this.TryProject(key: key, snapshot: snapshot, sortValue: out TSortKey sortValue))
             {
                 continue;
             }
 
-            SortedEntry<TKey, TSortKey> entry = new(key, sortValue);
+            SortedEntry<TKey, TSortKey> entry = new(key: key, sortValue: sortValue);
 
             entries.Add(entry);
             byKey[key] = entry;
         }
 
         return new SortedKeys<TKey, TIdentity, TState, TSortKey>(
-            this,
-            entries.ToImmutable(),
-            byKey.ToImmutable());
+            order: this,
+            entries: entries.ToImmutable(),
+            byKey: byKey.ToImmutable());
     }
 
     /// <summary>
@@ -272,24 +273,24 @@ internal sealed class SortKeyOrder<TKey, TIdentity, TState, TSortKey>
 
         if (this.identitySelector is not null)
         {
-            if (!snapshot.TryGetIdentity(key, out TIdentity identityOnly))
+            if (!snapshot.TryGetIdentity(key: key, identity: out TIdentity identityOnly))
             {
                 return false;
             }
 
-            sortValue = this.identitySelector(key, identityOnly);
+            sortValue = this.identitySelector(arg1: key, arg2: identityOnly);
 
             return true;
         }
 
-        if (!snapshot.TryGetHalves(key, out TIdentity identity, out TState state))
+        if (!snapshot.TryGetHalves(key: key, identity: out TIdentity identity, state: out TState state))
         {
             return false;
         }
 
         // ReSharper disable once NullableWarningSuppressionIsUsed - exactly one of the two
         // selectors is set, and identitySelector being null is what says it is this one.
-        sortValue = this.selector!(key, identity, state);
+        sortValue = this.selector!(arg1: key, arg2: identity, arg3: state);
 
         return true;
     }
@@ -299,9 +300,9 @@ internal sealed class SortedKeys<TKey, TIdentity, TState, TSortKey> : OrderedKey
     where TKey : notnull
     where TIdentity : notnull
 {
-    private readonly SortKeyOrder<TKey, TIdentity, TState, TSortKey> order;
-    private readonly ImmutableSortedSet<SortedEntry<TKey, TSortKey>> entries;
     private readonly ImmutableDictionary<TKey, SortedEntry<TKey, TSortKey>> byKey;
+    private readonly ImmutableSortedSet<SortedEntry<TKey, TSortKey>> entries;
+    private readonly SortKeyOrder<TKey, TIdentity, TState, TSortKey> order;
 
     internal SortedKeys(
         SortKeyOrder<TKey, TIdentity, TState, TSortKey> order,
@@ -336,7 +337,7 @@ internal sealed class SortedKeys<TKey, TIdentity, TState, TSortKey> : OrderedKey
     /// </remarks>
     internal override int IndexOfInternal(TKey key)
     {
-        if (!this.byKey.TryGet(key, out SortedEntry<TKey, TSortKey> entry))
+        if (!this.byKey.TryGet(key: key, value: out SortedEntry<TKey, TSortKey> entry))
         {
             return -1;
         }
@@ -354,12 +355,12 @@ internal sealed class SortedKeys<TKey, TIdentity, TState, TSortKey> : OrderedKey
         TKey key,
         CollectionSnapshot<TKey, TIdentity, TState> snapshot)
     {
-        if (!this.order.TryProject(key, snapshot, out TSortKey sortValue))
+        if (!this.order.TryProject(key: key, snapshot: snapshot, sortValue: out TSortKey sortValue))
         {
             return this;
         }
 
-        SortedEntry<TKey, TSortKey> entry = new(key, sortValue);
+        SortedEntry<TKey, TSortKey> entry = new(key: key, sortValue: sortValue);
 
         // A key already filed is re-filed rather than filed again. The map holds one entry per key
         // and the ordering holds one per sort value, so adding a key that is already in under a
@@ -367,26 +368,25 @@ internal sealed class SortedKeys<TKey, TIdentity, TState, TSortKey> : OrderedKey
         // it, enumerate the key twice, and disagree with its own map. No stage does that today,
         // because a re-file removes before it adds; nothing about this type said they had to.
         ImmutableSortedSet<SortedEntry<TKey, TSortKey>> ordering =
-            this.byKey.TryGet(key, out SortedEntry<TKey, TSortKey> filed)
+            this.byKey.TryGet(key: key, value: out SortedEntry<TKey, TSortKey> filed)
                 ? this.entries.Remove(filed)
                 : this.entries;
 
         return new SortedKeys<TKey, TIdentity, TState, TSortKey>(
-            this.order,
-            ordering.Add(entry),
-            this.byKey.SetItem(key, entry));
+            order: this.order,
+            entries: ordering.Add(entry),
+            byKey: this.byKey.SetItem(key: key, value: entry));
     }
 
     internal override OrderedKeys<TKey, TIdentity, TState> Remove(TKey key) =>
-        this.byKey.TryGet(key, out SortedEntry<TKey, TSortKey> entry)
+        this.byKey.TryGet(key: key, value: out SortedEntry<TKey, TSortKey> entry)
             ? new SortedKeys<TKey, TIdentity, TState, TSortKey>(
-                this.order,
-                this.entries.Remove(entry),
-                this.byKey.Remove(key))
+                order: this.order,
+                entries: this.entries.Remove(entry),
+                byKey: this.byKey.Remove(key))
             : this;
 
-    public override IEnumerator<TKey> GetEnumerator() =>
-        this.entries.Select(static entry => entry.Key).GetEnumerator();
+    public override IEnumerator<TKey> GetEnumerator() => this.entries.Select(static entry => entry.Key).GetEnumerator();
 }
 
 /// <summary>
@@ -406,24 +406,26 @@ internal sealed class RangeKeys<TKey, TIdentity, TState> : OrderedKeys<TKey, TId
     where TKey : notnull
     where TIdentity : notnull
 {
-    private readonly OrderedKeys<TKey, TIdentity, TState> source;
-    private readonly int offset;
     private readonly int limit;
+    private readonly int offset;
+    private readonly OrderedKeys<TKey, TIdentity, TState> source;
 
     internal RangeKeys(OrderedKeys<TKey, TIdentity, TState> source, int offset, int limit)
     {
         this.source = source;
-        this.offset = Math.Max(offset, 0);
-        this.limit = Math.Max(limit, 0);
+        this.offset = Math.Max(val1: offset, val2: 0);
+        this.limit = Math.Max(val1: limit, val2: 0);
     }
 
     internal override KeyOrder<TKey, TIdentity, TState> Order => this.source.Order;
 
-    public override int Count => Math.Min(Math.Max(this.source.Count - this.offset, 0), this.limit);
+    public override int Count =>
+        Math.Min(val1: Math.Max(val1: this.source.Count - this.offset, val2: 0), val2: this.limit);
 
-    public override TKey this[int index] => index >= 0 && index < this.Count
-        ? this.source[index + this.offset]
-        : throw new ArgumentOutOfRangeException(nameof(index));
+    public override TKey this[int index] =>
+        index >= 0 && index < this.Count
+            ? this.source[index + this.offset]
+            : throw new ArgumentOutOfRangeException(nameof(index));
 
     public override bool Contains(TKey key) => this.IndexOfInternal(key) >= 0;
 
@@ -444,10 +446,13 @@ internal sealed class RangeKeys<TKey, TIdentity, TState> : OrderedKeys<TKey, TId
     internal override OrderedKeys<TKey, TIdentity, TState> Add(
         TKey key,
         CollectionSnapshot<TKey, TIdentity, TState> snapshot) =>
-        new RangeKeys<TKey, TIdentity, TState>(this.source.Add(key, snapshot), this.offset, this.limit);
+        new RangeKeys<TKey, TIdentity, TState>(
+            source: this.source.Add(key: key, snapshot: snapshot),
+            offset: this.offset,
+            limit: this.limit);
 
     internal override OrderedKeys<TKey, TIdentity, TState> Remove(TKey key) =>
-        new RangeKeys<TKey, TIdentity, TState>(this.source.Remove(key), this.offset, this.limit);
+        new RangeKeys<TKey, TIdentity, TState>(source: this.source.Remove(key), offset: this.offset, limit: this.limit);
 
     public override IEnumerator<TKey> GetEnumerator()
     {

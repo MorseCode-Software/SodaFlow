@@ -46,7 +46,7 @@ public static class CollectionViewExtensionMethods
         IComparer<TKey> keyComparer)
         where TKey : notnull
         where TIdentity : notnull =>
-        CollectionViewUtility.SortByKeyImpl(upstream, keyComparer);
+        CollectionViewUtility.SortByKeyImpl(upstream: upstream, keyComparer: keyComparer);
 
     /// <summary>Narrows the view, preserving the upstream order.</summary>
     /// <typeparam name="TKey">The type of the keys.</typeparam>
@@ -61,7 +61,7 @@ public static class CollectionViewExtensionMethods
         Func<TIdentity, TState, bool> predicate)
         where TKey : notnull
         where TIdentity : notnull =>
-        CollectionViewUtility.FilterImpl(upstream, Cell.Constant(predicate));
+        CollectionViewUtility.FilterImpl(upstream: upstream, predicateCell: Cell.Constant(predicate));
 
     /// <summary>
     ///     Narrows the view by a predicate which can itself change. Each change to the predicate
@@ -79,7 +79,7 @@ public static class CollectionViewExtensionMethods
         Cell<Func<TIdentity, TState, bool>> predicateCell)
         where TKey : notnull
         where TIdentity : notnull =>
-        CollectionViewUtility.FilterImpl(upstream, predicateCell);
+        CollectionViewUtility.FilterImpl(upstream: upstream, predicateCell: predicateCell);
 
     /// <summary>
     ///     Narrows the view by a predicate driven by something else — a search box, a toggle. Each
@@ -102,10 +102,10 @@ public static class CollectionViewExtensionMethods
         where TKey : notnull
         where TIdentity : notnull =>
         CollectionViewUtility.FilterImpl(
-            upstream,
-            criteriaCell.Map(
-                criteria => (Func<TIdentity, TState, bool>)(
-                    (identity, state) => predicate(criteria, identity, state))));
+            upstream: upstream,
+            predicateCell: criteriaCell.Map(criteria =>
+                (Func<TIdentity, TState, bool>)(
+                    (identity, state) => predicate(arg1: criteria, arg2: identity, arg3: state))));
 
     /// <summary>Reorders the view by a value projected from each item.</summary>
     /// <typeparam name="TKey">The type of the keys.</typeparam>
@@ -121,7 +121,11 @@ public static class CollectionViewExtensionMethods
         Func<TIdentity, TState, TSortKey> selector)
         where TKey : notnull
         where TIdentity : notnull =>
-        upstream.SortBy(selector, Comparer<TSortKey>.Default, Comparer<TKey>.Default, false);
+        upstream.SortBy(
+            selector: selector,
+            sortComparer: Comparer<TSortKey>.Default,
+            keyComparer: Comparer<TKey>.Default,
+            descending: false);
 
     /// <summary>Reorders the view, descending, by a value projected from each item.</summary>
     /// <typeparam name="TKey">The type of the keys.</typeparam>
@@ -137,7 +141,11 @@ public static class CollectionViewExtensionMethods
         Func<TIdentity, TState, TSortKey> selector)
         where TKey : notnull
         where TIdentity : notnull =>
-        upstream.SortBy(selector, Comparer<TSortKey>.Default, Comparer<TKey>.Default, true);
+        upstream.SortBy(
+            selector: selector,
+            sortComparer: Comparer<TSortKey>.Default,
+            keyComparer: Comparer<TKey>.Default,
+            descending: true);
 
     /// <summary>
     ///     Reorders the view. <typeparamref name="TSortKey" /> stays a real generic parameter all
@@ -163,7 +171,12 @@ public static class CollectionViewExtensionMethods
         bool descending)
         where TKey : notnull
         where TIdentity : notnull =>
-        CollectionViewUtility.SortByImpl(upstream, selector, sortComparer, keyComparer, descending);
+        CollectionViewUtility.SortByImpl(
+            upstream: upstream,
+            selector: selector,
+            sortComparer: sortComparer,
+            keyComparer: keyComparer,
+            descending: descending);
 
     /// <summary>Reorders the view by whichever order the cell currently holds.</summary>
     /// <typeparam name="TKey">The type of the keys.</typeparam>
@@ -192,7 +205,7 @@ public static class CollectionViewExtensionMethods
         Cell<KeyOrder<TKey, TIdentity, TState>> orderCell)
         where TKey : notnull
         where TIdentity : notnull =>
-        CollectionViewUtility.SortByImpl(upstream, orderCell);
+        CollectionViewUtility.SortByImpl(upstream: upstream, orderCell: orderCell);
 
     /// <summary>
     ///     Narrows the view by a predicate over each item's immutable half — its identity — which a
@@ -218,7 +231,7 @@ public static class CollectionViewExtensionMethods
         Func<TIdentity, bool> predicate)
         where TKey : notnull
         where TIdentity : notnull =>
-        CollectionViewUtility.FilterByIdentityImpl(upstream, predicate);
+        CollectionViewUtility.FilterByIdentityImpl(upstream: upstream, predicate: predicate);
 
     /// <summary>
     ///     Reorders the view by a value projected from each item's immutable half — its identity —
@@ -244,7 +257,11 @@ public static class CollectionViewExtensionMethods
         Func<TIdentity, TSortKey> selector)
         where TKey : notnull
         where TIdentity : notnull =>
-        upstream.SortByIdentity(selector, Comparer<TSortKey>.Default, Comparer<TKey>.Default, false);
+        upstream.SortByIdentity(
+            selector: selector,
+            sortComparer: Comparer<TSortKey>.Default,
+            keyComparer: Comparer<TKey>.Default,
+            descending: false);
 
     /// <summary>
     ///     Reorders the view, descending, by a value projected from each item's identity.
@@ -256,14 +273,24 @@ public static class CollectionViewExtensionMethods
     /// <param name="upstream">The collection or view to reorder.</param>
     /// <param name="selector">Projects the sort value from an item's identity.</param>
     /// <returns>A view ordered by that value, descending.</returns>
-    /// <remarks>See <see cref="SortByIdentity{TKey,TIdentity,TState,TSortKey}(ReactiveCollection{TKey,TIdentity,TState},Func{TIdentity,TSortKey})" />.</remarks>
+    /// <remarks>
+    ///     See
+    ///     <see
+    ///         cref="SortByIdentity{TKey,TIdentity,TState,TSortKey}(ReactiveCollection{TKey,TIdentity,TState},Func{TIdentity,TSortKey})" />
+    ///     .
+    /// </remarks>
     [MethodImpl(MethodImplOptions.NoInlining)]
-    public static ReactiveCollection<TKey, TIdentity, TState> SortByIdentityDescending<TKey, TIdentity, TState, TSortKey>(
+    public static ReactiveCollection<TKey, TIdentity, TState> SortByIdentityDescending<TKey, TIdentity, TState,
+        TSortKey>(
         this ReactiveCollection<TKey, TIdentity, TState> upstream,
         Func<TIdentity, TSortKey> selector)
         where TKey : notnull
         where TIdentity : notnull =>
-        upstream.SortByIdentity(selector, Comparer<TSortKey>.Default, Comparer<TKey>.Default, true);
+        upstream.SortByIdentity(
+            selector: selector,
+            sortComparer: Comparer<TSortKey>.Default,
+            keyComparer: Comparer<TKey>.Default,
+            descending: true);
 
     /// <summary>
     ///     Reorders the view by a value projected from each item's identity, with explicit
@@ -288,7 +315,12 @@ public static class CollectionViewExtensionMethods
         bool descending)
         where TKey : notnull
         where TIdentity : notnull =>
-        CollectionViewUtility.SortByIdentityImpl(upstream, selector, sortComparer, keyComparer, descending);
+        CollectionViewUtility.SortByIdentityImpl(
+            upstream: upstream,
+            selector: selector,
+            sortComparer: sortComparer,
+            keyComparer: keyComparer,
+            descending: descending);
 
     /// <summary>
     ///     The first <paramref name="limit" /> keys of the upstream — the top-n of whatever ordering
@@ -306,7 +338,7 @@ public static class CollectionViewExtensionMethods
         int limit)
         where TKey : notnull
         where TIdentity : notnull =>
-        CollectionViewUtility.TakeImpl(upstream, Cell.Constant(limit));
+        CollectionViewUtility.TakeImpl(upstream: upstream, limitCell: Cell.Constant(limit));
 
     /// <summary>The first however many keys of the upstream, where that count can itself change.</summary>
     /// <typeparam name="TKey">The type of the keys.</typeparam>
@@ -321,7 +353,7 @@ public static class CollectionViewExtensionMethods
         Cell<int> limitCell)
         where TKey : notnull
         where TIdentity : notnull =>
-        CollectionViewUtility.TakeImpl(upstream, limitCell);
+        CollectionViewUtility.TakeImpl(upstream: upstream, limitCell: limitCell);
 
     /// <summary>
     ///     <paramref name="limit" /> keys of the upstream starting at <paramref name="offset" /> —
@@ -346,7 +378,10 @@ public static class CollectionViewExtensionMethods
         int limit)
         where TKey : notnull
         where TIdentity : notnull =>
-        CollectionViewUtility.SliceImpl(upstream, Cell.Constant(offset), Cell.Constant(limit));
+        CollectionViewUtility.SliceImpl(
+            upstream: upstream,
+            offsetCell: Cell.Constant(offset),
+            limitCell: Cell.Constant(limit));
 
     /// <summary>
     ///     A page of the upstream where either end can itself change — send a new offset to turn
@@ -366,7 +401,7 @@ public static class CollectionViewExtensionMethods
         Cell<int> limitCell)
         where TKey : notnull
         where TIdentity : notnull =>
-        CollectionViewUtility.SliceImpl(upstream, offsetCell, limitCell);
+        CollectionViewUtility.SliceImpl(upstream: upstream, offsetCell: offsetCell, limitCell: limitCell);
 
     /// <summary>
     ///     One object per key, in this collection's order, so a list can bind to something stable.
@@ -423,5 +458,9 @@ public static class CollectionViewExtensionMethods
         Action<TResult>? onEvicted = null)
         where TKey : notnull
         where TIdentity : notnull =>
-        CollectionViewUtility.MapImpl(collection, project, retainedBeyondTheView, onEvicted);
+        CollectionViewUtility.MapImpl(
+            collection: collection,
+            project: project,
+            retainedBeyondTheView: retainedBeyondTheView,
+            onEvicted: onEvicted);
 }

@@ -10,17 +10,17 @@ namespace SodaFlow.Collections.Tests;
 public sealed class ReactiveCollectionTests
 {
     private static string NameOf(CollectionSnapshot<int, ItemIdentity, ItemState> snapshot, int key) =>
-        snapshot.TryGetItem(key, out Item<ItemIdentity, ItemState>? item) && item is not null
+        snapshot.TryGetItem(key: key, item: out Item<ItemIdentity, ItemState>? item) && item is not null
             ? item.State.Name
             : "?";
 
     private static string CodeOf(CollectionSnapshot<int, ItemIdentity, ItemState> snapshot, int key) =>
-        snapshot.TryGetItem(key, out Item<ItemIdentity, ItemState>? item) && item is not null
+        snapshot.TryGetItem(key: key, item: out Item<ItemIdentity, ItemState>? item) && item is not null
             ? item.Identity.Code
             : "?";
 
     private static int ScoreOf(CollectionSnapshot<int, ItemIdentity, ItemState> snapshot, int key) =>
-        snapshot.TryGetItem(key, out Item<ItemIdentity, ItemState>? item) && item is not null
+        snapshot.TryGetItem(key: key, item: out Item<ItemIdentity, ItemState>? item) && item is not null
             ? item.State.Score
             : -1;
 
@@ -30,16 +30,20 @@ public sealed class ReactiveCollectionTests
         StreamSink<CollectionEdit<int, ItemIdentity, ItemState>> edits =
             Stream.CreateSink<CollectionEdit<int, ItemIdentity, ItemState>>();
 
-        ReactiveCollection<int, ItemIdentity, ItemState> collection = ReactiveCollection<int, ItemIdentity, ItemState>.Create(
-            TestUtil.KeyOf,
-            [TestUtil.Item(1, "one", 10), TestUtil.Item(2, "two", 20)],
-            edits);
+        ReactiveCollection<int, ItemIdentity, ItemState> collection =
+            ReactiveCollection<int, ItemIdentity, ItemState>.Create(
+                keySelector: TestUtil.KeyOf,
+                initialItems:
+                [
+                    TestUtil.Item(number: 1, name: "one", score: 10), TestUtil.Item(number: 2, name: "two", score: 20)
+                ],
+                edits);
 
         CollectionSnapshot<int, ItemIdentity, ItemState> snapshot = collection.SnapshotCell.Sample();
 
         await Assert.That(snapshot.Count).IsEqualTo(2);
-        await Assert.That(NameOf(snapshot, 1)).IsEqualTo("one");
-        await Assert.That(CodeOf(snapshot, 1)).IsEqualTo("C1");
+        await Assert.That(NameOf(snapshot: snapshot, key: 1)).IsEqualTo("one");
+        await Assert.That(CodeOf(snapshot: snapshot, key: 1)).IsEqualTo("C1");
         await Assert.That(snapshot.ContainsKey(3)).IsFalse();
     }
 
@@ -49,10 +53,14 @@ public sealed class ReactiveCollectionTests
         StreamSink<CollectionEdit<int, ItemIdentity, ItemState>> edits =
             Stream.CreateSink<CollectionEdit<int, ItemIdentity, ItemState>>();
 
-        await Assert.That(
-                () => ReactiveCollection<int, ItemIdentity, ItemState>.Create(
-                    TestUtil.KeyOf,
-                    [TestUtil.Item(1, "one", 10), TestUtil.Item(1, "again", 20)],
+        await Assert.That(() =>
+                ReactiveCollection<int, ItemIdentity, ItemState>.Create(
+                    keySelector: TestUtil.KeyOf,
+                    initialItems:
+                    [
+                        TestUtil.Item(number: 1, name: "one", score: 10),
+                        TestUtil.Item(number: 1, name: "again", score: 20)
+                    ],
                     edits))
             .Throws<ArgumentException>();
     }
@@ -63,18 +71,19 @@ public sealed class ReactiveCollectionTests
         StreamSink<CollectionEdit<int, ItemIdentity, ItemState>> edits =
             Stream.CreateSink<CollectionEdit<int, ItemIdentity, ItemState>>();
 
-        ReactiveCollection<int, ItemIdentity, ItemState> collection = ReactiveCollection<int, ItemIdentity, ItemState>.Create(
-            TestUtil.KeyOf,
-            [TestUtil.Item(1, "one", 10)],
-            edits);
+        ReactiveCollection<int, ItemIdentity, ItemState> collection =
+            ReactiveCollection<int, ItemIdentity, ItemState>.Create(
+                keySelector: TestUtil.KeyOf,
+                initialItems: [TestUtil.Item(number: 1, name: "one", score: 10)],
+                edits);
 
         List<int> shapes = [];
         List<int> snapshots = [];
         IListener shapeListener = collection.ShapeCell.Updates().ListenStrong(s => shapes.Add(s.Count));
         IListener snapshotListener = collection.SnapshotCell.Updates().ListenStrong(s => snapshots.Add(s.Count));
 
-        edits.Send(TestUtil.Add(TestUtil.Item(2, "two", 20)));
-        edits.Send(TestUtil.Score(1, 11));
+        edits.Send(TestUtil.Add(TestUtil.Item(number: 2, name: "two", score: 20)));
+        edits.Send(TestUtil.Score(key: 1, score: 11));
         edits.Send(TestUtil.Remove(2));
 
         shapeListener.Unlisten();
@@ -92,10 +101,11 @@ public sealed class ReactiveCollectionTests
         StreamSink<CollectionEdit<int, ItemIdentity, ItemState>> edits =
             Stream.CreateSink<CollectionEdit<int, ItemIdentity, ItemState>>();
 
-        ReactiveCollection<int, ItemIdentity, ItemState> collection = ReactiveCollection<int, ItemIdentity, ItemState>.Create(
-            TestUtil.KeyOf,
-            [TestUtil.Item(1, "one", 10)],
-            edits);
+        ReactiveCollection<int, ItemIdentity, ItemState> collection =
+            ReactiveCollection<int, ItemIdentity, ItemState>.Create(
+                keySelector: TestUtil.KeyOf,
+                initialItems: [TestUtil.Item(number: 1, name: "one", score: 10)],
+                edits);
 
         List<int> fired = [];
         IListener l = collection.SnapshotCell.Updates().ListenStrong(s => fired.Add(s.Count));
@@ -115,11 +125,11 @@ public sealed class ReactiveCollectionTests
             Stream.CreateSink<CollectionEdit<int, ItemIdentity, ItemState>>();
 
         ReactiveCollection<int, ItemIdentity, ItemState>.Create(
-            TestUtil.KeyOf,
-            [TestUtil.Item(1, "one", 10)],
+            keySelector: TestUtil.KeyOf,
+            initialItems: [TestUtil.Item(number: 1, name: "one", score: 10)],
             edits);
 
-        await Assert.That(() => edits.Send(TestUtil.Add(TestUtil.Item(1, "again", 20))))
+        await Assert.That(() => edits.Send(TestUtil.Add(TestUtil.Item(number: 1, name: "again", score: 20))))
             .Throws<InvalidOperationException>();
     }
 
@@ -130,11 +140,11 @@ public sealed class ReactiveCollectionTests
             Stream.CreateSink<CollectionEdit<int, ItemIdentity, ItemState>>();
 
         ReactiveCollection<int, ItemIdentity, ItemState>.Create(
-            TestUtil.KeyOf,
-            [TestUtil.Item(1, "one", 10)],
+            keySelector: TestUtil.KeyOf,
+            initialItems: [TestUtil.Item(number: 1, name: "one", score: 10)],
             edits);
 
-        await Assert.That(() => edits.Send(TestUtil.Score(99, 1))).Throws<KeyNotFoundException>();
+        await Assert.That(() => edits.Send(TestUtil.Score(key: 99, score: 1))).Throws<KeyNotFoundException>();
     }
 
     [Test]
@@ -143,18 +153,19 @@ public sealed class ReactiveCollectionTests
         StreamSink<CollectionEdit<int, ItemIdentity, ItemState>> edits =
             Stream.CreateSink<CollectionEdit<int, ItemIdentity, ItemState>>();
 
-        ReactiveCollection<int, ItemIdentity, ItemState> collection = ReactiveCollection<int, ItemIdentity, ItemState>.Create(
-            TestUtil.KeyOf,
-            [TestUtil.Item(1, "one", 10)],
-            edits);
+        ReactiveCollection<int, ItemIdentity, ItemState> collection =
+            ReactiveCollection<int, ItemIdentity, ItemState>.Create(
+                keySelector: TestUtil.KeyOf,
+                initialItems: [TestUtil.Item(number: 1, name: "one", score: 10)],
+                edits);
 
         edits.Send(
-            TestUtil.Remove(1).CombineWith(TestUtil.Add(TestUtil.Item(1, "replacement", 99))));
+            TestUtil.Remove(1).CombineWith(TestUtil.Add(TestUtil.Item(number: 1, name: "replacement", score: 99))));
 
         CollectionSnapshot<int, ItemIdentity, ItemState> snapshot = collection.SnapshotCell.Sample();
 
         await Assert.That(snapshot.Count).IsEqualTo(1);
-        await Assert.That(NameOf(snapshot, 1)).IsEqualTo("replacement");
+        await Assert.That(NameOf(snapshot: snapshot, key: 1)).IsEqualTo("replacement");
     }
 
     [Test]
@@ -162,22 +173,24 @@ public sealed class ReactiveCollectionTests
     {
         StreamSink<CollectionEdit<int, ItemIdentity, ItemState>> adds =
             Stream.CreateSink<CollectionEdit<int, ItemIdentity, ItemState>>();
+
         StreamSink<CollectionEdit<int, ItemIdentity, ItemState>> updates =
             Stream.CreateSink<CollectionEdit<int, ItemIdentity, ItemState>>();
 
-        ReactiveCollection<int, ItemIdentity, ItemState> collection = ReactiveCollection<int, ItemIdentity, ItemState>.Create(
-            TestUtil.KeyOf,
-            [TestUtil.Item(1, "one", 10)],
-            adds,
-            updates);
+        ReactiveCollection<int, ItemIdentity, ItemState> collection =
+            ReactiveCollection<int, ItemIdentity, ItemState>.Create(
+                keySelector: TestUtil.KeyOf,
+                initialItems: [TestUtil.Item(number: 1, name: "one", score: 10)],
+                adds,
+                updates);
 
         List<ItemChange<int, ItemIdentity, ItemState>> changes = [];
         IListener l = collection.ItemChangesStream.ListenStrong(changes.Add);
 
         Transaction.RunVoid(() =>
         {
-            adds.Send(TestUtil.Add(TestUtil.Item(2, "two", 20)));
-            updates.Send(TestUtil.Score(1, 11));
+            adds.Send(TestUtil.Add(TestUtil.Item(number: 2, name: "two", score: 20)));
+            updates.Send(TestUtil.Score(key: 1, score: 11));
         });
 
         l.Unlisten();
@@ -185,7 +198,7 @@ public sealed class ReactiveCollectionTests
         await Assert.That(changes.Count).IsEqualTo(1);
         await Assert.That(changes[0].After.Count).IsEqualTo(2);
         await Assert.That(changes[0].Added).IsEquivalentTo([2]);
-        await Assert.That(ScoreOf(changes[0].After, 1)).IsEqualTo(11);
+        await Assert.That(ScoreOf(snapshot: changes[0].After, key: 1)).IsEqualTo(11);
     }
 
     [Test]
@@ -193,22 +206,23 @@ public sealed class ReactiveCollectionTests
     {
         StreamSink<CollectionEdit<int, ItemIdentity, ItemState>> first =
             Stream.CreateSink<CollectionEdit<int, ItemIdentity, ItemState>>();
+
         StreamSink<CollectionEdit<int, ItemIdentity, ItemState>> second =
             Stream.CreateSink<CollectionEdit<int, ItemIdentity, ItemState>>();
 
         ReactiveCollection<int, ItemIdentity, ItemState>.Create(
-            TestUtil.KeyOf,
-            [TestUtil.Item(1, "one", 10)],
+            keySelector: TestUtil.KeyOf,
+            initialItems: [TestUtil.Item(number: 1, name: "one", score: 10)],
             first,
             second);
 
         // Merge order is arbitrary, so composing them has no defined result and is refused rather
         // than resolved.
-        await Assert.That(
-                () => Transaction.RunVoid(() =>
+        await Assert.That(() =>
+                Transaction.RunVoid(() =>
                 {
-                    first.Send(TestUtil.Score(1, 11));
-                    second.Send(TestUtil.Score(1, 12));
+                    first.Send(TestUtil.Score(key: 1, score: 11));
+                    second.Send(TestUtil.Score(key: 1, score: 12));
                 }))
             .Throws<InvalidOperationException>();
     }
@@ -220,11 +234,11 @@ public sealed class ReactiveCollectionTests
             Stream.CreateSink<CollectionEdit<int, ItemIdentity, ItemState>>();
 
         ReactiveCollection<int, ItemIdentity, ItemState>.Create(
-            TestUtil.KeyOf,
-            [TestUtil.Item(1, "one", 10)],
+            keySelector: TestUtil.KeyOf,
+            initialItems: [TestUtil.Item(number: 1, name: "one", score: 10)],
             edits);
 
-        await Assert.That(() => edits.Send(TestUtil.Score(1, 11).CombineWith(TestUtil.Remove(1))))
+        await Assert.That(() => edits.Send(TestUtil.Score(key: 1, score: 11).CombineWith(TestUtil.Remove(1))))
             .Throws<InvalidOperationException>();
     }
 
@@ -234,10 +248,14 @@ public sealed class ReactiveCollectionTests
         StreamSink<CollectionEdit<int, ItemIdentity, ItemState>> edits =
             Stream.CreateSink<CollectionEdit<int, ItemIdentity, ItemState>>();
 
-        ReactiveCollection<int, ItemIdentity, ItemState> collection = ReactiveCollection<int, ItemIdentity, ItemState>.Create(
-            TestUtil.KeyOf,
-            [TestUtil.Item(1, "one", 10), TestUtil.Item(2, "two", 20)],
-            edits);
+        ReactiveCollection<int, ItemIdentity, ItemState> collection =
+            ReactiveCollection<int, ItemIdentity, ItemState>.Create(
+                keySelector: TestUtil.KeyOf,
+                initialItems:
+                [
+                    TestUtil.Item(number: 1, name: "one", score: 10), TestUtil.Item(number: 2, name: "two", score: 20)
+                ],
+                edits);
 
         List<ItemChange<int, ItemIdentity, ItemState>> changes = [];
         IListener l = collection.ItemChangesStream.ListenStrong(changes.Add);
@@ -248,10 +266,10 @@ public sealed class ReactiveCollectionTests
 
         ItemChange<int, ItemIdentity, ItemState> change = changes[0];
 
-        // Removed: it moved, and it is not present afterwards. The two questions are separate
+        // Removed: it moved, and it is not present afterward. The two questions are separate
         // members here; the C# wrapper folds them back into one nested optional.
         await Assert.That(change.WasChanged(1)).IsTrue();
-        await Assert.That(change.TryGetNewState(1, out ItemState _)).IsFalse();
+        await Assert.That(change.TryGetNewState(key: 1, state: out ItemState _)).IsFalse();
 
         // Untouched: no event for an observer of this key at all.
         await Assert.That(change.WasChanged(2)).IsFalse();
@@ -265,16 +283,21 @@ public sealed class ReactiveCollectionTests
 
         // No key selector: the identity implements IIdentity<int>, and TKey is inferred from the
         // edit stream rather than from the constraint, which inference does not read.
-        ReactiveCollection<int, SelfKeyedItemIdentity, ItemState> collection = ReactiveCollection.Create(
-            [TestUtil.SelfKeyedItem(1, "one", 10), TestUtil.SelfKeyedItem(2, "two", 20)],
-            edits);
+        ReactiveCollection<int, SelfKeyedItemIdentity, ItemState> collection =
+            ReactiveCollection.Create(
+                initialEntries:
+                [
+                    TestUtil.SelfKeyedItem(number: 1, name: "one", score: 10),
+                    TestUtil.SelfKeyedItem(number: 2, name: "two", score: 20)
+                ],
+                edits);
 
         await Assert.That(TestUtil.Keys(collection.KeysCell.Sample())).IsEquivalentTo([1, 2]);
 
         // The derived selector is used for later adds too, not only the initial contents.
         edits.Send(
             CollectionEdit<int, SelfKeyedItemIdentity, ItemState>.Add(
-                TestUtil.SelfKeyedItem(3, "three", 30)));
+                TestUtil.SelfKeyedItem(number: 3, name: "three", score: 30)));
 
         await Assert.That(TestUtil.Keys(collection.KeysCell.Sample())).IsEquivalentTo([1, 2, 3]);
     }
@@ -287,24 +310,24 @@ public sealed class ReactiveCollectionTests
 
         ReactiveCollection<int, ItemIdentity, ItemState> collection =
             ReactiveCollection<int, ItemIdentity, ItemState>.Create(
-                TestUtil.KeyOf,
-                [TestUtil.Item(1, "one", 10)],
+                keySelector: TestUtil.KeyOf,
+                initialItems: [TestUtil.Item(number: 1, name: "one", score: 10)],
                 edits);
 
         List<ItemChange<int, ItemIdentity, ItemState>> changes = [];
         IListener l = collection.ItemChangesStream.ListenStrong(changes.Add);
 
-        edits.Send(TestUtil.Score(1, 99));
+        edits.Send(TestUtil.Score(key: 1, score: 99));
 
         l.Unlisten();
 
         ItemChange<int, ItemIdentity, ItemState> change = changes[0];
 
         // The whole point of the pair: a delta needs no copy of the previous value kept alongside.
-        await Assert.That(change.Before.States.TryGetState(1, out ItemState was)).IsTrue();
+        await Assert.That(change.Before.States.TryGetState(key: 1, state: out ItemState was)).IsTrue();
         await Assert.That(was.Score).IsEqualTo(10);
 
-        await Assert.That(change.After.States.TryGetState(1, out ItemState now)).IsTrue();
+        await Assert.That(change.After.States.TryGetState(key: 1, state: out ItemState now)).IsTrue();
         await Assert.That(now.Score).IsEqualTo(99);
     }
 
@@ -316,15 +339,15 @@ public sealed class ReactiveCollectionTests
 
         ReactiveCollection<int, ItemIdentity, ItemState> collection =
             ReactiveCollection<int, ItemIdentity, ItemState>.Create(
-                TestUtil.KeyOf,
-                [TestUtil.Item(1, "one", 10)],
+                keySelector: TestUtil.KeyOf,
+                initialItems: [TestUtil.Item(number: 1, name: "one", score: 10)],
                 edits);
 
         List<ItemChange<int, ItemIdentity, ItemState>> changes = [];
         IListener l = collection.ItemChangesStream.ListenStrong(changes.Add);
 
-        edits.Send(TestUtil.Score(1, 20));
-        edits.Send(TestUtil.Score(1, 30));
+        edits.Send(TestUtil.Score(key: 1, score: 20));
+        edits.Send(TestUtil.Score(key: 1, score: 30));
 
         l.Unlisten();
 
@@ -332,6 +355,6 @@ public sealed class ReactiveCollectionTests
 
         // Reference equality, not just equal contents: this is what makes holding a sequence of
         // changes cost no more than holding their After alone would.
-        await Assert.That(ReferenceEquals(changes[1].Before, changes[0].After)).IsTrue();
+        await Assert.That(ReferenceEquals(objA: changes[1].Before, objB: changes[0].After)).IsTrue();
     }
 }

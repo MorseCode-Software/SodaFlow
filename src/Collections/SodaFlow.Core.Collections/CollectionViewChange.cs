@@ -75,107 +75,6 @@ public sealed class CollectionViewChange<TKey, TIdentity, TState>
     /// </summary>
     public bool IsReset { get; }
 
-    /// <summary>
-    ///     What this change means for one key, or nothing if it means nothing for it.
-    /// </summary>
-    /// <remarks>
-    ///     <para>
-    ///         The view equivalent of the root's per-item projection, and the reason a view's
-    ///         per-item cell can hang off this stream rather than being lifted against the view's
-    ///         keys. An observer built this way is a stream node that filters itself out when the
-    ///         change did not touch its key; one built by lifting is a cell node the propagation
-    ///         walks whenever the view moves at all, which measured about four times the cost.
-    ///     </para>
-    ///     <para>
-    ///         A move carries a position and no value, and a re-file pairs one with an update, so
-    ///         the update is what answers and the move is skipped. A reset carries no operations at
-    ///         all - every position may differ - so the answer is recomputed from the store, but
-    ///         only for a key one side or the other holds.
-    ///     </para>
-    /// </remarks>
-    internal MaybeInternal<TProjected> ProjectChangeFor<TProjected>(
-        TKey key,
-        Func<TState, TProjected> onPresent,
-        Func<TProjected> onAbsent)
-    {
-        if (this.IsReset)
-        {
-            return this.Before.ContainsKey(key) || this.After.ContainsKey(key)
-                ? this.Project(key, onPresent, onAbsent)
-                : MaybeInternal<TProjected>.None;
-        }
-
-        // Indexed rather than enumerated. Operations is an interface-typed list, so a foreach
-        // boxes an enumerator - once per observer per change, which is exactly the traffic this
-        // method exists to keep cheap. A LINQ query would box one too.
-        // ReSharper disable once ForCanBeConvertedToForeach
-        // ReSharper disable once LoopCanBeConvertedToQuery
-        for (int index = 0; index < this.Operations.Count; index++)
-        {
-            ViewOperation<TKey> operation = this.Operations[index];
-
-            if (operation is ViewMove<TKey> ||
-                !EqualityComparer<TKey>.Default.Equals(operation.Key, key))
-            {
-                continue;
-            }
-
-            return this.Project(key, onPresent, onAbsent);
-        }
-
-        return MaybeInternal<TProjected>.None;
-    }
-
-    /// <summary>
-    ///     What this change means for one key's identity as this view sees it, or nothing.
-    /// </summary>
-    /// <remarks>
-    ///     An update is a new state and a move is a new position; neither is a new identity, so an
-    ///     observer of the identity wakes for neither. What moves it is the key entering or leaving
-    ///     this view - which, unlike on the collection, includes a criteria deciding differently
-    ///     about an item the store never touched.
-    /// </remarks>
-    internal MaybeInternal<TProjected> ProjectIdentityChangeFor<TProjected>(
-        TKey key,
-        Func<TIdentity, TProjected> onPresent,
-        Func<TProjected> onAbsent)
-    {
-        if (this.IsReset)
-        {
-            return this.Before.ContainsKey(key) || this.After.ContainsKey(key)
-                ? this.ProjectIdentity(key, onPresent, onAbsent)
-                : MaybeInternal<TProjected>.None;
-        }
-
-        // Indexed rather than enumerated, for the reason the projection above is.
-        // ReSharper disable once ForCanBeConvertedToForeach
-        // ReSharper disable once LoopCanBeConvertedToQuery
-        for (int index = 0; index < this.Operations.Count; index++)
-        {
-            ViewOperation<TKey> operation = this.Operations[index];
-
-            if (operation is ViewUpdate<TKey> or ViewMove<TKey> ||
-                !EqualityComparer<TKey>.Default.Equals(operation.Key, key))
-            {
-                continue;
-            }
-
-            return this.ProjectIdentity(key, onPresent, onAbsent);
-        }
-
-        return MaybeInternal<TProjected>.None;
-    }
-
-    /// <summary>The key's identity as this change left it, or its absence.</summary>
-    private MaybeInternal<TProjected> ProjectIdentity<TProjected>(
-        TKey key,
-        Func<TIdentity, TProjected> onPresent,
-        Func<TProjected> onAbsent) =>
-        MaybeInternal.Some(
-            this.After.TryGetIdentity(key, out TIdentity identity)
-                ? onPresent(identity)
-                : onAbsent());
-
     /// <summary>Whether this change alters what the view holds, rather than only where.</summary>
     /// <remarks>
     ///     A reorder is not a membership change, which is what lets a shape cell sleep through one.
@@ -204,6 +103,107 @@ public sealed class CollectionViewChange<TKey, TIdentity, TState>
         }
     }
 
+    /// <summary>
+    ///     What this change means for one key, or nothing if it means nothing for it.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         The view equivalent of the root's per-item projection, and the reason a view's
+    ///         per-item cell can hang off this stream rather than being lifted against the view's
+    ///         keys. An observer built this way is a stream node that filters itself out when the
+    ///         change did not touch its key; one built by lifting is a cell node the propagation
+    ///         walks whenever the view moves at all, which measured about four times the cost.
+    ///     </para>
+    ///     <para>
+    ///         A move carries a position and no value, and a re-file pairs one with an update, so
+    ///         the update is what answers and the move is skipped. A reset carries no operations at
+    ///         all - every position may differ - so the answer is recomputed from the store, but
+    ///         only for a key one side or the other holds.
+    ///     </para>
+    /// </remarks>
+    internal MaybeInternal<TProjected> ProjectChangeFor<TProjected>(
+        TKey key,
+        Func<TState, TProjected> onPresent,
+        Func<TProjected> onAbsent)
+    {
+        if (this.IsReset)
+        {
+            return this.Before.ContainsKey(key) || this.After.ContainsKey(key)
+                ? this.Project(key: key, onPresent: onPresent, onAbsent: onAbsent)
+                : MaybeInternal<TProjected>.None;
+        }
+
+        // Indexed rather than enumerated. Operations is an interface-typed list, so a foreach
+        // boxes an enumerator - once per observer per change, which is exactly the traffic this
+        // method exists to keep cheap. A LINQ query would box one too.
+        // ReSharper disable once ForCanBeConvertedToForeach
+        // ReSharper disable once LoopCanBeConvertedToQuery
+        for (int index = 0; index < this.Operations.Count; index++)
+        {
+            ViewOperation<TKey> operation = this.Operations[index];
+
+            if (operation is ViewMove<TKey> ||
+                !EqualityComparer<TKey>.Default.Equals(x: operation.Key, y: key))
+            {
+                continue;
+            }
+
+            return this.Project(key: key, onPresent: onPresent, onAbsent: onAbsent);
+        }
+
+        return MaybeInternal<TProjected>.None;
+    }
+
+    /// <summary>
+    ///     What this change means for one key's identity as this view sees it, or nothing.
+    /// </summary>
+    /// <remarks>
+    ///     An update is a new state and a move is a new position; neither is a new identity, so an
+    ///     observer of the identity wakes for neither. What moves it is the key entering or leaving
+    ///     this view - which, unlike on the collection, includes a criteria deciding differently
+    ///     about an item the store never touched.
+    /// </remarks>
+    internal MaybeInternal<TProjected> ProjectIdentityChangeFor<TProjected>(
+        TKey key,
+        Func<TIdentity, TProjected> onPresent,
+        Func<TProjected> onAbsent)
+    {
+        if (this.IsReset)
+        {
+            return this.Before.ContainsKey(key) || this.After.ContainsKey(key)
+                ? this.ProjectIdentity(key: key, onPresent: onPresent, onAbsent: onAbsent)
+                : MaybeInternal<TProjected>.None;
+        }
+
+        // Indexed rather than enumerated, for the reason the projection above is.
+        // ReSharper disable once ForCanBeConvertedToForeach
+        // ReSharper disable once LoopCanBeConvertedToQuery
+        for (int index = 0; index < this.Operations.Count; index++)
+        {
+            ViewOperation<TKey> operation = this.Operations[index];
+
+            if (operation is ViewUpdate<TKey> or ViewMove<TKey> ||
+                !EqualityComparer<TKey>.Default.Equals(x: operation.Key, y: key))
+            {
+                continue;
+            }
+
+            return this.ProjectIdentity(key: key, onPresent: onPresent, onAbsent: onAbsent);
+        }
+
+        return MaybeInternal<TProjected>.None;
+    }
+
+    /// <summary>The key's identity as this change left it, or its absence.</summary>
+    private MaybeInternal<TProjected> ProjectIdentity<TProjected>(
+        TKey key,
+        Func<TIdentity, TProjected> onPresent,
+        Func<TProjected> onAbsent) =>
+        MaybeInternal.Some(
+            this.After.TryGetIdentity(key: key, identity: out TIdentity identity)
+                ? onPresent(identity)
+                : onAbsent());
+
     /// <summary>This change as keyed deltas, which is what an item change is.</summary>
     /// <remarks>
     ///     A translation rather than a derivation: a view change already names the keys that
@@ -226,7 +226,7 @@ public sealed class CollectionViewChange<TKey, TIdentity, TState>
                     added.Add(key);
                 }
 
-                if (this.After.States.TryGetState(key, out TState state))
+                if (this.After.States.TryGetState(key: key, state: out TState state))
                 {
                     newStates[key] = state;
                 }
@@ -238,11 +238,11 @@ public sealed class CollectionViewChange<TKey, TIdentity, TState>
             }
 
             return new ItemChange<TKey, TIdentity, TState>(
-                this.Before,
-                this.After,
-                newStates,
-                added,
-                removed);
+                before: this.Before,
+                after: this.After,
+                newStates: newStates,
+                added: added,
+                removed: removed);
         }
 
         // ReSharper disable once ForCanBeConvertedToForeach
@@ -270,18 +270,18 @@ public sealed class CollectionViewChange<TKey, TIdentity, TState>
                     continue;
             }
 
-            if (this.After.States.TryGetState(operation.Key, out TState state))
+            if (this.After.States.TryGetState(key: operation.Key, state: out TState state))
             {
                 newStates[operation.Key] = state;
             }
         }
 
         return new ItemChange<TKey, TIdentity, TState>(
-            this.Before,
-            this.After,
-            newStates,
-            added,
-            removed);
+            before: this.Before,
+            after: this.After,
+            newStates: newStates,
+            added: added,
+            removed: removed);
     }
 
     /// <summary>The key's value as this change left it, or its absence.</summary>
@@ -290,7 +290,7 @@ public sealed class CollectionViewChange<TKey, TIdentity, TState>
         Func<TState, TProjected> onPresent,
         Func<TProjected> onAbsent) =>
         MaybeInternal.Some(
-            this.After.TryGetHalves(key, out TIdentity _, out TState state)
+            this.After.TryGetHalves(key: key, identity: out TIdentity _, state: out TState state)
                 ? onPresent(state)
                 : onAbsent());
 }

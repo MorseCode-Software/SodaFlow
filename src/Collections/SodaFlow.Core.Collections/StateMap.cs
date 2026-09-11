@@ -14,8 +14,10 @@ namespace SodaFlow.Collections;
 ///         implementation must honor:
 ///     </para>
 ///     <para>
-///         <b>A value returned by an instance never changes for the lifetime of that
-///         instance.</b>
+///         <b>
+///             A value returned by an instance never changes for the lifetime of that
+///             instance.
+///         </b>
 ///     </para>
 ///     <para>
 ///         SodaFlow reads a cell's <i>pre-transaction</i> value during a transaction. If a
@@ -110,8 +112,7 @@ internal sealed class ImmutableStateMap<TKey, TState> : StateMap<TKey, TState>
     public override IEnumerable<KeyValuePair<TKey, TState>> Pairs => this.states;
 
     /// <inheritdoc />
-    public override bool TryGetState(TKey key, out TState state) =>
-        this.states.TryGet(key, out state);
+    public override bool TryGetState(TKey key, out TState state) => this.states.TryGet(key: key, value: out state);
 
     /// <inheritdoc />
     public override bool ContainsKey(TKey key) => this.states.ContainsKey(key);
@@ -153,4 +154,3 @@ internal sealed class ImmutableStateMap<TKey, TState> : StateMap<TKey, TState>
         return new ImmutableStateMap<TKey, TState>(builder.ToImmutable());
     }
 }
-

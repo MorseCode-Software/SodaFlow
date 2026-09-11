@@ -1,10 +1,10 @@
 using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
+using SodaFlow.Functional;
 using TUnit.Assertions;
 using TUnit.Assertions.Extensions;
 using TUnit.Core;
-using SodaFlow.Functional;
 
 namespace SodaFlow.Bindable.ObjectModel.Tests;
 
@@ -15,25 +15,6 @@ namespace SodaFlow.Bindable.ObjectModel.Tests;
 /// </summary>
 public sealed class BindableFactoryTests
 {
-    /// <summary>
-    ///     Records that it was asked, then behaves like the immediate scheduler so the bindable
-    ///     under test still works.
-    /// </summary>
-    // ReSharper disable once InheritdocConsiderUsage
-    private sealed class RecordingScheduler : IBindingScheduler
-    {
-        public int Posts { get; private set; }
-
-        /// <inheritdoc />
-        public bool CheckAccess() => true;
-
-        public void Post(Action action)
-        {
-            this.Posts++;
-            BindingScheduler.Immediate.Post(action);
-        }
-    }
-
     [Test]
     public async Task OneWayUsesTheInjectedScheduler()
     {
@@ -79,7 +60,9 @@ public sealed class BindableFactoryTests
 
         await Assert.That(a.CanExecute(null)).IsTrue();
 
-        await Assert.That(scheduler.Posts).IsEqualTo(1).Because("the enablement change went through the injected scheduler");
+        await Assert.That(scheduler.Posts)
+            .IsEqualTo(1)
+            .Because("the enablement change went through the injected scheduler");
     }
 
     [Test]
@@ -97,7 +80,9 @@ public sealed class BindableFactoryTests
 
         await Assert.That(a.CanExecute(null)).IsTrue();
 
-        await Assert.That(scheduler.Posts).IsEqualTo(1).Because("the enablement change went through the injected scheduler");
+        await Assert.That(scheduler.Posts)
+            .IsEqualTo(1)
+            .Because("the enablement change went through the injected scheduler");
     }
 
     [Test]
@@ -116,6 +101,25 @@ public sealed class BindableFactoryTests
             a.Execute("anything at all");
 
             await Assert.That(fired.Count).IsEqualTo(1);
+        }
+    }
+
+    /// <summary>
+    ///     Records that it was asked, then behaves like the immediate scheduler so the bindable
+    ///     under test still works.
+    /// </summary>
+    // ReSharper disable once InheritdocConsiderUsage
+    private sealed class RecordingScheduler : IBindingScheduler
+    {
+        public int Posts { get; private set; }
+
+        /// <inheritdoc />
+        public bool CheckAccess() => true;
+
+        public void Post(Action action)
+        {
+            this.Posts++;
+            BindingScheduler.Immediate.Post(action);
         }
     }
 }

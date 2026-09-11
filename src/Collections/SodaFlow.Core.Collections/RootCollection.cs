@@ -47,9 +47,11 @@ internal sealed class RootCollection<TKey, TIdentity, TState>
         // The ordering is built on first use. A collection nobody sorts or lists never pays for a
         // sorted key set, and TKey only has to be comparable if something actually asks for keys in
         // order.
-        this.orderedByKey = new Lazy<ReactiveCollection<TKey, TIdentity, TState>>(
-            () => CollectionViewUtility.CreateRootImpl(this, Comparer<TKey>.Default),
-            LazyThreadSafetyMode.ExecutionAndPublication);
+        this.orderedByKey =
+            new Lazy<ReactiveCollection<TKey, TIdentity, TState>>(
+                valueFactory: () =>
+                    CollectionViewUtility.CreateRootImpl(collection: this, keyComparer: Comparer<TKey>.Default),
+                mode: LazyThreadSafetyMode.ExecutionAndPublication);
     }
 
     /// <inheritdoc />
@@ -102,12 +104,14 @@ internal sealed class RootCollection<TKey, TIdentity, TState>
                 throw new ArgumentException($"Duplicate key '{key}' in the initial items.");
             }
 
-            identities.Add(key, item.Identity);
-            states.Add(key, item.State);
+            identities.Add(key: key, value: item.Identity);
+            states.Add(key: key, value: item.State);
         }
 
         CollectionSnapshot<TKey, TIdentity, TState> initial =
-            new(identities.ToImmutable(), ImmutableStateMap<TKey, TState>.Empty.With(states, Array.Empty<TKey>()));
+            new(
+                identities: identities.ToImmutable(),
+                states: ImmutableStateMap<TKey, TState>.Empty.With(updated: states, removed: Array.Empty<TKey>()));
 
         Stream<CollectionEdit<TKey, TIdentity, TState>> editsStream = MergeEdits(editStreams);
 
@@ -117,31 +121,34 @@ internal sealed class RootCollection<TKey, TIdentity, TState>
             // is produced by resolving edits: an explicit loop.
             LoopedCell<CollectionSnapshot<TKey, TIdentity, TState>> snapshotLoopCell = new();
 
-            Stream<ItemChange<TKey, TIdentity, TState>> itemChangesStream = editsStream
-                .SnapshotImpl(
-                    snapshotLoopCell,
-                    (edit, before) => Resolve(keySelector, edit, before))
-                .FilterSomeInternal();
+            Stream<ItemChange<TKey, TIdentity, TState>> itemChangesStream =
+                editsStream
+                    .SnapshotImpl(
+                        c: snapshotLoopCell,
+                        f: (edit, before) => Resolve(keySelector: keySelector, edit: edit, before: before))
+                    .FilterSomeInternal();
 
-            Cell<CollectionSnapshot<TKey, TIdentity, TState>> snapshotCell = itemChangesStream
-                .MapImpl(static change => change.After)
-                .HoldImpl(initial);
+            Cell<CollectionSnapshot<TKey, TIdentity, TState>> snapshotCell =
+                itemChangesStream
+                    .MapImpl(static change => change.After)
+                    .HoldImpl(initial);
 
-            snapshotLoopCell.Loop(trans, snapshotCell);
+            snapshotLoopCell.Loop(trans: trans, c: snapshotCell);
 
             // Derived by its own hold off the same stream rather than by calming a map of the
             // snapshot cell — both holds see the same transaction, so the two views can never
             // disagree, and this one fires on exactly the stated condition: the item count changed,
             // or a key changed.
-            Cell<IReadOnlyDictionary<TKey, TIdentity>> shapeCell = itemChangesStream
-                .FilterImpl(static change => change.IsStructural)
-                .MapImpl(static change => change.After.Identities)
-                .HoldImpl(initial.Identities);
+            Cell<IReadOnlyDictionary<TKey, TIdentity>> shapeCell =
+                itemChangesStream
+                    .FilterImpl(static change => change.IsStructural)
+                    .MapImpl(static change => change.After.Identities)
+                    .HoldImpl(initial.Identities);
 
             return new RootCollection<TKey, TIdentity, TState>(
-                itemChangesStream,
-                snapshotCell,
-                shapeCell);
+                itemChangesStream: itemChangesStream,
+                snapshotCell: snapshotCell,
+                shapeCell: shapeCell);
         });
     }
 
@@ -162,12 +169,14 @@ internal sealed class RootCollection<TKey, TIdentity, TState>
         Func<TProjected> onAbsent) =>
         TransactionInternal.RunImpl(() =>
             this.ItemChangesStream
-                .MapImpl(change => change.ProjectIdentityChangeFor(key, onPresent, onAbsent))
+                .MapImpl(change => change.ProjectIdentityChangeFor(key: key, onPresent: onPresent, onAbsent: onAbsent))
                 .FilterSomeInternal()
-                .HoldLazyImpl(this.SnapshotCell.SampleLazyImpl().MapImpl(
-                    snapshot => snapshot.TryGetIdentity(key, out TIdentity identity)
-                        ? onPresent(identity)
-                        : onAbsent())));
+                .HoldLazyImpl(
+                    this.SnapshotCell.SampleLazyImpl()
+                        .MapImpl(snapshot =>
+                            snapshot.TryGetIdentity(key: key, identity: out TIdentity identity)
+                                ? onPresent(identity)
+                                : onAbsent())));
 
     /// <summary>
     ///     Merges the input streams into one. Edits arriving from different streams in the same
@@ -179,10 +188,11 @@ internal sealed class RootCollection<TKey, TIdentity, TState>
     private static Stream<CollectionEdit<TKey, TIdentity, TState>> MergeEdits(
         IEnumerable<Stream<CollectionEdit<TKey, TIdentity, TState>>> editStreams) =>
         editStreams.Aggregate(
-            StreamInternal.NeverImpl<CollectionEdit<TKey, TIdentity, TState>>(),
-            static (mergedStream, editStream) => mergedStream.MergeImpl(
-                s: editStream,
-                f: static (left, right) => left.CombineWith(right)));
+            seed: StreamInternal.NeverImpl<CollectionEdit<TKey, TIdentity, TState>>(),
+            func: static (mergedStream, editStream) =>
+                mergedStream.MergeImpl(
+                    s: editStream,
+                    f: static (left, right) => left.CombineWith(right)));
 
     private static MaybeInternal<ItemChange<TKey, TIdentity, TState>> Resolve(
         Func<TIdentity, TKey> keySelector,
@@ -221,11 +231,10 @@ internal sealed class RootCollection<TKey, TIdentity, TState>
                     $"Key '{update.Key}' is updated and removed in the same transaction.");
             }
 
-            if (!newStates.TryGet(update.Key, out TState current) &&
-                !before.States.TryGetState(update.Key, out current))
+            if (!newStates.TryGet(key: update.Key, value: out TState current) &&
+                !before.States.TryGetState(key: update.Key, state: out current))
             {
-                throw new KeyNotFoundException(
-                    $"Cannot update key '{update.Key}': no such item in the collection.");
+                throw new KeyNotFoundException($"Cannot update key '{update.Key}': no such item in the collection.");
             }
 
             newStates[update.Key] = update.Value(current);
@@ -242,17 +251,23 @@ internal sealed class RootCollection<TKey, TIdentity, TState>
         ImmutableDictionary<TKey, TIdentity> identities =
             added.Count > 0 || removed.Count > 0
                 ? before.WithIdentities(
-                    edit.Adds.Select(item =>
-                        new KeyValuePair<TKey, TIdentity>(keySelector(item.Identity), item.Identity)),
-                    removed)
+                    added: edit.Adds.Select(item =>
+                        new KeyValuePair<TKey, TIdentity>(key: keySelector(item.Identity), value: item.Identity)),
+                    removed: removed)
                 : before.IdentitiesImpl;
 
-        CollectionSnapshot<TKey, TIdentity, TState> after = new(
-            identities,
-            before.StatesImpl.With(newStates, removed));
+        CollectionSnapshot<TKey, TIdentity, TState> after =
+            new(
+                identities: identities,
+                states: before.StatesImpl.With(updated: newStates, removed: removed));
 
         return MaybeInternal.Some(
-            new ItemChange<TKey, TIdentity, TState>(before, after, newStates, added, removed));
+            new ItemChange<TKey, TIdentity, TState>(
+                before: before,
+                after: after,
+                newStates: newStates,
+                added: added,
+                removed: removed));
     }
 
     internal override Cell<TProjected> CreateStateCell<TProjected>(
@@ -260,27 +275,30 @@ internal sealed class RootCollection<TKey, TIdentity, TState>
         Func<TState, TProjected> onPresent,
         Func<TProjected> onAbsent)
     {
-        Cell<TProjected> stateCell = TransactionInternal.RunImpl(() =>
-            // Read the new value off the event rather than snapshotting the snapshot cell: a cell
-            // sampled during a transaction still holds its pre-transaction value.
-            //
-            // The seed is lazy for the same reason. This cell may well be built during the very
-            // transaction that adds its key - a row constructed in response to a structural change
-            // - and by then the change stream has already fired, so the seed is all the cell has to
-            // go on. An eager sample here would read the pre-transaction snapshot, in which the key
-            // does not yet exist, and the cell would sit at no value until the next edit touching
-            // that key. A lazy sample is forced after the transaction settles and yields the
-            // correct value.
-            //
-            // The projection happens inside this map rather than in one chained after it, so a
-            // wrapper's choice of optional type costs no extra node.
-            this.ItemChangesStream
-                .MapImpl(change => change.ProjectChangeFor(key, onPresent, onAbsent))
-                .FilterSomeInternal()
-                .HoldLazyImpl(this.SnapshotCell.SampleLazyImpl().MapImpl(
-                    snapshot => snapshot.States.TryGetState(key, out TState state)
-                        ? onPresent(state)
-                        : onAbsent())));
+        Cell<TProjected> stateCell =
+            TransactionInternal.RunImpl(() =>
+                // Read the new value off the event rather than snapshotting the snapshot cell: a cell
+                // sampled during a transaction still holds its pre-transaction value.
+                //
+                // The seed is lazy for the same reason. This cell may well be built during the very
+                // transaction that adds its key - a row constructed in response to a structural change
+                // - and by then the change stream has already fired, so the seed is all the cell has to
+                // go on. An eager sample here would read the pre-transaction snapshot, in which the key
+                // does not yet exist, and the cell would sit at no value until the next edit touching
+                // that key. A lazy sample is forced after the transaction settles and yields the
+                // correct value.
+                //
+                // The projection happens inside this map rather than in one chained after it, so a
+                // wrapper's choice of optional type costs no extra node.
+                this.ItemChangesStream
+                    .MapImpl(change => change.ProjectChangeFor(key: key, onPresent: onPresent, onAbsent: onAbsent))
+                    .FilterSomeInternal()
+                    .HoldLazyImpl(
+                        this.SnapshotCell.SampleLazyImpl()
+                            .MapImpl(snapshot =>
+                                snapshot.States.TryGetState(key: key, state: out TState state)
+                                    ? onPresent(state)
+                                    : onAbsent())));
 
         return stateCell;
     }

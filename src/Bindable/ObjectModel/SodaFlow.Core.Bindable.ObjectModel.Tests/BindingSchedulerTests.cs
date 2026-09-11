@@ -41,7 +41,9 @@ public sealed class BindingSchedulerTests
             ranBeforeTheTransactionClosed = ranInside;
         });
 
-        await Assert.That(ranBeforeTheTransactionClosed).IsFalse().Because("running here would be inside the transaction");
+        await Assert.That(ranBeforeTheTransactionClosed)
+            .IsFalse()
+            .Because("running here would be inside the transaction");
 
         await Assert.That(ranInside).IsTrue().Because("and it still runs, once the transaction has closed");
     }

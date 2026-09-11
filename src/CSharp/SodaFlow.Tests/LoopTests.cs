@@ -113,24 +113,25 @@ public sealed class LoopTests
 
         InvalidOperationException? actualOnOtherThread = null;
 
-        Thread thread = new(() =>
-        {
-            try
+        Thread thread =
+            new(() =>
             {
-                Transaction.RunVoid(() =>
+                try
                 {
-                    l = new StreamLoop<int>();
-                    waitHandle.Set();
-                    Thread.Sleep(500);
-                });
-            }
-            catch (InvalidOperationException e)
-            {
-                // This transaction creates the loop and never loops it, so it is expected to fail when it closes.
-                // Catching it here is what keeps it from terminating the test host, and lets it be asserted below.
-                actualOnOtherThread = e;
-            }
-        });
+                    Transaction.RunVoid(() =>
+                    {
+                        l = new StreamLoop<int>();
+                        waitHandle.Set();
+                        Thread.Sleep(500);
+                    });
+                }
+                catch (InvalidOperationException e)
+                {
+                    // This transaction creates the loop and never loops it, so it is expected to fail when it closes.
+                    // Catching it here is what keeps it from terminating the test host, and lets it be asserted below.
+                    actualOnOtherThread = e;
+                }
+            });
 
         thread.Start();
 
@@ -160,7 +161,8 @@ public sealed class LoopTests
 
         await Assert.That(actual).IsNotNull();
 
-        await Assert.That(actual?.Message).IsEqualTo("Loop must be looped in the same transaction that it was created in.");
+        await Assert.That(actual?.Message)
+            .IsEqualTo("Loop must be looped in the same transaction that it was created in.");
 
         await Assert.That(actualOnOtherThread).IsNotNull();
 
@@ -320,24 +322,25 @@ public sealed class LoopTests
 
         InvalidOperationException? actualOnOtherThread = null;
 
-        Thread thread = new(() =>
-        {
-            try
+        Thread thread =
+            new(() =>
             {
-                Transaction.RunVoid(() =>
+                try
                 {
-                    l = new BehaviorLoop<int>();
-                    waitHandle.Set();
-                    Thread.Sleep(500);
-                });
-            }
-            catch (InvalidOperationException e)
-            {
-                // This transaction creates the loop and never loops it, so it is expected to fail when it closes.
-                // Catching it here is what keeps it from terminating the test host, and lets it be asserted below.
-                actualOnOtherThread = e;
-            }
-        });
+                    Transaction.RunVoid(() =>
+                    {
+                        l = new BehaviorLoop<int>();
+                        waitHandle.Set();
+                        Thread.Sleep(500);
+                    });
+                }
+                catch (InvalidOperationException e)
+                {
+                    // This transaction creates the loop and never loops it, so it is expected to fail when it closes.
+                    // Catching it here is what keeps it from terminating the test host, and lets it be asserted below.
+                    actualOnOtherThread = e;
+                }
+            });
 
         thread.Start();
 
@@ -370,7 +373,8 @@ public sealed class LoopTests
 
         await Assert.That(actual).IsNotNull();
 
-        await Assert.That(actual?.Message).IsEqualTo("Loop must be looped in the same transaction that it was created in.");
+        await Assert.That(actual?.Message)
+            .IsEqualTo("Loop must be looped in the same transaction that it was created in.");
 
         await Assert.That(actualOnOtherThread).IsNotNull();
 
@@ -527,24 +531,25 @@ public sealed class LoopTests
 
         InvalidOperationException? actualOnOtherThread = null;
 
-        Thread thread = new(() =>
-        {
-            try
+        Thread thread =
+            new(() =>
             {
-                Transaction.RunVoid(() =>
+                try
                 {
-                    l = new CellLoop<int>();
-                    waitHandle.Set();
-                    Thread.Sleep(500);
-                });
-            }
-            catch (InvalidOperationException e)
-            {
-                // This transaction creates the loop and never loops it, so it is expected to fail when it closes.
-                // Catching it here is what keeps it from terminating the test host, and lets it be asserted below.
-                actualOnOtherThread = e;
-            }
-        });
+                    Transaction.RunVoid(() =>
+                    {
+                        l = new CellLoop<int>();
+                        waitHandle.Set();
+                        Thread.Sleep(500);
+                    });
+                }
+                catch (InvalidOperationException e)
+                {
+                    // This transaction creates the loop and never loops it, so it is expected to fail when it closes.
+                    // Catching it here is what keeps it from terminating the test host, and lets it be asserted below.
+                    actualOnOtherThread = e;
+                }
+            });
 
         thread.Start();
 
@@ -574,7 +579,8 @@ public sealed class LoopTests
 
         await Assert.That(actual).IsNotNull();
 
-        await Assert.That(actual?.Message).IsEqualTo("Loop must be looped in the same transaction that it was created in.");
+        await Assert.That(actual?.Message)
+            .IsEqualTo("Loop must be looped in the same transaction that it was created in.");
 
         await Assert.That(actualOnOtherThread).IsNotNull();
 
@@ -802,7 +808,8 @@ public sealed class LoopTests
             //await Assert.That(objectCounts).IsEquivalentTo(new[] { -1, 10, -1, 11, -1, 15, -1, 10, -1 });
 
             // Glitchy result, but correct otherwise.
-            await Assert.That(objectCounts).IsEquivalentTo([-1, 10, -1, 11, -1, 12, 13, 14, 15, -1, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, -1]);
+            await Assert.That(objectCounts)
+                .IsEquivalentTo([-1, 10, -1, 11, -1, 12, 13, 14, 15, -1, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, -1]);
         }
 
         // Switch over the sum of the Output cells in the list, deferring the firings from the Values stream, and use a
@@ -854,7 +861,8 @@ public sealed class LoopTests
             //await Assert.That(objectCounts).IsEquivalentTo(new[] { -1, 10, -1, 11, -1, 15, -1, 10, -1 });
 
             // Glitchy result, but correct otherwise.
-            await Assert.That(objectCounts).IsEquivalentTo([-1, 10, -1, 11, -1, 12, 13, 14, 15, -1, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, -1]);
+            await Assert.That(objectCounts)
+                .IsEquivalentTo([-1, 10, -1, 11, -1, 12, 13, 14, 15, -1, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, -1]);
         }
 
         private sealed class TestObject

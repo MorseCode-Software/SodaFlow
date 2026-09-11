@@ -43,7 +43,8 @@ let create
     (initialEntries: seq<Item<'TIdentity, 'TState>>)
     (editStreams: seq<Stream<CollectionEdit<'TKey, 'TIdentity, 'TState>>>)
     =
-    ReactiveCollection<'TKey, 'TIdentity, 'TState>.Create(Func<_, _> keySelector, initialEntries, Array.ofSeq editStreams)
+    ReactiveCollection<'TKey, 'TIdentity, 'TState>
+        .Create(Func<_, _> keySelector, initialEntries, Array.ofSeq editStreams)
 
 /// <summary>
 ///     Defines a collection whose identities carry their own key, so no selector is needed.
@@ -63,7 +64,8 @@ let createByIdentity
 /// <param name="state">The mutable portion.</param>
 /// <returns>The item.</returns>
 [<MethodImpl(MethodImplOptions.NoInlining)>]
-let item (identity: 'TIdentity) (state: 'TState) = Item<'TIdentity, 'TState>(identity, state)
+let item (identity: 'TIdentity) (state: 'TState) =
+    Item<'TIdentity, 'TState>(identity, state)
 
 // --- edits --------------------------------------------------------------------------------
 
@@ -97,8 +99,7 @@ let fromUpdates
     (updatesStream: Stream<'TKey * ('TState -> 'TState)>)
     : Stream<CollectionEdit<'TKey, 'TIdentity, 'TState>> =
     updatesStream
-    |> mapS (fun (key, transform) ->
-        CollectionEdit<'TKey, 'TIdentity, 'TState>.Update(key, Func<_, _> transform))
+    |> mapS (fun (key, transform) -> CollectionEdit<'TKey, 'TIdentity, 'TState>.Update(key, Func<_, _> transform))
 
 /// <summary>Lifts a stream of transforms for one fixed key into edits.</summary>
 /// <param name="key">The key the transforms apply to.</param>
@@ -117,31 +118,25 @@ let fromUpdatesFor
 /// <param name="statesStream">The stream of new states.</param>
 /// <returns>The stream of edits.</returns>
 [<MethodImpl(MethodImplOptions.NoInlining)>]
-let fromStates
-    (key: 'TKey)
-    (statesStream: Stream<'TState>)
-    : Stream<CollectionEdit<'TKey, 'TIdentity, 'TState>> =
+let fromStates (key: 'TKey) (statesStream: Stream<'TState>) : Stream<CollectionEdit<'TKey, 'TIdentity, 'TState>> =
     statesStream
-    |> mapS (fun state ->
-        CollectionEdit<'TKey, 'TIdentity, 'TState>.Update(key, Func<_, _>(fun _ -> state)))
+    |> mapS (fun state -> CollectionEdit<'TKey, 'TIdentity, 'TState>.Update(key, Func<_, _>(fun _ -> state)))
 
 /// <summary>Lifts a stream of items into edits which add them.</summary>
 /// <param name="addsStream">The stream of items to add.</param>
 /// <returns>The stream of edits.</returns>
 [<MethodImpl(MethodImplOptions.NoInlining)>]
-let fromAdds
-    (addsStream: Stream<Item<'TIdentity, 'TState>>)
-    : Stream<CollectionEdit<'TKey, 'TIdentity, 'TState>> =
-    addsStream |> mapS (fun e -> CollectionEdit<'TKey, 'TIdentity, 'TState>.Add [| e |])
+let fromAdds (addsStream: Stream<Item<'TIdentity, 'TState>>) : Stream<CollectionEdit<'TKey, 'TIdentity, 'TState>> =
+    addsStream
+    |> mapS (fun e -> CollectionEdit<'TKey, 'TIdentity, 'TState>.Add [| e |])
 
 /// <summary>Lifts a stream of keys into edits which remove them.</summary>
 /// <param name="removesStream">The stream of keys to remove.</param>
 /// <returns>The stream of edits.</returns>
 [<MethodImpl(MethodImplOptions.NoInlining)>]
-let fromRemoves
-    (removesStream: Stream<'TKey>)
-    : Stream<CollectionEdit<'TKey, 'TIdentity, 'TState>> =
-    removesStream |> mapS (fun key -> CollectionEdit<'TKey, 'TIdentity, 'TState>.Remove [| key |])
+let fromRemoves (removesStream: Stream<'TKey>) : Stream<CollectionEdit<'TKey, 'TIdentity, 'TState>> =
+    removesStream
+    |> mapS (fun key -> CollectionEdit<'TKey, 'TIdentity, 'TState>.Remove [| key |])
 
 // --- observation --------------------------------------------------------------------------
 
@@ -240,8 +235,7 @@ let keysCell (collection: ReactiveCollection<'TKey, 'TIdentity, 'TState>) = coll
 /// <param name="collection">The collection or view to ask.</param>
 /// <returns>The stream of changes.</returns>
 [<MethodImpl(MethodImplOptions.NoInlining)>]
-let keyChangesStream (collection: ReactiveCollection<'TKey, 'TIdentity, 'TState>) =
-    collection.KeyChangesStream
+let keyChangesStream (collection: ReactiveCollection<'TKey, 'TIdentity, 'TState>) = collection.KeyChangesStream
 
 /// <summary>The outer view: fires only when the item count changes or a key changes.</summary>
 /// <param name="collection">The collection to ask.</param>
@@ -259,8 +253,7 @@ let shapeCell (collection: ReactiveCollection<'TKey, 'TIdentity, 'TState>) = col
 /// <param name="collection">The root collection to ask.</param>
 /// <returns>The stream of keyed changes.</returns>
 [<MethodImpl(MethodImplOptions.NoInlining)>]
-let itemChangesStream (collection: ReactiveCollection<'TKey, 'TIdentity, 'TState>) =
-    collection.ItemChangesStream
+let itemChangesStream (collection: ReactiveCollection<'TKey, 'TIdentity, 'TState>) = collection.ItemChangesStream
 
 // --- views --------------------------------------------------------------------------------
 
@@ -293,25 +286,21 @@ let filterC
     (predicateCell: Cell<'TIdentity -> 'TState -> bool>)
     (upstream: ReactiveCollection<'TKey, 'TIdentity, 'TState>)
     =
-    CollectionViewUtility.FilterImpl(
-        upstream,
-        predicateCell |> mapC (fun predicate -> Func<_, _, _> predicate))
+    CollectionViewUtility.FilterImpl(upstream, predicateCell |> mapC (fun predicate -> Func<_, _, _> predicate))
 
 /// <summary>Reorders the view by a value projected from each item.</summary>
 /// <param name="selector">Projects the sort value from an item.</param>
 /// <param name="upstream">The collection or view to reorder.</param>
 /// <returns>A view ordered by that value.</returns>
 [<MethodImpl(MethodImplOptions.NoInlining)>]
-let sortBy
-    (selector: 'TIdentity -> 'TState -> 'TSortKey)
-    (upstream: ReactiveCollection<'TKey, 'TIdentity, 'TState>)
-    =
+let sortBy (selector: 'TIdentity -> 'TState -> 'TSortKey) (upstream: ReactiveCollection<'TKey, 'TIdentity, 'TState>) =
     CollectionViewUtility.SortByImpl(
         upstream,
         Func<_, _, _> selector,
         Comparer<'TSortKey>.Default,
         Comparer<'TKey>.Default,
-        false)
+        false
+    )
 
 /// <summary>Reorders the view, descending, by a value projected from each item.</summary>
 /// <param name="selector">Projects the sort value from an item.</param>
@@ -327,7 +316,8 @@ let sortByDescending
         Func<_, _, _> selector,
         Comparer<'TSortKey>.Default,
         Comparer<'TKey>.Default,
-        true)
+        true
+    )
 
 /// <summary>
 ///     Narrows the view by a predicate over each item's immutable half - its identity - which a
@@ -366,7 +356,8 @@ let sortByIdentity (selector: 'TIdentity -> 'TSortKey) (upstream: ReactiveCollec
         Func<_, _> selector,
         Comparer<'TSortKey>.Default,
         Comparer<'TKey>.Default,
-        false)
+        false
+    )
 
 /// <summary>
 ///     Reorders the view, descending, by a value projected from each item's identity.
@@ -384,7 +375,8 @@ let sortByIdentityDescending
         Func<_, _> selector,
         Comparer<'TSortKey>.Default,
         Comparer<'TKey>.Default,
-        true)
+        true
+    )
 
 /// <summary>
 ///     Reorders the view by a value projected from each item's identity, with explicit comparers.
@@ -403,12 +395,7 @@ let sortByIdentityWith
     (descending: bool)
     (upstream: ReactiveCollection<'TKey, 'TIdentity, 'TState>)
     =
-    CollectionViewUtility.SortByIdentityImpl(
-        upstream,
-        Func<_, _> selector,
-        sortComparer,
-        keyComparer,
-        descending)
+    CollectionViewUtility.SortByIdentityImpl(upstream, Func<_, _> selector, sortComparer, keyComparer, descending)
 
 /// <summary>
 ///     Reorders the view with explicit comparers. The sort key type stays a real generic
@@ -429,12 +416,7 @@ let sortByWith
     (descending: bool)
     (upstream: ReactiveCollection<'TKey, 'TIdentity, 'TState>)
     =
-    CollectionViewUtility.SortByImpl(
-        upstream,
-        Func<_, _, _> selector,
-        sortComparer,
-        keyComparer,
-        descending)
+    CollectionViewUtility.SortByImpl(upstream, Func<_, _, _> selector, sortComparer, keyComparer, descending)
 
 /// <summary>Reorders the view by whichever order the cell currently holds.</summary>
 /// <param name="orderCell">The order to sort by, which may change.</param>
@@ -462,24 +444,16 @@ let sortByOrder
 /// <returns>The order.</returns>
 [<MethodImpl(MethodImplOptions.NoInlining)>]
 let orderBy (selector: 'TIdentity -> 'TState -> 'TSortKey) : KeyOrder<'TKey, 'TIdentity, 'TState> =
-    KeyOrder<'TKey, 'TIdentity, 'TState>.By(
-        Func<_, _, _> selector,
-        Comparer<'TSortKey>.Default,
-        Comparer<'TKey>.Default,
-        false)
+    KeyOrder<'TKey, 'TIdentity, 'TState>
+        .By(Func<_, _, _> selector, Comparer<'TSortKey>.Default, Comparer<'TKey>.Default, false)
 
 /// <summary>An order, descending, by a value projected from each item.</summary>
 /// <param name="selector">Projects the sort value from an item.</param>
 /// <returns>The order.</returns>
 [<MethodImpl(MethodImplOptions.NoInlining)>]
-let orderByDescending
-    (selector: 'TIdentity -> 'TState -> 'TSortKey)
-    : KeyOrder<'TKey, 'TIdentity, 'TState> =
-    KeyOrder<'TKey, 'TIdentity, 'TState>.By(
-        Func<_, _, _> selector,
-        Comparer<'TSortKey>.Default,
-        Comparer<'TKey>.Default,
-        true)
+let orderByDescending (selector: 'TIdentity -> 'TState -> 'TSortKey) : KeyOrder<'TKey, 'TIdentity, 'TState> =
+    KeyOrder<'TKey, 'TIdentity, 'TState>
+        .By(Func<_, _, _> selector, Comparer<'TSortKey>.Default, Comparer<'TKey>.Default, true)
 
 /// <summary>
 ///     An order by a value projected from each item, with explicit comparers. The sort key type
@@ -498,11 +472,7 @@ let orderByWith
     (keyComparer: IComparer<'TKey>)
     (descending: bool)
     : KeyOrder<'TKey, 'TIdentity, 'TState> =
-    KeyOrder<'TKey, 'TIdentity, 'TState>.By(
-        Func<_, _, _> selector,
-        sortComparer,
-        keyComparer,
-        descending)
+    KeyOrder<'TKey, 'TIdentity, 'TState>.By(Func<_, _, _> selector, sortComparer, keyComparer, descending)
 
 /// <summary>
 ///     An order by a value projected from each item's immutable half alone, which a state edit
@@ -517,11 +487,8 @@ let orderByWith
 /// </remarks>
 [<MethodImpl(MethodImplOptions.NoInlining)>]
 let orderByIdentity (selector: 'TIdentity -> 'TSortKey) : KeyOrder<'TKey, 'TIdentity, 'TState> =
-    KeyOrder<'TKey, 'TIdentity, 'TState>.ByIdentity(
-        Func<_, _> selector,
-        Comparer<'TSortKey>.Default,
-        Comparer<'TKey>.Default,
-        false)
+    KeyOrder<'TKey, 'TIdentity, 'TState>
+        .ByIdentity(Func<_, _> selector, Comparer<'TSortKey>.Default, Comparer<'TKey>.Default, false)
 
 /// <summary>
 ///     An order, descending, by a value projected from each item's immutable half alone.
@@ -529,14 +496,9 @@ let orderByIdentity (selector: 'TIdentity -> 'TSortKey) : KeyOrder<'TKey, 'TIden
 /// <param name="selector">Projects the sort value from an identity.</param>
 /// <returns>The order.</returns>
 [<MethodImpl(MethodImplOptions.NoInlining)>]
-let orderByIdentityDescending
-    (selector: 'TIdentity -> 'TSortKey)
-    : KeyOrder<'TKey, 'TIdentity, 'TState> =
-    KeyOrder<'TKey, 'TIdentity, 'TState>.ByIdentity(
-        Func<_, _> selector,
-        Comparer<'TSortKey>.Default,
-        Comparer<'TKey>.Default,
-        true)
+let orderByIdentityDescending (selector: 'TIdentity -> 'TSortKey) : KeyOrder<'TKey, 'TIdentity, 'TState> =
+    KeyOrder<'TKey, 'TIdentity, 'TState>
+        .ByIdentity(Func<_, _> selector, Comparer<'TSortKey>.Default, Comparer<'TKey>.Default, true)
 
 /// <summary>
 ///     An order by a value projected from each item's immutable half alone, with explicit
@@ -554,11 +516,7 @@ let orderByIdentityWith
     (keyComparer: IComparer<'TKey>)
     (descending: bool)
     : KeyOrder<'TKey, 'TIdentity, 'TState> =
-    KeyOrder<'TKey, 'TIdentity, 'TState>.ByIdentity(
-        Func<_, _> selector,
-        sortComparer,
-        keyComparer,
-        descending)
+    KeyOrder<'TKey, 'TIdentity, 'TState>.ByIdentity(Func<_, _> selector, sortComparer, keyComparer, descending)
 
 /// <summary>An order by key — the root's own order, available over any stage.</summary>
 /// <param name="keyComparer">The comparer to order keys by.</param>
@@ -601,11 +559,7 @@ let takeC (limitCell: Cell<int>) (upstream: ReactiveCollection<'TKey, 'TIdentity
 /// <returns>A view of that window.</returns>
 [<MethodImpl(MethodImplOptions.NoInlining)>]
 let slice (offset: int) (limit: int) (upstream: ReactiveCollection<'TKey, 'TIdentity, 'TState>) =
-    CollectionViewUtility.SliceImpl(
-        upstream,
-        CellInternal.ConstantImpl offset,
-        CellInternal.ConstantImpl limit
-    )
+    CollectionViewUtility.SliceImpl(upstream, CellInternal.ConstantImpl offset, CellInternal.ConstantImpl limit)
 
 /// <summary>
 ///     A page of the upstream where either end can itself change — send a new offset to turn the
@@ -616,11 +570,7 @@ let slice (offset: int) (limit: int) (upstream: ReactiveCollection<'TKey, 'TIden
 /// <param name="upstream">The collection or view to window.</param>
 /// <returns>A view of that window.</returns>
 [<MethodImpl(MethodImplOptions.NoInlining)>]
-let sliceC
-    (offsetCell: Cell<int>)
-    (limitCell: Cell<int>)
-    (upstream: ReactiveCollection<'TKey, 'TIdentity, 'TState>)
-    =
+let sliceC (offsetCell: Cell<int>) (limitCell: Cell<int>) (upstream: ReactiveCollection<'TKey, 'TIdentity, 'TState>) =
     CollectionViewUtility.SliceImpl(upstream, offsetCell, limitCell)
 
 /// <summary>
@@ -641,12 +591,7 @@ let sliceC
 /// <returns>The projected objects, and the means to release them.</returns>
 [<MethodImpl(MethodImplOptions.NoInlining)>]
 let map (project: 'TKey -> 'TResult) (collection: ReactiveCollection<'TKey, 'TIdentity, 'TState>) =
-    CollectionViewUtility.MapImpl(
-        collection,
-        Func<_, _> project,
-        MappedItems.DefaultRetainedBeyondTheView,
-        null
-    )
+    CollectionViewUtility.MapImpl(collection, Func<_, _> project, MappedItems.DefaultRetainedBeyondTheView, null)
 
 /// <summary>
 ///     The same, choosing how much to keep and hearing about what is dropped.
@@ -669,9 +614,4 @@ let mapWith
     (project: 'TKey -> 'TResult)
     (collection: ReactiveCollection<'TKey, 'TIdentity, 'TState>)
     =
-    CollectionViewUtility.MapImpl(
-        collection,
-        Func<_, _> project,
-        retainedBeyondTheView,
-        Action<_> onEvicted
-    )
+    CollectionViewUtility.MapImpl(collection, Func<_, _> project, retainedBeyondTheView, Action<_> onEvicted)

@@ -107,8 +107,11 @@ public sealed class MaybeExtensionMethodsTests
     [Test]
     public async Task TestWhereSomeEmptyAndNullSource()
     {
-        await Assert.That(Array.Empty<Maybe<int>>().WhereSome()).IsEquivalentTo(expected: Array.Empty<int>(), ordering: CollectionOrdering.Matching);
-        await Assert.That(((IEnumerable<Maybe<int>>?)null).WhereSome()).IsEquivalentTo(expected: Array.Empty<int>(), ordering: CollectionOrdering.Matching);
+        await Assert.That(Array.Empty<Maybe<int>>().WhereSome())
+            .IsEquivalentTo(expected: Array.Empty<int>(), ordering: CollectionOrdering.Matching);
+
+        await Assert.That(((IEnumerable<Maybe<int>>?)null).WhereSome())
+            .IsEquivalentTo(expected: Array.Empty<int>(), ordering: CollectionOrdering.Matching);
     }
 
     [Test]
@@ -126,7 +129,8 @@ public sealed class MaybeExtensionMethodsTests
 
         Maybe<IEnumerable<int>> result = source.AllSomeOrNone(static s => s.TryParseInt32());
 
-        await Assert.That(result.Match<IEnumerable<int>?>(onSome: static v => v, onNone: static () => null)).IsEquivalentTo(expected: [1, 2, 3], ordering: CollectionOrdering.Matching);
+        await Assert.That(result.Match<IEnumerable<int>?>(onSome: static v => v, onNone: static () => null))
+            .IsEquivalentTo(expected: [1, 2, 3], ordering: CollectionOrdering.Matching);
     }
 
     [Test]
@@ -144,14 +148,18 @@ public sealed class MaybeExtensionMethodsTests
     {
         Maybe<IEnumerable<int>> result = Array.Empty<string>().AllSomeOrNone(static s => s.TryParseInt32());
 
-        await Assert.That(result.Match<IEnumerable<int>?>(onSome: static v => v, onNone: static () => null)).IsEquivalentTo(expected: Array.Empty<int>(), ordering: CollectionOrdering.Matching);
+        await Assert.That(result.Match<IEnumerable<int>?>(onSome: static v => v, onNone: static () => null))
+            .IsEquivalentTo(expected: Array.Empty<int>(), ordering: CollectionOrdering.Matching);
     }
 
     [Test]
     public async Task TestToEnumerable()
     {
-        await Assert.That(Maybe.Some(2).ToEnumerable()).IsEquivalentTo(expected: [2], ordering: CollectionOrdering.Matching);
-        await Assert.That(Maybe<int>.None.ToEnumerable()).IsEquivalentTo(expected: Array.Empty<int>(), ordering: CollectionOrdering.Matching);
+        await Assert.That(Maybe.Some(2).ToEnumerable())
+            .IsEquivalentTo(expected: [2], ordering: CollectionOrdering.Matching);
+
+        await Assert.That(Maybe<int>.None.ToEnumerable())
+            .IsEquivalentTo(expected: Array.Empty<int>(), ordering: CollectionOrdering.Matching);
     }
 
     [Test]
@@ -204,20 +212,24 @@ public sealed class MaybeExtensionMethodsTests
     {
         int calls = 0;
 
-        await Assert.That(Maybe.Some(2)
-                .ValueOr(() =>
-                {
-                    calls++;
-                    return 9;
-                })).IsEqualTo(2);
+        await Assert.That(
+                Maybe.Some(2)
+                    .ValueOr(() =>
+                    {
+                        calls++;
+                        return 9;
+                    }))
+            .IsEqualTo(2);
 
         await Assert.That(calls).IsEqualTo(0);
 
-        await Assert.That(Maybe<int>.None.ValueOr(() =>
-            {
-                calls++;
-                return 9;
-            })).IsEqualTo(9);
+        await Assert.That(
+                Maybe<int>.None.ValueOr(() =>
+                {
+                    calls++;
+                    return 9;
+                }))
+            .IsEqualTo(9);
 
         await Assert.That(calls).IsEqualTo(1);
     }
@@ -233,11 +245,13 @@ public sealed class MaybeExtensionMethodsTests
     [Test]
     public async Task TestValueOrThrow()
     {
-        await Assert.That(Maybe.Some(2).ValueOrThrow(static () => new InvalidOperationException("no value"))).IsEqualTo(2);
+        await Assert.That(Maybe.Some(2).ValueOrThrow(static () => new InvalidOperationException("no value")))
+            .IsEqualTo(2);
 
         InvalidOperationException? e =
             await Assert.That(static () =>
-                Maybe<int>.None.ValueOrThrow(static () => new InvalidOperationException("no value"))).ThrowsExactly<InvalidOperationException>();
+                    Maybe<int>.None.ValueOrThrow(static () => new InvalidOperationException("no value")))
+                .ThrowsExactly<InvalidOperationException>();
 
         await Assert.That(e?.Message).IsEqualTo("no value");
     }
@@ -255,20 +269,24 @@ public sealed class MaybeExtensionMethodsTests
     {
         int calls = 0;
 
-        await Assert.That(Maybe.Some(2)
-                .OrElse(() =>
-                {
-                    calls++;
-                    return Maybe.Some(9);
-                })).IsEqualTo(Maybe.Some(2));
+        await Assert.That(
+                Maybe.Some(2)
+                    .OrElse(() =>
+                    {
+                        calls++;
+                        return Maybe.Some(9);
+                    }))
+            .IsEqualTo(Maybe.Some(2));
 
         await Assert.That(calls).IsEqualTo(0);
 
-        await Assert.That(Maybe<int>.None.OrElse(() =>
-            {
-                calls++;
-                return Maybe.Some(9);
-            })).IsEqualTo(Maybe.Some(9));
+        await Assert.That(
+                Maybe<int>.None.OrElse(() =>
+                {
+                    calls++;
+                    return Maybe.Some(9);
+                }))
+            .IsEqualTo(Maybe.Some(9));
 
         await Assert.That(calls).IsEqualTo(1);
     }
@@ -313,18 +331,32 @@ public sealed class MaybeExtensionMethodsTests
     [Test]
     public async Task TestLift3()
     {
-        await Assert.That(Maybe.Some(2).Lift(b: Maybe.Some(3), c: Maybe.Some(4), f: static (a, b, c) => a + b + c)).IsEqualTo(Maybe.Some(9));
+        await Assert.That(Maybe.Some(2).Lift(b: Maybe.Some(3), c: Maybe.Some(4), f: static (a, b, c) => a + b + c))
+            .IsEqualTo(Maybe.Some(9));
 
-        await Assert.That(Maybe.Some(2).Lift(b: Maybe<int>.None, c: Maybe.Some(4), f: static (a, b, c) => a + b + c)).IsEqualTo(Maybe<int>.None);
+        await Assert.That(Maybe.Some(2).Lift(b: Maybe<int>.None, c: Maybe.Some(4), f: static (a, b, c) => a + b + c))
+            .IsEqualTo(Maybe<int>.None);
     }
 
     [Test]
     public async Task TestLift4()
     {
-        await Assert.That(Maybe.Some(2)
-                .Lift(b: Maybe.Some(3), c: Maybe.Some(4), d: Maybe.Some(5), f: static (a, b, c, d) => a + b + c + d)).IsEqualTo(Maybe.Some(14));
+        await Assert.That(
+                Maybe.Some(2)
+                    .Lift(
+                        b: Maybe.Some(3),
+                        c: Maybe.Some(4),
+                        d: Maybe.Some(5),
+                        f: static (a, b, c, d) => a + b + c + d))
+            .IsEqualTo(Maybe.Some(14));
 
-        await Assert.That(Maybe.Some(2)
-                .Lift(b: Maybe.Some(3), c: Maybe.Some(4), d: Maybe<int>.None, f: static (a, b, c, d) => a + b + c + d)).IsEqualTo(Maybe<int>.None);
+        await Assert.That(
+                Maybe.Some(2)
+                    .Lift(
+                        b: Maybe.Some(3),
+                        c: Maybe.Some(4),
+                        d: Maybe<int>.None,
+                        f: static (a, b, c, d) => a + b + c + d))
+            .IsEqualTo(Maybe<int>.None);
     }
 }

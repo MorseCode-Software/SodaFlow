@@ -88,20 +88,19 @@ public readonly struct MappedItems<TResult> : IDisposable
 internal sealed class MappedItemCache<TKey, TResult>
     where TKey : notnull
 {
-    private readonly Func<TKey, TResult> project;
-
-    private readonly int retainedBeyondTheView;
-
-    private readonly Action<TResult>? onEvicted;
-
-    /// <summary>Everything projected and not yet evicted, in or out of the view.</summary>
-    private readonly Dictionary<TKey, TResult> projected = new();
-
     /// <summary>The keys no longer in the view, most recently departed at the front.</summary>
     private readonly LinkedList<TKey> departed = new();
 
     /// <summary>Where each departed key sits, so leaving and returning are both O(1).</summary>
     private readonly Dictionary<TKey, LinkedListNode<TKey>> departedNodes = new();
+
+    private readonly Action<TResult>? onEvicted;
+    private readonly Func<TKey, TResult> project;
+
+    /// <summary>Everything projected and not yet evicted, in or out of the view.</summary>
+    private readonly Dictionary<TKey, TResult> projected = new();
+
+    private readonly int retainedBeyondTheView;
 
     /// <summary>What the view held last time, to tell what has left it since.</summary>
     private HashSet<TKey> inView = new();
@@ -131,7 +130,7 @@ internal sealed class MappedItemCache<TKey, TResult>
 
             current.Add(key);
 
-            if (this.projected.TryGetValue(key, out TResult? existing))
+            if (this.projected.TryGetValue(key: key, value: out TResult? existing))
             {
                 // Back in the view, so no longer a candidate for eviction.
                 this.Undepart(key);
@@ -141,7 +140,7 @@ internal sealed class MappedItemCache<TKey, TResult>
             }
 
             TResult created = this.project(key);
-            this.projected.Add(key, created);
+            this.projected.Add(key: key, value: created);
             results.Add(created);
         }
 
@@ -184,12 +183,12 @@ internal sealed class MappedItemCache<TKey, TResult>
             return;
         }
 
-        this.departedNodes.Add(key, this.departed.AddFirst(key));
+        this.departedNodes.Add(key: key, value: this.departed.AddFirst(key));
     }
 
     private void Undepart(TKey key)
     {
-        if (!this.departedNodes.TryGetValue(key, out LinkedListNode<TKey>? node))
+        if (!this.departedNodes.TryGetValue(key: key, value: out LinkedListNode<TKey>? node))
         {
             return;
         }
@@ -217,7 +216,7 @@ internal sealed class MappedItemCache<TKey, TResult>
             // Two calls rather than the Remove overload that yields what it removed, which
             // netstandard2.0 and net472 do not have.
             // ReSharper disable once CanSimplifyDictionaryRemovingWithSingleCall
-            if (this.projected.TryGetValue(key, out TResult? evicted))
+            if (this.projected.TryGetValue(key: key, value: out TResult? evicted))
             {
                 this.projected.Remove(key);
                 this.onEvicted?.Invoke(evicted);

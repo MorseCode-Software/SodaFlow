@@ -60,8 +60,7 @@ internal static class ViewSeed
     /// </summary>
     internal const int InitialThreshold = 0;
 
-    internal static bool Passes(ItemState state, int threshold) =>
-        !state.IsFrozen && state.Score >= threshold;
+    internal static bool Passes(ItemState state, int threshold) => !state.IsFrozen && state.Score >= threshold;
 }
 
 /// <summary>
@@ -72,13 +71,13 @@ internal static class ViewSeed
 internal sealed class RederivedViewShape : IKeyedCollectionViewShape
 {
     private readonly CellSink<ImmutableDictionary<int, Item<ItemIdentity, ItemState>>> items;
-    private readonly CellSink<int> threshold;
-    private readonly Cell<IReadOnlyList<int>> view;
 
     // Load-bearing: the map above is only evaluated because something is listening to it, and a
     // benchmark measuring a projection nobody asked for would measure nothing.
     // ReSharper disable once NotAccessedField.Local
     private readonly IListener listener;
+    private readonly CellSink<int> threshold;
+    private readonly Cell<IReadOnlyList<int>> view;
 
     private RederivedViewShape(
         CellSink<ImmutableDictionary<int, Item<ItemIdentity, ItemState>>> items,
@@ -94,6 +93,26 @@ internal sealed class RederivedViewShape : IKeyedCollectionViewShape
 
     public IReadOnlyList<int> Keys => this.view.Sample();
 
+    public void Replace(int key, ItemState state) =>
+        this.items.Send(
+            this.items.Sample()
+                .SetItem(
+                    key: key,
+                    value: new Item<ItemIdentity, ItemState>(identity: ItemSeed.Identity(key), state: state)));
+
+    public void AddAndRemove(int key, ItemState state)
+    {
+        this.items.Send(
+            this.items.Sample()
+                .Add(
+                    key: key,
+                    value: new Item<ItemIdentity, ItemState>(identity: ItemSeed.Identity(key), state: state)));
+
+        this.items.Send(this.items.Sample().Remove(key));
+    }
+
+    public void SetThreshold(int threshold) => this.threshold.Send(threshold);
+
     internal static RederivedViewShape Build(int itemCount)
     {
         ImmutableDictionary<int, Item<ItemIdentity, ItemState>>.Builder builder =
@@ -102,8 +121,10 @@ internal sealed class RederivedViewShape : IKeyedCollectionViewShape
         for (int number = 0; number < itemCount; number++)
         {
             builder.Add(
-                number,
-                new Item<ItemIdentity, ItemState>(ItemSeed.Identity(number), ItemSeed.State(number)));
+                key: number,
+                value: new Item<ItemIdentity, ItemState>(
+                    identity: ItemSeed.Identity(number),
+                    state: ItemSeed.State(number)));
         }
 
         return Transaction.Run(() =>
@@ -113,46 +134,32 @@ internal sealed class RederivedViewShape : IKeyedCollectionViewShape
 
             CellSink<int> threshold = Cell.CreateSink(ViewSeed.InitialThreshold);
 
-            Cell<IReadOnlyList<int>> view = items.Lift<
-                ImmutableDictionary<int, Item<ItemIdentity, ItemState>>,
-                int,
-                IReadOnlyList<int>>(
-                threshold,
-                static (map, limit) =>
-                [
-                    .. map.Values
-                        .Where(item => ViewSeed.Passes(item.State, limit))
-                        .OrderByDescending(static item => item.State.Score)
-                        .ThenBy(static item => item.Identity.Number)
-                        .Take(ViewSeed.Limit)
-                        .Select(static item => item.Identity.Number)
-                ]);
+            Cell<IReadOnlyList<int>> view =
+                items.Lift<
+                    ImmutableDictionary<int, Item<ItemIdentity, ItemState>>,
+                    int,
+                    IReadOnlyList<int>>(
+                    c2: threshold,
+                    f: static (map, limit) =>
+                    [
+                        .. map.Values
+                            .Where(item => ViewSeed.Passes(state: item.State, threshold: limit))
+                            .OrderByDescending(static item => item.State.Score)
+                            .ThenBy(static item => item.Identity.Number)
+                            .Take(ViewSeed.Limit)
+                            .Select(static item => item.Identity.Number)
+                    ]);
 
             return new RederivedViewShape(
-                items,
-                threshold,
-                view,
-                view.Updates().ListenStrong(static _ => { }));
+                items: items,
+                threshold: threshold,
+                view: view,
+                listener: view.Updates()
+                    .ListenStrong(static _ =>
+                    {
+                    }));
         });
     }
-
-    public void Replace(int key, ItemState state) =>
-        this.items.Send(
-            this.items.Sample().SetItem(
-                key,
-                new Item<ItemIdentity, ItemState>(ItemSeed.Identity(key), state)));
-
-    public void AddAndRemove(int key, ItemState state)
-    {
-        this.items.Send(
-            this.items.Sample().Add(
-                key,
-                new Item<ItemIdentity, ItemState>(ItemSeed.Identity(key), state)));
-
-        this.items.Send(this.items.Sample().Remove(key));
-    }
-
-    public void SetThreshold(int threshold) => this.threshold.Send(threshold);
 }
 
 /// <summary>Which halves of an item the chain's two stages read.</summary>
@@ -178,7 +185,7 @@ internal enum ChainStyle
     SelectiveByState,
 
     /// <summary>The same half, selected from the identity.</summary>
-    SelectiveByIdentity,
+    SelectiveByIdentity
 }
 
 /// <summary>
@@ -189,12 +196,12 @@ internal enum ChainStyle
 internal sealed class ChainedViewShape : IKeyedCollectionViewShape
 {
     private readonly StreamSink<CollectionEdit<int, ItemIdentity, ItemState>> edits;
-    private readonly CellSink<int> threshold;
-    private readonly ReactiveCollection<int, ItemIdentity, ItemState> view;
 
     // Load-bearing, as in the other shape.
     // ReSharper disable once NotAccessedField.Local
     private readonly IListener listener;
+    private readonly CellSink<int> threshold;
+    private readonly ReactiveCollection<int, ItemIdentity, ItemState> view;
 
     private ChainedViewShape(
         StreamSink<CollectionEdit<int, ItemIdentity, ItemState>> edits,
@@ -210,6 +217,20 @@ internal sealed class ChainedViewShape : IKeyedCollectionViewShape
 
     public IReadOnlyList<int> Keys => [.. this.view.KeysCell.Sample()];
 
+    public void Replace(int key, ItemState state) =>
+        this.edits.Send(CollectionEdit<int, ItemIdentity, ItemState>.Update(key: key, transform: _ => state));
+
+    public void AddAndRemove(int key, ItemState state)
+    {
+        this.edits.Send(
+            CollectionEdit<int, ItemIdentity, ItemState>.Add(
+                new Item<ItemIdentity, ItemState>(identity: ItemSeed.Identity(key), state: state)));
+
+        this.edits.Send(CollectionEdit<int, ItemIdentity, ItemState>.Remove(key));
+    }
+
+    public void SetThreshold(int threshold) => this.threshold.Send(threshold);
+
     /// <param name="itemCount">How many items the collection holds.</param>
     /// <param name="style">
     ///     Which halves the two stages read. Every arrangement holds the same keys in the same
@@ -223,9 +244,10 @@ internal sealed class ChainedViewShape : IKeyedCollectionViewShape
 
         for (int number = 0; number < itemCount; number++)
         {
-            items.Add(new Item<ItemIdentity, ItemState>(
-                ItemSeed.Identity(number),
-                ItemSeed.State(number)));
+            items.Add(
+                new Item<ItemIdentity, ItemState>(
+                    identity: ItemSeed.Identity(number),
+                    state: ItemSeed.State(number)));
         }
 
         return Transaction.Run(() =>
@@ -235,8 +257,8 @@ internal sealed class ChainedViewShape : IKeyedCollectionViewShape
 
             ReactiveCollection<int, ItemIdentity, ItemState> collection =
                 ReactiveCollection<int, ItemIdentity, ItemState>.Create(
-                    static identity => identity.Number,
-                    items,
+                    keySelector: static identity => identity.Number,
+                    initialItems: items,
                     edits);
 
             CellSink<int> threshold = Cell.CreateSink(ViewSeed.InitialThreshold);
@@ -247,17 +269,18 @@ internal sealed class ChainedViewShape : IKeyedCollectionViewShape
             // The two selective arrangements keep the same items - the seed gives every item a
             // score equal to its number, so even scores and even numbers are the same half - and
             // differ only in which half they had to read to find that out.
-            ReactiveCollection<int, ItemIdentity, ItemState> filtered = style switch
-            {
-                ChainStyle.ByIdentity => collection.FilterByIdentity(static _ => true),
-                ChainStyle.SelectiveByIdentity =>
-                    collection.FilterByIdentity(static identity => identity.Number % 2 == 0),
-                ChainStyle.SelectiveByState =>
-                    collection.Filter(static (_, state) => state.Score % 2 == 0),
-                _ => collection.Filter(
-                    threshold,
-                    static (limit, _, state) => ViewSeed.Passes(state, limit)),
-            };
+            ReactiveCollection<int, ItemIdentity, ItemState> filtered =
+                style switch
+                {
+                    ChainStyle.ByIdentity => collection.FilterByIdentity(static _ => true),
+                    ChainStyle.SelectiveByIdentity =>
+                        collection.FilterByIdentity(static identity => identity.Number % 2 == 0),
+                    ChainStyle.SelectiveByState =>
+                        collection.Filter(static (_, state) => state.Score % 2 == 0),
+                    _ => collection.Filter(
+                        criteriaCell: threshold,
+                        predicate: static (limit, _, state) => ViewSeed.Passes(state: state, threshold: limit))
+                };
 
             ReactiveCollection<int, ItemIdentity, ItemState> view =
                 (style == ChainStyle.ByState
@@ -266,26 +289,14 @@ internal sealed class ChainedViewShape : IKeyedCollectionViewShape
                 .Take(ViewSeed.Limit);
 
             return new ChainedViewShape(
-                edits,
-                threshold,
-                view,
-                view.KeyChangesStream.ListenStrong(static _ => { }));
+                edits: edits,
+                threshold: threshold,
+                view: view,
+                listener: view.KeyChangesStream.ListenStrong(static _ =>
+                {
+                }));
         });
     }
-
-    public void Replace(int key, ItemState state) =>
-        this.edits.Send(CollectionEdit<int, ItemIdentity, ItemState>.Update(key, _ => state));
-
-    public void AddAndRemove(int key, ItemState state)
-    {
-        this.edits.Send(
-            CollectionEdit<int, ItemIdentity, ItemState>.Add(
-                new Item<ItemIdentity, ItemState>(ItemSeed.Identity(key), state)));
-
-        this.edits.Send(CollectionEdit<int, ItemIdentity, ItemState>.Remove(key));
-    }
-
-    public void SetThreshold(int threshold) => this.threshold.Send(threshold);
 }
 
 /// <summary>
@@ -309,8 +320,8 @@ internal sealed class ChainedViewShape : IKeyedCollectionViewShape
 // ReSharper disable once InheritdocConsiderUsage
 internal sealed class RootOnlyViewShape : IKeyedCollectionViewShape
 {
-    private readonly StreamSink<CollectionEdit<int, ItemIdentity, ItemState>> edits;
     private readonly ReactiveCollection<int, ItemIdentity, ItemState> collection;
+    private readonly StreamSink<CollectionEdit<int, ItemIdentity, ItemState>> edits;
 
     // Load-bearing, as in the other shapes: something must be listening or nothing is evaluated.
     // ReSharper disable once NotAccessedField.Local
@@ -328,15 +339,34 @@ internal sealed class RootOnlyViewShape : IKeyedCollectionViewShape
 
     public IReadOnlyList<int> Keys => [.. this.collection.KeysCell.Sample()];
 
+    public void Replace(int key, ItemState state) =>
+        this.edits.Send(CollectionEdit<int, ItemIdentity, ItemState>.Update(key: key, transform: _ => state));
+
+    public void AddAndRemove(int key, ItemState state)
+    {
+        this.edits.Send(
+            CollectionEdit<int, ItemIdentity, ItemState>.Add(
+                new Item<ItemIdentity, ItemState>(identity: ItemSeed.Identity(key), state: state)));
+
+        this.edits.Send(CollectionEdit<int, ItemIdentity, ItemState>.Remove(key));
+    }
+
+    /// <inheritdoc />
+    /// <remarks>Nothing here filters, so there is no threshold to change.</remarks>
+    public void SetThreshold(int threshold)
+    {
+    }
+
     internal static RootOnlyViewShape Build(int itemCount)
     {
         List<Item<ItemIdentity, ItemState>> items = new(itemCount);
 
         for (int number = 0; number < itemCount; number++)
         {
-            items.Add(new Item<ItemIdentity, ItemState>(
-                ItemSeed.Identity(number),
-                ItemSeed.State(number)));
+            items.Add(
+                new Item<ItemIdentity, ItemState>(
+                    identity: ItemSeed.Identity(number),
+                    state: ItemSeed.State(number)));
         }
 
         return Transaction.Run(() =>
@@ -346,33 +376,17 @@ internal sealed class RootOnlyViewShape : IKeyedCollectionViewShape
 
             ReactiveCollection<int, ItemIdentity, ItemState> collection =
                 ReactiveCollection<int, ItemIdentity, ItemState>.Create(
-                    static identity => identity.Number,
-                    items,
+                    keySelector: static identity => identity.Number,
+                    initialItems: items,
                     edits);
 
             return new RootOnlyViewShape(
-                edits,
-                collection,
-                collection.KeyChangesStream.ListenStrong(static _ => { }));
+                edits: edits,
+                collection: collection,
+                listener: collection.KeyChangesStream.ListenStrong(static _ =>
+                {
+                }));
         });
-    }
-
-    public void Replace(int key, ItemState state) =>
-        this.edits.Send(CollectionEdit<int, ItemIdentity, ItemState>.Update(key, _ => state));
-
-    public void AddAndRemove(int key, ItemState state)
-    {
-        this.edits.Send(
-            CollectionEdit<int, ItemIdentity, ItemState>.Add(
-                new Item<ItemIdentity, ItemState>(ItemSeed.Identity(key), state)));
-
-        this.edits.Send(CollectionEdit<int, ItemIdentity, ItemState>.Remove(key));
-    }
-
-    /// <inheritdoc />
-    /// <remarks>Nothing here filters, so there is no threshold to change.</remarks>
-    public void SetThreshold(int threshold)
-    {
     }
 }
 
@@ -400,12 +414,12 @@ internal interface IKeyedPagingShape
 internal sealed class RederivedPageShape : IKeyedPagingShape
 {
     private readonly CellSink<ImmutableDictionary<int, Item<ItemIdentity, ItemState>>> items;
-    private readonly CellSink<int> offset;
-    private readonly Cell<IReadOnlyList<int>> page;
 
     // Load-bearing, as in the other shapes: without a listener the projection is never evaluated.
     // ReSharper disable once NotAccessedField.Local
     private readonly IListener listener;
+    private readonly CellSink<int> offset;
+    private readonly Cell<IReadOnlyList<int>> page;
 
     private RederivedPageShape(
         CellSink<ImmutableDictionary<int, Item<ItemIdentity, ItemState>>> items,
@@ -421,6 +435,15 @@ internal sealed class RederivedPageShape : IKeyedPagingShape
 
     public IReadOnlyList<int> Keys => this.page.Sample();
 
+    public void TurnTo(int offset) => this.offset.Send(offset);
+
+    public void Replace(int key, ItemState state) =>
+        this.items.Send(
+            this.items.Sample()
+                .SetItem(
+                    key: key,
+                    value: new Item<ItemIdentity, ItemState>(identity: ItemSeed.Identity(key), state: state)));
+
     internal static RederivedPageShape Build(int itemCount)
     {
         ImmutableDictionary<int, Item<ItemIdentity, ItemState>>.Builder builder =
@@ -429,8 +452,10 @@ internal sealed class RederivedPageShape : IKeyedPagingShape
         for (int number = 0; number < itemCount; number++)
         {
             builder.Add(
-                number,
-                new Item<ItemIdentity, ItemState>(ItemSeed.Identity(number), ItemSeed.State(number)));
+                key: number,
+                value: new Item<ItemIdentity, ItemState>(
+                    identity: ItemSeed.Identity(number),
+                    state: ItemSeed.State(number)));
         }
 
         return Transaction.Run(() =>
@@ -440,35 +465,31 @@ internal sealed class RederivedPageShape : IKeyedPagingShape
 
             CellSink<int> offset = Cell.CreateSink(0);
 
-            Cell<IReadOnlyList<int>> page = items.Lift<
-                ImmutableDictionary<int, Item<ItemIdentity, ItemState>>,
-                int,
-                IReadOnlyList<int>>(
-                offset,
-                static (map, at) =>
-                [
-                    .. map.Values
-                        .OrderByDescending(static item => item.State.Score)
-                        .Skip(at)
-                        .Take(ViewSeed.Limit)
-                        .Select(static item => item.Identity.Number)
-                ]);
+            Cell<IReadOnlyList<int>> page =
+                items.Lift<
+                    ImmutableDictionary<int, Item<ItemIdentity, ItemState>>,
+                    int,
+                    IReadOnlyList<int>>(
+                    c2: offset,
+                    f: static (map, at) =>
+                    [
+                        .. map.Values
+                            .OrderByDescending(static item => item.State.Score)
+                            .Skip(at)
+                            .Take(ViewSeed.Limit)
+                            .Select(static item => item.Identity.Number)
+                    ]);
 
             return new RederivedPageShape(
-                items,
-                offset,
-                page,
-                page.Updates().ListenStrong(static _ => { }));
+                items: items,
+                offset: offset,
+                page: page,
+                listener: page.Updates()
+                    .ListenStrong(static _ =>
+                    {
+                    }));
         });
     }
-
-    public void TurnTo(int offset) => this.offset.Send(offset);
-
-    public void Replace(int key, ItemState state) =>
-        this.items.Send(
-            this.items.Sample().SetItem(
-                key,
-                new Item<ItemIdentity, ItemState>(ItemSeed.Identity(key), state)));
 }
 
 /// <summary>
@@ -485,12 +506,12 @@ internal sealed class RederivedPageShape : IKeyedPagingShape
 internal sealed class ChainedPageShape : IKeyedPagingShape
 {
     private readonly StreamSink<CollectionEdit<int, ItemIdentity, ItemState>> edits;
-    private readonly CellSink<int> offset;
-    private readonly ReactiveCollection<int, ItemIdentity, ItemState> page;
 
     // Load-bearing, as above.
     // ReSharper disable once NotAccessedField.Local
     private readonly IListener listener;
+    private readonly CellSink<int> offset;
+    private readonly ReactiveCollection<int, ItemIdentity, ItemState> page;
 
     private ChainedPageShape(
         StreamSink<CollectionEdit<int, ItemIdentity, ItemState>> edits,
@@ -506,15 +527,21 @@ internal sealed class ChainedPageShape : IKeyedPagingShape
 
     public IReadOnlyList<int> Keys => [.. this.page.KeysCell.Sample()];
 
+    public void TurnTo(int offset) => this.offset.Send(offset);
+
+    public void Replace(int key, ItemState state) =>
+        this.edits.Send(CollectionEdit<int, ItemIdentity, ItemState>.Update(key: key, transform: _ => state));
+
     internal static ChainedPageShape Build(int itemCount)
     {
         List<Item<ItemIdentity, ItemState>> items = new(itemCount);
 
         for (int number = 0; number < itemCount; number++)
         {
-            items.Add(new Item<ItemIdentity, ItemState>(
-                ItemSeed.Identity(number),
-                ItemSeed.State(number)));
+            items.Add(
+                new Item<ItemIdentity, ItemState>(
+                    identity: ItemSeed.Identity(number),
+                    state: ItemSeed.State(number)));
         }
 
         return Transaction.Run(() =>
@@ -524,26 +551,24 @@ internal sealed class ChainedPageShape : IKeyedPagingShape
 
             ReactiveCollection<int, ItemIdentity, ItemState> collection =
                 ReactiveCollection<int, ItemIdentity, ItemState>.Create(
-                    static identity => identity.Number,
-                    items,
+                    keySelector: static identity => identity.Number,
+                    initialItems: items,
                     edits);
 
             CellSink<int> offset = Cell.CreateSink(0);
 
-            ReactiveCollection<int, ItemIdentity, ItemState> page = collection
-                .SortByDescending(static (_, state) => state.Score)
-                .Slice(offset, Cell.Constant(ViewSeed.Limit));
+            ReactiveCollection<int, ItemIdentity, ItemState> page =
+                collection
+                    .SortByDescending(static (_, state) => state.Score)
+                    .Slice(offsetCell: offset, limitCell: Cell.Constant(ViewSeed.Limit));
 
             return new ChainedPageShape(
-                edits,
-                offset,
-                page,
-                page.KeyChangesStream.ListenStrong(static _ => { }));
+                edits: edits,
+                offset: offset,
+                page: page,
+                listener: page.KeyChangesStream.ListenStrong(static _ =>
+                {
+                }));
         });
     }
-
-    public void TurnTo(int offset) => this.offset.Send(offset);
-
-    public void Replace(int key, ItemState state) =>
-        this.edits.Send(CollectionEdit<int, ItemIdentity, ItemState>.Update(key, _ => state));
 }

@@ -16,7 +16,10 @@ public sealed class PerItemCellTests
     private static ReactiveCollection<int, ItemIdentity, ItemState> Create(
         Stream<CollectionEdit<int, ItemIdentity, ItemState>> edits,
         params Item<ItemIdentity, ItemState>[] initial) =>
-        ReactiveCollection<int, ItemIdentity, ItemState>.Create(TestUtil.KeyOf, initial, edits);
+        ReactiveCollection<int, ItemIdentity, ItemState>.Create(
+            keySelector: TestUtil.KeyOf,
+            initialItems: initial,
+            edits);
 
     [Test]
     public async Task StateCellTracksOneKeyAcrossAddAndRemove()
@@ -31,15 +34,17 @@ public sealed class PerItemCellTests
         Cell<Maybe<ItemState>> stateCell = collection.StateCell(7);
 
         List<string> seen = [];
-        IListener l = stateCell.Updates().ListenStrong(
-            state => seen.Add(state.Match(static s => s.Name, static () => "gone")));
 
-        await Assert.That(stateCell.Sample().Match(static _ => "some", static () => "none"))
+        IListener l =
+            stateCell.Updates()
+                .ListenStrong(state => seen.Add(state.Match(onSome: static s => s.Name, onNone: static () => "gone")));
+
+        await Assert.That(stateCell.Sample().Match(onSome: static _ => "some", onNone: static () => "none"))
             .IsEqualTo("none");
 
-        edits.Send(TestUtil.Add(TestUtil.Item(7, "seven", 70)));
+        edits.Send(TestUtil.Add(TestUtil.Item(number: 7, name: "seven", score: 70)));
         edits.Send(TestUtil.Remove(7));
-        edits.Send(TestUtil.Add(TestUtil.Item(7, "seven again", 71)));
+        edits.Send(TestUtil.Add(TestUtil.Item(number: 7, name: "seven again", score: 71)));
 
         l.Unlisten();
 
@@ -61,7 +66,7 @@ public sealed class PerItemCellTests
         // eager sample would read the pre-transaction snapshot and sit at no value.
         IListener l = collection.ShapeCell.Updates().ListenStrong(_ => built ??= collection.StateCell(5));
 
-        edits.Send(TestUtil.Add(TestUtil.Item(5, "five", 50)));
+        edits.Send(TestUtil.Add(TestUtil.Item(number: 5, name: "five", score: 50)));
 
         l.Unlisten();
 
@@ -69,7 +74,7 @@ public sealed class PerItemCellTests
 
         // ReSharper disable once NullableWarningSuppressionIsUsed - the assertion above is what
         // rules out null, and the compiler cannot see through it.
-        await Assert.That(built!.Sample().Match(static s => s.Name, static () => "none"))
+        await Assert.That(built!.Sample().Match(onSome: static s => s.Name, onNone: static () => "none"))
             .IsEqualTo("five");
     }
 
@@ -80,7 +85,7 @@ public sealed class PerItemCellTests
             Stream.CreateSink<CollectionEdit<int, ItemIdentity, ItemState>>();
 
         ReactiveCollection<int, ItemIdentity, ItemState> collection =
-            Create(edits, TestUtil.Item(1, "one", 10));
+            Create(edits: edits, TestUtil.Item(number: 1, name: "one", score: 10));
 
         Cell<Maybe<ItemState>> first = collection.StateCell(1);
         Cell<Maybe<ItemState>> second = collection.StateCell(1);
@@ -95,13 +100,17 @@ public sealed class PerItemCellTests
             Stream.CreateSink<CollectionEdit<int, ItemIdentity, ItemState>>();
 
         ReactiveCollection<int, ItemIdentity, ItemState> collection =
-            Create(edits, TestUtil.Item(1, "one", 10));
+            Create(edits: edits, TestUtil.Item(number: 1, name: "one", score: 10));
 
         List<string> seen = [];
-        IListener l = collection.IdentityCell(1).Updates().ListenStrong(
-            identity => seen.Add(identity.Match(static i => i.Code, static () => "gone")));
 
-        edits.Send(TestUtil.Score(1, 11));
+        IListener l =
+            collection.IdentityCell(1)
+                .Updates()
+                .ListenStrong(identity =>
+                    seen.Add(identity.Match(onSome: static i => i.Code, onNone: static () => "gone")));
+
+        edits.Send(TestUtil.Score(key: 1, score: 11));
         edits.Send(TestUtil.Remove(1));
 
         l.Unlisten();
@@ -115,10 +124,11 @@ public sealed class PerItemCellTests
         StreamSink<CollectionEdit<int, ItemIdentity, ItemState>> edits =
             Stream.CreateSink<CollectionEdit<int, ItemIdentity, ItemState>>();
 
-        ReactiveCollection<int, ItemIdentity, ItemState> collection = Create(
-            edits,
-            TestUtil.Item(1, "one", 10),
-            TestUtil.Item(2, "two", 20));
+        ReactiveCollection<int, ItemIdentity, ItemState> collection =
+            Create(
+                edits: edits,
+                TestUtil.Item(number: 1, name: "one", score: 10),
+                TestUtil.Item(number: 2, name: "two", score: 20));
 
         List<ItemChange<int, ItemIdentity, ItemState>> changes = [];
         IListener l = collection.ItemChangesStream.ListenStrong(changes.Add);
@@ -130,13 +140,15 @@ public sealed class PerItemCellTests
         ItemChange<int, ItemIdentity, ItemState> change = changes[0];
 
         // Removed: it moved, and it is not present afterwards.
-        await Assert.That(change.ChangeFor(1).Match(
-                static inner => inner.Match(static _ => "some", static () => "none"),
-                static () => "no event"))
+        await Assert.That(
+                change.ChangeFor(1)
+                    .Match(
+                        onSome: static inner => inner.Match(onSome: static _ => "some", onNone: static () => "none"),
+                        onNone: static () => "no event"))
             .IsEqualTo("none");
 
         // Untouched: no event for an observer of this key at all.
-        await Assert.That(change.ChangeFor(2).Match(static _ => "event", static () => "no event"))
+        await Assert.That(change.ChangeFor(2).Match(onSome: static _ => "event", onNone: static () => "no event"))
             .IsEqualTo("no event");
     }
 
@@ -146,24 +158,28 @@ public sealed class PerItemCellTests
         StreamSink<CollectionEdit<int, ItemIdentity, ItemState>> edits =
             Stream.CreateSink<CollectionEdit<int, ItemIdentity, ItemState>>();
 
-        ReactiveCollection<int, ItemIdentity, ItemState> collection = Create(
-            edits,
-            TestUtil.Item(1, "one", 10),
-            TestUtil.Item(2, "two", 20));
+        ReactiveCollection<int, ItemIdentity, ItemState> collection =
+            Create(
+                edits: edits,
+                TestUtil.Item(number: 1, name: "one", score: 10),
+                TestUtil.Item(number: 2, name: "two", score: 20));
 
         CollectionSnapshot<int, ItemIdentity, ItemState> snapshot = collection.SnapshotCell.Sample();
 
-        await Assert.That(snapshot.Lookup(1).Match(static e => e.State.Name, static () => "?"))
+        await Assert.That(snapshot.Lookup(1).Match(onSome: static e => e.State.Name, onNone: static () => "?"))
             .IsEqualTo("one");
-        await Assert.That(snapshot.Lookup(9).Match(static _ => "some", static () => "none"))
+
+        await Assert.That(snapshot.Lookup(9).Match(onSome: static _ => "some", onNone: static () => "none"))
             .IsEqualTo("none");
-        await Assert.That(snapshot.States.Lookup(2).Match(static s => s.Score, static () => -1))
+
+        await Assert.That(snapshot.States.Lookup(2).Match(onSome: static s => s.Score, onNone: static () => -1))
             .IsEqualTo(20);
 
         OrderedKeys<int, ItemIdentity, ItemState> keys = collection.KeysCell.Sample();
 
-        await Assert.That(keys.IndexOf(2).Match(static i => i, static () => -1)).IsEqualTo(1);
-        await Assert.That(keys.IndexOf(9).Match(static _ => "some", static () => "none"))
+        await Assert.That(keys.IndexOf(2).Match(onSome: static i => i, onNone: static () => -1)).IsEqualTo(1);
+
+        await Assert.That(keys.IndexOf(9).Match(onSome: static _ => "some", onNone: static () => "none"))
             .IsEqualTo("none");
     }
 }

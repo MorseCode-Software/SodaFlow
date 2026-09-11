@@ -30,12 +30,6 @@ public sealed class CollectionSnapshot<TKey, TIdentity, TState>
     private readonly OrderedKeys<TKey, TIdentity, TState>? visible;
 
     /// <summary>
-    ///     The state map as stored, before any scoping. Concrete, because the collection advances
-    ///     it and only this type can be advanced.
-    /// </summary>
-    internal ImmutableStateMap<TKey, TState> StatesImpl { get; }
-
-    /// <summary>
     ///     The scoped faces of the two maps, built on first use because the paths that matter -
     ///     rebuilding a stage, testing a predicate - go through <see cref="TryGetHalves" /> and
     ///     never ask for either.
@@ -51,7 +45,7 @@ public sealed class CollectionSnapshot<TKey, TIdentity, TState>
     internal CollectionSnapshot(
         ImmutableDictionary<TKey, TIdentity> identities,
         ImmutableStateMap<TKey, TState> states)
-        : this(identities, states, visible: null)
+        : this(identities: identities, states: states, visible: null)
     {
     }
 
@@ -65,17 +59,11 @@ public sealed class CollectionSnapshot<TKey, TIdentity, TState>
         this.visible = visible;
     }
 
-    /// <summary>The same two maps, admitting only <paramref name="keys" />.</summary>
-    /// <remarks>
-    ///     Scoping replaces rather than intersects, which is sound because a stage's keys are always
-    ///     a subset of the keys of the stage above it.
-    /// </remarks>
-    internal CollectionSnapshot<TKey, TIdentity, TState> ScopedTo(
-        OrderedKeys<TKey, TIdentity, TState> keys) =>
-        new(this.IdentitiesImpl, this.StatesImpl, keys);
-
-    /// <summary>Whether a key is one this snapshot admits.</summary>
-    private bool IsVisible(TKey key) => this.visible is null || this.visible.Contains(key);
+    /// <summary>
+    ///     The state map as stored, before any scoping. Concrete, because the collection advances
+    ///     it and only this type can be advanced.
+    /// </summary>
+    internal ImmutableStateMap<TKey, TState> StatesImpl { get; }
 
     /// <summary>
     ///     The immutable portion of every item. This object is replaced only on a structural edit,
@@ -85,14 +73,14 @@ public sealed class CollectionSnapshot<TKey, TIdentity, TState>
         this.visible is null
             ? this.IdentitiesImpl
             : this.scopedIdentities ??=
-                new ScopedIdentityMap<TKey, TIdentity, TState>(this.IdentitiesImpl, this.visible);
+                new ScopedIdentityMap<TKey, TIdentity, TState>(inner: this.IdentitiesImpl, visible: this.visible);
 
     /// <summary>The mutable portion of every item.</summary>
     public StateMap<TKey, TState> States =>
         this.visible is null
             ? this.StatesImpl
             : this.scopedStates ??=
-                new ScopedStateMap<TKey, TIdentity, TState>(this.StatesImpl, this.visible);
+                new ScopedStateMap<TKey, TIdentity, TState>(inner: this.StatesImpl, visible: this.visible);
 
     /// <summary>
     ///     The identity map as its concrete type, which is what lets the next version of it be
@@ -111,11 +99,21 @@ public sealed class CollectionSnapshot<TKey, TIdentity, TState>
     /// <summary>The number of items.</summary>
     public int Count => this.visible?.Count ?? this.IdentitiesImpl.Count;
 
+    /// <summary>The same two maps, admitting only <paramref name="keys" />.</summary>
+    /// <remarks>
+    ///     Scoping replaces rather than intersects, which is sound because a stage's keys are always
+    ///     a subset of the keys of the stage above it.
+    /// </remarks>
+    internal CollectionSnapshot<TKey, TIdentity, TState> ScopedTo(OrderedKeys<TKey, TIdentity, TState> keys) =>
+        new(identities: this.IdentitiesImpl, states: this.StatesImpl, visible: keys);
+
+    /// <summary>Whether a key is one this snapshot admits.</summary>
+    private bool IsVisible(TKey key) => this.visible is null || this.visible.Contains(key);
+
     /// <summary>Whether a key is present.</summary>
     /// <param name="key">The key to look for.</param>
     /// <returns><see langword="true" /> if the key is present.</returns>
-    public bool ContainsKey(TKey key) =>
-        this.IsVisible(key) && this.IdentitiesImpl.ContainsKey(key);
+    public bool ContainsKey(TKey key) => this.IsVisible(key) && this.IdentitiesImpl.ContainsKey(key);
 
     /// <summary>Returns both halves of the item stored under a key, if there is one.</summary>
     /// <param name="key">The key to look up.</param>
@@ -128,9 +126,9 @@ public sealed class CollectionSnapshot<TKey, TIdentity, TState>
     /// </remarks>
     public bool TryGetItem(TKey key, out Item<TIdentity, TState>? item)
     {
-        if (this.TryGetHalves(key, out TIdentity identity, out TState state))
+        if (this.TryGetHalves(key: key, identity: out TIdentity identity, state: out TState state))
         {
-            item = new Item<TIdentity, TState>(identity, state);
+            item = new Item<TIdentity, TState>(identity: identity, state: state);
 
             return true;
         }
@@ -146,7 +144,7 @@ public sealed class CollectionSnapshot<TKey, TIdentity, TState>
     ///     lookup per key rather than two - and a rebuild does this for every key it keeps.
     /// </remarks>
     internal bool TryGetIdentity(TKey key, out TIdentity identity) =>
-        this.IdentitiesImpl.TryGet(key, out identity) && this.IsVisible(key);
+        this.IdentitiesImpl.TryGet(key: key, value: out identity) && this.IsVisible(key);
 
     /// <summary>
     ///     Both halves of an item, without the <see cref="Item{TIdentity,TState}" /> that
@@ -165,8 +163,8 @@ public sealed class CollectionSnapshot<TKey, TIdentity, TState>
     {
         // Through the assembly's own helper rather than the concrete TryGetValue, which is
         // annotated to leave its output null on false and so warns against a notnull TIdentity.
-        bool hasIdentity = this.IdentitiesImpl.TryGet(key, out identity);
-        bool hasState = this.StatesImpl.TryGetState(key, out state);
+        bool hasIdentity = this.IdentitiesImpl.TryGet(key: key, value: out identity);
+        bool hasState = this.StatesImpl.TryGetState(key: key, state: out state);
 
         // The visibility test comes last so that the root, where it is a null check, pays nothing
         // for it, and so that both outputs are assigned on every path without a suppression.
@@ -230,19 +228,18 @@ internal sealed class ScopedIdentityMap<TKey, TIdentity, TState> : IReadOnlyDict
     public IEnumerable<TIdentity> Values => this.visible.Select(this.IdentityOf);
 
     public TIdentity this[TKey key] =>
-        this.TryGetValue(key, out TIdentity identity)
+        this.TryGetValue(key: key, value: out TIdentity identity)
             ? identity
             : throw new KeyNotFoundException($"The view does not hold the key {key}.");
 
-    public bool ContainsKey(TKey key) =>
-        this.visible.Contains(key) && this.inner.ContainsKey(key);
+    public bool ContainsKey(TKey key) => this.visible.Contains(key) && this.inner.ContainsKey(key);
 
     public bool TryGetValue(TKey key, out TIdentity value) =>
-        this.inner.TryGet(key, out value) && this.visible.Contains(key);
+        this.inner.TryGet(key: key, value: out value) && this.visible.Contains(key);
 
     public IEnumerator<KeyValuePair<TKey, TIdentity>> GetEnumerator() =>
         this.visible
-            .Select(key => new KeyValuePair<TKey, TIdentity>(key, this.IdentityOf(key)))
+            .Select(key => new KeyValuePair<TKey, TIdentity>(key: key, value: this.IdentityOf(key)))
             .GetEnumerator();
 
     IEnumerator IEnumerable.GetEnumerator() => this.GetEnumerator();
@@ -254,10 +251,9 @@ internal sealed class ScopedIdentityMap<TKey, TIdentity, TState> : IReadOnlyDict
     ///     would be a wrong answer travelling quietly.
     /// </remarks>
     private TIdentity IdentityOf(TKey key) =>
-        this.inner.TryGet(key, out TIdentity identity)
+        this.inner.TryGet(key: key, value: out TIdentity identity)
             ? identity
-            : throw new KeyNotFoundException(
-                $"The view holds the key {key} but the identity map behind it does not.");
+            : throw new KeyNotFoundException($"The view holds the key {key} but the identity map behind it does not.");
 }
 
 /// <summary>The state map of a snapshot, admitting only the keys one view holds.</summary>
@@ -287,19 +283,17 @@ internal sealed class ScopedStateMap<TKey, TIdentity, TState> : StateMap<TKey, T
     ///     <see cref="ScopedIdentityMap{TKey,TIdentity,TState}" /> for why that cannot be avoided.
     /// </remarks>
     public override IEnumerable<KeyValuePair<TKey, TState>> Pairs =>
-        this.visible.Select(key => new KeyValuePair<TKey, TState>(key, this.StateOf(key)));
+        this.visible.Select(key => new KeyValuePair<TKey, TState>(key: key, value: this.StateOf(key)));
 
     /// <summary>The state of a key this view holds.</summary>
     /// <remarks>Throws rather than yielding a default, for the reason the identity map's does.</remarks>
     private TState StateOf(TKey key) =>
-        this.inner.TryGetState(key, out TState state)
+        this.inner.TryGetState(key: key, state: out TState state)
             ? state
-            : throw new KeyNotFoundException(
-                $"The view holds the key {key} but the state map behind it does not.");
+            : throw new KeyNotFoundException($"The view holds the key {key} but the state map behind it does not.");
 
     public override bool TryGetState(TKey key, out TState state) =>
-        this.inner.TryGetState(key, out state) && this.visible.Contains(key);
+        this.inner.TryGetState(key: key, state: out state) && this.visible.Contains(key);
 
-    public override bool ContainsKey(TKey key) =>
-        this.visible.Contains(key) && this.inner.ContainsKey(key);
+    public override bool ContainsKey(TKey key) => this.visible.Contains(key) && this.inner.ContainsKey(key);
 }

@@ -39,16 +39,30 @@ namespace SodaFlow.Benchmarks;
 // ReSharper disable once MemberCanBeFileLocal
 public class KeyedCollectionPagingBenchmarks
 {
-    // Populated for real in the setup; built small here so the fields never have to be nullable.
-    private IKeyedPagingShape rederived = RederivedPageShape.Build(1);
     private IKeyedPagingShape chained = ChainedPageShape.Build(1);
+    private int editCount;
 
     private int pageCount;
-    private int editCount;
+
+    // Populated for real in the setup; built small here so the fields never have to be nullable.
+    private IKeyedPagingShape rederived = RederivedPageShape.Build(1);
 
     /// <summary>How many items the collection holds.</summary>
     [Params(1_000, 10_000, 100_000)]
     public int ItemCount { get; [UsedImplicitly] set; }
+
+    /// <summary>
+    ///     A key the second page holds. The seed scores every item with its own number and the sort
+    ///     is descending, so position p holds key <c>ItemCount - 1 - p</c> and the second page runs
+    ///     from <c>ItemCount - 21</c> down to <c>ItemCount - 40</c>. This sits in the middle of it.
+    /// </summary>
+    private int InPageKey => this.ItemCount - 30;
+
+    /// <summary>
+    ///     The lowest-scoring key, which sorts last and so is as far outside the second page as a
+    ///     key can be.
+    /// </summary>
+    private static int OutsidePageKey => 0;
 
     /// <summary>Builds both shapes, and refuses to run if they disagree about the page.</summary>
     [GlobalSetup]
@@ -110,12 +124,12 @@ public class KeyedCollectionPagingBenchmarks
     /// <summary>An edit to an item the page holds, which the window has to forward.</summary>
     [Benchmark(Description = "edit an item in the page, re-derived")]
     public void EditInPageRederived() =>
-        this.rederived.Replace(this.InPageKey, this.NextStateFor(this.InPageKey));
+        this.rederived.Replace(key: this.InPageKey, state: this.NextStateFor(this.InPageKey));
 
     /// <summary>The same edit, through the slice.</summary>
     [Benchmark(Description = "edit an item in the page, chained")]
     public void EditInPageChained() =>
-        this.chained.Replace(this.InPageKey, this.NextStateFor(this.InPageKey));
+        this.chained.Replace(key: this.InPageKey, state: this.NextStateFor(this.InPageKey));
 
     /// <summary>
     ///     An edit to an item the page does not hold, which the window has to conclude changes
@@ -123,14 +137,14 @@ public class KeyedCollectionPagingBenchmarks
     /// </summary>
     [Benchmark(Description = "edit an item outside the page, re-derived")]
     public void EditOutsidePageRederived() =>
-        this.rederived.Replace(OutsidePageKey, this.NextStateFor(OutsidePageKey));
+        this.rederived.Replace(key: OutsidePageKey, state: this.NextStateFor(OutsidePageKey));
 
     /// <summary>The same edit, through the slice.</summary>
     [Benchmark(Description = "edit an item outside the page, chained")]
     public void EditOutsidePageChained() =>
-        this.chained.Replace(OutsidePageKey, this.NextStateFor(OutsidePageKey));
+        this.chained.Replace(key: OutsidePageKey, state: this.NextStateFor(OutsidePageKey));
 
-    private static string Describe(IEnumerable<int> keys) => string.Join(", ", keys);
+    private static string Describe(IEnumerable<int> keys) => string.Join(separator: ", ", values: keys);
 
     /// <summary>
     ///     The first page and the second, alternating. A page that only ever advanced would run off
@@ -143,19 +157,6 @@ public class KeyedCollectionPagingBenchmarks
 
         return ViewSeed.Limit * (this.pageCount % 2);
     }
-
-    /// <summary>
-    ///     A key the second page holds. The seed scores every item with its own number and the sort
-    ///     is descending, so position p holds key <c>ItemCount - 1 - p</c> and the second page runs
-    ///     from <c>ItemCount - 21</c> down to <c>ItemCount - 40</c>. This sits in the middle of it.
-    /// </summary>
-    private int InPageKey => this.ItemCount - 30;
-
-    /// <summary>
-    ///     The lowest-scoring key, which sorts last and so is as far outside the second page as a
-    ///     key can be.
-    /// </summary>
-    private static int OutsidePageKey => 0;
 
     /// <summary>
     ///     A new state for a key that leaves its sort value alone, so nothing can move and what is
@@ -172,8 +173,8 @@ public class KeyedCollectionPagingBenchmarks
         this.editCount++;
 
         return new ItemState(
-            this.editCount % 2 == 0 ? "edited" : "re-edited",
-            key,
-            false);
+            name: this.editCount % 2 == 0 ? "edited" : "re-edited",
+            score: key,
+            isFrozen: false);
     }
 }

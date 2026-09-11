@@ -55,9 +55,10 @@ file static class AggregateSeed
 
         for (int number = 0; number < itemCount; number++)
         {
-            items.Add(new Item<ItemIdentity, ItemState>(
-                ItemSeed.Identity(number),
-                ItemSeed.State(number)));
+            items.Add(
+                new Item<ItemIdentity, ItemState>(
+                    identity: ItemSeed.Identity(number),
+                    state: ItemSeed.State(number)));
         }
 
         return items;
@@ -71,12 +72,12 @@ file static class AggregateSeed
 internal sealed class RederivedAggregateShape : IKeyedAggregateShape
 {
     private readonly StreamSink<CollectionEdit<int, ItemIdentity, ItemState>> edits;
-    private readonly Cell<long> total;
 
     // Load-bearing: a map nobody listens to is never evaluated, and this benchmark would then
     // measure a sum that is never taken.
     // ReSharper disable once NotAccessedField.Local
     private readonly IListener listener;
+    private readonly Cell<long> total;
 
     private RederivedAggregateShape(
         StreamSink<CollectionEdit<int, ItemIdentity, ItemState>> edits,
@@ -90,6 +91,18 @@ internal sealed class RederivedAggregateShape : IKeyedAggregateShape
 
     public long Total => this.total.Sample();
 
+    public void Replace(int key, ItemState state) =>
+        this.edits.Send(CollectionEdit<int, ItemIdentity, ItemState>.Update(key: key, transform: _ => state));
+
+    public void AddAndRemove(int key, ItemState state)
+    {
+        this.edits.Send(
+            CollectionEdit<int, ItemIdentity, ItemState>.Add(
+                new Item<ItemIdentity, ItemState>(identity: ItemSeed.Identity(key), state: state)));
+
+        this.edits.Send(CollectionEdit<int, ItemIdentity, ItemState>.Remove(key));
+    }
+
     internal static RederivedAggregateShape Build(int itemCount)
     {
         List<Item<ItemIdentity, ItemState>> items = AggregateSeed.Entries(itemCount);
@@ -101,8 +114,8 @@ internal sealed class RederivedAggregateShape : IKeyedAggregateShape
 
             ReactiveCollection<int, ItemIdentity, ItemState> collection =
                 ReactiveCollection<int, ItemIdentity, ItemState>.Create(
-                    static identity => identity.Number,
-                    items,
+                    keySelector: static identity => identity.Number,
+                    initialItems: items,
                     edits);
 
             // Through Pairs rather than Keys plus a lookup each. The first version of this
@@ -110,40 +123,32 @@ internal sealed class RederivedAggregateShape : IKeyedAggregateShape
             // - on a hundred thousand items, summing one field cost more than sorting the whole
             // collection did next door. The gap being measured here is meant to be the one between
             // re-reading and folding, not the one between walking a trie and searching it.
-            Cell<long> total = collection.SnapshotCell.Map(static snapshot =>
-            {
-                long sum = 0;
-
-                // A loop rather than Sum, because this arm is the thing being measured and the
-                // comparison should be against the fastest reasonable way to write it. LINQ costs
-                // a delegate call per item here, which would flatter the other arm for a reason
-                // that has nothing to do with folding.
-                // ReSharper disable once LoopCanBeConvertedToQuery
-                foreach (KeyValuePair<int, ItemState> pair in snapshot.States.Pairs)
+            Cell<long> total =
+                collection.SnapshotCell.Map(static snapshot =>
                 {
-                    sum += AggregateSeed.ValueOf(pair.Value);
-                }
+                    long sum = 0;
 
-                return sum;
-            });
+                    // A loop rather than Sum, because this arm is the thing being measured and the
+                    // comparison should be against the fastest reasonable way to write it. LINQ costs
+                    // a delegate call per item here, which would flatter the other arm for a reason
+                    // that has nothing to do with folding.
+                    // ReSharper disable once LoopCanBeConvertedToQuery
+                    foreach (KeyValuePair<int, ItemState> pair in snapshot.States.Pairs)
+                    {
+                        sum += AggregateSeed.ValueOf(pair.Value);
+                    }
+
+                    return sum;
+                });
 
             return new RederivedAggregateShape(
-                edits,
-                total,
-                total.Updates().ListenStrong(static _ => { }));
+                edits: edits,
+                total: total,
+                listener: total.Updates()
+                    .ListenStrong(static _ =>
+                    {
+                    }));
         });
-    }
-
-    public void Replace(int key, ItemState state) =>
-        this.edits.Send(CollectionEdit<int, ItemIdentity, ItemState>.Update(key, _ => state));
-
-    public void AddAndRemove(int key, ItemState state)
-    {
-        this.edits.Send(
-            CollectionEdit<int, ItemIdentity, ItemState>.Add(
-                new Item<ItemIdentity, ItemState>(ItemSeed.Identity(key), state)));
-
-        this.edits.Send(CollectionEdit<int, ItemIdentity, ItemState>.Remove(key));
     }
 }
 
@@ -160,11 +165,11 @@ internal sealed class RederivedAggregateShape : IKeyedAggregateShape
 internal sealed class IncrementalAggregateShape : IKeyedAggregateShape
 {
     private readonly StreamSink<CollectionEdit<int, ItemIdentity, ItemState>> edits;
-    private readonly Cell<long> total;
 
     // Load-bearing, as above.
     // ReSharper disable once NotAccessedField.Local
     private readonly IListener listener;
+    private readonly Cell<long> total;
 
     private IncrementalAggregateShape(
         StreamSink<CollectionEdit<int, ItemIdentity, ItemState>> edits,
@@ -177,6 +182,18 @@ internal sealed class IncrementalAggregateShape : IKeyedAggregateShape
     }
 
     public long Total => this.total.Sample();
+
+    public void Replace(int key, ItemState state) =>
+        this.edits.Send(CollectionEdit<int, ItemIdentity, ItemState>.Update(key: key, transform: _ => state));
+
+    public void AddAndRemove(int key, ItemState state)
+    {
+        this.edits.Send(
+            CollectionEdit<int, ItemIdentity, ItemState>.Add(
+                new Item<ItemIdentity, ItemState>(identity: ItemSeed.Identity(key), state: state)));
+
+        this.edits.Send(CollectionEdit<int, ItemIdentity, ItemState>.Remove(key));
+    }
 
     internal static IncrementalAggregateShape Build(int itemCount)
     {
@@ -191,31 +208,25 @@ internal sealed class IncrementalAggregateShape : IKeyedAggregateShape
 
             ReactiveCollection<int, ItemIdentity, ItemState> collection =
                 ReactiveCollection<int, ItemIdentity, ItemState>.Create(
-                    static identity => identity.Number,
-                    items,
+                    keySelector: static identity => identity.Number,
+                    initialItems: items,
                     edits);
 
-            Cell<long> total = collection.ItemChangesStream
-                .Snapshot(collection.SnapshotCell, static (change, before) => DeltaOf(change, before))
-                .Accum(initial, static (delta, running) => running + delta);
+            Cell<long> total =
+                collection.ItemChangesStream
+                    .Snapshot(
+                        c: collection.SnapshotCell,
+                        f: static (change, before) => DeltaOf(change: change, before: before))
+                    .Accum(initialState: initial, f: static (delta, running) => running + delta);
 
             return new IncrementalAggregateShape(
-                edits,
-                total,
-                total.Updates().ListenStrong(static _ => { }));
+                edits: edits,
+                total: total,
+                listener: total.Updates()
+                    .ListenStrong(static _ =>
+                    {
+                    }));
         });
-    }
-
-    public void Replace(int key, ItemState state) =>
-        this.edits.Send(CollectionEdit<int, ItemIdentity, ItemState>.Update(key, _ => state));
-
-    public void AddAndRemove(int key, ItemState state)
-    {
-        this.edits.Send(
-            CollectionEdit<int, ItemIdentity, ItemState>.Add(
-                new Item<ItemIdentity, ItemState>(ItemSeed.Identity(key), state)));
-
-        this.edits.Send(CollectionEdit<int, ItemIdentity, ItemState>.Remove(key));
     }
 
     /// <summary>
@@ -234,7 +245,7 @@ internal sealed class IncrementalAggregateShape : IKeyedAggregateShape
 
         foreach (KeyValuePair<int, ItemState> pair in change.NewStates)
         {
-            if (before.States.TryGetState(pair.Key, out ItemState old))
+            if (before.States.TryGetState(key: pair.Key, state: out ItemState old))
             {
                 delta -= AggregateSeed.ValueOf(old);
             }
@@ -244,7 +255,7 @@ internal sealed class IncrementalAggregateShape : IKeyedAggregateShape
 
         foreach (int key in change.Removed)
         {
-            if (before.States.TryGetState(key, out ItemState old))
+            if (before.States.TryGetState(key: key, state: out ItemState old))
             {
                 delta -= AggregateSeed.ValueOf(old);
             }

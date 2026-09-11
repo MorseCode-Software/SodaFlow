@@ -70,7 +70,7 @@ internal enum ObservationStyle
     ///     every structural change, so every observer built this way is woken by every add and
     ///     every remove anywhere in the collection, whether or not it touched their key.
     /// </remarks>
-    IdentityShapeMapped,
+    IdentityShapeMapped
 }
 
 /// <summary>
@@ -90,6 +90,9 @@ internal enum ObservationStyle
 /// </remarks>
 internal sealed class ObservationShape
 {
+    /// <summary>How many items the observers cover.</summary>
+    internal const int ObserverCount = 20;
+
     private readonly StreamSink<CollectionEdit<int, ItemIdentity, ItemState>> edits;
 
     // Load-bearing: these are what keep the observed cells alive and evaluated.
@@ -104,8 +107,14 @@ internal sealed class ObservationShape
         this.listeners = listeners;
     }
 
-    /// <summary>How many items the observers cover.</summary>
-    internal const int ObserverCount = 20;
+    /// <summary>An even key no observer watches, which the view holds.</summary>
+    internal static int UnobservedKeyInView => 2;
+
+    /// <summary>
+    ///     An even key - so the filter keeps it, and the view sees the structural change - that no
+    ///     observer watches and no seeded item uses.
+    /// </summary>
+    internal static int UnobservedStructuralKey => -2;
 
     /// <summary>
     ///     The filter every view here uses. It keeps the even-numbered items, so the observed keys
@@ -119,9 +128,10 @@ internal sealed class ObservationShape
 
         for (int number = 0; number < itemCount; number++)
         {
-            items.Add(new Item<ItemIdentity, ItemState>(
-                ItemSeed.Identity(number),
-                ItemSeed.State(number)));
+            items.Add(
+                new Item<ItemIdentity, ItemState>(
+                    identity: ItemSeed.Identity(number),
+                    state: ItemSeed.State(number)));
         }
 
         return Transaction.Run(() =>
@@ -131,13 +141,14 @@ internal sealed class ObservationShape
 
             ReactiveCollection<int, ItemIdentity, ItemState> collection =
                 ReactiveCollection<int, ItemIdentity, ItemState>.Create(
-                    static identity => identity.Number,
-                    items,
+                    keySelector: static identity => identity.Number,
+                    initialItems: items,
                     edits);
 
-            ReactiveCollection<int, ItemIdentity, ItemState> view = collection
-                .FilterByIdentity(static identity => Passes(identity))
-                .SortByDescending(static (_, state) => state.Score);
+            ReactiveCollection<int, ItemIdentity, ItemState> view =
+                collection
+                    .FilterByIdentity(static identity => Passes(identity))
+                    .SortByDescending(static (_, state) => state.Score);
 
             // The view is listened to whatever the style, because otherwise the arm observing the
             // collection would measure a chain nobody had asked to run and the arms would not be
@@ -145,11 +156,14 @@ internal sealed class ObservationShape
             // whether the view is alive.
             List<IListener> listeners =
             [
-                .. ObservedKeys(itemCount).Select(key => Observe(collection, view, key, style)),
-                view.KeyChangesStream.ListenStrong(static _ => { }),
+                .. ObservedKeys(itemCount)
+                    .Select(key => Observe(collection: collection, view: view, key: key, style: style)),
+                view.KeyChangesStream.ListenStrong(static _ =>
+                {
+                })
             ];
 
-            return new ObservationShape(edits, listeners);
+            return new ObservationShape(edits: edits, listeners: listeners);
         });
     }
 
@@ -164,7 +178,7 @@ internal sealed class ObservationShape
     {
         int stride = itemCount / ObserverCount;
 
-        return [.. Enumerable.Range(0, ObserverCount).Select(index => index * stride)];
+        return [.. Enumerable.Range(start: 0, count: ObserverCount).Select(index => index * stride)];
     }
 
     /// <summary>
@@ -181,14 +195,14 @@ internal sealed class ObservationShape
         {
             throw new InvalidOperationException(
                 $"{ObserverCount} observers were meant to watch {ObserverCount} different keys, but "
-                + $"the keys are [{string.Join(", ", keys)}].");
+                + $"the keys are [{string.Join(separator: ", ", values: keys)}].");
         }
 
         if (!keys.All(static key => Passes(ItemSeed.Identity(key))))
         {
             throw new InvalidOperationException(
                 "The filter drops some of the observed keys, so the membership-lifted arm would "
-                + $"measure observers holding nothing. The keys are [{string.Join(", ", keys)}].");
+                + $"measure observers holding nothing. The keys are [{string.Join(separator: ", ", values: keys)}].");
         }
 
         if (Passes(ItemSeed.Identity(UnobservedKeyInView)) is false || keys.Contains(UnobservedKeyInView))
@@ -204,14 +218,17 @@ internal sealed class ObservationShape
 
             ReactiveCollection<int, ItemIdentity, ItemState> collection =
                 ReactiveCollection<int, ItemIdentity, ItemState>.Create(
-                    static identity => identity.Number,
-                    [new Item<ItemIdentity, ItemState>(ItemSeed.Identity(0), ItemSeed.State(0))],
+                    keySelector: static identity => identity.Number,
+                    initialItems:
+                    [
+                        new Item<ItemIdentity, ItemState>(identity: ItemSeed.Identity(0), state: ItemSeed.State(0))
+                    ],
                     edits);
 
             ReactiveCollection<int, ItemIdentity, ItemState> view =
                 collection.FilterByIdentity(static identity => Passes(identity));
 
-            if (ReferenceEquals(collection.StateCell(0), view.StateCell(0)))
+            if (ReferenceEquals(objA: collection.StateCell(0), objB: view.StateCell(0)))
             {
                 throw new InvalidOperationException(
                     "Observing through a view is the collection's own cell again, so the view-scoped "
@@ -220,33 +237,42 @@ internal sealed class ObservationShape
         });
     }
 
-    /// <summary>An even key no observer watches, which the view holds.</summary>
-    internal static int UnobservedKeyInView => 2;
-
     // The legacy identity arm needs ShapeCell, which only the collection has.
     // ReSharper disable once SuggestBaseTypeForParameter
     private static IListener Observe(
         ReactiveCollection<int, ItemIdentity, ItemState> collection,
         ReactiveCollection<int, ItemIdentity, ItemState> view,
         int key,
-        ObservationStyle style)
-    {
-        return style switch
+        ObservationStyle style) =>
+        style switch
         {
             ObservationStyle.IdentityOnRoot =>
-                collection.IdentityCell(key).Updates().ListenStrong(static _ => { }),
+                collection.IdentityCell(key)
+                    .Updates()
+                    .ListenStrong(static _ =>
+                    {
+                    }),
 
             ObservationStyle.IdentityThroughView =>
-                view.IdentityCell(key).Updates().ListenStrong(static _ => { }),
+                view.IdentityCell(key)
+                    .Updates()
+                    .ListenStrong(static _ =>
+                    {
+                    }),
 
             ObservationStyle.IdentityShapeMapped => collection.ShapeCell
                 .Map(identities => identities.TryGetValue(key))
                 .Updates()
-                .ListenStrong(static _ => { }),
+                .ListenStrong(static _ =>
+                {
+                }),
 
-            _ => StateCellFor(collection, view, key, style).Updates().ListenStrong(static _ => { }),
+            _ => StateCellFor(collection: collection, view: view, key: key, style: style)
+                .Updates()
+                .ListenStrong(static _ =>
+                {
+                })
         };
-    }
 
     /// <summary>The per-item state cell one of the four state styles asks for.</summary>
     private static Cell<Maybe<ItemState>> StateCellFor(
@@ -260,21 +286,23 @@ internal sealed class ObservationShape
             ObservationStyle.ThroughView or ObservationStyle.ViewNative => view.StateCell(key),
 
             ObservationStyle.ViewScoped =>
-                collection.StateCell(key).Lift<Maybe<ItemState>, OrderedKeys<int, ItemIdentity, ItemState>, Maybe<ItemState>>(
-                    view.KeysCell,
-                    (state, keys) => keys.Contains(key) ? state : Maybe<ItemState>.None),
+                collection.StateCell(key)
+                    .Lift<Maybe<ItemState>, OrderedKeys<int, ItemIdentity, ItemState>, Maybe<ItemState>>(
+                        c2: view.KeysCell,
+                        f: (state, keys) => keys.Contains(key) ? state : Maybe<ItemState>.None),
 
             // Membership as one boolean per observer. The map still runs when the view's keys move,
             // because whether this key is among them has to be re-asked - but Calm stops there
             // unless the answer changed, so the cell below it recomputes only when this key really
             // enters or leaves.
-            _ => collection.StateCell(key).Lift<Maybe<ItemState>, bool, Maybe<ItemState>>(
-                view.KeysCell.Map(keys => keys.Contains(key)).Calm(),
-                static (state, isMember) => isMember ? state : Maybe<ItemState>.None),
+            _ => collection.StateCell(key)
+                .Lift<Maybe<ItemState>, bool, Maybe<ItemState>>(
+                    c2: view.KeysCell.Map(keys => keys.Contains(key)).Calm(),
+                    f: static (state, isMember) => isMember ? state : Maybe<ItemState>.None)
         };
 
     internal void Replace(int key, ItemState state) =>
-        this.edits.Send(CollectionEdit<int, ItemIdentity, ItemState>.Update(key, _ => state));
+        this.edits.Send(CollectionEdit<int, ItemIdentity, ItemState>.Update(key: key, transform: _ => state));
 
     /// <summary>
     ///     Adds an item and removes it again, which is the only thing an identity observer can hear.
@@ -284,14 +312,8 @@ internal sealed class ObservationShape
     {
         this.edits.Send(
             CollectionEdit<int, ItemIdentity, ItemState>.Add(
-                new Item<ItemIdentity, ItemState>(ItemSeed.Identity(key), state)));
+                new Item<ItemIdentity, ItemState>(identity: ItemSeed.Identity(key), state: state)));
 
         this.edits.Send(CollectionEdit<int, ItemIdentity, ItemState>.Remove(key));
     }
-
-    /// <summary>
-    ///     An even key - so the filter keeps it, and the view sees the structural change - that no
-    ///     observer watches and no seeded item uses.
-    /// </summary>
-    internal static int UnobservedStructuralKey => -2;
 }

@@ -23,7 +23,9 @@ internal static class TestUtil
     internal static int KeyOf(ItemIdentity identity) => identity.Number;
 
     internal static Item<ItemIdentity, ItemState> Item(int number, string name, int score) =>
-        new(new ItemIdentity(number, $"C{number}"), new ItemState(name, score));
+        new(
+            identity: new ItemIdentity(Number: number, Code: $"C{number}"),
+            state: new ItemState(Name: name, Score: score));
 
     internal static CollectionEdit<int, ItemIdentity, ItemState> Add(params Item<ItemIdentity, ItemState>[] items) =>
         CollectionEdit<int, ItemIdentity, ItemState>.Add(items);
@@ -32,10 +34,10 @@ internal static class TestUtil
         CollectionEdit<int, ItemIdentity, ItemState>.Remove(keys);
 
     internal static CollectionEdit<int, ItemIdentity, ItemState> Score(int key, int score) =>
-        CollectionEdit<int, ItemIdentity, ItemState>.Update(key, state => state with { Score = score });
+        CollectionEdit<int, ItemIdentity, ItemState>.Update(key: key, transform: state => state with { Score = score });
 
     internal static Item<SelfKeyedItemIdentity, ItemState> SelfKeyedItem(int number, string name, int score) =>
-        new(new SelfKeyedItemIdentity(number), new ItemState(name, score));
+        new(identity: new SelfKeyedItemIdentity(number), state: new ItemState(Name: name, Score: score));
 
     internal static List<int> Keys(IEnumerable<int> keys) => [.. keys];
 }

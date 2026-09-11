@@ -25,7 +25,7 @@ internal static class CollectionInternals
         TKey key,
         out TValue value)
     {
-        bool found = dictionary.TryGetValue(key, out TValue? stored);
+        bool found = dictionary.TryGetValue(key: key, value: out TValue? stored);
 
         // ReSharper disable once NullableWarningSuppressionIsUsed - see the remarks above.
         value = stored!;

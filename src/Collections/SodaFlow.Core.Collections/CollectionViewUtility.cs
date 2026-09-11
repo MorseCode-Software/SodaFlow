@@ -34,23 +34,26 @@ internal static class CollectionViewUtility
         {
             LoopedCell<OrderedKeys<TKey, TIdentity, TState>> stateLoopCell = new();
 
-            Stream<StageResult<TKey, TIdentity, TState>> resultsStream = collection.ItemChangesStream
-                .SnapshotImpl(stateLoopCell, ProcessRoot);
+            Stream<StageResult<TKey, TIdentity, TState>> resultsStream =
+                collection.ItemChangesStream
+                    .SnapshotImpl(c: stateLoopCell, f: ProcessRoot);
 
-            Cell<OrderedKeys<TKey, TIdentity, TState>> keysCell = resultsStream
-                .MapImpl(static result => result.Keys)
-                .HoldLazyImpl(collection.SnapshotCell.SampleLazyImpl().MapImpl(
-                    snapshot => RebuildRoot(order, snapshot)));
+            Cell<OrderedKeys<TKey, TIdentity, TState>> keysCell =
+                resultsStream
+                    .MapImpl(static result => result.Keys)
+                    .HoldLazyImpl(
+                        collection.SnapshotCell.SampleLazyImpl()
+                            .MapImpl(snapshot => RebuildRoot(order: order, snapshot: snapshot)));
 
-            stateLoopCell.Loop(trans, keysCell);
+            stateLoopCell.Loop(trans: trans, c: keysCell);
 
             return new ViewStage<TKey, TIdentity, TState>(
-                collection,
-                keysCell,
+                source: collection,
+                keysCell: keysCell,
                 // The root's ordering holds every key, so scoping it would wrap the store in a
                 // filter that admits all of it.
-                () => collection.SnapshotCell,
-                ToChangesStream(resultsStream));
+                snapshotCell: () => collection.SnapshotCell,
+                keyChangesStream: ToChangesStream(resultsStream));
         });
     }
 
@@ -61,8 +64,8 @@ internal static class CollectionViewUtility
         where TKey : notnull
         where TIdentity : notnull =>
         SortByImpl(
-            upstream,
-            CellInternal.ConstantImpl(KeyOrder<TKey, TIdentity, TState>.ByKey(keyComparer)));
+            upstream: upstream,
+            orderCell: CellInternal.ConstantImpl(KeyOrder<TKey, TIdentity, TState>.ByKey(keyComparer)));
 
     /// <summary>
     ///     Narrows the view, preserving the upstream order. The stage files its members into a set
@@ -75,10 +78,10 @@ internal static class CollectionViewUtility
         where TKey : notnull
         where TIdentity : notnull =>
         BuildStage(
-            upstream,
-            predicateCell,
-            RebuildFilter,
-            ProcessFilter);
+            upstream: upstream,
+            criteriaCell: predicateCell,
+            rebuild: RebuildFilter,
+            process: ProcessFilter);
 
     /// <summary>
     ///     Reorders the view. <typeparamref name="TSortKey" /> stays a real generic parameter all
@@ -94,9 +97,13 @@ internal static class CollectionViewUtility
         where TKey : notnull
         where TIdentity : notnull =>
         SortByImpl(
-            upstream,
-            CellInternal.ConstantImpl(
-                KeyOrder<TKey, TIdentity, TState>.By(selector, sortComparer, keyComparer, descending)));
+            upstream: upstream,
+            orderCell: CellInternal.ConstantImpl(
+                KeyOrder<TKey, TIdentity, TState>.By(
+                    selector: selector,
+                    sortComparer: sortComparer,
+                    keyComparer: keyComparer,
+                    descending: descending)));
 
     /// <summary>
     ///     Narrows the view by a predicate over each item's immutable half alone, which a state
@@ -115,10 +122,10 @@ internal static class CollectionViewUtility
         where TKey : notnull
         where TIdentity : notnull =>
         BuildStage(
-            upstream,
-            CellInternal.ConstantImpl(predicate),
-            RebuildFilterByIdentity,
-            ProcessFilterByIdentity);
+            upstream: upstream,
+            criteriaCell: CellInternal.ConstantImpl(predicate),
+            rebuild: RebuildFilterByIdentity,
+            process: ProcessFilterByIdentity);
 
     /// <summary>
     ///     Reorders the view by a value projected from each item's immutable half alone, which a
@@ -139,13 +146,13 @@ internal static class CollectionViewUtility
         where TKey : notnull
         where TIdentity : notnull =>
         SortByImpl(
-            upstream,
-            CellInternal.ConstantImpl(
+            upstream: upstream,
+            orderCell: CellInternal.ConstantImpl(
                 KeyOrder<TKey, TIdentity, TState>.ByIdentity(
-                    selector,
-                    sortComparer,
-                    keyComparer,
-                    descending)));
+                    selector: selector,
+                    sortComparer: sortComparer,
+                    keyComparer: keyComparer,
+                    descending: descending)));
 
     /// <summary>Reorders the view by whichever order the cell currently holds.</summary>
     /// <remarks>
@@ -168,10 +175,11 @@ internal static class CollectionViewUtility
         where TKey : notnull
         where TIdentity : notnull =>
         BuildStage(
-            upstream,
-            orderCell,
-            static (order, upstreamKeys, snapshot) => RebuildSort(order, upstreamKeys, snapshot),
-            static (_, keys, change) => ProcessSort(keys, change));
+            upstream: upstream,
+            criteriaCell: orderCell,
+            rebuild: static (order, upstreamKeys, snapshot) =>
+                RebuildSort(order: order, upstreamKeys: upstreamKeys, snapshot: snapshot),
+            process: static (_, keys, change) => ProcessSort(state: keys, change: change));
 
     /// <summary>
     ///     The first <c>limit</c> keys of the upstream — the top-n of whatever ordering and
@@ -188,7 +196,7 @@ internal static class CollectionViewUtility
         Cell<int> limitCell)
         where TKey : notnull
         where TIdentity : notnull =>
-        SliceImpl(upstream, CellInternal.ConstantImpl(0), limitCell);
+        SliceImpl(upstream: upstream, offsetCell: CellInternal.ConstantImpl(0), limitCell: limitCell);
 
     /// <summary>
     ///     A window of <c>limit</c> keys starting at <c>offset</c> - the page of whatever ordering
@@ -217,13 +225,16 @@ internal static class CollectionViewUtility
         where TKey : notnull
         where TIdentity : notnull =>
         BuildStage(
-            upstream,
-            offsetCell.LiftImpl(
-                limitCell,
-                static (offset, limit) => (Offset: offset, Limit: limit)),
-            static (bounds, upstreamKeys, _) =>
-                new RangeKeys<TKey, TIdentity, TState>(upstreamKeys, bounds.Offset, bounds.Limit),
-            static (bounds, keys, change) => ProcessSlice(bounds, keys, change));
+            upstream: upstream,
+            criteriaCell: offsetCell.LiftImpl(
+                b2: limitCell,
+                f: static (offset, limit) => (Offset: offset, Limit: limit)),
+            rebuild: static (bounds, upstreamKeys, _) =>
+                new RangeKeys<TKey, TIdentity, TState>(
+                    source: upstreamKeys,
+                    offset: bounds.Offset,
+                    limit: bounds.Limit),
+            process: static (bounds, keys, change) => ProcessSlice(bounds: bounds, state: keys, change: change));
 
     private static ReactiveCollection<TKey, TIdentity, TState> BuildStage<TKey, TIdentity, TState, TCriteria>(
         ReactiveCollection<TKey, TIdentity, TState> upstream,
@@ -242,94 +253,114 @@ internal static class CollectionViewUtility
             // force the lazy scoped cell of every stage in the chain, which is the whole cost
             // deferring it was meant to avoid - and this needs no scoping, because what it feeds
             // is scoped explicitly below.
-            Cell<StageContext<TKey, TIdentity, TState, TCriteria>> contextCell = criteriaCell.LiftImpl(
-                upstream.KeysCell,
-                upstream.Root.SnapshotCell,
-                static (criteria, upstreamKeys, snapshot) =>
-                    new StageContext<TKey, TIdentity, TState, TCriteria>(criteria, upstreamKeys, snapshot));
+            Cell<StageContext<TKey, TIdentity, TState, TCriteria>> contextCell =
+                criteriaCell.LiftImpl(
+                    b2: upstream.KeysCell,
+                    b3: upstream.Root.SnapshotCell,
+                    f: static (criteria, upstreamKeys, snapshot) =>
+                        new StageContext<TKey, TIdentity, TState, TCriteria>(
+                            criteria: criteria,
+                            upstreamKeys: upstreamKeys,
+                            snapshot: snapshot));
 
-            Stream<StageInput<TKey, TIdentity, TState, TCriteria>> inputStream = upstream.KeyChangesStream
-                .MapImpl(static change => new StageInput<TKey, TIdentity, TState, TCriteria>(
-                    MaybeInternal.Some(change),
-                    MaybeInternal<TCriteria>.None))
-                .MergeImpl(
-                    s: criteriaCell.UpdatesImpl.MapImpl(
-                        static criteria => new StageInput<TKey, TIdentity, TState, TCriteria>(
-                            MaybeInternal<CollectionViewChange<TKey, TIdentity, TState>>.None,
-                            MaybeInternal.Some(criteria))),
-                    f: static (left, right) => new StageInput<TKey, TIdentity, TState, TCriteria>(
-                        left.Change.Match(MaybeInternal.Some, () => right.Change),
-                        left.Criteria.Match(MaybeInternal.Some, () => right.Criteria)));
+            Stream<StageInput<TKey, TIdentity, TState, TCriteria>> inputStream =
+                upstream.KeyChangesStream
+                    .MapImpl(static change =>
+                        new StageInput<TKey, TIdentity, TState, TCriteria>(
+                            change: MaybeInternal.Some(change),
+                            criteria: MaybeInternal<TCriteria>.None))
+                    .MergeImpl(
+                        s: criteriaCell.UpdatesImpl.MapImpl(static criteria =>
+                            new StageInput<TKey, TIdentity, TState, TCriteria>(
+                                change: MaybeInternal<CollectionViewChange<TKey, TIdentity, TState>>.None,
+                                criteria: MaybeInternal.Some(criteria))),
+                        f: static (left, right) =>
+                            new StageInput<TKey, TIdentity, TState, TCriteria>(
+                                change: left.Change.Match(onSome: MaybeInternal.Some, onNone: () => right.Change),
+                                criteria: left.Criteria.Match(
+                                    onSome: MaybeInternal.Some,
+                                    onNone: () => right.Criteria)));
 
-            Stream<StageResult<TKey, TIdentity, TState>> resultsStream = inputStream.SnapshotImpl(
-                stateLoopCell,
-                contextCell,
-                (input, state, context) =>
-                {
-                    // Anything the input carries is newer than the context, which is still the
-                    // pre-transaction sample.
-                    TCriteria criteria = input.Criteria.Match(static c => c, () => context.Criteria);
-
-                    CollectionSnapshot<TKey, TIdentity, TState> snapshot = input.Change.Match(
-                        static change => change.After,
-                        () => context.Snapshot);
-
-                    OrderedKeys<TKey, TIdentity, TState> upstreamKeys = input.Change.Match(
-                        static change => change.Keys,
-                        () => context.UpstreamKeys);
-
-                    bool mustRebuild =
-                        input.Criteria.Match(static _ => true, static () => false) ||
-                        input.Change.Match(static change => change.IsReset, static () => false);
-
-                    if (mustRebuild)
+            Stream<StageResult<TKey, TIdentity, TState>> resultsStream =
+                inputStream.SnapshotImpl(
+                    c1: stateLoopCell,
+                    c2: contextCell,
+                    f: (input, state, context) =>
                     {
-                        OrderedKeys<TKey, TIdentity, TState> rebuilt =
-                            rebuild(criteria, upstreamKeys, snapshot);
+                        // Anything the input carries is newer than the context, which is still the
+                        // pre-transaction sample.
+                        TCriteria criteria =
+                            input.Criteria.Match(onSome: static c => c, onNone: () => context.Criteria);
 
-                        return new StageResult<TKey, TIdentity, TState>(
-                            rebuilt,
-                            Array.Empty<ViewOperation<TKey>>(),
-                            true,
-                            context.Snapshot.ScopedTo(state),
-                            snapshot.ScopedTo(rebuilt));
-                    }
+                        CollectionSnapshot<TKey, TIdentity, TState> snapshot =
+                            input.Change.Match(
+                                onSome: static change => change.After,
+                                onNone: () => context.Snapshot);
 
-                    return input.Change.Match(
-                        change =>
+                        OrderedKeys<TKey, TIdentity, TState> upstreamKeys =
+                            input.Change.Match(
+                                onSome: static change => change.Keys,
+                                onNone: () => context.UpstreamKeys);
+
+                        bool mustRebuild =
+                            input.Criteria.Match(onSome: static _ => true, onNone: static () => false) ||
+                            input.Change.Match(onSome: static change => change.IsReset, onNone: static () => false);
+
+                        if (mustRebuild)
                         {
-                            StageOutcome<TKey, TIdentity, TState> outcome = process(criteria, state, change);
+                            OrderedKeys<TKey, TIdentity, TState> rebuilt =
+                                rebuild(arg1: criteria, arg2: upstreamKeys, arg3: snapshot);
 
                             return new StageResult<TKey, TIdentity, TState>(
-                                outcome.Keys,
-                                outcome.Operations,
-                                false,
-                                context.Snapshot.ScopedTo(state),
-                                snapshot.ScopedTo(outcome.Keys));
-                        },
-                        () => new StageResult<TKey, TIdentity, TState>(
-                            state,
-                            Array.Empty<ViewOperation<TKey>>(),
-                            false,
-                            context.Snapshot.ScopedTo(state),
-                            snapshot.ScopedTo(state)));
-                });
+                                keys: rebuilt,
+                                operations: Array.Empty<ViewOperation<TKey>>(),
+                                isReset: true,
+                                before: context.Snapshot.ScopedTo(state),
+                                after: snapshot.ScopedTo(rebuilt));
+                        }
 
-            Cell<OrderedKeys<TKey, TIdentity, TState>> keysCell = resultsStream
-                .MapImpl(static result => result.Keys)
-                .HoldLazyImpl(contextCell.SampleLazyImpl().MapImpl(
-                    context => rebuild(context.Criteria, context.UpstreamKeys, context.Snapshot)));
+                        return input.Change.Match(
+                            onSome: change =>
+                            {
+                                StageOutcome<TKey, TIdentity, TState> outcome =
+                                    process(arg1: criteria, arg2: state, arg3: change);
 
-            stateLoopCell.Loop(trans, keysCell);
+                                return new StageResult<TKey, TIdentity, TState>(
+                                    keys: outcome.Keys,
+                                    operations: outcome.Operations,
+                                    isReset: false,
+                                    before: context.Snapshot.ScopedTo(state),
+                                    after: snapshot.ScopedTo(outcome.Keys));
+                            },
+                            onNone: () =>
+                                new StageResult<TKey, TIdentity, TState>(
+                                    keys: state,
+                                    operations: Array.Empty<ViewOperation<TKey>>(),
+                                    isReset: false,
+                                    before: context.Snapshot.ScopedTo(state),
+                                    after: snapshot.ScopedTo(state)));
+                    });
+
+            Cell<OrderedKeys<TKey, TIdentity, TState>> keysCell =
+                resultsStream
+                    .MapImpl(static result => result.Keys)
+                    .HoldLazyImpl(
+                        contextCell.SampleLazyImpl()
+                            .MapImpl(context =>
+                                rebuild(arg1: context.Criteria, arg2: context.UpstreamKeys, arg3: context.Snapshot)));
+
+            stateLoopCell.Loop(trans: trans, c: keysCell);
 
             return new ViewStage<TKey, TIdentity, TState>(
-                upstream,
-                keysCell,
+                source: upstream,
+                keysCell: keysCell,
                 // The one above it behind this stage's keys, built only if something asks.
-                () => TransactionInternal.RunImpl(() => upstream.SnapshotCell.LiftImpl(
-                    keysCell,
-                    static (snapshot, keys) => snapshot.ScopedTo(keys))),
-                ToChangesStream(resultsStream));
+                snapshotCell: () =>
+                    TransactionInternal.RunImpl(() =>
+                        upstream.SnapshotCell.LiftImpl(
+                            b2: keysCell,
+                            f: static (snapshot, keys) => snapshot.ScopedTo(keys))),
+                keyChangesStream: ToChangesStream(resultsStream));
         });
 
     private static Stream<CollectionViewChange<TKey, TIdentity, TState>> ToChangesStream<TKey, TIdentity, TState>(
@@ -337,12 +368,13 @@ internal static class CollectionViewUtility
         where TKey : notnull
         where TIdentity : notnull =>
         resultsStream
-            .MapImpl(static result => new CollectionViewChange<TKey, TIdentity, TState>(
-                result.Before,
-                result.After,
-                result.Keys,
-                result.Operations,
-                result.IsReset))
+            .MapImpl(static result =>
+                new CollectionViewChange<TKey, TIdentity, TState>(
+                    before: result.Before,
+                    after: result.After,
+                    keys: result.Keys,
+                    operations: result.Operations,
+                    isReset: result.IsReset))
             .FilterImpl(static change => change.IsReset || change.Operations.Count > 0);
 
     // --- root ---------------------------------------------------------------------------------
@@ -352,7 +384,7 @@ internal static class CollectionViewUtility
         CollectionSnapshot<TKey, TIdentity, TState> snapshot)
         where TKey : notnull
         where TIdentity : notnull =>
-        FileAll(order, snapshot.Identities.Keys, snapshot);
+        FileAll(order: order, keys: snapshot.Identities.Keys, snapshot: snapshot);
 
     private static StageResult<TKey, TIdentity, TState> ProcessRoot<TKey, TIdentity, TState>(
         ItemChange<TKey, TIdentity, TState> change,
@@ -369,7 +401,7 @@ internal static class CollectionViewUtility
 
             if (index >= 0)
             {
-                operations.Add(new ViewRemove<TKey>(key, index));
+                operations.Add(new ViewRemove<TKey>(key: key, index: index));
                 keys = keys.Remove(key);
             }
         }
@@ -378,13 +410,13 @@ internal static class CollectionViewUtility
         {
             if (change.WasAdded(key))
             {
-                keys = keys.Add(key, change.After);
+                keys = keys.Add(key: key, snapshot: change.After);
 
                 int index = keys.IndexOfInternal(key);
 
                 if (index >= 0)
                 {
-                    operations.Add(new ViewInsert<TKey>(key, index));
+                    operations.Add(new ViewInsert<TKey>(key: key, index: index));
                 }
             }
             else
@@ -396,17 +428,17 @@ internal static class CollectionViewUtility
 
                 if (index >= 0)
                 {
-                    operations.Add(new ViewUpdate<TKey>(key, index));
+                    operations.Add(new ViewUpdate<TKey>(key: key, index: index));
                 }
             }
         }
 
         return new StageResult<TKey, TIdentity, TState>(
-            keys,
-            operations,
-            false,
-            change.Before,
-            change.After);
+            keys: keys,
+            operations: operations,
+            isReset: false,
+            before: change.Before,
+            after: change.After);
     }
 
     // --- filter -------------------------------------------------------------------------------
@@ -416,15 +448,13 @@ internal static class CollectionViewUtility
         OrderedKeys<TKey, TIdentity, TState> upstreamKeys,
         CollectionSnapshot<TKey, TIdentity, TState> snapshot)
         where TKey : notnull
-        where TIdentity : notnull
-    {
+        where TIdentity : notnull =>
         // Built from the upstream's own order, so this stage sorts exactly as its upstream does
         // without knowing what that order is.
-        return FileAll(
-            upstreamKeys.Order,
-            upstreamKeys.Where(key => Passes(key, predicate, snapshot)),
-            snapshot);
-    }
+        FileAll(
+            order: upstreamKeys.Order,
+            keys: upstreamKeys.Where(key => Passes(key: key, predicate: predicate, snapshot: snapshot)),
+            snapshot: snapshot);
 
     private static OrderedKeys<TKey, TIdentity, TState> RebuildFilterByIdentity<TKey, TIdentity, TState>(
         Func<TIdentity, bool> predicate,
@@ -433,9 +463,9 @@ internal static class CollectionViewUtility
         where TKey : notnull
         where TIdentity : notnull =>
         FileAll(
-            upstreamKeys.Order,
-            upstreamKeys.Where(key => PassesByIdentity(key, predicate, snapshot)),
-            snapshot);
+            order: upstreamKeys.Order,
+            keys: upstreamKeys.Where(key => PassesByIdentity(key: key, predicate: predicate, snapshot: snapshot)),
+            snapshot: snapshot);
 
     /// <summary>
     ///     What an identity-only filter does with a change, which on an update is nothing but pass
@@ -467,18 +497,18 @@ internal static class CollectionViewUtility
             {
                 case ViewInsert<TKey> insert:
                 {
-                    if (!PassesByIdentity(insert.Key, predicate, change.After))
+                    if (!PassesByIdentity(key: insert.Key, predicate: predicate, snapshot: change.After))
                     {
                         break;
                     }
 
-                    keys = keys.Add(insert.Key, change.After);
+                    keys = keys.Add(key: insert.Key, snapshot: change.After);
 
                     int inserted = keys.IndexOfInternal(insert.Key);
 
                     if (inserted >= 0)
                     {
-                        operations.Add(new ViewInsert<TKey>(insert.Key, inserted));
+                        operations.Add(new ViewInsert<TKey>(key: insert.Key, index: inserted));
                     }
 
                     break;
@@ -490,7 +520,7 @@ internal static class CollectionViewUtility
 
                     if (removed >= 0)
                     {
-                        operations.Add(new ViewRemove<TKey>(remove.Key, removed));
+                        operations.Add(new ViewRemove<TKey>(key: remove.Key, index: removed));
                         keys = keys.Remove(remove.Key);
                     }
 
@@ -503,7 +533,7 @@ internal static class CollectionViewUtility
 
                     if (updated >= 0)
                     {
-                        operations.Add(new ViewUpdate<TKey>(update.Key, updated));
+                        operations.Add(new ViewUpdate<TKey>(key: update.Key, index: updated));
                     }
 
                     break;
@@ -514,7 +544,7 @@ internal static class CollectionViewUtility
             }
         }
 
-        return new StageOutcome<TKey, TIdentity, TState>(keys, operations);
+        return new StageOutcome<TKey, TIdentity, TState>(keys: keys, operations: operations);
     }
 
     private static StageOutcome<TKey, TIdentity, TState> ProcessFilter<TKey, TIdentity, TState>(
@@ -549,22 +579,22 @@ internal static class CollectionViewUtility
             }
         }
 
-        return new StageOutcome<TKey, TIdentity, TState>(keys, operations);
+        return new StageOutcome<TKey, TIdentity, TState>(keys: keys, operations: operations);
 
         void Include(TKey key)
         {
-            if (!Passes(key, predicate, change.After))
+            if (!Passes(key: key, predicate: predicate, snapshot: change.After))
             {
                 return;
             }
 
-            keys = keys.Add(key, change.After);
+            keys = keys.Add(key: key, snapshot: change.After);
 
             int index = keys.IndexOfInternal(key);
 
             if (index >= 0)
             {
-                operations.Add(new ViewInsert<TKey>(key, index));
+                operations.Add(new ViewInsert<TKey>(key: key, index: index));
             }
         }
 
@@ -574,7 +604,7 @@ internal static class CollectionViewUtility
 
             if (index >= 0)
             {
-                operations.Add(new ViewRemove<TKey>(key, index));
+                operations.Add(new ViewRemove<TKey>(key: key, index: index));
                 keys = keys.Remove(key);
             }
         }
@@ -582,12 +612,12 @@ internal static class CollectionViewUtility
         void Refresh(TKey key)
         {
             bool was = keys.Contains(key);
-            bool now = Passes(key, predicate, change.After);
+            bool now = Passes(key: key, predicate: predicate, snapshot: change.After);
 
             switch (was)
             {
                 case true when now:
-                    Refile(ref keys, operations, key, change.After);
+                    Refile(keys: ref keys, operations: operations, key: key, snapshot: change.After);
                     break;
 
                 case true:
@@ -613,7 +643,7 @@ internal static class CollectionViewUtility
         CollectionSnapshot<TKey, TIdentity, TState> snapshot)
         where TKey : notnull
         where TIdentity : notnull =>
-        FileAll(order, upstreamKeys, snapshot);
+        FileAll(order: order, keys: upstreamKeys, snapshot: snapshot);
 
     private static StageOutcome<TKey, TIdentity, TState> ProcessSort<TKey, TIdentity, TState>(
         OrderedKeys<TKey, TIdentity, TState> state,
@@ -630,13 +660,13 @@ internal static class CollectionViewUtility
             {
                 case ViewInsert<TKey> insert:
                 {
-                    keys = keys.Add(insert.Key, change.After);
+                    keys = keys.Add(key: insert.Key, snapshot: change.After);
 
                     int index = keys.IndexOfInternal(insert.Key);
 
                     if (index >= 0)
                     {
-                        operations.Add(new ViewInsert<TKey>(insert.Key, index));
+                        operations.Add(new ViewInsert<TKey>(key: insert.Key, index: index));
                     }
 
                     break;
@@ -648,7 +678,7 @@ internal static class CollectionViewUtility
 
                     if (index >= 0)
                     {
-                        operations.Add(new ViewRemove<TKey>(remove.Key, index));
+                        operations.Add(new ViewRemove<TKey>(key: remove.Key, index: index));
                         keys = keys.Remove(remove.Key);
                     }
 
@@ -656,14 +686,14 @@ internal static class CollectionViewUtility
                 }
 
                 case ViewUpdate<TKey> update:
-                    Refile(ref keys, operations, update.Key, change.After);
+                    Refile(keys: ref keys, operations: operations, key: update.Key, snapshot: change.After);
                     break;
 
                 // Upstream moves are irrelevant: this stage imposes its own order.
             }
         }
 
-        return new StageOutcome<TKey, TIdentity, TState>(keys, operations);
+        return new StageOutcome<TKey, TIdentity, TState>(keys: keys, operations: operations);
     }
 
     // --- take ---------------------------------------------------------------------------------
@@ -676,7 +706,7 @@ internal static class CollectionViewUtility
         where TIdentity : notnull
     {
         OrderedKeys<TKey, TIdentity, TState> keys =
-            new RangeKeys<TKey, TIdentity, TState>(change.Keys, bounds.Offset, bounds.Limit);
+            new RangeKeys<TKey, TIdentity, TState>(source: change.Keys, offset: bounds.Offset, limit: bounds.Limit);
 
         List<TKey> before = new(state);
         List<TKey> after = new(keys);
@@ -685,7 +715,7 @@ internal static class CollectionViewUtility
 
         while (common < before.Count &&
                common < after.Count &&
-               EqualityComparer<TKey>.Default.Equals(before[common], after[common]))
+               EqualityComparer<TKey>.Default.Equals(x: before[common], y: after[common]))
         {
             common++;
         }
@@ -694,12 +724,12 @@ internal static class CollectionViewUtility
 
         for (int index = before.Count - 1; index >= common; index--)
         {
-            operations.Add(new ViewRemove<TKey>(before[index], index));
+            operations.Add(new ViewRemove<TKey>(key: before[index], index: index));
         }
 
         for (int index = common; index < after.Count; index++)
         {
-            operations.Add(new ViewInsert<TKey>(after[index], index));
+            operations.Add(new ViewInsert<TKey>(key: after[index], index: index));
         }
 
         // Keys that survived in place still need their updates forwarded, or a stage below this one
@@ -715,11 +745,11 @@ internal static class CollectionViewUtility
 
             if (index >= 0 && index < common)
             {
-                operations.Add(new ViewUpdate<TKey>(update.Key, index));
+                operations.Add(new ViewUpdate<TKey>(key: update.Key, index: index));
             }
         }
 
-        return new StageOutcome<TKey, TIdentity, TState>(keys, operations);
+        return new StageOutcome<TKey, TIdentity, TState>(keys: keys, operations: operations);
     }
 
     /// <summary>
@@ -741,16 +771,17 @@ internal static class CollectionViewUtility
         if (retainedBeyondTheView < 0)
         {
             throw new ArgumentOutOfRangeException(
-                nameof(retainedBeyondTheView),
-                retainedBeyondTheView,
-                "A projection cannot retain a negative number of departed keys.");
+                paramName: nameof(retainedBeyondTheView),
+                actualValue: retainedBeyondTheView,
+                message: "A projection cannot retain a negative number of departed keys.");
         }
 
-        MappedItemCache<TKey, TResult> cache = new(project, retainedBeyondTheView, onEvicted);
+        MappedItemCache<TKey, TResult> cache =
+            new(project: project, retainedBeyondTheView: retainedBeyondTheView, onEvicted: onEvicted);
 
         return new MappedItems<TResult>(
-            collection.KeysCell.MapImpl(cache.Project),
-            cache.ReleaseAll);
+            items: collection.KeysCell.MapImpl(cache.Project),
+            dispose: cache.ReleaseAll);
     }
 
     // --- shared -------------------------------------------------------------------------------
@@ -766,7 +797,7 @@ internal static class CollectionViewUtility
         CollectionSnapshot<TKey, TIdentity, TState> snapshot)
         where TKey : notnull
         where TIdentity : notnull =>
-        order.CreateFrom(keys, snapshot);
+        order.CreateFrom(keys: keys, snapshot: snapshot);
 
     /// <summary>
     ///     Whether an item passes a predicate that reads its identity and not its state, which is
@@ -778,7 +809,7 @@ internal static class CollectionViewUtility
         CollectionSnapshot<TKey, TIdentity, TState> snapshot)
         where TKey : notnull
         where TIdentity : notnull =>
-        snapshot.TryGetIdentity(key, out TIdentity identity) && predicate(identity);
+        snapshot.TryGetIdentity(key: key, identity: out TIdentity identity) && predicate(identity);
 
     private static bool Passes<TKey, TIdentity, TState>(
         TKey key,
@@ -786,8 +817,8 @@ internal static class CollectionViewUtility
         CollectionSnapshot<TKey, TIdentity, TState> snapshot)
         where TKey : notnull
         where TIdentity : notnull =>
-        snapshot.TryGetHalves(key, out TIdentity identity, out TState state) &&
-        predicate(identity, state);
+        snapshot.TryGetHalves(key: key, identity: out TIdentity identity, state: out TState state) &&
+        predicate(arg1: identity, arg2: state);
 
     /// <summary>
     ///     Removes and re-adds a key so it is filed under its new sort value, reporting a move if
@@ -816,7 +847,7 @@ internal static class CollectionViewUtility
 
             if (at >= 0)
             {
-                operations.Add(new ViewUpdate<TKey>(key, at));
+                operations.Add(new ViewUpdate<TKey>(key: key, index: at));
             }
 
             return;
@@ -824,7 +855,7 @@ internal static class CollectionViewUtility
 
         int fromIndex = keys.IndexOfInternal(key);
 
-        OrderedKeys<TKey, TIdentity, TState> updated = keys.Remove(key).Add(key, snapshot);
+        OrderedKeys<TKey, TIdentity, TState> updated = keys.Remove(key).Add(key: key, snapshot: snapshot);
         int toIndex = updated.IndexOfInternal(key);
 
         keys = updated;
@@ -835,7 +866,7 @@ internal static class CollectionViewUtility
             // the item.
             if (fromIndex >= 0)
             {
-                operations.Add(new ViewRemove<TKey>(key, fromIndex));
+                operations.Add(new ViewRemove<TKey>(key: key, index: fromIndex));
             }
 
             return;
@@ -843,17 +874,17 @@ internal static class CollectionViewUtility
 
         if (fromIndex < 0)
         {
-            operations.Add(new ViewInsert<TKey>(key, toIndex));
+            operations.Add(new ViewInsert<TKey>(key: key, index: toIndex));
 
             return;
         }
 
         if (fromIndex != toIndex)
         {
-            operations.Add(new ViewMove<TKey>(key, fromIndex, toIndex));
+            operations.Add(new ViewMove<TKey>(key: key, fromIndex: fromIndex, toIndex: toIndex));
         }
 
-        operations.Add(new ViewUpdate<TKey>(key, toIndex));
+        operations.Add(new ViewUpdate<TKey>(key: key, index: toIndex));
     }
 }
 

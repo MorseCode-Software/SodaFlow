@@ -36,7 +36,112 @@ public sealed class PerformanceTests
 
         int[] values = [.. obj.Select(static v => v.CurrentValue)];
 
-        await Assert.That(values).IsEquivalentTo(expected: Enumerable.Range(start: 1, count: 5000).Select(static _ => 0), ordering: CollectionOrdering.Matching);
+        await Assert.That(values)
+            .IsEquivalentTo(
+                expected: Enumerable.Range(start: 1, count: 5000).Select(static _ => 0),
+                ordering: CollectionOrdering.Matching);
+    }
+
+    [Test]
+    public void TestRunConstruct()
+    {
+        CellSink<IReadOnlyList<TestObject2>> objects =
+            Transaction.Run(static () =>
+            {
+                IReadOnlyList<TestObject2> o2 =
+                [
+                    .. Enumerable.Range(start: 0, count: 10000)
+                        .Select(static n =>
+                            new TestObject2(
+                                initialIsSelected: n < 1500,
+                                selectAllStream: Stream.Never<bool>()))
+                ];
+
+                CellSink<IReadOnlyList<TestObject2>> objectsLocal = Cell.CreateSink(o2);
+
+                return objectsLocal;
+            });
+
+        Transaction.Run(() =>
+        {
+            objects.Send(
+            [
+                .. Enumerable.Range(start: 0, count: 20000)
+                    .Select(static n =>
+                        new TestObject2(initialIsSelected: n < 500, selectAllStream: Stream.Never<bool>()))
+            ]);
+
+            return Unit.Value;
+        });
+    }
+
+    [Test]
+    public async Task TestRunConstruct2()
+    {
+        (var objectsAndIsSelected, Stream<bool> selectAllStream, CellSink<IReadOnlyList<TestObject2>> objects) =
+            Transaction.Run(static () =>
+            {
+                CellLoop<bool?> allSelectedCellLoop = Cell.CreateLoop<bool?>();
+                StreamSink<Unit> toggleAllSelectedStreamLocal = Stream.CreateSink<Unit>();
+
+                Stream<bool> selectAllStreamLocal =
+                    toggleAllSelectedStreamLocal.Snapshot(allSelectedCellLoop).Map(static a => a != true);
+
+                IReadOnlyList<TestObject2> o2 =
+                [
+                    .. Enumerable.Range(start: 0, count: 10000)
+                        .Select(n =>
+                            new TestObject2(
+                                initialIsSelected: n < 1500,
+                                selectAllStream: selectAllStreamLocal))
+                ];
+
+                CellSink<IReadOnlyList<TestObject2>> objectsLocal = Cell.CreateSink(o2);
+
+                var objectsAndIsSelectedLocal =
+                    objectsLocal
+                        .Map(static oo =>
+                            oo.Select(static o => o.IsSelected.Map(s => new { Object = o, IsSelected = s })).Lift())
+                        .SwitchC();
+
+                bool defaultValue = o2.Count < 1;
+
+                Cell<bool?> allSelected =
+                    objectsAndIsSelectedLocal.Map(oo =>
+                        !oo.Any()
+                            ? defaultValue
+                            : oo.All(static o => o.IsSelected)
+                                ? true
+                                : oo.All(static o => !o.IsSelected)
+                                    ? (bool?)false
+                                    : null);
+
+                allSelectedCellLoop.Loop(allSelected);
+
+                return (objectsAndIsSelectedLocal, selectAllStreamLocal, objectsLocal);
+            });
+
+        List<int> @out = [];
+
+        using (Transaction.Run(() =>
+                   objectsAndIsSelected.Map(static oo => oo.Count(static o => o.IsSelected))
+                       .Values()
+                       .ListenStrong(@out.Add)))
+        {
+            Transaction.Run(() =>
+            {
+                objects.Send(
+                [
+                    .. Enumerable.Range(start: 0, count: 20000)
+                        .Select(n =>
+                            new TestObject2(initialIsSelected: n < 500, selectAllStream: selectAllStream))
+                ]);
+
+                return Unit.Value;
+            });
+        }
+
+        await Assert.That(@out).IsEquivalentTo(expected: [1500, 500], ordering: CollectionOrdering.Matching);
     }
 
     private sealed class TestObject
@@ -141,108 +246,6 @@ public sealed class PerformanceTests
             get => this.currentValue.Value;
             private set => this.currentValue = new Lazy<int>(() => value);
         }
-    }
-
-    [Test]
-    public void TestRunConstruct()
-    {
-        CellSink<IReadOnlyList<TestObject2>> objects =
-            Transaction.Run(static () =>
-            {
-                IReadOnlyList<TestObject2> o2 =
-                [
-                    .. Enumerable.Range(start: 0, count: 10000)
-                        .Select(static n =>
-                            new TestObject2(
-                                initialIsSelected: n < 1500,
-                                selectAllStream: Stream.Never<bool>()))
-                ];
-
-                CellSink<IReadOnlyList<TestObject2>> objectsLocal = Cell.CreateSink(o2);
-
-                return objectsLocal;
-            });
-
-        Transaction.Run(() =>
-        {
-            objects.Send(
-            [
-                .. Enumerable.Range(start: 0, count: 20000)
-                    .Select(static n =>
-                        new TestObject2(initialIsSelected: n < 500, selectAllStream: Stream.Never<bool>()))
-            ]);
-
-            return Unit.Value;
-        });
-    }
-
-    [Test]
-    public async Task TestRunConstruct2()
-    {
-        (var objectsAndIsSelected, Stream<bool> selectAllStream, CellSink<IReadOnlyList<TestObject2>> objects) =
-            Transaction.Run(static () =>
-            {
-                CellLoop<bool?> allSelectedCellLoop = Cell.CreateLoop<bool?>();
-                StreamSink<Unit> toggleAllSelectedStreamLocal = Stream.CreateSink<Unit>();
-
-                Stream<bool> selectAllStreamLocal =
-                    toggleAllSelectedStreamLocal.Snapshot(allSelectedCellLoop).Map(static a => a != true);
-
-                IReadOnlyList<TestObject2> o2 =
-                [
-                    .. Enumerable.Range(start: 0, count: 10000)
-                        .Select(n =>
-                            new TestObject2(
-                                initialIsSelected: n < 1500,
-                                selectAllStream: selectAllStreamLocal))
-                ];
-
-                CellSink<IReadOnlyList<TestObject2>> objectsLocal = Cell.CreateSink(o2);
-
-                var objectsAndIsSelectedLocal =
-                    objectsLocal
-                        .Map(static oo =>
-                            oo.Select(static o => o.IsSelected.Map(s => new { Object = o, IsSelected = s })).Lift())
-                        .SwitchC();
-
-                bool defaultValue = o2.Count < 1;
-
-                Cell<bool?> allSelected =
-                    objectsAndIsSelectedLocal.Map(oo =>
-                        !oo.Any()
-                            ? defaultValue
-                            : oo.All(static o => o.IsSelected)
-                                ? true
-                                : oo.All(static o => !o.IsSelected)
-                                    ? (bool?)false
-                                    : null);
-
-                allSelectedCellLoop.Loop(allSelected);
-
-                return (objectsAndIsSelectedLocal, selectAllStreamLocal, objectsLocal);
-            });
-
-        List<int> @out = [];
-
-        using (Transaction.Run(() =>
-                   objectsAndIsSelected.Map(static oo => oo.Count(static o => o.IsSelected))
-                       .Values()
-                       .ListenStrong(@out.Add)))
-        {
-            Transaction.Run(() =>
-            {
-                objects.Send(
-                [
-                    .. Enumerable.Range(start: 0, count: 20000)
-                        .Select(n =>
-                            new TestObject2(initialIsSelected: n < 500, selectAllStream: selectAllStream))
-                ]);
-
-                return Unit.Value;
-            });
-        }
-
-        await Assert.That(@out).IsEquivalentTo(expected: [1500, 500], ordering: CollectionOrdering.Matching);
     }
 
     private sealed class TestObject2

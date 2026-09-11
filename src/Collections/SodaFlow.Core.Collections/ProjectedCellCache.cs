@@ -24,12 +24,6 @@ namespace SodaFlow.Collections;
 internal sealed class ProjectedCellCache<TKey, TProjected>
     where TKey : notnull
 {
-    /// <summary>
-    ///     Weakly held, so that observers of one key share a node and the node goes away when the
-    ///     last of them does rather than when the collection does.
-    /// </summary>
-    private readonly Dictionary<TKey, WeakReference<Cell<TProjected>>> cells = new();
-
     /// <summary>How many entries may accumulate before dead ones are swept.</summary>
     /// <remarks>
     ///     A sweep walks every entry, so doing one per insert would make filling the cache
@@ -38,13 +32,19 @@ internal sealed class ProjectedCellCache<TKey, TProjected>
     /// </remarks>
     private const int PruneThreshold = 64;
 
+    /// <summary>
+    ///     Weakly held, so that observers of one key share a node and the node goes away when the
+    ///     last of them does rather than when the collection does.
+    /// </summary>
+    private readonly Dictionary<TKey, WeakReference<Cell<TProjected>>> cells = new();
+
     /// <summary>The cell for a key, or <see langword="null" /> if none is still alive.</summary>
     /// <remarks>
     ///     A nullable return rather than a <c>TryGet</c>, because the caller's next move is to
     ///     create one when this yields nothing and a null coalesce says that in one line.
     /// </remarks>
     internal Cell<TProjected>? Get(TKey key) =>
-        this.cells.TryGetValue(key, out WeakReference<Cell<TProjected>>? reference) &&
+        this.cells.TryGetValue(key: key, value: out WeakReference<Cell<TProjected>>? reference) &&
         reference.TryGetTarget(out Cell<TProjected>? cached)
             ? cached
             : null;

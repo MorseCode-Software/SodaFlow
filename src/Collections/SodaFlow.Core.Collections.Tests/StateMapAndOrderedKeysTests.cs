@@ -1,6 +1,6 @@
 using System.Collections.Generic;
-using System.Linq;
 using System.Collections.Immutable;
+using System.Linq;
 using System.Threading.Tasks;
 using TUnit.Assertions;
 using TUnit.Assertions.Extensions;
@@ -11,37 +11,40 @@ namespace SodaFlow.Collections.Tests;
 public sealed class StateMapTests
 {
     private static string StateOf(StateMap<int, string> states, int key) =>
-        states.TryGetState(key, out string state) ? state : "?";
+        states.TryGetState(key: key, state: out string state) ? state : "?";
 
     [Test]
     public async Task WithAppliesUpdatesAndRemovalsAndLeavesTheOriginalAlone()
     {
-        ImmutableStateMap<int, string> first = ImmutableStateMap<int, string>.Empty.With(
-            new Dictionary<int, string> { [1] = "one", [2] = "two" },
-            []);
+        ImmutableStateMap<int, string> first =
+            ImmutableStateMap<int, string>.Empty.With(
+                updated: new Dictionary<int, string> { [1] = "one", [2] = "two" },
+                removed: []);
 
-        ImmutableStateMap<int, string> second = first.With(
-            new Dictionary<int, string> { [2] = "TWO", [3] = "three" },
-            [1]);
+        ImmutableStateMap<int, string> second =
+            first.With(
+                updated: new Dictionary<int, string> { [2] = "TWO", [3] = "three" },
+                removed: [1]);
 
         await Assert.That(first.Count).IsEqualTo(2);
-        await Assert.That(StateOf(first, 1)).IsEqualTo("one");
-        await Assert.That(StateOf(first, 2)).IsEqualTo("two");
+        await Assert.That(StateOf(states: first, key: 1)).IsEqualTo("one");
+        await Assert.That(StateOf(states: first, key: 2)).IsEqualTo("two");
 
         await Assert.That(second.Count).IsEqualTo(2);
         await Assert.That(second.ContainsKey(1)).IsFalse();
-        await Assert.That(StateOf(second, 2)).IsEqualTo("TWO");
-        await Assert.That(StateOf(second, 3)).IsEqualTo("three");
+        await Assert.That(StateOf(states: second, key: 2)).IsEqualTo("TWO");
+        await Assert.That(StateOf(states: second, key: 3)).IsEqualTo("three");
     }
 
     [Test]
     public async Task WithNothingToDoReturnsTheSameInstance()
     {
-        ImmutableStateMap<int, string> map = ImmutableStateMap<int, string>.Empty.With(
-            new Dictionary<int, string> { [1] = "one" },
-            []);
+        ImmutableStateMap<int, string> map =
+            ImmutableStateMap<int, string>.Empty.With(
+                updated: new Dictionary<int, string> { [1] = "one" },
+                removed: []);
 
-        ImmutableStateMap<int, string> same = map.With(new Dictionary<int, string>(), []);
+        ImmutableStateMap<int, string> same = map.With(updated: new Dictionary<int, string>(), removed: []);
 
         await Assert.That(same).IsSameReferenceAs(map);
     }
@@ -64,34 +67,36 @@ public sealed class OrderedKeysTests
         }
 
         return new CollectionSnapshot<int, ItemIdentity, ItemState>(
-            identities.ToImmutable(),
-            ImmutableStateMap<int, ItemState>.Empty.With(states, []));
+            identities: identities.ToImmutable(),
+            states: ImmutableStateMap<int, ItemState>.Empty.With(updated: states, removed: []));
     }
 
     private static SortKeyOrder<int, ItemIdentity, ItemState, int> ByScore(bool descending) =>
         new(
-            static (_, _, state) => state.Score,
-            Comparer<int>.Default,
-            Comparer<int>.Default,
-            descending);
+            selector: static (_, _, state) => state.Score,
+            sortComparer: Comparer<int>.Default,
+            keyComparer: Comparer<int>.Default,
+            descending: descending);
 
     private static OrderedKeys<int, ItemIdentity, ItemState> Empty(
         bool descending,
         CollectionSnapshot<int, ItemIdentity, ItemState> snapshot) =>
-        ByScore(descending).CreateFrom([], snapshot);
+        ByScore(descending).CreateFrom(keys: [], snapshot: snapshot);
 
     [Test]
     public async Task KeysComeBackInSortOrderAndIndexOfAgrees()
     {
-        CollectionSnapshot<int, ItemIdentity, ItemState> snapshot = Snapshot(
-            TestUtil.Item(1, "one", 30),
-            TestUtil.Item(2, "two", 10),
-            TestUtil.Item(3, "three", 20));
+        CollectionSnapshot<int, ItemIdentity, ItemState> snapshot =
+            Snapshot(
+                TestUtil.Item(number: 1, name: "one", score: 30),
+                TestUtil.Item(number: 2, name: "two", score: 10),
+                TestUtil.Item(number: 3, name: "three", score: 20));
 
-        OrderedKeys<int, ItemIdentity, ItemState> keys = Empty(false, snapshot)
-            .Add(1, snapshot)
-            .Add(2, snapshot)
-            .Add(3, snapshot);
+        OrderedKeys<int, ItemIdentity, ItemState> keys =
+            Empty(descending: false, snapshot: snapshot)
+                .Add(key: 1, snapshot: snapshot)
+                .Add(key: 2, snapshot: snapshot)
+                .Add(key: 3, snapshot: snapshot);
 
         await Assert.That(TestUtil.Keys(keys)).IsEquivalentTo([2, 3, 1]);
         await Assert.That(keys.IndexOfInternal(1)).IsEqualTo(2);
@@ -103,15 +108,17 @@ public sealed class OrderedKeysTests
     [Test]
     public async Task EqualSortValuesAreBrokenByKeySoTheOrderIsTotal()
     {
-        CollectionSnapshot<int, ItemIdentity, ItemState> snapshot = Snapshot(
-            TestUtil.Item(5, "five", 10),
-            TestUtil.Item(2, "two", 10),
-            TestUtil.Item(9, "nine", 10));
+        CollectionSnapshot<int, ItemIdentity, ItemState> snapshot =
+            Snapshot(
+                TestUtil.Item(number: 5, name: "five", score: 10),
+                TestUtil.Item(number: 2, name: "two", score: 10),
+                TestUtil.Item(number: 9, name: "nine", score: 10));
 
-        OrderedKeys<int, ItemIdentity, ItemState> keys = Empty(false, snapshot)
-            .Add(5, snapshot)
-            .Add(2, snapshot)
-            .Add(9, snapshot);
+        OrderedKeys<int, ItemIdentity, ItemState> keys =
+            Empty(descending: false, snapshot: snapshot)
+                .Add(key: 5, snapshot: snapshot)
+                .Add(key: 2, snapshot: snapshot)
+                .Add(key: 9, snapshot: snapshot);
 
         await Assert.That(TestUtil.Keys(keys)).IsEquivalentTo([2, 5, 9]);
     }
@@ -119,15 +126,17 @@ public sealed class OrderedKeysTests
     [Test]
     public async Task DescendingReversesTheSortComparisonOnly()
     {
-        CollectionSnapshot<int, ItemIdentity, ItemState> snapshot = Snapshot(
-            TestUtil.Item(1, "one", 30),
-            TestUtil.Item(2, "two", 10),
-            TestUtil.Item(3, "three", 20));
+        CollectionSnapshot<int, ItemIdentity, ItemState> snapshot =
+            Snapshot(
+                TestUtil.Item(number: 1, name: "one", score: 30),
+                TestUtil.Item(number: 2, name: "two", score: 10),
+                TestUtil.Item(number: 3, name: "three", score: 20));
 
-        OrderedKeys<int, ItemIdentity, ItemState> keys = Empty(true, snapshot)
-            .Add(1, snapshot)
-            .Add(2, snapshot)
-            .Add(3, snapshot);
+        OrderedKeys<int, ItemIdentity, ItemState> keys =
+            Empty(descending: true, snapshot: snapshot)
+                .Add(key: 1, snapshot: snapshot)
+                .Add(key: 2, snapshot: snapshot)
+                .Add(key: 3, snapshot: snapshot);
 
         await Assert.That(TestUtil.Keys(keys)).IsEquivalentTo([1, 3, 2]);
     }
@@ -135,9 +144,11 @@ public sealed class OrderedKeysTests
     [Test]
     public async Task AddingAKeyTheSnapshotDoesNotHaveIsANoOp()
     {
-        CollectionSnapshot<int, ItemIdentity, ItemState> snapshot = Snapshot(TestUtil.Item(1, "one", 30));
+        CollectionSnapshot<int, ItemIdentity, ItemState> snapshot =
+            Snapshot(TestUtil.Item(number: 1, name: "one", score: 30));
 
-        OrderedKeys<int, ItemIdentity, ItemState> keys = Empty(false, snapshot).Add(99, snapshot);
+        OrderedKeys<int, ItemIdentity, ItemState> keys =
+            Empty(descending: false, snapshot: snapshot).Add(key: 99, snapshot: snapshot);
 
         await Assert.That(keys.Count).IsEqualTo(0);
     }
@@ -145,22 +156,24 @@ public sealed class OrderedKeysTests
     [Test]
     public async Task CreateFromFilesEveryKeyAsAddWouldHaveOneAtATime()
     {
-        CollectionSnapshot<int, ItemIdentity, ItemState> snapshot = Snapshot(
-            TestUtil.Item(1, "one", 30),
-            TestUtil.Item(2, "two", 10),
-            TestUtil.Item(3, "three", 20));
+        CollectionSnapshot<int, ItemIdentity, ItemState> snapshot =
+            Snapshot(
+                TestUtil.Item(number: 1, name: "one", score: 30),
+                TestUtil.Item(number: 2, name: "two", score: 10),
+                TestUtil.Item(number: 3, name: "three", score: 20));
 
         // What a stage rebuild takes, against what it used to take. The bulk path exists because
         // filing n keys one at a time is n persistent writes; it has to land them in the same
         // places.
         OrderedKeys<int, ItemIdentity, ItemState> inBulk =
-            ByScore(false).CreateFrom([1, 2, 3, 99], snapshot);
+            ByScore(false).CreateFrom(keys: [1, 2, 3, 99], snapshot: snapshot);
 
-        OrderedKeys<int, ItemIdentity, ItemState> oneAtATime = Empty(false, snapshot)
-            .Add(1, snapshot)
-            .Add(2, snapshot)
-            .Add(3, snapshot)
-            .Add(99, snapshot);
+        OrderedKeys<int, ItemIdentity, ItemState> oneAtATime =
+            Empty(descending: false, snapshot: snapshot)
+                .Add(key: 1, snapshot: snapshot)
+                .Add(key: 2, snapshot: snapshot)
+                .Add(key: 3, snapshot: snapshot)
+                .Add(key: 99, snapshot: snapshot);
 
         await Assert.That(TestUtil.Keys(inBulk)).IsEquivalentTo([2, 3, 1]);
         await Assert.That(TestUtil.Keys(inBulk)).IsEquivalentTo(TestUtil.Keys(oneAtATime));
@@ -173,19 +186,22 @@ public sealed class OrderedKeysTests
     [Test]
     public async Task ARemovedKeyIsFoundByTheComparisonThatFiledIt()
     {
-        CollectionSnapshot<int, ItemIdentity, ItemState> before = Snapshot(
-            TestUtil.Item(1, "one", 30),
-            TestUtil.Item(2, "two", 10));
+        CollectionSnapshot<int, ItemIdentity, ItemState> before =
+            Snapshot(
+                TestUtil.Item(number: 1, name: "one", score: 30),
+                TestUtil.Item(number: 2, name: "two", score: 10));
 
-        OrderedKeys<int, ItemIdentity, ItemState> keys = Empty(false, before).Add(1, before).Add(2, before);
+        OrderedKeys<int, ItemIdentity, ItemState> keys =
+            Empty(descending: false, snapshot: before).Add(key: 1, snapshot: before).Add(key: 2, snapshot: before);
 
         // The item's sort value has moved underneath the set. Removal still finds it, because the
         // entry carries the value it was filed under rather than being re-projected here.
-        CollectionSnapshot<int, ItemIdentity, ItemState> after = Snapshot(
-            TestUtil.Item(1, "one", 5),
-            TestUtil.Item(2, "two", 10));
+        CollectionSnapshot<int, ItemIdentity, ItemState> after =
+            Snapshot(
+                TestUtil.Item(number: 1, name: "one", score: 5),
+                TestUtil.Item(number: 2, name: "two", score: 10));
 
-        OrderedKeys<int, ItemIdentity, ItemState> refiled = keys.Remove(1).Add(1, after);
+        OrderedKeys<int, ItemIdentity, ItemState> refiled = keys.Remove(1).Add(key: 1, snapshot: after);
 
         await Assert.That(TestUtil.Keys(refiled)).IsEquivalentTo([1, 2]);
     }
@@ -193,14 +209,15 @@ public sealed class OrderedKeysTests
     [Test]
     public async Task TheKeyMapAndTheOrderingStayInStepThroughAnySequence()
     {
-        CollectionSnapshot<int, ItemIdentity, ItemState> snapshot = Snapshot(
-            TestUtil.Item(1, "one", 30),
-            TestUtil.Item(2, "two", 10),
-            TestUtil.Item(3, "three", 20),
-            TestUtil.Item(4, "four", 40),
-            TestUtil.Item(5, "five", 50));
+        CollectionSnapshot<int, ItemIdentity, ItemState> snapshot =
+            Snapshot(
+                TestUtil.Item(number: 1, name: "one", score: 30),
+                TestUtil.Item(number: 2, name: "two", score: 10),
+                TestUtil.Item(number: 3, name: "three", score: 20),
+                TestUtil.Item(number: 4, name: "four", score: 40),
+                TestUtil.Item(number: 5, name: "five", score: 50));
 
-        OrderedKeys<int, ItemIdentity, ItemState> keys = Empty(false, snapshot);
+        OrderedKeys<int, ItemIdentity, ItemState> keys = Empty(descending: false, snapshot: snapshot);
 
         // A sequence that adds, removes, re-adds and removes again, checked after every step. The
         // two structures are only ever written together, and this is what says so: Contains reads
@@ -210,7 +227,7 @@ public sealed class OrderedKeysTests
 
         foreach (int key in toAdd)
         {
-            keys = keys.Add(key, snapshot);
+            keys = keys.Add(key: key, snapshot: snapshot);
             await AssertConsistent(keys);
         }
 
@@ -220,7 +237,7 @@ public sealed class OrderedKeysTests
             await AssertConsistent(keys);
         }
 
-        keys = keys.Add(5, snapshot);
+        keys = keys.Add(key: 5, snapshot: snapshot);
         await AssertConsistent(keys);
 
         await Assert.That(TestUtil.Keys(keys)).IsEquivalentTo([2, 3, 4, 5]);
@@ -229,22 +246,24 @@ public sealed class OrderedKeysTests
     [Test]
     public async Task ReAddingAKeyAlreadyFiledDoesNotFileItTwice()
     {
-        CollectionSnapshot<int, ItemIdentity, ItemState> before = Snapshot(
-            TestUtil.Item(1, "one", 10),
-            TestUtil.Item(2, "two", 20));
+        CollectionSnapshot<int, ItemIdentity, ItemState> before =
+            Snapshot(
+                TestUtil.Item(number: 1, name: "one", score: 10),
+                TestUtil.Item(number: 2, name: "two", score: 20));
 
         OrderedKeys<int, ItemIdentity, ItemState> keys =
-            Empty(false, before).Add(1, before).Add(2, before);
+            Empty(descending: false, snapshot: before).Add(key: 1, snapshot: before).Add(key: 2, snapshot: before);
 
         // The stages never do this - a re-file removes before it adds - but nothing about the type
         // says they must, and adding a key twice under two different sort values would put two
         // entries in the ordering under one entry in the map. That is the one way these two can be
         // made to disagree, so it is the one worth pinning down.
-        CollectionSnapshot<int, ItemIdentity, ItemState> after = Snapshot(
-            TestUtil.Item(1, "one", 99),
-            TestUtil.Item(2, "two", 20));
+        CollectionSnapshot<int, ItemIdentity, ItemState> after =
+            Snapshot(
+                TestUtil.Item(number: 1, name: "one", score: 99),
+                TestUtil.Item(number: 2, name: "two", score: 20));
 
-        keys = keys.Add(1, after);
+        keys = keys.Add(key: 1, snapshot: after);
 
         await AssertConsistent(keys);
         await Assert.That(keys.Count).IsEqualTo(2);

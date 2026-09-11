@@ -50,9 +50,9 @@ public static class CollectionExtensionMethods
         where TKey : notnull
         where TIdentity : notnull =>
         collection.StateCellImpl(
-            key,
-            static state => Maybe.Some(state),
-            static () => Maybe<TState>.None);
+            key: key,
+            onPresent: static state => Maybe.Some(state),
+            onAbsent: static () => Maybe<TState>.None);
 
     /// <summary>
     ///     A cell tracking one item's immutable portion, with no value while the key is absent.
@@ -71,9 +71,9 @@ public static class CollectionExtensionMethods
         where TKey : notnull
         where TIdentity : notnull =>
         collection.IdentityCellImpl(
-            key,
-            static identity => Maybe.Some(identity),
-            static () => Maybe<TIdentity>.None);
+            key: key,
+            onPresent: static identity => Maybe.Some(identity),
+            onAbsent: static () => Maybe<TIdentity>.None);
 
     /// <summary>Returns both halves of the item stored under a key, if there is one.</summary>
     /// <typeparam name="TKey">The type of the keys.</typeparam>
@@ -89,7 +89,7 @@ public static class CollectionExtensionMethods
         TKey key)
         where TKey : notnull
         where TIdentity : notnull =>
-        snapshot.TryGetItem(key, out Item<TIdentity, TState>? item) && item is not null
+        snapshot.TryGetItem(key: key, item: out Item<TIdentity, TState>? item) && item is not null
             ? Maybe.Some(item)
             : Maybe<Item<TIdentity, TState>>.None;
 
@@ -105,7 +105,7 @@ public static class CollectionExtensionMethods
         this StateMap<TKey, TState> states,
         TKey key)
         where TKey : notnull =>
-        states.TryGetState(key, out TState state) ? Maybe.Some(state) : Maybe<TState>.None;
+        states.TryGetState(key: key, state: out TState state) ? Maybe.Some(state) : Maybe<TState>.None;
 
     /// <summary>
     ///     What a change did to one key. The nesting is deliberate and the two levels mean
@@ -127,7 +127,7 @@ public static class CollectionExtensionMethods
         where TKey : notnull
         where TIdentity : notnull
     {
-        if (change.TryGetNewState(key, out TState state))
+        if (change.TryGetNewState(key: key, state: out TState state))
         {
             return Maybe.Some(Maybe.Some(state));
         }

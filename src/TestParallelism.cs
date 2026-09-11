@@ -4,4 +4,6 @@
 // for that lock and observe each other's timing. NUnit ran this suite one test at a time; TUnit runs
 // tests in parallel by default, so the constraint has to be stated rather than assumed.
 
-[assembly: TUnit.Core.NotInParallel]
+using TUnit.Core;
+
+[assembly: NotInParallel]

@@ -30,13 +30,18 @@ let private keyOf (identity: ItemIdentity) = identity.Number
 let private ofHalves identity state = item identity state
 
 let private item number name score =
-    ofHalves { Number = number; Code = sprintf "C%d" number } { Name = name; Score = score }
+    ofHalves
+        { Number = number
+          Code = sprintf "C%d" number }
+        { Name = name; Score = score }
 
 let private selfKeyedItem number name score : Item<SelfKeyedItemIdentity, ItemState> =
-    ofHalves { SelfNumber = number; SelfCode = sprintf "C%d" number } { Name = name; Score = score }
+    ofHalves
+        { SelfNumber = number
+          SelfCode = sprintf "C%d" number }
+        { Name = name; Score = score }
 
-let private keysOf (view: ReactiveCollection<int, 'TIdentity, ItemState>) =
-    List<int>(view |> keysCell |> sampleC)
+let private keysOf (view: ReactiveCollection<int, 'TIdentity, ItemState>) = List<int>(view |> keysCell |> sampleC)
 
 type ``Collections Tests``() =
 
@@ -45,8 +50,7 @@ type ``Collections Tests``() =
         task {
             let edits = sinkS<CollectionEdit<int, ItemIdentity, ItemState>> ()
 
-            let collection =
-                create keyOf [ item 1 "one" 10; item 2 "two" 20 ] [ edits ]
+            let collection = create keyOf [ item 1 "one" 10; item 2 "two" 20 ] [ edits ]
 
             let snapshot = collection |> snapshotCell |> sampleC
 
@@ -54,9 +58,7 @@ type ``Collections Tests``() =
 
             // option rather than Maybe: the core answers in TryGets so that each language surface
             // can put its own optional type on top.
-            do! Expect.Equal(
-                    Some "one",
-                    snapshot |> lookup 1 |> Option.map (fun e -> e.State.Name))
+            do! Expect.Equal(Some "one", snapshot |> lookup 1 |> Option.map (fun e -> e.State.Name))
         }
 
     [<Test>]
@@ -77,7 +79,8 @@ type ``Collections Tests``() =
                     seen.Add(
                         match state with
                         | Some s -> s.Name
-                        | None -> "gone"))
+                        | None -> "gone"
+                    ))
 
             edits |> sendS (addEdit [ item 7 "seven" 70 ])
             edits |> sendS (removeEdit [ 7 ])
@@ -93,16 +96,13 @@ type ``Collections Tests``() =
         task {
             let scores = sinkS<int * (ItemState -> ItemState)> ()
 
-            let collection =
-                create keyOf [ item 1 "one" 10 ] [ fromUpdates scores ]
+            let collection = create keyOf [ item 1 "one" 10 ] [ fromUpdates scores ]
 
             scores |> sendS (1, (fun state -> { state with Score = 99 }))
 
             let snapshot = collection |> snapshotCell |> sampleC
 
-            do! Expect.Equal(
-                    Some 99,
-                    snapshot |> lookup 1 |> Option.map (fun e -> e.State.Score))
+            do! Expect.Equal(Some 99, snapshot |> lookup 1 |> Option.map (fun e -> e.State.Score))
         }
 
     [<Test>]
@@ -167,8 +167,7 @@ type ``Collections Tests``() =
         task {
             let edits = sinkS<CollectionEdit<int, ItemIdentity, ItemState>> ()
 
-            let collection =
-                create keyOf [ item 1 "one" 10; item 2 "two" 20 ] [ edits ]
+            let collection = create keyOf [ item 1 "one" 10; item 2 "two" 20 ] [ edits ]
 
             let projections = ref 0
             let released = ResizeArray<string>()
@@ -304,8 +303,7 @@ type ``Collections Tests``() =
         task {
             let edits = sinkS<CollectionEdit<int, ItemIdentity, ItemState>> ()
 
-            let collection =
-                create keyOf [ item 1 "one" 10; item 2 "two" 20 ] [ edits ]
+            let collection = create keyOf [ item 1 "one" 10; item 2 "two" 20 ] [ edits ]
 
             let passing = collection |> filter (fun _ state -> state.Score >= 20)
 
@@ -316,9 +314,7 @@ type ``Collections Tests``() =
             // right.
             do! Expect.Equal(None, passing |> stateCell 1 |> sampleC |> Option.map (fun s -> s.Name))
 
-            do! Expect.Equal(
-                    Some "one",
-                    collection |> stateCell 1 |> sampleC |> Option.map (fun s -> s.Name))
+            do! Expect.Equal(Some "one", collection |> stateCell 1 |> sampleC |> Option.map (fun s -> s.Name))
 
             // Sharing still falls out of never copying, within the one view where it means
             // something.

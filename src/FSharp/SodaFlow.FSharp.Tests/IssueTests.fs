@@ -71,7 +71,8 @@ module Issue151 =
                         let inputBySatisfaction =
                             pool
                             |> updatesC
-                            |> snapshot2C pool threshold (fun neu alt t -> if neu >= t && alt < t then Some neu else None)
+                            |> snapshot2C pool threshold (fun neu alt t ->
+                                if neu >= t && alt < t then Some neu else None)
                             |> filterSomeS
 
                         struct ((inputByAdded, inputBySatisfaction) |> mergeS max, pool))
@@ -249,10 +250,11 @@ module Issue138 =
                 //Expect.SameItems ([-1;10;-1;11;-1;15;-1;10;-1], objectCounts)
 
                 // Glitchy result, but correct otherwise.
-                do! Expect.SameItems(
-                    [ -1; 10; -1; 11; -1; 12; 13; 14; 15; -1; 0; 1; 2; 3; 4; 5; 6; 7; 8; 9; 10; -1 ],
-                    objectCounts
-                )
+                do!
+                    Expect.SameItems(
+                        [ -1; 10; -1; 11; -1; 12; 13; 14; 15; -1; 0; 1; 2; 3; 4; 5; 6; 7; 8; 9; 10; -1 ],
+                        objectCounts
+                    )
             }
 
         (*
@@ -303,8 +305,9 @@ module Issue138 =
                 //Expect.SameItems ([-1;10;-1;11;-1;15;-1;10;-1], objectCounts)
 
                 // Glitchy result, but correct otherwise.
-                do! Expect.SameItems(
-                    [ -1; 10; -1; 11; -1; 12; 13; 14; 15; -1; 0; 1; 2; 3; 4; 5; 6; 7; 8; 9; 10; -1 ],
-                    objectCounts
-                )
+                do!
+                    Expect.SameItems(
+                        [ -1; 10; -1; 11; -1; 12; 13; 14; 15; -1; 0; 1; 2; 3; 4; 5; 6; 7; 8; 9; 10; -1 ],
+                        objectCounts
+                    )
             }
