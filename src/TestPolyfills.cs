@@ -9,13 +9,14 @@
 // up, which is why it is marked as used rather than left to look dead.
 
 #if !NET5_0_OR_GREATER
-namespace System.Runtime.CompilerServices
-{
-    [UsedImplicitly]
-    internal static class IsExternalInit;
+using JetBrains.Annotations;
 
-    [AttributeUsage(AttributeTargets.Method, Inherited = false)]
-    [UsedImplicitly]
-    internal sealed class ModuleInitializerAttribute : Attribute;
-}
+namespace System.Runtime.CompilerServices;
+
+[UsedImplicitly]
+internal static class IsExternalInit;
+
+[AttributeUsage(AttributeTargets.Method, Inherited = false)]
+[UsedImplicitly]
+internal sealed class ModuleInitializerAttribute : Attribute;
 #endif
