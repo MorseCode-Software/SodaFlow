@@ -86,7 +86,8 @@ public sealed class AsyncConcurrencyStrategyTests
         TestUtil.WaitUntil(() => received.Count == 4);
 
         // Completion order, not submission order.
-        await Assert.That(received).IsEquivalentTo(expected: new object[] { d, "C", b, "A" }, ordering: CollectionOrdering.Matching);
+        await Assert.That(received)
+            .IsEquivalentTo(expected: new object[] { d, "C", b, "A" }, ordering: CollectionOrdering.Matching);
 
         status.Dispose();
         l.Unlisten();
@@ -208,7 +209,8 @@ public sealed class AsyncConcurrencyStrategyTests
         await Assert.That(AsyncConcurrencyStrategy.Parallel()).IsSameReferenceAs(AsyncConcurrencyStrategy.Parallel());
         await Assert.That(AsyncConcurrencyStrategy.Queue()).IsSameReferenceAs(AsyncConcurrencyStrategy.Queue());
 
-        await Assert.That(AsyncConcurrencyStrategy.SwitchLatest()).IsSameReferenceAs(AsyncConcurrencyStrategy.SwitchLatest());
+        await Assert.That(AsyncConcurrencyStrategy.SwitchLatest())
+            .IsSameReferenceAs(AsyncConcurrencyStrategy.SwitchLatest());
     }
 
     [Test]

@@ -4,8 +4,8 @@ using System.ComponentModel;
 using System.Threading;
 using System.Threading.Tasks;
 using TUnit.Assertions;
-using TUnit.Assertions.Exceptions;
 using TUnit.Assertions.Enums;
+using TUnit.Assertions.Exceptions;
 using TUnit.Assertions.Extensions;
 using TUnit.Core;
 
@@ -314,7 +314,8 @@ public sealed class BindableValueTests
 
         await Assert.That(finished).IsTrue().Because("construction should not block");
 
-        await Assert.That(contextOnTheOtherThread).IsNull()
+        await Assert.That(contextOnTheOtherThread)
+            .IsNull()
             .Because("the point is a thread with no context of its own");
 
         return failure != null
@@ -396,12 +397,12 @@ public sealed class BindableValueTests
         StreamSink<int> edits = Stream.CreateSink<int>();
 
         List<IBindable> all =
-            [
-                OneWay(c),
-                TwoWay(c),
-                c.ToOneWayToSourceImpl(),
-                edits.ToBindableActionImpl(scheduler: BindingScheduler.Immediate)
-            ];
+        [
+            OneWay(c),
+            TwoWay(c),
+            c.ToOneWayToSourceImpl(),
+            edits.ToBindableActionImpl(scheduler: BindingScheduler.Immediate)
+        ];
 
         foreach (IBindable bindable in all)
         {

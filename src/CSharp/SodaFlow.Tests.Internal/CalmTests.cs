@@ -45,7 +45,9 @@ public sealed class CalmTests
                     });
             });
 
-        await Assert.That(forceOperations).IsEqualTo(1).Because("the initial value should be forced once, in the sample phase");
+        await Assert.That(forceOperations)
+            .IsEqualTo(1)
+            .Because("the initial value should be forced once, in the sample phase");
 
         l.Unlisten();
     }
@@ -83,8 +85,11 @@ public sealed class CalmTests
 
         await Assert.That(forceOperations).IsEqualTo(1).Because("the initial value should be forced exactly once");
 
-        await Assert.That(@out).IsEquivalentTo(expected: [1, 2, 1], ordering: CollectionOrdering.Matching).Because("re-reading the initial value per firing would reset the remembered value and let " +
-                                                                                                                   "duplicates through");
+        await Assert.That(@out)
+            .IsEquivalentTo(expected: [1, 2, 1], ordering: CollectionOrdering.Matching)
+            .Because(
+                "re-reading the initial value per firing would reset the remembered value and let " +
+                "duplicates through");
     }
 
     // A non-None initial value seeds the comparison, so a first firing equal to it is suppressed.
@@ -108,7 +113,9 @@ public sealed class CalmTests
 
         l.Unlisten();
 
-        await Assert.That(@out).IsEquivalentTo(expected: [8, 7], ordering: CollectionOrdering.Matching).Because("the first 7 matches the initial value");
+        await Assert.That(@out)
+            .IsEquivalentTo(expected: [8, 7], ordering: CollectionOrdering.Matching)
+            .Because("the first 7 matches the initial value");
     }
 
     // A suppressed firing must carry the remembered value forward rather than clearing it, which is
@@ -132,7 +139,9 @@ public sealed class CalmTests
 
         l.Unlisten();
 
-        await Assert.That(@out).IsEquivalentTo(expected: [1, 2], ordering: CollectionOrdering.Matching).Because("a run of suppressed firings must not clear what was remembered");
+        await Assert.That(@out)
+            .IsEquivalentTo(expected: [1, 2], ordering: CollectionOrdering.Matching)
+            .Because("a run of suppressed firings must not clear what was remembered");
     }
 
     // A transaction that fails must not leave the remembered value updated. Calm defers the
@@ -165,7 +174,9 @@ public sealed class CalmTests
 
         good.Unlisten();
 
-        await Assert.That(@out).IsEquivalentTo(expected: [1, 1], ordering: CollectionOrdering.Matching).Because("the firing from the failed transaction must not suppress the retry");
+        await Assert.That(@out)
+            .IsEquivalentTo(expected: [1, 1], ordering: CollectionOrdering.Matching)
+            .Because("the firing from the failed transaction must not suppress the retry");
     }
 
     // The remembered value is committed at the end of the transaction, so simultaneous sources

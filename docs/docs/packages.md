@@ -4,7 +4,7 @@ title: Which package do I install?
 
 # Which package do I install?
 
-The .NET build publishes ten NuGet packages. Only two of them are things most people
+The .NET build publishes thirteen NuGet packages. Only two of them are things most people
 install directly.
 
 ## The short answer
@@ -17,7 +17,9 @@ install directly.
 Add an async package **only** if you need to run `Task`-based work from a stream — see
 [Asynchronous work](async.md). Add a bindable package **only** if you are writing a UI
 view model and want cells and streams to reach XAML as `INotifyPropertyChanged`
-properties and `ICommand`s — see [Data binding](bindable.md).
+properties and `ICommand`s — see [Data binding](bindable.md). Add a collections package
+**only** if you have a large keyed collection and want to observe individual items without
+every observer waking for every edit — see [Reactive collections](collections.md).
 
 | You also need | Install |
 | --- | --- |
@@ -25,6 +27,8 @@ properties and `ICommand`s — see [Data binding](bindable.md).
 | `MapAsync` in F# | `SodaFlow.FSharp.Async` |
 | Data binding in C# | `SodaFlow.Bindable.ObjectModel` |
 | Data binding in F# | `SodaFlow.FSharp.Bindable.ObjectModel` |
+| Reactive collections in C# | `SodaFlow.Collections` |
+| Reactive collections in F# | `SodaFlow.FSharp.Collections` |
 
 ## The full list
 
@@ -40,6 +44,9 @@ properties and `ICommand`s — see [Data binding](bindable.md).
 | `SodaFlow.Bindable.ObjectModel` | `SodaFlow.Bindable.ObjectModel` | Only for data binding in C#. |
 | `SodaFlow.FSharp.Bindable.ObjectModel` | `SodaFlow.FSharp.Bindable.ObjectModel` | Only for data binding in F#. |
 | `SodaFlow.Bindable.ObjectModel.Core` | `SodaFlow.Core.Bindable.ObjectModel` | No — a dependency of both bindable packages. |
+| `SodaFlow.Collections` | `SodaFlow.Collections` | Only for reactive collections in C#. |
+| `SodaFlow.FSharp.Collections` | `SodaFlow.FSharp.Collections` | Only for reactive collections in F#. |
+| `SodaFlow.Collections.Core` | `SodaFlow.Core.Collections` | No — a dependency of both collections packages. |
 
 ## Why `SodaFlow` and `SodaFlow.Core` are separate
 
@@ -60,6 +67,22 @@ wrappers reach via `InternalsVisibleTo`.
 the small functional vocabulary the C# API needs and C# does not ship with. It has no FRP in
 it and can be used on its own. F# already has `option`, `Result` and `unit`, which is why
 `SodaFlow.FSharp` does not depend on it.
+
+## Where optionality lives in the collections packages
+
+`SodaFlow.Collections.Core` has no optional type of its own, and depends on neither
+`SodaFlow.Functional` nor anything else beyond `SodaFlow.Core`. It answers in `TryGetItem`,
+`TryGetState`, `TryGetNewState` and an internal index lookup returning `-1`.
+
+Each language surface puts its own optional type back on top: `SodaFlow.Collections` adds
+`Maybe<T>`, and `SodaFlow.FSharp.Collections` adds `option`. That is the rule two paragraphs
+up applied one layer down — nothing that installs the F# collections package acquires
+`Maybe<T>`, which F# has no use for.
+
+The one member where this could have cost something is `StateCell`, which caches its per-key
+cells weakly so that N observers of one key share a node. The cache stays in the core and
+takes the projection from the wrapper, keyed by the projected type as well as the key, so
+neither surface pays for an extra graph node and neither can be handed the other's cells.
 
 ## The bindable object model
 
@@ -94,7 +117,7 @@ is for one of those to be resolvable: if construction happens somewhere with no
 Each package versions independently from its own git tag prefix, via
 [MinVer](https://github.com/adamralph/minver). Pushing `sodaflow-async-1.1.0` releases
 `SodaFlow.Async` at 1.1.0 and leaves every other package exactly where its own last tag put
-it. Do not expect the ten version numbers to move together — they are not meant to.
+it. Do not expect the thirteen version numbers to move together — they are not meant to.
 
 | Package | Tag prefix |
 | --- | --- |
@@ -108,13 +131,17 @@ it. Do not expect the ten version numbers to move together — they are not mean
 | `SodaFlow.Bindable.ObjectModel` | `sodaflow-bindable-objectmodel-` |
 | `SodaFlow.Bindable.ObjectModel.Core` | `sodaflow-bindable-objectmodel-core-` |
 | `SodaFlow.FSharp.Bindable.ObjectModel` | `sodaflow-fsharp-bindable-objectmodel-` |
+| `SodaFlow.Collections` | `sodaflow-collections-` |
+| `SodaFlow.Collections.Core` | `sodaflow-collections-core-` |
+| `SodaFlow.FSharp.Collections` | `sodaflow-fsharp-collections-` |
 
 A package with no tag on the commit being built keeps the version its last tag gave it, so a
 release only publishes what actually moved.
 
 Independent numbering does not mean the packages are independently *installable*, though.
-Every wrapper — `SodaFlow` and `SodaFlow.FSharp`, all three async assemblies and all three
-bindable ones — reaches `SodaFlow.Core` through `InternalsVisibleTo`, so a change to those
+Every wrapper — `SodaFlow` and `SodaFlow.FSharp`, all three async assemblies, all three
+bindable ones and all three collections ones — reaches `SodaFlow.Core` through
+`InternalsVisibleTo`, so a change to those
 internals binds them to one particular core even when no public API moved. When that happens
 the whole group takes a major version together — the emitted NuGet dependency is a minimum
 version rather than a range, so nothing but the version number stops an old wrapper being

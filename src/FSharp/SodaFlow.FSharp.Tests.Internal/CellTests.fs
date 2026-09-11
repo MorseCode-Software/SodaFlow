@@ -11,7 +11,10 @@ type ``Cell Tests``() =
     member _.``Test Transaction``() =
         task {
             let mutable calledBack = false
-            TransactionInternal.Apply(fun trans _ -> trans.Prioritized(Node<unit>.Null, fun trans -> calledBack <- true))
+
+            TransactionInternal.Apply(fun trans _ ->
+                trans.Prioritized(Node<unit>.Null, fun trans -> calledBack <- true))
+
             do! Expect.True calledBack
         }
 

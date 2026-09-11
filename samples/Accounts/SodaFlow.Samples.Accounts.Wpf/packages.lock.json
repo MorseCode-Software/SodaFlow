@@ -1,0 +1,75 @@
+{
+  "version": 1,
+  "dependencies": {
+    "net8.0-windows7.0": {
+      "System.Collections.Immutable": {
+        "type": "Transitive",
+        "resolved": "8.0.0",
+        "contentHash": "AurL6Y5BA1WotzlEvVaIDpqzpIPvYnnldxru8oXJU2yFxFUy3+pNXjXd1ymO+RA0rq0+590Q8gaz2l3Sr7fmqg=="
+      },
+      "System.ValueTuple": {
+        "type": "Transitive",
+        "resolved": "4.6.2",
+        "contentHash": "yQgmjfFximrNm9LIV3mL6T5MzjeC+epeE5rl4hXxAlYmxby7RM1dPSkIKXk9HNkl6G54h2JHOmLD46+Pey+IRg=="
+      },
+      "sodaflow": {
+        "type": "Project",
+        "dependencies": {
+          "SodaFlow.Core": "[1.0.0, )",
+          "SodaFlow.Functional": "[1.0.0, )",
+          "System.ValueTuple": "[4.6.2, )"
+        }
+      },
+      "sodaflow.bindable.objectmodel": {
+        "type": "Project",
+        "dependencies": {
+          "SodaFlow": "[1.0.0, )",
+          "SodaFlow.Bindable.ObjectModel.Core": "[1.0.0, )",
+          "SodaFlow.Functional": "[1.0.0, )",
+          "System.ValueTuple": "[4.6.2, )"
+        }
+      },
+      "SodaFlow.Bindable.ObjectModel.Core": {
+        "type": "Project",
+        "dependencies": {
+          "SodaFlow.Core": "[1.0.0, )",
+          "System.ValueTuple": "[4.6.2, )"
+        }
+      },
+      "sodaflow.collections": {
+        "type": "Project",
+        "dependencies": {
+          "SodaFlow": "[1.0.0, )",
+          "SodaFlow.Collections.Core": "[1.0.0, )",
+          "SodaFlow.Functional": "[1.0.0, )",
+          "System.ValueTuple": "[4.6.2, )"
+        }
+      },
+      "SodaFlow.Collections.Core": {
+        "type": "Project",
+        "dependencies": {
+          "SodaFlow.Core": "[1.0.0, )",
+          "System.Collections.Immutable": "[8.0.0, )",
+          "System.ValueTuple": "[4.6.2, )"
+        }
+      },
+      "sodaflow.core": {
+        "type": "Project",
+        "dependencies": {
+          "System.ValueTuple": "[4.6.2, )"
+        }
+      },
+      "sodaflow.functional": {
+        "type": "Project"
+      },
+      "sodaflow.samples.accounts.viewmodels": {
+        "type": "Project",
+        "dependencies": {
+          "SodaFlow": "[1.0.0, )",
+          "SodaFlow.Bindable.ObjectModel": "[1.0.0, )",
+          "SodaFlow.Collections": "[1.0.0, )"
+        }
+      }
+    }
+  }
+}

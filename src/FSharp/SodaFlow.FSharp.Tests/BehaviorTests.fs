@@ -2,7 +2,6 @@ module SodaFlow.Tests.Behavior
 
 open System
 open System.Collections.Generic
-open System.Threading.Tasks
 open SodaFlow
 open TUnit.Core
 
@@ -955,7 +954,8 @@ type ``Behavior Tests``() =
                                                             let s5 = sinkC 1
 
                                                             struct (s5,
-                                                                    ([| c1; c2; c3; c4; c5 |] |> liftAllC Seq.sum, s5)))
+                                                                    ([| c1; c2; c3; c4; c5 |] |> liftAllC Seq.sum,
+                                                                     s5)))
 
                                                     struct (s4, (c, [| s; s4 |])))
 

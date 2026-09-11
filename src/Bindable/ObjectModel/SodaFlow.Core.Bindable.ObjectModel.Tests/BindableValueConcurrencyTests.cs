@@ -31,38 +31,6 @@ namespace SodaFlow.Bindable.ObjectModel.Tests;
 /// </remarks>
 public sealed class BindableValueConcurrencyTests
 {
-    /// <summary>
-    ///     Stands in for a dispatcher. The point is that it queues: a real scheduler hands work to
-    ///     another thread's message loop and returns, so anything posted during a write is still
-    ///     pending when the setter returns.
-    /// </summary>
-    // ReSharper disable once InheritdocConsiderUsage
-    private sealed class QueueingScheduler : IBindingScheduler
-    {
-        private readonly Queue<Action> queue = new();
-
-        /// <inheritdoc />
-        public bool CheckAccess() => true;
-
-        /// <inheritdoc />
-        public void Post(Action action) => this.queue.Enqueue(action);
-
-        /// <summary>Runs everything queued, including anything queued while draining.</summary>
-        /// <returns>How many actions ran.</returns>
-        internal int RunAll()
-        {
-            int ran = 0;
-
-            while (this.queue.Count > 0)
-            {
-                this.queue.Dequeue()();
-                ran++;
-            }
-
-            return ran;
-        }
-    }
-
     // The documented contract on ImmediateBindingScheduler: it defers, but only to the end of the
     // transaction in flight, so a test never has to pump anything to see the notification.
     [Test]
@@ -78,7 +46,9 @@ public sealed class BindableValueConcurrencyTests
 
         c.Send(1);
 
-        await Assert.That(observed).IsEquivalentTo(expected: [1], ordering: CollectionOrdering.Matching).Because("the notification is delivered before Send returns, not left queued");
+        await Assert.That(observed)
+            .IsEquivalentTo(expected: [1], ordering: CollectionOrdering.Matching)
+            .Because("the notification is delivered before Send returns, not left queued");
     }
 
     // Transactions are serialized process-wide, and that guarantee reaches the binding thread: a
@@ -121,11 +91,15 @@ public sealed class BindableValueConcurrencyTests
 
             setter.Start(b);
 
-            await Assert.That(setter.Join(200)).IsFalse().Because("the setter cannot complete while another thread holds the transaction open");
+            await Assert.That(setter.Join(200))
+                .IsFalse()
+                .Because("the setter cannot complete while another thread holds the transaction open");
 
             release.TrySetResult(true);
 
-            await Assert.That(setter.Join(TimeSpan.FromSeconds(30))).IsTrue().Because("and completes once that transaction closes");
+            await Assert.That(setter.Join(TimeSpan.FromSeconds(30)))
+                .IsTrue()
+                .Because("and completes once that transaction closes");
 
             await Assert.That(c.Sample()).IsEqualTo(5).Because("the write reached the graph");
         }
@@ -160,7 +134,9 @@ public sealed class BindableValueConcurrencyTests
 
         scheduler.RunAll();
 
-        await Assert.That(observed).DoesNotContain(1).Because("the view is never told to go back to a value the caller has already replaced");
+        await Assert.That(observed)
+            .DoesNotContain(1)
+            .Because("the view is never told to go back to a value the caller has already replaced");
 
         await Assert.That(b.Value).IsEqualTo(2);
         await Assert.That(c.Sample()).IsEqualTo(2);
@@ -202,7 +178,9 @@ public sealed class BindableValueConcurrencyTests
 
         scheduler.RunAll();
 
-        await Assert.That(observed).DoesNotContain("A").Because("the deferred first write never reaches the view after the second has replaced it");
+        await Assert.That(observed)
+            .DoesNotContain("A")
+            .Because("the deferred first write never reaches the view after the second has replaced it");
 
         await Assert.That(b.Value).IsEqualTo("B");
         await Assert.That(upperCased.Sample()).IsEqualTo("B");
@@ -227,7 +205,8 @@ public sealed class BindableValueConcurrencyTests
 
         // An assertion rather than an assumption: the scheduler queues rather than running, so this
         // is not a maybe, and a test which stopped meeting its own precondition should say so.
-        await Assert.That(b.Value).IsEqualTo(0)
+        await Assert.That(b.Value)
+            .IsEqualTo(0)
             .Because("precondition: the refresh has not been delivered yet");
 
         // Something asks for the value the property still reports. The graph does not hold it.
@@ -235,7 +214,9 @@ public sealed class BindableValueConcurrencyTests
 
         scheduler.RunAll();
 
-        await Assert.That(c.Sample()).IsEqualTo(0).Because("a write is not dropped for matching a cached value the graph had already left behind");
+        await Assert.That(c.Sample())
+            .IsEqualTo(0)
+            .Because("a write is not dropped for matching a cached value the graph had already left behind");
     }
 
     // The constructor samples the cell and attaches its listener inside one transaction, and the
@@ -260,7 +241,9 @@ public sealed class BindableValueConcurrencyTests
                 return created;
             });
 
-        await Assert.That(b.Value).IsEqualTo(5).Because("the update fired after the listener was attached and is newer than the sample");
+        await Assert.That(b.Value)
+            .IsEqualTo(5)
+            .Because("the update fired after the listener was attached and is newer than the sample");
     }
 
     [Test]
@@ -320,11 +303,15 @@ public sealed class BindableValueConcurrencyTests
 
         using IOneWayBindableValue<int> b = c.ToOneWayImpl(scheduler: AffineScheduler());
 
-        await Assert.That(b.Value).IsEqualTo(0).Because("the constructing thread is the binding thread for this scheduler");
+        await Assert.That(b.Value)
+            .IsEqualTo(0)
+            .Because("the constructing thread is the binding thread for this scheduler");
 
         Exception? caught = CaughtOffTheBindingThread(state: b, body: static target => _ = target.Value);
 
-        await Assert.That(caught).IsTypeOf<InvalidOperationException>().Because("reading from another thread is caught rather than left to return a stale value");
+        await Assert.That(caught)
+            .IsTypeOf<InvalidOperationException>()
+            .Because("reading from another thread is caught rather than left to return a stale value");
     }
 
     [Test]
@@ -334,11 +321,15 @@ public sealed class BindableValueConcurrencyTests
 
         using ITwoWayBindableValue<int> b = c.ToTwoWayImpl(scheduler: AffineScheduler());
 
-        await Assert.That(b.Value).IsEqualTo(0).Because("the constructing thread is the binding thread for this scheduler");
+        await Assert.That(b.Value)
+            .IsEqualTo(0)
+            .Because("the constructing thread is the binding thread for this scheduler");
 
         Exception? caught = CaughtOffTheBindingThread(state: b, body: static target => _ = target.Value);
 
-        await Assert.That(caught).IsTypeOf<InvalidOperationException>().Because("reading from another thread is caught rather than left to return a stale value");
+        await Assert.That(caught)
+            .IsTypeOf<InvalidOperationException>()
+            .Because("reading from another thread is caught rather than left to return a stale value");
     }
 
     [Test]
@@ -407,7 +398,9 @@ public sealed class BindableValueConcurrencyTests
 
         await Assert.That(ran).IsEqualTo(3).Because("one refresh queued per update");
 
-        await Assert.That(observed).IsEquivalentTo(expected: [3], ordering: CollectionOrdering.Matching).Because("but only one notification, because they all sample the same settled cell");
+        await Assert.That(observed)
+            .IsEquivalentTo(expected: [3], ordering: CollectionOrdering.Matching)
+            .Because("but only one notification, because they all sample the same settled cell");
 
         await Assert.That(b.Value).IsEqualTo(3);
     }
@@ -437,8 +430,42 @@ public sealed class BindableValueConcurrencyTests
 
         await Assert.That(ran).IsEqualTo(3).Because("one delivery queued per update");
 
-        await Assert.That(observed).IsEquivalentTo(expected: [1, 2, 3], ordering: CollectionOrdering.Matching).Because("each value the cell held is reported, in the order it held them");
+        await Assert.That(observed)
+            .IsEquivalentTo(expected: [1, 2, 3], ordering: CollectionOrdering.Matching)
+            .Because("each value the cell held is reported, in the order it held them");
 
         await Assert.That(b.Value).IsEqualTo(3).Because("and the last one delivered agrees with the cell");
+    }
+
+    /// <summary>
+    ///     Stands in for a dispatcher. The point is that it queues: a real scheduler hands work to
+    ///     another thread's message loop and returns, so anything posted during a write is still
+    ///     pending when the setter returns.
+    /// </summary>
+    // ReSharper disable once InheritdocConsiderUsage
+    private sealed class QueueingScheduler : IBindingScheduler
+    {
+        private readonly Queue<Action> queue = new();
+
+        /// <inheritdoc />
+        public bool CheckAccess() => true;
+
+        /// <inheritdoc />
+        public void Post(Action action) => this.queue.Enqueue(action);
+
+        /// <summary>Runs everything queued, including anything queued while draining.</summary>
+        /// <returns>How many actions ran.</returns>
+        internal int RunAll()
+        {
+            int ran = 0;
+
+            while (this.queue.Count > 0)
+            {
+                this.queue.Dequeue()();
+                ran++;
+            }
+
+            return ran;
+        }
     }
 }

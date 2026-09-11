@@ -308,10 +308,14 @@ public sealed class StreamTests
 
         await Assert.That(afterStreamCount).IsEqualTo(beforeStreamCount).Because("Before Streams == After Streams");
 
-        await Assert.That(afterListenerCount).IsEqualTo(beforeListenerCount).Because("Before Listeners == After Listeners");
+        await Assert.That(afterListenerCount)
+            .IsEqualTo(beforeListenerCount)
+            .Because("Before Listeners == After Listeners");
 
         await Assert.That(duringStreamCount > beforeStreamCount).IsTrue().Because("During Streams > Before Streams");
 
-        await Assert.That(duringListenerCount > beforeListenerCount).IsTrue().Because("During Listeners > Before Listeners");
+        await Assert.That(duringListenerCount > beforeListenerCount)
+            .IsTrue()
+            .Because("During Listeners > Before Listeners");
     }
 }

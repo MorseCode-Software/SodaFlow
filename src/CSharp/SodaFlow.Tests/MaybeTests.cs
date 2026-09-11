@@ -133,23 +133,27 @@ public sealed class MaybeTests
     {
         int calls = 0;
 
-        await Assert.That(Maybe.SomeIf(
-                condition: true,
-                valueFactory: () =>
-                {
-                    calls++;
-                    return 2;
-                })).IsEqualTo(Maybe.Some(2));
+        await Assert.That(
+                Maybe.SomeIf(
+                    condition: true,
+                    valueFactory: () =>
+                    {
+                        calls++;
+                        return 2;
+                    }))
+            .IsEqualTo(Maybe.Some(2));
 
         await Assert.That(calls).IsEqualTo(1);
 
-        await Assert.That(Maybe.SomeIf(
-                condition: false,
-                valueFactory: () =>
-                {
-                    calls++;
-                    return 2;
-                })).IsEqualTo(Maybe<int>.None);
+        await Assert.That(
+                Maybe.SomeIf(
+                    condition: false,
+                    valueFactory: () =>
+                    {
+                        calls++;
+                        return 2;
+                    }))
+            .IsEqualTo(Maybe<int>.None);
 
         await Assert.That(calls).IsEqualTo(1);
     }
@@ -187,11 +191,13 @@ public sealed class MaybeTests
 
     [Test]
     public async Task TestFromTryGetThreeInputs() =>
-        await Assert.That(Maybe.FromTryGet<string, NumberStyles, IFormatProvider, int>(
-                value1: "1,234",
-                value2: NumberStyles.Integer | NumberStyles.AllowThousands,
-                value3: CultureInfo.InvariantCulture,
-                tryGet: int.TryParse)).IsEqualTo(Maybe.Some(1234));
+        await Assert.That(
+                Maybe.FromTryGet<string, NumberStyles, IFormatProvider, int>(
+                    value1: "1,234",
+                    value2: NumberStyles.Integer | NumberStyles.AllowThousands,
+                    value3: CultureInfo.InvariantCulture,
+                    tryGet: int.TryParse))
+            .IsEqualTo(Maybe.Some(1234));
 
     [Test]
     public async Task TestFromTryGetNoInput()
@@ -234,7 +240,9 @@ public sealed class MaybeTests
     {
         Maybe<int>[] source = [Maybe.Some(1), Maybe<int>.None, Maybe.Some(1), Maybe<int>.None];
 
-        await Assert.That(source.Distinct()).IsEquivalentTo(expected: [Maybe.Some(1), Maybe<int>.None], ordering: CollectionOrdering.Matching);
+        await Assert.That(source.Distinct())
+            .IsEquivalentTo(expected: [Maybe.Some(1), Maybe<int>.None], ordering: CollectionOrdering.Matching);
+
         await Assert.That(source.Contains(Maybe<int>.None)).IsTrue();
 
         Dictionary<Maybe<int>, string> d = new() { { Maybe.Some(1), "one" }, { Maybe<int>.None, "none" } };
@@ -273,11 +281,14 @@ public sealed class MaybeTests
     public async Task CompareToMatchesNullableOrdering()
     {
         // None sorts before every value, exactly as null does for Nullable<T>.
-        await Assert.That(Math.Sign(Maybe<int>.None.CompareTo(Maybe.Some(0)))).IsEqualTo(Math.Sign(Comparer<int?>.Default.Compare(x: null, y: 0)));
+        await Assert.That(Math.Sign(Maybe<int>.None.CompareTo(Maybe.Some(0))))
+            .IsEqualTo(Math.Sign(Comparer<int?>.Default.Compare(x: null, y: 0)));
 
-        await Assert.That(Math.Sign(Maybe.Some(0).CompareTo(Maybe<int>.None))).IsEqualTo(Math.Sign(Comparer<int?>.Default.Compare(x: 0, y: null)));
+        await Assert.That(Math.Sign(Maybe.Some(0).CompareTo(Maybe<int>.None)))
+            .IsEqualTo(Math.Sign(Comparer<int?>.Default.Compare(x: 0, y: null)));
 
-        await Assert.That(Math.Sign(Maybe<int>.None.CompareTo(Maybe<int>.None))).IsEqualTo(Math.Sign(Comparer<int?>.Default.Compare(x: null, y: null)));
+        await Assert.That(Math.Sign(Maybe<int>.None.CompareTo(Maybe<int>.None)))
+            .IsEqualTo(Math.Sign(Comparer<int?>.Default.Compare(x: null, y: null)));
     }
 
     [Test]
@@ -293,12 +304,18 @@ public sealed class MaybeTests
     {
         Maybe<int>[] source = [Maybe.Some(3), Maybe<int>.None, Maybe.Some(1), Maybe<int>.None, Maybe.Some(2)];
 
-        await Assert.That(source.OrderBy(static v => v)).IsEquivalentTo(expected: [Maybe<int>.None, Maybe<int>.None, Maybe.Some(1), Maybe.Some(2), Maybe.Some(3)], ordering: CollectionOrdering.Matching);
+        await Assert.That(source.OrderBy(static v => v))
+            .IsEquivalentTo(
+                expected: [Maybe<int>.None, Maybe<int>.None, Maybe.Some(1), Maybe.Some(2), Maybe.Some(3)],
+                ordering: CollectionOrdering.Matching);
 
         Maybe<int>[] sorted = (Maybe<int>[])source.Clone();
         Array.Sort(sorted);
 
-        await Assert.That(sorted).IsEquivalentTo(expected: [Maybe<int>.None, Maybe<int>.None, Maybe.Some(1), Maybe.Some(2), Maybe.Some(3)], ordering: CollectionOrdering.Matching);
+        await Assert.That(sorted)
+            .IsEquivalentTo(
+                expected: [Maybe<int>.None, Maybe<int>.None, Maybe.Some(1), Maybe.Some(2), Maybe.Some(3)],
+                ordering: CollectionOrdering.Matching);
     }
 
     [Test]
@@ -312,7 +329,9 @@ public sealed class MaybeTests
             {
                 await Assert.That(x.CompareTo(y) == 0).IsEqualTo(x == y).Because($"{x} against {y}");
 
-                await Assert.That(-Math.Sign(y.CompareTo(x))).IsEqualTo(Math.Sign(x.CompareTo(y))).Because($"{x} against {y}");
+                await Assert.That(-Math.Sign(y.CompareTo(x)))
+                    .IsEqualTo(Math.Sign(x.CompareTo(y)))
+                    .Because($"{x} against {y}");
             }
         }
     }

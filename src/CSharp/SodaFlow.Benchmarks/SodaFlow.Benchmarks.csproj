@@ -37,6 +37,17 @@
     <ItemGroup>
         <Compile Include="BindableRefreshBenchmarks.cs"/>
         <Compile Include="BindableValueBenchmarks.cs"/>
+        <Compile Include="KeyedCollectionAggregateBenchmarks.cs"/>
+        <Compile Include="KeyedCollectionAggregateShapes.cs"/>
+        <Compile Include="KeyedCollectionBuildBenchmarks.cs"/>
+        <Compile Include="KeyedCollectionEditBenchmarks.cs"/>
+        <Compile Include="KeyedCollectionObservationBenchmarks.cs"/>
+        <Compile Include="KeyedCollectionObservationShapes.cs"/>
+        <Compile Include="KeyedCollectionPagingBenchmarks.cs"/>
+        <Compile Include="KeyedCollectionScaleBenchmarks.cs"/>
+        <Compile Include="KeyedCollectionShapes.cs"/>
+        <Compile Include="KeyedCollectionViewBenchmarks.cs"/>
+        <Compile Include="KeyedCollectionViewShapes.cs"/>
         <Compile Include="Program.cs"/>
         <Compile Include="SelectAllBenchmarks.cs"/>
     </ItemGroup>
@@ -46,6 +57,9 @@
                 Include="..\..\Bindable\ObjectModel\CSharp\SodaFlow.Bindable.ObjectModel\SodaFlow.Bindable.ObjectModel.csproj"/>
         <ProjectReference
                 Include="..\..\Bindable\ObjectModel\SodaFlow.Core.Bindable.ObjectModel\SodaFlow.Core.Bindable.ObjectModel.csproj"/>
+        <ProjectReference Include="..\..\Collections\CSharp\SodaFlow.Collections\SodaFlow.Collections.csproj"/>
+        <ProjectReference
+                Include="..\..\Collections\SodaFlow.Core.Collections\SodaFlow.Core.Collections.csproj"/>
         <ProjectReference Include="..\..\SodaFlow.Core\SodaFlow.Core.csproj"/>
         <ProjectReference Include="..\SodaFlow.Functional\SodaFlow.Functional.csproj"/>
         <ProjectReference Include="..\SodaFlow\SodaFlow.csproj"/>

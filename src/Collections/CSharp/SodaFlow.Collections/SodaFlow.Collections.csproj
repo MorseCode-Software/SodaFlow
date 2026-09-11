@@ -1,0 +1,50 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <TargetFrameworks>net472;net60;netstandard2.0</TargetFrameworks>
+        <LangVersion>latest</LangVersion>
+        <Nullable>enable</Nullable>
+    </PropertyGroup>
+
+    <PropertyGroup>
+        <PackageId>SodaFlow.Collections</PackageId>
+        <MinVerTagPrefix>sodaflow-collections-</MinVerTagPrefix>
+        <Product>SodaFlow Collections for C#</Product>
+        <Title>SodaFlow Collections for C#</Title>
+        <Description>SodaFlow Reactive Collections library for C#.</Description>
+        <AssemblyName>SodaFlow.Collections</AssemblyName>
+        <RootNamespace>SodaFlow.Collections</RootNamespace>
+        <EnableDefaultItems>false</EnableDefaultItems>
+        <Nullable>enable</Nullable>
+        <LangVersion>10</LangVersion>
+        <!--
+            GenerateDocumentationFile rather than an explicit DocumentationFile path: this project
+            multi-targets, and a single hard-coded path would make all three target frameworks write
+            over one another's XML.
+        -->
+        <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <PackageReference Include="System.ValueTuple" Version="4.6.2"/>
+    </ItemGroup>
+
+    <ItemGroup>
+        <Compile Include="CollectionExtensionMethods.cs"/>
+        <Compile Include="CollectionViewExtensionMethods.cs"/>
+    </ItemGroup>
+
+    <ItemGroup>
+        <ProjectReference Include="..\..\SodaFlow.Core.Collections\SodaFlow.Core.Collections.csproj"/>
+        <!--
+            SodaFlow itself, so installing this package brings the C# API it extends. A reactive
+            collection is built from and observed through cells and streams, and only SodaFlow's
+            operations produce those, so a consumer needs both; declaring it here means they get
+            both from one install rather than discovering the second the first time they try to
+            build a graph.
+        -->
+        <ProjectReference Include="..\..\..\CSharp\SodaFlow\SodaFlow.csproj"/>
+        <ProjectReference Include="..\..\..\CSharp\SodaFlow.Functional\SodaFlow.Functional.csproj"/>
+    </ItemGroup>
+
+</Project>

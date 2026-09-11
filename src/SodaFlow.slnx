@@ -29,6 +29,19 @@
         <Project
                 Path="Bindable/ObjectModel/FSharp/SodaFlow.FSharp.Bindable.ObjectModel/SodaFlow.FSharp.Bindable.ObjectModel.fsproj"/>
     </Folder>
+    <Folder Name="/Collections/">
+        <Project Path="Collections/SodaFlow.Core.Collections.Tests/SodaFlow.Core.Collections.Tests.csproj"/>
+        <Project Path="Collections/SodaFlow.Core.Collections/SodaFlow.Core.Collections.csproj"/>
+    </Folder>
+    <Folder Name="/Collections/CSharp/">
+        <Project Path="Collections/CSharp/SodaFlow.Collections.Tests/SodaFlow.Collections.Tests.csproj"/>
+        <Project Path="Collections/CSharp/SodaFlow.Collections/SodaFlow.Collections.csproj"/>
+    </Folder>
+    <Folder Name="/Collections/FSharp/">
+        <Project
+                Path="Collections/FSharp/SodaFlow.FSharp.Collections.Tests/SodaFlow.FSharp.Collections.Tests.fsproj"/>
+        <Project Path="Collections/FSharp/SodaFlow.FSharp.Collections/SodaFlow.FSharp.Collections.fsproj"/>
+    </Folder>
     <Folder Name="/CSharp/">
         <Project Path="CSharp/SodaFlow.Benchmarks/SodaFlow.Benchmarks.csproj"/>
         <Project Path="CSharp/SodaFlow.Functional/SodaFlow.Functional.csproj"/>

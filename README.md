@@ -20,6 +20,7 @@ glitches, no ordering bugs, and no manual subscription bookkeeping.
 | `SodaFlow.Functional`<br>[![Latest Stable Version](https://img.shields.io/nuget/v/SodaFlow.Functional.svg)](http://www.nuget.org/packages/SodaFlow.Functional/) | N/A | `Maybe`, `Either`, and `Unit` used across the C# API. |
 | `SodaFlow.Async`<br>[![Latest Stable Version](https://img.shields.io/nuget/v/SodaFlow.Async.svg)](http://www.nuget.org/packages/SodaFlow.Async/) | `SodaFlow.FSharp.Async`<br>[![Latest Stable Version](https://img.shields.io/nuget/v/SodaFlow.FSharp.Async.svg)](http://www.nuget.org/packages/SodaFlow.FSharp.Async/) | `async`/`Task` integration. |
 | `SodaFlow.Bindable.ObjectModel`<br>[![Latest Stable Version](https://img.shields.io/nuget/v/SodaFlow.Bindable.ObjectModel.svg)](http://www.nuget.org/packages/SodaFlow.Bindable.ObjectModel/) | `SodaFlow.FSharp.Bindable.ObjectModel`<br>[![Latest Stable Version](https://img.shields.io/nuget/v/SodaFlow.FSharp.Bindable.ObjectModel.svg)](http://www.nuget.org/packages/SodaFlow.FSharp.Bindable.ObjectModel/) | Bindable support for XAML UIs. |
+| `SodaFlow.Collections`<br>[![Latest Stable Version](https://img.shields.io/nuget/v/SodaFlow.Collections.svg)](http://www.nuget.org/packages/SodaFlow.Collections/) | `SodaFlow.FSharp.Collections`<br>[![Latest Stable Version](https://img.shields.io/nuget/v/SodaFlow.FSharp.Collections.svg)](http://www.nuget.org/packages/SodaFlow.FSharp.Collections/) | Large keyed collections with per-item observation. |
 
 All libraries target `net472`, `net60`, and `netstandard2.0`.
 

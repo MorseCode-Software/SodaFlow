@@ -133,7 +133,8 @@ public sealed class MapAsyncImplTests
 
         // The rejected item is still visible, forever Queued — that's the visible cost of this
         // idiom, called out in AsyncConcurrencyStrategy's own remarks.
-        await Assert.That(status.Items.Sample().Any(static i => i is { Value: -1, Status: AsyncItemStatus.Queued })).IsTrue();
+        await Assert.That(status.Items.Sample().Any(static i => i is { Value: -1, Status: AsyncItemStatus.Queued }))
+            .IsTrue();
 
         status.Dispose();
         l.Unlisten();
@@ -173,8 +174,11 @@ public sealed class MapAsyncImplTests
                 inputConverter: static v => v,
                 resultConverter: static v => v);
 
-        await Assert.That(() => source.Send(1)).ThrowsNothing().Because("Canceling and promoting the same item in one Admit call should complete it as " +
-                     "Canceled, not crash the transaction that admitted it.");
+        await Assert.That(() => source.Send(1))
+            .ThrowsNothing()
+            .Because(
+                "Canceling and promoting the same item in one Admit call should complete it as " +
+                "Canceled, not crash the transaction that admitted it.");
 
         Thread.Sleep(100);
         await Assert.That(received.Count).IsEqualTo(0).Because("A canceled outcome must never be published.");
@@ -321,15 +325,16 @@ public sealed class MapAsyncImplTests
         StreamSink<Exception> errors = Stream.CreateSink<Exception>();
 
         await Assert.That(() =>
-            AsyncStreamUtility.MapAsyncImpl<string, string, string, string>(
-                // ReSharper disable once NullableWarningSuppressionIsUsed - Testing for exception on null.
-                source: null!,
-                results: results,
-                errors: errors,
-                operation: static (v, _) => Task.FromResult(v),
-                strategy: AsyncConcurrencyStrategyFactory.Parallel("unused"),
-                inputConverter: static v => v,
-                resultConverter: static v => v)).ThrowsExactly<ArgumentNullException>();
+                AsyncStreamUtility.MapAsyncImpl<string, string, string, string>(
+                    // ReSharper disable once NullableWarningSuppressionIsUsed - Testing for exception on null.
+                    source: null!,
+                    results: results,
+                    errors: errors,
+                    operation: static (v, _) => Task.FromResult(v),
+                    strategy: AsyncConcurrencyStrategyFactory.Parallel("unused"),
+                    inputConverter: static v => v,
+                    resultConverter: static v => v))
+            .ThrowsExactly<ArgumentNullException>();
     }
 
     [Test]
@@ -339,14 +344,15 @@ public sealed class MapAsyncImplTests
         StreamSink<Exception> errors = Stream.CreateSink<Exception>();
 
         await Assert.That(() =>
-            source.MapAsyncImpl(
-                // ReSharper disable once NullableWarningSuppressionIsUsed - Testing for exception on null.
-                results: null!,
-                errors: errors,
-                operation: static (v, _) => Task.FromResult(v),
-                strategy: AsyncConcurrencyStrategyFactory.Parallel("unused"),
-                inputConverter: static v => v,
-                resultConverter: static v => v)).ThrowsExactly<ArgumentNullException>();
+                source.MapAsyncImpl(
+                    // ReSharper disable once NullableWarningSuppressionIsUsed - Testing for exception on null.
+                    results: null!,
+                    errors: errors,
+                    operation: static (v, _) => Task.FromResult(v),
+                    strategy: AsyncConcurrencyStrategyFactory.Parallel("unused"),
+                    inputConverter: static v => v,
+                    resultConverter: static v => v))
+            .ThrowsExactly<ArgumentNullException>();
     }
 
     [Test]
@@ -356,14 +362,15 @@ public sealed class MapAsyncImplTests
         StreamSink<string> results = Stream.CreateSink<string>();
 
         await Assert.That(() =>
-            source.MapAsyncImpl(
-                results: results,
-                // ReSharper disable once NullableWarningSuppressionIsUsed - Testing for exception on null.
-                errors: null!,
-                operation: static (v, _) => Task.FromResult(v),
-                strategy: AsyncConcurrencyStrategyFactory.Parallel("unused"),
-                inputConverter: static v => v,
-                resultConverter: static v => v)).ThrowsExactly<ArgumentNullException>();
+                source.MapAsyncImpl(
+                    results: results,
+                    // ReSharper disable once NullableWarningSuppressionIsUsed - Testing for exception on null.
+                    errors: null!,
+                    operation: static (v, _) => Task.FromResult(v),
+                    strategy: AsyncConcurrencyStrategyFactory.Parallel("unused"),
+                    inputConverter: static v => v,
+                    resultConverter: static v => v))
+            .ThrowsExactly<ArgumentNullException>();
     }
 
     [Test]
@@ -374,14 +381,15 @@ public sealed class MapAsyncImplTests
         StreamSink<Exception> errors = Stream.CreateSink<Exception>();
 
         await Assert.That(() =>
-            source.MapAsyncImpl(
-                results: results,
-                errors: errors,
-                // ReSharper disable once NullableWarningSuppressionIsUsed - Testing for exception on null.
-                operation: null!,
-                strategy: AsyncConcurrencyStrategyFactory.Parallel("unused"),
-                inputConverter: static v => v,
-                resultConverter: static v => v)).ThrowsExactly<ArgumentNullException>();
+                source.MapAsyncImpl(
+                    results: results,
+                    errors: errors,
+                    // ReSharper disable once NullableWarningSuppressionIsUsed - Testing for exception on null.
+                    operation: null!,
+                    strategy: AsyncConcurrencyStrategyFactory.Parallel("unused"),
+                    inputConverter: static v => v,
+                    resultConverter: static v => v))
+            .ThrowsExactly<ArgumentNullException>();
     }
 
     [Test]
@@ -392,14 +400,15 @@ public sealed class MapAsyncImplTests
         StreamSink<Exception> errors = Stream.CreateSink<Exception>();
 
         await Assert.That(() =>
-            source.MapAsyncImpl(
-                results: results,
-                errors: errors,
-                operation: static (v, _) => Task.FromResult(v),
-                // ReSharper disable once NullableWarningSuppressionIsUsed - Testing for exception on null.
-                strategy: null!,
-                inputConverter: static v => v,
-                resultConverter: static v => v)).ThrowsExactly<ArgumentNullException>();
+                source.MapAsyncImpl(
+                    results: results,
+                    errors: errors,
+                    operation: static (v, _) => Task.FromResult(v),
+                    // ReSharper disable once NullableWarningSuppressionIsUsed - Testing for exception on null.
+                    strategy: null!,
+                    inputConverter: static v => v,
+                    resultConverter: static v => v))
+            .ThrowsExactly<ArgumentNullException>();
     }
 
     /// <summary>Starts everything immediately and records the converted value each item was admitted with.</summary>

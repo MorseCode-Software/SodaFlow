@@ -38,11 +38,15 @@ public sealed class GarbageCollectionTests
 
         WeakReference mapped = CreateMappedStreamAndUnlisten(s: s, @out: @out);
 
-        await Assert.That(@out).IsEquivalentTo(expected: ["3"], ordering: CollectionOrdering.Matching).Because("the mapped stream should have fired while it was listening");
+        await Assert.That(@out)
+            .IsEquivalentTo(expected: ["3"], ordering: CollectionOrdering.Matching)
+            .Because("the mapped stream should have fired while it was listening");
 
         Collect();
 
-        await Assert.That(mapped.IsAlive).IsFalse().Because("nothing should still root a mapped stream after the caller drops it and unlistens");
+        await Assert.That(mapped.IsAlive)
+            .IsFalse()
+            .Because("nothing should still root a mapped stream after the caller drops it and unlistens");
     }
 
     [Test]
@@ -63,7 +67,9 @@ public sealed class GarbageCollectionTests
         // the node, or this send prunes the target whose weak reference has died.
         s.Send(2);
 
-        await Assert.That(s.Node.GetListenersCopy().Count).IsEqualTo(0).Because("the source node should no longer be linked to a collected downstream stream");
+        await Assert.That(s.Node.GetListenersCopy().Count)
+            .IsEqualTo(0)
+            .Because("the source node should no longer be linked to a collected downstream stream");
     }
 
     [Test]
@@ -83,7 +89,9 @@ public sealed class GarbageCollectionTests
 
         s.Send(1);
 
-        await Assert.That(s.Node.GetListenersCopy().Count).IsEqualTo(0).Because("the source node should be disconnected once the whole chain is gone");
+        await Assert.That(s.Node.GetListenersCopy().Count)
+            .IsEqualTo(0)
+            .Because("the source node should be disconnected once the whole chain is gone");
     }
 
     [Test]
@@ -99,11 +107,15 @@ public sealed class GarbageCollectionTests
         // This is deliberate, not an oversight: ListenStrong roots the listener in the stream's
         // keep-alive set precisely so that a caller which ignores the return value still
         // receives values. Losing this would make listeners silently stop firing.
-        await Assert.That(listener.IsAlive).IsTrue().Because("an active listener should stay alive even once the caller drops it");
+        await Assert.That(listener.IsAlive)
+            .IsTrue()
+            .Because("an active listener should stay alive even once the caller drops it");
 
         s.Send(5);
 
-        await Assert.That(@out).IsEquivalentTo(expected: [5], ordering: CollectionOrdering.Matching).Because("a rooted listener should still be firing");
+        await Assert.That(@out)
+            .IsEquivalentTo(expected: [5], ordering: CollectionOrdering.Matching)
+            .Because("a rooted listener should still be firing");
     }
 
     [Test]
@@ -116,7 +128,9 @@ public sealed class GarbageCollectionTests
 
         Collect();
 
-        await Assert.That(listener.IsAlive).IsFalse().Because("Unlisten should stop the listener being rooted by the stream");
+        await Assert.That(listener.IsAlive)
+            .IsFalse()
+            .Because("Unlisten should stop the listener being rooted by the stream");
 
         s.Send(5);
 
@@ -140,7 +154,8 @@ public sealed class GarbageCollectionTests
         StreamListenerManager.Sweep();
         int after = StreamListenerManager.RegistryCount;
 
-        await Assert.That(after).IsLessThanOrEqualTo(before)
+        await Assert.That(after)
+            .IsLessThanOrEqualTo(before)
             .Because("the registry should be back to its previous size once the streams it tracked are collected");
     }
 

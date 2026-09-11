@@ -2,8 +2,8 @@ using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 using JetBrains.Annotations;
-using TUnit.Assertions.Enums;
 using TUnit.Assertions.Core;
+using TUnit.Assertions.Enums;
 
 namespace SodaFlow.Tests;
 
@@ -52,7 +52,9 @@ public static class Expect
 
     /// <summary>Asserts that <paramref name="actual" /> holds exactly <paramref name="expected" />, in that order.</summary>
     public static Task Sequence<T>(IEnumerable<T> expected, IEnumerable<T> actual, string? because = null) =>
-        Run(assertion: Assert.That(actual).IsEquivalentTo(expected: expected, ordering: CollectionOrdering.Matching), because: because);
+        Run(
+            assertion: Assert.That(actual).IsEquivalentTo(expected: expected, ordering: CollectionOrdering.Matching),
+            because: because);
 
     /// <summary>Asserts that <paramref name="actual" /> holds exactly <paramref name="expected" />, in any order.</summary>
     public static Task SameItems<T>(IEnumerable<T> expected, IEnumerable<T> actual, string? because = null) =>

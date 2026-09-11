@@ -1,0 +1,190 @@
+using BenchmarkDotNet.Attributes;
+using BenchmarkDotNet.Jobs;
+using JetBrains.Annotations;
+
+namespace SodaFlow.Benchmarks;
+
+/// <summary>
+///     What a per-item observer costs depending on what it is bound to, and what it would cost if
+///     observing through a view answered for the view rather than for the collection.
+/// </summary>
+/// <remarks>
+///     <para>
+///         <c>StateCell</c> on a filtered view currently hands back the collection's own cell, so a
+///         key the filter excluded still has its state. That is the last thing a view exposes that
+///         is not the view's own, and whether to close it is open. Closing it means a view's cell is
+///         the collection's cell lifted against that view's membership, and the cost of that is
+///         what this measures - before the decision rather than after it.
+///     </para>
+///     <para>
+///         The arm to watch is the last pair. An observer bound to its own item wakes when that item
+///         changes. One lifted against a view's keys wakes when <i>anything</i> the view holds moves,
+///         because the view's keys are one cell and reordering replaces it - so twenty observers
+///         wake for an edit to an item none of them are watching. That is a different shape of cost
+///         from "one more node per observer", and it is the number the decision turns on.
+///     </para>
+/// </remarks>
+[MemoryDiagnoser]
+[SimpleJob(RuntimeMoniker.Net472)]
+[SimpleJob(RuntimeMoniker.Net10_0)]
+// Not sealed, and not private to this file: BenchmarkDotNet derives from this and finds it by
+// reflection. See BindableValueBenchmarks.
+// ReSharper disable once ClassCanBeSealed.Global
+// ReSharper disable once MemberCanBeFileLocal
+public class KeyedCollectionObservationBenchmarks
+{
+    private int editCount;
+
+    private ObservationShape identityOnRoot =
+        ObservationShape.Build(itemCount: ObservationShape.ObserverCount, style: ObservationStyle.IdentityOnRoot);
+
+    private ObservationShape identityShapeMapped =
+        ObservationShape.Build(itemCount: ObservationShape.ObserverCount, style: ObservationStyle.IdentityShapeMapped);
+
+    private ObservationShape identityThroughView =
+        ObservationShape.Build(itemCount: ObservationShape.ObserverCount, style: ObservationStyle.IdentityThroughView);
+
+    // Populated for real in the setup; built small here so the fields never have to be nullable.
+    private ObservationShape onRoot =
+        ObservationShape.Build(itemCount: ObservationShape.ObserverCount, style: ObservationStyle.OnRoot);
+
+    private ObservationShape throughView =
+        ObservationShape.Build(itemCount: ObservationShape.ObserverCount, style: ObservationStyle.ThroughView);
+
+    private ObservationShape viewNative =
+        ObservationShape.Build(itemCount: ObservationShape.ObserverCount, style: ObservationStyle.ViewNative);
+
+    private ObservationShape viewScoped =
+        ObservationShape.Build(itemCount: ObservationShape.ObserverCount, style: ObservationStyle.ViewScoped);
+
+    private ObservationShape viewScopedPerKey =
+        ObservationShape.Build(itemCount: ObservationShape.ObserverCount, style: ObservationStyle.ViewScopedPerKey);
+
+    /// <summary>How many items the collection holds.</summary>
+    [Params(1_000, 10_000)]
+    public int ItemCount { get; [UsedImplicitly] set; }
+
+    /// <summary>A state added and removed; its value is never read, only its identity's arrival.</summary>
+    private static ItemState AddedState => new(name: "added", score: 1234, isFrozen: false);
+
+    /// <summary>A key an observer is bound to, and which the filter keeps.</summary>
+    private int WatchedKey => ObservationShape.ObservedKeys(this.ItemCount)[0];
+
+    /// <summary>Builds all three arrangements over the same collection shape.</summary>
+    [GlobalSetup]
+    public void Setup()
+    {
+        ObservationShape.VerifyPremises(this.ItemCount);
+
+        this.onRoot = ObservationShape.Build(itemCount: this.ItemCount, style: ObservationStyle.OnRoot);
+        this.throughView = ObservationShape.Build(itemCount: this.ItemCount, style: ObservationStyle.ThroughView);
+        this.viewScoped = ObservationShape.Build(itemCount: this.ItemCount, style: ObservationStyle.ViewScoped);
+
+        this.viewScopedPerKey =
+            ObservationShape.Build(itemCount: this.ItemCount, style: ObservationStyle.ViewScopedPerKey);
+
+        this.viewNative = ObservationShape.Build(itemCount: this.ItemCount, style: ObservationStyle.ViewNative);
+        this.identityOnRoot = ObservationShape.Build(itemCount: this.ItemCount, style: ObservationStyle.IdentityOnRoot);
+
+        this.identityThroughView =
+            ObservationShape.Build(itemCount: this.ItemCount, style: ObservationStyle.IdentityThroughView);
+
+        this.identityShapeMapped =
+            ObservationShape.Build(itemCount: this.ItemCount, style: ObservationStyle.IdentityShapeMapped);
+    }
+
+    /// <summary>An edit to a watched item, observed on the collection.</summary>
+    [Benchmark(Description = "edit a watched item, observed on the collection", Baseline = true)]
+    public void EditWatchedOnRoot() => this.onRoot.Replace(key: this.WatchedKey, state: this.NextState());
+
+    /// <summary>
+    ///     The same, observed through a view - which today is the same cell, so this should match
+    ///     the baseline and is here to say so.
+    /// </summary>
+    [Benchmark(Description = "edit a watched item, observed through a view")]
+    public void EditWatchedThroughView() => this.throughView.Replace(key: this.WatchedKey, state: this.NextState());
+
+    /// <summary>The same again, with each observer lifted against the view's membership.</summary>
+    [Benchmark(Description = "edit a watched item, observed with membership")]
+    public void EditWatchedViewScoped() => this.viewScoped.Replace(key: this.WatchedKey, state: this.NextState());
+
+    /// <summary>The same again, with membership held per observer and calmed.</summary>
+    [Benchmark(Description = "edit a watched item, observed with membership per key")]
+    public void EditWatchedViewScopedPerKey() =>
+        this.viewScopedPerKey.Replace(key: this.WatchedKey, state: this.NextState());
+
+    /// <summary>The same again, through the view's own cell, which is what the library builds.</summary>
+    [Benchmark(Description = "edit a watched item, observed by the view itself")]
+    public void EditWatchedViewNative() => this.viewNative.Replace(key: this.WatchedKey, state: this.NextState());
+
+    /// <summary>
+    ///     An edit to an item in the view that nobody watches. Observers bound to their own items
+    ///     have nothing to do here.
+    /// </summary>
+    [Benchmark(Description = "edit an unwatched item, observed on the collection")]
+    public void EditUnwatchedOnRoot() =>
+        this.onRoot.Replace(key: ObservationShape.UnobservedKeyInView, state: this.NextState());
+
+    /// <summary>
+    ///     The same edit, with each observer lifted against the view's membership - which the edit
+    ///     moves, because it reorders the sort beneath the filter.
+    /// </summary>
+    [Benchmark(Description = "edit an unwatched item, observed with membership")]
+    public void EditUnwatchedViewScoped() =>
+        this.viewScoped.Replace(key: ObservationShape.UnobservedKeyInView, state: this.NextState());
+
+    /// <summary>
+    ///     The edit that decides it. Nobody watches this item and nobody's membership moves, so an
+    ///     observer that asks only about its own key has nothing to do - if the calming works, this
+    ///     costs what observing the collection costs.
+    /// </summary>
+    [Benchmark(Description = "edit an unwatched item, observed with membership per key")]
+    public void EditUnwatchedViewScopedPerKey() =>
+        this.viewScopedPerKey.Replace(key: ObservationShape.UnobservedKeyInView, state: this.NextState());
+
+    /// <summary>
+    ///     The edit the whole exercise is about: nobody watches this item and nobody's membership
+    ///     moves, so an observer that filters itself out of a change naming another key should cost
+    ///     what observing the collection costs.
+    /// </summary>
+    [Benchmark(Description = "edit an unwatched item, observed by the view itself")]
+    public void EditUnwatchedViewNative() =>
+        this.viewNative.Replace(key: ObservationShape.UnobservedKeyInView, state: this.NextState());
+
+    /// <summary>
+    ///     A structural change touching nobody's key, with identities observed the way this library
+    ///     used to answer them. The shape cell is replaced, so all twenty observers wake.
+    /// </summary>
+    [Benchmark(Description = "add and remove, identity by mapping the shape cell")]
+    public void AddAndRemoveIdentityShapeMapped() =>
+        this.identityShapeMapped.AddAndRemove(key: ObservationShape.UnobservedStructuralKey, state: AddedState);
+
+    /// <summary>The same, with identities observed on the collection as it answers them now.</summary>
+    [Benchmark(Description = "add and remove, identity observed on the collection")]
+    public void AddAndRemoveIdentityOnRoot() =>
+        this.identityOnRoot.AddAndRemove(key: ObservationShape.UnobservedStructuralKey, state: AddedState);
+
+    /// <summary>And through a view, which sees the structural change too.</summary>
+    [Benchmark(Description = "add and remove, identity observed through a view")]
+    public void AddAndRemoveIdentityThroughView() =>
+        this.identityThroughView.AddAndRemove(key: ObservationShape.UnobservedStructuralKey, state: AddedState);
+
+    /// <summary>
+    ///     A state edit with identities observed through a view. An identity cannot change while
+    ///     its key stays put, so no observer should hear anything however the view reorders.
+    /// </summary>
+    [Benchmark(Description = "edit an unwatched item, identity observed through a view")]
+    public void EditUnwatchedIdentityThroughView() =>
+        this.identityThroughView.Replace(key: ObservationShape.UnobservedKeyInView, state: this.NextState());
+
+    /// <summary>
+    ///     Two states, alternating, so the item moves within the sort and back rather than climbing
+    ///     out of it as the benchmark runs.
+    /// </summary>
+    private ItemState NextState()
+    {
+        this.editCount++;
+
+        return new ItemState(name: "edited", score: int.MaxValue - this.editCount % 2, isFrozen: false);
+    }
+}

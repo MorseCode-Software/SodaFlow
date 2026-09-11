@@ -48,11 +48,12 @@ public sealed class EnumerableExtensionMethodsTests
         int calls = 0;
 
         IEnumerable<int> result =
-            Items(1, 2, 3).Choose(v =>
-            {
-                calls++;
-                return Maybe.Some(v);
-            });
+            Items(1, 2, 3)
+                .Choose(v =>
+                {
+                    calls++;
+                    return Maybe.Some(v);
+                });
 
         await Assert.That(calls).IsEqualTo(0);
 
@@ -154,8 +155,10 @@ public sealed class EnumerableExtensionMethodsTests
     {
         await Assert.That(Items(1, 2, 3).SingleOrNone(static v => v % 2 == 0)).IsEqualTo(Maybe.Some(2));
         await Assert.That(Items(1, 3).SingleOrNone(static v => v % 2 == 0)).IsEqualTo(Maybe<int>.None);
+
         // ReSharper disable once ReturnValueOfPureMethodIsNotUsed - Testing for side effect only.
-        await Assert.That(static () => Items(2, 4).SingleOrNone(static v => v % 2 == 0)).ThrowsExactly<InvalidOperationException>();
+        await Assert.That(static () => Items(2, 4).SingleOrNone(static v => v % 2 == 0))
+            .ThrowsExactly<InvalidOperationException>();
     }
 
     [Test]
@@ -202,7 +205,8 @@ public sealed class EnumerableExtensionMethodsTests
 
     [Test]
     public async Task TestAggregateOrNoneIsLeftAssociative() =>
-        await Assert.That(Items("a", "b", "c").AggregateOrNone(static (a, b) => "(" + a + " " + b + ")")).IsEqualTo(Maybe.Some("((a b) c)"));
+        await Assert.That(Items("a", "b", "c").AggregateOrNone(static (a, b) => "(" + a + " " + b + ")"))
+            .IsEqualTo(Maybe.Some("((a b) c)"));
 
     [Test]
     public async Task TestAggregateOrNoneDoesNotRunFunctionForOneElement()
@@ -210,11 +214,12 @@ public sealed class EnumerableExtensionMethodsTests
         int calls = 0;
 
         Maybe<int> result =
-            Items(7).AggregateOrNone((a, b) =>
-            {
-                calls++;
-                return a + b;
-            });
+            Items(7)
+                .AggregateOrNone((a, b) =>
+                {
+                    calls++;
+                    return a + b;
+                });
 
         await Assert.That(result).IsEqualTo(Maybe.Some(7));
         await Assert.That(calls).IsEqualTo(0);
@@ -243,9 +248,11 @@ public sealed class EnumerableExtensionMethodsTests
     {
         string[] source = ["bbb", "a", "cc"];
 
-        await Assert.That(source.MinOrNone(Comparer<string>.Create(static (x, y) => x.Length - y.Length))).IsEqualTo(Maybe.Some("a"));
+        await Assert.That(source.MinOrNone(Comparer<string>.Create(static (x, y) => x.Length - y.Length)))
+            .IsEqualTo(Maybe.Some("a"));
 
-        await Assert.That(source.MaxOrNone(Comparer<string>.Create(static (x, y) => x.Length - y.Length))).IsEqualTo(Maybe.Some("bbb"));
+        await Assert.That(source.MaxOrNone(Comparer<string>.Create(static (x, y) => x.Length - y.Length)))
+            .IsEqualTo(Maybe.Some("bbb"));
     }
 
     [Test]
