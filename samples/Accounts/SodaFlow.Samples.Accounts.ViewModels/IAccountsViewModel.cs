@@ -17,8 +17,14 @@ namespace SodaFlow.Samples.Accounts.ViewModels;
 ///         sample does and what is right for a search sample: its results genuinely are one answer
 ///         that changes as a whole.
 ///     </para>
+///     <para>
+///         <see cref="IDisposable" /> is on the contract because those cells are the row's to
+///         release, and the projection that built it only ever sees it through this interface -
+///         so eviction can dispose a row without knowing which class it is.
+///     </para>
 /// </remarks>
-public interface IAccountRowViewModel
+// ReSharper disable once InheritdocConsiderUsage
+public interface IAccountRowViewModel : IDisposable
 {
     /// <summary>The account number, which never changes while the account exists.</summary>
     IOneWayBindableValue<string> Number { get; }

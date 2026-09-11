@@ -95,7 +95,7 @@ internal sealed class SortSelection
 
 /// <summary>One row, holding cells that follow one account through the view showing it.</summary>
 // ReSharper disable once InheritdocConsiderUsage
-internal sealed class AccountRowViewModel : IAccountRowViewModel, IDisposable
+internal sealed class AccountRowViewModel : IAccountRowViewModel
 {
     private readonly IReadOnlyList<IDisposable> disposables;
 
@@ -119,6 +119,7 @@ internal sealed class AccountRowViewModel : IAccountRowViewModel, IDisposable
     /// <inheritdoc />
     public IOneWayBindableValue<string> Balance { get; }
 
+    /// <inheritdoc />
     public void Dispose()
     {
         foreach (IDisposable disposable in this.disposables)
@@ -347,7 +348,7 @@ public sealed class AccountsViewModel : IAccountsViewModel
                     page.StateCell(key)
                         .Map(static state => state.Match(Money, static () => string.Empty))
                         .ToOneWay()),
-                onEvicted: static row => ((AccountRowViewModel)row).Dispose());
+                onEvicted: static row => row.Dispose());
 
             // The total is folded from what changed rather than recomputed from the store. The
             // change carries both sides of it, so a delta needs nothing kept alongside.
