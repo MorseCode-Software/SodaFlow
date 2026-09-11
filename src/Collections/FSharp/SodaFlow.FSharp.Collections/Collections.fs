@@ -257,13 +257,20 @@ let itemChangesStream (collection: ReactiveCollection<'TKey, 'TIdentity, 'TState
 
 // --- views --------------------------------------------------------------------------------
 
-/// <summary>Reorders by key — the root's own order, available over any stage.</summary>
+/// <summary>Reorders by key, over any stage.</summary>
 /// <param name="keyComparer">The comparer to order keys by.</param>
 /// <param name="upstream">The collection or view to reorder.</param>
 /// <returns>A view ordered by key.</returns>
 [<MethodImpl(MethodImplOptions.NoInlining)>]
 let sortByKey (keyComparer: IComparer<'TKey>) (upstream: ReactiveCollection<'TKey, 'TIdentity, 'TState>) =
     CollectionViewUtility.SortByKeyImpl(upstream, keyComparer)
+
+/// <summary>Reorders by arrival - the collection's own order, available over any stage.</summary>
+/// <param name="upstream">The collection or view to reorder.</param>
+/// <returns>A view in the order its items arrived.</returns>
+[<MethodImpl(MethodImplOptions.NoInlining)>]
+let sortByArrival (upstream: ReactiveCollection<'TKey, 'TIdentity, 'TState>) =
+    CollectionViewUtility.SortByArrivalImpl upstream
 
 /// <summary>Narrows the view, preserving the upstream order.</summary>
 /// <param name="predicate">Whether an item belongs in the view.</param>
@@ -534,12 +541,22 @@ let orderByIdentityWith
     : KeyOrder<'TKey, 'TIdentity, 'TState> =
     KeyOrder<'TKey, 'TIdentity, 'TState>.ByIdentity(Func<_, _> selector, sortComparer, keyComparer, descending)
 
-/// <summary>An order by key — the root's own order, available over any stage.</summary>
+/// <summary>An order by key, over any stage.</summary>
 /// <param name="keyComparer">The comparer to order keys by.</param>
 /// <returns>The order.</returns>
 [<MethodImpl(MethodImplOptions.NoInlining)>]
 let orderByKey (keyComparer: IComparer<'TKey>) : KeyOrder<'TKey, 'TIdentity, 'TState> =
     KeyOrder<'TKey, 'TIdentity, 'TState>.ByKey keyComparer
+
+/// <summary>An order by arrival - the collection's own order, available over any stage.</summary>
+/// <returns>The order.</returns>
+/// <remarks>
+///     Under a sort this is how a cell goes back to unsorted - the third state of a column header that
+///     cycles ascending, descending and off.
+/// </remarks>
+[<MethodImpl(MethodImplOptions.NoInlining)>]
+let orderByArrival () : KeyOrder<'TKey, 'TIdentity, 'TState> =
+    KeyOrder<'TKey, 'TIdentity, 'TState>.ByArrival()
 
 /// <summary>An order with its ties broken by a value projected from each item.</summary>
 /// <param name="selector">Projects the next level's sort value from an item.</param>

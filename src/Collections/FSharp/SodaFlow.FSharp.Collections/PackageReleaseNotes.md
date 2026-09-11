@@ -43,6 +43,9 @@ With forms add a level to an order, deciding only between keys it ranks equal,
 and sortByOrder sorts by an order that does not change - which is how a
 multi-level sort that never changes is written.
 
+A collection keeps its items in the order they arrived rather than by key, and
+sortByArrival and orderByArrival take a sorted view back to that order.
+
 slice offset limit is the paging window, and take is the case of it that starts
 at zero; sliceC takes cells for either end, so turning the page is one send.
 There is no skip - a window with both ends is bounded, which is what keeps the

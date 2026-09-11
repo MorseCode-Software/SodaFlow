@@ -160,7 +160,7 @@ public abstract class KeyOrder<TKey, TIdentity, TState>
             keyComparer: keyComparer,
             descending: descending);
 
-    /// <summary>Orders by key — the root's own order, available over any stage.</summary>
+    /// <summary>Orders by key, over any stage.</summary>
     /// <param name="keyComparer">The comparer to order keys by.</param>
     /// <returns>The order.</returns>
     public static KeyOrder<TKey, TIdentity, TState> ByKey(IComparer<TKey> keyComparer) =>
@@ -169,6 +169,17 @@ public abstract class KeyOrder<TKey, TIdentity, TState>
             sortComparer: keyComparer,
             keyComparer: keyComparer,
             descending: false);
+
+    /// <summary>Orders by arrival - the collection's own order, available over any stage.</summary>
+    /// <returns>The order.</returns>
+    /// <remarks>
+    ///     Items are listed in the order they were enumerated when the collection was created, then in
+    ///     the order edits added them, and a key removed and added back is a new arrival. Under a sort
+    ///     this is how a cell goes back to unsorted - the third state of a column header that cycles
+    ///     ascending, descending and off. Keys are never compared, so they need no order of their own,
+    ///     and a further level is never consulted, because no two keys arrive together.
+    /// </remarks>
+    public static KeyOrder<TKey, TIdentity, TState> ByArrival() => ArrivalOrder<TKey, TIdentity, TState>.Instance;
 
     /// <summary>This order, with its ties broken by a value projected from each item.</summary>
     /// <typeparam name="TSortKey">The type of the projected sort value.</typeparam>

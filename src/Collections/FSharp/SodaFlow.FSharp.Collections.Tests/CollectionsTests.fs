@@ -106,14 +106,49 @@ type ``Collections Tests``() =
         }
 
     [<Test>]
-    member _.``the root is ordered by key``() =
+    member _.``the root keeps the order items arrived in``() =
         task {
             let edits = sinkS<CollectionEdit<int, ItemIdentity, ItemState>> ()
 
             let collection =
                 create keyOf [ item 3 "three" 30; item 1 "one" 10; item 2 "two" 20 ] [ edits ]
 
-            do! Expect.Sequence([ 1; 2; 3 ], keysOf collection)
+            // The order the initial items were enumerated in, not the order of their keys.
+            do! Expect.Sequence([ 3; 1; 2 ], keysOf collection)
+
+            edits |> sendS (addEdit [ item 0 "zero" 0 ])
+
+            do! Expect.Sequence([ 3; 1; 2; 0 ], keysOf collection)
+
+            // An update is not an arrival.
+            edits |> sendS (updateEdit 3 (fun state -> { state with Score = 99 }))
+
+            do! Expect.Sequence([ 3; 1; 2; 0 ], keysOf collection)
+        }
+
+    [<Test>]
+    member _.``orderByArrival takes a sort back to the order items arrived in``() =
+        task {
+            let edits = sinkS<CollectionEdit<int, ItemIdentity, ItemState>> ()
+
+            let collection =
+                create keyOf [ item 3 "three" 30; item 1 "one" 10; item 2 "two" 20 ] [ edits ]
+
+            let order = sinkC (orderBy (fun _ (state: ItemState) -> state.Score))
+            let sorted = collection |> sortByOrderC order
+
+            do! Expect.Sequence([ 1; 2; 3 ], keysOf sorted)
+
+            order |> sendC (orderByArrival ())
+
+            do! Expect.Sequence([ 3; 1; 2 ], keysOf sorted)
+
+            let sortedThenUnsorted =
+                collection
+                |> sortBy (fun _ (state: ItemState) -> state.Score)
+                |> sortByArrival
+
+            do! Expect.Sequence([ 3; 1; 2 ], keysOf sortedThenUnsorted)
         }
 
     [<Test>]
@@ -217,11 +252,11 @@ type ``Collections Tests``() =
 
             do! Expect.Sequence([ 2; 3 ], keysOf page)
 
-            // A key below the window shifts everything down one, so the window holds different
-            // items without its bounds having changed.
-            edits |> sendS (addEdit [ item 0 "zero" 5 ])
+            // Removing a key before the window moves everything after it one place earlier, so the
+            // window holds different items without its bounds having changed.
+            edits |> sendS (removeEdit [ 1 ])
 
-            do! Expect.Sequence([ 1; 2 ], keysOf page)
+            do! Expect.Sequence([ 3; 4 ], keysOf page)
         }
 
     [<Test>]

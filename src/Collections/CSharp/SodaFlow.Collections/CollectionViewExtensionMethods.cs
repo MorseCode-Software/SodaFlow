@@ -13,8 +13,8 @@ namespace SodaFlow.Collections;
 /// <remarks>
 ///     <para>
 ///         Stages chain: each consumes the ordered keys of the stage above it and produces its own,
-///         so the order written is the order that runs. The root collection is ordered by key, and
-///         a stage's own ordering is built only when something asks for it.
+///         so the order written is the order that runs. The root collection keeps its items in the
+///         order they arrived, and a stage's own ordering is built only when something asks for it.
 ///     </para>
 ///     <para>
 ///         Three costs are worth knowing before writing a chain. Changing a predicate or a limit
@@ -33,7 +33,7 @@ namespace SodaFlow.Collections;
 [PublicAPI]
 public static class CollectionViewExtensionMethods
 {
-    /// <summary>Reorders by key — the root's own order, available over any stage.</summary>
+    /// <summary>Reorders by key, over any stage.</summary>
     /// <typeparam name="TKey">The type of the keys.</typeparam>
     /// <typeparam name="TIdentity">The type of the immutable portion of an item.</typeparam>
     /// <typeparam name="TState">The type of the mutable portion of an item.</typeparam>
@@ -47,6 +47,19 @@ public static class CollectionViewExtensionMethods
         where TKey : notnull
         where TIdentity : notnull =>
         CollectionViewUtility.SortByKeyImpl(upstream: upstream, keyComparer: keyComparer);
+
+    /// <summary>Reorders by arrival - the collection's own order, available over any stage.</summary>
+    /// <typeparam name="TKey">The type of the keys.</typeparam>
+    /// <typeparam name="TIdentity">The type of the immutable portion of an item.</typeparam>
+    /// <typeparam name="TState">The type of the mutable portion of an item.</typeparam>
+    /// <param name="upstream">The collection or view to reorder.</param>
+    /// <returns>A view of <paramref name="upstream" /> in the order its items arrived.</returns>
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    public static ReactiveCollection<TKey, TIdentity, TState> SortByArrival<TKey, TIdentity, TState>(
+        this ReactiveCollection<TKey, TIdentity, TState> upstream)
+        where TKey : notnull
+        where TIdentity : notnull =>
+        CollectionViewUtility.SortByArrivalImpl(upstream);
 
     /// <summary>Narrows the view, preserving the upstream order.</summary>
     /// <typeparam name="TKey">The type of the keys.</typeparam>

@@ -27,7 +27,7 @@ public sealed class CollectionViewTests
         $"{operation.GetType().Name.Replace(oldValue: "`1", newValue: string.Empty)}:{operation.Key}";
 
     [Test]
-    public async Task TheRootIsOrderedByKey()
+    public async Task TheRootKeepsTheOrderItemsArrivedIn()
     {
         StreamSink<CollectionEdit<int, ItemIdentity, ItemState>> edits =
             Stream.CreateSink<CollectionEdit<int, ItemIdentity, ItemState>>();
@@ -39,13 +39,166 @@ public sealed class CollectionViewTests
                 TestUtil.Item(number: 1, name: "one", score: 10),
                 TestUtil.Item(number: 2, name: "two", score: 20));
 
-        await Assert.That(KeysOf(collection))
-            .IsEquivalentTo(expected: [1, 2, 3], ordering: CollectionOrdering.Matching);
+        // The order the initial items were enumerated in, not the order of their keys.
+        await Assert.That(KeysOf(collection)).IsEquivalentTo(expected: [3, 1, 2], ordering: CollectionOrdering.Matching);
 
-        edits.Send(TestUtil.Add(TestUtil.Item(number: 0, name: "zero", score: 0)));
+        // Added to the end, in the order the edit lists them.
+        edits.Send(
+            TestUtil.Add(
+                TestUtil.Item(number: 5, name: "five", score: 50),
+                TestUtil.Item(number: 0, name: "zero", score: 0)));
 
-        await Assert.That(KeysOf(collection))
-            .IsEquivalentTo(expected: [0, 1, 2, 3], ordering: CollectionOrdering.Matching);
+        await Assert.That(KeysOf(collection)).IsEquivalentTo(expected: [3, 1, 2, 5, 0], ordering: CollectionOrdering.Matching);
+
+        // An update is not an arrival.
+        edits.Send(TestUtil.Score(key: 3, score: 99));
+
+        await Assert.That(KeysOf(collection)).IsEquivalentTo(expected: [3, 1, 2, 5, 0], ordering: CollectionOrdering.Matching);
+
+        // A key removed and added back later is a new arrival.
+        edits.Send(TestUtil.Remove(1));
+
+        await Assert.That(KeysOf(collection)).IsEquivalentTo(expected: [3, 2, 5, 0], ordering: CollectionOrdering.Matching);
+
+        edits.Send(TestUtil.Add(TestUtil.Item(number: 1, name: "one again", score: 10)));
+
+        await Assert.That(KeysOf(collection)).IsEquivalentTo(expected: [3, 2, 5, 0, 1], ordering: CollectionOrdering.Matching);
+    }
+
+    [Test]
+    public async Task AnItemReplacedInOneEditMovesToTheEndAndIsReportedOnce()
+    {
+        StreamSink<CollectionEdit<int, ItemIdentity, ItemState>> removals =
+            Stream.CreateSink<CollectionEdit<int, ItemIdentity, ItemState>>();
+
+        StreamSink<CollectionEdit<int, ItemIdentity, ItemState>> additions =
+            Stream.CreateSink<CollectionEdit<int, ItemIdentity, ItemState>>();
+
+        ReactiveCollection<int, ItemIdentity, ItemState> collection =
+            ReactiveCollection<int, ItemIdentity, ItemState>.Create(
+                keySelector: TestUtil.KeyOf,
+                initialItems:
+                [
+                    TestUtil.Item(number: 1, name: "one", score: 10),
+                    TestUtil.Item(number: 2, name: "two", score: 20),
+                    TestUtil.Item(number: 3, name: "three", score: 30)
+                ],
+                removals,
+                additions);
+
+        List<string> operations = [];
+
+        IListener l =
+            collection.KeyChangesStream.ListenStrong(change => operations.AddRange(change.Operations.Select(Describe)));
+
+        // A remove and an add of one key in one transaction is how an item is replaced, and the
+        // replacement is a new arrival.
+        Transaction.RunVoid(() =>
+        {
+            removals.Send(TestUtil.Remove(1));
+            additions.Send(TestUtil.Add(TestUtil.Item(number: 1, name: "one, replaced", score: 11)));
+        });
+
+        l.Unlisten();
+
+        await Assert.That(KeysOf(collection)).IsEquivalentTo(expected: [2, 3, 1], ordering: CollectionOrdering.Matching);
+
+        // The place it left and then the place it went. An insert alone would have a list bound to
+        // this count the key twice.
+        await Assert.That(operations).IsEquivalentTo(expected: ["ViewRemove:1", "ViewInsert:1"], ordering: CollectionOrdering.Matching);
+    }
+
+    [Test]
+    public async Task AddsInOneTransactionFollowTheOrderTheStreamsWereGiven()
+    {
+        StreamSink<CollectionEdit<int, ItemIdentity, ItemState>> first =
+            Stream.CreateSink<CollectionEdit<int, ItemIdentity, ItemState>>();
+
+        StreamSink<CollectionEdit<int, ItemIdentity, ItemState>> second =
+            Stream.CreateSink<CollectionEdit<int, ItemIdentity, ItemState>>();
+
+        ReactiveCollection<int, ItemIdentity, ItemState> collection =
+            ReactiveCollection<int, ItemIdentity, ItemState>.Create(
+                keySelector: TestUtil.KeyOf,
+                initialItems: [],
+                first,
+                second);
+
+        // Sent the other way round to the order the streams were given in, both times: which stream
+        // was handed to Create first decides, not which one happened to send first.
+        Transaction.RunVoid(() =>
+        {
+            second.Send(TestUtil.Add(TestUtil.Item(number: 2, name: "two", score: 20)));
+            first.Send(TestUtil.Add(TestUtil.Item(number: 1, name: "one", score: 10)));
+        });
+
+        Transaction.RunVoid(() =>
+        {
+            first.Send(TestUtil.Add(TestUtil.Item(number: 3, name: "three", score: 30)));
+            second.Send(TestUtil.Add(TestUtil.Item(number: 4, name: "four", score: 40)));
+        });
+
+        await Assert.That(KeysOf(collection)).IsEquivalentTo(expected: [1, 2, 3, 4], ordering: CollectionOrdering.Matching);
+    }
+
+    [Test]
+    public async Task AKeyWithNoOrderOfItsOwnCanStillBeListed()
+    {
+        StreamSink<CollectionEdit<Handle, ItemIdentity, ItemState>> edits =
+            Stream.CreateSink<CollectionEdit<Handle, ItemIdentity, ItemState>>();
+
+        // Handle has no order: comparing two of them by default throws. The collection never asks.
+        ReactiveCollection<Handle, ItemIdentity, ItemState> collection =
+            ReactiveCollection<Handle, ItemIdentity, ItemState>.Create(
+                keySelector: static identity => new Handle(identity.Number),
+                initialItems:
+                [
+                    TestUtil.Item(number: 2, name: "two", score: 20),
+                    TestUtil.Item(number: 1, name: "one", score: 10)
+                ],
+                edits);
+
+        edits.Send(CollectionEdit<Handle, ItemIdentity, ItemState>.Add(TestUtil.Item(number: 3, name: "three", score: 30)));
+
+        await Assert.That(collection.KeysCell.Sample().Select(static handle => handle.Number).ToList())
+            .IsEquivalentTo(expected: [2, 1, 3], ordering: CollectionOrdering.Matching);
+    }
+
+    /// <summary>A key with no order of its own, which the collection has to list without comparing.</summary>
+    private sealed record Handle(int Number);
+
+    [Test]
+    public async Task ByArrivalTakesASortBackToTheOrderItemsArrivedIn()
+    {
+        StreamSink<CollectionEdit<int, ItemIdentity, ItemState>> edits =
+            Stream.CreateSink<CollectionEdit<int, ItemIdentity, ItemState>>();
+
+        ReactiveCollection<int, ItemIdentity, ItemState> collection =
+            Create(
+                edits: edits,
+                TestUtil.Item(number: 3, name: "three", score: 30),
+                TestUtil.Item(number: 1, name: "one", score: 10),
+                TestUtil.Item(number: 2, name: "two", score: 20));
+
+        CellSink<KeyOrder<int, ItemIdentity, ItemState>> order =
+            Cell.CreateSink(KeyOrder<int, ItemIdentity, ItemState>.By(static (_, state) => state.Score));
+
+        ReactiveCollection<int, ItemIdentity, ItemState> sorted = collection.SortBy(order);
+
+        await Assert.That(KeysOf(sorted)).IsEquivalentTo(expected: [1, 2, 3], ordering: CollectionOrdering.Matching);
+
+        // The third state of a column header: off.
+        order.Send(KeyOrder<int, ItemIdentity, ItemState>.ByArrival());
+
+        await Assert.That(KeysOf(sorted)).IsEquivalentTo(expected: [3, 1, 2], ordering: CollectionOrdering.Matching);
+
+        await Assert.That(KeysOf(collection.SortBy(static (_, state) => state.Score).SortByArrival()))
+            .IsEquivalentTo(expected: [3, 1, 2], ordering: CollectionOrdering.Matching);
+
+        // No two keys arrive together, so a further level would never be consulted.
+        KeyOrder<int, ItemIdentity, ItemState> byArrival = KeyOrder<int, ItemIdentity, ItemState>.ByArrival();
+
+        await Assert.That(byArrival.ThenBy(static (_, state) => state.Name)).IsSameReferenceAs(byArrival);
     }
 
     [Test]
@@ -139,7 +292,7 @@ public sealed class CollectionViewTests
         IListener l =
             collection.KeyChangesStream.ListenStrong(change => operations.AddRange(change.Operations.Select(Describe)));
 
-        // The root orders by key, so this moves nothing - but a stage below might sort on exactly
+        // The root orders by arrival, so this moves nothing - but a stage below might sort on exactly
         // the state that just changed, so it has to hear about it.
         edits.Send(TestUtil.Score(key: 1, score: 99));
 
@@ -483,11 +636,11 @@ public sealed class CollectionViewTests
         await Assert.That(KeysOf(page)[0]).IsEqualTo(2);
         await Assert.That(KeysOf(page)[1]).IsEqualTo(3);
 
-        // A new key below the window shifts everything down one, so the window holds different
-        // items without its bounds having changed.
-        edits.Send(TestUtil.Add(TestUtil.Item(number: 0, name: "zero", score: 5)));
+        // Removing a key before the window moves everything after it one place earlier, so the
+        // window holds different items without its bounds having changed.
+        edits.Send(TestUtil.Remove(1));
 
-        await Assert.That(KeysOf(page)).IsEquivalentTo(expected: [1, 2], ordering: CollectionOrdering.Matching);
+        await Assert.That(KeysOf(page)).IsEquivalentTo(expected: [3, 4], ordering: CollectionOrdering.Matching);
     }
 
     [Test]

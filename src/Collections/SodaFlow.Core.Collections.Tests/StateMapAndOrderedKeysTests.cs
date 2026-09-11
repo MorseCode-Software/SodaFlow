@@ -61,15 +61,20 @@ public sealed class OrderedKeysTests
 
         Dictionary<int, ItemState> states = new();
 
+        ImmutableDictionary<int, long>.Builder arrivals = ImmutableDictionary.CreateBuilder<int, long>();
+
         foreach (Item<ItemIdentity, ItemState> item in items)
         {
             identities[item.Identity.Number] = item.Identity;
             states[item.Identity.Number] = item.State;
+            arrivals[item.Identity.Number] = arrivals.Count;
         }
 
         return new CollectionSnapshot<int, ItemIdentity, ItemState>(
             identities: identities.ToImmutable(),
-            states: ImmutableStateMap<int, ItemState>.Empty.With(updated: states, removed: []));
+            states: ImmutableStateMap<int, ItemState>.Empty.With(updated: states, removed: []),
+            arrivals: arrivals.ToImmutable(),
+            nextArrival: arrivals.Count);
     }
 
     private static SortKeyOrder<int, ItemIdentity, ItemState, int> ByScore(bool descending) =>
@@ -104,6 +109,7 @@ public sealed class OrderedKeysTests
 
         // A stage skips re-filing a key on a state edit only when no level could have moved it, so
         // one level that reads the state has to be enough to lose the skip.
+        await Assert.That(KeyOrder<int, ItemIdentity, ItemState>.ByArrival().DependsOnState).IsFalse();
         await Assert.That(identityOnly.DependsOnState).IsFalse();
         await Assert.That(stateSecond.DependsOnState).IsTrue();
         await Assert.That(stateFirst.DependsOnState).IsTrue();

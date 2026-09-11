@@ -44,18 +44,24 @@ public sealed class CollectionSnapshot<TKey, TIdentity, TState>
 
     internal CollectionSnapshot(
         ImmutableDictionary<TKey, TIdentity> identities,
-        ImmutableStateMap<TKey, TState> states)
-        : this(identities: identities, states: states, visible: null)
+        ImmutableStateMap<TKey, TState> states,
+        ImmutableDictionary<TKey, long> arrivals,
+        long nextArrival)
+        : this(identities: identities, states: states, arrivals: arrivals, nextArrival: nextArrival, visible: null)
     {
     }
 
     private CollectionSnapshot(
         ImmutableDictionary<TKey, TIdentity> identities,
         ImmutableStateMap<TKey, TState> states,
+        ImmutableDictionary<TKey, long> arrivals,
+        long nextArrival,
         OrderedKeys<TKey, TIdentity, TState>? visible)
     {
         this.IdentitiesImpl = identities;
         this.StatesImpl = states;
+        this.ArrivalsImpl = arrivals;
+        this.NextArrival = nextArrival;
         this.visible = visible;
     }
 
@@ -96,6 +102,19 @@ public sealed class CollectionSnapshot<TKey, TIdentity, TState>
     /// </remarks>
     internal ImmutableDictionary<TKey, TIdentity> IdentitiesImpl { get; }
 
+    /// <summary>
+    ///     When each key arrived, as a number that only ever grows. This is the collection's own order:
+    ///     items are listed in the order they came in, not in any order of their own.
+    /// </summary>
+    /// <remarks>
+    ///     Written only on a structural edit, like the identity map beside it, so a state edit - the
+    ///     common case - costs nothing more than it did. A key removed and added back is a new arrival.
+    /// </remarks>
+    internal ImmutableDictionary<TKey, long> ArrivalsImpl { get; }
+
+    /// <summary>The number the next key to arrive will be given.</summary>
+    internal long NextArrival { get; }
+
     /// <summary>The number of items.</summary>
     public int Count => this.visible?.Count ?? this.IdentitiesImpl.Count;
 
@@ -105,7 +124,12 @@ public sealed class CollectionSnapshot<TKey, TIdentity, TState>
     ///     a subset of the keys of the stage above it.
     /// </remarks>
     internal CollectionSnapshot<TKey, TIdentity, TState> ScopedTo(OrderedKeys<TKey, TIdentity, TState> keys) =>
-        new(identities: this.IdentitiesImpl, states: this.StatesImpl, visible: keys);
+        new(
+            identities: this.IdentitiesImpl,
+            states: this.StatesImpl,
+            arrivals: this.ArrivalsImpl,
+            nextArrival: this.NextArrival,
+            visible: keys);
 
     /// <summary>Whether a key is one this snapshot admits.</summary>
     private bool IsVisible(TKey key) => this.visible is null || this.visible.Contains(key);
@@ -145,6 +169,10 @@ public sealed class CollectionSnapshot<TKey, TIdentity, TState>
     /// </remarks>
     internal bool TryGetIdentity(TKey key, out TIdentity identity) =>
         this.IdentitiesImpl.TryGet(key: key, value: out identity) && this.IsVisible(key);
+
+    /// <summary>When a key arrived, if this snapshot admits it.</summary>
+    internal bool TryGetArrival(TKey key, out long arrival) =>
+        this.ArrivalsImpl.TryGet(key: key, value: out arrival) && this.IsVisible(key);
 
     /// <summary>
     ///     Both halves of an item, without the <see cref="Item{TIdentity,TState}" /> that
@@ -194,6 +222,36 @@ public sealed class CollectionSnapshot<TKey, TIdentity, TState>
         }
 
         return builder.ToImmutable();
+    }
+
+    /// <summary>
+    ///     The next version of the arrival numbers, with <paramref name="removed" /> dropped and each of
+    ///     <paramref name="added" /> numbered in the order given.
+    /// </summary>
+    /// <remarks>
+    ///     A key that is added while it is still here - removed and added back in one edit, which is how
+    ///     an item's identity is replaced - is numbered like any other arrival, so it goes to the end.
+    ///     Built from this version rather than copied out of it, as the identity map is.
+    /// </remarks>
+    internal (ImmutableDictionary<TKey, long> Arrivals, long NextArrival) WithArrivals(
+        IEnumerable<TKey> added,
+        IEnumerable<TKey> removed)
+    {
+        ImmutableDictionary<TKey, long>.Builder builder = this.ArrivalsImpl.ToBuilder();
+
+        foreach (TKey key in removed)
+        {
+            builder.Remove(key);
+        }
+
+        long next = this.NextArrival;
+
+        foreach (TKey key in added)
+        {
+            builder[key] = next++;
+        }
+
+        return (Arrivals: builder.ToImmutable(), NextArrival: next);
     }
 }
 

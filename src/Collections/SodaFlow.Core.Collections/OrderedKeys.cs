@@ -211,6 +211,143 @@ internal sealed class SortPairComparer<TFirst, TSecond> : IComparer<SortPair<TFi
 }
 
 /// <summary>
+///     An order which files each key under a sort value it projects for that key from a snapshot.
+/// </summary>
+/// <remarks>
+///     What the two kinds of order have in common, and all a sorted key set needs from either: how to
+///     project a key's sort value, and how to compare two entries once they are projected. An order over
+///     the items projects from an item; the arrival order projects from when the key arrived.
+/// </remarks>
+/// <typeparam name="TKey">The type of the keys.</typeparam>
+/// <typeparam name="TIdentity">The type of the immutable portion of an item.</typeparam>
+/// <typeparam name="TState">The type of the mutable portion of an item.</typeparam>
+/// <typeparam name="TSortKey">The type of the projected sort value.</typeparam>
+// ReSharper disable once InheritdocConsiderUsage
+internal abstract class ProjectedKeyOrder<TKey, TIdentity, TState, TSortKey> : KeyOrder<TKey, TIdentity, TState>
+    where TKey : notnull
+    where TIdentity : notnull
+{
+    /// <summary>Compares two entries this order has filed.</summary>
+    protected abstract IComparer<SortedEntry<TKey, TSortKey>> EntryComparer { get; }
+
+    /// <summary>
+    ///     The sort value this order files <paramref name="key" /> under, if the snapshot still holds
+    ///     it.
+    /// </summary>
+    internal abstract bool TryProject(
+        TKey key,
+        CollectionSnapshot<TKey, TIdentity, TState> snapshot,
+        out TSortKey sortValue);
+
+    /// <inheritdoc />
+    internal sealed override OrderedKeys<TKey, TIdentity, TState> CreateFrom(
+        IEnumerable<TKey> keys,
+        CollectionSnapshot<TKey, TIdentity, TState> snapshot)
+    {
+        ImmutableSortedSet<SortedEntry<TKey, TSortKey>>.Builder entries =
+            ImmutableSortedSet.CreateBuilder(this.EntryComparer);
+
+        ImmutableDictionary<TKey, SortedEntry<TKey, TSortKey>>.Builder byKey =
+            ImmutableDictionary.CreateBuilder<TKey, SortedEntry<TKey, TSortKey>>();
+
+        foreach (TKey key in keys)
+        {
+            if (!this.TryProject(key: key, snapshot: snapshot, sortValue: out TSortKey sortValue))
+            {
+                continue;
+            }
+
+            SortedEntry<TKey, TSortKey> entry = new(key: key, sortValue: sortValue);
+
+            entries.Add(entry);
+            byKey[key] = entry;
+        }
+
+        return new SortedKeys<TKey, TIdentity, TState, TSortKey>(
+            order: this,
+            entries: entries.ToImmutable(),
+            byKey: byKey.ToImmutable());
+    }
+}
+
+/// <summary>
+///     The order items arrived in: the collection's own order, and what <c>ByArrival</c> returns.
+/// </summary>
+/// <remarks>
+///     <para>
+///         Every key is numbered once as it arrives, so no two keys share a sort value and the key is
+///         never compared. That is why a collection can list keys of a type with no order of its own.
+///     </para>
+///     <para>
+///         For the same reason a further level would never be consulted, so
+///         <see cref="Then{TNext}" /> answers with this order unchanged rather than building a level
+///         that could not decide anything. And it never depends on the state: an update is not an
+///         arrival.
+///     </para>
+/// </remarks>
+/// <typeparam name="TKey">The type of the keys.</typeparam>
+/// <typeparam name="TIdentity">The type of the immutable portion of an item.</typeparam>
+/// <typeparam name="TState">The type of the mutable portion of an item.</typeparam>
+// ReSharper disable once InheritdocConsiderUsage
+internal sealed class ArrivalOrder<TKey, TIdentity, TState> : ProjectedKeyOrder<TKey, TIdentity, TState, long>
+    where TKey : notnull
+    where TIdentity : notnull
+{
+    internal static readonly ArrivalOrder<TKey, TIdentity, TState> Instance = new();
+
+    private ArrivalOrder()
+    {
+    }
+
+    /// <inheritdoc />
+    internal override bool DependsOnState => false;
+
+    /// <inheritdoc />
+    protected override IComparer<SortedEntry<TKey, long>> EntryComparer { get; } =
+        new SortedEntryComparer<TKey, long>(
+            sortComparer: Comparer<long>.Default,
+            keyComparer: NoTieComparer<TKey>.Instance,
+            descending: false);
+
+    /// <inheritdoc />
+    internal override KeyOrder<TKey, TIdentity, TState> Then<TNext>(
+        Func<TKey, TIdentity, TState, TNext>? nextSelector,
+        Func<TKey, TIdentity, TNext>? nextIdentitySelector,
+        IComparer<TNext> nextComparer,
+        bool nextDescending) =>
+        this;
+
+    /// <inheritdoc />
+    internal override bool TryProject(
+        TKey key,
+        CollectionSnapshot<TKey, TIdentity, TState> snapshot,
+        out long sortValue) =>
+        snapshot.TryGetArrival(key: key, arrival: out sortValue);
+}
+
+/// <summary>The tie-break of an order whose sort values are never equal, which has no tie to break.</summary>
+/// <remarks>
+///     Throws rather than answering. Being asked at all means two keys were filed under a sort value
+///     that is only ever given out once - a set that no longer describes itself, which an answer would
+///     hide.
+/// </remarks>
+/// <typeparam name="TKey">The type of the keys.</typeparam>
+// ReSharper disable once InheritdocConsiderUsage
+internal sealed class NoTieComparer<TKey> : IComparer<TKey>
+{
+    internal static readonly NoTieComparer<TKey> Instance = new();
+
+    private NoTieComparer()
+    {
+    }
+
+    public int Compare(TKey? x, TKey? y) =>
+        throw new InvalidOperationException(
+            $"The keys {x} and {y} were filed under the same arrival, which is only ever given to one key. "
+            + "This set was not built by this library.");
+}
+
+/// <summary>
 ///     An order which files each key under a value projected from its item.
 /// </summary>
 /// <typeparam name="TKey">The type of the keys.</typeparam>
@@ -227,7 +364,7 @@ internal sealed class SortPairComparer<TFirst, TSecond> : IComparer<SortPair<TFi
 /// </remarks>
 // ReSharper disable once InheritdocConsiderUsage
 internal sealed class SortKeyOrder<TKey, TIdentity, TState, TSortKey>
-    : KeyOrder<TKey, TIdentity, TState>
+    : ProjectedKeyOrder<TKey, TIdentity, TState, TSortKey>
     where TKey : notnull
     where TIdentity : notnull
 {
@@ -361,46 +498,16 @@ internal sealed class SortKeyOrder<TKey, TIdentity, TState, TSortKey>
             : (key, identity, _) => identitySelector(arg1: key, arg2: identity);
 
     /// <inheritdoc />
-    internal override OrderedKeys<TKey, TIdentity, TState> CreateFrom(
-        IEnumerable<TKey> keys,
-        CollectionSnapshot<TKey, TIdentity, TState> snapshot)
-    {
-        ImmutableSortedSet<SortedEntry<TKey, TSortKey>>.Builder entries =
-            ImmutableSortedSet.CreateBuilder(this.comparer);
+    protected override IComparer<SortedEntry<TKey, TSortKey>> EntryComparer => this.comparer;
 
-        ImmutableDictionary<TKey, SortedEntry<TKey, TSortKey>>.Builder byKey =
-            ImmutableDictionary.CreateBuilder<TKey, SortedEntry<TKey, TSortKey>>();
-
-        foreach (TKey key in keys)
-        {
-            if (!this.TryProject(key: key, snapshot: snapshot, sortValue: out TSortKey sortValue))
-            {
-                continue;
-            }
-
-            SortedEntry<TKey, TSortKey> entry = new(key: key, sortValue: sortValue);
-
-            entries.Add(entry);
-            byKey[key] = entry;
-        }
-
-        return new SortedKeys<TKey, TIdentity, TState, TSortKey>(
-            order: this,
-            entries: entries.ToImmutable(),
-            byKey: byKey.ToImmutable());
-    }
-
-    /// <summary>
-    ///     The sort value this order files <paramref name="key" /> under, if the snapshot still
-    ///     holds it.
-    /// </summary>
+    /// <inheritdoc />
     /// <remarks>
     ///     An order that does not read the state does not read the state map either, which is one
     ///     fewer lookup per key - and a rebuild does this for every key it keeps.
     ///     The two branches disagree only for a key the identity map holds and the state map does
     ///     not, which the two being written together in <c>Resolve</c> rules out.
     /// </remarks>
-    internal bool TryProject(
+    internal override bool TryProject(
         TKey key,
         CollectionSnapshot<TKey, TIdentity, TState> snapshot,
         out TSortKey sortValue)
@@ -441,10 +548,10 @@ internal sealed class SortedKeys<TKey, TIdentity, TState, TSortKey> : OrderedKey
 {
     private readonly ImmutableDictionary<TKey, SortedEntry<TKey, TSortKey>> byKey;
     private readonly ImmutableSortedSet<SortedEntry<TKey, TSortKey>> entries;
-    private readonly SortKeyOrder<TKey, TIdentity, TState, TSortKey> order;
+    private readonly ProjectedKeyOrder<TKey, TIdentity, TState, TSortKey> order;
 
     internal SortedKeys(
-        SortKeyOrder<TKey, TIdentity, TState, TSortKey> order,
+        ProjectedKeyOrder<TKey, TIdentity, TState, TSortKey> order,
         ImmutableSortedSet<SortedEntry<TKey, TSortKey>> entries,
         ImmutableDictionary<TKey, SortedEntry<TKey, TSortKey>> byKey)
     {
