@@ -186,7 +186,7 @@ public sealed class AccountsViewModel : IAccountsViewModel
         IOneWayBindableValue<string> balanceHeader,
         IBindableAction nextPage,
         IBindableAction previousPage,
-        IBindableAction toggleFrozen,
+        ITwoWayBindableValue<bool> showFrozen,
         IBindableAction sortByNumber,
         IBindableAction sortByHolder,
         IBindableAction sortByBalance,
@@ -201,7 +201,7 @@ public sealed class AccountsViewModel : IAccountsViewModel
         this.BalanceHeader = balanceHeader;
         this.NextPage = nextPage;
         this.PreviousPage = previousPage;
-        this.ToggleFrozen = toggleFrozen;
+        this.ShowFrozen = showFrozen;
         this.SortByNumber = sortByNumber;
         this.SortByHolder = sortByHolder;
         this.SortByBalance = sortByBalance;
@@ -211,7 +211,7 @@ public sealed class AccountsViewModel : IAccountsViewModel
         this.disposables = new IDisposable[]
         {
             rows, total, page, filterDescription, numberHeader, holderHeader, balanceHeader,
-            nextPage, previousPage, toggleFrozen, sortByNumber, sortByHolder, sortByBalance,
+            nextPage, previousPage, showFrozen, sortByNumber, sortByHolder, sortByBalance,
             projectedRows,
         };
     }
@@ -244,7 +244,7 @@ public sealed class AccountsViewModel : IAccountsViewModel
     public IBindableAction PreviousPage { get; }
 
     /// <inheritdoc />
-    public IBindableAction ToggleFrozen { get; }
+    public ITwoWayBindableValue<bool> ShowFrozen { get; }
 
     /// <inheritdoc />
     public IBindableAction SortByNumber { get; }
@@ -274,13 +274,13 @@ public sealed class AccountsViewModel : IAccountsViewModel
         {
             StreamSink<Unit> nextPage = Stream.CreateSink<Unit>();
             StreamSink<Unit> previousPage = Stream.CreateSink<Unit>();
-            StreamSink<Unit> toggleFrozen = Stream.CreateSink<Unit>();
             StreamSink<Unit> sortByNumber = Stream.CreateSink<Unit>();
             StreamSink<Unit> sortByHolder = Stream.CreateSink<Unit>();
             StreamSink<Unit> sortByBalance = Stream.CreateSink<Unit>();
 
-            Cell<bool> showFrozen =
-                toggleFrozen.Accum(initialState: false, f: static (_, showing) => !showing);
+            // A switch holds its own position, so this is a value the view writes rather than a
+            // command whose presses are counted.
+            CellSink<bool> showFrozen = Cell.CreateSink(false);
 
             // One piece of state for the whole header row: which column, and which way. Three
             // buttons become one stream of columns, and the selection folds over it.
@@ -321,7 +321,7 @@ public sealed class AccountsViewModel : IAccountsViewModel
                 {
                     nextPage.MapTo(static (int at) => at + PageSize),
                     previousPage.MapTo(static (int at) => at - PageSize),
-                    toggleFrozen.MapTo(static (int _) => 0),
+                    showFrozen.Updates().MapTo(static (int _) => 0),
                 }
                 .OrElse()
                 .Accum(initialState: 0, f: static (move, at) => Math.Max(0, move(at)));
@@ -390,7 +390,7 @@ public sealed class AccountsViewModel : IAccountsViewModel
                 nextPage: nextPage.ToBindableAction(
                     offset.Lift(filtered.KeysCell, static (at, keys) => at + PageSize < keys.Count)),
                 previousPage: previousPage.ToBindableAction(offset.Map(static at => at > 0)),
-                toggleFrozen: toggleFrozen.ToBindableAction(),
+                showFrozen: showFrozen.ToTwoWay(),
                 sortByNumber: sortByNumber.ToBindableAction(),
                 sortByHolder: sortByHolder.ToBindableAction(),
                 sortByBalance: sortByBalance.ToBindableAction(),

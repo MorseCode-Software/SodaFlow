@@ -100,8 +100,11 @@ public interface IAccountsViewModel : IDisposable
     /// <summary>Moves it back, and is disabled on the first.</summary>
     IBindableAction PreviousPage { get; }
 
-    /// <summary>Shows or hides frozen accounts, which is a criteria change and rebuilds the view.</summary>
-    IBindableAction ToggleFrozen { get; }
+    /// <summary>
+    ///     Whether frozen accounts are shown, which is a criteria change and rebuilds the view.
+    ///     Two-way, for a toggle switch.
+    /// </summary>
+    ITwoWayBindableValue<bool> ShowFrozen { get; }
 
     /// <summary>Sorts by account number, or reverses it if the list is sorted by it already.</summary>
     /// <remarks>

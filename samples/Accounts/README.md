@@ -39,14 +39,15 @@ it was, because a sort reorders the members rather than choosing different ones 
 filter, which can shorten the list out from under an offset and so sends it back to the first
 page.
 
+**Flip the frozen accounts switch.** A criteria change too, but this one rebuilds the filter,
+which is the expensive kind — where a page turn is the cheap kind and a re-sort is in between. All
+three are one line in the view model and the differences between them are invisible in the code,
+which is why the [reference page](../../docs/docs/collections.md) spells the costs out. The switch
+binds two-way to a cell sink rather than firing a command, because a switch holds its own position.
+
 **Look at a frozen account.** It is greyed out and says *Frozen* where its button would be. That is
 only what the row looks like: the view model gates the deposit on the account not being frozen, so
 nothing that reaches the command — a stale binding, or code calling `Execute` — can pay into one.
-
-**Show or hide frozen accounts.** A criteria change too, but this one rebuilds the filter, which
-is the expensive kind — where a page turn is the cheap kind and a re-sort is in between. All three
-are one line in the view model and the differences between them are invisible in the code, which is
-why the [reference page](../../docs/docs/collections.md) spells the costs out.
 
 **The total.** Over every account rather than the page, and folded from what changed rather than
 recomputed — the change carries the store on both sides, so a delta needs nothing kept alongside.

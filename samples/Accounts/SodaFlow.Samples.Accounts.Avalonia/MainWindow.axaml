@@ -120,10 +120,11 @@
                        VerticalAlignment="Center"/>
         </Grid>
 
-        <Button Content="Show or hide frozen"
-                HorizontalAlignment="Stretch"
-                HorizontalContentAlignment="Center"
-                Command="{Binding ToggleFrozen}"/>
+        <!-- The label is given as both the on and off content, so it sits beside the switch and
+             reads the same either way; the list's own caption above says which is in force. -->
+        <ToggleSwitch IsChecked="{Binding ShowFrozen.Value}"
+                      OnContent="Show frozen accounts"
+                      OffContent="Show frozen accounts"/>
 
     </StackPanel>
 
