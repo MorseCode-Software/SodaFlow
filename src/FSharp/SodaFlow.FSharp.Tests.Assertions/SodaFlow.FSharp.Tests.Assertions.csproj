@@ -19,7 +19,7 @@
     <ItemGroup>
         <!-- Assertions only. This is a library the F# test projects call, not a test project itself,
              so it takes no part in test discovery or the test platform. -->
-        <PackageReference Include="TUnit.Assertions" Version="1.66.27" />
+        <PackageReference Include="TUnit.Assertions" Version="1.66.10"/>
     </ItemGroup>
 
 </Project>

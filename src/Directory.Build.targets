@@ -1,0 +1,19 @@
+<Project>
+
+    <!--
+        TUnit.Assertions adds a reference to TUnit.Assertions.FSharp, at a floating version, to every
+        F# project that uses it, from a .props file inside the package. Restore never sees that
+        reference, because it evaluates with package imports switched off, but an IDE's evaluation
+        does - so an IDE restore writes it into the lock file, and CI's locked restore then fails. The
+        note on EnableTUnitPolyfills in Directory.Build.props covers the same problem for Polyfill.
+
+        That one has a switch; this one does not, so it is removed. It has to happen here rather than
+        in Directory.Build.props: a package's .props file is imported after that file, so a Remove
+        there would run before the reference existed. Nothing depends on the package - CI has never
+        restored it.
+    -->
+    <ItemGroup Condition="'$(MSBuildProjectExtension)' == '.fsproj'">
+        <PackageReference Remove="TUnit.Assertions.FSharp"/>
+    </ItemGroup>
+
+</Project>
