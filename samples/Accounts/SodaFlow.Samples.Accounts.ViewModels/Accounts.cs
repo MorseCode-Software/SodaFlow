@@ -85,14 +85,14 @@ internal static class AccountSeed
         "Quill", "Rasmussen", "Sørensen", "Tanaka", "Urquhart", "Varga", "Whitlock", "Xu",
         "Yilmaz", "Zielinski", "Abernathy", "Brennan", "Castellano", "Delacroix", "Eriksson",
         "Fonseca", "Galloway", "Hartmann", "Ishikawa", "Jovanovic", "Kaur", "Lachance", "Mbeki",
-        "Novak", "Oyelaran", "Petrakis", "Quintero", "Rahman", "Szabo", "Thorne", "Ueda", "Vasquez",
+        "Novak", "Oyelaran", "Petrakis", "Quintero", "Rahman", "Szabo", "Thorne", "Ueda", "Vasquez"
     };
 
     private static readonly string[] GivenNames =
     {
         "Ada", "Bruno", "Chidi", "Dagny", "Elif", "Farid", "Greta", "Hiro", "Imani", "Jonas",
         "Kalani", "Leila", "Mateo", "Nadia", "Omar", "Priya", "Rafael", "Saoirse", "Tomasz",
-        "Uma", "Viktor", "Wren", "Yusuf", "Zara",
+        "Uma", "Viktor", "Wren", "Yusuf", "Zara"
     };
 
     /// <summary>The accounts, built once and shared, since nothing can change an item.</summary>
@@ -108,13 +108,13 @@ internal static class AccountSeed
 
         // Every surname with every given name, rather than a handful of pairs on repeat.
         string holder = Surnames[forHolder % Surnames.Length] + ", " +
-                        GivenNames[(forHolder / Surnames.Length) % GivenNames.Length];
+                        GivenNames[forHolder / Surnames.Length % GivenNames.Length];
 
         // Balances scattered to the cent, so ties are rare. The top two bits both clear is one
         // account in four, which is how many start frozen.
         return new Item<AccountIdentity, AccountState>(
             new AccountIdentity(FirstNumber + index, holder),
-            new AccountState((forState % MaximumBalance) + 1, (forState >> 30) == 0));
+            new AccountState(forState % MaximumBalance + 1, forState >> 30 == 0));
     }
 
     /// <summary>A cheap, fixed hash, so the seed is the same on every run and every runtime.</summary>

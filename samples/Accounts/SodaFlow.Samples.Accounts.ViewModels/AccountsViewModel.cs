@@ -397,9 +397,10 @@ public sealed class AccountsViewModel : IAccountsViewModel
 
             return new AccountsViewModel(
                 // A list of rows is a list of the interface they implement, but a cell is a class
-                // and cannot be covariant, so the conversion is spelled out.
+                // and cannot be covariant, so the conversion is spelled out as the lambda's return
+                // type.
                 rows: rows.Items
-                    .Map(static items => (IReadOnlyList<IAccountRowViewModel>)items)
+                    .Map(static IReadOnlyList<IAccountRowViewModel> (items) => items)
                     .ToOneWay(),
                 total: total.Map(static cents => "Total across all accounts: " + Money(cents))
                     .ToOneWay(),
@@ -456,7 +457,6 @@ public sealed class AccountsViewModel : IAccountsViewModel
             adds: Array.Empty<Item<AccountIdentity, AccountState>>(),
             removes: Array.Empty<int>());
     }
-
 
     /// <summary>The row for one account, built from the page it is showing on.</summary>
     /// <remarks>
