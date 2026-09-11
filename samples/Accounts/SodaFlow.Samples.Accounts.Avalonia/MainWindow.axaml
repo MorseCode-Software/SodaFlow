@@ -94,7 +94,7 @@
 
         <Grid ColumnDefinitions="*,*" ColumnSpacing="8">
             <Button Grid.Column="0"
-                    Content="Pay £100 into the top account"
+                    Content="Pay $100 into the top account"
                     HorizontalAlignment="Stretch"
                     HorizontalContentAlignment="Center"
                     Command="{Binding DepositIntoTopOfPage}"/>

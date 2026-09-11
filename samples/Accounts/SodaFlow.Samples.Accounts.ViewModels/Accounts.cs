@@ -37,7 +37,7 @@ internal sealed class AccountIdentity : IIdentity<int>
 /// <summary>The half that moves: what the account currently holds.</summary>
 internal sealed class AccountState
 {
-    /// <param name="balance">Pence, so the sample never shows a rounding artifact.</param>
+    /// <param name="balance">Cents, so the sample never shows a rounding artifact.</param>
     /// <param name="isFrozen">Whether the account is frozen, which the view filters on.</param>
     internal AccountState(long balance, bool isFrozen)
     {
@@ -45,7 +45,7 @@ internal sealed class AccountState
         this.IsFrozen = isFrozen;
     }
 
-    /// <summary>The balance, in pence.</summary>
+    /// <summary>The balance, in cents.</summary>
     internal long Balance { get; }
 
     /// <summary>Whether the account is frozen.</summary>
@@ -75,7 +75,7 @@ internal static class AccountSeed
     /// <summary>The first account number, so that every number on screen is six digits wide.</summary>
     private const int FirstNumber = 100_000;
 
-    /// <summary>The largest opening balance, in pence: fifty thousand pounds.</summary>
+    /// <summary>The largest opening balance, in cents: fifty thousand dollars.</summary>
     private const uint MaximumBalance = 50_000_00;
 
     private static readonly string[] Surnames =
@@ -110,7 +110,7 @@ internal static class AccountSeed
         string holder = Surnames[forHolder % Surnames.Length] + ", " +
                         GivenNames[(forHolder / Surnames.Length) % GivenNames.Length];
 
-        // Balances scattered to the penny, so ties are rare. The top two bits both clear is one
+        // Balances scattered to the cent, so ties are rare. The top two bits both clear is one
         // account in four, which is how many start frozen.
         return new Item<AccountIdentity, AccountState>(
             new AccountIdentity(FirstNumber + index, holder),

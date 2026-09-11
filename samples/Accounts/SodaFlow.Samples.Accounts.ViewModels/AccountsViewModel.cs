@@ -153,8 +153,11 @@ public sealed class AccountsViewModel : IAccountsViewModel
     /// <summary>How many rows a page shows.</summary>
     private const int PageSize = 6;
 
-    /// <summary>What the deposit button pays in, in pence.</summary>
+    /// <summary>What the deposit button pays in, in cents.</summary>
     private const long DepositAmount = 100_00L;
+
+    /// <summary>How every amount on screen is written.</summary>
+    private static readonly NumberFormatInfo UsDollars = CultureInfo.GetCultureInfo("en-US").NumberFormat;
 
     private readonly IReadOnlyList<IDisposable> disposables;
 
@@ -363,7 +366,7 @@ public sealed class AccountsViewModel : IAccountsViewModel
 
             return new AccountsViewModel(
                 rows: rows.Items.ToOneWay(),
-                total: total.Map(static pence => "Total across all accounts: " + Money(pence))
+                total: total.Map(static cents => "Total across all accounts: " + Money(cents))
                     .ToOneWay(),
                 page: offset.Lift(
                         pageCount,
@@ -428,9 +431,13 @@ public sealed class AccountsViewModel : IAccountsViewModel
         return delta;
     }
 
-    /// <summary>Pence as a currency string.</summary>
+    /// <summary>Cents as a dollar amount.</summary>
     private static string Money(AccountState state) => Money(state.Balance);
 
-    private static string Money(long pence) =>
-        (pence / 100m).ToString("C", CultureInfo.CurrentCulture);
+    /// <remarks>
+    ///     Formatted as US dollars whatever the machine's culture, because the amounts are dollars:
+    ///     the current culture's currency format would put its own symbol on them.
+    /// </remarks>
+    private static string Money(long cents) =>
+        (cents / 100m).ToString("C", UsDollars);
 }

@@ -17,7 +17,7 @@ dotnet run --project samples/Accounts/SodaFlow.Samples.Accounts.Wpf
 
 ## What to watch
 
-**Pay £100 into the top account.** One balance changes. The other rows do not flicker and the list
+**Pay $100 into the top account.** One balance changes. The other rows do not flicker and the list
 does not rebuild, even though the sort could have moved that account. Bind a list to one cell
 holding the whole list — which is right for the [Search](../Search) sample, whose results really are
 one answer — and every row would be rebuilt instead.

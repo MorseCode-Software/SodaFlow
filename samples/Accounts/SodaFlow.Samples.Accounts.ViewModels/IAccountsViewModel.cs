@@ -89,7 +89,7 @@ public interface IAccountsViewModel : IDisposable
     /// <summary>Moves it back, and is disabled on the first.</summary>
     IBindableAction PreviousPage { get; }
 
-    /// <summary>Pays a hundred pounds into the account at the top of the current page.</summary>
+    /// <summary>Pays a hundred dollars into the account at the top of the current page.</summary>
     /// <remarks>
     ///     Deliberately edits one account rather than many: the point on screen is that one row
     ///     changes and the rest of the page sits still, even though the sort could have moved it.
