@@ -152,7 +152,7 @@ ReactiveCollection<Guid, AccountId, AccountState> topTen = accounts
 | Operation | Overloads |
 | --- | --- |
 | `Filter` | A predicate, a `Cell<Func<TIdentity, TState, bool>>`, or a criteria cell plus a predicate |
-| `SortBy` / `SortByDescending` | A selector, a selector with explicit comparers, or a `Cell<KeyOrder<…>>` — see below |
+| `SortBy` / `SortByDescending` | A selector, a selector with explicit comparers, a `KeyOrder<…>`, or a `Cell<KeyOrder<…>>` — see below |
 | `SortByIdentity` / `SortByIdentityDescending` | The same, over the identity alone — see below |
 | `FilterByIdentity` | A predicate over the identity alone — see below |
 | `SortByKey` | The root's own order, over any stage |
@@ -207,13 +207,31 @@ ReactiveCollection<Guid, AccountId, AccountState> page = accounts.SortBy(order).
 order.Send(Orders.By(static (identity, _) => identity.Holder));
 ```
 
-In F# the orders come from `orderBy`, `orderByIdentity`, `orderByKey` and their siblings, and
-the stage from `sortByOrder`.
+In F# the orders come from `orderBy`, `orderByIdentity`, `orderByKey` and their siblings, further
+levels from `thenBy` and its siblings, and the stage from `sortByOrderC` for a cell or `sortByOrder`
+for an order that does not change.
 
 A new order is a criteria change like any other: it rebuilds that stage and reports `IsReset`,
 at the cost the table below gives for a sort's rebuild. A stage below re-files under the new
 order without being told anything, because a filter builds from its upstream's own order
 whatever that order has become.
+
+An order can have more than one level. `ThenBy`, `ThenByDescending`, `ThenByIdentity` and
+`ThenByIdentityDescending` return the order refined by another level, which decides only between
+keys the order ranks equal — a holder's name under a balance. What comes back is one order like
+any other, so a fixed one goes straight to `SortBy` and a changing one goes in the same cell:
+
+```csharp
+ReactiveCollection<Guid, AccountId, AccountState> page = accounts
+    .SortBy(Orders.ByDescending(static (_, state) => state.Balance)
+        .ThenBy(static (identity, _) => identity.Holder))
+    .Slice(0, 20);
+```
+
+Each level runs in its own direction and keeps its own sort value type down to its comparer, so
+nothing is boxed however many levels there are. The key still breaks the last tie, ascending, with
+the comparer the first level was given. And an order is over the identity alone only if every
+level is: one level that reads the state is enough for a state edit to re-file a key.
 
 ## How the chain stays incremental
 

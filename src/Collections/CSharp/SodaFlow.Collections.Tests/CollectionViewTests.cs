@@ -3,6 +3,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using SodaFlow.Functional;
 using TUnit.Assertions;
+using TUnit.Assertions.Enums;
 using TUnit.Assertions.Extensions;
 using TUnit.Core;
 
@@ -703,6 +704,177 @@ public sealed class CollectionViewTests
         await Assert.That(
                 passing.IdentityCell(3).Sample().Match(onSome: static i => i.Code, onNone: static () => "gone"))
             .IsEqualTo("gone");
+    }
+
+    [Test]
+    public async Task ThenByBreaksTheTiesTheFirstLevelLeaves()
+    {
+        StreamSink<CollectionEdit<int, ItemIdentity, ItemState>> edits =
+            Stream.CreateSink<CollectionEdit<int, ItemIdentity, ItemState>>();
+
+        ReactiveCollection<int, ItemIdentity, ItemState> collection =
+            Create(
+                edits: edits,
+                TestUtil.Item(number: 1, name: "b", score: 10),
+                TestUtil.Item(number: 2, name: "a", score: 10),
+                TestUtil.Item(number: 3, name: "c", score: 5),
+                TestUtil.Item(number: 4, name: "a", score: 5));
+
+        KeyOrder<int, ItemIdentity, ItemState> byScore =
+            KeyOrder<int, ItemIdentity, ItemState>.ByDescending(static (_, state) => state.Score);
+
+        // Alone, the key breaks the ties. With a second level, the name breaks them first.
+        await Assert.That(KeysOf(collection.SortBy(byScore)))
+            .IsEquivalentTo(expected: [1, 2, 3, 4], ordering: CollectionOrdering.Matching);
+
+        await Assert.That(KeysOf(collection.SortBy(byScore.ThenBy(static (_, state) => state.Name))))
+            .IsEquivalentTo(expected: [2, 1, 4, 3], ordering: CollectionOrdering.Matching);
+    }
+
+    [Test]
+    public async Task EachLevelRunsInItsOwnDirection()
+    {
+        StreamSink<CollectionEdit<int, ItemIdentity, ItemState>> edits =
+            Stream.CreateSink<CollectionEdit<int, ItemIdentity, ItemState>>();
+
+        ReactiveCollection<int, ItemIdentity, ItemState> collection =
+            Create(
+                edits: edits,
+                TestUtil.Item(number: 1, name: "b", score: 10),
+                TestUtil.Item(number: 2, name: "a", score: 10),
+                TestUtil.Item(number: 3, name: "c", score: 5),
+                TestUtil.Item(number: 4, name: "a", score: 5));
+
+        KeyOrder<int, ItemIdentity, ItemState> order =
+            KeyOrder<int, ItemIdentity, ItemState>
+                .By(static (_, state) => state.Score)
+                .ThenByDescending(static (_, state) => state.Name);
+
+        await Assert.That(KeysOf(collection.SortBy(order)))
+            .IsEquivalentTo(expected: [3, 4, 1, 2], ordering: CollectionOrdering.Matching);
+    }
+
+    [Test]
+    public async Task TheKeyBreaksTheLastTieAscendingWhateverTheLevelsDo()
+    {
+        StreamSink<CollectionEdit<int, ItemIdentity, ItemState>> edits =
+            Stream.CreateSink<CollectionEdit<int, ItemIdentity, ItemState>>();
+
+        ReactiveCollection<int, ItemIdentity, ItemState> collection =
+            Create(
+                edits: edits,
+                TestUtil.Item(number: 3, name: "x", score: 1),
+                TestUtil.Item(number: 1, name: "x", score: 1),
+                TestUtil.Item(number: 2, name: "x", score: 1));
+
+        KeyOrder<int, ItemIdentity, ItemState> order =
+            KeyOrder<int, ItemIdentity, ItemState>
+                .ByDescending(static (_, state) => state.Score)
+                .ThenByDescending(static (_, state) => state.Name);
+
+        await Assert.That(KeysOf(collection.SortBy(order)))
+            .IsEquivalentTo(expected: [1, 2, 3], ordering: CollectionOrdering.Matching);
+    }
+
+    [Test]
+    public async Task AThirdLevelDecidesWhatTheSecondLeavesEqual()
+    {
+        StreamSink<CollectionEdit<int, ItemIdentity, ItemState>> edits =
+            Stream.CreateSink<CollectionEdit<int, ItemIdentity, ItemState>>();
+
+        ReactiveCollection<int, ItemIdentity, ItemState> collection =
+            Create(
+                edits: edits,
+                TestUtil.Item(number: 1, name: "a", score: 1),
+                TestUtil.Item(number: 2, name: "a", score: 1),
+                TestUtil.Item(number: 3, name: "b", score: 1));
+
+        // Three levels, two kinds of projection, two directions: a pair whose first half is a pair.
+        KeyOrder<int, ItemIdentity, ItemState> order =
+            KeyOrder<int, ItemIdentity, ItemState>
+                .By(static (_, state) => state.Score)
+                .ThenBy(static (_, state) => state.Name)
+                .ThenByIdentityDescending(static identity => identity.Code);
+
+        await Assert.That(KeysOf(collection.SortBy(order)))
+            .IsEquivalentTo(expected: [2, 1, 3], ordering: CollectionOrdering.Matching);
+    }
+
+    [Test]
+    public async Task ALevelThatReadsTheStateRefilesUnderAnIdentityLevel()
+    {
+        StreamSink<CollectionEdit<int, ItemIdentity, ItemState>> edits =
+            Stream.CreateSink<CollectionEdit<int, ItemIdentity, ItemState>>();
+
+        ReactiveCollection<int, ItemIdentity, ItemState> collection =
+            Create(
+                edits: edits,
+                TestUtil.Item(number: 1, name: "one", score: 30),
+                TestUtil.Item(number: 2, name: "two", score: 20),
+                TestUtil.Item(number: 3, name: "three", score: 5),
+                TestUtil.Item(number: 4, name: "four", score: 10));
+
+        // The first level cannot be moved by a state edit and the second can, so the order as a whole
+        // can: a stage that skipped re-filing on the strength of the first level would leave 4 where it
+        // was.
+        ReactiveCollection<int, ItemIdentity, ItemState> sorted =
+            collection.SortBy(
+                KeyOrder<int, ItemIdentity, ItemState>
+                    .ByIdentity(static identity => identity.Number % 2)
+                    .ThenBy(static (_, state) => state.Score));
+
+        await Assert.That(KeysOf(sorted)).IsEquivalentTo(expected: [4, 2, 3, 1], ordering: CollectionOrdering.Matching);
+
+        edits.Send(TestUtil.Score(key: 4, score: 25));
+
+        await Assert.That(KeysOf(sorted)).IsEquivalentTo(expected: [2, 4, 3, 1], ordering: CollectionOrdering.Matching);
+    }
+
+    [Test]
+    public async Task DescendingHoldsForAComparerThatAnswersWithTheExtremes()
+    {
+        StreamSink<CollectionEdit<int, ItemIdentity, ItemState>> edits =
+            Stream.CreateSink<CollectionEdit<int, ItemIdentity, ItemState>>();
+
+        ReactiveCollection<int, ItemIdentity, ItemState> collection =
+            Create(
+                edits: edits,
+                TestUtil.Item(number: 1, name: "one", score: 10),
+                TestUtil.Item(number: 2, name: "two", score: 30),
+                TestUtil.Item(number: 3, name: "three", score: 20));
+
+        // Negating int.MinValue leaves it negative, so a direction applied by negation sorts this the
+        // same way both ways - and not consistently at that.
+        KeyOrder<int, ItemIdentity, ItemState> descending =
+            KeyOrder<int, ItemIdentity, ItemState>.By(
+                selector: static (_, state) => state.Score,
+                sortComparer: ExtremeComparer.Instance,
+                keyComparer: Comparer<int>.Default,
+                descending: true);
+
+        await Assert.That(KeysOf(collection.SortBy(descending)))
+            .IsEquivalentTo(expected: [2, 3, 1], ordering: CollectionOrdering.Matching);
+
+        // The same comparer as a second level, under a first level that ties everything.
+        KeyOrder<int, ItemIdentity, ItemState> secondLevel =
+            KeyOrder<int, ItemIdentity, ItemState>
+                .ByIdentity(static _ => 0)
+                .ThenBy(selector: static (_, state) => state.Score, sortComparer: ExtremeComparer.Instance, descending: true);
+
+        await Assert.That(KeysOf(collection.SortBy(secondLevel)))
+            .IsEquivalentTo(expected: [2, 3, 1], ordering: CollectionOrdering.Matching);
+    }
+
+    /// <summary>Answers with int.MinValue and int.MaxValue rather than -1 and 1, which is allowed.</summary>
+    // ReSharper disable once InheritdocConsiderUsage
+    private sealed class ExtremeComparer : IComparer<int>
+    {
+        internal static readonly ExtremeComparer Instance = new();
+
+        public int Compare(int x, int y) =>
+            x < y ? int.MinValue
+            : x > y ? int.MaxValue
+            : 0;
     }
 
     [Test]

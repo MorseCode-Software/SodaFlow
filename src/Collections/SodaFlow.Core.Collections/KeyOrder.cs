@@ -23,6 +23,12 @@ namespace SodaFlow.Collections;
 ///         the collection it was built for, only to its type parameters, so one built once can be
 ///         handed to any view of the same shape.
 ///     </para>
+///     <para>
+///         An order can have more than one level. <c>ThenBy</c> and its siblings return this order
+///         refined by another level, which decides only between keys this order ranks equal - a
+///         holder's name under a balance, or the column header clicked second - and what comes back
+///         is one order like any other, so it goes in the same cell.
+///     </para>
 /// </remarks>
 /// <typeparam name="TKey">The type of the keys.</typeparam>
 /// <typeparam name="TIdentity">The type of the immutable portion of an item.</typeparam>
@@ -163,6 +169,110 @@ public abstract class KeyOrder<TKey, TIdentity, TState>
             sortComparer: keyComparer,
             keyComparer: keyComparer,
             descending: false);
+
+    /// <summary>This order, with its ties broken by a value projected from each item.</summary>
+    /// <typeparam name="TSortKey">The type of the projected sort value.</typeparam>
+    /// <param name="selector">Projects the next level's sort value from an item.</param>
+    /// <returns>The refined order. This order is unchanged, and can still be used alone.</returns>
+    /// <remarks>
+    ///     What <c>ThenBy</c> is after <c>OrderBy</c>: the new level decides only between keys this
+    ///     order ranks equal. Every level keeps its own sort value type down to its comparer, so
+    ///     nothing is boxed however many levels there are, and the key still breaks the last tie with
+    ///     the comparer the first level was given.
+    /// </remarks>
+    public KeyOrder<TKey, TIdentity, TState> ThenBy<TSortKey>(Func<TIdentity, TState, TSortKey> selector) =>
+        this.ThenBy(selector: selector, sortComparer: Comparer<TSortKey>.Default, descending: false);
+
+    /// <summary>This order, with its ties broken, descending, by a value projected from each item.</summary>
+    /// <typeparam name="TSortKey">The type of the projected sort value.</typeparam>
+    /// <param name="selector">Projects the next level's sort value from an item.</param>
+    /// <returns>The refined order. This order is unchanged, and can still be used alone.</returns>
+    public KeyOrder<TKey, TIdentity, TState> ThenByDescending<TSortKey>(Func<TIdentity, TState, TSortKey> selector) =>
+        this.ThenBy(selector: selector, sortComparer: Comparer<TSortKey>.Default, descending: true);
+
+    /// <summary>This order, with its ties broken by a value projected from each item.</summary>
+    /// <typeparam name="TSortKey">The type of the projected sort value.</typeparam>
+    /// <param name="selector">Projects the next level's sort value from an item.</param>
+    /// <param name="sortComparer">Compares two of the next level's sort values.</param>
+    /// <param name="descending">Whether this level runs in reverse, whichever way the levels above it run.</param>
+    /// <returns>The refined order. This order is unchanged, and can still be used alone.</returns>
+    /// <remarks>
+    ///     There is no key comparer to give here. The key breaks the last tie in every order, and
+    ///     which comparer does that was settled when the first level was built.
+    /// </remarks>
+    public KeyOrder<TKey, TIdentity, TState> ThenBy<TSortKey>(
+        Func<TIdentity, TState, TSortKey> selector,
+        IComparer<TSortKey> sortComparer,
+        bool descending) =>
+        this.Then(
+            nextSelector: (_, identity, state) => selector(arg1: identity, arg2: state),
+            nextIdentitySelector: null,
+            nextComparer: sortComparer,
+            nextDescending: descending);
+
+    /// <summary>
+    ///     This order, with its ties broken by a value projected from each item's immutable half
+    ///     alone.
+    /// </summary>
+    /// <typeparam name="TSortKey">The type of the projected sort value.</typeparam>
+    /// <param name="selector">Projects the next level's sort value from an identity.</param>
+    /// <returns>The refined order. This order is unchanged, and can still be used alone.</returns>
+    /// <remarks>
+    ///     The refined order is over the identity alone only if this order is too. One level that
+    ///     reads the state is enough for a state edit to move a key.
+    /// </remarks>
+    public KeyOrder<TKey, TIdentity, TState> ThenByIdentity<TSortKey>(Func<TIdentity, TSortKey> selector) =>
+        this.ThenByIdentity(selector: selector, sortComparer: Comparer<TSortKey>.Default, descending: false);
+
+    /// <summary>
+    ///     This order, with its ties broken, descending, by a value projected from each item's
+    ///     immutable half alone.
+    /// </summary>
+    /// <typeparam name="TSortKey">The type of the projected sort value.</typeparam>
+    /// <param name="selector">Projects the next level's sort value from an identity.</param>
+    /// <returns>The refined order. This order is unchanged, and can still be used alone.</returns>
+    public KeyOrder<TKey, TIdentity, TState> ThenByIdentityDescending<TSortKey>(Func<TIdentity, TSortKey> selector) =>
+        this.ThenByIdentity(selector: selector, sortComparer: Comparer<TSortKey>.Default, descending: true);
+
+    /// <summary>
+    ///     This order, with its ties broken by a value projected from each item's immutable half
+    ///     alone.
+    /// </summary>
+    /// <typeparam name="TSortKey">The type of the projected sort value.</typeparam>
+    /// <param name="selector">Projects the next level's sort value from an identity.</param>
+    /// <param name="sortComparer">Compares two of the next level's sort values.</param>
+    /// <param name="descending">Whether this level runs in reverse, whichever way the levels above it run.</param>
+    /// <returns>The refined order. This order is unchanged, and can still be used alone.</returns>
+    public KeyOrder<TKey, TIdentity, TState> ThenByIdentity<TSortKey>(
+        Func<TIdentity, TSortKey> selector,
+        IComparer<TSortKey> sortComparer,
+        bool descending) =>
+        this.Then(
+            nextSelector: null,
+            nextIdentitySelector: (_, identity) => selector(identity),
+            nextComparer: sortComparer,
+            nextDescending: descending);
+
+    /// <summary>
+    ///     This order refined by one more level, which decides only between keys this order ranks
+    ///     equal.
+    /// </summary>
+    /// <param name="nextSelector">Projects the level's sort value from a whole item, or null.</param>
+    /// <param name="nextIdentitySelector">Projects it from the key and identity alone, or null.</param>
+    /// <param name="nextComparer">Compares two of the level's sort values.</param>
+    /// <param name="nextDescending">Whether the level runs in reverse.</param>
+    /// <returns>The refined order.</returns>
+    /// <remarks>
+    ///     Exactly one selector is set, for the reason the orders themselves keep one: a level built over
+    ///     the identity is never handed the state, so the combined order can say truthfully whether a
+    ///     state edit can move a key. Internal and generic because only the implementation knows its own
+    ///     sort value type, and a level has to be paired with that type to be compared without boxing.
+    /// </remarks>
+    internal abstract KeyOrder<TKey, TIdentity, TState> Then<TNext>(
+        Func<TKey, TIdentity, TState, TNext>? nextSelector,
+        Func<TKey, TIdentity, TNext>? nextIdentitySelector,
+        IComparer<TNext> nextComparer,
+        bool nextDescending);
 
     /// <summary>
     ///     A key set holding <paramref name="keys" />, ordered the way this order orders them.

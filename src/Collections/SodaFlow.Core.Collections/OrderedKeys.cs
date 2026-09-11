@@ -127,19 +127,86 @@ internal sealed class SortedEntryComparer<TKey, TSortKey> : IComparer<SortedEntr
             return 0;
         }
 
+        // A direction is applied by swapping the operands rather than negating the result. Negating
+        // int.MinValue leaves it negative, so a comparer that returns it would sort the same way in
+        // both directions; swapping cannot go wrong like that.
+        //
         // ReSharper disable NullableWarningSuppressionIsUsed - The set only ever holds entries
         // filed by Add, and nothing outside this file constructs one, so neither side is null.
-        int result = this.sortComparer.Compare(x: left!.SortValue, y: right!.SortValue);
+        int result = this.descending
+            ? this.sortComparer.Compare(x: right!.SortValue, y: left!.SortValue)
+            : this.sortComparer.Compare(x: left!.SortValue, y: right!.SortValue);
         // ReSharper restore NullableWarningSuppressionIsUsed
-
-        if (result != 0)
-        {
-            return this.descending ? -result : result;
-        }
 
         // The key breaks ties, so the order is total and two entries that sort equally are never
         // conflated.
-        return this.keyComparer.Compare(x: left.Key, y: right.Key);
+        return result != 0 ? result : this.keyComparer.Compare(x: left.Key, y: right.Key);
+    }
+}
+
+/// <summary>Two sort values compared level by level - what a multi-level order files a key under.</summary>
+/// <remarks>
+///     A struct holding both levels as themselves, so an order with several levels keeps every level's
+///     sort value type all the way down to its comparer and nothing is boxed. A third level is a pair
+///     whose first half is a pair, which is how any number of levels fits a type with two parameters.
+/// </remarks>
+/// <typeparam name="TFirst">The type of the level that decides first.</typeparam>
+/// <typeparam name="TSecond">The type of the level that decides between what the first ranks equal.</typeparam>
+internal readonly struct SortPair<TFirst, TSecond>
+{
+    internal SortPair(TFirst first, TSecond second)
+    {
+        this.First = first;
+        this.Second = second;
+    }
+
+    internal TFirst First { get; }
+
+    internal TSecond Second { get; }
+}
+
+/// <summary>Compares two <see cref="SortPair{TFirst,TSecond}" /> values: the first level, then the second.</summary>
+/// <remarks>
+///     Each level carries its own direction, because a secondary level runs whichever way it was asked
+///     to regardless of the level above it. Directions are applied by swapping operands, for the reason
+///     given in <see cref="SortedEntryComparer{TKey,TSortKey}" />.
+/// </remarks>
+/// <typeparam name="TFirst">The type of the level that decides first.</typeparam>
+/// <typeparam name="TSecond">The type of the level that decides between what the first ranks equal.</typeparam>
+// ReSharper disable once InheritdocConsiderUsage
+internal sealed class SortPairComparer<TFirst, TSecond> : IComparer<SortPair<TFirst, TSecond>>
+{
+    private readonly IComparer<TFirst> first;
+    private readonly bool firstDescending;
+    private readonly IComparer<TSecond> second;
+    private readonly bool secondDescending;
+
+    internal SortPairComparer(
+        IComparer<TFirst> first,
+        bool firstDescending,
+        IComparer<TSecond> second,
+        bool secondDescending)
+    {
+        this.first = first;
+        this.firstDescending = firstDescending;
+        this.second = second;
+        this.secondDescending = secondDescending;
+    }
+
+    public int Compare(SortPair<TFirst, TSecond> left, SortPair<TFirst, TSecond> right)
+    {
+        int result = this.firstDescending
+            ? this.first.Compare(x: right.First, y: left.First)
+            : this.first.Compare(x: left.First, y: right.First);
+
+        if (result != 0)
+        {
+            return result;
+        }
+
+        return this.secondDescending
+            ? this.second.Compare(x: right.Second, y: left.Second)
+            : this.second.Compare(x: left.Second, y: right.Second);
     }
 }
 
@@ -166,7 +233,15 @@ internal sealed class SortKeyOrder<TKey, TIdentity, TState, TSortKey>
 {
     private readonly IComparer<SortedEntry<TKey, TSortKey>> comparer;
 
+    /// <summary>
+    ///     The pieces <see cref="comparer" /> was built from, kept because a further level has to
+    ///     compare this level the same way from inside a pair.
+    /// </summary>
+    private readonly bool descending;
+
     private readonly Func<TKey, TIdentity, TSortKey>? identitySelector;
+
+    private readonly IComparer<TKey> keyComparer;
 
     /// <summary>
     ///     Exactly one of these is set, and which one is what <see cref="DependsOnState" />
@@ -174,6 +249,8 @@ internal sealed class SortKeyOrder<TKey, TIdentity, TState, TSortKey>
     ///     it, because the selector that claims it is never handed any.
     /// </summary>
     private readonly Func<TKey, TIdentity, TState, TSortKey>? selector;
+
+    private readonly IComparer<TSortKey> sortComparer;
 
     /// <summary>Creates an order whose sort value is projected from the whole item.</summary>
     /// <param name="selector">Projects the sort value from a key and its item.</param>
@@ -211,15 +288,77 @@ internal sealed class SortKeyOrder<TKey, TIdentity, TState, TSortKey>
     private SortKeyOrder(
         IComparer<TSortKey> sortComparer,
         IComparer<TKey> keyComparer,
-        bool descending) =>
+        bool descending)
+    {
+        this.sortComparer = sortComparer;
+        this.keyComparer = keyComparer;
+        this.descending = descending;
+
         this.comparer =
             new SortedEntryComparer<TKey, TSortKey>(
                 sortComparer: sortComparer,
                 keyComparer: keyComparer,
                 descending: descending);
+    }
 
     /// <inheritdoc />
     internal override bool DependsOnState => this.identitySelector is null;
+
+    /// <inheritdoc />
+    internal override KeyOrder<TKey, TIdentity, TState> Then<TNext>(
+        Func<TKey, TIdentity, TState, TNext>? nextSelector,
+        Func<TKey, TIdentity, TNext>? nextIdentitySelector,
+        IComparer<TNext> nextComparer,
+        bool nextDescending)
+    {
+        // The pair carries both levels' directions, so the entry comparer above it compares
+        // ascending. The key still breaks the last tie, with the comparer this order was built with:
+        // a further level refines the order and has no say in what makes it total.
+        SortPairComparer<TSortKey, TNext> pairComparer = new(
+            first: this.sortComparer,
+            firstDescending: this.descending,
+            second: nextComparer,
+            secondDescending: nextDescending);
+
+        // Over the identity alone only if every level is, which is what keeps DependsOnState honest
+        // for the combined order: one level that reads the state makes the whole order read it.
+        if (this.identitySelector is not null && nextIdentitySelector is not null)
+        {
+            Func<TKey, TIdentity, TSortKey> firstIdentity = this.identitySelector;
+
+            return new SortKeyOrder<TKey, TIdentity, TState, SortPair<TSortKey, TNext>>(
+                selector: (key, identity) => new SortPair<TSortKey, TNext>(
+                    first: firstIdentity(arg1: key, arg2: identity),
+                    second: nextIdentitySelector(arg1: key, arg2: identity)),
+                sortComparer: pairComparer,
+                keyComparer: this.keyComparer,
+                descending: false);
+        }
+
+        Func<TKey, TIdentity, TState, TSortKey> firstWhole =
+            WholeItem(selector: this.selector, identitySelector: this.identitySelector);
+
+        Func<TKey, TIdentity, TState, TNext> nextWhole =
+            WholeItem(selector: nextSelector, identitySelector: nextIdentitySelector);
+
+        return new SortKeyOrder<TKey, TIdentity, TState, SortPair<TSortKey, TNext>>(
+            selector: (key, identity, state) => new SortPair<TSortKey, TNext>(
+                first: firstWhole(arg1: key, arg2: identity, arg3: state),
+                second: nextWhole(arg1: key, arg2: identity, arg3: state)),
+            sortComparer: pairComparer,
+            keyComparer: this.keyComparer,
+            descending: false);
+    }
+
+    /// <summary>A level as a projection from the whole item, whichever kind it was built as.</summary>
+    private static Func<TKey, TIdentity, TState, T> WholeItem<T>(
+        Func<TKey, TIdentity, TState, T>? selector,
+        Func<TKey, TIdentity, T>? identitySelector) =>
+        identitySelector is null
+            // ReSharper disable once NullableWarningSuppressionIsUsed - exactly one of the two is set,
+            // and identitySelector being null is what says it is this one.
+            ? selector!
+            : (key, identity, _) => identitySelector(arg1: key, arg2: identity);
 
     /// <inheritdoc />
     internal override OrderedKeys<TKey, TIdentity, TState> CreateFrom(

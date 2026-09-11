@@ -67,6 +67,12 @@ alike, while the sort key stays a real generic parameter down to the comparer.
 Build them with the factories on KeyOrder - By, ByDescending, ByIdentity,
 ByIdentityDescending and ByKey - which mirror those sorts one for one.
 
+An order can have more than one level. ThenBy, ThenByDescending, ThenByIdentity
+and ThenByIdentityDescending refine an order with a level that decides only
+between keys it ranks equal, each level in its own direction and with its own
+sort value type, so nothing is boxed. SortBy takes a KeyOrder directly as well
+as in a cell, which is how a multi-level sort that never changes is written.
+
 Slice(offset, limit) is the paging window, and Take is the case of it that
 starts at zero. There is no Skip: a window with both ends is bounded, which is
 what keeps the stage at O(limit) per transaction.

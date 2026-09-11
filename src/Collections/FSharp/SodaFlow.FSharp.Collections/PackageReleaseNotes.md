@@ -32,11 +32,16 @@ and F# functions rather than Func for predicates and selectors.
 
   let selected = accounts |> stateCell selectedKey
 
-sortByOrder takes a cell of orders rather than a selector, which is how a
+sortByOrderC takes a cell of orders rather than a selector, which is how a
 clickable column header is written: an order carries its own sort value type
 inside itself, so one cell holds orders sorting by an int and by a string
 alike. orderBy, orderByDescending, orderByIdentity, orderByIdentityDescending,
 orderByKey and the two With forms build them, mirroring the sorts one for one.
+
+thenBy, thenByDescending, thenByIdentity, thenByIdentityDescending and their
+With forms add a level to an order, deciding only between keys it ranks equal,
+and sortByOrder sorts by an order that does not change - which is how a
+multi-level sort that never changes is written.
 
 slice offset limit is the paging window, and take is the case of it that starts
 at zero; sliceC takes cells for either end, so turning the page is one send.

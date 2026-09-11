@@ -84,6 +84,31 @@ public sealed class OrderedKeysTests
         ByScore(descending).CreateFrom(keys: [], snapshot: snapshot);
 
     [Test]
+    public async Task AnOrderIgnoresStateEditsOnlyIfEveryLevelDoes()
+    {
+        KeyOrder<int, ItemIdentity, ItemState> identityOnly =
+            KeyOrder<int, ItemIdentity, ItemState>
+                .ByIdentity(static identity => identity.Code)
+                .ThenByIdentityDescending(static identity => identity.Number);
+
+        KeyOrder<int, ItemIdentity, ItemState> stateSecond =
+            KeyOrder<int, ItemIdentity, ItemState>
+                .ByIdentity(static identity => identity.Code)
+                .ThenBy(static (_, state) => state.Score);
+
+        KeyOrder<int, ItemIdentity, ItemState> stateFirst =
+            KeyOrder<int, ItemIdentity, ItemState>
+                .By(static (_, state) => state.Score)
+                .ThenByIdentity(static identity => identity.Code);
+
+        // A stage skips re-filing a key on a state edit only when no level could have moved it, so
+        // one level that reads the state has to be enough to lose the skip.
+        await Assert.That(identityOnly.DependsOnState).IsFalse();
+        await Assert.That(stateSecond.DependsOnState).IsTrue();
+        await Assert.That(stateFirst.DependsOnState).IsTrue();
+    }
+
+    [Test]
     public async Task KeysComeBackInSortOrderAndIndexOfAgrees()
     {
         CollectionSnapshot<int, ItemIdentity, ItemState> snapshot =

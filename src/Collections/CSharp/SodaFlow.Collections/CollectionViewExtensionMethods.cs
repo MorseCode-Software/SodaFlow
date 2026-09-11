@@ -207,6 +207,27 @@ public static class CollectionViewExtensionMethods
         where TIdentity : notnull =>
         CollectionViewUtility.SortByImpl(upstream: upstream, orderCell: orderCell);
 
+    /// <summary>Reorders the view by an order that does not change.</summary>
+    /// <typeparam name="TKey">The type of the keys.</typeparam>
+    /// <typeparam name="TIdentity">The type of the immutable portion of an item.</typeparam>
+    /// <typeparam name="TState">The type of the mutable portion of an item.</typeparam>
+    /// <param name="upstream">The collection or view to reorder.</param>
+    /// <param name="order">The order to sort by.</param>
+    /// <returns>A view in that order.</returns>
+    /// <remarks>
+    ///     How a sort with more than one level is written when its levels never change: build the
+    ///     order with <see cref="KeyOrder{TKey,TIdentity,TState}" />'s factories and <c>ThenBy</c>,
+    ///     and hand it here. An order that does change goes in a cell instead - see the overload
+    ///     taking one.
+    /// </remarks>
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    public static ReactiveCollection<TKey, TIdentity, TState> SortBy<TKey, TIdentity, TState>(
+        this ReactiveCollection<TKey, TIdentity, TState> upstream,
+        KeyOrder<TKey, TIdentity, TState> order)
+        where TKey : notnull
+        where TIdentity : notnull =>
+        CollectionViewUtility.SortByImpl(upstream: upstream, orderCell: Cell.Constant(order));
+
     /// <summary>
     ///     Narrows the view by a predicate over each item's immutable half — its identity — which a
     ///     state edit cannot change.

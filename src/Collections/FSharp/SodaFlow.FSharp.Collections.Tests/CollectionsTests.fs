@@ -276,7 +276,25 @@ type ``Collections Tests``() =
         }
 
     [<Test>]
-    member _.``sortByOrder follows whichever order the cell holds``() =
+    member _.``thenBy breaks the ties the first level leaves``() =
+        task {
+            let edits = sinkS<CollectionEdit<int, ItemIdentity, ItemState>> ()
+
+            let collection =
+                create keyOf [ item 1 "b" 10; item 2 "a" 10; item 3 "c" 5; item 4 "a" 5 ] [ edits ]
+
+            let sorted =
+                collection
+                |> sortByOrder (
+                    orderByDescending (fun _ (state: ItemState) -> state.Score)
+                    |> thenBy (fun _ (state: ItemState) -> state.Name)
+                )
+
+            do! Expect.Sequence([ 2; 1; 4; 3 ], keysOf sorted)
+        }
+
+    [<Test>]
+    member _.``sortByOrderC follows whichever order the cell holds``() =
         task {
             let edits = sinkS<CollectionEdit<int, ItemIdentity, ItemState>> ()
 
@@ -289,7 +307,7 @@ type ``Collections Tests``() =
             let byName = orderBy (fun _ (state: ItemState) -> state.Name)
 
             let order = sinkC byScore
-            let sorted = collection |> sortByOrder order
+            let sorted = collection |> sortByOrderC order
 
             do! Expect.Sequence([ 2; 3; 1 ], keysOf sorted)
 
