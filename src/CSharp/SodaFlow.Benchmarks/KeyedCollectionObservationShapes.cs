@@ -205,7 +205,7 @@ internal sealed class ObservationShape
                 + $"measure observers holding nothing. The keys are [{string.Join(separator: ", ", values: keys)}].");
         }
 
-        if (Passes(ItemSeed.Identity(UnobservedKeyInView)) is false || keys.Contains(UnobservedKeyInView))
+        if (!Passes(ItemSeed.Identity(UnobservedKeyInView)) || keys.Contains(UnobservedKeyInView))
         {
             throw new InvalidOperationException(
                 $"Key {UnobservedKeyInView} is meant to be in the view and watched by nobody.");

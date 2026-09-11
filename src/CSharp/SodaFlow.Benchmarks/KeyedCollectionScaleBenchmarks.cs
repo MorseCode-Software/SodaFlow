@@ -15,7 +15,7 @@ namespace SodaFlow.Benchmarks;
 ///         <see cref="KeyedCollectionViewBenchmarks" /> asks the same question at a thousand items
 ///         and ten thousand, alongside everything else it measures. This asks only this question,
 ///         and up to a million — because the two paths differ by two trie lookups, a trie lookup
-///         costs O(log32 n), and past a certain size neither structure is in cache any more. If
+///         costs O(log32 n), and past a certain size neither structure is in cache anymore. If
 ///         the gap grows with the collection, this is where it shows.
 ///     </para>
 ///     <para>
@@ -25,7 +25,7 @@ namespace SodaFlow.Benchmarks;
 ///     </para>
 ///     <para>
 ///         The third arm has no chain at all, and it is here because the first run of this
-///         benchmark could not be read without it. An edit pays for the transaction, the send, the
+///         benchmark could not be read without it. An edit pays for the transaction, the send operation, the
 ///         trie write and the change object before any stage is consulted, and that floor is
 ///         roughly two fifths of what an excluded-key edit costs. Against the whole number a
 ///         stage-level difference reads as noise, and the honest-looking conclusion is that there
@@ -47,16 +47,14 @@ namespace SodaFlow.Benchmarks;
 // ReSharper disable once MemberCanBeFileLocal
 public class KeyedCollectionScaleBenchmarks
 {
-    private IKeyedCollectionViewShape byIdentity =
-        ChainedViewShape.Build(itemCount: 1, style: ChainStyle.SelectiveByIdentity);
+    private ChainedViewShape byIdentity = ChainedViewShape.Build(itemCount: 1, style: ChainStyle.SelectiveByIdentity);
 
-    private IKeyedCollectionViewShape
-        byState = ChainedViewShape.Build(itemCount: 1, style: ChainStyle.SelectiveByState);
+    private ChainedViewShape byState = ChainedViewShape.Build(itemCount: 1, style: ChainStyle.SelectiveByState);
 
     private int editCount;
 
     // Populated for real in the setup; built small here so the fields never have to be nullable.
-    private IKeyedCollectionViewShape rootOnly = RootOnlyViewShape.Build(1);
+    private RootOnlyViewShape rootOnly = RootOnlyViewShape.Build(1);
 
     /// <summary>How many items the collection holds.</summary>
     [Params(10_000, 100_000, 1_000_000)]

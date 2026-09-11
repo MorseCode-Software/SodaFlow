@@ -221,7 +221,7 @@ public abstract class ReactiveCollection<TKey, TIdentity, TState>
     ///     thing parameterized by that type is a higher-kinded thing, which C# cannot express - so
     ///     the claim is made here once rather than at every lookup.
     /// </remarks>
-    private static ProjectedCellCache<TKey, TProjected> CacheFor<TProjected>(IDictionary<Type, object> caches)
+    private static ProjectedCellCache<TKey, TProjected> CacheFor<TProjected>(Dictionary<Type, object> caches)
     {
         if (caches.TryGetValue(key: typeof(TProjected), value: out object? existing))
         {

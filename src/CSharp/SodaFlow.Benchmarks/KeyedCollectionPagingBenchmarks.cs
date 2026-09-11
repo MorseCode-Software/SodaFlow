@@ -39,13 +39,13 @@ namespace SodaFlow.Benchmarks;
 // ReSharper disable once MemberCanBeFileLocal
 public class KeyedCollectionPagingBenchmarks
 {
-    private IKeyedPagingShape chained = ChainedPageShape.Build(1);
+    private ChainedPageShape chained = ChainedPageShape.Build(1);
     private int editCount;
 
     private int pageCount;
 
     // Populated for real in the setup; built small here so the fields never have to be nullable.
-    private IKeyedPagingShape rederived = RederivedPageShape.Build(1);
+    private RederivedPageShape rederived = RederivedPageShape.Build(1);
 
     /// <summary>How many items the collection holds.</summary>
     [Params(1_000, 10_000, 100_000)]

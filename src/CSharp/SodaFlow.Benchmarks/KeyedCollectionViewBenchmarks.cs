@@ -53,24 +53,24 @@ namespace SodaFlow.Benchmarks;
 // ReSharper disable once MemberCanBeFileLocal
 public class KeyedCollectionViewBenchmarks
 {
-    private IKeyedCollectionViewShape chained = ChainedViewShape.Build(itemCount: 1, style: ChainStyle.ByState);
+    private ChainedViewShape chained = ChainedViewShape.Build(itemCount: 1, style: ChainStyle.ByState);
 
-    private IKeyedCollectionViewShape chainedByIdentitySort =
+    private ChainedViewShape chainedByIdentitySort =
         ChainedViewShape.Build(itemCount: 1, style: ChainStyle.SortByIdentity);
 
-    private IKeyedCollectionViewShape chainedByIdentityThroughout =
+    private ChainedViewShape chainedByIdentityThroughout =
         ChainedViewShape.Build(itemCount: 1, style: ChainStyle.ByIdentity);
 
     private int editCount;
 
     // Populated for real in the setup; built small here so the fields never have to be nullable.
-    private IKeyedCollectionViewShape rederived = RederivedViewShape.Build(1);
+    private RederivedViewShape rederived = RederivedViewShape.Build(1);
 
-    private IKeyedCollectionViewShape selectiveByIdentity =
+    private ChainedViewShape selectiveByIdentity =
         ChainedViewShape.Build(itemCount: 1, style: ChainStyle.SelectiveByIdentity);
 
-    private IKeyedCollectionViewShape selectiveByState =
-        ChainedViewShape.Build(itemCount: 1, style: ChainStyle.SelectiveByState);
+    private ChainedViewShape
+        selectiveByState = ChainedViewShape.Build(itemCount: 1, style: ChainStyle.SelectiveByState);
 
     private int thresholdCount;
 
