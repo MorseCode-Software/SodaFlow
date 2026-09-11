@@ -379,8 +379,8 @@ jobs:
       # lines they are about - in the Files tab of a pull request and in the Security tab - instead
       # of only in a log that has to be opened and scrolled.
       #
-      # Every severity is in it, hints included, which is more than the step above fails on: it is
-      # the full report build.cake writes beside the one it gates on. See RunInspection there.
+      # Every severity is in it, hints included - the same report the step above fails on, so what
+      # code scanning shows is exactly what the build refused.
       #
       # always(), because the step above fails by design while there are findings, and those are
       # exactly the runs worth annotating. continue-on-error, because this is presentation: if the

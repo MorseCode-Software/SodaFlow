@@ -76,8 +76,8 @@ jobs:
       #     dotnet cake --target=Inspect-Sample --sample=Bounce
       #
       # It reads src/SodaFlow.sln.DotSettings - the one rule set every solution is held to - and
-      # fails on anything it finds at suggestion or above, exactly as the inspection over src does.
-      # Findings below that are reported to code scanning by the upload further down, not failed on.
+      # fails on anything it finds at any severity, hints included, exactly as the inspection over
+      # src does.
       #
       # Still on v3 while every other action here is on a Node 24 major. cake-action has moved to
       # Node 24 on its default branch but has not released it - v3.0.1, and the v3 tag, are still
@@ -101,8 +101,8 @@ jobs:
       # lines they are about - in the Files tab of a pull request and in the Security tab - instead
       # of only in a log that has to be opened and scrolled.
       #
-      # Every severity is in it, hints included, which is more than the step above fails on: it is
-      # the full report build.cake writes beside the one it gates on. See RunInspection there.
+      # Every severity is in it, hints included - the same report the step above fails on, so what
+      # code scanning shows is exactly what the build refused.
       #
       # always(), because the step that produces it fails by design while there are findings, and
       # those are exactly the runs worth annotating. continue-on-error, because this is
