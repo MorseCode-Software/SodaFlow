@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 using TUnit.Assertions;
+using TUnit.Assertions.Enums;
 using TUnit.Assertions.Extensions;
 using TUnit.Core;
 
@@ -91,8 +92,8 @@ public sealed class ReactiveCollectionTests
 
         // The update is not structural, so only the two structural edits reach the shape cell,
         // while all three reach the snapshot.
-        await Assert.That(shapes).IsEquivalentTo([2, 1]);
-        await Assert.That(snapshots).IsEquivalentTo([2, 2, 1]);
+        await Assert.That(shapes).IsEquivalentTo(expected: [2, 1], ordering: CollectionOrdering.Matching);
+        await Assert.That(snapshots).IsEquivalentTo(expected: [2, 2, 1], ordering: CollectionOrdering.Matching);
     }
 
     [Test]
@@ -197,7 +198,7 @@ public sealed class ReactiveCollectionTests
 
         await Assert.That(changes.Count).IsEqualTo(1);
         await Assert.That(changes[0].After.Count).IsEqualTo(2);
-        await Assert.That(changes[0].Added).IsEquivalentTo([2]);
+        await Assert.That(changes[0].Added).IsEquivalentTo(expected: [2], ordering: CollectionOrdering.Any);
         await Assert.That(ScoreOf(snapshot: changes[0].After, key: 1)).IsEqualTo(11);
     }
 
@@ -292,14 +293,16 @@ public sealed class ReactiveCollectionTests
                 ],
                 edits);
 
-        await Assert.That(TestUtil.Keys(collection.KeysCell.Sample())).IsEquivalentTo([1, 2]);
+        await Assert.That(TestUtil.Keys(collection.KeysCell.Sample()))
+            .IsEquivalentTo(expected: [1, 2], ordering: CollectionOrdering.Matching);
 
         // The derived selector is used for later adds too, not only the initial contents.
         edits.Send(
             CollectionEdit<int, SelfKeyedItemIdentity, ItemState>.Add(
                 TestUtil.SelfKeyedItem(number: 3, name: "three", score: 30)));
 
-        await Assert.That(TestUtil.Keys(collection.KeysCell.Sample())).IsEquivalentTo([1, 2, 3]);
+        await Assert.That(TestUtil.Keys(collection.KeysCell.Sample()))
+            .IsEquivalentTo(expected: [1, 2, 3], ordering: CollectionOrdering.Matching);
     }
 
     [Test]

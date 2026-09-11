@@ -3,6 +3,7 @@ using System.Collections.Immutable;
 using System.Linq;
 using System.Threading.Tasks;
 using TUnit.Assertions;
+using TUnit.Assertions.Enums;
 using TUnit.Assertions.Extensions;
 using TUnit.Core;
 
@@ -123,7 +124,9 @@ public sealed class OrderedKeysTests
                 .Add(key: 2, snapshot: snapshot)
                 .Add(key: 3, snapshot: snapshot);
 
-        await Assert.That(TestUtil.Keys(keys)).IsEquivalentTo([2, 3, 1]);
+        await Assert.That(TestUtil.Keys(keys))
+            .IsEquivalentTo(expected: [2, 3, 1], ordering: CollectionOrdering.Matching);
+
         await Assert.That(keys.IndexOfInternal(1)).IsEqualTo(2);
         await Assert.That(keys.IndexOfInternal(99)).IsEqualTo(-1);
         await Assert.That(keys.Contains(3)).IsTrue();
@@ -145,7 +148,8 @@ public sealed class OrderedKeysTests
                 .Add(key: 2, snapshot: snapshot)
                 .Add(key: 9, snapshot: snapshot);
 
-        await Assert.That(TestUtil.Keys(keys)).IsEquivalentTo([2, 5, 9]);
+        await Assert.That(TestUtil.Keys(keys))
+            .IsEquivalentTo(expected: [2, 5, 9], ordering: CollectionOrdering.Matching);
     }
 
     [Test]
@@ -163,7 +167,8 @@ public sealed class OrderedKeysTests
                 .Add(key: 2, snapshot: snapshot)
                 .Add(key: 3, snapshot: snapshot);
 
-        await Assert.That(TestUtil.Keys(keys)).IsEquivalentTo([1, 3, 2]);
+        await Assert.That(TestUtil.Keys(keys))
+            .IsEquivalentTo(expected: [1, 3, 2], ordering: CollectionOrdering.Matching);
     }
 
     [Test]
@@ -200,8 +205,11 @@ public sealed class OrderedKeysTests
                 .Add(key: 3, snapshot: snapshot)
                 .Add(key: 99, snapshot: snapshot);
 
-        await Assert.That(TestUtil.Keys(inBulk)).IsEquivalentTo([2, 3, 1]);
-        await Assert.That(TestUtil.Keys(inBulk)).IsEquivalentTo(TestUtil.Keys(oneAtATime));
+        await Assert.That(TestUtil.Keys(inBulk))
+            .IsEquivalentTo(expected: [2, 3, 1], ordering: CollectionOrdering.Matching);
+
+        await Assert.That(TestUtil.Keys(inBulk))
+            .IsEquivalentTo(expected: TestUtil.Keys(oneAtATime), ordering: CollectionOrdering.Matching);
 
         // Including the key the snapshot does not have, which neither path files.
         await Assert.That(inBulk.Contains(99)).IsFalse();
@@ -228,7 +236,8 @@ public sealed class OrderedKeysTests
 
         OrderedKeys<int, ItemIdentity, ItemState> refiled = keys.Remove(1).Add(key: 1, snapshot: after);
 
-        await Assert.That(TestUtil.Keys(refiled)).IsEquivalentTo([1, 2]);
+        await Assert.That(TestUtil.Keys(refiled))
+            .IsEquivalentTo(expected: [1, 2], ordering: CollectionOrdering.Matching);
     }
 
     [Test]
@@ -265,7 +274,8 @@ public sealed class OrderedKeysTests
         keys = keys.Add(key: 5, snapshot: snapshot);
         await AssertConsistent(keys);
 
-        await Assert.That(TestUtil.Keys(keys)).IsEquivalentTo([2, 3, 4, 5]);
+        await Assert.That(TestUtil.Keys(keys))
+            .IsEquivalentTo(expected: [2, 3, 4, 5], ordering: CollectionOrdering.Matching);
     }
 
     [Test]
@@ -292,7 +302,7 @@ public sealed class OrderedKeysTests
 
         await AssertConsistent(keys);
         await Assert.That(keys.Count).IsEqualTo(2);
-        await Assert.That(TestUtil.Keys(keys)).IsEquivalentTo([2, 1]);
+        await Assert.That(TestUtil.Keys(keys)).IsEquivalentTo(expected: [2, 1], ordering: CollectionOrdering.Matching);
     }
 
     /// <summary>
