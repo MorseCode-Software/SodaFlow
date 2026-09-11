@@ -1,8 +1,9 @@
 # Accounts
 
-A list of twenty accounts, filtered, sortable by any column, and shown a page at a time, with a
-running total over all of them. It exists to show what `SodaFlow.Collections` is for: **an edit
-reaches the rows bound to it, not the rows next to them.**
+A list of a hundred thousand accounts, filtered, sortable by any column, and shown six at a time,
+with a running total over all of them. It exists to show what `SodaFlow.Collections` is for: **an
+edit reaches the rows bound to it, not the rows next to them** — and so costs what the rows on
+screen cost, not what the collection holds.
 
 Run either head — they bind the same view model:
 

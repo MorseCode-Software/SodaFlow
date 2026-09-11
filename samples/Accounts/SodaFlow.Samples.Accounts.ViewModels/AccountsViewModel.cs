@@ -369,7 +369,7 @@ public sealed class AccountsViewModel : IAccountsViewModel
                         pageCount,
                         static (at, count) => string.Format(
                             CultureInfo.CurrentCulture,
-                            "Page {0} of {1}",
+                            "Page {0:N0} of {1:N0}",
                             (at / PageSize) + 1,
                             count))
                     .ToOneWay(),

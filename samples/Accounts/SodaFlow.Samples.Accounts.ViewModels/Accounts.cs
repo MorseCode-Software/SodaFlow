@@ -57,25 +57,81 @@ internal sealed class AccountState
 
 /// <summary>The accounts this sample starts with.</summary>
 /// <remarks>
-///     Enough of them that the paging is doing something, and few enough that the numbers on screen
-///     can be checked by hand.
+///     <para>
+///         A hundred thousand of them behind a page of six, which is the shape the collection is
+///         built for: almost all of the items are not being looked at, and an edit should cost what
+///         the rows on screen cost rather than what the collection holds.
+///     </para>
+///     <para>
+///         Generated rather than written out, and deterministically, so every run shows the same
+///         accounts in the same places and a number seen on screen can be found again.
+///     </para>
 /// </remarks>
 internal static class AccountSeed
 {
-    private static readonly string[] Holders =
+    /// <summary>How many accounts there are.</summary>
+    private const int Count = 100_000;
+
+    /// <summary>The first account number, so that every number on screen is six digits wide.</summary>
+    private const int FirstNumber = 100_000;
+
+    /// <summary>The largest opening balance, in pence: fifty thousand pounds.</summary>
+    private const uint MaximumBalance = 50_000_00;
+
+    private static readonly string[] Surnames =
     {
         "Ackroyd", "Bhatt", "Calloway", "Dimitrova", "Eze", "Fairbairn", "Gruber", "Haddad",
         "Ivanov", "Jarrett", "Kowalski", "Lindqvist", "Moreau", "Nakamura", "Okonkwo", "Pereira",
-        "Quill", "Rasmussen", "Sørensen", "Tanaka",
+        "Quill", "Rasmussen", "Sørensen", "Tanaka", "Urquhart", "Varga", "Whitlock", "Xu",
+        "Yilmaz", "Zielinski", "Abernathy", "Brennan", "Castellano", "Delacroix", "Eriksson",
+        "Fonseca", "Galloway", "Hartmann", "Ishikawa", "Jovanovic", "Kaur", "Lachance", "Mbeki",
+        "Novak", "Oyelaran", "Petrakis", "Quintero", "Rahman", "Szabo", "Thorne", "Ueda", "Vasquez",
     };
 
-    internal static IReadOnlyList<Item<AccountIdentity, AccountState>> Items =>
-        Holders
-            .Select(static (holder, index) => new Item<AccountIdentity, AccountState>(
-                new AccountIdentity(1000 + index, holder),
+    private static readonly string[] GivenNames =
+    {
+        "Ada", "Bruno", "Chidi", "Dagny", "Elif", "Farid", "Greta", "Hiro", "Imani", "Jonas",
+        "Kalani", "Leila", "Mateo", "Nadia", "Omar", "Priya", "Rafael", "Saoirse", "Tomasz",
+        "Uma", "Viktor", "Wren", "Yusuf", "Zara",
+    };
 
-                // Balances that are not in account-number order, so sorting by balance is visibly
-                // doing something. Every fourth account starts frozen.
-                new AccountState(((index * 37) % 20 + 1) * 125_00L, index % 4 == 3)))
-            .ToList();
+    /// <summary>The accounts, built once and shared, since nothing can change an item.</summary>
+    internal static IReadOnlyList<Item<AccountIdentity, AccountState>> Items { get; } =
+        Enumerable.Range(0, Count).Select(Create).ToList();
+
+    private static Item<AccountIdentity, AccountState> Create(int index)
+    {
+        // Two hashes, so the holder and the balance are drawn independently of each other and of
+        // the account number, and sorting by any one column visibly re-files the list.
+        uint forState = Scramble((uint)index);
+        uint forHolder = Scramble(forState);
+
+        // Every surname with every given name, rather than a handful of pairs on repeat.
+        string holder = Surnames[forHolder % Surnames.Length] + ", " +
+                        GivenNames[(forHolder / Surnames.Length) % GivenNames.Length];
+
+        // Balances scattered to the penny, so ties are rare. The top two bits both clear is one
+        // account in four, which is how many start frozen.
+        return new Item<AccountIdentity, AccountState>(
+            new AccountIdentity(FirstNumber + index, holder),
+            new AccountState((forState % MaximumBalance) + 1, (forState >> 30) == 0));
+    }
+
+    /// <summary>A cheap, fixed hash, so the seed is the same on every run and every runtime.</summary>
+    /// <remarks>
+    ///     Not <see cref="System.Random" />: a seeded one is stable in practice, but that is a
+    ///     compatibility promise about a legacy algorithm rather than something this should lean on.
+    /// </remarks>
+    private static uint Scramble(uint value)
+    {
+        unchecked
+        {
+            value ^= value >> 16;
+            value *= 0x7feb352d;
+            value ^= value >> 15;
+            value *= 0x846ca68b;
+            value ^= value >> 16;
+            return value;
+        }
+    }
 }

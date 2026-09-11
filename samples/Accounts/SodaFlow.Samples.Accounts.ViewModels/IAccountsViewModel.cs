@@ -8,8 +8,9 @@ namespace SodaFlow.Samples.Accounts.ViewModels;
 /// <remarks>
 ///     <para>
 ///         Each of these holds its own cells, and each of those follows one account. A deposit into
-///         one account moves that row and nothing else - not the list, not the other nineteen rows,
-///         and not this row's holder, which cannot change while the account exists.
+///         one account moves that row and nothing else - not the list, not the other rows on the
+///         page, not the hundred thousand accounts off it, and not this row's holder, which cannot
+///         change while the account exists.
 ///     </para>
 ///     <para>
 ///         That is the whole reason the collection exists. Binding a list of rows to one cell
