@@ -1,0 +1,36 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <!--
+            Benchmarks comparing the Accounts sample's ways of tracking and draining frozen
+            accounts. Not part of the sample itself; see README.md for what is measured, how to run
+            it and the results so far.
+        -->
+        <OutputType>Exe</OutputType>
+        <TargetFramework>net10.0</TargetFramework>
+        <Nullable>enable</Nullable>
+        <ImplicitUsings>enable</ImplicitUsings>
+        <LangVersion>14</LangVersion>
+        <IsPackable>false</IsPackable>
+        <EnableDefaultItems>false</EnableDefaultItems>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <PackageReference Include="BenchmarkDotNet" Version="0.15.8"/>
+    </ItemGroup>
+
+    <ItemGroup>
+        <ProjectReference Include="..\SodaFlow.Samples.Accounts.ViewModels\SodaFlow.Samples.Accounts.ViewModels.csproj"/>
+    </ItemGroup>
+
+    <ItemGroup>
+        <Compile Include="Allocations.cs"/>
+        <Compile Include="Benchmarks.cs"/>
+        <Compile Include="Footprint.cs"/>
+        <Compile Include="Growth.cs"/>
+        <Compile Include="Program.cs"/>
+        <Compile Include="TrackerBenchmarks.cs"/>
+        <None Include="README.md"/>
+    </ItemGroup>
+
+</Project>

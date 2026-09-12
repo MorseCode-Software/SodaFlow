@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Collections.Immutable;
 using System.Globalization;
 using System.Linq;
 using SodaFlow.Bindable.ObjectModel;
@@ -12,142 +13,6 @@ using AccountOrder =
         SodaFlow.Samples.Accounts.ViewModels.AccountState>;
 
 namespace SodaFlow.Samples.Accounts.ViewModels;
-
-/// <summary>A column of the list, which is a thing the list can be sorted by.</summary>
-internal enum AccountColumn
-{
-    /// <summary>The account number, which is part of the identity.</summary>
-    Number,
-
-    /// <summary>Whose account it is, also part of the identity.</summary>
-    Holder,
-
-    /// <summary>The balance, which is the part that moves.</summary>
-    Balance,
-}
-
-/// <summary>Which column the list is sorted by, and which way.</summary>
-/// <remarks>
-///     <para>
-///         Two of the three sort on the identity half of an account, which no edit can touch, so
-///         under either of those a deposit moves a balance and can never move a row. Sorting by
-///         balance is the one that re-files, and switching between them with the deposit button is
-///         how the difference is seen.
-///     </para>
-///     <para>
-///         The order is derived from this rather than stored beside it, so there is one piece of
-///         state on screen - a column and a direction - and the sort follows from it.
-///     </para>
-/// </remarks>
-/// <param name="Column">The column the list is sorted by.</param>
-/// <param name="Descending">Whether it runs from the largest down.</param>
-// ReSharper disable once InheritdocConsiderUsage
-internal sealed record SortSelection(AccountColumn Column, bool Descending)
-{
-    /// <summary>This selection as an order the sort stage can hold.</summary>
-    /// <remarks>
-    ///     Three orders projecting sort values of three types - an <c>int</c>, a <c>string</c> and
-    ///     a <c>long</c> - and all three are the same type here, which is what lets one cell hold
-    ///     whichever is in force. The comparers are spelled out because the direction is decided at
-    ///     run time rather than written into the call, and because holders want comparison to be
-    ///     explicit for each field rather than the default for the column type.
-    /// </remarks>
-    internal AccountOrder Order =>
-        this.Column switch
-        {
-            AccountColumn.Number => AccountOrder.ByIdentity(
-                selector: static identity => identity.Number,
-                sortComparer: Comparer<int>.Default,
-                keyComparer: Comparer<int>.Default,
-                descending: this.Descending),
-            AccountColumn.Holder => AccountOrder.ByIdentity(
-                selector: static identity => identity.Holder,
-                sortComparer: StringComparer.CurrentCultureIgnoreCase,
-                keyComparer: Comparer<int>.Default,
-                descending: this.Descending),
-            _ => AccountOrder.By(
-                selector: static (_, state) => state.Balance,
-                sortComparer: Comparer<long>.Default,
-                keyComparer: Comparer<int>.Default,
-                descending: this.Descending),
-        };
-
-    /// <summary>What clicking a header does: the same column reverses, another one selects.</summary>
-    /// <remarks>
-    ///     A newly chosen column starts ascending, except the balance, which starts at the largest
-    ///     because that is the way a list of balances is usually wanted.
-    /// </remarks>
-    internal static SortSelection UpdateSort(Maybe<SortSelection> sortSelection, AccountColumn column)
-    {
-        return sortSelection.Match(
-            onSome: sortSelection =>
-                column == sortSelection.Column
-                    ? sortSelection with { Descending = !sortSelection.Descending }
-                    : CreateNewSortSelection(column),
-            onNone: () => CreateNewSortSelection(column));
-
-        static SortSelection CreateNewSortSelection(AccountColumn column) =>
-            new(Column: column, Descending: column == AccountColumn.Balance);
-    }
-
-    /// <summary>A header's caption, marked if it is the column in force.</summary>
-    internal static string Caption(Maybe<SortSelection> sortSelection, AccountColumn column, string name) =>
-        name + sortSelection.Match(
-            onSome: sortSelection =>
-                column == sortSelection.Column ? sortSelection.Descending ? " \u25bc" : " \u25b2" : string.Empty,
-            onNone: static () => string.Empty);
-}
-
-/// <summary>One row, holding cells that follow one account through the view showing it.</summary>
-// ReSharper disable once InheritdocConsiderUsage
-internal sealed class AccountRowViewModel : IAccountRowViewModel
-{
-    private readonly IReadOnlyList<IDisposable> disposables;
-
-    internal AccountRowViewModel(
-        IOneWayBindableValue<string> number,
-        IOneWayBindableValue<string> holder,
-        IOneWayBindableValue<string> balance,
-        IOneWayBindableValue<bool> isFrozen,
-        IBindableAction deposit,
-        Stream<CollectionEdit<int, AccountIdentity, AccountState>> depositsStream)
-    {
-        this.Number = number;
-        this.Holder = holder;
-        this.Balance = balance;
-        this.IsFrozen = isFrozen;
-        this.Deposit = deposit;
-        this.DepositsStream = depositsStream;
-        this.disposables = [number, holder, balance, isFrozen, deposit];
-    }
-
-    /// <inheritdoc />
-    public IOneWayBindableValue<string> Number { get; }
-
-    /// <inheritdoc />
-    public IOneWayBindableValue<string> Holder { get; }
-
-    /// <inheritdoc />
-    public IOneWayBindableValue<string> Balance { get; }
-
-    /// <inheritdoc />
-    public IOneWayBindableValue<bool> IsFrozen { get; }
-
-    /// <inheritdoc />
-    public IBindableAction Deposit { get; }
-
-    /// <summary>The edits this row's deposits make, already gated, for the list to feed back in.</summary>
-    internal Stream<CollectionEdit<int, AccountIdentity, AccountState>> DepositsStream { get; }
-
-    /// <inheritdoc />
-    public void Dispose()
-    {
-        foreach (IDisposable disposable in this.disposables)
-        {
-            disposable.Dispose();
-        }
-    }
-}
 
 /// <summary>
 ///     A paged, filtered, sorted list over a collection of accounts, with a total over all of them.
@@ -168,7 +33,7 @@ internal sealed class AccountRowViewModel : IAccountRowViewModel
 ///     </para>
 /// </remarks>
 // ReSharper disable once InheritdocConsiderUsage
-public sealed class AccountsViewModel : IAccountsViewModel
+public sealed class AccountsViewModelOptimizedDrain : IAccountsViewModel
 {
     /// <summary>How many rows a page shows.</summary>
     private const int PageSize = 6;
@@ -181,7 +46,7 @@ public sealed class AccountsViewModel : IAccountsViewModel
 
     private readonly IReadOnlyList<IDisposable> disposables;
 
-    private AccountsViewModel(
+    private AccountsViewModelOptimizedDrain(
         IOneWayBindableValue<IReadOnlyList<IAccountRowViewModel>> rows,
         IOneWayBindableValue<string> total,
         IOneWayBindableValue<string> page,
@@ -341,10 +206,30 @@ public sealed class AccountsViewModel : IAccountsViewModel
             // A second view over the same accounts, kept current alongside the first: the
             // predicate reads only the state it is handed, so an edit to one account costs this
             // view one test of that account.
-            ReactiveCollection<int, AccountIdentity, AccountState> drainable =
-                accounts.Filter(static (_, state) => state.IsFrozen && state.Balance != 0);
+            //ReactiveCollection<int, AccountIdentity, AccountState> drainable =
+            //accounts.Filter(static (_, state) => state.IsFrozen && state.Balance != 0);
 
-            Cell<bool> canDrain = drainable.KeysCell.Map(static keys => keys.Count > 0);
+            Cell<ImmutableHashSet<int>> drainableAccountKeys =
+                accounts.ItemChangesStream.AccumLazy(
+                    initialState: accounts.SnapshotCell.SampleLazy()
+                        .Map(static snapshot =>
+                            snapshot.States.Pairs.Where(static pair => CanDrain(pair.Value))
+                                .Select(static pair => pair.Key)
+                                .ToImmutableHashSet()),
+                    f: static (changes, drainableAccountKeys) =>
+                    {
+                        ImmutableHashSet<int>.Builder builder = drainableAccountKeys.ToBuilder();
+                        builder.ExceptWith(changes.Removed.Concat(changes.ChangedKeys));
+
+                        builder.UnionWith(
+                            changes.NewStates.Where(static pair => CanDrain(pair.Value))
+                                .Select(static pair => pair.Key));
+
+                        return builder.ToImmutable();
+                    });
+
+            Cell<bool> canDrain =
+                drainableAccountKeys.Map(static drainableAccountKeys => drainableAccountKeys.Count > 0);
 
             // Gated in the graph as well as disabled on the command, for the reason a row's
             // deposit is. The keys are read in the same transaction the edit lands in, so what is
@@ -352,7 +237,10 @@ public sealed class AccountsViewModel : IAccountsViewModel
             drains.Loop(
                 drainFrozenAccounts
                     .Gate(canDrain)
-                    .Snapshot(c: drainable.KeysCell, f: static (_, keys) => Drain(keys)));
+                    .Snapshot(
+                        c: drainableAccountKeys,
+                        f: static (_, drainableAccountKeys) =>
+                            Drain(drainableAccountKeys)));
 
             // The sort takes its order from a cell, so clicking a header re-files this stage
             // rather than building a second chain and choosing between the two. The three orders
@@ -417,7 +305,7 @@ public sealed class AccountsViewModel : IAccountsViewModel
                 filtered.KeysCell.Map(static keys =>
                     Math.Max(val1: 1, val2: (keys.Count + PageSize - 1) / PageSize));
 
-            return new AccountsViewModel(
+            return new AccountsViewModelOptimizedDrain(
                 // A list of rows is a list of the interface they implement, but a cell is a class
                 // and cannot be covariant, so the conversion is spelled out as the lambda's return
                 // type.
@@ -459,6 +347,8 @@ public sealed class AccountsViewModel : IAccountsViewModel
                 sortByHolder: sortByHolder.ToBindableAction(),
                 sortByBalance: sortByBalance.ToBindableAction(),
                 projectedRows: rows);
+
+            static bool CanDrain(AccountState state) => state.IsFrozen && state.Balance != 0;
         });
 
     /// <summary>One edit emptying every one of these accounts.</summary>
@@ -470,16 +360,13 @@ public sealed class AccountsViewModel : IAccountsViewModel
         // The keys' own type rather than the list interface it implements, because a drain reads
         // every one of them and a call through the class is cheaper than one through the interface.
         // ReSharper disable once SuggestBaseTypeForParameter
-        OrderedKeys<int, AccountIdentity, AccountState> keys)
+        IReadOnlyCollection<int> keys)
     {
         Dictionary<int, Func<AccountState, AccountState>> updates = new(keys.Count);
 
-        // Indexed rather than enumerated, because the keys hand back their enumerator as an
-        // interface, so a foreach would allocate one.
-        // ReSharper disable once ForCanBeConvertedToForeach
-        for (int index = 0; index < keys.Count; index++)
+        foreach (int key in keys)
         {
-            updates.Add(key: keys[index], value: Emptied);
+            updates.Add(key: key, value: Emptied);
         }
 
         return new CollectionEdit<int, AccountIdentity, AccountState>(

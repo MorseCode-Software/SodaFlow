@@ -8,8 +8,9 @@ namespace SodaFlow.Samples.Accounts.ViewModels;
 /// <remarks>
 ///     <para>
 ///         Each of these holds its own cells, and each of those follows one account. A deposit into
-///         one account moves that row and nothing else - not the list, not the other nineteen rows,
-///         and not this row's holder, which cannot change while the account exists.
+///         one account moves that row and nothing else - not the list, not the other rows on the
+///         page, not the hundred thousand accounts off it, and not this row's holder, which cannot
+///         change while the account exists.
 ///     </para>
 ///     <para>
 ///         That is the whole reason the collection exists. Binding a list of rows to one cell
@@ -17,8 +18,14 @@ namespace SodaFlow.Samples.Accounts.ViewModels;
 ///         sample does and what is right for a search sample: its results genuinely are one answer
 ///         that changes as a whole.
 ///     </para>
+///     <para>
+///         <see cref="IDisposable" /> is on the contract because those cells and the deposit
+///         command are the row's to release, and that is as true of a row held through this
+///         interface as of one held through its class.
+///     </para>
 /// </remarks>
-public interface IAccountRowViewModel
+// ReSharper disable once InheritdocConsiderUsage
+public interface IAccountRowViewModel : IDisposable
 {
     /// <summary>The account number, which never changes while the account exists.</summary>
     IOneWayBindableValue<string> Number { get; }
@@ -28,6 +35,17 @@ public interface IAccountRowViewModel
 
     /// <summary>The balance, which is the part that moves.</summary>
     IOneWayBindableValue<string> Balance { get; }
+
+    /// <summary>Whether the account is frozen, which the views show by greying the row out.</summary>
+    IOneWayBindableValue<bool> IsFrozen { get; }
+
+    /// <summary>Pays a hundred dollars into this row's account, and is disabled if it is frozen.</summary>
+    /// <remarks>
+    ///     A view may hide this for a frozen account, but hiding it is presentation rather than the
+    ///     rule. The view model gates the deposit itself, so a frozen account cannot be paid into
+    ///     however the command is reached.
+    /// </remarks>
+    IBindableAction Deposit { get; }
 }
 
 /// <summary>What the views bind to.</summary>
@@ -82,15 +100,22 @@ public interface IAccountsViewModel : IDisposable
     /// <summary>Moves it back, and is disabled on the first.</summary>
     IBindableAction PreviousPage { get; }
 
-    /// <summary>Pays a hundred pounds into the account at the top of the current page.</summary>
-    /// <remarks>
-    ///     Deliberately edits one account rather than many: the point on screen is that one row
-    ///     changes and the rest of the page sits still, even though the sort could have moved it.
-    /// </remarks>
-    IBindableAction DepositIntoTopOfPage { get; }
+    /// <summary>
+    ///     Whether frozen accounts are shown, which is a criteria change and rebuilds the view.
+    ///     Two-way, for a toggle switch.
+    /// </summary>
+    ITwoWayBindableValue<bool> ShowFrozen { get; }
 
-    /// <summary>Shows or hides frozen accounts, which is a criteria change and rebuilds the view.</summary>
-    IBindableAction ToggleFrozen { get; }
+    /// <summary>
+    ///     Sets every frozen account's balance to zero, whether or not frozen accounts are showing,
+    ///     and is disabled once there is nothing left to drain.
+    /// </summary>
+    /// <remarks>
+    ///     The other end from a deposit: one click still, but a quarter of the collection edited in
+    ///     one transaction rather than one account. A row on the page moves only if its account was
+    ///     one of them.
+    /// </remarks>
+    IBindableAction DrainFrozenAccounts { get; }
 
     /// <summary>Sorts by account number, or reverses it if the list is sorted by it already.</summary>
     /// <remarks>

@@ -1,8 +1,9 @@
 # Accounts
 
-A list of twenty accounts, filtered, sortable by any column, and shown a page at a time, with a
-running total over all of them. It exists to show what `SodaFlow.Collections` is for: **an edit
-reaches the rows bound to it, not the rows next to them.**
+A list of a hundred thousand accounts, filtered, sortable by any column, and shown six at a time,
+with a running total over all of them. It exists to show what `SodaFlow.Collections` is for: **an
+edit reaches the rows bound to it, not the rows next to them** — and so costs what the rows on
+screen cost, not what the collection holds.
 
 Run either head — they bind the same view model:
 
@@ -16,8 +17,8 @@ dotnet run --project samples/Accounts/SodaFlow.Samples.Accounts.Wpf
 
 ## What to watch
 
-**Pay £100 into the top account.** One balance changes. The other rows do not flicker and the list
-does not rebuild, even though the sort could have moved that account. Bind a list to one cell
+**Pay $100 into an account.** Every row has its own button. One balance changes. The other rows do
+not flicker and the list does not rebuild, even though the sort could have moved that account. Bind a list to one cell
 holding the whole list — which is right for the [Search](../Search) sample, whose results really are
 one answer — and every row would be rebuilt instead.
 
@@ -38,10 +39,23 @@ it was, because a sort reorders the members rather than choosing different ones 
 filter, which can shorten the list out from under an offset and so sends it back to the first
 page.
 
-**Show or hide frozen accounts.** A criteria change too, but this one rebuilds the filter, which
-is the expensive kind — where a page turn is the cheap kind and a re-sort is in between. All three
-are one line in the view model and the differences between them are invisible in the code, which is
-why the [reference page](../../docs/docs/collections.md) spells the costs out.
+**Flip the frozen accounts switch.** A criteria change too, but this one rebuilds the filter,
+which is the expensive kind — where a page turn is the cheap kind and a re-sort is in between. All
+three are one line in the view model and the differences between them are invisible in the code,
+which is why the [reference page](../../docs/docs/collections.md) spells the costs out. The switch
+binds two-way to a cell sink rather than firing a command, because a switch holds its own position.
+
+**Look at a frozen account.** It is greyed out and says *Frozen* where its button would be. That is
+only what the row looks like: the view model gates the deposit on the account not being frozen, so
+nothing that reaches the command — a stale binding, or code calling `Execute` — can pay into one.
+
+**Drain the frozen accounts.** Every frozen account's balance goes to zero, about twenty-five
+thousand of them, whether or not they are showing. It is the other end from a deposit: one edit
+carrying twenty-five thousand updates, applied in one transaction, so every view re-files once and
+the total folds one delta. That is the costly one — a few hundred milliseconds — where a deposit is
+a fraction of one. Which accounts to drain is itself a view, a second filter over the same
+collection holding the frozen accounts with money left in them, and the button is enabled only while
+that view has anything in it.
 
 **The total.** Over every account rather than the page, and folded from what changed rather than
 recomputed — the change carries the store on both sides, so a delta needs nothing kept alongside.
@@ -55,11 +69,17 @@ Everything is in `SodaFlow.Samples.Accounts.ViewModels`; the two heads only draw
 - `AccountsViewModel.cs` — the graph. The chain is `Filter` → `SortBy` → `Slice` → `Map`, and
   `Map` is what turns it into rows.
 
-Three things in there are worth a second look.
+Four things in there are worth a second look.
 
-The deposit button pays into whichever account is at the top of the current page, so the edit
-depends on the view and the view depends on the edit. That is a real cycle, closed with
-`Stream.CreateLoop`.
+Each row's button pays into that row's account, so the edits come from the rows and the rows come
+from the collection the edits are for. That is a real cycle, closed with `Stream.CreateLoop`. Which
+rows are on the page moves as the page does, so the collection is fed from a merge of the current
+rows' deposits that is rebuilt from each version of the list and switched to with `SwitchS`.
+
+The deposit is gated twice, and only one of those is the rule. The command is disabled for a frozen
+account, which is what the view shows; the stream is gated on the same cell with `Gate`, which is
+what the collection sees. A command's enablement is a copy on the binding thread, so it can trail
+the graph — the gate is sampled in the transaction the deposit lands in.
 
 The header row is one piece of state — a column and a direction — and everything else follows
 from it: the order the sort holds, and the caption each header shows with its marker. Three
