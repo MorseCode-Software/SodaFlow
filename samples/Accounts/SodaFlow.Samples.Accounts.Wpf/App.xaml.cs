@@ -26,7 +26,7 @@ internal sealed partial class App
         // view model builds a bindable per row, on demand, as rows come into view.
         BindingScheduler.Default = SynchronizationContextBindingScheduler.Capture();
 
-        this.viewModel = AccountsViewModel.Create();
+        this.viewModel = AccountsViewModelOptimizedDrain.Create();
 
         MainWindow window = new() { DataContext = this.viewModel };
 

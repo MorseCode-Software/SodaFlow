@@ -35,6 +35,7 @@
 
     <ItemGroup>
         <Compile Include="Accounts.cs"/>
+        <Compile Include="AccountsViewModelOptimizedDrain.cs" />
         <Compile Include="IAccountsViewModel.cs"/>
         <Compile Include="AccountsViewModel.cs"/>
     </ItemGroup>
