@@ -77,14 +77,18 @@ internal sealed record SortSelection(AccountColumn Column, bool Descending)
     ///     A newly chosen column starts ascending, except the balance, which starts at the largest
     ///     because that is the way a list of balances is usually wanted.
     /// </remarks>
-    internal SortSelection Clicked(AccountColumn column) =>
-        column == this.Column
-            ? this with { Descending = !this.Descending }
-            : new SortSelection(Column: column, Descending: column == AccountColumn.Balance);
+    internal static SortSelection UpdateSort(Maybe<SortSelection> sortSelection, AccountColumn column)
+    {
+        return sortSelection.Match(
+            onSome: sortSelection =>
+                column == sortSelection.Column
+                    ? sortSelection with { Descending = !sortSelection.Descending }
+                    : CreateNewSortSelection(column),
+            onNone: () => CreateNewSortSelection(column));
 
-    /// <summary>A header's caption, marked if it is the column in force.</summary>
-    internal string Caption(AccountColumn column, string name) =>
-        Caption(sortSelection: Maybe.Some(this), column: column, name: name);
+        static SortSelection CreateNewSortSelection(AccountColumn column) =>
+            new(Column: column, Descending: column == AccountColumn.Balance);
+    }
 
     /// <summary>A header's caption, marked if it is the column in force.</summary>
     internal static string Caption(Maybe<SortSelection> sortSelection, AccountColumn column, string name) =>
@@ -315,10 +319,7 @@ public sealed class AccountsViewModel : IAccountsViewModel
                         initialState:
                         Maybe<SortSelection>.None,
                         f: static (column, current) =>
-                            Maybe.Some(
-                                current.Match(
-                                    onSome: current => current.Clicked(column),
-                                    onNone: () => new SortSelection(Column: column, Descending: false))));
+                            Maybe.Some(SortSelection.UpdateSort(sortSelection: current, column: column)));
 
             // Each row pays into its own account, so the edits come from the rows, and the rows
             // come from the collection the edits are for. That is a real cycle and the loop is how
