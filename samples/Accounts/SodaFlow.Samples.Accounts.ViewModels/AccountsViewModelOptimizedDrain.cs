@@ -218,14 +218,53 @@ public sealed class AccountsViewModelOptimizedDrain : IAccountsViewModel
                                 .ToImmutableHashSet()),
                     f: static (changes, drainableAccountKeys) =>
                     {
-                        ImmutableHashSet<int>.Builder builder = drainableAccountKeys.ToBuilder();
-                        builder.ExceptWith(changes.Removed.Concat(changes.ChangedKeys));
+                        // Contains on the set as it stands until a key's membership moves, so an
+                        // edit that moves none - a Pay, which is nearly every edit - allocates
+                        // nothing and hands back the same set. From the first key that does move,
+                        // the builder is used directly: its Add and Remove already do nothing for
+                        // a key that is where it should be, so a Drain looks each key up once.
+                        ImmutableHashSet<int>.Builder? builder = null;
 
-                        builder.UnionWith(
-                            changes.NewStates.Where(static pair => CanDrain(pair.Value))
-                                .Select(static pair => pair.Key));
+                        foreach (KeyValuePair<int, AccountState> pair in changes.NewStates)
+                        {
+                            bool drainable = CanDrain(pair.Value);
 
-                        return builder.ToImmutable();
+                            if (builder is null)
+                            {
+                                if (drainable == drainableAccountKeys.Contains(pair.Key))
+                                {
+                                    continue;
+                                }
+
+                                builder = drainableAccountKeys.ToBuilder();
+                            }
+
+                            if (drainable)
+                            {
+                                builder.Add(pair.Key);
+                            }
+                            else
+                            {
+                                builder.Remove(pair.Key);
+                            }
+                        }
+
+                        foreach (int key in changes.Removed)
+                        {
+                            if (builder is null)
+                            {
+                                if (!drainableAccountKeys.Contains(key))
+                                {
+                                    continue;
+                                }
+
+                                builder = drainableAccountKeys.ToBuilder();
+                            }
+
+                            builder.Remove(key);
+                        }
+
+                        return builder?.ToImmutable() ?? drainableAccountKeys;
                     });
 
             Cell<bool> canDrain =
