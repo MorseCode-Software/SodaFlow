@@ -20,44 +20,28 @@ internal static class Arrangement
     public const double Height = 320.0;
 
     public static IReadOnlyList<Start> Starts { get; } =
-        new[]
-        {
-            new Start(x: 70.0, y: 60.0, velocityX: 210.0, velocityY: 0.0, radius: 20.0, color: "#E2574C"),
-            new Start(x: 240.0, y: 40.0, velocityX: -160.0, velocityY: 120.0, radius: 14.0, color: "#2D9CDB"),
-            new Start(x: 360.0, y: 150.0, velocityX: 120.0, velocityY: -90.0, radius: 26.0, color: "#F2C94C"),
-            new Start(x: 150.0, y: 220.0, velocityX: -240.0, velocityY: -40.0, radius: 11.0, color: "#27AE60")
-        };
+    [
+        new(X: 70.0, Y: 60.0, VelocityX: 210.0, VelocityY: 0.0, Radius: 20.0, Color: "#E2574C"),
+        new(X: 240.0, Y: 40.0, VelocityX: -160.0, VelocityY: 120.0, Radius: 14.0, Color: "#2D9CDB"),
+        new(X: 360.0, Y: 150.0, VelocityX: 120.0, VelocityY: -90.0, Radius: 26.0, Color: "#F2C94C"),
+        new(X: 150.0, Y: 220.0, VelocityX: -240.0, VelocityY: -40.0, Radius: 11.0, Color: "#27AE60")
+    ];
 
     /// <summary>The horizontal flight a ball begins with, or resumes with when thrown.</summary>
     public static Flight InitialX(Start start, double now) =>
-        new(startTime: now, position: start.X, velocity: start.VelocityX, acceleration: 0.0);
+        new(StartTime: now, Position: start.X, Velocity: start.VelocityX, Acceleration: 0.0);
 
     /// <summary>The vertical flight a ball begins with.</summary>
     public static Flight InitialY(Start start, double now) =>
-        new(startTime: now, position: start.Y, velocity: start.VelocityY, acceleration: Gravity);
+        new(StartTime: now, Position: start.Y, Velocity: start.VelocityY, Acceleration: Gravity);
 
-    internal readonly struct Start
-    {
-        public Start(double x, double y, double velocityX, double velocityY, double radius, string color)
-        {
-            this.X = x;
-            this.Y = y;
-            this.VelocityX = velocityX;
-            this.VelocityY = velocityY;
-            this.Radius = radius;
-            this.Color = color;
-        }
-
-        public double X { get; }
-
-        public double Y { get; }
-
-        public double VelocityX { get; }
-
-        public double VelocityY { get; }
-
-        public double Radius { get; }
-
-        public string Color { get; }
-    }
+    /// <summary>Where one ball begins, how fast, and what it looks like.</summary>
+    // ReSharper disable once InheritdocConsiderUsage
+    internal readonly record struct Start(
+        double X,
+        double Y,
+        double VelocityX,
+        double VelocityY,
+        double Radius,
+        string Color);
 }

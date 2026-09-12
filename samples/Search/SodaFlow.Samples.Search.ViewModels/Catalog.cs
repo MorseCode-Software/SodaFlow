@@ -15,7 +15,7 @@ namespace SodaFlow.Samples.Search.ViewModels;
 internal static class Catalog
 {
     private static readonly string[] Entries =
-    {
+    [
         "Amsterdam",
         "Athens",
         "Auckland",
@@ -80,7 +80,7 @@ internal static class Catalog
         "Warsaw",
         "Wellington",
         "Zurich"
-    };
+    ];
 
     /// <summary>Matches entries containing <paramref name="query" />, slowly.</summary>
     /// <exception cref="InvalidOperationException">
@@ -98,8 +98,9 @@ internal static class Catalog
             throw new InvalidOperationException("The catalog is unavailable. Try again shortly.");
         }
 
-        return Entries
-            .Where(e => e.IndexOf(value: query.Trim(), comparisonType: StringComparison.OrdinalIgnoreCase) >= 0)
-            .ToList();
+        return
+        [
+            .. Entries.Where(e => e.Contains(value: query.Trim(), comparisonType: StringComparison.OrdinalIgnoreCase))
+        ];
     }
 }

@@ -20,18 +20,26 @@ head.
 
 ## Layout
 
-Each sample has three projects:
+Each sample has a view model project and a head for each UI framework:
 
 ```
 Counter/
-  SodaFlow.Samples.Counter.ViewModels/   netstandard2.0 - the FRP graph. No UI reference.
-  SodaFlow.Samples.Counter.Wpf/          net8.0-windows - XAML and about ten lines of C#
-  SodaFlow.Samples.Counter.Avalonia/     net8.0         - the same, in Avalonia
+  SodaFlow.Samples.Counter.ViewModels/         netstandard2.0  - the FRP graph. No UI reference.
+  SodaFlow.Samples.Counter.Wpf/                net10.0-windows - XAML and about ten lines of C#
+  SodaFlow.Samples.Counter.Wpf.NetFramework/   net481          - the same, on .NET Framework
+  SodaFlow.Samples.Counter.Avalonia/           net10.0         - the same, in Avalonia
 ```
 
+Counter is the one with a fourth project. Its view model stays on `netstandard2.0`, which is what
+lets a .NET Framework 4.8.1 copy of the WPF head reference it unchanged.
+
+Search, Bounce and Accounts have three: a `net10.0` view model, a `net10.0-windows` WPF head and a
+`net10.0` Avalonia head, all at C# 14.
+
 The split is the point. A SodaFlow view model is built from cells, streams and bindables, none of
-which come from a UI framework, so the view model project targets `netstandard2.0` and references
-no UI package at all. If it ever needed one to compile, the claim would be empty.
+which come from a UI framework, so the view model project targets a framework with no platform in
+it - `netstandard2.0` for Counter, `net10.0` for the others - and references no UI package at all.
+If it ever needed one to compile, the claim would be empty.
 
 Read the view model first. The two heads are almost entirely XAML, and reading them side by side
 shows how little of an application has to know which framework it is running on.

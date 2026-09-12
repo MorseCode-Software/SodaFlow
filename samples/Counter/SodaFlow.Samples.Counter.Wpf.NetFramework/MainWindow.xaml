@@ -1,0 +1,58 @@
+<Window x:Class="SodaFlow.Samples.Counter.Wpf.NetFramework.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:viewModels="clr-namespace:SodaFlow.Samples.Counter.ViewModels;assembly=SodaFlow.Samples.Counter.ViewModels"
+        mc:Ignorable="d"
+        Title="SodaFlow Counter (WPF, .NET Framework)"
+        Width="340"
+        SizeToContent="Height"
+        WindowStartupLocation="CenterScreen"
+        d:DataContext="{d:DesignInstance viewModels:ICounterViewModel}"
+        x:ClassModifier="internal">
+
+    <!--
+        The same markup as the .NET 10 WPF head, bound to the same view model; only the title
+        differs.
+
+        Every binding path ends in .Value. A bindable property is an object that raises
+        PropertyChanged for "Value", not a plain CLR property, so {Binding CountText} would bind to
+        the object and show its type name.
+
+        The commands bind to the property itself, because those are ICommand implementations.
+    -->
+    <StackPanel Margin="24"
+                VerticalAlignment="Center">
+        <TextBlock Text="{Binding CountText.Value}"
+                   FontSize="52"
+                   HorizontalAlignment="Center" />
+
+        <StackPanel Orientation="Horizontal"
+                    HorizontalAlignment="Center"
+                    Margin="0,20,0,0">
+            <Button Content="-"
+                    Command="{Binding Decrement}"
+                    Width="56"
+                    Height="32"
+                    Margin="4" />
+            <Button Content="+"
+                    Command="{Binding Increment}"
+                    Width="56"
+                    Height="32"
+                    Margin="4" />
+            <Button Content="Reset"
+                    Command="{Binding Reset}"
+                    Width="72"
+                    Height="32"
+                    Margin="4" />
+        </StackPanel>
+
+        <TextBlock Margin="0,20,0,0"
+                   HorizontalAlignment="Center"
+                   Foreground="Gray"
+                   TextWrapping="Wrap"
+                   TextAlignment="Center"
+                   Text="Reset enables itself when the count is not zero. Nothing in the view model raises CanExecuteChanged." />
+    </StackPanel>
+</Window>
