@@ -84,21 +84,42 @@ In context the step is small: under 0.2% of a Pay and about 7% of a Drain.
 
 1. **OptimizedDrain is a clear win over Original** on Drain (2.1x faster, 78% less allocation) and on
    retained memory (about 2 MB less), and no worse on Pay.
-2. **Use the hybrid update** for the set. It also removes a redundancy in the committed fold:
-   `ChangedKeys` is already `NewStates.Keys.Concat(Removed)`, so `Removed.Concat(ChangedKeys)` walks
-   the removed keys twice, and every changed key is removed and then re-added.
+2. **The hybrid update - applied** in `AccountsViewModelOptimizedDrain`, replacing the fold measured
+   above as "OptimizedDrain's fold". It also removed a redundancy: `ChangedKeys` is already
+   `NewStates.Keys.Concat(Removed)`, so `Removed.Concat(ChangedKeys)` walked the removed keys twice,
+   and every changed key was removed and then re-added.
 3. **Pass `ImmutableHashSet<int>` to `Drain`** rather than `IReadOnlyCollection<int>`, which boxes
-   the set's enumerator. The comment and ReSharper suppression above it describe the old concrete
-   parameter.
-4. `Calm()` on `canDrain` made no measurable difference, and `CountAndScan` trades 1.35 MB of
-   retained memory for 3.7 ms per drain - neither is clearly worth it.
-5. **The row list is rebuilt on every Pay** in every view model, which is where most of a Pay's cost
-   and noise comes from. `--growth` shows `Rows` changing on 5,000 of 5,000 Pays that move no row.
-   Each view stage's `KeysCell` is held from its unfiltered results stream in
-   `CollectionViewUtility`, so it emits on every transaction - the same `OrderedKeys` instance when
-   nothing moved - and `MappedItems` projects a new list each time. `KeyChangesStream` already
-   filters to `IsReset || Operations.Count > 0`; filtering `KeysCell`'s source the same way should
-   stop it. It is not a leak: allocation and retained memory vary but do not climb over 50,000 Pays.
+   the set's enumerator. Not applied. The comment and ReSharper suppression above it still describe
+   an older, concrete parameter.
+4. **`Calm()` on `canDrain` saves about 430 B per Pay** once the row list no longer drowns it out:
+   `TunedSet` and `CountAndScan` have it and `OptimizedDrain` does not. Not applied. `CountAndScan`
+   trades 1.35 MB of retained memory for 3.7 ms per drain, which is not clearly worth it.
+5. **The row list was rebuilt on every Pay - fixed in the library.** `--growth` showed `Rows`
+   changing on 5,000 of 5,000 Pays that moved no row, which was most of a Pay's cost and all of its
+   noise. Each view stage's `KeysCell` was held from its unfiltered results stream in
+   `CollectionViewUtility`, so it emitted on every transaction and `MappedItems` projected a new list
+   each time. It was not a leak: allocation and retained memory varied but did not climb.
+
+   Filtering `KeysCell` the way `KeyChangesStream` is filtered, as first suggested here, would not
+   have helped: that stream keeps updates, and a Pay reaches every stage as one. `KeysCell` now moves
+   only on a reset, insert, remove or move, which is what the documentation already said of it. The
+   cell a stage loops its own state through still takes every result, because a re-file that moves
+   nothing carries the key's new sort value and the next edit is filed against it.
+
+## After the fixes
+
+The BenchmarkDotNet tables above were measured before both fixes and have not been re-run. On the
+calling thread, per Pay over 20,000 Pays after 5,000 to warm up (`--allocations`):
+
+| | Original | OptimizedDrain | TunedSet | CountAndScan |
+|---|---|---|---|---|
+| Pay before a drain | 24.0 KB | 22.8 KB | 22.4 KB | 22.4 KB |
+| Pay after a drain | 24.0 KB | 22.8 KB | 22.4 KB | 22.4 KB |
+| Drain | 38.7 MB | 8.7 MB | 8.7 MB | 8.0 MB |
+
+A Pay allocated 150-260 KB on the same measure before the `KeysCell` fix, swinging by about that
+much from one block of Pays to the next. `--growth` now reports `Rows` changing on none of 5,000 Pays,
+about 55 μs per Pay once warm rather than about 160, and retained memory flat.
 
 Drain iterations (35-75 ms) are under BenchmarkDotNet's recommended 100 ms, though the reported
 error is under 2%.
