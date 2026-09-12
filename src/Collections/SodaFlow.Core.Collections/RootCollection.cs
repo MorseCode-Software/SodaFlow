@@ -33,7 +33,7 @@ internal sealed class RootCollection<TKey, TIdentity, TState>
     where TKey : notnull
     where TIdentity : notnull
 {
-    private readonly Lazy<ReactiveCollection<TKey, TIdentity, TState>> orderedByKey;
+    private readonly Lazy<ReactiveCollection<TKey, TIdentity, TState>> orderedByArrival;
 
     private RootCollection(
         Stream<ItemChange<TKey, TIdentity, TState>> itemChangesStream,
@@ -44,13 +44,13 @@ internal sealed class RootCollection<TKey, TIdentity, TState>
         this.SnapshotCell = snapshotCell;
         this.ShapeCell = shapeCell;
 
-        // The ordering is built on first use. A collection nobody sorts or lists never pays for a
-        // sorted key set, and TKey only has to be comparable if something actually asks for keys in
-        // order.
-        this.orderedByKey =
+        // The ordering is built on first use, so a collection nobody lists never pays for an ordered
+        // key set. It is the order the items arrived in rather than an order of their own, so keys are
+        // never compared and TKey never has to be comparable - SortByKey is there when key order is
+        // what is wanted.
+        this.orderedByArrival =
             new Lazy<ReactiveCollection<TKey, TIdentity, TState>>(
-                valueFactory: () =>
-                    CollectionViewUtility.CreateRootImpl(collection: this, keyComparer: Comparer<TKey>.Default),
+                valueFactory: () => CollectionViewUtility.CreateRootImpl(this),
                 mode: LazyThreadSafetyMode.ExecutionAndPublication);
     }
 
@@ -58,11 +58,11 @@ internal sealed class RootCollection<TKey, TIdentity, TState>
     public override Stream<ItemChange<TKey, TIdentity, TState>> ItemChangesStream { get; }
 
     /// <inheritdoc />
-    public override Cell<OrderedKeys<TKey, TIdentity, TState>> KeysCell => this.orderedByKey.Value.KeysCell;
+    public override Cell<OrderedKeys<TKey, TIdentity, TState>> KeysCell => this.orderedByArrival.Value.KeysCell;
 
     /// <inheritdoc />
     public override Stream<CollectionViewChange<TKey, TIdentity, TState>> KeyChangesStream =>
-        this.orderedByKey.Value.KeyChangesStream;
+        this.orderedByArrival.Value.KeyChangesStream;
 
     /// <inheritdoc />
     /// <remarks>On the collection itself this is the whole store, and it fires on every change.</remarks>
@@ -93,6 +93,9 @@ internal sealed class RootCollection<TKey, TIdentity, TState>
 
         Dictionary<TKey, TState> states = new();
 
+        // Numbered in the order the items are enumerated, which is the order the collection lists them.
+        ImmutableDictionary<TKey, long>.Builder arrivals = ImmutableDictionary.CreateBuilder<TKey, long>();
+
         foreach (Item<TIdentity, TState> item in initialEntries)
         {
             TKey key = keySelector(item.Identity);
@@ -106,12 +109,15 @@ internal sealed class RootCollection<TKey, TIdentity, TState>
 
             identities.Add(key: key, value: item.Identity);
             states.Add(key: key, value: item.State);
+            arrivals.Add(key: key, value: arrivals.Count);
         }
 
         CollectionSnapshot<TKey, TIdentity, TState> initial =
             new(
                 identities: identities.ToImmutable(),
-                states: ImmutableStateMap<TKey, TState>.Empty.With(updated: states, removed: Array.Empty<TKey>()));
+                states: ImmutableStateMap<TKey, TState>.Empty.With(updated: states, removed: Array.Empty<TKey>()),
+                arrivals: arrivals.ToImmutable(),
+                nextArrival: arrivals.Count);
 
         Stream<CollectionEdit<TKey, TIdentity, TState>> editsStream = MergeEdits(editStreams);
 
@@ -256,10 +262,20 @@ internal sealed class RootCollection<TKey, TIdentity, TState>
                     removed: removed)
                 : before.IdentitiesImpl;
 
+        // Numbered on the same structural edits the identity map moves on, and in the order the edit
+        // lists its adds - the order they join the end of the collection in. Edits from several streams
+        // in one transaction are combined in the order the streams were given, adds included.
+        (ImmutableDictionary<TKey, long> arrivals, long nextArrival) =
+            added.Count > 0 || removed.Count > 0
+                ? before.WithArrivals(added: edit.Adds.Select(item => keySelector(item.Identity)), removed: removed)
+                : (before.ArrivalsImpl, before.NextArrival);
+
         CollectionSnapshot<TKey, TIdentity, TState> after =
             new(
                 identities: identities,
-                states: before.StatesImpl.With(updated: newStates, removed: removed));
+                states: before.StatesImpl.With(updated: newStates, removed: removed),
+                arrivals: arrivals,
+                nextArrival: nextArrival);
 
         return MaybeInternal.Some(
             new ItemChange<TKey, TIdentity, TState>(

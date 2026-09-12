@@ -3,6 +3,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using SodaFlow.Functional;
 using TUnit.Assertions;
+using TUnit.Assertions.Enums;
 using TUnit.Assertions.Extensions;
 using TUnit.Core;
 
@@ -26,7 +27,7 @@ public sealed class CollectionViewTests
         $"{operation.GetType().Name.Replace(oldValue: "`1", newValue: string.Empty)}:{operation.Key}";
 
     [Test]
-    public async Task TheRootIsOrderedByKey()
+    public async Task TheRootKeepsTheOrderItemsArrivedIn()
     {
         StreamSink<CollectionEdit<int, ItemIdentity, ItemState>> edits =
             Stream.CreateSink<CollectionEdit<int, ItemIdentity, ItemState>>();
@@ -38,11 +39,166 @@ public sealed class CollectionViewTests
                 TestUtil.Item(number: 1, name: "one", score: 10),
                 TestUtil.Item(number: 2, name: "two", score: 20));
 
-        await Assert.That(KeysOf(collection)).IsEquivalentTo([1, 2, 3]);
+        // The order the initial items were enumerated in, not the order of their keys.
+        await Assert.That(KeysOf(collection)).IsEquivalentTo(expected: [3, 1, 2], ordering: CollectionOrdering.Matching);
 
-        edits.Send(TestUtil.Add(TestUtil.Item(number: 0, name: "zero", score: 0)));
+        // Added to the end, in the order the edit lists them.
+        edits.Send(
+            TestUtil.Add(
+                TestUtil.Item(number: 5, name: "five", score: 50),
+                TestUtil.Item(number: 0, name: "zero", score: 0)));
 
-        await Assert.That(KeysOf(collection)).IsEquivalentTo([0, 1, 2, 3]);
+        await Assert.That(KeysOf(collection)).IsEquivalentTo(expected: [3, 1, 2, 5, 0], ordering: CollectionOrdering.Matching);
+
+        // An update is not an arrival.
+        edits.Send(TestUtil.Score(key: 3, score: 99));
+
+        await Assert.That(KeysOf(collection)).IsEquivalentTo(expected: [3, 1, 2, 5, 0], ordering: CollectionOrdering.Matching);
+
+        // A key removed and added back later is a new arrival.
+        edits.Send(TestUtil.Remove(1));
+
+        await Assert.That(KeysOf(collection)).IsEquivalentTo(expected: [3, 2, 5, 0], ordering: CollectionOrdering.Matching);
+
+        edits.Send(TestUtil.Add(TestUtil.Item(number: 1, name: "one again", score: 10)));
+
+        await Assert.That(KeysOf(collection)).IsEquivalentTo(expected: [3, 2, 5, 0, 1], ordering: CollectionOrdering.Matching);
+    }
+
+    [Test]
+    public async Task AnItemReplacedInOneEditMovesToTheEndAndIsReportedOnce()
+    {
+        StreamSink<CollectionEdit<int, ItemIdentity, ItemState>> removals =
+            Stream.CreateSink<CollectionEdit<int, ItemIdentity, ItemState>>();
+
+        StreamSink<CollectionEdit<int, ItemIdentity, ItemState>> additions =
+            Stream.CreateSink<CollectionEdit<int, ItemIdentity, ItemState>>();
+
+        ReactiveCollection<int, ItemIdentity, ItemState> collection =
+            ReactiveCollection<int, ItemIdentity, ItemState>.Create(
+                keySelector: TestUtil.KeyOf,
+                initialItems:
+                [
+                    TestUtil.Item(number: 1, name: "one", score: 10),
+                    TestUtil.Item(number: 2, name: "two", score: 20),
+                    TestUtil.Item(number: 3, name: "three", score: 30)
+                ],
+                removals,
+                additions);
+
+        List<string> operations = [];
+
+        IListener l =
+            collection.KeyChangesStream.ListenStrong(change => operations.AddRange(change.Operations.Select(Describe)));
+
+        // A remove and an add of one key in one transaction is how an item is replaced, and the
+        // replacement is a new arrival.
+        Transaction.RunVoid(() =>
+        {
+            removals.Send(TestUtil.Remove(1));
+            additions.Send(TestUtil.Add(TestUtil.Item(number: 1, name: "one, replaced", score: 11)));
+        });
+
+        l.Unlisten();
+
+        await Assert.That(KeysOf(collection)).IsEquivalentTo(expected: [2, 3, 1], ordering: CollectionOrdering.Matching);
+
+        // The place it left and then the place it went. An insert alone would have a list bound to
+        // this count the key twice.
+        await Assert.That(operations).IsEquivalentTo(expected: ["ViewRemove:1", "ViewInsert:1"], ordering: CollectionOrdering.Matching);
+    }
+
+    [Test]
+    public async Task AddsInOneTransactionFollowTheOrderTheStreamsWereGiven()
+    {
+        StreamSink<CollectionEdit<int, ItemIdentity, ItemState>> first =
+            Stream.CreateSink<CollectionEdit<int, ItemIdentity, ItemState>>();
+
+        StreamSink<CollectionEdit<int, ItemIdentity, ItemState>> second =
+            Stream.CreateSink<CollectionEdit<int, ItemIdentity, ItemState>>();
+
+        ReactiveCollection<int, ItemIdentity, ItemState> collection =
+            ReactiveCollection<int, ItemIdentity, ItemState>.Create(
+                keySelector: TestUtil.KeyOf,
+                initialItems: [],
+                first,
+                second);
+
+        // Sent the other way round to the order the streams were given in, both times: which stream
+        // was handed to Create first decides, not which one happened to send first.
+        Transaction.RunVoid(() =>
+        {
+            second.Send(TestUtil.Add(TestUtil.Item(number: 2, name: "two", score: 20)));
+            first.Send(TestUtil.Add(TestUtil.Item(number: 1, name: "one", score: 10)));
+        });
+
+        Transaction.RunVoid(() =>
+        {
+            first.Send(TestUtil.Add(TestUtil.Item(number: 3, name: "three", score: 30)));
+            second.Send(TestUtil.Add(TestUtil.Item(number: 4, name: "four", score: 40)));
+        });
+
+        await Assert.That(KeysOf(collection)).IsEquivalentTo(expected: [1, 2, 3, 4], ordering: CollectionOrdering.Matching);
+    }
+
+    [Test]
+    public async Task AKeyWithNoOrderOfItsOwnCanStillBeListed()
+    {
+        StreamSink<CollectionEdit<Handle, ItemIdentity, ItemState>> edits =
+            Stream.CreateSink<CollectionEdit<Handle, ItemIdentity, ItemState>>();
+
+        // Handle has no order: comparing two of them by default throws. The collection never asks.
+        ReactiveCollection<Handle, ItemIdentity, ItemState> collection =
+            ReactiveCollection<Handle, ItemIdentity, ItemState>.Create(
+                keySelector: static identity => new Handle(identity.Number),
+                initialItems:
+                [
+                    TestUtil.Item(number: 2, name: "two", score: 20),
+                    TestUtil.Item(number: 1, name: "one", score: 10)
+                ],
+                edits);
+
+        edits.Send(CollectionEdit<Handle, ItemIdentity, ItemState>.Add(TestUtil.Item(number: 3, name: "three", score: 30)));
+
+        await Assert.That(collection.KeysCell.Sample().Select(static handle => handle.Number).ToList())
+            .IsEquivalentTo(expected: [2, 1, 3], ordering: CollectionOrdering.Matching);
+    }
+
+    /// <summary>A key with no order of its own, which the collection has to list without comparing.</summary>
+    private sealed record Handle(int Number);
+
+    [Test]
+    public async Task ByArrivalTakesASortBackToTheOrderItemsArrivedIn()
+    {
+        StreamSink<CollectionEdit<int, ItemIdentity, ItemState>> edits =
+            Stream.CreateSink<CollectionEdit<int, ItemIdentity, ItemState>>();
+
+        ReactiveCollection<int, ItemIdentity, ItemState> collection =
+            Create(
+                edits: edits,
+                TestUtil.Item(number: 3, name: "three", score: 30),
+                TestUtil.Item(number: 1, name: "one", score: 10),
+                TestUtil.Item(number: 2, name: "two", score: 20));
+
+        CellSink<KeyOrder<int, ItemIdentity, ItemState>> order =
+            Cell.CreateSink(KeyOrder<int, ItemIdentity, ItemState>.By(static (_, state) => state.Score));
+
+        ReactiveCollection<int, ItemIdentity, ItemState> sorted = collection.SortBy(order);
+
+        await Assert.That(KeysOf(sorted)).IsEquivalentTo(expected: [1, 2, 3], ordering: CollectionOrdering.Matching);
+
+        // The third state of a column header: off.
+        order.Send(KeyOrder<int, ItemIdentity, ItemState>.ByArrival());
+
+        await Assert.That(KeysOf(sorted)).IsEquivalentTo(expected: [3, 1, 2], ordering: CollectionOrdering.Matching);
+
+        await Assert.That(KeysOf(collection.SortBy(static (_, state) => state.Score).SortByArrival()))
+            .IsEquivalentTo(expected: [3, 1, 2], ordering: CollectionOrdering.Matching);
+
+        // No two keys arrive together, so a further level would never be consulted.
+        KeyOrder<int, ItemIdentity, ItemState> byArrival = KeyOrder<int, ItemIdentity, ItemState>.ByArrival();
+
+        await Assert.That(byArrival.ThenBy(static (_, state) => state.Name)).IsSameReferenceAs(byArrival);
     }
 
     [Test]
@@ -61,12 +217,12 @@ public sealed class CollectionViewTests
         ReactiveCollection<int, ItemIdentity, ItemState> byScore =
             collection.SortBy(static (_, state) => state.Score);
 
-        await Assert.That(KeysOf(byScore)).IsEquivalentTo([2, 3, 1]);
+        await Assert.That(KeysOf(byScore)).IsEquivalentTo(expected: [2, 3, 1], ordering: CollectionOrdering.Matching);
 
         // Moving item 1 to the bottom of the range re-files it rather than rebuilding.
         edits.Send(TestUtil.Score(key: 1, score: 5));
 
-        await Assert.That(KeysOf(byScore)).IsEquivalentTo([1, 2, 3]);
+        await Assert.That(KeysOf(byScore)).IsEquivalentTo(expected: [1, 2, 3], ordering: CollectionOrdering.Matching);
     }
 
     [Test]
@@ -85,7 +241,7 @@ public sealed class CollectionViewTests
         ReactiveCollection<int, ItemIdentity, ItemState> byScore =
             collection.SortByDescending(static (_, state) => state.Score);
 
-        await Assert.That(KeysOf(byScore)).IsEquivalentTo([1, 3, 2]);
+        await Assert.That(KeysOf(byScore)).IsEquivalentTo(expected: [1, 3, 2], ordering: CollectionOrdering.Matching);
     }
 
     [Test]
@@ -113,8 +269,10 @@ public sealed class CollectionViewTests
 
         l.Unlisten();
 
-        await Assert.That(operations).IsEquivalentTo(["ViewMove:1", "ViewUpdate:1"]);
-        await Assert.That(KeysOf(byScore)).IsEquivalentTo([2, 3, 1]);
+        await Assert.That(operations)
+            .IsEquivalentTo(expected: ["ViewMove:1", "ViewUpdate:1"], ordering: CollectionOrdering.Matching);
+
+        await Assert.That(KeysOf(byScore)).IsEquivalentTo(expected: [2, 3, 1], ordering: CollectionOrdering.Matching);
     }
 
     [Test]
@@ -134,13 +292,13 @@ public sealed class CollectionViewTests
         IListener l =
             collection.KeyChangesStream.ListenStrong(change => operations.AddRange(change.Operations.Select(Describe)));
 
-        // The root orders by key, so this moves nothing - but a stage below might sort on exactly
+        // The root orders by arrival, so this moves nothing - but a stage below might sort on exactly
         // the state that just changed, so it has to hear about it.
         edits.Send(TestUtil.Score(key: 1, score: 99));
 
         l.Unlisten();
 
-        await Assert.That(operations).IsEquivalentTo(["ViewUpdate:1"]);
+        await Assert.That(operations).IsEquivalentTo(expected: ["ViewUpdate:1"], ordering: CollectionOrdering.Matching);
     }
 
     [Test]
@@ -172,8 +330,8 @@ public sealed class CollectionViewTests
         l.Unlisten();
 
         // One update, no move, and the order untouched.
-        await Assert.That(operations).IsEquivalentTo(["ViewUpdate:2"]);
-        await Assert.That(KeysOf(passing)).IsEquivalentTo([1, 2, 3]);
+        await Assert.That(operations).IsEquivalentTo(expected: ["ViewUpdate:2"], ordering: CollectionOrdering.Matching);
+        await Assert.That(KeysOf(passing)).IsEquivalentTo(expected: [1, 2, 3], ordering: CollectionOrdering.Matching);
     }
 
     [Test]
@@ -195,7 +353,7 @@ public sealed class CollectionViewTests
                 .SortBy(static (_, state) => state.Score)
                 .Filter(static (_, state) => state.Score >= 20);
 
-        await Assert.That(KeysOf(passing)).IsEquivalentTo([3, 1, 4]);
+        await Assert.That(KeysOf(passing)).IsEquivalentTo(expected: [3, 1, 4], ordering: CollectionOrdering.Matching);
     }
 
     [Test]
@@ -213,13 +371,13 @@ public sealed class CollectionViewTests
         ReactiveCollection<int, ItemIdentity, ItemState> passing =
             collection.Filter(static (_, state) => state.Score >= 20);
 
-        await Assert.That(KeysOf(passing)).IsEquivalentTo([2]);
+        await Assert.That(KeysOf(passing)).IsEquivalentTo(expected: [2], ordering: CollectionOrdering.Matching);
 
         edits.Send(TestUtil.Score(key: 1, score: 25));
-        await Assert.That(KeysOf(passing)).IsEquivalentTo([1, 2]);
+        await Assert.That(KeysOf(passing)).IsEquivalentTo(expected: [1, 2], ordering: CollectionOrdering.Matching);
 
         edits.Send(TestUtil.Score(key: 2, score: 5));
-        await Assert.That(KeysOf(passing)).IsEquivalentTo([1]);
+        await Assert.That(KeysOf(passing)).IsEquivalentTo(expected: [1], ordering: CollectionOrdering.Matching);
     }
 
     [Test]
@@ -242,7 +400,7 @@ public sealed class CollectionViewTests
                 criteriaCell: threshold,
                 predicate: static (limit, _, state) => state.Score >= limit);
 
-        await Assert.That(KeysOf(passing)).IsEquivalentTo([2, 3]);
+        await Assert.That(KeysOf(passing)).IsEquivalentTo(expected: [2, 3], ordering: CollectionOrdering.Matching);
 
         List<bool> resets = [];
         IListener l = passing.KeyChangesStream.ListenStrong(change => resets.Add(change.IsReset));
@@ -251,8 +409,8 @@ public sealed class CollectionViewTests
 
         l.Unlisten();
 
-        await Assert.That(resets).IsEquivalentTo([true]);
-        await Assert.That(KeysOf(passing)).IsEquivalentTo([1, 2, 3]);
+        await Assert.That(resets).IsEquivalentTo(expected: [true], ordering: CollectionOrdering.Matching);
+        await Assert.That(KeysOf(passing)).IsEquivalentTo(expected: [1, 2, 3], ordering: CollectionOrdering.Matching);
     }
 
     [Test]
@@ -272,7 +430,7 @@ public sealed class CollectionViewTests
         ReactiveCollection<int, ItemIdentity, ItemState> evens =
             collection.FilterByIdentity(static identity => identity.Number % 2 == 0);
 
-        await Assert.That(KeysOf(evens)).IsEquivalentTo([2, 4]);
+        await Assert.That(KeysOf(evens)).IsEquivalentTo(expected: [2, 4], ordering: CollectionOrdering.Matching);
 
         List<string> operations = [];
 
@@ -288,8 +446,8 @@ public sealed class CollectionViewTests
 
         l.Unlisten();
 
-        await Assert.That(operations).IsEquivalentTo(["ViewUpdate:2"]);
-        await Assert.That(KeysOf(evens)).IsEquivalentTo([2, 4]);
+        await Assert.That(operations).IsEquivalentTo(expected: ["ViewUpdate:2"], ordering: CollectionOrdering.Matching);
+        await Assert.That(KeysOf(evens)).IsEquivalentTo(expected: [2, 4], ordering: CollectionOrdering.Matching);
     }
 
     [Test]
@@ -304,17 +462,17 @@ public sealed class CollectionViewTests
         ReactiveCollection<int, ItemIdentity, ItemState> evens =
             collection.FilterByIdentity(static identity => identity.Number % 2 == 0);
 
-        await Assert.That(KeysOf(evens)).IsEquivalentTo([2]);
+        await Assert.That(KeysOf(evens)).IsEquivalentTo(expected: [2], ordering: CollectionOrdering.Matching);
 
         // An identity arriving is the one thing that can change this membership, and it is tested.
         edits.Send(TestUtil.Add(TestUtil.Item(number: 4, name: "four", score: 40)));
-        await Assert.That(KeysOf(evens)).IsEquivalentTo([2, 4]);
+        await Assert.That(KeysOf(evens)).IsEquivalentTo(expected: [2, 4], ordering: CollectionOrdering.Matching);
 
         edits.Send(TestUtil.Add(TestUtil.Item(number: 5, name: "five", score: 50)));
-        await Assert.That(KeysOf(evens)).IsEquivalentTo([2, 4]);
+        await Assert.That(KeysOf(evens)).IsEquivalentTo(expected: [2, 4], ordering: CollectionOrdering.Matching);
 
         edits.Send(TestUtil.Remove(2));
-        await Assert.That(KeysOf(evens)).IsEquivalentTo([4]);
+        await Assert.That(KeysOf(evens)).IsEquivalentTo(expected: [4], ordering: CollectionOrdering.Matching);
     }
 
     [Test]
@@ -337,11 +495,11 @@ public sealed class CollectionViewTests
                 .FilterByIdentity(static identity => identity.Number % 2 == 0)
                 .SortByIdentityDescending(static identity => identity.Number);
 
-        await Assert.That(KeysOf(view)).IsEquivalentTo([4, 2]);
+        await Assert.That(KeysOf(view)).IsEquivalentTo(expected: [4, 2], ordering: CollectionOrdering.Matching);
 
         edits.Send(TestUtil.Score(key: 4, score: -1000));
 
-        await Assert.That(KeysOf(view)).IsEquivalentTo([4, 2]);
+        await Assert.That(KeysOf(view)).IsEquivalentTo(expected: [4, 2], ordering: CollectionOrdering.Matching);
     }
 
     [Test]
@@ -361,7 +519,7 @@ public sealed class CollectionViewTests
         ReactiveCollection<int, ItemIdentity, ItemState> byCode =
             collection.SortByIdentityDescending(static identity => identity.Code);
 
-        await Assert.That(KeysOf(byCode)).IsEquivalentTo([3, 2, 1]);
+        await Assert.That(KeysOf(byCode)).IsEquivalentTo(expected: [3, 2, 1], ordering: CollectionOrdering.Matching);
 
         List<string> operations = [];
 
@@ -374,8 +532,8 @@ public sealed class CollectionViewTests
 
         l.Unlisten();
 
-        await Assert.That(operations).IsEquivalentTo(["ViewUpdate:3"]);
-        await Assert.That(KeysOf(byCode)).IsEquivalentTo([3, 2, 1]);
+        await Assert.That(operations).IsEquivalentTo(expected: ["ViewUpdate:3"], ordering: CollectionOrdering.Matching);
+        await Assert.That(KeysOf(byCode)).IsEquivalentTo(expected: [3, 2, 1], ordering: CollectionOrdering.Matching);
     }
 
     [Test]
@@ -393,14 +551,14 @@ public sealed class CollectionViewTests
         ReactiveCollection<int, ItemIdentity, ItemState> byCode =
             collection.SortByIdentity(static identity => identity.Code);
 
-        await Assert.That(KeysOf(byCode)).IsEquivalentTo([1, 3]);
+        await Assert.That(KeysOf(byCode)).IsEquivalentTo(expected: [1, 3], ordering: CollectionOrdering.Matching);
 
         // An identity arriving or leaving is exactly what this order does follow.
         edits.Send(TestUtil.Add(TestUtil.Item(number: 2, name: "two", score: 20)));
-        await Assert.That(KeysOf(byCode)).IsEquivalentTo([1, 2, 3]);
+        await Assert.That(KeysOf(byCode)).IsEquivalentTo(expected: [1, 2, 3], ordering: CollectionOrdering.Matching);
 
         edits.Send(TestUtil.Remove(1));
-        await Assert.That(KeysOf(byCode)).IsEquivalentTo([2, 3]);
+        await Assert.That(KeysOf(byCode)).IsEquivalentTo(expected: [2, 3], ordering: CollectionOrdering.Matching);
     }
 
     [Test]
@@ -422,12 +580,12 @@ public sealed class CollectionViewTests
                 .SortByDescending(static (_, state) => state.Score)
                 .Take(2);
 
-        await Assert.That(KeysOf(topTwo)).IsEquivalentTo([4, 3]);
+        await Assert.That(KeysOf(topTwo)).IsEquivalentTo(expected: [4, 3], ordering: CollectionOrdering.Matching);
 
         // A new item at the top pushes the last one out of the window.
         edits.Send(TestUtil.Add(TestUtil.Item(number: 5, name: "five", score: 50)));
 
-        await Assert.That(KeysOf(topTwo)).IsEquivalentTo([5, 4]);
+        await Assert.That(KeysOf(topTwo)).IsEquivalentTo(expected: [5, 4], ordering: CollectionOrdering.Matching);
     }
 
     [Test]
@@ -447,11 +605,11 @@ public sealed class CollectionViewTests
 
         ReactiveCollection<int, ItemIdentity, ItemState> window = collection.Take(limit);
 
-        await Assert.That(KeysOf(window)).IsEquivalentTo([1]);
+        await Assert.That(KeysOf(window)).IsEquivalentTo(expected: [1], ordering: CollectionOrdering.Matching);
 
         limit.Send(2);
 
-        await Assert.That(KeysOf(window)).IsEquivalentTo([1, 2]);
+        await Assert.That(KeysOf(window)).IsEquivalentTo(expected: [1, 2], ordering: CollectionOrdering.Matching);
     }
 
     [Test]
@@ -471,18 +629,18 @@ public sealed class CollectionViewTests
 
         ReactiveCollection<int, ItemIdentity, ItemState> page = collection.Slice(offset: 1, limit: 2);
 
-        await Assert.That(KeysOf(page)).IsEquivalentTo([2, 3]);
+        await Assert.That(KeysOf(page)).IsEquivalentTo(expected: [2, 3], ordering: CollectionOrdering.Matching);
 
         // Asserted by position as well as by content, because which keys land in the window is the
         // whole of what an offset does and a set comparison would not see it move.
         await Assert.That(KeysOf(page)[0]).IsEqualTo(2);
         await Assert.That(KeysOf(page)[1]).IsEqualTo(3);
 
-        // A new key below the window shifts everything down one, so the window holds different
-        // items without its bounds having changed.
-        edits.Send(TestUtil.Add(TestUtil.Item(number: 0, name: "zero", score: 5)));
+        // Removing a key before the window moves everything after it one place earlier, so the
+        // window holds different items without its bounds having changed.
+        edits.Send(TestUtil.Remove(1));
 
-        await Assert.That(KeysOf(page)).IsEquivalentTo([1, 2]);
+        await Assert.That(KeysOf(page)).IsEquivalentTo(expected: [3, 4], ordering: CollectionOrdering.Matching);
     }
 
     [Test]
@@ -505,18 +663,18 @@ public sealed class CollectionViewTests
         ReactiveCollection<int, ItemIdentity, ItemState> page =
             collection.Slice(offsetCell: offset, limitCell: Cell.Constant(2));
 
-        await Assert.That(KeysOf(page)).IsEquivalentTo([1, 2]);
+        await Assert.That(KeysOf(page)).IsEquivalentTo(expected: [1, 2], ordering: CollectionOrdering.Matching);
 
         // Turning the page is one send.
         offset.Send(2);
 
-        await Assert.That(KeysOf(page)).IsEquivalentTo([3, 4]);
+        await Assert.That(KeysOf(page)).IsEquivalentTo(expected: [3, 4], ordering: CollectionOrdering.Matching);
 
         // The last page is short rather than padded, and an offset past the end is empty rather
         // than an error.
         offset.Send(4);
 
-        await Assert.That(KeysOf(page)).IsEquivalentTo([5]);
+        await Assert.That(KeysOf(page)).IsEquivalentTo(expected: [5], ordering: CollectionOrdering.Matching);
 
         offset.Send(99);
 
@@ -563,11 +721,13 @@ public sealed class CollectionViewTests
         ReactiveCollection<int, ItemIdentity, ItemState> taken = collection.Take(2);
         ReactiveCollection<int, ItemIdentity, ItemState> sliced = collection.Slice(offset: 0, limit: 2);
 
-        await Assert.That(KeysOf(sliced)).IsEquivalentTo(KeysOf(taken));
+        await Assert.That(KeysOf(sliced))
+            .IsEquivalentTo(expected: KeysOf(taken), ordering: CollectionOrdering.Matching);
 
         edits.Send(TestUtil.Add(TestUtil.Item(number: 0, name: "zero", score: 5)));
 
-        await Assert.That(KeysOf(sliced)).IsEquivalentTo(KeysOf(taken));
+        await Assert.That(KeysOf(sliced))
+            .IsEquivalentTo(expected: KeysOf(taken), ordering: CollectionOrdering.Matching);
     }
 
     [Test]
@@ -591,12 +751,14 @@ public sealed class CollectionViewTests
                 .Filter(static (identity, _) => identity.Number % 2 == 0)
                 .Take(2);
 
-        await Assert.That(KeysOf(topTwoOfTheEvens)).IsEquivalentTo([2, 4]);
+        await Assert.That(KeysOf(topTwoOfTheEvens))
+            .IsEquivalentTo(expected: [2, 4], ordering: CollectionOrdering.Matching);
 
         // The filter sits above the window, so an odd item scoring highest changes nothing here.
         edits.Send(TestUtil.Score(key: 1, score: 99));
 
-        await Assert.That(KeysOf(topTwoOfTheEvens)).IsEquivalentTo([2, 4]);
+        await Assert.That(KeysOf(topTwoOfTheEvens))
+            .IsEquivalentTo(expected: [2, 4], ordering: CollectionOrdering.Matching);
     }
 
     [Test]
@@ -690,7 +852,7 @@ public sealed class CollectionViewTests
                 .SortByDescending(static (_, state) => state.Score)
                 .Filter(static (_, state) => state.Score >= 20);
 
-        await Assert.That(KeysOf(passing)).IsEquivalentTo([3, 2]);
+        await Assert.That(KeysOf(passing)).IsEquivalentTo(expected: [3, 2], ordering: CollectionOrdering.Matching);
 
         await Assert.That(
                 passing.IdentityCell(3).Sample().Match(onSome: static i => i.Code, onNone: static () => "gone"))
@@ -698,11 +860,182 @@ public sealed class CollectionViewTests
 
         edits.Send(TestUtil.Remove(3));
 
-        await Assert.That(KeysOf(passing)).IsEquivalentTo([2]);
+        await Assert.That(KeysOf(passing)).IsEquivalentTo(expected: [2], ordering: CollectionOrdering.Matching);
 
         await Assert.That(
                 passing.IdentityCell(3).Sample().Match(onSome: static i => i.Code, onNone: static () => "gone"))
             .IsEqualTo("gone");
+    }
+
+    [Test]
+    public async Task ThenByBreaksTheTiesTheFirstLevelLeaves()
+    {
+        StreamSink<CollectionEdit<int, ItemIdentity, ItemState>> edits =
+            Stream.CreateSink<CollectionEdit<int, ItemIdentity, ItemState>>();
+
+        ReactiveCollection<int, ItemIdentity, ItemState> collection =
+            Create(
+                edits: edits,
+                TestUtil.Item(number: 1, name: "b", score: 10),
+                TestUtil.Item(number: 2, name: "a", score: 10),
+                TestUtil.Item(number: 3, name: "c", score: 5),
+                TestUtil.Item(number: 4, name: "a", score: 5));
+
+        KeyOrder<int, ItemIdentity, ItemState> byScore =
+            KeyOrder<int, ItemIdentity, ItemState>.ByDescending(static (_, state) => state.Score);
+
+        // Alone, the key breaks the ties. With a second level, the name breaks them first.
+        await Assert.That(KeysOf(collection.SortBy(byScore)))
+            .IsEquivalentTo(expected: [1, 2, 3, 4], ordering: CollectionOrdering.Matching);
+
+        await Assert.That(KeysOf(collection.SortBy(byScore.ThenBy(static (_, state) => state.Name))))
+            .IsEquivalentTo(expected: [2, 1, 4, 3], ordering: CollectionOrdering.Matching);
+    }
+
+    [Test]
+    public async Task EachLevelRunsInItsOwnDirection()
+    {
+        StreamSink<CollectionEdit<int, ItemIdentity, ItemState>> edits =
+            Stream.CreateSink<CollectionEdit<int, ItemIdentity, ItemState>>();
+
+        ReactiveCollection<int, ItemIdentity, ItemState> collection =
+            Create(
+                edits: edits,
+                TestUtil.Item(number: 1, name: "b", score: 10),
+                TestUtil.Item(number: 2, name: "a", score: 10),
+                TestUtil.Item(number: 3, name: "c", score: 5),
+                TestUtil.Item(number: 4, name: "a", score: 5));
+
+        KeyOrder<int, ItemIdentity, ItemState> order =
+            KeyOrder<int, ItemIdentity, ItemState>
+                .By(static (_, state) => state.Score)
+                .ThenByDescending(static (_, state) => state.Name);
+
+        await Assert.That(KeysOf(collection.SortBy(order)))
+            .IsEquivalentTo(expected: [3, 4, 1, 2], ordering: CollectionOrdering.Matching);
+    }
+
+    [Test]
+    public async Task TheKeyBreaksTheLastTieAscendingWhateverTheLevelsDo()
+    {
+        StreamSink<CollectionEdit<int, ItemIdentity, ItemState>> edits =
+            Stream.CreateSink<CollectionEdit<int, ItemIdentity, ItemState>>();
+
+        ReactiveCollection<int, ItemIdentity, ItemState> collection =
+            Create(
+                edits: edits,
+                TestUtil.Item(number: 3, name: "x", score: 1),
+                TestUtil.Item(number: 1, name: "x", score: 1),
+                TestUtil.Item(number: 2, name: "x", score: 1));
+
+        KeyOrder<int, ItemIdentity, ItemState> order =
+            KeyOrder<int, ItemIdentity, ItemState>
+                .ByDescending(static (_, state) => state.Score)
+                .ThenByDescending(static (_, state) => state.Name);
+
+        await Assert.That(KeysOf(collection.SortBy(order)))
+            .IsEquivalentTo(expected: [1, 2, 3], ordering: CollectionOrdering.Matching);
+    }
+
+    [Test]
+    public async Task AThirdLevelDecidesWhatTheSecondLeavesEqual()
+    {
+        StreamSink<CollectionEdit<int, ItemIdentity, ItemState>> edits =
+            Stream.CreateSink<CollectionEdit<int, ItemIdentity, ItemState>>();
+
+        ReactiveCollection<int, ItemIdentity, ItemState> collection =
+            Create(
+                edits: edits,
+                TestUtil.Item(number: 1, name: "a", score: 1),
+                TestUtil.Item(number: 2, name: "a", score: 1),
+                TestUtil.Item(number: 3, name: "b", score: 1));
+
+        // Three levels, two kinds of projection, two directions: a pair whose first half is a pair.
+        KeyOrder<int, ItemIdentity, ItemState> order =
+            KeyOrder<int, ItemIdentity, ItemState>
+                .By(static (_, state) => state.Score)
+                .ThenBy(static (_, state) => state.Name)
+                .ThenByIdentityDescending(static identity => identity.Code);
+
+        await Assert.That(KeysOf(collection.SortBy(order)))
+            .IsEquivalentTo(expected: [2, 1, 3], ordering: CollectionOrdering.Matching);
+    }
+
+    [Test]
+    public async Task ALevelThatReadsTheStateRefilesUnderAnIdentityLevel()
+    {
+        StreamSink<CollectionEdit<int, ItemIdentity, ItemState>> edits =
+            Stream.CreateSink<CollectionEdit<int, ItemIdentity, ItemState>>();
+
+        ReactiveCollection<int, ItemIdentity, ItemState> collection =
+            Create(
+                edits: edits,
+                TestUtil.Item(number: 1, name: "one", score: 30),
+                TestUtil.Item(number: 2, name: "two", score: 20),
+                TestUtil.Item(number: 3, name: "three", score: 5),
+                TestUtil.Item(number: 4, name: "four", score: 10));
+
+        // The first level cannot be moved by a state edit and the second can, so the order as a whole
+        // can: a stage that skipped re-filing on the strength of the first level would leave 4 where it
+        // was.
+        ReactiveCollection<int, ItemIdentity, ItemState> sorted =
+            collection.SortBy(
+                KeyOrder<int, ItemIdentity, ItemState>
+                    .ByIdentity(static identity => identity.Number % 2)
+                    .ThenBy(static (_, state) => state.Score));
+
+        await Assert.That(KeysOf(sorted)).IsEquivalentTo(expected: [4, 2, 3, 1], ordering: CollectionOrdering.Matching);
+
+        edits.Send(TestUtil.Score(key: 4, score: 25));
+
+        await Assert.That(KeysOf(sorted)).IsEquivalentTo(expected: [2, 4, 3, 1], ordering: CollectionOrdering.Matching);
+    }
+
+    [Test]
+    public async Task DescendingHoldsForAComparerThatAnswersWithTheExtremes()
+    {
+        StreamSink<CollectionEdit<int, ItemIdentity, ItemState>> edits =
+            Stream.CreateSink<CollectionEdit<int, ItemIdentity, ItemState>>();
+
+        ReactiveCollection<int, ItemIdentity, ItemState> collection =
+            Create(
+                edits: edits,
+                TestUtil.Item(number: 1, name: "one", score: 10),
+                TestUtil.Item(number: 2, name: "two", score: 30),
+                TestUtil.Item(number: 3, name: "three", score: 20));
+
+        // Negating int.MinValue leaves it negative, so a direction applied by negation sorts this the
+        // same way both ways - and not consistently at that.
+        KeyOrder<int, ItemIdentity, ItemState> descending =
+            KeyOrder<int, ItemIdentity, ItemState>.By(
+                selector: static (_, state) => state.Score,
+                sortComparer: ExtremeComparer.Instance,
+                keyComparer: Comparer<int>.Default,
+                descending: true);
+
+        await Assert.That(KeysOf(collection.SortBy(descending)))
+            .IsEquivalentTo(expected: [2, 3, 1], ordering: CollectionOrdering.Matching);
+
+        // The same comparer as a second level, under a first level that ties everything.
+        KeyOrder<int, ItemIdentity, ItemState> secondLevel =
+            KeyOrder<int, ItemIdentity, ItemState>
+                .ByIdentity(static _ => 0)
+                .ThenBy(selector: static (_, state) => state.Score, sortComparer: ExtremeComparer.Instance, descending: true);
+
+        await Assert.That(KeysOf(collection.SortBy(secondLevel)))
+            .IsEquivalentTo(expected: [2, 3, 1], ordering: CollectionOrdering.Matching);
+    }
+
+    /// <summary>Answers with int.MinValue and int.MaxValue rather than -1 and 1, which is allowed.</summary>
+    // ReSharper disable once InheritdocConsiderUsage
+    private sealed class ExtremeComparer : IComparer<int>
+    {
+        internal static readonly ExtremeComparer Instance = new();
+
+        public int Compare(int x, int y) =>
+            x < y ? int.MinValue
+            : x > y ? int.MaxValue
+            : 0;
     }
 
     [Test]
@@ -729,7 +1062,7 @@ public sealed class CollectionViewTests
         CellSink<KeyOrder<int, ItemIdentity, ItemState>> order = Cell.CreateSink(byScore);
         ReactiveCollection<int, ItemIdentity, ItemState> sorted = collection.SortBy(order);
 
-        await Assert.That(KeysOf(sorted)).IsEquivalentTo([2, 3, 1]);
+        await Assert.That(KeysOf(sorted)).IsEquivalentTo(expected: [2, 3, 1], ordering: CollectionOrdering.Matching);
 
         List<bool> resets = [];
         IListener l = sorted.KeyChangesStream.ListenStrong(change => resets.Add(change.IsReset));
@@ -739,8 +1072,8 @@ public sealed class CollectionViewTests
         l.Unlisten();
 
         // A new order is a criteria change, and a criteria change is a reset.
-        await Assert.That(resets).IsEquivalentTo([true]);
-        await Assert.That(KeysOf(sorted)).IsEquivalentTo([1, 3, 2]);
+        await Assert.That(resets).IsEquivalentTo(expected: [true], ordering: CollectionOrdering.Matching);
+        await Assert.That(KeysOf(sorted)).IsEquivalentTo(expected: [1, 3, 2], ordering: CollectionOrdering.Matching);
     }
 
     [Test]
@@ -767,11 +1100,11 @@ public sealed class CollectionViewTests
                 .SortBy(order)
                 .Filter(static (_, state) => state.Score < 40);
 
-        await Assert.That(KeysOf(filtered)).IsEquivalentTo([2, 3, 1]);
+        await Assert.That(KeysOf(filtered)).IsEquivalentTo(expected: [2, 3, 1], ordering: CollectionOrdering.Matching);
 
         order.Send(KeyOrder<int, ItemIdentity, ItemState>.ByDescending(static (_, state) => state.Score));
 
-        await Assert.That(KeysOf(filtered)).IsEquivalentTo([1, 3, 2]);
+        await Assert.That(KeysOf(filtered)).IsEquivalentTo(expected: [1, 3, 2], ordering: CollectionOrdering.Matching);
     }
 
     [Test]
@@ -793,16 +1126,16 @@ public sealed class CollectionViewTests
 
         ReactiveCollection<int, ItemIdentity, ItemState> sorted = collection.SortBy(order);
 
-        await Assert.That(KeysOf(sorted)).IsEquivalentTo([2, 1]);
+        await Assert.That(KeysOf(sorted)).IsEquivalentTo(expected: [2, 1], ordering: CollectionOrdering.Matching);
 
         order.Send(KeyOrder<int, ItemIdentity, ItemState>.ByIdentity(static identity => identity.Code));
 
-        await Assert.That(KeysOf(sorted)).IsEquivalentTo([1, 2]);
+        await Assert.That(KeysOf(sorted)).IsEquivalentTo(expected: [1, 2], ordering: CollectionOrdering.Matching);
 
         // Under an identity order a state edit cannot move anything, and does not.
         edits.Send(TestUtil.Score(key: 2, score: 99));
 
-        await Assert.That(KeysOf(sorted)).IsEquivalentTo([1, 2]);
+        await Assert.That(KeysOf(sorted)).IsEquivalentTo(expected: [1, 2], ordering: CollectionOrdering.Matching);
     }
 
     [Test]
@@ -832,7 +1165,10 @@ public sealed class CollectionViewTests
 
         // And the two maps behind it agree with it rather than with the store.
         await Assert.That(view.States.Count).IsEqualTo(2);
-        await Assert.That(TestUtil.Keys(view.Identities.Keys)).IsEquivalentTo([2, 3]);
+
+        await Assert.That(TestUtil.Keys(view.Identities.Keys))
+            .IsEquivalentTo(expected: [2, 3], ordering: CollectionOrdering.Any);
+
         await Assert.That(view.States.TryGetState(key: 1, state: out ItemState _)).IsFalse();
 
         // The root still sees everything, which is what makes it the root.
@@ -1026,10 +1362,11 @@ public sealed class CollectionViewTests
         ReactiveCollection<int, ItemIdentity, ItemState> passing =
             collection.Filter(static (_, state) => state.Score >= 20);
 
-        await Assert.That(TestUtil.Keys(passing.ShapeCell.Sample().Keys)).IsEquivalentTo([2, 3]);
+        await Assert.That(TestUtil.Keys(passing.ShapeCell.Sample().Keys))
+            .IsEquivalentTo(expected: [2, 3], ordering: CollectionOrdering.Any);
 
         await Assert.That(TestUtil.Keys(collection.ShapeCell.Sample().Keys))
-            .IsEquivalentTo([1, 2, 3]);
+            .IsEquivalentTo(expected: [1, 2, 3], ordering: CollectionOrdering.Any);
 
         List<IReadOnlyDictionary<int, ItemIdentity>> shapes = [];
         IListener l = passing.ShapeCell.Updates().ListenStrong(shapes.Add);
@@ -1043,7 +1380,9 @@ public sealed class CollectionViewTests
         edits.Send(TestUtil.Score(key: 1, score: 99));
 
         await Assert.That(shapes.Count).IsEqualTo(1);
-        await Assert.That(TestUtil.Keys(shapes[0].Keys)).IsEquivalentTo([1, 2, 3]);
+
+        await Assert.That(TestUtil.Keys(shapes[0].Keys))
+            .IsEquivalentTo(expected: [1, 2, 3], ordering: CollectionOrdering.Any);
 
         l.Unlisten();
     }
@@ -1070,7 +1409,9 @@ public sealed class CollectionViewTests
                 return "row " + key;
             });
 
-        await Assert.That(mapped.Items.Sample()).IsEquivalentTo(["row 1", "row 2"]);
+        await Assert.That(mapped.Items.Sample())
+            .IsEquivalentTo(expected: ["row 1", "row 2"], ordering: CollectionOrdering.Matching);
+
         await Assert.That(projections).IsEqualTo(2);
 
         // An edit that moves no key projects nothing new, and hands back the same objects.
@@ -1085,7 +1426,9 @@ public sealed class CollectionViewTests
         edits.Send(TestUtil.Add(TestUtil.Item(number: 3, name: "three", score: 30)));
 
         await Assert.That(projections).IsEqualTo(3);
-        await Assert.That(mapped.Items.Sample()).IsEquivalentTo(["row 1", "row 2", "row 3"]);
+
+        await Assert.That(mapped.Items.Sample())
+            .IsEquivalentTo(expected: ["row 1", "row 2", "row 3"], ordering: CollectionOrdering.Matching);
     }
 
     [Test]
@@ -1130,7 +1473,7 @@ public sealed class CollectionViewTests
         // Removing one does evict it, because it has left and the bound keeps none.
         edits.Send(TestUtil.Remove(2));
 
-        await Assert.That(evicted).IsEquivalentTo(["row 2"]);
+        await Assert.That(evicted).IsEquivalentTo(expected: ["row 2"], ordering: CollectionOrdering.Matching);
     }
 
     [Test]
@@ -1160,6 +1503,6 @@ public sealed class CollectionViewTests
         // releases them, and without it they would outlive the thing that built them.
         mapped.Dispose();
 
-        await Assert.That(released).IsEquivalentTo(["row 1", "row 2"]);
+        await Assert.That(released).IsEquivalentTo(expected: ["row 1", "row 2"], ordering: CollectionOrdering.Any);
     }
 }
