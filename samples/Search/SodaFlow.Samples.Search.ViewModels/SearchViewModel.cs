@@ -123,7 +123,7 @@ public sealed class SearchViewModel : ISearchViewModel
                     .Updates()
                     .Filter(static q => !string.IsNullOrWhiteSpace(q));
 
-            AsyncMapStatus<string> mapStatus =
+            AsyncMapStatus<string> searchStatus =
                 searches.MapAsync(
                     results: found,
                     errors: failed,
@@ -148,7 +148,7 @@ public sealed class SearchViewModel : ISearchViewModel
                     .Hold(string.Empty);
 
             // Derived, not counted. There is no += 1 anywhere to get out of step.
-            Cell<bool> busy = mapStatus.IsRunning;
+            Cell<bool> busy = searchStatus.IsRunning;
 
             Cell<string> summary =
                 results.Lift(
@@ -159,7 +159,7 @@ public sealed class SearchViewModel : ISearchViewModel
                             : r.Count.ToString(CultureInfo.CurrentCulture) + " result(s)");
 
             return new SearchViewModel(
-                status: mapStatus,
+                status: searchStatus,
 
                 // Two-way: the view writes here, and the cell stays authoritative.
                 query: query.ToTwoWay(),
