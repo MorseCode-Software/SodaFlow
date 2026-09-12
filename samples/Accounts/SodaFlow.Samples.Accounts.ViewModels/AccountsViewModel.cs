@@ -341,10 +341,14 @@ public sealed class AccountsViewModel : IAccountsViewModel
             // A second view over the same accounts, kept current alongside the first: the
             // predicate reads only the state it is handed, so an edit to one account costs this
             // view one test of that account.
-            ReactiveCollection<int, AccountIdentity, AccountState> drainable =
-                accounts.Filter(static (_, state) => state.IsFrozen && state.Balance != 0);
+            //ReactiveCollection<int, AccountIdentity, AccountState> drainable =
+            //accounts.Filter(static (_, state) => state.IsFrozen && state.Balance != 0);
 
-            Cell<bool> canDrain = drainable.KeysCell.Map(static keys => keys.Count > 0);
+            static bool CanDrain(AccountState state) => state.IsFrozen && state.Balance != 0;
+
+            Cell<bool> canDrain =
+                accounts.SnapshotCell.Map(static snapshot =>
+                    snapshot.States.Pairs.Any(static item => CanDrain(item.Value)));
 
             // Gated in the graph as well as disabled on the command, for the reason a row's
             // deposit is. The keys are read in the same transaction the edit lands in, so what is
@@ -352,7 +356,15 @@ public sealed class AccountsViewModel : IAccountsViewModel
             drains.Loop(
                 drainFrozenAccounts
                     .Gate(canDrain)
-                    .Snapshot(c: drainable.KeysCell, f: static (_, keys) => Drain(keys)));
+                    .Snapshot(
+                        c: accounts.SnapshotCell,
+                        f: static (_, snapshot) =>
+                            Drain(
+                            [
+                                .. snapshot.States.Pairs
+                                    .Where(static item => CanDrain(item.Value))
+                                    .Select(static pair => pair.Key)
+                            ])));
 
             // The sort takes its order from a cell, so clicking a header re-files this stage
             // rather than building a second chain and choosing between the two. The three orders
@@ -470,7 +482,7 @@ public sealed class AccountsViewModel : IAccountsViewModel
         // The keys' own type rather than the list interface it implements, because a drain reads
         // every one of them and a call through the class is cheaper than one through the interface.
         // ReSharper disable once SuggestBaseTypeForParameter
-        OrderedKeys<int, AccountIdentity, AccountState> keys)
+        IReadOnlyList<int> keys)
     {
         Dictionary<int, Func<AccountState, AccountState>> updates = new(keys.Count);
 
