@@ -5,10 +5,11 @@ using System.Linq;
 using SodaFlow.Bindable.ObjectModel;
 using SodaFlow.Collections;
 using SodaFlow.Functional;
-using AccountOrder = SodaFlow.Collections.KeyOrder<
-    int,
-    SodaFlow.Samples.Accounts.ViewModels.AccountIdentity,
-    SodaFlow.Samples.Accounts.ViewModels.AccountState>;
+using AccountOrder =
+    SodaFlow.Collections.KeyOrder<
+        int,
+        SodaFlow.Samples.Accounts.ViewModels.AccountIdentity,
+        SodaFlow.Samples.Accounts.ViewModels.AccountState>;
 
 namespace SodaFlow.Samples.Accounts.ViewModels;
 
@@ -48,27 +49,27 @@ internal sealed record SortSelection(AccountColumn Column, bool Descending)
     ///     Three orders projecting sort values of three types - an <c>int</c>, a <c>string</c> and
     ///     a <c>long</c> - and all three are the same type here, which is what lets one cell hold
     ///     whichever is in force. The comparers are spelled out because the direction is decided at
-    ///     run time rather than written into the call, and because holders want comparing the way
-    ///     names are read rather than the way their code units happen to fall.
+    ///     run time rather than written into the call, and because holders want comparison to be
+    ///     explicit for each field rather than the default for the column type.
     /// </remarks>
     internal AccountOrder Order =>
         this.Column switch
         {
             AccountColumn.Number => AccountOrder.ByIdentity(
-                static identity => identity.Number,
-                Comparer<int>.Default,
-                Comparer<int>.Default,
-                this.Descending),
+                selector: static identity => identity.Number,
+                sortComparer: Comparer<int>.Default,
+                keyComparer: Comparer<int>.Default,
+                descending: this.Descending),
             AccountColumn.Holder => AccountOrder.ByIdentity(
-                static identity => identity.Holder,
-                StringComparer.CurrentCultureIgnoreCase,
-                Comparer<int>.Default,
-                this.Descending),
+                selector: static identity => identity.Holder,
+                sortComparer: StringComparer.CurrentCultureIgnoreCase,
+                keyComparer: Comparer<int>.Default,
+                descending: this.Descending),
             _ => AccountOrder.By(
-                static (_, state) => state.Balance,
-                Comparer<long>.Default,
-                Comparer<int>.Default,
-                this.Descending),
+                selector: static (_, state) => state.Balance,
+                sortComparer: Comparer<long>.Default,
+                keyComparer: Comparer<int>.Default,
+                descending: this.Descending),
         };
 
     /// <summary>What clicking a header does: the same column reverses, another one selects.</summary>
@@ -79,11 +80,18 @@ internal sealed record SortSelection(AccountColumn Column, bool Descending)
     internal SortSelection Clicked(AccountColumn column) =>
         column == this.Column
             ? this with { Descending = !this.Descending }
-            : new SortSelection(column, column == AccountColumn.Balance);
+            : new SortSelection(Column: column, Descending: column == AccountColumn.Balance);
 
     /// <summary>A header's caption, marked if it is the column in force.</summary>
     internal string Caption(AccountColumn column, string name) =>
-        column == this.Column ? name + (this.Descending ? " \u25bc" : " \u25b2") : name;
+        Caption(sortSelection: Maybe.Some(this), column: column, name: name);
+
+    /// <summary>A header's caption, marked if it is the column in force.</summary>
+    internal static string Caption(Maybe<SortSelection> sortSelection, AccountColumn column, string name) =>
+        name + sortSelection.Match(
+            onSome: sortSelection =>
+                column == sortSelection.Column ? sortSelection.Descending ? " \u25bc" : " \u25b2" : string.Empty,
+            onNone: static () => string.Empty);
 }
 
 /// <summary>One row, holding cells that follow one account through the view showing it.</summary>
@@ -205,9 +213,21 @@ public sealed class AccountsViewModel : IAccountsViewModel
         // the ones that never left the view and so never triggered the eviction callback.
         this.disposables =
         [
-            rows, total, page, filterDescription, numberHeader, holderHeader, balanceHeader,
-            nextPage, previousPage, showFrozen, drainFrozenAccounts, sortByNumber, sortByHolder,
-            sortByBalance, projectedRows
+            rows,
+            total,
+            page,
+            filterDescription,
+            numberHeader,
+            holderHeader,
+            balanceHeader,
+            nextPage,
+            previousPage,
+            showFrozen,
+            drainFrozenAccounts,
+            sortByNumber,
+            sortByHolder,
+            sortByBalance,
+            projectedRows
         ];
     }
 
@@ -283,16 +303,22 @@ public sealed class AccountsViewModel : IAccountsViewModel
 
             // One piece of state for the whole header row: which column, and which way. Three
             // buttons become one stream of columns, and the selection folds over it.
-            Cell<SortSelection> sort = new[]
-                {
-                    sortByNumber.MapTo(AccountColumn.Number),
-                    sortByHolder.MapTo(AccountColumn.Holder),
-                    sortByBalance.MapTo(AccountColumn.Balance),
-                }
-                .OrElse()
-                .Accum(
-                    initialState: new SortSelection(AccountColumn.Balance, Descending: true),
-                    f: static (column, current) => current.Clicked(column));
+            Cell<Maybe<SortSelection>> sort =
+                new[]
+                    {
+                        sortByNumber.MapTo(AccountColumn.Number),
+                        sortByHolder.MapTo(AccountColumn.Holder),
+                        sortByBalance.MapTo(AccountColumn.Balance),
+                    }
+                    .OrElse()
+                    .Accum(
+                        initialState:
+                        Maybe<SortSelection>.None,
+                        f: static (column, current) =>
+                            Maybe.Some(
+                                current.Match(
+                                    onSome: current => current.Clicked(column),
+                                    onNone: () => new SortSelection(Column: column, Descending: false))));
 
             // Each row pays into its own account, so the edits come from the rows, and the rows
             // come from the collection the edits are for. That is a real cycle and the loop is how
@@ -307,7 +333,7 @@ public sealed class AccountsViewModel : IAccountsViewModel
 
             // No key selector: AccountIdentity implements IIdentity<int>.
             ReactiveCollection<int, AccountIdentity, AccountState> accounts =
-                ReactiveCollection.Create(AccountSeed.Items, deposits, drains);
+                ReactiveCollection.Create(initialEntries: AccountSeed.Items, deposits, drains);
 
             // Every frozen account with something left in it, across the whole collection rather
             // than the page or the filter, because a drain empties accounts nobody is looking at.
@@ -325,31 +351,37 @@ public sealed class AccountsViewModel : IAccountsViewModel
             drains.Loop(
                 drainFrozenAccounts
                     .Gate(canDrain)
-                    .Snapshot(drainable.KeysCell, static (_, keys) => Drain(keys)));
+                    .Snapshot(c: drainable.KeysCell, f: static (_, keys) => Drain(keys)));
 
             // The sort takes its order from a cell, so clicking a header re-files this stage
             // rather than building a second chain and choosing between the two. The three orders
             // sort by an int, a string and a long, and one cell holds all of them: an order keeps
             // its sort value's type to itself.
-            ReactiveCollection<int, AccountIdentity, AccountState> filtered = accounts
-                .Filter(showFrozen, static (showing, _, state) => showing || !state.IsFrozen)
-                .SortBy(sort.Map(static selection => selection.Order));
+            ReactiveCollection<int, AccountIdentity, AccountState> filtered =
+                accounts
+                    .Filter(
+                        criteriaCell: showFrozen,
+                        predicate: static (showing, _, state) => showing || !state.IsFrozen)
+                    .SortBy(
+                        sort.Map(static selection =>
+                            selection.Map(static selection => selection.Order).ValueOr(AccountOrder.ByArrival)));
 
             // Paging moves an offset. Toggling the filter sends it back to the first page, because
             // an offset that outlived the rows it pointed at would show an empty list. Sorting
             // deliberately does not: it reorders the same members rather than choosing different
             // ones, so every offset that was valid before it still is.
-            Cell<int> offset = new[]
-                {
-                    nextPage.MapTo(static (int at) => at + PageSize),
-                    previousPage.MapTo(static (int at) => at - PageSize),
-                    showFrozen.Updates().MapTo(static (int _) => 0),
-                }
-                .OrElse()
-                .Accum(initialState: 0, f: static (move, at) => Math.Max(0, move(at)));
+            Cell<int> offset =
+                new[]
+                    {
+                        nextPage.MapTo(static (int at) => at + PageSize),
+                        previousPage.MapTo(static (int at) => at - PageSize),
+                        showFrozen.Updates().MapTo(static (int _) => 0),
+                    }
+                    .OrElse()
+                    .Accum(initialState: 0, f: static (move, at) => Math.Max(val1: 0, val2: move(at)));
 
             ReactiveCollection<int, AccountIdentity, AccountState> page =
-                filtered.Slice(offset, Cell.Constant(PageSize));
+                filtered.Slice(offsetCell: offset, limitCell: Cell.Constant(PageSize));
 
             // One row object per account, in the page's order. Map keeps them, so a deposit that
             // moves one balance leaves this list alone: the row follows its own account and the
@@ -357,9 +389,10 @@ public sealed class AccountsViewModel : IAccountsViewModel
             //
             // The rows own bindables, so eviction disposes them. Nothing here has to know when
             // that happens - which is the point of the callback being where the projection is.
-            MappedItems<AccountRowViewModel> rows = page.Map(
-                key => Row(page, key),
-                onEvicted: static row => row.Dispose());
+            MappedItems<AccountRowViewModel> rows =
+                page.Map(
+                    project: key => Row(page: page, key: key),
+                    onEvicted: static row => row.Dispose());
 
             // The deposits are whatever the rows on the page are sending. Which rows those are
             // moves with the page, so the merge is rebuilt from each version of the list and
@@ -374,12 +407,14 @@ public sealed class AccountsViewModel : IAccountsViewModel
             // change carries both sides of it, so a delta needs nothing kept alongside.
             long initialTotal = AccountSeed.Items.Sum(static item => item.State.Balance);
 
-            Cell<long> total = accounts.ItemChangesStream
-                .Map(static change => DeltaOf(change))
-                .Accum(initialState: initialTotal, f: static (delta, running) => running + delta);
+            Cell<long> total =
+                accounts.ItemChangesStream
+                    .Map(static change => DeltaOf(change))
+                    .Accum(initialState: initialTotal, f: static (delta, running) => running + delta);
 
-            Cell<int> pageCount = filtered.KeysCell.Map(static keys =>
-                Math.Max(1, (keys.Count + PageSize - 1) / PageSize));
+            Cell<int> pageCount =
+                filtered.KeysCell.Map(static keys =>
+                    Math.Max(val1: 1, val2: (keys.Count + PageSize - 1) / PageSize));
 
             return new AccountsViewModel(
                 // A list of rows is a list of the interface they implement, but a cell is a class
@@ -391,27 +426,31 @@ public sealed class AccountsViewModel : IAccountsViewModel
                 total: total.Map(static cents => "Total across all accounts: " + Money(cents))
                     .ToOneWay(),
                 page: offset.Lift(
-                        pageCount,
-                        static (at, count) => string.Format(
-                            CultureInfo.CurrentCulture,
-                            "Page {0:N0} of {1:N0}",
-                            (at / PageSize) + 1,
-                            count))
+                        c2: pageCount,
+                        f: static (at, count) =>
+                            string.Format(
+                                provider: CultureInfo.CurrentCulture,
+                                format: "Page {0:N0} of {1:N0}",
+                                arg0: at / PageSize + 1,
+                                arg1: count))
                     .ToOneWay(),
                 filterDescription: showFrozen.Map(static showing =>
                         showing ? "Showing all accounts" : "Showing active accounts only")
                     .ToOneWay(),
                 numberHeader: sort
-                    .Map(static selection => selection.Caption(AccountColumn.Number, "Number"))
+                    .Map(static selection =>
+                        SortSelection.Caption(sortSelection: selection, column: AccountColumn.Number, name: "Number"))
                     .ToOneWay(),
                 holderHeader: sort
-                    .Map(static selection => selection.Caption(AccountColumn.Holder, "Holder"))
+                    .Map(static selection =>
+                        SortSelection.Caption(sortSelection: selection, column: AccountColumn.Holder, name: "Holder"))
                     .ToOneWay(),
                 balanceHeader: sort
-                    .Map(static selection => selection.Caption(AccountColumn.Balance, "Balance"))
+                    .Map(static selection =>
+                        SortSelection.Caption(sortSelection: selection, column: AccountColumn.Balance, name: "Balance"))
                     .ToOneWay(),
                 nextPage: nextPage.ToBindableAction(
-                    offset.Lift(filtered.KeysCell, static (at, keys) => at + PageSize < keys.Count)),
+                    offset.Lift(c2: filtered.KeysCell, f: static (at, keys) => at + PageSize < keys.Count)),
                 previousPage: previousPage.ToBindableAction(offset.Map(static at => at > 0)),
                 showFrozen: showFrozen.ToTwoWay(),
                 drainFrozenAccounts: drainFrozenAccounts.ToBindableAction(canDrain),
@@ -439,7 +478,7 @@ public sealed class AccountsViewModel : IAccountsViewModel
         // ReSharper disable once ForCanBeConvertedToForeach
         for (int index = 0; index < keys.Count; index++)
         {
-            updates.Add(keys[index], Emptied);
+            updates.Add(key: keys[index], value: Emptied);
         }
 
         return new CollectionEdit<int, AccountIdentity, AccountState>(
@@ -467,24 +506,28 @@ public sealed class AccountsViewModel : IAccountsViewModel
         Cell<Maybe<AccountState>> state = page.StateCell(key);
 
         Cell<bool> isFrozen =
-            state.Map(static current => current.Match(static value => value.IsFrozen, static () => false));
+            state.Map(static current =>
+                current.Match(onSome: static value => value.IsFrozen, onNone: static () => false));
 
         Cell<bool> canDeposit =
-            state.Map(static current => current.Match(static value => !value.IsFrozen, static () => false));
+            state.Map(static current =>
+                current.Match(onSome: static value => !value.IsFrozen, onNone: static () => false));
 
         StreamSink<Unit> deposit = Stream.CreateSink<Unit>();
 
         return new AccountRowViewModel(
             number: identity
-                .Map(static current => current.Match(
-                    static value => value.Number.ToString(CultureInfo.CurrentCulture),
-                    static () => string.Empty))
+                .Map(static current =>
+                    current.Match(
+                        onSome: static value => value.Number.ToString(CultureInfo.CurrentCulture),
+                        onNone: static () => string.Empty))
                 .ToOneWay(),
             holder: identity
-                .Map(static current => current.Match(static value => value.Holder, static () => string.Empty))
+                .Map(static current =>
+                    current.Match(onSome: static value => value.Holder, onNone: static () => string.Empty))
                 .ToOneWay(),
             balance: state
-                .Map(static current => current.Match(Money, static () => string.Empty))
+                .Map(static current => current.Match(onSome: Money, onNone: static () => string.Empty))
                 .ToOneWay(),
             isFrozen: isFrozen.ToOneWay(),
 
@@ -496,17 +539,18 @@ public sealed class AccountsViewModel : IAccountsViewModel
             // command can call Execute; the gate is sampled in the transaction the deposit lands
             // in, so no path to this stream pays into a frozen account.
             depositsStream: CollectionEdit<int, AccountIdentity, AccountState>.FromUpdates(
-                key,
-                deposit
+                key: key,
+                transformsStream: deposit
                     .Gate(canDeposit)
-                    .MapTo(static (AccountState current) => current with { Balance = current.Balance + DepositAmount })));
+                    .MapTo(static (AccountState current) =>
+                        current with { Balance = current.Balance + DepositAmount })));
     }
 
     /// <summary>How much the total moved, from the keys this change touched.</summary>
     /// <remarks>
     ///     An added key has no state before, so it contributes only its new balance; a removed one
-    ///     is absent from the new states, so it contributes only the negation of its old. Neither
-    ///     needs a special case beyond looking.
+    ///     is absent from the new states, so it contributes only the negation of its old balance.
+    ///     Neither needs a special case beyond looking.
     /// </remarks>
     private static long DeltaOf(ItemChange<int, AccountIdentity, AccountState> change)
     {
@@ -514,7 +558,7 @@ public sealed class AccountsViewModel : IAccountsViewModel
 
         foreach (KeyValuePair<int, AccountState> pair in change.NewStates)
         {
-            if (change.Before.States.TryGetState(pair.Key, out AccountState was))
+            if (change.Before.States.TryGetState(key: pair.Key, state: out AccountState was))
             {
                 delta -= was.Balance;
             }
@@ -524,7 +568,7 @@ public sealed class AccountsViewModel : IAccountsViewModel
 
         foreach (int key in change.Removed)
         {
-            if (change.Before.States.TryGetState(key, out AccountState was))
+            if (change.Before.States.TryGetState(key: key, state: out AccountState was))
             {
                 delta -= was.Balance;
             }
@@ -540,6 +584,5 @@ public sealed class AccountsViewModel : IAccountsViewModel
     ///     Formatted as US dollars whatever the machine's culture, because the amounts are dollars:
     ///     the current culture's currency format would put its own symbol on them.
     /// </remarks>
-    private static string Money(long cents) =>
-        (cents / 100m).ToString("C", UsDollars);
+    private static string Money(long cents) => (cents / 100m).ToString(format: "C", provider: UsDollars);
 }
