@@ -223,4 +223,34 @@ internal sealed class StageResult<TKey, TIdentity, TState>
     internal CollectionSnapshot<TKey, TIdentity, TState> Before { get; }
 
     internal CollectionSnapshot<TKey, TIdentity, TState> After { get; }
+
+    /// <summary>Whether this result changes what the stage holds, or the order it holds it in.</summary>
+    /// <remarks>
+    ///     Anything but an update does: an insert, a remove, a move, or a reset. A result carrying
+    ///     only updates leaves every key where it was, though its keys may still be a new version -
+    ///     a re-file that moved nothing builds one carrying the new sort value.
+    /// </remarks>
+    internal bool MovesKeys
+    {
+        get
+        {
+            if (this.IsReset)
+            {
+                return true;
+            }
+
+            // Indexed rather than enumerated, for the reason CollectionViewChange's projections are.
+            // ReSharper disable once ForCanBeConvertedToForeach
+            // ReSharper disable once LoopCanBeConvertedToQuery
+            for (int index = 0; index < this.Operations.Count; index++)
+            {
+                if (this.Operations[index] is not ViewUpdate<TKey>)
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+    }
 }

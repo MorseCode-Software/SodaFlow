@@ -48,7 +48,7 @@ internal static class CollectionViewUtility
 
             return new ViewStage<TKey, TIdentity, TState>(
                 source: collection,
-                keysCell: keysCell,
+                keysCell: PublishedKeys(resultsStream: resultsStream, stateKeysCell: keysCell),
                 // The root's ordering holds every key, so scoping it would wrap the store in a
                 // filter that admits all of it.
                 snapshotCell: () => collection.SnapshotCell,
@@ -361,7 +361,7 @@ internal static class CollectionViewUtility
 
             return new ViewStage<TKey, TIdentity, TState>(
                 source: upstream,
-                keysCell: keysCell,
+                keysCell: PublishedKeys(resultsStream: resultsStream, stateKeysCell: keysCell),
                 // The one above it behind this stage's keys, built only if something asks.
                 snapshotCell: () =>
                     TransactionInternal.RunImpl(() =>
@@ -384,6 +384,33 @@ internal static class CollectionViewUtility
                     operations: result.Operations,
                     isReset: result.IsReset))
             .FilterImpl(static change => change.IsReset || change.Operations.Count > 0);
+
+    /// <summary>
+    ///     The keys a stage shows the world, which move only when its membership or order does.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         Not the cell the stage loops its own state through. That one takes every result,
+    ///         because a re-file that moves nothing still builds a new version of the keys carrying
+    ///         the new sort value, and the next edit has to be filed against it.
+    ///     </para>
+    ///     <para>
+    ///         This one skips a result that only updates. Its keys have the same members in the same
+    ///         order as the version already held, so there is nothing for a consumer to react to -
+    ///         and a projection over them, a bound list or a count, would otherwise be rebuilt for
+    ///         every state edit that reached the stage. Starting from the loop cell's own value
+    ///         means the stage's keys are still built once at construction, not twice.
+    ///     </para>
+    /// </remarks>
+    private static Cell<OrderedKeys<TKey, TIdentity, TState>> PublishedKeys<TKey, TIdentity, TState>(
+        Stream<StageResult<TKey, TIdentity, TState>> resultsStream,
+        Cell<OrderedKeys<TKey, TIdentity, TState>> stateKeysCell)
+        where TKey : notnull
+        where TIdentity : notnull =>
+        resultsStream
+            .FilterImpl(static result => result.MovesKeys)
+            .MapImpl(static result => result.Keys)
+            .HoldLazyImpl(stateKeysCell.SampleLazyImpl());
 
     // --- root ---------------------------------------------------------------------------------
 

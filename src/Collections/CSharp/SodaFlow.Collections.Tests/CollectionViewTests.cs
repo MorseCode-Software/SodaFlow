@@ -1432,6 +1432,78 @@ public sealed class CollectionViewTests
     }
 
     [Test]
+    public async Task KeysCellMovesOnlyWhenMembershipOrOrderDoes()
+    {
+        StreamSink<CollectionEdit<int, ItemIdentity, ItemState>> edits =
+            Stream.CreateSink<CollectionEdit<int, ItemIdentity, ItemState>>();
+
+        ReactiveCollection<int, ItemIdentity, ItemState> collection =
+            Create(
+                edits: edits,
+                TestUtil.Item(number: 1, name: "one", score: 10),
+                TestUtil.Item(number: 2, name: "two", score: 20),
+                TestUtil.Item(number: 3, name: "three", score: 30),
+                TestUtil.Item(number: 4, name: "four", score: 40));
+
+        ReactiveCollection<int, ItemIdentity, ItemState> page =
+            collection
+                .Filter(static (_, state) => state.Score < 100)
+                .SortBy(static (_, state) => state.Score)
+                .Slice(offset: 0, limit: 3);
+
+        using MappedItems<string> rows = page.Map(static key => "row " + key);
+
+        int collectionUpdates = 0;
+        int pageUpdates = 0;
+        List<string> pageOperations = [];
+
+        IListener collectionListener = collection.KeysCell.Updates().ListenStrong(_ => collectionUpdates++);
+        IListener pageListener = page.KeysCell.Updates().ListenStrong(_ => pageUpdates++);
+
+        IListener operationsListener =
+            page.KeyChangesStream.ListenStrong(change => pageOperations.AddRange(change.Operations.Select(Describe)));
+
+        IReadOnlyList<string> before = rows.Items.Sample();
+
+        // A rename leaves the sort value alone, and a new score that stays between its neighbors
+        // re-files the key to where it already was. Both reach the page as updates and move nothing,
+        // so neither keys cell stirs and the projection hands back the list it already had.
+        edits.Send(TestUtil.Rename(key: 2, name: "renamed"));
+        edits.Send(TestUtil.Score(key: 2, score: 25));
+
+        await Assert.That(collectionUpdates).IsEqualTo(0);
+        await Assert.That(pageUpdates).IsEqualTo(0);
+        await Assert.That(ReferenceEquals(objA: rows.Items.Sample(), objB: before)).IsTrue();
+        await Assert.That(pageOperations).IsEquivalentTo(expected: ["ViewUpdate:2", "ViewUpdate:2"], ordering: CollectionOrdering.Matching);
+
+        // The sort still holds the score it did not publish: 3 is filed against 25, not 20, and so
+        // lands between 1 and 2.
+        edits.Send(TestUtil.Score(key: 3, score: 22));
+
+        await Assert.That(pageUpdates).IsEqualTo(1);
+        await Assert.That(KeysOf(page)).IsEquivalentTo(expected: [1, 3, 2], ordering: CollectionOrdering.Matching);
+
+        // Leaving the filter changes membership, and 4 enters the page behind it.
+        edits.Send(TestUtil.Score(key: 1, score: 500));
+
+        await Assert.That(pageUpdates).IsEqualTo(2);
+        await Assert.That(KeysOf(page)).IsEquivalentTo(expected: [3, 2, 4], ordering: CollectionOrdering.Matching);
+
+        // None of that touched the collection's own arrival order. An add does.
+        await Assert.That(collectionUpdates).IsEqualTo(0);
+
+        edits.Send(TestUtil.Add(TestUtil.Item(number: 5, name: "five", score: 5)));
+
+        await Assert.That(collectionUpdates).IsEqualTo(1);
+        await Assert.That(pageUpdates).IsEqualTo(3);
+        await Assert.That(KeysOf(page)).IsEquivalentTo(expected: [5, 3, 2], ordering: CollectionOrdering.Matching);
+
+        collectionListener.Unlisten();
+        pageListener.Unlisten();
+        operationsListener.Unlisten();
+    }
+
+    [Test]
     public async Task MapKeepsWhatIsInViewHoweverSmallTheBound()
     {
         StreamSink<CollectionEdit<int, ItemIdentity, ItemState>> edits =

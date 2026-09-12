@@ -67,6 +67,11 @@ public abstract class ReactiveCollection<TKey, TIdentity, TState>
     }
 
     /// <summary>This collection's keys, in order.</summary>
+    /// <remarks>
+    ///     Moves only when this collection's membership or order does. A state edit that re-files
+    ///     nothing reaches <see cref="KeyChangesStream" /> as an update and leaves this alone, so a
+    ///     list projected from it is not rebuilt for an edit that moved no row.
+    /// </remarks>
     public abstract Cell<OrderedKeys<TKey, TIdentity, TState>> KeysCell { get; }
 
     /// <summary>
