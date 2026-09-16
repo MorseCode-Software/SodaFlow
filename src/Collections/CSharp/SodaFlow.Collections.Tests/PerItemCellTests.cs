@@ -1,4 +1,4 @@
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.Threading.Tasks;
 using SodaFlow.Functional;
 using TUnit.Assertions;
@@ -183,5 +183,82 @@ public sealed class PerItemCellTests
 
         await Assert.That(keys.IndexOf(9).Match(onSome: static _ => "some", onNone: static () => "none"))
             .IsEqualTo("none");
+    }
+
+    /// <summary>
+    ///     A state edit that also re-files the row. The stage reports the re-file as a move alone,
+    ///     so a per-item cell that skipped moves would never hear the new value — the row would
+    ///     slide to its new position still showing the old one.
+    /// </summary>
+    [Test]
+    public async Task StateCellOnASortedViewSeesAnUpdateThatMovesItsRow()
+    {
+        StreamSink<CollectionEdit<int, ItemIdentity, ItemState>> edits =
+            Stream.CreateSink<CollectionEdit<int, ItemIdentity, ItemState>>();
+
+        ReactiveCollection<int, ItemIdentity, ItemState> collection =
+            Create(
+                edits: edits,
+                TestUtil.Item(number: 1, name: "one", score: 10),
+                TestUtil.Item(number: 2, name: "two", score: 20),
+                TestUtil.Item(number: 3, name: "three", score: 30));
+
+        ReactiveCollection<int, ItemIdentity, ItemState> byScore =
+            collection.SortBy(static (_, state) => state.Score);
+
+        List<int> scores = [];
+
+        IListener l =
+            byScore.StateCell(1)
+                .ListenStrong(state => scores.Add(state.Match(onSome: static s => s.Score, onNone: static () => -1)));
+
+        // 10 -> 99 sends key 1 from the front of the view to the back.
+        edits.Send(TestUtil.Score(key: 1, score: 99));
+
+        l.Unlisten();
+
+        await Assert.That(TestUtil.Keys(byScore.KeysCell.Sample()))
+            .IsEquivalentTo(expected: [2, 3, 1], ordering: CollectionOrdering.Matching);
+
+        await Assert.That(scores).IsEquivalentTo(expected: [10, 99], ordering: CollectionOrdering.Matching);
+    }
+
+    /// <summary>
+    ///     The same, one stage further down: the filter hears the move from the sort above it and
+    ///     re-files under the same order, so its own change is a move alone as well.
+    /// </summary>
+    [Test]
+    public async Task StateCellOnAFilterOverASortedViewSeesAnUpdateThatMovesItsRow()
+    {
+        StreamSink<CollectionEdit<int, ItemIdentity, ItemState>> edits =
+            Stream.CreateSink<CollectionEdit<int, ItemIdentity, ItemState>>();
+
+        ReactiveCollection<int, ItemIdentity, ItemState> collection =
+            Create(
+                edits: edits,
+                TestUtil.Item(number: 1, name: "one", score: 10),
+                TestUtil.Item(number: 2, name: "two", score: 20),
+                TestUtil.Item(number: 3, name: "three", score: 30));
+
+        // Every item passes, so the filter holds the sort's whole list and mirrors its moves.
+        ReactiveCollection<int, ItemIdentity, ItemState> passing =
+            collection
+                .SortBy(static (_, state) => state.Score)
+                .Filter(static (_, state) => state.Score > 0);
+
+        List<int> scores = [];
+
+        IListener l =
+            passing.StateCell(1)
+                .ListenStrong(state => scores.Add(state.Match(onSome: static s => s.Score, onNone: static () => -1)));
+
+        edits.Send(TestUtil.Score(key: 1, score: 99));
+
+        l.Unlisten();
+
+        await Assert.That(TestUtil.Keys(passing.KeysCell.Sample()))
+            .IsEquivalentTo(expected: [2, 3, 1], ordering: CollectionOrdering.Matching);
+
+        await Assert.That(scores).IsEquivalentTo(expected: [10, 99], ordering: CollectionOrdering.Matching);
     }
 }
