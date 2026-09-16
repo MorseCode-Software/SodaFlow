@@ -739,8 +739,10 @@ internal sealed class SortedKeys<TKey, TIdentity, TState, TSortKey> : OrderedKey
         TKey key,
         CollectionSnapshot<TKey, TIdentity, TState> snapshot)
     {
-        //TODO: JAM: do we need Try here if we assume (and have tests to ensure) the invariant holds that keys and
-        //snapshots are always kept in sync for a sort?  Wouldn't this be an error?
+        // A key the snapshot does not have is left out rather than thrown on. The stages that can
+        // only be handed a key the snapshot has check for that themselves - an insert that did not
+        // receive an index, a re-file that did not land - and a key set on its own has no way to
+        // know which caller it has.
         if (!this.order.TryProject(key: key, snapshot: snapshot, sortValue: out TSortKey sortValue))
         {
             return this;

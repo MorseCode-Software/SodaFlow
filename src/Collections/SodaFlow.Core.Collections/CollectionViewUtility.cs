@@ -909,7 +909,8 @@ internal static class CollectionViewUtility
         {
             int index = keys.IndexOfInternal(key);
 
-            //TODO: shouldn't this be an error if it is not found?
+            // Not an error when absent: an upstream remove names every key leaving the stage above,
+            // including the ones this filter never admitted.
             if (index >= 0)
             {
                 operations.Add(new ViewRemove<TKey>(key: key, index: index));
@@ -1056,7 +1057,7 @@ internal static class CollectionViewUtility
                 {
                     int updated = keys.IndexOfInternal(update.Key);
 
-                    //TODO: JAM: should this be an error if the index is not found?
+                    // Absent means the predicate never admitted the key, which an update cannot change.
                     if (updated >= 0)
                     {
                         operations.Add(new ViewUpdate<TKey>(key: update.Key, index: updated));
@@ -1076,7 +1077,7 @@ internal static class CollectionViewUtility
                 {
                     int updated = keys.IndexOfInternal(move.Key);
 
-                    //TODO: JAM: should this be an error if the key is not found?
+                    // Absent means the predicate never admitted the key, which a move cannot change.
                     if (updated >= 0)
                     {
                         operations.Add(new ViewMove<TKey>(key: move.Key, fromIndex: move.FromIndex, toIndex: updated));
@@ -1168,11 +1169,14 @@ internal static class CollectionViewUtility
 
                 int index = keys.IndexOfInternal(update.Key);
 
-                //TODO: JAM: should it be an error if the key isn't found here?
-                if (index >= 0)
+                // A sort holds every key its upstream holds, so an update it cannot find is a fault
+                // upstream rather than a key it chose to leave out.
+                if (index < 0)
                 {
-                    operations.Add(new ViewUpdate<TKey>(key: update.Key, index: index));
+                    throw new InvalidOperationException("A sort can only hear an update for a key it holds.");
                 }
+
+                operations.Add(new ViewUpdate<TKey>(key: update.Key, index: index));
             }
 
             return MaybeInternal.Some(
@@ -1219,22 +1223,25 @@ internal static class CollectionViewUtility
                 {
                     int index = keys.IndexOfInternal(remove.Key);
 
-                    //TODO: JAM: should it be an error if the key isn't found here?
-                    if (index >= 0)
+                    // As for an update: a sort holds every key its upstream held, so one it cannot
+                    // find to remove is a fault upstream.
+                    if (index < 0)
                     {
-                        operations.Add(new ViewRemove<TKey>(key: remove.Key, index: index));
-                        movesKeys = true;
-                        changesMembership = true;
-
-                        if (!OperationAddedWasValid(
-                                numberOfOperations: ref numberOfOperations,
-                                maxNumberOfOperations: maxNumberOfOperations))
-                        {
-                            return MaybeInternal<StageOutcome<TKey, TIdentity, TState>>.None;
-                        }
-
-                        keys = keys.Remove(remove.Key);
+                        throw new InvalidOperationException("A sort can only hear a remove for a key it holds.");
                     }
+
+                    operations.Add(new ViewRemove<TKey>(key: remove.Key, index: index));
+                    movesKeys = true;
+                    changesMembership = true;
+
+                    if (!OperationAddedWasValid(
+                            numberOfOperations: ref numberOfOperations,
+                            maxNumberOfOperations: maxNumberOfOperations))
+                    {
+                        return MaybeInternal<StageOutcome<TKey, TIdentity, TState>>.None;
+                    }
+
+                    keys = keys.Remove(remove.Key);
 
                     break;
                 }
