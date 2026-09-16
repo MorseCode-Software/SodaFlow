@@ -47,6 +47,7 @@
         <Compile Include="CollectionViewTests.cs"/>
         <Compile Include="KeyEqualityComparerTests.cs"/>
         <Compile Include="PerItemCellTests.cs"/>
+        <Compile Include="SortOrderChangeTests.cs"/>
         <Compile Include="TestUtil.cs"/>
     </ItemGroup>
 
