@@ -930,24 +930,14 @@ internal static class CollectionViewUtility
 
             if (was)
             {
-                if(now)
+                if (now)
                 {
-                    if (Refile(
-                            keys: ref keys,
-                            operations: operations,
-                            key: key,
-                            snapshot: change.After,
-                            wasMoved: out bool wasMoved))
+                    if (Refile(keys: ref keys, operations: operations, key: key, snapshot: change.After))
                     {
-                        if (wasMoved)
-                        {
-                            movesKeys = true;
-                        }
-
-                        return true;
+                        movesKeys = true;
                     }
 
-                    return false;
+                    return true;
                 }
 
                 if (Exclude(key))
@@ -1198,8 +1188,6 @@ internal static class CollectionViewUtility
 
         foreach (ViewOperation<TKey> operation in change.Operations)
         {
-            bool wasMoved;
-
             switch (operation)
             {
                 case ViewInsert<TKey> insert:
@@ -1252,47 +1240,31 @@ internal static class CollectionViewUtility
                 }
 
                 case ViewUpdate<TKey> update:
-                    if (Refile(
-                            keys: ref keys,
-                            operations: operations,
-                            key: update.Key,
-                            snapshot: change.After,
-                            wasMoved: out wasMoved))
+                    if (Refile(keys: ref keys, operations: operations, key: update.Key, snapshot: change.After))
                     {
-                        if (wasMoved)
-                        {
-                            movesKeys = true;
-                        }
+                        movesKeys = true;
+                    }
 
-                        if (!OperationAddedWasValid(
-                                numberOfOperations: ref numberOfOperations,
-                                maxNumberOfOperations: maxNumberOfOperations))
-                        {
-                            return MaybeInternal<StageOutcome<TKey, TIdentity, TState>>.None;
-                        }
+                    if (!OperationAddedWasValid(
+                            numberOfOperations: ref numberOfOperations,
+                            maxNumberOfOperations: maxNumberOfOperations))
+                    {
+                        return MaybeInternal<StageOutcome<TKey, TIdentity, TState>>.None;
                     }
 
                     break;
 
                 case ViewMove<TKey> move:
-                    if (Refile(
-                            keys: ref keys,
-                            operations: operations,
-                            key: move.Key,
-                            snapshot: change.After,
-                            wasMoved: out wasMoved))
+                    if (Refile(keys: ref keys, operations: operations, key: move.Key, snapshot: change.After))
                     {
-                        if (wasMoved)
-                        {
-                            movesKeys = true;
-                        }
+                        movesKeys = true;
+                    }
 
-                        if (!OperationAddedWasValid(
-                                numberOfOperations: ref numberOfOperations,
-                                maxNumberOfOperations: maxNumberOfOperations))
-                        {
-                            return MaybeInternal<StageOutcome<TKey, TIdentity, TState>>.None;
-                        }
+                    if (!OperationAddedWasValid(
+                            numberOfOperations: ref numberOfOperations,
+                            maxNumberOfOperations: maxNumberOfOperations))
+                    {
+                        return MaybeInternal<StageOutcome<TKey, TIdentity, TState>>.None;
                     }
 
                     break;
@@ -1471,67 +1443,71 @@ internal static class CollectionViewUtility
         predicate(arg1: identity, arg2: state);
 
     /// <summary>
-    ///     Removes and re-adds a key so it is filed under its new sort value, reporting a move if
-    ///     that changed its position and an update either way.
+    ///     Files a key the stage holds under its new sort value, reporting one operation: a move if
+    ///     that changed its position, and an update if it did not.
     /// </summary>
+    /// <returns>Whether the key moved.</returns>
     /// <remarks>
-    ///     Unless the order cannot have moved it, in which case the removing and re-adding is four
-    ///     tree operations that put the key back where it already was. Both callers reach this on
-    ///     every state edit that touches a key they hold, so that is the incremental path, and an
-    ///     order projecting its sort value from the key or the identity - the root's, and any
-    ///     filter sitting directly on it - can never move a key on a state edit.
-    ///     The snapshot is still consulted, because a key the snapshot has dropped does have to
-    ///     leave the set, and one lookup is cheaper than the four operations it replaces.
+    ///     <para>
+    ///         A move is reported alone, with no update beside it. The move is the re-file, and what
+    ///         moved the key is its new value, so a consumer or a stage below treats it as an update
+    ///         that also moved.
+    ///     </para>
+    ///     <para>
+    ///         An order that cannot move a key on a state edit skips the removing and re-adding, which
+    ///         would be four tree operations to put the key back where it already was. Both callers
+    ///         reach this on every state edit that touches a key they hold, so that is the incremental
+    ///         path, and an order projecting its sort value from the key or the identity - the root's,
+    ///         and any filter sitting directly on it - can never move a key on a state edit.
+    ///     </para>
+    ///     <para>
+    ///         The key has to be one the stage holds and one the snapshot still has. Both callers only
+    ///         re-file keys they hold, for operations naming keys the snapshot has, so either failing
+    ///         is a fault upstream, and it throws rather than reporting an operation at no position.
+    ///     </para>
     /// </remarks>
     private static bool Refile<TKey, TIdentity, TState>(
         ref OrderedKeys<TKey, TIdentity, TState> keys,
         ICollection<ViewOperation<TKey>> operations,
         TKey key,
-        CollectionSnapshot<TKey, TIdentity, TState> snapshot,
-        out bool wasMoved)
+        CollectionSnapshot<TKey, TIdentity, TState> snapshot)
         where TKey : notnull
         where TIdentity : notnull
     {
-        wasMoved = false;
-
         int fromIndex = keys.IndexOfInternal(key);
 
         if (fromIndex < 0)
         {
-            throw new InvalidOperationException(
-                "Refile must only be called on elements that are currently in the collection.");
+            throw new InvalidOperationException("A stage can only re-file a key it holds.");
         }
 
         if (!keys.Order.DependsOnState)
         {
             operations.Add(new ViewUpdate<TKey>(key: key, index: fromIndex));
 
-            return true;
+            return false;
         }
 
         OrderedKeys<TKey, TIdentity, TState> updated = keys.Remove(key).Add(key: key, snapshot: snapshot);
         int toIndex = updated.IndexOfInternal(key);
 
-        keys = updated;
-
         if (toIndex < 0)
         {
-            throw new InvalidOperationException(
-                "Refile must only be called on elements which are remaining in the collection.");
+            throw new InvalidOperationException("A stage can only re-file a key the snapshot still holds.");
         }
+
+        keys = updated;
 
         if (fromIndex != toIndex)
         {
             operations.Add(new ViewMove<TKey>(key: key, fromIndex: fromIndex, toIndex: toIndex));
-
-            wasMoved = true;
 
             return true;
         }
 
         operations.Add(new ViewUpdate<TKey>(key: key, index: toIndex));
 
-        return true;
+        return false;
     }
 
     #endregion

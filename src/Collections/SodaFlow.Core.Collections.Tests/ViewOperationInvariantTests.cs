@@ -26,11 +26,12 @@ namespace SodaFlow.Collections.Tests;
 ///         understates what happened leaves a stale list published, or throws one stage down.
 ///     </para>
 ///     <para>
-///         The branches of the re-file these guard - a key it cannot find, and a key the snapshot
-///         has dropped - are not reachable through the public surface today: a stage only re-files
-///         keys it holds, and only for operations naming keys the snapshot still has. These hold
-///         the invariant for whatever makes them reachable later, and they pass on both sides of
-///         the fix.
+///         A re-file throws on the two cases that would break either promise - a key the stage does
+///         not hold, and a key the snapshot has dropped - rather than reporting an operation at no
+///         position. Neither is reachable through the public surface today, since a stage only
+///         re-files keys it holds and only for operations naming keys the snapshot still has, so
+///         these run every shape of stage through a mix of edits to keep it that way: an edit that
+///         reached either would throw out of <c>Send</c> and fail them.
 ///     </para>
 /// </remarks>
 public sealed class ViewOperationInvariantTests
