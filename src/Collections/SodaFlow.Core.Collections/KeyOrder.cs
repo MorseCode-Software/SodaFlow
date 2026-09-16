@@ -61,8 +61,29 @@ public abstract class KeyOrder<TKey, TIdentity, TState>
     /// </remarks>
     internal abstract bool DependsOnState { get; }
 
+    /// <summary>Whether <paramref name="other" /> is known to order keys exactly as this does.</summary>
+    /// <param name="other">The order to compare with.</param>
+    /// <returns>
+    ///     True only when that is certain. False means not known to be, rather than known not to be.
+    /// </returns>
+    /// <remarks>
+    ///     What lets a sort stage handed a new order that is really the one it holds report nothing.
+    ///     A false negative costs a rebuild; a false positive leaves a list filed under the wrong
+    ///     order, so an implementation that cannot tell has to answer false.
+    /// </remarks>
     internal abstract bool IsEquivalentTo(KeyOrder<TKey, TIdentity, TState> other);
 
+    /// <summary>
+    ///     The keys filed under this order, if this order is theirs run the other way and they can be
+    ///     turned around rather than filed again.
+    /// </summary>
+    /// <param name="keys">Keys filed under some order, possibly this one reversed.</param>
+    /// <param name="reversedKeys">The same keys filed under this order, when this returns true.</param>
+    /// <returns>Whether the keys could be reversed.</returns>
+    /// <remarks>
+    ///     The same bargain as <see cref="IsEquivalentTo" />: answer false unless certain, because the
+    ///     caller rebuilds on false and trusts the list on true.
+    /// </remarks>
     internal abstract bool TryReverse(
         OrderedKeys<TKey, TIdentity, TState> keys,
         [NotNullWhen(true)]

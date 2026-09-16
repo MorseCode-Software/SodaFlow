@@ -310,7 +310,6 @@ internal sealed class ArrivalOrder<TKey, TIdentity, TState> : ProjectedKeyOrder<
     internal override bool DependsOnState => false;
 
     /// <inheritdoc />
-    /// <inheritdoc />
     internal override bool IsEquivalentTo(KeyOrder<TKey, TIdentity, TState> other) =>
         other is ArrivalOrder<TKey, TIdentity, TState> otherTyped
         && ReferenceEquals(objA: this.KeyEqualityComparer, objB: otherTyped.KeyEqualityComparer);
@@ -406,17 +405,30 @@ internal sealed class SortKeyOrder<TKey, TIdentity, TState, TSortKey>
     /// </summary>
     private readonly Func<TKey, TIdentity, TState, TSortKey>? selector;
 
+    /// <summary>
+    ///     The selector as the caller handed it over, before it was adapted to the shape stored
+    ///     above, or null for an order that has no single one to point at.
+    /// </summary>
+    /// <remarks>
+    ///     What <see cref="IsEquivalentTo" /> and <see cref="TryReverse" /> tell two orders apart by.
+    ///     The adapted selector is a new delegate every time an order is built, so it would never
+    ///     match; the caller's own is the same instance whenever the caller's code builds the order
+    ///     from the same lambda. A combined order has none, and is never taken for another.
+    /// </remarks>
     private readonly object? originalSelectorReference;
 
     /// <summary>Creates an order whose sort value is projected from the whole item.</summary>
     /// <param name="selector">Projects the sort value from a key and its item.</param>
-    /// <param name="originalSelectorReference">The original selector passed in from the user.</param>
+    /// <param name="originalSelectorReference">
+    ///     The selector as the caller handed it over, which is what orders are compared by.
+    /// </param>
     /// <param name="sortComparer">Compares two projected sort values.</param>
     /// <param name="keyComparer">Breaks ties, so that the order is total.</param>
     /// <param name="isDescending">Whether to reverse the sort comparison.</param>
     /// <remarks>
-    /// The original selector reference should be preserved as fair back as possible into the
-    /// user's code as it is later used to check equality by reference of selectors.
+    ///     Pass the reference from as close to the caller's own code as possible - the delegate
+    ///     they wrote, not one adapted from it - because two orders are recognised as the same
+    ///     order only when these are the same instance.
     /// </remarks>
     public SortKeyOrder(
         Func<TKey, TIdentity, TState, TSortKey> selector,
@@ -441,19 +453,21 @@ internal sealed class SortKeyOrder<TKey, TIdentity, TState, TSortKey>
     ///     alone, neither of which a state edit can touch.
     /// </summary>
     /// <param name="selector">Projects the sort value from a key and its identity.</param>
-    /// /// <param name="originalSelectorReference">The original selector passed in from the user.</param>
+    /// <param name="originalSelectorReference">
+    ///     The selector as the caller handed it over, which is what orders are compared by.
+    /// </param>
     /// <param name="sortComparer">Compares two projected sort values.</param>
     /// <param name="keyComparer">Breaks ties, so that the order is total.</param>
     /// <param name="isDescending">Whether to reverse the sort comparison.</param>
     /// <remarks>
-    /// <para>
-    ///     What this buys is in <see cref="DependsOnState" />: a stage under this order skips
-    ///     re-filing a key on a state edit, and building one skips reading the state map at all.
-    /// </para>
-    /// <para>
-    /// The original selector reference should be preserved as fair back as possible into the
-    /// user's code as it is later used to check equality by reference of selectors.
-    /// </para>
+    ///     <para>
+    ///         What this buys is in <see cref="DependsOnState" />: a stage under this order skips
+    ///         re-filing a key on a state edit, and building one skips reading the state map at all.
+    ///     </para>
+    ///     <para>
+    ///         Pass the reference from as close to the caller's own code as possible, for the reason
+    ///         the other constructor gives.
+    ///     </para>
     /// </remarks>
     public SortKeyOrder(
         Func<TKey, TIdentity, TSortKey> selector,
@@ -490,11 +504,23 @@ internal sealed class SortKeyOrder<TKey, TIdentity, TState, TSortKey>
     /// <inheritdoc />
     internal override bool DependsOnState => this.identitySelector is null;
 
-    private bool CompareWith(KeyOrder<TKey, TIdentity, TState> other, [NotNullWhen(true)] out bool? isDescendingEqual)
+    /// <summary>
+    ///     Whether <paramref name="other" /> sorts by the same value with the same comparers, whichever
+    ///     direction either runs in.
+    /// </summary>
+    /// <param name="other">The order to compare with.</param>
+    /// <param name="isSameDirection">Whether the two run the same way; meaningful only on a match.</param>
+    /// <returns>Whether the two differ, if at all, only in direction.</returns>
+    /// <remarks>
+    ///     By reference throughout. Two orders built from equal but distinct comparers, or from two
+    ///     lambdas that happen to read the same field, are not recognised - which costs a rebuild the
+    ///     stage could have skipped, and never a list filed under the wrong order.
+    /// </remarks>
+    private bool SortsTheSameValueAs(KeyOrder<TKey, TIdentity, TState> other, out bool isSameDirection)
     {
         if (other is SortKeyOrder<TKey, TIdentity, TState, TSortKey> otherTyped)
         {
-            isDescendingEqual = this.EntryComparer.IsDescending == otherTyped.EntryComparer.IsDescending;
+            isSameDirection = this.EntryComparer.IsDescending == otherTyped.EntryComparer.IsDescending;
 
             return ReferenceEquals(objA: this.KeyEqualityComparer, objB: otherTyped.KeyEqualityComparer)
                    && ReferenceEquals(objA: this.EntryComparer.KeyComparer, objB: otherTyped.EntryComparer.KeyComparer)
@@ -506,14 +532,14 @@ internal sealed class SortKeyOrder<TKey, TIdentity, TState, TSortKey>
                    && ReferenceEquals(objA: this.originalSelectorReference, objB: otherTyped.originalSelectorReference);
         }
 
-        isDescendingEqual = null;
+        isSameDirection = false;
+
         return false;
     }
 
     /// <inheritdoc />
     internal override bool IsEquivalentTo(KeyOrder<TKey, TIdentity, TState> other) =>
-        this.CompareWith(other: other, isDescendingEqual: out bool? isDescendingEqual) &&
-        isDescendingEqual.Value;
+        this.SortsTheSameValueAs(other: other, isSameDirection: out bool isSameDirection) && isSameDirection;
 
     /// <inheritdoc />
     internal override bool TryReverse(
@@ -521,8 +547,8 @@ internal sealed class SortKeyOrder<TKey, TIdentity, TState, TSortKey>
         [NotNullWhen(true)]
         out OrderedKeys<TKey, TIdentity, TState>? reversedKeys)
     {
-        if (this.CompareWith(other: keys.Order, isDescendingEqual: out bool? isDescendingEqual)
-            && !isDescendingEqual.Value
+        if (this.SortsTheSameValueAs(other: keys.Order, isSameDirection: out bool isSameDirection)
+            && !isSameDirection
             && keys is SortedKeys<TKey, TIdentity, TState, TSortKey> sortedKeys)
         {
             reversedKeys = sortedKeys.Reverse(this);
