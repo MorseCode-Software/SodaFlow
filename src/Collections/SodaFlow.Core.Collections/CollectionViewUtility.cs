@@ -205,8 +205,8 @@ internal static class CollectionViewUtility
     ///         reset, except where the new order is one it can answer without filing anything again -
     ///         the order it already holds, which is no change at all, or that order run the other
     ///         way, which turns the list it has around. A stage below re-files under whichever it
-    ///         ends up with without being told anything, because a filter builds from its upstream's
-    ///         own order whatever that has become.
+    ///         ends up with without being told anything, because a filter builds from its upstream
+    ///         collection's own order whatever that has become.
     ///     </para>
     /// </remarks>
     internal static ReactiveCollection<TKey, TIdentity, TState> SortByImpl<TKey, TIdentity, TState>(
@@ -937,17 +937,11 @@ internal static class CollectionViewUtility
                             operations: operations,
                             key: key,
                             snapshot: change.After,
-                            wasMoved: out bool wasMoved,
-                            wasMembershipChanged: out bool wasMembershipChanged))
+                            wasMoved: out bool wasMoved))
                     {
                         if (wasMoved)
                         {
                             movesKeys = true;
-                        }
-
-                        if (wasMembershipChanged)
-                        {
-                            changesMembership = true;
                         }
 
                         return true;
@@ -1205,7 +1199,6 @@ internal static class CollectionViewUtility
         foreach (ViewOperation<TKey> operation in change.Operations)
         {
             bool wasMoved;
-            bool wasMembershipChanged;
 
             switch (operation)
             {
@@ -1264,17 +1257,11 @@ internal static class CollectionViewUtility
                             operations: operations,
                             key: update.Key,
                             snapshot: change.After,
-                            wasMoved: out wasMoved,
-                            wasMembershipChanged: out wasMembershipChanged))
+                            wasMoved: out wasMoved))
                     {
                         if (wasMoved)
                         {
                             movesKeys = true;
-                        }
-
-                        if (wasMembershipChanged)
-                        {
-                            changesMembership = true;
                         }
 
                         if (!OperationAddedWasValid(
@@ -1293,17 +1280,11 @@ internal static class CollectionViewUtility
                             operations: operations,
                             key: move.Key,
                             snapshot: change.After,
-                            wasMoved: out wasMoved,
-                            wasMembershipChanged: out wasMembershipChanged))
+                            wasMoved: out wasMoved))
                     {
                         if (wasMoved)
                         {
                             movesKeys = true;
-                        }
-
-                        if (wasMembershipChanged)
-                        {
-                            changesMembership = true;
                         }
 
                         if (!OperationAddedWasValid(
@@ -1507,30 +1488,23 @@ internal static class CollectionViewUtility
         ICollection<ViewOperation<TKey>> operations,
         TKey key,
         CollectionSnapshot<TKey, TIdentity, TState> snapshot,
-        out bool wasMoved,
-        out bool wasMembershipChanged /* TODO: JAM: If we consider this to be an error above, we can remove this. */)
+        out bool wasMoved)
         where TKey : notnull
         where TIdentity : notnull
     {
         wasMoved = false;
-        wasMembershipChanged = false;
 
         int fromIndex = keys.IndexOfInternal(key);
 
         if (fromIndex < 0)
         {
-            //TODO: JAM: should we throw an exception here or could this be valid?  It seems as if we only call Refile
-            //when the key already exists
+            throw new InvalidOperationException(
+                "Refile must only be called on elements that are currently in the collection.");
         }
 
-        //TODO: JAM: why do we need to check snapshot here?
-        if (!keys.Order.DependsOnState && snapshot.ContainsKey(key))
+        if (!keys.Order.DependsOnState)
         {
-            //TODO: JAM: is this check needed or can we assume fromIndex is always valid?
-            if (fromIndex >= 0)
-            {
-                operations.Add(new ViewUpdate<TKey>(key: key, index: fromIndex));
-            }
+            operations.Add(new ViewUpdate<TKey>(key: key, index: fromIndex));
 
             return true;
         }
@@ -1540,35 +1514,10 @@ internal static class CollectionViewUtility
 
         keys = updated;
 
-        //TODO: JAM: Is this possible?  It looks like we only call Refile when the item was in the collection and will
-        //be staying in it.
         if (toIndex < 0)
         {
-            // Gone from the set entirely, which a re-file can do when the snapshot no longer has
-            // the item.
-            //TODO: JAM: why wouldn't the snapshot have the item here?
-            if (fromIndex >= 0)
-            {
-                operations.Add(new ViewRemove<TKey>(key: key, index: fromIndex));
-
-                wasMoved = true;
-                wasMembershipChanged = true;
-
-                return true;
-            }
-
-            return false;
-        }
-
-        //TODO: If we consider this to be an error above, we can remove this.
-        if (fromIndex < 0)
-        {
-            operations.Add(new ViewInsert<TKey>(key: key, index: toIndex));
-
-            wasMoved = true;
-            wasMembershipChanged = true;
-
-            return true;
+            throw new InvalidOperationException(
+                "Refile must only be called on elements which are remaining in the collection.");
         }
 
         if (fromIndex != toIndex)
