@@ -26,13 +26,13 @@ internal sealed record AccountIdentity(int Number, string Holder) : IIdentity<in
 /// <param name="Balance">The balance, in cents, so the sample never shows a rounding artifact.</param>
 /// <param name="IsFrozen">Whether the account is frozen, which the view filters on.</param>
 // ReSharper disable once InheritdocConsiderUsage
-internal sealed record AccountState(long Balance, bool IsFrozen, bool IsShowing);
+internal sealed record AccountState(long Balance, bool IsFrozen);
 
 /// <summary>The accounts this sample starts with.</summary>
 /// <remarks>
 ///     <para>
 ///         A hundred thousand of them behind a page of six, which is the shape the collection is
-///         built for: almost all of the items are not being looked at, and an edit should cost what
+///         built for: almost all the items are not being looked at, and an edit should cost what
 ///         the rows on screen cost rather than what the collection holds.
 ///     </para>
 ///     <para>
@@ -43,10 +43,10 @@ internal sealed record AccountState(long Balance, bool IsFrozen, bool IsShowing)
 internal static class AccountSeed
 {
     /// <summary>How many accounts there are.</summary>
-    private const int Count = 1_000_000;
+    private const int Count = 100_000;
 
     /// <summary>The first account number, so that every number on screen is six digits wide.</summary>
-    private const int FirstNumber = 1_000_000;
+    private const int FirstNumber = 100_000;
 
     /// <summary>The largest opening balance, in cents: fifty thousand dollars.</summary>
     private const uint MaximumBalance = 50_000_00;
@@ -87,7 +87,7 @@ internal static class AccountSeed
         // account in four, which is how many start frozen.
         return new Item<AccountIdentity, AccountState>(
             new AccountIdentity(FirstNumber + index, holder),
-            new AccountState(forState % MaximumBalance + 1, forState >> 29 == 0, forState >> 29 != 0));
+            new AccountState(forState % MaximumBalance + 1, forState >> 30 == 0));
     }
 
     /// <summary>A cheap, fixed hash, so the seed is the same on every run and every runtime.</summary>

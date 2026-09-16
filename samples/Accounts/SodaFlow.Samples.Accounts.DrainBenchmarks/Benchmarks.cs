@@ -164,3 +164,51 @@ public class ToggleFrozenBenchmarks
         this.viewModel = null;
     }
 }
+
+/// <summary>One click of Drain frozen accounts, on a view model nobody has drained yet.</summary>
+/// <remarks>
+///     A drain empties every frozen account, so it cannot be repeated on the same view model: each
+///     iteration builds a fresh one first, outside the measurement, and checks afterwards that the
+///     drain really happened.
+/// </remarks>
+[MemoryDiagnoser]
+[InvocationCount(1)]
+[WarmupCount(3)]
+[IterationCount(20)]
+public class ToggleBalanceSortBenchmarks
+{
+    private IAccountsViewModel? viewModel;
+    private IListener? listener;
+
+    //[Params(ViewModels.OptimizedDrain, ViewModels.TunedSet)]
+    public string ViewModel { get; set; } = ViewModels.TunedSet;
+
+    [IterationSetup]
+    public void Setup()
+    {
+        this.viewModel = ViewModels.Create(this.ViewModel);
+        AutoResetEvent e = new(false);
+        this.listener = this.viewModel!.Rows.Cell.Updates().Listen(_ => e.Set());
+        this.viewModel!.SortByBalance.Execute(null);
+        e.WaitOne();
+    }
+
+    [Benchmark]
+    public void ToggleSort()
+    {
+        AutoResetEvent e = new(false);
+        this.listener = this.viewModel!.Rows.Cell.Updates().Listen(_ => e.Set());
+        this.viewModel!.SortByBalance.Execute(null);
+        e.WaitOne();
+    }
+
+    [IterationCleanup]
+    public void Cleanup()
+    {
+        this.listener!.Unlisten();
+        this.listener = null;
+
+        this.viewModel!.Dispose();
+        this.viewModel = null;
+    }
+}
