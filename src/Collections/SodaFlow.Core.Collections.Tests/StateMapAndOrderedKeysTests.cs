@@ -116,6 +116,39 @@ public sealed class OrderedKeysTests
         await Assert.That(stateFirst.DependsOnState).IsTrue();
     }
 
+    /// <summary>
+    ///     A stage handed an order it already holds does nothing, and one it holds run the other way
+    ///     turns its list around - but only if it can tell. Orders are told apart by the selector and
+    ///     comparer instances they were built from, so a factory has to hand out the same selector
+    ///     every time it is called.
+    /// </summary>
+    [Test]
+    public async Task OrdersBuiltTheSameWayAreRecognisedAsTheSameOrder()
+    {
+        IComparer<int> keyComparer = Comparer<int>.Default;
+
+        await Assert.That(
+                KeyOrder<int, ItemIdentity, ItemState>.ByKey(keyComparer)
+                    .IsEquivalentTo(KeyOrder<int, ItemIdentity, ItemState>.ByKey(keyComparer)))
+            .IsTrue();
+
+        await Assert.That(
+                KeyOrder<int, ItemIdentity, ItemState>.ByArrival()
+                    .IsEquivalentTo(KeyOrder<int, ItemIdentity, ItemState>.ByArrival()))
+            .IsTrue();
+
+        await Assert.That(ByScore(isDescending: false).IsEquivalentTo(ByScore(isDescending: false))).IsTrue();
+
+        // The same selector run the other way is not the same order, and a different comparer
+        // instance is not taken on trust.
+        await Assert.That(ByScore(isDescending: false).IsEquivalentTo(ByScore(isDescending: true))).IsFalse();
+
+        await Assert.That(
+                KeyOrder<int, ItemIdentity, ItemState>.ByKey(keyComparer)
+                    .IsEquivalentTo(KeyOrder<int, ItemIdentity, ItemState>.ByKey(Comparer<int>.Create(static (x, y) => x.CompareTo(y)))))
+            .IsFalse();
+    }
+
     [Test]
     public async Task KeysComeBackInSortOrderAndIndexOfAgrees()
     {

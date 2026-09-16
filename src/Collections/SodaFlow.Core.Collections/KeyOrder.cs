@@ -173,15 +173,19 @@ public abstract class KeyOrder<TKey, TIdentity, TState>
     /// <summary>Orders by key, over any stage.</summary>
     /// <param name="keyComparer">The comparer to order keys by.</param>
     /// <returns>The order.</returns>
+    /// <remarks>
+    ///     The selector is a lambda rather than a method group so that every order built here shares
+    ///     one delegate instance, which is what lets two of them over the same comparer be recognised
+    ///     as the same order. A lambda that captures nothing is cached by the compiler; a method
+    ///     group is only cached from C# 11, and this assembly also compiles at C# 10.
+    /// </remarks>
     public static KeyOrder<TKey, TIdentity, TState> ByKey(IComparer<TKey> keyComparer)
     {
-        static TKey KeySelector(TKey key, TIdentity _) => key;
+        Func<TKey, TIdentity, TKey> selector = static (key, _) => key;
 
         return new SortKeyOrder<TKey, TIdentity, TState, TKey>(
-            selector: KeySelector,
-#pragma warning disable CS8974 // Converting method group to non-delegate type
-            originalSelectorReference: KeySelector,
-#pragma warning restore CS8974 // Converting method group to non-delegate type
+            selector: selector,
+            originalSelectorReference: selector,
             sortComparer: keyComparer,
             keyComparer: keyComparer,
             isDescending: false);
