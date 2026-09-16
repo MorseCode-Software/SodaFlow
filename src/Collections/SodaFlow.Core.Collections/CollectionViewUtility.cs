@@ -845,7 +845,7 @@ internal static class CollectionViewUtility
                     break;
 
                 case ViewUpdate<TKey> update:
-                    if (Refresh(update.Key))
+                    if (Refresh(key: update.Key, isUpdate: true))
                     {
                         if (!OperationAddedWasValid(
                                 numberOfOperations: ref numberOfOperations,
@@ -858,7 +858,7 @@ internal static class CollectionViewUtility
                     break;
 
                 case ViewMove<TKey> move:
-                    if (Refresh(move.Key))
+                    if (Refresh(key: move.Key, isUpdate: false))
                     {
                         if (!OperationAddedWasValid(
                                 numberOfOperations: ref numberOfOperations,
@@ -924,7 +924,7 @@ internal static class CollectionViewUtility
             return false;
         }
 
-        bool Refresh(TKey key)
+        bool Refresh(TKey key, bool isUpdate)
         {
             bool was = keys.Contains(key);
             bool now = Passes(key: key, predicate: predicate, snapshot: change.After);
@@ -933,7 +933,12 @@ internal static class CollectionViewUtility
             {
                 if (now)
                 {
-                    if (Refile(keys: ref keys, operations: operations, key: key, snapshot: change.After))
+                    if (Refile(
+                            keys: ref keys,
+                            operations: operations,
+                            key: key,
+                            snapshot: change.After,
+                            isUpdate: isUpdate))
                     {
                         movesKeys = true;
                     }
@@ -1058,27 +1063,31 @@ internal static class CollectionViewUtility
                     break;
                 }
 
-                // An update and a move are the same thing to this stage: a new value for a key whose
-                // membership it cannot change. Absent means the predicate never admitted the key, so
-                // there is nothing to do; held, the key is re-filed under the value, which under an
-                // order that reads no state is one lookup and an update, as it always was.
-                case ViewUpdate<TKey> or ViewMove<TKey>:
+                case ViewUpdate<TKey> update:
                 {
-                    if (!keys.Contains(operation.Key))
+                    if (Refresh(key: update.Key, isUpdate: true))
                     {
-                        break;
+                        if (!OperationAddedWasValid(
+                                numberOfOperations: ref numberOfOperations,
+                                maxNumberOfOperations: maxNumberOfOperations))
+                        {
+                            return MaybeInternal<StageOutcome<TKey, TIdentity, TState>>.None;
+                        }
                     }
 
-                    if (Refile(keys: ref keys, operations: operations, key: operation.Key, snapshot: change.After))
-                    {
-                        movesKeys = true;
-                    }
+                    break;
+                }
 
-                    if (!OperationAddedWasValid(
-                            numberOfOperations: ref numberOfOperations,
-                            maxNumberOfOperations: maxNumberOfOperations))
+                case ViewMove<TKey> move:
+                {
+                    if (Refresh(key: move.Key, isUpdate: false))
                     {
-                        return MaybeInternal<StageOutcome<TKey, TIdentity, TState>>.None;
+                        if (!OperationAddedWasValid(
+                                numberOfOperations: ref numberOfOperations,
+                                maxNumberOfOperations: maxNumberOfOperations))
+                        {
+                            return MaybeInternal<StageOutcome<TKey, TIdentity, TState>>.None;
+                        }
                     }
 
                     break;
@@ -1095,6 +1104,21 @@ internal static class CollectionViewUtility
                 operations: operations,
                 movesKeys: movesKeys,
                 changesMembership: changesMembership));
+
+        bool Refresh(TKey key, bool isUpdate)
+        {
+            if (!keys.Contains(key))
+            {
+                return false;
+            }
+
+            if (Refile(keys: ref keys, operations: operations, key: key, snapshot: change.After, isUpdate: isUpdate))
+            {
+                movesKeys = true;
+            }
+
+            return true;
+        }
     }
 
     #endregion
@@ -1237,7 +1261,12 @@ internal static class CollectionViewUtility
                 }
 
                 case ViewUpdate<TKey> update:
-                    if (Refile(keys: ref keys, operations: operations, key: update.Key, snapshot: change.After))
+                    if (Refile(
+                            keys: ref keys,
+                            operations: operations,
+                            key: update.Key,
+                            snapshot: change.After,
+                            isUpdate: true))
                     {
                         movesKeys = true;
                     }
@@ -1252,7 +1281,12 @@ internal static class CollectionViewUtility
                     break;
 
                 case ViewMove<TKey> move:
-                    if (Refile(keys: ref keys, operations: operations, key: move.Key, snapshot: change.After))
+                    if (Refile(
+                            keys: ref keys,
+                            operations: operations,
+                            key: move.Key,
+                            snapshot: change.After,
+                            isUpdate: false))
                     {
                         movesKeys = true;
                     }
@@ -1467,7 +1501,8 @@ internal static class CollectionViewUtility
         ref OrderedKeys<TKey, TIdentity, TState> keys,
         ICollection<ViewOperation<TKey>> operations,
         TKey key,
-        CollectionSnapshot<TKey, TIdentity, TState> snapshot)
+        CollectionSnapshot<TKey, TIdentity, TState> snapshot,
+        bool isUpdate)
         where TKey : notnull
         where TIdentity : notnull
     {
@@ -1478,7 +1513,7 @@ internal static class CollectionViewUtility
             throw new InvalidOperationException("A stage can only re-file a key it holds.");
         }
 
-        if (!keys.Order.DependsOnState)
+        if (isUpdate && !keys.Order.DependsOnState)
         {
             operations.Add(new ViewUpdate<TKey>(key: key, index: fromIndex));
 
