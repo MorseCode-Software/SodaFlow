@@ -10,10 +10,13 @@ namespace SodaFlow.Collections;
 /// <remarks>
 ///     Each stage keeps its own <see cref="OrderedKeys{TKey,TIdentity,TState}" /> and applies the
 ///     operations from above:
-///     Filter tests on insert or remove, may enter, leave or move on update, and ignores an upstream
-///     move; Sort adds or drops on insert or remove, re-files in O(log n) on update, and imposes its
-///     own order regardless of an upstream move; Take re-windows on insert, remove or move, and
-///     forwards an update inside the window.
+///     Filter tests on insert or remove, and may enter, leave or move on update or on an upstream
+///     move; Sort adds or drops on insert or remove, and re-files in O(log n) on update or on an
+///     upstream move; Take re-windows on insert, remove or move, and forwards an update inside the
+///     window.
+///     An upstream move is re-filed rather than ignored because a re-file that moves a key reports
+///     the move alone - it is the only thing carrying the key's new sort value, so a stage below
+///     has to file against it the way it would against an update.
 /// </remarks>
 internal static class CollectionViewUtility
 {
@@ -197,7 +200,12 @@ internal static class CollectionViewUtility
     ///         one cell need not agree on it.
     ///     </para>
     ///     <para>
-    ///         A new order is an ordinary criteria change.
+    ///         A new order is an ordinary criteria change: the stage rebuilds under it and reports a
+    ///         reset, except where the new order is one it can answer without filing anything again -
+    ///         the order it already holds, which is no change at all, or that order run the other
+    ///         way, which turns the list it has around. A stage below re-files under whichever it
+    ///         ends up with without being told anything, because a filter builds from its upstream's
+    ///         own order whatever that has become.
     ///     </para>
     /// </remarks>
     internal static ReactiveCollection<TKey, TIdentity, TState> SortByImpl<TKey, TIdentity, TState>(

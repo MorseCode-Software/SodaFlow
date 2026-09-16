@@ -324,6 +324,12 @@ public sealed class ViewRemove<TKey> : ViewOperation<TKey>
 ///     <see cref="FromIndex" /> followed immediately by an insert at <see cref="ToIndex" />,
 ///     reported as one operation so a bound list can move the row and keep its selection.
 /// </summary>
+/// <remarks>
+///     What moved the key is a change in what the order reads, so the item's value has changed
+///     too: a move is the re-file, and no <see cref="ViewUpdate{TKey}" /> accompanies it. A
+///     consumer taking a delta has to treat this as an update that also moved, and a stage below
+///     has to re-file on it.
+/// </remarks>
 /// <typeparam name="TKey">The type of the keys.</typeparam>
 [PublicAPI]
 // ReSharper disable once InheritdocConsiderUsage
