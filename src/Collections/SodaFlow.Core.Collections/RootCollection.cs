@@ -36,10 +36,12 @@ internal sealed class RootCollection<TKey, TIdentity, TState>
     private readonly Lazy<ReactiveCollection<TKey, TIdentity, TState>> orderedByArrival;
 
     private RootCollection(
+        IEqualityComparer<TKey> keyEqualityComparer,
         Stream<ItemChange<TKey, TIdentity, TState>> itemChangesStream,
         Cell<CollectionSnapshot<TKey, TIdentity, TState>> snapshotCell,
         Cell<IReadOnlyDictionary<TKey, TIdentity>> shapeCell)
     {
+        this.KeyEqualityComparer = keyEqualityComparer;
         this.ItemChangesStream = itemChangesStream;
         this.SnapshotCell = snapshotCell;
         this.ShapeCell = shapeCell;
@@ -53,6 +55,8 @@ internal sealed class RootCollection<TKey, TIdentity, TState>
                 valueFactory: () => CollectionViewUtility.CreateRootImpl(this),
                 mode: LazyThreadSafetyMode.ExecutionAndPublication);
     }
+
+    internal IEqualityComparer<TKey> KeyEqualityComparer { get; }
 
     /// <inheritdoc />
     public override Stream<ItemChange<TKey, TIdentity, TState>> ItemChangesStream { get; }
@@ -73,56 +77,63 @@ internal sealed class RootCollection<TKey, TIdentity, TState>
 
     /// <inheritdoc />
     /// <remarks>A root owns the store, so this is itself.</remarks>
-    internal override ReactiveCollection<TKey, TIdentity, TState> Root => this;
+    internal override RootCollection<TKey, TIdentity, TState> Root => this;
 
     /// <summary>
     ///     Builds the collection both of the public factories on
     ///     <see cref="ReactiveCollection{TKey,TIdentity,TState}" /> return.
     /// </summary>
     /// <param name="keySelector">Derives an item's key from its immutable portion.</param>
-    /// <param name="initialEntries">The collection's initial contents.</param>
+    /// <param name="keyEqualityComparer">The equality comparer for keys.</param>
+    /// <param name="initialEntries">The collection's initial contents, lazily held.</param>
     /// <param name="editStreams">Every stream that will ever edit the collection.</param>
     /// <returns>The collection.</returns>
     internal static ReactiveCollection<TKey, TIdentity, TState> CreateImpl(
         Func<TIdentity, TKey> keySelector,
-        IEnumerable<Item<TIdentity, TState>> initialEntries,
-        params Stream<CollectionEdit<TKey, TIdentity, TState>>[] editStreams)
-    {
-        ImmutableDictionary<TKey, TIdentity>.Builder identities =
-            ImmutableDictionary.CreateBuilder<TKey, TIdentity>();
-
-        Dictionary<TKey, TState> states = new();
-
-        // Numbered in the order the items are enumerated, which is the order the collection lists them.
-        ImmutableDictionary<TKey, long>.Builder arrivals = ImmutableDictionary.CreateBuilder<TKey, long>();
-
-        foreach (Item<TIdentity, TState> item in initialEntries)
+        IEqualityComparer<TKey> keyEqualityComparer,
+        Cell<IEnumerable<Item<TIdentity, TState>>> initialEntries,
+        params Stream<CollectionEdit<TKey, TIdentity, TState>>[] editStreams) =>
+        TransactionInternal.Apply((trans, _) =>
         {
-            TKey key = keySelector(item.Identity);
+            ImmutableDictionary<TKey, TIdentity>.Builder identities =
+                ImmutableDictionary.CreateBuilder<TKey, TIdentity>(keyEqualityComparer);
 
-            // ContainsKey rather than TryAdd, which netstandard2.0 and net472 do not have on a
-            // dictionary and which a builder does not have at all.
-            if (identities.ContainsKey(key))
-            {
-                throw new ArgumentException($"Duplicate key '{key}' in the initial items.");
-            }
+            Dictionary<TKey, TState> states = new();
 
-            identities.Add(key: key, value: item.Identity);
-            states.Add(key: key, value: item.State);
-            arrivals.Add(key: key, value: arrivals.Count);
-        }
+            // Numbered in the order the items are enumerated, which is the order the collection lists them.
+            ImmutableDictionary<TKey, long>.Builder arrivals =
+                ImmutableDictionary.CreateBuilder<TKey, long>(keyEqualityComparer);
 
-        CollectionSnapshot<TKey, TIdentity, TState> initial =
-            new(
-                identities: identities.ToImmutable(),
-                states: ImmutableStateMap<TKey, TState>.Empty.With(updated: states, removed: Array.Empty<TKey>()),
-                arrivals: arrivals.ToImmutable(),
-                nextArrival: arrivals.Count);
+            Lazy<CollectionSnapshot<TKey, TIdentity, TState>> initial =
+                initialEntries.SampleLazyImpl()
+                    .MapImpl(initialEntries =>
+                    {
+                        foreach (Item<TIdentity, TState> item in initialEntries)
+                        {
+                            TKey key = keySelector(item.Identity);
 
-        Stream<CollectionEdit<TKey, TIdentity, TState>> editsStream = MergeEdits(editStreams);
+                            // ContainsKey rather than TryAdd, which netstandard2.0 and net472 do not have on a
+                            // dictionary and which a builder does not have at all.
+                            if (identities.ContainsKey(key))
+                            {
+                                throw new ArgumentException($"Duplicate key '{key}' in the initial items.");
+                            }
 
-        return TransactionInternal.Apply((trans, _) =>
-        {
+                            identities.Add(key: key, value: item.Identity);
+                            states.Add(key: key, value: item.State);
+                            arrivals.Add(key: key, value: arrivals.Count);
+                        }
+
+                        return new CollectionSnapshot<TKey, TIdentity, TState>(
+                            identities: identities.ToImmutable(),
+                            states: ImmutableStateMap<TState>.Create(keyEqualityComparer)
+                                .With(updated: states, removed: Array.Empty<TKey>()),
+                            arrivals: arrivals.ToImmutable(),
+                            nextArrival: arrivals.Count);
+                    });
+
+            Stream<CollectionEdit<TKey, TIdentity, TState>> editsStream = MergeEdits(editStreams);
+
             // The resolution of an edit depends on the state it is resolved against, and that state
             // is produced by resolving edits: an explicit loop.
             LoopedCell<CollectionSnapshot<TKey, TIdentity, TState>> snapshotLoopCell = new();
@@ -137,7 +148,7 @@ internal sealed class RootCollection<TKey, TIdentity, TState>
             Cell<CollectionSnapshot<TKey, TIdentity, TState>> snapshotCell =
                 itemChangesStream
                     .MapImpl(static change => change.After)
-                    .HoldImpl(initial);
+                    .HoldLazyImpl(initial);
 
             snapshotLoopCell.Loop(trans: trans, c: snapshotCell);
 
@@ -149,14 +160,14 @@ internal sealed class RootCollection<TKey, TIdentity, TState>
                 itemChangesStream
                     .FilterImpl(static change => change.IsStructural)
                     .MapImpl(static change => change.After.Identities)
-                    .HoldImpl(initial.Identities);
+                    .HoldLazyImpl(initial.MapImpl(static initial => initial.Identities));
 
             return new RootCollection<TKey, TIdentity, TState>(
+                keyEqualityComparer: keyEqualityComparer,
                 itemChangesStream: itemChangesStream,
                 snapshotCell: snapshotCell,
                 shapeCell: shapeCell);
         });
-    }
 
     /// <inheritdoc />
     /// <remarks>
@@ -273,7 +284,9 @@ internal sealed class RootCollection<TKey, TIdentity, TState>
         CollectionSnapshot<TKey, TIdentity, TState> after =
             new(
                 identities: identities,
-                states: before.StatesImpl.With(updated: newStates, removed: removed),
+                states: before.StatesImpl.With(
+                    updated: newStates,
+                    removed: removed),
                 arrivals: arrivals,
                 nextArrival: nextArrival);
 

@@ -36,13 +36,19 @@ public sealed class CollectionViewChange<TKey, TIdentity, TState>
         CollectionSnapshot<TKey, TIdentity, TState> after,
         OrderedKeys<TKey, TIdentity, TState> keys,
         IReadOnlyList<ViewOperation<TKey>> operations,
-        bool isReset)
+        bool isReset,
+        bool movesKeys,
+        bool changesMembership,
+        IEqualityComparer<TKey> keyEqualityComparer)
     {
         this.Before = before;
         this.After = after;
         this.Keys = keys;
         this.Operations = operations;
         this.IsReset = isReset;
+        this.MovesKeys = movesKeys;
+        this.ChangesMembership = changesMembership;
+        this.KeyEqualityComparer = keyEqualityComparer;
     }
 
     /// <summary>The store as this transaction left it.</summary>
@@ -75,33 +81,16 @@ public sealed class CollectionViewChange<TKey, TIdentity, TState>
     /// </summary>
     public bool IsReset { get; }
 
+    /// <summary>Whether this change alters what the view holds, or the order it holds it in.</summary>
+    internal bool MovesKeys { get; }
+
     /// <summary>Whether this change alters what the view holds, rather than only where.</summary>
     /// <remarks>
     ///     A reorder is not a membership change, which is what lets a shape cell sleep through one.
     /// </remarks>
-    internal bool ChangesMembership
-    {
-        get
-        {
-            if (this.IsReset)
-            {
-                return true;
-            }
+    internal bool ChangesMembership { get; }
 
-            // Indexed rather than enumerated, for the reason the projections above are.
-            // ReSharper disable once ForCanBeConvertedToForeach
-            // ReSharper disable once LoopCanBeConvertedToQuery
-            for (int index = 0; index < this.Operations.Count; index++)
-            {
-                if (this.Operations[index] is ViewInsert<TKey> or ViewRemove<TKey>)
-                {
-                    return true;
-                }
-            }
-
-            return false;
-        }
-    }
+    internal IEqualityComparer<TKey> KeyEqualityComparer { get; }
 
     /// <summary>
     ///     What this change means for one key, or nothing if it means nothing for it.
@@ -143,7 +132,7 @@ public sealed class CollectionViewChange<TKey, TIdentity, TState>
             ViewOperation<TKey> operation = this.Operations[index];
 
             if (operation is ViewMove<TKey> ||
-                !EqualityComparer<TKey>.Default.Equals(x: operation.Key, y: key))
+                !this.KeyEqualityComparer.Equals(x: operation.Key, y: key))
             {
                 continue;
             }
@@ -183,7 +172,7 @@ public sealed class CollectionViewChange<TKey, TIdentity, TState>
             ViewOperation<TKey> operation = this.Operations[index];
 
             if (operation is ViewUpdate<TKey> or ViewMove<TKey> ||
-                !EqualityComparer<TKey>.Default.Equals(x: operation.Key, y: key))
+                !this.KeyEqualityComparer.Equals(x: operation.Key, y: key))
             {
                 continue;
             }
@@ -263,9 +252,9 @@ public sealed class CollectionViewChange<TKey, TIdentity, TState>
                     continue;
 
                 case ViewUpdate<TKey>:
+                case ViewMove<TKey>:
                     break;
 
-                // A move carries a position and no value, so it is nothing to a keyed delta.
                 default:
                     continue;
             }

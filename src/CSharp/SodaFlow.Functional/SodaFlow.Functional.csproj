@@ -42,6 +42,7 @@
         <Compile Include="MaybeAsyncExtensionMethods.cs"/>
         <Compile Include="MaybeExtensionMethods.cs"/>
         <Compile Include="MaybeMonad.cs"/>
+        <Compile Include="Polyfills.cs" />
         <Compile Include="ReadOnlyDictionaryExtensionMethods.cs"/>
         <Compile Include="StringExtensionMethods.cs"/>
         <Compile Include="TryGet.cs"/>

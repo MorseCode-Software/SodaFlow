@@ -18,7 +18,7 @@ public sealed class StateMapTests
     public async Task WithAppliesUpdatesAndRemovalsAndLeavesTheOriginalAlone()
     {
         ImmutableStateMap<int, string> first =
-            ImmutableStateMap<int, string>.Empty.With(
+            ImmutableStateMap<string>.Create(EqualityComparer<int>.Default).With(
                 updated: new Dictionary<int, string> { [1] = "one", [2] = "two" },
                 removed: []);
 
@@ -41,7 +41,7 @@ public sealed class StateMapTests
     public async Task WithNothingToDoReturnsTheSameInstance()
     {
         ImmutableStateMap<int, string> map =
-            ImmutableStateMap<int, string>.Empty.With(
+            ImmutableStateMap<string>.Create(EqualityComparer<int>.Default).With(
                 updated: new Dictionary<int, string> { [1] = "one" },
                 removed: []);
 
@@ -72,17 +72,18 @@ public sealed class OrderedKeysTests
 
         return new CollectionSnapshot<int, ItemIdentity, ItemState>(
             identities: identities.ToImmutable(),
-            states: ImmutableStateMap<int, ItemState>.Empty.With(updated: states, removed: []),
+            states: ImmutableStateMap<ItemState>.Create(EqualityComparer<int>.Default)
+                .With(updated: states, removed: []),
             arrivals: arrivals.ToImmutable(),
             nextArrival: arrivals.Count);
     }
 
-    private static SortKeyOrder<int, ItemIdentity, ItemState, int> ByScore(bool descending) =>
+    private static SortKeyOrder<int, ItemIdentity, ItemState, int> ByScore(bool isDescending) =>
         new(
             selector: static (_, _, state) => state.Score,
             sortComparer: Comparer<int>.Default,
             keyComparer: Comparer<int>.Default,
-            descending: descending);
+            isDescending: isDescending);
 
     private static OrderedKeys<int, ItemIdentity, ItemState> Empty(
         bool descending,

@@ -17,6 +17,9 @@ namespace SodaFlow.Collections;
 /// </remarks>
 internal static class CollectionViewUtility
 {
+    private static int GetMaxNumberOfOperations(int totalItems) =>
+        Math.Max(val1: Math.Min(val1: 1000, val2: totalItems), val2: totalItems / 10);
+
     /// <summary>
     ///     Builds the root ordering for a collection: every key, in the order it arrived. Called lazily
     ///     by <see cref="ReactiveCollection{TKey,TIdentity,TState}" /> the first time anything asks it
@@ -35,7 +38,25 @@ internal static class CollectionViewUtility
 
             Stream<StageResult<TKey, TIdentity, TState>> resultsStream =
                 collection.ItemChangesStream
-                    .SnapshotImpl(c: stateLoopCell, f: ProcessRoot);
+                    .SnapshotImpl(
+                        c: stateLoopCell,
+                        f: (change, state) =>
+                            ProcessRoot(change: change, state: state).Match(
+                                onSome: static result => result,
+                                onNone: () =>
+                                {
+                                    OrderedKeys<TKey, TIdentity, TState> rebuilt =
+                                        RebuildRoot(order: order, snapshot: change.After);
+
+                                    return new StageResult<TKey, TIdentity, TState>(
+                                        keys: rebuilt,
+                                        operations: Array.Empty<ViewOperation<TKey>>(),
+                                        isReset: true,
+                                        before: change.Before,
+                                        after: change.After,
+                                        movesKeys: true,
+                                        changesMembership: true);
+                                }));
 
             Cell<OrderedKeys<TKey, TIdentity, TState>> keysCell =
                 resultsStream
@@ -52,7 +73,9 @@ internal static class CollectionViewUtility
                 // The root's ordering holds every key, so scoping it would wrap the store in a
                 // filter that admits all of it.
                 snapshotCell: () => collection.SnapshotCell,
-                keyChangesStream: ToChangesStream(resultsStream));
+                keyChangesStream: ToChangesStream(
+                    resultsStream: resultsStream,
+                    keyEqualityComparer: collection.Root.KeyEqualityComparer));
         });
     }
 
@@ -77,7 +100,7 @@ internal static class CollectionViewUtility
 
     /// <summary>
     ///     Narrows the view, preserving the upstream order. The stage files its members into a set
-    ///     built from the upstream's own order, so it does not need to know what that order sorts by
+    ///     built from the upstream's own order, so it does not need to know what that order sorts by,
     ///     and it does not have to track positions within the upstream list.
     /// </summary>
     internal static ReactiveCollection<TKey, TIdentity, TState> FilterImpl<TKey, TIdentity, TState>(
@@ -89,6 +112,7 @@ internal static class CollectionViewUtility
             upstream: upstream,
             criteriaCell: predicateCell,
             rebuild: RebuildFilter,
+            processNewCriteria: ProcessFilterNewCriteria,
             process: ProcessFilter);
 
     /// <summary>
@@ -101,7 +125,7 @@ internal static class CollectionViewUtility
         Func<TIdentity, TState, TSortKey> selector,
         IComparer<TSortKey> sortComparer,
         IComparer<TKey> keyComparer,
-        bool descending)
+        bool isDescending)
         where TKey : notnull
         where TIdentity : notnull =>
         SortByImpl(
@@ -111,7 +135,7 @@ internal static class CollectionViewUtility
                     selector: selector,
                     sortComparer: sortComparer,
                     keyComparer: keyComparer,
-                    descending: descending)));
+                    isDescending: isDescending)));
 
     /// <summary>
     ///     Narrows the view by a predicate over each item's immutable half alone, which a state
@@ -133,6 +157,7 @@ internal static class CollectionViewUtility
             upstream: upstream,
             criteriaCell: CellInternal.ConstantImpl(predicate),
             rebuild: RebuildFilterByIdentity,
+            processNewCriteria: ProcessFilterByIdentityNewCriteria,
             process: ProcessFilterByIdentity);
 
     /// <summary>
@@ -150,7 +175,7 @@ internal static class CollectionViewUtility
         Func<TIdentity, TSortKey> selector,
         IComparer<TSortKey> sortComparer,
         IComparer<TKey> keyComparer,
-        bool descending)
+        bool isDescending)
         where TKey : notnull
         where TIdentity : notnull =>
         SortByImpl(
@@ -160,7 +185,7 @@ internal static class CollectionViewUtility
                     selector: selector,
                     sortComparer: sortComparer,
                     keyComparer: keyComparer,
-                    descending: descending)));
+                    isDescending: isDescending)));
 
     /// <summary>Reorders the view by whichever order the cell currently holds.</summary>
     /// <remarks>
@@ -174,7 +199,7 @@ internal static class CollectionViewUtility
     ///     <para>
     ///         A new order is an ordinary criteria change - it rebuilds this stage and reports a
     ///         reset - and a stage below re-files under the new order without being told anything,
-    ///         because a filter builds from its upstream's own order whatever that has become.
+    ///         because a filter builds from its upstream collection's own order whatever that has become.
     ///     </para>
     /// </remarks>
     internal static ReactiveCollection<TKey, TIdentity, TState> SortByImpl<TKey, TIdentity, TState>(
@@ -184,9 +209,10 @@ internal static class CollectionViewUtility
         where TIdentity : notnull =>
         BuildStage(
             upstream: upstream,
-            criteriaCell: orderCell,
+            criteriaCell: orderCell.MapImpl(order => order.With(upstream.Root.KeyEqualityComparer)),
             rebuild: static (order, upstreamKeys, snapshot) =>
                 RebuildSort(order: order, upstreamKeys: upstreamKeys, snapshot: snapshot),
+            processNewCriteria: ProcessSortNewCriteria,
             process: static (_, keys, change) => ProcessSort(state: keys, change: change));
 
     /// <summary>
@@ -238,19 +264,41 @@ internal static class CollectionViewUtility
                 b2: limitCell,
                 f: static (offset, limit) => (Offset: offset, Limit: limit)),
             rebuild: static (bounds, upstreamKeys, _) =>
-                new RangeKeys<TKey, TIdentity, TState>(
-                    source: upstreamKeys,
-                    offset: bounds.Offset,
-                    limit: bounds.Limit),
+                RebuildSlice(upstreamKeys: upstreamKeys, offset: bounds.Offset, limit: bounds.Limit),
+            processNewCriteria: static (_, createResultFromRebuild, _, _, _, _, _) => createResultFromRebuild(),
             process: static (bounds, keys, change) => ProcessSlice(bounds: bounds, state: keys, change: change));
+
+    private delegate OrderedKeys<TKey, TIdentity, TState> Rebuild<in TCriteria, TKey, TIdentity, TState>(
+        TCriteria criteria,
+        OrderedKeys<TKey, TIdentity, TState> upstreamKeys,
+        CollectionSnapshot<TKey, TIdentity, TState> snapshot)
+        where TKey : notnull
+        where TIdentity : notnull;
+
+    private delegate StageResult<TKey, TIdentity, TState> ProcessNewCriteria<in TCriteria, TKey, TIdentity, TState>(
+        Func<StageOutcome<TKey, TIdentity, TState>, StageResult<TKey, TIdentity, TState>> createResultFromStageOutcome,
+        Func<StageResult<TKey, TIdentity, TState>> createResultFromRebuild,
+        Func<OrderedKeys<TKey, TIdentity, TState>, StageResult<TKey, TIdentity, TState>> createResultForReset,
+        TCriteria criteria,
+        OrderedKeys<TKey, TIdentity, TState> upstreamKeys,
+        CollectionSnapshot<TKey, TIdentity, TState> snapshot,
+        OrderedKeys<TKey, TIdentity, TState> state)
+        where TKey : notnull
+        where TIdentity : notnull;
+
+    private delegate MaybeInternal<StageOutcome<TKey, TIdentity, TState>> Process<in TCriteria, TKey, TIdentity, TState>(
+        TCriteria criteria,
+        OrderedKeys<TKey, TIdentity, TState> state,
+        CollectionViewChange<TKey, TIdentity, TState> change)
+        where TKey : notnull
+        where TIdentity : notnull;
 
     private static ReactiveCollection<TKey, TIdentity, TState> BuildStage<TKey, TIdentity, TState, TCriteria>(
         ReactiveCollection<TKey, TIdentity, TState> upstream,
         Cell<TCriteria> criteriaCell,
-        Func<TCriteria, OrderedKeys<TKey, TIdentity, TState>, CollectionSnapshot<TKey, TIdentity, TState>,
-            OrderedKeys<TKey, TIdentity, TState>> rebuild,
-        Func<TCriteria, OrderedKeys<TKey, TIdentity, TState>, CollectionViewChange<TKey, TIdentity, TState>,
-            StageOutcome<TKey, TIdentity, TState>> process)
+        Rebuild<TCriteria, TKey, TIdentity, TState> rebuild,
+        ProcessNewCriteria<TCriteria, TKey, TIdentity, TState> processNewCriteria,
+        Process<TCriteria, TKey, TIdentity, TState> process)
         where TKey : notnull
         where TIdentity : notnull =>
         TransactionInternal.Apply<ReactiveCollection<TKey, TIdentity, TState>>((trans, _) =>
@@ -310,43 +358,75 @@ internal static class CollectionViewUtility
                                 onSome: static change => change.Keys,
                                 onNone: () => context.UpstreamKeys);
 
+                        bool hasCriteriaChange =
+                            input.Criteria.Match(onSome: static _ => true, onNone: static () => false);
+
                         bool mustRebuild =
-                            input.Criteria.Match(onSome: static _ => true, onNone: static () => false) ||
-                            input.Change.Match(onSome: static change => change.IsReset, onNone: static () => false);
+                            input.Change.Match(
+                                onSome: change => hasCriteriaChange || change.IsReset,
+                                onNone: static () => false);
 
                         if (mustRebuild)
                         {
-                            OrderedKeys<TKey, TIdentity, TState> rebuilt =
-                                rebuild(arg1: criteria, arg2: upstreamKeys, arg3: snapshot);
-
-                            return new StageResult<TKey, TIdentity, TState>(
-                                keys: rebuilt,
-                                operations: Array.Empty<ViewOperation<TKey>>(),
-                                isReset: true,
-                                before: context.Snapshot.ScopedTo(state),
-                                after: snapshot.ScopedTo(rebuilt));
+                            return Rebuild();
                         }
 
                         return input.Change.Match(
                             onSome: change =>
+                                ConvertOutcomeMaybe(process(criteria: criteria, state: state, change: change)),
+                            onNone: () =>
                             {
-                                StageOutcome<TKey, TIdentity, TState> outcome =
-                                    process(arg1: criteria, arg2: state, arg3: change);
+                                if (hasCriteriaChange)
+                                {
+                                    return processNewCriteria(
+                                        createResultFromStageOutcome: ConvertOutcome,
+                                        createResultFromRebuild: Rebuild,
+                                        createResultForReset: CreateReset,
+                                        criteria: criteria,
+                                        upstreamKeys: upstreamKeys,
+                                        snapshot: snapshot,
+                                        state: state);
+                                }
+
+                                CollectionSnapshot<TKey, TIdentity, TState> beforeAndAfter = snapshot.ScopedTo(state);
 
                                 return new StageResult<TKey, TIdentity, TState>(
-                                    keys: outcome.Keys,
-                                    operations: outcome.Operations,
-                                    isReset: false,
-                                    before: context.Snapshot.ScopedTo(state),
-                                    after: snapshot.ScopedTo(outcome.Keys));
-                            },
-                            onNone: () =>
-                                new StageResult<TKey, TIdentity, TState>(
                                     keys: state,
                                     operations: Array.Empty<ViewOperation<TKey>>(),
                                     isReset: false,
-                                    before: context.Snapshot.ScopedTo(state),
-                                    after: snapshot.ScopedTo(state)));
+                                    before: beforeAndAfter,
+                                    after: beforeAndAfter,
+                                    movesKeys: false,
+                                    changesMembership: false);
+                            });
+
+                        StageResult<TKey, TIdentity, TState> CreateReset(OrderedKeys<TKey, TIdentity, TState> keys) =>
+                            new(
+                                keys: keys,
+                                operations: Array.Empty<ViewOperation<TKey>>(),
+                                isReset: true,
+                                before: context.Snapshot.ScopedTo(state),
+                                after: snapshot.ScopedTo(keys),
+                                movesKeys: true,
+                                changesMembership: true);
+
+                        StageResult<TKey, TIdentity, TState> Rebuild() =>
+                            CreateReset(rebuild(criteria: criteria, upstreamKeys: upstreamKeys, snapshot: snapshot));
+
+                        StageResult<TKey, TIdentity, TState> ConvertOutcome(
+                            StageOutcome<TKey, TIdentity, TState> outcome) =>
+                            new(
+                                keys: outcome.Keys,
+                                operations: outcome.Operations,
+                                isReset: false,
+                                before: context.Snapshot.ScopedTo(state),
+                                after: snapshot.ScopedTo(outcome.Keys),
+                                movesKeys: outcome.MovesKeys,
+                                changesMembership: outcome.ChangesMembership);
+
+                        StageResult<TKey, TIdentity, TState> ConvertOutcomeMaybe(
+                            MaybeInternal<StageOutcome<TKey, TIdentity, TState>> outcome) =>
+                            outcome.Match(onSome: ConvertOutcome, onNone: Rebuild);
                     });
 
             Cell<OrderedKeys<TKey, TIdentity, TState>> keysCell =
@@ -355,7 +435,7 @@ internal static class CollectionViewUtility
                     .HoldLazyImpl(
                         contextCell.SampleLazyImpl()
                             .MapImpl(context =>
-                                rebuild(arg1: context.Criteria, arg2: context.UpstreamKeys, arg3: context.Snapshot)));
+                                rebuild(criteria: context.Criteria, upstreamKeys: context.UpstreamKeys, snapshot: context.Snapshot)));
 
             stateLoopCell.Loop(trans: trans, c: keysCell);
 
@@ -368,21 +448,27 @@ internal static class CollectionViewUtility
                         upstream.SnapshotCell.LiftImpl(
                             b2: keysCell,
                             f: static (snapshot, keys) => snapshot.ScopedTo(keys))),
-                keyChangesStream: ToChangesStream(resultsStream));
+                keyChangesStream: ToChangesStream(
+                    resultsStream: resultsStream,
+                    keyEqualityComparer: upstream.Root.KeyEqualityComparer));
         });
 
     private static Stream<CollectionViewChange<TKey, TIdentity, TState>> ToChangesStream<TKey, TIdentity, TState>(
-        Stream<StageResult<TKey, TIdentity, TState>> resultsStream)
+        Stream<StageResult<TKey, TIdentity, TState>> resultsStream,
+        IEqualityComparer<TKey> keyEqualityComparer)
         where TKey : notnull
         where TIdentity : notnull =>
         resultsStream
-            .MapImpl(static result =>
+            .MapImpl(result =>
                 new CollectionViewChange<TKey, TIdentity, TState>(
                     before: result.Before,
                     after: result.After,
                     keys: result.Keys,
                     operations: result.Operations,
-                    isReset: result.IsReset))
+                    isReset: result.IsReset,
+                    movesKeys: result.MovesKeys,
+                    changesMembership: result.ChangesMembership,
+                    keyEqualityComparer: keyEqualityComparer))
             .FilterImpl(static change => change.IsReset || change.Operations.Count > 0);
 
     /// <summary>
@@ -412,7 +498,27 @@ internal static class CollectionViewUtility
             .MapImpl(static result => result.Keys)
             .HoldLazyImpl(stateKeysCell.SampleLazyImpl());
 
-    // --- root ---------------------------------------------------------------------------------
+    /// <summary>
+    /// Increment the operation counter and return <see langword="false"/> if we have exceeded the maximum number of
+    /// operations allowed.
+    /// </summary>
+    /// <param name="numberOfOperations">The operation counter, passed by reference.</param>
+    /// <param name="maxNumberOfOperations">The maximum number of operations allowed.</param>
+    /// <returns><see langword="true"/> if we are still within the allowed number of operations, <see langword="false"/>
+    /// if we have exceeded the maximum.</returns>
+    private static bool OperationAddedWasValid(ref int numberOfOperations, int maxNumberOfOperations)
+    {
+        if (numberOfOperations == maxNumberOfOperations)
+        {
+            return false;
+        }
+
+        numberOfOperations++;
+
+        return true;
+    }
+
+    #region Root
 
     private static OrderedKeys<TKey, TIdentity, TState> RebuildRoot<TKey, TIdentity, TState>(
         KeyOrder<TKey, TIdentity, TState> order,
@@ -421,14 +527,23 @@ internal static class CollectionViewUtility
         where TIdentity : notnull =>
         FileAll(order: order, keys: snapshot.Identities.Keys, snapshot: snapshot);
 
-    private static StageResult<TKey, TIdentity, TState> ProcessRoot<TKey, TIdentity, TState>(
+    private static MaybeInternal<StageResult<TKey, TIdentity, TState>> ProcessRoot<TKey, TIdentity, TState>(
         ItemChange<TKey, TIdentity, TState> change,
         OrderedKeys<TKey, TIdentity, TState> state)
         where TKey : notnull
         where TIdentity : notnull
     {
+        int maxNumberOfOperations = GetMaxNumberOfOperations(state.Count);
+
+        if (change.NewStates.Count + change.Removed.Count > maxNumberOfOperations)
+        {
+            return MaybeInternal<StageResult<TKey, TIdentity, TState>>.None;
+        }
+
         OrderedKeys<TKey, TIdentity, TState> keys = state;
         List<ViewOperation<TKey>> operations = new();
+        bool movesKeys = false;
+        bool changesMembership = false;
 
         foreach (TKey key in change.Removed)
         {
@@ -437,6 +552,8 @@ internal static class CollectionViewUtility
             if (index >= 0)
             {
                 operations.Add(new ViewRemove<TKey>(key: key, index: index));
+                movesKeys = true;
+                changesMembership = true;
                 keys = keys.Remove(key);
             }
         }
@@ -461,10 +578,14 @@ internal static class CollectionViewUtility
 
                 int index = keys.IndexOfInternal(key);
 
-                if (index >= 0)
+                if (index < 0)
                 {
-                    operations.Add(new ViewInsert<TKey>(key: key, index: index));
+                    throw new InvalidOperationException("Inserted key must receive an index.");
                 }
+
+                operations.Add(new ViewInsert<TKey>(key: key, index: index));
+                movesKeys = true;
+                changesMembership = true;
             }
             else
             {
@@ -480,15 +601,20 @@ internal static class CollectionViewUtility
             }
         }
 
-        return new StageResult<TKey, TIdentity, TState>(
-            keys: keys,
-            operations: operations,
-            isReset: false,
-            before: change.Before,
-            after: change.After);
+        return MaybeInternal<StageResult<TKey, TIdentity, TState>>.Some(
+            new StageResult<TKey, TIdentity, TState>(
+                keys: keys,
+                operations: operations,
+                isReset: false,
+                before: change.Before,
+                after: change.After,
+                movesKeys: movesKeys,
+                changesMembership: changesMembership));
     }
 
-    // --- filter -------------------------------------------------------------------------------
+    #endregion
+
+    #region Filter
 
     private static OrderedKeys<TKey, TIdentity, TState> RebuildFilter<TKey, TIdentity, TState>(
         Func<TIdentity, TState, bool> predicate,
@@ -514,6 +640,335 @@ internal static class CollectionViewUtility
             keys: upstreamKeys.Where(key => PassesByIdentity(key: key, predicate: predicate, snapshot: snapshot)),
             snapshot: snapshot);
 
+    private static StageResult<TKey, TIdentity, TState> ProcessFilterNewCriteria<TKey, TIdentity, TState>(
+        Func<StageOutcome<TKey, TIdentity, TState>, StageResult<TKey, TIdentity, TState>> createResultFromStageOutcome,
+        Func<StageResult<TKey, TIdentity, TState>> createResultFromRebuild,
+        Func<OrderedKeys<TKey, TIdentity, TState>, StageResult<TKey, TIdentity, TState>> createResultForReset,
+        Func<TIdentity, TState, bool> predicate,
+        OrderedKeys<TKey, TIdentity, TState> upstreamKeys,
+        CollectionSnapshot<TKey, TIdentity, TState> snapshot,
+        OrderedKeys<TKey, TIdentity, TState> state)
+        where TKey : notnull
+        where TIdentity : notnull
+    {
+        int maxNumberOfOperations = GetMaxNumberOfOperations(state.Count);
+        int numberOfOperations = 0;
+
+        OrderedKeys<TKey, TIdentity, TState> keys = state;
+        List<ViewOperation<TKey>> operations = new();
+        bool movesKeys = false;
+        bool changesMembership = false;
+
+        foreach (TKey key in upstreamKeys)
+        {
+            bool passes = Passes(key: key, predicate: predicate, snapshot: snapshot);
+            int index = keys.IndexOfInternal(key);
+
+            if(passes)
+            {
+                if (index < 0)
+                {
+                    keys = keys.Add(key: key, snapshot: snapshot);
+
+                    int newIndex = keys.IndexOfInternal(key);
+
+                    if (newIndex < 0)
+                    {
+                        throw new InvalidOperationException("Inserted key must receive an index.");
+                    }
+
+                    operations.Add(new ViewInsert<TKey>(key: key, index: newIndex));
+                    movesKeys = true;
+                    changesMembership = true;
+
+                    if (!OperationAddedWasValid(
+                            numberOfOperations: ref numberOfOperations,
+                            maxNumberOfOperations: maxNumberOfOperations))
+                    {
+                        return createResultFromRebuild();
+                    }
+                }
+            }
+            else
+            {
+                if (index >= 0)
+                {
+                    operations.Add(new ViewRemove<TKey>(key: key, index: index));
+                    movesKeys = true;
+                    changesMembership = true;
+                    keys = keys.Remove(key);
+
+                    if (!OperationAddedWasValid(
+                            numberOfOperations: ref numberOfOperations,
+                            maxNumberOfOperations: maxNumberOfOperations))
+                    {
+                        return createResultFromRebuild();
+                    }
+                }
+            }
+        }
+
+        return createResultFromStageOutcome(
+            new StageOutcome<TKey, TIdentity, TState>(
+                keys: keys,
+                operations: operations,
+                movesKeys: movesKeys,
+                changesMembership: changesMembership));
+    }
+
+    private static StageResult<TKey, TIdentity, TState> ProcessFilterByIdentityNewCriteria<TKey, TIdentity, TState>(
+        Func<StageOutcome<TKey, TIdentity, TState>, StageResult<TKey, TIdentity, TState>> createResultFromStageOutcome,
+        Func<StageResult<TKey, TIdentity, TState>> createResultFromRebuild,
+        Func<OrderedKeys<TKey, TIdentity, TState>, StageResult<TKey, TIdentity, TState>> createResultForReset,
+        Func<TIdentity, bool> predicate,
+        OrderedKeys<TKey, TIdentity, TState> upstreamKeys,
+        CollectionSnapshot<TKey, TIdentity, TState> snapshot,
+        OrderedKeys<TKey, TIdentity, TState> state)
+        where TKey : notnull
+        where TIdentity : notnull
+    {
+        int maxNumberOfOperations = GetMaxNumberOfOperations(state.Count);
+        int numberOfOperations = 0;
+
+        OrderedKeys<TKey, TIdentity, TState> keys = state;
+        List<ViewOperation<TKey>> operations = new();
+        bool movesKeys = false;
+        bool changesMembership = false;
+
+        foreach (TKey key in upstreamKeys)
+        {
+            bool passes = PassesByIdentity(key: key, predicate: predicate, snapshot: snapshot);
+            int index = keys.IndexOfInternal(key);
+
+            if (passes)
+            {
+                if (index < 0)
+                {
+                    keys = keys.Add(key: key, snapshot: snapshot);
+
+                    int newIndex = keys.IndexOfInternal(key);
+
+                    if (newIndex < 0)
+                    {
+                        throw new InvalidOperationException("Inserted key must receive an index.");
+                    }
+
+                    operations.Add(new ViewInsert<TKey>(key: key, index: newIndex));
+                    movesKeys = true;
+                    changesMembership = true;
+
+                    if (!OperationAddedWasValid(
+                            numberOfOperations: ref numberOfOperations,
+                            maxNumberOfOperations: maxNumberOfOperations))
+                    {
+                        return createResultFromRebuild();
+                    }
+                }
+            }
+            else
+            {
+                if (index >= 0)
+                {
+                    operations.Add(new ViewRemove<TKey>(key: key, index: index));
+                    movesKeys = true;
+                    changesMembership = true;
+                    keys = keys.Remove(key);
+
+                    if (!OperationAddedWasValid(
+                            numberOfOperations: ref numberOfOperations,
+                            maxNumberOfOperations: maxNumberOfOperations))
+                    {
+                        return createResultFromRebuild();
+                    }
+                }
+            }
+        }
+
+        return createResultFromStageOutcome(
+            new StageOutcome<TKey, TIdentity, TState>(
+                keys: keys,
+                operations: operations,
+                movesKeys: movesKeys,
+                changesMembership: changesMembership));
+    }
+
+    private static MaybeInternal<StageOutcome<TKey, TIdentity, TState>> ProcessFilter<TKey, TIdentity, TState>(
+        Func<TIdentity, TState, bool> predicate,
+        OrderedKeys<TKey, TIdentity, TState> state,
+        CollectionViewChange<TKey, TIdentity, TState> change)
+        where TKey : notnull
+        where TIdentity : notnull
+    {
+        int maxNumberOfOperations = GetMaxNumberOfOperations(state.Count);
+        int numberOfOperations = 0;
+
+        OrderedKeys<TKey, TIdentity, TState> keys = state;
+        List<ViewOperation<TKey>> operations = new();
+        bool movesKeys = false;
+        bool changesMembership = false;
+
+        foreach (ViewOperation<TKey> operation in change.Operations)
+        {
+            switch (operation)
+            {
+                case ViewInsert<TKey> insert:
+                    if (Include(key: insert.Key, alreadyPassed: false))
+                    {
+                        if (!OperationAddedWasValid(
+                                numberOfOperations: ref numberOfOperations,
+                                maxNumberOfOperations: maxNumberOfOperations))
+                        {
+                            return MaybeInternal<StageOutcome<TKey, TIdentity, TState>>.None;
+                        }
+                    }
+
+                    break;
+
+                case ViewRemove<TKey> remove:
+                    if (Exclude(remove.Key))
+                    {
+                        if (!OperationAddedWasValid(
+                                numberOfOperations: ref numberOfOperations,
+                                maxNumberOfOperations: maxNumberOfOperations))
+                        {
+                            return MaybeInternal<StageOutcome<TKey, TIdentity, TState>>.None;
+                        }
+                    }
+
+                    break;
+
+                case ViewUpdate<TKey> update:
+                    if (Refresh(update.Key))
+                    {
+                        if (!OperationAddedWasValid(
+                                numberOfOperations: ref numberOfOperations,
+                                maxNumberOfOperations: maxNumberOfOperations))
+                        {
+                            return MaybeInternal<StageOutcome<TKey, TIdentity, TState>>.None;
+                        }
+                    }
+
+                    break;
+
+                case ViewMove<TKey> move:
+                    if (Refresh(move.Key))
+                    {
+                        if (!OperationAddedWasValid(
+                                numberOfOperations: ref numberOfOperations,
+                                maxNumberOfOperations: maxNumberOfOperations))
+                        {
+                            return MaybeInternal<StageOutcome<TKey, TIdentity, TState>>.None;
+                        }
+                    }
+
+                    break;
+
+                default:
+                    throw new InvalidOperationException("Unhandled operation type: " + operation.GetType().FullName);
+            }
+        }
+
+        return MaybeInternal.Some(
+            new StageOutcome<TKey, TIdentity, TState>(
+                keys: keys,
+                operations: operations,
+                movesKeys: movesKeys,
+                changesMembership: changesMembership));
+
+        bool Include(TKey key, bool alreadyPassed)
+        {
+            if (!alreadyPassed && !Passes(key: key, predicate: predicate, snapshot: change.After))
+            {
+                return false;
+            }
+
+            keys = keys.Add(key: key, snapshot: change.After);
+
+            int index = keys.IndexOfInternal(key);
+
+            if (index < 0)
+            {
+                throw new InvalidOperationException("Inserted key must receive an index.");
+            }
+
+            operations.Add(new ViewInsert<TKey>(key: key, index: index));
+            movesKeys = true;
+            changesMembership = true;
+
+            return true;
+        }
+
+        bool Exclude(TKey key)
+        {
+            int index = keys.IndexOfInternal(key);
+
+            //TODO: shouldn't this be an error if it is not found?
+            if (index >= 0)
+            {
+                operations.Add(new ViewRemove<TKey>(key: key, index: index));
+                movesKeys = true;
+                changesMembership = true;
+                keys = keys.Remove(key);
+
+                return true;
+            }
+
+            return false;
+        }
+
+        bool Refresh(TKey key)
+        {
+            bool was = keys.Contains(key);
+            bool now = Passes(key: key, predicate: predicate, snapshot: change.After);
+
+            if (was)
+            {
+                if(now)
+                {
+                    if (Refile(
+                            keys: ref keys,
+                            operations: operations,
+                            key: key,
+                            snapshot: change.After,
+                            wasMoved: out bool wasMoved))
+                    {
+                        if (wasMoved)
+                        {
+                            movesKeys = true;
+                        }
+
+                        return true;
+                    }
+
+                    return false;
+                }
+
+                if (Exclude(key))
+                {
+                    movesKeys = true;
+                    changesMembership = true;
+
+                    return true;
+                }
+
+                return false;
+            }
+
+            if (now)
+            {
+                if (Include(key: key, alreadyPassed: true)) // now being true means alreadyPassed can be true
+                {
+                    movesKeys = true;
+                    changesMembership = true;
+
+                    return true;
+                }
+            }
+
+            return false;
+        }
+    }
+
     /// <summary>
     ///     What an identity-only filter does with a change, which on an update is nothing but pass
     ///     it on.
@@ -528,15 +983,20 @@ internal static class CollectionViewUtility
     ///     holds by construction: the root emits one only for a key in its change's new states, and
     ///     every stage below it only forwards.
     /// </remarks>
-    private static StageOutcome<TKey, TIdentity, TState> ProcessFilterByIdentity<TKey, TIdentity, TState>(
+    private static MaybeInternal<StageOutcome<TKey, TIdentity, TState>> ProcessFilterByIdentity<TKey, TIdentity, TState>(
         Func<TIdentity, bool> predicate,
         OrderedKeys<TKey, TIdentity, TState> state,
         CollectionViewChange<TKey, TIdentity, TState> change)
         where TKey : notnull
         where TIdentity : notnull
     {
+        int maxNumberOfOperations = GetMaxNumberOfOperations(state.Count);
+        int numberOfOperations = 0;
+
         OrderedKeys<TKey, TIdentity, TState> keys = state;
         List<ViewOperation<TKey>> operations = new();
+        bool movesKeys = false;
+        bool changesMembership = false;
 
         foreach (ViewOperation<TKey> operation in change.Operations)
         {
@@ -553,9 +1013,20 @@ internal static class CollectionViewUtility
 
                     int inserted = keys.IndexOfInternal(insert.Key);
 
-                    if (inserted >= 0)
+                    if (inserted < 0)
                     {
-                        operations.Add(new ViewInsert<TKey>(key: insert.Key, index: inserted));
+                        throw new InvalidOperationException("Inserted key must receive an index.");
+                    }
+
+                    operations.Add(new ViewInsert<TKey>(key: insert.Key, index: inserted));
+                    movesKeys = true;
+                    changesMembership = true;
+
+                    if (!OperationAddedWasValid(
+                            numberOfOperations: ref numberOfOperations,
+                            maxNumberOfOperations: maxNumberOfOperations))
+                    {
+                        return MaybeInternal<StageOutcome<TKey, TIdentity, TState>>.None;
                     }
 
                     break;
@@ -568,6 +1039,16 @@ internal static class CollectionViewUtility
                     if (removed >= 0)
                     {
                         operations.Add(new ViewRemove<TKey>(key: remove.Key, index: removed));
+                        movesKeys = true;
+                        changesMembership = true;
+
+                        if (!OperationAddedWasValid(
+                                numberOfOperations: ref numberOfOperations,
+                                maxNumberOfOperations: maxNumberOfOperations))
+                        {
+                            return MaybeInternal<StageOutcome<TKey, TIdentity, TState>>.None;
+                        }
+
                         keys = keys.Remove(remove.Key);
                     }
 
@@ -578,111 +1059,59 @@ internal static class CollectionViewUtility
                 {
                     int updated = keys.IndexOfInternal(update.Key);
 
+                    //TODO: JAM: should this be an error if the index is not found?
                     if (updated >= 0)
                     {
                         operations.Add(new ViewUpdate<TKey>(key: update.Key, index: updated));
+
+                        if (!OperationAddedWasValid(
+                                numberOfOperations: ref numberOfOperations,
+                                maxNumberOfOperations: maxNumberOfOperations))
+                        {
+                            return MaybeInternal<StageOutcome<TKey, TIdentity, TState>>.None;
+                        }
                     }
 
                     break;
                 }
 
-                // A move upstream needs no action, for the reason it needs none in the ordinary
-                // filter: this stage's order is the upstream's applied to its own members.
-            }
-        }
+                case ViewMove<TKey> move:
+                {
+                    int updated = keys.IndexOfInternal(move.Key);
 
-        return new StageOutcome<TKey, TIdentity, TState>(keys: keys, operations: operations);
-    }
-
-    private static StageOutcome<TKey, TIdentity, TState> ProcessFilter<TKey, TIdentity, TState>(
-        Func<TIdentity, TState, bool> predicate,
-        OrderedKeys<TKey, TIdentity, TState> state,
-        CollectionViewChange<TKey, TIdentity, TState> change)
-        where TKey : notnull
-        where TIdentity : notnull
-    {
-        OrderedKeys<TKey, TIdentity, TState> keys = state;
-        List<ViewOperation<TKey>> operations = new();
-
-        foreach (ViewOperation<TKey> operation in change.Operations)
-        {
-            switch (operation)
-            {
-                case ViewInsert<TKey> insert:
-                    Include(insert.Key);
-                    break;
-
-                case ViewRemove<TKey> remove:
-                    Exclude(remove.Key);
-                    break;
-
-                case ViewUpdate<TKey> update:
-                    Refresh(update.Key);
-                    break;
-
-                // A move upstream needs no action: this stage's order is the upstream's order
-                // applied to its own members, and the only thing that can change a member's
-                // position is a state change, which arrives as an update.
-            }
-        }
-
-        return new StageOutcome<TKey, TIdentity, TState>(keys: keys, operations: operations);
-
-        void Include(TKey key)
-        {
-            if (!Passes(key: key, predicate: predicate, snapshot: change.After))
-            {
-                return;
-            }
-
-            keys = keys.Add(key: key, snapshot: change.After);
-
-            int index = keys.IndexOfInternal(key);
-
-            if (index >= 0)
-            {
-                operations.Add(new ViewInsert<TKey>(key: key, index: index));
-            }
-        }
-
-        void Exclude(TKey key)
-        {
-            int index = keys.IndexOfInternal(key);
-
-            if (index >= 0)
-            {
-                operations.Add(new ViewRemove<TKey>(key: key, index: index));
-                keys = keys.Remove(key);
-            }
-        }
-
-        void Refresh(TKey key)
-        {
-            bool was = keys.Contains(key);
-            bool now = Passes(key: key, predicate: predicate, snapshot: change.After);
-
-            switch (was)
-            {
-                case true when now:
-                    Refile(keys: ref keys, operations: operations, key: key, snapshot: change.After);
-                    break;
-
-                case true:
-                    Exclude(key);
-                    break;
-
-                default:
-                    if (now)
+                    //TODO: JAM: should this be an error if the key is not found?
+                    if (updated >= 0)
                     {
-                        Include(key);
+                        operations.Add(new ViewMove<TKey>(key: move.Key, fromIndex: move.FromIndex, toIndex: updated));
+                        movesKeys = true;
+
+                        if (!OperationAddedWasValid(
+                                numberOfOperations: ref numberOfOperations,
+                                maxNumberOfOperations: maxNumberOfOperations))
+                        {
+                            return MaybeInternal<StageOutcome<TKey, TIdentity, TState>>.None;
+                        }
                     }
 
                     break;
+                }
+
+                default:
+                    throw new InvalidOperationException("Unhandled operation type: " + operation.GetType().FullName);
             }
         }
+
+        return MaybeInternal.Some(
+            new StageOutcome<TKey, TIdentity, TState>(
+                keys: keys,
+                operations: operations,
+                movesKeys: movesKeys,
+                changesMembership: changesMembership));
     }
 
-    // --- sort ---------------------------------------------------------------------------------
+    #endregion
+
+    #region Sort
 
     private static OrderedKeys<TKey, TIdentity, TState> RebuildSort<TKey, TIdentity, TState>(
         KeyOrder<TKey, TIdentity, TState> order,
@@ -692,7 +1121,38 @@ internal static class CollectionViewUtility
         where TIdentity : notnull =>
         FileAll(order: order, keys: upstreamKeys, snapshot: snapshot);
 
-    private static StageOutcome<TKey, TIdentity, TState> ProcessSort<TKey, TIdentity, TState>(
+    private static StageResult<TKey, TIdentity, TState> ProcessSortNewCriteria<TKey, TIdentity, TState>(
+        Func<StageOutcome<TKey, TIdentity, TState>, StageResult<TKey, TIdentity, TState>> createResultFromStageOutcome,
+        Func<StageResult<TKey, TIdentity, TState>> createResultFromRebuild,
+        Func<OrderedKeys<TKey, TIdentity, TState>, StageResult<TKey, TIdentity, TState>> createResultForReset,
+        KeyOrder<TKey, TIdentity, TState> order,
+        OrderedKeys<TKey, TIdentity, TState> upstreamKeys,
+        CollectionSnapshot<TKey, TIdentity, TState> snapshot,
+        OrderedKeys<TKey, TIdentity, TState> state)
+        where TKey : notnull
+        where TIdentity : notnull
+    {
+        if (order.IsEquivalentTo(state.Order))
+        {
+            return new StageResult<TKey, TIdentity, TState>(
+                keys: state,
+                operations: Array.Empty<ViewOperation<TKey>>(),
+                before: snapshot,
+                after: snapshot,
+                movesKeys: false,
+                changesMembership: false,
+                isReset: false);
+        }
+
+        if (order.TryReverse(keys: state, reversedKeys: out OrderedKeys<TKey, TIdentity, TState>? reversedKeys))
+        {
+            createResultForReset(reversedKeys);
+        }
+
+        return createResultFromRebuild();
+    }
+
+    private static MaybeInternal<StageOutcome<TKey, TIdentity, TState>> ProcessSort<TKey, TIdentity, TState>(
         OrderedKeys<TKey, TIdentity, TState> state,
         CollectionViewChange<TKey, TIdentity, TState> change)
         where TKey : notnull
@@ -700,9 +1160,42 @@ internal static class CollectionViewUtility
     {
         OrderedKeys<TKey, TIdentity, TState> keys = state;
         List<ViewOperation<TKey>> operations = new();
+        bool movesKeys = false;
+        bool changesMembership = false;
+
+        if (!state.Order.DependsOnState && change is { MovesKeys: false, ChangesMembership: false })
+        {
+            foreach (ViewOperation<TKey> operation in change.Operations)
+            {
+                if (operation is not ViewUpdate<TKey> update)
+                {
+                    throw new InvalidOperationException("Only updates should be handled here.");
+                }
+
+                int index = keys.IndexOfInternal(update.Key);
+
+                //TODO: JAM: should it be an error if the key isn't found here?
+                if (index >= 0)
+                {
+                    operations.Add(new ViewUpdate<TKey>(key: update.Key, index: index));
+                }
+            }
+
+            return MaybeInternal.Some(
+                new StageOutcome<TKey, TIdentity, TState>(
+                    keys: keys,
+                    operations: operations,
+                    movesKeys: movesKeys,
+                    changesMembership: changesMembership));
+        }
+
+        int maxNumberOfOperations = GetMaxNumberOfOperations(state.Count);
+        int numberOfOperations = 0;
 
         foreach (ViewOperation<TKey> operation in change.Operations)
         {
+            bool wasMoved;
+
             switch (operation)
             {
                 case ViewInsert<TKey> insert:
@@ -711,9 +1204,20 @@ internal static class CollectionViewUtility
 
                     int index = keys.IndexOfInternal(insert.Key);
 
-                    if (index >= 0)
+                    if (index < 0)
                     {
-                        operations.Add(new ViewInsert<TKey>(key: insert.Key, index: index));
+                        throw new InvalidOperationException("Inserted key must receive an index.");
+                    }
+
+                    operations.Add(new ViewInsert<TKey>(key: insert.Key, index: index));
+                    movesKeys = true;
+                    changesMembership = true;
+
+                    if (!OperationAddedWasValid(
+                            numberOfOperations: ref numberOfOperations,
+                            maxNumberOfOperations: maxNumberOfOperations))
+                    {
+                        return MaybeInternal<StageOutcome<TKey, TIdentity, TState>>.None;
                     }
 
                     break;
@@ -723,9 +1227,20 @@ internal static class CollectionViewUtility
                 {
                     int index = keys.IndexOfInternal(remove.Key);
 
+                    //TODO: JAM: should it be an error if the key isn't found here?
                     if (index >= 0)
                     {
                         operations.Add(new ViewRemove<TKey>(key: remove.Key, index: index));
+                        movesKeys = true;
+                        changesMembership = true;
+
+                        if (!OperationAddedWasValid(
+                                numberOfOperations: ref numberOfOperations,
+                                maxNumberOfOperations: maxNumberOfOperations))
+                        {
+                            return MaybeInternal<StageOutcome<TKey, TIdentity, TState>>.None;
+                        }
+
                         keys = keys.Remove(remove.Key);
                     }
 
@@ -733,19 +1248,80 @@ internal static class CollectionViewUtility
                 }
 
                 case ViewUpdate<TKey> update:
-                    Refile(keys: ref keys, operations: operations, key: update.Key, snapshot: change.After);
+                    if (Refile(
+                            keys: ref keys,
+                            operations: operations,
+                            key: update.Key,
+                            snapshot: change.After,
+                            wasMoved: out wasMoved))
+                    {
+                        if (wasMoved)
+                        {
+                            movesKeys = true;
+                        }
+
+                        if (!OperationAddedWasValid(
+                                numberOfOperations: ref numberOfOperations,
+                                maxNumberOfOperations: maxNumberOfOperations))
+                        {
+                            return MaybeInternal<StageOutcome<TKey, TIdentity, TState>>.None;
+                        }
+                    }
+
                     break;
 
-                // Upstream moves are irrelevant: this stage imposes its own order.
+                case ViewMove<TKey> move:
+                    if (Refile(
+                            keys: ref keys,
+                            operations: operations,
+                            key: move.Key,
+                            snapshot: change.After,
+                            wasMoved: out wasMoved))
+                    {
+                        if (wasMoved)
+                        {
+                            movesKeys = true;
+                        }
+
+                        if (!OperationAddedWasValid(
+                                numberOfOperations: ref numberOfOperations,
+                                maxNumberOfOperations: maxNumberOfOperations))
+                        {
+                            return MaybeInternal<StageOutcome<TKey, TIdentity, TState>>.None;
+                        }
+                    }
+
+                    break;
+
+                default:
+                    throw new InvalidOperationException("Unhandled operation type: " + operation.GetType().FullName);
             }
         }
 
-        return new StageOutcome<TKey, TIdentity, TState>(keys: keys, operations: operations);
+        return MaybeInternal.Some(
+            new StageOutcome<TKey, TIdentity, TState>(
+                keys: keys,
+                operations: operations,
+                movesKeys: movesKeys,
+                changesMembership: changesMembership));
     }
 
-    // --- take ---------------------------------------------------------------------------------
+    #endregion
 
-    private static StageOutcome<TKey, TIdentity, TState> ProcessSlice<TKey, TIdentity, TState>(
+    #region Slice
+
+    private static OrderedKeys<TKey, TIdentity, TState> RebuildSlice<TKey, TIdentity, TState>(
+        OrderedKeys<TKey, TIdentity, TState> upstreamKeys,
+        int offset,
+        int limit)
+        where TKey : notnull
+        where TIdentity : notnull =>
+        new RangeKeys<TKey, TIdentity, TState>(
+            source: upstreamKeys,
+            offset: offset,
+            limit: limit);
+
+    private static MaybeInternal<StageOutcome<TKey, TIdentity, TState>> ProcessSlice<TKey, TIdentity, TState>(
         (int Offset, int Limit) bounds,
         IEnumerable<TKey> state,
         CollectionViewChange<TKey, TIdentity, TState> change)
@@ -755,28 +1331,36 @@ internal static class CollectionViewUtility
         OrderedKeys<TKey, TIdentity, TState> keys =
             new RangeKeys<TKey, TIdentity, TState>(source: change.Keys, offset: bounds.Offset, limit: bounds.Limit);
 
-        List<TKey> before = new(state);
-        List<TKey> after = new(keys);
-
-        int common = 0;
-
-        while (common < before.Count &&
-               common < after.Count &&
-               EqualityComparer<TKey>.Default.Equals(x: before[common], y: after[common]))
-        {
-            common++;
-        }
-
         List<ViewOperation<TKey>> operations = new();
+        bool changesMembership = false;
 
-        for (int index = before.Count - 1; index >= common; index--)
-        {
-            operations.Add(new ViewRemove<TKey>(key: before[index], index: index));
-        }
+        int common = -1;
 
-        for (int index = common; index < after.Count; index++)
+        if (change.MovesKeys || change.ChangesMembership)
         {
-            operations.Add(new ViewInsert<TKey>(key: after[index], index: index));
+            List<TKey> before = new(state);
+            List<TKey> after = new(keys);
+
+            common = 0;
+
+            while (common < before.Count &&
+                   common < after.Count &&
+                   change.KeyEqualityComparer.Equals(x: before[common], y: after[common]))
+            {
+                common++;
+            }
+
+            for (int index = before.Count - 1; index >= common; index--)
+            {
+                operations.Add(new ViewRemove<TKey>(key: before[index], index: index));
+                changesMembership = true;
+            }
+
+            for (int index = common; index < after.Count; index++)
+            {
+                operations.Add(new ViewInsert<TKey>(key: after[index], index: index));
+                changesMembership = true;
+            }
         }
 
         // Keys that survived in place still need their updates forwarded, or a stage below this one
@@ -788,23 +1372,32 @@ internal static class CollectionViewUtility
                 continue;
             }
 
-            int index = after.IndexOf(update.Key);
+            int index = keys.IndexOfInternal(update.Key);
 
-            if (index >= 0 && index < common)
+            if (index >= 0 && (common < 0 || index < common))
             {
                 operations.Add(new ViewUpdate<TKey>(key: update.Key, index: index));
             }
         }
 
-        return new StageOutcome<TKey, TIdentity, TState>(keys: keys, operations: operations);
+        return MaybeInternal.Some(
+            new StageOutcome<TKey, TIdentity, TState>(
+                keys: keys,
+                operations: operations,
+                movesKeys: changesMembership,
+                changesMembership: changesMembership));
     }
+
+    #endregion
+
+    #region Map
 
     /// <summary>
     ///     One object per key, in the collection's order, rebuilt only when the keys move.
     /// </summary>
     /// <remarks>
     ///     The projection runs once per key and the object is kept, so a collection whose items
-    ///     changed but whose membership and order did not yields the same objects in the same
+    ///     changed but whose membership and order did not yield the same objects in the same
     ///     order - which is what keeps a bound list from rebuilding when one row's value moves.
     /// </remarks>
     internal static MappedItems<TResult> MapImpl<TKey, TIdentity, TState, TResult>(
@@ -831,7 +1424,9 @@ internal static class CollectionViewUtility
             dispose: cache.ReleaseAll);
     }
 
-    // --- shared -------------------------------------------------------------------------------
+    #endregion
+
+    #region Shared
 
     /// <summary>Files every key into a new set under one order.</summary>
     /// <remarks>
@@ -880,59 +1475,78 @@ internal static class CollectionViewUtility
     ///     The snapshot is still consulted, because a key the snapshot has dropped does have to
     ///     leave the set, and one lookup is cheaper than the four operations it replaces.
     /// </remarks>
-    private static void Refile<TKey, TIdentity, TState>(
+    private static bool Refile<TKey, TIdentity, TState>(
         ref OrderedKeys<TKey, TIdentity, TState> keys,
         ICollection<ViewOperation<TKey>> operations,
         TKey key,
-        CollectionSnapshot<TKey, TIdentity, TState> snapshot)
+        CollectionSnapshot<TKey, TIdentity, TState> snapshot,
+        out bool wasMoved)
         where TKey : notnull
         where TIdentity : notnull
     {
-        if (!keys.Order.DependsOnState && snapshot.ContainsKey(key))
-        {
-            int at = keys.IndexOfInternal(key);
-
-            if (at >= 0)
-            {
-                operations.Add(new ViewUpdate<TKey>(key: key, index: at));
-            }
-
-            return;
-        }
+        wasMoved = false;
 
         int fromIndex = keys.IndexOfInternal(key);
+
+        if (fromIndex < 0)
+        {
+            //TODO: JAM: should we throw an exception here or could this be valid?  It seems as if we only call Refile
+            //when the key already exists
+        }
+
+        //TODO: JAM: why do we need to check snapshot here?
+        if (!keys.Order.DependsOnState && snapshot.ContainsKey(key))
+        {
+            operations.Add(new ViewUpdate<TKey>(key: key, index: fromIndex));
+
+            return true;
+        }
 
         OrderedKeys<TKey, TIdentity, TState> updated = keys.Remove(key).Add(key: key, snapshot: snapshot);
         int toIndex = updated.IndexOfInternal(key);
 
         keys = updated;
 
+        //TODO: JAM: Is this possible?  It looks like we only call Refile when the item was in the collection and will
+        //be staying in it.
         if (toIndex < 0)
         {
             // Gone from the set entirely, which a re-file can do when the snapshot no longer has
             // the item.
+            //TODO: JAM: why wouldn't the snapshot have the item here?
             if (fromIndex >= 0)
             {
                 operations.Add(new ViewRemove<TKey>(key: key, index: fromIndex));
+
+                return true;
             }
 
-            return;
+            return false;
         }
 
+        //TODO: If we consider this to be an error above, we can remove this.
         if (fromIndex < 0)
         {
             operations.Add(new ViewInsert<TKey>(key: key, index: toIndex));
 
-            return;
+            return true;
         }
 
         if (fromIndex != toIndex)
         {
             operations.Add(new ViewMove<TKey>(key: key, fromIndex: fromIndex, toIndex: toIndex));
+
+            wasMoved = true;
+
+            return true;
         }
 
         operations.Add(new ViewUpdate<TKey>(key: key, index: toIndex));
+
+        return true;
     }
+
+    #endregion
 }
 
 /// <summary>
@@ -947,13 +1561,21 @@ internal sealed class StageOutcome<TKey, TIdentity, TState>
 {
     internal StageOutcome(
         OrderedKeys<TKey, TIdentity, TState> keys,
-        IReadOnlyList<ViewOperation<TKey>> operations)
+        IReadOnlyList<ViewOperation<TKey>> operations,
+        bool movesKeys,
+        bool changesMembership)
     {
         this.Keys = keys;
         this.Operations = operations;
+        this.MovesKeys = movesKeys;
+        this.ChangesMembership = changesMembership;
     }
 
     internal OrderedKeys<TKey, TIdentity, TState> Keys { get; }
 
     internal IReadOnlyList<ViewOperation<TKey>> Operations { get; }
+
+    internal bool MovesKeys { get; }
+
+    internal bool ChangesMembership { get; }
 }

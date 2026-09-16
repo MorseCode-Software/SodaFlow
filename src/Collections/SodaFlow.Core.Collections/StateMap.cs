@@ -81,6 +81,13 @@ public abstract class StateMap<TKey, TState>
     public abstract bool ContainsKey(TKey key);
 }
 
+internal static class ImmutableStateMap<TState>
+{
+    internal static ImmutableStateMap<TKey, TState> Create<TKey>(IEqualityComparer<TKey> keyEqualityComparer)
+        where TKey : notnull =>
+        new(keyEqualityComparer);
+}
+
 /// <summary>
 ///     The default strategy: a hash array mapped trie. Updates cost roughly O(log32 n) and
 ///     allocate only the path from the root, so a 100k-item collection rewrites about four nodes
@@ -95,11 +102,12 @@ internal sealed class ImmutableStateMap<TKey, TState> : StateMap<TKey, TState>
 {
     private readonly ImmutableDictionary<TKey, TState> states;
 
-    private ImmutableStateMap(ImmutableDictionary<TKey, TState> states) => this.states = states;
+    internal ImmutableStateMap(IEqualityComparer<TKey> keyEqualityComparer)
+        : this(ImmutableDictionary<TKey, TState>.Empty.WithComparers(keyEqualityComparer))
+    {
+    }
 
-    /// <summary>The empty map, which every collection starts from unless told otherwise.</summary>
-    public static ImmutableStateMap<TKey, TState> Empty { get; } =
-        new(ImmutableDictionary<TKey, TState>.Empty);
+    private ImmutableStateMap(ImmutableDictionary<TKey, TState> states) => this.states = states;
 
     /// <inheritdoc />
     public override int Count => this.states.Count;

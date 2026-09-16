@@ -197,9 +197,12 @@ public sealed class AccountsViewModelOptimizedDrain : IAccountsViewModel
             StreamLoop<CollectionEdit<int, AccountIdentity, AccountState>> drains =
                 Stream.CreateLoop<CollectionEdit<int, AccountIdentity, AccountState>>();
 
+            StreamLoop<CollectionEdit<int, AccountIdentity, AccountState>> changeShowFrozen =
+                Stream.CreateLoop<CollectionEdit<int, AccountIdentity, AccountState>>();
+
             // No key selector: AccountIdentity implements IIdentity<int>.
             ReactiveCollection<int, AccountIdentity, AccountState> accounts =
-                ReactiveCollection.Create(initialEntries: AccountSeed.Items, deposits, drains);
+                ReactiveCollection.Create(initialEntries: AccountSeed.Items, deposits, drains.OrElse(changeShowFrozen));
 
             // Every frozen account with something left in it, across the whole collection rather
             // than the page or the filter, because a drain empties accounts nobody is looking at.
@@ -270,6 +273,16 @@ public sealed class AccountsViewModelOptimizedDrain : IAccountsViewModel
             Cell<bool> canDrain =
                 drainableAccountKeys.Map(static drainableAccountKeys => drainableAccountKeys.Count > 0);
 
+            changeShowFrozen.Loop(
+                showFrozen.Updates()
+                    .Snapshot(
+                        c: accounts.SnapshotCell,
+                        f: static (showFrozen, snapshot) =>
+                            new CollectionEdit<int, AccountIdentity, AccountState>(
+                                updates: snapshot.States.Pairs.Where(pair => pair.Value.IsFrozen && pair.Value.IsShowing != showFrozen).ToDictionary(pair => pair.Key, _ => (Func<AccountState, AccountState>)(state => state with { IsShowing = showFrozen })),
+                                adds: [],
+                                removes: [])));
+
             // Gated in the graph as well as disabled on the command, for the reason a row's
             // deposit is. The keys are read in the same transaction the edit lands in, so what is
             // emptied is exactly what was frozen and non-empty at the moment of the click.
@@ -288,8 +301,7 @@ public sealed class AccountsViewModelOptimizedDrain : IAccountsViewModel
             ReactiveCollection<int, AccountIdentity, AccountState> filtered =
                 accounts
                     .Filter(
-                        criteriaCell: showFrozen,
-                        predicate: static (showing, _, state) => showing || !state.IsFrozen)
+                        predicate: static (_, state) => state.IsShowing)
                     .SortBy(
                         sort.Map(static selection =>
                             selection.Map(static selection => selection.Order).ValueOr(AccountOrder.ByArrival)));

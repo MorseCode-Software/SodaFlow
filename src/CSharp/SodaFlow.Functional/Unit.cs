@@ -1,9 +1,7 @@
 ﻿using System;
 using System.Collections;
 using JetBrains.Annotations;
-#if NET
 using System.Diagnostics.CodeAnalysis;
-#endif
 
 namespace SodaFlow.Functional;
 
@@ -32,9 +30,7 @@ public readonly struct Unit
     ///     There is only one value of this type, so any two instances are equal.
     /// </remarks>
     public override bool Equals(
-#if NET
         [NotNullWhen(true)]
-#endif
         object? obj) =>
         obj is Unit;
 

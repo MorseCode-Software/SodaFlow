@@ -90,7 +90,7 @@ internal sealed class ViewStage<TKey, TIdentity, TState> : ReactiveCollection<TK
     public override Cell<IReadOnlyDictionary<TKey, TIdentity>> ShapeCell => this.shapeCell.Value;
 
     /// <inheritdoc />
-    internal override ReactiveCollection<TKey, TIdentity, TState> Root => this.source.Root;
+    internal override RootCollection<TKey, TIdentity, TState> Root => this.source.Root;
 
     /// <inheritdoc />
     /// <remarks>
@@ -205,13 +205,17 @@ internal sealed class StageResult<TKey, TIdentity, TState>
         IReadOnlyList<ViewOperation<TKey>> operations,
         bool isReset,
         CollectionSnapshot<TKey, TIdentity, TState> before,
-        CollectionSnapshot<TKey, TIdentity, TState> after)
+        CollectionSnapshot<TKey, TIdentity, TState> after,
+        bool movesKeys,
+        bool changesMembership)
     {
         this.Keys = keys;
         this.Operations = operations;
         this.IsReset = isReset;
         this.Before = before;
         this.After = after;
+        this.MovesKeys = movesKeys;
+        this.ChangesMembership = changesMembership;
     }
 
     internal OrderedKeys<TKey, TIdentity, TState> Keys { get; }
@@ -230,27 +234,11 @@ internal sealed class StageResult<TKey, TIdentity, TState>
     ///     only updates leaves every key where it was, though its keys may still be a new version -
     ///     a re-file that moved nothing builds one carrying the new sort value.
     /// </remarks>
-    internal bool MovesKeys
-    {
-        get
-        {
-            if (this.IsReset)
-            {
-                return true;
-            }
+    internal bool MovesKeys { get; }
 
-            // Indexed rather than enumerated, for the reason CollectionViewChange's projections are.
-            // ReSharper disable once ForCanBeConvertedToForeach
-            // ReSharper disable once LoopCanBeConvertedToQuery
-            for (int index = 0; index < this.Operations.Count; index++)
-            {
-                if (this.Operations[index] is not ViewUpdate<TKey>)
-                {
-                    return true;
-                }
-            }
-
-            return false;
-        }
-    }
+    /// <summary>Whether this change alters what the view holds, rather than only where.</summary>
+    /// <remarks>
+    ///     A reorder is not a membership change, which is what lets a shape cell sleep through one.
+    /// </remarks>
+    internal bool ChangesMembership { get; }
 }

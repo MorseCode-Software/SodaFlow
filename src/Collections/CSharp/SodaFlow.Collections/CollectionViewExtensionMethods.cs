@@ -138,7 +138,7 @@ public static class CollectionViewExtensionMethods
             selector: selector,
             sortComparer: Comparer<TSortKey>.Default,
             keyComparer: Comparer<TKey>.Default,
-            descending: false);
+            isDescending: false);
 
     /// <summary>Reorders the view, descending, by a value projected from each item.</summary>
     /// <typeparam name="TKey">The type of the keys.</typeparam>
@@ -158,7 +158,7 @@ public static class CollectionViewExtensionMethods
             selector: selector,
             sortComparer: Comparer<TSortKey>.Default,
             keyComparer: Comparer<TKey>.Default,
-            descending: true);
+            isDescending: true);
 
     /// <summary>
     ///     Reorders the view. <typeparamref name="TSortKey" /> stays a real generic parameter all
@@ -173,7 +173,7 @@ public static class CollectionViewExtensionMethods
     /// <param name="selector">Projects the sort value from an item.</param>
     /// <param name="sortComparer">Compares two projected sort values.</param>
     /// <param name="keyComparer">Breaks ties, so that the order is total.</param>
-    /// <param name="descending">Whether to reverse the sort comparison.</param>
+    /// <param name="isDescending">Whether to reverse the sort comparison.</param>
     /// <returns>A view in that order.</returns>
     [MethodImpl(MethodImplOptions.NoInlining)]
     public static ReactiveCollection<TKey, TIdentity, TState> SortBy<TKey, TIdentity, TState, TSortKey>(
@@ -181,7 +181,7 @@ public static class CollectionViewExtensionMethods
         Func<TIdentity, TState, TSortKey> selector,
         IComparer<TSortKey> sortComparer,
         IComparer<TKey> keyComparer,
-        bool descending)
+        bool isDescending)
         where TKey : notnull
         where TIdentity : notnull =>
         CollectionViewUtility.SortByImpl(
@@ -189,7 +189,7 @@ public static class CollectionViewExtensionMethods
             selector: selector,
             sortComparer: sortComparer,
             keyComparer: keyComparer,
-            descending: descending);
+            isDescending: isDescending);
 
     /// <summary>Reorders the view by whichever order the cell currently holds.</summary>
     /// <typeparam name="TKey">The type of the keys.</typeparam>
@@ -295,7 +295,7 @@ public static class CollectionViewExtensionMethods
             selector: selector,
             sortComparer: Comparer<TSortKey>.Default,
             keyComparer: Comparer<TKey>.Default,
-            descending: false);
+            isDescending: false);
 
     /// <summary>
     ///     Reorders the view, descending, by a value projected from each item's identity.
@@ -324,7 +324,7 @@ public static class CollectionViewExtensionMethods
             selector: selector,
             sortComparer: Comparer<TSortKey>.Default,
             keyComparer: Comparer<TKey>.Default,
-            descending: true);
+            isDescending: true);
 
     /// <summary>
     ///     Reorders the view by a value projected from each item's identity, with explicit
@@ -338,7 +338,7 @@ public static class CollectionViewExtensionMethods
     /// <param name="selector">Projects the sort value from an item's identity.</param>
     /// <param name="sortComparer">Compares two projected sort values.</param>
     /// <param name="keyComparer">Breaks ties, so that the order is total.</param>
-    /// <param name="descending">Whether to reverse the sort comparison.</param>
+    /// <param name="isDescending">Whether to reverse the sort comparison.</param>
     /// <returns>A view in that order.</returns>
     [MethodImpl(MethodImplOptions.NoInlining)]
     public static ReactiveCollection<TKey, TIdentity, TState> SortByIdentity<TKey, TIdentity, TState, TSortKey>(
@@ -346,7 +346,7 @@ public static class CollectionViewExtensionMethods
         Func<TIdentity, TSortKey> selector,
         IComparer<TSortKey> sortComparer,
         IComparer<TKey> keyComparer,
-        bool descending)
+        bool isDescending)
         where TKey : notnull
         where TIdentity : notnull =>
         CollectionViewUtility.SortByIdentityImpl(
@@ -354,7 +354,7 @@ public static class CollectionViewExtensionMethods
             selector: selector,
             sortComparer: sortComparer,
             keyComparer: keyComparer,
-            descending: descending);
+            isDescending: isDescending);
 
     /// <summary>
     ///     The first <paramref name="limit" /> keys of the upstream — the top-n of whatever ordering
