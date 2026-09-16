@@ -596,6 +596,11 @@ worth about a tenth of an edit and a fifth of its allocation.
 order or select by something in the identity — an account number, a code, a type — and a state
 edit can move a key neither into the view nor within it. The last column is a chain of both.
 
+The two halves are separate claims. `FilterByIdentity` settles membership, but it keeps whatever
+order its upstream has, so under a sort that reads the state a state edit still moves keys within
+it, and it re-files them as any stage would. Only under an order that reads no state does it get
+to skip that.
+
 They are not equal contributors. Of that column at ten thousand items, `SortByIdentity` accounts for
 almost all of it — 12.9 µs to 10.9 µs, and every byte of the allocation, because what it skips
 is re-filing, which copies tree paths. `FilterByIdentity` barely registers here, and that is the wrong

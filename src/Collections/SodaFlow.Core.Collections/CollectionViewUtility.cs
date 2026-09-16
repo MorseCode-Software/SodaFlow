@@ -148,9 +148,9 @@ internal static class CollectionViewUtility
     /// <remarks>
     ///     The same membership <see cref="FilterImpl{TKey,TIdentity,TState}" /> would give for the same
     ///     answers, and cheaper to keep. A state edit cannot move a key into this filter or out of
-    ///     it, so the stage neither re-tests the predicate nor asks whether the key was already in
-    ///     - it forwards the update and is done. The predicate is not handed the state, which is
-    ///     what makes that checkable rather than promised.
+    ///     it, so the stage never re-tests the predicate on one - it re-files a key it holds, which
+    ///     over an order that reads no state is only reporting the update. The predicate is not
+    ///     handed the state, which is what makes that checkable rather than promised.
     /// </remarks>
     internal static ReactiveCollection<TKey, TIdentity, TState> FilterByIdentityImpl<TKey, TIdentity, TState>(
         ReactiveCollection<TKey, TIdentity, TState> upstream,
@@ -968,18 +968,23 @@ internal static class CollectionViewUtility
     }
 
     /// <summary>
-    ///     What an identity-only filter does with a change, which on an update is nothing but pass
-    ///     it on.
+    ///     What an identity-only filter does with a change, which on an update or a move is to re-file
+    ///     a key it holds and never to re-test one.
     /// </summary>
     /// <remarks>
-    ///     An update carries a new state and nothing else, so it cannot have moved a key into this
-    ///     filter or out of it - the ordinary path's <c>Contains</c> and predicate test would both
-    ///     be computing a foregone conclusion. What is left is the index, which has to be looked up
-    ///     anyway to report the update, and which answers -1 for a key this stage does not hold, so
-    ///     one lookup settles both questions.
-    ///     Nothing guards that with a snapshot lookup, because an update names a key the snapshot
-    ///     holds by construction: the root emits one only for a key in its change's new states, and
-    ///     every stage below it only forwards.
+    ///     <para>
+    ///         An update or a move carries a new state and nothing else, so it cannot have moved a key
+    ///         into this filter or out of it - the ordinary path's predicate test would be computing a
+    ///         foregone conclusion, and a key this stage does not hold is settled by one failed lookup.
+    ///     </para>
+    ///     <para>
+    ///         It can move a key within it. This stage keeps its upstream's order, and when that order
+    ///         reads the state, a state edit changes the value a held key is filed under - whether or
+    ///         not the upstream reported it as a move, since a value can change without passing
+    ///         another key and still be wrong to file the next arrival against. So a held key is
+    ///         re-filed, and reported at this stage's own positions. Under an order that reads no
+    ///         state the re-file is one lookup and an update, which is all this ever did there.
+    ///     </para>
     /// </remarks>
     private static MaybeInternal<StageOutcome<TKey, TIdentity, TState>> ProcessFilterByIdentity<TKey, TIdentity, TState>(
         Func<TIdentity, bool> predicate,
@@ -1053,42 +1058,27 @@ internal static class CollectionViewUtility
                     break;
                 }
 
-                case ViewUpdate<TKey> update:
+                // An update and a move are the same thing to this stage: a new value for a key whose
+                // membership it cannot change. Absent means the predicate never admitted the key, so
+                // there is nothing to do; held, the key is re-filed under the value, which under an
+                // order that reads no state is one lookup and an update, as it always was.
+                case ViewUpdate<TKey> or ViewMove<TKey>:
                 {
-                    int updated = keys.IndexOfInternal(update.Key);
-
-                    // Absent means the predicate never admitted the key, which an update cannot change.
-                    if (updated >= 0)
+                    if (!keys.Contains(operation.Key))
                     {
-                        operations.Add(new ViewUpdate<TKey>(key: update.Key, index: updated));
-
-                        if (!OperationAddedWasValid(
-                                numberOfOperations: ref numberOfOperations,
-                                maxNumberOfOperations: maxNumberOfOperations))
-                        {
-                            return MaybeInternal<StageOutcome<TKey, TIdentity, TState>>.None;
-                        }
+                        break;
                     }
 
-                    break;
-                }
-
-                case ViewMove<TKey> move:
-                {
-                    int updated = keys.IndexOfInternal(move.Key);
-
-                    // Absent means the predicate never admitted the key, which a move cannot change.
-                    if (updated >= 0)
+                    if (Refile(keys: ref keys, operations: operations, key: operation.Key, snapshot: change.After))
                     {
-                        operations.Add(new ViewMove<TKey>(key: move.Key, fromIndex: move.FromIndex, toIndex: updated));
                         movesKeys = true;
+                    }
 
-                        if (!OperationAddedWasValid(
-                                numberOfOperations: ref numberOfOperations,
-                                maxNumberOfOperations: maxNumberOfOperations))
-                        {
-                            return MaybeInternal<StageOutcome<TKey, TIdentity, TState>>.None;
-                        }
+                    if (!OperationAddedWasValid(
+                            numberOfOperations: ref numberOfOperations,
+                            maxNumberOfOperations: maxNumberOfOperations))
+                    {
+                        return MaybeInternal<StageOutcome<TKey, TIdentity, TState>>.None;
                     }
 
                     break;
@@ -1462,14 +1452,14 @@ internal static class CollectionViewUtility
     ///     </para>
     ///     <para>
     ///         An order that cannot move a key on a state edit skips the removing and re-adding, which
-    ///         would be four tree operations to put the key back where it already was. Both callers
-    ///         reach this on every state edit that touches a key they hold, so that is the incremental
+    ///         would be four tree operations to put the key back where it already was. Every caller
+    ///         reaches this on every state edit that touches a key it holds, so that is the incremental
     ///         path, and an order projecting its sort value from the key or the identity - the root's,
     ///         and any filter sitting directly on it - can never move a key on a state edit.
     ///     </para>
     ///     <para>
-    ///         The key has to be one the stage holds and one the snapshot still has. Both callers only
-    ///         re-file keys they hold, for operations naming keys the snapshot has, so either failing
+    ///         The key has to be one the stage holds and one the snapshot still has. Every caller only
+    ///         re-files keys it holds, for operations naming keys the snapshot has, so either failing
     ///         is a fault upstream, and it throws rather than reporting an operation at no position.
     ///     </para>
     /// </remarks>

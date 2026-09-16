@@ -506,6 +506,90 @@ public sealed class CollectionViewTests
         await Assert.That(KeysOf(evens)).IsEquivalentTo(expected: [4], ordering: CollectionOrdering.Matching);
     }
 
+    /// <summary>
+    ///     A state edit cannot move a key into or out of an identity filter, but it can move one
+    ///     within it: the filter keeps its upstream's order, and an upstream sorting by state moves
+    ///     keys on a state edit. The move has to be followed, and reported at this stage's own
+    ///     positions rather than the upstream's.
+    /// </summary>
+    [Test]
+    public async Task FilterByIdentityFollowsAMoveInAStateOrderAboveIt()
+    {
+        StreamSink<CollectionEdit<int, ItemIdentity, ItemState>> edits =
+            Stream.CreateSink<CollectionEdit<int, ItemIdentity, ItemState>>();
+
+        ReactiveCollection<int, ItemIdentity, ItemState> collection =
+            Create(
+                edits: edits,
+                TestUtil.Item(number: 1, name: "one", score: 10),
+                TestUtil.Item(number: 2, name: "two", score: 20),
+                TestUtil.Item(number: 3, name: "three", score: 30),
+                TestUtil.Item(number: 4, name: "four", score: 40));
+
+        ReactiveCollection<int, ItemIdentity, ItemState> byScore = collection.SortBy(static (_, state) => state.Score);
+
+        ReactiveCollection<int, ItemIdentity, ItemState> odds =
+            byScore.FilterByIdentity(static identity => identity.Number % 2 == 1);
+
+        await Assert.That(KeysOf(odds)).IsEquivalentTo(expected: [1, 3], ordering: CollectionOrdering.Matching);
+
+        List<string> operations = [];
+
+        IListener l =
+            odds.KeyChangesStream.ListenStrong(change =>
+                operations.AddRange(
+                    change.Operations.Select(static operation =>
+                        operation is ViewMove<int> move
+                            ? $"{Describe(move)}:{move.FromIndex}->{move.ToIndex}"
+                            : Describe(operation))));
+
+        // 10 -> 35 moves key 1 from the front of the sort to third, [2, 3, 1, 4], and so from the
+        // front of this filter to the back.
+        edits.Send(TestUtil.Score(key: 1, score: 35));
+
+        l.Unlisten();
+
+        await Assert.That(KeysOf(byScore)).IsEquivalentTo(expected: [2, 3, 1, 4], ordering: CollectionOrdering.Matching);
+        await Assert.That(KeysOf(odds)).IsEquivalentTo(expected: [3, 1], ordering: CollectionOrdering.Matching);
+
+        // This stage's positions: 0 to 1 here, where the sort above moved it 0 to 2.
+        await Assert.That(operations).IsEquivalentTo(expected: ["ViewMove:1:0->1"], ordering: CollectionOrdering.Matching);
+    }
+
+    /// <summary>
+    ///     An update that moves nothing still changes the value the key is filed under. A filter that
+    ///     only passed the update on would keep the old value, and file the next arrival against it.
+    /// </summary>
+    [Test]
+    public async Task FilterByIdentityFilesTheNextArrivalAgainstAnUpdatedSortValue()
+    {
+        StreamSink<CollectionEdit<int, ItemIdentity, ItemState>> edits =
+            Stream.CreateSink<CollectionEdit<int, ItemIdentity, ItemState>>();
+
+        ReactiveCollection<int, ItemIdentity, ItemState> collection =
+            Create(
+                edits: edits,
+                TestUtil.Item(number: 1, name: "one", score: 10),
+                TestUtil.Item(number: 2, name: "two", score: 20),
+                TestUtil.Item(number: 3, name: "three", score: 30));
+
+        ReactiveCollection<int, ItemIdentity, ItemState> byScore = collection.SortBy(static (_, state) => state.Score);
+
+        ReactiveCollection<int, ItemIdentity, ItemState> all =
+            byScore.FilterByIdentity(static identity => identity.Number > 0);
+
+        // 20 -> 25 keeps key 2 between 1 and 3, so the sort reports an update and no move.
+        edits.Send(TestUtil.Score(key: 2, score: 25));
+
+        await Assert.That(KeysOf(all)).IsEquivalentTo(expected: [1, 2, 3], ordering: CollectionOrdering.Matching);
+
+        // 22 belongs before 25. Filed against the stale 20, it would land after key 2.
+        edits.Send(TestUtil.Add(TestUtil.Item(number: 4, name: "four", score: 22)));
+
+        await Assert.That(KeysOf(byScore)).IsEquivalentTo(expected: [1, 4, 2, 3], ordering: CollectionOrdering.Matching);
+        await Assert.That(KeysOf(all)).IsEquivalentTo(expected: [1, 4, 2, 3], ordering: CollectionOrdering.Matching);
+    }
+
     [Test]
     public async Task FilterByIdentityComposesWithSortByIdentity()
     {
