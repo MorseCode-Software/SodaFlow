@@ -33,7 +33,8 @@ internal static class CollectionViewUtility
         where TKey : notnull
         where TIdentity : notnull
     {
-        KeyOrder<TKey, TIdentity, TState> order = KeyOrder<TKey, TIdentity, TState>.ByArrival();
+        KeyOrder<TKey, TIdentity, TState> order =
+            KeyOrder<TKey, TIdentity, TState>.ByArrival().With(collection.Root.KeyEqualityComparer);
 
         return TransactionInternal.Apply<ReactiveCollection<TKey, TIdentity, TState>>((trans, _) =>
         {
