@@ -938,7 +938,7 @@ internal static class CollectionViewUtility
                             operations: operations,
                             key: key,
                             snapshot: change.After,
-                            isUpdate: isUpdate))
+                            canRefileOnly: isUpdate))
                     {
                         movesKeys = true;
                     }
@@ -1112,7 +1112,7 @@ internal static class CollectionViewUtility
                 return false;
             }
 
-            if (Refile(keys: ref keys, operations: operations, key: key, snapshot: change.After, isUpdate: isUpdate))
+            if (Refile(keys: ref keys, operations: operations, key: key, snapshot: change.After, canRefileOnly: isUpdate))
             {
                 movesKeys = true;
             }
@@ -1266,7 +1266,7 @@ internal static class CollectionViewUtility
                             operations: operations,
                             key: update.Key,
                             snapshot: change.After,
-                            isUpdate: true))
+                            canRefileOnly: true))
                     {
                         movesKeys = true;
                     }
@@ -1286,7 +1286,7 @@ internal static class CollectionViewUtility
                             operations: operations,
                             key: move.Key,
                             snapshot: change.After,
-                            isUpdate: false))
+                            canRefileOnly: true))
                     {
                         movesKeys = true;
                     }
@@ -1502,7 +1502,7 @@ internal static class CollectionViewUtility
         ICollection<ViewOperation<TKey>> operations,
         TKey key,
         CollectionSnapshot<TKey, TIdentity, TState> snapshot,
-        bool isUpdate)
+        bool canRefileOnly)
         where TKey : notnull
         where TIdentity : notnull
     {
@@ -1513,7 +1513,7 @@ internal static class CollectionViewUtility
             throw new InvalidOperationException("A stage can only re-file a key it holds.");
         }
 
-        if (isUpdate && !keys.Order.DependsOnState)
+        if (canRefileOnly && !keys.Order.DependsOnState)
         {
             operations.Add(new ViewUpdate<TKey>(key: key, index: fromIndex));
 
