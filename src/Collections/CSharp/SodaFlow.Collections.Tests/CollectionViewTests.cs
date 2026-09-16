@@ -1712,4 +1712,132 @@ public sealed class CollectionViewTests
         await Assert.That(operationCounts).IsEquivalentTo(expected: [0], ordering: CollectionOrdering.Matching);
         await Assert.That(KeysOf(collection).Count).IsEqualTo(500);
     }
+
+    /// <summary>
+    ///     A predicate change names what entered and left rather than resetting, so a consumer can
+    ///     move the rows it has instead of rebuilding the list.
+    /// </summary>
+    [Test]
+    public async Task ChangingThePredicateNamesWhatEnteredAndLeft()
+    {
+        StreamSink<CollectionEdit<int, ItemIdentity, ItemState>> edits =
+            Stream.CreateSink<CollectionEdit<int, ItemIdentity, ItemState>>();
+
+        CellSink<int> threshold = Cell.CreateSink(20);
+
+        ReactiveCollection<int, ItemIdentity, ItemState> collection =
+            Create(
+                edits: edits,
+                TestUtil.Item(number: 1, name: "one", score: 10),
+                TestUtil.Item(number: 2, name: "two", score: 20),
+                TestUtil.Item(number: 3, name: "three", score: 30));
+
+        ReactiveCollection<int, ItemIdentity, ItemState> passing =
+            collection.Filter(
+                criteriaCell: threshold,
+                predicate: static (limit, _, state) => state.Score >= limit);
+
+        await Assert.That(KeysOf(passing)).IsEquivalentTo(expected: [2, 3], ordering: CollectionOrdering.Matching);
+
+        List<string> operations = [];
+
+        IListener l =
+            passing.KeyChangesStream.ListenStrong(change => operations.AddRange(change.Operations.Select(Describe)));
+
+        // One key enters at the front and nothing leaves.
+        threshold.Send(5);
+
+        await Assert.That(operations).IsEquivalentTo(expected: ["ViewInsert:1"], ordering: CollectionOrdering.Matching);
+        await Assert.That(KeysOf(passing)).IsEquivalentTo(expected: [1, 2, 3], ordering: CollectionOrdering.Matching);
+
+        operations.Clear();
+
+        // Two leave and nothing enters.
+        threshold.Send(25);
+
+        await Assert.That(operations)
+            .IsEquivalentTo(expected: ["ViewRemove:1", "ViewRemove:2"], ordering: CollectionOrdering.Matching);
+
+        await Assert.That(KeysOf(passing)).IsEquivalentTo(expected: [3], ordering: CollectionOrdering.Matching);
+
+        l.Unlisten();
+    }
+
+    /// <summary>A predicate the collection answers the same way is no change at all.</summary>
+    [Test]
+    public async Task ChangingThePredicateToOneThatChoosesTheSameItemsReportsNothing()
+    {
+        StreamSink<CollectionEdit<int, ItemIdentity, ItemState>> edits =
+            Stream.CreateSink<CollectionEdit<int, ItemIdentity, ItemState>>();
+
+        CellSink<int> threshold = Cell.CreateSink(20);
+
+        ReactiveCollection<int, ItemIdentity, ItemState> collection =
+            Create(
+                edits: edits,
+                TestUtil.Item(number: 1, name: "one", score: 10),
+                TestUtil.Item(number: 2, name: "two", score: 20),
+                TestUtil.Item(number: 3, name: "three", score: 30));
+
+        ReactiveCollection<int, ItemIdentity, ItemState> passing =
+            collection.Filter(
+                criteriaCell: threshold,
+                predicate: static (limit, _, state) => state.Score >= limit);
+
+        int changes = 0;
+        IListener l = passing.KeyChangesStream.ListenStrong(_ => changes++);
+
+        // A different limit that admits exactly the same two items.
+        threshold.Send(15);
+
+        l.Unlisten();
+
+        await Assert.That(changes).IsEqualTo(0);
+        await Assert.That(KeysOf(passing)).IsEquivalentTo(expected: [2, 3], ordering: CollectionOrdering.Matching);
+    }
+
+    /// <summary>
+    ///     A stage below the filter hears the same thing: operations to apply, not a reset telling
+    ///     it to start again.
+    /// </summary>
+    [Test]
+    public async Task AStageBelowAPredicateChangeIsNotResetEither()
+    {
+        StreamSink<CollectionEdit<int, ItemIdentity, ItemState>> edits =
+            Stream.CreateSink<CollectionEdit<int, ItemIdentity, ItemState>>();
+
+        CellSink<int> threshold = Cell.CreateSink(20);
+
+        ReactiveCollection<int, ItemIdentity, ItemState> collection =
+            Create(
+                edits: edits,
+                TestUtil.Item(number: 1, name: "one", score: 10),
+                TestUtil.Item(number: 2, name: "two", score: 20),
+                TestUtil.Item(number: 3, name: "three", score: 30));
+
+        ReactiveCollection<int, ItemIdentity, ItemState> sorted =
+            collection
+                .Filter(criteriaCell: threshold, predicate: static (limit, _, state) => state.Score >= limit)
+                .SortByDescending(static (_, state) => state.Score);
+
+        await Assert.That(KeysOf(sorted)).IsEquivalentTo(expected: [3, 2], ordering: CollectionOrdering.Matching);
+
+        List<bool> resets = [];
+        List<string> operations = [];
+
+        IListener l =
+            sorted.KeyChangesStream.ListenStrong(change =>
+            {
+                resets.Add(change.IsReset);
+                operations.AddRange(change.Operations.Select(Describe));
+            });
+
+        threshold.Send(5);
+
+        l.Unlisten();
+
+        await Assert.That(resets).IsEquivalentTo(expected: [false], ordering: CollectionOrdering.Matching);
+        await Assert.That(operations).IsEquivalentTo(expected: ["ViewInsert:1"], ordering: CollectionOrdering.Matching);
+        await Assert.That(KeysOf(sorted)).IsEquivalentTo(expected: [3, 2, 1], ordering: CollectionOrdering.Matching);
+    }
 }
