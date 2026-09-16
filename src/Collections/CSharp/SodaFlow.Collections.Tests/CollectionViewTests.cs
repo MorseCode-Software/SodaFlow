@@ -1,4 +1,4 @@
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using SodaFlow.Functional;
@@ -1607,5 +1607,109 @@ public sealed class CollectionViewTests
         mapped.Dispose();
 
         await Assert.That(released).IsEquivalentTo(expected: ["row 1", "row 2"], ordering: CollectionOrdering.Any);
+    }
+
+    /// <summary>
+    ///     A stage rebuilds instead of adjusting once a change costs more operations than a
+    ///     rebuild would. The budget has to have a floor: scaled to the stage's own size alone it
+    ///     is zero for an empty one, and then the first operation of all tips it into a rebuild -
+    ///     which for a filter means re-testing the whole upstream, and a reset for everything below.
+    /// </summary>
+    [Test]
+    public async Task OneItemEnteringAnEmptyFilterIsReportedAsAnInsert()
+    {
+        StreamSink<CollectionEdit<int, ItemIdentity, ItemState>> edits =
+            Stream.CreateSink<CollectionEdit<int, ItemIdentity, ItemState>>();
+
+        // Enough upstream that a rebuild would be the expensive answer, and nothing passing yet.
+        ReactiveCollection<int, ItemIdentity, ItemState> collection =
+            Create(
+                edits: edits,
+                [.. Enumerable.Range(1, 5_000).Select(n => TestUtil.Item(number: n, name: $"n{n}", score: 0))]);
+
+        ReactiveCollection<int, ItemIdentity, ItemState> highScores =
+            collection.Filter(static (_, state) => state.Score > 100);
+
+        await Assert.That(KeysOf(highScores)).IsEmpty();
+
+        List<bool> resets = [];
+        List<string> operations = [];
+
+        IListener l =
+            highScores.KeyChangesStream.ListenStrong(change =>
+            {
+                resets.Add(change.IsReset);
+                operations.AddRange(change.Operations.Select(Describe));
+            });
+
+        edits.Send(TestUtil.Score(key: 42, score: 999));
+
+        l.Unlisten();
+
+        await Assert.That(resets).IsEquivalentTo(expected: [false], ordering: CollectionOrdering.Matching);
+        await Assert.That(operations).IsEquivalentTo(expected: ["ViewInsert:42"], ordering: CollectionOrdering.Matching);
+        await Assert.That(KeysOf(highScores)).IsEquivalentTo(expected: [42], ordering: CollectionOrdering.Matching);
+    }
+
+    /// <summary>The same floor, at the other end: the first item ever added to a collection.</summary>
+    [Test]
+    public async Task TheFirstItemAddedToAnEmptyCollectionIsReportedAsAnInsert()
+    {
+        StreamSink<CollectionEdit<int, ItemIdentity, ItemState>> edits =
+            Stream.CreateSink<CollectionEdit<int, ItemIdentity, ItemState>>();
+
+        ReactiveCollection<int, ItemIdentity, ItemState> collection = Create(edits: edits);
+
+        List<bool> resets = [];
+        List<string> operations = [];
+
+        IListener l =
+            collection.KeyChangesStream.ListenStrong(change =>
+            {
+                resets.Add(change.IsReset);
+                operations.AddRange(change.Operations.Select(Describe));
+            });
+
+        edits.Send(TestUtil.Add(TestUtil.Item(number: 1, name: "one", score: 10)));
+
+        l.Unlisten();
+
+        await Assert.That(resets).IsEquivalentTo(expected: [false], ordering: CollectionOrdering.Matching);
+        await Assert.That(operations).IsEquivalentTo(expected: ["ViewInsert:1"], ordering: CollectionOrdering.Matching);
+    }
+
+    /// <summary>
+    ///     The budget still bites: a change big enough that listing it would cost more than
+    ///     rebuilding is reported as a reset, with no operations to apply.
+    /// </summary>
+    [Test]
+    public async Task AChangeLargerThanTheBudgetIsReportedAsAReset()
+    {
+        StreamSink<CollectionEdit<int, ItemIdentity, ItemState>> edits =
+            Stream.CreateSink<CollectionEdit<int, ItemIdentity, ItemState>>();
+
+        ReactiveCollection<int, ItemIdentity, ItemState> collection =
+            Create(
+                edits: edits,
+                [.. Enumerable.Range(1, 2_000).Select(n => TestUtil.Item(number: n, name: $"n{n}", score: n))]);
+
+        List<bool> resets = [];
+        List<int> operationCounts = [];
+
+        IListener l =
+            collection.KeyChangesStream.ListenStrong(change =>
+            {
+                resets.Add(change.IsReset);
+                operationCounts.Add(change.Operations.Count);
+            });
+
+        // Well past max(1000, 2000 / 10).
+        edits.Send(TestUtil.Remove([.. Enumerable.Range(1, 1_500)]));
+
+        l.Unlisten();
+
+        await Assert.That(resets).IsEquivalentTo(expected: [true], ordering: CollectionOrdering.Matching);
+        await Assert.That(operationCounts).IsEquivalentTo(expected: [0], ordering: CollectionOrdering.Matching);
+        await Assert.That(KeysOf(collection).Count).IsEqualTo(500);
     }
 }
