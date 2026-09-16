@@ -78,9 +78,9 @@ public sealed class OrderedKeysTests
             nextArrival: arrivals.Count);
     }
 
-    private static SortKeyOrder<int, ItemIdentity, ItemState, int> ByScore(bool isDescending) =>
-        new(
-            selector: static (_, _, state) => state.Score,
+    private static KeyOrder<int, ItemIdentity, ItemState> ByScore(bool isDescending) =>
+        KeyOrder<int, ItemIdentity, ItemState>.By(
+            selector: static (_, state) => state.Score,
             sortComparer: Comparer<int>.Default,
             keyComparer: Comparer<int>.Default,
             isDescending: isDescending);

@@ -109,6 +109,7 @@ public abstract class KeyOrder<TKey, TIdentity, TState>
         bool isDescending) =>
         new SortKeyOrder<TKey, TIdentity, TState, TSortKey>(
             selector: (_, identity, state) => selector(arg1: identity, arg2: state),
+            originalSelectorReference: selector,
             sortComparer: sortComparer,
             keyComparer: keyComparer,
             isDescending: isDescending);
@@ -164,6 +165,7 @@ public abstract class KeyOrder<TKey, TIdentity, TState>
         bool isDescending) =>
         new SortKeyOrder<TKey, TIdentity, TState, TSortKey>(
             selector: (_, identity) => selector(identity),
+            originalSelectorReference: selector,
             sortComparer: sortComparer,
             keyComparer: keyComparer,
             isDescending: isDescending);
@@ -171,12 +173,19 @@ public abstract class KeyOrder<TKey, TIdentity, TState>
     /// <summary>Orders by key, over any stage.</summary>
     /// <param name="keyComparer">The comparer to order keys by.</param>
     /// <returns>The order.</returns>
-    public static KeyOrder<TKey, TIdentity, TState> ByKey(IComparer<TKey> keyComparer) =>
-        new SortKeyOrder<TKey, TIdentity, TState, TKey>(
-            selector: static (key, _) => key,
+    public static KeyOrder<TKey, TIdentity, TState> ByKey(IComparer<TKey> keyComparer)
+    {
+        static TKey KeySelector(TKey key, TIdentity _) => key;
+
+        return new SortKeyOrder<TKey, TIdentity, TState, TKey>(
+            selector: KeySelector,
+#pragma warning disable CS8974 // Converting method group to non-delegate type
+            originalSelectorReference: KeySelector,
+#pragma warning restore CS8974 // Converting method group to non-delegate type
             sortComparer: keyComparer,
             keyComparer: keyComparer,
             isDescending: false);
+    }
 
     /// <summary>Orders by arrival - the collection's own order, available over any stage.</summary>
     /// <returns>The order.</returns>

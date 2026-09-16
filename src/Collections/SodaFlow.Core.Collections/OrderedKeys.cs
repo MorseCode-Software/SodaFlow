@@ -236,35 +236,6 @@ internal abstract class ProjectedKeyOrder<TKey, TIdentity, TState, TSortKey> : K
 
     protected IEqualityComparer<TKey> KeyEqualityComparer { get; }
 
-    /// <inheritdoc />
-    internal override bool IsEquivalentTo(KeyOrder<TKey, TIdentity, TState> other) =>
-        other is ProjectedKeyOrder<TKey, TIdentity, TState, TSortKey> otherTyped &&
-        ReferenceEquals(objA: this.KeyEqualityComparer, objB: otherTyped.KeyEqualityComparer) &&
-        ReferenceEquals(objA: this.EntryComparer.KeyComparer, objB: otherTyped.EntryComparer.KeyComparer) &&
-        ReferenceEquals(objA: this.EntryComparer.SortComparer, objB: otherTyped.EntryComparer.SortComparer) &&
-        this.EntryComparer.IsDescending == otherTyped.EntryComparer.IsDescending;
-
-    /// <inheritdoc />
-    internal override bool TryReverse(
-        OrderedKeys<TKey, TIdentity, TState> keys,
-        [NotNullWhen(true)]
-        out OrderedKeys<TKey, TIdentity, TState>? reversedKeys)
-    {
-        if (keys.Order is ProjectedKeyOrder<TKey, TIdentity, TState, TSortKey> otherTyped &&
-            keys is SortedKeys<TKey, TIdentity, TState, TSortKey> sortedKeys &&
-            ReferenceEquals(objA: this.KeyEqualityComparer, objB: otherTyped.KeyEqualityComparer) &&
-            ReferenceEquals(objA: this.EntryComparer.KeyComparer, objB: otherTyped.EntryComparer.KeyComparer) &&
-            ReferenceEquals(objA: this.EntryComparer.SortComparer, objB: otherTyped.EntryComparer.SortComparer) &&
-            this.EntryComparer.IsDescending != otherTyped.EntryComparer.IsDescending)
-        {
-            reversedKeys = sortedKeys.Reverse(this);
-            return true;
-        }
-
-        reversedKeys = null;
-        return false;
-    }
-
     /// <summary>
     ///     The sort value this order files <paramref name="key" /> under, if the snapshot still holds
     ///     it.
@@ -341,7 +312,8 @@ internal sealed class ArrivalOrder<TKey, TIdentity, TState> : ProjectedKeyOrder<
     /// <inheritdoc />
     /// <inheritdoc />
     internal override bool IsEquivalentTo(KeyOrder<TKey, TIdentity, TState> other) =>
-        other is ArrivalOrder<TKey, TIdentity, TState>;
+        other is ArrivalOrder<TKey, TIdentity, TState> otherTyped
+        && ReferenceEquals(objA: this.KeyEqualityComparer, objB: otherTyped.KeyEqualityComparer);
 
     /// <inheritdoc />
     internal override bool TryReverse(
@@ -434,19 +406,28 @@ internal sealed class SortKeyOrder<TKey, TIdentity, TState, TSortKey>
     /// </summary>
     private readonly Func<TKey, TIdentity, TState, TSortKey>? selector;
 
+    private readonly object? originalSelectorReference;
+
     /// <summary>Creates an order whose sort value is projected from the whole item.</summary>
     /// <param name="selector">Projects the sort value from a key and its item.</param>
+    /// <param name="originalSelectorReference">The original selector passed in from the user.</param>
     /// <param name="sortComparer">Compares two projected sort values.</param>
     /// <param name="keyComparer">Breaks ties, so that the order is total.</param>
     /// <param name="isDescending">Whether to reverse the sort comparison.</param>
+    /// <remarks>
+    /// The original selector reference should be preserved as fair back as possible into the
+    /// user's code as it is later used to check equality by reference of selectors.
+    /// </remarks>
     public SortKeyOrder(
         Func<TKey, TIdentity, TState, TSortKey> selector,
+        object originalSelectorReference,
         IComparer<TSortKey> sortComparer,
         IComparer<TKey> keyComparer,
         bool isDescending)
         : this(
             selector: selector,
             identitySelector: null,
+            originalSelectorReference: originalSelectorReference,
             entryComparer: new SortedEntryComparer<TKey, TSortKey>(
                 sortComparer: sortComparer,
                 keyComparer: keyComparer,
@@ -460,21 +441,30 @@ internal sealed class SortKeyOrder<TKey, TIdentity, TState, TSortKey>
     ///     alone, neither of which a state edit can touch.
     /// </summary>
     /// <param name="selector">Projects the sort value from a key and its identity.</param>
+    /// /// <param name="originalSelectorReference">The original selector passed in from the user.</param>
     /// <param name="sortComparer">Compares two projected sort values.</param>
     /// <param name="keyComparer">Breaks ties, so that the order is total.</param>
     /// <param name="isDescending">Whether to reverse the sort comparison.</param>
     /// <remarks>
+    /// <para>
     ///     What this buys is in <see cref="DependsOnState" />: a stage under this order skips
     ///     re-filing a key on a state edit, and building one skips reading the state map at all.
+    /// </para>
+    /// <para>
+    /// The original selector reference should be preserved as fair back as possible into the
+    /// user's code as it is later used to check equality by reference of selectors.
+    /// </para>
     /// </remarks>
     public SortKeyOrder(
         Func<TKey, TIdentity, TSortKey> selector,
+        object originalSelectorReference,
         IComparer<TSortKey> sortComparer,
         IComparer<TKey> keyComparer,
         bool isDescending)
         : this(
             selector: null,
             identitySelector: selector,
+            originalSelectorReference: originalSelectorReference,
             entryComparer: new SortedEntryComparer<TKey, TSortKey>(
                 sortComparer: sortComparer,
                 keyComparer: keyComparer,
@@ -486,17 +476,62 @@ internal sealed class SortKeyOrder<TKey, TIdentity, TState, TSortKey>
     private SortKeyOrder(
         Func<TKey, TIdentity, TState, TSortKey>? selector,
         Func<TKey, TIdentity, TSortKey>? identitySelector,
+        object? originalSelectorReference,
         SortedEntryComparer<TKey, TSortKey> entryComparer,
         IEqualityComparer<TKey> keyEqualityComparer)
         : base(keyEqualityComparer)
     {
         this.selector = selector;
         this.identitySelector = identitySelector;
+        this.originalSelectorReference = originalSelectorReference;
         this.EntryComparer = entryComparer;
     }
 
     /// <inheritdoc />
     internal override bool DependsOnState => this.identitySelector is null;
+
+    private bool CompareWith(KeyOrder<TKey, TIdentity, TState> other, [NotNullWhen(true)] out bool? isDescendingEqual)
+    {
+        if (other is SortKeyOrder<TKey, TIdentity, TState, TSortKey> otherTyped)
+        {
+            isDescendingEqual = this.EntryComparer.IsDescending == otherTyped.EntryComparer.IsDescending;
+
+            return ReferenceEquals(objA: this.KeyEqualityComparer, objB: otherTyped.KeyEqualityComparer)
+                   && ReferenceEquals(objA: this.EntryComparer.KeyComparer, objB: otherTyped.EntryComparer.KeyComparer)
+                   && ReferenceEquals(
+                       objA: this.EntryComparer.SortComparer,
+                       objB: otherTyped.EntryComparer.SortComparer)
+                   && this.originalSelectorReference is not null
+                   && otherTyped.originalSelectorReference is not null
+                   && ReferenceEquals(objA: this.originalSelectorReference, objB: otherTyped.originalSelectorReference);
+        }
+
+        isDescendingEqual = null;
+        return false;
+    }
+
+    /// <inheritdoc />
+    internal override bool IsEquivalentTo(KeyOrder<TKey, TIdentity, TState> other) =>
+        this.CompareWith(other: other, isDescendingEqual: out bool? isDescendingEqual) &&
+        isDescendingEqual.Value;
+
+    /// <inheritdoc />
+    internal override bool TryReverse(
+        OrderedKeys<TKey, TIdentity, TState> keys,
+        [NotNullWhen(true)]
+        out OrderedKeys<TKey, TIdentity, TState>? reversedKeys)
+    {
+        if (this.CompareWith(other: keys.Order, isDescendingEqual: out bool? isDescendingEqual)
+            && !isDescendingEqual.Value
+            && keys is SortedKeys<TKey, TIdentity, TState, TSortKey> sortedKeys)
+        {
+            reversedKeys = sortedKeys.Reverse(this);
+            return true;
+        }
+
+        reversedKeys = null;
+        return false;
+    }
 
     /// <inheritdoc />
     internal override KeyOrder<TKey, TIdentity, TState> Then<TNext>(
@@ -523,6 +558,7 @@ internal sealed class SortKeyOrder<TKey, TIdentity, TState, TSortKey>
 
             return new SortKeyOrder<TKey, TIdentity, TState, SortPair<TSortKey, TNext>>(
                 selector: null,
+                originalSelectorReference: null,
                 identitySelector: (key, identity) =>
                     new SortPair<TSortKey, TNext>(
                         first: firstIdentity(arg1: key, arg2: identity),
@@ -546,6 +582,7 @@ internal sealed class SortKeyOrder<TKey, TIdentity, TState, TSortKey>
                     first: firstWhole(arg1: key, arg2: identity, arg3: state),
                     second: nextWhole(arg1: key, arg2: identity, arg3: state)),
             identitySelector: null,
+            originalSelectorReference: null,
             entryComparer: new SortedEntryComparer<TKey, SortPair<TSortKey, TNext>>(
                 sortComparer: pairComparer,
                 keyComparer: this.EntryComparer.KeyComparer,
@@ -558,6 +595,7 @@ internal sealed class SortKeyOrder<TKey, TIdentity, TState, TSortKey>
         new SortKeyOrder<TKey, TIdentity, TState, TSortKey>(
             selector: this.selector,
             identitySelector: this.identitySelector,
+            originalSelectorReference: this.originalSelectorReference,
             entryComparer: this.EntryComparer,
             keyEqualityComparer: keyEqualityComparer);
 
