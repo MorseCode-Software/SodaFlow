@@ -46,6 +46,7 @@
         <Compile Include="..\..\TestParallelism.cs" Link="TestParallelism.cs"/>
         <Compile Include="ReactiveCollectionTests.cs"/>
         <Compile Include="StateMapAndOrderedKeysTests.cs"/>
+        <Compile Include="ViewOperationInvariantTests.cs"/>
         <Compile Include="TestUtil.cs"/>
     </ItemGroup>
 
