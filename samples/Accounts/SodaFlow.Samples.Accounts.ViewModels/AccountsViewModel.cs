@@ -44,6 +44,16 @@ internal enum AccountColumn
 // ReSharper disable once InheritdocConsiderUsage
 internal sealed record SortSelection(AccountColumn Column, bool Descending)
 {
+    /// <summary>How holders compare, as one instance rather than read afresh for each order.</summary>
+    /// <remarks>
+    ///     <see cref="StringComparer.CurrentCultureIgnoreCase" /> builds a new comparer every time it
+    ///     is read, and a sort stage recognises the order it already holds - or holds reversed, which
+    ///     it turns around instead of sorting again - only when the new one was built from the same
+    ///     selector and comparer instances. Reading it inline would re-sort every holder on each
+    ///     click of the same header. The culture is the one in force when this is first used.
+    /// </remarks>
+    private static readonly IComparer<string> HolderComparer = StringComparer.CurrentCultureIgnoreCase;
+
     /// <summary>This selection as an order the sort stage can hold.</summary>
     /// <remarks>
     ///     Three orders projecting sort values of three types - an <c>int</c>, a <c>string</c> and
@@ -62,7 +72,7 @@ internal sealed record SortSelection(AccountColumn Column, bool Descending)
                 isDescending: this.Descending),
             AccountColumn.Holder => AccountOrder.ByIdentity(
                 selector: static identity => identity.Holder,
-                sortComparer: StringComparer.CurrentCultureIgnoreCase,
+                sortComparer: HolderComparer,
                 keyComparer: Comparer<int>.Default,
                 isDescending: this.Descending),
             _ => AccountOrder.By(
