@@ -57,7 +57,7 @@ internal sealed class ViewStage<TKey, TIdentity, TState> : ReactiveCollection<TK
             new Lazy<Stream<ItemChange<TKey, TIdentity, TState>>>(
                 valueFactory: () =>
                     TransactionInternal.RunImpl(() =>
-                        this.KeyChangesStream.MapImpl(static change => change.ToItemChange())),
+                        this.KeyChangesStream.MapImpl(change => change.ToItemChange(source.Root.KeyEqualityComparer))),
                 mode: LazyThreadSafetyMode.ExecutionAndPublication);
 
         // Only membership moves this, which is what makes it cheaper to hold than the snapshot: a

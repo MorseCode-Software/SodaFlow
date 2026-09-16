@@ -18,7 +18,7 @@ namespace SodaFlow.Collections;
 internal static class CollectionViewUtility
 {
     private static int GetMaxNumberOfOperations(int totalItems) =>
-        Math.Max(val1: Math.Min(val1: 1000, val2: totalItems), val2: totalItems / 10);
+        Math.Max(val1: 1000, val2: totalItems / 10);
 
     /// <summary>
     ///     Builds the root ordering for a collection: every key, in the order it arrived. Called lazily
@@ -197,9 +197,7 @@ internal static class CollectionViewUtility
     ///         one cell need not agree on it.
     ///     </para>
     ///     <para>
-    ///         A new order is an ordinary criteria change - it rebuilds this stage and reports a
-    ///         reset - and a stage below re-files under the new order without being told anything,
-    ///         because a filter builds from its upstream collection's own order whatever that has become.
+    ///         A new order is an ordinary criteria change.
     ///     </para>
     /// </remarks>
     internal static ReactiveCollection<TKey, TIdentity, TState> SortByImpl<TKey, TIdentity, TState>(
@@ -930,11 +928,17 @@ internal static class CollectionViewUtility
                             operations: operations,
                             key: key,
                             snapshot: change.After,
-                            wasMoved: out bool wasMoved))
+                            wasMoved: out bool wasMoved,
+                            wasMembershipChanged: out bool wasMembershipChanged))
                     {
                         if (wasMoved)
                         {
                             movesKeys = true;
+                        }
+
+                        if (wasMembershipChanged)
+                        {
+                            changesMembership = true;
                         }
 
                         return true;
@@ -1144,12 +1148,9 @@ internal static class CollectionViewUtility
                 isReset: false);
         }
 
-        if (order.TryReverse(keys: state, reversedKeys: out OrderedKeys<TKey, TIdentity, TState>? reversedKeys))
-        {
-            createResultForReset(reversedKeys);
-        }
-
-        return createResultFromRebuild();
+        return order.TryReverse(keys: state, reversedKeys: out OrderedKeys<TKey, TIdentity, TState>? reversedKeys)
+            ? createResultForReset(reversedKeys)
+            : createResultFromRebuild();
     }
 
     private static MaybeInternal<StageOutcome<TKey, TIdentity, TState>> ProcessSort<TKey, TIdentity, TState>(
@@ -1195,6 +1196,7 @@ internal static class CollectionViewUtility
         foreach (ViewOperation<TKey> operation in change.Operations)
         {
             bool wasMoved;
+            bool wasMembershipChanged;
 
             switch (operation)
             {
@@ -1253,11 +1255,17 @@ internal static class CollectionViewUtility
                             operations: operations,
                             key: update.Key,
                             snapshot: change.After,
-                            wasMoved: out wasMoved))
+                            wasMoved: out wasMoved,
+                            wasMembershipChanged: out wasMembershipChanged))
                     {
                         if (wasMoved)
                         {
                             movesKeys = true;
+                        }
+
+                        if (wasMembershipChanged)
+                        {
+                            changesMembership = true;
                         }
 
                         if (!OperationAddedWasValid(
@@ -1276,11 +1284,17 @@ internal static class CollectionViewUtility
                             operations: operations,
                             key: move.Key,
                             snapshot: change.After,
-                            wasMoved: out wasMoved))
+                            wasMoved: out wasMoved,
+                            wasMembershipChanged: out wasMembershipChanged))
                     {
                         if (wasMoved)
                         {
                             movesKeys = true;
+                        }
+
+                        if (wasMembershipChanged)
+                        {
+                            changesMembership = true;
                         }
 
                         if (!OperationAddedWasValid(
@@ -1417,7 +1431,11 @@ internal static class CollectionViewUtility
         }
 
         MappedItemCache<TKey, TResult> cache =
-            new(project: project, retainedBeyondTheView: retainedBeyondTheView, onEvicted: onEvicted);
+            new(
+                project: project,
+                retainedBeyondTheView: retainedBeyondTheView,
+                onEvicted: onEvicted,
+                keyEqualityComparer: collection.Root.KeyEqualityComparer);
 
         return new MappedItems<TResult>(
             items: collection.KeysCell.MapImpl(cache.Project),
@@ -1480,11 +1498,13 @@ internal static class CollectionViewUtility
         ICollection<ViewOperation<TKey>> operations,
         TKey key,
         CollectionSnapshot<TKey, TIdentity, TState> snapshot,
-        out bool wasMoved)
+        out bool wasMoved,
+        out bool wasMembershipChanged /* TODO: JAM: If we consider this to be an error above, we can remove this. */)
         where TKey : notnull
         where TIdentity : notnull
     {
         wasMoved = false;
+        wasMembershipChanged = false;
 
         int fromIndex = keys.IndexOfInternal(key);
 
@@ -1497,7 +1517,11 @@ internal static class CollectionViewUtility
         //TODO: JAM: why do we need to check snapshot here?
         if (!keys.Order.DependsOnState && snapshot.ContainsKey(key))
         {
-            operations.Add(new ViewUpdate<TKey>(key: key, index: fromIndex));
+            //TODO: JAM: is this check needed or can we assume fromIndex is always valid?
+            if (fromIndex >= 0)
+            {
+                operations.Add(new ViewUpdate<TKey>(key: key, index: fromIndex));
+            }
 
             return true;
         }
@@ -1518,6 +1542,9 @@ internal static class CollectionViewUtility
             {
                 operations.Add(new ViewRemove<TKey>(key: key, index: fromIndex));
 
+                wasMoved = true;
+                wasMembershipChanged = true;
+
                 return true;
             }
 
@@ -1528,6 +1555,9 @@ internal static class CollectionViewUtility
         if (fromIndex < 0)
         {
             operations.Add(new ViewInsert<TKey>(key: key, index: toIndex));
+
+            wasMoved = true;
+            wasMembershipChanged = true;
 
             return true;
         }

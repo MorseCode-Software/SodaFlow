@@ -104,10 +104,8 @@ public sealed class CollectionViewChange<TKey, TIdentity, TState>
     ///         walks whenever the view moves at all, which measured about four times the cost.
     ///     </para>
     ///     <para>
-    ///         A move carries a position and no value, and a re-file pairs one with an update, so
-    ///         the update is what answers and the move is skipped. A reset carries no operations at
-    ///         all - every position may differ - so the answer is recomputed from the store, but
-    ///         only for a key one side or the other holds.
+    ///         A reset carries no operations at all - every position may differ - so the answer
+    ///         is recomputed from the store, but only for a key one side or the other holds.
     ///     </para>
     /// </remarks>
     internal MaybeInternal<TProjected> ProjectChangeFor<TProjected>(
@@ -129,15 +127,10 @@ public sealed class CollectionViewChange<TKey, TIdentity, TState>
         // ReSharper disable once LoopCanBeConvertedToQuery
         for (int index = 0; index < this.Operations.Count; index++)
         {
-            ViewOperation<TKey> operation = this.Operations[index];
-
-            if (operation is ViewMove<TKey> ||
-                !this.KeyEqualityComparer.Equals(x: operation.Key, y: key))
+            if (this.KeyEqualityComparer.Equals(x: this.Operations[index].Key, y: key))
             {
-                continue;
+                return this.Project(key: key, onPresent: onPresent, onAbsent: onAbsent);
             }
-
-            return this.Project(key: key, onPresent: onPresent, onAbsent: onAbsent);
         }
 
         return MaybeInternal<TProjected>.None;
@@ -200,11 +193,11 @@ public sealed class CollectionViewChange<TKey, TIdentity, TState>
     ///     from. A reset names none of them, so it is answered by walking what the view holds and
     ///     held - which costs the view rather than the collection, and only when a criteria moves.
     /// </remarks>
-    internal ItemChange<TKey, TIdentity, TState> ToItemChange()
+    internal ItemChange<TKey, TIdentity, TState> ToItemChange(IEqualityComparer<TKey> keyEqualityComparer)
     {
-        HashSet<TKey> added = new();
-        HashSet<TKey> removed = new();
-        Dictionary<TKey, TState> newStates = new();
+        HashSet<TKey> added = new(keyEqualityComparer);
+        HashSet<TKey> removed = new(keyEqualityComparer);
+        Dictionary<TKey, TState> newStates = new(keyEqualityComparer);
 
         if (this.IsReset)
         {

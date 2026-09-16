@@ -712,7 +712,7 @@ internal sealed class SortedKeys<TKey, TIdentity, TState, TSortKey> : OrderedKey
 
     internal OrderedKeys<TKey, TIdentity, TState> Reverse(ProjectedKeyOrder<TKey, TIdentity, TState, TSortKey> order) =>
         new SortedKeys<TKey, TIdentity, TState, TSortKey>(
-            order: this.order,
+            order: order,
             entries: this.entries.ToBuilder().Reverse().ToImmutableSortedSet(order.EntryComparer),
             byKey: this.byKey);
 }

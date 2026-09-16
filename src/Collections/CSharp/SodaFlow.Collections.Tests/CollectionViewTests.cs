@@ -1,6 +1,5 @@
 using System.Collections.Generic;
 using System.Linq;
-using System.Runtime.Serialization;
 using System.Threading.Tasks;
 using SodaFlow.Functional;
 using TUnit.Assertions;
@@ -245,9 +244,8 @@ public sealed class CollectionViewTests
         await Assert.That(KeysOf(byScore)).IsEquivalentTo(expected: [1, 3, 2], ordering: CollectionOrdering.Matching);
     }
 
-    //TODO: JAM: fix this test
-    //[Test]
-    public async Task AReFilingUpdateReportsAMoveAndAnUpdate()
+    [Test]
+    public async Task AReFilingUpdateReportsAMove()
     {
         StreamSink<CollectionEdit<int, ItemIdentity, ItemState>> edits =
             Stream.CreateSink<CollectionEdit<int, ItemIdentity, ItemState>>();
@@ -272,7 +270,38 @@ public sealed class CollectionViewTests
         l.Unlisten();
 
         await Assert.That(operations)
-            .IsEquivalentTo(expected: ["ViewMove:1", "ViewUpdate:1"], ordering: CollectionOrdering.Matching);
+            .IsEquivalentTo(expected: ["ViewMove:1"], ordering: CollectionOrdering.Matching);
+
+        await Assert.That(KeysOf(byScore)).IsEquivalentTo(expected: [2, 3, 1], ordering: CollectionOrdering.Matching);
+    }
+
+    [Test]
+    public async Task AReFilingUpdateFiresStateCell()
+    {
+        StreamSink<CollectionEdit<int, ItemIdentity, ItemState>> edits =
+            Stream.CreateSink<CollectionEdit<int, ItemIdentity, ItemState>>();
+
+        ReactiveCollection<int, ItemIdentity, ItemState> collection =
+            Create(
+                edits: edits,
+                TestUtil.Item(number: 1, name: "one", score: 10),
+                TestUtil.Item(number: 2, name: "two", score: 20),
+                TestUtil.Item(number: 3, name: "three", score: 30));
+
+        ReactiveCollection<int, ItemIdentity, ItemState> byScore =
+            collection.SortBy(static (_, state) => state.Score);
+
+        List<int> scores = [];
+
+        IListener l =
+            byScore.StateCell(1).ListenStrong(state => state.MatchSome(state => scores.Add(state.Score)));
+
+        edits.Send(TestUtil.Score(key: 1, score: 99));
+
+        l.Unlisten();
+
+        await Assert.That(scores)
+            .IsEquivalentTo(expected: [10, 99], ordering: CollectionOrdering.Matching);
 
         await Assert.That(KeysOf(byScore)).IsEquivalentTo(expected: [2, 3, 1], ordering: CollectionOrdering.Matching);
     }
@@ -382,9 +411,8 @@ public sealed class CollectionViewTests
         await Assert.That(KeysOf(passing)).IsEquivalentTo(expected: [1], ordering: CollectionOrdering.Matching);
     }
 
-    //TODO: JAM: fix this test
-    //[Test]
-    public async Task ChangingThePredicateRebuildsTheStageAndReportsAReset()
+    [Test]
+    public async Task ChangingThePredicateRebuildsTheStageAndDoesNotReportAReset()
     {
         StreamSink<CollectionEdit<int, ItemIdentity, ItemState>> edits =
             Stream.CreateSink<CollectionEdit<int, ItemIdentity, ItemState>>();
@@ -412,7 +440,7 @@ public sealed class CollectionViewTests
 
         l.Unlisten();
 
-        await Assert.That(resets).IsEquivalentTo(expected: [true], ordering: CollectionOrdering.Matching);
+        await Assert.That(resets).IsEquivalentTo(expected: [false], ordering: CollectionOrdering.Matching);
         await Assert.That(KeysOf(passing)).IsEquivalentTo(expected: [1, 2, 3], ordering: CollectionOrdering.Matching);
     }
 

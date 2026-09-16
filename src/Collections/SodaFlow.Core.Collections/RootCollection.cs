@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Linq;
+using System.Runtime.CompilerServices;
 using System.Threading;
 
 namespace SodaFlow.Collections;
@@ -98,7 +99,7 @@ internal sealed class RootCollection<TKey, TIdentity, TState>
             ImmutableDictionary<TKey, TIdentity>.Builder identities =
                 ImmutableDictionary.CreateBuilder<TKey, TIdentity>(keyEqualityComparer);
 
-            Dictionary<TKey, TState> states = new();
+            Dictionary<TKey, TState> states = new(keyEqualityComparer);
 
             // Numbered in the order the items are enumerated, which is the order the collection lists them.
             ImmutableDictionary<TKey, long>.Builder arrivals =
@@ -142,7 +143,12 @@ internal sealed class RootCollection<TKey, TIdentity, TState>
                 editsStream
                     .SnapshotImpl(
                         c: snapshotLoopCell,
-                        f: (edit, before) => Resolve(keySelector: keySelector, edit: edit, before: before))
+                        f: (edit, before) =>
+                            Resolve(
+                                keyEqualityComparer: keyEqualityComparer,
+                                keySelector: keySelector,
+                                edit: edit,
+                                before: before))
                     .FilterSomeInternal();
 
             Cell<CollectionSnapshot<TKey, TIdentity, TState>> snapshotCell =
@@ -212,13 +218,14 @@ internal sealed class RootCollection<TKey, TIdentity, TState>
                     f: static (left, right) => left.CombineWith(right)));
 
     private static MaybeInternal<ItemChange<TKey, TIdentity, TState>> Resolve(
+        IEqualityComparer<TKey> keyEqualityComparer,
         Func<TIdentity, TKey> keySelector,
         CollectionEdit<TKey, TIdentity, TState> edit,
         CollectionSnapshot<TKey, TIdentity, TState> before)
     {
-        Dictionary<TKey, TState> newStates = new();
-        HashSet<TKey> added = new();
-        HashSet<TKey> removed = new();
+        Dictionary<TKey, TState> newStates = new(keyEqualityComparer);
+        HashSet<TKey> added = new(keyEqualityComparer);
+        HashSet<TKey> removed = new(keyEqualityComparer);
 
         foreach (TKey key in edit.Removes.Where(before.ContainsKey))
         {
