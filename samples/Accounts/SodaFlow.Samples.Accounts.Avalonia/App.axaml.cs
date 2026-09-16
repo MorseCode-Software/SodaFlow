@@ -34,7 +34,7 @@ internal sealed class App : Application
             // this view model builds a bindable per row, on demand, as rows come into view.
             BindingScheduler.Default = SynchronizationContextBindingScheduler.Capture();
 
-            IAccountsViewModel viewModel = AccountsViewModelTunedSet.Create();
+            IAccountsViewModel viewModel = AccountsViewModel.Create();
 
             desktop.MainWindow = new MainWindow { DataContext = viewModel };
 
