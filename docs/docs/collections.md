@@ -225,7 +225,21 @@ at the cost the table below gives for a sort's rebuild. An order equivalent to t
 already holds is no change at all and reports nothing. That order run the other way is cheaper to
 answer - the stage turns its list around rather than filing every key again - but it still reports
 `IsReset`. A stage below re-files under whichever order the stage ends up with without being told
-anything, because a filter builds from its upstream's own order whatever that order has become.
+anything, because a filter files under its upstream's own order whatever that order has become.
+
+When nothing but the order changed in the transaction, the stages below do less than rebuild. A
+filter already holds the right members - its predicate reads nothing that changed - so it files
+those members under the new order without walking the stage above or testing a single item again.
+A sort below keeps its list outright, because neither its members nor its own order moved. Both
+still report `IsReset`, and pass on that it was only a reorder, so the same holds a stage further
+down. A slice is where it stops: reordering what is above a window changes which keys fall inside
+it, so it rebuilds, and the stages under it rebuild too. An edit or a criteria change landing in
+the same transaction makes it an ordinary reset, all the way down.
+
+That makes a sort above a filter cheaper to reorder than it was, but not as cheap as a filter above a
+sort. The sort still files every key in the collection under the new order; below a filter it files
+only the ones the filter kept. Measured at 100,000 items with a filter keeping 5%, reversing the
+order took 30 ms sorted first and under 1 ms filtered first.
 
 A change of order is always a reset, never a sequence of moves, however few keys it would move.
 `ViewMove` is kept for one thing: a key whose value changed, under an order that reads that value.
@@ -273,7 +287,7 @@ That is the only thing a move ever means. A move caused by the order itself chan
 a filter below it, which re-files a moved key under the order it already holds and so would keep
 the old one. It would also cost everything else below it: every stage would re-file each moved
 key, and every moved row's `StateCell` would fire, for values that did not change. So a stage whose
-order changes resets instead, and every stage below rebuilds under the new order.
+order changes resets instead, and the stages below re-file what they hold under the new order.
 
 `Filter` preserves upstream order without tracking positions in the upstream list: it asks the
 upstream's key set for a new set under *the same order*, holding the members it kept.
