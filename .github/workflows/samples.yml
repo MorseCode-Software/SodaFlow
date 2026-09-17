@@ -29,7 +29,7 @@
 #     below is defined there: a rule excluded or a threshold moved changes what these samples are
 #     held to.
 #   - So does src/SodaFlow.sln.DotSettings, the rule set that inspection reads. It cannot change
-#     on its own: Verify-Inspection-Settings requires the three copies beside the sample solutions
+#     on its own: Verify-Inspection-Settings requires the copies beside the sample solutions
 #     to be byte-identical to it, and that runs as a dependency of Build on every main build. So
 #     either a rule change carries those copies with it, or the build is red.
 name: Samples
