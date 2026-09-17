@@ -67,6 +67,49 @@ public sealed class SortOrderChangeTests
     }
 
     /// <summary>
+    ///     A stage handed its order reversed keeps tied items in key order, the way a descending sort
+    ///     built afresh does, rather than flipping the list it held and with it the ties. Edits after the
+    ///     reversal are filed the same way.
+    /// </summary>
+    [Test]
+    public async Task ReversingAnOrderKeepsTiedItemsInKeyOrder()
+    {
+        StreamSink<CollectionEdit<int, ItemIdentity, ItemState>> edits =
+            Stream.CreateSink<CollectionEdit<int, ItemIdentity, ItemState>>();
+
+        ReactiveCollection<int, ItemIdentity, ItemState> collection =
+            Create(
+                edits: edits,
+                TestUtil.Item(number: 1, name: "one", score: 10),
+                TestUtil.Item(number: 2, name: "two", score: 20),
+                TestUtil.Item(number: 3, name: "three", score: 10),
+                TestUtil.Item(number: 4, name: "four", score: 20),
+                TestUtil.Item(number: 5, name: "five", score: 30),
+                TestUtil.Item(number: 6, name: "six", score: 10));
+
+        CellSink<KeyOrder<int, ItemIdentity, ItemState>> order = Cell.CreateSink(ByScore(isDescending: false));
+
+        ReactiveCollection<int, ItemIdentity, ItemState> sorted = collection.SortBy(order);
+
+        await Assert.That(KeysOf(sorted)).IsEquivalentTo(expected: [1, 3, 6, 2, 4, 5], ordering: CollectionOrdering.Matching);
+
+        order.Send(ByScore(isDescending: true));
+
+        // Not [5, 4, 2, 6, 3, 1], the list flipped.
+        await Assert.That(KeysOf(sorted)).IsEquivalentTo(expected: [5, 2, 4, 1, 3, 6], ordering: CollectionOrdering.Matching);
+
+        // A key joining a tie lands in key order within it.
+        edits.Send(TestUtil.Add(TestUtil.Item(number: 0, name: "zero", score: 20)));
+
+        await Assert.That(KeysOf(sorted)).IsEquivalentTo(expected: [5, 0, 2, 4, 1, 3, 6], ordering: CollectionOrdering.Matching);
+
+        // And back again.
+        order.Send(ByScore(isDescending: false));
+
+        await Assert.That(KeysOf(sorted)).IsEquivalentTo(expected: [1, 3, 6, 0, 2, 4, 5], ordering: CollectionOrdering.Matching);
+    }
+
+    /// <summary>
     ///     A stage that turned its list around still has to carry the new order, not the one it was
     ///     built under. A filter below it builds from its upstream's order, so it is where keeping
     ///     the old one would show.

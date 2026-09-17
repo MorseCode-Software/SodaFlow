@@ -211,6 +211,60 @@ public sealed class OrderedKeysTests
             .IsEquivalentTo(expected: [1, 3, 2], ordering: CollectionOrdering.Matching);
     }
 
+    /// <summary>
+    ///     Reversing an order is not reversing the list. A descending order reverses the sort values
+    ///     and still breaks their ties by key ascending, so keys that tie keep their relative order
+    ///     when the list is turned around - which a plain flip of the positions would not.
+    /// </summary>
+    [Test]
+    public async Task ReversingAnOrderKeepsTiedKeysInKeyOrder()
+    {
+        // Three scores, each shared by two or three keys, filed out of key order.
+        CollectionSnapshot<int, ItemIdentity, ItemState> snapshot =
+            Snapshot(
+                TestUtil.Item(number: 1, name: "one", score: 10),
+                TestUtil.Item(number: 2, name: "two", score: 20),
+                TestUtil.Item(number: 3, name: "three", score: 10),
+                TestUtil.Item(number: 4, name: "four", score: 20),
+                TestUtil.Item(number: 5, name: "five", score: 30),
+                TestUtil.Item(number: 6, name: "six", score: 10),
+                TestUtil.Item(number: 7, name: "seven", score: 30),
+                TestUtil.Item(number: 8, name: "eight", score: 20));
+
+        int[] keys = [1, 2, 3, 4, 5, 6, 7, 8];
+
+        OrderedKeys<int, ItemIdentity, ItemState> ascending =
+            ByScore(isDescending: false).CreateFrom(keys: keys, snapshot: snapshot);
+
+        await Assert.That(TestUtil.Keys(ascending))
+            .IsEquivalentTo(expected: [1, 3, 6, 2, 4, 8, 5, 7], ordering: CollectionOrdering.Matching);
+
+        KeyOrder<int, ItemIdentity, ItemState> descending = ByScore(isDescending: true);
+
+        // The reversal has to be what is under test, not a rebuild that would hide a flip.
+        bool reversed = descending.TryReverse(keys: ascending, reversedKeys: out OrderedKeys<int, ItemIdentity, ItemState>? result);
+
+        await Assert.That(reversed).IsTrue();
+
+        // Ties by key ascending within each score, as a descending order built afresh files them - and
+        // not [7, 5, 8, 4, 2, 6, 3, 1], the ascending list flipped.
+        await Assert.That(TestUtil.Keys(result!))
+            .IsEquivalentTo(expected: [5, 7, 2, 4, 8, 1, 3, 6], ordering: CollectionOrdering.Matching);
+
+        await Assert.That(TestUtil.Keys(result!))
+            .IsEquivalentTo(
+                expected: TestUtil.Keys(descending.CreateFrom(keys: keys, snapshot: snapshot)),
+                ordering: CollectionOrdering.Matching);
+
+        // And the reversed set answers for itself under the order it now carries.
+        await Assert.That(ReferenceEquals(objA: result!.Order, objB: descending)).IsTrue();
+
+        foreach ((int key, int index) in TestUtil.Keys(result!).Select(static (key, index) => (key, index)))
+        {
+            await Assert.That(result!.IndexOfInternal(key)).IsEqualTo(index);
+        }
+    }
+
     [Test]
     public async Task AddingAKeyTheSnapshotDoesNotHaveIsANoOp()
     {
