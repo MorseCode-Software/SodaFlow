@@ -399,10 +399,11 @@ public sealed class AccountsViewModelOptimizedDrain : IAccountsViewModel
     ///     collection moves once: every view re-files once, and the total folds one delta.
     /// </remarks>
     private static CollectionEdit<int, AccountIdentity, AccountState> Drain(
-        // The keys' own type rather than the list interface it implements, because a drain reads
-        // every one of them and a call through the class is cheaper than one through the interface.
+        // The set's own type rather than an interface over it. A foreach through the interface boxes
+        // the set's struct enumerator and makes every step an interface call; through the set it does
+        // neither, and a drain steps through every key.
         // ReSharper disable once SuggestBaseTypeForParameter
-        IReadOnlyCollection<int> keys)
+        ImmutableHashSet<int> keys)
     {
         Dictionary<int, Func<AccountState, AccountState>> updates = new(keys.Count);
 
