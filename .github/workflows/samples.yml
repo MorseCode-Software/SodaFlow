@@ -9,14 +9,20 @@
 # so a pull request touching only src/ would have sat unmergeable forever. Skipping a job inside a
 # workflow that ran is fine and reports as success; skipping the workflow is not.
 #
-# So these three jobs now run on every pull request and every push to main, which costs three
-# parallel jobs of about three minutes against a Build that takes nine. That is the price of the
-# gate, and it is worth saying plainly that it buys nothing else: what the filter used to say is
-# still true, and is still worth knowing.
+# So these jobs now run on every pull request and every push to main, which costs a parallel job
+# per sample of about three minutes against a Build that takes nine. That is the price of the gate,
+# and it is worth saying plainly that for Counter, Search and Bounce it buys nothing else: what the
+# filter used to say is still true of them, and is still worth knowing.
 #
-#   - A change under src/ cannot affect these samples. They reference published NuGet packages
-#     rather than the projects in this repository - see the comment in any sample's .csproj - so
-#     these runs will pass for reasons that have nothing to do with the change that started them.
+#   - A change under src/ cannot affect Counter, Search or Bounce. They reference published NuGet
+#     packages rather than the projects in this repository - see the comment in any sample's
+#     .csproj - so their runs will pass for reasons that have nothing to do with the change that
+#     started them.
+#   - Accounts is the exception, and runs here for the opposite reason. It references the projects
+#     under src/ until the collections packages ship - see the comment in its view model's .csproj
+#     - so a change under src/ can break it, and this job is where that shows. It is deliberately
+#     not a required check: work in progress in the library should not be able to block a merge
+#     through a sample. It is built but not yet inspected; see the Inspect step.
 #   - The other side of that, unchanged: because each sample pins a package version, a newly
 #     released package breaking a sample shows up only when someone bumps that version here.
 #   - build.cake matters to these jobs even though it lives elsewhere, because the inspection step
@@ -48,10 +54,10 @@ jobs:
     runs-on: windows-latest
 
     strategy:
-      # One sample failing should not hide the state of the other two.
+      # One sample failing should not hide the state of the others.
       fail-fast: false
       matrix:
-        sample: [ Counter, Search, Bounce ]
+        sample: [ Counter, Search, Bounce, Accounts ]
 
     name: ${{ matrix.sample }}
 
@@ -66,8 +72,9 @@ jobs:
           # targeting pack - see samples/Directory.Build.props.
           dotnet-version: 10.0.x
 
-      # Warnings are errors here because these are teaching code. All three solutions build clean
-      # today, so anything new is a regression rather than a backlog.
+      # Warnings are errors here because these are teaching code. Every solution builds clean
+      # today, so anything new is a regression rather than a backlog. For Accounts this builds the
+      # libraries it references under src/ too, in the same configuration.
       - name: Build
         run: dotnet build samples/${{ matrix.sample }}/SodaFlow.Samples.${{ matrix.sample }}.slnx --configuration Release -warnaserror
 
@@ -89,7 +96,13 @@ jobs:
       # .config/dotnet-tools.json - which is the whole reason that manifest exists. With it, the
       # action restores the local tools, so inspectcode's `jb` arrives too and needs no step of
       # its own.
+      #
+      # Not for Accounts yet. Its solution builds clean, but InspectCode finds issues in it - most
+      # of them in the drain benchmarks project - and this step fails on any. Until those are fixed,
+      # inspecting it would only turn the job red on every run and hide whether it still builds.
+      # Drop the condition here and on the upload below once it inspects clean.
       - name: Inspect
+        if: matrix.sample != 'Accounts'
         uses: cake-build/cake-action@v3
         with:
           target: Inspect-Sample
@@ -109,10 +122,10 @@ jobs:
       # presentation: if the upload breaks, the inspection result is still the one that failed the
       # job, and an upload problem should not be mistaken for a code problem.
       #
-      # category keeps the three samples apart. Without it each upload replaces the last for this
+      # category keeps the samples apart. Without it each upload replaces the last for this
       # commit, and only whichever job finished last would be visible.
       - name: Upload inspection results
-        if: always()
+        if: always() && matrix.sample != 'Accounts'
         continue-on-error: true
         uses: github/codeql-action/upload-sarif@v4
         with:

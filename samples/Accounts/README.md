@@ -97,9 +97,9 @@ projection is — so the view model puts it in the same list as everything else 
 ## A note on how this sample is built
 
 Unlike the others here, this one references the projects under `src/` rather than published
-packages, and it is not in the samples workflow. The collections packages are not published yet, and
-this sample exists partly to find out whether their API needs changing before they are — which it
-already has, twice.
+packages. The collections packages are not published yet, and this sample exists partly to find out
+whether their API needs changing before they are — which it already has, twice.
 
-Both of those go away when the packages ship: this becomes a `PackageReference` with a pinned
-version like the rest, and joins the matrix.
+The samples workflow builds it, so a library change that breaks it shows up there, but it is not a
+required check and is not inspected yet. That goes away when the packages ship: this becomes a
+`PackageReference` with a pinned version like the rest, and is held to what they are.
