@@ -51,11 +51,13 @@ nothing that reaches the command — a stale binding, or code calling `Execute` 
 
 **Drain the frozen accounts.** Every frozen account's balance goes to zero, about twenty-five
 thousand of them, whether or not they are showing. It is the other end from a deposit: one edit
-carrying twenty-five thousand updates, applied in one transaction, so every view re-files once and
-the total folds one delta. That is the costly one — a few hundred milliseconds — where a deposit is
-a fraction of one. Which accounts to drain is itself a view, a second filter over the same
-collection holding the frozen accounts with money left in them, and the button is enabled only while
-that view has anything in it.
+carrying twenty-five thousand updates, applied in one transaction, and the total folds one delta.
+With the frozen accounts hidden, the filter skips each drained account after a lookup and nothing
+below it moves; shown and sorted by balance, the sort has more accounts to re-file than are worth
+listing, so it rebuilds. That is the costly one — tens of milliseconds, over a hundred in that last
+case — where a deposit is a fraction of one. The button is enabled only while some frozen account
+still has money in it, and the view model keeps those accounts' keys as a set, folded over the
+collection's item changes.
 
 **The total.** Over every account rather than the page, and folded from what changed rather than
 recomputed — the change carries the store on both sides, so a delta needs nothing kept alongside.
@@ -66,8 +68,11 @@ Everything is in `SodaFlow.Samples.Accounts.ViewModels`; the two heads only draw
 
 - `Accounts.cs` — the two halves of an account. `AccountIdentity` implements `IIdentity<int>`, so
   `Create` takes the key from the identity rather than asking for a selector.
-- `AccountsViewModel.cs` — the graph. The chain is `Filter` → `SortBy` → `Slice` → `Map`, and
-  `Map` is what turns it into rows.
+- `AccountsViewModelOptimizedDrain.cs` — the graph both heads bind. The chain is `Filter` →
+  `SortBy` → `Slice` → `Map`, and `Map` is what turns it into rows.
+- `AccountsViewModel.cs` — the same graph, with the accounts to drain kept as a second filter over
+  the collection rather than as a set of keys. It also holds the row and sort types both view models
+  use. The [drain benchmarks](SodaFlow.Samples.Accounts.DrainBenchmarks/README.md) compare the two.
 
 Four things in there are worth a second look.
 
