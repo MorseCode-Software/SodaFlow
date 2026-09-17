@@ -100,6 +100,6 @@ Unlike the others here, this one references the projects under `src/` rather tha
 packages. The collections packages are not published yet, and this sample exists partly to find out
 whether their API needs changing before they are — which it already has, twice.
 
-The samples workflow builds it, so a library change that breaks it shows up there, but it is not a
-required check and is not inspected yet. That goes away when the packages ship: this becomes a
-`PackageReference` with a pinned version like the rest, and is held to what they are.
+The samples workflow builds and inspects it like the others, so a library change that breaks it
+shows up there, but it is not a required check. That goes away when the packages ship: this becomes
+a `PackageReference` with a pinned version like the rest, and gates a merge as they do.

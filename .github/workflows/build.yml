@@ -387,7 +387,7 @@ jobs:
       # upload breaks, the inspection result is still the one that failed the job, and an upload
       # problem should not be mistaken for a code problem.
       #
-      # category keeps this apart from the three samples.yml uploads. Without it, the two workflows
+      # category keeps this apart from the samples.yml uploads, one per sample. Without it, the two workflows
       # would replace each other's results on a commit that ran both.
       - name: Upload inspection results
         if: always()
