@@ -167,9 +167,11 @@ public class DrainBenchmarks
 /// </summary>
 /// <remarks>
 ///     <para>
-///         A predicate change is applied incrementally: the filter re-tests every account and
-///         reports the ones that entered or left, rather than rebuilding and resetting the stages
-///         below it. This is the cost of that for the whole chain down to the rows on screen.
+///         The filter re-tests every account, and lists the ones that entered or left only while
+///         there are few enough to be worth listing. Showing the frozen accounts adds about 25,000
+///         to a filter holding about 75,000, past its budget of a tenth of what it holds, so the
+///         filter rebuilds and reports a reset, and the sort, the page and the rows below it
+///         rebuild too. This is the cost of that for the whole chain down to the rows on screen.
 ///     </para>
 ///     <para>
 ///         Nothing is waited for, because nothing is left to arrive once the click returns. The row
