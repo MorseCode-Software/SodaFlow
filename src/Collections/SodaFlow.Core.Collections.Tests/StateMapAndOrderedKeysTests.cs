@@ -87,9 +87,9 @@ public sealed class OrderedKeysTests
             isDescending: isDescending);
 
     private static OrderedKeys<int, ItemIdentity, ItemState> Empty(
-        bool descending,
+        bool isDescending,
         CollectionSnapshot<int, ItemIdentity, ItemState> snapshot) =>
-        ByScore(descending).CreateFrom(keys: [], snapshot: snapshot);
+        ByScore(isDescending).CreateFrom(keys: [], snapshot: snapshot);
 
     [Test]
     public async Task AnOrderIgnoresStateEditsOnlyIfEveryLevelDoes()
@@ -160,7 +160,7 @@ public sealed class OrderedKeysTests
                 TestUtil.Item(number: 3, name: "three", score: 20));
 
         OrderedKeys<int, ItemIdentity, ItemState> keys =
-            Empty(descending: false, snapshot: snapshot)
+            Empty(isDescending: false, snapshot: snapshot)
                 .Add(key: 1, snapshot: snapshot)
                 .Add(key: 2, snapshot: snapshot)
                 .Add(key: 3, snapshot: snapshot);
@@ -184,7 +184,7 @@ public sealed class OrderedKeysTests
                 TestUtil.Item(number: 9, name: "nine", score: 10));
 
         OrderedKeys<int, ItemIdentity, ItemState> keys =
-            Empty(descending: false, snapshot: snapshot)
+            Empty(isDescending: false, snapshot: snapshot)
                 .Add(key: 5, snapshot: snapshot)
                 .Add(key: 2, snapshot: snapshot)
                 .Add(key: 9, snapshot: snapshot);
@@ -203,7 +203,7 @@ public sealed class OrderedKeysTests
                 TestUtil.Item(number: 3, name: "three", score: 20));
 
         OrderedKeys<int, ItemIdentity, ItemState> keys =
-            Empty(descending: true, snapshot: snapshot)
+            Empty(isDescending: true, snapshot: snapshot)
                 .Add(key: 1, snapshot: snapshot)
                 .Add(key: 2, snapshot: snapshot)
                 .Add(key: 3, snapshot: snapshot);
@@ -277,7 +277,7 @@ public sealed class OrderedKeysTests
         CollectionSnapshot<int, ItemIdentity, ItemState> snapshot =
             Snapshot(TestUtil.Item(number: 1, name: "one", score: 30));
 
-        OrderedKeys<int, ItemIdentity, ItemState> empty = Empty(descending: false, snapshot: snapshot);
+        OrderedKeys<int, ItemIdentity, ItemState> empty = Empty(isDescending: false, snapshot: snapshot);
 
         await Assert.That(() => empty.Add(key: 99, snapshot: snapshot)).Throws<InvalidOperationException>();
 
@@ -309,7 +309,7 @@ public sealed class OrderedKeysTests
             ByScore(false).CreateFrom(keys: [1, 2, 3], snapshot: snapshot);
 
         OrderedKeys<int, ItemIdentity, ItemState> oneAtATime =
-            Empty(descending: false, snapshot: snapshot)
+            Empty(isDescending: false, snapshot: snapshot)
                 .Add(key: 1, snapshot: snapshot)
                 .Add(key: 2, snapshot: snapshot)
                 .Add(key: 3, snapshot: snapshot);
@@ -332,7 +332,7 @@ public sealed class OrderedKeysTests
                 TestUtil.Item(number: 2, name: "two", score: 10));
 
         OrderedKeys<int, ItemIdentity, ItemState> keys =
-            Empty(descending: false, snapshot: before).Add(key: 1, snapshot: before).Add(key: 2, snapshot: before);
+            Empty(isDescending: false, snapshot: before).Add(key: 1, snapshot: before).Add(key: 2, snapshot: before);
 
         // The item's sort value has moved underneath the set. Removal still finds it, because the
         // entry carries the value it was filed under rather than being re-projected here.
@@ -358,7 +358,7 @@ public sealed class OrderedKeysTests
                 TestUtil.Item(number: 4, name: "four", score: 40),
                 TestUtil.Item(number: 5, name: "five", score: 50));
 
-        OrderedKeys<int, ItemIdentity, ItemState> keys = Empty(descending: false, snapshot: snapshot);
+        OrderedKeys<int, ItemIdentity, ItemState> keys = Empty(isDescending: false, snapshot: snapshot);
 
         // A sequence that adds, removes, re-adds and removes again, checked after every step. The
         // two structures are only ever written together, and this is what says so: Contains reads
@@ -394,7 +394,7 @@ public sealed class OrderedKeysTests
                 TestUtil.Item(number: 2, name: "two", score: 20));
 
         OrderedKeys<int, ItemIdentity, ItemState> keys =
-            Empty(descending: false, snapshot: before).Add(key: 1, snapshot: before).Add(key: 2, snapshot: before);
+            Empty(isDescending: false, snapshot: before).Add(key: 1, snapshot: before).Add(key: 2, snapshot: before);
 
         // The stages never do this - a re-file removes before it adds - but nothing about the type
         // says they must, and adding a key twice under two different sort values would put two
