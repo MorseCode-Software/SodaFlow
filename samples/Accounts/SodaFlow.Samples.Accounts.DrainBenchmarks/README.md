@@ -54,15 +54,16 @@ the timings as if nothing were wrong, so read the log. Neither sets a non-zero e
 
 ## Results
 
-Intel Core i7-9700, Windows 11, .NET 10.0.12, BenchmarkDotNet 0.15.8, out of process, measured at
-dc3eadf. 100,000 accounts in the default state (arrival order, frozen accounts hidden). Pay pays into
-the first row; Drain and the toggles run on a fresh view model each iteration.
+Intel Core i7-9700, Windows 11, .NET 10.0.12, BenchmarkDotNet 0.15.8, out of process. Drain and Pay
+measured at d2ee700, the rest at dc3eadf; nothing between the two touches the toggles, the tracker or
+what is retained. 100,000 accounts in the default state (arrival order, frozen accounts hidden). Pay
+pays into the first row; Drain and the toggles run on a fresh view model each iteration.
 
 | | Original | OptimizedDrain |
 |---|---|---|
-| Drain | 62.0 ms, 11.51 MB | **34.9 ms, 8.71 MB** |
-| Pay before a drain | 23.0 μs, 21.5 KB | **22.3 μs, 21.1 KB** |
-| Pay after a drain | 22.7 μs, 21.5 KB | **22.5 μs, 21.1 KB** |
+| Drain | 60.3 ms, 11.51 MB | **34.8 ms, 8.71 MB** |
+| Pay before a drain | 23.7 μs, 21.9 KB | **22.4 μs, 20.4 KB** |
+| Pay after a drain | 24.7 μs, 21.5 KB | **22.2 μs, 20.5 KB** |
 | Show frozen | 169.3 ms, 43.11 MB | 169.1 ms, 43.11 MB |
 | Reverse the balance sort | 12.3 ms, 5.71 MB | 12.7 ms, 5.71 MB |
 | Retained after Create | 56.3 MB | **54.2 MB** |
@@ -90,7 +91,7 @@ In context the step is small: about 0.1% of a Pay and about 6% of a Drain.
 
 ## Findings
 
-1. **OptimizedDrain is a clear win over Original** on Drain (1.8x faster, 24% less allocation) and on
+1. **OptimizedDrain is a clear win over Original** on Drain (1.7x faster, 24% less allocation) and on
    retained memory (about 2 MB less), and no worse on Pay.
 2. **The hybrid update - applied** in `AccountsViewModelOptimizedDrain`, replacing the fold measured
    above as "OptimizedDrain's former fold". It also removed a redundancy: `ChangedKeys` is already
@@ -99,9 +100,11 @@ In context the step is small: about 0.1% of a Pay and about 6% of a Drain.
 3. **Pass `ImmutableHashSet<int>` to `Drain`** rather than `IReadOnlyCollection<int>`, which boxes
    the set's enumerator. Not applied. The comment and ReSharper suppression above it still describe
    an older, concrete parameter.
-4. **`Calm()` on `canDrain` saves about 450-500 B per Pay.** Not applied. Two review variants of
-   `OptimizedDrain` that had it, since removed, measured 20,928 and 20,984 B per Pay once warm under
-   `--growth`, against 21,432 B for `OptimizedDrain`.
+4. **`Calm()` on `canDrain` - applied** in `AccountsViewModelOptimizedDrain`. The drainable set is
+   folded over every item change, so a Pay into an active account hands back the same set and
+   `canDrain` recomputes `true`, which woke the Drain command's enablement on every Pay. `--growth`,
+   run before and after in one session, puts a Pay once warm at 21,376 B without it and 20,872 B with
+   it - 504 B less - and time within noise.
 5. **The row list was rebuilt on every Pay - fixed in the library.** `--growth` showed `Rows`
    changing on 5,000 of 5,000 Pays that moved no row, which was most of a Pay's cost and all of its
    noise. Each view stage's `KeysCell` was held from its unfiltered results stream in
@@ -137,7 +140,7 @@ In context the step is small: about 0.1% of a Pay and about 6% of a Drain.
    | Drain | Original | OptimizedDrain |
    |---|---|---|
    | Before | 213.3 ms, 41.27 MB | 197.6 ms, 41.95 MB |
-   | After | 62.0 ms, 11.51 MB | 34.9 ms, 8.71 MB |
+   | After | 60.3 ms, 11.51 MB | 34.8 ms, 8.71 MB |
 
    `Original` does not return to its figure from before the budget existed, 38.70 MB, and is better
    for it. Its drainable view is itself a filter holding the 25,335 frozen accounts, a drain removes
