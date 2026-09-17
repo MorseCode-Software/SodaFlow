@@ -492,7 +492,7 @@ public sealed class AccountsViewModelOptimizedDrain : IAccountsViewModel
 
         foreach (KeyValuePair<int, AccountState> pair in change.NewStates)
         {
-            if (change.Before.States.TryGetState(key: pair.Key, state: out AccountState was))
+            if (change.Before.States.TryGetState(key: pair.Key, state: out AccountState? was))
             {
                 delta -= was.Balance;
             }
@@ -502,7 +502,7 @@ public sealed class AccountsViewModelOptimizedDrain : IAccountsViewModel
 
         foreach (int key in change.Removed)
         {
-            if (change.Before.States.TryGetState(key: key, state: out AccountState was))
+            if (change.Before.States.TryGetState(key: key, state: out AccountState? was))
             {
                 delta -= was.Balance;
             }
