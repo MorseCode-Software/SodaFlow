@@ -236,14 +236,23 @@ internal abstract class ProjectedKeyOrder<TKey, TIdentity, TState, TSortKey> : K
 
     protected IEqualityComparer<TKey> KeyEqualityComparer { get; }
 
-    /// <summary>
-    ///     The sort value this order files <paramref name="key" /> under, if the snapshot still holds
-    ///     it.
-    /// </summary>
-    internal abstract bool TryProject(
-        TKey key,
-        CollectionSnapshot<TKey, TIdentity, TState> snapshot,
-        out TSortKey sortValue);
+    /// <summary>The sort value this order files <paramref name="key" /> under.</summary>
+    /// <param name="key">A key the snapshot holds.</param>
+    /// <param name="snapshot">The snapshot to project the sort value from.</param>
+    /// <returns>The sort value.</returns>
+    /// <exception cref="InvalidOperationException">The snapshot does not hold the key.</exception>
+    /// <remarks>
+    ///     Every caller files only keys the snapshot it passes holds: keys it took from that snapshot,
+    ///     keys it has just tested against it, or keys an operation of the stage above names, which
+    ///     that stage's snapshot admits. A key it does not hold has no sort value to file under, and
+    ///     being asked for one is a fault in the stage that asked.
+    /// </remarks>
+    internal abstract TSortKey Project(TKey key, CollectionSnapshot<TKey, TIdentity, TState> snapshot);
+
+    /// <summary>What <see cref="Project" /> throws for a key the snapshot does not hold.</summary>
+    protected static InvalidOperationException KeyNotInSnapshot(TKey key) =>
+        new($"The snapshot does not hold the key {key}, so it has no sort value to file it under. "
+            + "A stage only files keys its snapshot holds, so the stage that asked is at fault.");
 
     /// <inheritdoc />
     internal sealed override OrderedKeys<TKey, TIdentity, TState> CreateFrom(
@@ -258,12 +267,7 @@ internal abstract class ProjectedKeyOrder<TKey, TIdentity, TState, TSortKey> : K
 
         foreach (TKey key in keys)
         {
-            if (!this.TryProject(key: key, snapshot: snapshot, sortValue: out TSortKey sortValue))
-            {
-                continue;
-            }
-
-            SortedEntry<TKey, TSortKey> entry = new(key: key, sortValue: sortValue);
+            SortedEntry<TKey, TSortKey> entry = new(key: key, sortValue: this.Project(key: key, snapshot: snapshot));
 
             entries.Add(entry);
             byKey[key] = entry;
@@ -341,11 +345,8 @@ internal sealed class ArrivalOrder<TKey, TIdentity, TState> : ProjectedKeyOrder<
         new ArrivalOrder<TKey, TIdentity, TState>(keyEqualityComparer);
 
     /// <inheritdoc />
-    internal override bool TryProject(
-        TKey key,
-        CollectionSnapshot<TKey, TIdentity, TState> snapshot,
-        out long sortValue) =>
-        snapshot.TryGetArrival(key: key, arrival: out sortValue);
+    internal override long Project(TKey key, CollectionSnapshot<TKey, TIdentity, TState> snapshot) =>
+        snapshot.TryGetArrival(key: key, arrival: out long arrival) ? arrival : throw KeyNotInSnapshot(key);
 }
 
 /// <summary>The tie-break of an order whose sort values are never equal, which has no tie to break.</summary>
@@ -645,38 +646,20 @@ internal sealed class SortKeyOrder<TKey, TIdentity, TState, TSortKey>
     ///     The two branches disagree only for a key the identity map holds and the state map does
     ///     not, which the two being written together in <c>Resolve</c> rules out.
     /// </remarks>
-    internal override bool TryProject(
-        TKey key,
-        CollectionSnapshot<TKey, TIdentity, TState> snapshot,
-        out TSortKey sortValue)
+    internal override TSortKey Project(TKey key, CollectionSnapshot<TKey, TIdentity, TState> snapshot)
     {
-        // ReSharper disable once NullableWarningSuppressionIsUsed - an out parameter of an
-        // unconstrained type can promise nothing beyond the default when it answers false, which is
-        // the contract every TryGet in the framework keeps.
-        sortValue = default!;
-
         if (this.identitySelector is not null)
         {
-            if (!snapshot.TryGetIdentity(key: key, identity: out TIdentity identityOnly))
-            {
-                return false;
-            }
-
-            sortValue = this.identitySelector(arg1: key, arg2: identityOnly);
-
-            return true;
+            return snapshot.TryGetIdentity(key: key, identity: out TIdentity identityOnly)
+                ? this.identitySelector(arg1: key, arg2: identityOnly)
+                : throw KeyNotInSnapshot(key);
         }
 
-        if (!snapshot.TryGetHalves(key: key, identity: out TIdentity identity, state: out TState state))
-        {
-            return false;
-        }
-
-        // ReSharper disable once NullableWarningSuppressionIsUsed - exactly one of the two
-        // selectors is set, and identitySelector being null is what says it is this one.
-        sortValue = this.selector!(arg1: key, arg2: identity, arg3: state);
-
-        return true;
+        return snapshot.TryGetHalves(key: key, identity: out TIdentity identity, state: out TState state)
+            // ReSharper disable once NullableWarningSuppressionIsUsed - exactly one of the two
+            // selectors is set, and identitySelector being null is what says it is this one.
+            ? this.selector!(arg1: key, arg2: identity, arg3: state)
+            : throw KeyNotInSnapshot(key);
     }
 }
 
@@ -739,16 +722,8 @@ internal sealed class SortedKeys<TKey, TIdentity, TState, TSortKey> : OrderedKey
         TKey key,
         CollectionSnapshot<TKey, TIdentity, TState> snapshot)
     {
-        // A key the snapshot does not have is left out rather than thrown on. The stages that can
-        // only be handed a key the snapshot has check for that themselves - an insert that did not
-        // receive an index, a re-file that did not land - and a key set on its own has no way to
-        // know which caller it has.
-        if (!this.order.TryProject(key: key, snapshot: snapshot, sortValue: out TSortKey sortValue))
-        {
-            return this;
-        }
-
-        SortedEntry<TKey, TSortKey> entry = new(key: key, sortValue: sortValue);
+        // Throws for a key the snapshot does not hold; see ProjectedKeyOrder.Project.
+        SortedEntry<TKey, TSortKey> entry = new(key: key, sortValue: this.order.Project(key: key, snapshot: snapshot));
 
         // A key already filed is re-filed rather than filed again. The map holds one entry per key
         // and the ordering holds one per sort value, so adding a key that is already in under a

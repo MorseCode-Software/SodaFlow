@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Linq;
@@ -265,16 +266,31 @@ public sealed class OrderedKeysTests
         }
     }
 
+    /// <summary>
+    ///     A key the snapshot does not hold has no sort value, and every stage files only keys its
+    ///     snapshot holds, so being asked to file one is a fault - thrown, not quietly left out, whether
+    ///     one key is added or a set is built in bulk.
+    /// </summary>
     [Test]
-    public async Task AddingAKeyTheSnapshotDoesNotHaveIsANoOp()
+    public async Task FilingAKeyTheSnapshotDoesNotHoldThrows()
     {
         CollectionSnapshot<int, ItemIdentity, ItemState> snapshot =
             Snapshot(TestUtil.Item(number: 1, name: "one", score: 30));
 
-        OrderedKeys<int, ItemIdentity, ItemState> keys =
-            Empty(descending: false, snapshot: snapshot).Add(key: 99, snapshot: snapshot);
+        OrderedKeys<int, ItemIdentity, ItemState> empty = Empty(descending: false, snapshot: snapshot);
 
-        await Assert.That(keys.Count).IsEqualTo(0);
+        await Assert.That(() => empty.Add(key: 99, snapshot: snapshot)).Throws<InvalidOperationException>();
+
+        await Assert.That(() => ByScore(isDescending: false).CreateFrom(keys: [1, 99], snapshot: snapshot))
+            .Throws<InvalidOperationException>();
+
+        await Assert.That(() => KeyOrder<int, ItemIdentity, ItemState>.ByArrival().CreateFrom(keys: [99], snapshot: snapshot))
+            .Throws<InvalidOperationException>();
+
+        await Assert.That(
+                () => KeyOrder<int, ItemIdentity, ItemState>.ByIdentity(static identity => identity.Code)
+                    .CreateFrom(keys: [99], snapshot: snapshot))
+            .Throws<InvalidOperationException>();
     }
 
     [Test]
@@ -290,14 +306,13 @@ public sealed class OrderedKeysTests
         // filing n keys one at a time is n persistent writes; it has to land them in the same
         // places.
         OrderedKeys<int, ItemIdentity, ItemState> inBulk =
-            ByScore(false).CreateFrom(keys: [1, 2, 3, 99], snapshot: snapshot);
+            ByScore(false).CreateFrom(keys: [1, 2, 3], snapshot: snapshot);
 
         OrderedKeys<int, ItemIdentity, ItemState> oneAtATime =
             Empty(descending: false, snapshot: snapshot)
                 .Add(key: 1, snapshot: snapshot)
                 .Add(key: 2, snapshot: snapshot)
-                .Add(key: 3, snapshot: snapshot)
-                .Add(key: 99, snapshot: snapshot);
+                .Add(key: 3, snapshot: snapshot);
 
         await Assert.That(TestUtil.Keys(inBulk))
             .IsEquivalentTo(expected: [2, 3, 1], ordering: CollectionOrdering.Matching);
@@ -305,8 +320,6 @@ public sealed class OrderedKeysTests
         await Assert.That(TestUtil.Keys(inBulk))
             .IsEquivalentTo(expected: TestUtil.Keys(oneAtATime), ordering: CollectionOrdering.Matching);
 
-        // Including the key the snapshot does not have, which neither path files.
-        await Assert.That(inBulk.Contains(99)).IsFalse();
         await Assert.That(inBulk.IndexOfInternal(3)).IsEqualTo(1);
     }
 
