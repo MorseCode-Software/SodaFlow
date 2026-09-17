@@ -1,11 +1,12 @@
 using System.Globalization;
 using BenchmarkDotNet.Attributes;
+using JetBrains.Annotations;
 using SodaFlow.Samples.Accounts.ViewModels;
 
 namespace SodaFlow.Samples.Accounts.DrainBenchmarks;
 
 /// <summary>The view models under test, by the name the benchmarks and the footprint mode use.</summary>
-public static class ViewModels
+internal static class ViewModels
 {
     /// <summary>AccountsViewModel: drainable accounts are a filtered ReactiveCollection.</summary>
     public const string Original = "Original";
@@ -18,7 +19,10 @@ public static class ViewModels
         {
             Original => AccountsViewModel.Create(),
             OptimizedDrain => AccountsViewModelOptimizedDrain.Create(),
-            _ => throw new ArgumentOutOfRangeException(nameof(name), name, "Unknown view model."),
+            _ => throw new ArgumentOutOfRangeException(
+                paramName: nameof(name),
+                actualValue: name,
+                message: "Unknown view model."),
         };
 }
 
@@ -34,20 +38,27 @@ public static class ViewModels
 ///     copied from the view models.
 /// </remarks>
 [MemoryDiagnoser]
+[UsedImplicitly]
 public class PayBenchmarks
 {
     private static readonly CultureInfo UsDollars = CultureInfo.GetCultureInfo("en-US");
 
+    // ReSharper disable NullableWarningSuppressionIsUsed - Set in Setup
     private IAccountRowViewModel row = null!;
+
     private IAccountsViewModel viewModel = null!;
+    // ReSharper restore NullableWarningSuppressionIsUsed
+
     private decimal startingBalance;
     private decimal deposit;
     private long pays;
 
     [Params(ViewModels.Original, ViewModels.OptimizedDrain)]
+    [UsedImplicitly]
     public string ViewModel { get; set; } = ViewModels.Original;
 
     [Params(false, true)]
+    [UsedImplicitly]
     public bool AfterDrain { get; set; }
 
     [GlobalSetup]
@@ -99,7 +110,7 @@ public class PayBenchmarks
     [GlobalCleanup]
     public void Cleanup()
     {
-        decimal expected = this.startingBalance + (this.pays * this.deposit);
+        decimal expected = this.startingBalance + this.pays * this.deposit;
         decimal actual = BalanceOf(this.row);
 
         this.viewModel.Dispose();
@@ -128,36 +139,40 @@ public class PayBenchmarks
 /// <summary>One click of Drain frozen accounts, on a view model nobody has drained yet.</summary>
 /// <remarks>
 ///     A drain empties every frozen account, so it cannot be repeated on the same view model: each
-///     iteration builds a fresh one first, outside the measurement, and checks afterwards that the
+///     iteration builds a fresh one first, outside the measurement, and checks afterward that the
 ///     drain really happened.
 /// </remarks>
 [MemoryDiagnoser]
 [InvocationCount(1)]
 [WarmupCount(3)]
 [IterationCount(20)]
+[UsedImplicitly]
 public class DrainBenchmarks
 {
-    private IAccountsViewModel? viewModel;
+    // ReSharper disable once NullableWarningSuppressionIsUsed - Set in Setup
+    private IAccountsViewModel viewModel = null!;
 
     [Params(ViewModels.Original, ViewModels.OptimizedDrain)]
+    [UsedImplicitly]
     public string ViewModel { get; set; } = ViewModels.Original;
 
     [IterationSetup]
     public void Setup() => this.viewModel = ViewModels.Create(this.ViewModel);
 
     [Benchmark]
-    public void Drain() => this.viewModel!.DrainFrozenAccounts.Execute(null);
+    public void Drain() => this.viewModel.DrainFrozenAccounts.Execute(null);
 
     [IterationCleanup]
     public void Cleanup()
     {
-        if (this.viewModel!.DrainFrozenAccounts.IsEnabledCell.Sample())
+        if (this.viewModel.DrainFrozenAccounts.IsEnabledCell.Sample())
         {
             throw new InvalidOperationException("The drain did not empty the frozen accounts.");
         }
 
         this.viewModel.Dispose();
-        this.viewModel = null;
+        // ReSharper disable once NullableWarningSuppressionIsUsed
+        this.viewModel = null!;
     }
 }
 
@@ -184,22 +199,28 @@ public class DrainBenchmarks
 ///     <para>
 ///         Each iteration builds a fresh view model, outside the measurement, so the toggle always
 ///         goes the same way. Cleanup checks that it switched and that the row list changed, so a
-///         click that did nothing fails the run rather than timing as fast. The checks read the cells
-///         rather than the bindables' values, which a dispatcher-backed scheduler would deliver only
-///         after the click, so they hold whichever scheduler is in use.
+///         click that did nothing fails the run rather than timing as fast. The checks read the
+///         cells rather than the bindables' values, which a dispatcher-backed scheduler would
+///         deliver only after the click, so they hold whichever scheduler is in use.
 ///     </para>
 /// </remarks>
 [MemoryDiagnoser]
 [InvocationCount(1)]
 [WarmupCount(3)]
 [IterationCount(20)]
+[UsedImplicitly]
 public class ToggleFrozenBenchmarks
 {
-    private IAccountsViewModel? viewModel;
-    private IReadOnlyList<IAccountRowViewModel>? rowsBefore;
+    // ReSharper disable NullableWarningSuppressionIsUsed - Set in Setup
+    private IAccountsViewModel viewModel = null!;
+    private IReadOnlyList<IAccountRowViewModel> rowsBefore = null!;
+
+    // ReSharper restore NullableWarningSuppressionIsUsed
+
     private bool initialShowFrozen;
 
     [Params(ViewModels.Original, ViewModels.OptimizedDrain)]
+    [UsedImplicitly]
     public string ViewModel { get; set; } = ViewModels.Original;
 
     [IterationSetup]
@@ -211,21 +232,26 @@ public class ToggleFrozenBenchmarks
     }
 
     [Benchmark]
-    public void ToggleFrozen() => this.viewModel!.ShowFrozen.Value = !this.initialShowFrozen;
+    public void ToggleFrozen() => this.viewModel.ShowFrozen.Value = !this.initialShowFrozen;
 
     [IterationCleanup]
     public void Cleanup()
     {
-        if (this.viewModel!.ShowFrozen.Cell.Sample() == this.initialShowFrozen)
+        if (this.viewModel.ShowFrozen.Cell.Sample() == this.initialShowFrozen)
         {
             throw new InvalidOperationException("The frozen toggle was not switched.");
         }
 
-        RowList.CheckChanged(before: this.rowsBefore!, after: this.viewModel.Rows.Cell.Sample(), action: "The frozen toggle");
+        RowList.CheckChanged(
+            before: this.rowsBefore,
+            after: this.viewModel.Rows.Cell.Sample(),
+            action: "The frozen toggle");
 
         this.viewModel.Dispose();
-        this.viewModel = null;
-        this.rowsBefore = null;
+        // ReSharper disable NullableWarningSuppressionIsUsed
+        this.viewModel = null!;
+        this.rowsBefore = null!;
+        // ReSharper restore NullableWarningSuppressionIsUsed
     }
 }
 
@@ -250,12 +276,17 @@ public class ToggleFrozenBenchmarks
 [InvocationCount(1)]
 [WarmupCount(3)]
 [IterationCount(20)]
+[UsedImplicitly]
 public class ToggleBalanceSortBenchmarks
 {
-    private IAccountsViewModel? viewModel;
-    private IReadOnlyList<IAccountRowViewModel>? rowsBefore;
+    // ReSharper disable NullableWarningSuppressionIsUsed
+    private IAccountsViewModel viewModel = null!;
+    private IReadOnlyList<IAccountRowViewModel> rowsBefore = null!;
+
+    // ReSharper restore NullableWarningSuppressionIsUsed
 
     [Params(ViewModels.Original, ViewModels.OptimizedDrain)]
+    [UsedImplicitly]
     public string ViewModel { get; set; } = ViewModels.Original;
 
     [IterationSetup]
@@ -273,21 +304,26 @@ public class ToggleBalanceSortBenchmarks
     }
 
     [Benchmark]
-    public void ToggleSort() => this.viewModel!.SortByBalance.Execute(null);
+    public void ToggleSort() => this.viewModel.SortByBalance.Execute(null);
 
     [IterationCleanup]
     public void Cleanup()
     {
-        RowList.CheckChanged(before: this.rowsBefore!, after: this.viewModel!.Rows.Cell.Sample(), action: "Reversing the balance sort");
+        RowList.CheckChanged(
+            before: this.rowsBefore,
+            after: this.viewModel.Rows.Cell.Sample(),
+            action: "Reversing the balance sort");
 
         this.viewModel.Dispose();
-        this.viewModel = null;
-        this.rowsBefore = null;
+        // ReSharper disable NullableWarningSuppressionIsUsed
+        this.viewModel = null!;
+        this.rowsBefore = null!;
+        // ReSharper restore NullableWarningSuppressionIsUsed
     }
 }
 
 /// <summary>The check the toggle benchmarks make, outside the measurement, that a click did something.</summary>
-internal static class RowList
+file static class RowList
 {
     /// <summary>Throws unless the row list is a different list than it was before the click.</summary>
     /// <remarks>

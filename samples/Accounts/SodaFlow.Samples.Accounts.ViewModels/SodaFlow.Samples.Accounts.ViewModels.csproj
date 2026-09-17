@@ -27,7 +27,6 @@
             with samples. That is the trade until the packages ship, at which point this becomes
             PackageReference with a pinned version like the rest and the invariant comes back.
         -->
-        <PackageReference Include="JetBrains.Annotations" Version="2026.2.0" PrivateAssets="all"/>
         <ProjectReference Include="../../../src/CSharp/SodaFlow/SodaFlow.csproj"/>
         <ProjectReference Include="../../../src/Collections/CSharp/SodaFlow.Collections/SodaFlow.Collections.csproj"/>
         <ProjectReference Include="../../../src/Bindable/ObjectModel/CSharp/SodaFlow.Bindable.ObjectModel/SodaFlow.Bindable.ObjectModel.csproj"/>

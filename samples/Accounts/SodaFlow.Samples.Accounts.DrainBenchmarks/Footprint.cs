@@ -13,7 +13,7 @@ namespace SodaFlow.Samples.Accounts.DrainBenchmarks;
 ///     one view model adds. Every reading is after a full, compacting collection. The totals double
 ///     as a check that every view model drains the same accounts.
 /// </remarks>
-public static class Footprint
+internal static class Footprint
 {
     public static void Run(string name)
     {
@@ -49,9 +49,9 @@ public static class Footprint
 
     private static long Settled()
     {
-        GC.Collect(GC.MaxGeneration, GCCollectionMode.Forced, blocking: true, compacting: true);
+        GC.Collect(generation: GC.MaxGeneration, mode: GCCollectionMode.Forced, blocking: true, compacting: true);
         GC.WaitForPendingFinalizers();
-        GC.Collect(GC.MaxGeneration, GCCollectionMode.Forced, blocking: true, compacting: true);
+        GC.Collect(generation: GC.MaxGeneration, mode: GCCollectionMode.Forced, blocking: true, compacting: true);
         return GC.GetTotalMemory(forceFullCollection: true);
     }
 

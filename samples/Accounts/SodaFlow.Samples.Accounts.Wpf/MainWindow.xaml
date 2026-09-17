@@ -115,7 +115,7 @@
                         BorderThickness="0,0,0,1"
                         Margin="0,0,0,6"/>
 
-                <!-- A frozen row greys out and says so where its button would be. That is only
+                <!-- A frozen row grays out and says so where its button would be. That is only
                      what the row looks like: the view model gates the deposit itself, so the
                      button being absent is not what stops a frozen account being paid into. -->
                 <ItemsControl ItemsSource="{Binding Rows.Value}">

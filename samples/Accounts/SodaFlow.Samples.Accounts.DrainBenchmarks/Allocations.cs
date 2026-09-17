@@ -11,7 +11,7 @@ namespace SodaFlow.Samples.Accounts.DrainBenchmarks;
 ///     This counts only what the operation itself allocates, after enough warm-up Pays for the
 ///     code to have tiered up.
 /// </remarks>
-public static class Allocations
+internal static class Allocations
 {
     private const int Warmup = 5_000;
     private const int Measured = 20_000;

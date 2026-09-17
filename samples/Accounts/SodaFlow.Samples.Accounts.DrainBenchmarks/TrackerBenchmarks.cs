@@ -1,5 +1,6 @@
 using System.Collections.Immutable;
 using BenchmarkDotNet.Attributes;
+using JetBrains.Annotations;
 
 namespace SodaFlow.Samples.Accounts.DrainBenchmarks;
 
@@ -21,15 +22,19 @@ namespace SodaFlow.Samples.Accounts.DrainBenchmarks;
 ///         <see cref="State" /> stands in for the view model's internal <c>AccountState</c>.
 ///     </para>
 /// </remarks>
+[UsedImplicitly]
 [MemoryDiagnoser]
 public class TrackerBenchmarks
 {
     private const int AccountCount = 100_000;
 
+    // ReSharper disable NullableWarningSuppressionIsUsed - Set in Setup
     private IReadOnlyDictionary<int, State> drainNewStates = null!;
     private ImmutableHashSet<int> drainable = null!;
     private IReadOnlyDictionary<int, State> payNewStates = null!;
     private IReadOnlyCollection<int> removed = null!;
+
+    // ReSharper restore NullableWarningSuppressionIsUsed - Set in Setup
 
     [GlobalSetup]
     public void Setup()
@@ -50,36 +55,36 @@ public class TrackerBenchmarks
         this.removed = new HashSet<int>();
 
         // A Pay: one active account's balance goes up, and it stays undrainable.
-        int active = Enumerable.Range(0, AccountCount).First(key => !this.drainable.Contains(key));
-        this.payNewStates = new Dictionary<int, State> { [active] = new State(Balance: 200_00, IsFrozen: false) };
+        int active = Enumerable.Range(start: 0, count: AccountCount).First(key => !this.drainable.Contains(key));
+        this.payNewStates = new Dictionary<int, State> { [active] = new(Balance: 200_00, IsFrozen: false) };
 
         // A Drain: every drainable account goes to zero, so all of them leave the set.
-        this.drainNewStates = frozen.ToDictionary(static key => key, static _ => new State(Balance: 0, IsFrozen: true));
+        this.drainNewStates = frozen.ToDictionary(keySelector: static key => key, elementSelector: static _ => new State(Balance: 0, IsFrozen: true));
     }
 
     [Benchmark(Baseline = true)]
     [BenchmarkCategory("Pay")]
-    public ImmutableHashSet<int> FormerPay() => Former(this.drainable, this.payNewStates, this.removed);
+    public ImmutableHashSet<int> FormerPay() => Former(drainableAccountKeys: this.drainable, newStates: this.payNewStates, removed: this.removed);
 
     [Benchmark]
     [BenchmarkCategory("Pay")]
-    public ImmutableHashSet<int> SinglePassPay() => SinglePass(this.drainable, this.payNewStates, this.removed);
+    public ImmutableHashSet<int> SinglePassPay() => SinglePass(keys: this.drainable, newStates: this.payNewStates, removed: this.removed);
 
     [Benchmark]
     [BenchmarkCategory("Drain")]
-    public ImmutableHashSet<int> FormerDrain() => Former(this.drainable, this.drainNewStates, this.removed);
+    public ImmutableHashSet<int> FormerDrain() => Former(drainableAccountKeys: this.drainable, newStates: this.drainNewStates, removed: this.removed);
 
     [Benchmark]
     [BenchmarkCategory("Drain")]
-    public ImmutableHashSet<int> SinglePassDrain() => SinglePass(this.drainable, this.drainNewStates, this.removed);
+    public ImmutableHashSet<int> SinglePassDrain() => SinglePass(keys: this.drainable, newStates: this.drainNewStates, removed: this.removed);
 
     [Benchmark]
     [BenchmarkCategory("Pay")]
-    public ImmutableHashSet<int> HybridPay() => Hybrid(this.drainable, this.payNewStates, this.removed);
+    public ImmutableHashSet<int> HybridPay() => Hybrid(keys: this.drainable, newStates: this.payNewStates, removed: this.removed);
 
     [Benchmark]
     [BenchmarkCategory("Drain")]
-    public ImmutableHashSet<int> HybridDrain() => Hybrid(this.drainable, this.drainNewStates, this.removed);
+    public ImmutableHashSet<int> HybridDrain() => Hybrid(keys: this.drainable, newStates: this.drainNewStates, removed: this.removed);
 
     /// <summary>
     ///     Looks before it leaps only until something moves: <c>Contains</c> on the original set while
@@ -89,7 +94,7 @@ public class TrackerBenchmarks
     private static ImmutableHashSet<int> Hybrid(
         ImmutableHashSet<int> keys,
         IReadOnlyDictionary<int, State> newStates,
-        IReadOnlyCollection<int> removed)
+        IEnumerable<int> removed)
     {
         ImmutableHashSet<int>.Builder? builder = null;
 
@@ -157,7 +162,7 @@ public class TrackerBenchmarks
     private static ImmutableHashSet<int> SinglePass(
         ImmutableHashSet<int> keys,
         IReadOnlyDictionary<int, State> newStates,
-        IReadOnlyCollection<int> removed)
+        IEnumerable<int> removed)
     {
         ImmutableHashSet<int>.Builder? builder = null;
 
@@ -182,12 +187,9 @@ public class TrackerBenchmarks
             }
         }
 
-        foreach (int key in removed)
+        foreach (int key in removed.Where(keys.Contains))
         {
-            if (keys.Contains(key))
-            {
-                (builder ??= keys.ToBuilder()).Remove(key);
-            }
+            (builder ??= keys.ToBuilder()).Remove(key);
         }
 
         return builder is null ? keys : builder.ToImmutable();
@@ -195,5 +197,5 @@ public class TrackerBenchmarks
 
     private static bool CanDrain(State state) => state.IsFrozen && state.Balance != 0;
 
-    public sealed record State(long Balance, bool IsFrozen);
+    private sealed record State(long Balance, bool IsFrozen);
 }

@@ -12,7 +12,7 @@ namespace SodaFlow.Samples.Accounts.DrainBenchmarks;
 ///     row - so any count other than zero means the row list is re-projected by a Pay, which would
 ///     also rebuild the merge of the rows' deposit streams each time.
 /// </remarks>
-public static class Growth
+internal static class Growth
 {
     private const int Blocks = 10;
     private const int PaysPerBlock = 5_000;
@@ -59,9 +59,9 @@ public static class Growth
 
     private static long Settled()
     {
-        GC.Collect(GC.MaxGeneration, GCCollectionMode.Forced, blocking: true, compacting: true);
+        GC.Collect(generation: GC.MaxGeneration, mode: GCCollectionMode.Forced, blocking: true, compacting: true);
         GC.WaitForPendingFinalizers();
-        GC.Collect(GC.MaxGeneration, GCCollectionMode.Forced, blocking: true, compacting: true);
+        GC.Collect(generation: GC.MaxGeneration, mode: GCCollectionMode.Forced, blocking: true, compacting: true);
         return GC.GetTotalMemory(forceFullCollection: true);
     }
 }
