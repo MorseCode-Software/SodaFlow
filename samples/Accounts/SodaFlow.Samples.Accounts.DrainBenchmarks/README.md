@@ -97,9 +97,11 @@ In context the step is small: about 0.1% of a Pay and about 6% of a Drain.
    above as "OptimizedDrain's former fold". It also removed a redundancy: `ChangedKeys` is already
    `NewStates.Keys.Concat(Removed)`, so `Removed.Concat(ChangedKeys)` walked the removed keys twice,
    and every changed key was removed and then re-added.
-3. **Pass `ImmutableHashSet<int>` to `Drain`** rather than `IReadOnlyCollection<int>`, which boxes
-   the set's enumerator. Not applied. The comment and ReSharper suppression above it still describe
-   an older, concrete parameter.
+3. **`ImmutableHashSet<int>` as `Drain`'s parameter - applied** in `AccountsViewModelOptimizedDrain`,
+   in place of `IReadOnlyCollection<int>`, whose foreach boxed the set's enumerator and made every step
+   an interface call. It saves 144-200 B of a drain's 9.13 MB and no measurable time, so it is a
+   correction rather than an optimization: the parameter now is the concrete type its comment and
+   ReSharper suppression already described.
 4. **`Calm()` on `canDrain` - applied** in `AccountsViewModelOptimizedDrain`. The drainable set is
    folded over every item change, so a Pay into an active account hands back the same set and
    `canDrain` recomputes `true`, which woke the Drain command's enablement on every Pay. `--growth`,
