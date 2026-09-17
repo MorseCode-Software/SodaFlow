@@ -639,11 +639,6 @@ internal static class CollectionViewUtility
 
                 int index = keys.IndexOfInternal(key);
 
-                if (index < 0)
-                {
-                    throw new InvalidOperationException("Inserted key must receive an index.");
-                }
-
                 operations.Add(new ViewInsert<TKey>(key: key, index: index));
                 movesKeys = true;
                 changesMembership = true;
@@ -750,11 +745,6 @@ internal static class CollectionViewUtility
 
                     int newIndex = keys.IndexOfInternal(key);
 
-                    if (newIndex < 0)
-                    {
-                        throw new InvalidOperationException("Inserted key must receive an index.");
-                    }
-
                     operations.Add(new ViewInsert<TKey>(key: key, index: newIndex));
                     movesKeys = true;
                     changesMembership = true;
@@ -825,11 +815,6 @@ internal static class CollectionViewUtility
                     keys = keys.Add(key: key, snapshot: snapshot);
 
                     int newIndex = keys.IndexOfInternal(key);
-
-                    if (newIndex < 0)
-                    {
-                        throw new InvalidOperationException("Inserted key must receive an index.");
-                    }
 
                     operations.Add(new ViewInsert<TKey>(key: key, index: newIndex));
                     movesKeys = true;
@@ -964,11 +949,6 @@ internal static class CollectionViewUtility
 
             int index = keys.IndexOfInternal(key);
 
-            if (index < 0)
-            {
-                throw new InvalidOperationException("Inserted key must receive an index.");
-            }
-
             operations.Add(new ViewInsert<TKey>(key: key, index: index));
             movesKeys = true;
             changesMembership = true;
@@ -1086,11 +1066,6 @@ internal static class CollectionViewUtility
                     keys = keys.Add(key: insert.Key, snapshot: change.After);
 
                     int inserted = keys.IndexOfInternal(insert.Key);
-
-                    if (inserted < 0)
-                    {
-                        throw new InvalidOperationException("Inserted key must receive an index.");
-                    }
 
                     operations.Add(new ViewInsert<TKey>(key: insert.Key, index: inserted));
                     movesKeys = true;
@@ -1290,11 +1265,6 @@ internal static class CollectionViewUtility
                     keys = keys.Add(key: insert.Key, snapshot: change.After);
 
                     int index = keys.IndexOfInternal(insert.Key);
-
-                    if (index < 0)
-                    {
-                        throw new InvalidOperationException("Inserted key must receive an index.");
-                    }
 
                     operations.Add(new ViewInsert<TKey>(key: insert.Key, index: index));
                     movesKeys = true;
@@ -1570,7 +1540,9 @@ internal static class CollectionViewUtility
     ///     <para>
     ///         The key has to be one the stage holds and one the snapshot still has. Every caller only
     ///         re-files keys it holds, for operations naming keys the snapshot has, so either failing
-    ///         is a fault upstream, and it throws rather than reporting an operation at no position.
+    ///         is a fault upstream: this throws for a key the stage does not hold, and filing a key the
+    ///         snapshot does not hold throws in <c>Project</c>, rather than reporting an operation at
+    ///         no position.
     ///     </para>
     /// </remarks>
     private static bool Refile<TKey, TIdentity, TState>(
@@ -1595,15 +1567,8 @@ internal static class CollectionViewUtility
             return false;
         }
 
-        OrderedKeys<TKey, TIdentity, TState> updated = keys.Remove(key).Add(key: key, snapshot: snapshot);
-        int toIndex = updated.IndexOfInternal(key);
-
-        if (toIndex < 0)
-        {
-            throw new InvalidOperationException("A stage can only re-file a key the snapshot still holds.");
-        }
-
-        keys = updated;
+        keys = keys.Remove(key).Add(key: key, snapshot: snapshot);
+        int toIndex = keys.IndexOfInternal(key);
 
         if (fromIndex != toIndex)
         {
