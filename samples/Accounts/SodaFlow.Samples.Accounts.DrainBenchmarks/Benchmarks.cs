@@ -1,3 +1,4 @@
+using System.Globalization;
 using BenchmarkDotNet.Attributes;
 using SodaFlow.Samples.Accounts.ViewModels;
 
@@ -33,11 +34,23 @@ public static class ViewModels
 ///     One click of a row's Pay button, into the first row of the first page, before any drain and
 ///     after one.
 /// </summary>
+/// <remarks>
+///     Every invocation pays into the same view model, so the check that the clicks did something
+///     is made once, in global cleanup: the row's balance has to have risen by exactly one deposit for
+///     every Pay, which catches Pays that stopped landing partway through a run as well as ones that
+///     never did. The deposit is learned from a Pay in setup, outside the measurement, rather than
+///     copied from the view models.
+/// </remarks>
 [MemoryDiagnoser]
 public class PayBenchmarks
 {
+    private static readonly CultureInfo UsDollars = CultureInfo.GetCultureInfo("en-US");
+
     private IAccountRowViewModel row = null!;
     private IAccountsViewModel viewModel = null!;
+    private decimal startingBalance;
+    private decimal deposit;
+    private long pays;
 
     [Params(ViewModels.Original, ViewModels.OptimizedDrain, ViewModels.TunedSet, ViewModels.CountAndScan)]
     public string ViewModel { get; set; } = ViewModels.Original;
@@ -69,13 +82,55 @@ public class PayBenchmarks
         {
             throw new InvalidOperationException("The first row cannot be paid into.");
         }
+
+        decimal beforeSetupPay = BalanceOf(this.row);
+
+        this.row.Deposit.Execute(null);
+
+        this.startingBalance = BalanceOf(this.row);
+        this.deposit = this.startingBalance - beforeSetupPay;
+        this.pays = 0;
+
+        if (this.deposit <= 0)
+        {
+            throw new InvalidOperationException("A Pay in setup did not raise the balance.");
+        }
     }
 
     [Benchmark]
-    public void Pay() => this.row.Deposit.Execute(null);
+    public void Pay()
+    {
+        this.row.Deposit.Execute(null);
+        this.pays++;
+    }
 
     [GlobalCleanup]
-    public void Cleanup() => this.viewModel.Dispose();
+    public void Cleanup()
+    {
+        decimal expected = this.startingBalance + (this.pays * this.deposit);
+        decimal actual = BalanceOf(this.row);
+
+        this.viewModel.Dispose();
+
+        if (actual != expected)
+        {
+            throw new InvalidOperationException(
+                string.Format(
+                    provider: UsDollars,
+                    format: "{0:N0} Pays of {1:C} should have left the balance at {2:C}, but it is {3:C}.",
+                    this.pays,
+                    this.deposit,
+                    expected,
+                    actual));
+        }
+    }
+
+    /// <summary>
+    ///     The row's balance, read from the cell rather than the bindable, and parsed back from the fixed
+    ///     US-dollar format every balance on screen is written in.
+    /// </summary>
+    private static decimal BalanceOf(IAccountRowViewModel row) =>
+        decimal.Parse(s: row.Balance.Cell.Sample(), style: NumberStyles.Currency, provider: UsDollars);
 }
 
 /// <summary>One click of Drain frozen accounts, on a view model nobody has drained yet.</summary>

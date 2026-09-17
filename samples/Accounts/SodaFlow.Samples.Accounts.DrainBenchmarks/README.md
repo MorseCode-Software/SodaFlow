@@ -51,6 +51,12 @@ that already sits at a long path can push those past 260 characters: the build f
 ... exceeds the OS max path limit` and every result reads `NA`. Clone somewhere shorter, enable long
 paths, or add `--inprocess`.
 
+Each benchmark checks, outside what it measures, that its click did what it should: the drain
+emptied the frozen accounts, the toggle changed the row list, and every Pay raised the balance by
+exactly one deposit. Out of process, a failed check fails that benchmark - it reads `NA` and the
+error is listed under Errors. With `--inprocess`, BenchmarkDotNet prints the error but still reports
+the timings as if nothing were wrong, so read the log. Neither sets a non-zero exit code.
+
 ## Results
 
 Intel Core i7-9700, Windows 11, .NET 10.0.12, BenchmarkDotNet 0.15.8, out of process, measured at
