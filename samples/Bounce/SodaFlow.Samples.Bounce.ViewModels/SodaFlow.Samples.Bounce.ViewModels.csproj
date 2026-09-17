@@ -2,12 +2,12 @@
 
     <PropertyGroup>
         <!--
-            netstandard2.0, not a platform target. The whole sample is in this project; if it ever
+            net10.0, not a platform target. The whole sample is in this project; if it ever
             needed a UI framework to compile, the point it is making would already be lost.
         -->
-        <TargetFramework>netstandard2.0</TargetFramework>
+        <TargetFramework>net10.0</TargetFramework>
         <Nullable>enable</Nullable>
-        <LangVersion>10</LangVersion>
+        <LangVersion>14</LangVersion>
         <IsPackable>false</IsPackable>
         <EnableDefaultItems>false</EnableDefaultItems>
     </PropertyGroup>

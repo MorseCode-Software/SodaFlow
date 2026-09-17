@@ -8,7 +8,8 @@ namespace SodaFlow.Samples.Bounce.ViewModels;
 ///     feels like a throw. Two samples rather than one because a velocity needs a difference, and
 ///     rather than more because a longer window makes a flick read as slower than it was.
 /// </remarks>
-internal readonly struct PointerTrail
+// ReSharper disable once InheritdocConsiderUsage
+internal readonly record struct PointerTrail
 {
     private PointerTrail(
         bool hasPrevious,

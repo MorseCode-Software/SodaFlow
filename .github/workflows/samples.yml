@@ -42,8 +42,9 @@ permissions:
 
 jobs:
   build:
-    # Windows because the WPF head of every sample targets net8.0-windows. The Avalonia heads and
-    # the view models would build anywhere; splitting the job to save that is not worth the noise.
+    # Windows because WPF only builds there - every sample's .NET 10 WPF head, and Counter's .NET
+    # Framework one. The Avalonia heads and the view models would build anywhere; splitting the job
+    # to save that is not worth the noise.
     runs-on: windows-latest
 
     strategy:
@@ -59,12 +60,11 @@ jobs:
 
       - uses: actions/setup-dotnet@v6
         with:
-          # 10.0 is what global.json pins, and is what actually runs the build. 8.0 is installed
-          # alongside it so the net8.0 and net8.0-windows targets have their targeting packs
-          # present rather than acquired during the build.
-          dotnet-version: |
-            8.0.x
-            10.0.x
+          # 10.0 is what global.json pins, what runs the build, and what every .NET head targets.
+          # Nothing needs a second SDK: Counter's view model is netstandard2.0, and its .NET
+          # Framework head takes its reference assemblies from a package rather than an installed
+          # targeting pack - see samples/Directory.Build.props.
+          dotnet-version: 10.0.x
 
       # Warnings are errors here because these are teaching code. All three solutions build clean
       # today, so anything new is a regression rather than a backlog.

@@ -27,24 +27,23 @@ internal sealed class SimpleScene : IScene
         double now = timers.Time.Sample();
 
         this.Balls =
-            new[]
-            {
-                new Ball(
-                    // Nothing moves it sideways, and a constant is a perfectly good behavior.
-                    x: Behavior.Constant(this.Width / 2.0),
-                    y: BouncingAxis.Create(
-                        timers: timers,
-                        initial: Initial(now),
-                        min: BallRadius,
-                        max: this.Height - BallRadius,
-                        restarts: restarts.Snapshot(b: timers.Time, f: static (_, time) => Initial(time)),
+        [
+            new Ball(
+                // Nothing moves it sideways, and a constant is a perfectly good behavior.
+                x: Behavior.Constant(this.Width / 2.0),
+                y: BouncingAxis.Create(
+                    timers: timers,
+                    initial: Initial(now),
+                    min: BallRadius,
+                    max: this.Height - BallRadius,
+                    restarts: restarts.Snapshot(b: timers.Time, f: static (_, time) => Initial(time)),
 
-                        // Elastic, and not offered as a choice: this scene is here to be the
-                        // smallest thing that makes the point.
-                        restitution: Cell.Constant(1.0)),
-                    radius: BallRadius,
-                    color: "#E2574C")
-            };
+                    // Elastic, and not offered as a choice: this scene is here to be the
+                    // smallest thing that makes the point.
+                    restitution: Cell.Constant(1.0)),
+                radius: BallRadius,
+                color: "#E2574C")
+        ];
     }
 
     /// <inheritdoc />
@@ -66,5 +65,5 @@ internal sealed class SimpleScene : IScene
 
     /// <summary>The flight the ball begins with, and begins again with.</summary>
     private static Flight Initial(double time) =>
-        new(startTime: time, position: BallRadius, velocity: 0.0, acceleration: Gravity);
+        new(StartTime: time, Position: BallRadius, Velocity: 0.0, Acceleration: Gravity);
 }

@@ -163,16 +163,19 @@ internal sealed class CollisionScene : IScene
                         // is a function of the world, so a new world is a new target.
                         Cell<Maybe<double>> nextEvent = bodies.Map(NextEventTime);
 
+                        // Both lambdas state the list as their return type: Step and Initial hand
+                        // back arrays, and a stream of arrays is not a stream of lists.
                         Stream<IReadOnlyList<Body>> stepped =
                             timers
                                 .At(nextEvent)
                                 .Snapshot(
                                     c1: bodies,
                                     c2: restitution,
-                                    f: static (time, w, e) => Step(world: w, time: time, restitution: e));
+                                    f: static IReadOnlyList<Body> (time, w, e) =>
+                                        Step(world: w, time: time, restitution: e));
 
                         return restarts
-                            .Snapshot(b: timers.Time, f: static (_, time) => Initial(time))
+                            .Snapshot(b: timers.Time, f: static IReadOnlyList<Body> (_, time) => Initial(time))
                             .OrElse(stepped)
                             .Hold(Initial(now));
                     });
@@ -212,7 +215,7 @@ internal sealed class CollisionScene : IScene
     public IReadOnlyList<Ball> Balls { get; }
 
     /// <summary>The world every ball starts from, and returns to when the tab is reselected.</summary>
-    private static IReadOnlyList<Body> Initial(double time)
+    private static Body[] Initial(double time)
     {
         Body[] bodies = new Body[Arrangement.Starts.Count];
 
@@ -225,9 +228,9 @@ internal sealed class CollisionScene : IScene
             // it costs is visible: see the note on the clock above ContactTime.
             bodies[i] =
                 new Body(
-                    x: Arrangement.InitialX(start: start, now: time),
-                    y: Arrangement.InitialY(start: start, now: time),
-                    radius: start.Radius);
+                    X: Arrangement.InitialX(start: start, now: time),
+                    Y: Arrangement.InitialY(start: start, now: time),
+                    Radius: start.Radius);
         }
 
         return bodies;
@@ -252,7 +255,7 @@ internal sealed class CollisionScene : IScene
     /// <summary>When the next thing happens to anything, or none if nothing ever does.</summary>
     private static Maybe<double> NextEventTime(IReadOnlyList<Body> world)
     {
-        double[] times = Events(world).Select(static e => e.Time).ToArray();
+        double[] times = [.. Events(world).Select(static e => e.Time)];
 
         return times.Length > 0 ? Maybe.Some(times.Min()) : Maybe.None;
     }
@@ -266,9 +269,9 @@ internal sealed class CollisionScene : IScene
     ///     separation and the relative velocity as of a single instant rather than reconciling
     ///     four equations that each began somewhere else.
     /// </remarks>
-    private static IReadOnlyList<Body> Step(IReadOnlyList<Body> world, double time, double restitution)
+    private static Body[] Step(IReadOnlyList<Body> world, double time, double restitution)
     {
-        Body[] next = world.Select(body => body.RebasedTo(time)).ToArray();
+        Body[] next = [.. world.Select(body => body.RebasedTo(time))];
 
         foreach (Event e in Events(world).Where(e => Math.Abs(e.Time - time) <= SimultaneousWithin))
         {
@@ -379,10 +382,10 @@ internal sealed class CollisionScene : IScene
                 if (at.Match(onSome: static _ => true, onNone: static () => false))
                 {
                     yield return new Event(
-                        time: at.Match(onSome: static t => t, onNone: static () => 0.0),
-                        index: i,
-                        other: -1,
-                        horizontal: horizontal);
+                        Time: at.Match(onSome: static t => t, onNone: static () => 0.0),
+                        Index: i,
+                        Other: -1,
+                        Horizontal: horizontal);
                 }
             }
         }
@@ -396,10 +399,10 @@ internal sealed class CollisionScene : IScene
                 if (at.Match(onSome: static _ => true, onNone: static () => false))
                 {
                     yield return new Event(
-                        time: at.Match(onSome: static t => t, onNone: static () => 0.0),
-                        index: i,
-                        other: j,
-                        horizontal: false);
+                        Time: at.Match(onSome: static t => t, onNone: static () => 0.0),
+                        Index: i,
+                        Other: j,
+                        Horizontal: false);
                 }
             }
         }
@@ -645,67 +648,42 @@ internal sealed class CollisionScene : IScene
     }
 
     /// <summary>One ball, as the pair of equations it is currently following.</summary>
-    private readonly struct Body
+    // ReSharper disable once InheritdocConsiderUsage
+    private readonly record struct Body(Flight X, Flight Y, double Radius)
     {
-        public Body(Flight x, Flight y, double radius)
-        {
-            this.X = x;
-            this.Y = y;
-            this.Radius = radius;
-        }
-
-        public Flight X { get; }
-
-        public Flight Y { get; }
-
-        public double Radius { get; }
-
         /// <summary>Area, the balls being discs of a single density.</summary>
         public double Mass => this.Radius * this.Radius;
 
         /// <summary>The same motion, written as though it began at <paramref name="time" />.</summary>
         public Body RebasedTo(double time) =>
-            new(
-                x: new Flight(
-                    startTime: time,
-                    position: this.X.PositionAt(time),
-                    velocity: this.X.VelocityAt(time),
-                    acceleration: this.X.Acceleration),
-                y: new Flight(
-                    startTime: time,
-                    position: this.Y.PositionAt(time),
-                    velocity: this.Y.VelocityAt(time),
-                    acceleration: this.Y.Acceleration),
-                radius: this.Radius);
+            this with
+            {
+                X = new Flight(
+                    StartTime: time,
+                    Position: this.X.PositionAt(time),
+                    Velocity: this.X.VelocityAt(time),
+                    Acceleration: this.X.Acceleration),
+                Y = new Flight(
+                    StartTime: time,
+                    Position: this.Y.PositionAt(time),
+                    Velocity: this.Y.VelocityAt(time),
+                    Acceleration: this.Y.Acceleration)
+            };
 
         /// <summary>The same ball, shifted, keeping the motion it had.</summary>
         public Body MovedBy(double x, double y) =>
-            new(
-                x: new Flight(
-                    startTime: this.X.StartTime,
-                    position: this.X.Position + x,
-                    velocity: this.X.Velocity,
-                    acceleration: this.X.Acceleration),
-                y: new Flight(
-                    startTime: this.Y.StartTime,
-                    position: this.Y.Position + y,
-                    velocity: this.Y.Velocity,
-                    acceleration: this.Y.Acceleration),
-                radius: this.Radius);
+            this with
+            {
+                X = this.X with { Position = this.X.Position + x },
+                Y = this.Y with { Position = this.Y.Position + y }
+            };
 
         public Body WithVelocity(double velocityX, double velocityY) =>
-            new(
-                x: new Flight(
-                    startTime: this.X.StartTime,
-                    position: this.X.Position,
-                    velocity: velocityX,
-                    acceleration: this.X.Acceleration),
-                y: new Flight(
-                    startTime: this.Y.StartTime,
-                    position: this.Y.Position,
-                    velocity: velocityY,
-                    acceleration: this.Y.Acceleration),
-                radius: this.Radius);
+            this with
+            {
+                X = this.X with { Velocity = velocityX },
+                Y = this.Y with { Velocity = velocityY }
+            };
 
         /// <summary>
         ///     The same ball with one axis reversed, having just reached a wall.
@@ -750,16 +728,9 @@ internal sealed class CollisionScene : IScene
                 velocity = -MinimumFloorBounce;
             }
 
-            Flight reflected =
-                new(
-                    startTime: flight.StartTime,
-                    position: position,
-                    velocity: velocity,
-                    acceleration: flight.Acceleration);
+            Flight reflected = flight with { Position = position, Velocity = velocity };
 
-            return horizontal
-                ? new Body(x: reflected, y: this.Y, radius: this.Radius)
-                : new Body(x: this.X, y: reflected, radius: this.Radius);
+            return horizontal ? this with { X = reflected } : this with { Y = reflected };
         }
     }
 
@@ -771,22 +742,6 @@ internal sealed class CollisionScene : IScene
     ///     says which axis. It is a struct rather than two types because the only thing anything
     ///     does with these is take the earliest.
     /// </remarks>
-    private readonly struct Event
-    {
-        public Event(double time, int index, int other, bool horizontal)
-        {
-            this.Time = time;
-            this.Index = index;
-            this.Other = other;
-            this.Horizontal = horizontal;
-        }
-
-        public double Time { get; }
-
-        public int Index { get; }
-
-        public int Other { get; }
-
-        public bool Horizontal { get; }
-    }
+    // ReSharper disable once InheritdocConsiderUsage
+    private readonly record struct Event(double Time, int Index, int Other, bool Horizontal);
 }

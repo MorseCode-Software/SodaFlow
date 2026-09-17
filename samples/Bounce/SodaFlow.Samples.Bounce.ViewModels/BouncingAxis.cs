@@ -176,12 +176,12 @@ internal static class BouncingAxis
             Math.Abs(flight.Acceleration) < double.Epsilon || Math.Abs(bound - max) < double.Epsilon;
 
         return Math.Abs(velocity) < RestSpeed && canRest
-            ? new Flight(startTime: time, position: bound, velocity: 0.0, acceleration: 0.0)
+            ? new Flight(StartTime: time, Position: bound, Velocity: 0.0, Acceleration: 0.0)
             : new Flight(
-                startTime: time,
-                position: bound,
-                velocity: velocity,
-                acceleration: flight.Acceleration);
+                StartTime: time,
+                Position: bound,
+                Velocity: velocity,
+                Acceleration: flight.Acceleration);
     }
 
     /// <summary>The given speed, in the direction it is going, held to <see cref="MaximumSpeed" />.</summary>

@@ -2,7 +2,7 @@ using Avalonia;
 
 namespace SodaFlow.Samples.Search.Avalonia;
 
-internal static class Program
+file static class Program
 {
     public static int Main(string[] args) => BuildAvaloniaApp().StartWithClassicDesktopLifetime(args);
 
