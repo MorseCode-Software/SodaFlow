@@ -4,13 +4,14 @@ using BenchmarkDotNet.Attributes;
 namespace SodaFlow.Samples.Accounts.DrainBenchmarks;
 
 /// <summary>
-///     Just the drainable-key tracker's update step, away from the rest of a transaction: b1398a3's
-///     fold against a single-pass one, for a change shaped like a Pay and one shaped like a Drain.
+///     Just the drainable-key tracker's update step, away from the rest of a transaction: the fold
+///     OptimizedDrain used to have, a single-pass one, and the hybrid it has now, for a change shaped
+///     like a Pay and one shaped like a Drain.
 /// </summary>
 /// <remarks>
 ///     <para>
-///         Inside a view model this step is lost in noise - a Pay allocates around 100 KB and varies
-///         by more than that from one block of Pays to the next - so it is measured here on its own.
+///         Inside a view model this step is too small a part of a transaction to read - a Pay takes
+///         over 20 microseconds and allocates about 21 KB - so it is measured here on its own.
 ///     </para>
 ///     <para>
 ///         The inputs mirror what <c>ItemChange</c> hands the fold, including its types: new states
@@ -58,7 +59,7 @@ public class TrackerBenchmarks
 
     [Benchmark(Baseline = true)]
     [BenchmarkCategory("Pay")]
-    public ImmutableHashSet<int> CommittedPay() => Committed(this.drainable, this.payNewStates, this.removed);
+    public ImmutableHashSet<int> FormerPay() => Former(this.drainable, this.payNewStates, this.removed);
 
     [Benchmark]
     [BenchmarkCategory("Pay")]
@@ -66,7 +67,7 @@ public class TrackerBenchmarks
 
     [Benchmark]
     [BenchmarkCategory("Drain")]
-    public ImmutableHashSet<int> CommittedDrain() => Committed(this.drainable, this.drainNewStates, this.removed);
+    public ImmutableHashSet<int> FormerDrain() => Former(this.drainable, this.drainNewStates, this.removed);
 
     [Benchmark]
     [BenchmarkCategory("Drain")]
@@ -134,8 +135,8 @@ public class TrackerBenchmarks
         return builder is null ? keys : builder.ToImmutable();
     }
 
-    /// <summary>b1398a3's fold, line for line.</summary>
-    private static ImmutableHashSet<int> Committed(
+    /// <summary>The fold OptimizedDrain had before the hybrid, line for line.</summary>
+    private static ImmutableHashSet<int> Former(
         ImmutableHashSet<int> drainableAccountKeys,
         IReadOnlyDictionary<int, State> newStates,
         IReadOnlyCollection<int> removed)

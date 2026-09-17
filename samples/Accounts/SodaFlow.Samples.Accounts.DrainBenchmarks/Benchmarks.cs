@@ -7,10 +7,10 @@ namespace SodaFlow.Samples.Accounts.DrainBenchmarks;
 /// <summary>The view models under test, by the name the benchmarks and the footprint mode use.</summary>
 public static class ViewModels
 {
-    /// <summary>b1398a3's AccountsViewModel: drainable accounts are a filtered ReactiveCollection.</summary>
+    /// <summary>AccountsViewModel: drainable accounts are a filtered ReactiveCollection.</summary>
     public const string Original = "Original";
 
-    /// <summary>b1398a3's AccountsViewModelOptimizedDrain: an ImmutableHashSet folded over item changes.</summary>
+    /// <summary>AccountsViewModelOptimizedDrain: drainable accounts are an ImmutableHashSet folded over item changes.</summary>
     public const string OptimizedDrain = "OptimizedDrain";
 
     public static IAccountsViewModel Create(string name) =>
