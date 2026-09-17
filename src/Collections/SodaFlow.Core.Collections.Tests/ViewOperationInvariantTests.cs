@@ -255,4 +255,110 @@ public sealed class ViewOperationInvariantTests
                 .IsEquivalentTo(expected: reported[name], ordering: CollectionOrdering.Matching);
         }
     }
+
+    /// <summary>
+    ///     A new order reaches each stage below it as a reset that says it only reordered - and so
+    ///     leaves the shape alone - until it reaches a window, which cannot say that and resets outright.
+    ///     A transaction that also edits is never a reorder, at any stage.
+    /// </summary>
+    [Test]
+    public async Task ANewOrderIsReportedAsAReorderDownToAWindow()
+    {
+        StreamSink<CollectionEdit<int, ItemIdentity, ItemState>> edits =
+            Stream.CreateSink<CollectionEdit<int, ItemIdentity, ItemState>>();
+
+        ReactiveCollection<int, ItemIdentity, ItemState> collection =
+            Create(
+                edits: edits,
+                [.. Enumerable.Range(1, 6).Select(n => TestUtil.Item(number: n, name: $"n{n}", score: n * 10))]);
+
+        KeyOrder<int, ItemIdentity, ItemState> ascending =
+            KeyOrder<int, ItemIdentity, ItemState>.By(static (_, state) => state.Score);
+
+        CellSink<KeyOrder<int, ItemIdentity, ItemState>> order = Cell.CreateSink(ascending);
+
+        ReactiveCollection<int, ItemIdentity, ItemState> sorted = CollectionViewUtility.SortByImpl(collection, order);
+
+        ReactiveCollection<int, ItemIdentity, ItemState> filtered =
+            CollectionViewUtility.FilterImpl(
+                upstream: sorted,
+                predicateCell: Cell.Constant<Func<ItemIdentity, ItemState, bool>>(static (_, state) => state.Score >= 20));
+
+        ReactiveCollection<int, ItemIdentity, ItemState> byIdentity =
+            CollectionViewUtility.FilterByIdentityImpl(upstream: filtered, predicate: static identity => identity.Number != 4);
+
+        ReactiveCollection<int, ItemIdentity, ItemState> resorted =
+            CollectionViewUtility.SortByImpl(
+                upstream: byIdentity,
+                orderCell: Cell.Constant(KeyOrder<int, ItemIdentity, ItemState>.ByKey(Comparer<int>.Default)));
+
+        ReactiveCollection<int, ItemIdentity, ItemState> window =
+            CollectionViewUtility.SliceImpl(upstream: byIdentity, offsetCell: Cell.Constant(0), limitCell: Cell.Constant(2));
+
+        ReactiveCollection<int, ItemIdentity, ItemState> belowWindow =
+            CollectionViewUtility.FilterImpl(
+                upstream: window,
+                predicateCell: Cell.Constant<Func<ItemIdentity, ItemState, bool>>(static (_, _) => true));
+
+        List<(string Name, ReactiveCollection<int, ItemIdentity, ItemState> View)> stages =
+        [
+            ("sorted", sorted), ("filtered", filtered), ("byIdentity", byIdentity),
+            ("resorted", resorted), ("window", window), ("belowWindow", belowWindow)
+        ];
+
+        List<string> seen = [];
+
+        List<IListener> listeners =
+        [
+            .. stages.Select(stage =>
+                stage.View.KeyChangesStream.ListenStrong(change =>
+                    seen.Add(
+                        $"{stage.Name}: reset={change.IsReset} reordersOnly={change.ReordersOnly} " +
+                        $"changesMembership={change.ChangesMembership}")))
+        ];
+
+        order.Send(KeyOrder<int, ItemIdentity, ItemState>.By(static (_, state) => -state.Score));
+
+        List<string> reorder = [.. seen];
+        seen.Clear();
+
+        Transaction.RunVoid(() =>
+        {
+            order.Send(ascending);
+            edits.Send(TestUtil.Score(key: 2, score: 25));
+        });
+
+        List<string> reorderWithAnEdit = [.. seen];
+
+        foreach (IListener listener in listeners)
+        {
+            listener.Unlisten();
+        }
+
+        await Assert.That(reorder)
+            .IsEquivalentTo(
+                expected:
+                [
+                    "sorted: reset=True reordersOnly=True changesMembership=False",
+                    "filtered: reset=True reordersOnly=True changesMembership=False",
+                    "byIdentity: reset=True reordersOnly=True changesMembership=False",
+                    "resorted: reset=True reordersOnly=True changesMembership=False",
+                    "window: reset=True reordersOnly=False changesMembership=True",
+                    "belowWindow: reset=True reordersOnly=False changesMembership=True"
+                ],
+                ordering: CollectionOrdering.Any);
+
+        await Assert.That(reorderWithAnEdit.Where(static line => line.Contains("reordersOnly=True"))).IsEmpty();
+        await Assert.That(reorderWithAnEdit.Count).IsEqualTo(stages.Count);
+
+        // And every stage still holds what it should: the key order above the window, and the window.
+        await Assert.That(TestUtil.Keys(byIdentity.KeysCell.Sample()))
+            .IsEquivalentTo(expected: [2, 3, 5, 6], ordering: CollectionOrdering.Matching);
+
+        await Assert.That(TestUtil.Keys(resorted.KeysCell.Sample()))
+            .IsEquivalentTo(expected: [2, 3, 5, 6], ordering: CollectionOrdering.Matching);
+
+        await Assert.That(TestUtil.Keys(belowWindow.KeysCell.Sample()))
+            .IsEquivalentTo(expected: [2, 3], ordering: CollectionOrdering.Matching);
+    }
 }

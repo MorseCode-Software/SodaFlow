@@ -59,7 +59,8 @@ internal static class CollectionViewUtility
                                         before: change.Before,
                                         after: change.After,
                                         movesKeys: true,
-                                        changesMembership: true);
+                                        changesMembership: true,
+                                        reordersOnly: false);
                                 }));
 
             Cell<OrderedKeys<TKey, TIdentity, TState>> keysCell =
@@ -117,7 +118,8 @@ internal static class CollectionViewUtility
             criteriaCell: predicateCell,
             rebuild: RebuildFilter,
             processNewCriteria: ProcessFilterNewCriteria,
-            process: ProcessFilter);
+            process: ProcessFilter,
+            reorder: ReorderFilter);
 
     /// <summary>
     ///     Reorders the view. <typeparamref name="TSortKey" /> stays a real generic parameter all
@@ -162,7 +164,8 @@ internal static class CollectionViewUtility
             criteriaCell: CellInternal.ConstantImpl(predicate),
             rebuild: RebuildFilterByIdentity,
             processNewCriteria: ProcessFilterByIdentityNewCriteria,
-            process: ProcessFilterByIdentity);
+            process: ProcessFilterByIdentity,
+            reorder: ReorderFilter);
 
     /// <summary>
     ///     Reorders the view by a value projected from each item's immutable half alone, which a
@@ -206,8 +209,15 @@ internal static class CollectionViewUtility
     ///         turns the list it has around - but either way it resets. The only order it answers
     ///         with anything else is one equivalent to the order it already holds, which is no change
     ///         and reports nothing. A stage below re-files under whichever order this ends up with
-    ///         without being told anything, because a filter rebuilds from its upstream collection's
-    ///         own order whatever that has become.
+    ///         without being told anything, because a filter files under its upstream collection's own
+    ///         order whatever that has become.
+    ///     </para>
+    ///     <para>
+    ///         The reset says it only reordered, because nothing else reached this stage in the
+    ///         transaction. A filter below takes its members over to the new order without testing its
+    ///         predicate again, a sort below keeps its list, and both pass the same on; a window below
+    ///         rebuilds, since a reorder changes what falls inside it. See
+    ///         <see cref="CollectionViewChange{TKey,TIdentity,TState}.ReordersOnly" />.
     ///     </para>
     ///     <para>
     ///         Never report a change of order as moves, however few keys it would move. A move
@@ -228,7 +238,10 @@ internal static class CollectionViewUtility
             rebuild: static (order, upstreamKeys, snapshot) =>
                 RebuildSort(order: order, upstreamKeys: upstreamKeys, snapshot: snapshot),
             processNewCriteria: ProcessSortNewCriteria,
-            process: static (_, keys, change) => ProcessSort(state: keys, change: change));
+            process: static (_, keys, change) => ProcessSort(state: keys, change: change),
+            // Its own order and its members are both where they were, so the list it holds is the
+            // list a rebuild would file.
+            reorder: static (state, _) => state);
 
     /// <summary>
     ///     The first <c>limit</c> keys of the upstream — the top-n of whatever ordering and
@@ -281,7 +294,9 @@ internal static class CollectionViewUtility
             rebuild: static (bounds, upstreamKeys, _) =>
                 RebuildSlice(upstreamKeys: upstreamKeys, offset: bounds.Offset, limit: bounds.Limit),
             processNewCriteria: static (_, createResultFromRebuild, _, _, _, _, _) => createResultFromRebuild(),
-            process: static (bounds, keys, change) => ProcessSlice(bounds: bounds, state: keys, change: change));
+            process: static (bounds, keys, change) => ProcessSlice(bounds: bounds, state: keys, change: change),
+            // Reordering what is above a window changes which keys fall inside it.
+            reorder: null);
 
     private delegate OrderedKeys<TKey, TIdentity, TState> Rebuild<in TCriteria, TKey, TIdentity, TState>(
         TCriteria criteria,
@@ -293,11 +308,23 @@ internal static class CollectionViewUtility
     private delegate StageResult<TKey, TIdentity, TState> ProcessNewCriteria<in TCriteria, TKey, TIdentity, TState>(
         Func<StageOutcome<TKey, TIdentity, TState>, StageResult<TKey, TIdentity, TState>> createResultFromStageOutcome,
         Func<StageResult<TKey, TIdentity, TState>> createResultFromRebuild,
-        Func<OrderedKeys<TKey, TIdentity, TState>, StageResult<TKey, TIdentity, TState>> createResultForReset,
+        Func<OrderedKeys<TKey, TIdentity, TState>, StageResult<TKey, TIdentity, TState>> createResultForReorder,
         TCriteria criteria,
         OrderedKeys<TKey, TIdentity, TState> upstreamKeys,
         CollectionSnapshot<TKey, TIdentity, TState> snapshot,
         OrderedKeys<TKey, TIdentity, TState> state)
+        where TKey : notnull
+        where TIdentity : notnull;
+
+    /// <summary>
+    ///     The keys a stage holds once the stage above it has reordered and nothing else has changed,
+    ///     for a stage that can answer that without rebuilding.
+    /// </summary>
+    /// <param name="state">What the stage holds now.</param>
+    /// <param name="change">The reorder, whose keys are the stage above's in their new order.</param>
+    private delegate OrderedKeys<TKey, TIdentity, TState> Reorder<TKey, TIdentity, TState>(
+        OrderedKeys<TKey, TIdentity, TState> state,
+        CollectionViewChange<TKey, TIdentity, TState> change)
         where TKey : notnull
         where TIdentity : notnull;
 
@@ -313,7 +340,8 @@ internal static class CollectionViewUtility
         Cell<TCriteria> criteriaCell,
         Rebuild<TCriteria, TKey, TIdentity, TState> rebuild,
         ProcessNewCriteria<TCriteria, TKey, TIdentity, TState> processNewCriteria,
-        Process<TCriteria, TKey, TIdentity, TState> process)
+        Process<TCriteria, TKey, TIdentity, TState> process,
+        Reorder<TKey, TIdentity, TState>? reorder)
         where TKey : notnull
         where TIdentity : notnull =>
         TransactionInternal.Apply<ReactiveCollection<TKey, TIdentity, TState>>((trans, _) =>
@@ -383,7 +411,14 @@ internal static class CollectionViewUtility
 
                         if (mustRebuild)
                         {
-                            return Rebuild();
+                            // A reorder above, and no criteria of this stage's own to apply with it,
+                            // leaves this stage's members and their values as they were.
+                            return input.Change.Match(
+                                onSome: change =>
+                                    !hasCriteriaChange && change.ReordersOnly && reorder is not null
+                                        ? CreateReorder(reorder(state: state, change: change))
+                                        : Rebuild(),
+                                onNone: Rebuild);
                         }
 
                         return input.Change.Match(
@@ -396,7 +431,7 @@ internal static class CollectionViewUtility
                                     return processNewCriteria(
                                         createResultFromStageOutcome: ConvertOutcome,
                                         createResultFromRebuild: Rebuild,
-                                        createResultForReset: CreateReset,
+                                        createResultForReorder: CreateReorder,
                                         criteria: criteria,
                                         upstreamKeys: upstreamKeys,
                                         snapshot: snapshot,
@@ -412,10 +447,13 @@ internal static class CollectionViewUtility
                                     before: beforeAndAfter,
                                     after: beforeAndAfter,
                                     movesKeys: false,
-                                    changesMembership: false);
+                                    changesMembership: false,
+                                    reordersOnly: false);
                             });
 
-                        StageResult<TKey, TIdentity, TState> CreateReset(OrderedKeys<TKey, TIdentity, TState> keys) =>
+                        StageResult<TKey, TIdentity, TState> CreateReset(
+                            OrderedKeys<TKey, TIdentity, TState> keys,
+                            bool reordersOnly) =>
                             new(
                                 keys: keys,
                                 operations: Array.Empty<ViewOperation<TKey>>(),
@@ -423,10 +461,16 @@ internal static class CollectionViewUtility
                                 before: context.Snapshot.ScopedTo(state),
                                 after: snapshot.ScopedTo(keys),
                                 movesKeys: true,
-                                changesMembership: true);
+                                changesMembership: !reordersOnly,
+                                reordersOnly: reordersOnly);
+
+                        StageResult<TKey, TIdentity, TState> CreateReorder(OrderedKeys<TKey, TIdentity, TState> keys) =>
+                            CreateReset(keys: keys, reordersOnly: true);
 
                         StageResult<TKey, TIdentity, TState> Rebuild() =>
-                            CreateReset(rebuild(criteria: criteria, upstreamKeys: upstreamKeys, snapshot: snapshot));
+                            CreateReset(
+                                keys: rebuild(criteria: criteria, upstreamKeys: upstreamKeys, snapshot: snapshot),
+                                reordersOnly: false);
 
                         StageResult<TKey, TIdentity, TState> ConvertOutcome(
                             StageOutcome<TKey, TIdentity, TState> outcome) =>
@@ -437,7 +481,8 @@ internal static class CollectionViewUtility
                                 before: context.Snapshot.ScopedTo(state),
                                 after: snapshot.ScopedTo(outcome.Keys),
                                 movesKeys: outcome.MovesKeys,
-                                changesMembership: outcome.ChangesMembership);
+                                changesMembership: outcome.ChangesMembership,
+                                reordersOnly: false);
 
                         StageResult<TKey, TIdentity, TState> ConvertOutcomeMaybe(
                             MaybeInternal<StageOutcome<TKey, TIdentity, TState>> outcome) =>
@@ -483,6 +528,7 @@ internal static class CollectionViewUtility
                     isReset: result.IsReset,
                     movesKeys: result.MovesKeys,
                     changesMembership: result.ChangesMembership,
+                    reordersOnly: result.ReordersOnly,
                     keyEqualityComparer: keyEqualityComparer))
             .FilterImpl(static change => change.IsReset || change.Operations.Count > 0);
 
@@ -624,7 +670,8 @@ internal static class CollectionViewUtility
                 before: change.Before,
                 after: change.After,
                 movesKeys: movesKeys,
-                changesMembership: changesMembership));
+                changesMembership: changesMembership,
+                reordersOnly: false));
     }
 
     #endregion
@@ -655,10 +702,26 @@ internal static class CollectionViewUtility
             keys: upstreamKeys.Where(key => PassesByIdentity(key: key, predicate: predicate, snapshot: snapshot)),
             snapshot: snapshot);
 
+    /// <summary>A filter's members, taken over to the order its upstream has just changed to.</summary>
+    /// <remarks>
+    ///     Nothing a predicate reads changed, so the members are the members: this files them under the
+    ///     new order rather than walking the whole upstream and testing each item again. Where the order
+    ///     is the one already held - a reorder passed down from above a stage that kept its own - they are
+    ///     already filed under it.
+    /// </remarks>
+    private static OrderedKeys<TKey, TIdentity, TState> ReorderFilter<TKey, TIdentity, TState>(
+        OrderedKeys<TKey, TIdentity, TState> state,
+        CollectionViewChange<TKey, TIdentity, TState> change)
+        where TKey : notnull
+        where TIdentity : notnull =>
+        ReferenceEquals(objA: state.Order, objB: change.Keys.Order)
+            ? state
+            : FileAll(order: change.Keys.Order, keys: state, snapshot: change.After);
+
     private static StageResult<TKey, TIdentity, TState> ProcessFilterNewCriteria<TKey, TIdentity, TState>(
         Func<StageOutcome<TKey, TIdentity, TState>, StageResult<TKey, TIdentity, TState>> createResultFromStageOutcome,
         Func<StageResult<TKey, TIdentity, TState>> createResultFromRebuild,
-        Func<OrderedKeys<TKey, TIdentity, TState>, StageResult<TKey, TIdentity, TState>> createResultForReset,
+        Func<OrderedKeys<TKey, TIdentity, TState>, StageResult<TKey, TIdentity, TState>> createResultForReorder,
         Func<TIdentity, TState, bool> predicate,
         OrderedKeys<TKey, TIdentity, TState> upstreamKeys,
         CollectionSnapshot<TKey, TIdentity, TState> snapshot,
@@ -734,7 +797,7 @@ internal static class CollectionViewUtility
     private static StageResult<TKey, TIdentity, TState> ProcessFilterByIdentityNewCriteria<TKey, TIdentity, TState>(
         Func<StageOutcome<TKey, TIdentity, TState>, StageResult<TKey, TIdentity, TState>> createResultFromStageOutcome,
         Func<StageResult<TKey, TIdentity, TState>> createResultFromRebuild,
-        Func<OrderedKeys<TKey, TIdentity, TState>, StageResult<TKey, TIdentity, TState>> createResultForReset,
+        Func<OrderedKeys<TKey, TIdentity, TState>, StageResult<TKey, TIdentity, TState>> createResultForReorder,
         Func<TIdentity, bool> predicate,
         OrderedKeys<TKey, TIdentity, TState> upstreamKeys,
         CollectionSnapshot<TKey, TIdentity, TState> snapshot,
@@ -1146,7 +1209,7 @@ internal static class CollectionViewUtility
     private static StageResult<TKey, TIdentity, TState> ProcessSortNewCriteria<TKey, TIdentity, TState>(
         Func<StageOutcome<TKey, TIdentity, TState>, StageResult<TKey, TIdentity, TState>> createResultFromStageOutcome,
         Func<StageResult<TKey, TIdentity, TState>> createResultFromRebuild,
-        Func<OrderedKeys<TKey, TIdentity, TState>, StageResult<TKey, TIdentity, TState>> createResultForReset,
+        Func<OrderedKeys<TKey, TIdentity, TState>, StageResult<TKey, TIdentity, TState>> createResultForReorder,
         KeyOrder<TKey, TIdentity, TState> order,
         OrderedKeys<TKey, TIdentity, TState> upstreamKeys,
         CollectionSnapshot<TKey, TIdentity, TState> snapshot,
@@ -1163,12 +1226,16 @@ internal static class CollectionViewUtility
                 after: snapshot,
                 movesKeys: false,
                 changesMembership: false,
-                isReset: false);
+                isReset: false,
+                reordersOnly: false);
         }
 
-        return order.TryReverse(keys: state, reversedKeys: out OrderedKeys<TKey, TIdentity, TState>? reversedKeys)
-            ? createResultForReset(reversedKeys)
-            : createResultFromRebuild();
+        // Reached only when nothing but the order reached this stage in the transaction, so it holds
+        // the keys it held before, with the values they had: a reorder, whichever way it is answered.
+        return createResultForReorder(
+            order.TryReverse(keys: state, reversedKeys: out OrderedKeys<TKey, TIdentity, TState>? reversedKeys)
+                ? reversedKeys
+                : RebuildSort(order: order, upstreamKeys: upstreamKeys, snapshot: snapshot));
     }
 
     private static MaybeInternal<StageOutcome<TKey, TIdentity, TState>> ProcessSort<TKey, TIdentity, TState>(

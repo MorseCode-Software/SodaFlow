@@ -207,7 +207,8 @@ internal sealed class StageResult<TKey, TIdentity, TState>
         CollectionSnapshot<TKey, TIdentity, TState> before,
         CollectionSnapshot<TKey, TIdentity, TState> after,
         bool movesKeys,
-        bool changesMembership)
+        bool changesMembership,
+        bool reordersOnly)
     {
         this.Keys = keys;
         this.Operations = operations;
@@ -216,6 +217,7 @@ internal sealed class StageResult<TKey, TIdentity, TState>
         this.After = after;
         this.MovesKeys = movesKeys;
         this.ChangesMembership = changesMembership;
+        this.ReordersOnly = reordersOnly;
     }
 
     internal OrderedKeys<TKey, TIdentity, TState> Keys { get; }
@@ -241,4 +243,11 @@ internal sealed class StageResult<TKey, TIdentity, TState>
     ///     A reorder is not a membership change, which is what lets a shape cell sleep through one.
     /// </remarks>
     internal bool ChangesMembership { get; }
+
+    /// <summary>
+    ///     Whether this is a reset that changed nothing but the order: the stage holds the keys it held
+    ///     before, and none of their values changed.
+    /// </summary>
+    /// <remarks>See <see cref="CollectionViewChange{TKey,TIdentity,TState}.ReordersOnly" />.</remarks>
+    internal bool ReordersOnly { get; }
 }

@@ -39,6 +39,7 @@ public sealed class CollectionViewChange<TKey, TIdentity, TState>
         bool isReset,
         bool movesKeys,
         bool changesMembership,
+        bool reordersOnly,
         IEqualityComparer<TKey> keyEqualityComparer)
     {
         this.Before = before;
@@ -48,6 +49,7 @@ public sealed class CollectionViewChange<TKey, TIdentity, TState>
         this.IsReset = isReset;
         this.MovesKeys = movesKeys;
         this.ChangesMembership = changesMembership;
+        this.ReordersOnly = reordersOnly;
         this.KeyEqualityComparer = keyEqualityComparer;
     }
 
@@ -94,6 +96,26 @@ public sealed class CollectionViewChange<TKey, TIdentity, TState>
     ///     A reorder is not a membership change, which is what lets a shape cell sleep through one.
     /// </remarks>
     internal bool ChangesMembership { get; }
+
+    /// <summary>
+    ///     Whether this is a reset that changed nothing but the order: the stage holds the keys it held
+    ///     before, and none of their values changed.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         What a sort reports when it is handed a new order and nothing else in the transaction
+    ///         reached it. A stage below with no criteria change of its own can then keep what it holds
+    ///         rather than rebuilding from the stage above: a filter takes its members over to the new
+    ///         order without testing its predicate again, since nothing that could change the answer
+    ///         changed, and a sort keeps its list outright, since neither its members nor its own order
+    ///         moved. Both report the same, so the next stage down can do likewise.
+    ///     </para>
+    ///     <para>
+    ///         A window cannot. Reordering what is above it changes which keys fall inside it, so a
+    ///         slice rebuilds and reports an ordinary reset, and the stages below it rebuild too.
+    ///     </para>
+    /// </remarks>
+    internal bool ReordersOnly { get; }
 
     internal IEqualityComparer<TKey> KeyEqualityComparer { get; }
 
