@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using System.Threading.Tasks;
 using SodaFlow.Functional;
 using TUnit.Assertions;
+using TUnit.Assertions.Enums;
 using TUnit.Assertions.Extensions;
 using TUnit.Core;
 
@@ -48,7 +49,8 @@ public sealed class PerItemCellTests
 
         l.Unlisten();
 
-        await Assert.That(seen).IsEquivalentTo(["seven", "gone", "seven again"]);
+        await Assert.That(seen)
+            .IsEquivalentTo(expected: ["seven", "gone", "seven again"], ordering: CollectionOrdering.Matching);
     }
 
     [Test]
@@ -115,7 +117,7 @@ public sealed class PerItemCellTests
 
         l.Unlisten();
 
-        await Assert.That(seen).IsEquivalentTo(["gone"]);
+        await Assert.That(seen).IsEquivalentTo(expected: ["gone"], ordering: CollectionOrdering.Matching);
     }
 
     [Test]

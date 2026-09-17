@@ -18,17 +18,16 @@ namespace SodaFlow.Collections;
 internal static class CollectionViewUtility
 {
     /// <summary>
-    ///     Builds the root ordering for a collection: every key, ordered by key. Called lazily by
-    ///     <see cref="ReactiveCollection{TKey,TIdentity,TState}" /> the first time anything asks it for keys in
-    ///     order.
+    ///     Builds the root ordering for a collection: every key, in the order it arrived. Called lazily
+    ///     by <see cref="ReactiveCollection{TKey,TIdentity,TState}" /> the first time anything asks it
+    ///     for keys in order.
     /// </summary>
     internal static ReactiveCollection<TKey, TIdentity, TState> CreateRootImpl<TKey, TIdentity, TState>(
-        ReactiveCollection<TKey, TIdentity, TState> collection,
-        IComparer<TKey> keyComparer)
+        ReactiveCollection<TKey, TIdentity, TState> collection)
         where TKey : notnull
         where TIdentity : notnull
     {
-        KeyOrder<TKey, TIdentity, TState> order = KeyOrder<TKey, TIdentity, TState>.ByKey(keyComparer);
+        KeyOrder<TKey, TIdentity, TState> order = KeyOrder<TKey, TIdentity, TState>.ByArrival();
 
         return TransactionInternal.Apply<ReactiveCollection<TKey, TIdentity, TState>>((trans, _) =>
         {
@@ -57,7 +56,7 @@ internal static class CollectionViewUtility
         });
     }
 
-    /// <summary>Reorders by key — the root's own order, available over any stage.</summary>
+    /// <summary>Reorders by key, over any stage.</summary>
     internal static ReactiveCollection<TKey, TIdentity, TState> SortByKeyImpl<TKey, TIdentity, TState>(
         ReactiveCollection<TKey, TIdentity, TState> upstream,
         IComparer<TKey> keyComparer)
@@ -66,6 +65,15 @@ internal static class CollectionViewUtility
         SortByImpl(
             upstream: upstream,
             orderCell: CellInternal.ConstantImpl(KeyOrder<TKey, TIdentity, TState>.ByKey(keyComparer)));
+
+    /// <summary>Reorders by arrival - the collection's own order, available over any stage.</summary>
+    internal static ReactiveCollection<TKey, TIdentity, TState> SortByArrivalImpl<TKey, TIdentity, TState>(
+        ReactiveCollection<TKey, TIdentity, TState> upstream)
+        where TKey : notnull
+        where TIdentity : notnull =>
+        SortByImpl(
+            upstream: upstream,
+            orderCell: CellInternal.ConstantImpl(KeyOrder<TKey, TIdentity, TState>.ByArrival()));
 
     /// <summary>
     ///     Narrows the view, preserving the upstream order. The stage files its members into a set
@@ -410,6 +418,18 @@ internal static class CollectionViewUtility
         {
             if (change.WasAdded(key))
             {
+                // A key added while it is still here is an item replaced within one edit - removed and
+                // added back. It is a new arrival and goes to the end, so the place it leaves is reported
+                // as a remove before its new place is reported as an insert; an insert alone would have a
+                // list bound to this count the key twice.
+                int replaced = keys.IndexOfInternal(key);
+
+                if (replaced >= 0)
+                {
+                    operations.Add(new ViewRemove<TKey>(key: key, index: replaced));
+                    keys = keys.Remove(key);
+                }
+
                 keys = keys.Add(key: key, snapshot: change.After);
 
                 int index = keys.IndexOfInternal(key);
@@ -421,7 +441,7 @@ internal static class CollectionViewUtility
             }
             else
             {
-                // The root orders by key, and a key cannot change, so an update never moves
+                // The root orders by arrival, and an update is not an arrival, so it never moves
                 // anything here. It still has to be reported: a stage further down may sort or
                 // filter on the state that just changed.
                 int index = keys.IndexOfInternal(key);

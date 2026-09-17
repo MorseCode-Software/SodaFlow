@@ -127,20 +127,224 @@ internal sealed class SortedEntryComparer<TKey, TSortKey> : IComparer<SortedEntr
             return 0;
         }
 
+        // A direction is applied by swapping the operands rather than negating the result. Negating
+        // int.MinValue leaves it negative, so a comparer that returns it would sort the same way in
+        // both directions; swapping cannot go wrong like that.
+        //
         // ReSharper disable NullableWarningSuppressionIsUsed - The set only ever holds entries
         // filed by Add, and nothing outside this file constructs one, so neither side is null.
-        int result = this.sortComparer.Compare(x: left!.SortValue, y: right!.SortValue);
+        int result = this.descending
+            ? this.sortComparer.Compare(x: right!.SortValue, y: left!.SortValue)
+            : this.sortComparer.Compare(x: left!.SortValue, y: right!.SortValue);
         // ReSharper restore NullableWarningSuppressionIsUsed
-
-        if (result != 0)
-        {
-            return this.descending ? -result : result;
-        }
 
         // The key breaks ties, so the order is total and two entries that sort equally are never
         // conflated.
-        return this.keyComparer.Compare(x: left.Key, y: right.Key);
+        return result != 0 ? result : this.keyComparer.Compare(x: left.Key, y: right.Key);
     }
+}
+
+/// <summary>Two sort values compared level by level - what a multi-level order files a key under.</summary>
+/// <remarks>
+///     A struct holding both levels as themselves, so an order with several levels keeps every level's
+///     sort value type all the way down to its comparer and nothing is boxed. A third level is a pair
+///     whose first half is a pair, which is how any number of levels fits a type with two parameters.
+/// </remarks>
+/// <typeparam name="TFirst">The type of the level that decides first.</typeparam>
+/// <typeparam name="TSecond">The type of the level that decides between what the first ranks equal.</typeparam>
+internal readonly struct SortPair<TFirst, TSecond>
+{
+    internal SortPair(TFirst first, TSecond second)
+    {
+        this.First = first;
+        this.Second = second;
+    }
+
+    internal TFirst First { get; }
+
+    internal TSecond Second { get; }
+}
+
+/// <summary>Compares two <see cref="SortPair{TFirst,TSecond}" /> values: the first level, then the second.</summary>
+/// <remarks>
+///     Each level carries its own direction, because a secondary level runs whichever way it was asked
+///     to regardless of the level above it. Directions are applied by swapping operands, for the reason
+///     given in <see cref="SortedEntryComparer{TKey,TSortKey}" />.
+/// </remarks>
+/// <typeparam name="TFirst">The type of the level that decides first.</typeparam>
+/// <typeparam name="TSecond">The type of the level that decides between what the first ranks equal.</typeparam>
+// ReSharper disable once InheritdocConsiderUsage
+internal sealed class SortPairComparer<TFirst, TSecond> : IComparer<SortPair<TFirst, TSecond>>
+{
+    private readonly IComparer<TFirst> first;
+    private readonly bool firstDescending;
+    private readonly IComparer<TSecond> second;
+    private readonly bool secondDescending;
+
+    internal SortPairComparer(
+        IComparer<TFirst> first,
+        bool firstDescending,
+        IComparer<TSecond> second,
+        bool secondDescending)
+    {
+        this.first = first;
+        this.firstDescending = firstDescending;
+        this.second = second;
+        this.secondDescending = secondDescending;
+    }
+
+    public int Compare(SortPair<TFirst, TSecond> left, SortPair<TFirst, TSecond> right)
+    {
+        int result = this.firstDescending
+            ? this.first.Compare(x: right.First, y: left.First)
+            : this.first.Compare(x: left.First, y: right.First);
+
+        if (result != 0)
+        {
+            return result;
+        }
+
+        return this.secondDescending
+            ? this.second.Compare(x: right.Second, y: left.Second)
+            : this.second.Compare(x: left.Second, y: right.Second);
+    }
+}
+
+/// <summary>
+///     An order which files each key under a sort value it projects for that key from a snapshot.
+/// </summary>
+/// <remarks>
+///     What the two kinds of order have in common, and all a sorted key set needs from either: how to
+///     project a key's sort value, and how to compare two entries once they are projected. An order over
+///     the items projects from an item; the arrival order projects from when the key arrived.
+/// </remarks>
+/// <typeparam name="TKey">The type of the keys.</typeparam>
+/// <typeparam name="TIdentity">The type of the immutable portion of an item.</typeparam>
+/// <typeparam name="TState">The type of the mutable portion of an item.</typeparam>
+/// <typeparam name="TSortKey">The type of the projected sort value.</typeparam>
+// ReSharper disable once InheritdocConsiderUsage
+internal abstract class ProjectedKeyOrder<TKey, TIdentity, TState, TSortKey> : KeyOrder<TKey, TIdentity, TState>
+    where TKey : notnull
+    where TIdentity : notnull
+{
+    /// <summary>Compares two entries this order has filed.</summary>
+    protected abstract IComparer<SortedEntry<TKey, TSortKey>> EntryComparer { get; }
+
+    /// <summary>
+    ///     The sort value this order files <paramref name="key" /> under, if the snapshot still holds
+    ///     it.
+    /// </summary>
+    internal abstract bool TryProject(
+        TKey key,
+        CollectionSnapshot<TKey, TIdentity, TState> snapshot,
+        out TSortKey sortValue);
+
+    /// <inheritdoc />
+    internal sealed override OrderedKeys<TKey, TIdentity, TState> CreateFrom(
+        IEnumerable<TKey> keys,
+        CollectionSnapshot<TKey, TIdentity, TState> snapshot)
+    {
+        ImmutableSortedSet<SortedEntry<TKey, TSortKey>>.Builder entries =
+            ImmutableSortedSet.CreateBuilder(this.EntryComparer);
+
+        ImmutableDictionary<TKey, SortedEntry<TKey, TSortKey>>.Builder byKey =
+            ImmutableDictionary.CreateBuilder<TKey, SortedEntry<TKey, TSortKey>>();
+
+        foreach (TKey key in keys)
+        {
+            if (!this.TryProject(key: key, snapshot: snapshot, sortValue: out TSortKey sortValue))
+            {
+                continue;
+            }
+
+            SortedEntry<TKey, TSortKey> entry = new(key: key, sortValue: sortValue);
+
+            entries.Add(entry);
+            byKey[key] = entry;
+        }
+
+        return new SortedKeys<TKey, TIdentity, TState, TSortKey>(
+            order: this,
+            entries: entries.ToImmutable(),
+            byKey: byKey.ToImmutable());
+    }
+}
+
+/// <summary>
+///     The order items arrived in: the collection's own order, and what <c>ByArrival</c> returns.
+/// </summary>
+/// <remarks>
+///     <para>
+///         Every key is numbered once as it arrives, so no two keys share a sort value and the key is
+///         never compared. That is why a collection can list keys of a type with no order of its own.
+///     </para>
+///     <para>
+///         For the same reason a further level would never be consulted, so
+///         <see cref="Then{TNext}" /> answers with this order unchanged rather than building a level
+///         that could not decide anything. And it never depends on the state: an update is not an
+///         arrival.
+///     </para>
+/// </remarks>
+/// <typeparam name="TKey">The type of the keys.</typeparam>
+/// <typeparam name="TIdentity">The type of the immutable portion of an item.</typeparam>
+/// <typeparam name="TState">The type of the mutable portion of an item.</typeparam>
+// ReSharper disable once InheritdocConsiderUsage
+internal sealed class ArrivalOrder<TKey, TIdentity, TState> : ProjectedKeyOrder<TKey, TIdentity, TState, long>
+    where TKey : notnull
+    where TIdentity : notnull
+{
+    internal static readonly ArrivalOrder<TKey, TIdentity, TState> Instance = new();
+
+    private ArrivalOrder()
+    {
+    }
+
+    /// <inheritdoc />
+    internal override bool DependsOnState => false;
+
+    /// <inheritdoc />
+    protected override IComparer<SortedEntry<TKey, long>> EntryComparer { get; } =
+        new SortedEntryComparer<TKey, long>(
+            sortComparer: Comparer<long>.Default,
+            keyComparer: NoTieComparer<TKey>.Instance,
+            descending: false);
+
+    /// <inheritdoc />
+    internal override KeyOrder<TKey, TIdentity, TState> Then<TNext>(
+        Func<TKey, TIdentity, TState, TNext>? nextSelector,
+        Func<TKey, TIdentity, TNext>? nextIdentitySelector,
+        IComparer<TNext> nextComparer,
+        bool nextDescending) =>
+        this;
+
+    /// <inheritdoc />
+    internal override bool TryProject(
+        TKey key,
+        CollectionSnapshot<TKey, TIdentity, TState> snapshot,
+        out long sortValue) =>
+        snapshot.TryGetArrival(key: key, arrival: out sortValue);
+}
+
+/// <summary>The tie-break of an order whose sort values are never equal, which has no tie to break.</summary>
+/// <remarks>
+///     Throws rather than answering. Being asked at all means two keys were filed under a sort value
+///     that is only ever given out once - a set that no longer describes itself, which an answer would
+///     hide.
+/// </remarks>
+/// <typeparam name="TKey">The type of the keys.</typeparam>
+// ReSharper disable once InheritdocConsiderUsage
+internal sealed class NoTieComparer<TKey> : IComparer<TKey>
+{
+    internal static readonly NoTieComparer<TKey> Instance = new();
+
+    private NoTieComparer()
+    {
+    }
+
+    public int Compare(TKey? x, TKey? y) =>
+        throw new InvalidOperationException(
+            $"The keys {x} and {y} were filed under the same arrival, which is only ever given to one key. "
+            + "This set was not built by this library.");
 }
 
 /// <summary>
@@ -160,13 +364,21 @@ internal sealed class SortedEntryComparer<TKey, TSortKey> : IComparer<SortedEntr
 /// </remarks>
 // ReSharper disable once InheritdocConsiderUsage
 internal sealed class SortKeyOrder<TKey, TIdentity, TState, TSortKey>
-    : KeyOrder<TKey, TIdentity, TState>
+    : ProjectedKeyOrder<TKey, TIdentity, TState, TSortKey>
     where TKey : notnull
     where TIdentity : notnull
 {
     private readonly IComparer<SortedEntry<TKey, TSortKey>> comparer;
 
+    /// <summary>
+    ///     The pieces <see cref="comparer" /> was built from, kept because a further level has to
+    ///     compare this level the same way from inside a pair.
+    /// </summary>
+    private readonly bool descending;
+
     private readonly Func<TKey, TIdentity, TSortKey>? identitySelector;
+
+    private readonly IComparer<TKey> keyComparer;
 
     /// <summary>
     ///     Exactly one of these is set, and which one is what <see cref="DependsOnState" />
@@ -174,6 +386,8 @@ internal sealed class SortKeyOrder<TKey, TIdentity, TState, TSortKey>
     ///     it, because the selector that claims it is never handed any.
     /// </summary>
     private readonly Func<TKey, TIdentity, TState, TSortKey>? selector;
+
+    private readonly IComparer<TSortKey> sortComparer;
 
     /// <summary>Creates an order whose sort value is projected from the whole item.</summary>
     /// <param name="selector">Projects the sort value from a key and its item.</param>
@@ -211,57 +425,89 @@ internal sealed class SortKeyOrder<TKey, TIdentity, TState, TSortKey>
     private SortKeyOrder(
         IComparer<TSortKey> sortComparer,
         IComparer<TKey> keyComparer,
-        bool descending) =>
+        bool descending)
+    {
+        this.sortComparer = sortComparer;
+        this.keyComparer = keyComparer;
+        this.descending = descending;
+
         this.comparer =
             new SortedEntryComparer<TKey, TSortKey>(
                 sortComparer: sortComparer,
                 keyComparer: keyComparer,
                 descending: descending);
+    }
 
     /// <inheritdoc />
     internal override bool DependsOnState => this.identitySelector is null;
 
     /// <inheritdoc />
-    internal override OrderedKeys<TKey, TIdentity, TState> CreateFrom(
-        IEnumerable<TKey> keys,
-        CollectionSnapshot<TKey, TIdentity, TState> snapshot)
+    internal override KeyOrder<TKey, TIdentity, TState> Then<TNext>(
+        Func<TKey, TIdentity, TState, TNext>? nextSelector,
+        Func<TKey, TIdentity, TNext>? nextIdentitySelector,
+        IComparer<TNext> nextComparer,
+        bool nextDescending)
     {
-        ImmutableSortedSet<SortedEntry<TKey, TSortKey>>.Builder entries =
-            ImmutableSortedSet.CreateBuilder(this.comparer);
+        // The pair carries both levels' directions, so the entry comparer above it compares
+        // ascending. The key still breaks the last tie, with the comparer this order was built with:
+        // a further level refines the order and has no say in what makes it total.
+        SortPairComparer<TSortKey, TNext> pairComparer = new(
+            first: this.sortComparer,
+            firstDescending: this.descending,
+            second: nextComparer,
+            secondDescending: nextDescending);
 
-        ImmutableDictionary<TKey, SortedEntry<TKey, TSortKey>>.Builder byKey =
-            ImmutableDictionary.CreateBuilder<TKey, SortedEntry<TKey, TSortKey>>();
-
-        foreach (TKey key in keys)
+        // Over the identity alone only if every level is, which is what keeps DependsOnState honest
+        // for the combined order: one level that reads the state makes the whole order read it.
+        if (this.identitySelector is not null && nextIdentitySelector is not null)
         {
-            if (!this.TryProject(key: key, snapshot: snapshot, sortValue: out TSortKey sortValue))
-            {
-                continue;
-            }
+            Func<TKey, TIdentity, TSortKey> firstIdentity = this.identitySelector;
 
-            SortedEntry<TKey, TSortKey> entry = new(key: key, sortValue: sortValue);
-
-            entries.Add(entry);
-            byKey[key] = entry;
+            return new SortKeyOrder<TKey, TIdentity, TState, SortPair<TSortKey, TNext>>(
+                selector: (key, identity) => new SortPair<TSortKey, TNext>(
+                    first: firstIdentity(arg1: key, arg2: identity),
+                    second: nextIdentitySelector(arg1: key, arg2: identity)),
+                sortComparer: pairComparer,
+                keyComparer: this.keyComparer,
+                descending: false);
         }
 
-        return new SortedKeys<TKey, TIdentity, TState, TSortKey>(
-            order: this,
-            entries: entries.ToImmutable(),
-            byKey: byKey.ToImmutable());
+        Func<TKey, TIdentity, TState, TSortKey> firstWhole =
+            WholeItem(selector: this.selector, identitySelector: this.identitySelector);
+
+        Func<TKey, TIdentity, TState, TNext> nextWhole =
+            WholeItem(selector: nextSelector, identitySelector: nextIdentitySelector);
+
+        return new SortKeyOrder<TKey, TIdentity, TState, SortPair<TSortKey, TNext>>(
+            selector: (key, identity, state) => new SortPair<TSortKey, TNext>(
+                first: firstWhole(arg1: key, arg2: identity, arg3: state),
+                second: nextWhole(arg1: key, arg2: identity, arg3: state)),
+            sortComparer: pairComparer,
+            keyComparer: this.keyComparer,
+            descending: false);
     }
 
-    /// <summary>
-    ///     The sort value this order files <paramref name="key" /> under, if the snapshot still
-    ///     holds it.
-    /// </summary>
+    /// <summary>A level as a projection from the whole item, whichever kind it was built as.</summary>
+    private static Func<TKey, TIdentity, TState, T> WholeItem<T>(
+        Func<TKey, TIdentity, TState, T>? selector,
+        Func<TKey, TIdentity, T>? identitySelector) =>
+        identitySelector is null
+            // ReSharper disable once NullableWarningSuppressionIsUsed - exactly one of the two is set,
+            // and identitySelector being null is what says it is this one.
+            ? selector!
+            : (key, identity, _) => identitySelector(arg1: key, arg2: identity);
+
+    /// <inheritdoc />
+    protected override IComparer<SortedEntry<TKey, TSortKey>> EntryComparer => this.comparer;
+
+    /// <inheritdoc />
     /// <remarks>
     ///     An order that does not read the state does not read the state map either, which is one
     ///     fewer lookup per key - and a rebuild does this for every key it keeps.
     ///     The two branches disagree only for a key the identity map holds and the state map does
     ///     not, which the two being written together in <c>Resolve</c> rules out.
     /// </remarks>
-    internal bool TryProject(
+    internal override bool TryProject(
         TKey key,
         CollectionSnapshot<TKey, TIdentity, TState> snapshot,
         out TSortKey sortValue)
@@ -302,10 +548,10 @@ internal sealed class SortedKeys<TKey, TIdentity, TState, TSortKey> : OrderedKey
 {
     private readonly ImmutableDictionary<TKey, SortedEntry<TKey, TSortKey>> byKey;
     private readonly ImmutableSortedSet<SortedEntry<TKey, TSortKey>> entries;
-    private readonly SortKeyOrder<TKey, TIdentity, TState, TSortKey> order;
+    private readonly ProjectedKeyOrder<TKey, TIdentity, TState, TSortKey> order;
 
     internal SortedKeys(
-        SortKeyOrder<TKey, TIdentity, TState, TSortKey> order,
+        ProjectedKeyOrder<TKey, TIdentity, TState, TSortKey> order,
         ImmutableSortedSet<SortedEntry<TKey, TSortKey>> entries,
         ImmutableDictionary<TKey, SortedEntry<TKey, TSortKey>> byKey)
     {

@@ -257,13 +257,20 @@ let itemChangesStream (collection: ReactiveCollection<'TKey, 'TIdentity, 'TState
 
 // --- views --------------------------------------------------------------------------------
 
-/// <summary>Reorders by key — the root's own order, available over any stage.</summary>
+/// <summary>Reorders by key, over any stage.</summary>
 /// <param name="keyComparer">The comparer to order keys by.</param>
 /// <param name="upstream">The collection or view to reorder.</param>
 /// <returns>A view ordered by key.</returns>
 [<MethodImpl(MethodImplOptions.NoInlining)>]
 let sortByKey (keyComparer: IComparer<'TKey>) (upstream: ReactiveCollection<'TKey, 'TIdentity, 'TState>) =
     CollectionViewUtility.SortByKeyImpl(upstream, keyComparer)
+
+/// <summary>Reorders by arrival - the collection's own order, available over any stage.</summary>
+/// <param name="upstream">The collection or view to reorder.</param>
+/// <returns>A view in the order its items arrived.</returns>
+[<MethodImpl(MethodImplOptions.NoInlining)>]
+let sortByArrival (upstream: ReactiveCollection<'TKey, 'TIdentity, 'TState>) =
+    CollectionViewUtility.SortByArrivalImpl upstream
 
 /// <summary>Narrows the view, preserving the upstream order.</summary>
 /// <param name="predicate">Whether an item belongs in the view.</param>
@@ -418,6 +425,22 @@ let sortByWith
     =
     CollectionViewUtility.SortByImpl(upstream, Func<_, _, _> selector, sortComparer, keyComparer, descending)
 
+/// <summary>Reorders the view by an order that does not change.</summary>
+/// <param name="order">The order to sort by.</param>
+/// <param name="upstream">The collection or view to reorder.</param>
+/// <returns>A view in that order.</returns>
+/// <remarks>
+///     How a sort with more than one level is written when its levels never change: build the order
+///     with <c>orderBy</c> and <c>thenBy</c>, and pipe the collection here. An order that does change
+///     goes in a cell instead - see <c>sortByOrderC</c>.
+/// </remarks>
+[<MethodImpl(MethodImplOptions.NoInlining)>]
+let sortByOrder
+    (order: KeyOrder<'TKey, 'TIdentity, 'TState>)
+    (upstream: ReactiveCollection<'TKey, 'TIdentity, 'TState>)
+    =
+    CollectionViewUtility.SortByImpl(upstream, CellInternal.ConstantImpl order)
+
 /// <summary>Reorders the view by whichever order the cell currently holds.</summary>
 /// <param name="orderCell">The order to sort by, which may change.</param>
 /// <param name="upstream">The collection or view to reorder.</param>
@@ -433,7 +456,7 @@ let sortByWith
 ///     builds from its upstream's own order whatever that has become.
 /// </remarks>
 [<MethodImpl(MethodImplOptions.NoInlining)>]
-let sortByOrder
+let sortByOrderC
     (orderCell: Cell<KeyOrder<'TKey, 'TIdentity, 'TState>>)
     (upstream: ReactiveCollection<'TKey, 'TIdentity, 'TState>)
     =
@@ -518,12 +541,117 @@ let orderByIdentityWith
     : KeyOrder<'TKey, 'TIdentity, 'TState> =
     KeyOrder<'TKey, 'TIdentity, 'TState>.ByIdentity(Func<_, _> selector, sortComparer, keyComparer, descending)
 
-/// <summary>An order by key — the root's own order, available over any stage.</summary>
+/// <summary>An order by key, over any stage.</summary>
 /// <param name="keyComparer">The comparer to order keys by.</param>
 /// <returns>The order.</returns>
 [<MethodImpl(MethodImplOptions.NoInlining)>]
 let orderByKey (keyComparer: IComparer<'TKey>) : KeyOrder<'TKey, 'TIdentity, 'TState> =
     KeyOrder<'TKey, 'TIdentity, 'TState>.ByKey keyComparer
+
+/// <summary>An order by arrival - the collection's own order, available over any stage.</summary>
+/// <returns>The order.</returns>
+/// <remarks>
+///     Under a sort this is how a cell goes back to unsorted - the third state of a column header that
+///     cycles ascending, descending and off.
+/// </remarks>
+[<MethodImpl(MethodImplOptions.NoInlining)>]
+let orderByArrival () : KeyOrder<'TKey, 'TIdentity, 'TState> =
+    KeyOrder<'TKey, 'TIdentity, 'TState>.ByArrival()
+
+/// <summary>An order with its ties broken by a value projected from each item.</summary>
+/// <param name="selector">Projects the next level's sort value from an item.</param>
+/// <param name="order">The order to refine, which is left unchanged.</param>
+/// <returns>The refined order.</returns>
+/// <remarks>
+///     What <c>ThenBy</c> is after <c>OrderBy</c> in LINQ: the new level decides only between keys
+///     the order ranks equal. Every level keeps its own sort value type down to its comparer, so
+///     nothing is boxed however many levels there are, and the key still breaks the last tie.
+/// </remarks>
+[<MethodImpl(MethodImplOptions.NoInlining)>]
+let thenBy
+    (selector: 'TIdentity -> 'TState -> 'TSortKey)
+    (order: KeyOrder<'TKey, 'TIdentity, 'TState>)
+    : KeyOrder<'TKey, 'TIdentity, 'TState> =
+    order.ThenBy(Func<_, _, _> selector, Comparer<'TSortKey>.Default, false)
+
+/// <summary>An order with its ties broken, descending, by a value projected from each item.</summary>
+/// <param name="selector">Projects the next level's sort value from an item.</param>
+/// <param name="order">The order to refine, which is left unchanged.</param>
+/// <returns>The refined order.</returns>
+[<MethodImpl(MethodImplOptions.NoInlining)>]
+let thenByDescending
+    (selector: 'TIdentity -> 'TState -> 'TSortKey)
+    (order: KeyOrder<'TKey, 'TIdentity, 'TState>)
+    : KeyOrder<'TKey, 'TIdentity, 'TState> =
+    order.ThenBy(Func<_, _, _> selector, Comparer<'TSortKey>.Default, true)
+
+/// <summary>An order with its ties broken by a value projected from each item, with a comparer.</summary>
+/// <param name="selector">Projects the next level's sort value from an item.</param>
+/// <param name="sortComparer">Compares two of the next level's sort values.</param>
+/// <param name="descending">Whether this level runs in reverse, whichever way the levels above it run.</param>
+/// <param name="order">The order to refine, which is left unchanged.</param>
+/// <returns>The refined order.</returns>
+/// <remarks>
+///     There is no key comparer to give here. The key breaks the last tie in every order, and which
+///     comparer does that was settled when the first level was built.
+/// </remarks>
+[<MethodImpl(MethodImplOptions.NoInlining)>]
+let thenByWith
+    (selector: 'TIdentity -> 'TState -> 'TSortKey)
+    (sortComparer: IComparer<'TSortKey>)
+    (descending: bool)
+    (order: KeyOrder<'TKey, 'TIdentity, 'TState>)
+    : KeyOrder<'TKey, 'TIdentity, 'TState> =
+    order.ThenBy(Func<_, _, _> selector, sortComparer, descending)
+
+/// <summary>
+///     An order with its ties broken by a value projected from each item's immutable half alone.
+/// </summary>
+/// <param name="selector">Projects the next level's sort value from an identity.</param>
+/// <param name="order">The order to refine, which is left unchanged.</param>
+/// <returns>The refined order.</returns>
+/// <remarks>
+///     The refined order is over the identity alone only if the order it refines is too. One level
+///     that reads the state is enough for a state edit to move a key.
+/// </remarks>
+[<MethodImpl(MethodImplOptions.NoInlining)>]
+let thenByIdentity
+    (selector: 'TIdentity -> 'TSortKey)
+    (order: KeyOrder<'TKey, 'TIdentity, 'TState>)
+    : KeyOrder<'TKey, 'TIdentity, 'TState> =
+    order.ThenByIdentity(Func<_, _> selector, Comparer<'TSortKey>.Default, false)
+
+/// <summary>
+///     An order with its ties broken, descending, by a value projected from each item's immutable
+///     half alone.
+/// </summary>
+/// <param name="selector">Projects the next level's sort value from an identity.</param>
+/// <param name="order">The order to refine, which is left unchanged.</param>
+/// <returns>The refined order.</returns>
+[<MethodImpl(MethodImplOptions.NoInlining)>]
+let thenByIdentityDescending
+    (selector: 'TIdentity -> 'TSortKey)
+    (order: KeyOrder<'TKey, 'TIdentity, 'TState>)
+    : KeyOrder<'TKey, 'TIdentity, 'TState> =
+    order.ThenByIdentity(Func<_, _> selector, Comparer<'TSortKey>.Default, true)
+
+/// <summary>
+///     An order with its ties broken by a value projected from each item's immutable half alone, with
+///     a comparer.
+/// </summary>
+/// <param name="selector">Projects the next level's sort value from an identity.</param>
+/// <param name="sortComparer">Compares two of the next level's sort values.</param>
+/// <param name="descending">Whether this level runs in reverse, whichever way the levels above it run.</param>
+/// <param name="order">The order to refine, which is left unchanged.</param>
+/// <returns>The refined order.</returns>
+[<MethodImpl(MethodImplOptions.NoInlining)>]
+let thenByIdentityWith
+    (selector: 'TIdentity -> 'TSortKey)
+    (sortComparer: IComparer<'TSortKey>)
+    (descending: bool)
+    (order: KeyOrder<'TKey, 'TIdentity, 'TState>)
+    : KeyOrder<'TKey, 'TIdentity, 'TState> =
+    order.ThenByIdentity(Func<_, _> selector, sortComparer, descending)
 
 /// <summary>
 ///     The first <c>limit</c> keys of the upstream — the top-n of whatever ordering and filtering

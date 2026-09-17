@@ -152,10 +152,11 @@ ReactiveCollection<Guid, AccountId, AccountState> topTen = accounts
 | Operation | Overloads |
 | --- | --- |
 | `Filter` | A predicate, a `Cell<Func<TIdentity, TState, bool>>`, or a criteria cell plus a predicate |
-| `SortBy` / `SortByDescending` | A selector, a selector with explicit comparers, or a `Cell<KeyOrder<…>>` — see below |
+| `SortBy` / `SortByDescending` | A selector, a selector with explicit comparers, a `KeyOrder<…>`, or a `Cell<KeyOrder<…>>` — see below |
 | `SortByIdentity` / `SortByIdentityDescending` | The same, over the identity alone — see below |
 | `FilterByIdentity` | A predicate over the identity alone — see below |
-| `SortByKey` | The root's own order, over any stage |
+| `SortByKey` | Key order, over any stage |
+| `SortByArrival` | The order items arrived in — the root's own order — over any stage |
 | `Take` | A count, or a `Cell<int>` |
 | `Slice` | An offset and a count, or a `Cell<int>` for either — see below |
 | `Map` | One object per key, in order — see below |
@@ -186,9 +187,17 @@ against 33.8 — a quarter of the cost, and all of it processor rather than allo
 
 Membership questions belong to `KeysCell`.
 
-Ordering the root is lazy. A collection nobody sorts or lists never builds a sorted key set,
-and `TKey` only has to be comparable if something actually asks for keys in order. The keyed,
-unordered deltas remain available as `ItemChangesStream`, on the root.
+The root keeps its items in the order they arrived: the initial items in the order they were
+enumerated, then additions at the end, in the order each edit lists them. Edits from several
+streams in one transaction count in the order the streams were given to `Create`. An update
+never moves anything, and a key removed and added back — even within one edit, which is how an
+item is replaced — is a new arrival. Keys are never compared, so `TKey` needs no order of its
+own. `SortByKey` is there when key order is what you want, and `SortByArrival`, or
+`KeyOrder.ByArrival()` in a cell, takes a sorted view back to arrival order: the third state of
+a column header that cycles ascending, descending and off.
+
+Ordering the root is still lazy — a collection nobody lists never builds its ordered key set —
+and the keyed, unordered deltas remain available as `ItemChangesStream`, on the root.
 
 To change what a view sorts by — as clickable column headers need — hold the order in a cell
 and pass it to `SortBy`. A `KeyOrder<TKey, TIdentity, TState>` carries its own sort value type
@@ -207,13 +216,31 @@ ReactiveCollection<Guid, AccountId, AccountState> page = accounts.SortBy(order).
 order.Send(Orders.By(static (identity, _) => identity.Holder));
 ```
 
-In F# the orders come from `orderBy`, `orderByIdentity`, `orderByKey` and their siblings, and
-the stage from `sortByOrder`.
+In F# the orders come from `orderBy`, `orderByIdentity`, `orderByKey`, `orderByArrival` and their siblings, further
+levels from `thenBy` and its siblings, and the stage from `sortByOrderC` for a cell or `sortByOrder`
+for an order that does not change.
 
 A new order is a criteria change like any other: it rebuilds that stage and reports `IsReset`,
 at the cost the table below gives for a sort's rebuild. A stage below re-files under the new
 order without being told anything, because a filter builds from its upstream's own order
 whatever that order has become.
+
+An order can have more than one level. `ThenBy`, `ThenByDescending`, `ThenByIdentity` and
+`ThenByIdentityDescending` return the order refined by another level, which decides only between
+keys the order ranks equal — a holder's name under a balance. What comes back is one order like
+any other, so a fixed one goes straight to `SortBy` and a changing one goes in the same cell:
+
+```csharp
+ReactiveCollection<Guid, AccountId, AccountState> page = accounts
+    .SortBy(Orders.ByDescending(static (_, state) => state.Balance)
+        .ThenBy(static (identity, _) => identity.Holder))
+    .Slice(0, 20);
+```
+
+Each level runs in its own direction and keeps its own sort value type down to its comparer, so
+nothing is boxed however many levels there are. The key still breaks the last tie, ascending, with
+the comparer the first level was given. And an order is over the identity alone only if every
+level is: one level that reads the state is enough for a state edit to re-file a key.
 
 ## How the chain stays incremental
 
