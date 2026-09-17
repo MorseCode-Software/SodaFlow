@@ -209,7 +209,9 @@ public static class CollectionViewExtensionMethods
     ///     <para>
     ///         A new order is a criteria change like any other: it rebuilds this stage and reports
     ///         a reset, and a stage below re-files under the new order without being told, because
-    ///         a filter builds from its upstream's own order whatever that has become.
+    ///         a filter builds from its upstream's own order whatever that has become. It is always
+    ///         a reset, even when the new order is the old one reversed; a change of order is never
+    ///         reported as moves, which are kept for keys a value change has moved.
     ///     </para>
     /// </remarks>
     [MethodImpl(MethodImplOptions.NoInlining)]

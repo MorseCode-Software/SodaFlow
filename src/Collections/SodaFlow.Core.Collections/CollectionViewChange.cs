@@ -75,10 +75,15 @@ public sealed class CollectionViewChange<TKey, TIdentity, TState>
     public IReadOnlyList<ViewOperation<TKey>> Operations { get; }
 
     /// <summary>
-    ///     The stage rebuilt rather than adjusted — its predicate, ordering, or limit changed, or
-    ///     its upstream reset. <see cref="Operations" /> is empty; read <see cref="Keys" />
-    ///     wholesale.
+    ///     The stage rebuilt rather than adjusted. <see cref="Operations" /> is empty; read
+    ///     <see cref="Keys" /> wholesale.
     /// </summary>
+    /// <remarks>
+    ///     A stage resets when its order changes - always, and never by reporting moves instead -
+    ///     when its window's bounds change, when a change is too large for listing its operations
+    ///     to be worth it, or when the stage above it reset. A predicate change on its own is
+    ///     reported as the inserts and removes it causes, unless it is that large.
+    /// </remarks>
     public bool IsReset { get; }
 
     /// <summary>Whether this change alters what the view holds, or the order it holds it in.</summary>
@@ -325,10 +330,20 @@ public sealed class ViewRemove<TKey> : ViewOperation<TKey>
 ///     reported as one operation so a bound list can move the row and keep its selection.
 /// </summary>
 /// <remarks>
-///     What moved the key is a change in what the order reads, so the item's value has changed
-///     too: a move is the re-file, and no <see cref="ViewUpdate{TKey}" /> accompanies it. A
-///     consumer taking a delta has to treat this as an update that also moved, and a stage below
-///     has to re-file on it.
+///     <para>
+///         A move is only ever reported because the key's value changed, and the order reads that
+///         value: the move is the re-file, and no <see cref="ViewUpdate{TKey}" /> accompanies it. A
+///         consumer taking a delta has to treat this as an update that also moved, and a stage below
+///         has to re-file on it.
+///     </para>
+///     <para>
+///         A change of order is never reported as moves, however few keys it would move - it is
+///         always a reset, with <see cref="CollectionViewChange{TKey,TIdentity,TState}.IsReset" />
+///         set. Stages rely on that. A filter keeps its upstream's order and re-files a moved key
+///         under the order it already holds, so a move caused by a new order would leave the filter
+///         filed under the old one. And everything below treats a move as a changed value - a stage
+///         re-files the key, a per-item cell fires - which for a pure reorder is work for nothing.
+///     </para>
 /// </remarks>
 /// <typeparam name="TKey">The type of the keys.</typeparam>
 [PublicAPI]

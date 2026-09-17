@@ -201,12 +201,20 @@ internal static class CollectionViewUtility
     ///         one cell need not agree on it.
     ///     </para>
     ///     <para>
-    ///         A new order is an ordinary criteria change: the stage rebuilds under it and reports a
-    ///         reset, except where the new order is one it can answer without filing anything again -
-    ///         the order it already holds, which is no change at all, or that order run the other
-    ///         way, which turns the list it has around. A stage below re-files under whichever it
-    ///         ends up with without being told anything, because a filter builds from its upstream
-    ///         collection's own order whatever that has become.
+    ///         A new order is an ordinary criteria change, and it is always reported as a reset. The
+    ///         stage rebuilds under it, or, where the new order is the one it holds run the other way,
+    ///         turns the list it has around - but either way it resets. The only order it answers
+    ///         with anything else is one equivalent to the order it already holds, which is no change
+    ///         and reports nothing. A stage below re-files under whichever order this ends up with
+    ///         without being told anything, because a filter rebuilds from its upstream collection's
+    ///         own order whatever that has become.
+    ///     </para>
+    ///     <para>
+    ///         Never report a change of order as moves, however few keys it would move. A move
+    ///         means a key's value changed, and the stages below rely on that: a filter re-files a
+    ///         moved key under the order it already holds, which would leave it filed under the old
+    ///         order, and every stage and per-item cell below takes a move for a changed value, so
+    ///         would re-file or fire for nothing. See <see cref="ViewMove{TKey}" />.
     ///     </para>
     /// </remarks>
     internal static ReactiveCollection<TKey, TIdentity, TState> SortByImpl<TKey, TIdentity, TState>(
@@ -1133,6 +1141,13 @@ internal static class CollectionViewUtility
         where TIdentity : notnull =>
         FileAll(order: order, keys: upstreamKeys, snapshot: snapshot);
 
+    /// <summary>What a sort stage reports when it is handed a new order and nothing else changed.</summary>
+    /// <remarks>
+    ///     A reset, or nothing for an order equivalent to the one held - never operations. Turning the
+    ///     list around for a reversed order saves filing every key again, not reporting a reset; see
+    ///     <see cref="SortByImpl{TKey,TIdentity,TState}(ReactiveCollection{TKey,TIdentity,TState},Cell{KeyOrder{TKey,TIdentity,TState}})" />
+    ///     for why a change of order cannot be reported as moves.
+    /// </remarks>
     private static StageResult<TKey, TIdentity, TState> ProcessSortNewCriteria<TKey, TIdentity, TState>(
         Func<StageOutcome<TKey, TIdentity, TState>, StageResult<TKey, TIdentity, TState>> createResultFromStageOutcome,
         Func<StageResult<TKey, TIdentity, TState>> createResultFromRebuild,
@@ -1490,6 +1505,16 @@ internal static class CollectionViewUtility
     ///         reaches this on every state edit that touches a key it holds, so that is the incremental
     ///         path, and an order projecting its sort value from the key or the identity - the root's,
     ///         and any filter sitting directly on it - can never move a key on a state edit.
+    ///     </para>
+    ///     <para>
+    ///         Re-filing is always under <paramref name="keys" />' own order, never the upstream's.
+    ///         A sort imposes that order itself, so for a sort this is always right. A filter keeps its
+    ///         upstream's order, and for a filter it is right only because a change of order is always
+    ///         a reset and never a move: every operation that reaches this was caused by a value
+    ///         changing under an order that has not. For the same reason,
+    ///         <paramref name="canRefileOnly" /> changes nothing for a stage that keeps its upstream's
+    ///         order: a move only comes from a re-file under an order that reads the state, and such a
+    ///         stage holds that same order, where the shortcut is not taken.
     ///     </para>
     ///     <para>
     ///         The key has to be one the stage holds and one the snapshot still has. Every caller only

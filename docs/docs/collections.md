@@ -221,11 +221,16 @@ levels from `thenBy` and its siblings, and the stage from `sortByOrderC` for a c
 for an order that does not change.
 
 A new order is a criteria change like any other: it rebuilds that stage and reports `IsReset`,
-at the cost the table below gives for a sort's rebuild. Two orders it can answer without filing
-anything again are the order the stage already holds, which is no change at all and reports
-nothing, and that order run the other way, which turns the list around. A stage below re-files
-under whichever the stage ends up with without being told anything, because a filter builds from
-its upstream's own order whatever that order has become.
+at the cost the table below gives for a sort's rebuild. An order equivalent to the one the stage
+already holds is no change at all and reports nothing. That order run the other way is cheaper to
+answer - the stage turns its list around rather than filing every key again - but it still reports
+`IsReset`. A stage below re-files under whichever order the stage ends up with without being told
+anything, because a filter builds from its upstream's own order whatever that order has become.
+
+A change of order is always a reset, never a sequence of moves, however few keys it would move.
+`ViewMove` is kept for one thing: a key whose value changed, under an order that reads that value.
+The stages below depend on the distinction - see [How the chain stays
+incremental](#how-the-chain-stays-incremental).
 
 An order can have more than one level. `ThenBy`, `ThenByDescending`, `ThenByIdentity` and
 `ThenByIdentityDescending` return the order refined by another level, which decides only between
@@ -263,6 +268,12 @@ An upstream move says the same thing, which is why it is re-filed rather than ig
 that moves a key reports the move alone, so the move is the only operation carrying the key's new
 sort value, and a stage below has to file against it exactly as it would against an update. The
 row's `StateCell` fires on one too, for the same reason: the value is what moved the row.
+
+That is the only thing a move ever means. A move caused by the order itself changing would break
+a filter below it, which re-files a moved key under the order it already holds and so would keep
+the old one. It would also cost everything else below it: every stage would re-file each moved
+key, and every moved row's `StateCell` would fire, for values that did not change. So a stage whose
+order changes resets instead, and every stage below rebuilds under the new order.
 
 `Filter` preserves upstream order without tracking positions in the upstream list: it asks the
 upstream's key set for a new set under *the same order*, holding the members it kept.
@@ -492,12 +503,12 @@ same transaction, which works because a cell read during a transaction still hol
 started with. That still works and the stage code still does it, but it is knowledge the API should
 not have required.
 
-The one case with no delta is `IsReset`. A stage that rebuilt rather than adjusted — a slice whose
-offset moved, a filter whose predicate moved more keys than listing them would be worth, or any
-stage under one that reset — reports a reset carrying no operations, so a view-scoped fold has to
-recompute from `change.Keys`, which is Θ(view). It is not something a fold can avoid by editing
-carefully: handle it. The root fold has no such case, which is the price of a total that follows a
-view rather than a store.
+The one case with no delta is `IsReset`. A stage that rebuilt rather than adjusted — a sort given a
+new order, a slice whose offset moved, a filter whose predicate moved more keys than listing them
+would be worth, or any stage under one that reset — reports a reset carrying no operations, so a
+view-scoped fold has to recompute from `change.Keys`, which is Θ(view). It is not something a fold
+can avoid by editing carefully: handle it. The root fold has no such case, which is the price of a
+total that follows a view rather than a store.
 
 Use `StateMap`'s `Pairs` rather than `Keys` with a lookup for each. Both answer the same question; the second
 costs an O(log32 n) search per item and reads the trie in key order rather than in storage order,
