@@ -1826,6 +1826,191 @@ public sealed class CollectionViewTests
         await Assert.That(operations).IsEquivalentTo(expected: ["ViewInsert:1"], ordering: CollectionOrdering.Matching);
     }
 
+    /// <summary>Five thousand items scored 1 to 5,000, which every test of what the budget counts starts from.</summary>
+    private static ReactiveCollection<int, ItemIdentity, ItemState> FiveThousand(
+        Stream<CollectionEdit<int, ItemIdentity, ItemState>> edits) =>
+        Create(
+            edits: edits,
+            initial:
+            [
+                .. Enumerable.Range(start: 1, count: 5_000)
+                    .Select(static n => TestUtil.Item(number: n, name: $"n{n}", score: n))
+            ]);
+
+    /// <summary>One edit setting a new score on each of <paramref name="keys" />.</summary>
+    private static CollectionEdit<int, ItemIdentity, ItemState> Rescore(
+        IEnumerable<int> keys,
+        System.Func<int, int> score) =>
+        new(
+            updates: keys.ToDictionary(
+                static key => key,
+                key => (System.Func<ItemState, ItemState>)(state => state with { Score = score(key) })),
+            adds: [],
+            removes: []);
+
+    /// <summary>Records whether each change a view reports is a reset, and what operations it lists.</summary>
+    private static (List<bool> Resets, List<string> Kinds, IListener Listener) Record(
+        ReactiveCollection<int, ItemIdentity, ItemState> view)
+    {
+        List<bool> resets = [];
+        List<string> kinds = [];
+
+        IListener listener =
+            view.KeyChangesStream.ListenStrong(change =>
+            {
+                resets.Add(change.IsReset);
+                kinds.AddRange(change.Operations.Select(static operation => operation.GetType().Name.Replace(oldValue: "`1", newValue: string.Empty)));
+            });
+
+        return (resets, kinds, listener);
+    }
+
+    /// <summary>
+    ///     A budget counts the work a change costs a stage, not how many keys it names. The root orders
+    ///     by arrival, which a state edit cannot move, so an update costs it a lookup: three thousand of
+    ///     them, far past its budget of 1,000, are still listed rather than reset.
+    /// </summary>
+    [Test]
+    public async Task TheRootListsALargeEditThatOnlyUpdates()
+    {
+        StreamSink<CollectionEdit<int, ItemIdentity, ItemState>> edits =
+            Stream.CreateSink<CollectionEdit<int, ItemIdentity, ItemState>>();
+
+        ReactiveCollection<int, ItemIdentity, ItemState> collection = FiveThousand(edits);
+
+        (List<bool> resets, List<string> kinds, IListener l) = Record(collection);
+
+        edits.Send(Rescore(keys: Enumerable.Range(start: 1, count: 3_000), score: static key => key + 10_000));
+
+        l.Unlisten();
+
+        await Assert.That(resets).IsEquivalentTo(expected: [false], ordering: CollectionOrdering.Matching);
+        await Assert.That(kinds.Count).IsEqualTo(3_000);
+        await Assert.That(kinds.Distinct()).IsEquivalentTo(expected: ["ViewUpdate"], ordering: CollectionOrdering.Matching);
+    }
+
+    /// <summary>
+    ///     The case that motivates it: a large update to items a filter does not show. The filter skips
+    ///     each one, so nothing reaches the stages below it - where a reset at the root would have had
+    ///     every one of them rebuild.
+    /// </summary>
+    [Test]
+    public async Task ALargeUpdateToItemsAFilterDoesNotShowReachesNothingBelowIt()
+    {
+        StreamSink<CollectionEdit<int, ItemIdentity, ItemState>> edits =
+            Stream.CreateSink<CollectionEdit<int, ItemIdentity, ItemState>>();
+
+        ReactiveCollection<int, ItemIdentity, ItemState> collection = FiveThousand(edits);
+
+        ReactiveCollection<int, ItemIdentity, ItemState> highScores =
+            collection.Filter(static (_, state) => state.Score > 4_000);
+
+        ReactiveCollection<int, ItemIdentity, ItemState> sorted =
+            highScores.SortByDescending(static (_, state) => state.Score);
+
+        (List<bool> filterResets, _, IListener filterListener) = Record(highScores);
+        (List<bool> sortResets, _, IListener sortListener) = Record(sorted);
+
+        // Three thousand of the items the filter does not show, all still under its threshold.
+        edits.Send(Rescore(keys: Enumerable.Range(start: 1, count: 3_000), score: static key => key + 1));
+
+        filterListener.Unlisten();
+        sortListener.Unlisten();
+
+        await Assert.That(filterResets).IsEmpty();
+        await Assert.That(sortResets).IsEmpty();
+        await Assert.That(KeysOf(sorted).Count).IsEqualTo(1_000);
+    }
+
+    /// <summary>
+    ///     A filter's order is its upstream's, and a state edit cannot move a key under the root's order,
+    ///     so updates to items it shows cost a lookup each too: listed, not reset.
+    /// </summary>
+    [Test]
+    public async Task AFilterListsALargeUpdateToItemsItShowsInAnOrderThatCannotMoveThem()
+    {
+        StreamSink<CollectionEdit<int, ItemIdentity, ItemState>> edits =
+            Stream.CreateSink<CollectionEdit<int, ItemIdentity, ItemState>>();
+
+        ReactiveCollection<int, ItemIdentity, ItemState> collection = FiveThousand(edits);
+
+        ReactiveCollection<int, ItemIdentity, ItemState> positive =
+            collection.Filter(static (_, state) => state.Score > 0);
+
+        ReactiveCollection<int, ItemIdentity, ItemState> odd =
+            collection.FilterByIdentity(static identity => identity.Number % 2 == 1);
+
+        (List<bool> positiveResets, List<string> positiveKinds, IListener positiveListener) = Record(positive);
+        (List<bool> oddResets, List<string> oddKinds, IListener oddListener) = Record(odd);
+
+        edits.Send(Rescore(keys: Enumerable.Range(start: 1, count: 3_000), score: static key => key + 1));
+
+        positiveListener.Unlisten();
+        oddListener.Unlisten();
+
+        await Assert.That(positiveResets).IsEquivalentTo(expected: [false], ordering: CollectionOrdering.Matching);
+        await Assert.That(positiveKinds.Count).IsEqualTo(3_000);
+
+        await Assert.That(oddResets).IsEquivalentTo(expected: [false], ordering: CollectionOrdering.Matching);
+        await Assert.That(oddKinds.Count).IsEqualTo(1_500);
+    }
+
+    /// <summary>
+    ///     The same for a sort whose own order cannot be moved by a state edit, when the change also
+    ///     carries an insert and so is not the pass-through an update-only change gets.
+    /// </summary>
+    [Test]
+    public async Task ASortByKeyListsALargeUpdateThatArrivesWithAnInsert()
+    {
+        StreamSink<CollectionEdit<int, ItemIdentity, ItemState>> edits =
+            Stream.CreateSink<CollectionEdit<int, ItemIdentity, ItemState>>();
+
+        ReactiveCollection<int, ItemIdentity, ItemState> collection = FiveThousand(edits);
+
+        ReactiveCollection<int, ItemIdentity, ItemState> byNumber =
+            collection.SortByIdentity(static identity => -identity.Number);
+
+        (List<bool> resets, List<string> kinds, IListener l) = Record(byNumber);
+
+        edits.Send(
+            Rescore(keys: Enumerable.Range(start: 1, count: 3_000), score: static key => key + 1)
+                .CombineWith(TestUtil.Add(TestUtil.Item(number: 9_999, name: "new", score: 0))));
+
+        l.Unlisten();
+
+        await Assert.That(resets).IsEquivalentTo(expected: [false], ordering: CollectionOrdering.Matching);
+        await Assert.That(kinds.Count(static kind => kind == "ViewInsert")).IsEqualTo(1);
+        await Assert.That(kinds.Count(static kind => kind == "ViewUpdate")).IsEqualTo(3_000);
+        await Assert.That(KeysOf(byNumber)[0]).IsEqualTo(9_999);
+    }
+
+    /// <summary>
+    ///     Where a state edit does cost tree work - re-filing under an order that reads the state - the
+    ///     budget still bites, and a large enough change is rebuilt rather than listed.
+    /// </summary>
+    [Test]
+    public async Task ASortByStateStillResetsOnALargeUpdateItHasToReFile()
+    {
+        StreamSink<CollectionEdit<int, ItemIdentity, ItemState>> edits =
+            Stream.CreateSink<CollectionEdit<int, ItemIdentity, ItemState>>();
+
+        ReactiveCollection<int, ItemIdentity, ItemState> collection = FiveThousand(edits);
+
+        ReactiveCollection<int, ItemIdentity, ItemState> byScore =
+            collection.SortBy(static (_, state) => state.Score);
+
+        (List<bool> resets, _, IListener l) = Record(byScore);
+
+        // Turns the first 3,000 around to the top of the order.
+        edits.Send(Rescore(keys: Enumerable.Range(start: 1, count: 3_000), score: static key => 20_000 - key));
+
+        l.Unlisten();
+
+        await Assert.That(resets).IsEquivalentTo(expected: [true], ordering: CollectionOrdering.Matching);
+        await Assert.That(KeysOf(byScore)[0]).IsEqualTo(3_001);
+        await Assert.That(KeysOf(byScore).Last()).IsEqualTo(1);
+    }
+
     /// <summary>
     ///     The budget still bites: a change big enough that listing it would cost more than
     ///     rebuilding is reported as a reset, with no operations to apply.

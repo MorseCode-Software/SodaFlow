@@ -20,6 +20,25 @@ namespace SodaFlow.Collections;
 /// </remarks>
 internal static class CollectionViewUtility
 {
+    /// <summary>
+    ///     How much work a stage does incrementally on one change before rebuilding instead.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         What counts is work, not traffic: an insert, a remove, or a re-file under an order that
+    ///         reads the state, each of which rewrites paths through the stage's trees. An update the
+    ///         stage passes on without touching them does not count - one for a key it does not hold,
+    ///         which it skips after a lookup, or one under an order a state edit cannot move, which it
+    ///         reports where the key already is.
+    ///     </para>
+    ///     <para>
+    ///         That distinction matters most at the root, because a reset there makes every stage in the
+    ///         chain rebuild. Counting every key an edit named, a large update to items a filter below
+    ///         does not show - draining every frozen account, say - rebuilt the whole chain for rows
+    ///         nobody could see, where listing it cost the filter a skip per key. Each stage still
+    ///         budgets the work it does itself, so an update it does have to re-file is counted there.
+    ///     </para>
+    /// </remarks>
     private static int GetMaxNumberOfOperations(int totalItems) =>
         Math.Max(val1: 1000, val2: totalItems / 10);
 
@@ -596,7 +615,9 @@ internal static class CollectionViewUtility
     {
         int maxNumberOfOperations = GetMaxNumberOfOperations(state.Count);
 
-        if (change.NewStates.Count + change.Removed.Count > maxNumberOfOperations)
+        // Only what files or unfiles a key counts. The root orders by arrival, which no update can move,
+        // so an update costs it a lookup - and every stage below budgets what the update costs it.
+        if (change.Added.Count + change.Removed.Count > maxNumberOfOperations)
         {
             return MaybeInternal<StageResult<TKey, TIdentity, TState>>.None;
         }
@@ -865,6 +886,10 @@ internal static class CollectionViewUtility
         int maxNumberOfOperations = GetMaxNumberOfOperations(state.Count);
         int numberOfOperations = 0;
 
+        // Under an order that reads no state, a re-file is a lookup and an update, which the budget does
+        // not count. See GetMaxNumberOfOperations.
+        bool refilingCostsWork = state.Order.DependsOnState;
+
         OrderedKeys<TKey, TIdentity, TState> keys = state;
         List<ViewOperation<TKey>> operations = new();
         bool movesKeys = false;
@@ -975,6 +1000,7 @@ internal static class CollectionViewUtility
             return false;
         }
 
+        // Whether the update or move cost this stage work its budget counts.
         bool Refresh(TKey key)
         {
             bool was = keys.Contains(key);
@@ -989,7 +1015,7 @@ internal static class CollectionViewUtility
                         movesKeys = true;
                     }
 
-                    return true;
+                    return refilingCostsWork;
                 }
 
                 if (Exclude(key))
@@ -1046,6 +1072,9 @@ internal static class CollectionViewUtility
     {
         int maxNumberOfOperations = GetMaxNumberOfOperations(state.Count);
         int numberOfOperations = 0;
+
+        // As in the ordinary filter: a re-file under an order that reads no state is not counted.
+        bool refilingCostsWork = state.Order.DependsOnState;
 
         OrderedKeys<TKey, TIdentity, TState> keys = state;
         List<ViewOperation<TKey>> operations = new();
@@ -1146,6 +1175,7 @@ internal static class CollectionViewUtility
                 movesKeys: movesKeys,
                 changesMembership: changesMembership));
 
+        // Whether the update or move cost this stage work its budget counts.
         bool Refresh(TKey key)
         {
             if (!keys.Contains(key))
@@ -1158,7 +1188,7 @@ internal static class CollectionViewUtility
                 movesKeys = true;
             }
 
-            return true;
+            return refilingCostsWork;
         }
     }
 
@@ -1256,6 +1286,18 @@ internal static class CollectionViewUtility
         int maxNumberOfOperations = GetMaxNumberOfOperations(state.Count);
         int numberOfOperations = 0;
 
+        // A re-file under an order that reads no state is not counted. See GetMaxNumberOfOperations.
+        bool refilingCostsWork = state.Order.DependsOnState;
+
+        // A sort holds every key the stage above it does, so every operation names a key it holds, and
+        // under an order that reads the state every one of them costs work. Whether the change is past
+        // the budget is then known before any of it is done, rather than after as much as the budget
+        // allows - work a rebuild would only throw away.
+        if (refilingCostsWork && change.Operations.Count > maxNumberOfOperations)
+        {
+            return MaybeInternal<StageOutcome<TKey, TIdentity, TState>>.None;
+        }
+
         foreach (ViewOperation<TKey> operation in change.Operations)
         {
             switch (operation)
@@ -1313,7 +1355,8 @@ internal static class CollectionViewUtility
                         movesKeys = true;
                     }
 
-                    if (!OperationAddedWasValid(
+                    if (refilingCostsWork
+                        && !OperationAddedWasValid(
                             numberOfOperations: ref numberOfOperations,
                             maxNumberOfOperations: maxNumberOfOperations))
                     {
@@ -1328,7 +1371,8 @@ internal static class CollectionViewUtility
                         movesKeys = true;
                     }
 
-                    if (!OperationAddedWasValid(
+                    if (refilingCostsWork
+                        && !OperationAddedWasValid(
                             numberOfOperations: ref numberOfOperations,
                             maxNumberOfOperations: maxNumberOfOperations))
                     {
