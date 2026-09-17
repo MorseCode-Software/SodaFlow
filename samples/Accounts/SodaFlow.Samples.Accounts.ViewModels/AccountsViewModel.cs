@@ -23,7 +23,7 @@ internal enum AccountColumn
     Holder,
 
     /// <summary>The balance, which is the part that moves.</summary>
-    Balance,
+    Balance
 }
 
 /// <summary>Which column the list is sorted by, and which way.</summary>
@@ -80,7 +80,7 @@ internal sealed record SortSelection(AccountColumn Column, bool IsDescending)
                 selector: static (_, state) => state.Balance,
                 sortComparer: Comparer<long>.Default,
                 keyComparer: Comparer<int>.Default,
-                isDescending: this.IsDescending),
+                isDescending: this.IsDescending)
         };
 
     /// <summary>What clicking a header does: the same column reverses, another one selects.</summary>
@@ -323,7 +323,7 @@ public sealed class AccountsViewModel : IAccountsViewModel
                     {
                         sortByNumber.MapTo(AccountColumn.Number),
                         sortByHolder.MapTo(AccountColumn.Holder),
-                        sortByBalance.MapTo(AccountColumn.Balance),
+                        sortByBalance.MapTo(AccountColumn.Balance)
                     }
                     .OrElse()
                     .Accum(
@@ -387,7 +387,7 @@ public sealed class AccountsViewModel : IAccountsViewModel
                     {
                         nextPage.MapTo(static (int at) => at + PageSize),
                         previousPage.MapTo(static (int at) => at - PageSize),
-                        showFrozen.Updates().MapTo(static (int _) => 0),
+                        showFrozen.Updates().MapTo(static (int _) => 0)
                     }
                     .OrElse()
                     .Accum(initialState: 0, f: static (move, at) => Math.Max(val1: 0, val2: move(at)));

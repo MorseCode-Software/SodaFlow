@@ -255,8 +255,8 @@ public sealed class StreamTests
 
         dotMemory.Check(memory =>
             beforeStreamCount =
-                memory.GetObjects(static where => where.Type.Is<Stream<int>>()).ObjectsCount +
-                memory.GetObjects(static where => where.Type.Is<Stream<string>>()).ObjectsCount);
+                memory.GetObjects(static where => where.Type.Is<Stream<int>>()).ObjectsCount
+                + memory.GetObjects(static where => where.Type.Is<Stream<string>>()).ObjectsCount);
 
         dotMemory.Check(memory =>
             beforeListenerCount = memory.GetObjects(static where => where.Interface.Is<IListener>()).ObjectsCount);
@@ -270,8 +270,8 @@ public sealed class StreamTests
 
             dotMemory.Check(memory =>
                 duringStreamCount =
-                    memory.GetObjects(static where => where.Type.Is<Stream<int>>()).ObjectsCount +
-                    memory.GetObjects(static where => where.Type.Is<Stream<string>>()).ObjectsCount);
+                    memory.GetObjects(static where => where.Type.Is<Stream<int>>()).ObjectsCount
+                    + memory.GetObjects(static where => where.Type.Is<Stream<string>>()).ObjectsCount);
 
             dotMemory.Check(memory =>
                 duringListenerCount = memory.GetObjects(static where => where.Interface.Is<IListener>()).ObjectsCount);
@@ -288,8 +288,8 @@ public sealed class StreamTests
 
         dotMemory.Check(memory =>
             afterStreamCount =
-                memory.GetObjects(static where => where.Type.Is<Stream<int>>()).ObjectsCount +
-                memory.GetObjects(static where => where.Type.Is<Stream<string>>()).ObjectsCount);
+                memory.GetObjects(static where => where.Type.Is<Stream<int>>()).ObjectsCount
+                + memory.GetObjects(static where => where.Type.Is<Stream<string>>()).ObjectsCount);
 
         dotMemory.Check(memory =>
             afterListenerCount = memory.GetObjects(static where => where.Interface.Is<IListener>()).ObjectsCount);

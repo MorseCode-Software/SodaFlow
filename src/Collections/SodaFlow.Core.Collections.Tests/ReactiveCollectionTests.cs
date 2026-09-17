@@ -11,17 +11,17 @@ namespace SodaFlow.Collections.Tests;
 public sealed class ReactiveCollectionTests
 {
     private static string NameOf(CollectionSnapshot<int, ItemIdentity, ItemState> snapshot, int key) =>
-        snapshot.TryGetItem(key: key, item: out Item<ItemIdentity, ItemState>? item) && item is not null
+        snapshot.TryGetItem(key: key, item: out Item<ItemIdentity, ItemState>? item)
             ? item.State.Name
             : "?";
 
     private static string CodeOf(CollectionSnapshot<int, ItemIdentity, ItemState> snapshot, int key) =>
-        snapshot.TryGetItem(key: key, item: out Item<ItemIdentity, ItemState>? item) && item is not null
+        snapshot.TryGetItem(key: key, item: out Item<ItemIdentity, ItemState>? item)
             ? item.Identity.Code
             : "?";
 
     private static int ScoreOf(CollectionSnapshot<int, ItemIdentity, ItemState> snapshot, int key) =>
-        snapshot.TryGetItem(key: key, item: out Item<ItemIdentity, ItemState>? item) && item is not null
+        snapshot.TryGetItem(key: key, item: out Item<ItemIdentity, ItemState>? item)
             ? item.State.Score
             : -1;
 
@@ -270,7 +270,7 @@ public sealed class ReactiveCollectionTests
         // Removed: it moved, and it is not present afterward. The two questions are separate
         // members here; the C# wrapper folds them back into one nested optional.
         await Assert.That(change.WasChanged(1)).IsTrue();
-        await Assert.That(change.TryGetNewState(key: 1, state: out ItemState _)).IsFalse();
+        await Assert.That(change.TryGetNewState(key: 1, state: out _)).IsFalse();
 
         // Untouched: no event for an observer of this key at all.
         await Assert.That(change.WasChanged(2)).IsFalse();
@@ -327,11 +327,17 @@ public sealed class ReactiveCollectionTests
         ItemChange<int, ItemIdentity, ItemState> change = changes[0];
 
         // The whole point of the pair: a delta needs no copy of the previous value kept alongside.
-        await Assert.That(change.Before.States.TryGetState(key: 1, state: out ItemState was)).IsTrue();
+        await Assert.That(change.Before.States.TryGetState(key: 1, state: out ItemState? was)).IsTrue();
+        await Assert.That(was).IsNotNull();
+#pragma warning disable CS8602 // Dereference of a possibly null reference.
         await Assert.That(was.Score).IsEqualTo(10);
+#pragma warning restore CS8602 // Dereference of a possibly null reference.
 
-        await Assert.That(change.After.States.TryGetState(key: 1, state: out ItemState now)).IsTrue();
+        await Assert.That(change.After.States.TryGetState(key: 1, state: out ItemState? now)).IsTrue();
+        await Assert.That(now).IsNotNull();
+#pragma warning disable CS8602 // Dereference of a possibly null reference.
         await Assert.That(now.Score).IsEqualTo(99);
+#pragma warning restore CS8602 // Dereference of a possibly null reference.
     }
 
     [Test]

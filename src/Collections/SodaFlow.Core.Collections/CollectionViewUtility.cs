@@ -39,8 +39,7 @@ internal static class CollectionViewUtility
     ///         budgets the work it does itself, so an update it does have to re-file is counted there.
     ///     </para>
     /// </remarks>
-    private static int GetMaxNumberOfOperations(int totalItems) =>
-        Math.Max(val1: 1000, val2: totalItems / 10);
+    private static int GetMaxNumberOfOperations(int totalItems) => Math.Max(val1: 1000, val2: totalItems / 10);
 
     /// <summary>
     ///     Builds the root ordering for a collection: every key, in the order it arrived. Called lazily
@@ -64,23 +63,24 @@ internal static class CollectionViewUtility
                     .SnapshotImpl(
                         c: stateLoopCell,
                         f: (change, state) =>
-                            ProcessRoot(change: change, state: state).Match(
-                                onSome: static result => result,
-                                onNone: () =>
-                                {
-                                    OrderedKeys<TKey, TIdentity, TState> rebuilt =
-                                        RebuildRoot(order: order, snapshot: change.After);
+                            ProcessRoot(change: change, state: state)
+                                .Match(
+                                    onSome: static result => result,
+                                    onNone: () =>
+                                    {
+                                        OrderedKeys<TKey, TIdentity, TState> rebuilt =
+                                            RebuildRoot(order: order, snapshot: change.After);
 
-                                    return new StageResult<TKey, TIdentity, TState>(
-                                        keys: rebuilt,
-                                        operations: Array.Empty<ViewOperation<TKey>>(),
-                                        isReset: true,
-                                        before: change.Before,
-                                        after: change.After,
-                                        movesKeys: true,
-                                        changesMembership: true,
-                                        reordersOnly: false);
-                                }));
+                                        return new StageResult<TKey, TIdentity, TState>(
+                                            keys: rebuilt,
+                                            operations: Array.Empty<ViewOperation<TKey>>(),
+                                            isReset: true,
+                                            before: change.Before,
+                                            after: change.After,
+                                            movesKeys: true,
+                                            changesMembership: true,
+                                            reordersOnly: false);
+                                    }));
 
             Cell<OrderedKeys<TKey, TIdentity, TState>> keysCell =
                 resultsStream
@@ -317,43 +317,6 @@ internal static class CollectionViewUtility
             // Reordering what is above a window changes which keys fall inside it.
             reorder: null);
 
-    private delegate OrderedKeys<TKey, TIdentity, TState> Rebuild<in TCriteria, TKey, TIdentity, TState>(
-        TCriteria criteria,
-        OrderedKeys<TKey, TIdentity, TState> upstreamKeys,
-        CollectionSnapshot<TKey, TIdentity, TState> snapshot)
-        where TKey : notnull
-        where TIdentity : notnull;
-
-    private delegate StageResult<TKey, TIdentity, TState> ProcessNewCriteria<in TCriteria, TKey, TIdentity, TState>(
-        Func<StageOutcome<TKey, TIdentity, TState>, StageResult<TKey, TIdentity, TState>> createResultFromStageOutcome,
-        Func<StageResult<TKey, TIdentity, TState>> createResultFromRebuild,
-        Func<OrderedKeys<TKey, TIdentity, TState>, StageResult<TKey, TIdentity, TState>> createResultForReorder,
-        TCriteria criteria,
-        OrderedKeys<TKey, TIdentity, TState> upstreamKeys,
-        CollectionSnapshot<TKey, TIdentity, TState> snapshot,
-        OrderedKeys<TKey, TIdentity, TState> state)
-        where TKey : notnull
-        where TIdentity : notnull;
-
-    /// <summary>
-    ///     The keys a stage holds once the stage above it has reordered and nothing else has changed,
-    ///     for a stage that can answer that without rebuilding.
-    /// </summary>
-    /// <param name="state">What the stage holds now.</param>
-    /// <param name="change">The reorder, whose keys are the stage above's in their new order.</param>
-    private delegate OrderedKeys<TKey, TIdentity, TState> Reorder<TKey, TIdentity, TState>(
-        OrderedKeys<TKey, TIdentity, TState> state,
-        CollectionViewChange<TKey, TIdentity, TState> change)
-        where TKey : notnull
-        where TIdentity : notnull;
-
-    private delegate MaybeInternal<StageOutcome<TKey, TIdentity, TState>> Process<in TCriteria, TKey, TIdentity, TState>(
-        TCriteria criteria,
-        OrderedKeys<TKey, TIdentity, TState> state,
-        CollectionViewChange<TKey, TIdentity, TState> change)
-        where TKey : notnull
-        where TIdentity : notnull;
-
     private static ReactiveCollection<TKey, TIdentity, TState> BuildStage<TKey, TIdentity, TState, TCriteria>(
         ReactiveCollection<TKey, TIdentity, TState> upstream,
         Cell<TCriteria> criteriaCell,
@@ -514,7 +477,10 @@ internal static class CollectionViewUtility
                     .HoldLazyImpl(
                         contextCell.SampleLazyImpl()
                             .MapImpl(context =>
-                                rebuild(criteria: context.Criteria, upstreamKeys: context.UpstreamKeys, snapshot: context.Snapshot)));
+                                rebuild(
+                                    criteria: context.Criteria,
+                                    upstreamKeys: context.UpstreamKeys,
+                                    snapshot: context.Snapshot)));
 
             stateLoopCell.Loop(trans: trans, c: keysCell);
 
@@ -579,13 +545,15 @@ internal static class CollectionViewUtility
             .HoldLazyImpl(stateKeysCell.SampleLazyImpl());
 
     /// <summary>
-    /// Increment the operation counter and return <see langword="false"/> if we have exceeded the maximum number of
-    /// operations allowed.
+    ///     Increment the operation counter and return <see langword="false" /> if we have exceeded the maximum number of
+    ///     operations allowed.
     /// </summary>
     /// <param name="numberOfOperations">The operation counter, passed by reference.</param>
     /// <param name="maxNumberOfOperations">The maximum number of operations allowed.</param>
-    /// <returns><see langword="true"/> if we are still within the allowed number of operations, <see langword="false"/>
-    /// if we have exceeded the maximum.</returns>
+    /// <returns>
+    ///     <see langword="true" /> if we are still within the allowed number of operations, <see langword="false" />
+    ///     if we have exceeded the maximum.
+    /// </returns>
     private static bool OperationAddedWasValid(ref int numberOfOperations, int maxNumberOfOperations)
     {
         if (numberOfOperations == maxNumberOfOperations)
@@ -597,6 +565,84 @@ internal static class CollectionViewUtility
 
         return true;
     }
+
+    #region Map
+
+    /// <summary>
+    ///     One object per key, in the collection's order, rebuilt only when the keys move.
+    /// </summary>
+    /// <remarks>
+    ///     The projection runs once per key and the object is kept, so a collection whose items
+    ///     changed but whose membership and order did not yield the same objects in the same
+    ///     order - which is what keeps a bound list from rebuilding when one row's value moves.
+    /// </remarks>
+    internal static MappedItems<TResult> MapImpl<TKey, TIdentity, TState, TResult>(
+        ReactiveCollection<TKey, TIdentity, TState> collection,
+        Func<TKey, TResult> project,
+        int retainedBeyondTheView,
+        Action<TResult>? onEvicted)
+        where TKey : notnull
+        where TIdentity : notnull
+    {
+        if (retainedBeyondTheView < 0)
+        {
+            throw new ArgumentOutOfRangeException(
+                paramName: nameof(retainedBeyondTheView),
+                actualValue: retainedBeyondTheView,
+                message: "A projection cannot retain a negative number of departed keys.");
+        }
+
+        MappedItemCache<TKey, TResult> cache =
+            new(
+                project: project,
+                retainedBeyondTheView: retainedBeyondTheView,
+                onEvicted: onEvicted,
+                keyEqualityComparer: collection.Root.KeyEqualityComparer);
+
+        return new MappedItems<TResult>(
+            items: collection.KeysCell.MapImpl(cache.Project),
+            dispose: cache.ReleaseAll);
+    }
+
+    #endregion
+
+    private delegate OrderedKeys<TKey, TIdentity, TState> Rebuild<in TCriteria, TKey, TIdentity, TState>(
+        TCriteria criteria,
+        OrderedKeys<TKey, TIdentity, TState> upstreamKeys,
+        CollectionSnapshot<TKey, TIdentity, TState> snapshot)
+        where TKey : notnull
+        where TIdentity : notnull;
+
+    private delegate StageResult<TKey, TIdentity, TState> ProcessNewCriteria<in TCriteria, TKey, TIdentity, TState>(
+        Func<StageOutcome<TKey, TIdentity, TState>, StageResult<TKey, TIdentity, TState>> createResultFromStageOutcome,
+        Func<StageResult<TKey, TIdentity, TState>> createResultFromRebuild,
+        Func<OrderedKeys<TKey, TIdentity, TState>, StageResult<TKey, TIdentity, TState>> createResultForReorder,
+        TCriteria criteria,
+        OrderedKeys<TKey, TIdentity, TState> upstreamKeys,
+        CollectionSnapshot<TKey, TIdentity, TState> snapshot,
+        OrderedKeys<TKey, TIdentity, TState> state)
+        where TKey : notnull
+        where TIdentity : notnull;
+
+    /// <summary>
+    ///     The keys a stage holds once the stage above it has reordered and nothing else has changed,
+    ///     for a stage that can answer that without rebuilding.
+    /// </summary>
+    /// <param name="state">What the stage holds now.</param>
+    /// <param name="change">The reorder, whose keys are the stage above's in their new order.</param>
+    private delegate OrderedKeys<TKey, TIdentity, TState> Reorder<TKey, TIdentity, TState>(
+        OrderedKeys<TKey, TIdentity, TState> state,
+        CollectionViewChange<TKey, TIdentity, TState> change)
+        where TKey : notnull
+        where TIdentity : notnull;
+
+    private delegate MaybeInternal<StageOutcome<TKey, TIdentity, TState>>
+        Process<in TCriteria, TKey, TIdentity, TState>(
+            TCriteria criteria,
+            OrderedKeys<TKey, TIdentity, TState> state,
+            CollectionViewChange<TKey, TIdentity, TState> change)
+        where TKey : notnull
+        where TIdentity : notnull;
 
     #region Root
 
@@ -758,7 +804,7 @@ internal static class CollectionViewUtility
             bool passes = Passes(key: key, predicate: predicate, snapshot: snapshot);
             int index = keys.IndexOfInternal(key);
 
-            if(passes)
+            if (passes)
             {
                 if (index < 0)
                 {
@@ -1055,7 +1101,7 @@ internal static class CollectionViewUtility
     ///         foregone conclusion, and a key this stage does not hold is settled by one failed lookup.
     ///     </para>
     ///     <para>
-    ///         It can move a key within it. This stage keeps its upstream's order, and when that order
+    ///         It can move a key within it. This stage keeps its upstream collection's order, and when that order
     ///         reads the state, a state edit changes the value a held key is filed under - whether or
     ///         not the upstream reported it as a move, since a value can change without passing
     ///         another key and still be wrong to file the next arrival against. So a held key is
@@ -1063,10 +1109,11 @@ internal static class CollectionViewUtility
     ///         state the re-file is one lookup and an update, which is all this ever did there.
     ///     </para>
     /// </remarks>
-    private static MaybeInternal<StageOutcome<TKey, TIdentity, TState>> ProcessFilterByIdentity<TKey, TIdentity, TState>(
-        Func<TIdentity, bool> predicate,
-        OrderedKeys<TKey, TIdentity, TState> state,
-        CollectionViewChange<TKey, TIdentity, TState> change)
+    private static MaybeInternal<StageOutcome<TKey, TIdentity, TState>>
+        ProcessFilterByIdentity<TKey, TIdentity, TState>(
+            Func<TIdentity, bool> predicate,
+            OrderedKeys<TKey, TIdentity, TState> state,
+            CollectionViewChange<TKey, TIdentity, TState> change)
         where TKey : notnull
         where TIdentity : notnull
     {
@@ -1209,7 +1256,8 @@ internal static class CollectionViewUtility
     ///     A reset, or nothing for an order equivalent to the one held - never operations. Reusing the
     ///     held sort values for a reversed order saves projecting every key again, not reporting a
     ///     reset; see
-    ///     <see cref="SortByImpl{TKey,TIdentity,TState}(ReactiveCollection{TKey,TIdentity,TState},Cell{KeyOrder{TKey,TIdentity,TState}})" />
+    ///     <see
+    ///         cref="SortByImpl{TKey,TIdentity,TState}(ReactiveCollection{TKey,TIdentity,TState},Cell{KeyOrder{TKey,TIdentity,TState}})" />
     ///     for why a change of order cannot be reported as moves.
     /// </remarks>
     private static StageResult<TKey, TIdentity, TState> ProcessSortNewCriteria<TKey, TIdentity, TState>(
@@ -1432,9 +1480,9 @@ internal static class CollectionViewUtility
 
             common = 0;
 
-            while (common < before.Count &&
-                   common < after.Count &&
-                   change.KeyEqualityComparer.Equals(x: before[common], y: after[common]))
+            while (common < before.Count
+                   && common < after.Count
+                   && change.KeyEqualityComparer.Equals(x: before[common], y: after[common]))
             {
                 common++;
             }
@@ -1479,46 +1527,6 @@ internal static class CollectionViewUtility
 
     #endregion
 
-    #region Map
-
-    /// <summary>
-    ///     One object per key, in the collection's order, rebuilt only when the keys move.
-    /// </summary>
-    /// <remarks>
-    ///     The projection runs once per key and the object is kept, so a collection whose items
-    ///     changed but whose membership and order did not yield the same objects in the same
-    ///     order - which is what keeps a bound list from rebuilding when one row's value moves.
-    /// </remarks>
-    internal static MappedItems<TResult> MapImpl<TKey, TIdentity, TState, TResult>(
-        ReactiveCollection<TKey, TIdentity, TState> collection,
-        Func<TKey, TResult> project,
-        int retainedBeyondTheView,
-        Action<TResult>? onEvicted)
-        where TKey : notnull
-        where TIdentity : notnull
-    {
-        if (retainedBeyondTheView < 0)
-        {
-            throw new ArgumentOutOfRangeException(
-                paramName: nameof(retainedBeyondTheView),
-                actualValue: retainedBeyondTheView,
-                message: "A projection cannot retain a negative number of departed keys.");
-        }
-
-        MappedItemCache<TKey, TResult> cache =
-            new(
-                project: project,
-                retainedBeyondTheView: retainedBeyondTheView,
-                onEvicted: onEvicted,
-                keyEqualityComparer: collection.Root.KeyEqualityComparer);
-
-        return new MappedItems<TResult>(
-            items: collection.KeysCell.MapImpl(cache.Project),
-            dispose: cache.ReleaseAll);
-    }
-
-    #endregion
-
     #region Shared
 
     /// <summary>Files every key into a new set under one order.</summary>
@@ -1544,7 +1552,7 @@ internal static class CollectionViewUtility
         CollectionSnapshot<TKey, TIdentity, TState> snapshot)
         where TKey : notnull
         where TIdentity : notnull =>
-        snapshot.TryGetIdentity(key: key, identity: out TIdentity identity) && predicate(identity);
+        snapshot.TryGetIdentity(key: key, identity: out TIdentity? identity) && predicate(identity);
 
     private static bool Passes<TKey, TIdentity, TState>(
         TKey key,
@@ -1552,8 +1560,8 @@ internal static class CollectionViewUtility
         CollectionSnapshot<TKey, TIdentity, TState> snapshot)
         where TKey : notnull
         where TIdentity : notnull =>
-        snapshot.TryGetHalves(key: key, identity: out TIdentity identity, state: out TState state) &&
-        predicate(arg1: identity, arg2: state);
+        snapshot.TryGetHalves(key: key, identity: out TIdentity? identity, state: out TState? state)
+        && predicate(arg1: identity, arg2: state);
 
     /// <summary>
     ///     Files a key the stage holds under its new sort value, reporting one operation: a move if
@@ -1576,14 +1584,14 @@ internal static class CollectionViewUtility
     ///     <para>
     ///         Re-filing is always under <paramref name="keys" />' own order, never the upstream's.
     ///         A sort imposes that order itself, so for a sort this is always right. A filter keeps its
-    ///         upstream's order, and for a filter it is right only because a change of order is always
+    ///         upstream collection's order, and for a filter it is right only because a change of order is always
     ///         a reset and never a move: every operation that reaches this was caused by a value
     ///         changing under an order that has not. For the same reason, taking the shortcut on a move
     ///         is as sound as on an update: under an order that reads no state, a value change cannot
     ///         have moved anything, whichever operation reported it.
     ///     </para>
     ///     <para>
-    ///         The key has to be one the stage holds and one the snapshot still has. Every caller only
+    ///         The key has to be one that the stage holds and one the snapshot still has. Every caller only
     ///         re-files keys it holds, for operations naming keys the snapshot has, so either failing
     ///         is a fault upstream: this throws for a key the stage does not hold, and filing a key the
     ///         snapshot does not hold throws in <c>Project</c>, rather than reporting an operation at

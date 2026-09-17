@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using JetBrains.Annotations;
 
@@ -14,7 +15,7 @@ namespace SodaFlow.Collections;
 ///     What this change did to one key is two questions, not one, and they are separate members
 ///     here for the same reason the C# wrapper folds them back into a nested optional:
 ///     <see cref="WasChanged" /> is whether the key moved at all, and
-///     <see cref="TryGetNewState" /> is whether it is present afterwards. A removal is the pair
+///     <see cref="TryGetNewState" /> is whether it is present afterward. A removal is the pair
 ///     (<see langword="true" />, <see langword="false" />).
 /// </remarks>
 /// <typeparam name="TKey">The type of the keys.</typeparam>
@@ -95,7 +96,8 @@ public sealed class ItemChange<TKey, TIdentity, TState>
     ///     <see langword="false" /> for was either removed or left alone;
     ///     <see cref="WasChanged" /> is what separates those two.
     /// </returns>
-    public bool TryGetNewState(TKey key, out TState state) => this.NewStates.TryGet(key: key, value: out state);
+    public bool TryGetNewState(TKey key, [NotNullWhen(true)] out TState? state) =>
+        this.NewStates.TryGet(key: key, value: out state);
 
     internal bool WasAdded(TKey key) => this.added.Contains(key);
 
@@ -121,7 +123,7 @@ public sealed class ItemChange<TKey, TIdentity, TState>
         if (this.WasAdded(key))
         {
             return MaybeInternal.Some(
-                this.After.TryGetIdentity(key: key, identity: out TIdentity identity)
+                this.After.TryGetIdentity(key: key, identity: out TIdentity? identity)
                     ? onPresent(identity)
                     : onAbsent());
         }
@@ -136,7 +138,7 @@ public sealed class ItemChange<TKey, TIdentity, TState>
         Func<TState, TProjected> onPresent,
         Func<TProjected> onAbsent)
     {
-        if (this.TryGetNewState(key: key, state: out TState state))
+        if (this.TryGetNewState(key: key, state: out TState? state))
         {
             return MaybeInternal.Some(onPresent(state));
         }

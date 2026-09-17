@@ -33,7 +33,7 @@
             is why this is unconditional: NuGet resolves the in-box implementation where there is
             one.
         -->
-        <PackageReference Include="System.Collections.Immutable" Version="8.0.0" />
+        <PackageReference Include="System.Collections.Immutable" Version="8.0.0"/>
     </ItemGroup>
 
     <ItemGroup>
@@ -43,7 +43,7 @@
         <Compile Include="CollectionInternals.cs"/>
         <Compile Include="CollectionSnapshot.cs"/>
         <Compile Include="CollectionViewChange.cs"/>
-        <Compile Include="Polyfills.cs" />
+        <Compile Include="Polyfills.cs"/>
         <Compile Include="ViewStage.cs"/>
         <Compile Include="CollectionViewUtility.cs"/>
         <Compile Include="Item.cs"/>

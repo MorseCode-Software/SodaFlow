@@ -1321,8 +1321,7 @@ internal sealed class AsyncMapExecutionManager<TInput, TResult, TStrategyInput, 
             // TaskContinuationOptions.OnlyOnFaulted set, so the task's Exception property will be non-null.
             continuationAction: static t => ExceptionDispatchInfo.Capture(t.Exception!.GetBaseException()).Throw(),
             cancellationToken: CancellationToken.None,
-            continuationOptions: TaskContinuationOptions.OnlyOnFaulted |
-                                 TaskContinuationOptions.ExecuteSynchronously,
+            continuationOptions: TaskContinuationOptions.OnlyOnFaulted | TaskContinuationOptions.ExecuteSynchronously,
             scheduler: TaskScheduler.Default);
 
     // Used both as mutations' own same-transaction coalescing function (needed because

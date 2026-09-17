@@ -137,9 +137,9 @@ public sealed class CollectionEdit<TKey, TIdentity, TState>
             if (updates.ContainsKey(pair.Key))
             {
                 throw new InvalidOperationException(
-                    $"Two updates for key '{pair.Key}' in one transaction. Merge order is " +
-                    "arbitrary, so composing them has no defined result. Combine them into a " +
-                    "single transform before firing.");
+                    $"Two updates for key '{pair.Key}' in one transaction. Merge order is "
+                    + "arbitrary, so composing them has no defined result. Combine them into a "
+                    + "single transform before firing.");
             }
 
             updates.Add(key: pair.Key, value: pair.Value);

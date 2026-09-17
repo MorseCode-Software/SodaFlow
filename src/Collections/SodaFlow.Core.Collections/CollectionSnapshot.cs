@@ -1,6 +1,7 @@
 using System.Collections;
 using System.Collections.Generic;
 using System.Collections.Immutable;
+using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using JetBrains.Annotations;
 
@@ -148,9 +149,9 @@ public sealed class CollectionSnapshot<TKey, TIdentity, TState>
     ///     SodaFlow.Functional; the language wrappers add <c>Lookup</c> over this, answering with
     ///     each language's own optional type.
     /// </remarks>
-    public bool TryGetItem(TKey key, out Item<TIdentity, TState>? item)
+    public bool TryGetItem(TKey key, [NotNullWhen(true)] out Item<TIdentity, TState>? item)
     {
-        if (this.TryGetHalves(key: key, identity: out TIdentity identity, state: out TState state))
+        if (this.TryGetHalves(key: key, identity: out TIdentity? identity, state: out TState? state))
         {
             item = new Item<TIdentity, TState>(identity: identity, state: state);
 
@@ -167,7 +168,7 @@ public sealed class CollectionSnapshot<TKey, TIdentity, TState>
     ///     For an order that projects its sort value from the identity alone, which then costs one
     ///     lookup per key rather than two - and a rebuild does this for every key it keeps.
     /// </remarks>
-    internal bool TryGetIdentity(TKey key, out TIdentity identity) =>
+    internal bool TryGetIdentity(TKey key, [NotNullWhen(true)] out TIdentity? identity) =>
         this.IdentitiesImpl.TryGet(key: key, value: out identity) && this.IsVisible(key);
 
     /// <summary>When a key arrived, if this snapshot admits it.</summary>
@@ -181,13 +182,16 @@ public sealed class CollectionSnapshot<TKey, TIdentity, TState>
     /// <remarks>
     ///     For the paths that read every key rather than one - rebuilding a view stage, testing a
     ///     filter's predicate - where that wrapper is an allocation per key per rebuild and nothing
-    ///     keeps it afterwards.
+    ///     keeps it afterward.
     ///     Both lookups happen either way, rather than the second being skipped when the first
     ///     misses, so that both outputs are definitely assigned without a suppression. A key absent
     ///     from the identity map is absent from the state map too, so the wasted lookup only
     ///     happens for a key that is not there at all.
     /// </remarks>
-    internal bool TryGetHalves(TKey key, out TIdentity identity, out TState state)
+    internal bool TryGetHalves(
+        TKey key,
+        [NotNullWhen(true)] out TIdentity? identity,
+        [NotNullWhen(true)] out TState? state)
     {
         // Through the assembly's own helper rather than the concrete TryGetValue, which is
         // annotated to leave its output null on false and so warns against a notnull TIdentity.
@@ -286,14 +290,29 @@ internal sealed class ScopedIdentityMap<TKey, TIdentity, TState> : IReadOnlyDict
     public IEnumerable<TIdentity> Values => this.visible.Select(this.IdentityOf);
 
     public TIdentity this[TKey key] =>
-        this.TryGetValue(key: key, value: out TIdentity identity)
+        this.TryGetValue(key: key, value: out TIdentity? identity)
             ? identity
             : throw new KeyNotFoundException($"The view does not hold the key {key}.");
 
     public bool ContainsKey(TKey key) => this.visible.Contains(key) && this.inner.ContainsKey(key);
 
-    public bool TryGetValue(TKey key, out TIdentity value) =>
+#if NET
+    public bool TryGetValue(TKey key, [MaybeNullWhen(false)] out TIdentity value) =>
         this.inner.TryGet(key: key, value: out value) && this.visible.Contains(key);
+#else
+    public bool TryGetValue(TKey key, out TIdentity value)
+    {
+        if (this.inner.TryGet(key: key, value: out TIdentity? valueLocal) && this.visible.Contains(key))
+        {
+            value = valueLocal;
+            return true;
+        }
+
+        // ReSharper disable once NullableWarningSuppressionIsUsed
+        value = default!;
+        return false;
+    }
+#endif
 
     public IEnumerator<KeyValuePair<TKey, TIdentity>> GetEnumerator() =>
         this.visible
@@ -306,10 +325,10 @@ internal sealed class ScopedIdentityMap<TKey, TIdentity, TState> : IReadOnlyDict
     /// <remarks>
     ///     A view's keys are a subset of the map's, so this cannot miss unless the two have been
     ///     allowed to disagree. It throws rather than yielding a default, because a default here
-    ///     would be a wrong answer travelling quietly.
+    ///     would be a wrong answer traveling quietly.
     /// </remarks>
     private TIdentity IdentityOf(TKey key) =>
-        this.inner.TryGet(key: key, value: out TIdentity identity)
+        this.inner.TryGet(key: key, value: out TIdentity? identity)
             ? identity
             : throw new KeyNotFoundException($"The view holds the key {key} but the identity map behind it does not.");
 }
@@ -346,11 +365,11 @@ internal sealed class ScopedStateMap<TKey, TIdentity, TState> : StateMap<TKey, T
     /// <summary>The state of a key this view holds.</summary>
     /// <remarks>Throws rather than yielding a default, for the reason the identity map's does.</remarks>
     private TState StateOf(TKey key) =>
-        this.inner.TryGetState(key: key, state: out TState state)
+        this.inner.TryGetState(key: key, state: out TState? state)
             ? state
             : throw new KeyNotFoundException($"The view holds the key {key} but the state map behind it does not.");
 
-    public override bool TryGetState(TKey key, out TState state) =>
+    public override bool TryGetState(TKey key, [NotNullWhen(true)] out TState? state) =>
         this.inner.TryGetState(key: key, state: out state) && this.visible.Contains(key);
 
     public override bool ContainsKey(TKey key) => this.visible.Contains(key) && this.inner.ContainsKey(key);

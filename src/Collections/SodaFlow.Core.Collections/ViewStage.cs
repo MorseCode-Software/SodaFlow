@@ -117,8 +117,8 @@ internal sealed class ViewStage<TKey, TIdentity, TState> : ReactiveCollection<TK
                 .HoldLazyImpl(
                     this.KeysCell.SampleLazyImpl()
                         .MapImpl(keys =>
-                            keys.Contains(key) &&
-                            root.SnapshotCell.SampleImpl().States.TryGetState(key: key, state: out TState state)
+                            keys.Contains(key)
+                            && root.SnapshotCell.SampleImpl().States.TryGetState(key: key, state: out TState? state)
                                 ? onPresent(state)
                                 : onAbsent())));
     }
@@ -143,8 +143,9 @@ internal sealed class ViewStage<TKey, TIdentity, TState> : ReactiveCollection<TK
                 .HoldLazyImpl(
                     this.KeysCell.SampleLazyImpl()
                         .MapImpl(keys =>
-                            keys.Contains(key) &&
-                            root.SnapshotCell.SampleImpl().TryGetIdentity(key: key, identity: out TIdentity identity)
+                            keys.Contains(key)
+                            && root.SnapshotCell.SampleImpl()
+                                .TryGetIdentity(key: key, identity: out TIdentity? identity)
                                 ? onPresent(identity)
                                 : onAbsent())));
     }

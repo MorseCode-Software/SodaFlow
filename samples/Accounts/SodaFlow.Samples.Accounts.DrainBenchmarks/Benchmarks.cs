@@ -22,7 +22,7 @@ internal static class ViewModels
             _ => throw new ArgumentOutOfRangeException(
                 paramName: nameof(name),
                 actualValue: name,
-                message: "Unknown view model."),
+                message: "Unknown view model.")
         };
 }
 

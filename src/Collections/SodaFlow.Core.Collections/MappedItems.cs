@@ -88,13 +88,13 @@ public readonly struct MappedItems<TResult> : IDisposable
 internal sealed class MappedItemCache<TKey, TResult>
     where TKey : notnull
 {
-    private readonly IEqualityComparer<TKey> keyEqualityComparer;
-
     /// <summary>The keys no longer in the view, most recently departed at the front.</summary>
     private readonly LinkedList<TKey> departed = new();
 
     /// <summary>Where each departed key sits, so leaving and returning are both O(1).</summary>
     private readonly Dictionary<TKey, LinkedListNode<TKey>> departedNodes;
+
+    private readonly IEqualityComparer<TKey> keyEqualityComparer;
 
     private readonly Action<TResult>? onEvicted;
     private readonly Func<TKey, TResult> project;

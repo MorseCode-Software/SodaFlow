@@ -196,7 +196,7 @@ internal sealed class RootCollection<TKey, TIdentity, TState>
                 .HoldLazyImpl(
                     this.SnapshotCell.SampleLazyImpl()
                         .MapImpl(snapshot =>
-                            snapshot.TryGetIdentity(key: key, identity: out TIdentity identity)
+                            snapshot.TryGetIdentity(key: key, identity: out TIdentity? identity)
                                 ? onPresent(identity)
                                 : onAbsent())));
 
@@ -254,8 +254,8 @@ internal sealed class RootCollection<TKey, TIdentity, TState>
                     $"Key '{update.Key}' is updated and removed in the same transaction.");
             }
 
-            if (!newStates.TryGet(key: update.Key, value: out TState current) &&
-                !before.States.TryGetState(key: update.Key, state: out current))
+            if (!newStates.TryGet(key: update.Key, value: out TState? current)
+                && !before.States.TryGetState(key: update.Key, state: out current))
             {
                 throw new KeyNotFoundException($"Cannot update key '{update.Key}': no such item in the collection.");
             }
@@ -331,7 +331,7 @@ internal sealed class RootCollection<TKey, TIdentity, TState>
                     .HoldLazyImpl(
                         this.SnapshotCell.SampleLazyImpl()
                             .MapImpl(snapshot =>
-                                snapshot.States.TryGetState(key: key, state: out TState state)
+                                snapshot.States.TryGetState(key: key, state: out TState? state)
                                     ? onPresent(state)
                                     : onAbsent())));
 

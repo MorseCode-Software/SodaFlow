@@ -248,7 +248,7 @@ internal sealed class IncrementalAggregateShape : IKeyedAggregateShape
 
         foreach (KeyValuePair<int, ItemState> pair in change.NewStates)
         {
-            if (before.States.TryGetState(key: pair.Key, state: out ItemState old))
+            if (before.States.TryGetState(key: pair.Key, state: out ItemState? old))
             {
                 delta -= AggregateSeed.ValueOf(old);
             }
@@ -258,7 +258,7 @@ internal sealed class IncrementalAggregateShape : IKeyedAggregateShape
 
         foreach (int key in change.Removed)
         {
-            if (before.States.TryGetState(key: key, state: out ItemState old))
+            if (before.States.TryGetState(key: key, state: out ItemState? old))
             {
                 delta -= AggregateSeed.ValueOf(old);
             }

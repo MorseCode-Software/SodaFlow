@@ -569,9 +569,11 @@ public sealed class DenotationalSemanticsTests
             catch
             {
                 Console.WriteLine(
-                    "Test failed for ordering { " + string.Join(
+                    "Test failed for ordering { "
+                    + string.Join(
                         separator: ", ",
-                        values: firingsList.Select(static o => o.Name)) + " }.");
+                        values: firingsList.Select(static o => o.Name))
+                    + " }.");
 
                 throw;
             }

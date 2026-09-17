@@ -13,15 +13,16 @@ namespace SodaFlow.Collections.Tests;
 public sealed class StateMapTests
 {
     private static string StateOf(StateMap<int, string> states, int key) =>
-        states.TryGetState(key: key, state: out string state) ? state : "?";
+        states.TryGetState(key: key, state: out string? state) ? state : "?";
 
     [Test]
     public async Task WithAppliesUpdatesAndRemovalsAndLeavesTheOriginalAlone()
     {
         ImmutableStateMap<int, string> first =
-            ImmutableStateMap<string>.Create(EqualityComparer<int>.Default).With(
-                updated: new Dictionary<int, string> { [1] = "one", [2] = "two" },
-                removed: []);
+            ImmutableStateMap<string>.Create(EqualityComparer<int>.Default)
+                .With(
+                    updated: new Dictionary<int, string> { [1] = "one", [2] = "two" },
+                    removed: []);
 
         ImmutableStateMap<int, string> second =
             first.With(
@@ -42,9 +43,10 @@ public sealed class StateMapTests
     public async Task WithNothingToDoReturnsTheSameInstance()
     {
         ImmutableStateMap<int, string> map =
-            ImmutableStateMap<string>.Create(EqualityComparer<int>.Default).With(
-                updated: new Dictionary<int, string> { [1] = "one" },
-                removed: []);
+            ImmutableStateMap<string>.Create(EqualityComparer<int>.Default)
+                .With(
+                    updated: new Dictionary<int, string> { [1] = "one" },
+                    removed: []);
 
         ImmutableStateMap<int, string> same = map.With(updated: new Dictionary<int, string>(), removed: []);
 
@@ -146,7 +148,9 @@ public sealed class OrderedKeysTests
 
         await Assert.That(
                 KeyOrder<int, ItemIdentity, ItemState>.ByKey(keyComparer)
-                    .IsEquivalentTo(KeyOrder<int, ItemIdentity, ItemState>.ByKey(Comparer<int>.Create(static (x, y) => x.CompareTo(y)))))
+                    .IsEquivalentTo(
+                        KeyOrder<int, ItemIdentity, ItemState>.ByKey(
+                            Comparer<int>.Create(static (x, y) => x.CompareTo(y)))))
             .IsFalse();
     }
 
@@ -243,26 +247,32 @@ public sealed class OrderedKeysTests
         KeyOrder<int, ItemIdentity, ItemState> descending = ByScore(isDescending: true);
 
         // The reversal has to be what is under test, not a rebuild that would hide a flip.
-        bool reversed = descending.TryReverse(keys: ascending, reversedKeys: out OrderedKeys<int, ItemIdentity, ItemState>? result);
+        bool reversed =
+            descending.TryReverse(keys: ascending, reversedKeys: out OrderedKeys<int, ItemIdentity, ItemState>? result);
 
         await Assert.That(reversed).IsTrue();
+        await Assert.That(result).IsNotNull();
 
         // Ties by key ascending within each score, as a descending order built afresh files them - and
         // not [7, 5, 8, 4, 2, 6, 3, 1], the ascending list flipped.
-        await Assert.That(TestUtil.Keys(result!))
+#pragma warning disable CS8604 // Possible null reference argument.
+        await Assert.That(TestUtil.Keys(result))
+#pragma warning restore CS8604 // Possible null reference argument.
             .IsEquivalentTo(expected: [5, 7, 2, 4, 8, 1, 3, 6], ordering: CollectionOrdering.Matching);
 
-        await Assert.That(TestUtil.Keys(result!))
+#pragma warning disable CS8604 // Possible null reference argument.
+        await Assert.That(TestUtil.Keys(result))
+#pragma warning restore CS8604 // Possible null reference argument.
             .IsEquivalentTo(
                 expected: TestUtil.Keys(descending.CreateFrom(keys: keys, snapshot: snapshot)),
                 ordering: CollectionOrdering.Matching);
 
         // And the reversed set answers for itself under the order it now carries.
-        await Assert.That(ReferenceEquals(objA: result!.Order, objB: descending)).IsTrue();
+        await Assert.That(ReferenceEquals(objA: result.Order, objB: descending)).IsTrue();
 
-        foreach ((int key, int index) in TestUtil.Keys(result!).Select(static (key, index) => (key, index)))
+        foreach ((int key, int index) in TestUtil.Keys(result).Select(static (key, index) => (key, index)))
         {
-            await Assert.That(result!.IndexOfInternal(key)).IsEqualTo(index);
+            await Assert.That(result.IndexOfInternal(key)).IsEqualTo(index);
         }
     }
 
@@ -284,11 +294,12 @@ public sealed class OrderedKeysTests
         await Assert.That(() => ByScore(isDescending: false).CreateFrom(keys: [1, 99], snapshot: snapshot))
             .Throws<InvalidOperationException>();
 
-        await Assert.That(() => KeyOrder<int, ItemIdentity, ItemState>.ByArrival().CreateFrom(keys: [99], snapshot: snapshot))
+        await Assert
+            .That(() => KeyOrder<int, ItemIdentity, ItemState>.ByArrival().CreateFrom(keys: [99], snapshot: snapshot))
             .Throws<InvalidOperationException>();
 
-        await Assert.That(
-                () => KeyOrder<int, ItemIdentity, ItemState>.ByIdentity(static identity => identity.Code)
+        await Assert.That(() =>
+                KeyOrder<int, ItemIdentity, ItemState>.ByIdentity(static identity => identity.Code)
                     .CreateFrom(keys: [99], snapshot: snapshot))
             .Throws<InvalidOperationException>();
     }

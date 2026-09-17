@@ -1,7 +1,7 @@
 ﻿using System;
 using System.Collections;
-using JetBrains.Annotations;
 using System.Diagnostics.CodeAnalysis;
+using JetBrains.Annotations;
 
 namespace SodaFlow.Functional;
 
@@ -29,10 +29,7 @@ public readonly struct Unit
     /// <remarks>
     ///     There is only one value of this type, so any two instances are equal.
     /// </remarks>
-    public override bool Equals(
-        [NotNullWhen(true)]
-        object? obj) =>
-        obj is Unit;
+    public override bool Equals([NotNullWhen(true)] object? obj) => obj is Unit;
 
     /// <inheritdoc />
     public bool Equals(Unit other) => true;

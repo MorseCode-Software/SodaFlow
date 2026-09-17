@@ -19,6 +19,9 @@ public sealed class SortOrderChangeTests
 
     private static readonly IComparer<int> KeyComparer = Comparer<int>.Default;
 
+    private static KeyOrder<int, ItemIdentity, ItemState> ByName { get; } =
+        KeyOrder<int, ItemIdentity, ItemState>.By(static (_, state) => state.Name);
+
     private static ReactiveCollection<int, ItemIdentity, ItemState> Create(
         Stream<CollectionEdit<int, ItemIdentity, ItemState>> edits,
         params Item<ItemIdentity, ItemState>[] initial) =>
@@ -91,27 +94,31 @@ public sealed class SortOrderChangeTests
 
         ReactiveCollection<int, ItemIdentity, ItemState> sorted = collection.SortBy(order);
 
-        await Assert.That(KeysOf(sorted)).IsEquivalentTo(expected: [1, 3, 6, 2, 4, 5], ordering: CollectionOrdering.Matching);
+        await Assert.That(KeysOf(sorted))
+            .IsEquivalentTo(expected: [1, 3, 6, 2, 4, 5], ordering: CollectionOrdering.Matching);
 
         order.Send(ByScore(isDescending: true));
 
         // Not [5, 4, 2, 6, 3, 1], the list flipped.
-        await Assert.That(KeysOf(sorted)).IsEquivalentTo(expected: [5, 2, 4, 1, 3, 6], ordering: CollectionOrdering.Matching);
+        await Assert.That(KeysOf(sorted))
+            .IsEquivalentTo(expected: [5, 2, 4, 1, 3, 6], ordering: CollectionOrdering.Matching);
 
         // A key joining a tie lands in key order within it.
         edits.Send(TestUtil.Add(TestUtil.Item(number: 0, name: "zero", score: 20)));
 
-        await Assert.That(KeysOf(sorted)).IsEquivalentTo(expected: [5, 0, 2, 4, 1, 3, 6], ordering: CollectionOrdering.Matching);
+        await Assert.That(KeysOf(sorted))
+            .IsEquivalentTo(expected: [5, 0, 2, 4, 1, 3, 6], ordering: CollectionOrdering.Matching);
 
         // And back again.
         order.Send(ByScore(isDescending: false));
 
-        await Assert.That(KeysOf(sorted)).IsEquivalentTo(expected: [1, 3, 6, 0, 2, 4, 5], ordering: CollectionOrdering.Matching);
+        await Assert.That(KeysOf(sorted))
+            .IsEquivalentTo(expected: [1, 3, 6, 0, 2, 4, 5], ordering: CollectionOrdering.Matching);
     }
 
     /// <summary>
     ///     A stage that turned its list around still has to carry the new order, not the one it was
-    ///     built under. A filter below it builds from its upstream's order, so it is where keeping
+    ///     built under. A filter below it builds from its upstream collection's order, so it is where keeping
     ///     the old one would show.
     /// </summary>
     [Test]
@@ -129,7 +136,7 @@ public sealed class SortOrderChangeTests
 
         CellSink<KeyOrder<int, ItemIdentity, ItemState>> order = Cell.CreateSink(ByScore(isDescending: false));
 
-        // Everything passes, so the filter holds the whole list in its upstream's order.
+        // Everything passes, so the filter holds the whole list in its upstream collection's order.
         ReactiveCollection<int, ItemIdentity, ItemState> passing =
             collection.SortBy(order).Filter(static (_, state) => state.Score > 0);
 
@@ -142,7 +149,8 @@ public sealed class SortOrderChangeTests
         // A later edit has to be filed under the new order too, not the one the list was built with.
         edits.Send(TestUtil.Add(TestUtil.Item(number: 4, name: "four", score: 25)));
 
-        await Assert.That(KeysOf(passing)).IsEquivalentTo(expected: [2, 4, 3, 1], ordering: CollectionOrdering.Matching);
+        await Assert.That(KeysOf(passing))
+            .IsEquivalentTo(expected: [2, 4, 3, 1], ordering: CollectionOrdering.Matching);
     }
 
     /// <summary>
@@ -227,7 +235,7 @@ public sealed class SortOrderChangeTests
     }
 
     private static ReactiveCollection<int, ItemIdentity, ItemState> Scores(
-        StreamSink<CollectionEdit<int, ItemIdentity, ItemState>> edits) =>
+        Stream<CollectionEdit<int, ItemIdentity, ItemState>> edits) =>
         Create(
             edits: edits,
             TestUtil.Item(number: 1, name: "one", score: 10),
@@ -235,9 +243,6 @@ public sealed class SortOrderChangeTests
             TestUtil.Item(number: 3, name: "three", score: 30),
             TestUtil.Item(number: 4, name: "four", score: 20),
             TestUtil.Item(number: 5, name: "five", score: 50));
-
-    private static KeyOrder<int, ItemIdentity, ItemState> ByName { get; } =
-        KeyOrder<int, ItemIdentity, ItemState>.By(static (_, state) => state.Name);
 
     /// <summary>
     ///     A new order above a filter changes where its members sit and nothing about which items they
@@ -259,12 +264,14 @@ public sealed class SortOrderChangeTests
                 .SortBy(order)
                 .Filter((_, state) =>
                 {
+                    // ReSharper disable once AccessToModifiedClosure
                     tests++;
 
                     return state.Score >= 20;
                 });
 
-        await Assert.That(KeysOf(passing)).IsEquivalentTo(expected: [4, 3, 2, 5], ordering: CollectionOrdering.Matching);
+        await Assert.That(KeysOf(passing))
+            .IsEquivalentTo(expected: [4, 3, 2, 5], ordering: CollectionOrdering.Matching);
 
         List<bool> resets = [];
         IListener l = passing.KeyChangesStream.ListenStrong(change => resets.Add(change.IsReset));
@@ -274,12 +281,14 @@ public sealed class SortOrderChangeTests
         // The same order reversed, which the sort answers by turning its list around.
         order.Send(ByScore(isDescending: true));
 
-        await Assert.That(KeysOf(passing)).IsEquivalentTo(expected: [5, 2, 3, 4], ordering: CollectionOrdering.Matching);
+        await Assert.That(KeysOf(passing))
+            .IsEquivalentTo(expected: [5, 2, 3, 4], ordering: CollectionOrdering.Matching);
 
         // A different order altogether, which the sort answers by filing everything again.
         order.Send(ByName);
 
-        await Assert.That(KeysOf(passing)).IsEquivalentTo(expected: [5, 4, 3, 2], ordering: CollectionOrdering.Matching);
+        await Assert.That(KeysOf(passing))
+            .IsEquivalentTo(expected: [5, 4, 3, 2], ordering: CollectionOrdering.Matching);
 
         l.Unlisten();
 
@@ -304,6 +313,7 @@ public sealed class SortOrderChangeTests
                 .SortBy(order)
                 .FilterByIdentity(identity =>
                 {
+                    // ReSharper disable once AccessToModifiedClosure
                     tests++;
 
                     return identity.Number % 2 == 1;
@@ -335,7 +345,8 @@ public sealed class SortOrderChangeTests
         ReactiveCollection<int, ItemIdentity, ItemState> passing =
             Scores(edits).SortBy(order).Filter(static (_, state) => state.Score >= 20);
 
-        await Assert.That(KeysOf(passing)).IsEquivalentTo(expected: [4, 3, 2, 5], ordering: CollectionOrdering.Matching);
+        await Assert.That(KeysOf(passing))
+            .IsEquivalentTo(expected: [4, 3, 2, 5], ordering: CollectionOrdering.Matching);
 
         Transaction.RunVoid(() =>
         {
@@ -345,7 +356,8 @@ public sealed class SortOrderChangeTests
             edits.Send(TestUtil.Score(key: 1, score: 35).CombineWith(TestUtil.Score(key: 4, score: 5)));
         });
 
-        await Assert.That(KeysOf(passing)).IsEquivalentTo(expected: [5, 2, 1, 3], ordering: CollectionOrdering.Matching);
+        await Assert.That(KeysOf(passing))
+            .IsEquivalentTo(expected: [5, 2, 1, 3], ordering: CollectionOrdering.Matching);
     }
 
     /// <summary>A filter whose own predicate changes in the same transaction as the order above it.</summary>
@@ -393,6 +405,7 @@ public sealed class SortOrderChangeTests
         ReactiveCollection<int, ItemIdentity, ItemState> second =
             first.Filter((identity, _) =>
             {
+                // ReSharper disable once AccessToModifiedClosure
                 tests++;
 
                 return identity.Number != 3;
@@ -408,7 +421,9 @@ public sealed class SortOrderChangeTests
 
         await Assert.That(KeysOf(second)).IsEquivalentTo(expected: [4, 2, 5], ordering: CollectionOrdering.Matching);
         await Assert.That(KeysOf(byNumber)).IsEquivalentTo(expected: [2, 4, 5], ordering: CollectionOrdering.Matching);
-        await Assert.That(KeysOf(belowTheWindow)).IsEquivalentTo(expected: [4, 2], ordering: CollectionOrdering.Matching);
+
+        await Assert.That(KeysOf(belowTheWindow))
+            .IsEquivalentTo(expected: [4, 2], ordering: CollectionOrdering.Matching);
 
         tests = 0;
 
@@ -419,13 +434,17 @@ public sealed class SortOrderChangeTests
         await Assert.That(KeysOf(second)).IsEquivalentTo(expected: [5, 2, 4], ordering: CollectionOrdering.Matching);
         await Assert.That(KeysOf(byNumber)).IsEquivalentTo(expected: [2, 4, 5], ordering: CollectionOrdering.Matching);
         await Assert.That(KeysOf(firstTwo)).IsEquivalentTo(expected: [5, 2], ordering: CollectionOrdering.Matching);
-        await Assert.That(KeysOf(belowTheWindow)).IsEquivalentTo(expected: [5, 2], ordering: CollectionOrdering.Matching);
+
+        await Assert.That(KeysOf(belowTheWindow))
+            .IsEquivalentTo(expected: [5, 2], ordering: CollectionOrdering.Matching);
 
         // After the reorder, edits are filed under the new order all the way down.
         edits.Send(TestUtil.Score(key: 4, score: 45));
 
         await Assert.That(KeysOf(second)).IsEquivalentTo(expected: [5, 4, 2], ordering: CollectionOrdering.Matching);
         await Assert.That(KeysOf(byNumber)).IsEquivalentTo(expected: [2, 4, 5], ordering: CollectionOrdering.Matching);
-        await Assert.That(KeysOf(belowTheWindow)).IsEquivalentTo(expected: [5, 4], ordering: CollectionOrdering.Matching);
+
+        await Assert.That(KeysOf(belowTheWindow))
+            .IsEquivalentTo(expected: [5, 4], ordering: CollectionOrdering.Matching);
     }
 }

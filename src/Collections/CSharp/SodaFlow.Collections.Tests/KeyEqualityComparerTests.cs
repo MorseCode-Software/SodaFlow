@@ -37,6 +37,7 @@ public sealed class KeyEqualityComparerTests
     private static CollectionEdit<string, NamedIdentity, NamedState> Score(string key, int score) =>
         CollectionEdit<string, NamedIdentity, NamedState>.Update(
             key: key,
+            // ReSharper disable once WithExpressionModifiesAllMembers
             transform: state => state with { Score = score });
 
     /// <summary>The store itself, which is the baseline everything else has to match.</summary>
@@ -46,7 +47,8 @@ public sealed class KeyEqualityComparerTests
         StreamSink<CollectionEdit<string, NamedIdentity, NamedState>> edits =
             Stream.CreateSink<CollectionEdit<string, NamedIdentity, NamedState>>();
 
-        ReactiveCollection<string, NamedIdentity, NamedState> collection = Create(edits, Item(name: "ABC", score: 1));
+        ReactiveCollection<string, NamedIdentity, NamedState> collection =
+            Create(edits: edits, Item(name: "ABC", score: 1));
 
         await Assert.That(collection.SnapshotCell.Sample().ContainsKey("abc")).IsTrue();
 
@@ -54,7 +56,7 @@ public sealed class KeyEqualityComparerTests
 
         await Assert.That(
                 collection.SnapshotCell.Sample().States.TryGetState(key: "ABC", state: out NamedState? state)
-                    ? state!.Score
+                    ? state.Score
                     : -1)
             .IsEqualTo(2);
     }
@@ -70,7 +72,8 @@ public sealed class KeyEqualityComparerTests
         StreamSink<CollectionEdit<string, NamedIdentity, NamedState>> edits =
             Stream.CreateSink<CollectionEdit<string, NamedIdentity, NamedState>>();
 
-        ReactiveCollection<string, NamedIdentity, NamedState> collection = Create(edits, Item(name: "ABC", score: 1));
+        ReactiveCollection<string, NamedIdentity, NamedState> collection =
+            Create(edits: edits, Item(name: "ABC", score: 1));
 
         List<bool> newStatesHasCanonicalKey = [];
         List<bool> removedHasCanonicalKey = [];
@@ -83,7 +86,7 @@ public sealed class KeyEqualityComparerTests
             });
 
         edits.Send(Score(key: "abc", score: 2));
-        edits.Send(CollectionEdit<string, NamedIdentity, NamedState>.Remove(["aBc"]));
+        edits.Send(CollectionEdit<string, NamedIdentity, NamedState>.Remove("aBc"));
 
         l.Unlisten();
 
@@ -109,7 +112,8 @@ public sealed class KeyEqualityComparerTests
         StreamSink<CollectionEdit<string, NamedIdentity, NamedState>> edits =
             Stream.CreateSink<CollectionEdit<string, NamedIdentity, NamedState>>();
 
-        ReactiveCollection<string, NamedIdentity, NamedState> collection = Create(edits, Item(name: "ABC", score: 1));
+        ReactiveCollection<string, NamedIdentity, NamedState> collection =
+            Create(edits: edits, Item(name: "ABC", score: 1));
 
         ReactiveCollection<string, NamedIdentity, NamedState> view =
             collection.SortBy(static (_, state) => state.Score);
@@ -117,8 +121,8 @@ public sealed class KeyEqualityComparerTests
         List<bool> newStatesHasCanonicalKey = [];
 
         IListener l =
-            view.ItemChangesStream.ListenStrong(
-                change => newStatesHasCanonicalKey.Add(change.NewStates.ContainsKey("ABC")));
+            view.ItemChangesStream.ListenStrong(change =>
+                newStatesHasCanonicalKey.Add(change.NewStates.ContainsKey("ABC")));
 
         edits.Send(Score(key: "abc", score: 2));
 
@@ -140,21 +144,23 @@ public sealed class KeyEqualityComparerTests
         StreamSink<CollectionEdit<string, NamedIdentity, NamedState>> edits =
             Stream.CreateSink<CollectionEdit<string, NamedIdentity, NamedState>>();
 
-        ReactiveCollection<string, NamedIdentity, NamedState> collection = Create(edits, Item(name: "ABC", score: 1));
+        ReactiveCollection<string, NamedIdentity, NamedState> collection =
+            Create(edits: edits, Item(name: "ABC", score: 1));
 
         List<string> projected = [];
 
-        MappedItems<string> rows = collection.Map(key =>
-        {
-            projected.Add(key);
+        MappedItems<string> rows =
+            collection.Map(key =>
+            {
+                projected.Add(key);
 
-            return key;
-        });
+                return key;
+            });
 
         await Assert.That(rows.Items.Sample().Count).IsEqualTo(1);
 
         // A structural edit, so the view moves and the projection runs again over every key.
-        edits.Send(CollectionEdit<string, NamedIdentity, NamedState>.Add([Item(name: "DEF", score: 3)]));
+        edits.Send(CollectionEdit<string, NamedIdentity, NamedState>.Add(Item(name: "DEF", score: 3)));
 
         await Assert.That(rows.Items.Sample().Count).IsEqualTo(2);
 
@@ -174,7 +180,8 @@ public sealed class KeyEqualityComparerTests
         StreamSink<CollectionEdit<string, NamedIdentity, NamedState>> edits =
             Stream.CreateSink<CollectionEdit<string, NamedIdentity, NamedState>>();
 
-        ReactiveCollection<string, NamedIdentity, NamedState> collection = Create(edits, Item(name: "ABC", score: 1));
+        ReactiveCollection<string, NamedIdentity, NamedState> collection =
+            Create(edits: edits, Item(name: "ABC", score: 1));
 
         List<int> scores = [];
 

@@ -161,8 +161,8 @@ public sealed class SynchronizationContextBindingScheduler : IBindingScheduler
         if (context == null)
         {
             throw new InvalidOperationException(
-                "No SynchronizationContext is installed on the current thread. Capture the scheduler " +
-                "from the UI thread, or supply an explicit IBindingScheduler.");
+                "No SynchronizationContext is installed on the current thread. Capture the scheduler "
+                + "from the UI thread, or supply an explicit IBindingScheduler.");
         }
 
         return new SynchronizationContextBindingScheduler(context);

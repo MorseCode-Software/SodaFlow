@@ -191,8 +191,8 @@ public sealed class CollectionViewChange<TKey, TIdentity, TState>
         {
             ViewOperation<TKey> operation = this.Operations[index];
 
-            if (operation is ViewUpdate<TKey> or ViewMove<TKey> ||
-                !this.KeyEqualityComparer.Equals(x: operation.Key, y: key))
+            if (operation is ViewUpdate<TKey> or ViewMove<TKey>
+                || !this.KeyEqualityComparer.Equals(x: operation.Key, y: key))
             {
                 continue;
             }
@@ -209,7 +209,7 @@ public sealed class CollectionViewChange<TKey, TIdentity, TState>
         Func<TIdentity, TProjected> onPresent,
         Func<TProjected> onAbsent) =>
         MaybeInternal.Some(
-            this.After.TryGetIdentity(key: key, identity: out TIdentity identity)
+            this.After.TryGetIdentity(key: key, identity: out TIdentity? identity)
                 ? onPresent(identity)
                 : onAbsent());
 
@@ -218,7 +218,7 @@ public sealed class CollectionViewChange<TKey, TIdentity, TState>
     ///     A translation rather than a derivation: a view change already names the keys that
     ///     entered, left and changed, and carries the store on both sides to read their values
     ///     from. A reset names none of them, so it is answered by walking what the view holds and
-    ///     held - which costs the view rather than the collection, and only when a criteria moves.
+    ///     held - which costs the view rather than the collection, and only when criteria moves.
     /// </remarks>
     internal ItemChange<TKey, TIdentity, TState> ToItemChange(IEqualityComparer<TKey> keyEqualityComparer)
     {
@@ -235,7 +235,7 @@ public sealed class CollectionViewChange<TKey, TIdentity, TState>
                     added.Add(key);
                 }
 
-                if (this.After.States.TryGetState(key: key, state: out TState state))
+                if (this.After.States.TryGetState(key: key, state: out TState? state))
                 {
                     newStates[key] = state;
                 }
@@ -279,7 +279,7 @@ public sealed class CollectionViewChange<TKey, TIdentity, TState>
                     continue;
             }
 
-            if (this.After.States.TryGetState(key: operation.Key, state: out TState state))
+            if (this.After.States.TryGetState(key: operation.Key, state: out TState? state))
             {
                 newStates[operation.Key] = state;
             }
@@ -299,7 +299,7 @@ public sealed class CollectionViewChange<TKey, TIdentity, TState>
         Func<TState, TProjected> onPresent,
         Func<TProjected> onAbsent) =>
         MaybeInternal.Some(
-            this.After.TryGetHalves(key: key, identity: out TIdentity _, state: out TState state)
+            this.After.TryGetHalves(key: key, identity: out _, state: out TState? state)
                 ? onPresent(state)
                 : onAbsent());
 }
@@ -361,7 +361,7 @@ public sealed class ViewRemove<TKey> : ViewOperation<TKey>
 ///     <para>
 ///         A change of order is never reported as moves, however few keys it would move - it is
 ///         always a reset, with <see cref="CollectionViewChange{TKey,TIdentity,TState}.IsReset" />
-///         set. Stages rely on that. A filter keeps its upstream's order and re-files a moved key
+///         set. Stages rely on that. A filter keeps its upstream collection's order and re-files a moved key
 ///         under the order it already holds, so a move caused by a new order would leave the filter
 ///         filed under the old one. And everything below treats a move as a changed value - a stage
 ///         re-files the key, a per-item cell fires - which for a pure reorder is work for nothing.

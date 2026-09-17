@@ -67,13 +67,13 @@ public sealed class ViewOperationInvariantTests
             ("filterOverRoot",
                 CollectionViewUtility.FilterImpl(
                     upstream: collection,
-                    predicateCell: Cell.Constant<Func<ItemIdentity, ItemState, bool>>(
-                        static (_, state) => state.Score >= 20))),
+                    predicateCell: Cell.Constant<Func<ItemIdentity, ItemState, bool>>(static (_, state) =>
+                        state.Score >= 20))),
             ("filterOverSort",
                 CollectionViewUtility.FilterImpl(
                     upstream: byScore,
-                    predicateCell: Cell.Constant<Func<ItemIdentity, ItemState, bool>>(
-                        static (_, state) => state.Score >= 20))),
+                    predicateCell: Cell.Constant<Func<ItemIdentity, ItemState, bool>>(static (_, state) =>
+                        state.Score >= 20))),
             ("sliceOverSort",
                 CollectionViewUtility.SliceImpl(
                     upstream: byScore,
@@ -105,7 +105,7 @@ public sealed class ViewOperationInvariantTests
                 .CombineWith(TestUtil.Remove(2)));
 
         // Big enough to be answered with a reset rather than operations.
-        edits.Send(TestUtil.Remove([.. Enumerable.Range(1, 7)]));
+        edits.Send(TestUtil.Remove([.. Enumerable.Range(start: 1, count: 7)]));
     }
 
     private static string Describe(ViewOperation<int> operation) =>
@@ -120,25 +120,31 @@ public sealed class ViewOperationInvariantTests
         ReactiveCollection<int, ItemIdentity, ItemState> collection =
             Create(
                 edits: edits,
-                [.. Enumerable.Range(1, 5).Select(n => TestUtil.Item(number: n, name: $"n{n}", score: n * 10))]);
+                initial:
+                [
+                    .. Enumerable.Range(start: 1, count: 5)
+                        .Select(static n => TestUtil.Item(number: n, name: $"n{n}", score: n * 10))
+                ]);
 
         List<string> bad = [];
 
         List<IListener> listeners =
-            [
-                .. Stages(collection).Select(stage =>
+        [
+            .. Stages(collection)
+                .Select(stage =>
                     stage.View.KeyChangesStream.ListenStrong(change =>
                     {
                         foreach (ViewOperation<int> operation in change.Operations)
                         {
-                            int index = operation switch
-                            {
-                                ViewInsert<int> insert => insert.Index,
-                                ViewRemove<int> remove => remove.Index,
-                                ViewUpdate<int> update => update.Index,
-                                ViewMove<int> move => Math.Min(val1: move.FromIndex, val2: move.ToIndex),
-                                _ => 0
-                            };
+                            int index =
+                                operation switch
+                                {
+                                    ViewInsert<int> insert => insert.Index,
+                                    ViewRemove<int> remove => remove.Index,
+                                    ViewUpdate<int> update => update.Index,
+                                    ViewMove<int> move => Math.Min(val1: move.FromIndex, val2: move.ToIndex),
+                                    _ => 0
+                                };
 
                             if (index < 0)
                             {
@@ -146,7 +152,7 @@ public sealed class ViewOperationInvariantTests
                             }
                         }
                     }))
-            ];
+        ];
 
         SendEdits(edits);
 
@@ -167,13 +173,18 @@ public sealed class ViewOperationInvariantTests
         ReactiveCollection<int, ItemIdentity, ItemState> collection =
             Create(
                 edits: edits,
-                [.. Enumerable.Range(1, 5).Select(n => TestUtil.Item(number: n, name: $"n{n}", score: n * 10))]);
+                initial:
+                [
+                    .. Enumerable.Range(start: 1, count: 5)
+                        .Select(static n => TestUtil.Item(number: n, name: $"n{n}", score: n * 10))
+                ]);
 
         List<string> bad = [];
 
         List<IListener> listeners =
-            [
-                .. Stages(collection).Select(stage =>
+        [
+            .. Stages(collection)
+                .Select(stage =>
                     stage.View.KeyChangesStream.ListenStrong(change =>
                     {
                         bool moved =
@@ -196,10 +207,11 @@ public sealed class ViewOperationInvariantTests
 
                         if (change.ChangesMembership != membership)
                         {
-                            bad.Add($"{stage.Name}: ChangesMembership is {change.ChangesMembership} for {Listed(change)}");
+                            bad.Add(
+                                $"{stage.Name}: ChangesMembership is {change.ChangesMembership} for {Listed(change)}");
                         }
                     }))
-            ];
+        ];
 
         SendEdits(edits);
 
@@ -209,6 +221,8 @@ public sealed class ViewOperationInvariantTests
         }
 
         await Assert.That(bad).IsEmpty();
+
+        return;
 
         static string Listed(CollectionViewChange<int, ItemIdentity, ItemState> change) =>
             string.Join(separator: ", ", values: change.Operations.Select(Describe));
@@ -228,19 +242,25 @@ public sealed class ViewOperationInvariantTests
         ReactiveCollection<int, ItemIdentity, ItemState> collection =
             Create(
                 edits: edits,
-                [.. Enumerable.Range(1, 5).Select(n => TestUtil.Item(number: n, name: $"n{n}", score: n * 10))]);
+                initial:
+                [
+                    .. Enumerable.Range(start: 1, count: 5)
+                        .Select(static n => TestUtil.Item(number: n, name: $"n{n}", score: n * 10))
+                ]);
 
         List<(string Name, ReactiveCollection<int, ItemIdentity, ItemState> View)> stages = Stages(collection);
 
         // The keys each change reports, which the published cell has to agree with.
         Dictionary<string, List<int>> reported =
-            stages.ToDictionary(stage => stage.Name, stage => TestUtil.Keys(stage.View.KeysCell.Sample()));
+            stages.ToDictionary(
+                keySelector: static stage => stage.Name,
+                elementSelector: static stage => TestUtil.Keys(stage.View.KeysCell.Sample()));
 
         List<IListener> listeners =
-            [
-                .. stages.Select(stage =>
-                    stage.View.KeyChangesStream.ListenStrong(change => reported[stage.Name] = TestUtil.Keys(change.Keys)))
-            ];
+        [
+            .. stages.Select(stage =>
+                stage.View.KeyChangesStream.ListenStrong(change => reported[stage.Name] = TestUtil.Keys(change.Keys)))
+        ];
 
         SendEdits(edits);
 
@@ -270,22 +290,30 @@ public sealed class ViewOperationInvariantTests
         ReactiveCollection<int, ItemIdentity, ItemState> collection =
             Create(
                 edits: edits,
-                [.. Enumerable.Range(1, 6).Select(n => TestUtil.Item(number: n, name: $"n{n}", score: n * 10))]);
+                initial:
+                [
+                    .. Enumerable.Range(start: 1, count: 6)
+                        .Select(static n => TestUtil.Item(number: n, name: $"n{n}", score: n * 10))
+                ]);
 
         KeyOrder<int, ItemIdentity, ItemState> ascending =
             KeyOrder<int, ItemIdentity, ItemState>.By(static (_, state) => state.Score);
 
         CellSink<KeyOrder<int, ItemIdentity, ItemState>> order = Cell.CreateSink(ascending);
 
-        ReactiveCollection<int, ItemIdentity, ItemState> sorted = CollectionViewUtility.SortByImpl(collection, order);
+        ReactiveCollection<int, ItemIdentity, ItemState> sorted =
+            CollectionViewUtility.SortByImpl(upstream: collection, orderCell: order);
 
         ReactiveCollection<int, ItemIdentity, ItemState> filtered =
             CollectionViewUtility.FilterImpl(
                 upstream: sorted,
-                predicateCell: Cell.Constant<Func<ItemIdentity, ItemState, bool>>(static (_, state) => state.Score >= 20));
+                predicateCell:
+                Cell.Constant<Func<ItemIdentity, ItemState, bool>>(static (_, state) => state.Score >= 20));
 
         ReactiveCollection<int, ItemIdentity, ItemState> byIdentity =
-            CollectionViewUtility.FilterByIdentityImpl(upstream: filtered, predicate: static identity => identity.Number != 4);
+            CollectionViewUtility.FilterByIdentityImpl(
+                upstream: filtered,
+                predicate: static identity => identity.Number != 4);
 
         ReactiveCollection<int, ItemIdentity, ItemState> resorted =
             CollectionViewUtility.SortByImpl(
@@ -293,7 +321,10 @@ public sealed class ViewOperationInvariantTests
                 orderCell: Cell.Constant(KeyOrder<int, ItemIdentity, ItemState>.ByKey(Comparer<int>.Default)));
 
         ReactiveCollection<int, ItemIdentity, ItemState> window =
-            CollectionViewUtility.SliceImpl(upstream: byIdentity, offsetCell: Cell.Constant(0), limitCell: Cell.Constant(2));
+            CollectionViewUtility.SliceImpl(
+                upstream: byIdentity,
+                offsetCell: Cell.Constant(0),
+                limitCell: Cell.Constant(2));
 
         ReactiveCollection<int, ItemIdentity, ItemState> belowWindow =
             CollectionViewUtility.FilterImpl(
@@ -302,8 +333,12 @@ public sealed class ViewOperationInvariantTests
 
         List<(string Name, ReactiveCollection<int, ItemIdentity, ItemState> View)> stages =
         [
-            ("sorted", sorted), ("filtered", filtered), ("byIdentity", byIdentity),
-            ("resorted", resorted), ("window", window), ("belowWindow", belowWindow)
+            ("sorted", sorted),
+            ("filtered", filtered),
+            ("byIdentity", byIdentity),
+            ("resorted", resorted),
+            ("window", window),
+            ("belowWindow", belowWindow)
         ];
 
         List<string> seen = [];
@@ -313,8 +348,8 @@ public sealed class ViewOperationInvariantTests
             .. stages.Select(stage =>
                 stage.View.KeyChangesStream.ListenStrong(change =>
                     seen.Add(
-                        $"{stage.Name}: reset={change.IsReset} reordersOnly={change.ReordersOnly} " +
-                        $"changesMembership={change.ChangesMembership}")))
+                        $"{stage.Name}: reset={change.IsReset} reordersOnly={change.ReordersOnly} "
+                        + $"changesMembership={change.ChangesMembership}")))
         ];
 
         order.Send(KeyOrder<int, ItemIdentity, ItemState>.By(static (_, state) => -state.Score));

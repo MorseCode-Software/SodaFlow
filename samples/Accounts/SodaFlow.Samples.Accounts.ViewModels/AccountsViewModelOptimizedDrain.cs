@@ -183,7 +183,7 @@ public sealed class AccountsViewModelOptimizedDrain : IAccountsViewModel
                     {
                         sortByNumber.MapTo(AccountColumn.Number),
                         sortByHolder.MapTo(AccountColumn.Holder),
-                        sortByBalance.MapTo(AccountColumn.Balance),
+                        sortByBalance.MapTo(AccountColumn.Balance)
                     }
                     .OrElse()
                     .Accum(
@@ -309,7 +309,7 @@ public sealed class AccountsViewModelOptimizedDrain : IAccountsViewModel
                     {
                         nextPage.MapTo(static (int at) => at + PageSize),
                         previousPage.MapTo(static (int at) => at - PageSize),
-                        showFrozen.Updates().MapTo(static (int _) => 0),
+                        showFrozen.Updates().MapTo(static (int _) => 0)
                     }
                     .OrElse()
                     .Accum(initialState: 0, f: static (move, at) => Math.Max(val1: 0, val2: move(at)));

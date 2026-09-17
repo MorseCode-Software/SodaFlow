@@ -86,8 +86,7 @@ public abstract class KeyOrder<TKey, TIdentity, TState>
     /// </remarks>
     internal abstract bool TryReverse(
         OrderedKeys<TKey, TIdentity, TState> keys,
-        [NotNullWhen(true)]
-        out OrderedKeys<TKey, TIdentity, TState>? reversedKeys);
+        [NotNullWhen(true)] out OrderedKeys<TKey, TIdentity, TState>? reversedKeys);
 
     /// <summary>Orders by a value projected from each item.</summary>
     /// <typeparam name="TSortKey">The type of the projected sort value.</typeparam>

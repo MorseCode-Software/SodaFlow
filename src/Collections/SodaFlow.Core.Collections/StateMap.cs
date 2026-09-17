@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using System.Collections.Immutable;
+using System.Diagnostics.CodeAnalysis;
 using JetBrains.Annotations;
 
 namespace SodaFlow.Collections;
@@ -73,7 +74,7 @@ public abstract class StateMap<TKey, TState>
     /// <param name="key">The key to look up.</param>
     /// <param name="state">The state stored under it, when this returns true.</param>
     /// <returns><see langword="true" /> if the key is present.</returns>
-    public abstract bool TryGetState(TKey key, out TState state);
+    public abstract bool TryGetState(TKey key, [NotNullWhen(true)] out TState? state);
 
     /// <summary>Whether a key is present in this version of the map.</summary>
     /// <param name="key">The key to look for.</param>
@@ -120,7 +121,8 @@ internal sealed class ImmutableStateMap<TKey, TState> : StateMap<TKey, TState>
     public override IEnumerable<KeyValuePair<TKey, TState>> Pairs => this.states;
 
     /// <inheritdoc />
-    public override bool TryGetState(TKey key, out TState state) => this.states.TryGet(key: key, value: out state);
+    public override bool TryGetState(TKey key, [NotNullWhen(true)] out TState? state) =>
+        this.states.TryGet(key: key, value: out state);
 
     /// <inheritdoc />
     public override bool ContainsKey(TKey key) => this.states.ContainsKey(key);

@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
@@ -40,7 +41,8 @@ public sealed class CollectionViewTests
                 TestUtil.Item(number: 2, name: "two", score: 20));
 
         // The order the initial items were enumerated in, not the order of their keys.
-        await Assert.That(KeysOf(collection)).IsEquivalentTo(expected: [3, 1, 2], ordering: CollectionOrdering.Matching);
+        await Assert.That(KeysOf(collection))
+            .IsEquivalentTo(expected: [3, 1, 2], ordering: CollectionOrdering.Matching);
 
         // Added to the end, in the order the edit lists them.
         edits.Send(
@@ -48,21 +50,25 @@ public sealed class CollectionViewTests
                 TestUtil.Item(number: 5, name: "five", score: 50),
                 TestUtil.Item(number: 0, name: "zero", score: 0)));
 
-        await Assert.That(KeysOf(collection)).IsEquivalentTo(expected: [3, 1, 2, 5, 0], ordering: CollectionOrdering.Matching);
+        await Assert.That(KeysOf(collection))
+            .IsEquivalentTo(expected: [3, 1, 2, 5, 0], ordering: CollectionOrdering.Matching);
 
         // An update is not an arrival.
         edits.Send(TestUtil.Score(key: 3, score: 99));
 
-        await Assert.That(KeysOf(collection)).IsEquivalentTo(expected: [3, 1, 2, 5, 0], ordering: CollectionOrdering.Matching);
+        await Assert.That(KeysOf(collection))
+            .IsEquivalentTo(expected: [3, 1, 2, 5, 0], ordering: CollectionOrdering.Matching);
 
         // A key removed and added back later is a new arrival.
         edits.Send(TestUtil.Remove(1));
 
-        await Assert.That(KeysOf(collection)).IsEquivalentTo(expected: [3, 2, 5, 0], ordering: CollectionOrdering.Matching);
+        await Assert.That(KeysOf(collection))
+            .IsEquivalentTo(expected: [3, 2, 5, 0], ordering: CollectionOrdering.Matching);
 
         edits.Send(TestUtil.Add(TestUtil.Item(number: 1, name: "one again", score: 10)));
 
-        await Assert.That(KeysOf(collection)).IsEquivalentTo(expected: [3, 2, 5, 0, 1], ordering: CollectionOrdering.Matching);
+        await Assert.That(KeysOf(collection))
+            .IsEquivalentTo(expected: [3, 2, 5, 0, 1], ordering: CollectionOrdering.Matching);
     }
 
     [Test]
@@ -101,11 +107,13 @@ public sealed class CollectionViewTests
 
         l.Unlisten();
 
-        await Assert.That(KeysOf(collection)).IsEquivalentTo(expected: [2, 3, 1], ordering: CollectionOrdering.Matching);
+        await Assert.That(KeysOf(collection))
+            .IsEquivalentTo(expected: [2, 3, 1], ordering: CollectionOrdering.Matching);
 
         // The place it left and then the place it went. An insert alone would have a list bound to
         // this count the key twice.
-        await Assert.That(operations).IsEquivalentTo(expected: ["ViewRemove:1", "ViewInsert:1"], ordering: CollectionOrdering.Matching);
+        await Assert.That(operations)
+            .IsEquivalentTo(expected: ["ViewRemove:1", "ViewInsert:1"], ordering: CollectionOrdering.Matching);
     }
 
     [Test]
@@ -138,7 +146,8 @@ public sealed class CollectionViewTests
             second.Send(TestUtil.Add(TestUtil.Item(number: 4, name: "four", score: 40)));
         });
 
-        await Assert.That(KeysOf(collection)).IsEquivalentTo(expected: [1, 2, 3, 4], ordering: CollectionOrdering.Matching);
+        await Assert.That(KeysOf(collection))
+            .IsEquivalentTo(expected: [1, 2, 3, 4], ordering: CollectionOrdering.Matching);
     }
 
     [Test]
@@ -153,19 +162,16 @@ public sealed class CollectionViewTests
                 keySelector: static identity => new Handle(identity.Number),
                 initialItems:
                 [
-                    TestUtil.Item(number: 2, name: "two", score: 20),
-                    TestUtil.Item(number: 1, name: "one", score: 10)
+                    TestUtil.Item(number: 2, name: "two", score: 20), TestUtil.Item(number: 1, name: "one", score: 10)
                 ],
                 edits);
 
-        edits.Send(CollectionEdit<Handle, ItemIdentity, ItemState>.Add(TestUtil.Item(number: 3, name: "three", score: 30)));
+        edits.Send(
+            CollectionEdit<Handle, ItemIdentity, ItemState>.Add(TestUtil.Item(number: 3, name: "three", score: 30)));
 
         await Assert.That(collection.KeysCell.Sample().Select(static handle => handle.Number).ToList())
             .IsEquivalentTo(expected: [2, 1, 3], ordering: CollectionOrdering.Matching);
     }
-
-    /// <summary>A key with no order of its own, which the collection has to list without comparing.</summary>
-    private sealed record Handle(int Number);
 
     [Test]
     public async Task ByArrivalTakesASortBackToTheOrderItemsArrivedIn()
@@ -549,11 +555,14 @@ public sealed class CollectionViewTests
 
         l.Unlisten();
 
-        await Assert.That(KeysOf(byScore)).IsEquivalentTo(expected: [2, 3, 1, 4], ordering: CollectionOrdering.Matching);
+        await Assert.That(KeysOf(byScore))
+            .IsEquivalentTo(expected: [2, 3, 1, 4], ordering: CollectionOrdering.Matching);
+
         await Assert.That(KeysOf(odds)).IsEquivalentTo(expected: [3, 1], ordering: CollectionOrdering.Matching);
 
         // This stage's positions: 0 to 1 here, where the sort above moved it 0 to 2.
-        await Assert.That(operations).IsEquivalentTo(expected: ["ViewMove:1:0->1"], ordering: CollectionOrdering.Matching);
+        await Assert.That(operations)
+            .IsEquivalentTo(expected: ["ViewMove:1:0->1"], ordering: CollectionOrdering.Matching);
     }
 
     [Test]
@@ -646,7 +655,9 @@ public sealed class CollectionViewTests
         // 22 belongs before 25. Filed against the stale 20, it would land after key 2.
         edits.Send(TestUtil.Add(TestUtil.Item(number: 4, name: "four", score: 22)));
 
-        await Assert.That(KeysOf(byScore)).IsEquivalentTo(expected: [1, 4, 2, 3], ordering: CollectionOrdering.Matching);
+        await Assert.That(KeysOf(byScore))
+            .IsEquivalentTo(expected: [1, 4, 2, 3], ordering: CollectionOrdering.Matching);
+
         await Assert.That(KeysOf(all)).IsEquivalentTo(expected: [1, 4, 2, 3], ordering: CollectionOrdering.Matching);
     }
 
@@ -1195,22 +1206,13 @@ public sealed class CollectionViewTests
         KeyOrder<int, ItemIdentity, ItemState> secondLevel =
             KeyOrder<int, ItemIdentity, ItemState>
                 .ByIdentity(static _ => 0)
-                .ThenBy(selector: static (_, state) => state.Score, sortComparer: ExtremeComparer.Instance, isDescending: true);
+                .ThenBy(
+                    selector: static (_, state) => state.Score,
+                    sortComparer: ExtremeComparer.Instance,
+                    isDescending: true);
 
         await Assert.That(KeysOf(collection.SortBy(secondLevel)))
             .IsEquivalentTo(expected: [2, 3, 1], ordering: CollectionOrdering.Matching);
-    }
-
-    /// <summary>Answers with int.MinValue and int.MaxValue rather than -1 and 1, which is allowed.</summary>
-    // ReSharper disable once InheritdocConsiderUsage
-    private sealed class ExtremeComparer : IComparer<int>
-    {
-        internal static readonly ExtremeComparer Instance = new();
-
-        public int Compare(int x, int y) =>
-            x < y ? int.MinValue
-            : x > y ? int.MaxValue
-            : 0;
     }
 
     [Test]
@@ -1344,7 +1346,7 @@ public sealed class CollectionViewTests
         await Assert.That(TestUtil.Keys(view.Identities.Keys))
             .IsEquivalentTo(expected: [2, 3], ordering: CollectionOrdering.Any);
 
-        await Assert.That(view.States.TryGetState(key: 1, state: out ItemState _)).IsFalse();
+        await Assert.That(view.States.TryGetState(key: 1, state: out _)).IsFalse();
 
         // The root still sees everything, which is what makes it the root.
         await Assert.That(collection.SnapshotCell.Sample().Count).IsEqualTo(3);
@@ -1506,8 +1508,11 @@ public sealed class CollectionViewTests
 
         await Assert.That(onView.Count).IsEqualTo(1);
         await Assert.That(onView[0].Added).Contains(1);
-        await Assert.That(onView[0].TryGetNewState(key: 1, state: out ItemState state)).IsTrue();
+        await Assert.That(onView[0].TryGetNewState(key: 1, state: out ItemState? state)).IsTrue();
+        await Assert.That(state).IsNotNull();
+#pragma warning disable CS8602 // Dereference of a possibly null reference.
         await Assert.That(state.Name).IsEqualTo("renamed");
+#pragma warning restore CS8602 // Dereference of a possibly null reference.
 
         // And scoring it back out reads as the item leaving, though the store still has it.
         edits.Send(TestUtil.Score(key: 1, score: 1));
@@ -1649,7 +1654,9 @@ public sealed class CollectionViewTests
         await Assert.That(collectionUpdates).IsEqualTo(0);
         await Assert.That(pageUpdates).IsEqualTo(0);
         await Assert.That(ReferenceEquals(objA: rows.Items.Sample(), objB: before)).IsTrue();
-        await Assert.That(pageOperations).IsEquivalentTo(expected: ["ViewUpdate:2", "ViewUpdate:2"], ordering: CollectionOrdering.Matching);
+
+        await Assert.That(pageOperations)
+            .IsEquivalentTo(expected: ["ViewUpdate:2", "ViewUpdate:2"], ordering: CollectionOrdering.Matching);
 
         // The sort still holds the score it did not publish: 3 is filed against 25, not 20, and so
         // lands between 1 and 2.
@@ -1795,7 +1802,10 @@ public sealed class CollectionViewTests
         l.Unlisten();
 
         await Assert.That(resets).IsEquivalentTo(expected: [false], ordering: CollectionOrdering.Matching);
-        await Assert.That(operations).IsEquivalentTo(expected: ["ViewInsert:42"], ordering: CollectionOrdering.Matching);
+
+        await Assert.That(operations)
+            .IsEquivalentTo(expected: ["ViewInsert:42"], ordering: CollectionOrdering.Matching);
+
         await Assert.That(KeysOf(highScores)).IsEquivalentTo(expected: [42], ordering: CollectionOrdering.Matching);
     }
 
@@ -1840,11 +1850,11 @@ public sealed class CollectionViewTests
     /// <summary>One edit setting a new score on each of <paramref name="keys" />.</summary>
     private static CollectionEdit<int, ItemIdentity, ItemState> Rescore(
         IEnumerable<int> keys,
-        System.Func<int, int> score) =>
+        Func<int, int> score) =>
         new(
             updates: keys.ToDictionary(
-                static key => key,
-                key => (System.Func<ItemState, ItemState>)(state => state with { Score = score(key) })),
+                keySelector: static key => key,
+                elementSelector: key => (Func<ItemState, ItemState>)(state => state with { Score = score(key) })),
             adds: [],
             removes: []);
 
@@ -1859,7 +1869,10 @@ public sealed class CollectionViewTests
             view.KeyChangesStream.ListenStrong(change =>
             {
                 resets.Add(change.IsReset);
-                kinds.AddRange(change.Operations.Select(static operation => operation.GetType().Name.Replace(oldValue: "`1", newValue: string.Empty)));
+
+                kinds.AddRange(
+                    change.Operations.Select(static operation =>
+                        operation.GetType().Name.Replace(oldValue: "`1", newValue: string.Empty)));
             });
 
         return (resets, kinds, listener);
@@ -1886,7 +1899,9 @@ public sealed class CollectionViewTests
 
         await Assert.That(resets).IsEquivalentTo(expected: [false], ordering: CollectionOrdering.Matching);
         await Assert.That(kinds.Count).IsEqualTo(3_000);
-        await Assert.That(kinds.Distinct()).IsEquivalentTo(expected: ["ViewUpdate"], ordering: CollectionOrdering.Matching);
+
+        await Assert.That(kinds.Distinct())
+            .IsEquivalentTo(expected: ["ViewUpdate"], ordering: CollectionOrdering.Matching);
     }
 
     /// <summary>
@@ -1923,7 +1938,7 @@ public sealed class CollectionViewTests
     }
 
     /// <summary>
-    ///     A filter's order is its upstream's, and a state edit cannot move a key under the root's order,
+    ///     A filter's order is its upstream collection's, and a state edit cannot move a key under the root's order,
     ///     so updates to items it shows cost a lookup each too: listed, not reset.
     /// </summary>
     [Test]
@@ -2176,5 +2191,22 @@ public sealed class CollectionViewTests
         await Assert.That(resets).IsEquivalentTo(expected: [false], ordering: CollectionOrdering.Matching);
         await Assert.That(operations).IsEquivalentTo(expected: ["ViewInsert:1"], ordering: CollectionOrdering.Matching);
         await Assert.That(KeysOf(sorted)).IsEquivalentTo(expected: [3, 2, 1], ordering: CollectionOrdering.Matching);
+    }
+
+    /// <summary>A key with no order of its own, which the collection has to list without comparing.</summary>
+    private sealed record Handle(int Number);
+
+    /// <summary>Answers with int.MinValue and int.MaxValue rather than -1 and 1, which is allowed.</summary>
+    // ReSharper disable once InheritdocConsiderUsage
+    private sealed class ExtremeComparer : IComparer<int>
+    {
+        internal static readonly ExtremeComparer Instance = new();
+
+        public int Compare(int x, int y) =>
+            x < y
+                ? int.MinValue
+                : x > y
+                    ? int.MaxValue
+                    : 0;
     }
 }
