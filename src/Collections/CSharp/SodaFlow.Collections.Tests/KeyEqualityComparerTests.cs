@@ -98,12 +98,10 @@ public sealed class KeyEqualityComparerTests
     ///     The same delta, taken from a view rather than from the collection.
     /// </summary>
     /// <remarks>
-    ///     FAILING - and not by reporting the wrong key, but by reporting nothing at all. The root
-    ///     ordering is built from <c>KeyOrder.ByArrival()</c> in <c>CreateRootImpl</c> without the
-    ///     collection's comparer, so its key set matches ordinally: it cannot find the key an edit
-    ///     addressed by another spelling, emits no operation for it, and the empty change is
-    ///     filtered out before any view sees it. The store moves and every view above it goes
-    ///     stale. Only <c>SortByImpl</c> applies <c>With(Root.KeyEqualityComparer)</c> today.
+    ///     This one failed by reporting nothing at all rather than the wrong key. The root ordering was
+    ///     built without the collection's comparer, so it could not find a key an edit addressed by
+    ///     another spelling, emitted no operation for it, and the empty change was filtered out before
+    ///     any view saw it - the store moved and every view above it went stale.
     /// </remarks>
     [Test]
     public async Task AViewsItemChangesMatchKeysWithTheGivenComparer()

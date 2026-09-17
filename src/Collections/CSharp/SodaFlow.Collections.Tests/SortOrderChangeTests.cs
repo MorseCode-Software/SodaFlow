@@ -107,10 +107,9 @@ public sealed class SortOrderChangeTests
     ///     leaving the list alone would not sort it.
     /// </summary>
     /// <remarks>
-    ///     FAILING. <c>ProjectedKeyOrder.IsEquivalentTo</c> compares the two comparers, the key
-    ///     equality comparer and the direction, and never the selector, so two orders that project
-    ///     different values through the same comparers are taken for one another and the stage
-    ///     reports nothing at all. Comparing sort key types is not enough to tell orders apart.
+    ///     Two orders are told apart by the selector the caller handed over as well as the comparers
+    ///     and the direction. Comparing comparers and sort key types alone took orders that project
+    ///     different values through the same comparers for one another, and the stage reported nothing.
     /// </remarks>
     [Test]
     public async Task AnIdenticallyDirectedOrderOverADifferentValueIsNotTreatedAsTheSameOrder()
@@ -148,10 +147,9 @@ public sealed class SortOrderChangeTests
     ///     reversed, and turning the list around would not sort it.
     /// </summary>
     /// <remarks>
-    ///     FAILING, and a regression: the reversal was computed and dropped before, so the stage
-    ///     rebuilt and got the right answer by accident. <c>ProjectedKeyOrder.TryReverse</c> makes
-    ///     the same omission <c>IsEquivalentTo</c> does - it never compares the selector - so it
-    ///     offers to turn the list around for an order that sorts by something else entirely.
+    ///     The reversal has the same test to pass as equivalence: the same selector, comparers and key
+    ///     equality comparer, run the other way. Without the selector in it, the stage turned its list
+    ///     around for an order that sorts by something else entirely.
     /// </remarks>
     [Test]
     public async Task AnOppositeOrderOverADifferentValueIsNotTreatedAsAReversal()
