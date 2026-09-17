@@ -81,8 +81,8 @@ internal sealed class RootCollection<TKey, TIdentity, TState>
     internal override RootCollection<TKey, TIdentity, TState> Root => this;
 
     /// <summary>
-    ///     Builds the collection both of the public factories on
-    ///     <see cref="ReactiveCollection{TKey,TIdentity,TState}" /> return.
+    ///     Builds the collection every public <c>Create</c> factory returns, on
+    ///     <see cref="ReactiveCollection{TKey,TIdentity,TState}" /> and on its non-generic companion.
     /// </summary>
     /// <param name="keySelector">Derives an item's key from its immutable portion.</param>
     /// <param name="keyEqualityComparer">The equality comparer for keys.</param>
