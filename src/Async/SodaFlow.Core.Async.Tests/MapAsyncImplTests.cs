@@ -177,8 +177,8 @@ public sealed class MapAsyncImplTests
         await Assert.That(() => source.Send(1))
             .ThrowsNothing()
             .Because(
-                "Canceling and promoting the same item in one Admit call should complete it as " +
-                "Canceled, not crash the transaction that admitted it.");
+                "Canceling and promoting the same item in one Admit call should complete it as "
+                + "Canceled, not crash the transaction that admitted it.");
 
         Thread.Sleep(100);
         await Assert.That(received.Count).IsEqualTo(0).Because("A canceled outcome must never be published.");

@@ -31,6 +31,8 @@ method that mutates a live collection.
                       for itself here too, and a state edit never wakes one
   ShapeCell           fires on count or key change only
   SnapshotCell        the whole store, on every change
+  KeysCell            the keys in order, moving only when membership or
+                      order does - a state edit that moves no key leaves it
   KeyChangesStream    how the keys moved: positions, no states
   ItemChangesStream   how the items changed: states, no positions
 

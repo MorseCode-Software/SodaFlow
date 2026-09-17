@@ -88,8 +88,8 @@ public sealed class CalmTests
         await Assert.That(@out)
             .IsEquivalentTo(expected: [1, 2, 1], ordering: CollectionOrdering.Matching)
             .Because(
-                "re-reading the initial value per firing would reset the remembered value and let " +
-                "duplicates through");
+                "re-reading the initial value per firing would reset the remembered value and let "
+                + "duplicates through");
     }
 
     // A non-None initial value seeds the comparison, so a first firing equal to it is suppressed.

@@ -57,7 +57,7 @@ internal sealed class ViewStage<TKey, TIdentity, TState> : ReactiveCollection<TK
             new Lazy<Stream<ItemChange<TKey, TIdentity, TState>>>(
                 valueFactory: () =>
                     TransactionInternal.RunImpl(() =>
-                        this.KeyChangesStream.MapImpl(static change => change.ToItemChange())),
+                        this.KeyChangesStream.MapImpl(change => change.ToItemChange(source.Root.KeyEqualityComparer))),
                 mode: LazyThreadSafetyMode.ExecutionAndPublication);
 
         // Only membership moves this, which is what makes it cheaper to hold than the snapshot: a
@@ -90,7 +90,7 @@ internal sealed class ViewStage<TKey, TIdentity, TState> : ReactiveCollection<TK
     public override Cell<IReadOnlyDictionary<TKey, TIdentity>> ShapeCell => this.shapeCell.Value;
 
     /// <inheritdoc />
-    internal override ReactiveCollection<TKey, TIdentity, TState> Root => this.source.Root;
+    internal override RootCollection<TKey, TIdentity, TState> Root => this.source.Root;
 
     /// <inheritdoc />
     /// <remarks>
@@ -117,8 +117,8 @@ internal sealed class ViewStage<TKey, TIdentity, TState> : ReactiveCollection<TK
                 .HoldLazyImpl(
                     this.KeysCell.SampleLazyImpl()
                         .MapImpl(keys =>
-                            keys.Contains(key) &&
-                            root.SnapshotCell.SampleImpl().States.TryGetState(key: key, state: out TState state)
+                            keys.Contains(key)
+                            && root.SnapshotCell.SampleImpl().States.TryGetState(key: key, state: out TState? state)
                                 ? onPresent(state)
                                 : onAbsent())));
     }
@@ -143,8 +143,9 @@ internal sealed class ViewStage<TKey, TIdentity, TState> : ReactiveCollection<TK
                 .HoldLazyImpl(
                     this.KeysCell.SampleLazyImpl()
                         .MapImpl(keys =>
-                            keys.Contains(key) &&
-                            root.SnapshotCell.SampleImpl().TryGetIdentity(key: key, identity: out TIdentity identity)
+                            keys.Contains(key)
+                            && root.SnapshotCell.SampleImpl()
+                                .TryGetIdentity(key: key, identity: out TIdentity? identity)
                                 ? onPresent(identity)
                                 : onAbsent())));
     }
@@ -205,13 +206,19 @@ internal sealed class StageResult<TKey, TIdentity, TState>
         IReadOnlyList<ViewOperation<TKey>> operations,
         bool isReset,
         CollectionSnapshot<TKey, TIdentity, TState> before,
-        CollectionSnapshot<TKey, TIdentity, TState> after)
+        CollectionSnapshot<TKey, TIdentity, TState> after,
+        bool movesKeys,
+        bool changesMembership,
+        bool reordersOnly)
     {
         this.Keys = keys;
         this.Operations = operations;
         this.IsReset = isReset;
         this.Before = before;
         this.After = after;
+        this.MovesKeys = movesKeys;
+        this.ChangesMembership = changesMembership;
+        this.ReordersOnly = reordersOnly;
     }
 
     internal OrderedKeys<TKey, TIdentity, TState> Keys { get; }
@@ -223,4 +230,25 @@ internal sealed class StageResult<TKey, TIdentity, TState>
     internal CollectionSnapshot<TKey, TIdentity, TState> Before { get; }
 
     internal CollectionSnapshot<TKey, TIdentity, TState> After { get; }
+
+    /// <summary>Whether this result changes what the stage holds, or the order it holds it in.</summary>
+    /// <remarks>
+    ///     Anything but an update does: an insert, a remove, a move, or a reset. A result carrying
+    ///     only updates leaves every key where it was, though its keys may still be a new version -
+    ///     a re-file that moved nothing builds one carrying the new sort value.
+    /// </remarks>
+    internal bool MovesKeys { get; }
+
+    /// <summary>Whether this change alters what the view holds, rather than only where.</summary>
+    /// <remarks>
+    ///     A reorder is not a membership change, which is what lets a shape cell sleep through one.
+    /// </remarks>
+    internal bool ChangesMembership { get; }
+
+    /// <summary>
+    ///     Whether this is a reset that changed nothing but the order: the stage holds the keys it held
+    ///     before, and none of their values changed.
+    /// </summary>
+    /// <remarks>See <see cref="CollectionViewChange{TKey,TIdentity,TState}.ReordersOnly" />.</remarks>
+    internal bool ReordersOnly { get; }
 }

@@ -391,7 +391,7 @@ let sortByIdentityDescending
 /// <param name="selector">Projects the sort value from an item's identity.</param>
 /// <param name="sortComparer">Compares two projected sort values.</param>
 /// <param name="keyComparer">Breaks ties, so that the order is total.</param>
-/// <param name="descending">Whether to reverse the sort comparison.</param>
+/// <param name="isDescending">Whether to reverse the sort comparison.</param>
 /// <param name="upstream">The collection or view to reorder.</param>
 /// <returns>A view in that order.</returns>
 [<MethodImpl(MethodImplOptions.NoInlining)>]
@@ -399,10 +399,10 @@ let sortByIdentityWith
     (selector: 'TIdentity -> 'TSortKey)
     (sortComparer: IComparer<'TSortKey>)
     (keyComparer: IComparer<'TKey>)
-    (descending: bool)
+    (isDescending: bool)
     (upstream: ReactiveCollection<'TKey, 'TIdentity, 'TState>)
     =
-    CollectionViewUtility.SortByIdentityImpl(upstream, Func<_, _> selector, sortComparer, keyComparer, descending)
+    CollectionViewUtility.SortByIdentityImpl(upstream, Func<_, _> selector, sortComparer, keyComparer, isDescending)
 
 /// <summary>
 ///     Reorders the view with explicit comparers. The sort key type stays a real generic
@@ -412,7 +412,7 @@ let sortByIdentityWith
 /// <param name="selector">Projects the sort value from an item.</param>
 /// <param name="sortComparer">Compares two projected sort values.</param>
 /// <param name="keyComparer">Breaks ties, so that the order is total.</param>
-/// <param name="descending">Whether to reverse the sort comparison.</param>
+/// <param name="isDescending">Whether to reverse the sort comparison.</param>
 /// <param name="upstream">The collection or view to reorder.</param>
 /// <returns>A view in that order.</returns>
 [<MethodImpl(MethodImplOptions.NoInlining)>]
@@ -420,10 +420,10 @@ let sortByWith
     (selector: 'TIdentity -> 'TState -> 'TSortKey)
     (sortComparer: IComparer<'TSortKey>)
     (keyComparer: IComparer<'TKey>)
-    (descending: bool)
+    (isDescending: bool)
     (upstream: ReactiveCollection<'TKey, 'TIdentity, 'TState>)
     =
-    CollectionViewUtility.SortByImpl(upstream, Func<_, _, _> selector, sortComparer, keyComparer, descending)
+    CollectionViewUtility.SortByImpl(upstream, Func<_, _, _> selector, sortComparer, keyComparer, isDescending)
 
 /// <summary>Reorders the view by an order that does not change.</summary>
 /// <param name="order">The order to sort by.</param>
@@ -453,7 +453,9 @@ let sortByOrder
 ///     by values of different types.
 ///     A new order is a criteria change like any other: it rebuilds this stage and reports a
 ///     reset, and a stage below re-files under the new order without being told, because a filter
-///     builds from its upstream's own order whatever that has become.
+///     builds from its upstream's own order whatever that has become. It is always a reset, even
+///     when the new order is the old one reversed; a change of order is never reported as moves,
+///     which are kept for keys a value change has moved.
 /// </remarks>
 [<MethodImpl(MethodImplOptions.NoInlining)>]
 let sortByOrderC
@@ -486,16 +488,16 @@ let orderByDescending (selector: 'TIdentity -> 'TState -> 'TSortKey) : KeyOrder<
 /// <param name="selector">Projects the sort value from an item.</param>
 /// <param name="sortComparer">Compares two projected sort values.</param>
 /// <param name="keyComparer">Breaks ties, so that the order is total.</param>
-/// <param name="descending">Whether to reverse the sort comparison.</param>
+/// <param name="isDescending">Whether to reverse the sort comparison.</param>
 /// <returns>The order.</returns>
 [<MethodImpl(MethodImplOptions.NoInlining)>]
 let orderByWith
     (selector: 'TIdentity -> 'TState -> 'TSortKey)
     (sortComparer: IComparer<'TSortKey>)
     (keyComparer: IComparer<'TKey>)
-    (descending: bool)
+    (isDescending: bool)
     : KeyOrder<'TKey, 'TIdentity, 'TState> =
-    KeyOrder<'TKey, 'TIdentity, 'TState>.By(Func<_, _, _> selector, sortComparer, keyComparer, descending)
+    KeyOrder<'TKey, 'TIdentity, 'TState>.By(Func<_, _, _> selector, sortComparer, keyComparer, isDescending)
 
 /// <summary>
 ///     An order by a value projected from each item's immutable half alone, which a state edit
@@ -530,16 +532,16 @@ let orderByIdentityDescending (selector: 'TIdentity -> 'TSortKey) : KeyOrder<'TK
 /// <param name="selector">Projects the sort value from an identity.</param>
 /// <param name="sortComparer">Compares two projected sort values.</param>
 /// <param name="keyComparer">Breaks ties, so that the order is total.</param>
-/// <param name="descending">Whether to reverse the sort comparison.</param>
+/// <param name="isDescending">Whether to reverse the sort comparison.</param>
 /// <returns>The order.</returns>
 [<MethodImpl(MethodImplOptions.NoInlining)>]
 let orderByIdentityWith
     (selector: 'TIdentity -> 'TSortKey)
     (sortComparer: IComparer<'TSortKey>)
     (keyComparer: IComparer<'TKey>)
-    (descending: bool)
+    (isDescending: bool)
     : KeyOrder<'TKey, 'TIdentity, 'TState> =
-    KeyOrder<'TKey, 'TIdentity, 'TState>.ByIdentity(Func<_, _> selector, sortComparer, keyComparer, descending)
+    KeyOrder<'TKey, 'TIdentity, 'TState>.ByIdentity(Func<_, _> selector, sortComparer, keyComparer, isDescending)
 
 /// <summary>An order by key, over any stage.</summary>
 /// <param name="keyComparer">The comparer to order keys by.</param>
@@ -588,7 +590,7 @@ let thenByDescending
 /// <summary>An order with its ties broken by a value projected from each item, with a comparer.</summary>
 /// <param name="selector">Projects the next level's sort value from an item.</param>
 /// <param name="sortComparer">Compares two of the next level's sort values.</param>
-/// <param name="descending">Whether this level runs in reverse, whichever way the levels above it run.</param>
+/// <param name="isDescending">Whether this level runs in reverse, whichever way the levels above it run.</param>
 /// <param name="order">The order to refine, which is left unchanged.</param>
 /// <returns>The refined order.</returns>
 /// <remarks>
@@ -599,10 +601,10 @@ let thenByDescending
 let thenByWith
     (selector: 'TIdentity -> 'TState -> 'TSortKey)
     (sortComparer: IComparer<'TSortKey>)
-    (descending: bool)
+    (isDescending: bool)
     (order: KeyOrder<'TKey, 'TIdentity, 'TState>)
     : KeyOrder<'TKey, 'TIdentity, 'TState> =
-    order.ThenBy(Func<_, _, _> selector, sortComparer, descending)
+    order.ThenBy(Func<_, _, _> selector, sortComparer, isDescending)
 
 /// <summary>
 ///     An order with its ties broken by a value projected from each item's immutable half alone.
@@ -641,17 +643,17 @@ let thenByIdentityDescending
 /// </summary>
 /// <param name="selector">Projects the next level's sort value from an identity.</param>
 /// <param name="sortComparer">Compares two of the next level's sort values.</param>
-/// <param name="descending">Whether this level runs in reverse, whichever way the levels above it run.</param>
+/// <param name="isDescending">Whether this level runs in reverse, whichever way the levels above it run.</param>
 /// <param name="order">The order to refine, which is left unchanged.</param>
 /// <returns>The refined order.</returns>
 [<MethodImpl(MethodImplOptions.NoInlining)>]
 let thenByIdentityWith
     (selector: 'TIdentity -> 'TSortKey)
     (sortComparer: IComparer<'TSortKey>)
-    (descending: bool)
+    (isDescending: bool)
     (order: KeyOrder<'TKey, 'TIdentity, 'TState>)
     : KeyOrder<'TKey, 'TIdentity, 'TState> =
-    order.ThenByIdentity(Func<_, _> selector, sortComparer, descending)
+    order.ThenByIdentity(Func<_, _> selector, sortComparer, isDescending)
 
 /// <summary>
 ///     The first <c>limit</c> keys of the upstream — the top-n of whatever ordering and filtering

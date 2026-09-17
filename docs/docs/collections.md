@@ -221,9 +221,31 @@ levels from `thenBy` and its siblings, and the stage from `sortByOrderC` for a c
 for an order that does not change.
 
 A new order is a criteria change like any other: it rebuilds that stage and reports `IsReset`,
-at the cost the table below gives for a sort's rebuild. A stage below re-files under the new
-order without being told anything, because a filter builds from its upstream's own order
-whatever that order has become.
+at the cost the table below gives for a sort's rebuild. An order equivalent to the one the stage
+already holds is no change at all and reports nothing. That order run the other way is cheaper to
+answer - the stage sorts again with the sort values it already holds rather than filing every key
+again - but it still reports `IsReset`. A stage below re-files under whichever order the stage ends
+up with without being told anything, because a filter files under its upstream's own order whatever
+that order has become.
+
+When nothing but the order changed in the transaction, the stages below do less than rebuild. A
+filter already holds the right members - its predicate reads nothing that changed - so it files
+those members under the new order without walking the stage above or testing a single item again.
+A sort below keeps its list outright, because neither its members nor its own order moved. Both
+still report `IsReset`, and pass on that it was only a reorder, so the same holds a stage further
+down. A slice is where it stops: reordering what is above a window changes which keys fall inside
+it, so it rebuilds, and the stages under it rebuild too. An edit or a criteria change landing in
+the same transaction makes it an ordinary reset, all the way down.
+
+That makes a sort above a filter cheaper to reorder than it was, but not as cheap as a filter above a
+sort. The sort still files every key in the collection under the new order; below a filter it files
+only the ones the filter kept. Measured at 100,000 items with a filter keeping 5%, reversing the
+order took 30 ms sorted first and under 1 ms filtered first.
+
+A change of order is always a reset, never a sequence of moves, however few keys it would move.
+`ViewMove` is kept for one thing: a key whose value changed, under an order that reads that value.
+The stages below depend on the distinction - see [How the chain stays
+incremental](#how-the-chain-stays-incremental).
 
 An order can have more than one level. `ThenBy`, `ThenByDescending`, `ThenByIdentity` and
 `ThenByIdentityDescending` return the order refined by another level, which decides only between
@@ -248,14 +270,25 @@ Each stage keeps its own ordered key set and applies the operations from above.
 
 | Stage | On upstream insert or remove | On upstream update | On upstream move |
 | --- | --- | --- | --- |
-| `Filter` | Test, add or drop | May enter, leave, or move | Ignored |
-| `SortBy` | Add or drop | Re-file, O(log n) | Ignored |
+| `Filter` | Test, add or drop | May enter, leave, or move | May enter, leave, or move |
+| `SortBy` | Add or drop | Re-file, O(log n) | Re-file, O(log n) |
 | `Take` | Re-window | Forwarded if inside the window | Re-window |
 
 `ViewUpdate` is what makes chaining work. A stage that saw no positional consequence still has
 to tell the stage below that an item changed, because that stage may sort or filter on exactly
 the state that just moved. UI consumers can ignore it — the row's own `StateCell` already
 reports the value.
+
+An upstream move says the same thing, which is why it is re-filed rather than ignored. A re-file
+that moves a key reports the move alone, so the move is the only operation carrying the key's new
+sort value, and a stage below has to file against it exactly as it would against an update. The
+row's `StateCell` fires on one too, for the same reason: the value is what moved the row.
+
+That is the only thing a move ever means. A move caused by the order itself changing would break
+a filter below it, which re-files a moved key under the order it already holds and so would keep
+the old one. It would also cost everything else below it: every stage would re-file each moved
+key, and every moved row's `StateCell` would fire, for values that did not change. So a stage whose
+order changes resets instead, and the stages below re-file what they hold under the new order.
 
 `Filter` preserves upstream order without tracking positions in the upstream list: it asks the
 upstream's key set for a new set under *the same order*, holding the members it kept.
@@ -267,10 +300,13 @@ entry whose sort position has already moved underneath it.
 
 ## Three costs worth knowing
 
-- Changing a criteria rebuilds that stage and everything below it and reports `IsReset`, and
-  what that costs is whatever the rebuild has to re-file. Changing a *predicate* is the expensive
-  end: a filter's rebuild files every surviving key into a fresh ordered set, so at ten thousand
-  items one such change measures about sixteen times the cost of re-deriving the same view with
+- Changing a criteria costs a pass over the stage's upstream however it is applied, because every
+  key has to be tested against the new criteria. Changing a *predicate* is the expensive end: a
+  filter re-tests every upstream key, and files the ones that actually moved. It reports those as
+  inserts and removes rather than as `IsReset`, so the stages below it adjust rather than
+  rebuilding — unless enough keys move to be worth a rebuild, and then it rebuilds and reports a
+  reset like any other stage. A rebuild files every surviving key into a fresh ordered set; at ten
+  thousand items that measured about sixteen times the cost of re-deriving the same view with
   LINQ. Debounce keystroke-driven predicates upstream, and do not drive a filter from something
   that changes per frame. Changing a **slice's offset** is the cheap end, and by a wide margin -
   an offset cannot reorder anything, so the rebuild is a lazy window over an ordering that did
@@ -346,8 +382,8 @@ both ends of the window anyway, and that is `Slice`.
 
 ### What turning a page costs
 
-Turning a page is a criteria change, and every other criteria change in this document is the
-case a chain loses. This one is the exception, measured by
+Turning a page is a criteria change, and a criteria change is where a chain has the least to
+work with. This one is the cheapest of them, measured by
 `KeyedCollectionPagingBenchmarks` against re-deriving the same page from a cell with
 `OrderByDescending`, `Skip` and `Take`, on .NET 10:
 
@@ -363,14 +399,16 @@ an offset cannot reorder anything, so the rebuild constructs one lazy window ove
 the sort above it already holds and touches nothing else. Re-deriving has to sort the collection
 again to discover what is on the page.
 
-It is worth being precise about why this differs so completely from the threshold change above,
-because both take the same path. A criteria change rebuilds the stage either way. A filter's
-rebuild has to re-file every surviving key; a slice's has nothing to re-file. The cost of a
-criteria change is the cost of its rebuild, and that is a property of the stage rather than of
-criteria changes.
+It is worth being precise about why this differs so completely from the threshold change above.
+Both are criteria changes, and what separates them is what each stage has to do to answer one. A
+filter has to test every upstream key against the new predicate and file the ones that moved; a
+slice has nothing to test and nothing to file, because an offset cannot reorder anything — its
+rebuild constructs one lazy window and stops. The cost of a criteria change is a property of the
+stage, not of criteria changes.
 
 A page turn is also cheaper than an *edit* through the same chain, which is not a contradiction:
-a reset carries no operations, so the stages below have nothing to process.
+a slice rebuilds and reports a reset, and a reset carries no operations, so the stages below have
+nothing to process.
 
 ### What an edit costs inside a page
 
@@ -445,14 +483,16 @@ store, so folding it on a filtered view counts items the filter excludes — sil
 the root rather than the interface so that reaching for it off a view has to be written out.
 
 A view-scoped total folds `KeyChangesStream`, which carries exactly the four cases that can move
-one:
+one. `ViewMove` counts the same way `ViewUpdate` does, and for the same reason: a re-file that
+moved a key reports the move alone, so it is the operation carrying the new value. Treating a
+move as position-only drops that edit from the total.
 
 | Operation | Contribution |
 | --- | --- |
 | `ViewInsert` | `+ new` — the key entered the view |
 | `ViewRemove` | `− old` — it left |
 | `ViewUpdate` | `+ new − old` — it stayed and changed |
-| `ViewMove` | nothing — position only, and a re-file pairs it with an update |
+| `ViewMove` | `+ new − old` — it stayed and changed, and the change moved it |
 
 Both values are on the change. `CollectionViewChange` carries `Before` and `After` — the store as
 the transaction found it and as it left it — so a delta needs nothing kept alongside and no second
@@ -478,10 +518,12 @@ same transaction, which works because a cell read during a transaction still hol
 started with. That still works and the stage code still does it, but it is knowledge the API should
 not have required.
 
-The one case with no delta is `IsReset`. A criteria change — moving a filter's threshold — rebuilds
-the stage and reports a reset carrying no operations, so a view-scoped fold has to recompute from
-`change.Keys`, which is Θ(view). The root fold has no such case, which is the price of a total that
-follows a view rather than a store.
+The one case with no delta is `IsReset`. A stage that rebuilt rather than adjusted — a sort given a
+new order, a slice whose offset moved, a filter whose predicate moved more keys than listing them
+would be worth, or any stage under one that reset — reports a reset carrying no operations, so a
+view-scoped fold has to recompute from `change.Keys`, which is Θ(view). It is not something a fold
+can avoid by editing carefully: handle it. The root fold has no such case, which is the price of a
+total that follows a view rather than a store.
 
 Use `StateMap`'s `Pairs` rather than `Keys` with a lookup for each. Both answer the same question; the second
 costs an O(log32 n) search per item and reads the trie in key order rather than in storage order,
@@ -579,6 +621,11 @@ worth about a tenth of an edit and a fifth of its allocation.
 `SortByIdentity` and `FilterByIdentity` are how you say the same thing about a sort or a filter of your own:
 order or select by something in the identity — an account number, a code, a type — and a state
 edit can move a key neither into the view nor within it. The last column is a chain of both.
+
+The two halves are separate claims. `FilterByIdentity` settles membership, but it keeps whatever
+order its upstream has, so under a sort that reads the state a state edit still moves keys within
+it, and it re-files them as any stage would. Only under an order that reads no state does it get
+to skip that.
 
 They are not equal contributors. Of that column at ten thousand items, `SortByIdentity` accounts for
 almost all of it — 12.9 µs to 10.9 µs, and every byte of the allocation, because what it skips

@@ -13,8 +13,8 @@ internal static class TestUtility
 
         void Handler(object? sender, PropertyChangedEventArgs args)
         {
-            if (sender is IReadableBindableValue<T> notified &&
-                args.PropertyName == nameof(IReadableBindableValue<>.Value))
+            if (sender is IReadableBindableValue<T> notified
+                && args.PropertyName == nameof(IReadableBindableValue<>.Value))
             {
                 action(notified.Value);
             }

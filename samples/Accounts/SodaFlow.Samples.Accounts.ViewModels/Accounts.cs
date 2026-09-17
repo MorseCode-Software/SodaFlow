@@ -32,7 +32,7 @@ internal sealed record AccountState(long Balance, bool IsFrozen);
 /// <remarks>
 ///     <para>
 ///         A hundred thousand of them behind a page of six, which is the shape the collection is
-///         built for: almost all of the items are not being looked at, and an edit should cost what
+///         built for: almost all the items are not being looked at, and an edit should cost what
 ///         the rows on screen cost rather than what the collection holds.
 ///     </para>
 ///     <para>
@@ -53,24 +53,28 @@ internal static class AccountSeed
 
     private static readonly string[] Surnames =
     [
+        // ReSharper disable StringLiteralTypo
         "Ackroyd", "Bhatt", "Calloway", "Dimitrova", "Eze", "Fairbairn", "Gruber", "Haddad",
         "Ivanov", "Jarrett", "Kowalski", "Lindqvist", "Moreau", "Nakamura", "Okonkwo", "Pereira",
         "Quill", "Rasmussen", "Sørensen", "Tanaka", "Urquhart", "Varga", "Whitlock", "Xu",
         "Yilmaz", "Zielinski", "Abernathy", "Brennan", "Castellano", "Delacroix", "Eriksson",
         "Fonseca", "Galloway", "Hartmann", "Ishikawa", "Jovanovic", "Kaur", "Lachance", "Mbeki",
         "Novak", "Oyelaran", "Petrakis", "Quintero", "Rahman", "Szabo", "Thorne", "Ueda", "Vasquez"
+        // ReSharper restore StringLiteralTypo
     ];
 
     private static readonly string[] GivenNames =
     [
+        // ReSharper disable StringLiteralTypo
         "Ada", "Bruno", "Chidi", "Dagny", "Elif", "Farid", "Greta", "Hiro", "Imani", "Jonas",
         "Kalani", "Leila", "Mateo", "Nadia", "Omar", "Priya", "Rafael", "Saoirse", "Tomasz",
         "Uma", "Viktor", "Wren", "Yusuf", "Zara"
+        // ReSharper restore StringLiteralTypo
     ];
 
     /// <summary>The accounts, built once and shared, since nothing can change an item.</summary>
     internal static IReadOnlyList<Item<AccountIdentity, AccountState>> Items { get; } =
-        [.. Enumerable.Range(0, Count).Select(Create)];
+        [.. Enumerable.Range(start: 0, count: Count).Select(Create)];
 
     private static Item<AccountIdentity, AccountState> Create(int index)
     {
@@ -86,8 +90,8 @@ internal static class AccountSeed
         // Balances scattered to the cent, so ties are rare. The top two bits both clear is one
         // account in four, which is how many start frozen.
         return new Item<AccountIdentity, AccountState>(
-            new AccountIdentity(FirstNumber + index, holder),
-            new AccountState(forState % MaximumBalance + 1, forState >> 30 == 0));
+            identity: new AccountIdentity(Number: FirstNumber + index, Holder: holder),
+            state: new AccountState(Balance: forState % MaximumBalance + 1, IsFrozen: forState >> 30 == 0));
     }
 
     /// <summary>A cheap, fixed hash, so the seed is the same on every run and every runtime.</summary>

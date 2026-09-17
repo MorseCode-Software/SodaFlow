@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 
 namespace SodaFlow.Collections;
 
@@ -23,12 +24,9 @@ internal static class CollectionInternals
     internal static bool TryGet<TKey, TValue>(
         this IReadOnlyDictionary<TKey, TValue> dictionary,
         TKey key,
-        out TValue value)
+        [NotNullWhen(true)] out TValue? value)
     {
-        bool found = dictionary.TryGetValue(key: key, value: out TValue? stored);
-
-        // ReSharper disable once NullableWarningSuppressionIsUsed - see the remarks above.
-        value = stored!;
+        bool found = dictionary.TryGetValue(key: key, value: out value);
 
         return found;
     }

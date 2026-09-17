@@ -36,13 +36,21 @@ public sealed class CollectionViewChange<TKey, TIdentity, TState>
         CollectionSnapshot<TKey, TIdentity, TState> after,
         OrderedKeys<TKey, TIdentity, TState> keys,
         IReadOnlyList<ViewOperation<TKey>> operations,
-        bool isReset)
+        bool isReset,
+        bool movesKeys,
+        bool changesMembership,
+        bool reordersOnly,
+        IEqualityComparer<TKey> keyEqualityComparer)
     {
         this.Before = before;
         this.After = after;
         this.Keys = keys;
         this.Operations = operations;
         this.IsReset = isReset;
+        this.MovesKeys = movesKeys;
+        this.ChangesMembership = changesMembership;
+        this.ReordersOnly = reordersOnly;
+        this.KeyEqualityComparer = keyEqualityComparer;
     }
 
     /// <summary>The store as this transaction left it.</summary>
@@ -69,39 +77,47 @@ public sealed class CollectionViewChange<TKey, TIdentity, TState>
     public IReadOnlyList<ViewOperation<TKey>> Operations { get; }
 
     /// <summary>
-    ///     The stage rebuilt rather than adjusted — its predicate, ordering, or limit changed, or
-    ///     its upstream reset. <see cref="Operations" /> is empty; read <see cref="Keys" />
-    ///     wholesale.
+    ///     The stage rebuilt rather than adjusted. <see cref="Operations" /> is empty; read
+    ///     <see cref="Keys" /> wholesale.
     /// </summary>
+    /// <remarks>
+    ///     A stage resets when its order changes - always, and never by reporting moves instead -
+    ///     when its window's bounds change, when a change is too large for listing its operations
+    ///     to be worth it, or when the stage above it reset. A predicate change on its own is
+    ///     reported as the inserts and removes it causes, unless it is that large.
+    /// </remarks>
     public bool IsReset { get; }
+
+    /// <summary>Whether this change alters what the view holds, or the order it holds it in.</summary>
+    internal bool MovesKeys { get; }
 
     /// <summary>Whether this change alters what the view holds, rather than only where.</summary>
     /// <remarks>
     ///     A reorder is not a membership change, which is what lets a shape cell sleep through one.
     /// </remarks>
-    internal bool ChangesMembership
-    {
-        get
-        {
-            if (this.IsReset)
-            {
-                return true;
-            }
+    internal bool ChangesMembership { get; }
 
-            // Indexed rather than enumerated, for the reason the projections above are.
-            // ReSharper disable once ForCanBeConvertedToForeach
-            // ReSharper disable once LoopCanBeConvertedToQuery
-            for (int index = 0; index < this.Operations.Count; index++)
-            {
-                if (this.Operations[index] is ViewInsert<TKey> or ViewRemove<TKey>)
-                {
-                    return true;
-                }
-            }
+    /// <summary>
+    ///     Whether this is a reset that changed nothing but the order: the stage holds the keys it held
+    ///     before, and none of their values changed.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         What a sort reports when it is handed a new order and nothing else in the transaction
+    ///         reached it. A stage below with no criteria change of its own can then keep what it holds
+    ///         rather than rebuilding from the stage above: a filter takes its members over to the new
+    ///         order without testing its predicate again, since nothing that could change the answer
+    ///         changed, and a sort keeps its list outright, since neither its members nor its own order
+    ///         moved. Both report the same, so the next stage down can do likewise.
+    ///     </para>
+    ///     <para>
+    ///         A window cannot. Reordering what is above it changes which keys fall inside it, so a
+    ///         slice rebuilds and reports an ordinary reset, and the stages below it rebuild too.
+    ///     </para>
+    /// </remarks>
+    internal bool ReordersOnly { get; }
 
-            return false;
-        }
-    }
+    internal IEqualityComparer<TKey> KeyEqualityComparer { get; }
 
     /// <summary>
     ///     What this change means for one key, or nothing if it means nothing for it.
@@ -115,10 +131,8 @@ public sealed class CollectionViewChange<TKey, TIdentity, TState>
     ///         walks whenever the view moves at all, which measured about four times the cost.
     ///     </para>
     ///     <para>
-    ///         A move carries a position and no value, and a re-file pairs one with an update, so
-    ///         the update is what answers and the move is skipped. A reset carries no operations at
-    ///         all - every position may differ - so the answer is recomputed from the store, but
-    ///         only for a key one side or the other holds.
+    ///         A reset carries no operations at all - every position may differ - so the answer
+    ///         is recomputed from the store, but only for a key one side or the other holds.
     ///     </para>
     /// </remarks>
     internal MaybeInternal<TProjected> ProjectChangeFor<TProjected>(
@@ -140,15 +154,10 @@ public sealed class CollectionViewChange<TKey, TIdentity, TState>
         // ReSharper disable once LoopCanBeConvertedToQuery
         for (int index = 0; index < this.Operations.Count; index++)
         {
-            ViewOperation<TKey> operation = this.Operations[index];
-
-            if (operation is ViewMove<TKey> ||
-                !EqualityComparer<TKey>.Default.Equals(x: operation.Key, y: key))
+            if (this.KeyEqualityComparer.Equals(x: this.Operations[index].Key, y: key))
             {
-                continue;
+                return this.Project(key: key, onPresent: onPresent, onAbsent: onAbsent);
             }
-
-            return this.Project(key: key, onPresent: onPresent, onAbsent: onAbsent);
         }
 
         return MaybeInternal<TProjected>.None;
@@ -182,8 +191,8 @@ public sealed class CollectionViewChange<TKey, TIdentity, TState>
         {
             ViewOperation<TKey> operation = this.Operations[index];
 
-            if (operation is ViewUpdate<TKey> or ViewMove<TKey> ||
-                !EqualityComparer<TKey>.Default.Equals(x: operation.Key, y: key))
+            if (operation is ViewUpdate<TKey> or ViewMove<TKey>
+                || !this.KeyEqualityComparer.Equals(x: operation.Key, y: key))
             {
                 continue;
             }
@@ -200,7 +209,7 @@ public sealed class CollectionViewChange<TKey, TIdentity, TState>
         Func<TIdentity, TProjected> onPresent,
         Func<TProjected> onAbsent) =>
         MaybeInternal.Some(
-            this.After.TryGetIdentity(key: key, identity: out TIdentity identity)
+            this.After.TryGetIdentity(key: key, identity: out TIdentity? identity)
                 ? onPresent(identity)
                 : onAbsent());
 
@@ -209,13 +218,13 @@ public sealed class CollectionViewChange<TKey, TIdentity, TState>
     ///     A translation rather than a derivation: a view change already names the keys that
     ///     entered, left and changed, and carries the store on both sides to read their values
     ///     from. A reset names none of them, so it is answered by walking what the view holds and
-    ///     held - which costs the view rather than the collection, and only when a criteria moves.
+    ///     held - which costs the view rather than the collection, and only when criteria moves.
     /// </remarks>
-    internal ItemChange<TKey, TIdentity, TState> ToItemChange()
+    internal ItemChange<TKey, TIdentity, TState> ToItemChange(IEqualityComparer<TKey> keyEqualityComparer)
     {
-        HashSet<TKey> added = new();
-        HashSet<TKey> removed = new();
-        Dictionary<TKey, TState> newStates = new();
+        HashSet<TKey> added = new(keyEqualityComparer);
+        HashSet<TKey> removed = new(keyEqualityComparer);
+        Dictionary<TKey, TState> newStates = new(keyEqualityComparer);
 
         if (this.IsReset)
         {
@@ -226,7 +235,7 @@ public sealed class CollectionViewChange<TKey, TIdentity, TState>
                     added.Add(key);
                 }
 
-                if (this.After.States.TryGetState(key: key, state: out TState state))
+                if (this.After.States.TryGetState(key: key, state: out TState? state))
                 {
                     newStates[key] = state;
                 }
@@ -263,14 +272,14 @@ public sealed class CollectionViewChange<TKey, TIdentity, TState>
                     continue;
 
                 case ViewUpdate<TKey>:
+                case ViewMove<TKey>:
                     break;
 
-                // A move carries a position and no value, so it is nothing to a keyed delta.
                 default:
                     continue;
             }
 
-            if (this.After.States.TryGetState(key: operation.Key, state: out TState state))
+            if (this.After.States.TryGetState(key: operation.Key, state: out TState? state))
             {
                 newStates[operation.Key] = state;
             }
@@ -290,7 +299,7 @@ public sealed class CollectionViewChange<TKey, TIdentity, TState>
         Func<TState, TProjected> onPresent,
         Func<TProjected> onAbsent) =>
         MaybeInternal.Some(
-            this.After.TryGetHalves(key: key, identity: out TIdentity _, state: out TState state)
+            this.After.TryGetHalves(key: key, identity: out _, state: out TState? state)
                 ? onPresent(state)
                 : onAbsent());
 }
@@ -342,6 +351,22 @@ public sealed class ViewRemove<TKey> : ViewOperation<TKey>
 ///     <see cref="FromIndex" /> followed immediately by an insert at <see cref="ToIndex" />,
 ///     reported as one operation so a bound list can move the row and keep its selection.
 /// </summary>
+/// <remarks>
+///     <para>
+///         A move is only ever reported because the key's value changed, and the order reads that
+///         value: the move is the re-file, and no <see cref="ViewUpdate{TKey}" /> accompanies it. A
+///         consumer taking a delta has to treat this as an update that also moved, and a stage below
+///         has to re-file on it.
+///     </para>
+///     <para>
+///         A change of order is never reported as moves, however few keys it would move - it is
+///         always a reset, with <see cref="CollectionViewChange{TKey,TIdentity,TState}.IsReset" />
+///         set. Stages rely on that. A filter keeps its upstream collection's order and re-files a moved key
+///         under the order it already holds, so a move caused by a new order would leave the filter
+///         filed under the old one. And everything below treats a move as a changed value - a stage
+///         re-files the key, a per-item cell fires - which for a pure reorder is work for nothing.
+///     </para>
+/// </remarks>
 /// <typeparam name="TKey">The type of the keys.</typeparam>
 [PublicAPI]
 // ReSharper disable once InheritdocConsiderUsage

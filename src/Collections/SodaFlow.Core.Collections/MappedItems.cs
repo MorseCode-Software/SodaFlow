@@ -92,34 +92,42 @@ internal sealed class MappedItemCache<TKey, TResult>
     private readonly LinkedList<TKey> departed = new();
 
     /// <summary>Where each departed key sits, so leaving and returning are both O(1).</summary>
-    private readonly Dictionary<TKey, LinkedListNode<TKey>> departedNodes = new();
+    private readonly Dictionary<TKey, LinkedListNode<TKey>> departedNodes;
+
+    private readonly IEqualityComparer<TKey> keyEqualityComparer;
 
     private readonly Action<TResult>? onEvicted;
     private readonly Func<TKey, TResult> project;
 
     /// <summary>Everything projected and not yet evicted, in or out of the view.</summary>
-    private readonly Dictionary<TKey, TResult> projected = new();
+    private readonly Dictionary<TKey, TResult> projected;
 
     private readonly int retainedBeyondTheView;
 
     /// <summary>What the view held last time, to tell what has left it since.</summary>
-    private HashSet<TKey> inView = new();
+    private HashSet<TKey> inView;
 
     internal MappedItemCache(
+        IEqualityComparer<TKey> keyEqualityComparer,
         Func<TKey, TResult> project,
         int retainedBeyondTheView,
         Action<TResult>? onEvicted)
     {
+        this.keyEqualityComparer = keyEqualityComparer;
         this.project = project;
         this.retainedBeyondTheView = retainedBeyondTheView;
         this.onEvicted = onEvicted;
+
+        this.departedNodes = new Dictionary<TKey, LinkedListNode<TKey>>(keyEqualityComparer);
+        this.projected = new Dictionary<TKey, TResult>(keyEqualityComparer);
+        this.inView = new HashSet<TKey>(this.keyEqualityComparer);
     }
 
     /// <summary>The projection of one version of the view's keys, in their order.</summary>
     internal IReadOnlyList<TResult> Project(IReadOnlyList<TKey> keys)
     {
         List<TResult> results = new(keys.Count);
-        HashSet<TKey> current = new();
+        HashSet<TKey> current = new(this.keyEqualityComparer);
 
         // Indexed rather than enumerated, because keys arrives interface-typed and a foreach over
         // one boxes an enumerator - on every version of the view.
@@ -173,7 +181,7 @@ internal sealed class MappedItemCache<TKey, TResult>
         this.projected.Clear();
         this.departed.Clear();
         this.departedNodes.Clear();
-        this.inView = new HashSet<TKey>();
+        this.inView = new HashSet<TKey>(this.keyEqualityComparer);
     }
 
     private void Depart(TKey key)

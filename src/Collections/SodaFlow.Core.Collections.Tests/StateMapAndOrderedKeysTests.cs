@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Linq;
@@ -12,15 +13,16 @@ namespace SodaFlow.Collections.Tests;
 public sealed class StateMapTests
 {
     private static string StateOf(StateMap<int, string> states, int key) =>
-        states.TryGetState(key: key, state: out string state) ? state : "?";
+        states.TryGetState(key: key, state: out string? state) ? state : "?";
 
     [Test]
     public async Task WithAppliesUpdatesAndRemovalsAndLeavesTheOriginalAlone()
     {
         ImmutableStateMap<int, string> first =
-            ImmutableStateMap<int, string>.Empty.With(
-                updated: new Dictionary<int, string> { [1] = "one", [2] = "two" },
-                removed: []);
+            ImmutableStateMap<string>.Create(EqualityComparer<int>.Default)
+                .With(
+                    updated: new Dictionary<int, string> { [1] = "one", [2] = "two" },
+                    removed: []);
 
         ImmutableStateMap<int, string> second =
             first.With(
@@ -41,9 +43,10 @@ public sealed class StateMapTests
     public async Task WithNothingToDoReturnsTheSameInstance()
     {
         ImmutableStateMap<int, string> map =
-            ImmutableStateMap<int, string>.Empty.With(
-                updated: new Dictionary<int, string> { [1] = "one" },
-                removed: []);
+            ImmutableStateMap<string>.Create(EqualityComparer<int>.Default)
+                .With(
+                    updated: new Dictionary<int, string> { [1] = "one" },
+                    removed: []);
 
         ImmutableStateMap<int, string> same = map.With(updated: new Dictionary<int, string>(), removed: []);
 
@@ -72,22 +75,23 @@ public sealed class OrderedKeysTests
 
         return new CollectionSnapshot<int, ItemIdentity, ItemState>(
             identities: identities.ToImmutable(),
-            states: ImmutableStateMap<int, ItemState>.Empty.With(updated: states, removed: []),
+            states: ImmutableStateMap<ItemState>.Create(EqualityComparer<int>.Default)
+                .With(updated: states, removed: []),
             arrivals: arrivals.ToImmutable(),
             nextArrival: arrivals.Count);
     }
 
-    private static SortKeyOrder<int, ItemIdentity, ItemState, int> ByScore(bool descending) =>
-        new(
-            selector: static (_, _, state) => state.Score,
+    private static KeyOrder<int, ItemIdentity, ItemState> ByScore(bool isDescending) =>
+        KeyOrder<int, ItemIdentity, ItemState>.By(
+            selector: static (_, state) => state.Score,
             sortComparer: Comparer<int>.Default,
             keyComparer: Comparer<int>.Default,
-            descending: descending);
+            isDescending: isDescending);
 
     private static OrderedKeys<int, ItemIdentity, ItemState> Empty(
-        bool descending,
+        bool isDescending,
         CollectionSnapshot<int, ItemIdentity, ItemState> snapshot) =>
-        ByScore(descending).CreateFrom(keys: [], snapshot: snapshot);
+        ByScore(isDescending).CreateFrom(keys: [], snapshot: snapshot);
 
     [Test]
     public async Task AnOrderIgnoresStateEditsOnlyIfEveryLevelDoes()
@@ -115,6 +119,41 @@ public sealed class OrderedKeysTests
         await Assert.That(stateFirst.DependsOnState).IsTrue();
     }
 
+    /// <summary>
+    ///     A stage handed an order it already holds does nothing, and one it holds run the other way
+    ///     turns its list around - but only if it can tell. Orders are told apart by the selector and
+    ///     comparer instances they were built from, so a factory has to hand out the same selector
+    ///     every time it is called.
+    /// </summary>
+    [Test]
+    public async Task OrdersBuiltTheSameWayAreRecognisedAsTheSameOrder()
+    {
+        IComparer<int> keyComparer = Comparer<int>.Default;
+
+        await Assert.That(
+                KeyOrder<int, ItemIdentity, ItemState>.ByKey(keyComparer)
+                    .IsEquivalentTo(KeyOrder<int, ItemIdentity, ItemState>.ByKey(keyComparer)))
+            .IsTrue();
+
+        await Assert.That(
+                KeyOrder<int, ItemIdentity, ItemState>.ByArrival()
+                    .IsEquivalentTo(KeyOrder<int, ItemIdentity, ItemState>.ByArrival()))
+            .IsTrue();
+
+        await Assert.That(ByScore(isDescending: false).IsEquivalentTo(ByScore(isDescending: false))).IsTrue();
+
+        // The same selector run the other way is not the same order, and a different comparer
+        // instance is not taken on trust.
+        await Assert.That(ByScore(isDescending: false).IsEquivalentTo(ByScore(isDescending: true))).IsFalse();
+
+        await Assert.That(
+                KeyOrder<int, ItemIdentity, ItemState>.ByKey(keyComparer)
+                    .IsEquivalentTo(
+                        KeyOrder<int, ItemIdentity, ItemState>.ByKey(
+                            Comparer<int>.Create(static (x, y) => x.CompareTo(y)))))
+            .IsFalse();
+    }
+
     [Test]
     public async Task KeysComeBackInSortOrderAndIndexOfAgrees()
     {
@@ -125,7 +164,7 @@ public sealed class OrderedKeysTests
                 TestUtil.Item(number: 3, name: "three", score: 20));
 
         OrderedKeys<int, ItemIdentity, ItemState> keys =
-            Empty(descending: false, snapshot: snapshot)
+            Empty(isDescending: false, snapshot: snapshot)
                 .Add(key: 1, snapshot: snapshot)
                 .Add(key: 2, snapshot: snapshot)
                 .Add(key: 3, snapshot: snapshot);
@@ -149,7 +188,7 @@ public sealed class OrderedKeysTests
                 TestUtil.Item(number: 9, name: "nine", score: 10));
 
         OrderedKeys<int, ItemIdentity, ItemState> keys =
-            Empty(descending: false, snapshot: snapshot)
+            Empty(isDescending: false, snapshot: snapshot)
                 .Add(key: 5, snapshot: snapshot)
                 .Add(key: 2, snapshot: snapshot)
                 .Add(key: 9, snapshot: snapshot);
@@ -168,7 +207,7 @@ public sealed class OrderedKeysTests
                 TestUtil.Item(number: 3, name: "three", score: 20));
 
         OrderedKeys<int, ItemIdentity, ItemState> keys =
-            Empty(descending: true, snapshot: snapshot)
+            Empty(isDescending: true, snapshot: snapshot)
                 .Add(key: 1, snapshot: snapshot)
                 .Add(key: 2, snapshot: snapshot)
                 .Add(key: 3, snapshot: snapshot);
@@ -177,16 +216,92 @@ public sealed class OrderedKeysTests
             .IsEquivalentTo(expected: [1, 3, 2], ordering: CollectionOrdering.Matching);
     }
 
+    /// <summary>
+    ///     Reversing an order is not reversing the list. A descending order reverses the sort values
+    ///     and still breaks their ties by key ascending, so keys that tie keep their relative order
+    ///     when the list is turned around - which a plain flip of the positions would not.
+    /// </summary>
     [Test]
-    public async Task AddingAKeyTheSnapshotDoesNotHaveIsANoOp()
+    public async Task ReversingAnOrderKeepsTiedKeysInKeyOrder()
+    {
+        // Three scores, each shared by two or three keys, filed out of key order.
+        CollectionSnapshot<int, ItemIdentity, ItemState> snapshot =
+            Snapshot(
+                TestUtil.Item(number: 1, name: "one", score: 10),
+                TestUtil.Item(number: 2, name: "two", score: 20),
+                TestUtil.Item(number: 3, name: "three", score: 10),
+                TestUtil.Item(number: 4, name: "four", score: 20),
+                TestUtil.Item(number: 5, name: "five", score: 30),
+                TestUtil.Item(number: 6, name: "six", score: 10),
+                TestUtil.Item(number: 7, name: "seven", score: 30),
+                TestUtil.Item(number: 8, name: "eight", score: 20));
+
+        int[] keys = [1, 2, 3, 4, 5, 6, 7, 8];
+
+        OrderedKeys<int, ItemIdentity, ItemState> ascending =
+            ByScore(isDescending: false).CreateFrom(keys: keys, snapshot: snapshot);
+
+        await Assert.That(TestUtil.Keys(ascending))
+            .IsEquivalentTo(expected: [1, 3, 6, 2, 4, 8, 5, 7], ordering: CollectionOrdering.Matching);
+
+        KeyOrder<int, ItemIdentity, ItemState> descending = ByScore(isDescending: true);
+
+        // The reversal has to be what is under test, not a rebuild that would hide a flip.
+        bool reversed =
+            descending.TryReverse(keys: ascending, reversedKeys: out OrderedKeys<int, ItemIdentity, ItemState>? result);
+
+        await Assert.That(reversed).IsTrue();
+        await Assert.That(result).IsNotNull();
+
+        // Ties by key ascending within each score, as a descending order built afresh files them - and
+        // not [7, 5, 8, 4, 2, 6, 3, 1], the ascending list flipped.
+#pragma warning disable CS8604 // Possible null reference argument.
+        await Assert.That(TestUtil.Keys(result))
+#pragma warning restore CS8604 // Possible null reference argument.
+            .IsEquivalentTo(expected: [5, 7, 2, 4, 8, 1, 3, 6], ordering: CollectionOrdering.Matching);
+
+#pragma warning disable CS8604 // Possible null reference argument.
+        await Assert.That(TestUtil.Keys(result))
+#pragma warning restore CS8604 // Possible null reference argument.
+            .IsEquivalentTo(
+                expected: TestUtil.Keys(descending.CreateFrom(keys: keys, snapshot: snapshot)),
+                ordering: CollectionOrdering.Matching);
+
+        // And the reversed set answers for itself under the order it now carries.
+        await Assert.That(ReferenceEquals(objA: result.Order, objB: descending)).IsTrue();
+
+        foreach ((int key, int index) in TestUtil.Keys(result).Select(static (key, index) => (key, index)))
+        {
+            await Assert.That(result.IndexOfInternal(key)).IsEqualTo(index);
+        }
+    }
+
+    /// <summary>
+    ///     A key the snapshot does not hold has no sort value, and every stage files only keys its
+    ///     snapshot holds, so being asked to file one is a fault - thrown, not quietly left out, whether
+    ///     one key is added or a set is built in bulk.
+    /// </summary>
+    [Test]
+    public async Task FilingAKeyTheSnapshotDoesNotHoldThrows()
     {
         CollectionSnapshot<int, ItemIdentity, ItemState> snapshot =
             Snapshot(TestUtil.Item(number: 1, name: "one", score: 30));
 
-        OrderedKeys<int, ItemIdentity, ItemState> keys =
-            Empty(descending: false, snapshot: snapshot).Add(key: 99, snapshot: snapshot);
+        OrderedKeys<int, ItemIdentity, ItemState> empty = Empty(isDescending: false, snapshot: snapshot);
 
-        await Assert.That(keys.Count).IsEqualTo(0);
+        await Assert.That(() => empty.Add(key: 99, snapshot: snapshot)).Throws<InvalidOperationException>();
+
+        await Assert.That(() => ByScore(isDescending: false).CreateFrom(keys: [1, 99], snapshot: snapshot))
+            .Throws<InvalidOperationException>();
+
+        await Assert
+            .That(() => KeyOrder<int, ItemIdentity, ItemState>.ByArrival().CreateFrom(keys: [99], snapshot: snapshot))
+            .Throws<InvalidOperationException>();
+
+        await Assert.That(() =>
+                KeyOrder<int, ItemIdentity, ItemState>.ByIdentity(static identity => identity.Code)
+                    .CreateFrom(keys: [99], snapshot: snapshot))
+            .Throws<InvalidOperationException>();
     }
 
     [Test]
@@ -202,14 +317,13 @@ public sealed class OrderedKeysTests
         // filing n keys one at a time is n persistent writes; it has to land them in the same
         // places.
         OrderedKeys<int, ItemIdentity, ItemState> inBulk =
-            ByScore(false).CreateFrom(keys: [1, 2, 3, 99], snapshot: snapshot);
+            ByScore(false).CreateFrom(keys: [1, 2, 3], snapshot: snapshot);
 
         OrderedKeys<int, ItemIdentity, ItemState> oneAtATime =
-            Empty(descending: false, snapshot: snapshot)
+            Empty(isDescending: false, snapshot: snapshot)
                 .Add(key: 1, snapshot: snapshot)
                 .Add(key: 2, snapshot: snapshot)
-                .Add(key: 3, snapshot: snapshot)
-                .Add(key: 99, snapshot: snapshot);
+                .Add(key: 3, snapshot: snapshot);
 
         await Assert.That(TestUtil.Keys(inBulk))
             .IsEquivalentTo(expected: [2, 3, 1], ordering: CollectionOrdering.Matching);
@@ -217,8 +331,6 @@ public sealed class OrderedKeysTests
         await Assert.That(TestUtil.Keys(inBulk))
             .IsEquivalentTo(expected: TestUtil.Keys(oneAtATime), ordering: CollectionOrdering.Matching);
 
-        // Including the key the snapshot does not have, which neither path files.
-        await Assert.That(inBulk.Contains(99)).IsFalse();
         await Assert.That(inBulk.IndexOfInternal(3)).IsEqualTo(1);
     }
 
@@ -231,7 +343,7 @@ public sealed class OrderedKeysTests
                 TestUtil.Item(number: 2, name: "two", score: 10));
 
         OrderedKeys<int, ItemIdentity, ItemState> keys =
-            Empty(descending: false, snapshot: before).Add(key: 1, snapshot: before).Add(key: 2, snapshot: before);
+            Empty(isDescending: false, snapshot: before).Add(key: 1, snapshot: before).Add(key: 2, snapshot: before);
 
         // The item's sort value has moved underneath the set. Removal still finds it, because the
         // entry carries the value it was filed under rather than being re-projected here.
@@ -257,7 +369,7 @@ public sealed class OrderedKeysTests
                 TestUtil.Item(number: 4, name: "four", score: 40),
                 TestUtil.Item(number: 5, name: "five", score: 50));
 
-        OrderedKeys<int, ItemIdentity, ItemState> keys = Empty(descending: false, snapshot: snapshot);
+        OrderedKeys<int, ItemIdentity, ItemState> keys = Empty(isDescending: false, snapshot: snapshot);
 
         // A sequence that adds, removes, re-adds and removes again, checked after every step. The
         // two structures are only ever written together, and this is what says so: Contains reads
@@ -293,7 +405,7 @@ public sealed class OrderedKeysTests
                 TestUtil.Item(number: 2, name: "two", score: 20));
 
         OrderedKeys<int, ItemIdentity, ItemState> keys =
-            Empty(descending: false, snapshot: before).Add(key: 1, snapshot: before).Add(key: 2, snapshot: before);
+            Empty(isDescending: false, snapshot: before).Add(key: 1, snapshot: before).Add(key: 2, snapshot: before);
 
         // The stages never do this - a re-file removes before it adds - but nothing about the type
         // says they must, and adding a key twice under two different sort values would put two

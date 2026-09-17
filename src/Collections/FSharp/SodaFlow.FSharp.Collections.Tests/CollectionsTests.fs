@@ -144,9 +144,7 @@ type ``Collections Tests``() =
             do! Expect.Sequence([ 3; 1; 2 ], keysOf sorted)
 
             let sortedThenUnsorted =
-                collection
-                |> sortBy (fun _ (state: ItemState) -> state.Score)
-                |> sortByArrival
+                collection |> sortBy (fun _ (state: ItemState) -> state.Score) |> sortByArrival
 
             do! Expect.Sequence([ 3; 1; 2 ], keysOf sortedThenUnsorted)
         }

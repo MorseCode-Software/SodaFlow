@@ -74,6 +74,7 @@ var mirroredInspectionSettings = new[]
     File("./samples/Counter/SodaFlow.Samples.Counter.sln.DotSettings"),
     File("./samples/Search/SodaFlow.Samples.Search.sln.DotSettings"),
     File("./samples/Bounce/SodaFlow.Samples.Bounce.sln.DotSettings"),
+    File("./samples/Accounts/SodaFlow.Samples.Accounts.sln.DotSettings"),
 };
 // Overridable so that a release can be rehearsed against a local folder feed - pass
 // --nuget-source=<path> - without the rehearsal being one typo away from a real publish. nuget.org

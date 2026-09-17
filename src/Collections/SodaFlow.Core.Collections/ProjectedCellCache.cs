@@ -44,8 +44,8 @@ internal sealed class ProjectedCellCache<TKey, TProjected>
     ///     create one when this yields nothing and a null coalesce says that in one line.
     /// </remarks>
     internal Cell<TProjected>? Get(TKey key) =>
-        this.cells.TryGetValue(key: key, value: out WeakReference<Cell<TProjected>>? reference) &&
-        reference.TryGetTarget(out Cell<TProjected>? cached)
+        this.cells.TryGetValue(key: key, value: out WeakReference<Cell<TProjected>>? reference)
+        && reference.TryGetTarget(out Cell<TProjected>? cached)
             ? cached
             : null;
 

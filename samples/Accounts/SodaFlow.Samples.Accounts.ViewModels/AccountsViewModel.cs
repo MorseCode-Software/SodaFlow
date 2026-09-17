@@ -23,7 +23,7 @@ internal enum AccountColumn
     Holder,
 
     /// <summary>The balance, which is the part that moves.</summary>
-    Balance,
+    Balance
 }
 
 /// <summary>Which column the list is sorted by, and which way.</summary>
@@ -40,10 +40,21 @@ internal enum AccountColumn
 ///     </para>
 /// </remarks>
 /// <param name="Column">The column the list is sorted by.</param>
-/// <param name="Descending">Whether it runs from the largest down.</param>
+/// <param name="IsDescending">Whether it runs from the largest down.</param>
 // ReSharper disable once InheritdocConsiderUsage
-internal sealed record SortSelection(AccountColumn Column, bool Descending)
+internal sealed record SortSelection(AccountColumn Column, bool IsDescending)
 {
+    /// <summary>How holders compare, as one instance rather than read afresh for each order.</summary>
+    /// <remarks>
+    ///     <see cref="StringComparer.CurrentCultureIgnoreCase" /> builds a new comparer every time it
+    ///     is read, and a sort stage recognizes the order it already holds - or holds reversed, which
+    ///     it sorts again with the holders it already read instead of reading every one again - only
+    ///     when the new one was built from the same selector and comparer instances. Reading it inline
+    ///     would read and file every holder again on each click of the same header. The culture is the
+    ///     one in force when this is first used.
+    /// </remarks>
+    private static readonly IComparer<string> HolderComparer = StringComparer.CurrentCultureIgnoreCase;
+
     /// <summary>This selection as an order the sort stage can hold.</summary>
     /// <remarks>
     ///     Three orders projecting sort values of three types - an <c>int</c>, a <c>string</c> and
@@ -59,17 +70,17 @@ internal sealed record SortSelection(AccountColumn Column, bool Descending)
                 selector: static identity => identity.Number,
                 sortComparer: Comparer<int>.Default,
                 keyComparer: Comparer<int>.Default,
-                descending: this.Descending),
+                isDescending: this.IsDescending),
             AccountColumn.Holder => AccountOrder.ByIdentity(
                 selector: static identity => identity.Holder,
-                sortComparer: StringComparer.CurrentCultureIgnoreCase,
+                sortComparer: HolderComparer,
                 keyComparer: Comparer<int>.Default,
-                descending: this.Descending),
+                isDescending: this.IsDescending),
             _ => AccountOrder.By(
                 selector: static (_, state) => state.Balance,
                 sortComparer: Comparer<long>.Default,
                 keyComparer: Comparer<int>.Default,
-                descending: this.Descending),
+                isDescending: this.IsDescending)
         };
 
     /// <summary>What clicking a header does: the same column reverses, another one selects.</summary>
@@ -82,19 +93,19 @@ internal sealed record SortSelection(AccountColumn Column, bool Descending)
         return sortSelection.Match(
             onSome: sortSelection =>
                 column == sortSelection.Column
-                    ? sortSelection with { Descending = !sortSelection.Descending }
+                    ? sortSelection with { IsDescending = !sortSelection.IsDescending }
                     : CreateNewSortSelection(column),
             onNone: () => CreateNewSortSelection(column));
 
         static SortSelection CreateNewSortSelection(AccountColumn column) =>
-            new(Column: column, Descending: column == AccountColumn.Balance);
+            new(Column: column, IsDescending: column == AccountColumn.Balance);
     }
 
     /// <summary>A header's caption, marked if it is the column in force.</summary>
     internal static string Caption(Maybe<SortSelection> sortSelection, AccountColumn column, string name) =>
         name + sortSelection.Match(
             onSome: sortSelection =>
-                column == sortSelection.Column ? sortSelection.Descending ? " \u25bc" : " \u25b2" : string.Empty,
+                column == sortSelection.Column ? sortSelection.IsDescending ? " \u25bc" : " \u25b2" : string.Empty,
             onNone: static () => string.Empty);
 }
 
@@ -312,7 +323,7 @@ public sealed class AccountsViewModel : IAccountsViewModel
                     {
                         sortByNumber.MapTo(AccountColumn.Number),
                         sortByHolder.MapTo(AccountColumn.Holder),
-                        sortByBalance.MapTo(AccountColumn.Balance),
+                        sortByBalance.MapTo(AccountColumn.Balance)
                     }
                     .OrElse()
                     .Accum(
@@ -376,7 +387,7 @@ public sealed class AccountsViewModel : IAccountsViewModel
                     {
                         nextPage.MapTo(static (int at) => at + PageSize),
                         previousPage.MapTo(static (int at) => at - PageSize),
-                        showFrozen.Updates().MapTo(static (int _) => 0),
+                        showFrozen.Updates().MapTo(static (int _) => 0)
                     }
                     .OrElse()
                     .Accum(initialState: 0, f: static (move, at) => Math.Max(val1: 0, val2: move(at)));
@@ -559,7 +570,7 @@ public sealed class AccountsViewModel : IAccountsViewModel
 
         foreach (KeyValuePair<int, AccountState> pair in change.NewStates)
         {
-            if (change.Before.States.TryGetState(key: pair.Key, state: out AccountState was))
+            if (change.Before.States.TryGetState(key: pair.Key, state: out AccountState? was))
             {
                 delta -= was.Balance;
             }
@@ -569,7 +580,7 @@ public sealed class AccountsViewModel : IAccountsViewModel
 
         foreach (int key in change.Removed)
         {
-            if (change.Before.States.TryGetState(key: key, state: out AccountState was))
+            if (change.Before.States.TryGetState(key: key, state: out AccountState? was))
             {
                 delta -= was.Balance;
             }

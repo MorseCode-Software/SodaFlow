@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using System.Collections.Immutable;
+using System.Diagnostics.CodeAnalysis;
 using JetBrains.Annotations;
 
 namespace SodaFlow.Collections;
@@ -73,12 +74,19 @@ public abstract class StateMap<TKey, TState>
     /// <param name="key">The key to look up.</param>
     /// <param name="state">The state stored under it, when this returns true.</param>
     /// <returns><see langword="true" /> if the key is present.</returns>
-    public abstract bool TryGetState(TKey key, out TState state);
+    public abstract bool TryGetState(TKey key, [NotNullWhen(true)] out TState? state);
 
     /// <summary>Whether a key is present in this version of the map.</summary>
     /// <param name="key">The key to look for.</param>
     /// <returns><see langword="true" /> if the key is present.</returns>
     public abstract bool ContainsKey(TKey key);
+}
+
+internal static class ImmutableStateMap<TState>
+{
+    internal static ImmutableStateMap<TKey, TState> Create<TKey>(IEqualityComparer<TKey> keyEqualityComparer)
+        where TKey : notnull =>
+        new(keyEqualityComparer);
 }
 
 /// <summary>
@@ -95,11 +103,12 @@ internal sealed class ImmutableStateMap<TKey, TState> : StateMap<TKey, TState>
 {
     private readonly ImmutableDictionary<TKey, TState> states;
 
-    private ImmutableStateMap(ImmutableDictionary<TKey, TState> states) => this.states = states;
+    internal ImmutableStateMap(IEqualityComparer<TKey> keyEqualityComparer)
+        : this(ImmutableDictionary<TKey, TState>.Empty.WithComparers(keyEqualityComparer))
+    {
+    }
 
-    /// <summary>The empty map, which every collection starts from unless told otherwise.</summary>
-    public static ImmutableStateMap<TKey, TState> Empty { get; } =
-        new(ImmutableDictionary<TKey, TState>.Empty);
+    private ImmutableStateMap(ImmutableDictionary<TKey, TState> states) => this.states = states;
 
     /// <inheritdoc />
     public override int Count => this.states.Count;
@@ -112,7 +121,8 @@ internal sealed class ImmutableStateMap<TKey, TState> : StateMap<TKey, TState>
     public override IEnumerable<KeyValuePair<TKey, TState>> Pairs => this.states;
 
     /// <inheritdoc />
-    public override bool TryGetState(TKey key, out TState state) => this.states.TryGet(key: key, value: out state);
+    public override bool TryGetState(TKey key, [NotNullWhen(true)] out TState? state) =>
+        this.states.TryGet(key: key, value: out state);
 
     /// <inheritdoc />
     public override bool ContainsKey(TKey key) => this.states.ContainsKey(key);

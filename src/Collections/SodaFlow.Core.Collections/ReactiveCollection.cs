@@ -67,6 +67,11 @@ public abstract class ReactiveCollection<TKey, TIdentity, TState>
     }
 
     /// <summary>This collection's keys, in order.</summary>
+    /// <remarks>
+    ///     Moves only when this collection's membership or order does. A state edit that re-files
+    ///     nothing reaches <see cref="KeyChangesStream" /> as an update and leaves this alone, so a
+    ///     list projected from it is not rebuilt for an edit that moved no row.
+    /// </remarks>
     public abstract Cell<OrderedKeys<TKey, TIdentity, TState>> KeysCell { get; }
 
     /// <summary>
@@ -107,7 +112,7 @@ public abstract class ReactiveCollection<TKey, TIdentity, TState>
     ///     Internal because a view has nothing to want it for. It is here so that the per-item cell
     ///     caches can be reached where they live.
     /// </remarks>
-    internal abstract ReactiveCollection<TKey, TIdentity, TState> Root { get; }
+    internal abstract RootCollection<TKey, TIdentity, TState> Root { get; }
 
     /// <summary>
     ///     Defines a collection from its initial contents and every stream that will ever edit it.
@@ -128,8 +133,88 @@ public abstract class ReactiveCollection<TKey, TIdentity, TState>
         Func<TIdentity, TKey> keySelector,
         IEnumerable<Item<TIdentity, TState>> initialItems,
         params Stream<CollectionEdit<TKey, TIdentity, TState>>[] editStreams) =>
+        Create(
+            keySelector: keySelector,
+            keyEqualityComparer: EqualityComparer<TKey>.Default,
+            initialItems: initialItems,
+            editStreams: editStreams);
+
+    /// <summary>
+    ///     Defines a collection from its initial contents and every stream that will ever edit it.
+    ///     There is no imperative entry point: what can change the collection is fixed here, at
+    ///     construction, and is visible in one place.
+    /// </summary>
+    /// <param name="keySelector">Derives an item's key from its immutable portion.</param>
+    /// <param name="keyEqualityComparer">The equality comparer for keys.</param>
+    /// <param name="initialItems">The collection's initial contents.</param>
+    /// <param name="editStreams">Every stream that will ever edit the collection.</param>
+    /// <returns>The collection.</returns>
+    /// <remarks>
+    ///     Use <see cref="CollectionEdit{TKey,TIdentity,TState}" />'s lifting factories to turn
+    ///     domain streams into edits. Where the edits depend on something derived from the
+    ///     collection itself, close the circle with a stream loop at the call site rather than
+    ///     reaching for a sink.
+    /// </remarks>
+    public static ReactiveCollection<TKey, TIdentity, TState> Create(
+        Func<TIdentity, TKey> keySelector,
+        IEqualityComparer<TKey> keyEqualityComparer,
+        IEnumerable<Item<TIdentity, TState>> initialItems,
+        params Stream<CollectionEdit<TKey, TIdentity, TState>>[] editStreams) =>
+        Create(
+            keySelector: keySelector,
+            keyEqualityComparer: keyEqualityComparer,
+            initialItems: CellInternal.ConstantImpl(initialItems),
+            editStreams: editStreams);
+
+    /// <summary>
+    ///     Defines a collection from its initial contents and every stream that will ever edit it.
+    ///     There is no imperative entry point: what can change the collection is fixed here, at
+    ///     construction, and is visible in one place.
+    /// </summary>
+    /// <param name="keySelector">Derives an item's key from its immutable portion.</param>
+    /// <param name="initialItems">The collection's initial contents, sampled lazily.</param>
+    /// <param name="editStreams">Every stream that will ever edit the collection.</param>
+    /// <returns>The collection.</returns>
+    /// <remarks>
+    ///     Use <see cref="CollectionEdit{TKey,TIdentity,TState}" />'s lifting factories to turn
+    ///     domain streams into edits. Where the edits depend on something derived from the
+    ///     collection itself, close the circle with a stream loop at the call site rather than
+    ///     reaching for a sink.
+    /// </remarks>
+    public static ReactiveCollection<TKey, TIdentity, TState> Create(
+        Func<TIdentity, TKey> keySelector,
+        Cell<IEnumerable<Item<TIdentity, TState>>> initialItems,
+        params Stream<CollectionEdit<TKey, TIdentity, TState>>[] editStreams) =>
+        Create(
+            keySelector: keySelector,
+            keyEqualityComparer: EqualityComparer<TKey>.Default,
+            initialItems: initialItems,
+            editStreams: editStreams);
+
+    /// <summary>
+    ///     Defines a collection from its initial contents and every stream that will ever edit it.
+    ///     There is no imperative entry point: what can change the collection is fixed here, at
+    ///     construction, and is visible in one place.
+    /// </summary>
+    /// <param name="keySelector">Derives an item's key from its immutable portion.</param>
+    /// <param name="keyEqualityComparer">The equality comparer for keys.</param>
+    /// <param name="initialItems">The collection's initial contents, sampled lazily.</param>
+    /// <param name="editStreams">Every stream that will ever edit the collection.</param>
+    /// <returns>The collection.</returns>
+    /// <remarks>
+    ///     Use <see cref="CollectionEdit{TKey,TIdentity,TState}" />'s lifting factories to turn
+    ///     domain streams into edits. Where the edits depend on something derived from the
+    ///     collection itself, close the circle with a stream loop at the call site rather than
+    ///     reaching for a sink.
+    /// </remarks>
+    public static ReactiveCollection<TKey, TIdentity, TState> Create(
+        Func<TIdentity, TKey> keySelector,
+        IEqualityComparer<TKey> keyEqualityComparer,
+        Cell<IEnumerable<Item<TIdentity, TState>>> initialItems,
+        params Stream<CollectionEdit<TKey, TIdentity, TState>>[] editStreams) =>
         RootCollection<TKey, TIdentity, TState>.CreateImpl(
             keySelector: keySelector,
+            keyEqualityComparer: keyEqualityComparer,
             initialEntries: initialItems,
             editStreams: editStreams);
 

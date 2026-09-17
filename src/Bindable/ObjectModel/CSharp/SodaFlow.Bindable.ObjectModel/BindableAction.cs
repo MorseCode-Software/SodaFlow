@@ -41,8 +41,11 @@ public static partial class BindableExtensionMethods
 
         private static InvalidOperationException GetInvalidTypeException() =>
             new(
-                "The command parameter must be of type " + typeof(T).FullName + ", " + typeof(Maybe<T>).FullName +
-                ", or null.");
+                "The command parameter must be of type "
+                + typeof(T).FullName
+                + ", "
+                + typeof(Maybe<T>).FullName
+                + ", or null.");
 
         /// <inheritdoc />
         /// <remarks>A parameterless command ignores its parameter, so nothing can be mistyped.</remarks>

@@ -89,7 +89,7 @@ public static class CollectionExtensionMethods
         TKey key)
         where TKey : notnull
         where TIdentity : notnull =>
-        snapshot.TryGetItem(key: key, item: out Item<TIdentity, TState>? item) && item is not null
+        snapshot.TryGetItem(key: key, item: out Item<TIdentity, TState>? item)
             ? Maybe.Some(item)
             : Maybe<Item<TIdentity, TState>>.None;
 
@@ -105,7 +105,7 @@ public static class CollectionExtensionMethods
         this StateMap<TKey, TState> states,
         TKey key)
         where TKey : notnull =>
-        states.TryGetState(key: key, state: out TState state) ? Maybe.Some(state) : Maybe<TState>.None;
+        states.TryGetState(key: key, state: out TState? state) ? Maybe.Some(state) : Maybe<TState>.None;
 
     /// <summary>
     ///     What a change did to one key. The nesting is deliberate and the two levels mean
@@ -127,7 +127,7 @@ public static class CollectionExtensionMethods
         where TKey : notnull
         where TIdentity : notnull
     {
-        if (change.TryGetNewState(key: key, state: out TState state))
+        if (change.TryGetNewState(key: key, state: out TState? state))
         {
             return Maybe.Some(Maybe.Some(state));
         }
