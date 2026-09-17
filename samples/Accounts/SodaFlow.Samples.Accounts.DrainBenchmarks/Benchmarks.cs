@@ -13,19 +13,11 @@ public static class ViewModels
     /// <summary>b1398a3's AccountsViewModelOptimizedDrain: an ImmutableHashSet folded over item changes.</summary>
     public const string OptimizedDrain = "OptimizedDrain";
 
-    /// <summary>Review variant: the same hash set, updated in one pass with a builder only when needed.</summary>
-    public const string TunedSet = "TunedSet";
-
-    /// <summary>Review variant: a count folded over item changes, and the keys found at drain time.</summary>
-    public const string CountAndScan = "CountAndScan";
-
     public static IAccountsViewModel Create(string name) =>
         name switch
         {
             Original => AccountsViewModel.Create(),
             OptimizedDrain => AccountsViewModelOptimizedDrain.Create(),
-            TunedSet => AccountsViewModelTunedSet.Create(),
-            CountAndScan => AccountsViewModelCountAndScan.Create(),
             _ => throw new ArgumentOutOfRangeException(nameof(name), name, "Unknown view model."),
         };
 }
@@ -52,7 +44,7 @@ public class PayBenchmarks
     private decimal deposit;
     private long pays;
 
-    [Params(ViewModels.Original, ViewModels.OptimizedDrain, ViewModels.TunedSet, ViewModels.CountAndScan)]
+    [Params(ViewModels.Original, ViewModels.OptimizedDrain)]
     public string ViewModel { get; set; } = ViewModels.Original;
 
     [Params(false, true)]
@@ -147,7 +139,7 @@ public class DrainBenchmarks
 {
     private IAccountsViewModel? viewModel;
 
-    [Params(ViewModels.Original, ViewModels.OptimizedDrain, ViewModels.TunedSet, ViewModels.CountAndScan)]
+    [Params(ViewModels.Original, ViewModels.OptimizedDrain)]
     public string ViewModel { get; set; } = ViewModels.Original;
 
     [IterationSetup]
@@ -205,8 +197,8 @@ public class ToggleFrozenBenchmarks
     private IReadOnlyList<IAccountRowViewModel>? rowsBefore;
     private bool initialShowFrozen;
 
-    [Params(ViewModels.OptimizedDrain, ViewModels.TunedSet)]
-    public string ViewModel { get; set; } = ViewModels.TunedSet;
+    [Params(ViewModels.Original, ViewModels.OptimizedDrain)]
+    public string ViewModel { get; set; } = ViewModels.Original;
 
     [IterationSetup]
     public void Setup()
@@ -261,8 +253,8 @@ public class ToggleBalanceSortBenchmarks
     private IAccountsViewModel? viewModel;
     private IReadOnlyList<IAccountRowViewModel>? rowsBefore;
 
-    [Params(ViewModels.OptimizedDrain, ViewModels.TunedSet)]
-    public string ViewModel { get; set; } = ViewModels.TunedSet;
+    [Params(ViewModels.Original, ViewModels.OptimizedDrain)]
+    public string ViewModel { get; set; } = ViewModels.Original;
 
     [IterationSetup]
     public void Setup()
