@@ -31,6 +31,12 @@ namespace SodaFlow.Samples.Accounts.ViewModels;
 ///         line here and the difference between them is invisible in the code, which is why the
 ///         reference page spells the costs out.
 ///     </para>
+///     <para>
+///         The graph is <see cref="AccountsViewModel" />'s but for one thing: the accounts a drain
+///         empties are kept as a set of keys folded over the collection's item changes, rather than
+///         as a second filtered view. The set holds only keys and is not kept in any order, and it
+///         measures cheaper both to hold and to drain from.
+///     </para>
 /// </remarks>
 // ReSharper disable once InheritdocConsiderUsage
 public sealed class AccountsViewModelOptimizedDrain : IAccountsViewModel
@@ -203,12 +209,9 @@ public sealed class AccountsViewModelOptimizedDrain : IAccountsViewModel
 
             // Every frozen account with something left in it, across the whole collection rather
             // than the page or the filter, because a drain empties accounts nobody is looking at.
-            // A second view over the same accounts, kept current alongside the first: the
-            // predicate reads only the state it is handed, so an edit to one account costs this
-            // view one test of that account.
-            //ReactiveCollection<int, AccountIdentity, AccountState> drainable =
-            //accounts.Filter(static (_, state) => state.IsFrozen && state.Balance != 0);
-
+            // A set of keys folded over the item changes rather than a second view: a drain needs
+            // only which accounts, not in what order, and an edit costs the fold one test of each
+            // account it names.
             Cell<ImmutableHashSet<int>> drainableAccountKeys =
                 accounts.ItemChangesStream.AccumLazy(
                     initialState: accounts.SnapshotCell.SampleLazy()
