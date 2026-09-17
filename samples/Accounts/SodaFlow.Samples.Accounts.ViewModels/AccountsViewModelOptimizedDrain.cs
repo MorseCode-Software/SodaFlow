@@ -267,8 +267,11 @@ public sealed class AccountsViewModelOptimizedDrain : IAccountsViewModel
                         return builder?.ToImmutable() ?? drainableAccountKeys;
                     });
 
+            // Calmed because the set moves on every edit that reaches it - a Pay into an active account
+            // hands back the same set - and without it each one would recompute the same answer and
+            // wake the command's enablement for nothing.
             Cell<bool> canDrain =
-                drainableAccountKeys.Map(static drainableAccountKeys => drainableAccountKeys.Count > 0);
+                drainableAccountKeys.Map(static drainableAccountKeys => drainableAccountKeys.Count > 0).Calm();
 
             // Gated in the graph as well as disabled on the command, for the reason a row's
             // deposit is. The keys are read in the same transaction the edit lands in, so what is
