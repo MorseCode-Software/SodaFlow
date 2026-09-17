@@ -52,6 +52,9 @@ public sealed class AccountsViewModelOptimizedDrain : IAccountsViewModel
 
     private readonly IReadOnlyList<IDisposable> disposables;
 
+    private readonly Stream<CollectionEdit<int, AccountIdentity, AccountState>> deposits;
+    private readonly Stream<CollectionEdit<int, AccountIdentity, AccountState>> drains;
+
     private AccountsViewModelOptimizedDrain(
         IOneWayBindableValue<IReadOnlyList<IAccountRowViewModel>> rows,
         IOneWayBindableValue<string> total,
@@ -67,6 +70,8 @@ public sealed class AccountsViewModelOptimizedDrain : IAccountsViewModel
         IBindableAction sortByNumber,
         IBindableAction sortByHolder,
         IBindableAction sortByBalance,
+        Stream<CollectionEdit<int, AccountIdentity, AccountState>> deposits,
+        Stream<CollectionEdit<int, AccountIdentity, AccountState>> drains,
         MappedItems<AccountRowViewModel> projectedRows)
     {
         this.Rows = rows;
@@ -83,6 +88,8 @@ public sealed class AccountsViewModelOptimizedDrain : IAccountsViewModel
         this.SortByNumber = sortByNumber;
         this.SortByHolder = sortByHolder;
         this.SortByBalance = sortByBalance;
+        this.deposits = deposits;
+        this.drains = drains;
 
         // The projection is in here too. Disposing it releases every row it still holds, which is
         // the ones that never left the view and so never triggered the eviction callback.
@@ -164,237 +171,249 @@ public sealed class AccountsViewModelOptimizedDrain : IAccountsViewModel
 
     public static IAccountsViewModel Create() =>
         Transaction.Run(static () =>
-        {
-            StreamSink<Unit> nextPage = Stream.CreateSink<Unit>();
-            StreamSink<Unit> previousPage = Stream.CreateSink<Unit>();
-            StreamSink<Unit> drainFrozenAccounts = Stream.CreateSink<Unit>();
-            StreamSink<Unit> sortByNumber = Stream.CreateSink<Unit>();
-            StreamSink<Unit> sortByHolder = Stream.CreateSink<Unit>();
-            StreamSink<Unit> sortByBalance = Stream.CreateSink<Unit>();
+            ForwardReference<AccountsViewModelOptimizedDrain>.WithoutCaptures(static viewModelLoop =>
+            {
+                StreamSink<Unit> nextPage = Stream.CreateSink<Unit>();
+                StreamSink<Unit> previousPage = Stream.CreateSink<Unit>();
+                StreamSink<Unit> drainFrozenAccounts = Stream.CreateSink<Unit>();
+                StreamSink<Unit> sortByNumber = Stream.CreateSink<Unit>();
+                StreamSink<Unit> sortByHolder = Stream.CreateSink<Unit>();
+                StreamSink<Unit> sortByBalance = Stream.CreateSink<Unit>();
 
-            // A switch holds its own position, so this is a value the view writes rather than a
-            // command whose presses are counted.
-            CellSink<bool> showFrozen = Cell.CreateSink(false);
+                // A switch holds its own position, so this is a value the view writes rather than a
+                // command whose presses are counted.
+                CellSink<bool> showFrozen = Cell.CreateSink(false);
 
-            // One piece of state for the whole header row: which column, and which way. Three
-            // buttons become one stream of columns, and the selection folds over it.
-            Cell<Maybe<SortSelection>> sort =
-                new[]
-                    {
-                        sortByNumber.MapTo(AccountColumn.Number),
-                        sortByHolder.MapTo(AccountColumn.Holder),
-                        sortByBalance.MapTo(AccountColumn.Balance)
-                    }
-                    .OrElse()
-                    .Accum(
-                        initialState:
-                        Maybe<SortSelection>.None,
-                        f: static (column, current) =>
-                            Maybe.Some(SortSelection.UpdateSort(sortSelection: current, column: column)));
-
-            // Each row pays into its own account, so the edits come from the rows, and the rows
-            // come from the collection the edits are for. That is a real cycle and the loop is how
-            // it is closed - declared here, tied off once the rows exist.
-            StreamLoop<CollectionEdit<int, AccountIdentity, AccountState>> deposits =
-                Stream.CreateLoop<CollectionEdit<int, AccountIdentity, AccountState>>();
-
-            // The drain is the same shape of cycle: which accounts it empties is read from the
-            // collection it empties them in.
-            StreamLoop<CollectionEdit<int, AccountIdentity, AccountState>> drains =
-                Stream.CreateLoop<CollectionEdit<int, AccountIdentity, AccountState>>();
-
-            // No key selector: AccountIdentity implements IIdentity<int>.
-            ReactiveCollection<int, AccountIdentity, AccountState> accounts =
-                ReactiveCollection.Create(initialEntries: AccountSeed.Items, deposits, drains);
-
-            // Every frozen account with something left in it, across the whole collection rather
-            // than the page or the filter, because a drain empties accounts nobody is looking at.
-            // A set of keys folded over the item changes rather than a second view: a drain needs
-            // only which accounts, not in what order, and an edit costs the fold one test of each
-            // account it names.
-            Cell<ImmutableHashSet<int>> drainableAccountKeys =
-                accounts.ItemChangesStream.AccumLazy(
-                    initialState: accounts.SnapshotCell.SampleLazy()
-                        .Map(static snapshot =>
-                            snapshot.States.Pairs.Where(static pair => CanDrain(pair.Value))
-                                .Select(static pair => pair.Key)
-                                .ToImmutableHashSet()),
-                    f: static (changes, drainableAccountKeys) =>
-                    {
-                        // Contains on the set as it stands until a key's membership moves, so an
-                        // edit that moves none - a Pay, which is nearly every edit - allocates
-                        // nothing and hands back the same set. From the first key that does move,
-                        // the builder is used directly: its Add and Remove already do nothing for
-                        // a key that is where it should be, so a Drain looks each key up once.
-                        ImmutableHashSet<int>.Builder? builder = null;
-
-                        foreach (KeyValuePair<int, AccountState> pair in changes.NewStates)
+                // One piece of state for the whole header row: which column, and which way. Three
+                // buttons become one stream of columns, and the selection folds over it.
+                Cell<Maybe<SortSelection>> sort =
+                    new[]
                         {
-                            bool drainable = CanDrain(pair.Value);
+                            sortByNumber.MapTo(AccountColumn.Number),
+                            sortByHolder.MapTo(AccountColumn.Holder),
+                            sortByBalance.MapTo(AccountColumn.Balance)
+                        }
+                        .OrElse()
+                        .Accum(
+                            initialState:
+                            Maybe<SortSelection>.None,
+                            f: static (column, current) =>
+                                Maybe.Some(SortSelection.UpdateSort(sortSelection: current, column: column)));
 
-                            if (builder is null)
+                // Each row pays into its own account, so the edits come from the rows, and the rows
+                // come from the collection the edits are for. That is a real cycle and the loop is how
+                // it is closed - declared here, tied off once the rows exist.
+                Stream<CollectionEdit<int, AccountIdentity, AccountState>> depositsLoop =
+                    viewModelLoop.Map(static viewModel => viewModel.deposits).SwitchS();
+
+                // The drain is the same shape of cycle: which accounts it empties is read from the
+                // collection it empties them in.
+                Stream<CollectionEdit<int, AccountIdentity, AccountState>> drainsLoop =
+                    viewModelLoop.Map(static viewModel => viewModel.drains).SwitchS();
+
+                // No key selector: AccountIdentity implements IIdentity<int>.
+                ReactiveCollection<int, AccountIdentity, AccountState> accounts =
+                    ReactiveCollection.Create(initialEntries: AccountSeed.Items, depositsLoop, drainsLoop);
+
+                // Every frozen account with something left in it, across the whole collection rather
+                // than the page or the filter, because a drain empties accounts nobody is looking at.
+                // A second view over the same accounts, kept current alongside the first: the
+                // predicate reads only the state it is handed, so an edit to one account costs this
+                // view one test of that account.
+                Cell<ImmutableHashSet<int>> drainableAccountKeys =
+                    accounts.ItemChangesStream.AccumLazy(
+                        initialState: accounts.SnapshotCell.SampleLazy()
+                            .Map(static snapshot =>
+                                snapshot.States.Pairs.Where(static pair => CanDrain(pair.Value))
+                                    .Select(static pair => pair.Key)
+                                    .ToImmutableHashSet()),
+                        f: static (changes, drainableAccountKeys) =>
+                        {
+                            // Contains on the set as it stands until a key's membership moves, so an
+                            // edit that moves none - a Pay, which is nearly every edit - allocates
+                            // nothing and hands back the same set. From the first key that does move,
+                            // the builder is used directly: its Add and Remove already do nothing for
+                            // a key that is where it should be, so a Drain looks each key up once.
+                            ImmutableHashSet<int>.Builder? builder = null;
+
+                            foreach (KeyValuePair<int, AccountState> pair in changes.NewStates)
                             {
-                                if (drainable == drainableAccountKeys.Contains(pair.Key))
+                                bool drainable = CanDrain(pair.Value);
+
+                                if (builder is null)
                                 {
-                                    continue;
+                                    if (drainable == drainableAccountKeys.Contains(pair.Key))
+                                    {
+                                        continue;
+                                    }
+
+                                    builder = drainableAccountKeys.ToBuilder();
                                 }
 
-                                builder = drainableAccountKeys.ToBuilder();
-                            }
-
-                            if (drainable)
-                            {
-                                builder.Add(pair.Key);
-                            }
-                            else
-                            {
-                                builder.Remove(pair.Key);
-                            }
-                        }
-
-                        foreach (int key in changes.Removed)
-                        {
-                            if (builder is null)
-                            {
-                                if (!drainableAccountKeys.Contains(key))
+                                if (drainable)
                                 {
-                                    continue;
+                                    builder.Add(pair.Key);
+                                }
+                                else
+                                {
+                                    builder.Remove(pair.Key);
+                                }
+                            }
+
+                            foreach (int key in changes.Removed)
+                            {
+                                if (builder is null)
+                                {
+                                    if (!drainableAccountKeys.Contains(key))
+                                    {
+                                        continue;
+                                    }
+
+                                    builder = drainableAccountKeys.ToBuilder();
                                 }
 
-                                builder = drainableAccountKeys.ToBuilder();
+                                builder.Remove(key);
                             }
 
-                            builder.Remove(key);
+                            return builder?.ToImmutable() ?? drainableAccountKeys;
+                        });
+
+                // Calmed because the set moves on every edit that reaches it - a Pay into an active account
+                // hands back the same set - and without it each one would recompute the same answer and
+                // wake the command's enablement for nothing.
+                Cell<bool> canDrain =
+                    drainableAccountKeys.Map(static drainableAccountKeys => drainableAccountKeys.Count > 0).Calm();
+
+                // Gated in the graph as well as disabled on the command, for the reason a row's
+                // deposit is. The keys are read in the same transaction the edit lands in, so what is
+                // emptied is exactly what was frozen and non-empty at the moment of the click.
+                Stream<CollectionEdit<int, AccountIdentity, AccountState>> drains =
+                    drainFrozenAccounts
+                        .Gate(canDrain)
+                        .Snapshot(
+                            c: drainableAccountKeys,
+                            f: static (_, drainableAccountKeys) =>
+                                Drain(drainableAccountKeys));
+
+                // The sort takes its order from a cell, so clicking a header re-files this stage
+                // rather than building a second chain and choosing between the two. The three orders
+                // sort by an int, a string and a long, and one cell holds all of them: an order keeps
+                // its sort value's type to itself.
+                ReactiveCollection<int, AccountIdentity, AccountState> filtered =
+                    accounts
+                        .Filter(
+                            criteriaCell: showFrozen,
+                            predicate: static (showing, _, state) => showing || !state.IsFrozen)
+                        .SortBy(
+                            sort.Map(static selection =>
+                                selection.Map(static selection => selection.Order).ValueOr(AccountOrder.ByArrival)));
+
+                // Paging moves an offset. Toggling the filter sends it back to the first page, because
+                // an offset that outlived the rows it pointed at would show an empty list. Sorting
+                // deliberately does not: it reorders the same members rather than choosing different
+                // ones, so every offset that was valid before it still is.
+                Cell<int> offset =
+                    new[]
+                        {
+                            nextPage.MapTo(static (int at) => at + PageSize),
+                            previousPage.MapTo(static (int at) => at - PageSize),
+                            showFrozen.Updates().MapTo(static (int _) => 0)
                         }
+                        .OrElse()
+                        .Accum(initialState: 0, f: static (move, at) => Math.Max(val1: 0, val2: move(at)));
 
-                        return builder?.ToImmutable() ?? drainableAccountKeys;
-                    });
+                ReactiveCollection<int, AccountIdentity, AccountState> page =
+                    filtered.Slice(offsetCell: offset, limitCell: Cell.Constant(PageSize));
 
-            // Calmed because the set moves on every edit that reaches it - a Pay into an active account
-            // hands back the same set - and without it each one would recompute the same answer and
-            // wake the command's enablement for nothing.
-            Cell<bool> canDrain =
-                drainableAccountKeys.Map(static drainableAccountKeys => drainableAccountKeys.Count > 0).Calm();
+                // One row object per account, in the page's order. Map keeps them, so a deposit that
+                // moves one balance leaves this list alone: the row follows its own account and the
+                // list only moves when the page's membership or order does.
+                //
+                // The rows own bindables, so eviction disposes them. Nothing here has to know when
+                // that happens - which is the point of the callback being where the projection is.
+                MappedItems<AccountRowViewModel> rows =
+                    page.Map(
+                        project: key => Row(page: page, key: key),
+                        onEvicted: static row => row.Dispose());
 
-            // Gated in the graph as well as disabled on the command, for the reason a row's
-            // deposit is. The keys are read in the same transaction the edit lands in, so what is
-            // emptied is exactly what was frozen and non-empty at the moment of the click.
-            drains.Loop(
-                drainFrozenAccounts
-                    .Gate(canDrain)
-                    .Snapshot(
-                        c: drainableAccountKeys,
-                        f: static (_, drainableAccountKeys) =>
-                            Drain(drainableAccountKeys)));
+                // The deposits are whatever the rows on the page are sending. Which rows those are
+                // moves with the page, so the merge is rebuilt from each version of the list and
+                // switched to: a row that has left the page is no longer listened to, whether or not
+                // it has been evicted yet. A page holds six rows, so the rebuild is six streams.
+                Stream<CollectionEdit<int, AccountIdentity, AccountState>> deposits =
+                    rows.Items
+                        .Map(static items => items.Select(static row => row.DepositsStream).OrElse())
+                        .SwitchS();
 
-            // The sort takes its order from a cell, so clicking a header re-files this stage
-            // rather than building a second chain and choosing between the two. The three orders
-            // sort by an int, a string and a long, and one cell holds all of them: an order keeps
-            // its sort value's type to itself.
-            ReactiveCollection<int, AccountIdentity, AccountState> filtered =
-                accounts
-                    .Filter(
-                        criteriaCell: showFrozen,
-                        predicate: static (showing, _, state) => showing || !state.IsFrozen)
-                    .SortBy(
-                        sort.Map(static selection =>
-                            selection.Map(static selection => selection.Order).ValueOr(AccountOrder.ByArrival)));
+                // The total is folded from what changed rather than recomputed from the store. The
+                // change carries both sides of it, so a delta needs nothing kept alongside.
+                long initialTotal = AccountSeed.Items.Sum(static item => item.State.Balance);
 
-            // Paging moves an offset. Toggling the filter sends it back to the first page, because
-            // an offset that outlived the rows it pointed at would show an empty list. Sorting
-            // deliberately does not: it reorders the same members rather than choosing different
-            // ones, so every offset that was valid before it still is.
-            Cell<int> offset =
-                new[]
-                    {
-                        nextPage.MapTo(static (int at) => at + PageSize),
-                        previousPage.MapTo(static (int at) => at - PageSize),
-                        showFrozen.Updates().MapTo(static (int _) => 0)
-                    }
-                    .OrElse()
-                    .Accum(initialState: 0, f: static (move, at) => Math.Max(val1: 0, val2: move(at)));
+                Cell<long> total =
+                    accounts.ItemChangesStream
+                        .Map(static change => DeltaOf(change))
+                        .Accum(initialState: initialTotal, f: static (delta, running) => running + delta);
 
-            ReactiveCollection<int, AccountIdentity, AccountState> page =
-                filtered.Slice(offsetCell: offset, limitCell: Cell.Constant(PageSize));
+                Cell<int> pageCount =
+                    filtered.KeysCell.Map(static keys =>
+                        Math.Max(val1: 1, val2: (keys.Count + PageSize - 1) / PageSize));
 
-            // One row object per account, in the page's order. Map keeps them, so a deposit that
-            // moves one balance leaves this list alone: the row follows its own account and the
-            // list only moves when the page's membership or order does.
-            //
-            // The rows own bindables, so eviction disposes them. Nothing here has to know when
-            // that happens - which is the point of the callback being where the projection is.
-            MappedItems<AccountRowViewModel> rows =
-                page.Map(
-                    project: key => Row(page: page, key: key),
-                    onEvicted: static row => row.Dispose());
+                return new AccountsViewModelOptimizedDrain(
+                    // A list of rows is a list of the interface they implement, but a cell is a class
+                    // and cannot be covariant, so the conversion is spelled out as the lambda's return
+                    // type.
+                    rows: rows.Items
+                        .Map(static IReadOnlyList<IAccountRowViewModel> (items) => items)
+                        .ToOneWay(),
+                    total: total.Map(static cents => "Total across all accounts: " + Money(cents))
+                        .ToOneWay(),
+                    page: offset.Lift(
+                            c2: pageCount,
+                            f: static (at, count) =>
+                                string.Format(
+                                    provider: CultureInfo.CurrentCulture,
+                                    format: "Page {0:N0} of {1:N0}",
+                                    arg0: at / PageSize + 1,
+                                    arg1: count))
+                        .ToOneWay(),
+                    filterDescription: showFrozen.Map(static showing =>
+                            showing ? "Showing all accounts" : "Showing active accounts only")
+                        .ToOneWay(),
+                    numberHeader: sort
+                        .Map(static selection =>
+                            SortSelection.Caption(
+                                sortSelection: selection,
+                                column: AccountColumn.Number,
+                                name: "Number"))
+                        .ToOneWay(),
+                    holderHeader: sort
+                        .Map(static selection =>
+                            SortSelection.Caption(
+                                sortSelection: selection,
+                                column: AccountColumn.Holder,
+                                name: "Holder"))
+                        .ToOneWay(),
+                    balanceHeader: sort
+                        .Map(static selection =>
+                            SortSelection.Caption(
+                                sortSelection: selection,
+                                column: AccountColumn.Balance,
+                                name: "Balance"))
+                        .ToOneWay(),
+                    nextPage: nextPage.ToBindableAction(
+                        offset.Lift(c2: filtered.KeysCell, f: static (at, keys) => at + PageSize < keys.Count)),
+                    previousPage: previousPage.ToBindableAction(offset.Map(static at => at > 0)),
+                    showFrozen: showFrozen.ToTwoWay(),
+                    drainFrozenAccounts: drainFrozenAccounts.ToBindableAction(canDrain),
+                    sortByNumber: sortByNumber.ToBindableAction(),
+                    sortByHolder: sortByHolder.ToBindableAction(),
+                    sortByBalance: sortByBalance.ToBindableAction(),
+                    projectedRows: rows,
+                    deposits: deposits,
+                    drains: drains);
 
-            // The deposits are whatever the rows on the page are sending. Which rows those are
-            // moves with the page, so the merge is rebuilt from each version of the list and
-            // switched to: a row that has left the page is no longer listened to, whether or not
-            // it has been evicted yet. A page holds six rows, so the rebuild is six streams.
-            deposits.Loop(
-                rows.Items
-                    .Map(static items => items.Select(static row => row.DepositsStream).OrElse())
-                    .SwitchS());
-
-            // The total is folded from what changed rather than recomputed from the store. The
-            // change carries both sides of it, so a delta needs nothing kept alongside.
-            long initialTotal = AccountSeed.Items.Sum(static item => item.State.Balance);
-
-            Cell<long> total =
-                accounts.ItemChangesStream
-                    .Map(static change => DeltaOf(change))
-                    .Accum(initialState: initialTotal, f: static (delta, running) => running + delta);
-
-            Cell<int> pageCount =
-                filtered.KeysCell.Map(static keys =>
-                    Math.Max(val1: 1, val2: (keys.Count + PageSize - 1) / PageSize));
-
-            return new AccountsViewModelOptimizedDrain(
-                // A list of rows is a list of the interface they implement, but a cell is a class
-                // and cannot be covariant, so the conversion is spelled out as the lambda's return
-                // type.
-                rows: rows.Items
-                    .Map(static IReadOnlyList<IAccountRowViewModel> (items) => items)
-                    .ToOneWay(),
-                total: total.Map(static cents => "Total across all accounts: " + Money(cents))
-                    .ToOneWay(),
-                page: offset.Lift(
-                        c2: pageCount,
-                        f: static (at, count) =>
-                            string.Format(
-                                provider: CultureInfo.CurrentCulture,
-                                format: "Page {0:N0} of {1:N0}",
-                                arg0: at / PageSize + 1,
-                                arg1: count))
-                    .ToOneWay(),
-                filterDescription: showFrozen.Map(static showing =>
-                        showing ? "Showing all accounts" : "Showing active accounts only")
-                    .ToOneWay(),
-                numberHeader: sort
-                    .Map(static selection =>
-                        SortSelection.Caption(sortSelection: selection, column: AccountColumn.Number, name: "Number"))
-                    .ToOneWay(),
-                holderHeader: sort
-                    .Map(static selection =>
-                        SortSelection.Caption(sortSelection: selection, column: AccountColumn.Holder, name: "Holder"))
-                    .ToOneWay(),
-                balanceHeader: sort
-                    .Map(static selection =>
-                        SortSelection.Caption(sortSelection: selection, column: AccountColumn.Balance, name: "Balance"))
-                    .ToOneWay(),
-                nextPage: nextPage.ToBindableAction(
-                    offset.Lift(c2: filtered.KeysCell, f: static (at, keys) => at + PageSize < keys.Count)),
-                previousPage: previousPage.ToBindableAction(offset.Map(static at => at > 0)),
-                showFrozen: showFrozen.ToTwoWay(),
-                drainFrozenAccounts: drainFrozenAccounts.ToBindableAction(canDrain),
-                sortByNumber: sortByNumber.ToBindableAction(),
-                sortByHolder: sortByHolder.ToBindableAction(),
-                sortByBalance: sortByBalance.ToBindableAction(),
-                projectedRows: rows);
-
-            static bool CanDrain(AccountState state) => state.IsFrozen && state.Balance != 0;
-        });
+                static bool CanDrain(AccountState state) => state.IsFrozen && state.Balance != 0;
+            }));
 
     /// <summary>One edit emptying every one of these accounts.</summary>
     /// <remarks>
