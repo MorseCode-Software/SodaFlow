@@ -128,35 +128,35 @@ public class SelectAllBenchmarks
                     Stream<bool> selectAllStream,
                     CellSink<IReadOnlyList<TestObject>> objects) =
                 Transaction.Run(static () =>
-                {
-                    CellLoop<bool?> allSelectedLoop = Cell.CreateLoop<bool?>();
-                    StreamSink<Unit> toggle = Stream.CreateSink<Unit>();
+                    Cell.Loop<bool?>()
+                        .WithCaptures(static allSelectedLoop =>
+                        {
+                            StreamSink<Unit> toggle = Stream.CreateSink<Unit>();
 
-                    Stream<bool> selectAll = toggle.Snapshot(allSelectedLoop).Map(static a => a != true);
+                            Stream<bool> selectAll = toggle.Snapshot(allSelectedLoop).Map(static a => a != true);
 
-                    CellSink<IReadOnlyList<TestObject>> objectsSink =
-                        Cell.CreateSink((IReadOnlyList<TestObject>)[]);
+                            CellSink<IReadOnlyList<TestObject>> objectsSink =
+                                Cell.CreateSink((IReadOnlyList<TestObject>)[]);
 
-                    Cell<IReadOnlyList<(TestObject Object, bool IsSelected)>> lifted =
-                        objectsSink
-                            .Map(static oo =>
-                                oo.Select(static o => o.IsSelected.Map(s => (Object: o, IsSelected: s))).Lift())
-                            .SwitchC();
+                            Cell<IReadOnlyList<(TestObject Object, bool IsSelected)>> lifted =
+                                objectsSink
+                                    .Map(static oo =>
+                                        oo.Select(static o => o.IsSelected.Map(s => (Object: o, IsSelected: s))).Lift())
+                                    .SwitchC();
 
-                    Cell<bool?> allSelected =
-                        lifted.Map(static oo =>
-                            oo.Count == 0
-                                ? true
-                                : oo.All(static o => o.IsSelected)
-                                    ? true
-                                    : oo.All(static o => !o.IsSelected)
-                                        ? (bool?)false
-                                        : null);
+                            Cell<bool?> allSelected =
+                                lifted.Map(static oo =>
+                                    oo.Count == 0
+                                        ? true
+                                        : oo.All(static o => o.IsSelected)
+                                            ? true
+                                            : oo.All(static o => !o.IsSelected)
+                                                ? (bool?)false
+                                                : null);
 
-                    allSelectedLoop.Loop(allSelected);
-
-                    return (toggle, lifted, selectAll, objectsSink);
-                });
+                            return (Cell: allSelected, Captures: (toggle, lifted, selectAll, objectsSink));
+                        })
+                        .Captures);
 
             // Something has to be listening, or the lift and the switch above are never evaluated
             // and the benchmark measures a graph nobody asked anything of. Counting is the cheapest
