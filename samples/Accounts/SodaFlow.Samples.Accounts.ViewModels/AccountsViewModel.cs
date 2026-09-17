@@ -40,14 +40,14 @@ internal enum AccountColumn
 ///     </para>
 /// </remarks>
 /// <param name="Column">The column the list is sorted by.</param>
-/// <param name="Descending">Whether it runs from the largest down.</param>
+/// <param name="IsDescending">Whether it runs from the largest down.</param>
 // ReSharper disable once InheritdocConsiderUsage
-internal sealed record SortSelection(AccountColumn Column, bool Descending)
+internal sealed record SortSelection(AccountColumn Column, bool IsDescending)
 {
     /// <summary>How holders compare, as one instance rather than read afresh for each order.</summary>
     /// <remarks>
     ///     <see cref="StringComparer.CurrentCultureIgnoreCase" /> builds a new comparer every time it
-    ///     is read, and a sort stage recognises the order it already holds - or holds reversed, which
+    ///     is read, and a sort stage recognizes the order it already holds - or holds reversed, which
     ///     it sorts again with the holders it already read instead of reading every one again - only
     ///     when the new one was built from the same selector and comparer instances. Reading it inline
     ///     would read and file every holder again on each click of the same header. The culture is the
@@ -70,17 +70,17 @@ internal sealed record SortSelection(AccountColumn Column, bool Descending)
                 selector: static identity => identity.Number,
                 sortComparer: Comparer<int>.Default,
                 keyComparer: Comparer<int>.Default,
-                isDescending: this.Descending),
+                isDescending: this.IsDescending),
             AccountColumn.Holder => AccountOrder.ByIdentity(
                 selector: static identity => identity.Holder,
                 sortComparer: HolderComparer,
                 keyComparer: Comparer<int>.Default,
-                isDescending: this.Descending),
+                isDescending: this.IsDescending),
             _ => AccountOrder.By(
                 selector: static (_, state) => state.Balance,
                 sortComparer: Comparer<long>.Default,
                 keyComparer: Comparer<int>.Default,
-                isDescending: this.Descending),
+                isDescending: this.IsDescending),
         };
 
     /// <summary>What clicking a header does: the same column reverses, another one selects.</summary>
@@ -93,19 +93,19 @@ internal sealed record SortSelection(AccountColumn Column, bool Descending)
         return sortSelection.Match(
             onSome: sortSelection =>
                 column == sortSelection.Column
-                    ? sortSelection with { Descending = !sortSelection.Descending }
+                    ? sortSelection with { IsDescending = !sortSelection.IsDescending }
                     : CreateNewSortSelection(column),
             onNone: () => CreateNewSortSelection(column));
 
         static SortSelection CreateNewSortSelection(AccountColumn column) =>
-            new(Column: column, Descending: column == AccountColumn.Balance);
+            new(Column: column, IsDescending: column == AccountColumn.Balance);
     }
 
     /// <summary>A header's caption, marked if it is the column in force.</summary>
     internal static string Caption(Maybe<SortSelection> sortSelection, AccountColumn column, string name) =>
         name + sortSelection.Match(
             onSome: sortSelection =>
-                column == sortSelection.Column ? sortSelection.Descending ? " \u25bc" : " \u25b2" : string.Empty,
+                column == sortSelection.Column ? sortSelection.IsDescending ? " \u25bc" : " \u25b2" : string.Empty,
             onNone: static () => string.Empty);
 }
 
