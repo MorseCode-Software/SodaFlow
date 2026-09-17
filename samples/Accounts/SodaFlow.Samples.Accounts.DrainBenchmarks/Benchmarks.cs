@@ -116,7 +116,7 @@ public class DrainBenchmarks
 
 /// <summary>
 ///     One click of Show frozen accounts, which changes the filter's predicate rather than any
-///     account - measured from the click until the row list has changed.
+///     account.
 /// </summary>
 /// <remarks>
 ///     <para>
@@ -125,11 +125,17 @@ public class DrainBenchmarks
 ///         below it. This is the cost of that for the whole chain down to the rows on screen.
 ///     </para>
 ///     <para>
+///         Nothing is waited for, because nothing is left to arrive once the click returns. The row
+///         list is a cell, so it changes inside the transaction the click opens, and with no binding
+///         scheduler or synchronization context in this process the bindables fall back to the
+///         immediate scheduler, which delivers their values and change notifications as that
+///         transaction closes - still inside the click. What a dispatcher adds in a real UI happens
+///         after that, and a benchmark here cannot see it.
+///     </para>
+///     <para>
 ///         Each iteration builds a fresh view model, outside the measurement, so the toggle always
-///         goes the same way, and checks afterwards that it really switched. The row list reaches
-///         its listener through the binding scheduler rather than inside the click, so the
-///         measurement waits for it; the listener is attached in setup so that subscribing is not
-///         part of what is measured.
+///         goes the same way. Cleanup checks that it switched and that the row list changed, so a
+///         click that did nothing fails the run rather than timing as fast.
 ///     </para>
 /// </remarks>
 [MemoryDiagnoser]
@@ -139,7 +145,7 @@ public class DrainBenchmarks
 public class ToggleFrozenBenchmarks
 {
     private IAccountsViewModel? viewModel;
-    private RowsChanged? rowsChanged;
+    private IReadOnlyList<IAccountRowViewModel>? rowsBefore;
     private bool initialShowFrozen;
 
     [Params(ViewModels.OptimizedDrain, ViewModels.TunedSet)]
@@ -150,35 +156,31 @@ public class ToggleFrozenBenchmarks
     {
         this.viewModel = ViewModels.Create(this.ViewModel);
         this.initialShowFrozen = this.viewModel.ShowFrozen.Value;
-        this.rowsChanged = new RowsChanged(this.viewModel);
+        this.rowsBefore = this.viewModel.Rows.Value;
     }
 
     [Benchmark]
-    public void ToggleFrozen()
-    {
-        this.viewModel!.ShowFrozen.Value = !this.initialShowFrozen;
-        this.rowsChanged!.Wait();
-    }
+    public void ToggleFrozen() => this.viewModel!.ShowFrozen.Value = !this.initialShowFrozen;
 
     [IterationCleanup]
     public void Cleanup()
     {
-        this.rowsChanged!.Dispose();
-        this.rowsChanged = null;
-
         if (this.viewModel!.ShowFrozen.Value == this.initialShowFrozen)
         {
             throw new InvalidOperationException("The frozen toggle was not switched.");
         }
 
+        RowList.CheckChanged(before: this.rowsBefore!, after: this.viewModel.Rows.Value, action: "The frozen toggle");
+
         this.viewModel.Dispose();
         this.viewModel = null;
+        this.rowsBefore = null;
     }
 }
 
 /// <summary>
 ///     One click of the balance header on a list already sorted by balance, which reverses the
-///     sort - measured from the click until the row list has changed.
+///     sort.
 /// </summary>
 /// <remarks>
 ///     <para>
@@ -188,9 +190,9 @@ public class ToggleFrozenBenchmarks
 ///         sort.
 ///     </para>
 ///     <para>
-///         Each iteration builds a fresh view model, so the reversal always goes the same way. The
-///         listener is attached in setup, for the reason given on
-///         <see cref="ToggleFrozenBenchmarks" />.
+///         Each iteration builds a fresh view model, so the reversal always goes the same way. As on
+///         <see cref="ToggleFrozenBenchmarks" />, nothing is waited for, and cleanup checks that the
+///         row list changed.
 ///     </para>
 /// </remarks>
 [MemoryDiagnoser]
@@ -200,7 +202,7 @@ public class ToggleFrozenBenchmarks
 public class ToggleBalanceSortBenchmarks
 {
     private IAccountsViewModel? viewModel;
-    private RowsChanged? rowsChanged;
+    private IReadOnlyList<IAccountRowViewModel>? rowsBefore;
 
     [Params(ViewModels.OptimizedDrain, ViewModels.TunedSet)]
     public string ViewModel { get; set; } = ViewModels.TunedSet;
@@ -209,67 +211,46 @@ public class ToggleBalanceSortBenchmarks
     public void Setup()
     {
         this.viewModel = ViewModels.Create(this.ViewModel);
-        this.rowsChanged = new RowsChanged(this.viewModel);
+
+        IReadOnlyList<IAccountRowViewModel> unsorted = this.viewModel.Rows.Value;
 
         this.viewModel.SortByBalance.Execute(null);
-        this.rowsChanged.Wait();
 
-        // Anything the first sort signalled after the wait belongs to it, not to the reversal.
-        this.rowsChanged.Clear();
+        RowList.CheckChanged(before: unsorted, after: this.viewModel.Rows.Value, action: "Sorting by balance");
+
+        this.rowsBefore = this.viewModel.Rows.Value;
     }
 
     [Benchmark]
-    public void ToggleSort()
-    {
-        this.viewModel!.SortByBalance.Execute(null);
-        this.rowsChanged!.Wait();
-    }
+    public void ToggleSort() => this.viewModel!.SortByBalance.Execute(null);
 
     [IterationCleanup]
     public void Cleanup()
     {
-        this.rowsChanged!.Dispose();
-        this.rowsChanged = null;
+        RowList.CheckChanged(before: this.rowsBefore!, after: this.viewModel!.Rows.Value, action: "Reversing the balance sort");
 
-        this.viewModel!.Dispose();
+        this.viewModel.Dispose();
         this.viewModel = null;
+        this.rowsBefore = null;
     }
 }
 
-/// <summary>
-///     Signals each time a view model's row list changes, for a benchmark that has to wait for a
-///     click to reach the screen.
-/// </summary>
-/// <remarks>
-///     One listener for the life of an iteration, so that neither subscribing nor unsubscribing is
-///     measured and nothing is left listening once the iteration ends. A wait gives up after a
-///     generous timeout rather than hanging the run when a click changes nothing.
-/// </remarks>
-internal sealed class RowsChanged : IDisposable
+/// <summary>The check the toggle benchmarks make, outside the measurement, that a click did something.</summary>
+internal static class RowList
 {
-    private static readonly TimeSpan Timeout = TimeSpan.FromSeconds(30);
-
-    private readonly AutoResetEvent changed = new(initialState: false);
-    private readonly IListener listener;
-
-    internal RowsChanged(IAccountsViewModel viewModel) =>
-        this.listener = viewModel.Rows.Cell.Updates().Listen(_ => this.changed.Set());
-
-    /// <summary>Waits for the next change, then clears the signal for the one after.</summary>
-    internal void Wait()
+    /// <summary>Throws unless the row list is a different list than it was before the click.</summary>
+    /// <remarks>
+    ///     By reference: the rows are projected into a new list whenever the keys on the page change,
+    ///     and the same list instance is kept when they do not.
+    /// </remarks>
+    internal static void CheckChanged(
+        IReadOnlyList<IAccountRowViewModel> before,
+        IReadOnlyList<IAccountRowViewModel> after,
+        string action)
     {
-        if (!this.changed.WaitOne(Timeout))
+        if (ReferenceEquals(objA: before, objB: after))
         {
-            throw new InvalidOperationException("The row list did not change.");
+            throw new InvalidOperationException($"{action} did not change the row list.");
         }
-    }
-
-    /// <summary>Forgets a change already signalled, so the next wait is for one still to come.</summary>
-    internal void Clear() => this.changed.Reset();
-
-    public void Dispose()
-    {
-        this.listener.Unlisten();
-        this.changed.Dispose();
     }
 }
