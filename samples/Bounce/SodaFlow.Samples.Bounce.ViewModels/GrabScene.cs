@@ -42,7 +42,7 @@ internal sealed class GrabScene : IInteractiveScene
         Stream<double> restarted = restarts.Snapshot(b: timers.Time, f: static (_, time) => time);
 
         this.held = Cell.CreateSink(Maybe<int>.None);
-        this.pointer = Cell.CreateSink(new Point(x: 0.0, y: 0.0));
+        this.pointer = Cell.CreateSink(new Point(X: 0.0, Y: 0.0));
         this.released = Stream.CreateSink<Unit>();
 
         // Where the pointer has been, timestamped as it moves. Accum keeps the last two, which is
@@ -50,7 +50,7 @@ internal sealed class GrabScene : IInteractiveScene
         Cell<PointerTrail> trail =
             this.pointer
                 .Updates()
-                .Snapshot(b: timers.Time, f: static (p, time) => new Point(x: p.X, y: p.Y, time: time))
+                .Snapshot(b: timers.Time, f: static (p, time) => p with { Time = time })
                 .Accum(
                     initialState: PointerTrail.Empty,
                     f: static (p, previous) => previous.Add(time: p.Time, x: p.X, y: p.Y));
@@ -60,12 +60,12 @@ internal sealed class GrabScene : IInteractiveScene
         // reports it.
         Stream<Throw> thrown =
             this.released
-                .Snapshot(c1: this.held, c2: trail, f: static (_, index, t) => new Grabbed(index: index, trail: t))
+                .Snapshot(c1: this.held, c2: trail, f: static (_, index, t) => new Grabbed(Index: index, Trail: t))
                 .Snapshot(
                     b: timers.Time,
                     f: static (grabbed, time) =>
                         grabbed.Index.Match(
-                            onSome: index => Maybe.Some(new Throw(index: index, trail: grabbed.Trail, time: time)),
+                            onSome: index => Maybe.Some(new Throw(Index: index, Trail: grabbed.Trail, Time: time)),
                             onNone: static () => Maybe<Throw>.None))
                 .FilterSome();
 
@@ -96,10 +96,10 @@ internal sealed class GrabScene : IInteractiveScene
                     restarts: mine
                         .Map(t =>
                             new Flight(
-                                startTime: t.Time,
-                                position: Clamp(value: t.Trail.X, min: minX, max: maxX),
-                                velocity: t.Trail.VelocityX,
-                                acceleration: 0.0))
+                                StartTime: t.Time,
+                                Position: Clamp(value: t.Trail.X, min: minX, max: maxX),
+                                Velocity: t.Trail.VelocityX,
+                                Acceleration: 0.0))
                         .OrElse(restarted.Map(time => Arrangement.InitialX(start: start, now: time))),
                     restitution: restitution);
 
@@ -112,10 +112,10 @@ internal sealed class GrabScene : IInteractiveScene
                     restarts: mine
                         .Map(t =>
                             new Flight(
-                                startTime: t.Time,
-                                position: Clamp(value: t.Trail.Y, min: minY, max: maxY),
-                                velocity: t.Trail.VelocityY,
-                                acceleration: Arrangement.Gravity))
+                                StartTime: t.Time,
+                                Position: Clamp(value: t.Trail.Y, min: minY, max: maxY),
+                                Velocity: t.Trail.VelocityY,
+                                Acceleration: Arrangement.Gravity))
                         .OrElse(restarted.Map(time => Arrangement.InitialY(start: start, now: time))),
                     restitution: restitution);
 
@@ -167,13 +167,13 @@ internal sealed class GrabScene : IInteractiveScene
 
         Transaction.RunVoid(() =>
         {
-            this.pointer.Send(new Point(x: x, y: y));
+            this.pointer.Send(new Point(X: x, Y: y));
             this.held.Send(index);
         });
     }
 
     /// <inheritdoc />
-    public void MoveTo(double x, double y) => this.pointer.Send(new Point(x: x, y: y));
+    public void MoveTo(double x, double y) => this.pointer.Send(new Point(X: x, Y: y));
 
     /// <inheritdoc />
     public void Release() =>
@@ -216,48 +216,9 @@ internal sealed class GrabScene : IInteractiveScene
         return found;
     }
 
-    private readonly struct Point
-    {
-        public Point(double x, double y, double time = 0.0)
-        {
-            this.X = x;
-            this.Y = y;
-            this.Time = time;
-        }
+    private readonly record struct Point(double X, double Y, double Time = 0.0);
 
-        public double X { get; }
+    private readonly record struct Grabbed(Maybe<int> Index, PointerTrail Trail);
 
-        public double Y { get; }
-
-        public double Time { get; }
-    }
-
-    private readonly struct Grabbed
-    {
-        public Grabbed(Maybe<int> index, PointerTrail trail)
-        {
-            this.Index = index;
-            this.Trail = trail;
-        }
-
-        public Maybe<int> Index { get; }
-
-        public PointerTrail Trail { get; }
-    }
-
-    private readonly struct Throw
-    {
-        public Throw(int index, PointerTrail trail, double time)
-        {
-            this.Index = index;
-            this.Trail = trail;
-            this.Time = time;
-        }
-
-        public int Index { get; }
-
-        public PointerTrail Trail { get; }
-
-        public double Time { get; }
-    }
+    private readonly record struct Throw(int Index, PointerTrail Trail, double Time);
 }

@@ -7,4 +7,5 @@
     <Project Path="SodaFlow.Samples.Counter.Avalonia/SodaFlow.Samples.Counter.Avalonia.csproj"/>
     <Project Path="SodaFlow.Samples.Counter.ViewModels/SodaFlow.Samples.Counter.ViewModels.csproj"/>
     <Project Path="SodaFlow.Samples.Counter.Wpf/SodaFlow.Samples.Counter.Wpf.csproj"/>
+    <Project Path="SodaFlow.Samples.Counter.Wpf.NetFramework/SodaFlow.Samples.Counter.Wpf.NetFramework.csproj"/>
 </Solution>

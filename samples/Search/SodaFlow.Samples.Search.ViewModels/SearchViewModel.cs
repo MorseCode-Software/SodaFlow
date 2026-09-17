@@ -30,7 +30,7 @@ namespace SodaFlow.Samples.Search.ViewModels;
 // ReSharper disable once InheritdocConsiderUsage
 public sealed class SearchViewModel : ISearchViewModel
 {
-    private static readonly IReadOnlyList<string> NoResults = Array.Empty<string>();
+    private static readonly IReadOnlyList<string> NoResults = [];
 
     private readonly IReadOnlyList<IDisposable> disposables;
 
@@ -57,7 +57,7 @@ public sealed class SearchViewModel : ISearchViewModel
         // The bindables each hold a subscription into the graph, and status is the async
         // pipeline itself: disposing it tears that down and cancels anything still in flight.
         // They differ in kind but not in what disposal asks of them, so one list holds both.
-        this.disposables = new IDisposable[] { query, results, summary, error, hasError, isBusy, cancel, status };
+        this.disposables = [query, results, summary, error, hasError, isBusy, cancel, status];
     }
 
     #endregion
@@ -123,7 +123,7 @@ public sealed class SearchViewModel : ISearchViewModel
                     .Updates()
                     .Filter(static q => !string.IsNullOrWhiteSpace(q));
 
-            AsyncMapStatus<string> mapStatus =
+            AsyncMapStatus<string> searchStatus =
                 searches.MapAsync(
                     results: found,
                     errors: failed,
@@ -148,7 +148,7 @@ public sealed class SearchViewModel : ISearchViewModel
                     .Hold(string.Empty);
 
             // Derived, not counted. There is no += 1 anywhere to get out of step.
-            Cell<bool> busy = mapStatus.IsRunning;
+            Cell<bool> busy = searchStatus.IsRunning;
 
             Cell<string> summary =
                 results.Lift(
@@ -159,17 +159,13 @@ public sealed class SearchViewModel : ISearchViewModel
                             : r.Count.ToString(CultureInfo.CurrentCulture) + " result(s)");
 
             return new SearchViewModel(
-                status: mapStatus,
-
-                // Two-way: the view writes here, and the cell stays authoritative.
-                query: query.ToTwoWay(),
+                status: searchStatus,
+                query: query.ToTwoWay(), // Two-way: the view writes here, and the cell stays authoritative.
                 results: results.ToOneWay(),
                 summary: summary.ToOneWay(),
                 error: error.ToOneWay(),
                 hasError: error.Map(static e => e.Length > 0).ToOneWay(),
                 isBusy: busy.ToOneWay(),
-
-                // Cancel is offered only while something is actually running.
-                cancel: cancel.ToBindableAction(busy));
+                cancel: cancel.ToBindableAction(busy)); // Cancel is offered only while something is actually running.
         });
 }

@@ -57,8 +57,7 @@ public sealed class BounceViewModel : IBounceViewModel
         this.DampingEnabled = dampingEnabled;
         this.Damping = damping;
 
-        this.disposables =
-            new IDisposable[] { selectedScene, selectedSummary, isDampingAvailable, dampingEnabled, damping };
+        this.disposables = [selectedScene, selectedSummary, isDampingAvailable, dampingEnabled, damping];
     }
 
     /// <inheritdoc />
@@ -155,7 +154,7 @@ public sealed class BounceViewModel : IBounceViewModel
             IScene ricochets =
                 new CollisionScene(timers: timers, restitution: restitution, restarts: ActivatedAt(3));
 
-            IScene[] scenes = { simple, walls, grab, ricochets };
+            IScene[] scenes = [simple, walls, grab, ricochets];
 
             // The simplest two-way case: the view is the only writer and the sink is the
             // authoritative value. No scheduler is passed, so the ambient one is resolved -

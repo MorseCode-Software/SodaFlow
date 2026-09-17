@@ -1,0 +1,46 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <!--
+            The same WPF head as SodaFlow.Samples.Counter.Wpf, on .NET Framework 4.8.1 rather
+            than .NET 10. What it shows is underneath it: the view model project, unchanged,
+            referenced from a .NET Framework application. That is what keeping the view model on
+            netstandard2.0 buys.
+
+            A copy of that head's four files rather than a link to them, so that each window can
+            say which runtime it is running on, and reading one never means following a path into
+            the other.
+
+            C# 10, the view model's version. .NET Framework defaults to 7.3, and this code is
+            written the way the rest of the sample is - file-scoped namespaces and target-typed
+            new - which needs nothing from the runtime.
+
+            The reference assemblies come from a package rather than an installed targeting pack;
+            see samples/Directory.Build.props.
+        -->
+        <OutputType>WinExe</OutputType>
+        <TargetFramework>net481</TargetFramework>
+        <UseWPF>true</UseWPF>
+        <Nullable>enable</Nullable>
+        <EnableDefaultItems>false</EnableDefaultItems>
+        <LangVersion>10</LangVersion>
+        <IsPackable>false</IsPackable>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <!-- The whole sample is in here: the same project the other two heads reference. -->
+        <ProjectReference Include="..\SodaFlow.Samples.Counter.ViewModels\SodaFlow.Samples.Counter.ViewModels.csproj"/>
+    </ItemGroup>
+
+    <ItemGroup>
+        <ApplicationDefinition Include="App.xaml"/>
+        <Compile Include="App.xaml.cs">
+            <DependentUpon>App.xaml</DependentUpon>
+        </Compile>
+        <Page Include="MainWindow.xaml"/>
+        <Compile Include="MainWindow.xaml.cs">
+            <DependentUpon>MainWindow.xaml</DependentUpon>
+        </Compile>
+    </ItemGroup>
+
+</Project>

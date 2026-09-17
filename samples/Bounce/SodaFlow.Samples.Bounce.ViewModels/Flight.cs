@@ -19,28 +19,15 @@ namespace SodaFlow.Samples.Bounce.ViewModels;
 ///         skipped entirely.
 ///     </para>
 /// </remarks>
-internal readonly struct Flight
+/// <param name="StartTime">The moment this stretch of motion began.</param>
+/// <param name="Position">The position at <paramref name="StartTime" />.</param>
+/// <param name="Velocity">The velocity at <paramref name="StartTime" />, in units per second.</param>
+/// <param name="Acceleration">
+///     Constant acceleration, in units per second squared. Zero along a level axis.
+/// </param>
+// ReSharper disable once InheritdocConsiderUsage
+internal readonly record struct Flight(double StartTime, double Position, double Velocity, double Acceleration)
 {
-    public Flight(double startTime, double position, double velocity, double acceleration)
-    {
-        this.StartTime = startTime;
-        this.Position = position;
-        this.Velocity = velocity;
-        this.Acceleration = acceleration;
-    }
-
-    /// <summary>The moment this stretch of motion began.</summary>
-    public double StartTime { get; }
-
-    /// <summary>The position at <see cref="StartTime" />.</summary>
-    public double Position { get; }
-
-    /// <summary>The velocity at <see cref="StartTime" />, in units per second.</summary>
-    public double Velocity { get; }
-
-    /// <summary>Constant acceleration, in units per second squared. Zero along a level axis.</summary>
-    public double Acceleration { get; }
-
     /// <summary>The position at <paramref name="time" />.</summary>
     public double PositionAt(double time)
     {
