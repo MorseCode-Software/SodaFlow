@@ -853,7 +853,7 @@ internal static class CollectionViewUtility
                     break;
 
                 case ViewUpdate<TKey> update:
-                    if (Refresh(key: update.Key, isUpdate: true))
+                    if (Refresh(update.Key))
                     {
                         if (!OperationAddedWasValid(
                                 numberOfOperations: ref numberOfOperations,
@@ -866,7 +866,7 @@ internal static class CollectionViewUtility
                     break;
 
                 case ViewMove<TKey> move:
-                    if (Refresh(key: move.Key, isUpdate: false))
+                    if (Refresh(move.Key))
                     {
                         if (!OperationAddedWasValid(
                                 numberOfOperations: ref numberOfOperations,
@@ -932,7 +932,7 @@ internal static class CollectionViewUtility
             return false;
         }
 
-        bool Refresh(TKey key, bool isUpdate)
+        bool Refresh(TKey key)
         {
             bool was = keys.Contains(key);
             bool now = Passes(key: key, predicate: predicate, snapshot: change.After);
@@ -941,12 +941,7 @@ internal static class CollectionViewUtility
             {
                 if (now)
                 {
-                    if (Refile(
-                            keys: ref keys,
-                            operations: operations,
-                            key: key,
-                            snapshot: change.After,
-                            canRefileOnly: isUpdate))
+                    if (Refile(keys: ref keys, operations: operations, key: key, snapshot: change.After))
                     {
                         movesKeys = true;
                     }
@@ -1073,7 +1068,7 @@ internal static class CollectionViewUtility
 
                 case ViewUpdate<TKey> update:
                 {
-                    if (Refresh(key: update.Key, isUpdate: true))
+                    if (Refresh(update.Key))
                     {
                         if (!OperationAddedWasValid(
                                 numberOfOperations: ref numberOfOperations,
@@ -1088,7 +1083,7 @@ internal static class CollectionViewUtility
 
                 case ViewMove<TKey> move:
                 {
-                    if (Refresh(key: move.Key, isUpdate: false))
+                    if (Refresh(move.Key))
                     {
                         if (!OperationAddedWasValid(
                                 numberOfOperations: ref numberOfOperations,
@@ -1113,14 +1108,14 @@ internal static class CollectionViewUtility
                 movesKeys: movesKeys,
                 changesMembership: changesMembership));
 
-        bool Refresh(TKey key, bool isUpdate)
+        bool Refresh(TKey key)
         {
             if (!keys.Contains(key))
             {
                 return false;
             }
 
-            if (Refile(keys: ref keys, operations: operations, key: key, snapshot: change.After, canRefileOnly: isUpdate))
+            if (Refile(keys: ref keys, operations: operations, key: key, snapshot: change.After))
             {
                 movesKeys = true;
             }
@@ -1276,12 +1271,7 @@ internal static class CollectionViewUtility
                 }
 
                 case ViewUpdate<TKey> update:
-                    if (Refile(
-                            keys: ref keys,
-                            operations: operations,
-                            key: update.Key,
-                            snapshot: change.After,
-                            canRefileOnly: true))
+                    if (Refile(keys: ref keys, operations: operations, key: update.Key, snapshot: change.After))
                     {
                         movesKeys = true;
                     }
@@ -1296,12 +1286,7 @@ internal static class CollectionViewUtility
                     break;
 
                 case ViewMove<TKey> move:
-                    if (Refile(
-                            keys: ref keys,
-                            operations: operations,
-                            key: move.Key,
-                            snapshot: change.After,
-                            canRefileOnly: true))
+                    if (Refile(keys: ref keys, operations: operations, key: move.Key, snapshot: change.After))
                     {
                         movesKeys = true;
                     }
@@ -1511,10 +1496,9 @@ internal static class CollectionViewUtility
     ///         A sort imposes that order itself, so for a sort this is always right. A filter keeps its
     ///         upstream's order, and for a filter it is right only because a change of order is always
     ///         a reset and never a move: every operation that reaches this was caused by a value
-    ///         changing under an order that has not. For the same reason,
-    ///         <paramref name="canRefileOnly" /> changes nothing for a stage that keeps its upstream's
-    ///         order: a move only comes from a re-file under an order that reads the state, and such a
-    ///         stage holds that same order, where the shortcut is not taken.
+    ///         changing under an order that has not. For the same reason, taking the shortcut on a move
+    ///         is as sound as on an update: under an order that reads no state, a value change cannot
+    ///         have moved anything, whichever operation reported it.
     ///     </para>
     ///     <para>
     ///         The key has to be one the stage holds and one the snapshot still has. Every caller only
@@ -1526,8 +1510,7 @@ internal static class CollectionViewUtility
         ref OrderedKeys<TKey, TIdentity, TState> keys,
         ICollection<ViewOperation<TKey>> operations,
         TKey key,
-        CollectionSnapshot<TKey, TIdentity, TState> snapshot,
-        bool canRefileOnly)
+        CollectionSnapshot<TKey, TIdentity, TState> snapshot)
         where TKey : notnull
         where TIdentity : notnull
     {
@@ -1538,7 +1521,7 @@ internal static class CollectionViewUtility
             throw new InvalidOperationException("A stage can only re-file a key it holds.");
         }
 
-        if (canRefileOnly && !keys.Order.DependsOnState)
+        if (!keys.Order.DependsOnState)
         {
             operations.Add(new ViewUpdate<TKey>(key: key, index: fromIndex));
 
