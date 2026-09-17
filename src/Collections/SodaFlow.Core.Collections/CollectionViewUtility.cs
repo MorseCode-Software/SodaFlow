@@ -225,11 +225,11 @@ internal static class CollectionViewUtility
     ///     <para>
     ///         A new order is an ordinary criteria change, and it is always reported as a reset. The
     ///         stage rebuilds under it, or, where the new order is the one it holds run the other way,
-    ///         turns the list it has around - but either way it resets. The only order it answers
-    ///         with anything else is one equivalent to the order it already holds, which is no change
-    ///         and reports nothing. A stage below re-files under whichever order this ends up with
-    ///         without being told anything, because a filter files under its upstream collection's own
-    ///         order whatever that has become.
+    ///         sorts what it holds again with the sort values it already has - but either way it
+    ///         resets. The only order it answers with anything else is one equivalent to the order it
+    ///         already holds, which is no change and reports nothing. A stage below re-files under
+    ///         whichever order this ends up with without being told anything, because a filter files
+    ///         under its upstream collection's own order whatever that has become.
     ///     </para>
     ///     <para>
     ///         The reset says it only reordered, because nothing else reached this stage in the
@@ -1206,8 +1206,9 @@ internal static class CollectionViewUtility
 
     /// <summary>What a sort stage reports when it is handed a new order and nothing else changed.</summary>
     /// <remarks>
-    ///     A reset, or nothing for an order equivalent to the one held - never operations. Turning the
-    ///     list around for a reversed order saves filing every key again, not reporting a reset; see
+    ///     A reset, or nothing for an order equivalent to the one held - never operations. Reusing the
+    ///     held sort values for a reversed order saves projecting every key again, not reporting a
+    ///     reset; see
     ///     <see cref="SortByImpl{TKey,TIdentity,TState}(ReactiveCollection{TKey,TIdentity,TState},Cell{KeyOrder{TKey,TIdentity,TState}})" />
     ///     for why a change of order cannot be reported as moves.
     /// </remarks>

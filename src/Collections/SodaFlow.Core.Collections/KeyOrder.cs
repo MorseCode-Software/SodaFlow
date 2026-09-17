@@ -74,8 +74,8 @@ public abstract class KeyOrder<TKey, TIdentity, TState>
     internal abstract bool IsEquivalentTo(KeyOrder<TKey, TIdentity, TState> other);
 
     /// <summary>
-    ///     The keys filed under this order, if this order is theirs run the other way and they can be
-    ///     turned around rather than filed again.
+    ///     The keys filed under this order, if this order is theirs run the other way, so they can be
+    ///     sorted again with the sort values they already hold rather than projected and filed again.
     /// </summary>
     /// <param name="keys">Keys filed under some order, possibly this one reversed.</param>
     /// <param name="reversedKeys">The same keys filed under this order, when this returns true.</param>

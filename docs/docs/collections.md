@@ -223,9 +223,10 @@ for an order that does not change.
 A new order is a criteria change like any other: it rebuilds that stage and reports `IsReset`,
 at the cost the table below gives for a sort's rebuild. An order equivalent to the one the stage
 already holds is no change at all and reports nothing. That order run the other way is cheaper to
-answer - the stage turns its list around rather than filing every key again - but it still reports
-`IsReset`. A stage below re-files under whichever order the stage ends up with without being told
-anything, because a filter files under its upstream's own order whatever that order has become.
+answer - the stage sorts again with the sort values it already holds rather than filing every key
+again - but it still reports `IsReset`. A stage below re-files under whichever order the stage ends
+up with without being told anything, because a filter files under its upstream's own order whatever
+that order has become.
 
 When nothing but the order changed in the transaction, the stages below do less than rebuild. A
 filter already holds the right members - its predicate reads nothing that changed - so it files

@@ -235,10 +235,10 @@ public class ToggleFrozenBenchmarks
 /// </summary>
 /// <remarks>
 ///     <para>
-///         A sort stage handed its own order run the other way turns the list it holds around rather
-///         than filing every account again, so this measures that path. Setup sorts by balance first,
-///         outside the measurement, so that the click measured is the reversal and not the first
-///         sort.
+///         A sort stage handed its own order run the other way sorts again with the balances it
+///         already holds rather than filing every account again, so this measures that path. Setup
+///         sorts by balance first, outside the measurement, so that the click measured is the
+///         reversal and not the first sort.
 ///     </para>
 ///     <para>
 ///         Each iteration builds a fresh view model, so the reversal always goes the same way. As on

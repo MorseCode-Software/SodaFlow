@@ -48,9 +48,10 @@ internal sealed record SortSelection(AccountColumn Column, bool Descending)
     /// <remarks>
     ///     <see cref="StringComparer.CurrentCultureIgnoreCase" /> builds a new comparer every time it
     ///     is read, and a sort stage recognises the order it already holds - or holds reversed, which
-    ///     it turns around instead of sorting again - only when the new one was built from the same
-    ///     selector and comparer instances. Reading it inline would re-sort every holder on each
-    ///     click of the same header. The culture is the one in force when this is first used.
+    ///     it sorts again with the holders it already read instead of reading every one again - only
+    ///     when the new one was built from the same selector and comparer instances. Reading it inline
+    ///     would read and file every holder again on each click of the same header. The culture is the
+    ///     one in force when this is first used.
     /// </remarks>
     private static readonly IComparer<string> HolderComparer = StringComparer.CurrentCultureIgnoreCase;
 
