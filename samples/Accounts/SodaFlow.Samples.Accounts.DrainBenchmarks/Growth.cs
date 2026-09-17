@@ -1,4 +1,3 @@
-using System.ComponentModel;
 using System.Diagnostics;
 using SodaFlow.Samples.Accounts.ViewModels;
 
@@ -22,9 +21,12 @@ public static class Growth
     {
         IAccountsViewModel viewModel = ViewModels.Create(name);
         int rowsChanged = 0;
-        ((INotifyPropertyChanged)viewModel.Rows).PropertyChanged += (_, _) => rowsChanged++;
 
-        IAccountRowViewModel row = viewModel.Rows.Value[0];
+        // The cell rather than the bindable's PropertyChanged, which a dispatcher-backed scheduler
+        // would raise only after each Pay had returned.
+        IListener rowsListener = viewModel.Rows.Cell.Updates().Listen(_ => rowsChanged++);
+
+        IAccountRowViewModel row = viewModel.Rows.Cell.Sample()[0];
         long baseline = Settled();
 
         Console.WriteLine($"{name}");
@@ -50,6 +52,7 @@ public static class Growth
                 + $"retained +{retained,6:F2} MB  Rows changed {rowsChanged - changesBefore}");
         }
 
+        rowsListener.Unlisten();
         GC.KeepAlive(viewModel);
         viewModel.Dispose();
     }

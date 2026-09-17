@@ -54,7 +54,7 @@ public class PayBenchmarks
         {
             this.viewModel.DrainFrozenAccounts.Execute(null);
 
-            if (this.viewModel.DrainFrozenAccounts.CanExecute(null))
+            if (this.viewModel.DrainFrozenAccounts.IsEnabledCell.Sample())
             {
                 throw new InvalidOperationException("The drain did not empty the frozen accounts.");
             }
@@ -63,9 +63,9 @@ public class PayBenchmarks
         // The first row in the default order, which is arrival order - no column is sorted until a
         // header is clicked. That order does not read balances, so paying into this row never
         // moves it: it stays on the page and its command stays live for the whole run.
-        this.row = this.viewModel.Rows.Value[0];
+        this.row = this.viewModel.Rows.Cell.Sample()[0];
 
-        if (!this.row.Deposit.CanExecute(null))
+        if (!this.row.Deposit.IsEnabledCell.Sample())
         {
             throw new InvalidOperationException("The first row cannot be paid into.");
         }
@@ -104,7 +104,7 @@ public class DrainBenchmarks
     [IterationCleanup]
     public void Cleanup()
     {
-        if (this.viewModel!.DrainFrozenAccounts.CanExecute(null))
+        if (this.viewModel!.DrainFrozenAccounts.IsEnabledCell.Sample())
         {
             throw new InvalidOperationException("The drain did not empty the frozen accounts.");
         }
@@ -135,7 +135,9 @@ public class DrainBenchmarks
 ///     <para>
 ///         Each iteration builds a fresh view model, outside the measurement, so the toggle always
 ///         goes the same way. Cleanup checks that it switched and that the row list changed, so a
-///         click that did nothing fails the run rather than timing as fast.
+///         click that did nothing fails the run rather than timing as fast. The checks read the cells
+///         rather than the bindables' values, which a dispatcher-backed scheduler would deliver only
+///         after the click, so they hold whichever scheduler is in use.
 ///     </para>
 /// </remarks>
 [MemoryDiagnoser]
@@ -155,8 +157,8 @@ public class ToggleFrozenBenchmarks
     public void Setup()
     {
         this.viewModel = ViewModels.Create(this.ViewModel);
-        this.initialShowFrozen = this.viewModel.ShowFrozen.Value;
-        this.rowsBefore = this.viewModel.Rows.Value;
+        this.initialShowFrozen = this.viewModel.ShowFrozen.Cell.Sample();
+        this.rowsBefore = this.viewModel.Rows.Cell.Sample();
     }
 
     [Benchmark]
@@ -165,12 +167,12 @@ public class ToggleFrozenBenchmarks
     [IterationCleanup]
     public void Cleanup()
     {
-        if (this.viewModel!.ShowFrozen.Value == this.initialShowFrozen)
+        if (this.viewModel!.ShowFrozen.Cell.Sample() == this.initialShowFrozen)
         {
             throw new InvalidOperationException("The frozen toggle was not switched.");
         }
 
-        RowList.CheckChanged(before: this.rowsBefore!, after: this.viewModel.Rows.Value, action: "The frozen toggle");
+        RowList.CheckChanged(before: this.rowsBefore!, after: this.viewModel.Rows.Cell.Sample(), action: "The frozen toggle");
 
         this.viewModel.Dispose();
         this.viewModel = null;
@@ -191,8 +193,8 @@ public class ToggleFrozenBenchmarks
 ///     </para>
 ///     <para>
 ///         Each iteration builds a fresh view model, so the reversal always goes the same way. As on
-///         <see cref="ToggleFrozenBenchmarks" />, nothing is waited for, and cleanup checks that the
-///         row list changed.
+///         <see cref="ToggleFrozenBenchmarks" />, nothing is waited for, and cleanup checks the row
+///         list's cell to see that it changed.
 ///     </para>
 /// </remarks>
 [MemoryDiagnoser]
@@ -212,13 +214,13 @@ public class ToggleBalanceSortBenchmarks
     {
         this.viewModel = ViewModels.Create(this.ViewModel);
 
-        IReadOnlyList<IAccountRowViewModel> unsorted = this.viewModel.Rows.Value;
+        IReadOnlyList<IAccountRowViewModel> unsorted = this.viewModel.Rows.Cell.Sample();
 
         this.viewModel.SortByBalance.Execute(null);
 
-        RowList.CheckChanged(before: unsorted, after: this.viewModel.Rows.Value, action: "Sorting by balance");
+        RowList.CheckChanged(before: unsorted, after: this.viewModel.Rows.Cell.Sample(), action: "Sorting by balance");
 
-        this.rowsBefore = this.viewModel.Rows.Value;
+        this.rowsBefore = this.viewModel.Rows.Cell.Sample();
     }
 
     [Benchmark]
@@ -227,7 +229,7 @@ public class ToggleBalanceSortBenchmarks
     [IterationCleanup]
     public void Cleanup()
     {
-        RowList.CheckChanged(before: this.rowsBefore!, after: this.viewModel!.Rows.Value, action: "Reversing the balance sort");
+        RowList.CheckChanged(before: this.rowsBefore!, after: this.viewModel!.Rows.Cell.Sample(), action: "Reversing the balance sort");
 
         this.viewModel.Dispose();
         this.viewModel = null;

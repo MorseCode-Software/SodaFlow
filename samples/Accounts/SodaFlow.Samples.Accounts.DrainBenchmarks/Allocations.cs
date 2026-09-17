@@ -19,10 +19,10 @@ public static class Allocations
     public static void Run(string name)
     {
         IAccountsViewModel viewModel = ViewModels.Create(name);
-        double beforeDrain = PerPay(viewModel.Rows.Value[0]);
+        double beforeDrain = PerPay(viewModel.Rows.Cell.Sample()[0]);
 
         viewModel.DrainFrozenAccounts.Execute(null);
-        double afterDrain = PerPay(viewModel.Rows.Value[0]);
+        double afterDrain = PerPay(viewModel.Rows.Cell.Sample()[0]);
 
         IAccountsViewModel fresh = ViewModels.Create(name);
         long start = GC.GetAllocatedBytesForCurrentThread();

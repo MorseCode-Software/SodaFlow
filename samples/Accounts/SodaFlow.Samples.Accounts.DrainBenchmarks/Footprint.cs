@@ -29,7 +29,7 @@ public static class Footprint
         viewModel.DrainFrozenAccounts.Execute(null);
         long afterDrain = Settled();
 
-        IAccountRowViewModel row = viewModel.Rows.Value[0];
+        IAccountRowViewModel row = viewModel.Rows.Cell.Sample()[0];
 
         for (int i = 0; i < 1_000; i++)
         {
@@ -40,8 +40,8 @@ public static class Footprint
 
         Console.WriteLine(
             $"{name,-15} create {Megabytes(afterCreate - baseline)}  drain {Megabytes(afterDrain - baseline)}  "
-            + $"+1,000 pays {Megabytes(afterPays - baseline)}  | {viewModel.Total.Value} | "
-            + $"drain enabled after: {viewModel.DrainFrozenAccounts.CanExecute(null)}");
+            + $"+1,000 pays {Megabytes(afterPays - baseline)}  | {viewModel.Total.Cell.Sample()} | "
+            + $"drain enabled after: {viewModel.DrainFrozenAccounts.IsEnabledCell.Sample()}");
 
         GC.KeepAlive(viewModel);
         viewModel.Dispose();
