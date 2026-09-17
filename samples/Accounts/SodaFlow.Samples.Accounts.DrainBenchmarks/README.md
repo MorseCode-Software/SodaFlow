@@ -4,8 +4,8 @@ Measures the Accounts sample's ways of knowing which frozen accounts still hold 
 draining them: speed and allocation for a Pay (before and after a drain) and a Drain, plus retained
 memory, and for two clicks that reshape the view - Show frozen and reversing a sort.
 
-This branch is `origin/collections-next` with `samples/Accounts` from `samples/next` (b1398a3). It is
-based there because the sample uses `KeyOrder.ByArrival`, which only `collections-next` has.
+This branch starts from `origin/collections-next` at c890caa, which `main` has since taken in, with
+`samples/Accounts` brought over from `samples/next` at b1398a3 and changed here since.
 
 ## The view models compared
 
