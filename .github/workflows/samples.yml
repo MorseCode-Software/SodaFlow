@@ -22,7 +22,8 @@
 #     under src/ until the collections packages ship - see the comment in its view model's .csproj
 #     - so a change under src/ can break it, and this job is where that shows. It is deliberately
 #     not a required check: work in progress in the library should not be able to block a merge
-#     through a sample. It is inspected like the others, and held to the same rules.
+#     through a sample. Until it references the packages it is built but not inspected; see the
+#     Inspect step.
 #   - The other side of that, unchanged: because each sample pins a package version, a newly
 #     released package breaking a sample shows up only when someone bumps that version here.
 #   - build.cake matters to these jobs even though it lives elsewhere, because the inspection step
@@ -96,7 +97,12 @@ jobs:
       # .config/dotnet-tools.json - which is the whole reason that manifest exists. With it, the
       # action restores the local tools, so inspectcode's `jb` arrives too and needs no step of
       # its own.
+      #
+      # Not for Accounts yet. It is skipped until Collections is released and the sample references
+      # its NuGet packages rather than the projects under src/, like the other samples. Drop the
+      # condition here and on the upload below in the same change that adds those references.
       - name: Inspect
+        if: matrix.sample != 'Accounts'
         uses: cake-build/cake-action@v3
         with:
           target: Inspect-Sample
@@ -119,7 +125,7 @@ jobs:
       # category keeps the samples apart. Without it each upload replaces the last for this
       # commit, and only whichever job finished last would be visible.
       - name: Upload inspection results
-        if: always()
+        if: always() && matrix.sample != 'Accounts'
         continue-on-error: true
         uses: github/codeql-action/upload-sarif@v4
         with:
