@@ -181,10 +181,16 @@ let countBindable = count |> Bindable.oneWay
 let increment = incrementSink |> Bindable.toBindableAction
 ```
 
-`oneWay`, `twoWay`, `twoWayCS` (for a `CellSink`), `oneWayToSource`, `oneWayToSourceCS` and
-`toBindableAction` each have `WithComparer`, `WithScheduler` and
-`WithComparerAndScheduler` forms. `BindableFactory` is available too, taking an optional
-scheduler.
+`oneWay`, `twoWay`, `twoWayCS` (for a `CellSink`), `oneWayToSource` and `oneWayToSourceCS` each
+have `WithComparer`, `WithScheduler` and `WithSchedulerAndComparer` forms. Note the order of the
+last one: the scheduler is named before the comparer.
+
+`toBindableAction` is not one of them, because a command has no value to compare. It varies along
+its own axes instead — a value (`WithValue`, `WithOptionalValue`), an enablement cell
+(`AndIsEnabledCell`) and a scheduler (`AndScheduler`) — in every combination of the three, which
+is twelve functions in all.
+
+`BindableFactory` is available too, taking an optional scheduler.
 
 > [!NOTE]
 > The generated [API reference](../api/index.md) carries the full parameter contract for every

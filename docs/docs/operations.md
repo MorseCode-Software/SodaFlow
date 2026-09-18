@@ -4,10 +4,16 @@ title: Operation reference
 
 # Operation reference
 
-Every operation, in both languages, in one place. C# spells these as extension methods and
-static factories; F# offers qualified module functions (`Stream.map`) and `[<AutoOpen>]`
-suffixed aliases (`mapS`). The alias column below lists the latter, since that is what you get
-from `open SodaFlow` alone.
+The core FRP surface — streams, cells, behaviors, transactions — in both languages, in one
+place. C# spells these as extension methods and static factories; F# offers qualified module
+functions (`Stream.map`) and `[<AutoOpen>]` suffixed aliases (`mapS`). The alias column below
+lists the latter, since that is what you get from `open SodaFlow` alone.
+
+The add-on packages carry surfaces of their own, and each has its own page rather than a row
+here: [reactive collections](collections.md), [asynchronous work](async.md), [data
+binding](bindable.md), and the [`Maybe`, `Either` and `Unit`](functional.md) helpers that come
+with `SodaFlow.Functional`. Between them and this page, every public operation is described
+somewhere.
 
 For full signatures and parameter contracts, follow through to the
 [generated API reference](../api/index.md).
@@ -23,6 +29,7 @@ For full signatures and parameter contracts, follow through to the
 | `Cell.ConstantLazy(lazy)` | `constantLazyC v` | As above, computed on demand. |
 | `Cell.CreateSink(initial)` | `sinkC initial` | A cell you can `Send` into. |
 | `Cell.CreateStreamSink<T>()` | `sinkCS ()` | A stream sink whose firings are treated as cell updates. |
+| `cs.AsStreamSink()` | — | The same object seen as the `StreamSink<T>` it already is, where one is wanted. |
 | `Behavior.Constant(v)` | `constantB v` | A behavior that never changes. |
 | `Behavior.CreateSink(initial)` | `sinkB initial` | A behavior you can `Send` into. |
 
@@ -51,7 +58,9 @@ handlers, timers, and network callbacks; everything downstream stays pure.
 | `s.Calm()` | `calmS s` | Suppress firings equal to the previous one. |
 | `s.Calm(comparer)` | `calmWithEqualityComparerS cmp s` | As above with an explicit comparer. |
 | `s.Accum(initial, f)` | `accumS initial f s` | Fold into a **cell** holding the accumulated state. |
+| `s.AccumLazy(initial, f)` | `accumLazyS initial f s` | As above with a `Lazy<T>` initial state, for a fold whose starting value comes from the graph it is part of. |
 | `s.Collect(initial, f)` | `collectS initial f s` | Mealy machine: emit an output and a new state. |
+| `s.CollectLazy(initial, f)` | `collectLazyS initial f s` | As above with a `Lazy<T>` initial state. |
 | `s.Once()` | `onceS s` | Only the next firing, then never again. |
 | `s.Listen(handler)` | `listenS handler s` | Subscribe. Returns `IWeakListener`; does **not** keep the graph alive. |
 | `s.ListenStrong(handler)` | `listenStrongS handler s` | Subscribe and keep the graph alive. Returns `IStrongListener`. |
