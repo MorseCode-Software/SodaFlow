@@ -93,14 +93,19 @@ internal static class Catalog
         await Task.Delay(delay: TimeSpan.FromMilliseconds(600), cancellationToken: cancellationToken)
             .ConfigureAwait(false);
 
-        if (string.Equals(a: query.Trim(), b: "fail", comparisonType: StringComparison.OrdinalIgnoreCase))
+        // Trimmed once. The predicate below runs against every entry in the catalog, so trimming
+        // inside it repeated the work sixty-odd times per search - and Trim hands back a new string
+        // each time there is anything to take off.
+        string trimmed = query.Trim();
+
+        if (string.Equals(a: trimmed, b: "fail", comparisonType: StringComparison.OrdinalIgnoreCase))
         {
             throw new InvalidOperationException("The catalog is unavailable. Try again shortly.");
         }
 
         return
         [
-            .. Entries.Where(e => e.Contains(value: query.Trim(), comparisonType: StringComparison.OrdinalIgnoreCase))
+            .. Entries.Where(e => e.Contains(value: trimmed, comparisonType: StringComparison.OrdinalIgnoreCase))
         ];
     }
 }

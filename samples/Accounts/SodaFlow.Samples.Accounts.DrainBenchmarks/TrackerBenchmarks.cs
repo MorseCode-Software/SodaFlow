@@ -100,7 +100,7 @@ public class TrackerBenchmarks
 
         foreach (KeyValuePair<int, State> pair in newStates)
         {
-            bool drainable = CanDrain(pair.Value);
+            bool drainable = pair.Value.IsDrainable;
 
             if (builder is null)
             {
@@ -152,7 +152,7 @@ public class TrackerBenchmarks
         builder.ExceptWith(removed.Concat(changedKeys));
 
         builder.UnionWith(
-            newStates.Where(static pair => CanDrain(pair.Value))
+            newStates.Where(static pair => pair.Value.IsDrainable)
                 .Select(static pair => pair.Key));
 
         return builder.ToImmutable();
@@ -168,7 +168,7 @@ public class TrackerBenchmarks
 
         foreach (KeyValuePair<int, State> pair in newStates)
         {
-            bool drainable = CanDrain(pair.Value);
+            bool drainable = pair.Value.IsDrainable;
 
             if (drainable == keys.Contains(pair.Key))
             {
@@ -195,7 +195,8 @@ public class TrackerBenchmarks
         return builder is null ? keys : builder.ToImmutable();
     }
 
-    private static bool CanDrain(State state) => state.IsFrozen && state.Balance != 0;
-
-    private sealed record State(long Balance, bool IsFrozen);
+    private sealed record State(long Balance, bool IsFrozen)
+    {
+        public bool IsDrainable => this.IsFrozen && this.Balance != 0;
+    }
 }

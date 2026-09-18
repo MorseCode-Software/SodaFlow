@@ -6,11 +6,6 @@ using System.Linq;
 using SodaFlow.Bindable.ObjectModel;
 using SodaFlow.Collections;
 using SodaFlow.Functional;
-using AccountOrder =
-    SodaFlow.Collections.KeyOrder<
-        int,
-        SodaFlow.Samples.Accounts.ViewModels.AccountIdentity,
-        SodaFlow.Samples.Accounts.ViewModels.AccountState>;
 
 namespace SodaFlow.Samples.Accounts.ViewModels;
 
@@ -197,8 +192,7 @@ public sealed class AccountsViewModelOptimizedDrain : IAccountsViewModel
                         .Accum(
                             initialState:
                             Maybe<SortSelection>.None,
-                            f: static (column, current) =>
-                                Maybe.Some(SortSelection.UpdateSort(sortSelection: current, column: column)));
+                            f: static (column, current) => Maybe.Some(current.UpdateSort(column)));
 
                 // Each row pays into its own account, so the edits come from the rows, and the rows
                 // come from the collection the edits are for. That is a real cycle and the loop is how
@@ -224,7 +218,7 @@ public sealed class AccountsViewModelOptimizedDrain : IAccountsViewModel
                     accounts.ItemChangesStream.AccumLazy(
                         initialState: accounts.SnapshotCell.SampleLazy()
                             .Map(static snapshot =>
-                                snapshot.States.Pairs.Where(static pair => CanDrain(pair.Value))
+                                snapshot.States.Pairs.Where(static pair => pair.Value.IsDrainable)
                                     .Select(static pair => pair.Key)
                                     .ToImmutableHashSet()),
                         f: static (changes, drainableAccountKeys) =>
@@ -238,7 +232,7 @@ public sealed class AccountsViewModelOptimizedDrain : IAccountsViewModel
 
                             foreach (KeyValuePair<int, AccountState> pair in changes.NewStates)
                             {
-                                bool drainable = CanDrain(pair.Value);
+                                bool drainable = pair.Value.IsDrainable;
 
                                 if (builder is null)
                                 {
@@ -304,9 +298,7 @@ public sealed class AccountsViewModelOptimizedDrain : IAccountsViewModel
                         .Filter(
                             criteriaCell: showFrozen,
                             predicate: static (showing, _, state) => showing || !state.IsFrozen)
-                        .SortBy(
-                            sort.Map(static selection =>
-                                selection.Map(static selection => selection.Order).ValueOr(AccountOrder.ByArrival)));
+                        .SortBy(sort.Map(static selection => selection.Order));
 
                 // Paging moves an offset. Toggling the filter sends it back to the first page, because
                 // an offset that outlived the rows it pointed at would show an empty list. Sorting
@@ -380,25 +372,13 @@ public sealed class AccountsViewModelOptimizedDrain : IAccountsViewModel
                             showing ? "Showing all accounts" : "Showing active accounts only")
                         .ToOneWay(),
                     numberHeader: sort
-                        .Map(static selection =>
-                            SortSelection.Caption(
-                                sortSelection: selection,
-                                column: AccountColumn.Number,
-                                name: "Number"))
+                        .Map(static selection => selection.Caption(column: AccountColumn.Number, name: "Number"))
                         .ToOneWay(),
                     holderHeader: sort
-                        .Map(static selection =>
-                            SortSelection.Caption(
-                                sortSelection: selection,
-                                column: AccountColumn.Holder,
-                                name: "Holder"))
+                        .Map(static selection => selection.Caption(column: AccountColumn.Holder, name: "Holder"))
                         .ToOneWay(),
                     balanceHeader: sort
-                        .Map(static selection =>
-                            SortSelection.Caption(
-                                sortSelection: selection,
-                                column: AccountColumn.Balance,
-                                name: "Balance"))
+                        .Map(static selection => selection.Caption(column: AccountColumn.Balance, name: "Balance"))
                         .ToOneWay(),
                     nextPage: nextPage.ToBindableAction(
                         offset.Lift(c2: filtered.KeysCell, f: static (at, keys) => at + PageSize < keys.Count)),
@@ -411,8 +391,6 @@ public sealed class AccountsViewModelOptimizedDrain : IAccountsViewModel
                     projectedRows: rows,
                     deposits: deposits,
                     drains: drains);
-
-                static bool CanDrain(AccountState state) => state.IsFrozen && state.Balance != 0;
             }));
 
     /// <summary>One edit emptying every one of these accounts.</summary>

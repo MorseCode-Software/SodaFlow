@@ -137,14 +137,27 @@ internal static class BouncingAxis
     /// <summary>
     ///     When the given flight next reaches a bound, or none if it never does.
     /// </summary>
-    internal static Maybe<double> NextBounceTime(Flight flight, double min, double max)
-    {
-        Maybe<double> toMin = TimeToReach(flight: flight, bound: min);
-        Maybe<double> toMax = TimeToReach(flight: flight, bound: max);
+    internal static Maybe<double> NextBounceTime(Flight flight, double min, double max) =>
+        TimeToReach(flight: flight, bound: min).Earlier(TimeToReach(flight: flight, bound: max));
 
-        return toMin.Match(
-            onSome: a => toMax.Match(onSome: b => Maybe.Some(Math.Min(val1: a, val2: b)), onNone: () => Maybe.Some(a)),
-            onNone: () => toMax);
+    /// <summary>
+    ///     Choosing between two moments where either of them may not exist.
+    /// </summary>
+    /// <remarks>
+    ///     Both solves here end the same way: a pair of candidate moments, either of which may be
+    ///     absent, of which the answer is the earlier. An extension member rather than a static
+    ///     taking two maybes, because one of the pair is what the question is being asked of - and
+    ///     private, so naming a moment's counterpart reaches no further than this file.
+    /// </remarks>
+    extension(Maybe<double> first)
+    {
+        /// <summary>The earlier of the two, or whichever one of them there is.</summary>
+        private Maybe<double> Earlier(Maybe<double> second) =>
+            first.Match(
+                onSome: a => second.Match(
+                    onSome: b => Maybe.Some(Math.Min(val1: a, val2: b)),
+                    onNone: () => Maybe.Some(a)),
+                onNone: () => second);
     }
 
     /// <summary>
@@ -217,12 +230,9 @@ internal static class BouncingAxis
         }
 
         double root = Math.Sqrt(discriminant);
-        Maybe<double> first = Reached(flight: flight, dt: (-flight.Velocity - root) / flight.Acceleration);
-        Maybe<double> second = Reached(flight: flight, dt: (-flight.Velocity + root) / flight.Acceleration);
 
-        return first.Match(
-            onSome: a => second.Match(onSome: b => Maybe.Some(Math.Min(val1: a, val2: b)), onNone: () => Maybe.Some(a)),
-            onNone: () => second);
+        return Reached(flight: flight, dt: (-flight.Velocity - root) / flight.Acceleration)
+            .Earlier(Reached(flight: flight, dt: (-flight.Velocity + root) / flight.Acceleration));
     }
 
     /// <summary>

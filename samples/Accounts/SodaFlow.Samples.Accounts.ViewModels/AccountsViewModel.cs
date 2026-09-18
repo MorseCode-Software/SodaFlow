@@ -82,32 +82,56 @@ internal sealed record SortSelection(AccountColumn Column, bool IsDescending)
                 keyComparer: Comparer<int>.Default,
                 isDescending: this.IsDescending)
         };
+}
 
-    /// <summary>What clicking a header does: the same column reverses, another one selects.</summary>
-    /// <remarks>
-    ///     A newly chosen column starts ascending, except the balance, which starts at the largest
-    ///     because that is the way a list of balances is usually wanted.
-    /// </remarks>
-    internal static SortSelection UpdateSort(Maybe<SortSelection> sortSelection, AccountColumn column)
+/// <summary>What the view models ask of a sort selection that may not have been made yet.</summary>
+/// <remarks>
+///     <para>
+///         An extension block rather than statics on <see cref="SortSelection" />, because the thing
+///         each of these is about is the <see cref="Maybe{T}" /> and not the selection inside it.
+///         They were statics whose first parameter was their real subject, which is the shape C# had
+///         no better answer for until a type from another assembly could be given members of its own.
+///     </para>
+///     <para>
+///         <c>Order</c> is the one that pays for itself twice over: every caller wanted the
+///         order in force, and each had to spell out both halves of that - map into the selection,
+///         then fall back to arrival order for a list nobody has sorted yet.
+///     </para>
+/// </remarks>
+internal static class SortSelectionExtensions
+{
+    extension(Maybe<SortSelection> sortSelection)
     {
-        return sortSelection.Match(
-            onSome: sortSelection =>
-                column == sortSelection.Column
-                    ? sortSelection with { IsDescending = !sortSelection.IsDescending }
-                    : CreateNewSortSelection(column),
-            onNone: () => CreateNewSortSelection(column));
+        /// <summary>The order in force, which is arrival order until a header is clicked.</summary>
+        internal AccountOrder Order =>
+            sortSelection.Map(static selection => selection.Order).ValueOr(AccountOrder.ByArrival);
 
-        static SortSelection CreateNewSortSelection(AccountColumn column) =>
-            new(Column: column, IsDescending: column == AccountColumn.Balance);
+        /// <summary>What clicking a header does: the same column reverses, another one selects.</summary>
+        /// <remarks>
+        ///     A newly chosen column starts ascending, except the balance, which starts at the largest
+        ///     because that is the way a list of balances is usually wanted.
+        /// </remarks>
+        internal SortSelection UpdateSort(AccountColumn column)
+        {
+            return sortSelection.Match(
+                onSome: selection =>
+                    column == selection.Column
+                        ? selection with { IsDescending = !selection.IsDescending }
+                        : CreateNewSortSelection(column),
+                onNone: () => CreateNewSortSelection(column));
+
+            static SortSelection CreateNewSortSelection(AccountColumn column) =>
+                new(Column: column, IsDescending: column == AccountColumn.Balance);
+        }
+
+        /// <summary>A header's caption, marked if it is the column in force.</summary>
+        internal string Caption(AccountColumn column, string name) =>
+            name
+            + sortSelection.Match(
+                onSome: selection =>
+                    column == selection.Column ? selection.IsDescending ? " \u25bc" : " \u25b2" : string.Empty,
+                onNone: static () => string.Empty);
     }
-
-    /// <summary>A header's caption, marked if it is the column in force.</summary>
-    internal static string Caption(Maybe<SortSelection> sortSelection, AccountColumn column, string name) =>
-        name
-        + sortSelection.Match(
-            onSome: sortSelection =>
-                column == sortSelection.Column ? sortSelection.IsDescending ? " \u25bc" : " \u25b2" : string.Empty,
-            onNone: static () => string.Empty);
 }
 
 /// <summary>One row, holding cells that follow one account through the view showing it.</summary>
@@ -338,8 +362,7 @@ public sealed class AccountsViewModel : IAccountsViewModel
                         .Accum(
                             initialState:
                             Maybe<SortSelection>.None,
-                            f: static (column, current) =>
-                                Maybe.Some(SortSelection.UpdateSort(sortSelection: current, column: column)));
+                            f: static (column, current) => Maybe.Some(current.UpdateSort(column)));
 
                 // Each row pays into its own account, so the edits come from the rows, and the rows
                 // come from the collection the edits are for. That is a real cycle and the loop is how
@@ -362,7 +385,7 @@ public sealed class AccountsViewModel : IAccountsViewModel
                 // predicate reads only the state it is handed, so an edit to one account costs this
                 // view one test of that account.
                 ReactiveCollection<int, AccountIdentity, AccountState> drainable =
-                    accounts.Filter(static (_, state) => state.IsFrozen && state.Balance != 0);
+                    accounts.Filter(static (_, state) => state.IsDrainable);
 
                 Cell<bool> canDrain = drainable.KeysCell.Map(static keys => keys.Count > 0);
 
@@ -383,9 +406,7 @@ public sealed class AccountsViewModel : IAccountsViewModel
                         .Filter(
                             criteriaCell: showFrozen,
                             predicate: static (showing, _, state) => showing || !state.IsFrozen)
-                        .SortBy(
-                            sort.Map(static selection =>
-                                selection.Map(static selection => selection.Order).ValueOr(AccountOrder.ByArrival)));
+                        .SortBy(sort.Map(static selection => selection.Order));
 
                 // Paging moves an offset. Toggling the filter sends it back to the first page, because
                 // an offset that outlived the rows it pointed at would show an empty list. Sorting
@@ -459,25 +480,13 @@ public sealed class AccountsViewModel : IAccountsViewModel
                             showing ? "Showing all accounts" : "Showing active accounts only")
                         .ToOneWay(),
                     numberHeader: sort
-                        .Map(static selection =>
-                            SortSelection.Caption(
-                                sortSelection: selection,
-                                column: AccountColumn.Number,
-                                name: "Number"))
+                        .Map(static selection => selection.Caption(column: AccountColumn.Number, name: "Number"))
                         .ToOneWay(),
                     holderHeader: sort
-                        .Map(static selection =>
-                            SortSelection.Caption(
-                                sortSelection: selection,
-                                column: AccountColumn.Holder,
-                                name: "Holder"))
+                        .Map(static selection => selection.Caption(column: AccountColumn.Holder, name: "Holder"))
                         .ToOneWay(),
                     balanceHeader: sort
-                        .Map(static selection =>
-                            SortSelection.Caption(
-                                sortSelection: selection,
-                                column: AccountColumn.Balance,
-                                name: "Balance"))
+                        .Map(static selection => selection.Caption(column: AccountColumn.Balance, name: "Balance"))
                         .ToOneWay(),
                     nextPage: nextPage.ToBindableAction(
                         offset.Lift(c2: filtered.KeysCell, f: static (at, keys) => at + PageSize < keys.Count)),

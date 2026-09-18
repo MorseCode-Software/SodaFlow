@@ -1,23 +1,25 @@
 # Samples
 
-Two applications, each built twice — once in WPF and once in Avalonia — over one shared view
-model that knows about neither.
+Four applications, each built twice — once in WPF and once in Avalonia — over one shared view
+model that knows about neither. Counter has a third head, on .NET Framework.
 
 | Sample | Libraries it uses | What it shows |
 | --- | --- | --- |
 | [Counter](Counter) | `SodaFlow`, `SodaFlow.Bindable.ObjectModel` | The whole idea on one screen |
 | [Search](Search) | those two plus `SodaFlow.Async` | Search-as-you-type against a slow service |
+| [Bounce](Bounce) | `SodaFlow`, `SodaFlow.Bindable.ObjectModel` | Continuous time: motion as a function of `Time` |
 | [Accounts](Accounts) | those two plus `SodaFlow.Collections` | A large keyed collection behind a paged list |
 
-Accounts is the odd one out for now: it references the projects under `src/` rather than published
-packages, because the collections packages are not published yet and the sample is part of deciding
-what their API should be. The samples workflow builds it, which is how a library change that breaks
-it shows up, but it is not a required check, since a sample that work in progress can break has no
-business gating a merge. Nor is it inspected yet. All of that changes when the packages ship.
+Accounts used to be the odd one out, referencing the projects under `src/` while the collections
+packages were unpublished and the sample was part of deciding what their API should be. That is
+over: `SodaFlow.Collections` 1.0.0 is released, so Accounts pins packages like the rest, and the
+samples workflow builds it, inspects it, and gates a merge on it exactly as it does the other
+three.
 
-Each sample is a folder with its own solution. Open
-`Counter/SodaFlow.Samples.Counter.slnx` or `Search/SodaFlow.Samples.Search.slnx` and run either
-head.
+Each sample is a folder with its own solution. Open the one beside the sample —
+`Counter/SodaFlow.Samples.Counter.slnx`, `Search/SodaFlow.Samples.Search.slnx`,
+`Bounce/SodaFlow.Samples.Bounce.slnx` or `Accounts/SodaFlow.Samples.Accounts.slnx` — and run
+either head.
 
 ## Layout
 
@@ -61,10 +63,13 @@ Every sample takes its dependencies from nuget.org, at a pinned version, exactly
 application outside this repository would:
 
 ```xml
-<PackageReference Include="SodaFlow" Version="2.0.0" />
-<PackageReference Include="SodaFlow.Async" Version="2.1.0" />
-<PackageReference Include="SodaFlow.Bindable.ObjectModel" Version="1.0.0" />
+<PackageReference Include="SodaFlow" Version="4.0.0" />
+<PackageReference Include="SodaFlow.Async" Version="4.0.0" />
+<PackageReference Include="SodaFlow.Bindable.ObjectModel" Version="3.0.1" />
 ```
+
+That is Search. Counter and Bounce take the first and the third; Accounts takes those two and
+`SodaFlow.Collections` 1.0.0 in place of `SodaFlow.Async`.
 
 Project references into `src/` would have been easier to set up and worse to live with: a sample
 would then break the moment anyone changed a library API, and it would break in whatever branch
