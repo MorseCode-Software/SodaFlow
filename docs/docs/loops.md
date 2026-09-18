@@ -15,8 +15,9 @@ refers to it, then say what it was a reference to.
 ## The functional form
 
 This is the idiom to use. `Stream.Loop<T>()`, `Cell.Loop<T>()` and `Behavior.Loop<T>()` hand
-you the placeholder, take back the definition, and close the loop for you — including the
-explicit transaction it needs.
+your block the placeholder — a `LoopedStream<T>`, `LoopedCell<T>` or `LoopedBehavior<T>` — take
+back the definition it returns, and close the loop for you, including the explicit transaction it
+needs.
 
 # [C#](#tab/csharp)
 
@@ -56,10 +57,13 @@ These samples use `ListenStrong` rather than `Listen` for one reason: `using` an
 `IDisposable`, and only `IStrongListener` implements it. Everywhere the handle is simply held in
 a variable, [`Listen`](lifetimes.md) is the one to reach for.
 
-Read the C# version inside out: `l` is the placeholder for the very stream being defined,
-`l.Hold(0)` turns it into a cell of the running total starting at zero, and each firing of `s`
-snapshots that cell and adds to it. The result *is* `l`, which is what `WithoutCaptures`
-resolves.
+Read the C# version inside out: `l` is the placeholder for the very stream being defined — a
+`LoopedStream<int>`, which is a `Stream<int>` and usable as one anywhere — `l.Hold(0)` turns it
+into a cell of the running total starting at zero, and each firing of `s` snapshots that cell and
+adds to it. The result *is* `l`, which is what `WithoutCaptures` resolves.
+
+Where a placeholder has to be passed somewhere that wants the plain type, `AsStream`, `AsCell` and
+`AsBehavior` say so without a cast.
 
 ## Capturing extra values
 
@@ -82,8 +86,10 @@ equivalent is `loopS`, which returns a struct tuple of the looped value and the 
 ## The explicit form
 
 `StreamLoop<T>`, `CellLoop<T>` and `BehaviorLoop<T>` are the underlying mechanism, reached
-through `Stream.CreateLoop<T>`, `Cell.CreateLoop<T>` and `Behavior.CreateLoop<T>`. You will
-meet them in older code and in the book's examples:
+through `Stream.CreateLoop<T>`, `Cell.CreateLoop<T>` and `Behavior.CreateLoop<T>`. Each derives
+from the placeholder the block form hands out — `StreamLoop<T>` is a `LoopedStream<T>` — and adds
+the one member that closes it, `Loop`. You will meet them in older code and in the book's
+examples:
 
 ```csharp
 Transaction.RunVoid(() =>
@@ -103,9 +109,11 @@ Four rules apply, and the library enforces all four with exceptions:
 | Calling `Loop` twice | `Loop was looped more than once.` |
 | Closing it in a different transaction | `Loop must be looped in the same transaction that it was created in.` |
 
-The functional form exists because it makes all four impossible: the placeholder cannot outlive
-the block it was handed to, and the definition is what that block returns rather than something a
-later statement has to remember to do.
+The functional form exists because it makes all four impossible, and it is the type system that
+makes them so rather than a convention. What the block is handed is a `LoopedStream<T>`, which has
+no `Loop` on it at all: there is nothing to call twice, nothing to leave uncalled, and nothing to
+call in the wrong transaction. The placeholder cannot outlive the block, and the definition is what
+that block returns rather than something a later statement has to remember to do.
 
 So reach for `Loop` and write the explicit form only in the rare case where the loop cannot be
 scoped in a block at all — where the placeholder and its definition are separated by something a
@@ -141,8 +149,9 @@ let node = forwardReferenceWithNoCaptures (fun reference -> Node (Child referenc
 
 ---
 
-The child is handed a `Cell<Node>` which means nothing until the call returns and holds the
-finished node from then on. It unties the knot two objects make when each needs the other at
+The block is handed a `LoopedCell<Node>`, and `AsCell` passes it on as the `Cell<Node>` the
+child wants — a cell that means nothing until the call returns and holds the finished node from
+then on. It unties the knot two objects make when each needs the other at
 construction, which otherwise forces one of them to be built half-formed and completed
 afterward — with a settable member that has no business being settable once the graph is up.
 
