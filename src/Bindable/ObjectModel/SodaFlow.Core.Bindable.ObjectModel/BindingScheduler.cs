@@ -5,7 +5,7 @@ using JetBrains.Annotations;
 namespace SodaFlow.Bindable.ObjectModel;
 
 /// <summary>
-///     Marshals notifications onto the thread the binding engine requires.
+///     Moves notifications to the thread that the binding engine needs.
 /// </summary>
 [PublicAPI]
 public interface IBindingScheduler
@@ -15,49 +15,51 @@ public interface IBindingScheduler
     /// </summary>
     /// <remarks>
     ///     <para>
-    ///         Best-effort, and deliberately biased. An implementation which cannot tell MUST
-    ///         return <see langword="true" />. A wrong <see langword="true" /> costs nothing - it
-    ///         gives up a diagnostic that was never guaranteed - while a wrong
-    ///         <see langword="false" /> throws on correct code. Never answer
-    ///         <see langword="false" /> unless the thread is known to be the wrong one.
+    ///         This answer is an estimate, and it is deliberately not symmetrical. An
+    ///         implementation that cannot tell MUST return <see langword="true" />. An incorrect
+    ///         <see langword="true" /> has no cost, because it only gives up a diagnostic that
+    ///         was never a guarantee. An incorrect <see langword="false" /> throws on correct
+    ///         code. Answer <see langword="false" /> only when you know that the thread is the
+    ///         incorrect one.
     ///     </para>
     ///     <para>
-    ///         A scheduler with no thread affinity of its own, one which runs work wherever it is
-    ///         called, answers <see langword="true" /> unconditionally.
+    ///         A scheduler that has no thread of its own runs work on the thread that calls it.
+    ///         Such a scheduler answers <see langword="true" /> in all conditions.
     ///     </para>
     /// </remarks>
     bool CheckAccess();
 
     /// <summary>
-    ///     Queues <paramref name="action" /> for execution on the binding thread. Implementations
-    ///     MUST preserve FIFO ordering and MUST NOT execute the action synchronously while a Sodium
-    ///     transaction is in flight.
+    ///     Puts <paramref name="action" /> in the queue for the binding thread. An
+    ///     implementation MUST keep the first-in first-out sequence. It MUST NOT run the action
+    ///     immediately while a transaction is open.
     /// </summary>
     /// <param name="action">The action to run.</param>
     /// <remarks>
     ///     <para>
-    ///         MUST NOT wait for the action to finish, either. This is called from inside a
-    ///         transaction, and a transaction holds a process-wide lock for its whole duration.
-    ///         An implementation that hands the action to the binding thread and blocks until it
-    ///         returns deadlocks: the binding thread reaches this library through setters which
-    ///         open transactions of their own, so it may already be waiting for the very lock the
-    ///         caller of this method is holding. Queue and return — do not send and wait.
+    ///         An implementation MUST NOT wait for the action to complete. SodaFlow calls this
+    ///         method in a transaction, and a transaction holds a lock for the full process while
+    ///         it runs. An implementation that gives the action to the binding thread and then
+    ///         waits causes a deadlock. The binding thread comes into this library through
+    ///         setters that open transactions of their own. Thus it can already wait for the lock
+    ///         that the caller of this method holds. Put the action in the queue and return. Do
+    ///         not send it and wait.
     ///     </para>
     ///     <para>
-    ///         An implementation over a message loop gets this for nothing, since a dispatcher's
-    ///         post is asynchronous by nature. It is a handwritten scheduler, or one built on a
-    ///         send-and-wait primitive, that has to take care.
+    ///         An implementation on a message loop gets this behavior at no cost, because the
+    ///         post of a dispatcher is asynchronous. A scheduler that you write yourself, or one
+    ///         on a primitive that sends and waits, must be careful.
     ///     </para>
     /// </remarks>
     void Post(Action action);
 }
 
 /// <summary>
-///     Posts through a captured <see cref="SynchronizationContext" />. Works unmodified for WPF
-///     (<c>DispatcherSynchronizationContext</c>) and Avalonia (<c>AvaloniaSynchronizationContext</c>).
-///     The <see cref="SynchronizationContext" /> used here must ensure that items are run exclusively,
-///     not in parallel, and that their Post() method does not ever run the SendOrPostCallback delegate
-///     directly, in which case it would become re-entrant.
+///     Posts through a captured <see cref="SynchronizationContext" />. This works with no change
+///     for WPF, which uses <c>DispatcherSynchronizationContext</c>, and for Avalonia, which uses
+///     <c>AvaloniaSynchronizationContext</c>. The <see cref="SynchronizationContext" /> must run
+///     items one at a time and not in parallel. Its Post() method must not run the
+///     SendOrPostCallback delegate directly, because that makes this scheduler re-entrant.
 /// </summary>
 [PublicAPI]
 // ReSharper disable once InheritdocConsiderUsage
@@ -70,24 +72,24 @@ public sealed class SynchronizationContextBindingScheduler : IBindingScheduler
             a?.Invoke();
         };
 
-    // Captured alongside the context because the two identify the binding thread in different
-    // ways and neither is reliable alone. Taken from the constructing thread, which Capture and
-    // the ambient resolution both call from the binding thread; a caller which passes a context
-    // belonging to some other thread makes this the wrong id, and the check correspondingly
-    // permissive - the harmless direction.
+    // SodaFlow captures this with the context, because the two identify the binding thread in
+    // different ways and one alone is not sufficient. It comes from the constructing thread.
+    // Capture and the ambient resolution both run on the binding thread. A caller that supplies
+    // a context of a different thread makes this identifier incorrect, and makes the test more
+    // permissive. That is the direction with no risk.
     private readonly int bindingThreadId;
 
     private readonly SynchronizationContext context;
 
     /// <summary>
-    ///     Initializes a new instance posting through the given synchronization context.
+    ///     Creates an instance that posts through the given synchronization context.
     /// </summary>
-    /// <param name="context">The context to post to. Usually the UI thread's.</param>
+    /// <param name="context">The context to post to. This is usually the UI thread.</param>
     /// <exception cref="ArgumentNullException"><paramref name="context" /> is null.</exception>
     /// <remarks>
-    ///     The <see cref="SynchronizationContext" /> used here must ensure that items are run exclusively,
-    ///     not in parallel, and that their Post() method does not ever run the SendOrPostCallback delegate
-    ///     directly, in which case it would become re-entrant.
+    ///     The <see cref="SynchronizationContext" /> must run items one at a time and not in
+    ///     parallel. Its Post() method must not run the SendOrPostCallback delegate directly,
+    ///     because that makes this scheduler re-entrant.
     /// </remarks>
     public SynchronizationContextBindingScheduler(SynchronizationContext context)
     {
@@ -101,28 +103,29 @@ public sealed class SynchronizationContextBindingScheduler : IBindingScheduler
     /// </summary>
     /// <remarks>
     ///     <para>
-    ///         Two ways to answer yes, and both have to fail before this says no. A dispatcher hands
-    ///         out the same context instance on its own thread in the ordinary case, but not in
-    ///         every one — a nested message pump or a priority-carrying copy can substitute another
-    ///         — so the thread captured alongside it is the second answer. Erring toward yes is the
-    ///         contract: see <see cref="IBindingScheduler.CheckAccess()" />.
+    ///         There are two ways to answer yes, and the two must fail before this method
+    ///         answers no. A dispatcher usually supplies the same context instance on its own
+    ///         thread, but not in each condition. A nested message loop, or a copy that carries a
+    ///         priority, can supply a different one. Thus the thread that SodaFlow captures with
+    ///         the context is the second answer. An answer of yes when the method is not sure is
+    ///         the contract. See <see cref="IBindingScheduler.CheckAccess()" />.
     ///     </para>
     ///     <para>
-    ///         The thread is compared first, and the order is load-bearing rather than incidental.
-    ///         Reading <see cref="SynchronizationContext.Current" /> is not the cheap thread-local
-    ///         fetch it looks like: on .NET Framework it goes through the execution context, and
-    ///         this check measures 13.0ns with the context asked first against 3.1ns with the
-    ///         thread id asked first — most of what a checked read of a bindable's value costs
-    ///         there, 18.3ns against 6.4ns. The same reordering on .NET 8 is 2.3ns against 1.3ns,
-    ///         so the case for it is made almost entirely by the older runtime, which the
-    ///         libraries still support.
+    ///         This method compares the thread first, and that sequence is necessary. A read of
+    ///         <see cref="SynchronizationContext.Current" /> is not a cheap thread-local read. On
+    ///         .NET Framework it goes through the execution context. This test measures 13.0ns
+    ///         when it reads the context first, and 3.1ns when it reads the thread identifier
+    ///         first. That is most of the cost of a checked read of a bindable value on that
+    ///         platform, which is 18.3ns against 6.4ns. The same change on .NET 8 is 2.3ns
+    ///         against 1.3ns. Thus the older runtime, which these libraries support, is the cause
+    ///         of this sequence.
     ///     </para>
     ///     <para>
-    ///         Asking the cheap question first means the answer is usually yes before the
-    ///         expensive one is reached, and leaves the expensive one for the case it exists to
-    ///         cover: a dispatcher which moved its work to another thread. Both numbers come from
-    ///         BindableValueBenchmarks in SodaFlow.Benchmarks, which runs on both runtimes for
-    ///         exactly this reason.
+    ///         The cheap test first usually gives the answer yes before the method does the
+    ///         expensive test. That leaves the expensive test for the condition it covers: a
+    ///         dispatcher that moved its work to a different thread. BindableValueBenchmarks in
+    ///         SodaFlow.Benchmarks supplies these numbers, and it runs on the two runtimes for
+    ///         this cause.
     ///     </para>
     /// </remarks>
     public bool CheckAccess() =>
@@ -135,11 +138,12 @@ public sealed class SynchronizationContextBindingScheduler : IBindingScheduler
     /// <param name="action">The action to run on the binding thread.</param>
     /// <exception cref="ArgumentNullException"><paramref name="action" /> is null.</exception>
     /// <remarks>
-    ///     Always posted, never sent, even when the caller is already on the binding thread:
-    ///     running inline would breach the contract on <see cref="IBindingScheduler.Post" /> for a
-    ///     caller inside a transaction, and the handlers here are called from inside one. Posting
-    ///     is also what keeps this off the wrong side of the deadlock described there, since
-    ///     <see cref="SynchronizationContext.Post" /> returns without waiting.
+    ///     This method always posts and never sends, also when the caller is on the binding
+    ///     thread. A run on the calling thread breaks the contract on
+    ///     <see cref="IBindingScheduler.Post" /> for a caller in a transaction, and SodaFlow
+    ///     calls these handlers in one. A post also prevents the deadlock that the contract
+    ///     describes, because <see cref="SynchronizationContext.Post" /> returns and does not
+    ///     wait.
     /// </remarks>
     // ReSharper disable once InheritdocConsiderUsage
     public void Post(Action action)
@@ -152,8 +156,8 @@ public sealed class SynchronizationContextBindingScheduler : IBindingScheduler
         this.context.Post(d: Callback, state: action);
     }
 
-    /// <summary>Captures the current thread's synchronization context.</summary>
-    /// <exception cref="InvalidOperationException">No context is installed on this thread.</exception>
+    /// <summary>Captures the synchronization context of the current thread.</summary>
+    /// <exception cref="InvalidOperationException">This thread has no context.</exception>
     public static SynchronizationContextBindingScheduler Capture()
     {
         SynchronizationContext? context = SynchronizationContext.Current;
@@ -170,24 +174,25 @@ public sealed class SynchronizationContextBindingScheduler : IBindingScheduler
 }
 
 /// <summary>
-///     Runs everything on the calling thread. Intended for unit tests, where notifications should
-///     be observable synchronously and there is no UI thread to marshal to.
+///     Runs all work on the calling thread. Use this in a unit test, where a notification must
+///     be visible immediately and there is no UI thread.
 /// </summary>
 /// <remarks>
-///     Inline, but not unconditionally. Running inline while a transaction is in flight is exactly
-///     what <see cref="IBindingScheduler.Post" /> forbids, and it is not a theoretical concern here:
-///     the source-changed handlers are invoked from a listener callback, so an unconditionally
-///     inline scheduler would raise <c>PropertyChanged</c> from inside the transaction and let a
-///     handler re-enter the graph. A dispatcher-backed scheduler cannot do that; a test scheduler
-///     that could, would exercise an ordering the real one never produces.
-///     Deferring to the end of the current transaction costs a test nothing, because the queued
-///     action still runs before the <c>Send</c> that produced it returns.
+///     This scheduler runs work on the calling thread, but not in each condition. A run on the
+///     calling thread while a transaction is open is what <see cref="IBindingScheduler.Post" />
+///     prevents, and the risk is real. SodaFlow calls the source-changed handlers from a listener
+///     callback. Thus a scheduler that always runs on the calling thread raises
+///     <c>PropertyChanged</c> in the transaction and lets a handler come back into the graph. A
+///     scheduler on a dispatcher cannot do that. A test scheduler that can do it tests a sequence
+///     that the real scheduler never makes. A delay to the end of the current transaction costs a
+///     test nothing, because the action in the queue still runs before the <c>Send</c> that made
+///     it returns.
 /// </remarks>
 [PublicAPI]
 // ReSharper disable once InheritdocConsiderUsage
 public sealed class ImmediateBindingScheduler : IBindingScheduler
 {
-    /// <summary>The single instance. This type holds no state.</summary>
+    /// <summary>The one instance. This type holds no state.</summary>
     public static readonly ImmediateBindingScheduler Instance = new();
 
     private ImmediateBindingScheduler()
@@ -196,24 +201,25 @@ public sealed class ImmediateBindingScheduler : IBindingScheduler
 
     // ReSharper disable once InheritdocConsiderUsage
     /// <remarks>
-    ///     Always true. This scheduler runs work on whichever thread hands it over, so every
-    ///     thread is its binding thread and there is nothing to be wrong about.
+    ///     This is always true. The scheduler runs work on the thread that supplies it. Thus
+    ///     each thread is its binding thread and no answer can be incorrect.
     /// </remarks>
     public bool CheckAccess() => true;
 
     /// <summary>
-    ///     Runs the action on the calling thread, once no transaction is in flight.
+    ///     Runs the action on the calling thread, when no transaction is open.
     /// </summary>
     /// <param name="action">The action to run.</param>
     /// <exception cref="ArgumentNullException"><paramref name="action" /> is null.</exception>
     /// <remarks>
-    ///     Deferring to the close of the current transaction means running while that transaction
-    ///     still holds the process-wide lock. Anything reached this way — a
-    ///     <see cref="System.ComponentModel.INotifyPropertyChanged.PropertyChanged" /> subscriber,
-    ///     most likely — therefore must not wait on another thread opening a transaction, because
-    ///     that thread cannot open one until this one has closed. A dispatcher-backed scheduler
-    ///     runs its actions after the transaction has released the lock and has no such
-    ///     constraint, which is one more reason to keep this one to tests.
+    ///     A delay to the close of the current transaction makes the action run while that
+    ///     transaction holds the lock for the full process. Thus code that this action reaches
+    ///     must not wait for a different thread to open a transaction, because that thread cannot
+    ///     open one until this transaction closes. A
+    ///     <see cref="System.ComponentModel.INotifyPropertyChanged.PropertyChanged" /> subscriber
+    ///     is the most probable example. A scheduler on a dispatcher runs its actions after the
+    ///     transaction releases the lock and has no such limit. That is one more cause to use
+    ///     this scheduler only in a test.
     /// </remarks>
     // ReSharper disable once InheritdocConsiderUsage
     public void Post(Action action)
@@ -223,31 +229,33 @@ public sealed class ImmediateBindingScheduler : IBindingScheduler
             throw new ArgumentNullException(nameof(action));
         }
 
-        // Immediately when no transaction is open - the common case in a test - and at the close
-        // of the current one otherwise. Never from inside a callback, either way.
+        // This runs immediately when no transaction is open, which is the usual condition in a
+        // test. If a transaction is open, it runs at the close of that transaction. It never runs
+        // in a callback.
         TransactionInternal.PostImpl(action);
     }
 }
 
-/// <summary>Ambient scheduler resolution.</summary>
+/// <summary>Finds the ambient scheduler.</summary>
 [PublicAPI]
 public static class BindingScheduler
 {
     /// <summary>
-    ///     An explicit process-wide scheduler. Set this during startup when the binding thread has
-    ///     no <see cref="SynchronizationContext" /> of its own to capture — a custom UI framework,
-    ///     or a test host. When null, each bindable captures the
-    ///     <see cref="SynchronizationContext" /> of the thread that constructed it.
+    ///     A scheduler for the full process. Set this at startup when the binding thread has no
+    ///     <see cref="SynchronizationContext" /> of its own. A UI framework that you write
+    ///     yourself, or a test host, has no such context. When this is null, each bindable
+    ///     captures the <see cref="SynchronizationContext" /> of the thread that constructed
+    ///     it.
     /// </summary>
     /// <remarks>
-    ///     Bindable objects may be constructed on any thread, so a view model never needs to know which
-    ///     thread the binding engine uses. What it does need is for one of these to be resolvable:
-    ///     set this when the binding thread has no <see cref="SynchronizationContext" /> to capture,
-    ///     or when construction happens somewhere there is no context to capture from.
+    ///     You can construct a bindable object on any thread, thus a view model does not have to
+    ///     know which thread the binding engine uses. But one of these must be available. Set
+    ///     this when the binding thread has no <see cref="SynchronizationContext" />, or when
+    ///     construction occurs where there is no context to capture.
     /// </remarks>
     public static IBindingScheduler? Default { get; set; }
 
-    /// <summary>Convenience for tests and headless hosts.</summary>
+    /// <summary>A scheduler for a test and for a host with no UI.</summary>
     public static IBindingScheduler Immediate => ImmediateBindingScheduler.Instance;
 
     internal static IBindingScheduler Resolve(IBindingScheduler? scheduler)
