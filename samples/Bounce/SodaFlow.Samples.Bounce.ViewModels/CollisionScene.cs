@@ -228,8 +228,8 @@ internal sealed class CollisionScene : IScene
             // it costs is visible: see the note on the clock above ContactTime.
             bodies[i] =
                 new Body(
-                    X: Arrangement.InitialX(start: start, now: time),
-                    Y: Arrangement.InitialY(start: start, now: time),
+                    X: start.InitialX(now: time),
+                    Y: start.InitialY(now: time),
                     Radius: start.Radius);
         }
 
@@ -376,16 +376,10 @@ internal sealed class CollisionScene : IScene
                 Flight flight = horizontal ? body.X : body.Y;
                 double limit = horizontal ? Arrangement.Width : Arrangement.Height;
 
-                Maybe<double> at =
-                    WallTime(flight: flight, min: body.Radius, max: limit - body.Radius);
-
-                if (at.Match(onSome: static _ => true, onNone: static () => false))
+                if (WallTime(flight: flight, min: body.Radius, max: limit - body.Radius)
+                    .TryGetValue(out double at))
                 {
-                    yield return new Event(
-                        Time: at.Match(onSome: static t => t, onNone: static () => 0.0),
-                        Index: i,
-                        Other: -1,
-                        Horizontal: horizontal);
+                    yield return new Event(Time: at, Index: i, Other: -1, Horizontal: horizontal);
                 }
             }
         }
@@ -394,15 +388,9 @@ internal sealed class CollisionScene : IScene
         {
             for (int j = i + 1; j < world.Count; j++)
             {
-                Maybe<double> at = ContactTime(first: world[i], second: world[j]);
-
-                if (at.Match(onSome: static _ => true, onNone: static () => false))
+                if (ContactTime(first: world[i], second: world[j]).TryGetValue(out double at))
                 {
-                    yield return new Event(
-                        Time: at.Match(onSome: static t => t, onNone: static () => 0.0),
-                        Index: i,
-                        Other: j,
-                        Horizontal: false);
+                    yield return new Event(Time: at, Index: i, Other: j, Horizontal: false);
                 }
             }
         }
@@ -744,4 +732,42 @@ internal sealed class CollisionScene : IScene
     /// </remarks>
     // ReSharper disable once InheritdocConsiderUsage
     private readonly record struct Event(double Time, int Index, int Other, bool Horizontal);
+}
+
+/// <summary>
+///     Testing a solved moment and reading it in one step.
+/// </summary>
+/// <remarks>
+///     <para>
+///         <see cref="Maybe{T}" /> is matched rather than unwrapped, which reads badly where the
+///         answer is fed straight into something: asking whether there is a value and then asking
+///         again for it means naming a fallback that cannot happen. This is the <c>TryGet</c> shape
+///         the rest of .NET uses for the same question.
+///     </para>
+///     <para>
+///         Allocation-free, which is why it is this rather than <c>ToEnumerable</c>. That returns a
+///         one-element array for a value, and <c>Events</c> asks this fourteen times for four balls
+///         on every step of the world - a step that already happens whenever anything bounces. The
+///         tuple is a struct and both lambdas are static, so nothing here reaches the heap.
+///     </para>
+///     <para>
+///         <c>file</c> because <see cref="CollisionScene" /> is the only caller, and an extension on
+///         a type this widely used should not turn up on every <see cref="Maybe{T}" /> in the
+///         assembly for the sake of one method.
+///     </para>
+/// </remarks>
+file static class MaybeExtensions
+{
+    extension(Maybe<double> maybe)
+    {
+        /// <summary>The moment, if there is one.</summary>
+        public bool TryGetValue(out double value)
+        {
+            (bool hasValue, double found) =
+                maybe.Match(onSome: static v => (true, v), onNone: static () => (false, 0.0));
+
+            value = found;
+            return hasValue;
+        }
+    }
 }

@@ -53,17 +53,17 @@ internal sealed class WallsScene : IScene
                 new Ball(
                     x: BouncingAxis.Create(
                         timers: timers,
-                        initial: Arrangement.InitialX(start: start, now: now),
+                        initial: start.InitialX(now: now),
                         min: start.Radius,
                         max: Arrangement.Width - start.Radius,
-                        restarts: restarted.Map(time => Arrangement.InitialX(start: start, now: time)),
+                        restarts: restarted.Map(time => start.InitialX(now: time)),
                         restitution: restitution),
                     y: BouncingAxis.Create(
                         timers: timers,
-                        initial: Arrangement.InitialY(start: start, now: now),
+                        initial: start.InitialY(now: now),
                         min: start.Radius,
                         max: Arrangement.Height - start.Radius,
-                        restarts: restarted.Map(time => Arrangement.InitialY(start: start, now: time)),
+                        restarts: restarted.Map(time => start.InitialY(now: time)),
                         restitution: restitution),
                     radius: start.Radius,
                     color: start.Color);

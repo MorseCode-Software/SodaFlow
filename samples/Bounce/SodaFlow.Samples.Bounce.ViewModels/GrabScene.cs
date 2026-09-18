@@ -87,7 +87,7 @@ internal sealed class GrabScene : IInteractiveScene
             Behavior<double> freeX =
                 BouncingAxis.Create(
                     timers: timers,
-                    initial: Arrangement.InitialX(start: start, now: now),
+                    initial: start.InitialX(now: now),
                     min: minX,
                     max: maxX,
                     // A throw and a fresh start are the same kind of thing - a flight imposed
@@ -100,13 +100,13 @@ internal sealed class GrabScene : IInteractiveScene
                                 Position: Clamp(value: t.Trail.X, min: minX, max: maxX),
                                 Velocity: t.Trail.VelocityX,
                                 Acceleration: 0.0))
-                        .OrElse(restarted.Map(time => Arrangement.InitialX(start: start, now: time))),
+                        .OrElse(restarted.Map(time => start.InitialX(now: time))),
                     restitution: restitution);
 
             Behavior<double> freeY =
                 BouncingAxis.Create(
                     timers: timers,
-                    initial: Arrangement.InitialY(start: start, now: now),
+                    initial: start.InitialY(now: now),
                     min: minY,
                     max: maxY,
                     restarts: mine
@@ -116,7 +116,7 @@ internal sealed class GrabScene : IInteractiveScene
                                 Position: Clamp(value: t.Trail.Y, min: minY, max: maxY),
                                 Velocity: t.Trail.VelocityY,
                                 Acceleration: Arrangement.Gravity))
-                        .OrElse(restarted.Map(time => Arrangement.InitialY(start: start, now: time))),
+                        .OrElse(restarted.Map(time => start.InitialY(now: time))),
                     restitution: restitution);
 
             Cell<bool> isHeld =

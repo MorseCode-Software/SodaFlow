@@ -26,7 +26,16 @@ internal sealed record AccountIdentity(int Number, string Holder) : IIdentity<in
 /// <param name="Balance">The balance, in cents, so the sample never shows a rounding artifact.</param>
 /// <param name="IsFrozen">Whether the account is frozen, which the view filters on.</param>
 // ReSharper disable once InheritdocConsiderUsage
-internal sealed record AccountState(long Balance, bool IsFrozen);
+internal sealed record AccountState(long Balance, bool IsFrozen)
+{
+    /// <summary>Whether a drain would empty this account: frozen, and with something left in it.</summary>
+    /// <remarks>
+    ///     Named here rather than written out at each of the places that ask, because the two view
+    ///     models differ in how they track the drainable accounts and not in which accounts those
+    ///     are. Keeping the predicate in one place is what makes that the only difference.
+    /// </remarks>
+    internal bool IsDrainable => this.IsFrozen && this.Balance != 0;
+}
 
 /// <summary>The accounts this sample starts with.</summary>
 /// <remarks>

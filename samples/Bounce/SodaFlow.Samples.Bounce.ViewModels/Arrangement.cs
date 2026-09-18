@@ -27,13 +27,25 @@ internal static class Arrangement
         new(X: 150.0, Y: 220.0, VelocityX: -240.0, VelocityY: -40.0, Radius: 11.0, Color: "#27AE60")
     ];
 
-    /// <summary>The horizontal flight a ball begins with, or resumes with when thrown.</summary>
-    public static Flight InitialX(Start start, double now) =>
-        new(StartTime: now, Position: start.X, Velocity: start.VelocityX, Acceleration: 0.0);
+    /// <summary>
+    ///     The flights a ball begins with, read as members of the start they are built from.
+    /// </summary>
+    /// <remarks>
+    ///     An extension block rather than methods on <see cref="Start" />, so that the record stays
+    ///     what it says it is - where a ball begins - while the business of turning that into a
+    ///     <see cref="Flight" /> stays here beside <see cref="Gravity" />, which the vertical one
+    ///     needs. The call site reads as though they were members either way, which is the point.
+    /// </remarks>
+    extension(Start start)
+    {
+        /// <summary>The horizontal flight a ball begins with, or resumes with when thrown.</summary>
+        public Flight InitialX(double now) =>
+            new(StartTime: now, Position: start.X, Velocity: start.VelocityX, Acceleration: 0.0);
 
-    /// <summary>The vertical flight a ball begins with.</summary>
-    public static Flight InitialY(Start start, double now) =>
-        new(StartTime: now, Position: start.Y, Velocity: start.VelocityY, Acceleration: Gravity);
+        /// <summary>The vertical flight a ball begins with.</summary>
+        public Flight InitialY(double now) =>
+            new(StartTime: now, Position: start.Y, Velocity: start.VelocityY, Acceleration: Gravity);
+    }
 
     /// <summary>Where one ball begins, how fast, and what it looks like.</summary>
     // ReSharper disable once InheritdocConsiderUsage
