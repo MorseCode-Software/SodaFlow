@@ -18,14 +18,15 @@ internal static class BehaviorInternal
 }
 
 /// <summary>
-///     Represents a value that changes over time.
+///     A value that changes with time.
 /// </summary>
 /// <typeparam name="T">The type of values in the behavior.</typeparam>
 [PublicAPI]
 public class Behavior<T>
 {
-    // Captures nothing but this behavior, so it is built once rather than on every firing.
-    // Only the stream-backed constructor needs it; a constant behavior never updates.
+    // This captures only this behavior, thus SodaFlow builds it one time and not on each
+    // firing. Only the constructor that takes a stream needs it, because a constant behavior
+    // does not update.
     // ReSharper disable once PrivateFieldCanBeConvertedToLocalVariable - This is done for performance reasons.
     private readonly Action? applyValueUpdate;
     private readonly Stream<T> stream;
@@ -48,8 +49,9 @@ public class Behavior<T>
         this.valueProperty = initialValue;
         this.UsingInitialValue = true;
 
-        // Assigned before Listen, because listening can replay firings already made in this
-        // transaction and so run the handler below before the constructor returns.
+        // SodaFlow assigns this before Listen, because Listen can send the firings that
+        // this transaction made in this transaction. Thus the handler below can run before the constructor
+        // returns.
         this.applyValueUpdate = this.ApplyValueUpdate;
 
         this.streamListener =
@@ -59,9 +61,9 @@ public class Behavior<T>
                     trans: trans1,
                     action: (trans2, a) =>
                     {
-                        // Deliberately not MatchNone/MatchSome: those take callbacks, and this
-                        // runs on every firing of every cell, so the closures they require were
-                        // showing up as a large share of the cost of a single Send.
+                        // This does not use MatchNone or MatchSome, because they take
+                        // callbacks. This code runs on each firing of each cell, thus the
+                        // necessary closures were a large part of the cost of one Send.
                         if (!this.valueUpdate.HasValue())
                         {
                             trans2.Last(this.applyValueUpdate);
@@ -75,14 +77,14 @@ public class Behavior<T>
     internal IKeepListenersAlive KeepListenersAlive => this.stream.KeepListenersAlive;
 
     /// <summary>
-    ///     Gets or sets the value this behavior reports when sampled outside a transaction.
+    ///     Gets or sets the value this behavior reports when sampled not in a transaction.
     /// </summary>
     /// <value>The behavior's current value.</value>
     /// <remarks>
-    ///     Setting this clears <see cref="UsingInitialValue" />, because a behavior that has been
-    ///     given a value is no longer relying on the one it was constructed with. Derived types
-    ///     should assign through this property rather than the backing field so that flag stays
-    ///     accurate.
+    ///     A set of this property clears <see cref="UsingInitialValue" />, because a behavior
+    ///     with a new value does not use the value from its construction. A derived type must
+    ///     assign through this property and not through the backing field, to keep that flag
+    ///     applicable.
     /// </remarks>
     protected T ValueProperty
     {
@@ -95,8 +97,8 @@ public class Behavior<T>
     }
 
     /// <summary>
-    ///     Gets a value indicating whether this behavior is still reporting the value it was
-    ///     constructed with, rather than one it has since been given.
+    ///     Tells you if this behavior gives the value from its construction, and not a
+    ///     value that it received later.
     /// </summary>
     /// <value>
     ///     <see langword="true" /> until <see cref="ValueProperty" /> is assigned, and
@@ -118,10 +120,10 @@ public class Behavior<T>
     ///     Records that this behavior no longer depends on the value it was constructed with.
     /// </summary>
     /// <remarks>
-    ///     Called when <see cref="ValueProperty" /> is assigned. Derived types override this to
-    ///     release anything they were holding only to produce that initial value; see
-    ///     <see cref="LoopedBehavior{T}" />, which drops its deferred initial value here so a closed
-    ///     loop does not keep it alive.
+    ///     SodaFlow calls this when it assigns <see cref="ValueProperty" />. A derived type
+    ///     overrides this to release the data that it holds only to make that initial value.
+    ///     For an example, see <see cref="LoopedBehavior{T}" />. It releases its deferred
+    ///     initial value here, thus a closed loop does not keep that value alive.
     /// </remarks>
     protected virtual void NotUsingInitialValue() => this.UsingInitialValue = false;
 
@@ -148,33 +150,36 @@ public class Behavior<T>
     internal Stream<T> Updates() => this.stream;
 
     /// <summary>
-    ///     The stream of this behavior's value: its current value, delivered in this transaction,
-    ///     followed by every update.
+    ///     The stream of the value of this behavior. It gives the current value in this
+    ///     transaction, and then each update.
     /// </summary>
     /// <remarks>
-    ///     Both sources feed one output stream directly rather than going through a spark stream, a
-    ///     snapshot of it and a merge - four streams where two will do. Value sits underneath
-    ///     Cell.ListenStrong, Apply and the switches, so it was a large part of what each of those cost.
-    ///     The initial send is queued against a bare node of its own, exactly as the spark stream it
-    ///     replaces was, and for the same reason: a fresh node ranks below everything, so the value
-    ///     is delivered even when Value is called part-way through a drain. SwitchB does precisely
-    ///     that - its handler builds a Value for the newly selected behavior mid-transaction - and
-    ///     hanging the initial send off the output node instead makes the switch deliver a stale
-    ///     value. The node costs nothing; it is the two intermediate streams that were expensive.
-    ///     Coalescing right-wins leaves an update from this transaction in front of the initial
-    ///     value, which is what merging with (left, right) =&gt; right used to do.
+    ///     Both sources send into one output stream. They do not use a spark stream, a snapshot
+    ///     of it and a merge, which is four streams where two are sufficient. Value is below
+    ///     Cell.ListenStrong, Apply and the switch operations, thus it was a large part of the
+    ///     cost of each of them.
+    ///     SodaFlow queues the initial send against a new node of its own, as the spark
+    ///     stream that it replaces did, and for the same reason. A new node ranks below all
+    ///     other nodes, thus SodaFlow delivers the value also when a caller calls Value
+    ///     during a drain. SwitchB does this, because its handler builds a Value for the newly
+    ///     selected behavior in the middle of a transaction. An initial send on the output node
+    ///     makes the switch deliver an old value. The node costs nothing, but the two
+    ///     intermediate streams were expensive.
+    ///     A coalesce operation in which the right value wins keeps an update from this
+    ///     transaction in front of the initial value. A merge with (left, right) =&gt; right
+    ///     gave the same result.
     /// </remarks>
     internal Stream<T> Value(TransactionInternal trans1)
     {
         Stream<T> @out = new(this.stream.KeepListenersAlive);
 
-        // This will always run first since it has Rank = 0.
+        // This always runs first, because its Rank is 0.
         trans1.Prioritized(
             node: new Node<UnitInternal>(),
             action: trans2 => @out.Send(trans: trans2, a: this.SampleNoTransaction()));
 
-        // This listener will queue an action that will always run after the previous one since,
-        // even if this.Updates() has Rank = 0, the listener attached to it will have Rank > 0.
+        // This listener queues an action that always runs after the previous action. The Rank
+        // of this.Updates() can be 0, but the Rank of its listener is more than 0.
         IListener l =
             this.Updates()
                 .Listen(
@@ -183,7 +188,8 @@ public class Behavior<T>
                     action: @out.Send,
                     suppressEarlierFirings: false);
 
-        // The order is assured without having to link the first node and the second node.
+        // The sequence is correct, and a link between the first node and the second node is
+        // not necessary.
         return @out.UnsafeAttachListener(l).Coalesce(trans1: trans1, f: static (_, right) => right);
     }
 
@@ -193,20 +199,21 @@ public class Behavior<T>
                 .MapImpl(f)
                 .HoldLazyInternal(trans: trans, initialValue: this.SampleLazy(trans).MapImpl(f)));
 
-    // Lift is deliberately no longer built out of Apply. Chaining ApplyImpl once per extra
-    // input made every input pay for a Value() - a spark stream, a snapshot, a merge and a
-    // coalesce - so a six-way lift constructed around fifty streams and cost roughly 87KB.
-    // This shape, which the IEnumerable overload in BehaviorExtensionMethods already used,
-    // builds three streams whatever the arity: one pulse stream that every input feeds, a
-    // coalesce operation collapsing a transaction's updates into a single firing, and a map that
-    // recombines the inputs.
+    // Lift no longer uses Apply. One call to ApplyImpl for each additional input made each
+    // input pay for a Value(), which is a spark stream, a snapshot, a merge and a coalesce
+    // operation. Thus a six-way lift built approximately fifty streams and cost approximately
+    // 87KB. This method builds three streams for all arities: one pulse stream that each input
+    // sends into, one coalesce operation that makes the updates of a transaction into one
+    // firing, and one map that puts the inputs together again. The IEnumerable overload in
+    // BehaviorExtensionMethods already used this method.
     //
-    // Each input's new value is captured as it propagates rather than read back off the
-    // behavior afterward. A behavior applies its update through a listener on Node<T>.Null,
-    // and the priority queue drains null-ranked entries only after every ranked one, so at the
-    // point the map below runs the behaviors still hold their previous values. Rank ordering is
-    // what makes capturing safe: every input links into pulse.Node, so pulse.Node outranks all
-    // of them and each slot is filled before anything downstream of the coalesce can run.
+    // SodaFlow captures the new value of each input as that value moves through the graph,
+    // and does not read the value from the behavior after that. A behavior applies its update
+    // through a listener on Node<T>.Null. The priority queue drains the entries with a null
+    // rank only after all the ranked entries. Thus the behaviors hold their previous
+    // values when the map below runs. The sequence of the ranks makes the capture safe,
+    // because each input links into pulse.Node. Thus pulse.Node ranks above all of them, and
+    // SodaFlow fills each slot before any code after the coalesce operation can run.
 
     internal Behavior<TResult> LiftImpl<T2, TResult>(Behavior<T2> b2, Func<T, T2, TResult> f) =>
         TransactionInternal.Apply((trans, _) =>
@@ -407,8 +414,9 @@ public class Behavior<T>
         });
 
     /// <summary>
-    ///     Wires one lifted input to the shared pulse stream, recording its new value on the way
-    ///     through so the recombine step does not have to read it back off the behavior.
+    ///     Connects one lifted input to the shared pulse stream. It keeps the new value of that
+    ///     input, thus the step that puts the inputs together does not read the value from the
+    ///     behavior.
     /// </summary>
     private static IListener Pulse<TInput>(
         Behavior<TInput> input,
@@ -427,15 +435,17 @@ public class Behavior<T>
                 suppressEarlierFirings: false);
 
     /// <summary>
-    ///     Reads an input's value for this firing: the value captured on the way through if it
-    ///     updated in this transaction, otherwise the behavior's current one.
+    ///     Reads the value of an input for this firing. If the input updated in this
+    ///     transaction, this is the captured value. If it did not, this is the current value of
+    ///     the behavior.
     /// </summary>
     /// <remarks>
-    ///     Clearing the slot afterward is hygiene rather than correctness. A slot left set would
-    ///     still give the right answer, because by the time the next transaction reads it the
-    ///     behavior has committed that same value - verified by removing the reset and finding no
-    ///     test could tell. It is cleared so the closure does not hold a second reference to every
-    ///     input's last value for as long as the lifted behavior lives.
+    ///     SodaFlow clears the slot for cleanliness and not for correctness. A slot that
+    ///     keeps its value still gives the applicable answer, because the behavior commits that
+    ///     same value before the next transaction reads the slot. A test of this removed the
+    ///     reset, and no test could find the difference. SodaFlow clears the slot so that the
+    ///     closure does not hold a second reference to the last value of each input for the full
+    ///     life of the lifted behavior.
     /// </remarks>
     private static TInput Take<TInput>(ref MaybeInternal<TInput> pending, Behavior<TInput> input)
     {
@@ -452,8 +462,8 @@ public class Behavior<T>
         // ReSharper disable once ParameterTypeCanBeEnumerable.Local - Typed as array for performance reasons
         IListener[] listeners)
     {
-        // Coalescing means a transaction that updates several inputs produces exactly one
-        // firing, with every input's new value already captured.
+        // The coalesce operation makes one firing for a transaction that updates more than one
+        // input. SodaFlow captured the new value of each input.
         Stream<TResult> result = pulse.Coalesce(trans1: trans, f: static (x, _) => x).MapImpl(_ => recombine());
 
         // ReSharper disable once LoopCanBeConvertedToQuery - Foreach for performance reasons

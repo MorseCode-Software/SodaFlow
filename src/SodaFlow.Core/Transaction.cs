@@ -6,26 +6,26 @@ using System.Threading;
 namespace SodaFlow;
 
 /// <summary>
-///     A class for managing transactions.
+///     Manages transactions.
 /// </summary>
 internal sealed class TransactionInternal
 {
-    // [ThreadStatic] rather than ThreadLocal<T>: these are read on essentially every public
-    // entry point, and a thread-static field is a direct TLS access where ThreadLocal<T>.Value
-    // goes through a generic slot table. Nothing here uses ThreadLocal's extra surface
-    // (Values, IsValueCreated, value factories, disposal), so the two are interchangeable.
+    // These fields use [ThreadStatic] and not ThreadLocal<T>. Almost all public entry points
+    // read them. A thread-static field is a direct TLS access, but ThreadLocal<T>.Value uses a
+    // generic slot table. This code does not use the other members of ThreadLocal, which are
+    // Values, IsValueCreated, value factories and disposal. Thus the two are equivalent here.
     [ThreadStatic] private static TransactionInternal? localTransaction;
 
     [ThreadStatic] private static bool runningOnStartHooks;
 
-    // Coarse-grained lock that's held during the whole transaction.
+    // A coarse lock. SodaFlow holds it for the full transaction.
     //
-    // Serializing every transaction process-wide is a deliberate guarantee of the library, not an
-    // implementation artifact: it is what makes a transaction atomic across threads and keeps update
-    // ordering deterministic, which is why callers need no synchronization of their own. Narrowing or
-    // sharding this lock would change the library's threading semantics, however tempting it looks as a
-    // contention fix. The guarantee and its consequences are documented in the remarks on the public
-    // SodaFlow.Transaction class.
+    // The library gives one transaction at a time across the process. This is a guarantee and not
+    // an accident of the implementation. It makes a transaction atomic across threads and keeps
+    // the sequence of updates the same on each run. Thus a caller needs no synchronization. A
+    // smaller lock, or many locks, would change the threading behavior of the library, also if
+    // that looks like a good correction for contention. The remarks on the public
+    // SodaFlow.Transaction class give the guarantee and its results.
     private static readonly object TransactionLock = new();
     private static readonly List<Action> OnStartHooks = [];
 
@@ -43,10 +43,10 @@ internal sealed class TransactionInternal
 
     private List<Action>? sampleQueue;
 
-    // All of these are allocated on first use rather than in the constructor. A transaction
-    // is created for every send that is not already inside one, and the great majority of
-    // them touch only a couple of these - eagerly allocating all seven, the dictionary and
-    // the set in particular, was the majority of what an empty transaction cost.
+    // SodaFlow allocates all of these on first use and not in the constructor. It creates a
+    // transaction for each send that is not already in one, and most transactions use only two
+    // of these fields. Thus eager allocation of all seven fields, and of the dictionary and the
+    // set in particular, was most of the cost of an empty transaction.
     private List<Action<TransactionInternal>>? sendQueue;
     private Dictionary<int, Action<TransactionInternal>>? splitQueue;
     private List<Node.Target>? targetsToActivate;
@@ -61,22 +61,22 @@ internal sealed class TransactionInternal
         this.hasParentTransaction = true;
     }
 
-    // The post and split queues belong to the root transaction and are shared with the child
-    // transactions it spawns while closing, so that work deferred from inside a deferred
-    // action lands in the queue the root is still draining. Children reach them through
-    // deferredOwner rather than holding their own.
+    // The root transaction owns the post queue and the split queue. It shares them with the
+    // child transactions that it creates as it closes. Thus work that a deferred action defers
+    // goes into the queue that the root still drains. A child reaches these queues through
+    // deferredOwner and does not hold its own.
     private TransactionInternal DeferredOwner => field ?? this;
 
     /// <summary>
-    ///     Return whether there is a current transaction.
+    ///     Tells you if there is a current transaction.
     /// </summary>
-    /// <returns><code>true</code> if there is a current transaction, <code>false</code> otherwise.</returns>
+    /// <returns><code>true</code> if there is a current transaction, or <code>false</code>.</returns>
     internal static bool HasCurrentTransaction() => localTransaction != null;
 
     /// <summary>
-    ///     Return the current transaction or <code>null</code>.
+    ///     Gives the current transaction, or <code>null</code>.
     /// </summary>
-    /// <returns>The current transaction or <code>null</code>.</returns>
+    /// <returns>The current transaction, or <code>null</code>.</returns>
     internal static TransactionInternal? GetCurrentTransaction() => localTransaction;
 
     internal static T RunImpl<T>(Func<T> f) => Apply((_, _) => f());
@@ -209,8 +209,8 @@ internal sealed class TransactionInternal
     internal void Prioritized(Node node, Action<TransactionInternal> action) =>
         this.Prioritized(new ActionEntry(node: node, action: action));
 
-    // ReSharper disable once MemberCanBeMadeStatic.Global - This is static to discourage this method from being called
-    // outside of a transaction.
+    // ReSharper disable once MemberCanBeMadeStatic.Global - This member is not static, to prevent calls to this
+    // method from not in a transaction.
     internal void Prioritized(Entry e)
     {
         lock (Node.NodeRanksLock)
@@ -222,9 +222,9 @@ internal sealed class TransactionInternal
     internal void Sample(Action action) => (this.sampleQueue ??= []).Add(action);
 
     /// <summary>
-    ///     Add an action to run after all prioritized actions.
+    ///     Adds an action that runs after all prioritized actions.
     /// </summary>
-    /// <param name="action">The action to run after all prioritized actions.</param>
+    /// <param name="action">The action that runs after all prioritized actions.</param>
     internal void Last(Action action) => (this.lastQueue ??= new Queue<Action>()).Enqueue(action);
 
     /// <summary>
@@ -249,7 +249,7 @@ internal sealed class TransactionInternal
         Dictionary<int, Action<TransactionInternal>> queue =
             owner.splitQueue ?? (owner.splitQueue = new Dictionary<int, Action<TransactionInternal>>());
 
-        // If an entry exists already, combine the old one with the new one.
+        // If an entry is present, put the old entry and the new entry together.
         Action<TransactionInternal> @new;
 
         if (queue.TryGetValue(key: index, value: out Action<TransactionInternal>? existing))
@@ -265,8 +265,8 @@ internal sealed class TransactionInternal
     }
 
     internal static void PostImpl(Action action) =>
-        // -1 will mean it runs before anything split/deferred, and will run
-        // outside a transaction context.
+        // A value of -1 makes it run before all split actions and deferred actions. It runs
+        // not in a transaction.
         Apply((trans, createdNewTransaction) =>
         {
             if (createdNewTransaction)
@@ -281,8 +281,7 @@ internal sealed class TransactionInternal
             return UnitInternal.Value;
         });
 
-    // If the priority queue has entries in it when we modify any of the nodes'
-    // ranks, then we need to re-generate it to make sure it's up-to-date.
+    // If the priority queue holds entries when SodaFlow changes the rank of a node, SodaFlow must build the queue again to keep it correct.
     private void CheckRegen()
     {
         if (this.rerankEntriesSet == null)
@@ -361,14 +360,14 @@ internal sealed class TransactionInternal
                 {
                     try
                     {
-                        // The child defers back into this transaction's queues, so a Post or
-                        // Split made from inside a deferred action joins the drain already
-                        // in progress here rather than being stranded on the child.
+                        // The child defers into the queues of this transaction. Thus a Post
+                        // or a Split from inside a deferred action joins the drain that runs
+                        // here, and does not stay on the child.
                         TransactionInternal transaction = new(this);
 
                         if (!runStartHooks)
                         {
-                            // this will ensure we don't run start hooks
+                            // This prevents the start hooks from running.
                             transaction.isElevated = true;
                         }
 
@@ -401,21 +400,22 @@ internal sealed class TransactionInternal
 
                     if (sq != null)
                     {
-                        // An array rather than a List: the keys are copied out at their
-                        // final size either way, so the List only adds its own object on top
-                        // of the backing array it would allocate anyway. Array.Sort is the
-                        // same intro-sort List.Sort delegates to, and foreach over either
-                        // allocates nothing. Measured at 4, 16 and 64 entries the List cost
-                        // exactly 32 bytes more every time - itself.
+                        // This uses an array and not a List. SodaFlow copies the keys at
+                        // their final size in both conditions, thus a List adds only its own
+                        // object to the backing array that it must allocate. Array.Sort is the
+                        // same intro-sort that List.Sort calls, and a foreach on either one
+                        // allocates nothing. At 4, 16 and 64 entries the List cost 32 more
+                        // bytes each time, which is the size of the List.
                         //
-                        // Nor OrderBy(o => o.Key), tempting though it looks for skipping the
-                        // lookups below. It cannot sort in place, so it materializes a
-                        // KeyValuePair buffer at sixteen bytes an entry against four here, an
-                        // extracted key array, an index map to keep the sort stable, and a
-                        // class-based enumerator. That measured 384/672/1824 bytes against
-                        // 40/88/280 for the array, and was slower at every size - 106ns
-                        // against 83 at four entries, 1639 against 473 at sixty-four. These
-                        // int-keyed lookups cost less than avoiding them does.
+                        // Do not use OrderBy(o => o.Key) to prevent the lookups below. It
+                        // cannot sort without a copy. It makes a KeyValuePair buffer at sixteen
+                        // bytes for each entry against four bytes here, an array of the
+                        // extracted keys, an index map to keep the sort stable, and an
+                        // enumerator class. That measured 384, 672 and 1824 bytes against 40,
+                        // 88 and 280 bytes for the array, and was slower at each size: 106ns
+                        // against 83ns at four entries, and 1639ns against 473ns at
+                        // sixty-four. These lookups on int keys cost less than their
+                        // prevention.
                         int[] splitIndexes = new int[sq.Count];
                         sq.Keys.CopyTo(array: splitIndexes, index: 0);
                         Array.Sort(splitIndexes);
@@ -430,12 +430,13 @@ internal sealed class TransactionInternal
         }
         catch
         {
-            // Null rather than Clear for all of these: the transaction is being abandoned, so the
-            // point is to let go of the queues, not to empty them for reuse. Clear leaves the list
-            // or queue and its backing array alive at whatever capacity the failed transaction grew
-            // it to, and a nested transaction is held by its parent's scope until that unwinds.
-            // Null is already the canonical empty state here - every one of these is allocated
-            // lazily and every reader guards for it - so nothing downstream can trip over it.
+            // All of these become null and SodaFlow does not call Clear. The transaction
+            // stops here, thus the aim is to release the queues and not to empty them for a
+            // second use. Clear keeps the list or the queue, and its backing array, at the
+            // capacity that the failed transaction made. The scope of the parent holds a nested
+            // transaction until the parent completes. Null is already the correct empty state,
+            // because SodaFlow allocates each of these on first use and each reader tests
+            // for null. Thus no later code can fail on it.
             this.sendQueue = null;
 
             while (!PrioritizedQueue.IsEmpty())
@@ -466,9 +467,10 @@ internal sealed class TransactionInternal
         public Entry? PqPrev;
         public int PqRank;
 
-        // Where this entry sits in Node.Entries, so removal needs neither a search nor a
-        // shift. -1 means "not in the list", which also makes a second Dispose a no-op
-        // rather than removing whatever entry now occupies the old position.
+        // The position of this entry in Node.Entries. Thus removal needs no search and no
+        // shift. A value of -1 means "not in the list". This also makes a second call to
+        // Dispose do nothing, and prevents the removal of the entry that is now at that
+        // position.
         private int nodeEntryIndex;
 
         protected Entry(Node node)
@@ -489,11 +491,12 @@ internal sealed class TransactionInternal
 
             this.nodeEntryIndex = -1;
 
-            // Swap the last entry into this slot rather than shifting everything after it
-            // down. The Node.Entries collection is only ever walked to collect entries into
-            // rerankEntriesSet, a HashSet, so nothing depends on the order - and a wide
-            // fan-in (Cell.Lift over N cells links all N to one node) makes the repeated
-            // RemoveAt(0) that this replaces quadratic in the number of entries.
+            // Move the last entry into this position and do not shift the entries after it.
+            // SodaFlow reads Node.Entries only to put entries into rerankEntriesSet, which
+            // is a HashSet. Thus no code depends on the sequence. A wide fan-in also makes the
+            // repeated RemoveAt(0) that this code replaces quadratic in the number of entries.
+            // Cell.Lift on N cells is such a fan-in, because it links all N cells to one
+            // node.
             // ReSharper disable once NullableWarningSuppressionIsUsed - Node.AddEntry() was called in the constructor
             // so this.Node.Entries cannot be null here.
             List<Entry> entries = this.Node.Entries!;
@@ -509,13 +512,14 @@ internal sealed class TransactionInternal
             entries.RemoveAt(last);
         }
 
-        // Subclasses carry whatever state the queued work needs as fields, so a caller on a
-        // hot path can avoid allocating a closure and a delegate on top of the entry itself.
+        // A subclass holds the state that the queued work needs, as fields. Thus a caller on a
+        // frequent path does not allocate a closure and a delegate in addition to the entry.
         public abstract void Execute(TransactionInternal trans);
     }
 
-    // The general-purpose entry, for the call sites that run once per construction or once
-    // per transaction and so have nothing to gain from avoiding the delegate.
+    // The general entry. Use it at a call site that runs one time for each construction, or
+    // one time for each transaction, because such a site does not gain from the removal of the
+    // delegate.
     private sealed class ActionEntry(Node node, Action<TransactionInternal> action)
         : Entry(node)
     {

@@ -6,45 +6,47 @@ using System.Threading;
 namespace SodaFlow;
 
 /// <summary>
-///     Provides methods to clean up after streams which have gone out of scope.
+///     Cleans up after the streams that are no longer in scope.
 /// </summary>
 /// <remarks>
 ///     <para>
-///         Every stream registers a <see cref="StreamListeners" /> holding a weak handle back to it. A
-///         background thread sweeps the registry; any entry whose stream has been collected has its
-///         attached listeners unlistened, which disconnects its node from upstream.
+///         Each stream registers a <see cref="StreamListeners" /> that holds a weak handle to
+///         that stream. A background thread sweeps the registry. If the garbage collector
+///         removed the stream of an entry, the sweep stops the attached listeners. This
+///         disconnects the node of that stream from the nodes above it.
 ///     </para>
 ///     <para>
-///         The sweep is paced by the collector rather than by a timer.
-///         <see cref="GcSweepTrigger" /> is a single finalizable object for the whole process - not one
-///         per stream, which is the cost this design exists to avoid - that wakes the sweeper after
-///         every collection. It only signals; the sweeping happens on the background thread, so nothing
-///         that takes a node lock ever runs on the finalizer thread, where blocking would stall
-///         finalization process-wide. Without this the registry held the bookkeeping for dead streams
-///         until the next timed pass, measured at roughly 10MB after dropping 22,000 streams.
+///         The garbage collector sets the rate of the sweep, and a timer does not.
+///         <see cref="GcSweepTrigger" /> is one object with a finalizer for the full process. It
+///         is not one object for each stream, which is the cost that this method prevents. It
+///         starts the sweeper after each collection. It only sends a signal, and the background
+///         thread does the sweep. Thus no code that takes a node lock runs on the finalizer
+///         thread, where a block would stop finalization across the process. Without this, the
+///         registry kept the data for dead streams until the next pass of the timer. That
+///         measured approximately 10MB after the release of 22,000 streams.
 ///     </para>
 ///     <para>
-///         The handle is a raw weak <see cref="GCHandle" /> rather than a
-///         <see cref="System.WeakReference" /> deliberately. WeakReference owns a handle it has to free
-///         in a finalizer, so using one per stream would cost about as much as the
-///         <c>~Stream</c> finalizer this design replaced - measured at roughly 150ns per stream either
-///         way, against 50ns for the bare handle. Anything reintroducing a finalizable object per
-///         stream gives the saving straight back.
+///         The handle is a weak <see cref="GCHandle" /> and not a
+///         <see cref="System.WeakReference" />. A WeakReference owns a handle that it must
+///         release in a finalizer. Thus one WeakReference for each stream costs approximately
+///         the same as the <c>~Stream</c> finalizer that this method replaced. Both measured
+///         approximately 150ns for each stream, against 50ns for the handle. An object with a
+///         finalizer for each stream removes this saving.
 ///     </para>
 ///     <para>
-///         This sweep is not the primary cleanup path and does not need to be prompt.
-///         <see cref="Stream{T}.Send" /> prunes any target whose weak reference has died as it walks
-///         the listener set, so a node linked to a collected stream is disconnected the next time it
-///         fires regardless. The sweep exists to catch the streams that never fire again.
+///         This sweep is not the primary cleanup path and can be slow.
+///         <see cref="Stream{T}.Send" /> removes a target with a dead weak reference as it reads
+///         the listener set. Thus it disconnects a node that links to a collected stream at the
+///         next firing. The sweep finds the streams that do not fire again.
 ///     </para>
 /// </remarks>
 internal static class StreamListenerManager
 {
-    // A backstop only, hence the length of it. Entries become reapable when a stream is
-    // collected, which only happens at a garbage collection, and every collection signals a
-    // sweep - so in a healthy process this interval never finds anything to do. It exists for
-    // the case where the signal stops arriving at all, most plausibly a finalizer thread wedged
-    // by unrelated code, where the sweeper thread is unaffected and can still make progress.
+    // This interval is long, because it is only a backstop. An entry becomes removable when
+    // the garbage collector collects a stream, and each collection signals a sweep. Thus in a
+    // correct process this interval finds no work. It is for the condition in which the signal
+    // stops. Other code that blocks the finalizer thread is the most probable cause. The
+    // sweeper thread is not affected and can continue.
     private const int TimedSweepIntervalInMilliseconds = 300000;
 
     private static readonly object RegistryLock = new();
@@ -57,14 +59,15 @@ internal static class StreamListenerManager
 
         cleanupThread.Start();
 
-        // Deliberately not stored anywhere: it has to be unreachable for its finalizer to run.
+        // SodaFlow does not keep this object. It must be unreachable to let its finalizer
+        // run.
         // ReSharper disable once ObjectCreationAsStatement
         new GcSweepTrigger();
     }
 
     /// <summary>
-    ///     How many streams the registry is currently tracking. For tests; the number is only
-    ///     meaningful straight after a <see cref="Sweep" />.
+    ///     The number of streams in the registry. This is for tests. The number is applicable only
+    ///     immediately after a <see cref="Sweep" />.
     /// </summary>
     internal static int RegistryCount
     {
@@ -81,7 +84,8 @@ internal static class StreamListenerManager
     {
         while (true)
         {
-            // Woken by a collection, or by the backstop interval if a signal never arrives.
+            // A collection starts this. The backstop interval starts it if no signal
+            // arrives.
             SweepRequested.WaitOne(TimedSweepIntervalInMilliseconds);
             Sweep();
         }
@@ -89,8 +93,8 @@ internal static class StreamListenerManager
     }
 
     /// <summary>
-    ///     Internal rather than private so that tests can drive a sweep directly instead of
-    ///     waiting on the background thread's interval.
+    ///     This member is internal and not private, thus a test can start a sweep directly and
+    ///     does not wait for the interval of the background thread.
     /// </summary>
     internal static void Sweep()
     {
@@ -98,8 +102,9 @@ internal static class StreamListenerManager
 
         lock (RegistryLock)
         {
-            // Backwards, swapping the last entry into each gap. Everything swapped in comes from
-            // a position already passed, so nothing is skipped and nothing is checked twice.
+            // This moves backwards and puts the last entry into each empty position. Each entry
+            // that it moves comes from a position that it read first. Thus it reads each entry
+            // one time.
             for (int i = Registry.Count - 1; i >= 0; i--)
             {
                 StreamListeners entry = Registry[i];
@@ -122,15 +127,17 @@ internal static class StreamListenerManager
                 collected.Add(entry);
             }
 
-            // A List keeps its backing array after removals, so reclaim it once a spike has drained.
+            // A List keeps its backing array after a removal. Release that array after a large
+            // number of entries becomes small again.
             if (Registry.Capacity > 100 && Registry.Count < Registry.Capacity / 2)
             {
                 Registry.TrimExcess();
             }
         }
 
-        // Released outside the registry lock: unlistening takes node locks, and running arbitrary
-        // listener teardown while holding the registry would invite a lock ordering problem.
+        // This release occurs with no registry lock. A stop of a listener takes node locks.
+        // A release of unknown listener code while SodaFlow holds the registry lock can cause
+        // a lock sequence problem.
         if (collected != null)
         {
             foreach (StreamListeners entry in collected)
@@ -141,8 +148,9 @@ internal static class StreamListenerManager
     }
 
     /// <summary>
-    ///     Asks the cleanup thread to sweep after each garbage collection, by being collected itself
-    ///     and re-registering. One instance exists for the whole process.
+    ///     Asks the cleanup thread to sweep after each garbage collection. The garbage collector
+    ///     collects this object, and the object then registers again. There is one instance for
+    ///     the full process.
     /// </summary>
     private sealed class GcSweepTrigger
     {
@@ -154,17 +162,18 @@ internal static class StreamListenerManager
             }
             catch
             {
-                // A finalizer must never throw, and there is nothing useful to do if signaling
-                // fails - the timed pass will pick the work up regardless.
+                // A finalizer must not throw. If the signal fails, no correction is possible,
+                // because the pass of the timer does the work.
             }
             finally
             {
                 if (!Environment.HasShutdownStarted && !AppDomain.CurrentDomain.IsFinalizingForUnload())
                 {
-                    // A fresh instance rather than GC.ReRegisterForFinalize(this): resurrecting
-                    // this one promotes it, after which young collections no longer see it and
-                    // only gen1+ would fire the sweep. A newly allocated object starts in gen0,
-                    // so the pacing follows every collection instead of only the older ones.
+                    // This makes a new instance and does not call
+                    // GC.ReRegisterForFinalize(this). A second life for this object moves it to
+                    // an older generation. Then a young collection does not find it, and only a
+                    // collection of generation 1 or higher starts the sweep. A new object
+                    // starts in generation 0, thus each collection sets the rate.
                     // ReSharper disable once ObjectCreationAsStatement
                     new GcSweepTrigger();
                 }
@@ -176,7 +185,8 @@ internal static class StreamListenerManager
     {
         private readonly List<IListenerWithWeakReference> listeners = [];
 
-        // Weak, so the registry never keeps a stream alive. Freed in Release.
+        // This handle is weak, thus the registry does not keep a stream alive. Release frees
+        // it.
         private GCHandle streamHandle;
 
         public StreamListeners(object stream)

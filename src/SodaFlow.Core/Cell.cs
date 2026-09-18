@@ -22,25 +22,25 @@ internal static class CellInternal
 }
 
 /// <summary>
-///     Represents a value that discretely changes over time.
+///     A value that changes with time in discrete steps.
 /// </summary>
 /// <typeparam name="T">The type of the value.</typeparam>
 [PublicAPI]
 public class Cell<T>
 {
-    // Built on first use rather than held in a Lazy. A Lazy plus the closure it needs is three
-    // objects allocated for every cell - and cells are created for every Hold, Map and Lift -
-    // where most never have Updates or Calm called on them at all.
+    // SodaFlow builds this on first use and does not hold it in a Lazy. A Lazy and its
+    // necessary closure are three objects for each cell. SodaFlow makes a cell for each Hold,
+    // Map and Lift, and a caller calls Updates or Calm on only a few of them.
     //
-    // Volatile because the fast path below reads this outside any transaction and so under no
-    // lock at all, while the write operation happens under the transaction lock. A release with no matching
-    // acquire establishes nothing for that reader: it could see the reference published here and
-    // then read the Stream's own fields from stale cache - ordinary double-checked locking. x86
-    // and x64 forbid the reordering that would expose it, but arm64 does not, and net60 and
-    // netstandard2.0 consumers run there.
+    // This field is volatile, because the fast path below reads it not in a transaction and
+    // thus with no lock. The write occurs with the transaction lock. A release without an
+    // acquire does not give that reader no guarantee. The reader could see the reference from this
+    // write and then read the fields of the Stream from a stale cache. This is the usual
+    // double-checked locking problem. The x86 and x64 architectures prevent the sequence change
+    // that shows it, but arm64 does not. Consumers of net60 and netstandard2.0 run on arm64.
     //
-    // Reading a stale null is harmless on its own; that just takes the slow path and gets the
-    // same answer. It is the half-built Stream that volatile rules out.
+    // A stale null is not a defect, because the reader then takes the slow path and gets the
+    // same answer. Volatile prevents the incomplete Stream.
     private volatile Stream<T>? updates;
 
     internal Cell(Behavior<T> behavior) => this.BehaviorImpl = behavior;
@@ -56,9 +56,10 @@ public class Cell<T>
                 return existing;
             }
 
-            // Creating it inside the transaction is what makes the check-and-set safe without a
-            // lock of its own: transactions are serialized process-wide, so only one thread can
-            // be in here at a time. See the remarks on SodaFlow.Transaction.
+            // SodaFlow creates this in the transaction, thus the test and the set are safe
+            // without their own lock. The library runs one transaction at a time across the
+            // process, thus only one thread can be here. See the remarks on
+            // SodaFlow.Transaction.
             return TransactionInternal.Apply((trans, _) =>
                 // ReSharper disable once NonAtomicCompoundOperator - This is fine since the updates field is only
                 // set within a Transaction.

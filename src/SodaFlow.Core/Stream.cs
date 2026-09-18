@@ -13,7 +13,7 @@ internal static class StreamInternal
 }
 
 /// <summary>
-///     Represents a stream of discrete events/firings.
+///     A stream of discrete firings.
 /// </summary>
 /// <typeparam name="T">The type of values fired by the stream.</typeparam>
 [PublicAPI]
@@ -24,17 +24,18 @@ public class Stream<T>
 
     private readonly StreamListenerManager.StreamListeners trackedListeners;
 
-    // Everything below is allocated on first use. Streams are created in bulk - a single
-    // two-cell Lift builds around twenty of them - and a stream that is only ever an
-    // intermediate step in a chain never sends, never has a listener attached, and never has
-    // AttachListener called on it, so eagerly allocating for all three was most of what a
-    // stream cost to construct.
+    // SodaFlow allocates the fields below on first use. It creates streams in large
+    // numbers. One two-cell Lift builds approximately twenty streams. A stream that is only an
+    // intermediate step in a chain does not send, does not receive a listener, and does not
+    // receive a call to AttachListener. Thus eager allocation of all three fields was most of
+    // the cost to construct a stream.
 
     // ReSharper disable once CollectionNeverQueried.Local
     private List<IListener>? attachedListeners;
 
-    // Cached alongside firings because a method group conversion allocates a fresh delegate
-    // each time, and Send hands this to trans.Last on the first firing of every transaction.
+    // SodaFlow caches this delegate with the firings. A method group conversion allocates a
+    // new delegate each time, and Send gives this delegate to trans.Last on the first firing of
+    // each transaction.
     private Action? clearFirings;
     private List<T>? firings;
 
@@ -48,23 +49,24 @@ public class Stream<T>
         this.KeepListenersAlive = keepListenersAlive;
         this.Node = new Node<T>();
 
-        // Last, so nothing half-built is reachable from the registry. The registry only ever
-        // holds this stream through a weak handle, so registering here does not keep it alive.
+        // This is last, so the registry cannot find an incomplete object. The registry holds
+        // this stream with a weak reference only. Thus this registration does not keep the
+        // stream alive.
         this.trackedListeners = new StreamListenerManager.StreamListeners(this);
     }
 
-    // Created on demand like the rest, but via CompareExchange rather than a plain null check,
-    // since there is no other lock available to guard creating this one.
+    // SodaFlow creates this on demand, as it does the other fields. It uses CompareExchange
+    // and not a null test, because no other lock can protect the creation of this one.
     //
-    // Deliberately not volatile, unlike Cell.updates, which is the same shape of lazy read. What
-    // volatile buys there is safe publication of an object with fields: a reader must not see the
-    // reference before the object's own state. This publishes a bare object() with no state at
-    // all, used only for its identity as a monitor, so there is nothing to observe half-built.
-    // CompareExchange settles which one wins, and every caller then reads the same winner.
+    // This field is not volatile. Cell.updates does the same lazy read and is volatile. There,
+    // volatile makes the publication of an object with fields safe, because a reader must not
+    // see the reference before the state of the object. This field holds an empty object with
+    // no state, and the program uses it only as a monitor. Thus a reader cannot see an
+    // incomplete object. CompareExchange selects the winner, and all callers read that winner.
     //
-    // Do not copy this pattern to a field holding something with state without adding volatile,
-    // which means declaring the field explicitly again: the backing field the field keyword
-    // synthesizes cannot be marked volatile.
+    // Do not use this pattern for a field that holds state unless you add volatile. That makes
+    // an explicit field necessary again, because you cannot make the backing field of the field
+    // keyword volatile.
     private object AttachListenerLock
     {
         get
@@ -175,9 +177,9 @@ public class Stream<T>
     {
         Node<T>.Target nodeTarget = this.Node.Link(trans: trans, action: action, target: target);
 
-        // Only snapshot the firings when they are actually going to be replayed - the copy
-        // used to be taken unconditionally, on every listenStrong, including the overwhelmingly
-        // common case of a stream that has not fired in this transaction.
+        // Copy the firings only when the program will send them again. Before, the program
+        // made this copy on each call to listenStrong. That includes the most frequent
+        // condition, a stream that did not fire in this transaction.
         if (!suppressEarlierFirings && this.firings is { Count: > 0 })
         {
             // ReSharper disable once LocalVariableHidesMember
@@ -187,16 +189,16 @@ public class Stream<T>
                 node: target,
                 action: trans2 =>
                 {
-                    // Anything sent already in this transaction must be sent now so that
-                    // there's no order dependency between send and listenStrong.
+                    // Send the values that this transaction sent before now. This removes the
+                    // sequence dependency between send and listenStrong.
                     foreach (T a in firings)
                     {
                         trans2.InCallback++;
 
                         try
                         {
-                            // Don't allow transactions to interfere with SodaFlow
-                            // internals.
+                            // Do not let transactions interfere with the internal parts of
+                            // SodaFlow.
                             action(arg1: trans2, arg2: a);
                         }
                         finally
@@ -377,10 +379,10 @@ public class Stream<T>
     }
 
     /// <summary>
-    ///     Clean up the output by discarding any firing other than the last one.
+    ///     Removes all firings from the output except the last one.
     /// </summary>
-    /// <param name="trans">The transaction to get the last firing from.</param>
-    /// <returns>A stream containing only the last event firing from the specified transaction.</returns>
+    /// <param name="trans">The transaction that supplies the last firing.</param>
+    /// <returns>A stream that contains only the last firing from the given transaction.</returns>
     internal Stream<T> LastFiringOnly(TransactionInternal trans) =>
         this.Coalesce(trans1: trans, f: static (_, second) => second);
 
@@ -412,21 +414,21 @@ public class Stream<T>
         this.Calm(init: new Lazy<MaybeInternal<T>>(static () => MaybeInternal<T>.None), areEqual: areEqual);
 
     /// <summary>
-    ///     Suppresses firings equal to the last one that got through.
+    ///     Removes a firing that is equal to the last firing that this stream sent.
     /// </summary>
     /// <remarks>
-    ///     Expressed over CarryState, whose state protocol this needs exactly: the last value let
-    ///     through, carried between firings and committed at the transaction boundary. It used to
-    ///     keep its own copy of that protocol, which meant a fix to one could silently miss the
-    ///     other - and the deferral is subtle enough that the duplication was a real hazard rather
-    ///     than a stylistic one.
-    ///     What kept it separate was cost. Going through CollectLazyImpl meant a looped stream, a
-    ///     behavior to hold the state, a snapshot and two maps, plus a filter on the way out - six
-    ///     streams to remember one value. Sharing CarryState instead costs nothing: the emit flag
-    ///     suppresses in place, so this is still one output stream.
-    ///     The state is MaybeInternal rather than T because there may be no previous value yet, and
-    ///     None is also a legitimate initial value - which is why CarryState needs its own
-    ///     initialized flag rather than reading emptiness as "not started".
+    ///     This method uses CarryState, because it needs that state protocol exactly. The
+    ///     protocol keeps the last value that the stream sent, carries it between firings, and
+    ///     commits it at the transaction boundary. Before, this method kept its own copy of the
+    ///     protocol. A correction to one copy could miss the other copy, and the deferral is
+    ///     sufficiently subtle to make that a risk.
+    ///     Cost kept the two copies separate. CollectLazyImpl needs a looped stream, a behavior
+    ///     to hold the state, a snapshot, two maps, and a filter on the output. That is six
+    ///     streams to keep one value. CarryState costs no more, because the emit flag removes
+    ///     the firing without a copy. Thus this method is one output stream.
+    ///     The state is a MaybeInternal and not a T, because there can be no previous value.
+    ///     None is also a correct initial value. Thus CarryState needs its own initialized flag
+    ///     and must not read an empty state as "not started".
     /// </remarks>
     internal Stream<T> Calm(Lazy<MaybeInternal<T>> init, Func<T, T, bool> areEqual) =>
         TransactionInternal.Apply((trans1, _) =>
@@ -476,31 +478,31 @@ public class Stream<T>
                 .HoldLazyImpl(initialState));
 
     /// <summary>
-    ///     Runs <paramref name="f" /> over each firing with state carried between firings, sending
-    ///     what it returns for that firing when it asks. Collect and Accum always ask, and differ
-    ///     only in what they do with the resulting stream; Calm suppresses the firings it wants to
-    ///     swallow.
+    ///     Runs <paramref name="f" /> on each firing and carries state between the firings. It
+    ///     sends the result for a firing when <paramref name="f" /> asks for that. Collect and
+    ///     Accum always ask and differ only in their use of the output stream. Calm removes the
+    ///     firings that it must not send.
     /// </summary>
     /// <remarks>
-    ///     This used to be assembled out of FRP primitives: a looped stream carrying the state back
-    ///     round, a behavior holding it, a snapshot to read it, and a map per output - four streams
-    ///     for Collect, two for Accum, to carry one value between firings. It is now a single output
-    ///     stream and two fields.
-    ///     Those two fields are what the behavior used to provide, and the split matters. A snapshot
-    ///     reads a behavior with SampleNoTransaction, so every firing within a transaction saw the
-    ///     state as of when that transaction opened, and the behavior committed whatever the final
-    ///     firing produced. Keeping a single field updated in place would instead let an earlier
-    ///     firing in the same transaction be seen by a later one - a different fold, and one the
-    ///     caller's f would notice.
-    ///     What the deferral is actually observable through is failure. A transaction that throws
-    ///     drops its last queue, so a firing inside it never commits and the state is left as though
-    ///     it had not happened. That is the one behavior distinguishing this from committing in
-    ///     place, and CalmTests.AFailedTransactionDoesNotCommitTheRememberedValue is what pins it -
-    ///     every other test passes either way.
-    ///     The emit flag is what lets Calm share this. Returning a Maybe and filtering it out would
-    ///     cost a second stream and a node in the rank graph, which is the cost Calm was written
-    ///     directly to avoid in the first place; a bool in a tuple that is already a struct costs a
-    ///     branch that predicts perfectly.
+    ///     Before, FRP primitives made this method: a looped stream to carry the state back, a
+    ///     behavior to hold the state, a snapshot to read it, and one map for each output. That
+    ///     is four streams for Collect and two for Accum, to carry one value between firings.
+    ///     This method is now one output stream and two fields.
+    ///     The behavior supplied those two fields, and the division between them is important.
+    ///     A snapshot reads a behavior with SampleNoTransaction. Thus each firing in a
+    ///     transaction saw the state from the start of that transaction, and the behavior
+    ///     committed the result of the last firing. One field with an update without a copy lets a
+    ///     later firing in the same transaction see an earlier one. That is a different fold,
+    ///     and the caller function f can detect it.
+    ///     Failure makes the deferral visible. A transaction that throws discards its last
+    ///     queue. Thus a firing in that transaction does not commit, and the state stays as it
+    ///     was before. This is the one difference from a commit without a copy.
+    ///     CalmTests.AFailedTransactionDoesNotCommitTheRememberedValue holds this behavior. All
+    ///     other tests pass with either method.
+    ///     The emit flag lets Calm use this method. A Maybe result with a filter costs a second
+    ///     stream and a node in the rank graph. Calm exists to prevent that cost. A bool in a
+    ///     tuple that is already a struct costs one branch, and the processor predicts that
+    ///     branch.
     /// </remarks>
     private Stream<TReturn> CarryState<TState, TReturn>(
         TransactionInternal trans1,
@@ -514,8 +516,9 @@ public class Stream<T>
         TState? pending = default;
         bool hasPending = false;
 
-        // Forced in the sample phase as well as on demand, because the behavior this replaces
-        // forced its lazy initial value there whether or not anything fired.
+        // SodaFlow forces this in the sample phase and also on demand. The behavior that
+        // this code replaced forced its lazy initial value in that phase, also when nothing
+        // fired.
         trans1.Sample(EnsureCommittedIsSet);
 
         IListener l =
@@ -566,7 +569,7 @@ public class Stream<T>
 
     internal Stream<T> OnceImpl()
     {
-        // This is a bit long-winded, but it's efficient because it unregisters the listener.
+        // This code is long, but it is efficient, because it removes the listener.
         Stream<T> @out = new(this.KeepListenersAlive);
         IWeakListener? listener = null;
         bool unlistenEarly = false;
@@ -608,12 +611,11 @@ public class Stream<T>
         return @out.UnsafeAttachListener(listenerToReturn);
     }
 
-    // This is not thread-safe, so one of these two conditions must apply:
-    // 1. We are within a transaction, since in the current implementation
-    //    a transaction locks out all other threads.
-    // 2. The object on which this is being called was created has not yet
-    //    been returned from the method where it was created, so it can't
-    //    be shared between threads.
+    // This method is not thread-safe. One of these two conditions must be applicable:
+    // 1. The caller is in a transaction. In this implementation a transaction locks out all
+    //    other threads.
+    // 2. The method that created this object did not return it yet. Thus two threads cannot
+    //    share the object.
     internal Stream<T> UnsafeAttachListener(IListener cleanup)
     {
         this.attachedListeners ??= [];
@@ -641,10 +643,10 @@ public class Stream<T>
 
         foreach (Node<T>.Target target in this.Node.GetListenersCopy())
         {
-            // SendEntry rather than a lambda: this runs for every target of every firing,
-            // and a closure here costs a display class and a delegate on top of the queue
-            // entry that has to be allocated anyway. Carrying the three captured values as
-            // fields on the entry collapses that to a single allocation.
+            // This uses SendEntry and not a lambda. This code runs for each target of each
+            // firing. A closure costs a display class and a delegate, and SodaFlow must
+            // allocate the queue entry in all conditions. The entry holds the three values as
+            // fields, thus SodaFlow makes only one allocation.
             trans.Prioritized(new SendEntry(stream: this, target: target, value: a));
         }
     }
@@ -652,16 +654,16 @@ public class Stream<T>
     private sealed class SendEntry(Stream<T> stream, Node<T>.Target target, T value)
         : TransactionInternal.Entry(target.Node)
     {
-        // ReSharper disable once ReplaceWithPrimaryConstructorParameter - This field is needed so action is not
-        // captured into a mutable variable.
+        // ReSharper disable once ReplaceWithPrimaryConstructorParameter - This field stops the capture of action
+        // into a mutable variable.
         private readonly Stream<T> stream = stream;
 
-        // ReSharper disable once ReplaceWithPrimaryConstructorParameter - This field is needed so action is not
-        // captured into a mutable variable.
+        // ReSharper disable once ReplaceWithPrimaryConstructorParameter - This field stops the capture of action
+        // into a mutable variable.
         private readonly Node<T>.Target target = target;
 
-        // ReSharper disable once ReplaceWithPrimaryConstructorParameter - This field is needed so action is not
-        // captured into a mutable variable.
+        // ReSharper disable once ReplaceWithPrimaryConstructorParameter - This field stops the capture of action
+        // into a mutable variable.
         private readonly T value = value;
 
         public override void Execute(TransactionInternal trans)
@@ -670,12 +672,11 @@ public class Stream<T>
 
             try
             {
-                // Don't allow transactions to interfere with SodaFlow
-                // internals.
-                // Dereference the weak reference
+                // Do not let transactions interfere with the internal parts of SodaFlow.
+                // Read the weak reference.
                 if (this.target.Action.TryGetTarget(out Action<TransactionInternal, T>? action))
                 {
-                    // If it hasn't been garbage collected, call it.
+                    // The garbage collector did not remove the action, thus call it.
                     if (this.target.IsActivated)
                     {
                         action(arg1: trans, arg2: this.value);
@@ -683,7 +684,7 @@ public class Stream<T>
                 }
                 else
                 {
-                    // If it has been garbage collected, remove it.
+                    // The garbage collector removed the action, thus remove the target.
                     this.stream.Node.RemoveListener(this.target);
                 }
             }
@@ -696,12 +697,12 @@ public class Stream<T>
 
     private sealed class StrongListener(Action unlisten, IListener listener) : IStrongListener
     {
-        // ReSharper disable once ReplaceWithPrimaryConstructorParameter - This field is needed so action is not
-        // captured into a mutable variable.
+        // ReSharper disable once ReplaceWithPrimaryConstructorParameter - This field stops the capture of action
+        // into a mutable variable.
         private readonly IListener listener = listener;
 
-        // ReSharper disable once ReplaceWithPrimaryConstructorParameter - This field is needed so action is not
-        // captured into a mutable variable.
+        // ReSharper disable once ReplaceWithPrimaryConstructorParameter - This field stops the capture of action
+        // into a mutable variable.
         private readonly Action unlisten = unlisten;
 
         public void Unlisten() => this.unlisten();
@@ -718,13 +719,12 @@ public class Stream<T>
         Node<T>.Target target)
         : IWeakListener
     {
-        // It's essential that we keep the action alive, since the node uses
-        // a weak reference.
+        // This field keeps the action alive, because the node uses a weak reference.
         // ReSharper disable once UnusedMember.Local
         private readonly Action<TransactionInternal, T> action = action;
 
-        // It's essential that we keep the listener alive while the caller holds
-        // the Listener, so that the garbage collector doesn't get triggered.
+        // This field keeps the listener alive while the caller holds the listener. Thus the
+        // garbage collector does not remove it.
         // ReSharper disable once UnusedMember.Local
         private readonly Stream<T> stream = stream;
 
@@ -737,12 +737,12 @@ public class Stream<T>
 
     private sealed class WeakListener(Node<T> node, Node<T>.Target target) : IListenerWithWeakReference
     {
-        // ReSharper disable once ReplaceWithPrimaryConstructorParameter - This field is needed so action is not
-        // captured into a mutable variable.
+        // ReSharper disable once ReplaceWithPrimaryConstructorParameter - This field stops the capture of action
+        // into a mutable variable.
         private readonly Node<T> node = node;
 
-        // ReSharper disable once ReplaceWithPrimaryConstructorParameter - This field is needed so action is not
-        // captured into a mutable variable.
+        // ReSharper disable once ReplaceWithPrimaryConstructorParameter - This field stops the capture of action
+        // into a mutable variable.
         private readonly Node<T>.Target target = target;
 
         public void Unlisten() => this.node.Unlink(this.target);
@@ -753,8 +753,8 @@ public class Stream<T>
         // ReSharper disable once CollectionNeverQueried.Local
         private List<IKeepListenersAlive>? childKeepListenersAliveList;
 
-        // One of these exists per root stream, and plenty of streams are never listened to at
-        // all, so both collections wait until something actually needs them.
+        // SodaFlow makes one of these for each root stream, and many streams get no
+        // listener. Thus both collections wait until the code needs them.
         // ReSharper disable once CollectionNeverQueried.Local
         private HashSet<IListener>? listeners;
 

@@ -6,8 +6,8 @@ using JetBrains.Annotations;
 namespace SodaFlow;
 
 /// <summary>
-///     An interface representing a stream event listener which does not keep the stream from being garbage collected.
-///     This may be used to stop listening on a stream by calling <see cref="Unlisten" />.
+///     A listener for stream firings. It does not prevent garbage collection of the stream. Call
+///     <see cref="Unlisten" /> to stop the listener.
 /// </summary>
 [PublicAPI]
 public interface IListenerWithWeakReference
@@ -22,8 +22,7 @@ public interface IListenerWithWeakReference
 }
 
 /// <summary>
-///     An interface representing a stream event listener.  This may be used to stop listening on a stream by calling
-///     <see cref="Unlisten" />.
+///     A listener for stream firings. Call <see cref="Unlisten" /> to stop the listener.
 /// </summary>
 [PublicAPI]
 public interface IListener
@@ -37,26 +36,26 @@ public interface IListener
     void Unlisten();
 
     /// <summary>
-    ///     Gets a view of this listener which does not keep the stream it listens to alive.
+    ///     Gives a view of this listener that does not keep its stream alive.
     /// </summary>
     /// <returns>
-    ///     A listener which can still be used to <see cref="IListenerWithWeakReference.Unlisten" />,
-    ///     but which will not by itself prevent the observed stream from being garbage collected.
+    ///     A listener. You can call <see cref="IListenerWithWeakReference.Unlisten" /> on it, but
+    ///     it does not prevent garbage collection of the stream.
     /// </returns>
     IListenerWithWeakReference GetListenerWithWeakReference();
 }
 
 /// <summary>
-///     An interface representing a stream event listener which listens until <see cref="IListener.Unlisten" /> is
-///     called.  If the listener goes out of scope, it will keep listening.
+///     A listener for stream firings. It listens until a caller calls
+///     <see cref="IListener.Unlisten" />. It continues to listen after it goes out of scope.
 /// </summary>
 [PublicAPI]
 // ReSharper disable once InheritdocConsiderUsage
 public interface IStrongListener : IListener, IDisposable;
 
 /// <summary>
-///     An interface representing a stream event listener which may be garbage collected when it goes out of scope.
-///     Also, calling <see cref="IListener.Unlisten" /> will stop listening.
+///     A listener for stream firings. The garbage collector can remove it after it goes out of
+///     scope. A call to <see cref="IListener.Unlisten" /> also stops it.
 /// </summary>
 [PublicAPI]
 // ReSharper disable once InheritdocConsiderUsage
@@ -142,7 +141,7 @@ internal static class ListenerInternal
     }
 
     /// <summary>
-    ///     A listener which runs the specified action when it is disposed.
+    ///     A listener that runs the given action when a caller disposes it.
     /// </summary>
     // ReSharper disable once InheritdocConsiderUsage
     private sealed class ActionListener : IListener, IListenerWithWeakReference
@@ -150,9 +149,9 @@ internal static class ListenerInternal
         private readonly Action unlisten;
 
         /// <summary>
-        ///     Creates a listener which runs the specified action when it is disposed.
+        ///     Creates a listener that runs the given action when a caller disposes it.
         /// </summary>
-        /// <param name="unlisten">The action to run when this listener should stop listening.</param>
+        /// <param name="unlisten">The action that runs when this listener must stop.</param>
         internal ActionListener(Action unlisten) => this.unlisten = unlisten;
 
         public void Unlisten() => this.unlisten();
