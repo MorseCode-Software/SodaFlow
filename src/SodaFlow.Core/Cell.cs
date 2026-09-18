@@ -32,9 +32,9 @@ public class Cell<T>
     // necessary closure are three objects for each cell. SodaFlow makes a cell for each Hold,
     // Map and Lift, and a caller calls Updates or Calm on only a few of them.
     //
-    // This field is volatile, because the fast path below reads it not in a transaction and
-    // thus with no lock. The write occurs with the transaction lock. A release without an
-    // acquire does not give that reader no guarantee. The reader could see the reference from this
+    // This field is volatile, because the fast path below reads it when there is no
+    // transaction. Thus that reader holds no lock. SodaFlow does the write while it holds the
+    // transaction lock. A release without an acquire gives that reader no guarantee. The reader could see the reference from this
     // write and then read the fields of the Stream from a stale cache. This is the usual
     // double-checked locking problem. The x86 and x64 architectures prevent the sequence change
     // that shows it, but arm64 does not. Consumers of net60 and netstandard2.0 run on arm64.
@@ -57,7 +57,7 @@ public class Cell<T>
             }
 
             // SodaFlow creates this in the transaction, thus the test and the set are safe
-            // without their own lock. The library runs one transaction at a time across the
+            // while they hold no lock of their own. The library runs one transaction at a time across the
             // process, thus only one thread can be here. See the remarks on
             // SodaFlow.Transaction.
             return TransactionInternal.Apply((trans, _) =>

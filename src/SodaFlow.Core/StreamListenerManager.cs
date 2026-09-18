@@ -135,9 +135,9 @@ internal static class StreamListenerManager
             }
         }
 
-        // This release occurs with no registry lock. A stop of a listener takes node locks.
-        // A release of unknown listener code while SodaFlow holds the registry lock can cause
-        // a lock sequence problem.
+        // SodaFlow does this release while it holds no registry lock. A stop of a listener
+        // takes node locks. A release of unknown listener code while SodaFlow holds the
+        // registry lock can cause a lock sequence problem.
         if (collected != null)
         {
             foreach (StreamListeners entry in collected)

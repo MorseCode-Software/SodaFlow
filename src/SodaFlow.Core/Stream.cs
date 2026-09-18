@@ -56,7 +56,7 @@ public class Stream<T>
     }
 
     // SodaFlow creates this on demand, as it does the other fields. It uses CompareExchange
-    // and not a null test, because no other lock can protect the creation of this one.
+    // and not a null test, because no other lock can prevent unsafe creation of this one.
     //
     // This field is not volatile. Cell.updates does the same lazy read and is volatile. There,
     // volatile makes the publication of an object with fields safe, because a reader must not

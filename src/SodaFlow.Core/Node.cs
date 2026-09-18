@@ -69,7 +69,7 @@ internal abstract class Node
 {
     public const int NullRank = int.MaxValue;
 
-    // A small lock. It protects the listeners and the nodes.
+    // A small lock. It prevents unsafe access to the listeners and the nodes.
     protected static readonly object ListenersLock = new();
 
     internal static readonly object NodeRanksLock = new();
@@ -189,7 +189,8 @@ internal sealed class Node<T> : Node
     // A snapshot of the listeners. SodaFlow builds it again on demand. Send reads the
     // listener set on each firing, but the set changes only when SodaFlow connects the graph
     // or removes a dead weak reference. Without this snapshot, each firing allocated a new
-    // array. A default snapshot is stale. Each change below resets it with ListenersLock held.
+    // array. A default snapshot is stale. SodaFlow resets it below while it holds
+    // ListenersLock.
     private TargetSnapshot<Target> listenersSnapshot;
 
     internal Node()
