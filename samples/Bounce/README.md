@@ -2,8 +2,8 @@
 
 Balls bouncing in a box, as an argument for `Behavior<T>`.
 
-The other two samples are about `Stream` and `Cell` — things that happen, and values that change
-when they do. This one is about the third: a value that is defined at *every* instant rather than
+The other samples are about `Stream` and `Cell` — things that happen, and values that change when
+they do. This one is about the third: a value that is defined at *every* instant rather than
 between one change and the next. Time is the obvious example, and motion is what you get when you
 build on it.
 
