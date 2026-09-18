@@ -10,12 +10,12 @@ public static partial class BindableCoreExtensionMethods
     ///     <see cref="System.ComponentModel.INotifyPropertyChanged" />.
     /// </summary>
     /// <remarks>
-    ///     Safe to construct on any thread. The initial value is sampled by whichever thread builds
-    ///     the instance, and every later change is marshaled through the scheduler, so after
-    ///     construction the cached value is written only on the binding thread.
-    ///     Nothing orders the constructing thread against the binding thread beyond whatever
-    ///     publishes the instance to it — and that has to order them anyway, since
-    ///     <c>comparer</c> and <c>listener</c> are ordinary fields a reader needs just as much.
+    ///     You can build this on any thread. The thread that builds the instance samples the
+    ///     initial value, and the scheduler moves each subsequent change to the binding thread.
+    ///     Thus after the build only the binding thread writes the cached value.
+    ///     Only the code that publishes the instance puts the building thread and the binding
+    ///     thread in sequence. That code must do this in all conditions, because <c>comparer</c>
+    ///     and <c>listener</c> are usual fields that a reader needs.
     /// </remarks>
     // ReSharper disable once InheritdocConsiderUsage
     private sealed class OneWayBindableValue<T> : BindableValueBase, IOneWayBindableValue<T>
@@ -23,14 +23,14 @@ public static partial class BindableCoreExtensionMethods
         private readonly IEqualityComparer<T> comparer;
 
         /// <summary>
-        ///     Load-bearing. The subscription is weak, so this field is what keeps it alive — and it
-        ///     transitively roots the upstream graph. Do not let it be refactored into a local.
+        ///     This field is necessary. The subscription is weak, thus this field keeps it alive.
+        ///     It also keeps the graph above it alive. Do not make it a local variable.
         /// </summary>
         private readonly IListener listener;
 
         /// <summary>
-        ///     The value the binding engine last saw. Written only by scheduled work after
-        ///     construction, which is to say only on the binding thread.
+        ///     The last value that the binding engine saw. After construction, only scheduled
+        ///     work writes it, which means only the binding thread.
         /// </summary>
         private T cachedValue;
 
@@ -48,18 +48,19 @@ public static partial class BindableCoreExtensionMethods
             // listener is attached.
             this.cachedValue = default!;
 
-            // Sample and subscribe inside one transaction so no update can slip through the gap.
-            // The sample is stored here rather than after the transaction for the same reason:
-            // once the listener is attached an update can arrive on another thread, and writing
-            // the initial value afterward would overwrite it.
+            // This code samples and listens in one transaction, thus no update enters the
+            // interval between the two. It keeps the sample here and not after the transaction
+            // for the same cause. After it attaches the listener, an update can arrive on a
+            // different thread, and a write of the initial value after that removes the
+            // update.
             //
-            // Attaching the listener publishes this object into the graph before the constructor
-            // has returned, so the listener can fire while the constructor is still running - which
-            // it does when this is constructed inside a transaction that goes on to update the same
-            // cell. That is safe for a structural reason rather than a timing one: OnSourceChanged
-            // does not touch the cached value at all, it only posts to the scheduler. Nothing the
-            // listener can do writes over the sample being taken here; the scheduled work runs
-            // afterward, on the binding thread, and a newer update correctly wins.
+            // The attachment of the listener puts this object into the graph before the
+            // constructor returns. Thus the listener can fire while the constructor runs. This
+            // occurs when SodaFlow builds this object in a transaction that then updates the
+            // same cell. The structure makes this safe, and not the sequence of events.
+            // OnSourceChanged does not touch the cached value. It only posts to the scheduler.
+            // Thus the listener cannot write over the sample that this code takes. The scheduled
+            // work runs after that, on the binding thread, and a newer update wins.
             this.listener =
                 TransactionInternal.RunImpl(() =>
                 {
@@ -83,9 +84,9 @@ public static partial class BindableCoreExtensionMethods
         }
 
         /// <summary>
-        ///     Applies an incoming update. Always posted rather than raised inline: the callback runs
-        ///     inside a Sodium transaction, and a binding engine reacting synchronously could re-enter
-        ///     the graph from within a callback.
+        ///     Applies an update. This method always posts and never raises on the calling
+        ///     thread, because the callback runs in a transaction. A binding engine that responds
+        ///     immediately can come back into the graph from a callback.
         /// </summary>
         private void OnSourceChanged(T newValue) =>
             this.Scheduler.Post(() =>

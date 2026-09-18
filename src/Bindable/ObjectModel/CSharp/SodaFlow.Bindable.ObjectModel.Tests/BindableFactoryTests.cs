@@ -9,9 +9,10 @@ using TUnit.Core;
 namespace SodaFlow.Bindable.ObjectModel.Tests;
 
 /// <summary>
-///     Covers the one thing the factory exists to do that the extension methods do not: carry a
-///     single injected scheduler into everything it creates. A method that forgets to pass it still
-///     produces a working bindable, so nothing but a test of this shape catches the omission.
+///     Tests the one operation that the factory does and the extension methods do not: it moves
+///     one supplied scheduler into each object that it creates. A method that does not pass the
+///     scheduler makes a bindable that operates. Thus only a test of this shape finds that
+///     error.
 /// </summary>
 public sealed class BindableFactoryTests
 {
@@ -43,8 +44,9 @@ public sealed class BindableFactoryTests
         await Assert.That(scheduler.Posts).IsGreaterThanOrEqualTo(1);
     }
 
-    // The two command overloads were the ones that dropped it, and a command built without the
-    // injected scheduler still fires - only its CanExecuteChanged goes to the wrong place.
+    // The two command overloads did not supply the scheduler. A command that SodaFlow builds
+    // without the supplied scheduler continues to fire. Only its CanExecuteChanged goes to an incorrect
+    // thread.
     [Test]
     public async Task BindableActionUsesTheInjectedScheduler()
     {
@@ -96,8 +98,8 @@ public sealed class BindableFactoryTests
 
         using (a.FiringsStream.ListenStrong(fired.Add))
         {
-            // Whatever the XAML author bound CommandParameter to, a parameterless command has no
-            // use for it and must not reject it.
+            // A command with no parameter does not use the CommandParameter that the author of
+            // the XAML supplied, and it must accept that parameter.
             a.Execute("anything at all");
 
             await Assert.That(fired.Count).IsEqualTo(1);
@@ -105,8 +107,8 @@ public sealed class BindableFactoryTests
     }
 
     /// <summary>
-    ///     Records that it was asked, then behaves like the immediate scheduler so the bindable
-    ///     under test still works.
+    ///     Keeps a record that the code asked it, and then operates as the immediate scheduler.
+    ///     Thus the bindable in the test continues to operate.
     /// </summary>
     // ReSharper disable once InheritdocConsiderUsage
     private sealed class RecordingScheduler : IBindingScheduler

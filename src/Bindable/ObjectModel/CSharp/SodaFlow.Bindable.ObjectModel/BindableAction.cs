@@ -18,7 +18,8 @@ public static partial class BindableExtensionMethods
         }
 
         /// <inheritdoc />
-        /// <remarks>A parameterless command ignores its parameter, so nothing can be mistyped.</remarks>
+        /// <remarks>A command with no parameter discards its parameter. Thus the type of that
+        /// parameter cannot be incorrect.</remarks>
         protected override void ValidateParameter(object? value)
         {
         }
@@ -48,7 +49,8 @@ public static partial class BindableExtensionMethods
                 + ", or null.");
 
         /// <inheritdoc />
-        /// <remarks>A parameterless command ignores its parameter, so nothing can be mistyped.</remarks>
+        /// <remarks>A command with no parameter discards its parameter. Thus the type of that
+        /// parameter cannot be incorrect.</remarks>
         protected override void ValidateParameter(object? value)
         {
             if (value is null or T or Maybe<T>)

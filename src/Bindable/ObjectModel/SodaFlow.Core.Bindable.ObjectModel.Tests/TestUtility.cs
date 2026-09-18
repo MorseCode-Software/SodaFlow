@@ -22,8 +22,9 @@ internal static class TestUtility
     }
 
     // ReSharper disable once ConvertToPrimaryConstructor - a primary constructor here cannot satisfy
-    // this solution's settings: capturing its parameter in Dispose is disallowed, and holding it in a
-    // field instead is then reported as a field that should be that parameter.
+    // the settings of this solution. They do not permit the capture of its parameter in Dispose,
+    // and a field that holds the parameter instead gets a report that it must be that
+    // parameter.
     private sealed class ActionDisposable : IDisposable
     {
         private readonly Action onDispose;

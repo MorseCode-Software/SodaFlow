@@ -9,13 +9,14 @@ namespace SodaFlow.Bindable.ObjectModel;
 public static partial class BindableCoreExtensionMethods
 {
     /// <summary>
-    ///     An <see cref="ICommand" /> that carries its <c>CommandParameter</c> through to the stream and
-    ///     whose enablement is driven by a <see cref="Cell{T}" /> of <see cref="bool" />.
+    ///     An <see cref="ICommand" /> that moves its <c>CommandParameter</c> to the stream. A
+    ///     <see cref="Cell{T}" /> of <see cref="bool" /> controls when the command is
+    ///     available.
     /// </summary>
     /// <remarks>
-    ///     Safe to construct on any thread. Enablement is sampled by whichever thread builds the
-    ///     instance and read by the binding thread, which is why the field holding it is volatile;
-    ///     every later change is marshaled through the scheduler.
+    ///     You can build this on any thread. The thread that builds the instance samples the
+    ///     availability, and the binding thread reads it. For that cause the field that holds it
+    ///     is volatile. The scheduler moves each subsequent change to the binding thread.
     /// </remarks>
     // ReSharper disable once InheritdocConsiderUsage
     internal class BindableAction<T> : IBindableAction<T>
@@ -24,16 +25,17 @@ public static partial class BindableCoreExtensionMethods
         private readonly StreamSink<T> firingsStreamSink;
 
         /// <summary>
-        ///     Load-bearing. The enablement subscription is weak, so this field is what keeps it
-        ///     alive.
+        ///     This field is necessary. The subscription to the availability cell is weak, thus
+        ///     this field keeps it alive.
         /// </summary>
         private readonly IListener listener;
 
         private readonly IBindingScheduler scheduler;
 
         /// <summary>
-        ///     Volatile because the constructor samples it on whichever thread built the command
-        ///     while the binding engine reads it on its own. A bool needs no box to do this.
+        ///     This field is volatile, because the constructor samples it on the thread that
+        ///     built the command and the binding engine reads it on a different thread. A bool
+        ///     needs no box for this.
         /// </summary>
         private volatile bool canExecute;
 
@@ -79,11 +81,11 @@ public static partial class BindableCoreExtensionMethods
                 return;
             }
 
-            // Validated here rather than inside the posted action. The type check is a
-            // diagnostic for the XAML author and has to be thrown where they can see it: with a
-            // transaction already in flight, PostWrite defers, and a throw from the deferred
-            // action escapes Transaction.Close instead - aborting a transaction that has
-            // nothing to do with this command and discarding whatever else it had queued.
+            // This code tests the value here and not in the posted action. The test of the type
+            // is a diagnostic for the author of the XAML, and it must throw where that person can
+            // see it. When a transaction is open, PostWrite defers, and a throw from the deferred
+            // action leaves Transaction.Close. That stops a transaction that has no connection to
+            // this command, and discards the other work in its queue.
             this.ValidateParameter(parameter);
 
             PostWrite(() => this.SendValue(streamSink: this.firingsStreamSink, value: parameter));
@@ -101,8 +103,9 @@ public static partial class BindableCoreExtensionMethods
             bool wasExecutable = this.canExecute;
             this.canExecute = false;
 
-            // Detached before the notification is raised, so a handler cannot resubscribe or be
-            // called twice; the local keeps the one send we still owe it.
+            // This code removes the handlers before it raises the notification. Thus a handler
+            // cannot attach again and cannot run two times. The local variable keeps the one
+            // notification that this command must still send.
             EventHandler? handler = this.CanExecuteChanged;
             this.CanExecuteChanged = null;
 
@@ -111,10 +114,11 @@ public static partial class BindableCoreExtensionMethods
                 return;
             }
 
-            // A binding engine caches the last CanExecute result and only asks again when told
-            // to. Clearing the handlers without ever raising this left a disposed command
-            // looking enabled: still clickable, and silently doing nothing when clicked.
-            // Posted rather than raised inline because Dispose can be called from any thread.
+            // A binding engine caches the last result of CanExecute and asks again only when
+            // this command tells it to. Without this notification, a command that a caller
+            // disposed looks available. A user can click it, and the click does nothing. This
+            // code posts the notification and does not raise it on the calling thread, because a
+            // caller can call Dispose from any thread.
             this.scheduler.Post(() => handler(sender: this, e: EventArgs.Empty));
         }
 
@@ -122,14 +126,14 @@ public static partial class BindableCoreExtensionMethods
             new("The command parameter must be of type " + typeof(T).FullName + ".");
 
         /// <summary>
-        ///     Guards against a XAML author binding a <c>CommandParameter</c> to the wrong type.
-        ///     Runs before the send operation is queued, so the exception reaches the caller of
-        ///     <see cref="Execute" />.
+        ///     Prevents a binding from the author of the XAML that gives a
+        ///     <c>CommandParameter</c> of an incorrect type. This runs before the send goes into
+        ///     the queue, thus the exception reaches the caller of <see cref="Execute" />.
         /// </summary>
         /// <param name="value">The command parameter, as the binding engine supplied it.</param>
         /// <exception cref="InvalidOperationException">
-        ///     <paramref name="value" /> is neither a <typeparamref name="T" /> nor a null that
-        ///     <typeparamref name="T" /> can represent.
+        ///     <paramref name="value" /> is not a <typeparamref name="T" />, and it is not a null
+        ///     that <typeparamref name="T" /> can hold.
         /// </exception>
         protected virtual void ValidateParameter(object? value)
         {
@@ -142,8 +146,8 @@ public static partial class BindableCoreExtensionMethods
         }
 
         /// <summary>
-        ///     Sends the parameter into the stream. <see cref="ValidateParameter" /> has already
-        ///     accepted it, so the conversion here cannot fail.
+        ///     Sends the parameter into the stream. <see cref="ValidateParameter" /> accepted it
+        ///     before this point, thus the conversion here cannot fail.
         /// </summary>
         protected virtual void SendValue(StreamSink<T> streamSink, object? value) =>
             streamSink.SendImpl(
