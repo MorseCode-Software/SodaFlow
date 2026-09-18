@@ -81,7 +81,8 @@ equivalent is `loopS`, which returns a struct tuple of the looped value and the 
 
 ## The explicit form
 
-`StreamLoop<T>`, `CellLoop<T>` and `BehaviorLoop<T>` are the underlying mechanism. You will
+`StreamLoop<T>`, `CellLoop<T>` and `BehaviorLoop<T>` are the underlying mechanism, reached
+through `Stream.CreateLoop<T>`, `Cell.CreateLoop<T>` and `Behavior.CreateLoop<T>`. You will
 meet them in older code and in the book's examples:
 
 ```csharp
@@ -102,8 +103,14 @@ Four rules apply, and the library enforces all four with exceptions:
 | Calling `Loop` twice | `Loop was looped more than once.` |
 | Closing it in a different transaction | `Loop must be looped in the same transaction that it was created in.` |
 
-The functional form exists because it makes all four impossible. Prefer it; use the explicit
-form only when the functional one genuinely cannot express what you need.
+The functional form exists because it makes all four impossible: the placeholder cannot outlive
+the block it was handed to, and the definition is what that block returns rather than something a
+later statement has to remember to do.
+
+So reach for `Loop` and write the explicit form only in the rare case where the loop cannot be
+scoped in a block at all — where the placeholder and its definition are separated by something a
+lambda cannot enclose. If what is being built is an object rather than a single value, that is not
+one of those cases; see below.
 
 ## `Sample` inside a loop
 
@@ -141,6 +148,37 @@ afterward — with a settable member that has no business being settable once th
 
 `WithCaptures`, and `forwardReference` in F#, return anything else worth keeping from the
 construction, the same way a loop does.
+
+### An object under construction
+
+This is the form to use whenever a factory builds an object whose own graph feeds it — a view
+model whose buttons edit the collection its rows come from, say. Rather than declaring a loop per
+stream, build the whole object inside one `ForwardReference<T>`, keep each stream or cell that has
+to be looped in a private field of the object — or use the property it is already exposed through,
+where it has one — and read it back off the looped object with `SwitchS` or `SwitchC`:
+
+```csharp
+public static IAccountsViewModel Create() =>
+    Transaction.Run(static () =>
+        ForwardReference<AccountsViewModel>.WithoutCaptures(static viewModelLoop =>
+        {
+            // The collection is fed from edits that do not exist until the rows do, and the rows
+            // come from the collection. Edit is the collection's edit type, shortened here.
+            Stream<Edit> depositsLoop = viewModelLoop.Map(static vm => vm.deposits).SwitchS();
+
+            ReactiveCollection<int, AccountIdentity, AccountState> accounts =
+                ReactiveCollection.Create(initialEntries: AccountSeed.Items, depositsLoop);
+
+            // ... the rest of the graph, ending with the deposits the rows on the page send ...
+
+            return new AccountsViewModel(rows: rows, deposits: deposits);
+        }));
+```
+
+The cell the forward reference hands out holds the finished object, so `SwitchS` on a field of it
+is the same stream the object ends up with. One reference stands in for every looped value the
+object carries, which keeps the count of loops at one however many streams and cells feed back.
+In F# the same shape is `forwardReferenceWithNoCaptures` with `switchS` or `switchC`.
 
 The C# value type sits on `ForwardReference<T>` rather than on the methods, which is what leaves
 the capture type free to be inferred — a lambda gives inference nothing to work from, and C#
