@@ -20,7 +20,7 @@
             another's XML. This emits one file per target framework, next to its own assembly, which is
             where NuGet pack expects it when populating each lib folder, and where the DocFX site under
             docs/ picks it up when generating API reference.
-    
+
             The DocFX site still generates API reference for the C# packages only: DocFX reads compiled
             metadata, which renders an F# assembly in its compiled shape rather than its F# one. See
             docs/docs/fsharp-api.md.
@@ -62,7 +62,7 @@
     </ItemGroup>
 
     <ItemGroup>
-      <None Include="..\..\..\..\logo\SodaFlow.png" Pack="true" PackagePath="\">
+      <None Include="..\..\..\logo\SodaFlow.png" Pack="true" PackagePath="\">
         <Link>SodaFlow.png</Link>
       </None>
     </ItemGroup>
