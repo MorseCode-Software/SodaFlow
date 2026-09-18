@@ -1,3 +1,13 @@
+3.0.2
+
+Adds the package icon that nuget.org shows beside this package.
+
+One exception message is built with a target-typed new and with its
+concatenation laid out differently. The message itself is unchanged.
+
+Every package here ships this release together, so the dependency versions
+move with it.
+
 3.0.1
 
 No code change. This release exists to move a dependency floor, so that

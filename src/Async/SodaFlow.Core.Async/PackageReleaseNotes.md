@@ -1,3 +1,13 @@
+4.0.1
+
+Adds the package icon that nuget.org shows beside this package.
+
+One expression in MapAsyncUtility is written on a single line where it was split
+across two. Nothing else changed, and nothing behaves differently.
+
+Every package here ships this release together, so the dependency versions
+move with it.
+
 4.0.0
 
 No API change of its own. This release moves to SodaFlow.Core 4.x, and

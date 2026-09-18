@@ -1,3 +1,11 @@
+3.0.2
+
+Adds the package icon that nuget.org shows beside this package. No source file
+changed since 3.0.1.
+
+Every package here ships this release together, so the dependency versions
+move with it.
+
 3.0.1
 
 No code change. This release exists to move a dependency floor, so that

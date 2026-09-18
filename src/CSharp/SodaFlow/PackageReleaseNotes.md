@@ -1,3 +1,11 @@
+4.0.1
+
+Adds the package icon that nuget.org shows beside this package. No source file
+changed since 4.0.0.
+
+Every package here ships this release together, so the dependency versions
+move with it.
+
 4.0.0
 
 BREAKING: requires SodaFlow.Core 4.x, where it required 3.x. That
