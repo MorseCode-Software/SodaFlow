@@ -2,7 +2,11 @@
 
 First release.
 
-Requires SodaFlow.Core 4.x, and nothing else from this repository.
+Requires SodaFlow.Core 4.0.1 or later, and nothing else from this repository.
+4.0.1 is the release that grants this assembly access to the core's internals,
+which it reaches throughout; against 4.0.0 it builds from source but throws
+MethodAccessException at run time, so the dependency floor is 4.0.1 rather than
+4.0.0.
 
 StateMap exposes Pairs as well as Keys, for anything that reads the whole
 collection - a total, an average, a count. Iterating Keys and looking up each

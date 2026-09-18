@@ -3,7 +3,10 @@
 First release.
 
 Requires SodaFlow.FSharp 4.x and SodaFlow.Collections.Core 1.x. Installing this
-brings the F# API it extends, so one install gives you the whole surface.
+brings the F# API it extends, so one install gives you the whole surface. This
+one reaches the core's internals as well, so the SodaFlow.Core it runs against
+has to be 4.0.1 or later; SodaFlow.Collections.Core carries that floor, and
+NuGet resolves it from there.
 
 Optionality is option, not Maybe, and it brings no more with it than
 SodaFlow.FSharp does. The core carries no optional type at all - its lookups
