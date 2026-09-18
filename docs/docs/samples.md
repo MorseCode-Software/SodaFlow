@@ -77,7 +77,7 @@ selection, and lets the view model change the tab rather than only learn about i
 **Accounts** is a hundred thousand of them behind a page of six, and the one about
 [reactive collections](collections.md). What it exists to show is one sentence with a cost attached:
 an edit reaches the rows bound to it rather than the rows beside them, so paying into an account
-moves that row's balance and rebuilds neither the list nor its neighbours — even under a sort that
+moves that row's balance and rebuilds neither the list nor its neighbors — even under a sort that
 could have carried the account somewhere else. The contrast with Search is deliberate rather than
 incidental. Binding a list of rows to one cell holding the whole list rebuilds every row on every
 edit, which is right for Search, whose results genuinely are one answer that changes as a whole, and

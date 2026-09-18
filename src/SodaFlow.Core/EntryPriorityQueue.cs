@@ -74,9 +74,10 @@ internal sealed class EntryPriorityQueue
             throw new Exception("Enqueue requires ranks to agree.");
         }
 
-        // Ranks index directly into entries, so the array has to be strictly longer than the
-        // rank being stored - hence >=, not >. Doubling also has to repeat until the rank
-        // actually fits, since a single doubling is not enough for a rank well past the end.
+        // A rank is an index into the entries array. Thus the array must be longer than the
+        // rank, and this test uses >= and not >. The size must double again and again until the
+        // array holds the rank, because one increase is not sufficient for a rank far after the
+        // end.
         if (e.PqRank != Node.NullRank && e.PqRank >= this.entriesSize)
         {
             int newSize = this.entriesSize;
@@ -157,7 +158,7 @@ internal sealed class EntryPriorityQueue
         }
 
         // ReSharper disable once NullableWarningSuppressionIsUsed - entry.Tail can only be null when entry.Head is
-        // also null.  In that case, both are set to a nun-null value above.
+        // also null.  In that case, the two are set to a non-null value above.
         entry.Tail!.PqNext = e;
         e.PqPrev = entry.Tail;
         entry.Tail = e;
@@ -236,7 +237,7 @@ internal sealed class EntryPriorityQueue
 #pragma warning disable CS0162 // Unreachable code detected
                 // ReSharper disable HeuristicUnreachableCode
             {
-                // sanity check, find it there is something else with a smaller rank
+                // A test. Find an entry with a smaller rank.
                 // ReSharper disable once LoopCanBePartlyConvertedToQuery
                 foreach (HeadAndTail entry2 in this.entries)
                 {

@@ -1,3 +1,8 @@
+4.0.2
+
+Adds the package icon that nuget.org shows beside this package. No source file
+changed since 4.0.1.
+
 4.0.1
 
 Grants InternalsVisibleTo to the three collections assemblies:

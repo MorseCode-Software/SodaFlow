@@ -308,7 +308,7 @@ internal sealed class CollisionScene : IScene
     /// <summary>The same ball, with its speed held to <see cref="MaximumSpeed" />.</summary>
     /// <remarks>
     ///     The whole velocity is scaled rather than either axis clipped, so a ball held at the
-    ///     ceiling keeps the direction it was travelling. Applied after the impacts rather than
+    ///     ceiling keeps the direction it was traveling. Applied after the impacts rather than
     ///     inside them: the impulse conserves momentum exactly, and it is worth leaving that alone
     ///     and doing the clamping somewhere it can be seen.
     /// </remarks>

@@ -4,7 +4,7 @@ using JetBrains.Annotations;
 namespace SodaFlow;
 
 /// <summary>
-///     An object which allows for arbitrary cleanup code to safely run when this object is garbage collected.
+///     An object that runs cleanup code when the garbage collector removes it.
 /// </summary>
 [PublicAPI]
 public sealed class Cleanup
@@ -19,10 +19,9 @@ public sealed class Cleanup
     /// </summary>
     /// <param name="cleanup">The action to run when this object becomes unreachable.</param>
     /// <remarks>
-    ///     This is finalization, not deterministic disposal: the action runs eventually, at a time
-    ///     the collector chooses. Call <c>CleanupNow</c> to run it at
-    ///     a known moment instead, and prefer <see cref="System.IDisposable" /> for anything that
-    ///     must be released promptly.
+    ///     This is finalization and not disposal. The action runs at a time that the garbage
+    ///     collector selects. To run it at a known time, call <c>CleanupNow</c>. For an object
+    ///     that must be released immediately, use <see cref="System.IDisposable" />.
     /// </remarks>
     public Cleanup(Action cleanup)
     {

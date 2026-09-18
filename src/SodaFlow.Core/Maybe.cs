@@ -69,8 +69,9 @@ internal readonly struct MaybeInternal<T>
     internal bool HasValue() => this.hasValue;
 
     /// <summary>
-    ///     Reads the value without going through a callback, for hot paths where the delegates
-    ///     <see cref="Match{TResult}" /> and friends require would be allocated per call.
+    ///     Reads the value and uses no callback. Use this on a frequent path, where
+    ///     <see cref="Match{TResult}" /> and the methods like it allocate a delegate for each
+    ///     call.
     /// </summary>
     internal bool TryGetValue(out T v)
     {

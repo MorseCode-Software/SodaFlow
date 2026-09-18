@@ -13,13 +13,14 @@
         <Product>SodaFlow for F#</Product>
         <Title>SodaFlow for F#</Title>
         <Description>SodaFlow - Functional Reactive Programming (FRP) library for F#.</Description>
+        <PackageIcon>SodaFlow.png</PackageIcon>
         <!--
             GenerateDocumentationFile rather than a per-configuration DocumentationFile path: this project
             multi-targets, and a single hard-coded path made all three target frameworks write over one
             another's XML. This emits one file per target framework, next to its own assembly, which is
             where NuGet pack expects it when populating each lib folder, and where the DocFX site under
             docs/ picks it up when generating API reference.
-    
+
             The DocFX site still generates API reference for the C# packages only: DocFX reads compiled
             metadata, which renders an F# assembly in its compiled shape rather than its F# one. See
             docs/docs/fsharp-api.md.
@@ -58,6 +59,12 @@
 
     <ItemGroup>
         <ProjectReference Include="..\..\SodaFlow.Core\SodaFlow.Core.csproj"/>
+    </ItemGroup>
+
+    <ItemGroup>
+      <None Include="..\..\..\logo\SodaFlow.png" Pack="true" PackagePath="\">
+        <Link>SodaFlow.png</Link>
+      </None>
     </ItemGroup>
 
 </Project>
