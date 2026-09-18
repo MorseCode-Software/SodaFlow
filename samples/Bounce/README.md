@@ -182,7 +182,17 @@ again when its tab becomes the selected one, which is a fact about the selection
 something a view has to remember to call:
 
 ```csharp
-activated.Loop(selected.Updates().Map(scene => Array.IndexOf(scenes, scene)));
+return Stream.Loop<int>()
+    .WithCaptures(activatedLoop =>
+    {
+        // The scenes are built here, each one handed activatedLoop filtered to its own index.
+        return
+        (
+            Stream: selected.Updates().Map(scene => Array.IndexOf(scenes, scene)),
+            Captures: new BounceViewModel(scenes: scenes, /* ... */)
+        );
+    })
+    .Captures;
 ```
 
 That reaches each scene as `restarts`, the same input a throw arrives on in the grab scene — a
@@ -190,8 +200,14 @@ throw and a fresh start being the same kind of thing, a flight imposed from outs
 not the cell itself, so the scene showing at startup is not restarted the moment it is built.
 
 The selection cannot exist until the scenes do, and the scenes want the stream, so the stream is
-looped: `Stream.CreateLoop<int>()` declares it, and it is defined once the selection is there. The
-same trick as `Cell.Loop` in `BouncingAxis`, for the same reason.
+looped. `Stream.Loop<int>()` opens a block that is handed the stream before it exists, and what the
+block returns closes it: the definition, and whatever was built along the way — here the view model
+itself, which comes back as `Captures`. `WithoutCaptures` is the same thing where the block has
+only the definition to hand back, which is how `Cell.Loop` is used in `BouncingAxis`.
+
+Prefer that block form. `Stream.CreateLoop` and `Cell.CreateLoop` declare a loop that some later
+statement has to remember to close, and are for the rare loop that cannot be written inside one
+block.
 
 ## Ricochets, and the one thing that couples
 
