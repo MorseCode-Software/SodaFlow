@@ -271,3 +271,11 @@ _site/
 # committed once already, by a git add that swept the working tree after a large merge.
 *.orig
 *.rej
+
+# Instructions for an AI coding assistant, which are one developer's working preferences rather
+# than a property of this repository: how they want changes proposed, reviewed and checked. Ignored
+# rather than committed for two reasons. Nobody should inherit a methodology they did not choose,
+# or have to keep a file in step with a tool they may not use; and where these preferences are not
+# followed, the pull request review is the place that gets said, which is a conversation rather
+# than a rule the repository imposes on everyone who clones it.
+CLAUDE.md
