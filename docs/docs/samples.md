@@ -4,18 +4,20 @@ title: Sample applications
 
 # Sample applications
 
-Three applications live in [`samples/`](https://github.com/MorseCode-Software/SodaFlow/tree/main/samples) in the repository, each built twice — once in
-WPF and once in Avalonia — over one shared view model that knows about neither.
+Four applications live in [`samples/`](https://github.com/MorseCode-Software/SodaFlow/tree/main/samples) in the repository, each built twice — once in
+WPF and once in Avalonia — over one shared view model that knows about neither. Counter is built a
+third time, on .NET Framework.
 
 | Sample | Uses | What it shows |
 | --- | --- | --- |
 | [Counter](https://github.com/MorseCode-Software/SodaFlow/tree/main/samples/Counter) | `SodaFlow`, `SodaFlow.Bindable.ObjectModel` | The whole idea on one screen |
 | [Search](https://github.com/MorseCode-Software/SodaFlow/tree/main/samples/Search) | those two plus `SodaFlow.Async` | Search-as-you-type against a slow service |
 | [Bounce](https://github.com/MorseCode-Software/SodaFlow/tree/main/samples/Bounce) | `SodaFlow`, `SodaFlow.Bindable.ObjectModel` | Continuous time: motion as a function of `Time` |
+| [Accounts](https://github.com/MorseCode-Software/SodaFlow/tree/main/samples/Accounts) | those two plus `SodaFlow.Collections` | A large keyed collection behind a paged list |
 
 Each is a folder with its own solution: open `Counter/SodaFlow.Samples.Counter.slnx`,
-`Search/SodaFlow.Samples.Search.slnx` or `Bounce/SodaFlow.Samples.Bounce.slnx` and run either
-head.
+`Search/SodaFlow.Samples.Search.slnx`, `Bounce/SodaFlow.Samples.Bounce.slnx` or
+`Accounts/SodaFlow.Samples.Accounts.slnx` and run either head.
 
 ## Why the view model is its own project
 
@@ -31,8 +33,9 @@ Counter/
 ```
 
 Counter's view model stays on `netstandard2.0`, which is what lets a .NET Framework 4.8.1 copy of
-its WPF head reference it unchanged. Search and Bounce have one head per framework on .NET 10: a
-`net10.0` view model, a `net10.0-windows` WPF head and a `net10.0` Avalonia head, all at C# 14.
+its WPF head reference it unchanged. Search, Bounce and Accounts have one head per framework on
+.NET 10: a `net10.0` view model, a `net10.0-windows` WPF head and a `net10.0` Avalonia head, all at
+C# 14.
 
 The split is the point rather than an accident of layout. A SodaFlow view model is built from
 cells, streams and bindables, none of which come from a UI framework, so the view model project
@@ -49,26 +52,43 @@ be enabled. Each button contributes a *function of the current count* rather tha
 which is what lets Reset join the same stream as the other two.
 
 **Search** is search-as-you-type against a deliberately slow service — the case that is
-genuinely awkward to write by hand, and the one that uses all three libraries. It is built
+genuinely awkward to write by hand, and the only one that needs `SodaFlow.Async`. It is built
 around the bugs that are *not* reachable in it: an older reply overwriting a newer one, a
 spinner that never stops because a canceled request never decremented a counter, and a stale
 error left on screen after a later search succeeded. See
 [Asynchronous work](async.md) for the mechanism.
 
-**Bounce** is balls bouncing in a box, and the only one of the three about
+**Bounce** is balls bouncing in a box, and the only one of the four about
 [`Behavior<T>`](time.md) rather than about cells and streams. A ball's position is a function of
 time rather than a number something keeps updating, which has two consequences worth seeing: the
 instant it reaches a wall is a root of the quadratic, solved in advance and scheduled with `At`
 rather than noticed by a frame; and the views hold no positions at all, asking where things are
-once per frame and drawing them there. It has three scenes, from one ball on one axis up to balls
-that can be picked up and thrown, where `SwitchB` chooses between following the pointer and
-following physics.
+once per frame and drawing them there. It has four scenes, from one ball on one axis, through
+balls that can be picked up and thrown — where `SwitchB` chooses between following the pointer and
+following physics — to balls that ricochet off each other, which is the one scene whose flights
+cannot be solved a ball at a time.
 
 It is worth seeing which half of it binds and which does not. The balls bind to nothing: they are
 behaviors, read by sampling, and a behavior has no changes to raise `PropertyChanged` about. Which
 scene is selected is an ordinary changing value, so it is an ordinary cell exposed as an ordinary
 two-way bindable property - which is what lets the summary above the tabs be a function of the
 selection, and lets the view model change the tab rather than only learn about it.
+
+**Accounts** is a hundred thousand of them behind a page of six, and the one about
+[reactive collections](collections.md). What it exists to show is one sentence with a cost attached:
+an edit reaches the rows bound to it rather than the rows beside them, so paying into an account
+moves that row's balance and rebuilds neither the list nor its neighbours — even under a sort that
+could have carried the account somewhere else. The contrast with Search is deliberate rather than
+incidental. Binding a list of rows to one cell holding the whole list rebuilds every row on every
+edit, which is right for Search, whose results genuinely are one answer that changes as a whole, and
+wrong here, where almost every account is one nobody is looking at.
+
+Sorting shows the other half of the idea. Two of its three orders are projected from the *identity*
+half of an account, which no edit can change, so under those a deposit moves a balance and cannot
+move a row — and the collection knows that rather than being told it, because the selector is handed
+the identity and never the state. The third sorts on the balance, which is the half that moves, so
+that is where a deposit can re-file a row. Switching between them with the same button is the whole
+demonstration.
 
 ## Two things that trip people up
 
