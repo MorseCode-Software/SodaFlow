@@ -147,6 +147,45 @@ Cell<bool> spinner = status.IsRunning;
 `Calm` first so identical queries do not re-fire; `SwitchLatest` so only the newest request
 survives. See [Asynchronous work](async.md).
 
+## Keep a large list on screen
+
+A cell holding a list rebuilds the whole list on every edit, which is right for a search result —
+one answer that changes as a whole — and wrong for a hundred thousand accounts behind a page of
+six. A `ReactiveCollection` is the other shape: one stage per question, each keeping itself
+current rather than being rebuilt.
+
+```csharp
+ReactiveCollection<int, AccountIdentity, AccountState> accounts =
+    ReactiveCollection.Create(initialEntries: seed, deposits);
+
+MappedItems<AccountRowViewModel> rows =
+    accounts
+        .Filter(static (_, state) => !state.IsFrozen)
+        .SortBy(static (identity, _) => identity.Number)
+        .Slice(offsetCell: offset, limitCell: Cell.Constant(PageSize))
+        .Map(
+            project: key => Row(page: page, key: key),
+            onEvicted: static row => row.Dispose());
+```
+
+Bind the view to `rows.Items`, and build each row's bindings from `IdentityCell` and `StateCell`
+*inside* the projection. That is what makes an edit reach the row it is about rather than the
+list: a deposit moves one balance while the other rows on the page, and the list itself, stay
+put.
+
+Two things decide whether this pays. An item is two halves — an identity that cannot change and a
+state that can — so a sort over the identity can never be disturbed by an edit to the state,
+which is why the example sorts on `identity.Number`. And `Map` ends the chain rather than
+continuing it: what comes back is objects, which have no identity or state left for a further
+`Filter` or `SortBy` to work on.
+
+Each criteria is a cell where it needs to move — `Filter` takes a criteria cell, `SortBy` an
+order cell, `Slice` an offset cell — so turning the page or clicking a header re-files the stage
+already there instead of building a second chain to choose between.
+
+See [Reactive collections](collections.md) for what each stage costs, and the
+[Accounts sample](samples.md) for this chain with a UI on it.
+
 ## Longer worked examples
 
 The [book](https://www.manning.com/books/functional-reactive-programming) (Blackheath & Jones)
