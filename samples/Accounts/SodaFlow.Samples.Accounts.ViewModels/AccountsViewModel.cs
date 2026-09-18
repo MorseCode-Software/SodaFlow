@@ -93,7 +93,7 @@ internal sealed record SortSelection(AccountColumn Column, bool IsDescending)
 ///         no better answer for until a type from another assembly could be given members of its own.
 ///     </para>
 ///     <para>
-///         <see cref="Order" /> is the one that pays for itself twice over: every caller wanted the
+///         <c>Order</c> is the one that pays for itself twice over: every caller wanted the
 ///         order in force, and each had to spell out both halves of that - map into the selection,
 ///         then fall back to arrival order for a list nobody has sorted yet.
 ///     </para>

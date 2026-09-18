@@ -9,11 +9,12 @@ model that knows about neither.
 | [Search](Search) | those two plus `SodaFlow.Async` | Search-as-you-type against a slow service |
 | [Accounts](Accounts) | those two plus `SodaFlow.Collections` | A large keyed collection behind a paged list |
 
-Accounts is the odd one out for now: it references the projects under `src/` rather than published
-packages, because the collections packages are not published yet and the sample is part of deciding
-what their API should be. The samples workflow builds it, which is how a library change that breaks
-it shows up, but it is not a required check, since a sample that work in progress can break has no
-business gating a merge. Nor is it inspected yet. All of that changes when the packages ship.
+Accounts used to be the odd one out, referencing the projects under `src/` while the collections
+packages were unpublished and the sample was part of deciding what their API should be. That is
+over: `SodaFlow.Collections` 1.0.0 is released, so Accounts pins packages like the rest and the
+samples workflow inspects it as well as building it. The one way it still differs is that it is not
+a required status check, which is a branch protection setting rather than anything in this
+repository.
 
 Each sample is a folder with its own solution. Open
 `Counter/SodaFlow.Samples.Counter.slnx` or `Search/SodaFlow.Samples.Search.slnx` and run either

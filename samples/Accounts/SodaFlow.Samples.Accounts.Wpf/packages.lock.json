@@ -8,65 +8,79 @@
         "resolved": "2026.2.0",
         "contentHash": "drvAEaI7Xf4wU6dx4UTB9MoZWXZlraaQ0qoeThPQ411FxNhId7QdUTukIC9I8aUHP0ycAaGwZNKqSvfOZQvUlg=="
       },
+      "SodaFlow": {
+        "type": "Transitive",
+        "resolved": "4.0.0",
+        "contentHash": "s9EAg6KcD5snnlLqz1nKCLSgOcZMZmoOzm07Fzxm77fTtteAT3LHnjC0NjyWzDnhWzR5dnFD5lDqfp3b1fg6sg==",
+        "dependencies": {
+          "SodaFlow.Core": "[4.0.0, 5.0.0)",
+          "SodaFlow.Functional": "[3.0.0, 4.0.0)",
+          "System.ValueTuple": "4.6.2"
+        }
+      },
+      "SodaFlow.Bindable.ObjectModel": {
+        "type": "Transitive",
+        "resolved": "3.0.1",
+        "contentHash": "p9dau9DdItSqUKoLd7+8ui7xL/gWtmuBfy7ZGzW9fTM7PvFKF74XE+s7arc6g6Vgyxiap2R1pUZbWopBa9wbSA==",
+        "dependencies": {
+          "SodaFlow": "[4.0.0, 5.0.0)",
+          "SodaFlow.Bindable.ObjectModel.Core": "[3.0.1, 4.0.0)",
+          "SodaFlow.Functional": "[3.0.0, 4.0.0)",
+          "System.ValueTuple": "4.6.2"
+        }
+      },
+      "SodaFlow.Bindable.ObjectModel.Core": {
+        "type": "Transitive",
+        "resolved": "3.0.1",
+        "contentHash": "/9PTaQs2bb/cU3TPt0wNXe5yQPnWTBwoyMqCZ1g0KKY4T04LWdS7eo3CWfD4YUkTCzGr70hYtuKWvyNKl9xSBw==",
+        "dependencies": {
+          "SodaFlow.Core": "[4.0.0, 5.0.0)",
+          "System.ValueTuple": "4.6.2"
+        }
+      },
+      "SodaFlow.Collections": {
+        "type": "Transitive",
+        "resolved": "1.0.0",
+        "contentHash": "DnCWwcIGJmc6FvqwBYLsgFgxQWM1wDtC1qzdrCipCPFU4TBPtCGBnHGpPfpdfOa3QBDH7yagLuoHTClkyRq8Fg==",
+        "dependencies": {
+          "SodaFlow": "[4.0.0, 5.0.0)",
+          "SodaFlow.Collections.Core": "[1.0.0, 2.0.0)",
+          "SodaFlow.Functional": "[3.0.0, 4.0.0)",
+          "System.ValueTuple": "4.6.2"
+        }
+      },
+      "SodaFlow.Collections.Core": {
+        "type": "Transitive",
+        "resolved": "1.0.0",
+        "contentHash": "ZnJIyakooycbmdUR4BYwNvl9ga4eWDx4xfhITQ+zepC1/PreCXP7rj3ykF6uUQbOoU4BIU4LwBGjZAj2w7xfOw==",
+        "dependencies": {
+          "SodaFlow.Core": "[4.0.1, 5.0.0)",
+          "System.ValueTuple": "4.6.2"
+        }
+      },
+      "SodaFlow.Core": {
+        "type": "Transitive",
+        "resolved": "4.0.1",
+        "contentHash": "C94z/wSuwOqyUy0HG2JG0Na/3GfSdvTp0nL8eJV32JHOxaijH+iLjnnObaaTXM/SObHVzylq4yoIBt9be5W1+Q==",
+        "dependencies": {
+          "System.ValueTuple": "4.6.2"
+        }
+      },
+      "SodaFlow.Functional": {
+        "type": "Transitive",
+        "resolved": "3.0.0",
+        "contentHash": "/Wg7COu6tAOHpeztFLTM8nWZc6p5qPr6KJtbjSo9g1qbIFe869WM8ZdWRKOaKI0A52A0Nt6fB+3GEackyhnH8w=="
+      },
       "System.ValueTuple": {
         "type": "Transitive",
         "resolved": "4.6.2",
         "contentHash": "yQgmjfFximrNm9LIV3mL6T5MzjeC+epeE5rl4hXxAlYmxby7RM1dPSkIKXk9HNkl6G54h2JHOmLD46+Pey+IRg=="
       },
-      "sodaflow": {
-        "type": "Project",
-        "dependencies": {
-          "SodaFlow.Core": "[1.0.0, )",
-          "SodaFlow.Functional": "[1.0.0, )",
-          "System.ValueTuple": "[4.6.2, )"
-        }
-      },
-      "sodaflow.bindable.objectmodel": {
-        "type": "Project",
-        "dependencies": {
-          "SodaFlow": "[1.0.0, )",
-          "SodaFlow.Bindable.ObjectModel.Core": "[1.0.0, )",
-          "SodaFlow.Functional": "[1.0.0, )",
-          "System.ValueTuple": "[4.6.2, )"
-        }
-      },
-      "SodaFlow.Bindable.ObjectModel.Core": {
-        "type": "Project",
-        "dependencies": {
-          "SodaFlow.Core": "[1.0.0, )",
-          "System.ValueTuple": "[4.6.2, )"
-        }
-      },
-      "sodaflow.collections": {
-        "type": "Project",
-        "dependencies": {
-          "SodaFlow": "[1.0.0, )",
-          "SodaFlow.Collections.Core": "[1.0.0, )",
-          "SodaFlow.Functional": "[1.0.0, )",
-          "System.ValueTuple": "[4.6.2, )"
-        }
-      },
-      "SodaFlow.Collections.Core": {
-        "type": "Project",
-        "dependencies": {
-          "SodaFlow.Core": "[1.0.0, )",
-          "System.ValueTuple": "[4.6.2, )"
-        }
-      },
-      "sodaflow.core": {
-        "type": "Project",
-        "dependencies": {
-          "System.ValueTuple": "[4.6.2, )"
-        }
-      },
-      "sodaflow.functional": {
-        "type": "Project"
-      },
       "sodaflow.samples.accounts.viewmodels": {
         "type": "Project",
         "dependencies": {
-          "SodaFlow": "[1.0.0, )",
-          "SodaFlow.Bindable.ObjectModel": "[1.0.0, )",
+          "SodaFlow": "[4.0.0, )",
+          "SodaFlow.Bindable.ObjectModel": "[3.0.1, )",
           "SodaFlow.Collections": "[1.0.0, )"
         }
       }

@@ -103,11 +103,22 @@ projection is — so the view model puts it in the same list as everything else 
 
 ## A note on how this sample is built
 
-Unlike the others here, this one references the projects under `src/` rather than published
-packages. The collections packages are not published yet, and this sample exists partly to find out
-whether their API needs changing before they are — which it already has, twice.
+Like the others here, this one takes its libraries from nuget.org at a pinned version, exactly as
+an application outside this repository would:
 
-The samples workflow builds it, so a library change that breaks it shows up there, but it is not a
-required check and is not inspected yet. That goes away when the packages ship: this becomes a
-`PackageReference` with a pinned version like the rest, and is inspected and gates a merge as they
-do.
+```xml
+<PackageReference Include="SodaFlow" Version="4.0.0" />
+<PackageReference Include="SodaFlow.Collections" Version="1.0.0" />
+<PackageReference Include="SodaFlow.Bindable.ObjectModel" Version="3.0.1" />
+```
+
+It referenced the projects under `src/` until recently, and the reason is worth recording because it
+was spent rather than abandoned: the collections packages were unpublished, and this sample existed
+partly to find out whether their API needed changing before they shipped — which it did, twice.
+`SodaFlow.Collections` 1.0.0 is released, so the sample now tracks a released version like the rest,
+and the samples workflow inspects it as well as building it.
+
+`SodaFlow.Collections.Core` arrives underneath `SodaFlow.Collections` and is not named above. It is
+what holds `SodaFlow.Core` to 4.0.1 or later, which the collections assemblies need: they reach its
+internals through `InternalsVisibleTo`, and 4.0.0 would throw `MethodAccessException` at run time
+rather than failing to build.

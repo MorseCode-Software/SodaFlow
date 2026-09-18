@@ -6,11 +6,6 @@ using System.Linq;
 using SodaFlow.Bindable.ObjectModel;
 using SodaFlow.Collections;
 using SodaFlow.Functional;
-using AccountOrder =
-    SodaFlow.Collections.KeyOrder<
-        int,
-        SodaFlow.Samples.Accounts.ViewModels.AccountIdentity,
-        SodaFlow.Samples.Accounts.ViewModels.AccountState>;
 
 namespace SodaFlow.Samples.Accounts.ViewModels;
 
