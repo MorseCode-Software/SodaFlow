@@ -1,3 +1,12 @@
+3.0.1
+
+Adds the package icon that nuget.org shows beside this package.
+
+Unit.Equals now carries NotNullWhen on every target framework, where it carried
+the attribute on .NET only. The attribute comes from an internal polyfill on
+net472 and netstandard2.0, which do not declare it themselves. This tells a
+caller's compiler what the method already did, and changes nothing at run time.
+
 3.0.0
 
 BREAKING: Unit is a readonly struct rather than a sealed class. It is a type

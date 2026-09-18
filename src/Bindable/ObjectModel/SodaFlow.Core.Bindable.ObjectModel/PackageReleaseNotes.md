@@ -1,3 +1,14 @@
+3.0.2
+
+Adds the package icon that nuget.org shows beside this package.
+
+Two exception messages are built with a target-typed new and with their
+concatenation laid out differently. The messages themselves, and everything
+else, are unchanged.
+
+Every package here ships this release together, so the dependency versions
+move with it.
+
 3.0.1
 
 Fixed: a two-way bindable now raises PropertyChanged for a write made
