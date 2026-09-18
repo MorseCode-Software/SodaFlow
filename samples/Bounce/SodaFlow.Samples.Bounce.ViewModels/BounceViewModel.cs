@@ -138,54 +138,59 @@ public sealed class BounceViewModel : IBounceViewModel
             // The selection cannot exist until the scenes do, and the scenes want the stream,
             // so the stream is looped - declared now, defined once the selection is there. The
             // index passed to each scene is its position in the array just below.
-            StreamLoop<int> activated = Stream.CreateLoop<int>();
+            return Stream.Loop<int>()
+                .WithCaptures(activatedLoop =>
+                {
+                    IScene simple = new SimpleScene(timers: timers, restarts: ActivatedAt(0));
 
-            IScene simple = new SimpleScene(timers: timers, restarts: ActivatedAt(0));
+                    IScene walls =
+                        new WallsScene(timers: timers, restitution: restitution, restarts: ActivatedAt(1));
 
-            IScene walls =
-                new WallsScene(timers: timers, restitution: restitution, restarts: ActivatedAt(1));
+                    IScene grab =
+                        new GrabScene(timers: timers, restitution: restitution, restarts: ActivatedAt(2));
 
-            IScene grab =
-                new GrabScene(timers: timers, restitution: restitution, restarts: ActivatedAt(2));
+                    // Damped at the walls like the other two, but not at the impacts between balls -
+                    // those stay elastic whatever the slider says, because what they conserve is the point
+                    // of the scene. See CollisionScene.Reflected.
+                    IScene ricochets =
+                        new CollisionScene(timers: timers, restitution: restitution, restarts: ActivatedAt(3));
 
-            // Damped at the walls like the other two, but not at the impacts between balls -
-            // those stay elastic whatever the slider says, because what they conserve is the point
-            // of the scene. See CollisionScene.Reflected.
-            IScene ricochets =
-                new CollisionScene(timers: timers, restitution: restitution, restarts: ActivatedAt(3));
+                    IScene[] scenes = [simple, walls, grab, ricochets];
 
-            IScene[] scenes = [simple, walls, grab, ricochets];
+                    // The simplest two-way case: the view is the only writer and the sink is the
+                    // authoritative value. No scheduler is passed, so the ambient one is resolved -
+                    // which the application pins at startup, so this does not care what thread it
+                    // is built on.
+                    CellSink<IScene> selected = Cell.CreateSink(scenes[0]);
 
-            // The simplest two-way case: the view is the only writer and the sink is the
-            // authoritative value. No scheduler is passed, so the ambient one is resolved -
-            // which the application pins at startup, so this does not care what thread it
-            // is built on.
-            CellSink<IScene> selected = Cell.CreateSink(scenes[0]);
+                    // Updates and not the cell itself, so the scene showing at startup is not restarted
+                    // the moment it is built.
+                    return
+                    (
+                        Stream: selected.Updates().Map(scene => Array.IndexOf(array: scenes, value: scene)),
+                        Captures: new BounceViewModel(
+                            scenes: scenes,
+                            selectedScene: selected.ToTwoWay(),
+                            selectedSummary: selected.Map(static scene => scene.Summary).ToOneWay(),
 
-            // Updates and not the cell itself, so the scene showing at startup is not restarted
-            // the moment it is built.
-            activated.Loop(selected.Updates().Map(scene => Array.IndexOf(array: scenes, value: scene)));
+                            // Which scenes damping applies to is known here because this is where it was
+                            // handed over, so the answer is which scenes those were rather than a flag
+                            // every scene has to carry.
+                            isDampingAvailable:
+                            selected
+                                .Map(scene =>
+                                    ReferenceEquals(objA: scene, objB: walls)
+                                    || ReferenceEquals(objA: scene, objB: grab)
+                                    || ReferenceEquals(objA: scene, objB: ricochets))
+                                .ToOneWay(),
+                            dampingEnabled: dampingEnabled.ToTwoWay(),
+                            damping: damping.ToTwoWay())
+                    );
 
-            return new BounceViewModel(
-                scenes: scenes,
-                selectedScene: selected.ToTwoWay(),
-                selectedSummary: selected.Map(static scene => scene.Summary).ToOneWay(),
-
-                // Which scenes damping applies to is known here because this is where it was
-                // handed over, so the answer is which scenes those were rather than a flag
-                // every scene has to carry.
-                isDampingAvailable:
-                selected
-                    .Map(
-                        scene =>
-                            ReferenceEquals(objA: scene, objB: walls)
-                            || ReferenceEquals(objA: scene, objB: grab)
-                            || ReferenceEquals(objA: scene, objB: ricochets))
-                    .ToOneWay(),
-                dampingEnabled: dampingEnabled.ToTwoWay(),
-                damping: damping.ToTwoWay());
-
-            Stream<Unit> ActivatedAt(int index) => activated.Filter(i => i == index).Map(static _ => Unit.Value);
+                    Stream<Unit> ActivatedAt(int index) =>
+                        activatedLoop.Filter(i => i == index).Map(static _ => Unit.Value);
+                })
+                .Captures;
         });
     }
 }
