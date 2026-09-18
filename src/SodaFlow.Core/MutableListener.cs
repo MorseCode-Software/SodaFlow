@@ -6,11 +6,10 @@ namespace SodaFlow;
 ///     A listener whose target can be replaced while the handle itself stays the same.
 /// </summary>
 /// <remarks>
-///     Intended for a long-lived object subscribing to a succession of short-lived sources: one
-///     field, one lifetime, a changing target. Point it at a listener with
-///     <c>SetListener</c>, release the current one with
-///     <c>ClearListener</c>, and stop listening entirely
-///     with <c>Unlisten</c>.
+///     Use this for an object with a long life that listens to a sequence of sources with short
+///     lives. It is one field with one life and a target that changes. To give it a listener,
+///     call <c>SetListener</c>. To release the current listener, call <c>ClearListener</c>. To
+///     stop it fully, call <c>Unlisten</c>.
 /// </remarks>
 [PublicAPI]
 // ReSharper disable once InheritdocConsiderUsage

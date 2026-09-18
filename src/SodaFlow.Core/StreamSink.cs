@@ -4,8 +4,9 @@ using JetBrains.Annotations;
 namespace SodaFlow;
 
 /// <summary>
-///     A stream that allows values to be pushed into it, acting as an interface between the world of I/O and the world of
-///     FRP.  Code that exports StreamSinks for read-only use should downcast to <see cref="Stream{T}" />.
+///     A stream that lets a caller send values into it. It connects the world of I/O to the world
+///     of FRP. Code that supplies a stream sink for read access only must downcast it to
+///     <see cref="Stream{T}" />.
 /// </summary>
 /// <typeparam name="T">The type of values fired by the stream sink.</typeparam>
 [PublicAPI]

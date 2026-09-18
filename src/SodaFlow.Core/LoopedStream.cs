@@ -4,8 +4,8 @@ using JetBrains.Annotations;
 namespace SodaFlow;
 
 /// <summary>
-///     A forward reference for a <see cref="Stream{T}" /> equivalent to the <see cref="Stream{T}" /> that is
-///     referenced.
+///     A forward reference to a <see cref="Stream{T}" />. It is equal to the
+///     <see cref="Stream{T}" /> that the loop supplies.
 /// </summary>
 /// <typeparam name="T">The type of values fired by the stream loop.</typeparam>
 [PublicAPI]
