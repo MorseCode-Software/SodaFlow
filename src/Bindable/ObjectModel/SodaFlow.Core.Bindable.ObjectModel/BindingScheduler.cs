@@ -73,7 +73,7 @@ public sealed class SynchronizationContextBindingScheduler : IBindingScheduler
         };
 
     // SodaFlow captures this with the context, because the two identify the binding thread in
-    // different ways and one alone is not sufficient. It comes from the constructing thread.
+    // different ways and one alone is not sufficient. It comes from the building thread.
     // Capture and the ambient resolution both run on the binding thread. A caller that supplies
     // a context of a different thread makes this identifier incorrect, and makes the test more
     // permissive. That is the direction with no risk.
@@ -103,7 +103,7 @@ public sealed class SynchronizationContextBindingScheduler : IBindingScheduler
     /// </summary>
     /// <remarks>
     ///     <para>
-    ///         There are two ways to answer yes, and the two must fail before this method
+    ///         There are two methods to answer yes, and the two tests must fail before this method
     ///         answers no. A dispatcher usually supplies the same context instance on its own
     ///         thread, but not in each condition. A nested message loop, or a copy that carries a
     ///         priority, can supply a different one. Thus the thread that SodaFlow captures with
@@ -180,12 +180,12 @@ public sealed class SynchronizationContextBindingScheduler : IBindingScheduler
 /// <remarks>
 ///     This scheduler runs work on the calling thread, but not in each condition. A run on the
 ///     calling thread while a transaction is open is what <see cref="IBindingScheduler.Post" />
-///     prevents, and the risk is real. SodaFlow calls the source-changed handlers from a listener
+///     prevents, and the risk exists. SodaFlow calls the source-changed handlers from a listener
 ///     callback. Thus a scheduler that always runs on the calling thread raises
 ///     <c>PropertyChanged</c> in the transaction and lets a handler come back into the graph. A
 ///     scheduler on a dispatcher cannot do that. A test scheduler that can do it tests a sequence
-///     that the real scheduler never makes. A delay to the end of the current transaction costs a
-///     test nothing, because the action in the queue still runs before the <c>Send</c> that made
+///     that the true scheduler never makes. A wait for the end of the current transaction costs a
+///     test nothing, because the action in the queue runs before the <c>Send</c> that made
 ///     it returns.
 /// </remarks>
 [PublicAPI]
@@ -212,7 +212,7 @@ public sealed class ImmediateBindingScheduler : IBindingScheduler
     /// <param name="action">The action to run.</param>
     /// <exception cref="ArgumentNullException"><paramref name="action" /> is null.</exception>
     /// <remarks>
-    ///     A delay to the close of the current transaction makes the action run while that
+    ///     A wait for the close of the current transaction makes the action run while that
     ///     transaction holds the lock for the full process. Thus code that this action reaches
     ///     must not wait for a different thread to open a transaction, because that thread cannot
     ///     open one until this transaction closes. A
@@ -248,10 +248,10 @@ public static class BindingScheduler
     ///     it.
     /// </summary>
     /// <remarks>
-    ///     You can construct a bindable object on any thread, thus a view model does not have to
+    ///     You can build a bindable object on any thread, thus a view model does not have to
     ///     know which thread the binding engine uses. But one of these must be available. Set
     ///     this when the binding thread has no <see cref="SynchronizationContext" />, or when
-    ///     construction occurs where there is no context to capture.
+    ///     a build occurs where there is no context to capture.
     /// </remarks>
     public static IBindingScheduler? Default { get; set; }
 

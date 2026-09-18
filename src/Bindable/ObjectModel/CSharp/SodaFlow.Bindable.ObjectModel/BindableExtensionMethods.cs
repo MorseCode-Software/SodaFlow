@@ -4,12 +4,12 @@ using SodaFlow.Functional;
 namespace SodaFlow.Bindable.ObjectModel;
 
 /// <summary>
-///     Extension methods to obtain a bindable. Every implementation is a private nested type, so the
-///     public surface is the four interfaces and nothing else.
+///     Extension methods that give you a bindable. Each implementation is a private nested type.
+///     Thus the public surface is the four interfaces only.
 /// </summary>
 public static partial class BindableExtensionMethods
 {
-    /// <summary>Exposes a cell as a read-only bindable property.</summary>
+    /// <summary>Shows a cell as a bindable property that a caller cannot write.</summary>
     public static IOneWayBindableValue<T> ToOneWay<T>(
         this Cell<T> cell,
         IBindingScheduler? scheduler = null,
@@ -17,8 +17,8 @@ public static partial class BindableExtensionMethods
         cell.ToOneWayImpl(scheduler: scheduler, comparer: comparer);
 
     /// <summary>
-    ///     Exposes a cell sink as a two-way bindable property. The simplest case: the view is the
-    ///     only writer, and the sink is the authoritative value.
+    ///     Shows a cell sink as a two-way bindable property. This is the simplest condition. The
+    ///     view is the only writer, and the sink holds the value that is the authority.
     /// </summary>
     public static ITwoWayBindableValue<T> ToTwoWay<T>(
         this CellSink<T> sink,
@@ -27,7 +27,7 @@ public static partial class BindableExtensionMethods
         sink.ToTwoWayImpl(scheduler: scheduler, comparer: comparer);
 
     /// <summary>
-    ///     Exposes a cell as a two-way bindable property, routing view writes into
+    ///     Shows a cell as a two-way bindable property, and sends the writes of the view into
     ///     <paramref name="editsStreamSink" />.
     /// </summary>
     public static ITwoWayBindableValue<T> ToTwoWay<T>(
@@ -38,8 +38,8 @@ public static partial class BindableExtensionMethods
         cell.ToTwoWayImpl(editsStreamSink: editsStreamSink, scheduler: scheduler, comparer: comparer);
 
     /// <summary>
-    ///     Creates a one-way-to-source bindable property with an initial value, routing view writes into
-    ///     <paramref name="editsStreamSink" />.
+    ///     Creates a one-way-to-source bindable property with an initial value, and sends the
+    ///     writes of the view into <paramref name="editsStreamSink" />.
     /// </summary>
     public static IOneWayToSourceBindableValue<T> ToOneWayToSource<T>(
         this StreamSink<T> editsStreamSink,
@@ -52,8 +52,8 @@ public static partial class BindableExtensionMethods
             comparer: comparer);
 
     /// <summary>
-    ///     Creates a one-way-to-source bindable property with an initial value, routing view writes into
-    ///     <paramref name="sink" />.
+    ///     Creates a one-way-to-source bindable property with an initial value, and sends the
+    ///     writes of the view into <paramref name="sink" />.
     /// </summary>
     public static IOneWayToSourceBindableValue<T> ToOneWayToSource<T>(
         this CellSink<T> sink,
@@ -62,12 +62,12 @@ public static partial class BindableExtensionMethods
         sink.ToOneWayToSourceImpl(scheduler: scheduler, comparer: comparer);
 
     /// <summary>
-    ///     Exposes an existing sink as a command that carries its <c>CommandParameter</c>.
+    ///     Shows a sink that exists as a command that carries its <c>CommandParameter</c>.
     /// </summary>
     /// <remarks>
-    ///     For a <c>StreamSink&lt;Unit&gt;</c> the non-generic overload wins overload resolution.
-    ///     Write <c>ToBindableAction&lt;Unit&gt;(...)</c> explicitly if you want the parameterized
-    ///     form for a unit sink.
+    ///     For a <c>StreamSink&lt;Unit&gt;</c> the compiler selects the overload with no type
+    ///     parameter. To get the overload with a parameter for a unit sink, write
+    ///     <c>ToBindableAction&lt;Unit&gt;(...)</c>.
     /// </remarks>
     public static IBindableAction<T> ToBindableAction<T>(
         this StreamSink<T> firingsStreamSink,
@@ -77,8 +77,8 @@ public static partial class BindableExtensionMethods
         firingsStreamSink.ToBindableActionImpl(isEnabledCell: isEnabledCell, scheduler: scheduler);
 
     /// <summary>
-    ///     Exposes an existing sink as a parameterless command. Use when the graph is built around
-    ///     the sink and the command is being attached to it, rather than the other way round.
+    ///     Shows a sink that exists as a command with no parameter. Use this when you build the
+    ///     graph on the sink and then attach the command to it.
     /// </summary>
     public static IBindableAction ToBindableAction(
         this StreamSink<Unit> firingsStreamSink,
@@ -90,8 +90,9 @@ public static partial class BindableExtensionMethods
             scheduler: scheduler);
 
     /// <summary>
-    ///     Exposes an existing sink as an optional command. The <c>CommandParameter</c> passed mey be
-    ///     <see langword="null" />, an object of type <typeparamref name="T" />, or a <see cref="Maybe{T}" />.
+    ///     Shows a sink that exists as a command with an optional parameter. The
+    ///     <c>CommandParameter</c> can be <see langword="null" />, an object of type
+    ///     <typeparamref name="T" />, or a <see cref="Maybe{T}" />.
     /// </summary>
     public static IBindableAction<Maybe<T>> ToBindableAction<T>(
         this StreamSink<Maybe<T>> firingsStreamSink,

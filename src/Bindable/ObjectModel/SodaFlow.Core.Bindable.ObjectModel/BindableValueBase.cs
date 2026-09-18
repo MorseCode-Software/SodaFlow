@@ -7,13 +7,14 @@ namespace SodaFlow.Bindable.ObjectModel;
 public static partial class BindableCoreExtensionMethods
 {
     /// <summary>
-    ///     Common plumbing for the notifying implementations: a single <c>"Value"</c>
-    ///     property-changed notification, scheduler access, and idempotent disposal.
+    ///     The shared parts of the implementations that give a notification. It supplies one
+    ///     <c>"Value"</c> property-changed notification, access to the scheduler, and a Dispose
+    ///     method that a caller can call more than one time.
     /// </summary>
     // ReSharper disable once InheritdocConsiderUsage
     private abstract class BindableValueBase : INotifyPropertyChanged, IDisposable
     {
-        /// <summary>Cached to avoid allocating on every notification.</summary>
+        /// <summary>This is cached, thus each notification makes no allocation.</summary>
         private static readonly PropertyChangedEventArgs ValueChangedEventArgs = new("Value");
 
         private int disposed;
@@ -21,10 +22,10 @@ public static partial class BindableCoreExtensionMethods
         protected BindableValueBase(IBindingScheduler? scheduler) =>
             this.Scheduler = BindingScheduler.Resolve(scheduler);
 
-        /// <summary>The scheduler used to marshal notifications onto the binding thread.</summary>
+        /// <summary>The scheduler that moves a notification to the binding thread.</summary>
         protected IBindingScheduler Scheduler { get; }
 
-        /// <summary>True once <see cref="Dispose" /> has run.</summary>
+        /// <summary>This is true after <see cref="Dispose" /> runs.</summary>
         protected bool IsDisposed => Volatile.Read(ref this.disposed) != 0;
 
         public void Dispose()
@@ -40,7 +41,7 @@ public static partial class BindableCoreExtensionMethods
 
         public event PropertyChangedEventHandler? PropertyChanged;
 
-        /// <summary>Raises <see cref="PropertyChanged" /> for <c>Value</c>. Call on the binding thread.</summary>
+        /// <summary>Raises <see cref="PropertyChanged" /> for <c>Value</c>. Call this on the binding thread.</summary>
         protected void RaiseValueChanged() => this.PropertyChanged?.Invoke(sender: this, e: ValueChangedEventArgs);
 
         protected void ThrowIfDisposed()
@@ -51,7 +52,7 @@ public static partial class BindableCoreExtensionMethods
             }
         }
 
-        /// <summary>Unsubscribes from the FRP graph. Called at most once.</summary>
+        /// <summary>Stops the subscription to the FRP graph. SodaFlow calls this one time.</summary>
         protected abstract void DisposeCore();
     }
 }

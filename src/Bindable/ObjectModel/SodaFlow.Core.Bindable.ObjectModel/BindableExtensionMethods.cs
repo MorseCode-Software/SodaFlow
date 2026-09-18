@@ -4,12 +4,12 @@ using System.Collections.Generic;
 namespace SodaFlow.Bindable.ObjectModel;
 
 /// <summary>
-///     Extension methods to obtain a bindable. Every implementation is a private nested type, so the
-///     public surface is the four interfaces and nothing else.
+///     Extension methods that give you a bindable. Each implementation is a private nested type.
+///     Thus the public surface is the four interfaces only.
 /// </summary>
 public static partial class BindableCoreExtensionMethods
 {
-    /// <summary>Exposes a cell as a read-only bindable property.</summary>
+    /// <summary>Shows a cell as a bindable property that a caller cannot write.</summary>
     internal static IOneWayBindableValue<T> ToOneWayImpl<T>(
         this Cell<T> cell,
         IBindingScheduler? scheduler = null,
@@ -17,8 +17,8 @@ public static partial class BindableCoreExtensionMethods
         new OneWayBindableValue<T>(cell: cell, scheduler: scheduler, comparer: comparer);
 
     /// <summary>
-    ///     Exposes a cell sink as a two-way bindable property. The simplest case: the view is the
-    ///     only writer, and the sink is the authoritative value.
+    ///     Shows a cell sink as a two-way bindable property. This is the simplest condition. The
+    ///     view is the only writer, and the sink holds the value that is the authority.
     /// </summary>
     internal static ITwoWayBindableValue<T> ToTwoWayImpl<T>(
         this CellSink<T> sink,
@@ -27,7 +27,7 @@ public static partial class BindableCoreExtensionMethods
         new TwoWayBindableValue<T>(cell: sink, write: sink.SendImpl, scheduler: scheduler, comparer: comparer);
 
     /// <summary>
-    ///     Exposes a cell as a two-way bindable property, routing view writes into
+    ///     Shows a cell as a two-way bindable property, and sends the writes of the view into
     ///     <paramref name="editsStreamSink" />.
     /// </summary>
     internal static ITwoWayBindableValue<T> ToTwoWayImpl<T>(
@@ -49,8 +49,8 @@ public static partial class BindableCoreExtensionMethods
     }
 
     /// <summary>
-    ///     Creates a one-way-to-source bindable property with an initial value, routing view writes into
-    ///     <paramref name="sink" />.
+    ///     Creates a one-way-to-source bindable property with an initial value, and sends the
+    ///     writes of the view into <paramref name="sink" />.
     /// </summary>
     internal static IOneWayToSourceBindableValue<T> ToOneWayToSourceImpl<T>(
         this CellSink<T> sink,
@@ -63,8 +63,8 @@ public static partial class BindableCoreExtensionMethods
             comparer: comparer);
 
     /// <summary>
-    ///     Creates a one-way-to-source bindable property with an initial value, routing view writes into
-    ///     <paramref name="editsStreamSink" />.
+    ///     Creates a one-way-to-source bindable property with an initial value, and sends the
+    ///     writes of the view into <paramref name="editsStreamSink" />.
     /// </summary>
     internal static IOneWayToSourceBindableValue<T> ToOneWayToSourceImpl<T>(
         this StreamSink<T> editsStreamSink,
@@ -78,12 +78,12 @@ public static partial class BindableCoreExtensionMethods
             comparer: comparer);
 
     /// <summary>
-    ///     Exposes an existing sink as a command that carries its <c>CommandParameter</c>.
+    ///     Shows a sink that exists as a command that carries its <c>CommandParameter</c>.
     /// </summary>
     /// <remarks>
-    ///     For a <c>StreamSink&lt;Unit&gt;</c> the non-generic overload wins overload resolution.
-    ///     Write <c>ToBindableAction&lt;Unit&gt;(...)</c> explicitly if you want the parameterized
-    ///     form for a unit sink.
+    ///     For a <c>StreamSink&lt;Unit&gt;</c> the compiler selects the overload with no type
+    ///     parameter. To get the overload with a parameter for a unit sink, write
+    ///     <c>ToBindableAction&lt;Unit&gt;(...)</c>.
     /// </remarks>
     internal static IBindableAction<T> ToBindableActionImpl<T>(
         this StreamSink<T> firingsStreamSink,
@@ -96,54 +96,57 @@ public static partial class BindableCoreExtensionMethods
             scheduler: scheduler);
 
     /// <summary>
-    ///     Subscribes to a cell's updates only — the initial value is excluded, because callers
-    ///     sample it separately inside the same transaction.
+    ///     Listens to the updates of a cell only. It does not give the initial value, because a
+    ///     caller samples that value in the same transaction.
     /// </summary>
     /// <remarks>
-    ///     Weak by design. The node holds the handler weakly, so the returned listener is the only
-    ///     thing keeping the subscription alive: callers MUST store it in a field, and it must not
-    ///     be dropped as an apparently-unused local. In exchange, a bindable that becomes
-    ///     unreachable without being disposed is collected along with its subscription rather than
-    ///     being rooted for the lifetime of the sink it listens to. No separate reference to the
-    ///     cell is required — the listener references the stream it listens to, which keeps its own
-    ///     upstream dependencies alive.
+    ///     This subscription is weak, and that is deliberate. The node holds the handler with a
+    ///     weak reference. Thus the listener that this method gives you is the only object that
+    ///     keeps the subscription alive. A caller MUST keep it in a field and MUST NOT let it
+    ///     become a local variable that looks unused. In exchange, the garbage collector removes
+    ///     a bindable that becomes unreachable with no call to Dispose, and removes its
+    ///     subscription with it. Without this, the sink keeps the bindable alive for the full
+    ///     life of the sink. A second reference to the cell is not necessary, because the
+    ///     listener references the stream that it listens to, and that stream keeps the objects
+    ///     above it alive.
     /// </remarks>
     private static IListener ListenToUpdates<T>(Cell<T> cell, Action<T> handler) =>
         cell.UpdatesImpl.ListenImpl(handler);
 
     /// <summary>
-    ///     Sends a value into the graph after the current <see cref="TransactionInternal" /> ends so
-    ///     that it can never execute inside a Sodium callback.
+    ///     Sends a value into the graph after the current <see cref="TransactionInternal" />
+    ///     ends. Thus the send cannot run in a callback.
     /// </summary>
     /// <remarks>
     ///     <para>
-    ///         With no transaction in flight — the normal case, a binding setter called from an idle
-    ///         dispatcher — this opens a transaction and runs immediately, so behavior is unchanged.
-    ///         With a transaction in flight, which can only happen if a nested message pump delivered
-    ///         the write from inside a callback, it runs in a new transaction opened once the current
-    ///         one ends. Either way the send is legal. Never call a sink's <c>Send</c> directly from a
-    ///         binding setter.
+    ///         When no transaction is open, this method opens one and runs immediately, thus the
+    ///         behavior does not change. That is the usual condition, a binding setter that an
+    ///         idle dispatcher calls. When a transaction is open, this method runs in a new
+    ///         transaction that it opens after the current one ends. A transaction is open only
+    ///         when a nested message loop delivered the write from a callback. The send is correct
+    ///         in each condition. Do not call <c>Send</c> on a sink directly from a binding
+    ///         setter.
     ///     </para>
     ///     <para>
-    ///         Multiple posted callbacks run as separate transactions, so two writes can never collide
-    ///         within one — which is why a plain <c>StreamSink&lt;T&gt;</c> works as a write target and
-    ///         no coalescing variant is needed.
+    ///         Each posted callback runs as its own transaction. Thus two writes cannot occur in
+    ///         one transaction. For that cause a <c>StreamSink&lt;T&gt;</c> is sufficient as a
+    ///         write target, and a variant that combines writes is not necessary.
     ///     </para>
     /// </remarks>
     private static void PostWrite(Action write) => TransactionInternal.PostImpl(write);
 
     /// <summary>
-    ///     Throws unless the caller is on the binding thread.
+    ///     Throws when the caller is not on the binding thread.
     /// </summary>
     /// <remarks>
-    ///     The cached value behind every bindable's <c>Value</c> is an ordinary field, safe
-    ///     because the property is touched on one thread. Nothing enforced that before this: the
-    ///     symptom of getting it wrong was a stale read, or a torn one for a large struct, both
-    ///     silent and neither reproducible on demand. This turns it into an exception at the call
-    ///     site that did it.
-    ///     Only ever raised when the scheduler is certain - see
-    ///     <see cref="IBindingScheduler.CheckAccess()" /> - so it accuses nothing it cannot
-    ///     prove.
+    ///     The cached value below the <c>Value</c> property of each bindable is a usual field.
+    ///     It is safe because one thread touches the property. Before this method, no code made
+    ///     that true. An incorrect thread gave a stale read, or an incomplete read for a large
+    ///     struct. Both are silent, and you cannot make either one occur on demand. This method
+    ///     makes an exception at the call site that caused it.
+    ///     It throws only when the scheduler is sure. See
+    ///     <see cref="IBindingScheduler.CheckAccess()" />. Thus it reports nothing that it cannot
+    ///     show.
     /// </remarks>
     private static void VerifyAccess(this IBindingScheduler scheduler, string member)
     {

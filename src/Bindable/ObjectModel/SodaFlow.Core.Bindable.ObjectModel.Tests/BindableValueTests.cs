@@ -12,10 +12,10 @@ using TUnit.Core;
 namespace SodaFlow.Bindable.ObjectModel.Tests;
 
 /// <summary>
-///     Covers the three bindable values. Everything here runs against
-///     <see cref="BindingScheduler.Immediate" />, which is what makes the notifications observable
-///     without a dispatcher; the ordering it produces is the same one a dispatcher-backed scheduler
-///     produces, because it defers to the end of the current transaction exactly as that one does.
+///     Tests the three bindable values. Each test runs with
+///     <see cref="BindingScheduler.Immediate" />, which shows a notification with no
+///     dispatcher. It gives the same sequence as a scheduler on a dispatcher, because it defers to
+///     the end of the current transaction as that scheduler does.
 /// </summary>
 public sealed class BindableValueTests
 {
@@ -60,8 +60,9 @@ public sealed class BindableValueTests
         await Assert.That(names).IsEquivalentTo(expected: expected, ordering: CollectionOrdering.Matching);
     }
 
-    // The property name is load-bearing: the documented binding path is {Binding Foo.Value}, so a
-    // notification naming anything else silently fails to update the view.
+    // The name of the property is necessary. The documented binding path is
+    // {Binding Foo.Value}. Thus a notification with a different name does not update the view,
+    // and it gives no warning.
     [Test]
     public async Task OneWayRaisesForTheValueProperty()
     {
@@ -134,10 +135,10 @@ public sealed class BindableValueTests
         await Assert.That(names).IsEquivalentTo(expected: expected, ordering: CollectionOrdering.Matching);
     }
 
-    // A two-way value is bound by more than one control as a matter of course - a checkbox that
-    // writes it and anything else enabled or shown by the same answer. Only the writer knows what
-    // it wrote, so a write the graph accepts unchanged is a change to every other binding, and
-    // has to be announced or those bindings never move.
+    // More than one control usually binds to a two-way value. A checkbox writes it, and the same
+    // answer makes other controls available or visible. Only the control that wrote knows the
+    // value. Thus a write that the graph accepts with no change is a change to each other
+    // binding, and this class must announce it or those bindings do not change.
     [Test]
     public async Task TwoWayNotifiesWhenTheViewIsTheWriter()
     {
@@ -158,8 +159,8 @@ public sealed class BindableValueTests
         await Assert.That(b.Value).IsEqualTo(5);
     }
 
-    // The counterpart. Announcing a write that changed nothing would have every binding refresh
-    // for no reason, and is the thing the equality check is there to prevent.
+    // The opposite test. A notification for a write that changed nothing makes each binding read
+    // the value again for no cause. The equality test prevents that.
     [Test]
     public async Task TwoWayDoesNotNotifyForAWriteThatChangesNothing()
     {
@@ -174,8 +175,8 @@ public sealed class BindableValueTests
         await Assert.That(names).IsEmpty().Because("nothing changed, so there is nothing to announce");
     }
 
-    // Repeating a write announces nothing further, so a control that writes on every keystroke
-    // does not make the others refresh on every keystroke.
+    // A second write of the same value announces nothing. Thus a control that writes at each
+    // keystroke does not make the other controls read the value at each keystroke.
     [Test]
     public async Task TwoWayNotifiesOncePerActualChange()
     {
@@ -195,10 +196,10 @@ public sealed class BindableValueTests
         await Assert.That(names).IsEquivalentTo(expected: expected, ordering: CollectionOrdering.Matching);
     }
 
-    // What the comparer calls unchanged is unchanged, all the way down. A cell value that differs
-    // only in a way the comparer ignores must not quietly replace what the view is showing: there
-    // is no notification for it, by definition, so the swap would stand with nothing to reconcile
-    // it and the property would report something the view never displayed.
+    // A value that the comparer calls equal is equal to each part of this class. A value of the
+    // cell that differs only in a part that the comparer ignores must not replace the value that
+    // the view shows. There is no notification for such a value. Thus the replacement stays with
+    // no correction, and the property reports a value that the view never showed.
     [Test]
     public async Task TwoWayKeepsItsValueWhenTheComparerCallsTheCellsEquivalent()
     {
@@ -218,8 +219,8 @@ public sealed class BindableValueTests
             .Because("an unannounced change would leave the property disagreeing with the view");
     }
 
-    // The graph is authoritative. A write the graph normalizes has to come back corrected, or the
-    // view keeps showing something that was never accepted.
+    // The graph is the authority. A write that the graph changes must come back corrected, or
+    // the view continues to show a value that the graph did not accept.
     [Test]
     public async Task TwoWayReconcilesAWriteTheGraphNormalizes()
     {
@@ -280,13 +281,15 @@ public sealed class BindableValueTests
         await Assert.That(c.Sample()).IsEqualTo(0).Because("a disposed sink accepts no further writes");
     }
 
-    // A view model builds its bindable objects wherever it happens to be running and has no business
-    // knowing which thread the binding engine uses. These construct off the current thread, with
-    // no SynchronizationContext to capture, and check the sampled value survives the handover.
+    // A view model builds its bindable objects on the thread where it runs, and it does not have
+    // to know which thread the binding engine uses. These tests build on a different thread,
+    // with no SynchronizationContext to capture, and then test that the sampled value is
+    // correct.
     //
-    // A visibility bug would not fail this reliably - that is the nature of one - but the value
-    // being boxed behind a volatile reference is what makes the handover sound, and a change that
-    // reintroduced a same-thread requirement would fail here immediately.
+    // A defect in memory visibility does not always fail this test, because such a defect is
+    // not repeatable. But a box behind a volatile reference holds the value, and that makes the
+    // move between threads correct. A change that needs one thread again fails here
+    // immediately.
     private static async Task<TResult> OnAnotherThread<TResult>(Func<TResult> f)
     {
         TResult? result = default;
@@ -298,7 +301,8 @@ public sealed class BindableValueTests
             {
                 try
                 {
-                    // Recorded rather than asserted here: nothing inside a thread body can be awaited.
+                    // This code keeps the result and does not assert it here, because no code in
+                    // a thread body can await.
                     contextOnTheOtherThread = SynchronizationContext.Current;
 
                     result = f();
@@ -387,9 +391,9 @@ public sealed class BindableValueTests
         await Assert.That(a.CanExecute(null)).IsFalse();
     }
 
-    // Every bindable is disposable through the one marker interface, which is what lets a view
-    // model keep them in a single collection and tear them all down together. The write-only one
-    // used to be left out of it.
+    // Each bindable has the one interface that makes it disposable. Thus a view model can
+    // keep all of them in one collection and dispose all of them together. Before, the value that
+    // a caller can only write did not implement that interface.
     [Test]
     public async Task EveryBindableIsAnIBindable()
     {

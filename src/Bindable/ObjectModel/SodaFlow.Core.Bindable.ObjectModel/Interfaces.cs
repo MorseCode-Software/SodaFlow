@@ -6,8 +6,9 @@ using JetBrains.Annotations;
 namespace SodaFlow.Bindable.ObjectModel;
 
 /// <summary>
-///     Anything this library hands to a view. Every bindable owns a subscription into the FRP graph
-///     and must be disposed; this is what lets a view model hold a heterogeneous collection of them.
+///     An object that this library gives to a view. Each bindable owns a subscription into the FRP
+///     graph and a caller must dispose it. This lets a view model keep all of them in one
+///     collection.
 /// </summary>
 [PublicAPI]
 // ReSharper disable once InheritdocConsiderUsage
@@ -16,50 +17,53 @@ public interface IBindable : IDisposable
 }
 
 /// <summary>
-///     The readable half of every bindable value, whichever direction it flows.
+///     The part of a bindable value that a caller can read, in each direction of flow.
 /// </summary>
 [PublicAPI]
 // ReSharper disable once InheritdocConsiderUsage
 public interface IReadableBindableValue<T> : IBindable, INotifyPropertyChanged
 {
     /// <summary>
-    ///     The current value, for the binding engine to read. Not an accessor for application
-    ///     code: see the remarks on <see cref="IWritableBindableValue{T}" />, which apply to
-    ///     reading as much as to writing.
+    ///     The current value, for the binding engine to read. This is not for the code of an application.
+    ///     See the remarks on <see cref="IWritableBindableValue{T}" />, which apply to a read and
+    ///     to a write.
     /// </summary>
     T Value { get; }
 
-    /// <summary>The cell backing this value, for further composition in the FRP graph.</summary>
+    /// <summary>The cell below this value, to use again in the FRP graph.</summary>
     Cell<T> Cell { get; }
 }
 
 /// <summary>
-///     A bindable value the view can write to. Capability rather than direction: implemented by
-///     both <see cref="ITwoWayBindableValue{T}" /> and
-///     <see cref="IOneWayToSourceBindableValue{T}" />, so a helper that only needs to push a value
-///     into the graph can accept either.
+///     A bindable value that the view can write to. This interface gives an ability and not a
+///     direction. <see cref="ITwoWayBindableValue{T}" /> and
+///     <see cref="IOneWayToSourceBindableValue{T}" /> the two supply it. Thus a method that only
+///     sends a value into the graph can accept each one.
 /// </summary>
 /// <remarks>
 ///     <para>
-///         <see cref="Value" /> exists for the binding engine to read and write, and for nothing
-///         else. Reaching for it from application code is a procedural way around the graph: the
-///         value it reports is a value the graph already holds, and a value pushed into it is a value a
-///         sink can be sent directly. Compose cells and streams instead.
+///         <see cref="Value" /> is for the binding engine to read and write, and for no
+///         other code. A read or a write from the code of an application is a procedural path around
+///         the graph. The value that it gives is a value that the graph holds, and a value
+///         that you send into it is a value that you can send to a sink. Use cells and
+///         streams instead.
 ///     </para>
 ///     <para>
-///         The thread rule follows from that. A bindable may be constructed on any thread, but
-///         the property is touched on the binding thread only, which is where a binding engine
-///         calls from — so the cached value behind it is an ordinary field, with no
-///         synchronization and no allocation per change. Read or write it from somewhere else and
-///         that assumption is gone, quietly: a stale value at best, and a torn one where
-///         <typeparamref name="T" /> is a large struct.
+///         The rule about threads comes from that. You can construct a bindable on any
+///         thread, but only the binding thread touches the property, because a binding engine
+///         calls from there. Thus the cached value below it is a usual field, with no
+///         synchronization and no allocation for each change. A read or a write from a
+///         different thread removes that condition, and gives no warning. The result is a
+///         stale value, or an incomplete value when <typeparamref name="T" /> is a large
+///         struct.
 ///     </para>
 ///     <para>
-///         A write reaches the graph inside a transaction, and transactions are serialized
-///         process-wide, so setting blocks until any transaction in flight elsewhere has closed.
-///         That is ordinarily immeasurable, and is the same guarantee that means none of this
-///         needs synchronizing by hand — but a long-running transaction on a background thread
-///         will hold up the setter, and with it the binding thread, for as long as it runs.
+///         A write goes into the graph in a transaction, and SodaFlow runs one transaction at
+///         a time across the process. Thus a set waits until each open transaction closes.
+///         That wait is usually too small to measure, and it is the same guarantee that makes
+///         synchronization by hand unnecessary. But a transaction that runs for a long time on
+///         a background thread delays the setter, and with it the binding thread, for the full
+///         time that it runs.
 ///     </para>
 /// </remarks>
 [PublicAPI]
@@ -67,75 +71,78 @@ public interface IReadableBindableValue<T> : IBindable, INotifyPropertyChanged
 public interface IWritableBindableValue<T> : IBindable
 {
     /// <summary>
-    ///     Gets the current value, or writes a new one into the FRP graph. For the binding engine,
-    ///     on the binding thread; see the remarks on this interface.
+    ///     Gets the current value, or writes a new value into the FRP graph. This is for the
+    ///     binding engine, on the binding thread. See the remarks on this interface.
     /// </summary>
     T Value { get; set; }
 }
 
 /// <summary>
-///     A read-only value that a XAML binding engine can observe. Values originate in the FRP
-///     graph and flow outward to the view; the view can never write to it.
+///     A value that a XAML binding engine can read but cannot write. A value starts in the FRP
+///     graph and moves out to the view. The view cannot write to it.
 /// </summary>
 /// <remarks>
 ///     <para>
-///         The property name raised on <see cref="INotifyPropertyChanged.PropertyChanged" /> is always
-///         <c>"Value"</c>, so the binding path is <c>{Binding SomeProperty.Value}</c>.
+///         <see cref="INotifyPropertyChanged.PropertyChanged" /> always gives the property
+///         name <c>"Value"</c>. Thus the binding path is
+///         <c>{Binding SomeProperty.Value}</c>.
 ///     </para>
 ///     <para>
-///         Deliberately invariant in <typeparamref name="T" /> rather than covariant, so that
-///         <see cref="IReadableBindableValue{T}.Cell" /> can be part of the contract.
+///         This interface is invariant in <typeparamref name="T" /> and not covariant. That
+///         is deliberate, and it lets <see cref="IReadableBindableValue{T}.Cell" /> be part of
+///         the contract.
 ///     </para>
 /// </remarks>
 [PublicAPI]
 // ReSharper disable once InheritdocConsiderUsage
 public interface IOneWayBindableValue<T> : IReadableBindableValue<T>
 {
-    /// <summary>The most recent value delivered to the binding thread.</summary>
+    /// <summary>The last value that SodaFlow gave to the binding thread.</summary>
     new T Value { get; }
 }
 
 /// <summary>
-///     A value the view can both observe and write to. Writes are pushed back into the FRP graph;
-///     the authoritative value always comes back out of the graph.
+///     A value that the view can read and also write. A write goes into the FRP graph, and the
+///     graph always supplies the value that is the authority.
 /// </summary>
 /// <remarks>
-///     <see cref="Value" /> is redeclared to resolve the two inherited declarations — without it,
-///     every access through this interface would be ambiguous.
+///     This interface declares <see cref="Value" /> again, to select between the two declarations
+///     that it inherits. Without that, each access through this interface is ambiguous.
 /// </remarks>
 [PublicAPI]
 // ReSharper disable once InheritdocConsiderUsage
 public interface ITwoWayBindableValue<T> : IOneWayBindableValue<T>, IWritableBindableValue<T>
 {
     /// <summary>
-    ///     Gets the most recent value delivered to the binding thread, or writes a new value into
-    ///     the FRP graph.
+    ///     Gets the last value that SodaFlow gave to the binding thread, or writes a new value
+    ///     into the FRP graph.
     /// </summary>
     /// <remarks>
     ///     <para>
-    ///         Setting is a no-op when the value is unchanged — unless an update is still on its way
-    ///         to the binding thread, in which case it is written regardless, because until that
-    ///         update arrives the value read back is not known to be the graph's.
+    ///         A set does nothing when the value does not change. But when an update is on
+    ///         its path to the binding thread, the setter writes the value. Until that update
+    ///         arrives, the value that a caller reads back can be different from the value in the
+    ///         graph.
     ///     </para>
     ///     <para>
-    ///         A write that does change the value raises
-    ///         <see cref="INotifyPropertyChanged.PropertyChanged" /> once the graph has settled,
-    ///         carrying whatever the graph settled on. So any number of controls may bind to this
-    ///         property, in either direction, and all of them follow a write made by any one of
-    ///         them.
+    ///         A write that changes the value raises
+    ///         <see cref="INotifyPropertyChanged.PropertyChanged" /> after the graph becomes
+    ///         stable, and carries the value that the graph settled on. Thus many controls can
+    ///         bind to this property, in each direction, and all of them follow a write from any
+    ///         one of them.
     ///     </para>
     /// </remarks>
     new T Value { get; set; }
 }
 
 /// <summary>
-///     A write-only sink for <c>OneWayToSource</c> bindings: the view pushes values in, the FRP
-///     graph consumes them. Does not implement <see cref="INotifyPropertyChanged" /> — nothing ever
-///     flows back out to the view.
+///     A sink for a <c>OneWayToSource</c> binding, which a caller can write but cannot read. The
+///     view sends values in and the FRP graph uses them. This interface does not implement
+///     <see cref="INotifyPropertyChanged" />, because no value moves back out to the view.
 /// </summary>
 /// <remarks>
-///     A getter is exposed because both WPF and Avalonia read the source property when establishing
-///     a <c>OneWayToSource</c> binding. It returns the last value written by the view.
+///     This interface has a getter, because WPF and Avalonia both read the source property when
+///     they make a <c>OneWayToSource</c> binding. It gives the last value that the view wrote.
 /// </remarks>
 [PublicAPI]
 // ReSharper disable once InheritdocConsiderUsage
@@ -144,16 +151,16 @@ public interface IOneWayToSourceBindableValue<T> : IWritableBindableValue<T>
 }
 
 /// <summary>
-///     An <see cref="ICommand" /> that carries its <c>CommandParameter</c> through to the stream and
-///     whose enablement is driven by a <see cref="Cell{T}" /> of <see cref="bool" />.
+///     An <see cref="ICommand" /> that moves its <c>CommandParameter</c> to the stream. A
+///     <see cref="Cell{T}" /> of <see cref="bool" /> controls when the command is available.
 /// </summary>
 [PublicAPI]
 // ReSharper disable once InheritdocConsiderUsage
 public interface IBindableAction<T> : IBindable, ICommand
 {
-    /// <summary>The cell driving enablement, for further composition in the FRP graph.</summary>
+    /// <summary>The cell that controls availability, to use again in the FRP graph.</summary>
     Cell<bool> IsEnabledCell { get; }
 
-    /// <summary>Fires once per accepted invocation, carrying the command parameter.</summary>
+    /// <summary>Fires one time for each accepted call, and carries the command parameter.</summary>
     Stream<T> FiringsStream { get; }
 }

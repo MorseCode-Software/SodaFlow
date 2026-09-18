@@ -9,10 +9,10 @@ using TUnit.Core;
 namespace SodaFlow.Bindable.ObjectModel.Tests;
 
 /// <summary>
-///     Covers the one rule <see cref="IBindingScheduler.Post" /> states: an action must never run
-///     synchronously while a transaction is in flight. A dispatcher-backed scheduler satisfies it by
-///     construction; the immediate one has to be careful, and it is the one tests run against, so
-///     everything else in this assembly depends on it getting this right.
+///     Tests the one rule that <see cref="IBindingScheduler.Post" /> states: an action must not
+///     run immediately while a transaction is open. A scheduler on a dispatcher meets that rule by
+///     its design. The immediate scheduler must be careful, and the tests use it. Thus each other
+///     test in this assembly depends on it.
 /// </summary>
 public sealed class BindingSchedulerTests
 {
@@ -36,8 +36,8 @@ public sealed class BindingSchedulerTests
         {
             BindingScheduler.Immediate.Post(() => ranInside = true);
 
-            // Transaction.RunVoid takes an Action, so what happened inside is recorded here and
-            // asserted below rather than awaited in place.
+            // Transaction.RunVoid has an Action parameter. Thus this code keeps the result here and
+            // asserts it below, and does not await it at this point.
             ranBeforeTheTransactionClosed = ranInside;
         });
 
@@ -68,9 +68,9 @@ public sealed class BindingSchedulerTests
         // ReSharper disable once NullableWarningSuppressionIsUsed - Testing for exception on null.
         await Assert.That(static () => BindingScheduler.Immediate.Post(null!)).ThrowsExactly<ArgumentNullException>();
 
-    // The reason the rule exists. A notification raised from inside the transaction would leave a
-    // handler unable to send into another sink - which is an ordinary thing for a view model to do,
-    // and something a real dispatcher would never have prevented.
+    // This is the cause of the rule. A notification from inside the transaction stops a handler
+    // from sending into a different sink. A view model does that frequently, and a real
+    // dispatcher does not prevent it.
     [Test]
     public async Task AHandlerCanSendIntoAnotherSink()
     {

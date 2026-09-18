@@ -8,7 +8,8 @@ using TUnit.Core;
 
 namespace SodaFlow.Bindable.ObjectModel.Tests;
 
-/// <summary>Covers the command: enablement, firing, parameter typing and disposal.</summary>
+/// <summary>Tests the command. It covers availability, firing, the type of the parameter, and
+/// disposal.</summary>
 public sealed class BindableActionTests
 {
     private static IBindableAction<T> Action<T>(StreamSink<T> sink, Cell<bool>? isEnabled = null)
@@ -73,8 +74,8 @@ public sealed class BindableActionTests
         }
     }
 
-    // The type check is a diagnostic for whoever wrote the XAML, so it has to surface at the call
-    // site. Deferring it into the posted send would have thrown somewhere they cannot see.
+    // The test of the type is a diagnostic for the author of the XAML, thus it must occur at the
+    // call site. A test in the posted send throws at a point that the author cannot see.
     [Test]
     public async Task RejectsAMistypedParameterAtTheCallSite()
     {
@@ -123,8 +124,9 @@ public sealed class BindableActionTests
         }
     }
 
-    // A binding engine caches the last CanExecute answer and only asks again when told to, so
-    // disposing without notifying leaves a button enabled that does nothing when clicked.
+    // A binding engine caches the last answer from CanExecute and asks again only when the
+    // command tells it to. Thus a call to Dispose with no notification leaves a button available,
+    // and a click on that button does nothing.
     [Test]
     public async Task NotifiesTheViewWhenDisposalDisablesIt()
     {

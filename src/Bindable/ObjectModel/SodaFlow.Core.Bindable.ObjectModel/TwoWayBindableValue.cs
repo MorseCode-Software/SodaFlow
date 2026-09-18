@@ -22,15 +22,15 @@ public static partial class BindableCoreExtensionMethods
     ///     <para>
     ///         That pass also announces the stable value, and it announces the value when the
     ///         graph makes no change. The graph can accept a write with no change, but each
-    ///         binding other than the one that wrote still shows the previous value. Thus the
+    ///         binding other than the one that wrote shows the previous value. Thus the
     ///         write is a change to all of them. The notification carries the value that the cell
     ///         settled on and not the optimistic value. Thus it announces no value that the graph
     ///         refused.
     ///     </para>
     ///     <para>
-    ///         You can construct this on any thread. The thread that builds the instance samples
+    ///         You can build this on any thread. The thread that builds the instance samples
     ///         the initial value, and the scheduler moves each subsequent change to the binding
-    ///         thread. Only the code that publishes the instance puts the constructing thread and
+    ///         thread. Only the code that publishes the instance puts the building thread and
     ///         the binding thread in sequence. That code must do this in all conditions, because
     ///         <c>comparer</c>, <c>listener</c> and <c>write</c> are usual fields that a reader
     ///         needs.
@@ -38,7 +38,7 @@ public static partial class BindableCoreExtensionMethods
     ///     <para>
     ///         The setter writes the cached value on the calling thread and does not use the
     ///         scheduler. It must do this, because the optimistic write lets the binding engine
-    ///         read back the value that it wrote, with no delay. This is correct, because
+    ///         read back the value that it wrote, and does not wait. This is correct, because
     ///         <see cref="Value" /> belongs to the binding engine, which reads and writes it in
     ///         one place only. See <see cref="IWritableBindableValue{T}" />.
     ///     </para>
@@ -71,7 +71,7 @@ public static partial class BindableCoreExtensionMethods
         ///     This is different from <see cref="cachedValue" />, and the difference is
         ///     necessary. The setter writes the cached value optimistically. Thus after the graph
         ///     accepts a write, the cache agrees with the cell, but each binding on this property
-        ///     shows the previous value. A comparison of the cell against the cache alone cannot
+        ///     shows the previous value. When this code compares the cell against the cache alone cannot
         ///     find that condition, and reads it as no change. Only the binding thread touches
         ///     this field, for the cause that applies to the cached value.
         /// </remarks>
@@ -118,7 +118,7 @@ public static partial class BindableCoreExtensionMethods
 
             // The attachment of the listener puts this object into the graph before the
             // constructor returns. Thus the listener can fire while the constructor runs. This
-            // occurs when SodaFlow constructs this object in a transaction that then updates the
+            // occurs when SodaFlow builds this object in a transaction that then updates the
             // same cell. The structure makes this safe, and not the sequence of events.
             // OnSourceChanged does not touch the cached value. It only posts to the scheduler.
             // Thus the listener cannot write over the sample that this code takes. The scheduled
@@ -200,7 +200,7 @@ public static partial class BindableCoreExtensionMethods
         ///     This method discards the value of the update and samples the cell. An update
         ///     carries the value that the cell held at the firing, and this method runs after
         ///     that, on the binding thread. The setter can write the cached value in that
-        ///     interval, and a captured value can put a previous value on the screen in place of
+        ///     interval, and a captured value can put a previous value on the screen and not
         ///     a newer one. A sample gets the value that is correct now.
         /// </summary>
         /// <param name="newValue">Ignored. See the summary.</param>
@@ -225,7 +225,7 @@ public static partial class BindableCoreExtensionMethods
         ///         and 62ns on .NET Framework, which is the cost of an empty transaction on those
         ///         platforms. The cost is the transaction and not the sample. One complete update
         ///         to a two-way value costs 492ns and 696ns, thus the sample is approximately one
-        ///         tenth. A one-way value takes no sample and pays none of this cost.
+        ///         tenth. A one-way value makes no sample and pays none of this cost.
         ///     </para>
         ///     <para>
         ///         This does make an update take the transaction lock of the process two times
@@ -238,12 +238,12 @@ public static partial class BindableCoreExtensionMethods
         ///         One change can give a benefit: do not queue a refresh while the queue holds
         ///         one. The refresh operations in the queue give the same result, because they
         ///         all sample the same stable cell. The first one does the work and the others
-        ///         find no change. Thus one sample in place of many changes no notification and
+        ///         find no change. Thus one sample and not many changes no notification and
         ///         no value. You must know why this code does not do that. The change cannot use
         ///         pendingRefreshes, which means "the cache can disagree with the cell" and not
-        ///         "a post is in the queue". The two differ when a refresh ran and a newer update
+        ///         "a post is in the queue". The two are different when a refresh ran and a newer update
         ///         arrived. A simple test on that field either discards the update and leaves the
-        ///         cache stale permanently, or clears the count too early and lets the setter
+        ///         cache stale permanently, or clears the count before that point and lets the setter
         ///         discard a write. A correct change needs a generation number that the method
         ///         compares from start to end. That is a second concurrent rule on the field that
         ///         the setter already depends on, for no saving unless updates arrive in groups
@@ -281,8 +281,8 @@ public static partial class BindableCoreExtensionMethods
                     // another cannot follow is not a bindable value, thus this condition must
                     // announce.
                     //
-                    // The short-circuit is deliberate. A first comparison that fails shows that
-                    // this is not the early return. Thus the second comparison adds no answer,
+                    // The short-circuit is deliberate. A first test that fails shows that
+                    // this is not the return above. Thus the second test adds no answer,
                     // and a comparer is code that this class does not control.
                     if (this.comparer.Equals(x: this.cachedValue, y: authoritative)
                         && this.comparer.Equals(x: this.lastNotifiedValue, y: authoritative))
@@ -293,7 +293,7 @@ public static partial class BindableCoreExtensionMethods
                     // This code writes the field only on the path that announces. On the early
                     // return the cached value is equal, and a write there replaces the value of
                     // the control with the value of the graph and tells no observer. A comparer
-                    // that ignores part of a value makes that difference visible. A comparer
+                    // that ignores part of a value shows that difference. A comparer
                     // that ignores letter case is such a comparer, and nothing corrects the
                     // difference.
                     this.cachedValue = authoritative;

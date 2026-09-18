@@ -10,29 +10,29 @@ using TUnit.Core;
 namespace SodaFlow.Bindable.ObjectModel.Tests;
 
 /// <summary>
-///     How the bindable values behave around the scheduler and the transaction lock.
+///     The behavior of the bindable values with the scheduler and the transaction lock.
 /// </summary>
 /// <remarks>
 ///     <para>
-///         Separate from <see cref="BindableValueTests" /> because these need a scheduler that
-///         queues rather than one that runs at the close of the current transaction. The two
-///         produce the same ordering for a single write, which is why the other fixture can use
-///         the immediate one throughout; they diverge as soon as a second write arrives before
-///         the first one's notifications have been delivered, and that divergence is what is
-///         under test here.
+///         These tests are not in <see cref="BindableValueTests" />, because they need a
+///         scheduler that queues and not one that runs at the close of the current transaction.
+///         The two give the same sequence for one write, which is why the other test class uses
+///         the immediate scheduler. The two are different when a second write arrives before SodaFlow
+///         delivers the notifications of the first write. These tests cover that difference.
 ///     </para>
 ///     <para>
-///         The last two failed when they were written, and are the reason the two-way value now
-///         samples the cell in its update handler and counts the refreshes it has queued. Both
-///         describe the same underlying mistake from different ends: treating the cached value as
-///         a statement about the graph, when it is only a statement about the last time the two
-///         were compared.
+///         The last two tests failed when someone wrote them. They are the cause of two
+///         changes in the two-way value: it now samples the cell in its update handler, and it
+///         counts the refresh operations in its queue. The two tests show the same error from
+///         different directions. That error is to read the cached value as a fact about the
+///         graph, when it is only a fact about the last test of the two.
 ///     </para>
 /// </remarks>
 public sealed class BindableValueConcurrencyTests
 {
-    // The documented contract on ImmediateBindingScheduler: it defers, but only to the end of the
-    // transaction in flight, so a test never has to pump anything to see the notification.
+    // This is the contract of ImmediateBindingScheduler. It defers, but only to the end of the
+    // open transaction. Thus a test does not have to run a message loop to see the
+    // notification.
     [Test]
     public async Task TheImmediateSchedulerHasNotifiedByTheTimeTheSendReturns()
     {
@@ -51,10 +51,11 @@ public sealed class BindableValueConcurrencyTests
             .Because("the notification is delivered before Send returns, not left queued");
     }
 
-    // Transactions are serialized process-wide, and that guarantee reaches the binding thread: a
-    // two-way setter opens a transaction to push its write, so it waits for any transaction
-    // already in flight. Worth pinning down - it is the reason a long transaction on a background
-    // thread stalls the UI, and the reason a scheduler which blocks would deadlock against it.
+    // SodaFlow runs one transaction at a time across the process, and that guarantee reaches
+    // the binding thread. A two-way setter opens a transaction to send its write, thus it waits
+    // for each open transaction. This test holds that behavior. It is the cause of two results: a
+    // transaction that runs for a long time on a background thread stops the UI, and a scheduler
+    // that waits causes a deadlock.
     [Test]
     public async Task ASetterWaitsWhileAnotherThreadHoldsATransactionOpen()
     {
@@ -62,8 +63,9 @@ public sealed class BindableValueConcurrencyTests
 
         ITwoWayBindableValue<int> b = c.ToTwoWayImpl(scheduler: BindingScheduler.Immediate);
 
-        // TaskCompletionSource rather than an event: nothing here needs disposing, so the threads
-        // below capture nothing whose lifetime is shorter than their own.
+        // This uses a TaskCompletionSource and not an event, because no object here needs a call
+        // to Dispose. Thus the threads below capture no object with a life shorter than their
+        // own.
         TaskCompletionSource<bool> holding = new();
         TaskCompletionSource<bool> release = new();
 
@@ -112,11 +114,10 @@ public sealed class BindableValueConcurrencyTests
         }
     }
 
-    // An update carries the value captured when it fired. Delivered late - after a second write
-    // has already moved the cached value on - it puts the older value back, and the view shows a
-    // value the user has already replaced until the reconciliation behind it corrects the
-    // correction. Sampling the cell in the handler, as the reconciliation does, would make a late
-    // notification harmless.
+    // An update carries the value that SodaFlow captured at the firing. When it arrives late,
+    // after a second write moved the cached value, it puts the previous value back. The view then
+    // shows a value that the user replaced, until the second step corrects it. A sample of the
+    // cell in the handler, which is what the second step does, makes a late notification safe.
     [Test]
     public async Task AStaleUpdateDoesNotRevertANewerValue()
     {
@@ -142,21 +143,22 @@ public sealed class BindableValueConcurrencyTests
         await Assert.That(c.Sample()).IsEqualTo(2);
     }
 
-    // The same pair of writes down the other path. A setter normally sends synchronously - with no
-    // transaction open, PostWrite runs the write there and then - so the first write has reached
-    // the cell before the second setter is even called, and no refresh can sample between them.
-    // Called from inside a transaction the write defers instead, and both sit in the post queue
-    // until it closes. That is the arrangement where a refresh sampling too early would hand the
-    // view the older value back, so it is the one worth pinning: both writes drain before any
-    // refresh runs, and the refreshes sample rather than carrying a value, so neither can.
+    // The same two writes on the other path. A setter usually sends immediately, because with no
+    // open transaction PostWrite runs the write there. Thus the first write reaches the
+    // cell before the code calls the second setter, and no refresh can sample between the two.
+    // From inside a transaction the write defers, and the two stay in the post queue until that
+    // transaction closes. In that arrangement a refresh that samples before that point gives the view the
+    // previous value. This test holds the correct behavior: the two writes drain before a refresh
+    // runs, and each refresh samples and carries no value, thus neither one can do that.
     [Test]
     public async Task TwoWritesInsideOneTransactionDoNotRevert()
     {
         QueueingScheduler scheduler = new();
         StreamSink<string> edits = Stream.CreateSink<string>();
 
-        // Normalizing, so the cell's value differs from the one written and a reversion would
-        // actually be visible rather than hidden behind an equality check.
+        // This changes the value, thus the value of the cell is different from the value that the
+        // test wrote. A change back to the previous value then shows, and an equality test
+        // does not hide it.
         Cell<string> upperCased = edits.Map(static v => v.ToUpperInvariant()).Hold(string.Empty);
 
         using ITwoWayBindableValue<string> b =
@@ -166,7 +168,8 @@ public sealed class BindableValueConcurrencyTests
 
         using IDisposable _ = b.ListenForValueChanges(observed.Add);
 
-        // The lambda runs synchronously inside RunVoid, so it cannot outlive the using scope.
+        // The lambda runs immediately in RunVoid, thus it cannot have a longer life than the
+        // using block.
         // ReSharper disable AccessToDisposedClosure
         Transaction.RunVoid(() =>
         {
@@ -186,11 +189,11 @@ public sealed class BindableValueConcurrencyTests
         await Assert.That(upperCased.Sample()).IsEqualTo("B");
     }
 
-    // The cached value is a record of what the cell held when it was last sampled, not of what
-    // the cell holds now. Between an update and the refresh it queues, the two disagree - and a
-    // write whose value matches the stale cache is indistinguishable from a no-op, so the equality
-    // check discards it. The caller asked for a value the graph does not hold, and nothing carries
-    // the request anywhere.
+    // The cached value is a record of the cell at the last sample, and not of the cell now.
+    // Between an update and the refresh that it queues, the two disagree. A write with a value
+    // equal to the stale cache then looks the same as a write that changes nothing, thus the
+    // equality test discards it. The caller asked for a value that the graph does not hold, and
+    // no code carries that request.
     [Test]
     public async Task ASetterIsNotDiscardedWhileARefreshIsInFlight()
     {
@@ -199,17 +202,18 @@ public sealed class BindableValueConcurrencyTests
 
         using ITwoWayBindableValue<int> b = c.ToTwoWayImpl(scheduler: scheduler);
 
-        // The graph moves on its own. The refresh this queues has not run, so the cached value
-        // still reads 0 - true a moment ago, not true now.
+        // The graph changes without a write. The refresh that this queues did not run, thus the
+        // cached value is 0. That was correct before this point and is not correct now.
         c.Send(1);
 
-        // An assertion rather than an assumption: the scheduler queues rather than running, so this
-        // is not a maybe, and a test which stopped meeting its own precondition should say so.
+        // This is an assertion and not an assumption. The scheduler queues and does not run,
+        // thus this condition is sure. A test that no longer meets its own precondition must
+        // report that.
         await Assert.That(b.Value)
             .IsEqualTo(0)
             .Because("precondition: the refresh has not been delivered yet");
 
-        // Something asks for the value the property still reports. The graph does not hold it.
+        // Some code asks for the value that the property reports. The graph does not hold it.
         b.Value = 0;
 
         scheduler.RunAll();
@@ -219,13 +223,13 @@ public sealed class BindableValueConcurrencyTests
             .Because("a write is not dropped for matching a cached value the graph had already left behind");
     }
 
-    // The constructor samples the cell and attaches its listener inside one transaction, and the
-    // sample is stored before attaching. Constructing from inside a transaction which then goes
-    // on to update that same cell is the case where the listener can fire before the constructor
-    // has returned - so it is the one worth pinning down. The update must win, because it is
-    // newer than the sample; losing it would mean an update had slipped through the gap between
-    // sampling and subscribing, and reporting it as the value before the sample landed would mean
-    // the constructor had overwritten it.
+    // The constructor samples the cell and attaches its listener in one transaction, and it
+    // keeps the sample before it attaches the listener. A build in a transaction that then
+    // updates the same cell is the condition where the listener can fire before the constructor
+    // returns. Thus this test holds that behavior. The update must win, because it is newer than
+    // the sample. A lost update means that an update went through the interval between the sample
+    // and the subscription. A report of the sample after the update means that the constructor
+    // wrote over the update.
     [Test]
     public async Task OneWayConstructedInsideATransactionWhichThenFires()
     {
@@ -265,7 +269,8 @@ public sealed class BindableValueConcurrencyTests
     }
 
     /// <summary>
-    ///     Runs <paramref name="body" /> on another thread and returns whatever it threw.
+    ///     Runs <paramref name="body" /> on a different thread and gives the exception that it
+    ///     threw.
     /// </summary>
     private static Exception? CaughtOffTheBindingThread<TState>(TState state, Action<TState> body)
     {
@@ -292,8 +297,8 @@ public sealed class BindableValueConcurrencyTests
         return caught;
     }
 
-    // A context is enough to establish affinity; it does not have to be installed as Current,
-    // because the scheduler captures the constructing thread alongside it.
+    // A context is sufficient to identify the thread. It does not have to be the Current
+    // context, because the scheduler captures the building thread with it.
     private static SynchronizationContextBindingScheduler AffineScheduler() => new(new SynchronizationContext());
 
     [Test]
@@ -345,7 +350,7 @@ public sealed class BindableValueConcurrencyTests
         await Assert.That(c.Sample()).IsEqualTo(0).Because("and the write never reached the graph");
     }
 
-    // The one that had no scheduler before, and so no way to be checked at all.
+    // This one had no scheduler before, thus no code tested it.
     [Test]
     public async Task WritingOneWayToSourceOffTheBindingThreadThrows()
     {
@@ -360,8 +365,8 @@ public sealed class BindableValueConcurrencyTests
         await Assert.That(c.Sample()).IsEqualTo(0);
     }
 
-    // Nothing changes for a scheduler with no affinity, which is what keeps every existing test
-    // and every headless host working unchanged.
+    // Nothing changes for a scheduler with no thread of its own. Thus each test that exists,
+    // and each host with no UI, continues to operate.
     [Test]
     public async Task TheImmediateSchedulerNeverRejectsAThread()
     {
@@ -375,9 +380,9 @@ public sealed class BindableValueConcurrencyTests
         await Assert.That(c.Sample()).IsEqualTo(5);
     }
 
-    // What a burst costs and what it produces, which is the question to answer before trying to
-    // coalesce the refreshes: every queued refresh sees the same cell, so the first one to run
-    // does the work and the rest find nothing to do.
+    // The cost and the result of a group of updates. Answer this before you try to make the
+    // refresh operations into one. Each refresh in the queue reads the same cell, thus the first
+    // one does the work and the others find no change.
     [Test]
     public async Task ABurstOfUpdatesQueuesARefreshEachButNotifiesOnce()
     {
@@ -405,11 +410,11 @@ public sealed class BindableValueConcurrencyTests
         await Assert.That(b.Value).IsEqualTo(3);
     }
 
-    // The deliberate asymmetry with the two-way value above, and the reason a one-way value was
-    // left carrying the update's value rather than sampling like its neighbour: with no setter
-    // racing it, the cache is written only by posted work, in order, so the last update to run
-    // leaves the cell's current value behind. Sampling would be sound too - and would collapse
-    // this to a single notification carrying only the final value.
+    // This differs from the two-way value above, and the difference is deliberate. A one-way
+    // value carries the value of the update and does not sample. No setter competes with it, thus
+    // only posted work writes the cache, in sequence. The last update to run leaves the current
+    // value of the cell. A sample is also correct, and it makes this one notification that
+    // carries the last value only.
     [Test]
     public async Task ABurstOfUpdatesReachesAOneWayValueOneAtATime()
     {
@@ -438,9 +443,9 @@ public sealed class BindableValueConcurrencyTests
     }
 
     /// <summary>
-    ///     Stands in for a dispatcher. The point is that it queues: a real scheduler hands work to
-    ///     another thread's message loop and returns, so anything posted during a write is still
-    ///     pending when the setter returns.
+    ///     This takes the place of a dispatcher. It queues work, which is the important part. A
+    ///     real scheduler gives work to the message loop of a different thread and returns. Thus
+    ///     work that a write posts is in the queue when the setter returns.
     /// </summary>
     // ReSharper disable once InheritdocConsiderUsage
     private sealed class QueueingScheduler : IBindingScheduler
@@ -453,8 +458,9 @@ public sealed class BindableValueConcurrencyTests
         /// <inheritdoc />
         public void Post(Action action) => this.queue.Enqueue(action);
 
-        /// <summary>Runs everything queued, including anything queued while draining.</summary>
-        /// <returns>How many actions ran.</returns>
+        /// <summary>Runs each action in the queue, and also an action that another action
+        /// adds while this method runs.</summary>
+        /// <returns>The number of actions that ran.</returns>
         internal int RunAll()
         {
             int ran = 0;
