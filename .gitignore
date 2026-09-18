@@ -285,4 +285,8 @@ CLAUDE.md
 # specification, which is ASD's copyright and licensed rather than free to redistribute — so the
 # derived files stay on the machine that has the licence and never enter a clone. The folder's own
 # README says where the source document is and how to rebuild them.
-.ste/
+#
+# No trailing slash, deliberately. These standards are shared across the organization's
+# repositories, so this entry is often a symbolic link to one copy of them rather than a real
+# folder - and git treats a link as a file, which ".ste/" would not match.
+.ste
