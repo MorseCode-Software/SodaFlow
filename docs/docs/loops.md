@@ -126,8 +126,26 @@ Calling `Sample` on a looped cell while still constructing the loop asks for a v
 not exist yet. Use `SampleLazy` (`sampleLazyC`) instead — it defers the read until the loop has
 closed and there is something to read.
 
-The same reasoning is why `Hold` has a `HoldLazy` counterpart: when a loop's initial value
-itself depends on the loop, it must be deferred.
+The same reasoning gives every operation that takes a starting value a deferred counterpart, for
+when that starting value is itself read out of the loop: `Hold` has `HoldLazy`, `Accum` has
+`AccumLazy`, `Collect` has `CollectLazy`, and `Cell.Constant` has `Cell.ConstantLazy`. Each takes
+a `Lazy<T>` where the eager one takes a value, and the F# aliases follow the same rule
+(`holdLazyS`, `accumLazyS`, `collectLazyS`).
+
+The two go together more often than not, because a fold seeded from the collection it folds over
+needs both:
+
+```csharp
+Cell<ImmutableHashSet<int>> drainable =
+    accounts.ItemChangesStream.AccumLazy(
+        // The keys already in the collection, read lazily because this is that collection.
+        initialState: accounts.SnapshotCell.SampleLazy().Map(/* ... */),
+        // The keys each change adds or removes.
+        f: static (changes, keys) => /* ... */);
+```
+
+That is from the Accounts sample: the set it accumulates has to start from the accounts already
+there, which is a read of the very collection whose changes it is folding.
 
 ## Forward references to a single value
 

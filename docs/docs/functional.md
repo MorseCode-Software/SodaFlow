@@ -307,4 +307,17 @@ to `Unit` — see [Asynchronous work](async.md).
 Stream<Unit> anyChange = changes.MapTo(Unit.Value);
 ```
 
+Where an `Action` has to become a function — because the API you are handing it to returns a
+value — `ToFunc` and `ToAsyncFunc` wrap one so that it answers `Unit`. Neither defers anything
+beyond what the action already defers; they call it and return `Unit.Value`.
+
+```csharp
+Func<Unit> f = someAction.ToFunc();
+```
+
+`Upcast` is a smaller convenience of the same kind: `x.Upcast<TBase>()` returns `x` as the type
+you name, for the places where an implicit conversion would happen but inference has nowhere to
+learn the target type from — a collection expression or a ternary whose two branches are
+different derived types.
+
 `Unit` has value equality: all instances are equal, and `GetHashCode` returns a constant.
