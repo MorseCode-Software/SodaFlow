@@ -77,9 +77,16 @@ Everything is in `SodaFlow.Samples.Accounts.ViewModels`; the two heads only draw
 Four things in there are worth a second look.
 
 Each row's button pays into that row's account, so the edits come from the rows and the rows come
-from the collection the edits are for. That is a real cycle, closed with `Stream.CreateLoop`. Which
-rows are on the page moves as the page does, so the collection is fed from a merge of the current
-rows' deposits that is rebuilt from each version of the list and switched to with `SwitchS`.
+from the collection the edits are for. That is a real cycle, and `Create` closes it with
+`ForwardReference<AccountsViewModel>`: the whole graph is built inside a block that is handed the
+view model before it exists, and the view model it returns closes the loop. The deposits and the
+drains are kept in private fields, and the collection is fed from the looped view model by reading
+those fields and flattening with `SwitchS` — which is the shape to reach for whenever the thing
+being looped is an object under construction, rather than one stream or cell on its own.
+
+Which rows are on the page moves as the page does, so the deposits are themselves a merge of the
+current rows' deposits, rebuilt from each version of the list and switched to with `SwitchS` as
+well.
 
 The deposit is gated twice, and only one of those is the rule. The command is disabled for a frozen
 account, which is what the view shows; the stream is gated on the same cell with `Gate`, which is
