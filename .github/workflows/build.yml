@@ -29,7 +29,7 @@
 # key.
 #
 # It does need setting up once, on nuget.org rather than here: a trusted publishing policy under the
-# MorseCodeSoftware account, naming this repository and this workflow file. Until that exists the
+# jam40jeff account, naming this repository and this workflow file. Until that exists the
 # exchange is refused and the release fails loudly, which is the right way round - Publish throws
 # rather than skips on a missing key, because a tag build that quietly released nothing is the
 # failure hardest to notice.
@@ -466,7 +466,7 @@ jobs:
       # account below and returns a short-lived key. Nothing to rotate, and nothing that outlives
       # the job.
       #
-      # MorseCodeSoftware is the nuget.org account that owns every package this repository
+      # jam40jeff is the nuget.org account that owns every package this repository
       # publishes - it is the owner listed on nuget.org for SodaFlow and its siblings - and it has
       # to be the account the policy sits under. It is a username rather than a secret, so it is
       # written here where it can be read, not hidden in settings where a mismatch would only show
@@ -475,7 +475,7 @@ jobs:
         id: nuget-login
         uses: NuGet/login@v1
         with:
-          user: MorseCodeSoftware
+          user: jam40jeff
 
       # Publish reads NUGET_API_KEY from the environment and does not care where it came from, which
       # is why moving from a stored key to a minted one changed nothing in build.cake.
