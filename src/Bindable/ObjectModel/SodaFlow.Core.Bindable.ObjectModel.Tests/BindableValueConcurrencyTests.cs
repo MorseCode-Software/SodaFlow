@@ -406,7 +406,7 @@ public sealed class BindableValueConcurrencyTests
     }
 
     // The deliberate asymmetry with the two-way value above, and the reason a one-way value was
-    // left carrying the update's value rather than sampling like its neighbour: with no setter
+    // left carrying the update's value rather than sampling like its neighbor: with no setter
     // racing it, the cache is written only by posted work, in order, so the last update to run
     // leaves the cell's current value behind. Sampling would be sound too - and would collapse
     // this to a single notification carrying only the final value.

@@ -654,16 +654,16 @@ public class Stream<T>
     private sealed class SendEntry(Stream<T> stream, Node<T>.Target target, T value)
         : TransactionInternal.Entry(target.Node)
     {
-        // ReSharper disable once ReplaceWithPrimaryConstructorParameter - This field stops the capture of action
-        // into a mutable variable.
+        // ReSharper disable once ReplaceWithPrimaryConstructorParameter - This field is needed so action is not
+        // captured into a mutable variable.
         private readonly Stream<T> stream = stream;
 
-        // ReSharper disable once ReplaceWithPrimaryConstructorParameter - This field stops the capture of action
-        // into a mutable variable.
+        // ReSharper disable once ReplaceWithPrimaryConstructorParameter - This field is needed so action is not
+        // captured into a mutable variable.
         private readonly Node<T>.Target target = target;
 
-        // ReSharper disable once ReplaceWithPrimaryConstructorParameter - This field stops the capture of action
-        // into a mutable variable.
+        // ReSharper disable once ReplaceWithPrimaryConstructorParameter - This field is needed so action is not
+        // captured into a mutable variable.
         private readonly T value = value;
 
         public override void Execute(TransactionInternal trans)
@@ -697,12 +697,12 @@ public class Stream<T>
 
     private sealed class StrongListener(Action unlisten, IListener listener) : IStrongListener
     {
-        // ReSharper disable once ReplaceWithPrimaryConstructorParameter - This field stops the capture of action
-        // into a mutable variable.
+        // ReSharper disable once ReplaceWithPrimaryConstructorParameter - This field is needed so action is not
+        // captured into a mutable variable.
         private readonly IListener listener = listener;
 
-        // ReSharper disable once ReplaceWithPrimaryConstructorParameter - This field stops the capture of action
-        // into a mutable variable.
+        // ReSharper disable once ReplaceWithPrimaryConstructorParameter - This field is needed so action is not
+        // captured into a mutable variable.
         private readonly Action unlisten = unlisten;
 
         public void Unlisten() => this.unlisten();
@@ -737,12 +737,12 @@ public class Stream<T>
 
     private sealed class WeakListener(Node<T> node, Node<T>.Target target) : IListenerWithWeakReference
     {
-        // ReSharper disable once ReplaceWithPrimaryConstructorParameter - This field stops the capture of action
-        // into a mutable variable.
+        // ReSharper disable once ReplaceWithPrimaryConstructorParameter - This field is needed so action is not
+        // captured into a mutable variable.
         private readonly Node<T> node = node;
 
-        // ReSharper disable once ReplaceWithPrimaryConstructorParameter - This field stops the capture of action
-        // into a mutable variable.
+        // ReSharper disable once ReplaceWithPrimaryConstructorParameter - This field is needed so action is not
+        // captured into a mutable variable.
         private readonly Node<T>.Target target = target;
 
         public void Unlisten() => this.node.Unlink(this.target);

@@ -141,7 +141,7 @@ public class Behavior<T>
             s.Behavior = null;
         });
 
-        // ReSharper disable once NullableWarningSuppressionIsUsed - Optimization.  Only sets are above.
+        // ReSharper disable once NullableWarningSuppressionIsUsed - Optimization.  Only sets should be above.
         return new Lazy<T>(() => s.Behavior == null ? s.Value! : s.Behavior.SampleImpl());
     }
 

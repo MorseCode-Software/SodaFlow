@@ -195,7 +195,7 @@ public abstract class KeyOrder<TKey, TIdentity, TState>
     /// <returns>The order.</returns>
     /// <remarks>
     ///     The selector is a lambda rather than a method group so that every order built here shares
-    ///     one delegate instance, which is what lets two of them over the same comparer be recognised
+    ///     one delegate instance, which is what lets two of them over the same comparer be recognized
     ///     as the same order. A lambda that captures nothing is cached by the compiler; a method
     ///     group is only cached from C# 11, and this assembly also compiles at C# 10.
     /// </remarks>

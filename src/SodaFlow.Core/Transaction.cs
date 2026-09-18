@@ -209,8 +209,8 @@ internal sealed class TransactionInternal
     internal void Prioritized(Node node, Action<TransactionInternal> action) =>
         this.Prioritized(new ActionEntry(node: node, action: action));
 
-    // ReSharper disable once MemberCanBeMadeStatic.Global - This member is not static, to prevent calls to this
-    // method from not in a transaction.
+    // ReSharper disable once MemberCanBeMadeStatic.Global - This is static to discourage this method from being called
+    // outside of a transaction.
     internal void Prioritized(Entry e)
     {
         lock (Node.NodeRanksLock)
