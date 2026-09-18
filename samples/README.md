@@ -62,10 +62,13 @@ Every sample takes its dependencies from nuget.org, at a pinned version, exactly
 application outside this repository would:
 
 ```xml
-<PackageReference Include="SodaFlow" Version="2.0.0" />
-<PackageReference Include="SodaFlow.Async" Version="2.1.0" />
-<PackageReference Include="SodaFlow.Bindable.ObjectModel" Version="1.0.0" />
+<PackageReference Include="SodaFlow" Version="4.0.0" />
+<PackageReference Include="SodaFlow.Async" Version="4.0.0" />
+<PackageReference Include="SodaFlow.Bindable.ObjectModel" Version="3.0.1" />
 ```
+
+That is Search. Counter and Bounce take the first and the third; Accounts takes those two and
+`SodaFlow.Collections` 1.0.0 in place of `SodaFlow.Async`.
 
 Project references into `src/` would have been easier to set up and worse to live with: a sample
 would then break the moment anyone changed a library API, and it would break in whatever branch
