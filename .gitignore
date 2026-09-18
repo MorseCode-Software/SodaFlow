@@ -279,3 +279,10 @@ _site/
 # followed, the pull request review is the place that gets said, which is a conversation rather
 # than a rule the repository imposes on everyone who clones it.
 CLAUDE.md
+
+# Local working notes for ASD-STE100, the Simplified Technical English standard the code comments
+# are written to. It holds an approved-word list and a conformance checker derived from the
+# specification, which is ASD's copyright and licensed rather than free to redistribute — so the
+# derived files stay on the machine that has the licence and never enter a clone. The folder's own
+# README says where the source document is and how to rebuild them.
+.ste/
