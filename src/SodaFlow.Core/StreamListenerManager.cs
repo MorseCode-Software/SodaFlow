@@ -17,12 +17,12 @@ namespace SodaFlow;
 ///     </para>
 ///     <para>
 ///         The garbage collector sets the rate of the sweep, and a timer does not.
-///         <see cref="GcSweepTrigger" /> is one object with a finalizer for the full process. It
+///         <see cref="GcSweepTrigger" /> is one object with a finalizer for the complete process. It
 ///         is not one object for each stream, which is the cost that this method prevents. It
 ///         starts the sweeper after each collection. It only sends a signal, and the background
 ///         thread does the sweep. Thus no code that takes a node lock runs on the finalizer
 ///         thread, where a block would stop finalization across the process. Without this, the
-///         registry kept the data for dead streams until the next pass of the timer. That
+///         registry kept the data for dead streams until the next cycle of the timer. That
 ///         measured approximately 10MB after the release of 22,000 streams.
 ///     </para>
 ///     <para>
@@ -42,9 +42,9 @@ namespace SodaFlow;
 /// </remarks>
 internal static class StreamListenerManager
 {
-    // This interval is long, because it is only a backstop. An entry becomes removable when
+    // This interval is long, because it is only a backstop. SodaFlow can remove an entry when
     // the garbage collector collects a stream, and each collection signals a sweep. Thus in a
-    // correct process this interval finds no work. It is for the condition in which the signal
+    // correct process this interval finds no work. It is for the condition when the signal
     // stops. Other code that blocks the finalizer thread is the most probable cause. The
     // sweeper thread is not affected and can continue.
     private const int TimedSweepIntervalInMilliseconds = 300000;
@@ -136,7 +136,7 @@ internal static class StreamListenerManager
         }
 
         // SodaFlow does this release while it holds no registry lock. A stop of a listener
-        // takes node locks. A release of unknown listener code while SodaFlow holds the
+        // gets node locks. A release of unknown listener code while SodaFlow holds the
         // registry lock can cause a lock sequence problem.
         if (collected != null)
         {
@@ -150,7 +150,7 @@ internal static class StreamListenerManager
     /// <summary>
     ///     Asks the cleanup thread to sweep after each garbage collection. The garbage collector
     ///     collects this object, and the object then registers again. There is one instance for
-    ///     the full process.
+    ///     the complete process.
     /// </summary>
     private sealed class GcSweepTrigger
     {
@@ -163,7 +163,7 @@ internal static class StreamListenerManager
             catch
             {
                 // A finalizer must not throw. If the signal fails, no correction is possible,
-                // because the pass of the timer does the work.
+                // because the cycle of the timer does the work.
             }
             finally
             {
@@ -171,7 +171,7 @@ internal static class StreamListenerManager
                 {
                     // This makes a new instance and does not call
                     // GC.ReRegisterForFinalize(this). A second life for this object moves it to
-                    // an older generation. Then a young collection does not find it, and only a
+                    // a previous generation. Then a young collection does not find it, and only a
                     // collection of generation 1 or higher starts the sweep. A new object
                     // starts in generation 0, thus each collection sets the rate.
                     // ReSharper disable once ObjectCreationAsStatement

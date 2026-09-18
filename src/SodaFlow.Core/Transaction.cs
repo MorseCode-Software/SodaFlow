@@ -11,19 +11,19 @@ namespace SodaFlow;
 internal sealed class TransactionInternal
 {
     // These fields use [ThreadStatic] and not ThreadLocal<T>. Almost all public entry points
-    // read them. A thread-static field is a direct TLS access, but ThreadLocal<T>.Value uses a
+    // read them. A thread-static field is a TLS access with no table, but ThreadLocal<T>.Value uses a
     // generic slot table. This code does not use the other members of ThreadLocal, which are
     // Values, IsValueCreated, value factories and disposal. Thus the two are equivalent here.
     [ThreadStatic] private static TransactionInternal? localTransaction;
 
     [ThreadStatic] private static bool runningOnStartHooks;
 
-    // A coarse lock. SodaFlow holds it for the full transaction.
+    // A coarse lock. SodaFlow holds it for the complete transaction.
     //
     // The library gives one transaction at a time across the process. This is a guarantee and not
     // an accident of the implementation. It makes a transaction atomic across threads and keeps
     // the sequence of updates the same on each run. Thus a caller needs no synchronization. A
-    // smaller lock, or many locks, would change the threading behavior of the library, also if
+    // smaller lock, or many locks, changes the threading behavior of the library, also if
     // that looks like a good correction for contention. The remarks on the public
     // SodaFlow.Transaction class give the guarantee and its results.
     private static readonly object TransactionLock = new();
@@ -401,7 +401,7 @@ internal sealed class TransactionInternal
                     if (sq != null)
                     {
                         // This uses an array and not a List. SodaFlow copies the keys at
-                        // their final size in both conditions, thus a List adds only its own
+                        // their final size in the two conditions, thus a List adds only its own
                         // object to the backing array that it must allocate. Array.Sort is the
                         // same intro-sort that List.Sort calls, and a foreach on either one
                         // allocates nothing. At 4, 16 and 64 entries the List cost 32 more
@@ -431,7 +431,7 @@ internal sealed class TransactionInternal
         catch
         {
             // All of these become null and SodaFlow does not call Clear. The transaction
-            // stops here, thus the aim is to release the queues and not to empty them for a
+            // stops here, thus this releases the queues and not to empty them for a
             // second use. Clear keeps the list or the queue, and its backing array, at the
             // capacity that the failed transaction made. The scope of the parent holds a nested
             // transaction until the parent completes. Null is already the correct empty state,
@@ -467,8 +467,8 @@ internal sealed class TransactionInternal
         public Entry? PqPrev;
         public int PqRank;
 
-        // The position of this entry in Node.Entries. Thus removal needs no search and no
-        // shift. A value of -1 means "not in the list". This also makes a second call to
+        // The position of this entry in Node.Entries. Thus removal needs no examination and no
+        // move. A value of -1 means "not in the list". This also makes a second call to
         // Dispose do nothing, and prevents the removal of the entry that is now at that
         // position.
         private int nodeEntryIndex;
@@ -491,7 +491,7 @@ internal sealed class TransactionInternal
 
             this.nodeEntryIndex = -1;
 
-            // Move the last entry into this position and do not shift the entries after it.
+            // Move the last entry into this position and do not move the entries after it.
             // SodaFlow reads Node.Entries only to put entries into rerankEntriesSet, which
             // is a HashSet. Thus no code depends on the sequence. A wide fan-in also makes the
             // repeated RemoveAt(0) that this code replaces quadratic in the number of entries.
@@ -513,12 +513,12 @@ internal sealed class TransactionInternal
         }
 
         // A subclass holds the state that the queued work needs, as fields. Thus a caller on a
-        // frequent path does not allocate a closure and a delegate in addition to the entry.
+        // frequent path does not allocate a closure and a delegate and also the entry.
         public abstract void Execute(TransactionInternal trans);
     }
 
     // The general entry. Use it at a call site that runs one time for each construction, or
-    // one time for each transaction, because such a site does not gain from the removal of the
+    // one time for each transaction, because such a site gets no benefit from the removal of the
     // delegate.
     private sealed class ActionEntry(Node node, Action<TransactionInternal> action)
         : Entry(node)

@@ -8,8 +8,8 @@ internal sealed class LazyBehavior<T> : Behavior<T>
 
     internal LazyBehavior(TransactionInternal trans, Stream<T> stream, Lazy<T> lazyInitialValue)
         // ReSharper disable once NullableWarningSuppressionIsUsed - initialValue is assigned to valueProperty on
-        // the base class, and that value is only read by SampleNoTransaction(), which this class overrides to
-        // ensure the value is set before returning.
+        // the base class. Only SampleNoTransaction() reads that value, and this class overrides
+        // that method to make sure that the value is set before the return.
         : base(stream: stream, initialValue: default!)
     {
         this.lazyInitialValue = new Lazy<T>(() => GuardAgainstSend(trans: trans, v: lazyInitialValue));
@@ -23,8 +23,8 @@ internal sealed class LazyBehavior<T> : Behavior<T>
 
         try
         {
-            // Don't allow transactions to interfere with SodaFlow
-            // internals.
+            // A transaction must not change the internal parts of
+            // SodaFlow.
             return v.Value;
         }
         finally

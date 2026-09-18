@@ -4,8 +4,8 @@ using JetBrains.Annotations;
 namespace SodaFlow;
 
 /// <summary>
-///     A forward reference for a <see cref="Behavior{T}" /> equivalent to the <see cref="Behavior{T}" /> that is
-///     referenced.
+///     A forward reference to a <see cref="Behavior{T}" />. It is equal to the
+///     <see cref="Behavior{T}" /> that the loop supplies.
 /// </summary>
 /// <typeparam name="T">The type of values in the behavior loop.</typeparam>
 [PublicAPI]
@@ -23,8 +23,8 @@ public class LoopedBehavior<T> : Behavior<T>
 
     private LoopedBehavior(LoopedStream<T> streamLoop)
         // ReSharper disable once NullableWarningSuppressionIsUsed - initialValue is assigned to valueProperty on
-        // the base class, and that value is only read by SampleNoTransaction(), which this class overrides to
-        // ensure the value is set before returning.
+        // the base class. Only SampleNoTransaction() reads that value, and this class overrides
+        // that method to make sure that the value is set before the return.
         : base(stream: streamLoop, initialValue: default!) =>
         this.streamLoop = streamLoop;
 
@@ -35,13 +35,14 @@ public class LoopedBehavior<T> : Behavior<T>
     }
 
     /// <summary>
-    ///     Releases the deferred initial value once this behavior has a value of its own.
+    ///     Releases the deferred initial value when this behavior gets a value of its own.
     /// </summary>
     /// <remarks>
-    ///     A looped behavior takes its initial value lazily from whatever the loop is closed with,
-    ///     since that is not known when the loop is created. Once a value has been assigned, that
-    ///     deferred value can never be needed again, so it is dropped rather than kept alive for the
-    ///     lifetime of the behavior.
+    ///     A looped behavior gets its initial value from the value that closes the loop, and it
+    ///     reads that value only when a caller asks for it. The value that closes the loop is
+    ///     not known when SodaFlow creates the loop. After the behavior gets a value, the
+    ///     deferred value is no longer necessary. Thus SodaFlow releases it and does not keep it
+    ///     alive for the full life of the behavior.
     /// </remarks>
     // ReSharper disable once InheritdocConsiderUsage
     protected override void NotUsingInitialValue()

@@ -16,7 +16,7 @@ public interface IListenerWithWeakReference
     ///     Stops listening.
     /// </summary>
     /// <remarks>
-    ///     Safe to call more than once; subsequent calls do nothing.
+    ///     You can call this more than one time. A subsequent call does nothing.
     /// </remarks>
     void Unlisten();
 }
@@ -31,7 +31,7 @@ public interface IListener
     ///     Stops listening.
     /// </summary>
     /// <remarks>
-    ///     Safe to call more than once; subsequent calls do nothing.
+    ///     You can call this more than one time. A subsequent call does nothing.
     /// </remarks>
     void Unlisten();
 

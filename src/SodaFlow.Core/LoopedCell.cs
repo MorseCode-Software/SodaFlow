@@ -3,8 +3,8 @@ using JetBrains.Annotations;
 namespace SodaFlow;
 
 /// <summary>
-///     A forward reference for a <see cref="Cell{T}" /> equivalent to the <see cref="Cell{T}" /> that is
-///     referenced.
+///     A forward reference to a <see cref="Cell{T}" />. It is equal to the <see cref="Cell{T}" />
+///     that the loop supplies.
 /// </summary>
 /// <typeparam name="T">The type of values in the cell loop.</typeparam>
 [PublicAPI]

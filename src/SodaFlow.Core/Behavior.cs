@@ -49,7 +49,7 @@ public class Behavior<T>
         this.valueProperty = initialValue;
         this.UsingInitialValue = true;
 
-        // SodaFlow assigns this before Listen, because Listen can send the firings that
+        // SodaFlow gives this a value before Listen, because Listen can send the firings that
         // this transaction made in this transaction. Thus the handler below can run before the constructor
         // returns.
         this.applyValueUpdate = this.ApplyValueUpdate;
@@ -79,12 +79,12 @@ public class Behavior<T>
     /// <summary>
     ///     Gets or sets the value this behavior reports when sampled not in a transaction.
     /// </summary>
-    /// <value>The behavior's current value.</value>
+    /// <value>The current value of the behavior.</value>
     /// <remarks>
     ///     A set of this property clears <see cref="UsingInitialValue" />, because a behavior
     ///     with a new value does not use the value from its construction. A derived type must
-    ///     assign through this property and not through the backing field, to keep that flag
-    ///     applicable.
+    ///     write through this property and not through the backing field, to keep that flag
+    ///     correct.
     /// </remarks>
     protected T ValueProperty
     {
@@ -120,7 +120,7 @@ public class Behavior<T>
     ///     Records that this behavior no longer depends on the value it was constructed with.
     /// </summary>
     /// <remarks>
-    ///     SodaFlow calls this when it assigns <see cref="ValueProperty" />. A derived type
+    ///     SodaFlow calls this when it gives <see cref="ValueProperty" /> a value. A derived type
     ///     overrides this to release the data that it holds only to make that initial value.
     ///     For an example, see <see cref="LoopedBehavior{T}" />. It releases its deferred
     ///     initial value here, thus a closed loop does not keep that value alive.
@@ -141,7 +141,7 @@ public class Behavior<T>
             s.Behavior = null;
         });
 
-        // ReSharper disable once NullableWarningSuppressionIsUsed - Optimization.  Only sets should be above.
+        // ReSharper disable once NullableWarningSuppressionIsUsed - Optimization.  Only sets are above.
         return new Lazy<T>(() => s.Behavior == null ? s.Value! : s.Behavior.SampleImpl());
     }
 
@@ -154,16 +154,16 @@ public class Behavior<T>
     ///     transaction, and then each update.
     /// </summary>
     /// <remarks>
-    ///     Both sources send into one output stream. They do not use a spark stream, a snapshot
+    ///     The two sources send into one output stream. They do not use a spark stream, a snapshot
     ///     of it and a merge, which is four streams where two are sufficient. Value is below
     ///     Cell.ListenStrong, Apply and the switch operations, thus it was a large part of the
     ///     cost of each of them.
     ///     SodaFlow queues the initial send against a new node of its own, as the spark
-    ///     stream that it replaces did, and for the same reason. A new node ranks below all
-    ///     other nodes, thus SodaFlow delivers the value also when a caller calls Value
+    ///     stream that it replaces did, and for the same cause. A new node ranks below all
+    ///     other nodes, thus SodaFlow supplies the value also when a caller calls Value
     ///     during a drain. SwitchB does this, because its handler builds a Value for the newly
     ///     selected behavior in the middle of a transaction. An initial send on the output node
-    ///     makes the switch deliver an old value. The node costs nothing, but the two
+    ///     makes the switch supply a previous value. The node costs nothing, but the two
     ///     intermediate streams were expensive.
     ///     A coalesce operation in which the right value wins keeps an update from this
     ///     transaction in front of the initial value. A merge with (left, right) =&gt; right
@@ -440,7 +440,7 @@ public class Behavior<T>
     ///     the behavior.
     /// </summary>
     /// <remarks>
-    ///     SodaFlow clears the slot for cleanliness and not for correctness. A slot that
+    ///     SodaFlow clears the slot to keep the object clean, and not to make it correct. A slot that
     ///     keeps its value still gives the applicable answer, because the behavior commits that
     ///     same value before the next transaction reads the slot. A test of this removed the
     ///     reset, and no test could find the difference. SodaFlow clears the slot so that the

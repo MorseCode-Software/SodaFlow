@@ -19,7 +19,7 @@ namespace SodaFlow;
 // speed, because a measurement shows no gain. One sink sent to eight mapped streams, each with
 // a listener, for 200,000 sends. That measured 2312 bytes for each send through IReadOnlyList,
 // 2024 bytes through this struct, and 2024 bytes through a Target[] array. The last two are
-// equal, because a foreach on either one compiles to the same indexed loop. The times were
+// equal, because a foreach on each one compiles to the same indexed loop. The times were
 // 1319ns, 1252ns to 1274ns, and 1292ns for each send. Repeated runs of one variant differed
 // more than the variants differed from each other. The full saving of 288 bytes is the
 // enumerator of the interface: nine enumerators for each send here, one for each stream that
@@ -69,7 +69,7 @@ internal abstract class Node
 {
     public const int NullRank = int.MaxValue;
 
-    // A small lock. It prevents unsafe access to the listeners and the nodes.
+    // A small lock. It stops more than one thread from changing the listeners and the nodes.
     protected static readonly object ListenersLock = new();
 
     internal static readonly object NodeRanksLock = new();
@@ -157,12 +157,12 @@ internal abstract class Node
     // This gives the targets and does not select their nodes. Thus a read of them does not
     // allocate a LINQ iterator for each node in a rerank cascade.
     //
-    // A rerank holds ListenersLock for its full cascade. Thus it could read the live HashSet
+    // A rerank holds ListenersLock for its complete cascade. Thus it could read the live HashSet
     // with the struct enumerator of that set and use no snapshot. A test of that measured no
     // difference, with fan-outs of 200 and 1000 and chains of 200 and 1000. Three of the four
     // tests allocated the same number of bytes. The snapshot has no cost here, because a node
     // with no listeners receives the shared NoListeners array, and a cascade during
-    // construction reads only those new nodes. For no saving, that change would add a virtual
+    // construction reads only those new nodes. For no saving, that change adds a virtual
     // call for each node, make EnsureBiggerThanRecursive protected, and make this condition
     // necessary: no code changes the listener set during a cascade. Today the snapshot lets a
     // reader see an older view, and the reader does not throw.
@@ -186,7 +186,7 @@ internal sealed class Node<T> : Node
     private HashSet<Target>? listeners;
     private int listenersCapacity;
 
-    // A snapshot of the listeners. SodaFlow builds it again on demand. Send reads the
+    // A snapshot of the listeners. SodaFlow builds it again when a caller asks for it. Send reads the
     // listener set on each firing, but the set changes only when SodaFlow connects the graph
     // or removes a dead weak reference. Without this snapshot, each firing allocated a new
     // array. A default snapshot is stale. SodaFlow resets it below while it holds
@@ -270,7 +270,7 @@ internal sealed class Node<T> : Node
 
     // A caller must hold ListenersLock. TargetSnapshot gives no method to change the array,
     // and each snapshot is immutable after SodaFlow builds it. Thus a caller that
-    // reads an older snapshot after an invalidation sees the listener set from the start of
+    // reads a previous snapshot after an invalidation sees the listener set from the start of
     // that read. The previous copy for each call gave the same behavior.
     private TargetSnapshot<Target> GetListenersSnapshotUnsafe()
     {

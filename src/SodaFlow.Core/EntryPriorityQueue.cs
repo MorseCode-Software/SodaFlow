@@ -158,7 +158,7 @@ internal sealed class EntryPriorityQueue
         }
 
         // ReSharper disable once NullableWarningSuppressionIsUsed - entry.Tail can only be null when entry.Head is
-        // also null.  In that case, both are set to a nun-null value above.
+        // also null.  In that case, the two are set to a non-null value above.
         entry.Tail!.PqNext = e;
         e.PqPrev = entry.Tail;
         entry.Tail = e;
