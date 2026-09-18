@@ -12,6 +12,7 @@
         <Product>SodaFlow Collections for C#</Product>
         <Title>SodaFlow Collections for C#</Title>
         <Description>SodaFlow Reactive Collections library for C#.</Description>
+        <PackageIcon>SodaFlow.png</PackageIcon>
         <AssemblyName>SodaFlow.Collections</AssemblyName>
         <RootNamespace>SodaFlow.Collections</RootNamespace>
         <EnableDefaultItems>false</EnableDefaultItems>
@@ -45,6 +46,12 @@
         -->
         <ProjectReference Include="..\..\..\CSharp\SodaFlow\SodaFlow.csproj"/>
         <ProjectReference Include="..\..\..\CSharp\SodaFlow.Functional\SodaFlow.Functional.csproj"/>
+    </ItemGroup>
+
+    <ItemGroup>
+      <None Include="..\..\..\..\logo\SodaFlow.png" Pack="true" PackagePath="\">
+        <Link>SodaFlow.png</Link>
+      </None>
     </ItemGroup>
 
 </Project>

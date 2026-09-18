@@ -12,6 +12,7 @@
         <Product>SodaFlow Async for C#</Product>
         <Title>SodaFlow Async for C#</Title>
         <Description>SodaFlow Async Extensions library for C#.</Description>
+        <PackageIcon>SodaFlow.png</PackageIcon>
         <AssemblyName>SodaFlow.Async</AssemblyName>
         <RootNamespace>SodaFlow.Async</RootNamespace>
         <EnableDefaultItems>false</EnableDefaultItems>
@@ -45,6 +46,12 @@
         -->
         <ProjectReference Include="..\..\..\CSharp\SodaFlow\SodaFlow.csproj"/>
         <ProjectReference Include="..\..\..\CSharp\SodaFlow.Functional\SodaFlow.Functional.csproj"/>
+    </ItemGroup>
+
+    <ItemGroup>
+      <None Include="..\..\..\..\logo\SodaFlow.png" Pack="true" PackagePath="\">
+        <Link>SodaFlow.png</Link>
+      </None>
     </ItemGroup>
 
 </Project>

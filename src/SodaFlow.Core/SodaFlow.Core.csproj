@@ -15,12 +15,13 @@
         <AssemblyName>SodaFlow.Core</AssemblyName>
         <RootNamespace>SodaFlow</RootNamespace>
         <EnableDefaultItems>false</EnableDefaultItems>
+        <PackageIcon>SodaFlow.png</PackageIcon>
         <!--
             This package ships as SodaFlow.Core and had no documentation file at all. The types a
             consumer actually holds through the C# and F# wrappers - Stream, Cell, Behavior,
             Transaction and friends - are declared here, so without this both IntelliSense and the
             generated API reference show them bare.
-    
+
             GenerateDocumentationFile rather than an explicit path: this project multi-targets, and one
             hard-coded path would make all three target frameworks write over one another's XML.
         -->
@@ -59,6 +60,12 @@
         <Compile Include="StreamSink.cs"/>
         <Compile Include="Transaction.cs"/>
         <Compile Include="Unit.cs"/>
+    </ItemGroup>
+
+    <ItemGroup>
+      <None Include="..\..\logo\SodaFlow.png" Pack="true" PackagePath="\">
+        <Link>SodaFlow.png</Link>
+      </None>
     </ItemGroup>
 
 </Project>

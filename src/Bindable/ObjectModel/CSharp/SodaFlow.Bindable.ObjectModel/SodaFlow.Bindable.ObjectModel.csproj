@@ -12,6 +12,7 @@
         <Product>SodaFlow Bindable Object Model for C#</Product>
         <Title>SodaFlow Bindable Object Model for C#</Title>
         <Description>SodaFlow Bindable Object Model library for C#.</Description>
+        <PackageIcon>SodaFlow.png</PackageIcon>
         <AssemblyName>SodaFlow.Bindable.ObjectModel</AssemblyName>
         <RootNamespace>SodaFlow.Bindable.ObjectModel</RootNamespace>
         <EnableDefaultItems>false</EnableDefaultItems>
@@ -47,6 +48,12 @@
         -->
         <ProjectReference Include="..\..\..\..\CSharp\SodaFlow\SodaFlow.csproj"/>
         <ProjectReference Include="..\..\..\..\CSharp\SodaFlow.Functional\SodaFlow.Functional.csproj"/>
+    </ItemGroup>
+
+    <ItemGroup>
+      <None Include="..\..\..\..\..\logo\SodaFlow.png" Pack="true" PackagePath="\">
+        <Link>SodaFlow.png</Link>
+      </None>
     </ItemGroup>
 
 </Project>
