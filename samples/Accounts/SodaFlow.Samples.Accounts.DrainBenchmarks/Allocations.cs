@@ -1,3 +1,4 @@
+using System;
 using SodaFlow.Samples.Accounts.ViewModels;
 
 namespace SodaFlow.Samples.Accounts.DrainBenchmarks;
