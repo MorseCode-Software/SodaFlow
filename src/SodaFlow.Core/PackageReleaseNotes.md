@@ -1,3 +1,19 @@
+4.0.1
+
+Grants InternalsVisibleTo to the three collections assemblies:
+SodaFlow.Core.Collections, SodaFlow.Collections and
+SodaFlow.FSharp.Collections.
+
+Required rather than cosmetic, for the reason 2.1.0 was. The CLR checks
+the friend-assembly attribute on the assembly that declares the
+internals, so those three throw MethodAccessException at run time
+against a 4.0.0 core, even though they build cleanly from source, where
+the grants are present. Anything depending on SodaFlow.Collections or
+SodaFlow.FSharp.Collections needs this version, and both carry it as
+their floor.
+
+No other change, public or internal.
+
 4.0.0
 
 BREAKING: internal members are gone or changed shape. Internal is not
