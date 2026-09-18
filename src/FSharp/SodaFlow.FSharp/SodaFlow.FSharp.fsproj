@@ -13,6 +13,7 @@
         <Product>SodaFlow for F#</Product>
         <Title>SodaFlow for F#</Title>
         <Description>SodaFlow - Functional Reactive Programming (FRP) library for F#.</Description>
+        <PackageIcon>SodaFlow.png</PackageIcon>
         <!--
             GenerateDocumentationFile rather than a per-configuration DocumentationFile path: this project
             multi-targets, and a single hard-coded path made all three target frameworks write over one
@@ -58,6 +59,12 @@
 
     <ItemGroup>
         <ProjectReference Include="..\..\SodaFlow.Core\SodaFlow.Core.csproj"/>
+    </ItemGroup>
+
+    <ItemGroup>
+      <None Include="..\..\..\..\logo\SodaFlow.png" Pack="true" PackagePath="\">
+        <Link>SodaFlow.png</Link>
+      </None>
     </ItemGroup>
 
 </Project>

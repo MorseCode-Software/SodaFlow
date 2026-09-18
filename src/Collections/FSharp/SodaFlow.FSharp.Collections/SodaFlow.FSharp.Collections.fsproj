@@ -13,6 +13,7 @@
         <Product>SodaFlow Collections for F#</Product>
         <Title>SodaFlow Collections for F#</Title>
         <Description>SodaFlow Reactive Collections library for F#.</Description>
+        <PackageIcon>SodaFlow.png</PackageIcon>
     </PropertyGroup>
 
     <PropertyGroup>
@@ -49,6 +50,12 @@
             graph.
         -->
         <ProjectReference Include="..\..\..\FSharp\SodaFlow.FSharp\SodaFlow.FSharp.fsproj"/>
+    </ItemGroup>
+
+    <ItemGroup>
+      <None Include="..\..\..\..\logo\SodaFlow.png" Pack="true" PackagePath="\">
+        <Link>SodaFlow.png</Link>
+      </None>
     </ItemGroup>
 
 </Project>

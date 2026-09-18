@@ -12,6 +12,7 @@
         <Product>SodaFlow for .NET</Product>
         <Title>SodaFlow for .NET</Title>
         <Description>SodaFlow - Functional Reactive Programming (FRP) library for .NET.</Description>
+        <PackageIcon>SodaFlow.png</PackageIcon>
         <AssemblyName>SodaFlow</AssemblyName>
         <RootNamespace>SodaFlow</RootNamespace>
         <EnableDefaultItems>false</EnableDefaultItems>
@@ -64,6 +65,12 @@
     <ItemGroup>
         <ProjectReference Include="..\..\SodaFlow.Core\SodaFlow.Core.csproj"/>
         <ProjectReference Include="..\SodaFlow.Functional\SodaFlow.Functional.csproj"/>
+    </ItemGroup>
+
+    <ItemGroup>
+      <None Include="..\..\..\..\logo\SodaFlow.png" Pack="true" PackagePath="\">
+        <Link>SodaFlow.png</Link>
+      </None>
     </ItemGroup>
 
 </Project>
