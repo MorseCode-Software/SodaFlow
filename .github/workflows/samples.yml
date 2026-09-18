@@ -3,8 +3,8 @@
 # Independent of build.yml, which builds, tests, packs, inspects and publishes the libraries under
 # src/, and of docs.yml, which builds the documentation site. Nothing is shared between the three.
 #
-# THERE IS NO PATHS FILTER ANY MORE, and its absence is load-bearing. Counter, Search and Bounce
-# are required status checks on main. A required check reports nothing at all when its workflow is
+# THERE IS NO PATHS FILTER ANY MORE, and its absence is load-bearing. All four samples are required
+# status checks on main. A required check reports nothing at all when its workflow is
 # filtered out of a run - GitHub does not read that as "passed", it reads it as "still waiting" -
 # so a pull request touching only src/ would have sat unmergeable forever. Skipping a job inside a
 # workflow that ran is fine and reports as success; skipping the workflow is not.
@@ -18,9 +18,8 @@
 #     NuGet packages rather than the projects in this repository - see the comment in any sample's
 #     .csproj - so their runs will pass for reasons that have nothing to do with the change that
 #     started them. Accounts was the exception to this until SodaFlow.Collections 1.0.0 shipped and
-#     it moved onto the packages like the rest; it is inspected here now, and the only thing left
-#     that still sets it apart is that it is not yet a required check, which is a branch protection
-#     setting rather than anything in this file.
+#     it moved onto the packages like the rest; it is inspected and required now, so nothing sets it
+#     apart from the other three any more.
 #   - The other side of that, unchanged: because each sample pins a package version, a newly
 #     released package breaking a sample shows up only when someone bumps that version here.
 #   - build.cake matters to these jobs even though it lives elsewhere, because the inspection step

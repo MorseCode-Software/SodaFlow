@@ -11,10 +11,9 @@ model that knows about neither.
 
 Accounts used to be the odd one out, referencing the projects under `src/` while the collections
 packages were unpublished and the sample was part of deciding what their API should be. That is
-over: `SodaFlow.Collections` 1.0.0 is released, so Accounts pins packages like the rest and the
-samples workflow inspects it as well as building it. The one way it still differs is that it is not
-a required status check, which is a branch protection setting rather than anything in this
-repository.
+over: `SodaFlow.Collections` 1.0.0 is released, so Accounts pins packages like the rest, and the
+samples workflow builds it, inspects it, and gates a merge on it exactly as it does the other
+three.
 
 Each sample is a folder with its own solution. Open
 `Counter/SodaFlow.Samples.Counter.slnx` or `Search/SodaFlow.Samples.Search.slnx` and run either
