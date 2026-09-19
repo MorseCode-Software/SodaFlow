@@ -5,23 +5,24 @@ using SodaFlow.Time;
 namespace SodaFlow.Samples.Bounce.ViewModels;
 
 /// <summary>
-///     The smallest thing that makes the point: one ball, falling and bouncing, on one axis.
+///     The smallest scene that shows the idea: one ball that falls and bounces, on one axis.
 /// </summary>
 /// <remarks>
-///     Read <see cref="BouncingAxis" /> alongside this. The ball's height is an equation, the
-///     moment it reaches the floor is solved rather than detected, and the bounce replaces the
-///     equation with the next one. Everything the busier scenes do is this, more than once.
+///     Read <see cref="BouncingAxis" /> with this. The height of the ball is an equation, the
+///     code calculates the moment when the ball touches the floor and does not find it after the
+///     event, and the bounce replaces the equation. The larger scenes do this more than one
+///     time.
 /// </remarks>
 // ReSharper disable once InheritdocConsiderUsage
 internal sealed class SimpleScene : IScene
 {
-    /// <summary>Downward, because the y-axis of a screen points down.</summary>
+    /// <summary>This is positive, because the y-axis of a screen points down.</summary>
     private const double Gravity = 900.0;
 
     private const double BallRadius = 18.0;
 
-    /// <param name="timers">The clock every ball's position is a function of.</param>
-    /// <param name="restarts">Fires when this scene's tab becomes the selected one.</param>
+    /// <param name="timers">The clock for the position of each ball.</param>
+    /// <param name="restarts">Fires when the tab of this scene becomes the selected tab.</param>
     internal SimpleScene(ITimerSystem<double> timers, Stream<Unit> restarts)
     {
         double now = timers.Time.Sample();
@@ -29,7 +30,7 @@ internal sealed class SimpleScene : IScene
         this.Balls =
         [
             new Ball(
-                // Nothing moves it sideways, and a constant is a perfectly good behavior.
+                // No force moves the ball horizontally, and a constant is a correct behavior.
                 x: Behavior.Constant(this.Width / 2.0),
                 y: BouncingAxis.Create(
                     timers: timers,
@@ -38,8 +39,8 @@ internal sealed class SimpleScene : IScene
                     max: this.Height - BallRadius,
                     restarts: restarts.Snapshot(b: timers.Time, f: static (_, time) => Initial(time)),
 
-                    // Elastic, and not offered as a choice: this scene is here to be the
-                    // smallest thing that makes the point.
+                    // This is elastic and there is no control for it, because this scene is
+                    // the smallest scene that shows the idea.
                     restitution: Cell.Constant(1.0)),
                 radius: BallRadius,
                 color: "#E2574C")
@@ -63,7 +64,7 @@ internal sealed class SimpleScene : IScene
     /// <inheritdoc />
     public IReadOnlyList<Ball> Balls { get; }
 
-    /// <summary>The flight the ball begins with, and begins again with.</summary>
+    /// <summary>The initial flight of the ball, and its flight at each restart.</summary>
     private static Flight Initial(double time) =>
         new(StartTime: time, Position: BallRadius, Velocity: 0.0, Acceleration: Gravity);
 }

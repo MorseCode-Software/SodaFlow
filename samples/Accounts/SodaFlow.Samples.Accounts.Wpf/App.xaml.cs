@@ -5,11 +5,11 @@ using SodaFlow.Samples.Accounts.ViewModels;
 namespace SodaFlow.Samples.Accounts.Wpf;
 
 /// <summary>
-///     Builds the view model, hands it to the window as its data context, and shows the window.
+///     Builds the view model, gives it to the window as its data context, and shows the window.
 /// </summary>
 /// <remarks>
-///     The same shape as every other sample here: the window is given its data context rather than
-///     building one, and the composition happens where the application is assembled.
+///     This has the shape of each other sample here. The window receives its data context and
+///     does not build one, and the composition is where this code assembles the sample.
 /// </remarks>
 // ReSharper disable once InheritdocConsiderUsage
 internal sealed partial class App
@@ -21,9 +21,9 @@ internal sealed partial class App
     {
         base.OnStartup(e);
 
-        // Pinned before anything bindable exists, so nothing afterward depends on which thread a
-        // bindable happened to be built on. It matters more here than in the other samples: this
-        // view model builds a bindable per row, on demand, as rows come into view.
+        // This code sets the scheduler before the first bindable, thus no subsequent code depends
+        // on the thread of a bindable. This is more important here than in the other samples,
+        // because this view model builds one bindable for each row, as the rows come into view.
         BindingScheduler.Default = SynchronizationContextBindingScheduler.Capture();
 
         this.viewModel = AccountsViewModelOptimizedDrain.Create();
@@ -35,8 +35,9 @@ internal sealed partial class App
 
     /// <inheritdoc />
     /// <remarks>
-    ///     Disposing this releases the row projection too, and with it every row bindable still
-    ///     held - the ones that never left the page and so were never evicted.
+    ///     Disposal of this also releases the row projection, and with it each row bindable that
+    ///     the projection holds. Those are the rows that stayed on the page and thus had no
+    ///     eviction.
     /// </remarks>
     protected override void OnExit(ExitEventArgs e)
     {

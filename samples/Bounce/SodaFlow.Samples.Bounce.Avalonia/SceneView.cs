@@ -10,20 +10,19 @@ using SodaFlow.Samples.Bounce.ViewModels;
 namespace SodaFlow.Samples.Bounce.Avalonia;
 
 /// <summary>
-///     Draws a scene, once per frame, by asking it where its balls are.
+///     Draws a scene one time for each frame, and reads the positions of its balls.
 /// </summary>
 /// <remarks>
 ///     <para>
-///         This is the whole of the animation, and it is worth noticing what it does not contain.
-///         There is no position held here, nothing accumulating a delta, and no dependence on the
-///         interval between frames. The view asks where things are at the instant it is drawing and
-///         draws them there.
+///         This is the full animation. See the code that it does not contain. It holds no
+///         position, it adds no delta, and it does not use the interval between two frames. The
+///         view reads the positions at the instant of the draw and draws the balls there.
 ///     </para>
 ///     <para>
-///         The timer only decides how often to ask. Slow it down and the motion is the same motion,
-///         sampled less often; stall the thread and the balls are wherever they should be when it
-///         resumes, not behind by however long it was stuck. That is the practical difference
-///         between a behavior and a value something has to keep up to date.
+///         The timer selects only the frequency of the read. A lower frequency gives the same
+///         movement with fewer samples. A thread that stops gives the correct positions when it
+///         continues, and the positions are not late by the interval of the stop. That is the
+///         difference between a behavior and a value that other code must keep current.
 ///     </para>
 /// </remarks>
 // ReSharper disable once InheritdocConsiderUsage
@@ -42,8 +41,8 @@ internal sealed class SceneView : Control
 
     public SceneView()
     {
-        // Roughly sixty times a second, which is a choice about smoothness and nothing else. The
-        // simulation does not know or care what this is set to.
+        // This is approximately sixty times each second, which is only a selection about the
+        // smoothness. The simulation does not use this value.
         this.timer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(16.0) };
         this.timer.Tick += (_, _) => this.InvalidateVisual();
     }
@@ -68,7 +67,8 @@ internal sealed class SceneView : Control
             pen: BoxPen,
             rect: new Rect(x: 0.0, y: 0.0, width: scene.Width, height: scene.Height));
 
-        // One transaction for the frame, so every ball is drawn as of the same instant.
+        // There is one transaction for the frame, thus the code draws each ball at the same
+        // instant.
         IReadOnlyList<(double X, double Y)> positions = scene.SamplePositions();
 
         for (int i = 0; i < positions.Count; i++)

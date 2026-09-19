@@ -5,72 +5,74 @@ using SodaFlow.Bindable.ObjectModel;
 namespace SodaFlow.Samples.Bounce.ViewModels;
 
 /// <summary>
-///     What the views bind to.
+///     The contract that the views bind to.
 /// </summary>
 /// <remarks>
 ///     <para>
-///         XAML binds by name against whatever the data context happens to be, so the data context
-///         is worth stating as a type: it is what makes the bindable members discoverable, gives
-///         the designer and the compiler something to check the binding paths against, and keeps a
-///         view from depending on how the view model is built.
+///         XAML binds by name to the data context, at each type of that data context. Thus a type
+///         for the data context has a value. The type shows the bindable members, gives the
+///         designer and the compiler a target for the binding paths, and keeps the construction of
+///         the view model away from a view.
 ///     </para>
 ///     <para>
-///         Which is why this is only the bound surface. <c>Create</c> is not on it, because
-///         building a view model is not something a view does with one, and neither is anything
-///         else a view has no business calling.
+///         For that cause this interface has only the bound members. <c>Create</c> is not on it,
+///         because a view does not build a view model. The interface also has no other member
+///         that a view must not call.
 ///     </para>
 ///     <para>
-///         <see cref="IDisposable" /> is here because it is part of the contract rather than an
-///         implementation detail: whoever built one has to release it, and that is as true through
-///         this interface as through the class.
+///         <see cref="IDisposable" /> is here because it is part of the contract and not a part
+///         of the implementation. The code that built one must release it, through this interface
+///         and through the class.
 ///     </para>
 /// </remarks>
 // ReSharper disable once InheritdocConsiderUsage
 public interface IBounceViewModel : IDisposable
 {
-    /// <summary>The scenes to offer, smallest first.</summary>
+    /// <summary>The scenes to show, with the smallest scene first.</summary>
     IReadOnlyList<IScene> Scenes { get; }
 
     /// <summary>
-    ///     Which scene is showing.
+    ///     The scene that shows now.
     /// </summary>
     /// <remarks>
-    ///     Two-way, so it is a value rather than a fact about a control: bind a tab control's
-    ///     selected item to <c>SelectedScene.Value</c>, and write it to change which tab is
-    ///     showing.
+    ///     This is two-way, thus it is a value and not a property of a control. Bind the selected
+    ///     item of a tab control to <c>SelectedScene.Value</c>, and write that value to change the
+    ///     tab that shows.
     /// </remarks>
     ITwoWayBindableValue<IScene> SelectedScene { get; }
 
-    /// <summary>The selected scene's description, as a function of the selection.</summary>
+    /// <summary>The description of the selected scene, as a function of the selection.</summary>
     IOneWayBindableValue<string> SelectedSummary { get; }
 
     /// <summary>
-    ///     Whether damping applies to the selected scene.
+    ///     True when damping applies to the selected scene.
     /// </summary>
     /// <remarks>
-    ///     The one-ball scene is deliberately elastic, so the controls appear only for the other
-    ///     two. A function of the selection, like the summary.
+    ///     The scene with one ball is elastic, thus the controls show only for the other two
+    ///     scenes. This is a function of the selection, as the summary is.
     /// </remarks>
     IOneWayBindableValue<bool> IsDampingAvailable { get; }
 
     /// <summary>
-    ///     Whether a bounce changes speed rather than keeping it. Two-way, for a checkbox.
+    ///     True when a bounce changes the speed and does not keep it. This is two-way, for a
+    ///     checkbox.
     /// </summary>
     ITwoWayBindableValue<bool> DampingEnabled { get; }
 
     /// <summary>
-    ///     What a bounce multiplies speed by while damping is on. Two-way, for a slider.
+    ///     The multiplier for the speed at a bounce while damping is on. This is two-way, for a
+    ///     slider.
     /// </summary>
     /// <remarks>
-    ///     Below one a body loses speed at every bounce and comes to rest; at one it bounces
-    ///     forever; above one it gains speed and climbs. Read at the moment of each bounce, so
-    ///     moving the slider changes the next bounce rather than the flight already under way.
+    ///     Below one a body loses speed at each bounce and stops. At one it bounces continuously.
+    ///     Above one it gets speed and goes higher. The code reads this at the moment of each
+    ///     bounce, thus a move of the slider changes the next bounce and not the current flight.
     /// </remarks>
     ITwoWayBindableValue<double> Damping { get; }
 
-    /// <summary>The smallest value <see cref="Damping" /> takes.</summary>
+    /// <summary>The minimum value of <see cref="Damping" />.</summary>
     double MinimumDamping { get; }
 
-    /// <summary>The largest value <see cref="Damping" /> takes.</summary>
+    /// <summary>The maximum value of <see cref="Damping" />.</summary>
     double MaximumDamping { get; }
 }

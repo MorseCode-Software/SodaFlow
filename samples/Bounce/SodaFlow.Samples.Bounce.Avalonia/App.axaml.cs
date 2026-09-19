@@ -8,19 +8,19 @@ using SodaFlow.Samples.Bounce.ViewModels;
 namespace SodaFlow.Samples.Bounce.Avalonia;
 
 /// <summary>
-///     Builds the view model and hands it to the window as its data context, before the lifetime
-///     shows it.
+///     Builds the view model and gives it to the window as its data context, before the lifetime
+///     shows the window.
 /// </summary>
 /// <remarks>
-///     The window does not build its own view model. A view that constructs what it binds to knows
-///     the concrete type and the factory that makes it, which is what binding against
-///     <see cref="IBounceViewModel" /> was meant to avoid; the data context is something the window
-///     is given, and the composition happens here. Compare the WPF head, which does the same thing
-///     in <c>OnStartup</c>.
+///     The window does not build its own view model. A view that constructs the object that it
+///     binds to knows the concrete type and the factory that makes it, and a bind to
+///     <see cref="IBounceViewModel" /> prevents that. The window receives the data context, and
+///     this code does the composition. Compare the WPF head, which does the same operation in
+///     <c>OnStartup</c>.
 /// </remarks>
-// Namespace AvaloniaUi rather than Avalonia: a namespace whose last segment is Avalonia hides
-// the framework's own root namespace from anything written inside it, which turns ordinary
-// qualified names like Avalonia.Controls.Window into errors that read very strangely.
+// The namespace is AvaloniaUi and not Avalonia. A namespace with Avalonia as its last segment
+// hides the root namespace of the framework from the code in it, and a usual full name such as
+// Avalonia.Controls.Window then becomes an error that is difficult to read.
 // ReSharper disable once InheritdocConsiderUsage
 internal sealed class App : Application
 {
@@ -32,26 +32,28 @@ internal sealed class App : Application
     {
         if (this.ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
         {
-            // Pinned before anything bindable exists, so nothing afterward depends on
-            // which thread a bindable happened to be built on. Without it each one
-            // captures the synchronization context of its constructing thread, and a view
-            // model built off the UI thread would quietly get the wrong one - or none, and
-            // run inline.
+            // This code sets the scheduler before the first bindable, thus no subsequent
+            // code depends on the thread of a bindable. Without this, each bindable captures
+            // the synchronization context of the thread that constructs it. A view model
+            // that a different thread builds then gets the incorrect context, or no context,
+            // and runs inline.
             BindingScheduler.Default = SynchronizationContextBindingScheduler.Capture();
 
-            // The handler is called with anything raised while waiting for or firing a timer.
-            // Timer callbacks run outside any call stack of yours, so an exception in one has
-            // nowhere else to go. Trace rather than Debug: Debug.WriteLine is compiled out of a
-            // release build, which would leave this handler doing nothing at all there.
+            // The handler receives each exception from a wait on a timer and from a timer that
+            // fires. A timer callback does not run on a call stack of the caller, thus there is
+            // no other destination for its exception. This code uses Trace and not Debug, because
+            // the compiler removes Debug.WriteLine from a release build and the handler then does
+            // nothing.
             IBounceViewModel viewModel = BounceViewModel.Create(static ex => Trace.WriteLine(ex));
 
-            // Assigned rather than shown: the lifetime shows this window once this method
-            // returns, so the data context is in place before anything is on screen.
+            // This code assigns the window and does not show it. The lifetime shows this window
+            // after this method returns, thus the window has its data context before it is on
+            // the screen.
             desktop.MainWindow = new MainWindow { DataContext = viewModel };
 
-            // Only the bindable properties need this. The balls do not: they are behaviors, and
-            // nothing subscribes to a behavior. Whoever built the view model releases it, which
-            // is now the application rather than the window.
+            // Only the bindable properties use this. The balls do not use it, because they are
+            // behaviors and no code subscribes to a behavior. The code that built the view model
+            // releases it, and that is the sample and not the window.
             desktop.Exit += (_, _) => viewModel.Dispose();
         }
 

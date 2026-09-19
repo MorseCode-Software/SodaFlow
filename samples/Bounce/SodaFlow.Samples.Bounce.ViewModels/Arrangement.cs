@@ -3,16 +3,17 @@ using System.Collections.Generic;
 namespace SodaFlow.Samples.Bounce.ViewModels;
 
 /// <summary>
-///     The box and the balls in it, shared by the two scenes that use the same layout.
+///     The box and the balls in it. The two scenes with the same layout read this.
 /// </summary>
 /// <remarks>
-///     Here so that the interactive scene and the plain one start from the same arrangement
-///     without one of them being written as a subclass of the other. They differ in what a ball's
-///     position follows, which is not a difference an inheritance relationship expresses well.
+///     This is here because the interactive scene and the plain scene start from the same layout,
+///     and one scene is not a subclass of the other. The two are different in the source of the
+///     position of a ball, and an inheritance relation does not give that difference
+///     correctly.
 /// </remarks>
 internal static class Arrangement
 {
-    /// <summary>Downward, because the y-axis of a screen points down.</summary>
+    /// <summary>This is positive, because the y-axis of a screen points down.</summary>
     public const double Gravity = 900.0;
 
     public const double Width = 480.0;
@@ -28,26 +29,28 @@ internal static class Arrangement
     ];
 
     /// <summary>
-    ///     The flights a ball begins with, read as members of the start they are built from.
+    ///     The initial flights of a ball, as members of the start that gives them.
     /// </summary>
     /// <remarks>
-    ///     An extension block rather than methods on <see cref="Start" />, so that the record stays
-    ///     what it says it is - where a ball begins - while the business of turning that into a
-    ///     <see cref="Flight" /> stays here beside <see cref="Gravity" />, which the vertical one
-    ///     needs. The call site reads as though they were members either way, which is the point.
+    ///     This is an extension block and not a set of methods on <see cref="Start" />. Thus the
+    ///     record keeps its one subject, which is the initial position of a ball, and the code that
+    ///     makes a <see cref="Flight" /> stays here with <see cref="Gravity" />. The vertical
+    ///     flight uses that gravity. The call reads as a member call with each shape, and that is
+    ///     the purpose.
     /// </remarks>
     extension(Start start)
     {
-        /// <summary>The horizontal flight a ball begins with, or resumes with when thrown.</summary>
+        /// <summary>The initial horizontal flight of a ball, and its flight after a
+        /// throw.</summary>
         public Flight InitialX(double now) =>
             new(StartTime: now, Position: start.X, Velocity: start.VelocityX, Acceleration: 0.0);
 
-        /// <summary>The vertical flight a ball begins with.</summary>
+        /// <summary>The initial vertical flight of a ball.</summary>
         public Flight InitialY(double now) =>
             new(StartTime: now, Position: start.Y, Velocity: start.VelocityY, Acceleration: Gravity);
     }
 
-    /// <summary>Where one ball begins, how fast, and what it looks like.</summary>
+    /// <summary>The initial position of one ball, its speed, and its appearance.</summary>
     // ReSharper disable once InheritdocConsiderUsage
     internal readonly record struct Start(
         double X,

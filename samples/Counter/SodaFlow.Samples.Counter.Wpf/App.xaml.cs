@@ -5,20 +5,19 @@ using SodaFlow.Samples.Counter.ViewModels;
 namespace SodaFlow.Samples.Counter.Wpf;
 
 /// <summary>
-///     Builds the view model, hands it to the window as its data context, and shows the window.
+///     Builds the view model, gives it to the window as its data context, and shows the window.
 /// </summary>
 /// <remarks>
 ///     <para>
-///         The window does not build its own view model, and that is the point. A view that
-///         constructs what it binds to knows the concrete type and the factory that makes it, which
-///         is exactly what binding against <see cref="ICounterViewModel" /> was for; the data
-///         context is something the window is given, and the composition happens here where the
-///         application is assembled.
+///         The window does not build its own view model, and that is the purpose of this class. A
+///         view that constructs the object that it binds to knows the concrete type and the factory
+///         that makes it, and a bind to <see cref="ICounterViewModel" /> prevents that. The window
+///         receives the data context, and this code assembles the sample.
 ///     </para>
 ///     <para>
-///         It is also what lets the context be in place before the window is shown, rather than
-///         partway through its constructor. That is why there is no <c>StartupUri</c>: it
-///         constructs and shows the window in one step, leaving nowhere to set anything in between.
+///         This also gives the window its data context before the window shows, and not during
+///         its constructor. For that cause there is no <c>StartupUri</c>. StartupUri constructs the
+///         window and shows it in one step, and gives no position to set the data context.
 ///     </para>
 /// </remarks>
 // ReSharper disable once InheritdocConsiderUsage
@@ -31,10 +30,11 @@ internal sealed partial class App
     {
         base.OnStartup(e);
 
-        // Pinned before anything bindable exists, so nothing afterward depends on which
-        // thread a bindable happened to be built on. Without it each one captures the
-        // synchronization context of its constructing thread, and a view model built off
-        // the UI thread would quietly get the wrong one - or none, and run inline.
+        // This code sets the scheduler before the first bindable, thus no subsequent code
+        // depends on the thread of a bindable. Without this, each bindable captures the
+        // synchronization context of the thread that constructs it. A view model that a
+        // different thread builds then gets the incorrect context, or no context, and runs
+        // inline.
         BindingScheduler.Default = SynchronizationContextBindingScheduler.Capture();
 
         this.viewModel = CounterViewModel.Create();
@@ -46,8 +46,8 @@ internal sealed partial class App
 
     /// <inheritdoc />
     /// <remarks>
-    ///     The view model holds subscriptions into the FRP graph, and whoever built one releases
-    ///     it - which is now the application rather than the window.
+    ///     The view model holds subscriptions into the FRP graph, and the code that built one
+    ///     releases it. That is the sample and not the window.
     /// </remarks>
     protected override void OnExit(ExitEventArgs e)
     {

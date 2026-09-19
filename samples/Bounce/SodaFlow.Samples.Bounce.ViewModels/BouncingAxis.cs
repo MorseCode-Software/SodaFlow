@@ -5,79 +5,79 @@ using SodaFlow.Time;
 namespace SodaFlow.Samples.Bounce.ViewModels;
 
 /// <summary>
-///     One axis of motion, bouncing between two bounds forever.
+///     One axis of movement. It bounces between a minimum bound and a maximum bound
+///     continuously.
 /// </summary>
 /// <remarks>
 ///     <para>
-///         The shape here is the whole idea of the sample. A <see cref="Cell{T}" /> holds the
-///         current <see cref="Flight" /> - the equation the body is following right now - and the
-///         position is that equation applied to the current time. Every bounce replaces the
-///         equation, and <c>SwitchB</c> makes the resulting behavior follow whichever equation is
-///         current.
+///         This shape is the full idea of the sample. A <see cref="Cell{T}" /> holds the current
+///         <see cref="Flight" />, which is the equation that the body follows now. The position is
+///         that equation at the current time. Each bounce replaces the equation, and
+///         <c>SwitchB</c> makes the behavior follow the current equation.
 ///     </para>
 ///     <para>
-///         The feedback is the interesting part. The next bounce is a function of the current
-///         flight, the bounce is what produces the next flight, and so the graph refers to itself.
-///         <c>Cell.Loop</c> is what lets it be written that way, and no sink is involved: the
-///         simulation runs on pure FRP feedback, so nothing has to remember to send anything.
+///         The feedback is the important part. The next bounce is a function of the current
+///         flight, and the bounce makes the next flight. Thus the graph refers to itself.
+///         <c>Cell.Loop</c> makes this shape possible, and there is no sink. The simulation uses
+///         only FRP feedback, thus no code must send a value.
 ///     </para>
 /// </remarks>
 internal static class BouncingAxis
 {
     /// <summary>
-    ///     How soon after a bounce another one is believed. Two bounces cannot be separated by
-    ///     less than this, which is what keeps the solved root of the bounce just taken from
-    ///     being read as a fresh one at the same instant.
+    ///     The minimum time between one bounce and the next bounce. Two bounces cannot be nearer
+    ///     in time than this value. Thus the code does not read the root of the last bounce as a
+    ///     new bounce at the same moment.
     /// </summary>
     private const double MinimumInterval = 1e-6;
 
     /// <summary>
-    ///     The speed below which a damped body stops rather than bouncing again.
+    ///     The speed below which a damped body stops and does not bounce again.
     /// </summary>
     /// <remarks>
-    ///     This is what makes damping finite. Multiply the speed by less than one at every bounce
-    ///     and the bounces get closer together as fast as they get smaller, without the interval
-    ///     between them ever reaching zero - so a simulation that solves for each one in turn will
-    ///     schedule them forever and never arrive at the body sitting still. Deciding that slowly
-    ///     enough is stopped is how that is answered, here as everywhere else.
+    ///     This value makes the damping finite. A multiplier below one at each bounce makes the
+    ///     bounces nearer in time as fast as it makes them smaller, and the interval between them
+    ///     does not become zero. Thus a simulation that calculates each bounce in sequence
+    ///     schedules bounces continuously and the body does not stop. The solution, here and in
+    ///     other code, is a rule that a sufficiently low speed is a stop.
     /// </remarks>
     private const double RestSpeed = 25.0;
 
     /// <summary>
-    ///     The speed a bounce will not take a body past.
+    ///     The maximum speed that a bounce can give to a body.
     /// </summary>
     /// <remarks>
-    ///     The other end of the same problem <see cref="RestSpeed" /> answers. Multiply the speed
-    ///     by more than one at every bounce, and it grows without bound, so the bounces get closer
-    ///     together without limit - and once they are closer together than the timer can service
-    ///     them, the flight in force is older than the moment being drawn and the body is drawn
-    ///     wherever an equation it should have stopped following says. A speed the gaining stops at
-    ///     keeps the bounces far enough apart to stay ahead of, which is what makes a multiplier
-    ///     above one something the simulation can honor rather than merely accept.
+    ///     This is the second part of the problem that <see cref="RestSpeed" /> corrects. A
+    ///     multiplier above one at each bounce increases the speed with no limit, thus the bounces
+    ///     become nearer in time with no limit. When they are nearer in time than the timer can do
+    ///     them, the current flight is older than the moment on the screen. The code then draws the
+    ///     body at the position from an equation that is no longer correct. A maximum speed keeps
+    ///     the bounces sufficiently far apart for the timer. Thus the simulation can apply a
+    ///     multiplier above one correctly.
     /// </remarks>
     private const double MaximumSpeed = 2000.0;
 
     /// <summary>
-    ///     Builds the position along one axis: a behavior defined at every instant, bouncing
-    ///     between <paramref name="min" /> and <paramref name="max" />.
+    ///     Builds the position along one axis. The result is a behavior with a value at each
+    ///     moment, and it bounces between <paramref name="min" /> and <paramref name="max" />.
     /// </summary>
     /// <param name="timers">
-    ///     The clock the position is a function of, and the source of the alarms each bounce is
-    ///     scheduled on.
+    ///     The clock for the position, and the source of the alarms for each bounce.
     /// </param>
-    /// <param name="initial">The flight the body is following before any bounce or restart.</param>
-    /// <param name="min">The lower bound, which is the ceiling on an axis that points down.</param>
-    /// <param name="max">The upper bound, which is the floor on an axis that points down.</param>
+    /// <param name="initial">The flight that the body follows before a bounce or a restart.</param>
+    /// <param name="min">The minimum bound. On an axis that points down it is the ceiling.</param>
+    /// <param name="max">The maximum bound. On an axis that points down it is the floor.</param>
     /// <param name="restarts">
-    ///     Flights imposed from outside, which take precedence over a bounce arriving in the same
-    ///     transaction. Releasing a thrown ball arrives here, and so does relaunching a scene that
-    ///     has damped itself to a standstill; the one-ball scene has nothing to impose and passes a
-    ///     stream that never fires.
+    ///     Flights from other code. They have priority above a bounce in the same transaction.
+    ///     The release of a thrown ball comes here, and so does the restart of a scene that damping
+    ///     stopped. The scene with one ball sends no flights and gives a stream that never
+    ///     fires.
     /// </param>
     /// <param name="restitution">
-    ///     What the speed is multiplied by at each bounce. One is a perfectly elastic bounce, less
-    ///     loses speed, more gains it. Read at the moment of the bounce, so changing it affects the
-    ///     next bounce rather than the flight already under way.
+    ///     The multiplier for the speed at each bounce. A value of one is a fully elastic bounce,
+    ///     a lower value decreases the speed, and a higher value increases it. The code reads this
+    ///     at the moment of the bounce, thus a change applies to the next bounce and not to the
+    ///     current flight.
     /// </param>
     public static Behavior<double> Create(
         ITimerSystem<double> timers,
@@ -97,7 +97,8 @@ internal static class BouncingAxis
                 restitution: restitution));
 
     /// <summary>
-    ///     The equation in force at each moment, each bounce replacing the one before it.
+    ///     The equation that applies at each moment. Each bounce replaces the equation before
+    ///     it.
     /// </summary>
     private static Cell<Flight> Flights(
         ITimerSystem<double> timers,
@@ -109,9 +110,10 @@ internal static class BouncingAxis
         Cell.Loop<Flight>()
             .WithoutCaptures(flight =>
             {
-                // Armed for the instant the current flight reaches a bound, disarmed when it never
-                // will. Rescheduling is not a step anything performs - the target is a function of
-                // the flight, so a new flight is a new target.
+                // This alarm is set for the moment when the current flight touches a bound, and
+                // it is off when the flight touches no bound. No code does a step to set the
+                // alarm again. The target is a function of the flight, thus a new flight is a new
+                // target.
                 Cell<Maybe<double>> nextBounce = flight.Map(f => NextBounceTime(flight: f, min: min, max: max));
 
                 Stream<Flight> bounced =
@@ -127,31 +129,32 @@ internal static class BouncingAxis
             });
 
     /// <summary>
-    ///     The position, following whichever flight is current.
+    ///     The position, which follows the current flight.
     /// </summary>
     private static Behavior<double> Position(ITimerSystem<double> timers, Cell<Flight> flight) =>
-        // Each flight becomes its own behavior - a function of time and nothing else - and
-        // SwitchB flattens the cell of them back into a single continuous position.
+        // Each flight becomes its own behavior, which is a function of time only. SwitchB makes
+        // the cell of behaviors into one continuous position.
         flight.Map(f => timers.Time.Map(f.PositionAt)).SwitchB();
 
     /// <summary>
-    ///     When the given flight next reaches a bound, or none if it never does.
+    ///     The time when the given flight next touches a bound, or none when it touches no
+    ///     bound.
     /// </summary>
     internal static Maybe<double> NextBounceTime(Flight flight, double min, double max) =>
         TimeToReach(flight: flight, bound: min).Earlier(TimeToReach(flight: flight, bound: max));
 
     /// <summary>
-    ///     Choosing between two moments where either of them may not exist.
+    ///     Selects between two moments, and each moment can be missing.
     /// </summary>
     /// <remarks>
-    ///     Both solves here end the same way: a pair of candidate moments, either of which may be
-    ///     absent, of which the answer is the earlier. An extension member rather than a static
-    ///     taking two maybes, because one of the pair is what the question is being asked of - and
-    ///     private, so naming a moment's counterpart reaches no further than this file.
+    ///     The two calculations here have the same result: two candidate moments, and each one
+    ///     can be missing. The answer is the first of the two. This is an extension member and not
+    ///     a static method with two maybes, because the subject of the question is one of the two
+    ///     moments. It is private, thus the name of the second moment stays in this file.
     /// </remarks>
     extension(Maybe<double> first)
     {
-        /// <summary>The earlier of the two, or whichever one of them there is.</summary>
+        /// <summary>The first of the two moments, or the one moment that is available.</summary>
         private Maybe<double> Earlier(Maybe<double> second) =>
             first.Match(
                 onSome: a => second.Match(
@@ -161,22 +164,25 @@ internal static class BouncingAxis
     }
 
     /// <summary>
-    ///     The flight that begins where the given one meets a bound, going the other way.
+    ///     The flight that starts where the given flight touches a bound, in the opposite
+    ///     direction.
     /// </summary>
     /// <remarks>
     ///     <para>
-    ///         <paramref name="restitution" /> is the whole of the damping: one bounces without
-    ///         loss, less than one loses speed, more than one gains it.
+    ///         <paramref name="restitution" /> is the full damping. A value of one bounces with
+    ///         no loss, a value below one decreases the speed, and a value above one increases
+    ///         it.
     ///     </para>
     ///     <para>
-    ///         Below <see cref="RestSpeed" /> the body stops instead, which is the part damping
-    ///         cannot do without. It stops only where stopping is possible: against the far bound
-    ///         of an axis that accelerates towards it - the floor - or anywhere on an axis with no
-    ///         acceleration at all. A slow body at the ceiling is not at rest, it is about to fall.
+    ///         Below <see cref="RestSpeed" /> the body stops, and the damping needs that rule.
+    ///         The body stops only at a position where a stop is possible: at the far bound of an
+    ///         axis that accelerates to that bound, which is the floor, or at each position on an
+    ///         axis with no acceleration. A slow body at the ceiling does not stop, because it
+    ///         falls next.
     ///     </para>
     ///     <para>
-    ///         Above <see cref="MaximumSpeed" /> it gains no more, which is the part a multiplier
-    ///         over one cannot do without, and for the mirror-image reason.
+    ///         Above <see cref="MaximumSpeed" /> the speed does not increase, and a multiplier
+    ///         above one needs that rule, for the opposite cause.
     ///     </para>
     /// </remarks>
     private static Flight Reflect(Flight flight, double time, double min, double max, double restitution)
@@ -197,7 +203,7 @@ internal static class BouncingAxis
                 Acceleration: flight.Acceleration);
     }
 
-    /// <summary>The given speed, in the direction it is going, held to <see cref="MaximumSpeed" />.</summary>
+    /// <summary>The given speed, in its direction, with a limit of <see cref="MaximumSpeed" />.</summary>
     private static double Clamp(double velocity) =>
         velocity > MaximumSpeed
             ? MaximumSpeed
@@ -206,8 +212,8 @@ internal static class BouncingAxis
                 : velocity;
 
     /// <summary>
-    ///     How long until the flight reaches the bound, or none if it does not reach it going
-    ///     forward in time.
+    ///     The time until the flight touches the bound, or none when it does not touch the bound
+    ///     in forward time.
     /// </summary>
     private static Maybe<double> TimeToReach(Flight flight, double bound)
     {
@@ -215,13 +221,15 @@ internal static class BouncingAxis
 
         if (Math.Abs(flight.Acceleration) < double.Epsilon)
         {
-            // No acceleration, so the position is a straight line and there is one crossing.
+            // There is no acceleration, thus the position is a straight line and there is one
+            // crossing.
             return Math.Abs(flight.Velocity) < double.Epsilon
                 ? Maybe.None
                 : Reached(flight: flight, dt: -offset / flight.Velocity);
         }
 
-        // 0.5at^2 + vt + offset = 0, whose roots are the two moments the body is at the bound.
+        // 0.5at^2 + vt + offset = 0. The roots are the two moments when the body is at the
+        // bound.
         double discriminant = flight.Velocity * flight.Velocity - 2.0 * flight.Acceleration * offset;
 
         if (discriminant < 0.0)
@@ -236,8 +244,8 @@ internal static class BouncingAxis
     }
 
     /// <summary>
-    ///     The absolute time <paramref name="dt" /> seconds into the flight, if that is far enough
-    ///     ahead to be a bounce that has not already been taken.
+    ///     The absolute time at <paramref name="dt" /> seconds into the flight, when that time is
+    ///     sufficiently far forward to be a new bounce.
     /// </summary>
     private static Maybe<double> Reached(Flight flight, double dt) =>
         dt > MinimumInterval && !double.IsNaN(dt) && !double.IsInfinity(dt)

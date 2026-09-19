@@ -13,55 +13,57 @@ using AccountOrder =
 
 namespace SodaFlow.Samples.Accounts.ViewModels;
 
-/// <summary>A column of the list, which is a thing the list can be sorted by.</summary>
+/// <summary>A column of the list. The list can sort on a column.</summary>
 internal enum AccountColumn
 {
-    /// <summary>The account number, which is part of the identity.</summary>
+    /// <summary>The account number. It is part of the identity.</summary>
     Number,
 
-    /// <summary>Whose account it is, also part of the identity.</summary>
+    /// <summary>The holder of the account. It is also part of the identity.</summary>
     Holder,
 
-    /// <summary>The balance, which is the part that moves.</summary>
+    /// <summary>The balance. It is the part that changes.</summary>
     Balance
 }
 
-/// <summary>Which column the list is sorted by, and which way.</summary>
+/// <summary>The column that the list sorts on, and the direction.</summary>
 /// <remarks>
 ///     <para>
-///         Two of the three sort on the identity half of an account, which no edit can touch, so
-///         under either of those a deposit moves a balance and can never move a row. Sorting by
-///         balance is the one that re-files, and switching between them with the deposit button is
-///         how the difference is seen.
+///         Two of the three orders sort on the identity part of an account, and no edit can
+///         change that part. Thus with those two orders a deposit changes a balance and cannot
+///         move a row. The order on the balance moves a row. Use the deposit button and change
+///         between the orders to see the difference.
 ///     </para>
 ///     <para>
-///         The order is derived from this rather than stored beside it, so there is one piece of
-///         state on screen - a column and a direction - and the sort follows from it.
+///         This type gives the order, and no code keeps the order in a second field. Thus the
+///         screen has one item of state, a column and a direction, and the sort comes from it.
 ///     </para>
 /// </remarks>
-/// <param name="Column">The column the list is sorted by.</param>
-/// <param name="IsDescending">Whether it runs from the largest down.</param>
+/// <param name="Column">The column that the list sorts on.</param>
+/// <param name="IsDescending">True when the list starts at the largest value.</param>
 // ReSharper disable once InheritdocConsiderUsage
 internal sealed record SortSelection(AccountColumn Column, bool IsDescending)
 {
-    /// <summary>How holders compare, as one instance rather than read afresh for each order.</summary>
+    /// <summary>The comparer for a holder, as one instance and not a new instance for each
+    /// order.</summary>
     /// <remarks>
-    ///     <see cref="StringComparer.CurrentCultureIgnoreCase" /> builds a new comparer every time it
-    ///     is read, and a sort stage recognizes the order it already holds - or holds reversed, which
-    ///     it sorts again with the holders it already read instead of reading every one again - only
-    ///     when the new one was built from the same selector and comparer instances. Reading it inline
-    ///     would read and file every holder again on each click of the same header. The culture is the
-    ///     one in force when this is first used.
+    ///     <see cref="StringComparer.CurrentCultureIgnoreCase" /> builds a new comparer at each
+    ///     read. A sort stage identifies the order that it holds, and the same order in the
+    ///     opposite direction, only when the new order comes from the same selector instance and
+    ///     the same comparer instance. For the opposite direction it sorts again with the holders
+    ///     that it read, and does not read each holder again. A read of the comparer in the call
+    ///     makes the stage read and sort each holder again at each click of the same header. The
+    ///     culture is the culture at the first use of this field.
     /// </remarks>
     private static readonly IComparer<string> HolderComparer = StringComparer.CurrentCultureIgnoreCase;
 
-    /// <summary>This selection as an order the sort stage can hold.</summary>
+    /// <summary>This selection, as an order that the sort stage can hold.</summary>
     /// <remarks>
-    ///     Three orders projecting sort values of three types - an <c>int</c>, a <c>string</c> and
-    ///     a <c>long</c> - and all three are the same type here, which is what lets one cell hold
-    ///     whichever is in force. The comparers are spelled out because the direction is decided at
-    ///     run time rather than written into the call, and because holders want comparison to be
-    ///     explicit for each field rather than the default for the column type.
+    ///     The three orders give sort values of three types: an <c>int</c>, a <c>string</c> and
+    ///     a <c>long</c>. The three orders have the same type here, thus one cell can hold the
+    ///     order that applies. This code names each comparer, because it selects the direction as
+    ///     it operates and does not write the direction into the call. A holder also needs an
+    ///     explicit comparer for each field, and not the default for the type of the column.
     /// </remarks>
     internal AccountOrder Order =>
         this.Column switch
@@ -84,32 +86,36 @@ internal sealed record SortSelection(AccountColumn Column, bool IsDescending)
         };
 }
 
-/// <summary>What the view models ask of a sort selection that may not have been made yet.</summary>
+/// <summary>The operations that a view model needs on a sort selection that can be
+/// missing.</summary>
 /// <remarks>
 ///     <para>
-///         An extension block rather than statics on <see cref="SortSelection" />, because the thing
-///         each of these is about is the <see cref="Maybe{T}" /> and not the selection inside it.
-///         They were statics whose first parameter was their real subject, which is the shape C# had
-///         no better answer for until a type from another assembly could be given members of its own.
+///         This is an extension block and not a set of static methods on
+///         <see cref="SortSelection" />, because the subject of each operation is the
+///         <see cref="Maybe{T}" /> and not the selection in it. Before, they were static methods
+///         whose first parameter was that subject. C# had no better shape. Now a type from a
+///         different assembly can get members of its own.
 ///     </para>
 ///     <para>
-///         <c>Order</c> is the one that pays for itself twice over: every caller wanted the
-///         order in force, and each had to spell out both halves of that - map into the selection,
-///         then fall back to arrival order for a list nobody has sorted yet.
+///         <c>Order</c> gives the largest benefit. Each caller needs the order that applies, and
+///         each caller wrote the two parts of that: a map into the selection, and then a default
+///         of arrival order for a list that no user sorted.
 ///     </para>
 /// </remarks>
 internal static class SortSelectionExtensions
 {
     extension(Maybe<SortSelection> sortSelection)
     {
-        /// <summary>The order in force, which is arrival order until a header is clicked.</summary>
+        /// <summary>The order that applies. It is arrival order until a user clicks a
+        /// header.</summary>
         internal AccountOrder Order =>
             sortSelection.Map(static selection => selection.Order).ValueOr(AccountOrder.ByArrival);
 
-        /// <summary>What clicking a header does: the same column reverses, another one selects.</summary>
+        /// <summary>The result of a click on a header. The same column reverses the direction,
+        /// and a different column becomes the sort column.</summary>
         /// <remarks>
-        ///     A newly chosen column starts ascending, except the balance, which starts at the largest
-        ///     because that is the way a list of balances is usually wanted.
+        ///     A new column starts at the smallest value. The balance starts at the largest
+        ///     value, because a user usually wants a list of balances in that direction.
         /// </remarks>
         internal SortSelection UpdateSort(AccountColumn column)
         {
@@ -124,7 +130,7 @@ internal static class SortSelectionExtensions
                 new(Column: column, IsDescending: column == AccountColumn.Balance);
         }
 
-        /// <summary>A header's caption, marked if it is the column in force.</summary>
+        /// <summary>The text of a header, with a mark when it is the sort column.</summary>
         internal string Caption(AccountColumn column, string name) =>
             name
             + sortSelection.Match(
@@ -134,7 +140,8 @@ internal static class SortSelectionExtensions
     }
 }
 
-/// <summary>One row, holding cells that follow one account through the view showing it.</summary>
+/// <summary>One row. It holds the cells that follow one account through the view that shows
+/// it.</summary>
 // ReSharper disable once InheritdocConsiderUsage
 internal sealed class AccountRowViewModel : IAccountRowViewModel
 {
@@ -172,7 +179,8 @@ internal sealed class AccountRowViewModel : IAccountRowViewModel
     /// <inheritdoc />
     public IBindableAction Deposit { get; }
 
-    /// <summary>The edits this row's deposits make, already gated, for the list to feed back in.</summary>
+    /// <summary>The edits that the deposits of this row make. The graph gates them, and the list
+    /// sends them back in.</summary>
     internal Stream<CollectionEdit<int, AccountIdentity, AccountState>> DepositsStream { get; }
 
     /// <inheritdoc />
@@ -190,29 +198,29 @@ internal sealed class AccountRowViewModel : IAccountRowViewModel
 /// </summary>
 /// <remarks>
 ///     <para>
-///         What to watch on screen. Depositing into an account moves that row's balance and nothing
-///         else - the other rows do not flicker, and the list itself does not rebuild, even though
-///         the sort could have moved the account. That is the collection doing its job: an
-///         edit reaches the rows bound to it, not the rows next to them.
+///         Look at the screen. A deposit into an account changes the balance of that row and
+///         nothing else. The other rows do not change, and the list does not build again, but the
+///         sort can move the account. That is the correct operation of the collection: an edit
+///         goes to the rows that show it, and not to the rows near them.
 ///     </para>
 ///     <para>
-///         Turning the page is a criteria change, which for a slice costs nothing much - it moves a
-///         window over an ordering that did not move. Toggling frozen accounts is also a criteria
-///         change, and that one does rebuild the filter, which is the expensive kind. Both are one
-///         line here and the difference between them is invisible in the code, which is why the
-///         reference page spells the costs out.
+///         A move to a different page is a change of criteria, and for a slice that change has a
+///         low cost. It moves a window across an order that did not change. A change to the frozen
+///         accounts is also a change of criteria, but that change builds the filter again, which
+///         has a high cost. Each change is one line here, and the code does not show the
+///         difference between them. For that cause the reference page gives the costs.
 ///     </para>
 /// </remarks>
 // ReSharper disable once InheritdocConsiderUsage
 public sealed class AccountsViewModel : IAccountsViewModel
 {
-    /// <summary>How many rows a page shows.</summary>
+    /// <summary>The number of rows on a page.</summary>
     private const int PageSize = 6;
 
-    /// <summary>What the deposit button pays in, in cents.</summary>
+    /// <summary>The value that the deposit button adds, in cents.</summary>
     private const long DepositAmount = 100_00L;
 
-    /// <summary>How every amount on screen is written.</summary>
+    /// <summary>The format for each value on the screen.</summary>
     private static readonly NumberFormatInfo UsDollars = CultureInfo.GetCultureInfo("en-US").NumberFormat;
 
     private readonly IReadOnlyList<IDisposable> disposables;
@@ -256,8 +264,9 @@ public sealed class AccountsViewModel : IAccountsViewModel
         this.deposits = deposits;
         this.drains = drains;
 
-        // The projection is in here too. Disposing it releases every row it still holds, which is
-        // the ones that never left the view and so never triggered the eviction callback.
+        // The projection is also in here. Disposal of the projection releases each row that it
+        // holds. Those are the rows that stayed in the view and thus did not cause the eviction
+        // callback.
         this.disposables =
         [
             rows,
@@ -322,9 +331,9 @@ public sealed class AccountsViewModel : IAccountsViewModel
 
     /// <inheritdoc />
     /// <remarks>
-    ///     The rows are not listed here one by one. They belong to the projection, which is in the
-    ///     list and releases all of them when it goes - whether a row left the view early and was
-    ///     evicted then, or lasted until now.
+    ///     This code does not name each row. The rows belong to the projection, which is in the
+    ///     list and releases all of them at its disposal. This applies to a row that left the view
+    ///     before now and to a row that stayed until now.
     /// </remarks>
     public void Dispose()
     {
@@ -345,12 +354,13 @@ public sealed class AccountsViewModel : IAccountsViewModel
                 StreamSink<Unit> sortByHolder = Stream.CreateSink<Unit>();
                 StreamSink<Unit> sortByBalance = Stream.CreateSink<Unit>();
 
-                // A switch holds its own position, so this is a value the view writes rather than a
-                // command whose presses are counted.
+                // A switch keeps its own position, thus this is a value that the view writes,
+                // and not a command that counts clicks.
                 CellSink<bool> showFrozen = Cell.CreateSink(false);
 
-                // One piece of state for the whole header row: which column, and which way. Three
-                // buttons become one stream of columns, and the selection folds over it.
+                // One item of state for the full header row: the column and the direction. Three
+                // buttons become one stream of columns, and the selection folds across that
+                // stream.
                 Cell<Maybe<SortSelection>> sort =
                     new[]
                         {
@@ -364,43 +374,45 @@ public sealed class AccountsViewModel : IAccountsViewModel
                             Maybe<SortSelection>.None,
                             f: static (column, current) => Maybe.Some(current.UpdateSort(column)));
 
-                // Each row pays into its own account, so the edits come from the rows, and the rows
-                // come from the collection the edits are for. That is a real cycle and the loop is how
-                // it is closed - declared here, tied off once the rows exist.
+                // Each row adds to its own account, thus the rows send the edits, and the
+                // collection that receives the edits makes the rows. That is a true cycle, and the
+                // loop closes it. This code declares the loop here and completes it after the rows
+                // are available.
                 Stream<CollectionEdit<int, AccountIdentity, AccountState>> depositsLoop =
                     viewModelLoop.Map(static viewModel => viewModel.deposits).SwitchS();
 
-                // The drain is the same shape of cycle: which accounts it empties is read from the
-                // collection it empties them in.
+                // The drain is a cycle of the same shape. It reads the accounts to empty from
+                // the collection that contains them.
                 Stream<CollectionEdit<int, AccountIdentity, AccountState>> drainsLoop =
                     viewModelLoop.Map(static viewModel => viewModel.drains).SwitchS();
 
-                // No key selector: AccountIdentity implements IIdentity<int>.
+                // No key selector is necessary, because AccountIdentity is an IIdentity<int>.
                 ReactiveCollection<int, AccountIdentity, AccountState> accounts =
                     ReactiveCollection.Create(initialEntries: AccountSeed.Items, depositsLoop, drainsLoop);
 
-                // Every frozen account with something left in it, across the whole collection rather
-                // than the page or the filter, because a drain empties accounts nobody is looking at.
-                // A second view over the same accounts, kept current alongside the first: the
-                // predicate reads only the state it is handed, so an edit to one account costs this
-                // view one test of that account.
+                // This is each frozen account with a balance, across the full collection and not
+                // across the page or the filter, because a drain empties accounts that no user
+                // sees. This is a second view of the same accounts, and the graph keeps it current
+                // with the first view. The predicate reads only the state that it receives, thus
+                // an edit to one account costs this view one test of that account.
                 ReactiveCollection<int, AccountIdentity, AccountState> drainable =
                     accounts.Filter(static (_, state) => state.IsDrainable);
 
                 Cell<bool> canDrain = drainable.KeysCell.Map(static keys => keys.Count > 0);
 
-                // Gated in the graph as well as disabled on the command, for the reason a row's
-                // deposit is. The keys are read in the same transaction the edit lands in, so what is
-                // emptied is exactly what was frozen and non-empty at the moment of the click.
+                // The graph gates this, and the command is also disabled, for the cause that
+                // applies to the deposit of a row. This code reads the keys in the transaction
+                // that receives the edit, thus the drain empties only the accounts that were
+                // frozen and not empty at the time of the click.
                 Stream<CollectionEdit<int, AccountIdentity, AccountState>> drains =
                     drainFrozenAccounts
                         .Gate(canDrain)
                         .Snapshot(c: drainable.KeysCell, f: static (_, keys) => Drain(keys));
 
-                // The sort takes its order from a cell, so clicking a header re-files this stage
-                // rather than building a second chain and choosing between the two. The three orders
-                // sort by an int, a string and a long, and one cell holds all of them: an order keeps
-                // its sort value's type to itself.
+                // The sort reads its order from a cell, thus a click on a header sorts this stage
+                // again and does not build a second chain to select between two. The three orders
+                // sort on an int, a string, and a long, and one cell holds all three, because an
+                // order keeps the type of its sort value private.
                 ReactiveCollection<int, AccountIdentity, AccountState> filtered =
                     accounts
                         .Filter(
@@ -408,10 +420,11 @@ public sealed class AccountsViewModel : IAccountsViewModel
                             predicate: static (showing, _, state) => showing || !state.IsFrozen)
                         .SortBy(sort.Map(static selection => selection.Order));
 
-                // Paging moves an offset. Toggling the filter sends it back to the first page, because
-                // an offset that outlived the rows it pointed at would show an empty list. Sorting
-                // deliberately does not: it reorders the same members rather than choosing different
-                // ones, so every offset that was valid before it still is.
+                // A change of page moves an offset. A change of the filter sends the offset back
+                // to the first page, because an offset that stays after the removal of its rows
+                // shows an empty list. A change of the sort does not do this. The sort puts the
+                // same members in a different sequence and does not select different members, thus
+                // each offset that was correct before the sort is correct after it.
                 Cell<int> offset =
                     new[]
                         {
@@ -425,28 +438,32 @@ public sealed class AccountsViewModel : IAccountsViewModel
                 ReactiveCollection<int, AccountIdentity, AccountState> page =
                     filtered.Slice(offsetCell: offset, limitCell: Cell.Constant(PageSize));
 
-                // One row object per account, in the page's order. Map keeps them, so a deposit that
-                // moves one balance leaves this list alone: the row follows its own account and the
-                // list only moves when the page's membership or order does.
+                // There is one row object for each account, in the sequence of the page. Map
+                // keeps the rows, thus a deposit that changes one balance does not change this
+                // list. The row follows its own account, and the list changes only when the members
+                // or the sequence of the page change.
                 //
-                // The rows own bindables, so eviction disposes them. Nothing here has to know when
-                // that happens - which is the point of the callback being where the projection is.
+                // The rows hold bindables, thus the eviction disposes them. No code here needs to
+                // know the time of the eviction, and that is the purpose of the callback at the
+                // projection.
                 MappedItems<AccountRowViewModel> rows =
                     page.Map(
                         project: key => Row(page: page, key: key),
                         onEvicted: static row => row.Dispose());
 
-                // The deposits are whatever the rows on the page are sending. Which rows those are
-                // moves with the page, so the merge is rebuilt from each version of the list and
-                // switched to: a row that has left the page is no longer listened to, whether or not
-                // it has been evicted yet. A page holds six rows, so the rebuild is six streams.
+                // The deposits are the edits that the rows on the page send. The set of those
+                // rows changes with the page, thus this code builds the merge again from each
+                // version of the list and switches to it. A row that left the page sends nothing
+                // more, before or after its eviction. A page holds six rows, thus each build is
+                // six streams.
                 Stream<CollectionEdit<int, AccountIdentity, AccountState>> deposits =
                     rows.Items
                         .Map(static items => items.Select(static row => row.DepositsStream).OrElse())
                         .SwitchS();
 
-                // The total is folded from what changed rather than recomputed from the store. The
-                // change carries both sides of it, so a delta needs nothing kept alongside.
+                // The total folds the change and does not calculate the total again from the
+                // store. The change contains the two sides of it, thus a delta needs no other
+                // data.
                 long initialTotal = AccountSeed.Items.Sum(static item => item.State.Balance);
 
                 Cell<long> total =
@@ -459,9 +476,9 @@ public sealed class AccountsViewModel : IAccountsViewModel
                         Math.Max(val1: 1, val2: (keys.Count + PageSize - 1) / PageSize));
 
                 return new AccountsViewModel(
-                    // A list of rows is a list of the interface they implement, but a cell is a class
-                    // and cannot be covariant, so the conversion is spelled out as the lambda's return
-                    // type.
+                    // A list of rows is a list of the interface of those rows, but a cell is a
+                    // class and cannot be covariant. Thus this code gives the conversion as the
+                    // return type of the lambda.
                     rows: rows.Items
                         .Map(static IReadOnlyList<IAccountRowViewModel> (items) => items)
                         .ToOneWay(),
@@ -501,21 +518,23 @@ public sealed class AccountsViewModel : IAccountsViewModel
                     drains: drains);
             }));
 
-    /// <summary>One edit emptying every one of these accounts.</summary>
+    /// <summary>One edit that empties all of these accounts.</summary>
     /// <remarks>
-    ///     One edit rather than one per account, so however many accounts are drained the
-    ///     collection moves once: every view re-files once, and the total folds one delta.
+    ///     This is one edit, and not one edit for each account. Thus the collection changes one
+    ///     time for each drain, at all counts of accounts. Each view sorts one time, and the total
+    ///     folds one delta.
     /// </remarks>
     private static CollectionEdit<int, AccountIdentity, AccountState> Drain(
-        // The keys' own type rather than the list interface it implements, because a drain reads
-        // every one of them and a call through the class is cheaper than one through the interface.
+        // This is the type of the keys, and not the list interface of that type, because a drain
+        // reads all of the keys and a call through the class is faster than a call through the
+        // interface.
         // ReSharper disable once SuggestBaseTypeForParameter
         OrderedKeys<int, AccountIdentity, AccountState> keys)
     {
         Dictionary<int, Func<AccountState, AccountState>> updates = new(keys.Count);
 
-        // Indexed rather than enumerated, because the keys hand back their enumerator as an
-        // interface, so a foreach would allocate one.
+        // This code uses an index and not an enumeration, because the keys give their enumerator
+        // as an interface and a foreach allocates one.
         // ReSharper disable once ForCanBeConvertedToForeach
         for (int index = 0; index < keys.Count; index++)
         {
@@ -528,18 +547,18 @@ public sealed class AccountsViewModel : IAccountsViewModel
             removes: []);
     }
 
-    /// <summary>What a drain does to one account.</summary>
+    /// <summary>The operation of a drain on one account.</summary>
     /// <remarks>
-    ///     A static method, so every update in a drain shares one cached delegate rather than
-    ///     allocating one for each of the thousands of accounts.
+    ///     This is a static method, thus each update in a drain uses one delegate from the cache.
+    ///     The drain does not allocate a delegate for each of the thousands of accounts.
     /// </remarks>
     private static AccountState Emptied(AccountState state) => state with { Balance = 0 };
 
-    /// <summary>The row for one account, built from the page it is showing on.</summary>
+    /// <summary>The row for one account, built from the page that shows it.</summary>
     /// <remarks>
-    ///     Every cell here is asked of the page rather than of the collection, so a row answers for
-    ///     the view it belongs to: an account the page does not hold has no holder, no balance, and
-    ///     nothing that can be paid into.
+    ///     Each cell here comes from the page and not from the collection, thus a row gives the
+    ///     data of its own view. An account that the page does not hold has no holder, no balance,
+    ///     and no target for a deposit.
     /// </remarks>
     private static AccountRowViewModel Row(ReactiveCollection<int, AccountIdentity, AccountState> page, int key)
     {
@@ -572,13 +591,14 @@ public sealed class AccountsViewModel : IAccountsViewModel
                 .ToOneWay(),
             isFrozen: isFrozen.ToOneWay(),
 
-            // Disabled for a frozen account, which is what the view shows...
+            // A frozen account disables this, and the view shows that...
             deposit: deposit.ToBindableAction(canDeposit),
 
-            // ...and gated in the graph, which is the rule. A command's enablement is a copy
-            // posted to the binding thread and can trail the graph, and anything holding the
-            // command can call Execute; the gate is sampled in the transaction the deposit lands
-            // in, so no path to this stream pays into a frozen account.
+            // ...and the graph gates it, which is the rule. The enabled state of a command is a
+            // copy that the graph sends to the binding thread, and the graph can change before the
+            // view receives that copy. Also, each holder of the command can call Execute. The graph
+            // reads the gate in the transaction that receives the deposit, thus no path to this
+            // stream adds to a frozen account.
             depositsStream: CollectionEdit<int, AccountIdentity, AccountState>.FromUpdates(
                 key: key,
                 transformsStream: deposit
@@ -587,11 +607,11 @@ public sealed class AccountsViewModel : IAccountsViewModel
                         current with { Balance = current.Balance + DepositAmount })));
     }
 
-    /// <summary>How much the total moved, from the keys this change touched.</summary>
+    /// <summary>The change of the total, from the keys in this change.</summary>
     /// <remarks>
-    ///     An added key has no state before, so it contributes only its new balance; a removed one
-    ///     is absent from the new states, so it contributes only the negation of its old balance.
-    ///     Neither needs a special case beyond looking.
+    ///     A new key has no state before the change, thus it adds only its new balance. A key
+    ///     that the change removes is not in the new states, thus it adds only the negative of
+    ///     its previous balance. This test is sufficient for the two conditions.
     /// </remarks>
     private static long DeltaOf(ItemChange<int, AccountIdentity, AccountState> change)
     {
@@ -618,12 +638,12 @@ public sealed class AccountsViewModel : IAccountsViewModel
         return delta;
     }
 
-    /// <summary>Cents as a dollar amount.</summary>
+    /// <summary>Cents as a value in dollars.</summary>
     private static string Money(AccountState state) => Money(state.Balance);
 
     /// <remarks>
-    ///     Formatted as US dollars whatever the machine's culture, because the amounts are dollars:
-    ///     the current culture's currency format would put its own symbol on them.
+    ///     The format is US dollars at each culture of the machine, because the values are
+    ///     dollars. The currency format of the current culture puts a different symbol on them.
     /// </remarks>
     private static string Money(long cents) => (cents / 100m).ToString(format: "C", provider: UsDollars);
 }

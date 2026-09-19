@@ -25,8 +25,8 @@ file static class Program
         }
 
         // ReSharper disable once CommentTypo
-        // Out of process by default. --inprocess is the fallback for when BenchmarkDotNet's generated
-        // project will not build: every view model is then measured in this one process, in turn.
+        // The default is a different process. Use --inprocess when the generated project of
+        // BenchmarkDotNet does not build. This process then measures each view model in sequence.
         // ReSharper disable once StringLiteralTypo
         bool inProcess = args.Contains("--inprocess");
 

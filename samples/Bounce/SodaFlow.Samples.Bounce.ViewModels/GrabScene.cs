@@ -5,19 +5,20 @@ using SodaFlow.Time;
 namespace SodaFlow.Samples.Bounce.ViewModels;
 
 /// <summary>
-///     The same box, with the balls available to be picked up and thrown.
+///     The same box. A user can hold a ball and then throw it.
 /// </summary>
 /// <remarks>
 ///     <para>
-///         This is what the switching is for. A ball's position is either the pointer's or the one
-///         its flight says, and <c>SwitchB</c> is what makes a single behavior out of the two - so
-///         the position stays continuous across the moment of grabbing, and nothing has to copy a
-///         value out of one representation and into another.
+///         This is the purpose of the switch. The position of a ball is the position of the
+///         pointer or the position from its flight, and <c>SwitchB</c> makes one behavior from the
+///         two. Thus the position stays continuous at the moment when a user holds the ball, and
+///         no code copies a value between the two.
 ///     </para>
 ///     <para>
-///         The throw is a restart: on release the ball resumes from where the pointer let go, at
-///         the speed the pointer was moving. Both come from the pointer's trail, which is an
-///         <c>Accum</c> over its movements rather than anything remembered on the side.
+///         The throw is a restart. At the release the ball continues from the position of the
+///         pointer, at the speed of the pointer. The trail of the pointer gives the two values.
+///         That trail is an <c>Accum</c> across the movements of the pointer, and not a value in
+///         other code.
 ///     </para>
 /// </remarks>
 // ReSharper disable once InheritdocConsiderUsage
@@ -29,12 +30,13 @@ internal sealed class GrabScene : IInteractiveScene
 
     private readonly StreamSink<Unit> released;
 
-    /// <param name="timers">The clock every ball's position is a function of.</param>
+    /// <param name="timers">The clock for the position of each ball.</param>
     /// <param name="restitution">
-    ///     What a bounce multiplies the speed by, the same cell the several-balls scene reads. See
-    ///     <see cref="BounceViewModel" />, which owns the value the controls write.
+    ///     The multiplier for the speed at a bounce. It is the cell that the scene with more
+    ///     balls reads. See <see cref="BounceViewModel" />, which holds the value that the controls
+    ///     write.
     /// </param>
-    /// <param name="restarts">Fires when this scene's tab becomes the selected one.</param>
+    /// <param name="restarts">Fires when the tab of this scene becomes the selected tab.</param>
     internal GrabScene(ITimerSystem<double> timers, Cell<double> restitution, Stream<Unit> restarts)
     {
         double now = timers.Time.Sample();
@@ -45,8 +47,8 @@ internal sealed class GrabScene : IInteractiveScene
         this.pointer = Cell.CreateSink(new Point(X: 0.0, Y: 0.0));
         this.released = Stream.CreateSink<Unit>();
 
-        // Where the pointer has been, timestamped as it moves. Accum keeps the last two, which is
-        // all a velocity needs.
+        // The positions of the pointer, with a time at each move. Accum keeps the last two
+        // positions, and a velocity uses only those two.
         Cell<PointerTrail> trail =
             this.pointer
                 .Updates()
@@ -55,9 +57,9 @@ internal sealed class GrabScene : IInteractiveScene
                     initialState: PointerTrail.Empty,
                     f: static (p, previous) => previous.Add(time: p.Time, x: p.X, y: p.Y));
 
-        // What was let go of, and when. The snapshot of held reads the value it had when the
-        // transaction opened, which is what lets Release clear it in the same transaction that
-        // reports it.
+        // The ball at the release, and the time of the release. The snapshot of held reads the
+        // value from the start of the transaction. Thus Release can clear that value in the
+        // transaction that reports it.
         Stream<Throw> thrown =
             this.released
                 .Snapshot(c1: this.held, c2: trail, f: static (_, index, t) => new Grabbed(Index: index, Trail: t))
@@ -82,17 +84,18 @@ internal sealed class GrabScene : IInteractiveScene
 
             Stream<Throw> mine = thrown.Filter(t => t.Index == index);
 
-            // While a ball is held its free flight goes on running, unseen. The throw replaces it,
-            // so what it did in the meantime never shows.
+            // While a user holds a ball, its free flight continues and no user sees it. The
+            // throw replaces that flight, thus the screen does not show the flight in that
+            // interval.
             Behavior<double> freeX =
                 BouncingAxis.Create(
                     timers: timers,
                     initial: start.InitialX(now: now),
                     min: minX,
                     max: maxX,
-                    // A throw and a fresh start are the same kind of thing - a flight imposed
-                    // from outside - so they arrive on one stream rather than the axis being
-                    // told about two.
+                    // A throw and a new start are the same type of event, which is a flight from
+                    // other code. Thus the two come on one stream, and no code tells the axis
+                    // about two streams.
                     restarts: mine
                         .Map(t =>
                             new Flight(
@@ -161,8 +164,8 @@ internal sealed class GrabScene : IInteractiveScene
     /// <inheritdoc />
     public void Grab(double x, double y)
     {
-        // Sampled before the transaction rather than inside it: which ball is under the pointer is
-        // a question about where things are now, and the answer to it is what gets sent.
+        // This code samples before the transaction and not in it. The ball below the pointer is a
+        // question about the current positions, and this code sends the answer.
         Maybe<int> index = this.BallAt(x: x, y: y);
 
         Transaction.RunVoid(() =>
@@ -177,8 +180,8 @@ internal sealed class GrabScene : IInteractiveScene
 
     /// <inheritdoc />
     public void Release() =>
-        // Both in one transaction. The throw's snapshot of held sees the value from before this
-        // transaction, so clearing it here does not race the reading of it.
+        // The two operations are in one transaction. The snapshot of held in the throw reads the
+        // value from before this transaction, thus a clear here cannot race that read.
         Transaction.RunVoid(() =>
         {
             this.released.Send(Unit.Value);
@@ -192,7 +195,8 @@ internal sealed class GrabScene : IInteractiveScene
                 ? max
                 : value;
 
-    /// <summary>The ball under the given point, preferring the one whose center is nearest.</summary>
+    /// <summary>The ball below the given point. The ball with the nearest center has
+    /// priority.</summary>
     private Maybe<int> BallAt(double x, double y)
     {
         Maybe<int> found = Maybe<int>.None;

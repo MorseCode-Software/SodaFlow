@@ -4,135 +4,141 @@ using SodaFlow.Bindable.ObjectModel;
 
 namespace SodaFlow.Samples.Accounts.ViewModels;
 
-/// <summary>One row of the list, which is one account seen through the view showing it.</summary>
+/// <summary>One row of the list. It is one account in the view that shows it.</summary>
 /// <remarks>
 ///     <para>
-///         Each of these holds its own cells, and each of those follows one account. A deposit into
-///         one account moves that row and nothing else - not the list, not the other rows on the
-///         page, not the hundred thousand accounts off it, and not this row's holder, which cannot
-///         change while the account exists.
+///         Each row holds its own cells, and each cell follows one account. A deposit into one
+///         account changes that row and nothing else. It does not change the list, the other rows
+///         on the page, the one hundred thousand accounts that are not on the page, or the holder
+///         of this row. The holder cannot change while the account is in the collection.
 ///     </para>
 ///     <para>
-///         That is the whole reason the collection exists. Binding a list of rows to one cell
-///         holding the whole list would rebuild every row on every edit, which is what the search
-///         sample does and what is right for a search sample: its results genuinely are one answer
-///         that changes as a whole.
+///         That is the full cause for the collection. A bind of a list of rows to one cell with
+///         the full list builds each row again at each edit. The search sample does that, and it is
+///         correct for a search sample, because its results are one answer that changes
+///         together.
 ///     </para>
 ///     <para>
-///         <see cref="IDisposable" /> is on the contract because those cells and the deposit
-///         command are the row's to release, and that is as true of a row held through this
-///         interface as of one held through its class.
+///         <see cref="IDisposable" /> is on the contract because the row must release those cells
+///         and the deposit command. This applies to a row through this interface and to a row
+///         through its class.
 ///     </para>
 /// </remarks>
 // ReSharper disable once InheritdocConsiderUsage
 public interface IAccountRowViewModel : IDisposable
 {
-    /// <summary>The account number, which never changes while the account exists.</summary>
+    /// <summary>The account number. It does not change while the account is in the collection.</summary>
     IOneWayBindableValue<string> Number { get; }
 
-    /// <summary>Whose account it is - also fixed for the life of the account.</summary>
+    /// <summary>The holder of the account. It is also constant for the life of the account.</summary>
     IOneWayBindableValue<string> Holder { get; }
 
-    /// <summary>The balance, which is the part that moves.</summary>
+    /// <summary>The balance. It is the part that changes.</summary>
     IOneWayBindableValue<string> Balance { get; }
 
-    /// <summary>Whether the account is frozen, which the views show by greying the row out.</summary>
+    /// <summary>True when the account is frozen. The views show this with a gray row.</summary>
     IOneWayBindableValue<bool> IsFrozen { get; }
 
-    /// <summary>Pays a hundred dollars into this row's account, and is disabled if it is frozen.</summary>
+    /// <summary>Pays one hundred dollars into the account of this row. It is disabled when the
+    /// account is frozen.</summary>
     /// <remarks>
-    ///     A view may hide this for a frozen account, but hiding it is presentation rather than the
-    ///     rule. The view model gates the deposit itself, so a frozen account cannot be paid into
-    ///     however the command is reached.
+    ///     A view can hide this for a frozen account, but that is presentation and not the rule.
+    ///     The view model gates the deposit, thus no path to the command can pay into a frozen
+    ///     account.
     /// </remarks>
     IBindableAction Deposit { get; }
 }
 
-/// <summary>What the views bind to.</summary>
+/// <summary>The contract that the views bind to.</summary>
 /// <remarks>
 ///     <para>
-///         The shape of a list-backed screen: a page of rows, a total over everything rather than
-///         over the page, and buttons that edit the collection the rows are drawn from.
+///         This is the shape of a screen with a list: a page of rows, a total across all accounts
+///         and not across the page, and buttons that edit the collection of the rows.
 ///     </para>
 ///     <para>
-///         <see cref="IDisposable" /> is on the contract for the reason it is on the counter
-///         sample's: whoever built one has to release it, and that is as true through this
-///         interface as through the class.
+///         <see cref="IDisposable" /> is on the contract for the cause that applies to the
+///         counter sample. The code that built one must release it, through this interface and
+///         through the class.
 ///     </para>
 /// </remarks>
 // ReSharper disable once InheritdocConsiderUsage
 public interface IAccountsViewModel : IDisposable
 {
     /// <summary>
-    ///     The rows on the current page, which is a filtered, sorted, windowed view of the accounts.
+    ///     The rows on the current page, which is a filtered, sorted, and windowed view of the
+    ///     accounts.
     /// </summary>
     /// <remarks>
-    ///     This moves when the page's membership or order moves, and not when an account on it is
-    ///     merely edited - that reaches the row rather than the list.
+    ///     This changes when the members or the sequence of the page change. An edit to an
+    ///     account on the page does not change this, because the edit goes to the row and not to
+    ///     the list.
     /// </remarks>
     IOneWayBindableValue<IReadOnlyList<IAccountRowViewModel>> Rows { get; }
 
-    /// <summary>The total balance across every account, frozen ones included.</summary>
+    /// <summary>The total balance across all accounts, with the frozen accounts.</summary>
     /// <remarks>
-    ///     Over the whole collection rather than the page, and folded from what changed rather than
-    ///     recomputed - see the implementation, where that is the interesting line.
+    ///     This is across the full collection and not across the page. A fold of the change gives
+    ///     the total, and no code calculates the total again. See the implementation for that
+    ///     line.
     /// </remarks>
     IOneWayBindableValue<string> Total { get; }
 
-    /// <summary>Which page is showing, and how many there are.</summary>
+    /// <summary>The current page, and the number of pages.</summary>
     IOneWayBindableValue<string> Page { get; }
 
-    /// <summary>Whether the list is showing frozen accounts as well as active ones.</summary>
+    /// <summary>True when the list shows the frozen accounts and the active accounts.</summary>
     IOneWayBindableValue<string> FilterDescription { get; }
 
-    /// <summary>The account number header, marked when the list is sorted by it.</summary>
+    /// <summary>The account number header, with a mark when the list sorts on it.</summary>
     IOneWayBindableValue<string> NumberHeader { get; }
 
-    /// <summary>The holder header, marked when the list is sorted by it.</summary>
+    /// <summary>The holder header, with a mark when the list sorts on it.</summary>
     IOneWayBindableValue<string> HolderHeader { get; }
 
-    /// <summary>The balance header, marked when the list is sorted by it.</summary>
+    /// <summary>The balance header, with a mark when the list sorts on it.</summary>
     IOneWayBindableValue<string> BalanceHeader { get; }
 
-    /// <summary>Moves the window on, and is disabled on the last page.</summary>
+    /// <summary>Moves the window forward. It is disabled on the last page.</summary>
     IBindableAction NextPage { get; }
 
-    /// <summary>Moves it back, and is disabled on the first.</summary>
+    /// <summary>Moves the window back. It is disabled on the first page.</summary>
     IBindableAction PreviousPage { get; }
 
     /// <summary>
-    ///     Whether frozen accounts are shown, which is a criteria change and rebuilds the view.
-    ///     Two-way, for a toggle switch.
+    ///     True when the list shows the frozen accounts. This is a change of criteria and builds
+    ///     the view again. It is two-way, for a toggle switch.
     /// </summary>
     ITwoWayBindableValue<bool> ShowFrozen { get; }
 
     /// <summary>
-    ///     Sets every frozen account's balance to zero, whether or not frozen accounts are showing,
-    ///     and is disabled once there is nothing left to drain.
+    ///     Sets the balance of each frozen account to zero, at each state of the frozen account
+    ///     filter. It is disabled when no account has a balance to drain.
     /// </summary>
     /// <remarks>
-    ///     The other end from a deposit: one click still, but a quarter of the collection edited in
-    ///     one transaction rather than one account. A row on the page moves only if its account was
-    ///     one of them.
+    ///     This is the opposite of a deposit. It is one click, but it edits one quarter of the
+    ///     collection in one transaction and not one account. A row on the page moves only when the
+    ///     drain contains its account.
     /// </remarks>
     IBindableAction DrainFrozenAccounts { get; }
 
-    /// <summary>Sorts by account number, or reverses it if the list is sorted by it already.</summary>
+    /// <summary>Sorts on the account number, or reverses the direction when the list sorts on
+    /// it.</summary>
     /// <remarks>
-    ///     Sorting by an account number orders on the identity half of an account, which no edit
-    ///     can change - so under this one a deposit moves a balance and cannot move a row. The
-    ///     collection knows that rather than being told it: the selector is handed the identity
-    ///     and never the state, so a state edit is not even offered to the sort.
+    ///     A sort on the account number uses the identity part of an account, and no edit can
+    ///     change that part. Thus with this order a deposit changes a balance and cannot move a
+    ///     row. The collection finds that itself, and no code tells it. The selector receives the
+    ///     identity and never the state, thus the sort does not see an edit to a state.
     /// </remarks>
     IBindableAction SortByNumber { get; }
 
-    /// <summary>Sorts by holder, or reverses it. Also over the identity alone.</summary>
+    /// <summary>Sorts on the holder, or reverses the direction. This order also uses only the
+    /// identity.</summary>
     IBindableAction SortByHolder { get; }
 
-    /// <summary>Sorts by balance, or reverses it.</summary>
+    /// <summary>Sorts on the balance, or reverses the direction.</summary>
     /// <remarks>
-    ///     The one that sorts on the half that moves, so this is where a deposit can carry a row
-    ///     up or down the list. Try the deposit button under this and under the other two.
+    ///     This order sorts on the part that changes, thus a deposit can move a row along the
+    ///     list. Use the deposit button with this order and with the other two orders.
     /// </remarks>
     IBindableAction SortByBalance { get; }
 }

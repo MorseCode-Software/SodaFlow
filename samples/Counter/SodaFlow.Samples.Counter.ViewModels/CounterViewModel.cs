@@ -7,19 +7,19 @@ using SodaFlow.Functional;
 namespace SodaFlow.Samples.Counter.ViewModels;
 
 /// <summary>
-///     A counter, in about twenty lines of graph.
+///     A counter, in approximately twenty lines of graph.
 /// </summary>
 /// <remarks>
 ///     <para>
-///         Worth noticing what is not here. There is no <c>count</c> field, no
-///         <c>OnPropertyChanged("Count")</c>, and nothing that has to remember to re-evaluate
-///         whether Reset should be enabled. The count is a fold over a stream of edits, the
-///         label is a function of the count, and Reset's enablement is another function of it -
-///         so none of them can disagree with each other.
+///         See the code that is not here. There is no <c>count</c> field, no
+///         <c>OnPropertyChanged("Count")</c>, and no code that must remember to examine the
+///         enabled state of Reset again. The count is a fold across a stream of edits, the label
+///         is a function of the count, and the enabled state of Reset is a second function of the
+///         count. Thus the three values are always in agreement.
 ///     </para>
 ///     <para>
-///         The view binds to <c>SomeProperty.Value</c>, never to <c>SomeProperty</c>. That is
-///         how the bindable object model works: each property is an object that raises
+///         The view binds to <c>SomeProperty.Value</c> and never to <c>SomeProperty</c>. That is
+///         the operation of the bindable object model. Each property is an object that raises
 ///         PropertyChanged for "Value".
 ///     </para>
 /// </remarks>
@@ -67,13 +67,13 @@ public sealed class CounterViewModel
 
     /// <inheritdoc />
     /// <remarks>
-    ///     Every entry holds a subscription into the graph, and disposing it is what releases that
+    ///     Each entry holds a subscription into the graph, and its disposal releases that
     ///     subscription.
     ///     <para />
-    ///     The list is of <see cref="IDisposable" /> rather than of bindables because a view
-    ///     model's disposables are not all bindables in general - a graph using MapAsync also
-    ///     holds an AsyncMapStatus, as the search sample does - and disposal is the only thing
-    ///     being asked of them here.
+    ///     The list holds <see cref="IDisposable" /> and not bindables, because the disposables of
+    ///     a view model are not always bindables. A graph with MapAsync also holds an
+    ///     AsyncMapStatus, as the search sample shows. Disposal is the only operation on them
+    ///     here.
     /// </remarks>
     public void Dispose()
     {
@@ -84,18 +84,19 @@ public sealed class CounterViewModel
     }
 
     public static ICounterViewModel Create() =>
-        // One transaction for the whole graph. Nothing here fires during construction, so it
-        // changes no behavior in this sample - but it is the habit worth having: a graph
-        // containing a Values() stream loses its first firing without it, silently.
+        // There is one transaction for the full graph. No code here fires during the
+        // construction, thus this transaction changes no behavior in this sample. It stays the
+        // correct practice, because a graph with a Values() stream loses its first value without
+        // a transaction, and gives no message.
         Transaction.Run(static () =>
         {
             StreamSink<Unit> increment = Stream.CreateSink<Unit>();
             StreamSink<Unit> decrement = Stream.CreateSink<Unit>();
             StreamSink<Unit> reset = Stream.CreateSink<Unit>();
 
-            // Each button contributes a function of the current count rather than a
-            // number, which is what lets Reset join the same stream as the other two
-            // instead of needing a mechanism of its own.
+            // Each button gives a function of the current count and not a number. Thus Reset
+            // uses the same stream as the other two buttons, and does not use a mechanism of its
+            // own.
             Stream<Func<int, int>> edits =
                 new[]
                 {
@@ -112,8 +113,8 @@ public sealed class CounterViewModel
                 increment: increment.ToBindableAction(),
                 decrement: decrement.ToBindableAction(),
 
-                // Enablement is just another cell. Nothing raises CanExecuteChanged by
-                // hand; the command follows the cell, and the cell follows the count.
+                // The enabled state is one more cell. No code raises CanExecuteChanged
+                // manually. The command follows the cell, and the cell follows the count.
                 reset: reset.ToBindableAction(count.Map(static n => n != 0)));
         });
 }

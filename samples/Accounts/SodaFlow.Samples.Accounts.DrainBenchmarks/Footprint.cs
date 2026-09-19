@@ -4,15 +4,17 @@ using SodaFlow.Samples.Accounts.ViewModels;
 namespace SodaFlow.Samples.Accounts.DrainBenchmarks;
 
 /// <summary>
-///     Retained managed memory, which BenchmarkDotNet does not report: what a live view model holds
-///     on to, rather than what an operation allocates on the way. Run once per view model, each in
-///     its own process, so one view model's leftovers are never in another's baseline.
+///     The retained managed memory, which BenchmarkDotNet does not report. This is the memory that
+///     a live view model holds, and not the memory that an operation allocates. This runs one time
+///     for each view model, each in its own process, thus the memory of one view model is never in
+///     the baseline of a second view model.
 /// </summary>
 /// <remarks>
-///     A first view model is built and disposed before anything is measured, so the seed's hundred
-///     thousand items, JIT and static caches are already in the baseline and the numbers are what
-///     one view model adds. Every reading is after a full, compacting collection. The totals double
-///     as a check that every view model drains the same accounts.
+///     This code builds a first view model and disposes it before the measurement. Thus the one
+///     hundred thousand items of the seed, the JIT, and the static caches are in the baseline, and
+///     the numbers are the memory that one view model adds. Each measurement is after a full,
+///     compacting collection. The totals are also a test that each view model drains the same
+///     accounts.
 /// </remarks>
 internal static class Footprint
 {
