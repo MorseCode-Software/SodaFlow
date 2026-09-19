@@ -1,17 +1,18 @@
 /// <summary>
-///     Bridges an impure asynchronous operation into the FRP world: listen on a
-///     <c>Stream&lt;'TInput&gt;</c>, run an async operation per firing, push the result into a
-///     <c>StreamSink&lt;'TResult&gt;</c>, and expose what's queued or running — optionally wired up to
-///     streams that trigger cancellation of queued and running work alike. The
-///     <c>AsyncMapStatus&lt;'TInput&gt;</c> every function here returns is IDisposable; disposing it is
-///     how you tear the whole pipeline down.
+///     Connects an impure asynchronous operation to the FRP graph. These functions listen on a
+///     <c>Stream&lt;'TInput&gt;</c>, run an async operation for each send, put the result into a
+///     <c>StreamSink&lt;'TResult&gt;</c>, and give the Queued items and the Running items. They can
+///     also connect to streams that cancel Queued work and Running work. The
+///     <c>AsyncMapStatus&lt;'TInput&gt;</c> that each function here returns is IDisposable, and a
+///     disposal of it stops the full pipeline.
 /// </summary>
 /// <remarks>
-///     The F# equivalent of SodaFlow.Async's C# AsyncStreamExtensions/AsyncConcurrencyStrategy,
-///     typed against F#'s native <c>unit</c> rather than <c>SodaFlow.Functional.Unit</c> wherever a
-///     "don't care" type is needed. Since F# has neither overloading nor optional parameters on
-///     let-bound functions, what C# expresses as nine MapAsync overloads is four distinctly named
-///     functions here, and the cancellation arguments are explicit rather than defaulted.
+///     This module is the F# equivalent of AsyncStreamExtensions and AsyncConcurrencyStrategy in
+///     the C# wrapper SodaFlow.Async. It uses the F# <c>unit</c> and not
+///     <c>SodaFlow.Functional.Unit</c> for a value that a strategy does not use. F# has no
+///     overload and no optional parameter on a let-bound function. Thus the nine MapAsync
+///     overloads in C# are four functions with different names here, and each cancellation
+///     argument is explicit and has no default.
 /// </remarks>
 module SodaFlow.Async
 
@@ -23,55 +24,55 @@ open System.Threading.Tasks
 open SodaFlow
 open SodaFlow.Async
 
-// The three shorthand classes below mirror the C# wrapper's own AsyncConcurrencyStrategy /
-// AsyncConcurrencyStrategy<TState> / AsyncConcurrencyStrategy<TInput,TState>. They're unrelated to
-// the built-in strategies further down, which call straight into Core's shared, generic
-// AsyncConcurrencyStrategyFactory instead of going through these.
+// The three short classes below are the equivalent of AsyncConcurrencyStrategy,
+// AsyncConcurrencyStrategy<TState>, and AsyncConcurrencyStrategy<TInput,TState> in the C# wrapper.
+// They have no relation to the strategies of the library below, which call the shared generic
+// AsyncConcurrencyStrategyFactory in Core directly and do not use these classes.
 
 /// <summary>
-///     The state type for a custom strategy that needs no state of its own.
+///     The state type of a custom strategy that has no state of its own.
 /// </summary>
 /// <remarks>
-///     Exists because F# cannot override an abstract member whose signature reduces to a bare
-///     <c>unit -&gt; unit</c> segment — it's ambiguous between "a nullary member" and "a member
-///     taking a unit argument" — which is exactly what <c>CreateState</c> would be if a strategy
-///     used <c>unit</c> as its own state type. Naming a distinct type sidesteps that, which is why
-///     the non-generic <see cref="T:SodaFlow.Async.AsyncConcurrencyStrategy" /> below is fixed to
-///     this rather than to <c>unit</c>.
+///     This type is here because F# cannot override an abstract member whose signature becomes a
+///     bare <c>unit -&gt; unit</c> segment. Such a signature is ambiguous between a member with no
+///     parameter and a member with a unit parameter, and <c>CreateState</c> has that signature
+///     when a strategy uses <c>unit</c> as its own state type. A type with its own name prevents
+///     that. For that cause the <see cref="T:SodaFlow.Async.AsyncConcurrencyStrategy" /> below,
+///     which is not generic, uses this type and not <c>unit</c>.
 /// </remarks>
 [<Struct>]
 type EmptyState = EmptyState
 
 /// <summary>
-///     Shorthand base class for a custom strategy that inspects its input but publishes no
-///     meaningful result — the result type is fixed to <c>unit</c>. Saves spelling out <c>unit</c>
-///     when subclassing Core's three-parameter AsyncConcurrencyStrategy directly.
+///     A short base class for a custom strategy that reads its input and publishes no result,
+///     because the result type is <c>unit</c>. It prevents an explicit <c>unit</c> in a subclass
+///     of the AsyncConcurrencyStrategy with three parameters in Core.
 /// </summary>
-/// <typeparam name="TInput">The input type this strategy schedules by.</typeparam>
+/// <typeparam name="TInput">The input type that this strategy schedules on.</typeparam>
 /// <typeparam name="TState">
-///     The per-call scheduling state this strategy manages; opaque to callers, and never part of a
-///     mapAsync signature.
+///     The scheduling state of this strategy for each call. It is opaque to a caller, and it is
+///     never part of a mapAsync signature.
 /// </typeparam>
 [<AbstractClass>]
 type AsyncConcurrencyStrategy<'TInput, 'TState>() =
     inherit AsyncConcurrencyStrategy<'TInput, unit, 'TState>()
 
 /// <summary>
-///     Shorthand base class for a custom strategy that cares about neither the input nor the
-///     result — both are fixed to <c>unit</c> — but does keep scheduling state of its own.
+///     A short base class for a custom strategy that reads no input and no result, because the
+///     two types are <c>unit</c>, and that keeps a scheduling state of its own.
 /// </summary>
 /// <typeparam name="TState">
-///     The per-call scheduling state this strategy manages; opaque to callers, and never part of a
-///     mapAsync signature.
+///     The scheduling state of this strategy for each call. It is opaque to a caller, and it is
+///     never part of a mapAsync signature.
 /// </typeparam>
 [<AbstractClass>]
 type AsyncConcurrencyStrategy<'TState>() =
     inherit AsyncConcurrencyStrategy<unit, unit, 'TState>()
 
 /// <summary>
-///     Shorthand base class for a custom strategy that cares about neither the input nor the result
-///     and keeps no state of its own — see <see cref="T:SodaFlow.Async.EmptyState" /> for why the
-///     state type is named rather than being <c>unit</c>.
+///     A short base class for a custom strategy that reads no input and no result, and that keeps
+///     no state of its own. See <see cref="T:SodaFlow.Async.EmptyState" /> for the cause of a
+///     named state type and not <c>unit</c>.
 /// </summary>
 [<AbstractClass>]
 type AsyncConcurrencyStrategy() =
@@ -82,51 +83,55 @@ let private queueInstance = AsyncConcurrencyStrategyFactory.Queue<unit>()
 let private switchLatestInstance = AsyncConcurrencyStrategyFactory.SwitchLatest()
 
 /// <summary>
-///     Every firing starts its own operation immediately; results arrive in completion order.
+///     Each send starts its own operation immediately. The results come in the sequence of their
+///     ends.
 /// </summary>
 /// <returns>
-///     A strategy for <c>mapAsync</c>. Holds no state of its own, so the same instance is safe to
-///     pass to any number of <c>mapAsync</c> calls, even concurrently — each call gets its own
-///     independent scheduling state.
+///     A strategy for <c>mapAsync</c>. It holds no state of its own, thus each number of
+///     <c>mapAsync</c> calls can use the same instance safely, at the same time. Each call gets
+///     its own scheduling state.
 /// </returns>
 [<MethodImpl(MethodImplOptions.NoInlining)>]
 let parallelStrategy () : AsyncConcurrencyStrategyBase<unit, unit> = parallelInstance
 
 /// <summary>
-///     At most one operation runs at a time; later firings queue and run in order.
+///     One operation or no operation runs at a time. A subsequent send goes to the queue, and the
+///     queue runs in sequence.
 /// </summary>
 /// <returns>
-///     A strategy for <c>mapAsync</c>, reusable across calls on the same terms as
+///     A strategy for <c>mapAsync</c>. More than one call can use it, on the conditions of
 ///     <c>parallelStrategy</c>.
 /// </returns>
 [<MethodImpl(MethodImplOptions.NoInlining)>]
 let queueStrategy () : AsyncConcurrencyStrategyBase<unit, unit> = queueInstance
 
 /// <summary>
-///     A new firing cancels whatever is currently in flight and takes its place. The superseded
-///     run's result is never published, whether or not its operation honors the cancellation token.
+///     A new send cancels the operation that runs and replaces it. The pipeline never publishes
+///     the result of the run that it replaces, at each state of the cancellation token in that
+///     operation.
 /// </summary>
 /// <returns>
-///     A strategy for <c>mapAsync</c>, reusable across calls on the same terms as
+///     A strategy for <c>mapAsync</c>. More than one call can use it, on the conditions of
 ///     <c>parallelStrategy</c>.
 /// </returns>
 [<MethodImpl(MethodImplOptions.NoInlining)>]
 let switchLatestStrategy () : AsyncConcurrencyStrategyBase<unit, unit> = switchLatestInstance
 
 /// <summary>
-///     One independent queue per group: within a group, later firings queue behind earlier ones
-///     exactly as <c>queueStrategy</c> does, but different groups don't wait on each other. As
-///     <c>queuePerGroupStrategy</c>, but with an explicit comparer for the group keys.
+///     One queue for each group, and each queue operates independently. In one group, a
+///     subsequent send goes behind the sends before it, as <c>queueStrategy</c> does. Two different
+///     groups do not wait for each other. This is <c>queuePerGroupStrategy</c> with an explicit
+///     comparer for the group keys.
 /// </summary>
-/// <param name="groupComparer">Equality comparer used to match group keys.</param>
+/// <param name="groupComparer">The equality comparer for the group keys.</param>
 /// <param name="getGroup">
-///     Computes the group key for an input value. Must be deterministic: it's called once when the
-///     value is admitted and again when it completes, and both calls must agree for the item to be
-///     matched back to the queue it was placed in.
+///     Calculates the group key of an input value. It must be deterministic, because the strategy
+///     calls it at the admission of the value and again at its end. The two calls must agree, or
+///     the strategy cannot find the queue of the item.
 /// </param>
 /// <returns>
-///     A strategy for <c>mapAsyncWithInputConverter</c> — it inspects the input, so it can't be
-///     passed to plain <c>mapAsync</c>. Reusable across calls on the same terms as
+///     A strategy for <c>mapAsyncWithInputConverter</c>. It reads the input, thus a caller cannot
+///     give it to <c>mapAsync</c>. More than one call can use it, on the conditions of
 ///     <c>parallelStrategy</c>.
 /// </returns>
 [<MethodImpl(MethodImplOptions.NoInlining)>]
@@ -134,104 +139,106 @@ let queuePerGroupStrategyWithComparer (groupComparer: IEqualityComparer<'TGroup>
     AsyncConcurrencyStrategyFactory.QueuePerGroup<unit, _, _>(getGroup, groupComparer)
 
 /// <summary>
-///     One independent queue per group, keyed by the default equality comparer for
-///     <c>'TGroup</c> — see <c>queuePerGroupStrategyWithComparer</c> to supply your own.
+///     One queue for each group, with the default equality comparer for <c>'TGroup</c> as the key
+///     comparer. See <c>queuePerGroupStrategyWithComparer</c> to give your own comparer.
 /// </summary>
 /// <param name="getGroup">
-///     Computes the group key for an input value. Must be deterministic; see
+///     Calculates the group key of an input value. It must be deterministic. See
 ///     <c>queuePerGroupStrategyWithComparer</c>.
 /// </param>
 /// <returns>
-///     A strategy for <c>mapAsyncWithInputConverter</c> — it inspects the input, so it can't be
-///     passed to plain <c>mapAsync</c>. Reusable across calls on the same terms as
+///     A strategy for <c>mapAsyncWithInputConverter</c>. It reads the input, thus a caller cannot
+///     give it to <c>mapAsync</c>. More than one call can use it, on the conditions of
 ///     <c>parallelStrategy</c>.
 /// </returns>
 [<MethodImpl(MethodImplOptions.NoInlining)>]
 let queuePerGroupStrategy (getGroup: 'TInput -> 'TGroup) =
     getGroup |> queuePerGroupStrategyWithComparer EqualityComparer<'TGroup>.Default
 
-// Core's MapAsyncImpl takes its cancelAll as a Stream<UnitInternal>, since Core has no "don't
-// care" type it can expose. Mapping rather than casting is what keeps UnitInternal — which is
-// internal to SodaFlow.Core and so unnameable by anyone consuming this library — out of every
-// signature in this module. `null` for None: Core's parameter is a plain nullable reference.
+// The MapAsyncImpl in Core takes its cancelAll as a Stream<UnitInternal>, because Core has no
+// public type for a value that a caller does not use. This code maps and does not cast, and that
+// keeps UnitInternal out of each signature in this module. UnitInternal is internal to
+// SodaFlow.Core, and code that consumes this library cannot name it. This code gives `null` for
+// None, because the parameter in Core is a usual nullable reference.
 [<MethodImpl(MethodImplOptions.NoInlining)>]
 let private toUnitInternalStream (cancelAll: Stream<unit> option) : Stream<UnitInternal> =
     match cancelAll with
     | Some s -> s.MapImpl(Func<_, _>(fun (_: unit) -> UnitInternal.Value))
     | None -> null
 
-// The four mapAsync functions below differ only in how this call's own 'TInput/'TResult reach the
-// types `strategy` is written against — exactly the axis the C# wrapper's overloads vary along, but
-// spelled as distinct names since F# has no optional/overloaded let bindings:
+// The four mapAsync functions below are different only in the path from the 'TInput and the
+// 'TResult of the call to the types of `strategy`. The overloads in the C# wrapper are different
+// along the same axis. These are functions with different names, because F# has no optional
+// parameter and no overload on a let binding.
 //
-//   mapAsync                     strategy ignores both       (parallelStrategy, queueStrategy,
+//   mapAsync                     strategy reads no type      (parallelStrategy, queueStrategy,
 //                                                             switchLatestStrategy)
-//   mapAsyncWithInputConverter   strategy inspects the input (queuePerGroupStrategy)
-//   mapAsyncWithResultConverter  strategy inspects the result
-//   mapAsyncWithConverters       strategy inspects both
+//   mapAsyncWithInputConverter   strategy reads the input    (queuePerGroupStrategy)
+//   mapAsyncWithResultConverter  strategy reads the result
+//   mapAsyncWithConverters       strategy reads the two types
 //
-// Deliberately absent are variants keyed on 'TInput already being a subtype of the strategy's input
-// type: F# can't express that constraint between two open type parameters, and `fun v -> v` as the
-// converter covers it anyway. `source` comes last throughout so these compose with |>. cancelAll,
-// cancelMatching and cancelOnDispose are all required arguments rather than optional as in C# —
-// pass None, None and true for the common case.
+// There is no function for a 'TInput that is a subtype of the input type of the strategy. F#
+// cannot give that constraint between two open type parameters, and `fun v -> v` as the converter
+// gives the same result. `source` is last in each function, thus these functions compose with |>.
+// cancelAll, cancelMatching, and cancelOnDispose are necessary arguments here and are optional in
+// C#. Give None, None, and true for the usual condition.
 
 /// <summary>
-///     Runs <paramref name="operation" /> for each firing of <paramref name="source" />, sending
-///     successes to <paramref name="results" /> and failures to <paramref name="errors" />, with
-///     <paramref name="strategy" /> deciding what runs when. For a strategy that ignores both the
-///     input and the result — <c>parallelStrategy</c>, <c>queueStrategy</c>,
-///     <c>switchLatestStrategy</c>.
+///     Runs <paramref name="operation" /> for each send of <paramref name="source" />. It sends a
+///     value that succeeded to <paramref name="results" /> and a value with an error to
+///     <paramref name="errors" />, and <paramref name="strategy" /> selects the time of each run.
+///     This function is for a strategy that reads no input and no result:
+///     <c>parallelStrategy</c>, <c>queueStrategy</c>, and <c>switchLatestStrategy</c>.
 /// </summary>
 /// <param name="results">
-///     Each successful operation's return value is sent here, in completion order rather than the
-///     order inputs arrived. A result whose run was superseded or canceled is not sent.
+///     The pipeline sends the return value of each operation that succeeded here, in the sequence
+///     of their ends and not in the sequence of the inputs. The pipeline does not send a result
+///     from a run that a different run replaced, or from a run that a cancellation stopped.
 /// </param>
 /// <param name="errors">
-///     Every failed operation is sent here — there is deliberately no way to call this without
-///     somewhere for errors to go.
+///     The pipeline sends each operation with an error here. There is no call of this function
+///     with no destination for the errors.
 /// </param>
 /// <param name="operation">
-///     The asynchronous work to run per input. Invoked inline, so it doesn't reach a thread pool
-///     until it awaits something itself, and it's handed a CancellationToken combining this item's
-///     own cancellation with any token the strategy supplied. Honoring that token is what makes
-///     <paramref name="cancelAll" />, <paramref name="cancelMatching" /> and
-///     <paramref name="cancelOnDispose" /> take effect on work that has already started — an
-///     operation that ignores it still runs to completion, and cancellation only means its result
-///     goes unpublished.
+///     The asynchronous work for each input. The pipeline calls it inline, thus it does not go to
+///     a thread pool before its own await. It receives a CancellationToken that combines the
+///     cancellation of this item with each token from the strategy. An operation that obeys that
+///     token lets <paramref name="cancelAll" />, <paramref name="cancelMatching" />, and
+///     <paramref name="cancelOnDispose" /> stop work that started. An operation that ignores the
+///     token continues to its end, and the cancellation then only stops the publication of its
+///     result.
 /// </param>
 /// <param name="strategy">
-///     How overlapping requests are handled. Holds no state of its own and may safely be reused
-///     across calls, even concurrently.
+///     The control of operations that overlap. It holds no state of its own, and more than one
+///     call can use it safely, at the same time.
 /// </param>
 /// <param name="cancelAll">
-///     <c>Some</c> stream whose every firing cancels every tracked operation, queued or already
-///     running, or <c>None</c>. A queued item that's canceled is simply never started when its turn
-///     comes; a running one stops only if its operation observes its CancellationToken.
+///     <c>Some</c> stream where each send cancels each tracked operation, Queued or Running, or
+///     <c>None</c>. The pipeline does not start a canceled Queued item at its turn. A Running
+///     operation stops only if it monitors its CancellationToken.
 /// </param>
 /// <param name="cancelMatching">
-///     <c>Some</c> stream whose every firing cancels whichever tracked operations, queued or
-///     running, were admitted for an input value present in the fired collection (compared with the
-///     default equality comparer for <c>'TInput</c>), or <c>None</c>. Same caveats as
-///     <paramref name="cancelAll" />.
+///     <c>Some</c> stream where each send cancels the tracked operations, Queued or Running, whose
+///     input value is in the collection of that send, or <c>None</c>. This uses the default
+///     equality comparer for <c>'TInput</c>. The limits of <paramref name="cancelAll" /> also
+///     apply here.
 /// </param>
 /// <param name="cancelOnDispose">
-///     Whether disposing the returned status also cancels every item tracked at that point, queued
-///     or running. Either way, disposing always, unconditionally, stops any further values from
-///     ever being admitted. Note that disposing never gags the pipeline: whatever is still in
-///     flight runs to completion and still publishes to <paramref name="results" /> or
-///     <paramref name="errors" /> afterward.
+///     True when a disposal of the status also cancels each item that the pipeline tracks at that
+///     time, Queued or Running. At each value, a disposal always stops the admission of more
+///     values. A disposal does not stop the output. Each operation that runs continues to its end
+///     and then publishes to <paramref name="results" /> or to <paramref name="errors" />.
 /// </param>
 /// <param name="source">
-///     The stream of inputs to run against. Every firing is offered to
-///     <paramref name="strategy" />, which decides whether it starts immediately or waits. After
-///     the returned status is disposed, further firings are ignored entirely.
+///     The stream of inputs. The pipeline gives each send to <paramref name="strategy" />, and the
+///     strategy starts it immediately or makes it wait. After a disposal of the status, the
+///     pipeline ignores each subsequent send.
 /// </param>
 /// <returns>
-///     An <c>AsyncMapStatus&lt;'TInput&gt;</c>: <c>IsRunning</c> is a <c>Cell&lt;bool&gt;</c> that is
-///     true while at least one invocation is actually running (not merely queued), updating
-///     glitch-free in the same transaction as whichever event caused it to change; <c>Items</c>
-///     lists every tracked value with its status; disposing it tears the pipeline down.
+///     An <c>AsyncMapStatus&lt;'TInput&gt;</c>. <c>IsRunning</c> is a <c>Cell&lt;bool&gt;</c> that
+///     is true while one call or more has the Running status, and a Queued item does not make it
+///     true. It updates with no glitch, in the transaction of the event that changes it.
+///     <c>Items</c> gives each tracked value with its status. A disposal of it stops the pipeline.
 /// </returns>
 [<MethodImpl(MethodImplOptions.NoInlining)>]
 let mapAsync
@@ -258,30 +265,32 @@ let mapAsync
     )
 
 /// <summary>
-///     As <c>mapAsync</c>, but for a strategy that inspects the input — <c>queuePerGroupStrategy</c>
-///     and friends. <paramref name="inputConverter" /> derives the value the strategy is written
-///     against; pass <c>fun v -&gt; v</c> where <c>'TInput</c> already is that type. See
-///     <c>mapAsync</c> for the full contract of the parameters shared with it.
+///     This is <c>mapAsync</c> for a strategy that reads the input, such as
+///     <c>queuePerGroupStrategy</c>. <paramref name="inputConverter" /> makes the value that the
+///     strategy reads. Give <c>fun v -&gt; v</c> where <c>'TInput</c> is that type. See
+///     <c>mapAsync</c> for the full contract of the parameters that the two functions share.
 /// </summary>
-/// <param name="results">Where each successful operation's return value is sent.</param>
-/// <param name="errors">Where every failed operation is sent.</param>
-/// <param name="operation">The asynchronous work to run per input.</param>
-/// <param name="strategy">How overlapping requests are handled.</param>
+/// <param name="results">The destination of the return value of each operation that succeeded.</param>
+/// <param name="errors">The destination of each operation with an error.</param>
+/// <param name="operation">The asynchronous work for each input.</param>
+/// <param name="strategy">The control of operations that overlap.</param>
 /// <param name="inputConverter">
-///     Converts each <c>'TInput</c> to the <c>'TStrategyInput</c> the strategy is written against,
-///     before it's admitted.
+///     Changes each <c>'TInput</c> to the <c>'TStrategyInput</c> of the strategy, before the
+///     admission.
 /// </param>
-/// <param name="cancelAll"><c>Some</c> stream canceling every tracked operation, or <c>None</c>.</param>
+/// <param name="cancelAll"><c>Some</c> stream that cancels each tracked operation, or <c>None</c>.</param>
 /// <param name="cancelMatching">
-///     <c>Some</c> stream canceling tracked operations by input value, or <c>None</c>.
+///     <c>Some</c> stream that cancels the tracked operations with a given input value, or
+///     <c>None</c>.
 /// </param>
 /// <param name="cancelOnDispose">
-///     Whether disposing the returned status also cancels everything tracked at that point.
+///     True when a disposal of the status also cancels each item that the pipeline tracks at that
+///     time.
 /// </param>
-/// <param name="source">The stream of inputs to run against.</param>
+/// <param name="source">The stream of inputs.</param>
 /// <returns>
-///     An <c>AsyncMapStatus&lt;'TInput&gt;</c> reporting what's queued and running; disposing it
-///     tears the pipeline down.
+///     An <c>AsyncMapStatus&lt;'TInput&gt;</c> that gives the Queued items and the Running items.
+///     A disposal of it stops the pipeline.
 /// </returns>
 [<MethodImpl(MethodImplOptions.NoInlining)>]
 let mapAsyncWithInputConverter
@@ -309,31 +318,33 @@ let mapAsyncWithInputConverter
     )
 
 /// <summary>
-///     As <c>mapAsync</c>, but for a strategy that inspects the result rather than the input.
-///     <paramref name="resultConverter" /> derives the value the strategy is written against; pass
-///     <c>fun v -&gt; v</c> where <c>'TResult</c> already is that type. See <c>mapAsync</c> for the
-///     full contract of the parameters shared with it.
+///     This is <c>mapAsync</c> for a strategy that reads the result and not the input.
+///     <paramref name="resultConverter" /> makes the value that the strategy reads. Give
+///     <c>fun v -&gt; v</c> where <c>'TResult</c> is that type. See <c>mapAsync</c> for the full
+///     contract of the parameters that the two functions share.
 /// </summary>
-/// <param name="results">Where each successful operation's return value is sent.</param>
-/// <param name="errors">Where every failed operation is sent.</param>
-/// <param name="operation">The asynchronous work to run per input.</param>
-/// <param name="strategy">How overlapping requests are handled.</param>
+/// <param name="results">The destination of the return value of each operation that succeeded.</param>
+/// <param name="errors">The destination of each operation with an error.</param>
+/// <param name="operation">The asynchronous work for each input.</param>
+/// <param name="strategy">The control of operations that overlap.</param>
 /// <param name="resultConverter">
-///     Converts each successful <c>'TResult</c> to the <c>'TStrategyResult</c> the strategy is
-///     written against, before the strategy is told the item completed. Not called for a failed or
-///     canceled run, which have no result to convert.
+///     Changes each <c>'TResult</c> that succeeded to the <c>'TStrategyResult</c> of the strategy,
+///     before the pipeline tells the strategy about the end of the item. A run with an error and a
+///     canceled run have no result, thus this code does not call it for them.
 /// </param>
-/// <param name="cancelAll"><c>Some</c> stream canceling every tracked operation, or <c>None</c>.</param>
+/// <param name="cancelAll"><c>Some</c> stream that cancels each tracked operation, or <c>None</c>.</param>
 /// <param name="cancelMatching">
-///     <c>Some</c> stream canceling tracked operations by input value, or <c>None</c>.
+///     <c>Some</c> stream that cancels the tracked operations with a given input value, or
+///     <c>None</c>.
 /// </param>
 /// <param name="cancelOnDispose">
-///     Whether disposing the returned status also cancels everything tracked at that point.
+///     True when a disposal of the status also cancels each item that the pipeline tracks at that
+///     time.
 /// </param>
-/// <param name="source">The stream of inputs to run against.</param>
+/// <param name="source">The stream of inputs.</param>
 /// <returns>
-///     An <c>AsyncMapStatus&lt;'TInput&gt;</c> reporting what's queued and running; disposing it
-///     tears the pipeline down.
+///     An <c>AsyncMapStatus&lt;'TInput&gt;</c> that gives the Queued items and the Running items.
+///     A disposal of it stops the pipeline.
 /// </returns>
 [<MethodImpl(MethodImplOptions.NoInlining)>]
 let mapAsyncWithResultConverter
@@ -361,35 +372,37 @@ let mapAsyncWithResultConverter
     )
 
 /// <summary>
-///     As <c>mapAsync</c>, but for a strategy that inspects both the input and the result. The
-///     fully general form the other three are special cases of — it imposes no relationship at all
-///     between this call's <c>'TInput</c>/<c>'TResult</c> and the types the strategy is written
-///     against, since both converters are supplied explicitly. See <c>mapAsync</c> for the full
-///     contract of the parameters shared with it.
+///     This is <c>mapAsync</c> for a strategy that reads the input and the result. It is the fully
+///     general shape, and the other three functions are special conditions of it. It needs no
+///     relation between the <c>'TInput</c> and the <c>'TResult</c> of the call and the types of
+///     the strategy, because the caller gives the two converters explicitly. See <c>mapAsync</c>
+///     for the full contract of the parameters that the two functions share.
 /// </summary>
-/// <param name="results">Where each successful operation's return value is sent.</param>
-/// <param name="errors">Where every failed operation is sent.</param>
-/// <param name="operation">The asynchronous work to run per input.</param>
-/// <param name="strategy">How overlapping requests are handled.</param>
+/// <param name="results">The destination of the return value of each operation that succeeded.</param>
+/// <param name="errors">The destination of each operation with an error.</param>
+/// <param name="operation">The asynchronous work for each input.</param>
+/// <param name="strategy">The control of operations that overlap.</param>
 /// <param name="inputConverter">
-///     Converts each <c>'TInput</c> to the <c>'TStrategyInput</c> the strategy is written against,
-///     before it's admitted.
+///     Changes each <c>'TInput</c> to the <c>'TStrategyInput</c> of the strategy, before the
+///     admission.
 /// </param>
 /// <param name="resultConverter">
-///     Converts each successful <c>'TResult</c> to the <c>'TStrategyResult</c> the strategy is
-///     written against, before the strategy is told the item completed.
+///     Changes each <c>'TResult</c> that succeeded to the <c>'TStrategyResult</c> of the strategy,
+///     before the pipeline tells the strategy about the end of the item.
 /// </param>
-/// <param name="cancelAll"><c>Some</c> stream canceling every tracked operation, or <c>None</c>.</param>
+/// <param name="cancelAll"><c>Some</c> stream that cancels each tracked operation, or <c>None</c>.</param>
 /// <param name="cancelMatching">
-///     <c>Some</c> stream canceling tracked operations by input value, or <c>None</c>.
+///     <c>Some</c> stream that cancels the tracked operations with a given input value, or
+///     <c>None</c>.
 /// </param>
 /// <param name="cancelOnDispose">
-///     Whether disposing the returned status also cancels everything tracked at that point.
+///     True when a disposal of the status also cancels each item that the pipeline tracks at that
+///     time.
 /// </param>
-/// <param name="source">The stream of inputs to run against.</param>
+/// <param name="source">The stream of inputs.</param>
 /// <returns>
-///     An <c>AsyncMapStatus&lt;'TInput&gt;</c> reporting what's queued and running; disposing it
-///     tears the pipeline down.
+///     An <c>AsyncMapStatus&lt;'TInput&gt;</c> that gives the Queued items and the Running items.
+///     A disposal of it stops the pipeline.
 /// </returns>
 [<MethodImpl(MethodImplOptions.NoInlining)>]
 let mapAsyncWithConverters
