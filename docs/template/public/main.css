@@ -1,0 +1,793 @@
+/*
+    The SodaFlow theme for the docfx "modern" template.
+
+    docfx loads this file after docfx.min.css, so everything here is an override. The colors come
+    from the logo in logo/: one green, #157551, and a set of tints and shades of it. A color that
+    is not the brand color is a neutral that holds a small quantity of the same green, which keeps
+    the page from looking like two designs at the same time.
+
+    The file has two parts. The tokens come first, set one time for the light theme and again for
+    the dark theme. The components come after, and they read the tokens and never name a color.
+    docfx puts data-bs-theme on the html element, thus the dark block is all that a theme change
+    must replace.
+*/
+
+/* ---------------------------------------------------------------- tokens */
+
+:root,
+:root[data-bs-theme="light"] {
+    --sf-brand: #157551;
+    --sf-brand-strong: #0f5a3e;
+    --sf-ink: #0e2a21;
+    --sf-text: #2c3d36;
+    --sf-muted: #5c6f67;
+
+    --sf-page: #f5faf7;
+    --sf-surface: #ffffff;
+    --sf-raised: #edf6f1;
+    --sf-tint: #e2f2ea;
+    --sf-line: #d9e8e1;
+    --sf-line-strong: #c2d9cf;
+
+    --sf-shadow: 0 1px 2px rgba(14, 42, 33, .04), 0 8px 24px rgba(14, 42, 33, .05);
+    --sf-focus: rgba(21, 117, 81, .28);
+
+    /* Syntax colors. Two hues beside the brand green, so that a keyword is never read as a link. */
+    --sf-code-keyword: #116a8e;
+    --sf-code-type: #1c7a57;
+    --sf-code-string: #9a5a00;
+    --sf-code-number: #8e3a64;
+    --sf-code-comment: #6b8078;
+
+    /* The alert colors, one pair for each severity. */
+    --sf-note: #157551;
+    --sf-note-bg: #e6f4ed;
+    --sf-tip: #0d6e7a;
+    --sf-tip-bg: #e2f3f5;
+    --sf-warning: #9a5a00;
+    --sf-warning-bg: #fbf1e0;
+    --sf-danger: #a3352f;
+    --sf-danger-bg: #fbeceb;
+
+    /* Bootstrap reads these, and docfx reads Bootstrap. The -rgb forms are necessary: the base
+       rule for a link is rgba(var(--bs-link-color-rgb), ...), thus a color alone does nothing. */
+    --bs-body-bg: var(--sf-page);
+    --bs-body-bg-rgb: 245, 250, 247;
+    --bs-body-color: var(--sf-text);
+    --bs-body-color-rgb: 44, 61, 54;
+    --bs-emphasis-color: var(--sf-ink);
+    --bs-emphasis-color-rgb: 14, 42, 33;
+    --bs-secondary-color: var(--sf-muted);
+    --bs-secondary-color-rgb: 92, 111, 103;
+    --bs-secondary-bg: var(--sf-raised);
+    --bs-tertiary-bg: var(--sf-raised);
+    --bs-border-color: var(--sf-line);
+    --bs-link-color: var(--sf-brand);
+    --bs-link-color-rgb: 21, 117, 81;
+    --bs-link-hover-color: var(--sf-brand-strong);
+    --bs-link-hover-color-rgb: 15, 90, 62;
+    --bs-code-color: var(--sf-brand-strong);
+    --bs-highlight-bg: #fdf2c8;
+    --bs-primary: var(--sf-brand);
+    --bs-primary-rgb: 21, 117, 81;
+}
+
+:root[data-bs-theme="dark"] {
+    --sf-brand: #4fd39c;
+    --sf-brand-strong: #7ae2b8;
+    --sf-ink: #e8f4ef;
+    --sf-text: #c3d5cd;
+    --sf-muted: #8ba49a;
+
+    --sf-page: #0b1310;
+    --sf-surface: #101a16;
+    --sf-raised: #16241e;
+    --sf-tint: #173025;
+    --sf-line: #1f3129;
+    --sf-line-strong: #2b4237;
+
+    --sf-shadow: 0 1px 2px rgba(0, 0, 0, .3), 0 8px 24px rgba(0, 0, 0, .25);
+    --sf-focus: rgba(79, 211, 156, .3);
+
+    --sf-code-keyword: #62b8dc;
+    --sf-code-type: #58d39d;
+    --sf-code-string: #e0a96a;
+    --sf-code-number: #e58fb4;
+    --sf-code-comment: #7e958c;
+
+    --sf-note: #4fd39c;
+    --sf-note-bg: #12251d;
+    --sf-tip: #4fc3d3;
+    --sf-tip-bg: #10262a;
+    --sf-warning: #e0a96a;
+    --sf-warning-bg: #2a2113;
+    --sf-danger: #e88880;
+    --sf-danger-bg: #2c1817;
+
+    --bs-body-bg: var(--sf-page);
+    --bs-body-bg-rgb: 11, 19, 16;
+    --bs-body-color: var(--sf-text);
+    --bs-body-color-rgb: 195, 213, 205;
+    --bs-emphasis-color: var(--sf-ink);
+    --bs-emphasis-color-rgb: 232, 244, 239;
+    --bs-secondary-color: var(--sf-muted);
+    --bs-secondary-color-rgb: 139, 164, 154;
+    --bs-secondary-bg: var(--sf-raised);
+    --bs-tertiary-bg: var(--sf-raised);
+    --bs-border-color: var(--sf-line);
+    --bs-link-color: var(--sf-brand);
+    --bs-link-color-rgb: 79, 211, 156;
+    --bs-link-hover-color: var(--sf-brand-strong);
+    --bs-link-hover-color-rgb: 122, 226, 184;
+    --bs-code-color: var(--sf-brand);
+    --bs-highlight-bg: #4a3f13;
+    --bs-primary: var(--sf-brand);
+    --bs-primary-rgb: 79, 211, 156;
+}
+
+/* ------------------------------------------------------------ page shell */
+
+body {
+    background-color: var(--sf-page);
+}
+
+::selection {
+    background: var(--sf-tint);
+    color: var(--sf-ink);
+}
+
+:focus-visible {
+    outline: 2px solid var(--sf-brand);
+    outline-offset: 2px;
+}
+
+/* The header is the one large area of brand color, thus the other parts of the page need none. */
+body > header {
+    background-color: var(--sf-tint) !important;
+    border-bottom: 1px solid var(--sf-line) !important;
+}
+
+.navbar-brand {
+    display: flex;
+    align-items: center;
+    gap: .55rem;
+    font-weight: 650;
+    font-size: 1.15rem;
+    letter-spacing: -.01em;
+    color: var(--sf-ink);
+    text-decoration: none;
+}
+
+.navbar-brand:hover {
+    color: var(--sf-brand-strong);
+}
+
+#logo {
+    height: 30px;
+    width: auto;
+}
+
+/* The marks are one color, #177a56, which is too dark to read on the dark page. The filter lifts
+   that green to approximately the brand color the dark theme uses for everything else. */
+:root[data-bs-theme="dark"] #logo,
+:root[data-bs-theme="dark"] .sf-hero-logo {
+    filter: brightness(1.6) saturate(.85);
+}
+
+.navbar .search {
+    display: flex;
+    align-items: center;
+    gap: .4rem;
+}
+
+#search-query {
+    border-radius: 999px;
+    border: 1px solid var(--sf-line-strong);
+    background-color: var(--sf-surface);
+    padding-left: .85rem;
+}
+
+#search-query:focus {
+    border-color: var(--sf-brand);
+    box-shadow: 0 0 0 3px var(--sf-focus);
+}
+
+footer {
+    background-color: var(--sf-tint);
+    border-top: 1px solid var(--sf-line) !important;
+    color: var(--sf-muted) !important;
+}
+
+/* ----------------------------------------------------------- the article */
+
+/* The content is on a raised surface, which is what separates it from the tinted page. */
+body > main > .content > article {
+    background-color: var(--sf-surface);
+    border: 1px solid var(--sf-line);
+    border-radius: 14px;
+    box-shadow: var(--sf-shadow);
+    padding: 1.75rem 2.25rem 2.25rem;
+    margin-bottom: 1.5rem;
+}
+
+@media (max-width: 767.98px) {
+    body > main > .content > article {
+        padding: 1.25rem 1.1rem 1.5rem;
+        border-radius: 10px;
+    }
+}
+
+article h1 {
+    font-size: 2.35rem;
+    font-weight: 680;
+    letter-spacing: -.025em;
+    color: var(--sf-ink);
+    margin-bottom: 1rem;
+}
+
+article h2 {
+    font-size: 1.6rem;
+    font-weight: 650;
+    letter-spacing: -.015em;
+    color: var(--sf-ink);
+    margin-top: 2.4rem;
+    padding-bottom: .4rem;
+    border-bottom: 1px solid var(--sf-line);
+}
+
+article h3 {
+    font-size: 1.22rem;
+    font-weight: 640;
+    color: var(--sf-ink);
+    margin-top: 1.9rem;
+}
+
+article h4,
+article h5 {
+    color: var(--sf-ink);
+    font-weight: 620;
+}
+
+article .anchorjs-link {
+    color: var(--sf-brand) !important;
+    opacity: .55;
+}
+
+article strong {
+    color: var(--sf-ink);
+}
+
+article hr {
+    border-color: var(--sf-line);
+    opacity: 1;
+}
+
+blockquote {
+    border-left: 3px solid var(--sf-line-strong);
+    padding: .25rem 0 .25rem 1rem;
+    color: var(--sf-muted);
+}
+
+/* ------------------------------------------------------------ navigation */
+
+.toc .nav-link,
+nav.toc a {
+    color: var(--sf-text);
+    border-radius: 7px;
+    padding: .25rem .5rem;
+    text-decoration: none;
+}
+
+.toc .nav-link:hover,
+nav.toc a:hover {
+    background-color: var(--sf-raised);
+    color: var(--sf-ink);
+}
+
+/* docfx marks the current page on the li, and that li's anchor carries no class of its own. */
+nav.toc li.active:not(.expander) > a {
+    background-color: var(--sf-tint);
+    color: var(--sf-brand-strong);
+    font-weight: 620;
+}
+
+.toc li.expander > a {
+    color: var(--sf-ink);
+    font-weight: 600;
+}
+
+/* An open group holds the current page. It is a heading for the group, not the page, thus it takes
+   the brand color without the pill that marks the page itself. */
+nav.toc li.expander.active > a {
+    color: var(--sf-brand-strong);
+}
+
+nav.toc .filter input {
+    border-radius: 999px;
+    border: 1px solid var(--sf-line-strong);
+    background-color: var(--sf-surface);
+}
+
+nav.toc .filter input:focus {
+    border-color: var(--sf-brand);
+    box-shadow: 0 0 0 3px var(--sf-focus);
+}
+
+/* "In this article" is a rail beside the text, thus the active entry is marked on the rail. */
+#affix h5 {
+    font-size: .78rem;
+    font-weight: 680;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+    color: var(--sf-muted);
+    border-bottom-color: var(--sf-line) !important;
+    padding-bottom: .5rem;
+}
+
+#affix ul li a {
+    color: var(--sf-muted) !important;
+    border-left: 2px solid transparent;
+    padding-left: .6rem;
+    text-decoration: none;
+}
+
+/* This template does not mark which heading you are at, thus hover is the only state there is. */
+#affix ul li a:hover {
+    color: var(--sf-brand-strong) !important;
+    border-left-color: var(--sf-brand);
+}
+
+#breadcrumb .breadcrumb-item a {
+    color: var(--sf-muted);
+    text-decoration: none;
+}
+
+#breadcrumb .breadcrumb-item a:hover {
+    color: var(--sf-brand-strong);
+}
+
+.next-article {
+    border-top-color: var(--sf-line) !important;
+    padding-top: 1rem;
+}
+
+.next-article a {
+    font-weight: 600;
+}
+
+.contribution .edit-link {
+    color: var(--sf-muted);
+    font-size: .9rem;
+}
+
+/* ----------------------------------------------------------------- code */
+
+code {
+    background-color: var(--sf-raised);
+    border: 1px solid var(--sf-line);
+    border-radius: 5px;
+    padding: .08em .34em;
+    font-size: .875em;
+}
+
+/* A code block has its own background, thus the inline treatment must come off it again. */
+pre > code,
+pre > code.hljs {
+    background-color: transparent;
+    border: 0;
+    padding: 0;
+    font-size: .9rem;
+}
+
+pre {
+    background-color: var(--sf-raised);
+    border: 1px solid var(--sf-line);
+    border-left: 3px solid var(--sf-brand);
+    border-radius: 10px;
+    padding: 1rem 1.15rem;
+}
+
+.hljs {
+    background: transparent;
+    color: var(--sf-text);
+}
+
+.hljs-comment,
+.hljs-quote {
+    color: var(--sf-code-comment);
+    font-style: italic;
+}
+
+.hljs-keyword,
+.hljs-selector-tag,
+.hljs-literal,
+.hljs-doctag,
+.hljs-meta {
+    color: var(--sf-code-keyword);
+    font-weight: 600;
+}
+
+.hljs-title,
+.hljs-title.class_,
+.hljs-title.function_,
+.hljs-type,
+.hljs-built_in,
+.hljs-class .hljs-title,
+.hljs-tag .hljs-name {
+    color: var(--sf-code-type);
+}
+
+.hljs-string,
+.hljs-regexp,
+.hljs-addition {
+    color: var(--sf-code-string);
+}
+
+.hljs-number,
+.hljs-symbol,
+.hljs-bullet,
+.hljs-attr,
+.hljs-attribute,
+.hljs-variable,
+.hljs-template-variable {
+    color: var(--sf-code-number);
+}
+
+.hljs-emphasis {
+    font-style: italic;
+}
+
+.hljs-strong {
+    font-weight: 700;
+}
+
+.code-action {
+    color: var(--sf-muted);
+}
+
+/* -------------------------------------------------------- language tabs */
+
+/* The C# and F# tabs are on almost all of the pages here, thus they get the most attention. */
+.tabGroup > ul {
+    display: flex;
+    gap: .25rem;
+    list-style: none;
+    padding: 0;
+    margin: 0 0 -1px;
+    border-bottom: 1px solid var(--sf-line);
+}
+
+.tabGroup > ul > li > a {
+    display: inline-block;
+    padding: .4rem .9rem;
+    border: 1px solid transparent;
+    border-bottom: 0;
+    border-radius: 9px 9px 0 0;
+    color: var(--sf-muted);
+    font-size: .9rem;
+    font-weight: 620;
+    text-decoration: none;
+}
+
+.tabGroup > ul > li > a:hover {
+    color: var(--sf-ink);
+    background-color: var(--sf-raised);
+}
+
+.tabGroup > ul > li > a[aria-selected="true"] {
+    background-color: var(--sf-surface);
+    border-color: var(--sf-line);
+    color: var(--sf-brand-strong);
+    box-shadow: inset 0 2px 0 var(--sf-brand);
+}
+
+.tabGroup > section {
+    border: 1px solid var(--sf-line);
+    border-radius: 0 10px 10px 10px;
+    background-color: var(--sf-surface);
+}
+
+/* A block in a tab is already on a panel, thus it does not need the second frame. */
+.tabGroup > section > pre:only-child {
+    margin: 0;
+    border: 0;
+    border-left: 3px solid var(--sf-brand);
+    border-radius: 6px;
+}
+
+/* --------------------------------------------------------------- tables */
+
+article table {
+    border-collapse: separate;
+    border-spacing: 0;
+    border: 1px solid var(--sf-line);
+    border-radius: 10px;
+    overflow: hidden;
+    width: 100%;
+}
+
+article table > thead > tr > th {
+    background-color: var(--sf-tint);
+    color: var(--sf-ink);
+    font-weight: 650;
+    border-bottom: 1px solid var(--sf-line-strong) !important;
+}
+
+article table > tbody > tr:nth-child(even) {
+    background-color: var(--sf-raised);
+}
+
+article table td,
+article table th {
+    border-color: var(--sf-line) !important;
+    padding: .55rem .75rem;
+}
+
+/* ------------------------------------------------------------ admonitions */
+
+/*
+    docfx writes > [!NOTE] as a div with the class NOTE and an h5, and the modern template gives it
+    no style. A note is thus indistinguishable from the paragraph before it. The icons are
+    Bootstrap Icons glyphs, which the template supplies and each page already loads.
+*/
+.NOTE,
+.TIP,
+.IMPORTANT,
+.WARNING,
+.CAUTION {
+    background-color: var(--sf-note-bg);
+    border-left: 4px solid var(--sf-note);
+    border-radius: 4px 10px 10px 4px;
+    padding: .9rem 1.15rem .35rem;
+    margin: 1.4rem 0;
+}
+
+.NOTE > h5,
+.TIP > h5,
+.IMPORTANT > h5,
+.WARNING > h5,
+.CAUTION > h5 {
+    display: flex;
+    align-items: center;
+    gap: .45rem;
+    font-size: .78rem;
+    font-weight: 700;
+    letter-spacing: .07em;
+    text-transform: uppercase;
+    color: var(--sf-note);
+    margin-bottom: .45rem;
+}
+
+.NOTE > h5::before,
+.TIP > h5::before,
+.IMPORTANT > h5::before,
+.WARNING > h5::before,
+.CAUTION > h5::before {
+    font-family: bootstrap-icons, sans-serif;
+    font-size: 1rem;
+    font-weight: 400;
+    letter-spacing: 0;
+    content: "\f430";
+}
+
+.TIP {
+    background-color: var(--sf-tip-bg);
+    border-left-color: var(--sf-tip);
+}
+
+.TIP > h5 {
+    color: var(--sf-tip);
+}
+
+.TIP > h5::before {
+    content: "\f468";
+}
+
+.IMPORTANT {
+    background-color: var(--sf-tip-bg);
+    border-left-color: var(--sf-tip);
+}
+
+.IMPORTANT > h5 {
+    color: var(--sf-tip);
+}
+
+.IMPORTANT > h5::before {
+    content: "\f336";
+}
+
+.WARNING {
+    background-color: var(--sf-warning-bg);
+    border-left-color: var(--sf-warning);
+}
+
+.WARNING > h5 {
+    color: var(--sf-warning);
+}
+
+.WARNING > h5::before {
+    content: "\f33a";
+}
+
+.CAUTION {
+    background-color: var(--sf-danger-bg);
+    border-left-color: var(--sf-danger);
+}
+
+.CAUTION > h5 {
+    color: var(--sf-danger);
+}
+
+.CAUTION > h5::before {
+    content: "\f33a";
+}
+
+/* ---------------------------------------------------------- API reference */
+
+article h2 .xref,
+article h3 .xref,
+article h4 .xref {
+    color: var(--sf-ink);
+}
+
+article .parameters table,
+article .summary + .table-responsive table {
+    font-size: .95rem;
+}
+
+/* ------------------------------------------------------------- the search */
+
+#search-results .search-list {
+    color: var(--sf-muted);
+}
+
+#search-results .sr-items .item-title a {
+    font-weight: 620;
+}
+
+/* --------------------------------------------------------- landing page */
+
+/*
+    index.md writes these classes as raw HTML, because Markdown cannot put a class on an element.
+    They exist only on that page.
+*/
+body[data-layout="landing"] > main > .content > article {
+    padding: 0;
+    border: 0;
+    background: none;
+    box-shadow: none;
+}
+
+.sf-hero {
+    background: linear-gradient(160deg, var(--sf-tint), var(--sf-surface) 70%);
+    border: 1px solid var(--sf-line);
+    border-radius: 18px;
+    box-shadow: var(--sf-shadow);
+    padding: 3rem 2.5rem 2.75rem;
+    margin-bottom: 2.5rem;
+}
+
+.sf-hero-logo {
+    width: 100%;
+    max-width: 340px;
+    height: auto;
+    margin-bottom: 1.5rem;
+}
+
+.sf-hero-tagline {
+    font-size: 1.9rem;
+    font-weight: 680;
+    line-height: 1.2;
+    letter-spacing: -.03em;
+    color: var(--sf-ink);
+    max-width: 22ch;
+    margin-bottom: 1rem;
+}
+
+.sf-hero-lede {
+    font-size: 1.08rem;
+    color: var(--sf-muted);
+    max-width: 62ch;
+    margin-bottom: 1.75rem;
+}
+
+.sf-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: .6rem;
+    margin: 0;
+}
+
+.sf-button {
+    display: inline-flex;
+    align-items: center;
+    gap: .4rem;
+    padding: .55rem 1.15rem;
+    border: 1px solid var(--sf-line-strong);
+    border-radius: 999px;
+    background-color: var(--sf-surface);
+    color: var(--sf-ink);
+    font-weight: 620;
+    font-size: .95rem;
+    text-decoration: none;
+}
+
+.sf-button:hover {
+    border-color: var(--sf-brand);
+    color: var(--sf-brand-strong);
+}
+
+.sf-button-primary {
+    background-color: var(--sf-brand);
+    border-color: var(--sf-brand);
+    color: #ffffff;
+}
+
+.sf-button-primary:hover {
+    background-color: var(--sf-brand-strong);
+    border-color: var(--sf-brand-strong);
+    color: #ffffff;
+}
+
+:root[data-bs-theme="dark"] .sf-button-primary,
+:root[data-bs-theme="dark"] .sf-button-primary:hover {
+    color: var(--sf-page);
+}
+
+.sf-cards {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(15.5rem, 1fr));
+    gap: 1rem;
+    margin: 1.25rem 0 2rem;
+}
+
+.sf-card {
+    display: block;
+    padding: 1.15rem 1.25rem;
+    border: 1px solid var(--sf-line);
+    border-radius: 12px;
+    background-color: var(--sf-surface);
+    color: inherit;
+    text-decoration: none;
+}
+
+.sf-card:hover {
+    border-color: var(--sf-brand);
+    box-shadow: var(--sf-shadow);
+    color: inherit;
+}
+
+.sf-card .bi {
+    display: block;
+    font-size: 1.35rem;
+    line-height: 1;
+    color: var(--sf-brand);
+    margin-bottom: .6rem;
+}
+
+.sf-card-title {
+    display: block;
+    font-weight: 650;
+    color: var(--sf-ink);
+    margin-bottom: .25rem;
+}
+
+.sf-card-text {
+    display: block;
+    font-size: .92rem;
+    color: var(--sf-muted);
+}
+
+.sf-card:hover .sf-card-title {
+    color: var(--sf-brand-strong);
+}
+
+@media (max-width: 767.98px) {
+    .sf-hero {
+        padding: 2rem 1.25rem;
+    }
+
+    .sf-hero-tagline {
+        font-size: 1.55rem;
+    }
+}
