@@ -297,7 +297,7 @@ public sealed class AccountsViewModelOptimizedDrain : IAccountsViewModel
 
                 // The sort reads its order from a cell, thus a click on a header sorts this stage
                 // again and does not build a second chain to select between two. The three orders
-                // sort on an int, a string and a long, and one cell holds all three, because an
+                // sort on an int, a string, and a long, and one cell holds all three, because an
                 // order keeps the type of its sort value private.
                 ReactiveCollection<int, AccountIdentity, AccountState> filtered =
                     accounts
