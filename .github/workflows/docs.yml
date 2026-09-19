@@ -10,12 +10,14 @@ on:
     paths:
       - 'docs/**'
       - 'src/**'
+      - 'logo/**'
       - '.config/dotnet-tools.json'
       - '.github/workflows/docs.yml'
   pull_request:
     paths:
       - 'docs/**'
       - 'src/**'
+      - 'logo/**'
       - '.config/dotnet-tools.json'
       - '.github/workflows/docs.yml'
   workflow_dispatch:
@@ -65,8 +67,8 @@ jobs:
       # its own v3, v7 in its v5.
       #
       # v4 of this action stopped including hidden files in the artifact. Checked rather than
-      # assumed: a local docfx build produces 917 files under docs/_site and not one dotfile
-      # among them, so there is nothing here for that change to drop.
+      # assumed: a local docfx build writes no dotfile at all under docs/_site, so there is
+      # nothing here for that change to drop.
       - uses: actions/upload-pages-artifact@v5
         with:
           path: docs/_site
