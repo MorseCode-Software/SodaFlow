@@ -1,9 +1,9 @@
+<h1><img src="logo/SodaFlowWithText.png" alt="SodaFlow" width="360"></h1>
+
 [![Build status](https://github.com/MorseCode-Software/SodaFlow/actions/workflows/build.yml/badge.svg?branch=main)](https://github.com/MorseCode-Software/SodaFlow/actions/workflows/build.yml)
 [![Coverage Status](https://coveralls.io/repos/github/MorseCode-Software/SodaFlow/badge.svg)](https://coveralls.io/github/MorseCode-Software/SodaFlow)
 [![Total Downloads](https://img.shields.io/nuget/dt/SodaFlow.svg)](http://www.nuget.org/packages/SodaFlow/)
 [![Latest Stable Version](https://img.shields.io/nuget/v/SodaFlow.svg)](http://www.nuget.org/packages/SodaFlow/)
-
-# SodaFlow
 
 Functional Reactive Programming for .NET, in C# and F#.
 
