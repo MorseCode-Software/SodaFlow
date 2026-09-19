@@ -8,21 +8,23 @@ using JetBrains.Annotations;
 namespace SodaFlow.Samples.Accounts.DrainBenchmarks;
 
 /// <summary>
-///     Just the drainable-key tracker's update step, away from the rest of a transaction: the fold
-///     OptimizedDrain used to have, a single-pass one, and the hybrid it has now, for a change shaped
-///     like a Pay and one shaped like a Drain.
+///     Only the update step of the drainable-key tracker, and no other part of a transaction. There are
+///     three folds: the fold that OptimizedDrain had, a fold that reads the change one time, and the mixed
+///     fold that it has now. Each one gets a change of the Pay shape and a change of the Drain shape.
 /// </summary>
 /// <remarks>
 ///     <para>
-///         Inside a view model this step is too small a part of a transaction to read - a Pay takes
-///         over 20 microseconds and allocates about 21 KB - so it is measured here on its own.
+///         In a view model this step is too small a part of a transaction to measure. A Pay takes
+///         more than 20 microseconds and allocates approximately 21 KB. Thus this benchmark
+///         measures the step alone.
 ///     </para>
 ///     <para>
-///         The inputs mirror what <c>ItemChange</c> hands the fold, including its types: new states
-///         through <see cref="IReadOnlyDictionary{TKey,TValue}" />, removed keys through a
-///         <see cref="HashSet{T}" /> behind <see cref="IReadOnlyCollection{T}" />, and changed keys
-///         as <c>NewStates.Keys.Concat(Removed)</c>, which is how <c>ChangedKeys</c> is defined.
-///         <see cref="State" /> stands in for the view model's internal <c>AccountState</c>.
+///         The inputs are the values that <c>ItemChange</c> gives to the fold, with the same
+///         types. The new states come through <see cref="IReadOnlyDictionary{TKey,TValue}" />, the
+///         removed keys come through a <see cref="HashSet{T}" /> behind <see
+///         cref="IReadOnlyCollection{T}" />, and the changed keys are
+///         <c>NewStates.Keys.Concat(Removed)</c>, which is the definition of <c>ChangedKeys</c>.
+///         <see cref="State" /> replaces the internal <c>AccountState</c> of the view model.
 ///     </para>
 /// </remarks>
 [UsedImplicitly]
@@ -42,7 +44,8 @@ public class TrackerBenchmarks
     [GlobalSetup]
     public void Setup()
     {
-        // About a quarter frozen, as in the seed; every frozen account starts with money.
+        // Approximately one quarter of the accounts are frozen, as in the seed, and each frozen
+        // account starts with a balance.
         Random random = new(42);
         List<int> frozen = [];
 
@@ -57,11 +60,12 @@ public class TrackerBenchmarks
         this.drainable = [.. frozen];
         this.removed = new HashSet<int>();
 
-        // A Pay: one active account's balance goes up, and it stays undrainable.
+        // A Pay increases the balance of one active account, and a drain cannot empty that
+        // account.
         int active = Enumerable.Range(start: 0, count: AccountCount).First(key => !this.drainable.Contains(key));
         this.payNewStates = new Dictionary<int, State> { [active] = new(Balance: 200_00, IsFrozen: false) };
 
-        // A Drain: every drainable account goes to zero, so all of them leave the set.
+        // A Drain sets each drainable account to zero, thus all of them go out of the set.
         this.drainNewStates = frozen.ToDictionary(keySelector: static key => key, elementSelector: static _ => new State(Balance: 0, IsFrozen: true));
     }
 
@@ -90,9 +94,9 @@ public class TrackerBenchmarks
     public ImmutableHashSet<int> HybridDrain() => Hybrid(keys: this.drainable, newStates: this.drainNewStates, removed: this.removed);
 
     /// <summary>
-    ///     Looks before it leaps only until something moves: <c>Contains</c> on the original set while
-    ///     nothing has changed, so a Pay allocates nothing, then straight to the builder, whose
-    ///     <c>Add</c> and <c>Remove</c> already do nothing for a key that is where it should be.
+    ///     This calls <c>Contains</c> on the initial set while no membership changes, thus a Pay
+    ///     allocates nothing. From the first change it uses the builder, and <c>Add</c> and
+    ///     <c>Remove</c> on the builder do nothing for a key in the correct condition.
     /// </summary>
     private static ImmutableHashSet<int> Hybrid(
         ImmutableHashSet<int> keys,
@@ -143,7 +147,7 @@ public class TrackerBenchmarks
         return builder is null ? keys : builder.ToImmutable();
     }
 
-    /// <summary>The fold OptimizedDrain had before the hybrid, line for line.</summary>
+    /// <summary>The fold that OptimizedDrain had before the mixed fold, line for line.</summary>
     private static ImmutableHashSet<int> Former(
         ImmutableHashSet<int> drainableAccountKeys,
         IReadOnlyDictionary<int, State> newStates,
@@ -161,7 +165,8 @@ public class TrackerBenchmarks
         return builder.ToImmutable();
     }
 
-    /// <summary>One pass over the change, and a builder only once a key's membership really moves.</summary>
+    /// <summary>This reads the change one time, and uses a builder only after the membership of
+    /// a key changes.</summary>
     private static ImmutableHashSet<int> SinglePass(
         ImmutableHashSet<int> keys,
         IReadOnlyDictionary<int, State> newStates,

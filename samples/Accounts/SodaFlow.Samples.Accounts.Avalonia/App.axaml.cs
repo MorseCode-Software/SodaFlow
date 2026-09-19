@@ -7,17 +7,17 @@ using SodaFlow.Samples.Accounts.ViewModels;
 namespace SodaFlow.Samples.Accounts.Avalonia;
 
 /// <summary>
-///     Builds the view model and hands it to the window as its data context, before the lifetime
-///     shows it.
+///     Builds the view model and gives it to the window as its data context, before the lifetime
+///     shows the window.
 /// </summary>
 /// <remarks>
-///     The window does not build its own view model, for the reason the counter sample's does not:
-///     a view that constructs what it binds to knows the concrete type and the factory that makes
-///     it, which is what binding against <see cref="IAccountsViewModel" /> was meant to avoid.
+///     The window does not build its own view model, for the cause that applies to the counter
+///     sample. A view that constructs the object that it binds to knows the concrete type and the
+///     factory that makes it, and a bind to <see cref="IAccountsViewModel" /> prevents that.
 /// </remarks>
-// Namespace AvaloniaUi rather than Avalonia: a namespace whose last segment is Avalonia hides
-// the framework's own root namespace from anything written inside it, which turns ordinary
-// qualified names like Avalonia.Controls.Window into errors that read very strangely.
+// The namespace is AvaloniaUi and not Avalonia. A namespace with Avalonia as its last segment
+// hides the root namespace of the framework from the code in it, and a usual full name such as
+// Avalonia.Controls.Window then becomes an error that is difficult to read.
 // ReSharper disable once InheritdocConsiderUsage
 internal sealed class App : Application
 {
@@ -29,17 +29,19 @@ internal sealed class App : Application
     {
         if (this.ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
         {
-            // Pinned before anything bindable exists, so nothing afterward depends on which thread
-            // a bindable happened to be built on. It matters more here than in the other samples:
-            // this view model builds a bindable per row, on demand, as rows come into view.
+            // This code sets the scheduler before the first bindable, thus no subsequent code
+            // depends on the thread of a bindable. This is more important here than in the other
+            // samples, because this view model builds one bindable for each row, as the rows come
+            // into view.
             BindingScheduler.Default = SynchronizationContextBindingScheduler.Capture();
 
             IAccountsViewModel viewModel = AccountsViewModelOptimizedDrain.Create();
 
             desktop.MainWindow = new MainWindow { DataContext = viewModel };
 
-            // Disposing this releases the row projection too, and with it every row bindable still
-            // held - the ones that never left the page and so were never evicted.
+            // Disposal of this also releases the row projection, and with it each row bindable
+            // that the projection holds. Those are the rows that stayed on the page and thus had
+            // no eviction.
             desktop.Exit += (_, _) => viewModel.Dispose();
         }
 

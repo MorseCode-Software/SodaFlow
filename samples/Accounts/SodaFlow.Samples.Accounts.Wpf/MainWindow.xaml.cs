@@ -1,8 +1,8 @@
 namespace SodaFlow.Samples.Accounts.Wpf;
 
 /// <summary>
-///     Markup and nothing else. The data context is supplied by <see cref="App" /> before this is
-///     shown, so the whole WPF side of the sample is the XAML next to this file.
+///     This holds only markup. <see cref="App" /> gives the data context before this window
+///     shows, thus the full WPF part of the sample is the XAML adjacent to this file.
 /// </summary>
 // ReSharper disable once InheritdocConsiderUsage
 internal sealed partial class MainWindow

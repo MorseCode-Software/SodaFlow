@@ -4,13 +4,14 @@ using SodaFlow.Collections;
 
 namespace SodaFlow.Samples.Accounts.ViewModels;
 
-/// <summary>The half of an account that never changes: what it is.</summary>
+/// <summary>The part of an account that does not change: its identity.</summary>
 /// <remarks>
-///     The key is derived from this alone, which is what lets the collection treat a state edit as
-///     something that cannot move an item into or out of a view keyed on identity.
+///     The key comes from this part only. Thus the collection knows that a state edit cannot move
+///     an item into a view with a key on the identity, and cannot move an item out of such a
+///     view.
 /// </remarks>
-/// <param name="Number">The account number, which is its key.</param>
-/// <param name="Holder">Whose account it is.</param>
+/// <param name="Number">The account number, which is the key.</param>
+/// <param name="Holder">The holder of the account.</param>
 // ReSharper disable once InheritdocConsiderUsage
 internal sealed record AccountIdentity(int Number, string Holder) : IIdentity<int>
 {
@@ -18,46 +19,48 @@ internal sealed record AccountIdentity(int Number, string Holder) : IIdentity<in
     public int Key => this.Number;
 }
 
-/// <summary>The half that moves: what the account currently holds.</summary>
+/// <summary>The part that changes: the current content of the account.</summary>
 /// <remarks>
-///     A record, so an edit is a <c>with</c> expression naming the one thing it changes and the
-///     rest is carried across.
+///     This is a record, thus an edit is a <c>with</c> expression that names the one field to
+///     change and keeps the other fields.
 /// </remarks>
-/// <param name="Balance">The balance, in cents, so the sample never shows a rounding artifact.</param>
-/// <param name="IsFrozen">Whether the account is frozen, which the view filters on.</param>
+/// <param name="Balance">The balance, in cents, thus the sample does not show a rounding error.</param>
+/// <param name="IsFrozen">True when the account is frozen. The view filters on this.</param>
 // ReSharper disable once InheritdocConsiderUsage
 internal sealed record AccountState(long Balance, bool IsFrozen)
 {
-    /// <summary>Whether a drain would empty this account: frozen, and with something left in it.</summary>
+    /// <summary>True when a drain empties this account. The account is frozen and has a
+    /// balance.</summary>
     /// <remarks>
-    ///     Named here rather than written out at each of the places that ask, because the two view
-    ///     models differ in how they track the drainable accounts and not in which accounts those
-    ///     are. Keeping the predicate in one place is what makes that the only difference.
+    ///     This is a name here, and no code writes it at each use. The two view models are
+    ///     different in the method that finds the drainable accounts, and not in the set of those
+    ///     accounts. One predicate in one position keeps that as the only difference.
     /// </remarks>
     internal bool IsDrainable => this.IsFrozen && this.Balance != 0;
 }
 
-/// <summary>The accounts this sample starts with.</summary>
+/// <summary>The accounts at the start of this sample.</summary>
 /// <remarks>
 ///     <para>
-///         A hundred thousand of them behind a page of six, which is the shape the collection is
-///         built for: almost all the items are not being looked at, and an edit should cost what
-///         the rows on screen cost rather than what the collection holds.
+///         There are one hundred thousand accounts behind a page of six accounts. The collection
+///         has that shape: almost no user sees the items, and an edit must cost the quantity of
+///         the rows on the screen and not the quantity of the collection.
 ///     </para>
 ///     <para>
-///         Generated rather than written out, and deterministically, so every run shows the same
-///         accounts in the same places and a number seen on screen can be found again.
+///         This code makes the accounts and does not write them, and it makes the same accounts
+///         at each run. Thus each run shows the same accounts in the same positions, and a user
+///         can find a number from the screen again.
 ///     </para>
 /// </remarks>
 internal static class AccountSeed
 {
-    /// <summary>How many accounts there are.</summary>
+    /// <summary>The number of accounts.</summary>
     private const int Count = 100_000;
 
-    /// <summary>The first account number, so that every number on screen is six digits wide.</summary>
+    /// <summary>The first account number, thus each number on the screen has six digits.</summary>
     private const int FirstNumber = 100_000;
 
-    /// <summary>The largest opening balance, in cents: fifty thousand dollars.</summary>
+    /// <summary>The maximum initial balance, in cents: fifty thousand dollars.</summary>
     private const uint MaximumBalance = 50_000_00;
 
     private static readonly string[] Surnames =
@@ -81,32 +84,37 @@ internal static class AccountSeed
         // ReSharper restore StringLiteralTypo
     ];
 
-    /// <summary>The accounts, built once and shared, since nothing can change an item.</summary>
+    /// <summary>The accounts, built one time and shared, because no code can change an
+    /// item.</summary>
     internal static IReadOnlyList<Item<AccountIdentity, AccountState>> Items { get; } =
         [.. Enumerable.Range(start: 0, count: Count).Select(Create)];
 
     private static Item<AccountIdentity, AccountState> Create(int index)
     {
-        // Two hashes, so the holder and the balance are drawn independently of each other and of
-        // the account number, and sorting by any one column visibly re-files the list.
+        // There are two hashes, thus the code makes the holder and the balance independently of
+        // each other and of the account number. Thus a sort on one column moves the rows of the
+        // list.
         uint forState = Scramble((uint)index + 1);
         uint forHolder = Scramble(forState);
 
-        // Every surname with every given name, rather than a handful of pairs on repeat.
+        // Each surname with each given name, and not a small set of pairs many times.
         string holder = Surnames[forHolder % Surnames.Length] + ", " +
                         GivenNames[forHolder / Surnames.Length % GivenNames.Length];
 
-        // Balances scattered to the cent, so ties are rare. The top two bits both clear is one
-        // account in four, which is how many start frozen.
+        // The balances are different to the cent, thus two equal balances are rare. The two
+        // highest bits are zero for one account in four, and that is the quantity of frozen
+        // accounts at the start.
         return new Item<AccountIdentity, AccountState>(
             identity: new AccountIdentity(Number: FirstNumber + index, Holder: holder),
             state: new AccountState(Balance: forState % MaximumBalance + 1, IsFrozen: forState >> 30 == 0));
     }
 
-    /// <summary>A cheap, fixed hash, so the seed is the same on every run and every runtime.</summary>
+    /// <summary>A hash with a low cost and a constant result, thus the seed is the same at each
+    /// run and on each runtime.</summary>
     /// <remarks>
-    ///     Not <see cref="System.Random" />: a seeded one is stable in practice, but that is a
-    ///     compatibility promise about a legacy algorithm rather than something this should lean on.
+    ///     This code does not use <see cref="System.Random" />. A seeded instance gives the same
+    ///     values, but that is a compatibility statement about a previous algorithm, and this
+    ///     code must not use it.
     /// </remarks>
     private static uint Scramble(uint value)
     {

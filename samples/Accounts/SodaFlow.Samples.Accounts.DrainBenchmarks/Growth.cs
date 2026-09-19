@@ -5,13 +5,14 @@ using SodaFlow.Samples.Accounts.ViewModels;
 namespace SodaFlow.Samples.Accounts.DrainBenchmarks;
 
 /// <summary>
-///     Whether a Pay costs more the more Pays came before it: allocation on this thread, time and
-///     retained memory per block of Pays, and how often the Rows list reported a change.
+///     This tests if the cost of a Pay increases with the number of Pays before it. It measures
+///     the allocation on this thread, the time and the retained memory for each block of Pays, and
+///     the number of changes that the Rows list reported.
 /// </summary>
 /// <remarks>
-///     Rows should not change at all here - paying into the first row in arrival order moves no
-///     row - so any count other than zero means the row list is re-projected by a Pay, which would
-///     also rebuild the merge of the rows' deposit streams each time.
+///     Rows must not change here, because a deposit into the first row in arrival order moves no
+///     row. Thus a count above zero means that a Pay projects the row list again, and that also
+///     builds the merge of the deposit streams of the rows again.
 /// </remarks>
 internal static class Growth
 {
@@ -23,8 +24,8 @@ internal static class Growth
         IAccountsViewModel viewModel = ViewModels.Create(name);
         int rowsChanged = 0;
 
-        // The cell rather than the bindable's PropertyChanged, which a dispatcher-backed scheduler
-        // would raise only after each Pay had returned.
+        // This uses the cell and not the PropertyChanged of the bindable. A scheduler that uses a
+        // dispatcher raises that event only after each Pay returns.
         IListener rowsListener = viewModel.Rows.Cell.Updates().Listen(_ => rowsChanged++);
 
         IAccountRowViewModel row = viewModel.Rows.Cell.Sample()[0];
