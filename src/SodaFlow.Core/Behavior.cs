@@ -154,10 +154,10 @@ public class Behavior<T>
     ///     transaction, and then each update.
     /// </summary>
     /// <remarks>
-    ///     The two sources send into one output stream. They do not use a spark stream, a snapshot
-    ///     of it and a merge, which is four streams where two are sufficient. Value is below
-    ///     Cell.ListenStrong, Apply and the switch operations, thus it was a large part of the
-    ///     cost of each of them.
+    ///     The two sources send into one output stream. They do not use a spark stream, a
+    ///     snapshot of it, and a merge, which is four streams where two are sufficient. Value is
+    ///     below Cell.ListenStrong, Apply, and the switch operations, thus it was a large part of
+    ///     the cost of each of them.
     ///     SodaFlow queues the initial send against a new node of its own, as the spark
     ///     stream that it replaces did, and for the same cause. A new node ranks below all
     ///     other nodes, thus SodaFlow supplies the value also when a caller calls Value
@@ -200,7 +200,7 @@ public class Behavior<T>
                 .HoldLazyInternal(trans: trans, initialValue: this.SampleLazy(trans).MapImpl(f)));
 
     // Lift no longer uses Apply. One call to ApplyImpl for each additional input made each
-    // input pay for a Value(), which is a spark stream, a snapshot, a merge and a coalesce
+    // input pay for a Value(), which is a spark stream, a snapshot, a merge, and a coalesce
     // operation. Thus a six-way lift built approximately fifty streams and cost approximately
     // 87KB. This method builds three streams for all arities: one pulse stream that each input
     // sends into, one coalesce operation that makes the updates of a transaction into one

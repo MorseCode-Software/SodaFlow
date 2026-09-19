@@ -13,7 +13,7 @@ internal sealed class TransactionInternal
     // These fields use [ThreadStatic] and not ThreadLocal<T>. Almost all public entry points
     // read them. A thread-static field is a TLS access with no table, but ThreadLocal<T>.Value uses a
     // generic slot table. This code does not use the other members of ThreadLocal, which are
-    // Values, IsValueCreated, value factories and disposal. Thus the two are equivalent here.
+    // Values, IsValueCreated, value factories, and disposal. Thus the two are equivalent here.
     [ThreadStatic] private static TransactionInternal? localTransaction;
 
     [ThreadStatic] private static bool runningOnStartHooks;
@@ -404,15 +404,15 @@ internal sealed class TransactionInternal
                         // their final size in the two conditions, thus a List adds only its own
                         // object to the backing array that it must allocate. Array.Sort is the
                         // same intro-sort that List.Sort calls, and a foreach on either one
-                        // allocates nothing. At 4, 16 and 64 entries the List cost 32 more
+                        // allocates nothing. At 4, 16, and 64 entries the List cost 32 more
                         // bytes each time, which is the size of the List.
                         //
                         // Do not use OrderBy(o => o.Key) to prevent the lookups below. It
                         // cannot sort without a copy. It makes a KeyValuePair buffer at sixteen
                         // bytes for each entry against four bytes here, an array of the
                         // extracted keys, an index map to keep the sort stable, and an
-                        // enumerator class. That measured 384, 672 and 1824 bytes against 40,
-                        // 88 and 280 bytes for the array, and was slower at each size: 106ns
+                        // enumerator class. That measured 384, 672, and 1824 bytes against 40,
+                        // 88, and 280 bytes for the array, and was slower at each size: 106ns
                         // against 83ns at four entries, and 1639ns against 473ns at
                         // sixty-four. These lookups on int keys cost less than their
                         // prevention.

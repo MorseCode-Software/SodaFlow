@@ -242,8 +242,9 @@ public sealed class MapAsyncExtensionsTests
         IListener l = results.ListenStrong(received.Add);
         AlwaysStartStrategy<int, bool> strategy = new();
 
-        // TStrategyInput (int, a length) and TStrategyResult (bool, "is long") are both
-        // unrelated by inheritance to TInput/TResult (string) — only this overload permits it.
+        // TStrategyInput, which is an int length, and TStrategyResult, which is a bool for "is
+        // long", have no inheritance relation to TInput and TResult, which are a string. Only this
+        // overload permits that.
         AsyncMapStatus<string> status =
             source.MapAsync(
                 results: results,
@@ -460,9 +461,10 @@ public sealed class MapAsyncExtensionsTests
     private sealed class Dog : Animal;
 
     /// <summary>
-    ///     Starts everything immediately, like the built-in Parallel, but works against arbitrary
-    ///     TStrategyInput/TStrategyResult and records both what it was admitted with and what it
-    ///     saw on completion — so a test can assert a converter actually ran, not merely compiled.
+    ///     Starts each item immediately, as the Parallel strategy in the library does. It
+    ///     operates on each TStrategyInput and each TStrategyResult, and records the value at the
+    ///     admission and the value at the end. Thus a test can show that a converter ran, and not
+    ///     only that it compiled.
     /// </summary>
     // ReSharper disable once InheritdocConsiderUsage
     private sealed class AlwaysStartStrategy<TStrategyInput, TStrategyResult>

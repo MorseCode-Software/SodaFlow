@@ -10,32 +10,35 @@ open SodaFlow.Async.Tests.TestUtil
 open SodaFlow.Tests
 open TUnit.Core
 
-// A handwritten custom strategy (subclassing AsyncConcurrencyStrategy<'TInput,'TResult,'TState>
-// and overriding Admit/OnCompleted/CreateState) IS exercised below. An earlier version of this
-// file concluded F# couldn't do this at all — that was wrong, and the actual causes were more
-// mundane than "a genuine compiler limitation":
-//   - This project had no direct ProjectReference to SodaFlow.Core.Async, only a transitive one
-//     through SodaFlow.FSharp.Async. F#'s accessibility checking for the protected-internal
-//     AsyncQueuedItem/AsyncToStart/AsyncOutcome/AsyncStrategyResult types needs the direct
-//     reference to resolve correctly; a transitive one isn't enough.
-//   - AsyncToStart<'T>, AsyncOutcome<'T> and AsyncStrategyResult<'T> were readonly structs. Every
-//     struct has an implicit, non-suppressible parameterless constructor, and F# could reach it
-//     (e.g. via a bare default/Unchecked.defaultof), silently producing an invalid instance — item
-//     = null, in particular — without ever running the validating constructor. They're sealed
-//     classes now, closing that hole; there's no default construction path around `new`.
-//   - The F# module's own non-generic AsyncConcurrencyStrategy shorthand classes used the
-//     abbreviated `type X = inherit Y` class syntax, which didn't reliably produce a constructor
-//     usable from outside the module. They're written with an explicit `type X() = inherit Y()`
-//     now.
-//   - One more, found while porting these tests, with no C# equivalent to fix: F# rejects
-//     constructing a protected-internal type directly inside an array literal (`[| Ctor(...) |]`)
-//     as if that were itself a closure, even though nothing about it looks like one. Building the
-//     instance in its own `let` first and only referencing that local inside the array — see
-//     Admit below, in both strategies — is what actually resolves it.
+// The tests below use a custom strategy that this file writes. That strategy subclasses
+// AsyncConcurrencyStrategy<'TInput,'TResult,'TState> and overrides Admit, OnCompleted, and
+// CreateState. A previous version of this file said that F# cannot do this. That was incorrect,
+// and the causes were more simple than a limit of the compiler:
+//   - This project had no ProjectReference to SodaFlow.Core.Async, and had only a
+//     reference through SodaFlow.FSharp.Async. The accessibility test in F# for the
+//     protected-internal types AsyncQueuedItem, AsyncToStart, AsyncOutcome, and
+//     AsyncStrategyResult needs that reference, and a reference through a second project is not
+//     sufficient.
+//   - AsyncToStart<'T>, AsyncOutcome<'T>, and AsyncStrategyResult<'T> were readonly structs. Each
+//     struct has an implicit constructor with no parameter that no code can remove, and F# can
+//     call it with a bare default or with Unchecked.defaultof. That made an incorrect instance,
+//     with a null item in particular, and did not run the constructor that tests the arguments.
+//     The three are sealed classes now, and that removes the hole. There is no path to a default
+//     construction around `new`.
+//   - The short AsyncConcurrencyStrategy classes of the F# module, which are not generic, used
+//     the short `type X = inherit Y` class syntax. That syntax did not always make a constructor
+//     that code out of the module can call. The three now use an explicit
+//     `type X() = inherit Y()`.
+//   - One more cause came from the move of these tests to F#, and C# has no equivalent. F#
+//     refuses the
+//     construction of a protected-internal type directly in an array literal, such as
+//     `[| Ctor(...) |]`, as if that literal were a closure. The correction is a `let` for the
+//     instance first, and only a reference to that local in the array. See Admit below, in the
+//     two strategies.
 
-/// Starts everything immediately, like parallelStrategy, but works against arbitrary
-/// 'TStrategyInput/'TStrategyResult and records both what it was admitted with and what it saw on
-/// completion — so a test can assert a converter actually ran, not merely compiled.
+/// Starts each item immediately, as parallelStrategy does. It operates on each 'TStrategyInput
+/// and each 'TStrategyResult, and records the value at the admission and the value at the end.
+/// Thus a test can show that a converter ran, and not only that it compiled.
 type private AlwaysStartStrategy<'TStrategyInput, 'TStrategyResult>() =
     inherit AsyncConcurrencyStrategy<'TStrategyInput, 'TStrategyResult, EmptyState>()
 
@@ -48,8 +51,8 @@ type private AlwaysStartStrategy<'TStrategyInput, 'TStrategyResult>() =
     override _.CreateState() = EmptyState
 
     override _.Admit(_state: EmptyState, incoming: AsyncMapBase.AsyncQueuedItem<'TStrategyInput>) =
-        // The protected-internal item's members can't be read from inside a closure — read the
-        // value out to a plain local first, then close over that instead.
+        // A closure cannot read the members of the protected-internal item. Read the value into a
+        // local first, and then use that local in the closure.
         let v = incoming.Value
         lock admittedValues (fun () -> admittedValues.Add(v))
         let toStart = AsyncMapBase.AsyncToStart<'TStrategyInput>(incoming)
@@ -66,9 +69,10 @@ type private AlwaysStartStrategy<'TStrategyInput, 'TStrategyResult>() =
         lock completedResults (fun () -> completedResults.Add(captured))
         AsyncMapBase.AsyncStrategyResult<'TStrategyInput>(true, AsyncMapBase.AsyncStrategyResult<'TStrategyInput>.None)
 
-/// A trivial custom strategy using EmptyState directly (input and result both fixed to `unit`,
-/// via the F# module's own non-generic AsyncConcurrencyStrategy shorthand) — every value starts
-/// immediately, like parallelStrategy, but also counts admissions.
+/// A small custom strategy that uses EmptyState directly. The input type and the result type are
+/// `unit`, through the short AsyncConcurrencyStrategy of the F# module, which is not generic. Each
+/// value starts immediately, as parallelStrategy does, and this strategy also counts the
+/// admissions.
 type private CountingStrategy() =
     inherit AsyncConcurrencyStrategy()
 
@@ -227,7 +231,8 @@ type ``MapAsync Tests``() =
             let received = List<string>()
             let l = results |> listenStrongS received.Add
 
-            // Case-insensitive grouping: "A-1" and "a-2" share a group despite differing case.
+            // The group comparer is not sensitive to a capital letter, thus "A-1" and "a-2" have
+            // one group.
             let getGroup (v: string) = v.Split('-').[0]
 
             let strategy =
@@ -300,8 +305,9 @@ type ``MapAsync Tests``() =
 
             let operation (v: string) (_: CancellationToken) = Task.FromResult(v.ToUpperInvariant())
 
-            // 'TStrategyInput (int, a length) and 'TStrategyResult (bool, "is long") are both unrelated
-            // by inheritance to 'TInput/'TResult (string) — only this overload permits that.
+            // 'TStrategyInput, which is an int length, and 'TStrategyResult, which is a bool for
+            // "is long", have no inheritance relation to 'TInput and 'TResult, which are a string.
+            // Only this overload permits that.
             let status =
                 source
                 |> mapAsyncWithConverters

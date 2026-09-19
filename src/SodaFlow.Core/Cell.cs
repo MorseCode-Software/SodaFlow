@@ -30,7 +30,7 @@ public class Cell<T>
 {
     // SodaFlow builds this on first use and does not hold it in a Lazy. A Lazy and its
     // necessary closure are three objects for each cell. SodaFlow makes a cell for each Hold,
-    // Map and Lift, and a caller calls Updates or Calm on only a few of them.
+    // Map, and Lift, and a caller calls Updates or Calm on only a few of them.
     //
     // This field is volatile, because the fast path below reads it when there is no
     // transaction. Thus that reader holds no lock. SodaFlow does the write while it holds the

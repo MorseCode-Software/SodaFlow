@@ -8,47 +8,53 @@ using SodaFlow.Functional;
 namespace SodaFlow.Async;
 
 /// <summary>
-///     Extension methods that bridge an impure asynchronous operation into the FRP world:
-///     listen on a Stream&lt;TInput&gt;, run an async operation per firing, push the result into a
-///     StreamSink&lt;TResult&gt;, and expose what's queued/running — optionally wired up to streams
-///     that trigger cancellation of queued or running work alike. The returned
-///     <see cref="AsyncMapStatus{TInput}" /> is IDisposable; disposing it is how you tear the whole
-///     pipeline down.
+///     Extension methods that connect an impure asynchronous operation to the FRP graph. They
+///     listen on a Stream&lt;TInput&gt;, run an async operation for each send, put the result into
+///     a StreamSink&lt;TResult&gt;, and give the Queued items and the Running items. They can also
+///     connect to streams that cancel Queued work and Running work. The
+///     <see cref="AsyncMapStatus{TInput}" /> that they return is IDisposable, and a disposal of it
+///     stops the full pipeline.
 ///     <para>
-///         The overloads differ only in how the call's own
-///         <c>TInput</c>/<c>TResult</c> reach the types the <c>strategy</c> argument is written
-///         against. Pick by what your strategy needs: one that only schedules (Parallel, Queue,
-///         SwitchLatest) ignores both, so neither converter is needed; one that inspects the input
-///         (QueuePerGroup) needs <c>TInput</c> to either already be its input type or be
-///         convertible to it. Every overload forwards to the last one, which takes both converters
-///         explicitly and imposes no relationship at all.
+///         The overloads are different only in the path from the <c>TInput</c> and the
+///         <c>TResult</c> of the call to the types of the <c>strategy</c> argument. Select the
+///         overload for your strategy. A strategy that only schedules, such as Parallel, Queue,
+///         or SwitchLatest, uses no type of the two, thus it needs no converter. A strategy that
+///         reads the input, such as QueuePerGroup, needs a <c>TInput</c> that is its input type
+///         or that a converter can change into its input type. Each overload sends the call to
+///         the last overload, which takes the two converters explicitly and needs no relation
+///         between the types.
 ///     </para>
 /// </summary>
 [PublicAPI]
 public static class AsyncStreamExtensions
 {
     /// <summary>
-    ///     For a strategy that only cares about scheduling, not about
-    ///     <typeparamref name="TInput" />/<typeparamref name="TResult" /> themselves — Parallel,
-    ///     Queue, SwitchLatest. Both are erased to <see cref="Unit" /> before reaching it, so
-    ///     neither converter is needed. See the canonical
+    ///     For a strategy that uses only the schedule, and not
+    ///     <typeparamref name="TInput" /> or <typeparamref name="TResult" />. Those strategies are
+    ///     Parallel, Queue, and SwitchLatest. This overload changes the two types to
+    ///     <see cref="Unit" /> before the strategy, thus it needs no converter. See the
+    ///     canonical
     ///     <see
     ///         cref="MapAsync{TInput,TResult,TStrategyInput,TStrategyResult}(Stream{TInput},StreamSink{TResult},StreamSink{Exception},Func{TInput,CancellationToken,Task{TResult}},AsyncConcurrencyStrategyBase{TStrategyInput,TStrategyResult},Func{TInput,TStrategyInput},Func{TResult,TStrategyResult},Stream{Unit},Stream{IReadOnlyCollection{TInput}},bool)" />
     ///     overload for the full parameter contract.
     /// </summary>
-    /// <typeparam name="TInput">The type carried by the source stream.</typeparam>
-    /// <typeparam name="TResult">The type <paramref name="operation" /> produces on success.</typeparam>
-    /// <param name="source">The stream of inputs to run against.</param>
-    /// <param name="results">Where each successful run's value is sent, in completion order.</param>
-    /// <param name="errors">Where every failed run's exception is sent.</param>
-    /// <param name="operation">The asynchronous work to run per input.</param>
-    /// <param name="strategy">How overlapping requests are handled.</param>
-    /// <param name="cancelAll">Optional. Each firing cancels every tracked operation.</param>
-    /// <param name="cancelMatching">Optional. Each firing cancels tracked operations by input value.</param>
-    /// <param name="cancelOnDispose">Whether disposing also cancels what's tracked; true by default.</param>
+    /// <typeparam name="TInput">The type in the source stream.</typeparam>
+    /// <typeparam name="TResult">The type that <paramref name="operation" /> gives when it succeeds.</typeparam>
+    /// <param name="source">The stream of inputs.</param>
+    /// <param name="results">
+    ///     The destination of the value of each run that succeeded, in the sequence of their ends.
+    /// </param>
+    /// <param name="errors">The destination of the exception of each run with an error.</param>
+    /// <param name="operation">The asynchronous work for each input.</param>
+    /// <param name="strategy">The control of operations that overlap.</param>
+    /// <param name="cancelAll">This is optional. Each send cancels each tracked operation.</param>
+    /// <param name="cancelMatching">
+    ///     This is optional. Each send cancels the tracked operations with a given input value.
+    /// </param>
+    /// <param name="cancelOnDispose">True when a disposal also cancels the tracked items. The default is true.</param>
     /// <returns>
-    ///     An <see cref="AsyncMapStatus{TInput}" /> reporting what's queued and running; disposing
-    ///     it tears the pipeline down.
+    ///     An <see cref="AsyncMapStatus{TInput}" /> that gives the Queued items and the Running
+    ///     items. A disposal of it stops the pipeline.
     /// </returns>
     /// <exception cref="ArgumentNullException">
     ///     <paramref name="source" />, <paramref name="results" />, <paramref name="errors" />,
@@ -75,36 +81,39 @@ public static class AsyncStreamExtensions
             cancelOnDispose: cancelOnDispose);
 
     /// <summary>
-    ///     For a strategy that inspects the input but publishes no meaningful result (the result
-    ///     is erased to <see cref="Unit" />), where <typeparamref name="TInput" /> already is the
-    ///     <typeparamref name="TStrategyInput" /> the strategy is written against — so no
-    ///     converter is needed. See the canonical
+    ///     For a strategy that reads the input and publishes no result, because this overload
+    ///     changes the result type to <see cref="Unit" />. Here
+    ///     <typeparamref name="TInput" /> is the <typeparamref name="TStrategyInput" /> of the
+    ///     strategy, thus this overload needs no converter. See the canonical
     ///     <see
     ///         cref="MapAsync{TInput,TResult,TStrategyInput,TStrategyResult}(Stream{TInput},StreamSink{TResult},StreamSink{Exception},Func{TInput,CancellationToken,Task{TResult}},AsyncConcurrencyStrategyBase{TStrategyInput,TStrategyResult},Func{TInput,TStrategyInput},Func{TResult,TStrategyResult},Stream{Unit},Stream{IReadOnlyCollection{TInput}},bool)" />
     ///     overload for the full parameter contract.
     /// </summary>
-    /// <typeparam name="TInput">The type carried by the source stream.</typeparam>
-    /// <typeparam name="TResult">The type <paramref name="operation" /> produces on success.</typeparam>
+    /// <typeparam name="TInput">The type in the source stream.</typeparam>
+    /// <typeparam name="TResult">The type that <paramref name="operation" /> gives when it succeeds.</typeparam>
     /// <typeparam name="TStrategyInput">
-    ///     The input type <paramref name="strategy" /> is written against — inferred from
-    ///     <paramref name="strategy" />'s type, never specified explicitly. Usually just
-    ///     <typeparamref name="TInput" />; the <c>where TInput : TStrategyInput</c> constraint
-    ///     additionally lets a strategy written against a base class or interface be shared across
-    ///     MapAsync calls over several different, more specific <typeparamref name="TInput" />
-    ///     types, while the strategy still operates purely in terms of
-    ///     <typeparamref name="TStrategyInput" />.
+    ///     The input type of <paramref name="strategy" />. The compiler infers it from the type
+    ///     of <paramref name="strategy" />, and no caller gives it explicitly. It is usually
+    ///     <typeparamref name="TInput" />. The <c>where TInput : TStrategyInput</c> constraint
+    ///     also lets more than one MapAsync call share a strategy that uses a base class or an
+    ///     interface, with its own <typeparamref name="TInput" /> in each call. The
+    ///     strategy then uses only <typeparamref name="TStrategyInput" />.
     /// </typeparam>
-    /// <param name="source">The stream of inputs to run against.</param>
-    /// <param name="results">Where each successful run's value is sent, in completion order.</param>
-    /// <param name="errors">Where every failed run's exception is sent.</param>
-    /// <param name="operation">The asynchronous work to run per input.</param>
-    /// <param name="strategy">How overlapping requests are handled.</param>
-    /// <param name="cancelAll">Optional. Each firing cancels every tracked operation.</param>
-    /// <param name="cancelMatching">Optional. Each firing cancels tracked operations by input value.</param>
-    /// <param name="cancelOnDispose">Whether disposing also cancels what's tracked; true by default.</param>
+    /// <param name="source">The stream of inputs.</param>
+    /// <param name="results">
+    ///     The destination of the value of each run that succeeded, in the sequence of their ends.
+    /// </param>
+    /// <param name="errors">The destination of the exception of each run with an error.</param>
+    /// <param name="operation">The asynchronous work for each input.</param>
+    /// <param name="strategy">The control of operations that overlap.</param>
+    /// <param name="cancelAll">This is optional. Each send cancels each tracked operation.</param>
+    /// <param name="cancelMatching">
+    ///     This is optional. Each send cancels the tracked operations with a given input value.
+    /// </param>
+    /// <param name="cancelOnDispose">True when a disposal also cancels the tracked items. The default is true.</param>
     /// <returns>
-    ///     An <see cref="AsyncMapStatus{TInput}" /> reporting what's queued and running; disposing
-    ///     it tears the pipeline down.
+    ///     An <see cref="AsyncMapStatus{TInput}" /> that gives the Queued items and the Running
+    ///     items. A disposal of it stops the pipeline.
     /// </returns>
     /// <exception cref="ArgumentNullException">
     ///     <paramref name="source" />, <paramref name="results" />, <paramref name="errors" />,
@@ -132,37 +141,42 @@ public static class AsyncStreamExtensions
             cancelOnDispose: cancelOnDispose);
 
     /// <summary>
-    ///     For a strategy that inspects the input but publishes no meaningful result (the result
-    ///     is erased to <see cref="Unit" />), where <paramref name="inputConverter" /> derives what
-    ///     the strategy sees — QueuePerGroup deriving its group key, say. See the canonical
+    ///     For a strategy that reads the input and publishes no result, because this overload
+    ///     changes the result type to <see cref="Unit" />. Here
+    ///     <paramref name="inputConverter" /> makes the value that the strategy reads. For
+    ///     example, QueuePerGroup makes its group key. See the canonical
     ///     <see
     ///         cref="MapAsync{TInput,TResult,TStrategyInput,TStrategyResult}(Stream{TInput},StreamSink{TResult},StreamSink{Exception},Func{TInput,CancellationToken,Task{TResult}},AsyncConcurrencyStrategyBase{TStrategyInput,TStrategyResult},Func{TInput,TStrategyInput},Func{TResult,TStrategyResult},Stream{Unit},Stream{IReadOnlyCollection{TInput}},bool)" />
     ///     overload for the full parameter contract.
     /// </summary>
-    /// <typeparam name="TInput">The type carried by the source stream.</typeparam>
-    /// <typeparam name="TResult">The type <paramref name="operation" /> produces on success.</typeparam>
+    /// <typeparam name="TInput">The type in the source stream.</typeparam>
+    /// <typeparam name="TResult">The type that <paramref name="operation" /> gives when it succeeds.</typeparam>
     /// <typeparam name="TStrategyInput">
-    ///     The input type <paramref name="strategy" /> is written against — inferred from
-    ///     <paramref name="strategy" />'s type, never specified explicitly. Not required to be
-    ///     related to <typeparamref name="TInput" /> by inheritance at all, since
-    ///     <paramref name="inputConverter" /> derives it explicitly.
+    ///     The input type of <paramref name="strategy" />. The compiler infers it from the type
+    ///     of <paramref name="strategy" />, and no caller gives it explicitly. It needs no
+    ///     inheritance relation to <typeparamref name="TInput" />, because
+    ///     <paramref name="inputConverter" /> makes it explicitly.
     /// </typeparam>
-    /// <param name="source">The stream of inputs to run against.</param>
-    /// <param name="results">Where each successful run's value is sent, in completion order.</param>
-    /// <param name="errors">Where every failed run's exception is sent.</param>
-    /// <param name="operation">The asynchronous work to run per input.</param>
-    /// <param name="strategy">How overlapping requests are handled.</param>
-    /// <param name="inputConverter">
-    ///     Converts each <typeparamref name="TInput" /> value to the
-    ///     <typeparamref name="TStrategyInput" /> <paramref name="strategy" /> is written against,
-    ///     before it's admitted.
+    /// <param name="source">The stream of inputs.</param>
+    /// <param name="results">
+    ///     The destination of the value of each run that succeeded, in the sequence of their ends.
     /// </param>
-    /// <param name="cancelAll">Optional. Each firing cancels every tracked operation.</param>
-    /// <param name="cancelMatching">Optional. Each firing cancels tracked operations by input value.</param>
-    /// <param name="cancelOnDispose">Whether disposing also cancels what's tracked; true by default.</param>
+    /// <param name="errors">The destination of the exception of each run with an error.</param>
+    /// <param name="operation">The asynchronous work for each input.</param>
+    /// <param name="strategy">The control of operations that overlap.</param>
+    /// <param name="inputConverter">
+    ///     Changes each <typeparamref name="TInput" /> value to the
+    ///     <typeparamref name="TStrategyInput" /> of <paramref name="strategy" />, before the
+    ///     admission.
+    /// </param>
+    /// <param name="cancelAll">This is optional. Each send cancels each tracked operation.</param>
+    /// <param name="cancelMatching">
+    ///     This is optional. Each send cancels the tracked operations with a given input value.
+    /// </param>
+    /// <param name="cancelOnDispose">True when a disposal also cancels the tracked items. The default is true.</param>
     /// <returns>
-    ///     An <see cref="AsyncMapStatus{TInput}" /> reporting what's queued and running; disposing
-    ///     it tears the pipeline down.
+    ///     An <see cref="AsyncMapStatus{TInput}" /> that gives the Queued items and the Running
+    ///     items. A disposal of it stops the pipeline.
     /// </returns>
     /// <exception cref="ArgumentNullException">
     ///     <paramref name="source" />, <paramref name="results" />, <paramref name="errors" />,
@@ -190,35 +204,38 @@ public static class AsyncStreamExtensions
             cancelOnDispose: cancelOnDispose);
 
     /// <summary>
-    ///     For a strategy that inspects the result but not the input (the input is erased to
-    ///     <see cref="Unit" />), where <typeparamref name="TResult" /> already is the
-    ///     <typeparamref name="TStrategyResult" /> the strategy is written against — so no
-    ///     converter is needed. See the canonical
+    ///     For a strategy that reads the result and not the input, because this overload changes
+    ///     the input type to <see cref="Unit" />. Here <typeparamref name="TResult" /> is the
+    ///     <typeparamref name="TStrategyResult" /> of the strategy, thus this overload needs no
+    ///     converter. See the canonical
     ///     <see
     ///         cref="MapAsync{TInput,TResult,TStrategyInput,TStrategyResult}(Stream{TInput},StreamSink{TResult},StreamSink{Exception},Func{TInput,CancellationToken,Task{TResult}},AsyncConcurrencyStrategyBase{TStrategyInput,TStrategyResult},Func{TInput,TStrategyInput},Func{TResult,TStrategyResult},Stream{Unit},Stream{IReadOnlyCollection{TInput}},bool)" />
     ///     overload for the full parameter contract.
     /// </summary>
-    /// <typeparam name="TInput">The type carried by the source stream.</typeparam>
-    /// <typeparam name="TResult">The type <paramref name="operation" /> produces on success.</typeparam>
+    /// <typeparam name="TInput">The type in the source stream.</typeparam>
+    /// <typeparam name="TResult">The type that <paramref name="operation" /> gives when it succeeds.</typeparam>
     /// <typeparam name="TStrategyResult">
-    ///     The result type <paramref name="strategy" /> is written against — inferred from
-    ///     <paramref name="strategy" />'s type, never specified explicitly. Usually just
-    ///     <typeparamref name="TResult" />; the <c>where TResult : TStrategyResult</c> constraint
-    ///     additionally lets a strategy written against a base class or interface be shared across
-    ///     MapAsync calls over several different, more specific <typeparamref name="TResult" />
-    ///     types.
+    ///     The result type of <paramref name="strategy" />. The compiler infers it from the type
+    ///     of <paramref name="strategy" />, and no caller gives it explicitly. It is usually
+    ///     <typeparamref name="TResult" />. The <c>where TResult : TStrategyResult</c> constraint
+    ///     also lets more than one MapAsync call share a strategy that uses a base class or an
+    ///     interface, with its own <typeparamref name="TResult" /> in each call.
     /// </typeparam>
-    /// <param name="source">The stream of inputs to run against.</param>
-    /// <param name="results">Where each successful run's value is sent, in completion order.</param>
-    /// <param name="errors">Where every failed run's exception is sent.</param>
-    /// <param name="operation">The asynchronous work to run per input.</param>
-    /// <param name="strategy">How overlapping requests are handled.</param>
-    /// <param name="cancelAll">Optional. Each firing cancels every tracked operation.</param>
-    /// <param name="cancelMatching">Optional. Each firing cancels tracked operations by input value.</param>
-    /// <param name="cancelOnDispose">Whether disposing also cancels what's tracked; true by default.</param>
+    /// <param name="source">The stream of inputs.</param>
+    /// <param name="results">
+    ///     The destination of the value of each run that succeeded, in the sequence of their ends.
+    /// </param>
+    /// <param name="errors">The destination of the exception of each run with an error.</param>
+    /// <param name="operation">The asynchronous work for each input.</param>
+    /// <param name="strategy">The control of operations that overlap.</param>
+    /// <param name="cancelAll">This is optional. Each send cancels each tracked operation.</param>
+    /// <param name="cancelMatching">
+    ///     This is optional. Each send cancels the tracked operations with a given input value.
+    /// </param>
+    /// <param name="cancelOnDispose">True when a disposal also cancels the tracked items. The default is true.</param>
     /// <returns>
-    ///     An <see cref="AsyncMapStatus{TInput}" /> reporting what's queued and running; disposing
-    ///     it tears the pipeline down.
+    ///     An <see cref="AsyncMapStatus{TInput}" /> that gives the Queued items and the Running
+    ///     items. A disposal of it stops the pipeline.
     /// </returns>
     /// <exception cref="ArgumentNullException">
     ///     <paramref name="source" />, <paramref name="results" />, <paramref name="errors" />,
@@ -246,38 +263,43 @@ public static class AsyncStreamExtensions
             cancelOnDispose: cancelOnDispose);
 
     /// <summary>
-    ///     For a strategy that inspects the result but not the input (the input is erased to
-    ///     <see cref="Unit" />), where <paramref name="resultConverter" /> derives what the
-    ///     strategy sees. See the canonical
+    ///     For a strategy that reads the result and not the input, because this overload changes
+    ///     the input type to <see cref="Unit" />. Here <paramref name="resultConverter" /> makes
+    ///     the value that the strategy reads. See the canonical
     ///     <see
     ///         cref="MapAsync{TInput,TResult,TStrategyInput,TStrategyResult}(Stream{TInput},StreamSink{TResult},StreamSink{Exception},Func{TInput,CancellationToken,Task{TResult}},AsyncConcurrencyStrategyBase{TStrategyInput,TStrategyResult},Func{TInput,TStrategyInput},Func{TResult,TStrategyResult},Stream{Unit},Stream{IReadOnlyCollection{TInput}},bool)" />
     ///     overload for the full parameter contract.
     /// </summary>
-    /// <typeparam name="TInput">The type carried by the source stream.</typeparam>
-    /// <typeparam name="TResult">The type <paramref name="operation" /> produces on success.</typeparam>
+    /// <typeparam name="TInput">The type in the source stream.</typeparam>
+    /// <typeparam name="TResult">The type that <paramref name="operation" /> gives when it succeeds.</typeparam>
     /// <typeparam name="TStrategyResult">
-    ///     The result type <paramref name="strategy" /> is written against — inferred from
-    ///     <paramref name="strategy" />'s type, never specified explicitly. Not required to be
-    ///     related to <typeparamref name="TResult" /> by inheritance at all, since
-    ///     <paramref name="resultConverter" /> derives it explicitly.
+    ///     The result type of <paramref name="strategy" />. The compiler infers it from the type
+    ///     of <paramref name="strategy" />, and no caller gives it explicitly. It needs no
+    ///     inheritance relation to <typeparamref name="TResult" />, because
+    ///     <paramref name="resultConverter" /> makes it explicitly.
     /// </typeparam>
-    /// <param name="source">The stream of inputs to run against.</param>
-    /// <param name="results">Where each successful run's value is sent, in completion order.</param>
-    /// <param name="errors">Where every failed run's exception is sent.</param>
-    /// <param name="operation">The asynchronous work to run per input.</param>
-    /// <param name="strategy">How overlapping requests are handled.</param>
-    /// <param name="resultConverter">
-    ///     Converts each successful <typeparamref name="TResult" /> to the
-    ///     <typeparamref name="TStrategyResult" /> <paramref name="strategy" /> is written against,
-    ///     before <see cref="AsyncConcurrencyStrategy{TInput,TResult,TState}.OnCompleted" /> sees
-    ///     it. Not called for a failed or canceled run, which have no result to convert.
+    /// <param name="source">The stream of inputs.</param>
+    /// <param name="results">
+    ///     The destination of the value of each run that succeeded, in the sequence of their ends.
     /// </param>
-    /// <param name="cancelAll">Optional. Each firing cancels every tracked operation.</param>
-    /// <param name="cancelMatching">Optional. Each firing cancels tracked operations by input value.</param>
-    /// <param name="cancelOnDispose">Whether disposing also cancels what's tracked; true by default.</param>
+    /// <param name="errors">The destination of the exception of each run with an error.</param>
+    /// <param name="operation">The asynchronous work for each input.</param>
+    /// <param name="strategy">The control of operations that overlap.</param>
+    /// <param name="resultConverter">
+    ///     Changes each <typeparamref name="TResult" /> that succeeded to the
+    ///     <typeparamref name="TStrategyResult" /> of <paramref name="strategy" />, before
+    ///     <see cref="AsyncConcurrencyStrategy{TInput,TResult,TState}.OnCompleted" /> reads it.
+    ///     A run with an error and a canceled run have no result, thus this code does not call
+    ///     it for them.
+    /// </param>
+    /// <param name="cancelAll">This is optional. Each send cancels each tracked operation.</param>
+    /// <param name="cancelMatching">
+    ///     This is optional. Each send cancels the tracked operations with a given input value.
+    /// </param>
+    /// <param name="cancelOnDispose">True when a disposal also cancels the tracked items. The default is true.</param>
     /// <returns>
-    ///     An <see cref="AsyncMapStatus{TInput}" /> reporting what's queued and running; disposing
-    ///     it tears the pipeline down.
+    ///     An <see cref="AsyncMapStatus{TInput}" /> that gives the Queued items and the Running
+    ///     items. A disposal of it stops the pipeline.
     /// </returns>
     /// <exception cref="ArgumentNullException">
     ///     <paramref name="source" />, <paramref name="results" />, <paramref name="errors" />,
@@ -305,40 +327,43 @@ public static class AsyncStreamExtensions
             cancelOnDispose: cancelOnDispose);
 
     /// <summary>
-    ///     For a strategy that inspects both the input and the result, where
-    ///     <typeparamref name="TInput" /> and <typeparamref name="TResult" /> already are the
-    ///     types it's written against — so neither converter is needed. See the canonical
+    ///     For a strategy that reads the input and the result. Here
+    ///     <typeparamref name="TInput" /> and <typeparamref name="TResult" /> are the types of the
+    ///     strategy, thus this overload needs no converter. See the canonical
     ///     <see
     ///         cref="MapAsync{TInput,TResult,TStrategyInput,TStrategyResult}(Stream{TInput},StreamSink{TResult},StreamSink{Exception},Func{TInput,CancellationToken,Task{TResult}},AsyncConcurrencyStrategyBase{TStrategyInput,TStrategyResult},Func{TInput,TStrategyInput},Func{TResult,TStrategyResult},Stream{Unit},Stream{IReadOnlyCollection{TInput}},bool)" />
     ///     overload for the full parameter contract.
     /// </summary>
-    /// <typeparam name="TInput">The type carried by the source stream.</typeparam>
-    /// <typeparam name="TResult">The type <paramref name="operation" /> produces on success.</typeparam>
+    /// <typeparam name="TInput">The type in the source stream.</typeparam>
+    /// <typeparam name="TResult">The type that <paramref name="operation" /> gives when it succeeds.</typeparam>
     /// <typeparam name="TStrategyInput">
-    ///     The input type <paramref name="strategy" /> is written against — inferred from
-    ///     <paramref name="strategy" />'s type, never specified explicitly. Usually just
-    ///     <typeparamref name="TInput" />; the <c>where TInput : TStrategyInput</c> constraint
-    ///     additionally lets a strategy written against a base class or interface be shared across
-    ///     MapAsync calls over several different, more specific <typeparamref name="TInput" />
-    ///     types.
+    ///     The input type of <paramref name="strategy" />. The compiler infers it from the type
+    ///     of <paramref name="strategy" />, and no caller gives it explicitly. It is usually
+    ///     <typeparamref name="TInput" />. The <c>where TInput : TStrategyInput</c> constraint
+    ///     also lets more than one MapAsync call share a strategy that uses a base class or an
+    ///     interface, with its own <typeparamref name="TInput" /> in each call.
     /// </typeparam>
     /// <typeparam name="TStrategyResult">
-    ///     The result type <paramref name="strategy" /> is written against, in the same spirit as
-    ///     <typeparamref name="TStrategyInput" /> — inferred, usually just
-    ///     <typeparamref name="TResult" />, and related to it by the
-    ///     <c>where TResult : TStrategyResult</c> constraint.
+    ///     The result type of <paramref name="strategy" />, as
+    ///     <typeparamref name="TStrategyInput" /> is for the input. The compiler infers it, it is
+    ///     usually <typeparamref name="TResult" />, and the
+    ///     <c>where TResult : TStrategyResult</c> constraint connects the two.
     /// </typeparam>
-    /// <param name="source">The stream of inputs to run against.</param>
-    /// <param name="results">Where each successful run's value is sent, in completion order.</param>
-    /// <param name="errors">Where every failed run's exception is sent.</param>
-    /// <param name="operation">The asynchronous work to run per input.</param>
-    /// <param name="strategy">How overlapping requests are handled.</param>
-    /// <param name="cancelAll">Optional. Each firing cancels every tracked operation.</param>
-    /// <param name="cancelMatching">Optional. Each firing cancels tracked operations by input value.</param>
-    /// <param name="cancelOnDispose">Whether disposing also cancels what's tracked; true by default.</param>
+    /// <param name="source">The stream of inputs.</param>
+    /// <param name="results">
+    ///     The destination of the value of each run that succeeded, in the sequence of their ends.
+    /// </param>
+    /// <param name="errors">The destination of the exception of each run with an error.</param>
+    /// <param name="operation">The asynchronous work for each input.</param>
+    /// <param name="strategy">The control of operations that overlap.</param>
+    /// <param name="cancelAll">This is optional. Each send cancels each tracked operation.</param>
+    /// <param name="cancelMatching">
+    ///     This is optional. Each send cancels the tracked operations with a given input value.
+    /// </param>
+    /// <param name="cancelOnDispose">True when a disposal also cancels the tracked items. The default is true.</param>
     /// <returns>
-    ///     An <see cref="AsyncMapStatus{TInput}" /> reporting what's queued and running; disposing
-    ///     it tears the pipeline down.
+    ///     An <see cref="AsyncMapStatus{TInput}" /> that gives the Queued items and the Running
+    ///     items. A disposal of it stops the pipeline.
     /// </returns>
     /// <exception cref="ArgumentNullException">
     ///     <paramref name="source" />, <paramref name="results" />, <paramref name="errors" />,
@@ -367,43 +392,47 @@ public static class AsyncStreamExtensions
             cancelOnDispose: cancelOnDispose);
 
     /// <summary>
-    ///     For a strategy that inspects both the input and the result, where
-    ///     <paramref name="inputConverter" /> derives the input it sees but
-    ///     <typeparamref name="TResult" /> already is the
-    ///     <typeparamref name="TStrategyResult" />. See the canonical
+    ///     For a strategy that reads the input and the result. Here
+    ///     <paramref name="inputConverter" /> makes the input that the strategy reads, and
+    ///     <typeparamref name="TResult" /> is the <typeparamref name="TStrategyResult" />. See the
+    ///     canonical
     ///     <see
     ///         cref="MapAsync{TInput,TResult,TStrategyInput,TStrategyResult}(Stream{TInput},StreamSink{TResult},StreamSink{Exception},Func{TInput,CancellationToken,Task{TResult}},AsyncConcurrencyStrategyBase{TStrategyInput,TStrategyResult},Func{TInput,TStrategyInput},Func{TResult,TStrategyResult},Stream{Unit},Stream{IReadOnlyCollection{TInput}},bool)" />
     ///     overload for the full parameter contract.
     /// </summary>
-    /// <typeparam name="TInput">The type carried by the source stream.</typeparam>
-    /// <typeparam name="TResult">The type <paramref name="operation" /> produces on success.</typeparam>
+    /// <typeparam name="TInput">The type in the source stream.</typeparam>
+    /// <typeparam name="TResult">The type that <paramref name="operation" /> gives when it succeeds.</typeparam>
     /// <typeparam name="TStrategyInput">
-    ///     The input type <paramref name="strategy" /> is written against — inferred from
-    ///     <paramref name="strategy" />'s type, never specified explicitly. Not required to be
-    ///     related to <typeparamref name="TInput" /> by inheritance at all, since
-    ///     <paramref name="inputConverter" /> derives it explicitly.
+    ///     The input type of <paramref name="strategy" />. The compiler infers it from the type
+    ///     of <paramref name="strategy" />, and no caller gives it explicitly. It needs no
+    ///     inheritance relation to <typeparamref name="TInput" />, because
+    ///     <paramref name="inputConverter" /> makes it explicitly.
     /// </typeparam>
     /// <typeparam name="TStrategyResult">
-    ///     The result type <paramref name="strategy" /> is written against — inferred, usually just
-    ///     <typeparamref name="TResult" />, and related to it by the
-    ///     <c>where TResult : TStrategyResult</c> constraint.
+    ///     The result type of <paramref name="strategy" />. The compiler infers it, it is usually
+    ///     <typeparamref name="TResult" />, and the <c>where TResult : TStrategyResult</c>
+    ///     constraint connects the two.
     /// </typeparam>
-    /// <param name="source">The stream of inputs to run against.</param>
-    /// <param name="results">Where each successful run's value is sent, in completion order.</param>
-    /// <param name="errors">Where every failed run's exception is sent.</param>
-    /// <param name="operation">The asynchronous work to run per input.</param>
-    /// <param name="strategy">How overlapping requests are handled.</param>
-    /// <param name="inputConverter">
-    ///     Converts each <typeparamref name="TInput" /> value to the
-    ///     <typeparamref name="TStrategyInput" /> <paramref name="strategy" /> is written against,
-    ///     before it's admitted.
+    /// <param name="source">The stream of inputs.</param>
+    /// <param name="results">
+    ///     The destination of the value of each run that succeeded, in the sequence of their ends.
     /// </param>
-    /// <param name="cancelAll">Optional. Each firing cancels every tracked operation.</param>
-    /// <param name="cancelMatching">Optional. Each firing cancels tracked operations by input value.</param>
-    /// <param name="cancelOnDispose">Whether disposing also cancels what's tracked; true by default.</param>
+    /// <param name="errors">The destination of the exception of each run with an error.</param>
+    /// <param name="operation">The asynchronous work for each input.</param>
+    /// <param name="strategy">The control of operations that overlap.</param>
+    /// <param name="inputConverter">
+    ///     Changes each <typeparamref name="TInput" /> value to the
+    ///     <typeparamref name="TStrategyInput" /> of <paramref name="strategy" />, before the
+    ///     admission.
+    /// </param>
+    /// <param name="cancelAll">This is optional. Each send cancels each tracked operation.</param>
+    /// <param name="cancelMatching">
+    ///     This is optional. Each send cancels the tracked operations with a given input value.
+    /// </param>
+    /// <param name="cancelOnDispose">True when a disposal also cancels the tracked items. The default is true.</param>
     /// <returns>
-    ///     An <see cref="AsyncMapStatus{TInput}" /> reporting what's queued and running; disposing
-    ///     it tears the pipeline down.
+    ///     An <see cref="AsyncMapStatus{TInput}" /> that gives the Queued items and the Running
+    ///     items. A disposal of it stops the pipeline.
     /// </returns>
     /// <exception cref="ArgumentNullException">
     ///     <paramref name="source" />, <paramref name="results" />, <paramref name="errors" />,
@@ -432,43 +461,49 @@ public static class AsyncStreamExtensions
             cancelOnDispose: cancelOnDispose);
 
     /// <summary>
-    ///     For a strategy that inspects both the input and the result, where
-    ///     <typeparamref name="TInput" /> already is the <typeparamref name="TStrategyInput" /> but
-    ///     <paramref name="resultConverter" /> derives the result it sees. See the canonical
+    ///     For a strategy that reads the input and the result. Here
+    ///     <typeparamref name="TInput" /> is the <typeparamref name="TStrategyInput" />, and
+    ///     <paramref name="resultConverter" /> makes the result that the strategy reads. See the
+    ///     canonical
     ///     <see
     ///         cref="MapAsync{TInput,TResult,TStrategyInput,TStrategyResult}(Stream{TInput},StreamSink{TResult},StreamSink{Exception},Func{TInput,CancellationToken,Task{TResult}},AsyncConcurrencyStrategyBase{TStrategyInput,TStrategyResult},Func{TInput,TStrategyInput},Func{TResult,TStrategyResult},Stream{Unit},Stream{IReadOnlyCollection{TInput}},bool)" />
     ///     overload for the full parameter contract.
     /// </summary>
-    /// <typeparam name="TInput">The type carried by the source stream.</typeparam>
-    /// <typeparam name="TResult">The type <paramref name="operation" /> produces on success.</typeparam>
+    /// <typeparam name="TInput">The type in the source stream.</typeparam>
+    /// <typeparam name="TResult">The type that <paramref name="operation" /> gives when it succeeds.</typeparam>
     /// <typeparam name="TStrategyInput">
-    ///     The input type <paramref name="strategy" /> is written against — inferred, usually just
-    ///     <typeparamref name="TInput" />, and related to it by the
-    ///     <c>where TInput : TStrategyInput</c> constraint.
+    ///     The input type of <paramref name="strategy" />. The compiler infers it, it is usually
+    ///     <typeparamref name="TInput" />, and the <c>where TInput : TStrategyInput</c> constraint
+    ///     connects the two.
     /// </typeparam>
     /// <typeparam name="TStrategyResult">
-    ///     The result type <paramref name="strategy" /> is written against — inferred from
-    ///     <paramref name="strategy" />'s type, never specified explicitly. Not required to be
-    ///     related to <typeparamref name="TResult" /> by inheritance at all, since
-    ///     <paramref name="resultConverter" /> derives it explicitly.
+    ///     The result type of <paramref name="strategy" />. The compiler infers it from the type
+    ///     of <paramref name="strategy" />, and no caller gives it explicitly. It needs no
+    ///     inheritance relation to <typeparamref name="TResult" />, because
+    ///     <paramref name="resultConverter" /> makes it explicitly.
     /// </typeparam>
-    /// <param name="source">The stream of inputs to run against.</param>
-    /// <param name="results">Where each successful run's value is sent, in completion order.</param>
-    /// <param name="errors">Where every failed run's exception is sent.</param>
-    /// <param name="operation">The asynchronous work to run per input.</param>
-    /// <param name="strategy">How overlapping requests are handled.</param>
-    /// <param name="resultConverter">
-    ///     Converts each successful <typeparamref name="TResult" /> to the
-    ///     <typeparamref name="TStrategyResult" /> <paramref name="strategy" /> is written against,
-    ///     before <see cref="AsyncConcurrencyStrategy{TInput,TResult,TState}.OnCompleted" /> sees
-    ///     it. Not called for a failed or canceled run, which have no result to convert.
+    /// <param name="source">The stream of inputs.</param>
+    /// <param name="results">
+    ///     The destination of the value of each run that succeeded, in the sequence of their ends.
     /// </param>
-    /// <param name="cancelAll">Optional. Each firing cancels every tracked operation.</param>
-    /// <param name="cancelMatching">Optional. Each firing cancels tracked operations by input value.</param>
-    /// <param name="cancelOnDispose">Whether disposing also cancels what's tracked; true by default.</param>
+    /// <param name="errors">The destination of the exception of each run with an error.</param>
+    /// <param name="operation">The asynchronous work for each input.</param>
+    /// <param name="strategy">The control of operations that overlap.</param>
+    /// <param name="resultConverter">
+    ///     Changes each <typeparamref name="TResult" /> that succeeded to the
+    ///     <typeparamref name="TStrategyResult" /> of <paramref name="strategy" />, before
+    ///     <see cref="AsyncConcurrencyStrategy{TInput,TResult,TState}.OnCompleted" /> reads it.
+    ///     A run with an error and a canceled run have no result, thus this code does not call
+    ///     it for them.
+    /// </param>
+    /// <param name="cancelAll">This is optional. Each send cancels each tracked operation.</param>
+    /// <param name="cancelMatching">
+    ///     This is optional. Each send cancels the tracked operations with a given input value.
+    /// </param>
+    /// <param name="cancelOnDispose">True when a disposal also cancels the tracked items. The default is true.</param>
     /// <returns>
-    ///     An <see cref="AsyncMapStatus{TInput}" /> reporting what's queued and running; disposing
-    ///     it tears the pipeline down.
+    ///     An <see cref="AsyncMapStatus{TInput}" /> that gives the Queued items and the Running
+    ///     items. A disposal of it stops the pipeline.
     /// </returns>
     /// <exception cref="ArgumentNullException">
     ///     <paramref name="source" />, <paramref name="results" />, <paramref name="errors" />,
@@ -497,106 +532,108 @@ public static class AsyncStreamExtensions
             cancelOnDispose: cancelOnDispose);
 
     /// <summary>
-    ///     The fully general form every other MapAsync
-    ///     overload eventually forwards to, and the only one that needs no relationship at all
-    ///     between <typeparamref name="TInput" />/<typeparamref name="TResult" /> and
-    ///     <typeparamref name="TStrategyInput" />/<typeparamref name="TStrategyResult" /> — both
-    ///     <paramref name="inputConverter" /> and <paramref name="resultConverter" /> are supplied
-    ///     explicitly instead. Prefer one of the narrower overloads where it fits (they exist
-    ///     precisely so most calls don't need to write out both converters); reach for this one
-    ///     when <paramref name="strategy" /> is written against types unrelated by inheritance to
-    ///     this call's own <typeparamref name="TInput" />/<typeparamref name="TResult" /> in both
-    ///     directions at once.
+    ///     The fully general shape that each other MapAsync overload sends its call to. It is the
+    ///     only overload with no necessary relation between <typeparamref name="TInput" /> and
+    ///     <typeparamref name="TResult" />, and <typeparamref name="TStrategyInput" /> and
+    ///     <typeparamref name="TStrategyResult" />. The caller gives
+    ///     <paramref name="inputConverter" /> and <paramref name="resultConverter" /> explicitly.
+    ///     Use a narrower overload where one applies, because those overloads let most calls omit
+    ///     the two converters. Use this overload when the types of
+    ///     <paramref name="strategy" /> have no inheritance relation to the
+    ///     <typeparamref name="TInput" /> and the <typeparamref name="TResult" /> of the call, in
+    ///     the two directions at the same time.
     /// </summary>
     /// <typeparam name="TInput">
-    ///     The type carried by the source stream — the input each invocation of
-    ///     <paramref name="operation" /> receives, and the type reported by
-    ///     <see cref="AsyncMapStatus{TInput}.Items" /> and matched against by
-    ///     <paramref name="cancelMatching" />.
+    ///     The type in the source stream. It is the input for each call of
+    ///     <paramref name="operation" />, the type in
+    ///     <see cref="AsyncMapStatus{TInput}.Items" />, and the type that
+    ///     <paramref name="cancelMatching" /> compares.
     /// </typeparam>
     /// <typeparam name="TResult">
-    ///     The type <paramref name="operation" /> produces on success, sent to
-    ///     <paramref name="results" />.
+    ///     The type that <paramref name="operation" /> gives when it succeeds. The pipeline sends
+    ///     it to <paramref name="results" />.
     /// </typeparam>
     /// <typeparam name="TStrategyInput">
-    ///     The input type <paramref name="strategy" /> is written against — inferred from
-    ///     <paramref name="strategy" />'s type, never specified explicitly. Not required to be
-    ///     related to <typeparamref name="TInput" /> by inheritance at all, since
-    ///     <paramref name="inputConverter" /> derives it explicitly.
+    ///     The input type of <paramref name="strategy" />. The compiler infers it from the type
+    ///     of <paramref name="strategy" />, and no caller gives it explicitly. It needs no
+    ///     inheritance relation to <typeparamref name="TInput" />, because
+    ///     <paramref name="inputConverter" /> makes it explicitly.
     /// </typeparam>
     /// <typeparam name="TStrategyResult">
-    ///     The result type <paramref name="strategy" /> is written against — inferred from
-    ///     <paramref name="strategy" />'s type, never specified explicitly. Not required to be
-    ///     related to <typeparamref name="TResult" /> by inheritance at all, since
-    ///     <paramref name="resultConverter" /> derives it explicitly.
+    ///     The result type of <paramref name="strategy" />. The compiler infers it from the type
+    ///     of <paramref name="strategy" />, and no caller gives it explicitly. It needs no
+    ///     inheritance relation to <typeparamref name="TResult" />, because
+    ///     <paramref name="resultConverter" /> makes it explicitly.
     /// </typeparam>
     /// <param name="source">
-    ///     The stream of inputs to run against. Every firing is offered to
-    ///     <paramref name="strategy" />, which decides whether it starts immediately or waits.
-    ///     After the returned status is disposed, further firings are ignored entirely.
+    ///     The stream of inputs. The pipeline gives each send to <paramref name="strategy" />,
+    ///     and the strategy starts it immediately or makes it wait. After a disposal of the status,
+    ///     the pipeline ignores each subsequent send.
     /// </param>
     /// <param name="results">
-    ///     Required. Each successful operation's return value is sent here, in completion order
-    ///     rather than the order inputs arrived. A result whose run was superseded or canceled
-    ///     is not sent — see <paramref name="strategy" />.
+    ///     This is necessary. The pipeline sends the return value of each operation that
+    ///     succeeded here, in the sequence of their ends and not in the sequence of the inputs.
+    ///     The pipeline does not send a result from a run that a different run replaced, or from a
+    ///     run that a cancellation stopped. See <paramref name="strategy" />.
     /// </param>
     /// <param name="errors">
-    ///     Required. Every failed operation is sent here — there is deliberately no way to call
-    ///     this method without somewhere for errors to go.
+    ///     This is necessary. The pipeline sends each operation with an error here. There is no
+    ///     call of this method with no destination for the errors.
     /// </param>
     /// <param name="operation">
-    ///     The asynchronous work to run per input. It's invoked inline, so it doesn't reach a
-    ///     thread pool until it awaits something itself, and it's handed a CancellationToken
-    ///     combining this item's own cancellation with any token the strategy supplied. Honoring
-    ///     that token is what makes <paramref name="cancelAll" />, <paramref name="cancelMatching" />,
-    ///     and <paramref name="cancelOnDispose" /> take effect on work that has already started —
-    ///     an operation that ignores it still runs to completion, and cancellation only means its
-    ///     result goes unpublished. There is deliberately no overload that omits the token.
+    ///     The asynchronous work for each input. The pipeline calls it inline, thus it does not
+    ///     go to a thread pool before its own await. It receives a CancellationToken that combines
+    ///     the cancellation of this item with each token from the strategy. An operation that
+    ///     obeys that token lets <paramref name="cancelAll" />,
+    ///     <paramref name="cancelMatching" />, and <paramref name="cancelOnDispose" /> stop work
+    ///     that started. An operation that ignores the token continues to its end, and the
+    ///     cancellation then only stops the publication of its result. There is no overload with
+    ///     no token.
     /// </param>
     /// <param name="strategy">
-    ///     How overlapping requests are handled. A strategy instance holds no state of its own
-    ///     and may safely be reused across multiple MapAsync calls (even concurrently) — each
-    ///     call gets its own freshly created state manager, so separate pipelines never share
-    ///     scheduling state.
+    ///     The control of requests that overlap. A strategy instance holds no state of its own,
+    ///     and more than one MapAsync call can use the same instance safely, at the same time.
+    ///     Each call gets its own new state manager, thus two pipelines never share a scheduling
+    ///     state.
     /// </param>
     /// <param name="inputConverter">
-    ///     Converts each <typeparamref name="TInput" /> value to the
-    ///     <typeparamref name="TStrategyInput" /> <paramref name="strategy" /> is written against,
-    ///     before it's admitted.
+    ///     Changes each <typeparamref name="TInput" /> value to the
+    ///     <typeparamref name="TStrategyInput" /> of <paramref name="strategy" />, before the
+    ///     admission.
     /// </param>
     /// <param name="resultConverter">
-    ///     Converts each successful <typeparamref name="TResult" /> to the
-    ///     <typeparamref name="TStrategyResult" /> <paramref name="strategy" /> is written against,
-    ///     before <see cref="AsyncConcurrencyStrategy{TInput,TResult,TState}.OnCompleted" /> sees it.
+    ///     Changes each <typeparamref name="TResult" /> that succeeded to the
+    ///     <typeparamref name="TStrategyResult" /> of <paramref name="strategy" />, before
+    ///     <see cref="AsyncConcurrencyStrategy{TInput,TResult,TState}.OnCompleted" /> reads it.
     /// </param>
     /// <param name="cancelAll">
-    ///     Optional. Each firing cancels every tracked operation — queued or already running.
-    ///     A queued item that's canceled is simply never started when its turn comes.
-    ///     Cancellation only takes effect for a running operation if it observes its
-    ///     CancellationToken.
+    ///     This is optional. Each send cancels each tracked operation, Queued or Running. The
+    ///     pipeline does not start a canceled Queued item at its turn. A cancellation stops a
+    ///     Running operation only if that operation monitors its CancellationToken.
     /// </param>
     /// <param name="cancelMatching">
-    ///     Optional. Each firing cancels whichever tracked operations (queued or running) were
-    ///     admitted for an input value present in the fired collection (compared with the
-    ///     default equality comparer for TInput). Same caveats as <paramref name="cancelAll" />.
+    ///     This is optional. Each send cancels the tracked operations, Queued or Running, whose
+    ///     input value is in the collection of that send. This uses the default equality comparer
+    ///     for TInput. The limits of <paramref name="cancelAll" /> also apply here.
     /// </param>
     /// <param name="cancelOnDispose">
-    ///     Whether disposing the returned <see cref="AsyncMapStatus{TInput}" /> also cancels every
-    ///     item tracked at that point (queued or running) — true by default. Either way,
-    ///     disposing always, unconditionally, stops any further values from ever being admitted.
-    ///     This is fixed here, at setup, rather than being a parameter of Dispose itself, since
-    ///     IDisposable.Dispose() is deliberately the only way to dispose.
-    ///     Note that disposing never gags the pipeline: whatever is still in flight runs to
-    ///     completion and still publishes to <paramref name="results" />/<paramref name="errors" />
-    ///     after the call returns. With true that's usually moot, since canceled outcomes are
-    ///     never published and an operation that honors its token won't produce one — but an
-    ///     operation that ignores its token will, and with false it's the entire point.
+    ///     True when a disposal of the <see cref="AsyncMapStatus{TInput}" /> also cancels each
+    ///     item that the pipeline tracks at that time, Queued or Running. The default is true. At
+    ///     each value, a disposal always stops the admission of more values. This code sets the
+    ///     value here, at the setup, and not as a parameter of Dispose, because
+    ///     IDisposable.Dispose() is the only path to a disposal.
+    ///     A disposal does not stop the output. Each operation that runs continues to its end
+    ///     and publishes to <paramref name="results" /> or to <paramref name="errors" /> after the
+    ///     call returns. With true that output is usually not important, because the pipeline
+    ///     never publishes a canceled outcome and an operation that obeys its token makes none. An
+    ///     operation that ignores its token makes one, and with false that output is the
+    ///     purpose.
     /// </param>
     /// <returns>
-    ///     An <see cref="AsyncMapStatus{TInput}" />: IsRunning is a Cell&lt;bool&gt; that is true while
-    ///     at least one invocation is actually running (not merely queued), updating glitch-free
-    ///     in the same transaction as whichever event caused it to change; Items lists every
-    ///     tracked value with its status; disposing it tears the pipeline down.
+    ///     An <see cref="AsyncMapStatus{TInput}" />. IsRunning is a Cell&lt;bool&gt; that is true
+    ///     while one call or more has the Running status, and a Queued item does not make it true.
+    ///     It updates with no glitch, in the transaction of the event that changes it. Items gives
+    ///     each tracked value with its status. A disposal of the status stops the pipeline.
     /// </returns>
     /// <exception cref="ArgumentNullException">
     ///     <paramref name="source" />, <paramref name="results" />, <paramref name="errors" />,
@@ -624,12 +661,12 @@ public static class AsyncStreamExtensions
             cancelMatching: cancelMatching,
             cancelOnDispose: cancelOnDispose);
 
-    // SodaFlow.Core.Async takes its cancelAll as a Stream<UnitInternal>, since Core has no
-    // "don't care" type of its own it could expose. Mapping rather than casting is what keeps
-    // UnitInternal — internal to SodaFlow.Core, and so unnameable by anyone consuming this
-    // library — out of every signature above, leaving SodaFlow.Functional.Unit as the only unit
-    // type a C# caller ever sees. The F# wrapper does the same thing for its own native unit;
-    // see toUnitInternalStream there.
+    // SodaFlow.Core.Async takes its cancelAll as a Stream<UnitInternal>, because Core has no
+    // public type of its own for a value that a caller does not use. This code maps and does not
+    // cast, and that keeps UnitInternal out of each signature above. UnitInternal is internal to
+    // SodaFlow.Core, and code that consumes this library cannot name it. Thus
+    // SodaFlow.Functional.Unit is the only unit type that a C# caller sees. The F# wrapper does
+    // the same for its own unit. See toUnitInternalStream there.
     private static Stream<UnitInternal>? ToUnitInternalStream(Stream<Unit>? cancelAll) =>
         cancelAll?.MapImpl(static _ => UnitInternal.Value);
 }

@@ -34,13 +34,14 @@ public sealed class AsyncConcurrencyStrategyTests
 
         TestUtil.WaitUntil(() => op.HasStarted("a") && op.HasStarted("b"));
 
-        // Both admitted and started before either is released — proves Parallel never waits.
+        // The pipeline admits and starts the two items before a release of one of them. This
+        // shows that Parallel never waits.
         op.Release(input: "b", result: "B");
         TestUtil.WaitUntil(() => received.Count == 1);
         op.Release(input: "a", result: "A");
         TestUtil.WaitUntil(() => received.Count == 2);
 
-        // Completion order, not submission order.
+        // This is the sequence of the ends, and not the sequence of the inputs.
         await Assert.That(received).IsEquivalentTo(expected: ["B", "A"], ordering: CollectionOrdering.Matching);
 
         status.Dispose();
@@ -75,7 +76,8 @@ public sealed class AsyncConcurrencyStrategyTests
         Exception b = new("D");
         Exception d = new("D");
 
-        // Both admitted and started before either is released — proves Parallel never waits.
+        // The pipeline admits and starts the two items before a release of one of them. This
+        // shows that Parallel never waits.
         op.Fail(input: "d", error: d);
         TestUtil.WaitUntil(() => received.Count == 1);
         op.Release(input: "c", result: "C");
@@ -85,7 +87,7 @@ public sealed class AsyncConcurrencyStrategyTests
         op.Release(input: "a", result: "A");
         TestUtil.WaitUntil(() => received.Count == 4);
 
-        // Completion order, not submission order.
+        // This is the sequence of the ends, and not the sequence of the inputs.
         await Assert.That(received)
             .IsEquivalentTo(expected: new object[] { d, "C", b, "A" }, ordering: CollectionOrdering.Matching);
 
@@ -204,8 +206,9 @@ public sealed class AsyncConcurrencyStrategyTests
     [Test]
     public async Task Parallel_Queue_SwitchLatest_EachReturnTheSameCachedInstanceEveryCall()
     {
-        // These are advertised as stateless and reusable; the wrapper caches one instance per
-        // strategy rather than allocating fresh on every call.
+        // The documentation gives these as strategies with no state that more than one call can
+        // use. The wrapper keeps one instance of each strategy in a cache, and does not allocate a
+        // new instance at each call.
         await Assert.That(AsyncConcurrencyStrategy.Parallel()).IsSameReferenceAs(AsyncConcurrencyStrategy.Parallel());
         await Assert.That(AsyncConcurrencyStrategy.Queue()).IsSameReferenceAs(AsyncConcurrencyStrategy.Queue());
 
@@ -242,9 +245,10 @@ public sealed class AsyncConcurrencyStrategyTests
     }
 
     /// <summary>
-    ///     A trivial custom strategy against the <see cref="AsyncConcurrencyStrategy{TState}" />
-    ///     shorthand (input and result both fixed to <see cref="Unit" />) — every value starts
-    ///     immediately, like Parallel, but also counts admissions.
+    ///     A small custom strategy on the short
+    ///     <see cref="AsyncConcurrencyStrategy{TState}" /> shape, where the input type and the
+    ///     result type are <see cref="Unit" />. Each value starts immediately, as Parallel does,
+    ///     and this strategy also counts the admissions.
     /// </summary>
     // ReSharper disable once InheritdocConsiderUsage
     private sealed class CountingStrategy : AsyncConcurrencyStrategy<int>
