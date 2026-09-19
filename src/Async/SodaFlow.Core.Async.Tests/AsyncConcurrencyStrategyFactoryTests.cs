@@ -35,13 +35,14 @@ public sealed class AsyncConcurrencyStrategyFactoryTests
 
         TestUtil.WaitUntil(() => op.HasStarted("a") && op.HasStarted("b"));
 
-        // Both admitted and started before either is released — proves Parallel never waits.
+        // The pipeline admits and starts the two items before a release of one of them. This
+        // shows that Parallel never waits.
         op.Release(input: "b", result: "B");
         TestUtil.WaitUntil(() => received.Count == 1);
         op.Release(input: "a", result: "A");
         TestUtil.WaitUntil(() => received.Count == 2);
 
-        // Completion order, not submission order.
+        // This is the sequence of the ends, and not the sequence of the inputs.
         await Assert.That(received).IsEquivalentTo(expected: ["B", "A"], ordering: CollectionOrdering.Matching);
 
         status.Dispose();
@@ -78,7 +79,8 @@ public sealed class AsyncConcurrencyStrategyFactoryTests
         Exception b = new("D");
         Exception d = new("D");
 
-        // Both admitted and started before either is released — proves Parallel never waits.
+        // The pipeline admits and starts the two items before a release of one of them. This
+        // shows that Parallel never waits.
         op.Fail(input: "d", error: d);
         TestUtil.WaitUntil(() => received.Count == 1);
         op.Release(input: "c", result: "C");
@@ -88,7 +90,7 @@ public sealed class AsyncConcurrencyStrategyFactoryTests
         op.Release(input: "a", result: "A");
         TestUtil.WaitUntil(() => received.Count == 4);
 
-        // Completion order, not submission order.
+        // This is the sequence of the ends, and not the sequence of the inputs.
         await Assert.That(received)
             .IsEquivalentTo(expected: new object[] { d, "C", b, "A" }, ordering: CollectionOrdering.Matching);
 
@@ -163,7 +165,7 @@ public sealed class AsyncConcurrencyStrategyFactoryTests
         source.Send("g1-b");
         source.Send("g2-a");
 
-        // g1-a and g2-a are in different groups, so both start; g1-b waits behind g1-a.
+        // g1-a and g2-a are in different groups, thus the two start. g1-b waits behind g1-a.
         TestUtil.WaitUntil(() => op.HasStarted("g1-a") && op.HasStarted("g2-a"));
         await Assert.That(op.HasStarted("g1-b")).IsFalse().Because("g1-b shares a group with g1-a and must wait.");
 
@@ -180,7 +182,8 @@ public sealed class AsyncConcurrencyStrategyFactoryTests
         l.Unlisten();
         return;
 
-        // Group is the character before the hyphen: "g1-a"/"g1-b" share a group, "g2-a" doesn't.
+        // The group is the text before the hyphen. Thus "g1-a" and "g1-b" have one group, and
+        // "g2-a" has a different group.
         static string GetGroup(string v) => v.Split('-')[0];
     }
 
@@ -209,12 +212,13 @@ public sealed class AsyncConcurrencyStrategyFactoryTests
         source.Send("b");
         TestUtil.WaitUntil(() => op.HasStarted("b"));
 
-        // Object "a" is still in flight when it's superseded; releasing it must not publish.
+        // Object "a" runs when a new value replaces it. A release of it must publish nothing.
         op.Release(input: "a", result: "A");
         op.Release(input: "b", result: "B");
         TestUtil.WaitUntil(() => received.Count == 1);
 
-        // Give object "a" a fair chance to have published if the supersede logic were broken.
+        // This gives object "a" sufficient time to publish, to find a defect in the code that
+        // replaces a run.
         Thread.Sleep(100);
 
         await Assert.That(received).IsEquivalentTo(expected: ["B"], ordering: CollectionOrdering.Matching);
@@ -262,8 +266,8 @@ public sealed class AsyncConcurrencyStrategyFactoryTests
 
         source1.Send("x");
 
-        // Pipeline 2 must be able to start immediately despite pipeline 1's queue being busy —
-        // proves each call gets its own independent scheduling state, per CreateState's contract.
+        // Pipeline 2 must start immediately while the queue of pipeline 1 is busy. This shows
+        // that each call gets its own scheduling state, as the contract of CreateState gives.
         TestUtil.WaitUntil(() => op1.HasStarted("x"));
         source2.Send("y");
         TestUtil.WaitUntil(() => op2.HasStarted("y"));

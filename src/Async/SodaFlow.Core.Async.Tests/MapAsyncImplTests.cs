@@ -77,8 +77,9 @@ public sealed class MapAsyncImplTests
         List<string> received = [];
         IListener l = results.ListenStrong(received.Add);
 
-        // TStrategyInput/TStrategyResult (int, a length) are unrelated by inheritance to
-        // TInput/TResult (string) — exactly the case only this fully general overload permits.
+        // TStrategyInput and TStrategyResult, which are an int and a length, have no inheritance
+        // relation to TInput and TResult, which are a string. Only this fully general overload
+        // permits that.
         AsyncMapStatus<string> status =
             source.MapAsyncImpl(
                 results: results,
@@ -92,10 +93,11 @@ public sealed class MapAsyncImplTests
 
         TestUtil.WaitUntil(() => received.Count == 1);
 
-        // The strategy only ever sees the converted int, never the original string.
+        // The strategy sees only the converted int, and never the initial string.
         await Assert.That(strategy.AdmittedValues).IsEquivalentTo(expected: [5], ordering: CollectionOrdering.Matching);
 
-        // Meanwhile the real TResult published is the untouched, unconverted operation output.
+        // The TResult that the pipeline publishes is the output of the operation, with no
+        // conversion.
         await Assert.That(received[0]).IsEqualTo("HELLO");
 
         status.Dispose();
@@ -126,13 +128,14 @@ public sealed class MapAsyncImplTests
 
         TestUtil.WaitUntil(() => received.Count == 1);
 
-        // -1 was rejected by the strategy — canceled and left permanently Queued, per the
-        // documented "reject outright" idiom — and so never reached the operation; only the
-        // non-negative value made it through.
+        // The strategy refused -1. It canceled that item and left it with the Queued status
+        // permanently, which is the documented method to refuse a value. Thus -1 never got to the
+        // operation, and only the value of zero or more went through.
         await Assert.That(received).IsEquivalentTo(expected: [2], ordering: CollectionOrdering.Matching);
 
-        // The rejected item is still visible, forever Queued — that's the visible cost of this
-        // idiom, called out in AsyncConcurrencyStrategy's own remarks.
+        // A user can see the item that the strategy refused, with the Queued status permanently.
+        // That is the cost of this method, and the remarks of AsyncConcurrencyStrategy give
+        // it.
         await Assert.That(status.Items.Sample().Any(static i => i is { Value: -1, Status: AsyncItemStatus.Queued }))
             .IsTrue();
 
@@ -141,20 +144,20 @@ public sealed class MapAsyncImplTests
     }
 
     /// <summary>
-    ///     Regression test for a real bug found while writing
-    ///     <see cref="CustomStrategyCanRejectAnIncomingValueOutright" />: a strategy is free to
-    ///     call <see cref="AsyncMapBase.AsyncQueuedItem{TInput}.Cancel" /> on <c>incoming</c> and still return
-    ///     it as an <see cref="AsyncMapBase.AsyncToStart{TInput}" /> in the same <c>Admit</c> call — nothing in
-    ///     that method's contract forbids it, unlike the "reject outright" idiom above, which
-    ///     cancels but deliberately never promotes. Doing so currently crashes:
-    ///     <c>PromoteAndLaunch</c>'s "already canceled" branch calls <c>Complete</c>
-    ///     synchronously, inline, still inside the transaction that's processing the original
-    ///     admission — where the normal-start branch just below it defers through
-    ///     <c>TransactionInternal.PostImpl</c> specifically to avoid this. <c>Complete</c> then
-    ///     opens its own transaction via <c>TransactionInternal.RunImpl</c>, which is illegal
-    ///     while one is already open: the <c>Send</c> inside it throws
-    ///     <c>InvalidOperationException("Send may not be called inside a callback.")</c>.
-    ///     Expected to fail until <c>PromoteAndLaunch</c> defers that branch the same way.
+    ///     A test for a defect that came from
+    ///     <see cref="CustomStrategyCanRejectAnIncomingValueOutright" />. A strategy can call
+    ///     <see cref="AsyncMapBase.AsyncQueuedItem{TInput}.Cancel" /> on <c>incoming</c> and also
+    ///     return it as an <see cref="AsyncMapBase.AsyncToStart{TInput}" /> in the same
+    ///     <c>Admit</c> call. The contract of that method permits this, and the method to refuse a
+    ///     value above is different, because it cancels the item and never promotes it. This
+    ///     sequence now stops the process. The branch in <c>PromoteAndLaunch</c> for an item that
+    ///     a cancellation removed calls <c>Complete</c> synchronously, inline, in the transaction
+    ///     that processes the admission. The branch for a usual start below it defers through
+    ///     <c>TransactionInternal.PostImpl</c> to prevent that. <c>Complete</c> then opens its own
+    ///     transaction with <c>TransactionInternal.RunImpl</c>, which is not legal while a
+    ///     transaction is open, and the <c>Send</c> in it throws
+    ///     <c>InvalidOperationException("Send may not be called inside a callback.")</c>. This
+    ///     test fails until <c>PromoteAndLaunch</c> defers that branch in the same manner.
     /// </summary>
     [Test]
     public async Task Admit_CancelingAndPromotingTheSameItemInOneCall_CompletesItAsCanceledInstead()
@@ -411,12 +414,14 @@ public sealed class MapAsyncImplTests
             .ThrowsExactly<ArgumentNullException>();
     }
 
-    /// <summary>Starts everything immediately and records the converted value each item was admitted with.</summary>
+    /// <summary>Starts each item immediately and records the converted value of each item at its
+    /// admission.</summary>
     // ReSharper disable once InheritdocConsiderUsage
     private sealed class RecordingStrategy<TStrategyInput, TStrategyResult>
         : AsyncConcurrencyStrategy<TStrategyInput, TStrategyResult, object?>
     {
-        // This state is global and not per MapAsync call.  Per MapAsync state needs to be held in a TState object.
+        // This state is global and is not the state of one MapAsync call. A TState object holds
+        // the state of one MapAsync call.
         private readonly List<TStrategyInput> admittedValues = [];
 
         public IReadOnlyList<TStrategyInput> AdmittedValues => this.admittedValues;
@@ -440,10 +445,11 @@ public sealed class MapAsyncImplTests
     }
 
     /// <summary>
-    ///     Rejects a negative value outright: canceled the instant it's admitted, and never
-    ///     promoted — the "leave it permanently Queued" idiom the base class documents for
-    ///     outright rejection, rather than canceling and also returning it as an
-    ///     <see cref="AsyncMapBase.AsyncToStart{TInput}" /> to start in the same call.
+    ///     Refuses a negative value. It cancels the value at its admission and never promotes it.
+    ///     That is the method that the base class documents to refuse a value, and it leaves the
+    ///     item with the Queued status permanently. The other method cancels the value and also
+    ///     returns it as an <see cref="AsyncMapBase.AsyncToStart{TInput}" /> to start in the same
+    ///     call.
     /// </summary>
     // ReSharper disable once InheritdocConsiderUsage
     private sealed class RejectNegativeStrategy : AsyncConcurrencyStrategy<int, int, object?>
@@ -471,13 +477,13 @@ public sealed class MapAsyncImplTests
     }
 
     /// <summary>
-    ///     Cancels every incoming value and, unlike <see cref="RejectNegativeStrategy" />, still
-    ///     returns it as an <see cref="AsyncMapBase.AsyncToStart{TInput}" /> to promote in the same call —
-    ///     exercising <c>PromoteAndLaunch</c>'s "already canceled while queued" branch
-    ///     synchronously, from within the same transaction as the admission itself, rather than
-    ///     from a later transaction the way that branch is normally reached. (An external
-    ///     cancelAll/cancelMatching firing, or another item's completion promoting a
-    ///     previously-queued one.)
+    ///     Cancels each incoming value and returns it as an
+    ///     <see cref="AsyncMapBase.AsyncToStart{TInput}" /> to promote in the same call.
+    ///     <see cref="RejectNegativeStrategy" /> does not return it. This test thus runs the
+    ///     branch in <c>PromoteAndLaunch</c> for an item that a cancellation removed with the
+    ///     Queued status, synchronously, in the transaction of the admission. The usual path to
+    ///     that branch is a subsequent transaction: a send on an external cancelAll stream or
+    ///     cancelMatching stream, or the end of one item that promotes a Queued item.
     /// </summary>
     // ReSharper disable once InheritdocConsiderUsage
     private sealed class CancelAndPromoteSameItemStrategy : AsyncConcurrencyStrategy<int, int, object?>

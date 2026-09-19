@@ -9,7 +9,8 @@ namespace SodaFlow.Async.Tests;
 
 internal static class TestUtil
 {
-    /// <summary>Polls <paramref name="condition" /> until it's true, or fails the test via timeout.</summary>
+    /// <summary>Reads <paramref name="condition" /> until it is true, or fails the test at a
+    /// timeout.</summary>
     public static void WaitUntil([InstantHandle] Func<bool> condition, int timeoutMs = 5000)
     {
         Stopwatch stopwatch = Stopwatch.StartNew();
@@ -27,11 +28,11 @@ internal static class TestUtil
 }
 
 /// <summary>
-///     An async operation, keyed by input, that a test controls the completion of explicitly via
-///     <see cref="Release" />/<see cref="Fail" /> rather than racing real time. Also records which
-///     inputs have actually been invoked, so a test can assert an operation started running
-///     (rather than merely being admitted) before releasing it — the distinction that makes Queue
-///     vs Parallel observable.
+///     An async operation, with the input as its key, whose end a test controls with
+///     <see cref="Release" /> and <see cref="Fail" />. Thus a test does not race the true clock.
+///     It also records the inputs that the pipeline called. Thus a test can show that an operation
+///     has the Running status, and not only an admission, before the release. That difference
+///     shows the behavior of Queue against the behavior of Parallel.
 /// </summary>
 internal sealed class ControlledOperation<TInput, TResult>
     where TInput : notnull

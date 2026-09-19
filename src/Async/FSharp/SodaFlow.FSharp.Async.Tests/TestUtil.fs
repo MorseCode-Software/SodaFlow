@@ -6,7 +6,7 @@ open System.Diagnostics
 open System.Threading
 open System.Threading.Tasks
 
-/// Polls `condition` until it's true, or fails the test via timeout.
+/// Reads `condition` until it is true, or fails the test at a timeout.
 let waitUntil (condition: unit -> bool) =
     let sw = Stopwatch.StartNew()
 
@@ -16,10 +16,10 @@ let waitUntil (condition: unit -> bool) =
 
         Thread.Sleep(10)
 
-/// An async operation, keyed by input, that a test controls the completion of explicitly via
-/// Release/Fail rather than racing real time. Also records which inputs have actually been
-/// invoked, so a test can assert an operation started running (rather than merely being admitted)
-/// before releasing it.
+/// An async operation, with the input as its key, whose end a test controls with Release and
+/// Fail. Thus a test does not race the true clock. It also records the inputs that the pipeline
+/// called. Thus a test can show that an operation has the Running status, and not only an
+/// admission, before the release.
 type ControlledOperation<'TInput, 'TResult when 'TInput: equality>() =
     let gates = ConcurrentDictionary<'TInput, TaskCompletionSource<'TResult>>()
     let started = ConcurrentDictionary<'TInput, bool>()
