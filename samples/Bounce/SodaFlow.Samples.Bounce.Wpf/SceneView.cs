@@ -8,20 +8,20 @@ using SodaFlow.Samples.Bounce.ViewModels;
 namespace SodaFlow.Samples.Bounce.Wpf;
 
 /// <summary>
-///     Draws a scene, once per frame, by asking it where its balls are.
+///     Draws a scene one time for each frame, and reads the positions of its balls.
 /// </summary>
 /// <remarks>
 ///     <para>
-///         The Avalonia head has the same class, and the difference between them is worth a look.
-///         There it is a timer that decides when to redraw; here it is
+///         The Avalonia head has the same class, and the difference between the two is
+///         important. There a timer selects the time of each draw. Here it is
 ///         <see cref="CompositionTarget.Rendering" />, which WPF raises as it composes each frame.
-///         Neither choice reaches the simulation. What varies between the two frameworks is when
-///         somebody asks where the balls are, and the answer to that question does not depend on
-///         who is asking or how often.
+///         The two selections do not go to the simulation. The difference between the two
+///         frameworks is the time of the read, and the answer is the same for each caller and
+///         each frequency.
 ///     </para>
 ///     <para>
-///         Nothing here holds a position, accumulates a delta, or looks at the interval since the
-///         last frame.
+///         No code here holds a position, adds a delta, or reads the interval from the last
+///         frame.
 ///     </para>
 /// </remarks>
 // ReSharper disable once InheritdocConsiderUsage
@@ -73,7 +73,8 @@ internal sealed class SceneView : FrameworkElement
             pen: BoxPen,
             rectangle: new Rect(x: 0.0, y: 0.0, width: scene.Width, height: scene.Height));
 
-        // One transaction for the frame, so every ball is drawn as of the same instant.
+        // There is one transaction for the frame, thus the code draws each ball at the same
+        // instant.
         IReadOnlyList<(double X, double Y)> positions = scene.SamplePositions();
 
         for (int i = 0; i < positions.Count; i++)
@@ -123,7 +124,7 @@ internal sealed class SceneView : FrameworkElement
         }
     }
 
-    /// <summary>Frozen so that the render thread can use them without marshaling.</summary>
+    /// <summary>These are frozen, thus the render thread can use them with no marshaling.</summary>
     private static T Freeze<T>(T freezable)
         where T : Freezable
     {

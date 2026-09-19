@@ -3,32 +3,31 @@ using System.Collections.Generic;
 namespace SodaFlow.Samples.Bounce.ViewModels;
 
 /// <summary>
-///     Reading a whole scene at one instant.
+///     Reads a full scene at one instant.
 /// </summary>
 public static class SceneExtensionMethods
 {
     extension(IScene scene)
     {
         /// <summary>
-        ///     Where every ball is, all as of the same moment.
+        ///     The position of each ball, at the same moment.
         /// </summary>
         /// <remarks>
         ///     <para>
-        ///         One transaction for the frame rather than one per ball. Sampling a behavior opens a
-        ///         transaction if it is not already inside one, so reading four balls separately would
-        ///         read them at four slightly different instants - which is not wrong so much as
-        ///         needlessly untrue, and would show as a frame in which one ball had bounced and
-        ///         another had not quite.
+        ///         There is one transaction for the frame, and not one transaction for each ball.
+        ///         A sample of a behavior opens a transaction when there is no transaction. Thus
+        ///         four reads give the four balls at four different instants. Such a frame can
+        ///         show one ball after its bounce and a second ball before its bounce.
         ///     </para>
         ///     <para>
-        ///         Opening a transaction also runs any timer that has come due, so the frame that draws
-        ///         a bounce is the frame that discovers it.
+        ///         A new transaction also runs each timer that is due, thus the frame that draws a
+        ///         bounce is the frame that finds it.
         ///     </para>
         ///     <para>
-        ///         A method rather than a property, though it reads like one and an extension block
-        ///         would now allow it. Sampling is a deliberate act everywhere else in this sample -
-        ///         <see cref="Ball.SampleAt" />, <c>Cell.Sample</c> - and a property would quietly
-        ///         suggest that reading it twice costs nothing and answers the same.
+        ///         This is a method and not a property, although it reads as a property and an
+        ///         extension block permits one. Each other sample of this type is an explicit call,
+        ///         such as <see cref="Ball.SampleAt" /> and <c>Cell.Sample</c>. A property suggests
+        ///         that a second read has no cost and gives the same answer.
         ///     </para>
         /// </remarks>
         public IReadOnlyList<(double X, double Y)> SamplePositions() =>

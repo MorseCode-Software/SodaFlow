@@ -3,48 +3,48 @@ using System.Collections.Generic;
 namespace SodaFlow.Samples.Bounce.ViewModels;
 
 /// <summary>
-///     One of the arrangements this sample shows, from the smallest to the one that takes input.
+///     One of the arrangements in this sample, from the smallest to the one with input.
 /// </summary>
 /// <remarks>
-///     Not <see cref="System.IDisposable" />, and that is worth a word given the other samples
-///     are. Nothing here subscribes to anything: the balls are behaviors, a view reads them by
-///     sampling, and the timers the simulation arms are held by the graph that arms them. There is
-///     no subscription to release, so there is nothing to release it.
+///     This is not <see cref="System.IDisposable" />, and the other samples are. No code here
+///     subscribes to a value. The balls are behaviors, a view reads them with a sample, and the
+///     graph that sets the timers of the simulation holds those timers. There is no subscription
+///     to release, thus there is no code to release one.
 /// </remarks>
 public interface IScene
 {
-    /// <summary>The scene's name, for the tab that holds it.</summary>
+    /// <summary>The name of the scene, for the tab that holds it.</summary>
     string Name { get; }
 
-    /// <summary>What this scene demonstrates, shown above it.</summary>
+    /// <summary>The subject of this scene, which the view shows above it.</summary>
     string Summary { get; }
 
-    /// <summary>The width of the box the balls are confined to.</summary>
+    /// <summary>The width of the box that holds the balls.</summary>
     double Width { get; }
 
-    /// <summary>The height of the box the balls are confined to.</summary>
+    /// <summary>The height of the box that holds the balls.</summary>
     double Height { get; }
 
     IReadOnlyList<Ball> Balls { get; }
 }
 
 /// <summary>
-///     A scene that also responds to the pointer.
+///     A scene that also reacts to the pointer.
 /// </summary>
 /// <remarks>
-///     Separate from <see cref="IScene" /> so that the scenes which ignore the pointer are not
-///     obliged to say so with three empty methods. A view asks whether the scene it is showing is
-///     one of these.
+///     This is not part of <see cref="IScene" />, thus three empty methods are not necessary for
+///     a scene that does not use the pointer. A view tests the scene that it shows against this
+///     type.
 /// </remarks>
 // ReSharper disable once InheritdocConsiderUsage
 public interface IInteractiveScene : IScene
 {
-    /// <summary>Takes hold of whichever ball is under the given point, if any.</summary>
+    /// <summary>Holds the ball below the given point, when there is one.</summary>
     void Grab(double x, double y);
 
-    /// <summary>Moves the held ball, if one is held.</summary>
+    /// <summary>Moves the ball that the scene holds, when it holds one.</summary>
     void MoveTo(double x, double y);
 
-    /// <summary>Releases the ball, throwing the held ball at the speed the pointer was moving.</summary>
+    /// <summary>Releases the ball and throws it at the speed of the pointer.</summary>
     void Release();
 }

@@ -7,27 +7,27 @@ using SodaFlow.Time;
 namespace SodaFlow.Samples.Bounce.ViewModels;
 
 /// <summary>
-///     The three scenes, which one is showing, and the clock they all share.
+///     The three scenes, the scene that shows now, and the clock of all of them.
 /// </summary>
 /// <remarks>
 ///     <para>
-///         One timer system for the whole application. It is the source of
-///         <see cref="ITimerSystem{T}.Time" />, which every ball's position is a function of, and
-///         it owns a background thread that fires the alarms the bounces are scheduled on. That
-///         thread runs for as long as the process does, which is why there is one of these rather
-///         than one per scene.
+///         There is one timer system for the full sample. It is the source of
+///         <see cref="ITimerSystem{T}.Time" />, and the position of each ball is a function of that
+///         time. It holds a background thread that fires the alarms of the bounces. That thread
+///         runs while the process runs. For that cause there is one timer system, and not one timer
+///         system for each scene.
 ///     </para>
 ///     <para>
-///         <see cref="SecondsTimerSystem" /> measures time in seconds since it was created, which
-///         is what a simulation wants. <see cref="SystemClockTimerSystem" /> is the other one that
-///         ships, and answers in <see cref="DateTime" /> for scheduling against real calendar
-///         times.
+///         <see cref="SecondsTimerSystem" /> measures the time in seconds from its construction,
+///         and that is necessary for a simulation. <see cref="SystemClockTimerSystem" /> is the
+///         second timer system in the library, and it gives a <see cref="DateTime" /> for a
+///         schedule on true calendar times.
 ///     </para>
 ///     <para>
-///         Note which parts of this are bindable and which are not. The balls are behaviors, read
-///         by sampling, and bind to nothing - there is no sequence of changes for a binding to
-///         follow. Which scene is selected is an ordinary changing value, so it is an ordinary cell
-///         exposed as an ordinary bindable property, exactly as in the other samples.
+///         See which parts of this are bindable and which parts are not. The balls are behaviors.
+///         Code reads them with a sample, and they bind to nothing, because there is no sequence of
+///         changes for a binding. The selected scene is a usual value that changes, thus it is a
+///         usual cell and a usual bindable property, as in the other samples.
 ///     </para>
 /// </remarks>
 // ReSharper disable once InheritdocConsiderUsage
@@ -37,7 +37,8 @@ public sealed class BounceViewModel : IBounceViewModel
 
     private const double LargestDamping = 1.1;
 
-    /// <summary>Where the slider starts: visibly lossy, so that turning damping on shows something.</summary>
+    /// <summary>The initial position of the slider. It has a large loss, thus damping shows a
+    /// result on the screen.</summary>
     private const double InitialDamping = 0.7;
 
     private readonly IReadOnlyList<IDisposable> disposables;
@@ -61,23 +62,24 @@ public sealed class BounceViewModel : IBounceViewModel
     }
 
     /// <inheritdoc />
-    /// <remarks>Smallest first, so that reading them in order is reading the idea in order.</remarks>
+    /// <remarks>The smallest scene is first, thus the sequence of the scenes is the sequence of
+    /// the idea.</remarks>
     public IReadOnlyList<IScene> Scenes { get; }
 
     /// <inheritdoc />
     /// <remarks>
-    ///     There is deliberately no method beside this that also sets the selection. A second way in
-    ///     is a second thing to keep in step with the first, and it is the habit this library exists
-    ///     to make unnecessary: the bindable property is the way in, as a bindable action is for
-    ///     something that happens rather than something that is.
+    ///     There is no other method that also sets the selection. A second path is a second item
+    ///     to keep in agreement with the first, and this library makes that unnecessary. The
+    ///     bindable property is the path for a value, and a bindable action is the path for an
+    ///     event.
     /// </remarks>
     public ITwoWayBindableValue<IScene> SelectedScene { get; }
 
     /// <inheritdoc />
     /// <remarks>
-    ///     Here to make the point that the selection is part of the graph rather than something the
-    ///     view keeps to itself: this is a function of it, and nothing has to notice a tab change
-    ///     and go and update a label.
+    ///     This shows that the selection is part of the graph and not a value that only the view
+    ///     holds. This property is a function of the selection, thus no code must see a change of
+    ///     tab and then update a label.
     /// </remarks>
     public IOneWayBindableValue<string> SelectedSummary { get; }
 
@@ -98,8 +100,8 @@ public sealed class BounceViewModel : IBounceViewModel
 
     /// <inheritdoc />
     /// <remarks>
-    ///     Only the bindables need this. The scenes do not: their balls are behaviors, and nothing
-    ///     subscribes to a behavior.
+    ///     Only the bindables use this. The scenes do not use it, because their balls are
+    ///     behaviors and no code subscribes to a behavior.
     /// </remarks>
     public void Dispose()
     {
@@ -110,34 +112,36 @@ public sealed class BounceViewModel : IBounceViewModel
     }
 
     /// <param name="handleException">
-    ///     Called with anything raised while waiting for or firing a timer. Timer callbacks run
-    ///     outside any call stack of yours, so an exception in one has nowhere else to go.
+    ///     This receives each exception from a wait on a timer and from a timer that fires. A
+    ///     timer callback does not run on a call stack of the caller, thus there is no other
+    ///     destination for its exception.
     /// </param>
     public static IBounceViewModel Create(Action<Exception> handleException)
     {
         SecondsTimerSystem timers = new(handleException);
 
-        // One transaction for the whole construction, so that every scene starts from the same
-        // instant rather than from whatever the clock said as each one was built.
+        // There is one transaction for the full construction, thus each scene starts at the same
+        // moment and not at the time of its own construction.
         return Transaction.Run(() =>
         {
-            // The checkbox and the slider are two values, and what the physics wants is one:
-            // the multiplier a bounce applies. Turning damping off is the same as a multiplier
-            // of one, so that is what the graph says, rather than the bounce asking twice.
+            // The checkbox and the slider are two values, and the physics uses one value: the
+            // multiplier of a bounce. A state with no damping is the same as a multiplier of one,
+            // thus the graph gives that value and the bounce does not read two values.
             CellSink<bool> dampingEnabled = Cell.CreateSink(false);
             CellSink<double> damping = Cell.CreateSink(InitialDamping);
 
             Cell<double> restitution =
                 dampingEnabled.Lift(c2: damping, f: static (enabled, value) => enabled ? value : 1.0);
 
-            // A scene starts again when its tab becomes the selected one. That is a fact about
-            // the selection rather than something a view has to remember to call, and it is
-            // what a damped scene needs: below one every ball ends up at rest, and coming back
-            // to the tab is what puts it on its feet again.
+            // A scene starts again when its tab becomes the selected tab. That is a property of
+            // the selection, and no view must remember to call it. This is necessary for a
+            // damped scene, because below one each ball stops, and the selection of the tab starts
+            // the scene again.
             //
-            // The selection cannot exist until the scenes do, and the scenes want the stream,
-            // so the stream is looped - declared now, defined once the selection is there. The
-            // index passed to each scene is its position in the array just below.
+            // The selection is not possible before the scenes, and the stream is necessary for
+            // the scenes. Thus this code loops the stream: it declares the stream now and defines
+            // it after the selection is available. The index for each scene is its position in
+            // the array below.
             return Stream.Loop<int>()
                 .WithCaptures(activatedLoop =>
                 {
@@ -149,22 +153,23 @@ public sealed class BounceViewModel : IBounceViewModel
                     IScene grab =
                         new GrabScene(timers: timers, restitution: restitution, restarts: ActivatedAt(2));
 
-                    // Damped at the walls like the other two, but not at the impacts between balls -
-                    // those stay elastic whatever the slider says, because what they conserve is the point
-                    // of the scene. See CollisionScene.Reflected.
+                    // This scene damps at the walls, as the other two scenes do, but it does not
+                    // damp at the impacts between balls. Those impacts stay elastic at each
+                    // position of the slider, because the conservation is the purpose of the
+                    // scene. See CollisionScene.Reflected.
                     IScene ricochets =
                         new CollisionScene(timers: timers, restitution: restitution, restarts: ActivatedAt(3));
 
                     IScene[] scenes = [simple, walls, grab, ricochets];
 
-                    // The simplest two-way case: the view is the only writer and the sink is the
-                    // authoritative value. No scheduler is passed, so the ambient one is resolved -
-                    // which the application pins at startup, so this does not care what thread it
-                    // is built on.
+                    // This is the most simple two-way condition. The view is the only writer and
+                    // the sink holds the correct value. This code gives no scheduler, thus the
+                    // graph finds the ambient scheduler. The sample sets that scheduler at its
+                    // start, thus the thread of this construction has no effect.
                     CellSink<IScene> selected = Cell.CreateSink(scenes[0]);
 
-                    // Updates and not the cell itself, so the scene showing at startup is not restarted
-                    // the moment it is built.
+                    // This uses the updates and not the cell, thus the scene at the start does
+                    // not start again at its construction.
                     return
                     (
                         Stream: selected.Updates().Map(scene => Array.IndexOf(array: scenes, value: scene)),
@@ -173,9 +178,9 @@ public sealed class BounceViewModel : IBounceViewModel
                             selectedScene: selected.ToTwoWay(),
                             selectedSummary: selected.Map(static scene => scene.Summary).ToOneWay(),
 
-                            // Which scenes damping applies to is known here because this is where it was
-                            // handed over, so the answer is which scenes those were rather than a flag
-                            // every scene has to carry.
+                            // This code knows the scenes with damping, because this code gave the
+                            // damping to them. Thus the answer is the set of those scenes, and no
+                            // scene holds a flag.
                             isDampingAvailable:
                             selected
                                 .Map(scene =>

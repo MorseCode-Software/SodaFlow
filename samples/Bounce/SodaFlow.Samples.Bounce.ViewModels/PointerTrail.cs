@@ -1,12 +1,13 @@
 namespace SodaFlow.Samples.Bounce.ViewModels;
 
 /// <summary>
-///     The last two places the pointer was, and when.
+///     The last two positions of the pointer, and their times.
 /// </summary>
 /// <remarks>
-///     Enough to answer how fast it was moving when it let go, which is the whole reason a throw
-///     feels like a throw. Two samples rather than one because a velocity needs a difference, and
-///     rather than more because a longer window makes a flick read as slower than it was.
+///     This is sufficient to give the speed of the pointer at the release, and that speed makes a
+///     correct throw. There are two samples and not one, because a velocity needs a difference.
+///     There are not more samples, because a longer window gives a lower speed than the true speed
+///     of a fast move.
 /// </remarks>
 // ReSharper disable once InheritdocConsiderUsage
 internal readonly record struct PointerTrail
@@ -45,10 +46,10 @@ internal readonly record struct PointerTrail
 
     public double Y { get; }
 
-    /// <summary>Horizontal speed over the last interval, in units per second.</summary>
+    /// <summary>The horizontal speed across the last interval, in units per second.</summary>
     public double VelocityX => this.Velocity(this.X - this.PreviousX);
 
-    /// <summary>Vertical speed over the last interval, in units per second.</summary>
+    /// <summary>The vertical speed across the last interval, in units per second.</summary>
     public double VelocityY => this.Velocity(this.Y - this.PreviousY);
 
     public PointerTrail Add(double time, double x, double y) =>
@@ -65,8 +66,8 @@ internal readonly record struct PointerTrail
     {
         double dt = this.Time - this.PreviousTime;
 
-        // A pointer that has moved once, or twice in the same instant, has no speed worth
-        // reporting. Releasing then simply drops the ball.
+        // A pointer with one move, or with two moves at the same instant, has no usable speed.
+        // A release then lets the ball fall.
         return !this.HasPrevious || dt <= 0.0 ? 0.0 : delta / dt;
     }
 }

@@ -1,29 +1,28 @@
 namespace SodaFlow.Samples.Bounce.ViewModels;
 
 /// <summary>
-///     One unbroken stretch of motion along one axis: where a body was, how fast it was going,
-///     and what it is accelerating at, from a moment in time onward.
+///     One continuous interval of movement along one axis. It gives the position of a body, its
+///     speed, and its acceleration, from one moment forward.
 /// </summary>
 /// <remarks>
 ///     <para>
-///         This is the whole of the physics, and it is worth noticing that it is a pure function
-///         rather than a state that something has to keep stepping. <see cref="PositionAt" /> is
-///         defined at every instant, not at the instants a frame happened to land on, which is
-///         exactly what a <see cref="Behavior{T}" /> is for and exactly what a
-///         <see cref="Cell{T}" /> could not express.
+///         This is the full physics, and it is a pure function and not a state that other code
+///         must step. <see cref="PositionAt" /> has a value at each instant, and not only at the
+///         instants of a frame. That is the purpose of a <see cref="Behavior{T}" />, and a
+///         <see cref="Cell{T}" /> cannot give it.
 ///     </para>
 ///     <para>
-///         Because the position is an equation, the moment a body reaches a wall is something to
-///         solve for rather than to notice after the fact. Nothing in this sample tests whether a
-///         ball has gone past an edge, and no bounce can be missed by a frame arriving late or
-///         skipped entirely.
+///         The position is an equation, thus the code calculates the moment when a body touches a
+///         wall and does not find it after the event. No code in this sample tests for a ball
+///         through an edge, and a late frame or a frame that does not occur cannot remove a
+///         bounce.
 ///     </para>
 /// </remarks>
-/// <param name="StartTime">The moment this stretch of motion began.</param>
+/// <param name="StartTime">The moment at the start of this interval of movement.</param>
 /// <param name="Position">The position at <paramref name="StartTime" />.</param>
 /// <param name="Velocity">The velocity at <paramref name="StartTime" />, in units per second.</param>
 /// <param name="Acceleration">
-///     Constant acceleration, in units per second squared. Zero along a level axis.
+///     The constant acceleration, in units per second squared. It is zero on a level axis.
 /// </param>
 // ReSharper disable once InheritdocConsiderUsage
 internal readonly record struct Flight(double StartTime, double Position, double Velocity, double Acceleration)
