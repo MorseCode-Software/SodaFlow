@@ -4,8 +4,8 @@ using Avalonia.Markup.Xaml;
 namespace SodaFlow.Samples.Search.Avalonia;
 
 /// <summary>
-///     Markup and nothing else. The data context is supplied by <see cref="App" /> before this is
-///     shown - compare the WPF window, which is now the same.
+///     This holds only markup. <see cref="App" /> gives the data context before this window
+///     shows. Compare the WPF window, which is the same.
 /// </summary>
 // ReSharper disable once InheritdocConsiderUsage
 // ReSharper disable once PartialTypeWithSinglePart - Partial due to generated code.

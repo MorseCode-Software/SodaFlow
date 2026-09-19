@@ -9,22 +9,23 @@ using SodaFlow.Functional;
 namespace SodaFlow.Samples.Search.ViewModels;
 
 /// <summary>
-///     Search-as-you-type: every keystroke starts a search, a new one supersedes whatever was
-///     in flight, and the results, the busy state and the error message are all functions of
-///     the same graph.
+///     A search at each keystroke. Each keystroke starts a search, a new search replaces the
+///     search in operation, and the results, the busy state, and the error message are functions
+///     of the same graph.
 /// </summary>
 /// <remarks>
 ///     <para>
-///         This is the case that is genuinely hard to write by hand. Typing faster than the
-///         service responds means several searches are outstanding at once, and the usual bugs
-///         are an older reply overwriting a newer one, a spinner that never stops because a
-///         canceled request never decremented a counter, and a stale error left on screen
-///         after a later search succeeded. None of those are possible here: SwitchLatest
-///         guarantees only the newest search can publish, IsRunning is derived rather than
-///         counted, and the error is cleared by the same stream that starts a search.
+///         This condition is difficult to write manually. A user that types faster than Catalog
+///         replies makes some searches operate at the same time. The usual defects are a previous
+///         reply that replaces a new reply, a spinner that does not stop because a canceled search
+///         did not decrease a counter, and a previous error on the screen after a subsequent
+///         search gave results. None of those defects is possible here. SwitchLatest lets only
+///         the newest search publish, the graph calculates IsRunning and does not count it, and
+///         the same stream that starts a search removes the error.
 ///     </para>
 ///     <para>
-///         Type "fail" to see the error path. Type slowly and then quickly to see supersession.
+///         Type "fail" to see the error path. Type slowly and then quickly to see a new search
+///         replace a previous search.
 ///     </para>
 /// </remarks>
 // ReSharper disable once InheritdocConsiderUsage
@@ -54,9 +55,10 @@ public sealed class SearchViewModel : ISearchViewModel
         this.IsBusy = isBusy;
         this.Cancel = cancel;
 
-        // The bindables each hold a subscription into the graph, and status is the async
-        // pipeline itself: disposing it tears that down and cancels anything still in flight.
-        // They differ in kind but not in what disposal asks of them, so one list holds both.
+        // Each bindable holds a subscription into the graph, and the status is the async
+        // pipeline. Disposal of the pipeline removes it and cancels each operation in it. The two
+        // types are different, but the disposal of each is the same, thus one list holds the two
+        // types.
         this.disposables = [query, results, summary, error, hasError, isBusy, cancel, status];
     }
 
@@ -86,12 +88,12 @@ public sealed class SearchViewModel : ISearchViewModel
 
     /// <inheritdoc />
     /// <remarks>
-    ///     Every entry holds a subscription into the graph, and disposing it is what releases that
+    ///     Each entry holds a subscription into the graph, and its disposal releases that
     ///     subscription.
     ///     <para />
-    ///     This is the case the counter sample's remarks point at: the list holds the async
-    ///     pipeline's status alongside the bindables, which is why it is typed as
-    ///     <see cref="IDisposable" />. The constructor says what disposing that one does.
+    ///     The remarks of the counter sample name this condition. The list holds the status of the
+    ///     async pipeline and the bindables, thus its type is <see cref="IDisposable" />. The
+    ///     constructor gives the result of the disposal of the status.
     /// </remarks>
     public void Dispose()
     {
@@ -107,16 +109,17 @@ public sealed class SearchViewModel : ISearchViewModel
             CellSink<string> query = Cell.CreateSink(string.Empty);
             StreamSink<Unit> cancel = Stream.CreateSink<Unit>();
 
-            // MapAsync publishes into these two, and everything downstream reads them. Splitting
-            // success from failure at the source is why no result ever has to be checked for an error.
+            // MapAsync publishes into these two streams, and the code after them reads the two
+            // streams. This code divides the successes from the failures at the source, thus no
+            // result needs a test for an error.
             StreamSink<IReadOnlyList<string>> found =
                 Stream.CreateSink<IReadOnlyList<string>>();
 
             StreamSink<Exception> failed = Stream.CreateSink<Exception>();
 
-            // Calm first: holding a key down, or moving the caret, re-sends the same text,
-            // and there is no reason to search twice for it. Updates rather than Values
-            // because the empty initial query is not worth a round trip.
+            // Calm is first. A key that stays down, or a move of the caret, sends the same text
+            // again, and a second search for that text has no value. This code uses Updates and
+            // not Values, because a round-trip is not necessary for the empty initial query.
             Stream<string> searches =
                 query
                     .Calm()
@@ -129,25 +132,27 @@ public sealed class SearchViewModel : ISearchViewModel
                     errors: failed,
                     operation: Catalog.SearchAsync,
 
-                    // The whole concurrency policy, in one argument. A new keystroke
-                    // supersedes the search in flight, and the superseded one can never
-                    // publish - which is the race that makes this screen hard to hand-write.
+                    // The full concurrency policy is in one argument. A new keystroke replaces
+                    // the search in operation, and the search that it replaces cannot publish.
+                    // That is the race condition that makes this screen difficult to write
+                    // manually.
                     strategy: AsyncConcurrencyStrategy.SwitchLatest(),
                     cancelAll: cancel);
 
-            // Results survive until the next search replaces them.
+            // The results stay until the next search replaces them.
             Cell<IReadOnlyList<string>> results = found.Hold(NoResults);
 
-            // The error is cleared by the same stream that starts a search, so a stale
-            // message cannot outlive the request that produced it. Failures win a tie
-            // because OrElse prefers its left argument.
+            // The same stream that starts a search removes the error, thus a previous message
+            // cannot stay after its search. A failure has priority when the two streams fire
+            // together, because OrElse uses its left argument first.
             Cell<string> error =
                 failed
                     .Map(static e => e.Message)
                     .OrElse(searches.MapTo(string.Empty))
                     .Hold(string.Empty);
 
-            // Derived, not counted. There is no += 1 anywhere to get out of step.
+            // The graph calculates this and does not count it. There is no += 1 that can become
+            // incorrect.
             Cell<bool> busy = searchStatus.IsRunning;
 
             Cell<string> summary =

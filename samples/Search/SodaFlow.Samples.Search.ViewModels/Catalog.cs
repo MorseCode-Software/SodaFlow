@@ -7,10 +7,9 @@ using System.Threading.Tasks;
 namespace SodaFlow.Samples.Search.ViewModels;
 
 /// <summary>
-///     Stands in for whatever a real application would call: a web service, a database, a
-///     process. It sleeps so the asynchronous behavior is visible, and it honors its
-///     cancellation token, which is what makes cancellation actually stop work rather than
-///     merely discard its result.
+///     This replaces the true target of a call: a web server, a database, or a process. It
+///     sleeps, thus a user can see the asynchronous behavior. It also obeys its cancellation
+///     token, thus a cancellation stops the work and does not only discard the result.
 /// </summary>
 internal static class Catalog
 {
@@ -84,7 +83,7 @@ internal static class Catalog
 
     /// <summary>Matches entries containing <paramref name="query" />, slowly.</summary>
     /// <exception cref="InvalidOperationException">
-    ///     Thrown for the query "fail", so the sample has a way to show the error path.
+    ///     This occurs for the query "fail", thus the sample can show the error path.
     /// </exception>
     public static async Task<IReadOnlyList<string>> SearchAsync(
         string query,
@@ -93,9 +92,9 @@ internal static class Catalog
         await Task.Delay(delay: TimeSpan.FromMilliseconds(600), cancellationToken: cancellationToken)
             .ConfigureAwait(false);
 
-        // Trimmed once. The predicate below runs against every entry in the catalog, so trimming
-        // inside it repeated the work sixty-odd times per search - and Trim hands back a new string
-        // each time there is anything to take off.
+        // This code trims one time. The predicate below runs against each entry in the catalog.
+        // A call to Trim in the predicate did that work approximately sixty times for each search,
+        // and Trim gives a new string at each call with a space to remove.
         string trimmed = query.Trim();
 
         if (string.Equals(a: trimmed, b: "fail", comparisonType: StringComparison.OrdinalIgnoreCase))
