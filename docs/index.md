@@ -1,13 +1,18 @@
 ---
 title: SodaFlow for .NET
+layout: landing
 ---
 
-# SodaFlow for .NET
-
-SodaFlow is a Functional Reactive Programming library. It gives you two composable
-primitives — a **stream** of discrete events and a **cell** holding a value over time —
-and guarantees that anything you build out of them updates *atomically*, with no glitches
-and no intermediate states that never logically existed.
+<div class="sf-hero">
+<img class="sf-hero-logo" src="images/sodaflow-wordmark.svg" alt="SodaFlow">
+<p class="sf-hero-tagline">Functional Reactive Programming for .NET.</p>
+<p class="sf-hero-lede">Two composable primitives — a <strong>stream</strong> of discrete events and a <strong>cell</strong> holding a value over time — and a transaction system that guarantees anything you build out of them updates <em>atomically</em>, with no glitches and no intermediate states that never logically existed. In C# and F#.</p>
+<p class="sf-actions">
+<a class="sf-button sf-button-primary" href="docs/getting-started.md">Get started</a>
+<a class="sf-button" href="docs/concepts.md">Core concepts</a>
+<a class="sf-button" href="api/index.md">API reference</a>
+</p>
+</div>
 
 ```csharp
 StreamSink<int> s = Stream.CreateSink<int>();
@@ -30,25 +35,88 @@ Kotlin, TypeScript, and Rust live under the
 
 ## Start here
 
-- [Getting started](docs/getting-started.md) — install a package and run your first program.
-- [Which package do I install?](docs/packages.md) — there are ten; this page picks one for you.
-- [Core concepts](docs/concepts.md) — streams, cells, behaviors, and transactions.
-- [Operation reference](docs/operations.md) — every operation, C# and F# side by side.
-- [Cookbook](docs/cookbook.md) — recipes for the things that come up constantly.
-- [Sample applications](docs/samples.md) — two full WPF and Avalonia apps over a shared view model.
-- [API reference](api/index.md) — generated from the source.
+<div class="sf-cards">
+<a class="sf-card" href="docs/getting-started.md">
+<i class="bi bi-play-circle"></i>
+<span class="sf-card-title">Getting started</span>
+<span class="sf-card-text">Install a package and run your first program.</span>
+</a>
+<a class="sf-card" href="docs/packages.md">
+<i class="bi bi-box-seam"></i>
+<span class="sf-card-title">Which package do I install?</span>
+<span class="sf-card-text">This page picks one of the published packages for you.</span>
+</a>
+<a class="sf-card" href="docs/concepts.md">
+<i class="bi bi-diagram-3"></i>
+<span class="sf-card-title">Core concepts</span>
+<span class="sf-card-text">Streams, cells, behaviors, and transactions.</span>
+</a>
+<a class="sf-card" href="docs/operations.md">
+<i class="bi bi-list-columns"></i>
+<span class="sf-card-title">Operation reference</span>
+<span class="sf-card-text">Every operation, C# and F# side by side.</span>
+</a>
+<a class="sf-card" href="docs/cookbook.md">
+<i class="bi bi-journal-code"></i>
+<span class="sf-card-title">Cookbook</span>
+<span class="sf-card-text">Recipes for the things that come up constantly.</span>
+</a>
+<a class="sf-card" href="docs/samples.md">
+<i class="bi bi-window-stack"></i>
+<span class="sf-card-title">Sample applications</span>
+<span class="sf-card-text">Full WPF and Avalonia apps over shared view models.</span>
+</a>
+<a class="sf-card" href="api/index.md">
+<i class="bi bi-braces"></i>
+<span class="sf-card-title">API reference</span>
+<span class="sf-card-text">Generated from the source.</span>
+</a>
+</div>
 
 ## Going deeper
 
-- [Transactions](docs/transactions.md) — atomicity, simultaneity, and why glitches cannot happen.
-- [Feedback loops](docs/loops.md) — values that depend on their own past.
-- [Switch and dynamic graphs](docs/switch.md) — changing the graph's shape at runtime.
-- [Listener lifetimes](docs/lifetimes.md) — the most common way to break a SodaFlow program.
-- [Time and timers](docs/time.md) — clocks, alarms, and deterministic tests.
-- [Asynchronous work](docs/async.md) — running tasks without breaking the model.
-- [Data binding](docs/bindable.md) — exposing a graph to XAML as properties and commands.
-- [Denotational semantics](docs/semantics.md) — SodaFlow implements Sodium's formal
-  specification, and is tested against it.
+<div class="sf-cards">
+<a class="sf-card" href="docs/transactions.md">
+<i class="bi bi-shield-check"></i>
+<span class="sf-card-title">Transactions</span>
+<span class="sf-card-text">Atomicity, simultaneity, and why glitches cannot happen.</span>
+</a>
+<a class="sf-card" href="docs/loops.md">
+<i class="bi bi-arrow-repeat"></i>
+<span class="sf-card-title">Feedback loops</span>
+<span class="sf-card-text">Values that depend on their own past.</span>
+</a>
+<a class="sf-card" href="docs/switch.md">
+<i class="bi bi-shuffle"></i>
+<span class="sf-card-title">Switch and dynamic graphs</span>
+<span class="sf-card-text">Changing the graph's shape at runtime.</span>
+</a>
+<a class="sf-card" href="docs/lifetimes.md">
+<i class="bi bi-hourglass-split"></i>
+<span class="sf-card-title">Listener lifetimes</span>
+<span class="sf-card-text">The most common way to break a SodaFlow program.</span>
+</a>
+<a class="sf-card" href="docs/time.md">
+<i class="bi bi-clock"></i>
+<span class="sf-card-title">Time and timers</span>
+<span class="sf-card-text">Clocks, alarms, and deterministic tests.</span>
+</a>
+<a class="sf-card" href="docs/async.md">
+<i class="bi bi-lightning-charge"></i>
+<span class="sf-card-title">Asynchronous work</span>
+<span class="sf-card-text">Running tasks without breaking the model.</span>
+</a>
+<a class="sf-card" href="docs/bindable.md">
+<i class="bi bi-ui-checks-grid"></i>
+<span class="sf-card-title">Data binding</span>
+<span class="sf-card-text">Exposing a graph to XAML as properties and commands.</span>
+</a>
+<a class="sf-card" href="docs/semantics.md">
+<i class="bi bi-calculator"></i>
+<span class="sf-card-title">Denotational semantics</span>
+<span class="sf-card-text">Sodium's formal specification, which SodaFlow is tested against.</span>
+</a>
+</div>
 
 ## Elsewhere
 
