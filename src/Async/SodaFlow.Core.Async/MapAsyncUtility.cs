@@ -46,34 +46,47 @@ public readonly struct AsyncItem<TInput>
 /// <summary>
 ///     The status of a MapAsync pipeline. It gives the operation of the pipeline, and each input
 ///     value that the pipeline tracks now with the status of that value. It is also the only
-///     handle to stop the pipeline. See <see cref="Dispose" />.
+///     handle to stop the pipeline. See <see cref="AsyncMapStatus.Dispose" />.
 /// </summary>
 [PublicAPI]
 // ReSharper disable once InheritdocConsiderUsage
-public readonly struct AsyncMapStatus<TInput>
-    : IDisposable
+public sealed class AsyncMapStatus<TInput> : AsyncMapStatus
 {
-    private readonly Action dispose;
-
     internal AsyncMapStatus(
         Cell<bool> isRunning,
         Cell<IReadOnlyList<AsyncItem<TInput>>> items,
         Action dispose)
-    {
-        this.IsRunning = isRunning;
+        : base(isRunning: isRunning, dispose: dispose) =>
         this.Items = items;
-        this.dispose = dispose;
-    }
-
-    /// <summary>True while one item or more has Status == Running. An item with the Queued status
-    /// does not count.</summary>
-    public Cell<bool> IsRunning { get; }
 
     /// <summary>
     ///     Each value that the pipeline tracks now, Queued or Running. The sequence is not
     ///     specified, but each update is one snapshot that agrees with itself.
     /// </summary>
     public Cell<IReadOnlyList<AsyncItem<TInput>>> Items { get; }
+}
+
+/// <summary>
+///     The status of a MapAsync pipeline. It gives the operation of the pipeline. It is also the
+///     only handle to stop the pipeline. See <see cref="Dispose" />.
+/// </summary>
+[PublicAPI]
+// ReSharper disable once InheritdocConsiderUsage
+public class AsyncMapStatus : IDisposable
+{
+    private readonly Action dispose;
+
+    internal AsyncMapStatus(
+        Cell<bool> isRunning,
+        Action dispose)
+    {
+        this.IsRunning = isRunning;
+        this.dispose = dispose;
+    }
+
+    /// <summary>True while one item or more has Status == Running. An item with the Queued status
+    /// does not count.</summary>
+    public Cell<bool> IsRunning { get; }
 
     /// <summary>
     ///     Stops this pipeline. The pipeline admits no more values from the source stream, and it
