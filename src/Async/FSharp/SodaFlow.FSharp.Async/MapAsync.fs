@@ -44,22 +44,8 @@ open SodaFlow.Async
 type EmptyState = EmptyState
 
 /// <summary>
-///     A short base class for a custom strategy that reads its input and publishes no result,
-///     because the result type is <c>unit</c>. It prevents an explicit <c>unit</c> in a subclass
-///     of the AsyncConcurrencyStrategy with three parameters in Core.
-/// </summary>
-/// <typeparam name="TInput">The input type that this strategy schedules on.</typeparam>
-/// <typeparam name="TState">
-///     The scheduling state of this strategy for each call. It is opaque to a caller, and it is
-///     never part of a mapAsync signature.
-/// </typeparam>
-[<AbstractClass>]
-type AsyncConcurrencyStrategy<'TInput, 'TState>() =
-    inherit AsyncConcurrencyStrategy<'TInput, unit, 'TState>()
-
-/// <summary>
-///     A short base class for a custom strategy that reads no input and no result, because the
-///     two types are <c>unit</c>, and that keeps a scheduling state of its own.
+///     A short base class for a custom strategy that reads no input, because the input type is
+///     <c>unit</c>, and that keeps a scheduling state of its own.
 /// </summary>
 /// <typeparam name="TState">
 ///     The scheduling state of this strategy for each call. It is opaque to a caller, and it is
@@ -67,16 +53,16 @@ type AsyncConcurrencyStrategy<'TInput, 'TState>() =
 /// </typeparam>
 [<AbstractClass>]
 type AsyncConcurrencyStrategy<'TState>() =
-    inherit AsyncConcurrencyStrategy<unit, unit, 'TState>()
+    inherit AsyncConcurrencyStrategy<unit, 'TState>()
 
 /// <summary>
-///     A short base class for a custom strategy that reads no input and no result, and that keeps
-///     no state of its own. See <see cref="T:SodaFlow.Async.EmptyState" /> for the cause of a
+///     A short base class for a custom strategy that reads no input, and that keeps no state of
+///     its own. See <see cref="T:SodaFlow.Async.EmptyState" /> for the cause of a
 ///     named state type and not <c>unit</c>.
 /// </summary>
 [<AbstractClass>]
 type AsyncConcurrencyStrategy() =
-    inherit AsyncConcurrencyStrategy<unit, unit, EmptyState>()
+    inherit AsyncConcurrencyStrategy<unit, EmptyState>()
 
 let private parallelInstance = AsyncConcurrencyStrategyFactory.Parallel()
 let private queueInstance = AsyncConcurrencyStrategyFactory.Queue<unit>()
@@ -92,7 +78,7 @@ let private switchLatestInstance = AsyncConcurrencyStrategyFactory.SwitchLatest(
 ///     its own scheduling state.
 /// </returns>
 [<MethodImpl(MethodImplOptions.NoInlining)>]
-let parallelStrategy () : AsyncConcurrencyStrategyBase<unit, unit> = parallelInstance
+let parallelStrategy () : AsyncConcurrencyStrategyBase<unit> = parallelInstance
 
 /// <summary>
 ///     One operation or no operation runs at a time. A subsequent send goes to the queue, and the
@@ -103,7 +89,7 @@ let parallelStrategy () : AsyncConcurrencyStrategyBase<unit, unit> = parallelIns
 ///     <c>parallelStrategy</c>.
 /// </returns>
 [<MethodImpl(MethodImplOptions.NoInlining)>]
-let queueStrategy () : AsyncConcurrencyStrategyBase<unit, unit> = queueInstance
+let queueStrategy () : AsyncConcurrencyStrategyBase<unit> = queueInstance
 
 /// <summary>
 ///     A new send cancels the operation that runs and replaces it. The pipeline never publishes
@@ -115,7 +101,7 @@ let queueStrategy () : AsyncConcurrencyStrategyBase<unit, unit> = queueInstance
 ///     <c>parallelStrategy</c>.
 /// </returns>
 [<MethodImpl(MethodImplOptions.NoInlining)>]
-let switchLatestStrategy () : AsyncConcurrencyStrategyBase<unit, unit> = switchLatestInstance
+let switchLatestStrategy () : AsyncConcurrencyStrategyBase<unit> = switchLatestInstance
 
 /// <summary>
 ///     One queue for each group, and each queue operates independently. In one group, a
@@ -245,20 +231,19 @@ let mapAsync
     (results: StreamSink<'TResult>)
     (errors: StreamSink<exn>)
     (operation: 'TInput -> ResultConstructorFactory<'TResult> -> CancellationToken -> Task<ResultConstructor<'TResult>>)
-    (strategy: AsyncConcurrencyStrategyBase<unit, unit>)
+    (strategy: AsyncConcurrencyStrategyBase<unit>)
     (cancelAll: Stream<unit> option)
     (cancelMatching: Stream<IReadOnlyCollection<'TInput>> option)
     (cancelOnDispose: bool)
     (source: Stream<'TInput>)
     : AsyncMapStatus<'TInput> =
-    AsyncStreamUtility.MapAsyncImpl<'TInput, 'TResult, unit, unit>(
+    AsyncStreamUtility.MapAsyncImpl<'TInput, 'TResult, unit>(
         source,
         results,
         errors,
         MapAsyncOperation<_, _> operation,
         strategy,
         Func<_, _>(fun (_: 'TInput) -> ()),
-        Func<_, _>(fun (_: 'TResult) -> ()),
         (cancelAll |> toUnitInternalStream),
         (cancelMatching |> Option.toObj),
         cancelOnDispose
@@ -297,134 +282,20 @@ let mapAsyncWithInputConverter
     (results: StreamSink<'TResult>)
     (errors: StreamSink<exn>)
     (operation: 'TInput -> ResultConstructorFactory<'TResult> -> CancellationToken -> Task<ResultConstructor<'TResult>>)
-    (strategy: AsyncConcurrencyStrategyBase<'TStrategyInput, unit>)
+    (strategy: AsyncConcurrencyStrategyBase<'TStrategyInput>)
     (inputConverter: 'TInput -> 'TStrategyInput)
     (cancelAll: Stream<unit> option)
     (cancelMatching: Stream<IReadOnlyCollection<'TInput>> option)
     (cancelOnDispose: bool)
     (source: Stream<'TInput>)
     : AsyncMapStatus<'TInput> =
-    AsyncStreamUtility.MapAsyncImpl<'TInput, 'TResult, 'TStrategyInput, unit>(
+    AsyncStreamUtility.MapAsyncImpl<'TInput, 'TResult, 'TStrategyInput>(
         source,
         results,
         errors,
         MapAsyncOperation<_, _> operation,
         strategy,
         Func<_, _> inputConverter,
-        Func<_, _>(fun (_: 'TResult) -> ()),
-        (cancelAll |> toUnitInternalStream),
-        (cancelMatching |> Option.toObj),
-        cancelOnDispose
-    )
-
-/// <summary>
-///     This is <c>mapAsync</c> for a strategy that reads the result and not the input.
-///     <paramref name="resultConverter" /> makes the value that the strategy reads. Give
-///     <c>fun v -&gt; v</c> where <c>'TResult</c> is that type. See <c>mapAsync</c> for the full
-///     contract of the parameters that the two functions share.
-/// </summary>
-/// <param name="results">The destination of the return value of each operation that succeeded.</param>
-/// <param name="errors">The destination of each operation with an error.</param>
-/// <param name="operation">The asynchronous work for each input.</param>
-/// <param name="strategy">The control of operations that overlap.</param>
-/// <param name="resultConverter">
-///     Changes each <c>'TResult</c> that succeeded to the <c>'TStrategyResult</c> of the strategy,
-///     before the pipeline tells the strategy about the end of the item. A run with an error and a
-///     canceled run have no result, thus this code does not call it for them.
-/// </param>
-/// <param name="cancelAll"><c>Some</c> stream that cancels each tracked operation, or <c>None</c>.</param>
-/// <param name="cancelMatching">
-///     <c>Some</c> stream that cancels the tracked operations with a given input value, or
-///     <c>None</c>.
-/// </param>
-/// <param name="cancelOnDispose">
-///     True when a disposal of the status also cancels each item that the pipeline tracks at that
-///     time.
-/// </param>
-/// <param name="source">The stream of inputs.</param>
-/// <returns>
-///     An <c>AsyncMapStatus&lt;'TInput&gt;</c> that gives the Queued items and the Running items.
-///     A disposal of it stops the pipeline.
-/// </returns>
-[<MethodImpl(MethodImplOptions.NoInlining)>]
-let mapAsyncWithResultConverter
-    (results: StreamSink<'TResult>)
-    (errors: StreamSink<exn>)
-    (operation: 'TInput -> ResultConstructorFactory<'TResult> -> CancellationToken -> Task<ResultConstructor<'TResult>>)
-    (strategy: AsyncConcurrencyStrategyBase<unit, 'TStrategyResult>)
-    (resultConverter: 'TResult -> 'TStrategyResult)
-    (cancelAll: Stream<unit> option)
-    (cancelMatching: Stream<IReadOnlyCollection<'TInput>> option)
-    (cancelOnDispose: bool)
-    (source: Stream<'TInput>)
-    : AsyncMapStatus<'TInput> =
-    AsyncStreamUtility.MapAsyncImpl<'TInput, 'TResult, unit, 'TStrategyResult>(
-        source,
-        results,
-        errors,
-        MapAsyncOperation<_, _> operation,
-        strategy,
-        Func<_, _>(fun (_: 'TInput) -> ()),
-        Func<_, _> resultConverter,
-        (cancelAll |> toUnitInternalStream),
-        (cancelMatching |> Option.toObj),
-        cancelOnDispose
-    )
-
-/// <summary>
-///     This is <c>mapAsync</c> for a strategy that reads the input and the result. It is the fully
-///     general shape, and the other three functions are special conditions of it. It needs no
-///     relation between the <c>'TInput</c> and the <c>'TResult</c> of the call and the types of
-///     the strategy, because the caller gives the two converters explicitly. See <c>mapAsync</c>
-///     for the full contract of the parameters that the two functions share.
-/// </summary>
-/// <param name="results">The destination of the return value of each operation that succeeded.</param>
-/// <param name="errors">The destination of each operation with an error.</param>
-/// <param name="operation">The asynchronous work for each input.</param>
-/// <param name="strategy">The control of operations that overlap.</param>
-/// <param name="inputConverter">
-///     Changes each <c>'TInput</c> to the <c>'TStrategyInput</c> of the strategy, before the
-///     admission.
-/// </param>
-/// <param name="resultConverter">
-///     Changes each <c>'TResult</c> that succeeded to the <c>'TStrategyResult</c> of the strategy,
-///     before the pipeline tells the strategy about the end of the item.
-/// </param>
-/// <param name="cancelAll"><c>Some</c> stream that cancels each tracked operation, or <c>None</c>.</param>
-/// <param name="cancelMatching">
-///     <c>Some</c> stream that cancels the tracked operations with a given input value, or
-///     <c>None</c>.
-/// </param>
-/// <param name="cancelOnDispose">
-///     True when a disposal of the status also cancels each item that the pipeline tracks at that
-///     time.
-/// </param>
-/// <param name="source">The stream of inputs.</param>
-/// <returns>
-///     An <c>AsyncMapStatus&lt;'TInput&gt;</c> that gives the Queued items and the Running items.
-///     A disposal of it stops the pipeline.
-/// </returns>
-[<MethodImpl(MethodImplOptions.NoInlining)>]
-let mapAsyncWithConverters
-    (results: StreamSink<'TResult>)
-    (errors: StreamSink<exn>)
-    (operation: 'TInput -> ResultConstructorFactory<'TResult> -> CancellationToken -> Task<ResultConstructor<'TResult>>)
-    (strategy: AsyncConcurrencyStrategyBase<'TStrategyInput, 'TStrategyResult>)
-    (inputConverter: 'TInput -> 'TStrategyInput)
-    (resultConverter: 'TResult -> 'TStrategyResult)
-    (cancelAll: Stream<unit> option)
-    (cancelMatching: Stream<IReadOnlyCollection<'TInput>> option)
-    (cancelOnDispose: bool)
-    (source: Stream<'TInput>)
-    : AsyncMapStatus<'TInput> =
-    AsyncStreamUtility.MapAsyncImpl<'TInput, 'TResult, 'TStrategyInput, 'TStrategyResult>(
-        source,
-        results,
-        errors,
-        MapAsyncOperation<_, _> operation,
-        strategy,
-        Func<_, _> inputConverter,
-        Func<_, _> resultConverter,
         (cancelAll |> toUnitInternalStream),
         (cancelMatching |> Option.toObj),
         cancelOnDispose

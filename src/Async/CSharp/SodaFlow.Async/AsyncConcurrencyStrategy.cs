@@ -6,24 +6,13 @@ using SodaFlow.Functional;
 namespace SodaFlow.Async;
 
 /// <summary>
-///     A short shape for a strategy that does not read the result, because the result type is
-///     <see cref="Unit" />.
-/// </summary>
-[PublicAPI]
-// ReSharper disable once InheritdocConsiderUsage
-public abstract class AsyncConcurrencyStrategy<TInput, TState>
-    : AsyncConcurrencyStrategy<TInput, Unit, TState>
-{
-}
-
-/// <summary>
-///     A short shape for a strategy that reads no input and no result, because the two types are
+///     A short shape for a strategy that reads no input, because the input type is
 ///     <see cref="Unit" />.
 /// </summary>
 [PublicAPI]
 // ReSharper disable once InheritdocConsiderUsage
 public abstract class AsyncConcurrencyStrategy<TState>
-    : AsyncConcurrencyStrategy<Unit, Unit, TState>
+    : AsyncConcurrencyStrategy<Unit, TState>
 {
 }
 
@@ -42,30 +31,30 @@ public abstract class AsyncConcurrencyStrategy<TState>
 ///     <see cref="AsyncConcurrencyStrategy{TInput,TState}" />, have no relation to that shared
 ///     factory. They are here only to let a consumer with a custom strategy on
 ///     <see cref="Unit" /> subclass
-///     <see cref="AsyncConcurrencyStrategy{TInput,TResult,TState}" /> and write
+///     <see cref="AsyncConcurrencyStrategy{TInput,TState}" /> and write
 ///     <see cref="Unit" /> one time.
 /// </summary>
 [PublicAPI]
 // ReSharper disable once InheritdocConsiderUsage
 public abstract class AsyncConcurrencyStrategy
-    : AsyncConcurrencyStrategy<Unit, Unit, Unit>
+    : AsyncConcurrencyStrategy<Unit, Unit>
 {
-    private static readonly AsyncConcurrencyStrategyBase<Unit, Unit> ParallelInstance =
+    private static readonly AsyncConcurrencyStrategyBase<Unit> ParallelInstance =
         AsyncConcurrencyStrategyFactory.Parallel(Unit.Value);
 
-    private static readonly AsyncConcurrencyStrategyBase<Unit, Unit> QueueInstance =
+    private static readonly AsyncConcurrencyStrategyBase<Unit> QueueInstance =
         AsyncConcurrencyStrategyFactory.Queue<Unit>();
 
-    private static readonly AsyncConcurrencyStrategyBase<Unit, Unit> SwitchLatestInstance =
+    private static readonly AsyncConcurrencyStrategyBase<Unit> SwitchLatestInstance =
         AsyncConcurrencyStrategyFactory.SwitchLatest<Unit>();
 
     /// <summary>Each send starts its own operation immediately. The results come in the sequence
     /// of their ends.</summary>
-    public static AsyncConcurrencyStrategyBase<Unit, Unit> Parallel() => ParallelInstance;
+    public static AsyncConcurrencyStrategyBase<Unit> Parallel() => ParallelInstance;
 
     /// <summary>One operation or no operation runs at a time. A subsequent send goes to the
     /// queue, and the queue runs in sequence.</summary>
-    public static AsyncConcurrencyStrategyBase<Unit, Unit> Queue() => QueueInstance;
+    public static AsyncConcurrencyStrategyBase<Unit> Queue() => QueueInstance;
 
     /// <summary>
     ///     The entry point for a queue for each group. In one group, one operation or no
@@ -78,7 +67,7 @@ public abstract class AsyncConcurrencyStrategy
     public static QueuePerGroupHelper<TInput> QueuePerGroup<TInput>() => QueuePerGroupHelper<TInput>.Instance;
 
     /// <summary>A new send cancels the operation that runs and replaces it.</summary>
-    public static AsyncConcurrencyStrategyBase<Unit, Unit> SwitchLatest() => SwitchLatestInstance;
+    public static AsyncConcurrencyStrategyBase<Unit> SwitchLatest() => SwitchLatestInstance;
 
     /// <summary>
     ///     This type is here only to let <see cref="QueuePerGroup{TInput}" /> infer
@@ -105,7 +94,7 @@ public abstract class AsyncConcurrencyStrategy
         ///     An optional equality comparer for the group keys. The default is
         ///     <see cref="EqualityComparer{TGroup}.Default" />.
         /// </param>
-        public AsyncConcurrencyStrategyBase<TInput, Unit> Create<TGroup>(
+        public AsyncConcurrencyStrategyBase<TInput> Create<TGroup>(
             Func<TInput, TGroup> getGroup,
             IEqualityComparer<TGroup>? groupComparer = null)
             where TGroup : notnull =>

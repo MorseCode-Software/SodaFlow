@@ -206,8 +206,8 @@ public abstract class AsyncMapStatus : IDisposable
 
 /// <summary>
 ///     The shared base of the two parts of a MapAsync pipeline: the strategy
-///     (<see cref="AsyncConcurrencyStrategy{TInput,TResult,TState}" />) and the engine that runs
-///     it (<see cref="AsyncMapExecutionManager{TInput,TResult,TStrategyInput,TStrategyResult}" />).
+///     (<see cref="AsyncConcurrencyStrategy{TInput,TState}" />) and the engine that runs
+///     it (<see cref="AsyncMapExecutionManager{TInput,TResult,TStrategyInput}" />).
 ///     Its only purpose is to hold the small data types that the two parts send to each other:
 ///     <see cref="AsyncQueuedItem{TInput}" />, <see cref="AsyncToStart{TInput}" />,
 ///     <see cref="AsyncOutcome{TResult}" />, and <see cref="AsyncStrategyResult{TInput}" />. They
@@ -215,7 +215,7 @@ public abstract class AsyncMapStatus : IDisposable
 ///     other. Without this shared base, one part or the two parts must make these types fully
 ///     public to name them. With this base, the two parts get them through usual inheritance, and
 ///     the types stay off the public surface of the library. Only code in this assembly, and code
-///     that subclasses <see cref="AsyncConcurrencyStrategy{TInput,TResult,TState}" /> to write a
+///     that subclasses <see cref="AsyncConcurrencyStrategy{TInput,TState}" /> to write a
 ///     custom strategy, can see them. This base is not generic, because TInput and TResult belong
 ///     to the nested types that use them, and not to each user of this base.
 /// </summary>
@@ -223,7 +223,7 @@ public abstract class AsyncMapStatus : IDisposable
 public abstract class AsyncMapBase
 {
     // This prevents a subclass of AsyncMapBase by a type out of this assembly.
-    // AsyncConcurrencyStrategy<TInput,TResult,TState> is the type that external code subclasses
+    // AsyncConcurrencyStrategy<TInput,TState> is the type that external code subclasses
     // for a custom strategy. That type is in this assembly and can call this constructor. An
     // external subclass of that type does not call this constructor.
     internal AsyncMapBase()
@@ -234,12 +234,12 @@ public abstract class AsyncMapBase
     ///     A value that a MapAsync pipeline tracks, from its admission until its promotion, its
     ///     end, or its cancellation. It is also the one object that identifies the value in
     ///     <see cref="AsyncToStart{TInput}" /> and in
-    ///     <see cref="AsyncConcurrencyStrategy{TInput,TResult,TState}.OnCompleted" />. It is
+    ///     <see cref="AsyncConcurrencyStrategy{TInput,TState}.OnCompleted" />. It is
     ///     opaque. A strategy can keep one, usually in the state of its call, to promote it after
     ///     this or to identify it again at its end, and can read its Value. A strategy cannot make
     ///     one, because the constructor is internal and the class is sealed. Thus,
     ///     each instance comes from an
-    ///     <see cref="AsyncConcurrencyStrategy{TInput,TResult,TState}.Admit" /> call. A strategy
+    ///     <see cref="AsyncConcurrencyStrategy{TInput,TState}.Admit" /> call. A strategy
     ///     always receives the same instance that it got before. Thus, ReferenceEquals, or ==, is
     ///     sufficient to identify an admitted value in its state. An equal
     ///     <see cref="Id" /> gives the same answer, and it is also correct across the different
@@ -283,7 +283,7 @@ public abstract class AsyncMapBase
         ///     Queued status and on an item with the Running status. The pipeline does not start a
         ///     Queued item at its turn, and a Running operation stops only if it monitors the
         ///     CancellationToken that it got. In each condition the item ends as Canceled, thus
-        ///     <see cref="AsyncConcurrencyStrategy{TInput,TResult,TState}.OnCompleted" /> runs for
+        ///     <see cref="AsyncConcurrencyStrategy{TInput,TState}.OnCompleted" /> runs for
         ///     it and can start the next operation.
         ///     A call on an item that ended, on an item that a previous call canceled, or on an
         ///     item at its end is safe. Those calls do nothing and are not errors, thus a strategy
@@ -331,9 +331,122 @@ public abstract class AsyncMapBase
         public CancellationToken StrategyToken { get; }
     }
 
-    /// <summary>The result at the end of an item.</summary>
+    /// <summary>
+    ///     How an item ended, which is what a strategy reads. It carries no result value: the
+    ///     pipeline makes the result of a MapAsync operation after the strategy decides, and only
+    ///     for an item that it publishes. See
+    ///     <see cref="ResultConstructorFactory{TResult}.ConstructResult" />. A value here thus
+    ///     obliges the pipeline to make each result, also the results that no code reads.
+    ///     <para>
+    ///         Succeeded says that the operation returned. The pipeline publishes an error for
+    ///         such an item when the function that makes the result throws.
+    ///     </para>
+    /// </summary>
     [PublicAPI]
-    protected internal sealed class AsyncOutcome<TResult>
+    protected internal sealed class AsyncCompletion
+    {
+        /// <summary>The exception from the operation when <see cref="kind" /> is Failed, and null
+        /// at each other time.</summary>
+        private readonly Exception? error;
+
+        // Match is the only path to the data, as it is for AsyncOutcome below, thus a strategy
+        // cannot read the error and also ignore the two ends that have none.
+        private readonly AsyncCompletionKind kind;
+
+        private AsyncCompletion(AsyncCompletionKind kind, Exception? error)
+        {
+            this.kind = kind;
+            this.error = error;
+        }
+
+        /// <summary>Runs the handler for the end of this item, and returns its value.</summary>
+        /// <typeparam name="T">The type that each handler returns.</typeparam>
+        /// <param name="onSucceeded">Handles an operation that returned.</param>
+        /// <param name="onFailed">Handles a run with an error, with the exception from the operation.</param>
+        /// <param name="onCanceled">Handles a canceled run, which can have no start.</param>
+        /// <returns>The value that the handler returned.</returns>
+        public T Match<T>(
+            Func<T> onSucceeded,
+            Func<Exception, T> onFailed,
+            Func<T> onCanceled) =>
+            this.kind switch
+            {
+                AsyncCompletionKind.Succeeded => onSucceeded(),
+                // ReSharper disable once NullableWarningSuppressionIsUsed - This object can only be constructed with
+                // kind being AsyncCompletionKind.Failed when it sets this.error to a non-null value.
+                AsyncCompletionKind.Failed => onFailed(this.error!),
+                AsyncCompletionKind.Canceled => onCanceled(),
+                _ => throw new InvalidOperationException("Unknown value for kind.")
+            };
+
+        /// <summary>
+        ///     Runs the handler for the end of this item. Each handler is optional. Give null for
+        ///     an end with no handler, and this method ignores that end.
+        /// </summary>
+        /// <param name="onSucceeded">Handles an operation that returned. It can be null.</param>
+        /// <param name="onFailed">
+        ///     Handles a run with an error, with the exception from the operation. It can be null.
+        /// </param>
+        /// <param name="onCanceled">Handles a canceled run, which can have no start. It can be null.</param>
+        public void MatchVoid(
+            Action? onSucceeded,
+            Action<Exception>? onFailed,
+            Action? onCanceled)
+        {
+            switch (this.kind)
+            {
+                case AsyncCompletionKind.Succeeded:
+                    onSucceeded?.Invoke();
+                    break;
+                case AsyncCompletionKind.Failed:
+                    // ReSharper disable once NullableWarningSuppressionIsUsed - This object can only be constructed with
+                    // kind being AsyncCompletionKind.Failed when it sets this.error to a non-null value.
+                    onFailed?.Invoke(this.error!);
+                    break;
+                case AsyncCompletionKind.Canceled:
+                    onCanceled?.Invoke();
+                    break;
+                default:
+                    throw new InvalidOperationException("Unknown value for kind.");
+            }
+        }
+
+        /// <summary>Builds a Succeeded end, for an operation that returned.</summary>
+        public static AsyncCompletion Succeeded() =>
+            new(kind: AsyncCompletionKind.Succeeded, error: null);
+
+        /// <summary>Builds a Failed end with the exception from the operation.</summary>
+        public static AsyncCompletion Failed(Exception error) =>
+            new(kind: AsyncCompletionKind.Failed, error: error);
+
+        /// <summary>Builds a Canceled end.</summary>
+        public static AsyncCompletion Canceled() =>
+            new(kind: AsyncCompletionKind.Canceled, error: null);
+
+        /// <summary>The three ends of an item.</summary>
+        private enum AsyncCompletionKind
+        {
+            /// <summary>The operation returned.</summary>
+            Succeeded,
+
+            /// <summary>The operation threw an exception. See <see cref="AsyncCompletion.error" />.</summary>
+            Failed,
+
+            /// <summary>
+            ///     A cancellation stopped the operation, or the operation had no start because a
+            ///     cancellation removed it with the Queued status. The pipeline never publishes
+            ///     this end, at each return value of OnCompleted. See
+            ///     <see cref="AsyncConcurrencyStrategy{TInput,TState}.OnCompleted" />.
+            /// </summary>
+            Canceled
+        }
+    }
+
+    /// <summary>
+    ///     The result at the end of an item, which the execution engine holds while it decides
+    ///     what to publish. A strategy reads <see cref="AsyncCompletion" /> and never this type.
+    /// </summary>
+    internal sealed class AsyncOutcome<TResult>
     {
         /// <summary>The exception from the operation when <see cref="kind" /> is Failed, and null
         /// at each other time.</summary>
@@ -442,7 +555,7 @@ public abstract class AsyncMapBase
             ///     A cancellation stopped the operation, or the operation had no start because a
             ///     cancellation removed it with the Queued status. The pipeline never publishes
             ///     this outcome, at each return value of OnCompleted. See
-            ///     <see cref="AsyncConcurrencyStrategy{TInput,TResult,TState}.OnCompleted" />.
+            ///     <see cref="AsyncConcurrencyStrategy{TInput,TState}.OnCompleted" />.
             /// </summary>
             Canceled
         }
@@ -483,44 +596,44 @@ public abstract class AsyncMapBase
 
     /// <summary>
     ///     Removes the type of the state of a strategy. Thus,
-    ///     <see cref="AsyncMapExecutionManager{TInput,TResult,TStrategyInput,TStrategyResult}" />
+    ///     <see cref="AsyncMapExecutionManager{TInput,TResult,TStrategyInput}" />
     ///     can hold a strategy with its state, and that class is not generic over the state. That
     ///     keeps TState out of each MapAsync signature. See
-    ///     <see cref="StateManager{TInput,TResult,TState}" />, which is the only
+    ///     <see cref="StateManager{TInput,TState}" />, which is the only
     ///     implementation.
     /// </summary>
-    internal interface IStateManager<TInput, TResult>
+    internal interface IStateManager<TInput>
     {
         /// <summary>
         ///     Sends the call to
-        ///     <see cref="AsyncConcurrencyStrategy{TInput,TResult,TState}.Admit" /> with the state
+        ///     <see cref="AsyncConcurrencyStrategy{TInput,TState}.Admit" /> with the state
         ///     in the closure.
         /// </summary>
         IReadOnlyList<AsyncToStart<TInput>> Admit(AsyncQueuedItem<TInput> incoming);
 
         /// <summary>
         ///     Sends the call to
-        ///     <see cref="AsyncConcurrencyStrategy{TInput,TResult,TState}.OnCompleted" /> with the
+        ///     <see cref="AsyncConcurrencyStrategy{TInput,TState}.OnCompleted" /> with the
         ///     state in the closure.
         /// </summary>
-        AsyncStrategyResult<TInput> OnCompleted(AsyncQueuedItem<TInput> item, AsyncOutcome<TResult> outcome);
+        AsyncStrategyResult<TInput> OnCompleted(AsyncQueuedItem<TInput> item, AsyncCompletion completion);
     }
 
     /// <summary>
     ///     Holds a strategy instance with the one <typeparamref name="TState" /> for a single
     ///     MapAsync call. See
-    ///     <see cref="AsyncConcurrencyStrategy{TInput,TResult,TState}.CreateStateManager" />. Thus,
+    ///     <see cref="AsyncConcurrencyStrategy{TInput,TState}.CreateStateManager" />. Thus,
     ///     the execution engine can call Admit and OnCompleted, and does not know
     ///     <typeparamref name="TState" />.
     /// </summary>
     // ReSharper disable once InheritdocConsiderUsage
-    internal class StateManager<TInput, TResult, TState>
-        : IStateManager<TInput, TResult>
+    internal class StateManager<TInput, TState>
+        : IStateManager<TInput>
     {
         private readonly TState state;
-        private readonly AsyncConcurrencyStrategy<TInput, TResult, TState> strategy;
+        private readonly AsyncConcurrencyStrategy<TInput, TState> strategy;
 
-        public StateManager(AsyncConcurrencyStrategy<TInput, TResult, TState> strategy, TState state)
+        public StateManager(AsyncConcurrencyStrategy<TInput, TState> strategy, TState state)
         {
             this.strategy = strategy;
             this.state = state;
@@ -531,8 +644,8 @@ public abstract class AsyncMapBase
 
         public AsyncStrategyResult<TInput> OnCompleted(
             AsyncQueuedItem<TInput> item,
-            AsyncOutcome<TResult> outcome) =>
-            this.strategy.OnCompleted(state: this.state, item: item, outcome: outcome);
+            AsyncCompletion completion) =>
+            this.strategy.OnCompleted(state: this.state, item: item, completion: completion);
     }
 }
 
@@ -554,12 +667,11 @@ internal static class AsyncStreamUtility
     ///     Runs <paramref name="operation" /> for each send of <paramref name="source" />. It
     ///     sends a value that succeeded to <paramref name="results" /> and a value with an error
     ///     to <paramref name="errors" />. It needs no relation between
-    ///     <typeparamref name="TInput" /> and <typeparamref name="TResult" />, and
-    ///     <typeparamref name="TStrategyInput" /> and <typeparamref name="TStrategyResult" />. The
-    ///     caller gives <paramref name="inputConverter" /> and <paramref name="resultConverter" />
-    ///     explicitly. Thus, the narrower overloads of each wrapper give their own short shape only
-    ///     with the arguments here: an identity converter where the types agree, and a constant
-    ///     converter where the strategy does not use the value.
+    ///     <typeparamref name="TInput" /> and <typeparamref name="TStrategyInput" />, because the
+    ///     caller gives <paramref name="inputConverter" /> explicitly. Thus, the narrower
+    ///     overloads of each wrapper give their own short shape only with the arguments here: an
+    ///     identity converter where the types agree, and a constant converter where the strategy
+    ///     does not use the value.
     /// </summary>
     /// <typeparam name="TInput">
     ///     The type in the source stream. It is the input for each call of
@@ -576,12 +688,6 @@ internal static class AsyncStreamUtility
     ///     of <paramref name="strategy" />, and no caller gives it explicitly. It needs no
     ///     inheritance relation to <typeparamref name="TInput" />, because
     ///     <paramref name="inputConverter" /> makes it explicitly.
-    /// </typeparam>
-    /// <typeparam name="TStrategyResult">
-    ///     The result type of <paramref name="strategy" />. The compiler infers it from the type
-    ///     of <paramref name="strategy" />, and no caller gives it explicitly. It needs no
-    ///     inheritance relation to <typeparamref name="TResult" />, because
-    ///     <paramref name="resultConverter" /> makes it explicitly.
     /// </typeparam>
     /// <param name="source">
     ///     The stream of inputs. The pipeline gives each send to <paramref name="strategy" />,
@@ -619,11 +725,6 @@ internal static class AsyncStreamUtility
     ///     <typeparamref name="TStrategyInput" /> of <paramref name="strategy" />, before the
     ///     admission.
     /// </param>
-    /// <param name="resultConverter">
-    ///     Changes each <typeparamref name="TResult" /> that succeeded to the
-    ///     <typeparamref name="TStrategyResult" /> of <paramref name="strategy" />, before
-    ///     <see cref="AsyncConcurrencyStrategy{TInput,TResult,TState}.OnCompleted" /> reads it.
-    /// </param>
     /// <param name="cancelAll">
     ///     This is optional. Each send cancels each tracked operation, Queued or Running. The
     ///     pipeline does not start a canceled Queued item at its turn. A cancellation stops a
@@ -657,14 +758,13 @@ internal static class AsyncStreamUtility
     ///     <paramref name="source" />, <paramref name="results" />, <paramref name="errors" />,
     ///     <paramref name="operation" />, or <paramref name="strategy" /> is null.
     /// </exception>
-    internal static AsyncMapStatus<TInput> MapAsyncImpl<TInput, TResult, TStrategyInput, TStrategyResult>(
+    internal static AsyncMapStatus<TInput> MapAsyncImpl<TInput, TResult, TStrategyInput>(
         this Stream<TInput> source,
         StreamSink<TResult> results,
         StreamSink<Exception> errors,
         MapAsyncOperation<TInput, TResult> operation,
-        AsyncConcurrencyStrategyBase<TStrategyInput, TStrategyResult> strategy,
+        AsyncConcurrencyStrategyBase<TStrategyInput> strategy,
         Func<TInput, TStrategyInput> inputConverter,
-        Func<TResult, TStrategyResult> resultConverter,
         Stream<UnitInternal>? cancelAll = null,
         Stream<IReadOnlyCollection<TInput>>? cancelMatching = null,
         bool cancelOnDispose = true)
@@ -694,10 +794,9 @@ internal static class AsyncStreamUtility
             throw new ArgumentNullException(nameof(strategy));
         }
 
-        return new AsyncMapExecutionManager<TInput, TResult, TStrategyInput, TStrategyResult>(
+        return new AsyncMapExecutionManager<TInput, TResult, TStrategyInput>(
             strategy: strategy,
             inputConverter: inputConverter,
-            resultConverter: resultConverter,
             results: results,
             errors: errors,
             operation: operation,
@@ -710,17 +809,17 @@ internal static class AsyncStreamUtility
 /// <summary>
 ///     The face of a strategy that is not generic over <c>TState</c>. It is the type that
 ///     <see
-///         cref="AsyncStreamUtility.MapAsyncImpl{TInput,TResult,TStrategyInput,TStrategyResult}(Stream{TInput},StreamSink{TResult},StreamSink{Exception},MapAsyncOperation{TInput,TResult},AsyncConcurrencyStrategyBase{TStrategyInput,TStrategyResult},Func{TInput,TStrategyInput},Func{TResult,TStrategyResult},Stream{UnitInternal},Stream{IReadOnlyCollection{TInput}},bool)" />
+///         cref="AsyncStreamUtility.MapAsyncImpl{TInput,TResult,TStrategyInput}(Stream{TInput},StreamSink{TResult},StreamSink{Exception},MapAsyncOperation{TInput,TResult},AsyncConcurrencyStrategyBase{TStrategyInput},Func{TInput,TStrategyInput},Stream{UnitInternal},Stream{IReadOnlyCollection{TInput}},bool)" />
 ///     and its overloads accept. This keeps the <c>TState</c> of a strategy out of each MapAsync
 ///     signature. A caller and the execution engine see only
-///     <see cref="AsyncConcurrencyStrategyBase{TInput,TResult}" />, and never
-///     <see cref="AsyncConcurrencyStrategy{TInput,TResult,TState}" />. The internal constructor
+///     <see cref="AsyncConcurrencyStrategyBase{TInput}" />, and never
+///     <see cref="AsyncConcurrencyStrategy{TInput,TState}" />. The internal constructor
 ///     prevents an external subclass. To write a custom strategy, subclass
-///     <see cref="AsyncConcurrencyStrategy{TInput,TResult,TState}" />.
+///     <see cref="AsyncConcurrencyStrategy{TInput,TState}" />.
 /// </summary>
 [PublicAPI]
 // ReSharper disable once InheritdocConsiderUsage
-public abstract class AsyncConcurrencyStrategyBase<TInput, TResult>
+public abstract class AsyncConcurrencyStrategyBase<TInput>
     : AsyncMapBase
 {
     internal AsyncConcurrencyStrategyBase()
@@ -728,10 +827,10 @@ public abstract class AsyncConcurrencyStrategyBase<TInput, TResult>
     }
 
     /// <summary>
-    ///     Makes the <see cref="AsyncMapBase.IStateManager{TInput,TResult}" /> for one MapAsync
-    ///     call. See <see cref="AsyncConcurrencyStrategy{TInput,TResult,TState}.CreateState" />.
+    ///     Makes the <see cref="AsyncMapBase.IStateManager{TInput}" /> for one MapAsync
+    ///     call. See <see cref="AsyncConcurrencyStrategy{TInput,TState}.CreateState" />.
     /// </summary>
-    internal abstract IStateManager<TInput, TResult> CreateStateManager();
+    internal abstract IStateManager<TInput> CreateStateManager();
 }
 
 /// <summary>
@@ -745,7 +844,7 @@ public abstract class AsyncConcurrencyStrategyBase<TInput, TResult>
 ///     of that state for each MapAsync call. Thus, more than one MapAsync call can use the same
 ///     strategy instance safely, at the same time. The execution engine (see
 ///     <see
-///         cref="AsyncStreamUtility.MapAsyncImpl{TInput,TResult,TStrategyInput,TStrategyResult}(Stream{TInput},StreamSink{TResult},StreamSink{Exception},MapAsyncOperation{TInput,TResult},AsyncConcurrencyStrategyBase{TStrategyInput,TStrategyResult},Func{TInput,TStrategyInput},Func{TResult,TStrategyResult},Stream{UnitInternal},Stream{IReadOnlyCollection{TInput}},bool)" />
+///         cref="AsyncStreamUtility.MapAsyncImpl{TInput,TResult,TStrategyInput}(Stream{TInput},StreamSink{TResult},StreamSink{Exception},MapAsyncOperation{TInput,TResult},AsyncConcurrencyStrategyBase{TStrategyInput},Func{TInput,TStrategyInput},Stream{UnitInternal},Stream{IReadOnlyCollection{TInput}},bool)" />
 ///     ) holds the
 ///     <typeparamref name="TState" /> of each call, and it is the only code that gives that state
 ///     back to the strategy. <see cref="Admit" /> and <see cref="OnCompleted" /> cannot use the
@@ -760,17 +859,17 @@ public abstract class AsyncConcurrencyStrategyBase<TInput, TResult>
 /// </summary>
 [PublicAPI]
 // ReSharper disable once InheritdocConsiderUsage
-public abstract class AsyncConcurrencyStrategy<TInput, TResult, TState>
-    : AsyncConcurrencyStrategyBase<TInput, TResult>
+public abstract class AsyncConcurrencyStrategy<TInput, TState>
+    : AsyncConcurrencyStrategyBase<TInput>
 {
-    internal override IStateManager<TInput, TResult> CreateStateManager() =>
-        new StateManager<TInput, TResult, TState>(strategy: this, state: this.CreateState());
+    internal override IStateManager<TInput> CreateStateManager() =>
+        new StateManager<TInput, TState>(strategy: this, state: this.CreateState());
 
     /// <summary>
     ///     Makes a new scheduling state for one MapAsync call. The engine calls this one time for
     ///     each call. See
     ///     <see
-    ///         cref="AsyncStreamUtility.MapAsyncImpl{TInput,TResult,TStrategyInput,TStrategyResult}(Stream{TInput},StreamSink{TResult},StreamSink{Exception},MapAsyncOperation{TInput,TResult},AsyncConcurrencyStrategyBase{TStrategyInput,TStrategyResult},Func{TInput,TStrategyInput},Func{TResult,TStrategyResult},Stream{UnitInternal},Stream{IReadOnlyCollection{TInput}},bool)" />
+    ///         cref="AsyncStreamUtility.MapAsyncImpl{TInput,TResult,TStrategyInput}(Stream{TInput},StreamSink{TResult},StreamSink{Exception},MapAsyncOperation{TInput,TResult},AsyncConcurrencyStrategyBase{TStrategyInput},Func{TInput,TStrategyInput},Stream{UnitInternal},Stream{IReadOnlyCollection{TInput}},bool)" />
     ///     Thus two pipelines with the same strategy instance never read the state of the other,
     ///     also when the two run at the same time.
     /// </summary>
@@ -780,7 +879,7 @@ public abstract class AsyncConcurrencyStrategy<TInput, TResult, TState>
     ///     Gives the items to start now for a new admitted value. The pipeline tracks that value
     ///     with the Queued status. See <see cref="AsyncMapBase.AsyncQueuedItem{TInput}" />. The
     ///     engine always calls this in a SodaFlow transaction. See
-    ///     <see cref="AsyncMapExecutionManager{TInput,TResult,TStrategyInput,TStrategyResult}" />
+    ///     <see cref="AsyncMapExecutionManager{TInput,TResult,TStrategyInput}" />
     ///     for the cause that makes a change to <paramref name="state" /> here safe with no
     ///     explicit lock. Return an <see cref="AsyncMapBase.AsyncToStart{TInput}" /> with
     ///     <paramref name="incoming" /> to start it immediately. Without that, the item keeps the
@@ -812,7 +911,7 @@ public abstract class AsyncConcurrencyStrategy<TInput, TResult, TState>
     protected internal abstract AsyncStrategyResult<TInput> OnCompleted(
         TState state,
         AsyncQueuedItem<TInput> item,
-        AsyncOutcome<TResult> outcome);
+        AsyncCompletion completion);
 }
 
 /// <summary>
@@ -830,7 +929,7 @@ public abstract class AsyncConcurrencyStrategy<TInput, TResult, TState>
 ///     be. An internal class lets each language wrapper build its own public interface with its
 ///     own types above it, and does not show this generic surface. The wrappers are
 ///     SodaFlow.Async and SodaFlow.FSharp.Async, and the two are friend assemblies through IVT.
-///     The name is different from <see cref="AsyncConcurrencyStrategy{TInput,TResult,TState}" />,
+///     The name is different from <see cref="AsyncConcurrencyStrategy{TInput,TState}" />,
 ///     and this class is not a subclass of that class. F# does not always resolve a bare type
 ///     name across two generic arities of the same name, also with a full qualification. The
 ///     short hierarchy in the C# wrapper has the same name and is correct, because a type in the
@@ -838,7 +937,7 @@ public abstract class AsyncConcurrencyStrategy<TInput, TResult, TState>
 ///     wrapper has no type of its own for that priority. Thus, this class keeps a name that is not
 ///     ambiguous, and does not overload "AsyncConcurrencyStrategy" by arity. The nested
 ///     strategies below never have that ambiguity, because they always name
-///     <see cref="AsyncConcurrencyStrategy{TInput,TResult,TState}" /> with its three type
+///     <see cref="AsyncConcurrencyStrategy{TInput,TState}" /> with its three type
 ///     arguments, and that gives the arity at each other use of the name.
 /// </summary>
 internal static class AsyncConcurrencyStrategyFactory
@@ -856,7 +955,7 @@ internal static class AsyncConcurrencyStrategyFactory
     ///     each call, and no code reads it.
     /// </param>
     /// <returns>A strategy instance with no state, for use by more than one call.</returns>
-    internal static AsyncConcurrencyStrategyBase<TUnit, TUnit> Parallel<TUnit>(TUnit unitValue) =>
+    internal static AsyncConcurrencyStrategyBase<TUnit> Parallel<TUnit>(TUnit unitValue) =>
         new ParallelStrategy<TUnit>(unitValue);
 
     /// <summary>One operation or no operation runs at a time. A subsequent send goes to the
@@ -866,7 +965,7 @@ internal static class AsyncConcurrencyStrategyFactory
     ///     <see cref="Parallel{TUnit}" />.
     /// </typeparam>
     /// <returns>A strategy instance with no state, for use by more than one call.</returns>
-    internal static AsyncConcurrencyStrategyBase<TUnit, TUnit> Queue<TUnit>() => QueueStrategy<TUnit>.Instance;
+    internal static AsyncConcurrencyStrategyBase<TUnit> Queue<TUnit>() => QueueStrategy<TUnit>.Instance;
 
     /// <summary>
     ///     Builds a strategy with one queue for each group. <paramref name="getGroup" /> puts
@@ -890,7 +989,7 @@ internal static class AsyncConcurrencyStrategyFactory
     ///     <see cref="EqualityComparer{TGroup}.Default" />.
     /// </param>
     /// <returns>A strategy instance with no state, for use by more than one call.</returns>
-    internal static AsyncConcurrencyStrategyBase<TInput, TUnit> QueuePerGroup<TUnit, TInput, TGroup>(
+    internal static AsyncConcurrencyStrategyBase<TInput> QueuePerGroup<TUnit, TInput, TGroup>(
         Func<TInput, TGroup> getGroup,
         IEqualityComparer<TGroup>? groupComparer = null)
         where TGroup : notnull =>
@@ -902,11 +1001,11 @@ internal static class AsyncConcurrencyStrategyFactory
     ///     <see cref="Parallel{TUnit}" />.
     /// </typeparam>
     /// <returns>A strategy instance with no state, for use by more than one call.</returns>
-    internal static AsyncConcurrencyStrategyBase<TUnit, TUnit> SwitchLatest<TUnit>() =>
+    internal static AsyncConcurrencyStrategyBase<TUnit> SwitchLatest<TUnit>() =>
         SwitchLatestStrategy<TUnit>.Instance;
 
     private sealed class ParallelStrategy<TUnit>
-        : AsyncConcurrencyStrategy<TUnit, TUnit, TUnit>
+        : AsyncConcurrencyStrategy<TUnit, TUnit>
     {
         private readonly TUnit unitValue;
 
@@ -922,12 +1021,12 @@ internal static class AsyncConcurrencyStrategyFactory
         protected internal override AsyncStrategyResult<TUnit> OnCompleted(
             TUnit state,
             AsyncQueuedItem<TUnit> item,
-            AsyncOutcome<TUnit> outcome) =>
+            AsyncCompletion completion) =>
             new(publish: true, next: AsyncStrategyResult<TUnit>.None);
     }
 
     private sealed class QueueStrategy<TUnit>
-        : AsyncConcurrencyStrategy<TUnit, TUnit, QueueStrategy<TUnit>.State>
+        : AsyncConcurrencyStrategy<TUnit, QueueStrategy<TUnit>.State>
     {
         internal static readonly QueueStrategy<TUnit> Instance = new();
 
@@ -958,7 +1057,7 @@ internal static class AsyncConcurrencyStrategyFactory
         protected internal override AsyncStrategyResult<TUnit> OnCompleted(
             State state,
             AsyncQueuedItem<TUnit> item,
-            AsyncOutcome<TUnit> outcome)
+            AsyncCompletion completion)
         {
             if (state.Pending.Count > 0)
             {
@@ -992,7 +1091,7 @@ internal static class AsyncConcurrencyStrategyFactory
     /// </summary>
     // ReSharper disable once InheritdocConsiderUsage
     private sealed class QueuePerGroupStrategy<TUnit, TInput, TGroup>
-        : AsyncConcurrencyStrategy<TInput, TUnit, QueuePerGroupStrategy<TUnit, TInput, TGroup>.State>
+        : AsyncConcurrencyStrategy<TInput, QueuePerGroupStrategy<TUnit, TInput, TGroup>.State>
         where TGroup : notnull
     {
         private readonly Func<TInput, TGroup> getGroup;
@@ -1037,7 +1136,7 @@ internal static class AsyncConcurrencyStrategyFactory
         protected internal override AsyncStrategyResult<TInput> OnCompleted(
             State state,
             AsyncQueuedItem<TInput> item,
-            AsyncOutcome<TUnit> outcome)
+            AsyncCompletion completion)
         {
             TGroup group = this.getGroup(item.Value);
 
@@ -1082,7 +1181,7 @@ internal static class AsyncConcurrencyStrategyFactory
     }
 
     private sealed class SwitchLatestStrategy<TUnit>
-        : AsyncConcurrencyStrategy<TUnit, TUnit, SwitchLatestStrategy<TUnit>.State>
+        : AsyncConcurrencyStrategy<TUnit, SwitchLatestStrategy<TUnit>.State>
     {
         internal static readonly SwitchLatestStrategy<TUnit> Instance = new();
 
@@ -1108,7 +1207,7 @@ internal static class AsyncConcurrencyStrategyFactory
         protected internal override AsyncStrategyResult<TUnit> OnCompleted(
             State state,
             AsyncQueuedItem<TUnit> item,
-            AsyncOutcome<TUnit> outcome)
+            AsyncCompletion completion)
         {
             // Publish only when no newer run replaced this run.
             bool isCurrent = state.Active != null && state.Active.Id == item.Id;
@@ -1136,37 +1235,34 @@ internal static class AsyncConcurrencyStrategyFactory
 ///     results and the errors, tracks the Queued items and the Running items, connects the
 ///     external cancellation, and controls the transaction limits. The external cancellation
 ///     includes a cancellation before a start. A
-///     <see cref="AsyncConcurrencyStrategy{TInput,TResult,TState}" /> does none of this. A
+///     <see cref="AsyncConcurrencyStrategy{TInput,TState}" /> does none of this. A
 ///     strategy answers Admit and OnCompleted with data only, and this class does the operations
 ///     in that answer. This code makes one instance for each MapAsync call (see
 ///     <see
-///         cref="AsyncStreamUtility.MapAsyncImpl{TInput,TResult,TStrategyInput,TStrategyResult}(Stream{TInput},StreamSink{TResult},StreamSink{Exception},MapAsyncOperation{TInput,TResult},AsyncConcurrencyStrategyBase{TStrategyInput,TStrategyResult},Func{TInput,TStrategyInput},Func{TResult,TStrategyResult},Stream{UnitInternal},Stream{IReadOnlyCollection{TInput}},bool)" />
+///         cref="AsyncStreamUtility.MapAsyncImpl{TInput,TResult,TStrategyInput}(Stream{TInput},StreamSink{TResult},StreamSink{Exception},MapAsyncOperation{TInput,TResult},AsyncConcurrencyStrategyBase{TStrategyInput},Func{TInput,TStrategyInput},Stream{UnitInternal},Stream{IReadOnlyCollection{TInput}},bool)" />
 ///     ), and that instance holds the one state of the call. This code makes that state at the
 ///     start and never shares it between two calls. Thus, more than one call can use the same
 ///     strategy instance safely, at the same time. This class and
-///     <see cref="AsyncConcurrencyStrategy{TInput,TResult,TState}" /> share
+///     <see cref="AsyncConcurrencyStrategy{TInput,TState}" /> share
 ///     <see cref="AsyncMapBase" /> only to get the nested data types of that base, such as
 ///     <see cref="AsyncMapBase.AsyncQueuedItem{TInput}" />. This class is not a subtype of the
 ///     strategy, and the two have no other relation.
 ///     In this class, each value that the strategy reads has the type
-///     <typeparamref name="TStrategyInput" /> or <typeparamref name="TStrategyResult" />, and not
-///     <typeparamref name="TInput" /> or <typeparamref name="TResult" />. Those values are the
-///     tracked items, ToStart, and Outcome, and the strategy uses the strategy types. Only a
-///     <typeparamref name="TInput" /> value comes in, from <c>source</c>, and only a
-///     <typeparamref name="TResult" /> value goes out, to <c>results</c>. The conversion at those
-///     two edges is the work of this class and not of the strategy:
-///     <see cref="inputConverter" /> at the input and <see cref="resultConverter" /> at the
-///     output. An <see cref="inputConverter" /> usually has no inverse, thus this code never
-///     calculates the initial <typeparamref name="TInput" /> or <typeparamref name="TResult" />
-///     value again from the converted value. It keeps the two values together. See
-///     <see cref="Entry" />, the <c>value</c> parameter that goes through
-///     <see cref="PromoteAndLaunch" /> into <see cref="StartOperation" />, and the two outcomes
-///     that <see cref="Complete" /> takes. Those are <c>strategyOutcome</c>, which holds the
-///     converted <typeparamref name="TStrategyResult" /> for the strategy, and <c>outcome</c>,
-///     which holds the <typeparamref name="TResult" /> that the pipeline publishes.
+///     <typeparamref name="TStrategyInput" /> and not <typeparamref name="TInput" />. Those
+///     values are the tracked items and ToStart. Only a <typeparamref name="TInput" /> value
+///     comes in, from <c>source</c>, and only a <typeparamref name="TResult" /> value goes out,
+///     to <c>results</c>. The conversion at the input edge is the work of this class and not of
+///     the strategy: <see cref="inputConverter" />. That converter usually has no inverse, thus
+///     this code never calculates the initial <typeparamref name="TInput" /> value again from the
+///     converted value. It keeps the two values together. See <see cref="Entry" /> and the
+///     <c>value</c> parameter that goes through <see cref="PromoteAndLaunch" /> into
+///     <see cref="StartOperation" />.
+///     The strategy reads no result at all. It reads <see cref="AsyncMapBase.AsyncCompletion" />,
+///     which says how the operation ended, and <see cref="Complete" /> asks it before this class
+///     makes the result. See <see cref="Publish" />.
 /// </summary>
 // ReSharper disable once InheritdocConsiderUsage
-internal sealed class AsyncMapExecutionManager<TInput, TResult, TStrategyInput, TStrategyResult> : AsyncMapBase
+internal sealed class AsyncMapExecutionManager<TInput, TResult, TStrategyInput> : AsyncMapBase
 {
     private static readonly Mutation NoMutation =
         new(
@@ -1201,8 +1297,6 @@ internal sealed class AsyncMapExecutionManager<TInput, TResult, TStrategyInput, 
 
     private readonly MapAsyncOperation<TInput, TResult> operation;
 
-    private readonly Func<TResult, TStrategyResult> resultConverter;
-
     private readonly StreamSink<TResult> results;
 
     // This code makes this at the start, as the class remarks give, and never replaces it. No
@@ -1212,7 +1306,7 @@ internal sealed class AsyncMapExecutionManager<TInput, TResult, TStrategyInput, 
     // runs at a time, on each thread. This code uses that guarantee of one transaction
     // at a time. A SodaFlow implementation with no such guarantee makes a lock necessary for this
     // state.
-    private readonly IStateManager<TStrategyInput, TStrategyResult> stateManager;
+    private readonly IStateManager<TStrategyInput> stateManager;
 
     // These fields hold the strong reference that each Listen subscription needs to stay
     // attached. Listen keeps only a weak reference on the side of the source stream, and Attach
@@ -1238,9 +1332,8 @@ internal sealed class AsyncMapExecutionManager<TInput, TResult, TStrategyInput, 
     private bool disposed;
 
     internal AsyncMapExecutionManager(
-        AsyncConcurrencyStrategyBase<TStrategyInput, TStrategyResult> strategy,
+        AsyncConcurrencyStrategyBase<TStrategyInput> strategy,
         Func<TInput, TStrategyInput> inputConverter,
-        Func<TResult, TStrategyResult> resultConverter,
         StreamSink<TResult> results,
         StreamSink<Exception> errors,
         MapAsyncOperation<TInput, TResult> operation,
@@ -1249,7 +1342,6 @@ internal sealed class AsyncMapExecutionManager<TInput, TResult, TStrategyInput, 
         bool cancelOnDispose)
     {
         this.inputConverter = inputConverter;
-        this.resultConverter = resultConverter;
         this.stateManager = strategy.CreateStateManager();
         this.results = results;
         this.errors = errors;
@@ -1723,53 +1815,30 @@ internal sealed class AsyncMapExecutionManager<TInput, TResult, TStrategyInput, 
         CancellationToken? tokenToCheck) =>
         TransactionInternal.RunImpl(() =>
         {
-            // One step makes the two outcomes, because the strategy sees what resultConverter
-            // makes from the result, and a throw in that converter must make the two of them
-            // Failed together.
-            (AsyncOutcome<TResult> Outcome, AsyncOutcome<TStrategyResult> StrategyOutcome) Construct(
-                ResultConstructor<TResult> resultConstructor)
-            {
-                try
-                {
-                    TResult result = resultConstructor.GetResult();
-
-                    return (AsyncOutcome<TResult>.Succeeded(result),
-                        AsyncOutcome<TStrategyResult>.Succeeded(this.resultConverter(result)));
-                }
-                catch (OperationCanceledException) when (tokenToCheck is { IsCancellationRequested: true })
-                {
-                    return (AsyncOutcome<TResult>.Canceled(), AsyncOutcome<TStrategyResult>.Canceled());
-                }
-                catch (Exception e)
-                {
-                    return (AsyncOutcome<TResult>.Failed(e), AsyncOutcome<TStrategyResult>.Failed(e));
-                }
-            }
-
             // A cancellation that arrived while the operation ran makes the item Canceled, also
-            // when the operation gave a result or threw. Thus the construction below does not run
-            // for a result that the pipeline cannot publish.
-            (AsyncOutcome<TResult> outcome, AsyncOutcome<TStrategyResult> strategyOutcome) =
+            // when the operation gave a result or threw.
+            AsyncOutcome<ResultConstructor<TResult>> outcome =
                 tokenToCheck is { IsCancellationRequested: true }
-                    ? (AsyncOutcome<TResult>.Canceled(), AsyncOutcome<TStrategyResult>.Canceled())
-                    : pending.Match(
-                        onSucceeded: Construct,
-                        onFailed: static e =>
-                            (AsyncOutcome<TResult>.Failed(e), AsyncOutcome<TStrategyResult>.Failed(e)),
-                        onCanceled: static () =>
-                            (AsyncOutcome<TResult>.Canceled(), AsyncOutcome<TStrategyResult>.Canceled()));
+                    ? AsyncOutcome<ResultConstructor<TResult>>.Canceled()
+                    : pending;
 
+            // The strategy reads how the operation ended and not the result, thus this call comes
+            // before the construction of the result. See AsyncCompletion for what that gives: the
+            // pipeline makes a result only for an item that it publishes.
             AsyncStrategyResult<TStrategyInput> decision =
-                this.stateManager.OnCompleted(item: item, outcome: strategyOutcome);
+                this.stateManager.OnCompleted(
+                    item: item,
+                    completion: outcome.Match(
+                        onSucceeded: static _ => AsyncCompletion.Succeeded(),
+                        onFailed: AsyncCompletion.Failed,
+                        onCanceled: AsyncCompletion.Canceled));
 
             if (decision.Publish)
             {
-                // This matches on `outcome` and not on `strategyOutcome`. `outcome` holds the
-                // TResult from StartOperation, which the pipeline publishes. `strategyOutcome`
-                // holds only the value that resultConverter makes from it, and the code above
-                // gave that value to the strategy. See the class remarks.
                 outcome.MatchVoid(
-                    onSucceeded: this.results.SendImpl,
+                    onSucceeded: resultConstructor => this.Publish(
+                        resultConstructor: resultConstructor,
+                        tokenToCheck: tokenToCheck),
                     onFailed: this.errors.SendImpl,
                     onCanceled: null);
             }
@@ -1815,6 +1884,45 @@ internal sealed class AsyncMapExecutionManager<TInput, TResult, TStrategyInput, 
 
             return UnitInternal.Value;
         });
+
+    /// <summary>
+    ///     Makes the result of an item and sends it. This is the one code that calls the function
+    ///     of a <see cref="ResultConstructor{TResult}" />, and it runs in the transaction that
+    ///     publishes. Thus a result that holds a cell or a stream comes into existence in that
+    ///     transaction, and that is the cause for a constructor and not a value.
+    ///     <para>
+    ///         A throw from that function goes to the errors. The strategy saw this item as
+    ///         Succeeded, because the operation did return, and this code then publishes the error
+    ///         of the construction and not a result. A cancellation that the function throws, with
+    ///         the token of this item canceled, publishes nothing, as a cancellation always
+    ///         does.
+    ///     </para>
+    ///     <para>
+    ///         The send is not in the try. A listener that throws is not a failure of this
+    ///         operation, and an error stream that receives such a throw hides its source.
+    ///     </para>
+    /// </summary>
+    private void Publish(ResultConstructor<TResult> resultConstructor, CancellationToken? tokenToCheck)
+    {
+        TResult result;
+
+        try
+        {
+            result = resultConstructor.GetResult();
+        }
+        catch (OperationCanceledException) when (tokenToCheck is { IsCancellationRequested: true })
+        {
+            return;
+        }
+        catch (Exception e)
+        {
+            this.errors.SendImpl(e);
+
+            return;
+        }
+
+        this.results.SendImpl(result);
+    }
 
     // ---- The records of the tracked items. They are private to the execution engine, and a
     // strategy cannot read them. ----
@@ -1901,7 +2009,7 @@ Cell<IReadOnlyList<AsyncItem<string>>> queueView = status.Items; // both Queued 
 status.Dispose();
 
 Custom concurrency logic:
-Subclass AsyncConcurrencyStrategy<TInput, TResult, TState> and implement CreateState/Admit/OnCompleted
+Subclass AsyncConcurrencyStrategy<TInput, TState> and implement CreateState/Admit/OnCompleted
 as pure reporting — they have no access to the result/error sinks and don't start Tasks
 themselves; they just describe what should happen and let the execution engine carry it out.
 CreateState is called once per MapAsync call, so TState is where all of a strategy's mutable
@@ -1909,7 +2017,7 @@ bookkeeping lives instead of on the strategy instance itself — that's what mak
 strategy instance safe to reuse across multiple MapAsync calls without their scheduling state
 bleeding into each other. The one thing you can do imperatively is item.Cancel(), to cancel an
 item you're managing (queued or running); it still completes normally through OnCompleted as
-Outcome.Canceled, so you can chain from there. Every value you don't immediately start stays
+AsyncCompletion.Canceled, so you can chain from there. Every value you don't immediately start stays
 tracked as Queued automatically; hold onto its AsyncQueuedItem (not just its Value) in TState if
 you intend to promote it later or recognize it again in OnCompleted — AsyncQueuedItem is a
 sealed class you can't construct, and you're always handed back the very instance you were
@@ -1919,16 +2027,21 @@ neither starts nor remembers an incoming value leaves it
 permanently Queued — if you want a "reject outright" behavior, promote it immediately and have
 your own logic complete it right away instead.
 
-Sharing one strategy across several TInput/TResult types:
-AsyncConcurrencyStrategy<TInput, TResult, TState> doesn't have to be written against the exact
-TInput/TResult of any one MapAsync call. MapAsync itself is
-MapAsync<TInput, TResult, TStrategyInput, TStrategyResult>, with `where TInput : TStrategyInput`
-and `where TResult : TStrategyResult` — so a strategy written against a common base or interface
-(e.g. AsyncConcurrencyStrategy<IRequest, IResponse, TState>) can be handed to MapAsync calls over
-several different, more specific Stream<TInput> / StreamSink<TResult> pairs, one shared instance
-governing all of them together (e.g. one Queue strategy serializing every kind of IRequest across
-multiple streams). TStrategyInput/TStrategyResult are always inferred from the strategy
-argument's type — for the common case where the strategy is written against the call's exact
-types, they're simply equal to TInput/TResult and nothing needs to be specified explicitly.
-TState never appears in a MapAsync signature at all — it's fully opaque to callers.
+Sharing one strategy across several TInput types:
+AsyncConcurrencyStrategy<TInput, TState> doesn't have to be written against the exact TInput of
+any one MapAsync call. MapAsync itself is MapAsync<TInput, TResult, TStrategyInput>, with
+`where TInput : TStrategyInput` — so a strategy written against a common base or interface
+(e.g. AsyncConcurrencyStrategy<IRequest, TState>) can be handed to MapAsync calls over several
+different, more specific Stream<TInput> streams, one shared instance governing all of them
+together (e.g. one Queue strategy serializing every kind of IRequest across multiple streams).
+TStrategyInput is always inferred from the strategy argument's type — for the common case where
+the strategy is written against the call's exact type, it's simply equal to TInput and nothing
+needs to be specified explicitly. TState never appears in a MapAsync signature at all — it's
+fully opaque to callers.
+
+A strategy never sees a result. OnCompleted takes an AsyncCompletion, which says only whether
+the operation returned, threw, or was canceled, and the pipeline makes the result afterwards and
+only for an item it publishes — see ResultConstructorFactory.ConstructResult. That is why there
+is no TStrategyResult and no resultConverter: they existed to give the strategy a value, and the
+strategy no longer reads one.
 */
