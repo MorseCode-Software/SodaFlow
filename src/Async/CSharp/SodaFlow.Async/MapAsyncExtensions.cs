@@ -1,7 +1,5 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Threading;
-using System.Threading.Tasks;
 using JetBrains.Annotations;
 using SodaFlow.Functional;
 
@@ -35,7 +33,7 @@ public static class AsyncStreamExtensions
     ///     <see cref="Unit" /> before the strategy, thus it needs no converter. See the
     ///     canonical
     ///     <see
-    ///         cref="MapAsync{TInput,TResult,TStrategyInput,TStrategyResult}(Stream{TInput},StreamSink{TResult},StreamSink{Exception},Func{TInput,CancellationToken,Task{TResult}},AsyncConcurrencyStrategyBase{TStrategyInput,TStrategyResult},Func{TInput,TStrategyInput},Func{TResult,TStrategyResult},Stream{Unit},Stream{IReadOnlyCollection{TInput}},bool)" />
+    ///         cref="MapAsync{TInput,TResult,TStrategyInput,TStrategyResult}(Stream{TInput},StreamSink{TResult},StreamSink{Exception},MapAsyncOperation{TInput,TResult},AsyncConcurrencyStrategyBase{TStrategyInput,TStrategyResult},Func{TInput,TStrategyInput},Func{TResult,TStrategyResult},Stream{Unit},Stream{IReadOnlyCollection{TInput}},bool)" />
     ///     overload for the full parameter contract.
     /// </summary>
     /// <typeparam name="TInput">The type in the source stream.</typeparam>
@@ -64,7 +62,7 @@ public static class AsyncStreamExtensions
         this Stream<TInput> source,
         StreamSink<TResult> results,
         StreamSink<Exception> errors,
-        Func<TInput, CancellationToken, Task<TResult>> operation,
+        MapAsyncOperation<TInput, TResult> operation,
         AsyncConcurrencyStrategyBase<Unit, Unit> strategy,
         Stream<Unit>? cancelAll = null,
         Stream<IReadOnlyCollection<TInput>>? cancelMatching = null,
@@ -86,7 +84,7 @@ public static class AsyncStreamExtensions
     ///     <typeparamref name="TInput" /> is the <typeparamref name="TStrategyInput" /> of the
     ///     strategy, thus this overload needs no converter. See the canonical
     ///     <see
-    ///         cref="MapAsync{TInput,TResult,TStrategyInput,TStrategyResult}(Stream{TInput},StreamSink{TResult},StreamSink{Exception},Func{TInput,CancellationToken,Task{TResult}},AsyncConcurrencyStrategyBase{TStrategyInput,TStrategyResult},Func{TInput,TStrategyInput},Func{TResult,TStrategyResult},Stream{Unit},Stream{IReadOnlyCollection{TInput}},bool)" />
+    ///         cref="MapAsync{TInput,TResult,TStrategyInput,TStrategyResult}(Stream{TInput},StreamSink{TResult},StreamSink{Exception},MapAsyncOperation{TInput,TResult},AsyncConcurrencyStrategyBase{TStrategyInput,TStrategyResult},Func{TInput,TStrategyInput},Func{TResult,TStrategyResult},Stream{Unit},Stream{IReadOnlyCollection{TInput}},bool)" />
     ///     overload for the full parameter contract.
     /// </summary>
     /// <typeparam name="TInput">The type in the source stream.</typeparam>
@@ -123,7 +121,7 @@ public static class AsyncStreamExtensions
         this Stream<TInput> source,
         StreamSink<TResult> results,
         StreamSink<Exception> errors,
-        Func<TInput, CancellationToken, Task<TResult>> operation,
+        MapAsyncOperation<TInput, TResult> operation,
         AsyncConcurrencyStrategyBase<TStrategyInput, Unit> strategy,
         Stream<Unit>? cancelAll = null,
         Stream<IReadOnlyCollection<TInput>>? cancelMatching = null,
@@ -146,7 +144,7 @@ public static class AsyncStreamExtensions
     ///     <paramref name="inputConverter" /> makes the value that the strategy reads. For
     ///     example, QueuePerGroup makes its group key. See the canonical
     ///     <see
-    ///         cref="MapAsync{TInput,TResult,TStrategyInput,TStrategyResult}(Stream{TInput},StreamSink{TResult},StreamSink{Exception},Func{TInput,CancellationToken,Task{TResult}},AsyncConcurrencyStrategyBase{TStrategyInput,TStrategyResult},Func{TInput,TStrategyInput},Func{TResult,TStrategyResult},Stream{Unit},Stream{IReadOnlyCollection{TInput}},bool)" />
+    ///         cref="MapAsync{TInput,TResult,TStrategyInput,TStrategyResult}(Stream{TInput},StreamSink{TResult},StreamSink{Exception},MapAsyncOperation{TInput,TResult},AsyncConcurrencyStrategyBase{TStrategyInput,TStrategyResult},Func{TInput,TStrategyInput},Func{TResult,TStrategyResult},Stream{Unit},Stream{IReadOnlyCollection{TInput}},bool)" />
     ///     overload for the full parameter contract.
     /// </summary>
     /// <typeparam name="TInput">The type in the source stream.</typeparam>
@@ -186,7 +184,7 @@ public static class AsyncStreamExtensions
         this Stream<TInput> source,
         StreamSink<TResult> results,
         StreamSink<Exception> errors,
-        Func<TInput, CancellationToken, Task<TResult>> operation,
+        MapAsyncOperation<TInput, TResult> operation,
         AsyncConcurrencyStrategyBase<TStrategyInput, Unit> strategy,
         Func<TInput, TStrategyInput> inputConverter,
         Stream<Unit>? cancelAll = null,
@@ -209,7 +207,7 @@ public static class AsyncStreamExtensions
     ///     <typeparamref name="TStrategyResult" /> of the strategy, thus this overload needs no
     ///     converter. See the canonical
     ///     <see
-    ///         cref="MapAsync{TInput,TResult,TStrategyInput,TStrategyResult}(Stream{TInput},StreamSink{TResult},StreamSink{Exception},Func{TInput,CancellationToken,Task{TResult}},AsyncConcurrencyStrategyBase{TStrategyInput,TStrategyResult},Func{TInput,TStrategyInput},Func{TResult,TStrategyResult},Stream{Unit},Stream{IReadOnlyCollection{TInput}},bool)" />
+    ///         cref="MapAsync{TInput,TResult,TStrategyInput,TStrategyResult}(Stream{TInput},StreamSink{TResult},StreamSink{Exception},MapAsyncOperation{TInput,TResult},AsyncConcurrencyStrategyBase{TStrategyInput,TStrategyResult},Func{TInput,TStrategyInput},Func{TResult,TStrategyResult},Stream{Unit},Stream{IReadOnlyCollection{TInput}},bool)" />
     ///     overload for the full parameter contract.
     /// </summary>
     /// <typeparam name="TInput">The type in the source stream.</typeparam>
@@ -245,7 +243,7 @@ public static class AsyncStreamExtensions
         this Stream<TInput> source,
         StreamSink<TResult> results,
         StreamSink<Exception> errors,
-        Func<TInput, CancellationToken, Task<TResult>> operation,
+        MapAsyncOperation<TInput, TResult> operation,
         AsyncConcurrencyStrategyBase<Unit, TStrategyResult> strategy,
         Stream<Unit>? cancelAll = null,
         Stream<IReadOnlyCollection<TInput>>? cancelMatching = null,
@@ -267,7 +265,7 @@ public static class AsyncStreamExtensions
     ///     the input type to <see cref="Unit" />. Here <paramref name="resultConverter" /> makes
     ///     the value that the strategy reads. See the canonical
     ///     <see
-    ///         cref="MapAsync{TInput,TResult,TStrategyInput,TStrategyResult}(Stream{TInput},StreamSink{TResult},StreamSink{Exception},Func{TInput,CancellationToken,Task{TResult}},AsyncConcurrencyStrategyBase{TStrategyInput,TStrategyResult},Func{TInput,TStrategyInput},Func{TResult,TStrategyResult},Stream{Unit},Stream{IReadOnlyCollection{TInput}},bool)" />
+    ///         cref="MapAsync{TInput,TResult,TStrategyInput,TStrategyResult}(Stream{TInput},StreamSink{TResult},StreamSink{Exception},MapAsyncOperation{TInput,TResult},AsyncConcurrencyStrategyBase{TStrategyInput,TStrategyResult},Func{TInput,TStrategyInput},Func{TResult,TStrategyResult},Stream{Unit},Stream{IReadOnlyCollection{TInput}},bool)" />
     ///     overload for the full parameter contract.
     /// </summary>
     /// <typeparam name="TInput">The type in the source stream.</typeparam>
@@ -309,7 +307,7 @@ public static class AsyncStreamExtensions
         this Stream<TInput> source,
         StreamSink<TResult> results,
         StreamSink<Exception> errors,
-        Func<TInput, CancellationToken, Task<TResult>> operation,
+        MapAsyncOperation<TInput, TResult> operation,
         AsyncConcurrencyStrategyBase<Unit, TStrategyResult> strategy,
         Func<TResult, TStrategyResult> resultConverter,
         Stream<Unit>? cancelAll = null,
@@ -331,7 +329,7 @@ public static class AsyncStreamExtensions
     ///     <typeparamref name="TInput" /> and <typeparamref name="TResult" /> are the types of the
     ///     strategy, thus this overload needs no converter. See the canonical
     ///     <see
-    ///         cref="MapAsync{TInput,TResult,TStrategyInput,TStrategyResult}(Stream{TInput},StreamSink{TResult},StreamSink{Exception},Func{TInput,CancellationToken,Task{TResult}},AsyncConcurrencyStrategyBase{TStrategyInput,TStrategyResult},Func{TInput,TStrategyInput},Func{TResult,TStrategyResult},Stream{Unit},Stream{IReadOnlyCollection{TInput}},bool)" />
+    ///         cref="MapAsync{TInput,TResult,TStrategyInput,TStrategyResult}(Stream{TInput},StreamSink{TResult},StreamSink{Exception},MapAsyncOperation{TInput,TResult},AsyncConcurrencyStrategyBase{TStrategyInput,TStrategyResult},Func{TInput,TStrategyInput},Func{TResult,TStrategyResult},Stream{Unit},Stream{IReadOnlyCollection{TInput}},bool)" />
     ///     overload for the full parameter contract.
     /// </summary>
     /// <typeparam name="TInput">The type in the source stream.</typeparam>
@@ -373,7 +371,7 @@ public static class AsyncStreamExtensions
         this Stream<TInput> source,
         StreamSink<TResult> results,
         StreamSink<Exception> errors,
-        Func<TInput, CancellationToken, Task<TResult>> operation,
+        MapAsyncOperation<TInput, TResult> operation,
         AsyncConcurrencyStrategyBase<TStrategyInput, TStrategyResult> strategy,
         Stream<Unit>? cancelAll = null,
         Stream<IReadOnlyCollection<TInput>>? cancelMatching = null,
@@ -397,7 +395,7 @@ public static class AsyncStreamExtensions
     ///     <typeparamref name="TResult" /> is the <typeparamref name="TStrategyResult" />. See the
     ///     canonical
     ///     <see
-    ///         cref="MapAsync{TInput,TResult,TStrategyInput,TStrategyResult}(Stream{TInput},StreamSink{TResult},StreamSink{Exception},Func{TInput,CancellationToken,Task{TResult}},AsyncConcurrencyStrategyBase{TStrategyInput,TStrategyResult},Func{TInput,TStrategyInput},Func{TResult,TStrategyResult},Stream{Unit},Stream{IReadOnlyCollection{TInput}},bool)" />
+    ///         cref="MapAsync{TInput,TResult,TStrategyInput,TStrategyResult}(Stream{TInput},StreamSink{TResult},StreamSink{Exception},MapAsyncOperation{TInput,TResult},AsyncConcurrencyStrategyBase{TStrategyInput,TStrategyResult},Func{TInput,TStrategyInput},Func{TResult,TStrategyResult},Stream{Unit},Stream{IReadOnlyCollection{TInput}},bool)" />
     ///     overload for the full parameter contract.
     /// </summary>
     /// <typeparam name="TInput">The type in the source stream.</typeparam>
@@ -442,7 +440,7 @@ public static class AsyncStreamExtensions
         this Stream<TInput> source,
         StreamSink<TResult> results,
         StreamSink<Exception> errors,
-        Func<TInput, CancellationToken, Task<TResult>> operation,
+        MapAsyncOperation<TInput, TResult> operation,
         AsyncConcurrencyStrategyBase<TStrategyInput, TStrategyResult> strategy,
         Func<TInput, TStrategyInput> inputConverter,
         Stream<Unit>? cancelAll = null,
@@ -466,7 +464,7 @@ public static class AsyncStreamExtensions
     ///     <paramref name="resultConverter" /> makes the result that the strategy reads. See the
     ///     canonical
     ///     <see
-    ///         cref="MapAsync{TInput,TResult,TStrategyInput,TStrategyResult}(Stream{TInput},StreamSink{TResult},StreamSink{Exception},Func{TInput,CancellationToken,Task{TResult}},AsyncConcurrencyStrategyBase{TStrategyInput,TStrategyResult},Func{TInput,TStrategyInput},Func{TResult,TStrategyResult},Stream{Unit},Stream{IReadOnlyCollection{TInput}},bool)" />
+    ///         cref="MapAsync{TInput,TResult,TStrategyInput,TStrategyResult}(Stream{TInput},StreamSink{TResult},StreamSink{Exception},MapAsyncOperation{TInput,TResult},AsyncConcurrencyStrategyBase{TStrategyInput,TStrategyResult},Func{TInput,TStrategyInput},Func{TResult,TStrategyResult},Stream{Unit},Stream{IReadOnlyCollection{TInput}},bool)" />
     ///     overload for the full parameter contract.
     /// </summary>
     /// <typeparam name="TInput">The type in the source stream.</typeparam>
@@ -513,7 +511,7 @@ public static class AsyncStreamExtensions
         this Stream<TInput> source,
         StreamSink<TResult> results,
         StreamSink<Exception> errors,
-        Func<TInput, CancellationToken, Task<TResult>> operation,
+        MapAsyncOperation<TInput, TResult> operation,
         AsyncConcurrencyStrategyBase<TStrategyInput, TStrategyResult> strategy,
         Func<TResult, TStrategyResult> resultConverter,
         Stream<Unit>? cancelAll = null,
@@ -643,7 +641,7 @@ public static class AsyncStreamExtensions
         this Stream<TInput> source,
         StreamSink<TResult> results,
         StreamSink<Exception> errors,
-        Func<TInput, CancellationToken, Task<TResult>> operation,
+        MapAsyncOperation<TInput, TResult> operation,
         AsyncConcurrencyStrategyBase<TStrategyInput, TStrategyResult> strategy,
         Func<TInput, TStrategyInput> inputConverter,
         Func<TResult, TStrategyResult> resultConverter,

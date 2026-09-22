@@ -244,7 +244,7 @@ let private toUnitInternalStream (cancelAll: Stream<unit> option) : Stream<UnitI
 let mapAsync
     (results: StreamSink<'TResult>)
     (errors: StreamSink<exn>)
-    (operation: 'TInput -> CancellationToken -> Task<'TResult>)
+    (operation: 'TInput -> ResultConstructorFactory<'TResult> -> CancellationToken -> Task<ResultConstructor<'TResult>>)
     (strategy: AsyncConcurrencyStrategyBase<unit, unit>)
     (cancelAll: Stream<unit> option)
     (cancelMatching: Stream<IReadOnlyCollection<'TInput>> option)
@@ -255,7 +255,7 @@ let mapAsync
         source,
         results,
         errors,
-        Func<_, _, _> operation,
+        MapAsyncOperation<_, _> operation,
         strategy,
         Func<_, _>(fun (_: 'TInput) -> ()),
         Func<_, _>(fun (_: 'TResult) -> ()),
@@ -296,7 +296,7 @@ let mapAsync
 let mapAsyncWithInputConverter
     (results: StreamSink<'TResult>)
     (errors: StreamSink<exn>)
-    (operation: 'TInput -> CancellationToken -> Task<'TResult>)
+    (operation: 'TInput -> ResultConstructorFactory<'TResult> -> CancellationToken -> Task<ResultConstructor<'TResult>>)
     (strategy: AsyncConcurrencyStrategyBase<'TStrategyInput, unit>)
     (inputConverter: 'TInput -> 'TStrategyInput)
     (cancelAll: Stream<unit> option)
@@ -308,7 +308,7 @@ let mapAsyncWithInputConverter
         source,
         results,
         errors,
-        Func<_, _, _> operation,
+        MapAsyncOperation<_, _> operation,
         strategy,
         Func<_, _> inputConverter,
         Func<_, _>(fun (_: 'TResult) -> ()),
@@ -350,7 +350,7 @@ let mapAsyncWithInputConverter
 let mapAsyncWithResultConverter
     (results: StreamSink<'TResult>)
     (errors: StreamSink<exn>)
-    (operation: 'TInput -> CancellationToken -> Task<'TResult>)
+    (operation: 'TInput -> ResultConstructorFactory<'TResult> -> CancellationToken -> Task<ResultConstructor<'TResult>>)
     (strategy: AsyncConcurrencyStrategyBase<unit, 'TStrategyResult>)
     (resultConverter: 'TResult -> 'TStrategyResult)
     (cancelAll: Stream<unit> option)
@@ -362,7 +362,7 @@ let mapAsyncWithResultConverter
         source,
         results,
         errors,
-        Func<_, _, _> operation,
+        MapAsyncOperation<_, _> operation,
         strategy,
         Func<_, _>(fun (_: 'TInput) -> ()),
         Func<_, _> resultConverter,
@@ -408,7 +408,7 @@ let mapAsyncWithResultConverter
 let mapAsyncWithConverters
     (results: StreamSink<'TResult>)
     (errors: StreamSink<exn>)
-    (operation: 'TInput -> CancellationToken -> Task<'TResult>)
+    (operation: 'TInput -> ResultConstructorFactory<'TResult> -> CancellationToken -> Task<ResultConstructor<'TResult>>)
     (strategy: AsyncConcurrencyStrategyBase<'TStrategyInput, 'TStrategyResult>)
     (inputConverter: 'TInput -> 'TStrategyInput)
     (resultConverter: 'TResult -> 'TStrategyResult)
@@ -421,7 +421,7 @@ let mapAsyncWithConverters
         source,
         results,
         errors,
-        Func<_, _, _> operation,
+        MapAsyncOperation<_, _> operation,
         strategy,
         Func<_, _> inputConverter,
         Func<_, _> resultConverter,
