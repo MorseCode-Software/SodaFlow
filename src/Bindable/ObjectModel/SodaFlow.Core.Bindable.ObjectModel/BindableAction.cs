@@ -103,7 +103,7 @@ public static partial class BindableCoreExtensionMethods
             bool wasExecutable = this.canExecute;
             this.canExecute = false;
 
-            // This code removes the handlers before it raises the notification. Thus a handler
+            // This code removes the handlers before it raises the notification. Thus, a handler
             // cannot attach again and cannot run two times. The local variable keeps the one
             // notification that this command must still send.
             EventHandler? handler = this.CanExecuteChanged;

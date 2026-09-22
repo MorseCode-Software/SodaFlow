@@ -496,7 +496,7 @@ public sealed class MapAsyncExtensionsTests
     /// <summary>
     ///     Starts each item immediately, as the Parallel strategy in the library does. It
     ///     operates on each TStrategyInput and each TStrategyResult, and records the value at the
-    ///     admission and the value at the end. Thus a test can show that a converter ran, and not
+    ///     admission and the value at the end. Thus, a test can show that a converter ran, and not
     ///     only that it compiled.
     /// </summary>
     // ReSharper disable once InheritdocConsiderUsage

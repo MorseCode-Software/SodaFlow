@@ -28,7 +28,7 @@ public static partial class BindableCoreExtensionMethods
 
         /// <summary>
         ///     This field only tells you which thread the binding engine is on. This class posts
-        ///     nothing through it, because no value moves back out to the view. Thus it schedules
+        ///     nothing through it, because no value moves back out to the view. Thus, it schedules
         ///     no work.
         /// </summary>
         private readonly IBindingScheduler scheduler;
@@ -53,7 +53,7 @@ public static partial class BindableCoreExtensionMethods
         ///     Tells you if a value changed. A null value selects the default comparer.
         /// </param>
         /// <param name="scheduler">
-        ///     Identifies the binding thread. Thus this class finds a read or a write of
+        ///     Identifies the binding thread. Thus, this class finds a read or a write of
         ///     <see cref="Value" /> from a different thread, and that access does not damage the
         ///     cached value without a warning. A null value selects the ambient scheduler, as it
         ///     does in the other classes.
@@ -97,7 +97,7 @@ public static partial class BindableCoreExtensionMethods
                 this.cachedValue = value;
 
                 // This code tests again in the post and does not depend on the test above.
-                // PostWrite defers while a transaction is open. Thus a Dispose between the two
+                // PostWrite defers while a transaction is open. Thus, a Dispose between the two
                 // can let this write reach the graph.
                 PostWrite(() =>
                 {
@@ -112,7 +112,7 @@ public static partial class BindableCoreExtensionMethods
         }
 
         /// <summary>
-        ///     Stops the acceptance of a write. This method does not change the sink. Thus a
+        ///     Stops the acceptance of a write. This method does not change the sink. Thus, a
         ///     listener below it continues to see the last value and does not get an error.
         /// </summary>
         // ReSharper disable once InheritdocConsiderUsage

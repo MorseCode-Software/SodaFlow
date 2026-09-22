@@ -156,10 +156,10 @@ public abstract class AsyncMapBase
     ///     <see cref="AsyncConcurrencyStrategy{TInput,TResult,TState}.OnCompleted" />. It is
     ///     opaque. A strategy can keep one, usually in the state of its call, to promote it after
     ///     this or to identify it again at its end, and can read its Value. A strategy cannot make
-    ///     one, because the constructor is internal and the class is sealed. Thus
+    ///     one, because the constructor is internal and the class is sealed. Thus,
     ///     each instance comes from an
     ///     <see cref="AsyncConcurrencyStrategy{TInput,TResult,TState}.Admit" /> call. A strategy
-    ///     always receives the same instance that it got before. Thus ReferenceEquals, or ==, is
+    ///     always receives the same instance that it got before. Thus, ReferenceEquals, or ==, is
     ///     sufficient to identify an admitted value in its state. An equal
     ///     <see cref="Id" /> gives the same answer, and it is also correct across the different
     ///     instances that the execution engine keeps for each admitted value. For that cause the
@@ -214,7 +214,7 @@ public abstract class AsyncMapBase
             // The execution engine disposes the CancellationTokenSource of an item at its end,
             // thus a stale reference can come here after that disposal. Cancel() on a disposed CTS
             // throws an exception, and a strategy must not have a test for an item that ended.
-            // Thus this code catches only that exception.
+            // Thus, this code catches only that exception.
             try
             {
                 this.Cancellation.Cancel();
@@ -401,7 +401,7 @@ public abstract class AsyncMapBase
     }
 
     /// <summary>
-    ///     Removes the type of the state of a strategy. Thus
+    ///     Removes the type of the state of a strategy. Thus,
     ///     <see cref="AsyncMapExecutionManager{TInput,TResult,TStrategyInput,TStrategyResult}" />
     ///     can hold a strategy with its state, and that class is not generic over the state. That
     ///     keeps TState out of each MapAsync signature. See
@@ -428,7 +428,7 @@ public abstract class AsyncMapBase
     /// <summary>
     ///     Holds a strategy instance with the one <typeparamref name="TState" /> for a single
     ///     MapAsync call. See
-    ///     <see cref="AsyncConcurrencyStrategy{TInput,TResult,TState}.CreateStateManager" />. Thus
+    ///     <see cref="AsyncConcurrencyStrategy{TInput,TResult,TState}.CreateStateManager" />. Thus,
     ///     the execution engine can call Admit and OnCompleted, and does not know
     ///     <typeparamref name="TState" />.
     /// </summary>
@@ -476,7 +476,7 @@ internal static class AsyncStreamUtility
     ///     <typeparamref name="TInput" /> and <typeparamref name="TResult" />, and
     ///     <typeparamref name="TStrategyInput" /> and <typeparamref name="TStrategyResult" />. The
     ///     caller gives <paramref name="inputConverter" /> and <paramref name="resultConverter" />
-    ///     explicitly. Thus the narrower overloads of each wrapper give their own short shape only
+    ///     explicitly. Thus, the narrower overloads of each wrapper give their own short shape only
     ///     with the arguments here: an identity converter where the types agree, and a constant
     ///     converter where the strategy does not use the value.
     /// </summary>
@@ -661,7 +661,7 @@ public abstract class AsyncConcurrencyStrategyBase<TInput, TResult>
 ///     pipeline publish it?". A strategy answers only from a <typeparamref name="TState" /> that
 ///     it controls. A strategy instance holds no state of its own, because each value that
 ///     changes is in <typeparamref name="TState" />. <see cref="CreateState" /> makes one instance
-///     of that state for each MapAsync call. Thus more than one MapAsync call can use the same
+///     of that state for each MapAsync call. Thus, more than one MapAsync call can use the same
 ///     strategy instance safely, at the same time. The execution engine (see
 ///     <see
 ///         cref="AsyncStreamUtility.MapAsyncImpl{TInput,TResult,TStrategyInput,TStrategyResult}(Stream{TInput},StreamSink{TResult},StreamSink{Exception},Func{TInput,CancellationToken,Task{TResult}},AsyncConcurrencyStrategyBase{TStrategyInput,TStrategyResult},Func{TInput,TStrategyInput},Func{TResult,TStrategyResult},Stream{UnitInternal},Stream{IReadOnlyCollection{TInput}},bool)" />
@@ -737,9 +737,9 @@ public abstract class AsyncConcurrencyStrategy<TInput, TResult, TState>
 /// <summary>
 ///     The container of the strategies in the library: Parallel, Queue, QueuePerGroup, and
 ///     SwitchLatest. Each one uses only the schedule, and not the <c>TInput</c> or the
-///     <c>TResult</c> of the call. Thus each one is generic over a <c>TUnit</c> from the caller.
+///     <c>TResult</c> of the call. Thus, each one is generic over a <c>TUnit</c> from the caller.
 ///     QueuePerGroup is generic over the input type also, because it calculates a group key from
-///     the input. No strategy has one fixed type for a value that it does not use. Thus one
+///     the input. No strategy has one fixed type for a value that it does not use. Thus, one
 ///     shared implementation of the schedule serves each language wrapper, and each wrapper gives
 ///     the type that is natural for it as <c>TUnit</c>. The C# wrapper gives
 ///     <c>SodaFlow.Functional.Unit</c>, and the F# wrapper gives its own <c>unit</c>. The
@@ -754,7 +754,7 @@ public abstract class AsyncConcurrencyStrategy<TInput, TResult, TState>
 ///     name across two generic arities of the same name, also with a full qualification. The
 ///     short hierarchy in the C# wrapper has the same name and is correct, because a type in the
 ///     consuming assembly has priority above a type of the same name from a reference. The F#
-///     wrapper has no type of its own for that priority. Thus this class keeps a name that is not
+///     wrapper has no type of its own for that priority. Thus, this class keeps a name that is not
 ///     ambiguous, and does not overload "AsyncConcurrencyStrategy" by arity. The nested
 ///     strategies below never have that ambiguity, because they always name
 ///     <see cref="AsyncConcurrencyStrategy{TInput,TResult,TState}" /> with its three type
@@ -1033,7 +1033,7 @@ internal static class AsyncConcurrencyStrategyFactory
             // Publish only when no newer run replaced this run.
             bool isCurrent = state.Active != null && state.Active.Id == item.Id;
 
-            // This removes the reference at the end of the current run. Thus the last QueuedItem,
+            // This removes the reference at the end of the current run. Thus, the last QueuedItem,
             // and its value, do not stay in memory after the pipeline becomes empty.
             if (isCurrent)
             {
@@ -1062,7 +1062,7 @@ internal static class AsyncConcurrencyStrategyFactory
 ///     <see
 ///         cref="AsyncStreamUtility.MapAsyncImpl{TInput,TResult,TStrategyInput,TStrategyResult}(Stream{TInput},StreamSink{TResult},StreamSink{Exception},Func{TInput,CancellationToken,Task{TResult}},AsyncConcurrencyStrategyBase{TStrategyInput,TStrategyResult},Func{TInput,TStrategyInput},Func{TResult,TStrategyResult},Stream{UnitInternal},Stream{IReadOnlyCollection{TInput}},bool)" />
 ///     ), and that instance holds the one state of the call. This code makes that state at the
-///     start and never shares it between two calls. Thus more than one call can use the same
+///     start and never shares it between two calls. Thus, more than one call can use the same
 ///     strategy instance safely, at the same time. This class and
 ///     <see cref="AsyncConcurrencyStrategy{TInput,TResult,TState}" /> share
 ///     <see cref="AsyncMapBase" /> only to get the nested data types of that base, such as
@@ -1149,12 +1149,12 @@ internal sealed class AsyncMapExecutionManager<TInput, TResult, TStrategyInput, 
 
     // 0 is active and 1 is disposed. This makes a second call of Dispose safe. The disposed
     // field above is different, because each thread can call Dispose with no transaction open.
-    // Thus this field needs its own thread-safe test with Interlocked, and does not use the
+    // Thus, this field needs its own thread-safe test with Interlocked, and does not use the
     // sequence that SodaFlow gives.
     private int disposeState;
 
     // This stops a new admission after a disposal. Only code in a SodaFlow transaction reads it
-    // and writes it, in Attach and in Dispose. Thus it uses the guarantee of one transaction at a
+    // and writes it, in Attach and in Dispose. Thus, it uses the guarantee of one transaction at a
     // time, as each other field in this class does, and a volatile field is not necessary.
     private bool disposed;
 
@@ -1188,7 +1188,7 @@ internal sealed class AsyncMapExecutionManager<TInput, TResult, TStrategyInput, 
                 LoopedCell<Dictionary<Guid, Entry>> entryByIdCellLoop = new();
 
                 // Map runs as usual transaction code and is not a registered listener callback.
-                // Thus the SodaFlow rule against a send() in a callback does not apply to it, and
+                // Thus, the SodaFlow rule against a send() in a callback does not apply to it, and
                 // it runs in the transaction of the source. The pipeline tracks each admitted
                 // value from this moment. It adds the value with the Queued status, and then
                 // promotes it to Running for each ToStart that Admit returns. For the strategies
@@ -1282,7 +1282,7 @@ internal sealed class AsyncMapExecutionManager<TInput, TResult, TStrategyInput, 
             });
 
         // Snapshot puts each send on a cancellation stream with the value of `tracked` from
-        // the start of that transaction. Thus a cancellation and an admission in one transaction
+        // the start of that transaction. Thus, a cancellation and an admission in one transaction
         // cannot race each other. Cancel() is a usual BCL call and not a SodaFlow send(), thus a
         // listener callback can call it. This applies to a Queued item and to a Running item in
         // the same manner, because each tracked entry has its own CancellationTokenSource from

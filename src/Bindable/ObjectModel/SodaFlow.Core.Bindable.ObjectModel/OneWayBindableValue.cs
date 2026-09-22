@@ -12,7 +12,7 @@ public static partial class BindableCoreExtensionMethods
     /// <remarks>
     ///     You can build this on any thread. The thread that builds the instance samples the
     ///     initial value, and the scheduler moves each subsequent change to the binding thread.
-    ///     Thus after the build only the binding thread writes the cached value.
+    ///     Thus, after the build only the binding thread writes the cached value.
     ///     Only the code that publishes the instance puts the building thread and the binding
     ///     thread in sequence. That code must do this in all conditions, because <c>comparer</c>
     ///     and <c>listener</c> are usual fields that a reader needs.
@@ -55,11 +55,11 @@ public static partial class BindableCoreExtensionMethods
             // update.
             //
             // The attachment of the listener puts this object into the graph before the
-            // constructor returns. Thus the listener can fire while the constructor runs. This
+            // constructor returns. Thus, the listener can fire while the constructor runs. This
             // occurs when SodaFlow builds this object in a transaction that then updates the
             // same cell. The structure makes this safe, and not the sequence of events.
             // OnSourceChanged does not touch the cached value. It only posts to the scheduler.
-            // Thus the listener cannot write over the sample that this code takes. The scheduled
+            // Thus, the listener cannot write over the sample that this code takes. The scheduled
             // work runs after that, on the binding thread, and a newer update wins.
             this.listener =
                 TransactionInternal.RunImpl(() =>

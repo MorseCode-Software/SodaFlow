@@ -125,7 +125,7 @@ public sealed class BindableActionTests
     }
 
     // A binding engine caches the last answer from CanExecute and asks again only when the
-    // command tells it to. Thus a call to Dispose with no notification leaves a button available,
+    // command tells it to. Thus, a call to Dispose with no notification leaves a button available,
     // and a click on that button does nothing.
     [Test]
     public async Task NotifiesTheViewWhenDisposalDisablesIt()

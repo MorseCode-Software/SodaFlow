@@ -664,7 +664,7 @@ public static class AsyncStreamExtensions
     // SodaFlow.Core.Async takes its cancelAll as a Stream<UnitInternal>, because Core has no
     // public type of its own for a value that a caller does not use. This code maps and does not
     // cast, and that keeps UnitInternal out of each signature above. UnitInternal is internal to
-    // SodaFlow.Core, and code that consumes this library cannot name it. Thus
+    // SodaFlow.Core, and code that consumes this library cannot name it. Thus,
     // SodaFlow.Functional.Unit is the only unit type that a C# caller sees. The F# wrapper does
     // the same for its own unit. See toUnitInternalStream there.
     private static Stream<UnitInternal>? ToUnitInternalStream(Stream<Unit>? cancelAll) =>

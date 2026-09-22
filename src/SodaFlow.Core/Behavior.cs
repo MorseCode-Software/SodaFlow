@@ -50,7 +50,7 @@ public class Behavior<T>
         this.UsingInitialValue = true;
 
         // SodaFlow gives this a value before Listen, because Listen can send the firings that
-        // this transaction made in this transaction. Thus the handler below can run before the constructor
+        // this transaction made in this transaction. Thus, the handler below can run before the constructor
         // returns.
         this.applyValueUpdate = this.ApplyValueUpdate;
 
@@ -201,7 +201,7 @@ public class Behavior<T>
 
     // Lift no longer uses Apply. One call to ApplyImpl for each additional input made each
     // input pay for a Value(), which is a spark stream, a snapshot, a merge, and a coalesce
-    // operation. Thus a six-way lift built approximately fifty streams and cost approximately
+    // operation. Thus, a six-way lift built approximately fifty streams and cost approximately
     // 87KB. This method builds three streams for all arities: one pulse stream that each input
     // sends into, one coalesce operation that makes the updates of a transaction into one
     // firing, and one map that puts the inputs together again. The IEnumerable overload in
@@ -210,9 +210,9 @@ public class Behavior<T>
     // SodaFlow captures the new value of each input as that value moves through the graph,
     // and does not read the value from the behavior after that. A behavior applies its update
     // through a listener on Node<T>.Null. The priority queue drains the entries with a null
-    // rank only after all the ranked entries. Thus the behaviors hold their previous
+    // rank only after all the ranked entries. Thus, the behaviors hold their previous
     // values when the map below runs. The sequence of the ranks makes the capture safe,
-    // because each input links into pulse.Node. Thus pulse.Node ranks above all of them, and
+    // because each input links into pulse.Node. Thus, pulse.Node ranks above all of them, and
     // SodaFlow fills each slot before any code after the coalesce operation can run.
 
     internal Behavior<TResult> LiftImpl<T2, TResult>(Behavior<T2> b2, Func<T, T2, TResult> f) =>

@@ -30,12 +30,12 @@ internal enum AccountColumn
 /// <remarks>
 ///     <para>
 ///         Two of the three orders sort on the identity part of an account, and no edit can
-///         change that part. Thus with those two orders a deposit changes a balance and cannot
+///         change that part. Thus, with those two orders a deposit changes a balance and cannot
 ///         move a row. The order on the balance moves a row. Use the deposit button and change
 ///         between the orders to see the difference.
 ///     </para>
 ///     <para>
-///         This type gives the order, and no code keeps the order in a second field. Thus the
+///         This type gives the order, and no code keeps the order in a second field. Thus, the
 ///         screen has one item of state, a column and a direction, and the sort comes from it.
 ///     </para>
 /// </remarks>
@@ -477,7 +477,7 @@ public sealed class AccountsViewModel : IAccountsViewModel
 
                 return new AccountsViewModel(
                     // A list of rows is a list of the interface of those rows, but a cell is a
-                    // class and cannot be covariant. Thus this code gives the conversion as the
+                    // class and cannot be covariant. Thus, this code gives the conversion as the
                     // return type of the lambda.
                     rows: rows.Items
                         .Map(static IReadOnlyList<IAccountRowViewModel> (items) => items)
@@ -520,7 +520,7 @@ public sealed class AccountsViewModel : IAccountsViewModel
 
     /// <summary>One edit that empties all of these accounts.</summary>
     /// <remarks>
-    ///     This is one edit, and not one edit for each account. Thus the collection changes one
+    ///     This is one edit, and not one edit for each account. Thus, the collection changes one
     ///     time for each drain, at all counts of accounts. Each view sorts one time, and the total
     ///     folds one delta.
     /// </remarks>

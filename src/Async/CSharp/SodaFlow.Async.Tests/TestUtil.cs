@@ -29,8 +29,8 @@ internal static class TestUtil
 
 /// <summary>
 ///     An async operation, with the input as its key, whose end a test controls with
-///     <see cref="Release" /> and <see cref="Fail" />. Thus a test does not race the true clock.
-///     It also records the inputs that the pipeline called. Thus a test can show that an operation
+///     <see cref="Release" /> and <see cref="Fail" />. Thus, a test does not race the true clock.
+///     It also records the inputs that the pipeline called. Thus, a test can show that an operation
 ///     has the Running status, and not only an admission, before the release.
 /// </summary>
 internal sealed class ControlledOperation<TInput, TResult>

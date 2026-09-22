@@ -11,7 +11,7 @@ namespace SodaFlow.Samples.Accounts.DrainBenchmarks;
 /// </summary>
 /// <remarks>
 ///     Rows must not change here, because a deposit into the first row in arrival order moves no
-///     row. Thus a count above zero means that a Pay projects the row list again, and that also
+///     row. Thus, a count above zero means that a Pay projects the row list again, and that also
 ///     builds the merge of the deposit streams of the rows again.
 /// </remarks>
 internal static class Growth

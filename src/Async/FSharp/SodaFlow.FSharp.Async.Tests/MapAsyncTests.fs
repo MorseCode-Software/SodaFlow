@@ -38,7 +38,7 @@ open TUnit.Core
 
 /// Starts each item immediately, as parallelStrategy does. It operates on each 'TStrategyInput
 /// and each 'TStrategyResult, and records the value at the admission and the value at the end.
-/// Thus a test can show that a converter ran, and not only that it compiled.
+/// Thus, a test can show that a converter ran, and not only that it compiled.
 type private AlwaysStartStrategy<'TStrategyInput, 'TStrategyResult>() =
     inherit AsyncConcurrencyStrategy<'TStrategyInput, 'TStrategyResult, EmptyState>()
 

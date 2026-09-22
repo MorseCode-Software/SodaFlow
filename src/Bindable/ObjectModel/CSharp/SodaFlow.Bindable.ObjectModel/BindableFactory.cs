@@ -6,7 +6,7 @@ namespace SodaFlow.Bindable.ObjectModel;
 
 /// <summary>
 ///     The default <see cref="IBindableFactory" />. It holds one scheduler and gives that
-///     scheduler to each object that it creates. Thus a view model can take the factory through
+///     scheduler to each object that it creates. Thus, a view model can take the factory through
 ///     its constructor, and a test can supply <see cref="BindingScheduler.Immediate" /> without a copy
 ///     of the true scheduler.
 /// </summary>

@@ -15,7 +15,7 @@ namespace SodaFlow.Samples.Accounts.DrainBenchmarks;
 /// <remarks>
 ///     <para>
 ///         In a view model this step is too small a part of a transaction to measure. A Pay takes
-///         more than 20 microseconds and allocates approximately 21 KB. Thus this benchmark
+///         more than 20 microseconds and allocates approximately 21 KB. Thus, this benchmark
 ///         measures the step alone.
 ///     </para>
 ///     <para>

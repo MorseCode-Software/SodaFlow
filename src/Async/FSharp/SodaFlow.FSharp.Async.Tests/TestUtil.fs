@@ -17,8 +17,8 @@ let waitUntil (condition: unit -> bool) =
         Thread.Sleep(10)
 
 /// An async operation, with the input as its key, whose end a test controls with Release and
-/// Fail. Thus a test does not race the true clock. It also records the inputs that the pipeline
-/// called. Thus a test can show that an operation has the Running status, and not only an
+/// Fail. Thus, a test does not race the true clock. It also records the inputs that the pipeline
+/// called. Thus, a test can show that an operation has the Running status, and not only an
 /// admission, before the release.
 type ControlledOperation<'TInput, 'TResult when 'TInput: equality>() =
     let gates = ConcurrentDictionary<'TInput, TaskCompletionSource<'TResult>>()

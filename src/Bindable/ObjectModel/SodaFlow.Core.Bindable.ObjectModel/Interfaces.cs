@@ -37,7 +37,7 @@ public interface IReadableBindableValue<T> : IBindable, INotifyPropertyChanged
 /// <summary>
 ///     A bindable value that the view can write to. This interface gives an ability and not a
 ///     direction. <see cref="ITwoWayBindableValue{T}" /> and
-///     <see cref="IOneWayToSourceBindableValue{T}" /> the two supply it. Thus a method that only
+///     <see cref="IOneWayToSourceBindableValue{T}" /> the two supply it. Thus, a method that only
 ///     sends a value into the graph can accept each one.
 /// </summary>
 /// <remarks>
@@ -51,7 +51,7 @@ public interface IReadableBindableValue<T> : IBindable, INotifyPropertyChanged
 ///     <para>
 ///         The rule about threads comes from that. You can construct a bindable on any
 ///         thread, but only the binding thread touches the property, because a binding engine
-///         calls from there. Thus the cached value below it is a usual field, with no
+///         calls from there. Thus, the cached value below it is a usual field, with no
 ///         synchronization and no allocation for each change. A read or a write from a
 ///         different thread removes that condition, and gives no warning. The result is a
 ///         stale value, or an incomplete value when <typeparamref name="T" /> is a large
@@ -59,7 +59,7 @@ public interface IReadableBindableValue<T> : IBindable, INotifyPropertyChanged
 ///     </para>
 ///     <para>
 ///         A write goes into the graph in a transaction, and SodaFlow runs one transaction at
-///         a time across the process. Thus a set waits until each open transaction closes.
+///         a time across the process. Thus, a set waits until each open transaction closes.
 ///         That wait is usually too small to measure, and it is the same guarantee that makes
 ///         synchronization by hand unnecessary. But a transaction that runs for a long time on
 ///         a background thread delays the setter, and with it the binding thread, for the full
@@ -84,7 +84,7 @@ public interface IWritableBindableValue<T> : IBindable
 /// <remarks>
 ///     <para>
 ///         <see cref="INotifyPropertyChanged.PropertyChanged" /> always gives the property
-///         name <c>"Value"</c>. Thus the binding path is
+///         name <c>"Value"</c>. Thus, the binding path is
 ///         <c>{Binding SomeProperty.Value}</c>.
 ///     </para>
 ///     <para>
@@ -127,7 +127,7 @@ public interface ITwoWayBindableValue<T> : IOneWayBindableValue<T>, IWritableBin
     ///     <para>
     ///         A write that changes the value raises
     ///         <see cref="INotifyPropertyChanged.PropertyChanged" /> after the graph becomes
-    ///         stable, and carries the value that the graph settled on. Thus many controls can
+    ///         stable, and carries the value that the graph settled on. Thus, many controls can
     ///         bind to this property, in each direction, and all of them follow a write from any
     ///         one of them.
     ///     </para>

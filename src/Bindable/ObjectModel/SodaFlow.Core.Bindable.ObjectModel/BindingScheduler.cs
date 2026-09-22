@@ -41,7 +41,7 @@ public interface IBindingScheduler
     ///         method in a transaction, and a transaction holds a lock for the full process while
     ///         it runs. An implementation that gives the action to the binding thread and then
     ///         waits causes a deadlock. The binding thread comes into this library through
-    ///         setters that open transactions of their own. Thus it can already wait for the lock
+    ///         setters that open transactions of their own. Thus, it can already wait for the lock
     ///         that the caller of this method holds. Put the action in the queue and return. Do
     ///         not send it and wait.
     ///     </para>
@@ -106,7 +106,7 @@ public sealed class SynchronizationContextBindingScheduler : IBindingScheduler
     ///         There are two methods to answer yes, and the two tests must fail before this method
     ///         answers no. A dispatcher usually supplies the same context instance on its own
     ///         thread, but not in each condition. A nested message loop, or a copy that carries a
-    ///         priority, can supply a different one. Thus the thread that SodaFlow captures with
+    ///         priority, can supply a different one. Thus, the thread that SodaFlow captures with
     ///         the context is the second answer. An answer of yes when the method is not sure is
     ///         the contract. See <see cref="IBindingScheduler.CheckAccess()" />.
     ///     </para>
@@ -117,7 +117,7 @@ public sealed class SynchronizationContextBindingScheduler : IBindingScheduler
     ///         when it reads the context first, and 3.1ns when it reads the thread identifier
     ///         first. That is most of the cost of a checked read of a bindable value on that
     ///         platform, which is 18.3ns against 6.4ns. The same change on .NET 8 is 2.3ns
-    ///         against 1.3ns. Thus the older runtime, which these libraries support, is the cause
+    ///         against 1.3ns. Thus, the older runtime, which these libraries support, is the cause
     ///         of this sequence.
     ///     </para>
     ///     <para>
@@ -181,7 +181,7 @@ public sealed class SynchronizationContextBindingScheduler : IBindingScheduler
 ///     This scheduler runs work on the calling thread, but not in each condition. A run on the
 ///     calling thread while a transaction is open is what <see cref="IBindingScheduler.Post" />
 ///     prevents, and the risk exists. SodaFlow calls the source-changed handlers from a listener
-///     callback. Thus a scheduler that always runs on the calling thread raises
+///     callback. Thus, a scheduler that always runs on the calling thread raises
 ///     <c>PropertyChanged</c> in the transaction and lets a handler come back into the graph. A
 ///     scheduler on a dispatcher cannot do that. A test scheduler that can do it tests a sequence
 ///     that the true scheduler never makes. A wait for the end of the current transaction costs a
@@ -201,7 +201,7 @@ public sealed class ImmediateBindingScheduler : IBindingScheduler
 
     // ReSharper disable once InheritdocConsiderUsage
     /// <remarks>
-    ///     This is always true. The scheduler runs work on the thread that supplies it. Thus
+    ///     This is always true. The scheduler runs work on the thread that supplies it. Thus,
     ///     each thread is its binding thread and no answer can be incorrect.
     /// </remarks>
     public bool CheckAccess() => true;
@@ -213,7 +213,7 @@ public sealed class ImmediateBindingScheduler : IBindingScheduler
     /// <exception cref="ArgumentNullException"><paramref name="action" /> is null.</exception>
     /// <remarks>
     ///     A wait for the close of the current transaction makes the action run while that
-    ///     transaction holds the lock for the full process. Thus code that this action reaches
+    ///     transaction holds the lock for the full process. Thus, code that this action reaches
     ///     must not wait for a different thread to open a transaction, because that thread cannot
     ///     open one until this transaction closes. A
     ///     <see cref="System.ComponentModel.INotifyPropertyChanged.PropertyChanged" /> subscriber

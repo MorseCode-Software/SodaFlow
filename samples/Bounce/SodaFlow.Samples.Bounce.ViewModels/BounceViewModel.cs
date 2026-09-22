@@ -139,7 +139,7 @@ public sealed class BounceViewModel : IBounceViewModel
             // the scene again.
             //
             // The selection is not possible before the scenes, and the stream is necessary for
-            // the scenes. Thus this code loops the stream: it declares the stream now and defines
+            // the scenes. Thus, this code loops the stream: it declares the stream now and defines
             // it after the selection is available. The index for each scene is its position in
             // the array below.
             return Stream.Loop<int>()
@@ -179,7 +179,7 @@ public sealed class BounceViewModel : IBounceViewModel
                             selectedSummary: selected.Map(static scene => scene.Summary).ToOneWay(),
 
                             // This code knows the scenes with damping, because this code gave the
-                            // damping to them. Thus the answer is the set of those scenes, and no
+                            // damping to them. Thus, the answer is the set of those scenes, and no
                             // scene holds a flag.
                             isDampingAvailable:
                             selected

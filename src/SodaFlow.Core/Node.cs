@@ -6,13 +6,13 @@ namespace SodaFlow;
 // A view of the cached listener snapshot of a node.
 //
 // This is a readonly struct with its own GetEnumerator, and not an IReadOnlyList<Target>. A
-// foreach statement binds to this GetEnumerator before it examines IEnumerable<T>. Thus a read
+// foreach statement binds to this GetEnumerator before it examines IEnumerable<T>. Thus, a read
 // of a snapshot compiles to an indexed loop on the array and allocates nothing. Through the
 // interface, each read allocated an enumerator, and Send reads the listener set on each firing.
 // The same accounting removed the closure in SendEntry.
 //
 // This also prevents a change by a caller. The array below is cached and shared by each reader.
-// Thus a write through it can damage the listener set for all readers, and not a private
+// Thus, a write through it can damage the listener set for all readers, and not a private
 // copy.
 //
 // That safety has no cost. Do not remove this wrapper and give out the Target[] array for
@@ -38,7 +38,7 @@ internal readonly struct TargetSnapshot<TTarget>
     internal int Count => this.targets?.Length ?? 0;
 
     // Node<T> holds a Node<T>.Target[] array, but the accessor of Node uses Node.Target.
-    // Arrays are covariant, and no code writes through the reference. Thus this wraps the same
+    // Arrays are covariant, and no code writes through the reference. Thus, this wraps the same
     // array again. A struct is invariant and cannot make that conversion without a cast, but
     // IReadOnlyList<out T> can.
     // ReSharper disable once CoVariantArrayConversion - This is fine since the elements of this.targets are only read.
@@ -154,10 +154,10 @@ internal abstract class Node
         }
     }
 
-    // This gives the targets and does not select their nodes. Thus a read of them does not
+    // This gives the targets and does not select their nodes. Thus, a read of them does not
     // allocate a LINQ iterator for each node in a rerank cascade.
     //
-    // A rerank holds ListenersLock for its complete cascade. Thus it could read the live HashSet
+    // A rerank holds ListenersLock for its complete cascade. Thus, it could read the live HashSet
     // with the struct enumerator of that set and use no snapshot. A test of that measured no
     // difference, with fan-outs of 200 and 1000 and chains of 200 and 1000. Three of the four
     // tests allocated the same number of bytes. The snapshot has no cost here, because a node
@@ -259,7 +259,8 @@ internal sealed class Node<T> : Node
             this.listeners.Remove(target);
             this.listenersSnapshot = default;
 
-            // A HashSet does not release space after a removal. Thus make a new HashSet if that releases a substantial amount of space
+            // A HashSet does not release space after a removal. Thus, make a new HashSet when
+            // that releases a large quantity of space
             if (this.listenersCapacity > 100 && this.listeners.Count < this.listenersCapacity / 2)
             {
                 this.listeners = [.. this.listeners];
@@ -269,7 +270,7 @@ internal sealed class Node<T> : Node
     }
 
     // A caller must hold ListenersLock. TargetSnapshot gives no method to change the array,
-    // and each snapshot is immutable after SodaFlow builds it. Thus a caller that
+    // and each snapshot is immutable after SodaFlow builds it. Thus, a caller that
     // reads a previous snapshot after an invalidation sees the listener set from the start of
     // that read. The previous copy for each call gave the same behavior.
     private TargetSnapshot<Target> GetListenersSnapshotUnsafe()

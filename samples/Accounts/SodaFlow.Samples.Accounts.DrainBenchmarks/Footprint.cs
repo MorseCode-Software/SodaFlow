@@ -10,7 +10,7 @@ namespace SodaFlow.Samples.Accounts.DrainBenchmarks;
 ///     the baseline of a second view model.
 /// </summary>
 /// <remarks>
-///     This code builds a first view model and disposes it before the measurement. Thus the one
+///     This code builds a first view model and disposes it before the measurement. Thus, the one
 ///     hundred thousand items of the seed, the JIT, and the static caches are in the baseline, and
 ///     the numbers are the memory that one view model adds. Each measurement is after a full,
 ///     compacting collection. The totals are also a test that each view model drains the same

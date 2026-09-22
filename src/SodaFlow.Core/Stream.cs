@@ -27,7 +27,7 @@ public class Stream<T>
     // SodaFlow allocates the fields below on first use. It creates streams in large
     // numbers. One two-cell Lift builds approximately twenty streams. A stream that is only a
     // middle step in a chain does not send, does not receive a listener, and does not
-    // receive a call to AttachListener. Thus eager allocation of all three fields was most of
+    // receive a call to AttachListener. Thus, eager allocation of all three fields was most of
     // the cost to construct a stream.
 
     // ReSharper disable once CollectionNeverQueried.Local
@@ -50,7 +50,7 @@ public class Stream<T>
         this.Node = new Node<T>();
 
         // This is last, so the registry cannot find an incomplete object. The registry holds
-        // this stream with a weak reference only. Thus this registration does not keep the
+        // this stream with a weak reference only. Thus, this registration does not keep the
         // stream alive.
         this.trackedListeners = new StreamListenerManager.StreamListeners(this);
     }
@@ -61,7 +61,7 @@ public class Stream<T>
     // This field is not volatile. Cell.updates does the same lazy read and is volatile. There,
     // volatile makes the publication of an object with fields safe, because a reader must not
     // see the reference before the state of the object. This field holds an empty object with
-    // no state, and the program uses it only as a monitor. Thus a reader cannot see an
+    // no state, and the program uses it only as a monitor. Thus, a reader cannot see an
     // incomplete object. CompareExchange selects the winner, and all callers read that winner.
     //
     // Do not use this pattern for a field that holds state unless you add volatile. That makes
@@ -425,9 +425,9 @@ public class Stream<T>
     ///     Cost kept the two copies separate. CollectLazyImpl needs a looped stream, a behavior
     ///     to hold the state, a snapshot, two maps, and a filter on the output. That is six
     ///     streams to keep one value. CarryState costs no more, because the emit flag removes
-    ///     the firing without a copy. Thus this method is one output stream.
+    ///     the firing without a copy. Thus, this method is one output stream.
     ///     The state is a MaybeInternal and not a T, because there can be no previous value.
-    ///     None is also a correct initial value. Thus CarryState needs its own initialized flag
+    ///     None is also a correct initial value. Thus, CarryState needs its own initialized flag
     ///     and must not read an empty state as "not started".
     /// </remarks>
     internal Stream<T> Calm(Lazy<MaybeInternal<T>> init, Func<T, T, bool> areEqual) =>
@@ -489,13 +489,13 @@ public class Stream<T>
     ///     is four streams for Collect and two for Accum, to move one value between firings.
     ///     This method is now one output stream and two fields.
     ///     The behavior supplied those two fields, and the division between them is important.
-    ///     A snapshot reads a behavior with SampleNoTransaction. Thus each firing in a
+    ///     A snapshot reads a behavior with SampleNoTransaction. Thus, each firing in a
     ///     transaction saw the state from the start of that transaction, and the behavior
     ///     committed the result of the last firing. One field with an update without a copy lets a
     ///     later firing in the same transaction see an earlier one. That is a different fold,
     ///     and the caller function f can find it.
     ///     Failure shows the deferral. A transaction that throws discards its last
-    ///     queue. Thus a firing in that transaction does not commit, and the state stays as it
+    ///     queue. Thus, a firing in that transaction does not commit, and the state stays as it
     ///     was before. This is the one difference from a commit without a copy.
     ///     CalmTests.AFailedTransactionDoesNotCommitTheRememberedValue holds this behavior. All
     ///     other tests pass with one of the two methods.
@@ -614,7 +614,7 @@ public class Stream<T>
     // This method is not thread-safe. One of these two conditions must be applicable:
     // 1. The caller is in a transaction. In this implementation a transaction locks out all
     //    other threads.
-    // 2. The method that created this object does not return it at this time. Thus two threads cannot
+    // 2. The method that created this object does not return it at this time. Thus, two threads cannot
     //    share the object.
     internal Stream<T> UnsafeAttachListener(IListener cleanup)
     {
@@ -723,7 +723,7 @@ public class Stream<T>
         // ReSharper disable once UnusedMember.Local
         private readonly Action<TransactionInternal, T> action = action;
 
-        // This field keeps the listener alive while the caller holds the listener. Thus the
+        // This field keeps the listener alive while the caller holds the listener. Thus, the
         // garbage collector does not remove it.
         // ReSharper disable once UnusedMember.Local
         private readonly Stream<T> stream = stream;
@@ -754,7 +754,7 @@ public class Stream<T>
         private List<IKeepListenersAlive>? childKeepListenersAliveList;
 
         // SodaFlow makes one of these for each root stream, and many streams get no
-        // listener. Thus the two collections wait until the code needs them.
+        // listener. Thus, the two collections wait until the code needs them.
         // ReSharper disable once CollectionNeverQueried.Local
         private HashSet<IListener>? listeners;
 

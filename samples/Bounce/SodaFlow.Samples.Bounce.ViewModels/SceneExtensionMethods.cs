@@ -15,7 +15,7 @@ public static class SceneExtensionMethods
         /// <remarks>
         ///     <para>
         ///         There is one transaction for the frame, and not one transaction for each ball.
-        ///         A sample of a behavior opens a transaction when there is no transaction. Thus
+        ///         A sample of a behavior opens a transaction when there is no transaction. Thus,
         ///         four reads give the four balls at four different instants. Such a frame can
         ///         show one ball after its bounce and a second ball before its bounce.
         ///     </para>

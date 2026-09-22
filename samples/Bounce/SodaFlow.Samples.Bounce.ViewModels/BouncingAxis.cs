@@ -17,7 +17,7 @@ namespace SodaFlow.Samples.Bounce.ViewModels;
 ///     </para>
 ///     <para>
 ///         The feedback is the important part. The next bounce is a function of the current
-///         flight, and the bounce makes the next flight. Thus the graph refers to itself.
+///         flight, and the bounce makes the next flight. Thus, the graph refers to itself.
 ///         <c>Cell.Loop</c> makes this shape possible, and there is no sink. The simulation uses
 ///         only FRP feedback, thus no code must send a value.
 ///     </para>
@@ -26,7 +26,7 @@ internal static class BouncingAxis
 {
     /// <summary>
     ///     The minimum time between one bounce and the next bounce. Two bounces cannot be nearer
-    ///     in time than this value. Thus the code does not read the root of the last bounce as a
+    ///     in time than this value. Thus, the code does not read the root of the last bounce as a
     ///     new bounce at the same moment.
     /// </summary>
     private const double MinimumInterval = 1e-6;
@@ -37,7 +37,7 @@ internal static class BouncingAxis
     /// <remarks>
     ///     This value makes the damping finite. A multiplier below one at each bounce makes the
     ///     bounces nearer in time as fast as it makes them smaller, and the interval between them
-    ///     does not become zero. Thus a simulation that calculates each bounce in sequence
+    ///     does not become zero. Thus, a simulation that calculates each bounce in sequence
     ///     schedules bounces continuously and the body does not stop. The solution, here and in
     ///     other code, is a rule that a sufficiently low speed is a stop.
     /// </remarks>
@@ -52,7 +52,7 @@ internal static class BouncingAxis
     ///     become nearer in time with no limit. When they are nearer in time than the timer can do
     ///     them, the current flight is older than the moment on the screen. The code then draws the
     ///     body at the position from an equation that is no longer correct. A maximum speed keeps
-    ///     the bounces sufficiently far apart for the timer. Thus the simulation can apply a
+    ///     the bounces sufficiently far apart for the timer. Thus, the simulation can apply a
     ///     multiplier above one correctly.
     /// </remarks>
     private const double MaximumSpeed = 2000.0;

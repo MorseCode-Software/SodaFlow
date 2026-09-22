@@ -5,7 +5,7 @@ namespace SodaFlow.Bindable.ObjectModel;
 
 /// <summary>
 ///     Extension methods that give you a bindable. Each implementation is a private nested type.
-///     Thus the public surface is the four interfaces only.
+///     Thus, the public surface is the four interfaces only.
 /// </summary>
 public static partial class BindableCoreExtensionMethods
 {
@@ -101,7 +101,7 @@ public static partial class BindableCoreExtensionMethods
     /// </summary>
     /// <remarks>
     ///     This subscription is weak, and that is deliberate. The node holds the handler with a
-    ///     weak reference. Thus the listener that this method gives you is the only object that
+    ///     weak reference. Thus, the listener that this method gives you is the only object that
     ///     keeps the subscription alive. A caller MUST keep it in a field and MUST NOT let it
     ///     become a local variable that looks unused. In exchange, the garbage collector removes
     ///     a bindable that becomes unreachable with no call to Dispose, and removes its
@@ -115,7 +115,7 @@ public static partial class BindableCoreExtensionMethods
 
     /// <summary>
     ///     Sends a value into the graph after the current <see cref="TransactionInternal" />
-    ///     ends. Thus the send cannot run in a callback.
+    ///     ends. Thus, the send cannot run in a callback.
     /// </summary>
     /// <remarks>
     ///     <para>
@@ -128,7 +128,7 @@ public static partial class BindableCoreExtensionMethods
     ///         setter.
     ///     </para>
     ///     <para>
-    ///         Each posted callback runs as its own transaction. Thus two writes cannot occur in
+    ///         Each posted callback runs as its own transaction. Thus, two writes cannot occur in
     ///         one transaction. For that cause a <c>StreamSink&lt;T&gt;</c> is sufficient as a
     ///         write target, and a variant that combines writes is not necessary.
     ///     </para>
@@ -145,7 +145,7 @@ public static partial class BindableCoreExtensionMethods
     ///     struct. Both are silent, and you cannot make either one occur on demand. This method
     ///     makes an exception at the call site that caused it.
     ///     It throws only when the scheduler is sure. See
-    ///     <see cref="IBindingScheduler.CheckAccess()" />. Thus it reports nothing that it cannot
+    ///     <see cref="IBindingScheduler.CheckAccess()" />. Thus, it reports nothing that it cannot
     ///     show.
     /// </remarks>
     private static void VerifyAccess(this IBindingScheduler scheduler, string member)

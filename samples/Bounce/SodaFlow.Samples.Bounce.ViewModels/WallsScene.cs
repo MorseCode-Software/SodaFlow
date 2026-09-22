@@ -40,7 +40,7 @@ internal sealed class WallsScene : IScene
         double now = timers.Time.Sample();
 
         // Below one each ball stops, and this scene has no pointer for a user to hold a ball
-        // that stopped. Thus the selection of the tab starts the scene again. The restart is an
+        // that stopped. Thus, the selection of the tab starts the scene again. The restart is an
         // input that the axes accept, and it is the input for a throw in the adjacent scene.
         Stream<double> restarted = restarts.Snapshot(b: timers.Time, f: static (_, time) => time);
 
