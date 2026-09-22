@@ -46,7 +46,10 @@ public readonly struct AsyncItem<TInput>
 /// <summary>
 ///     The status of a MapAsync pipeline. It gives the operation of the pipeline, and each input
 ///     value that the pipeline tracks now with the status of that value. It is also the only
-///     handle to stop the pipeline. See <see cref="AsyncMapStatus.Dispose" />.
+///     handle to stop the pipeline. See <see cref="AsyncMapStatus.Dispose" />. This type adds
+///     <see cref="Items" /> to <see cref="AsyncMapStatus" />, which is what makes it generic: a
+///     caller that reads only <see cref="AsyncMapStatus.IsRunning" /> or stops the pipeline can
+///     hold the base type.
 /// </summary>
 [PublicAPI]
 // ReSharper disable once InheritdocConsiderUsage
@@ -67,16 +70,22 @@ public sealed class AsyncMapStatus<TInput> : AsyncMapStatus
 }
 
 /// <summary>
-///     The status of a MapAsync pipeline. It gives the operation of the pipeline. It is also the
-///     only handle to stop the pipeline. See <see cref="Dispose" />.
+///     The status of a MapAsync pipeline, without the part that the input type decides. It gives
+///     the operation of the pipeline, and it is the only handle to stop the pipeline. See
+///     <see cref="Dispose" />. A caller that does not read
+///     <see cref="AsyncMapStatus{TInput}.Items" /> can hold this type and does not have to name
+///     the input type. <see cref="AsyncMapStatus{TInput}" /> is the type that MapAsync returns.
 /// </summary>
 [PublicAPI]
 // ReSharper disable once InheritdocConsiderUsage
-public class AsyncMapStatus : IDisposable
+public abstract class AsyncMapStatus : IDisposable
 {
     private readonly Action dispose;
 
-    internal AsyncMapStatus(
+    // private protected, and not internal: this base is for AsyncMapStatus<TInput> to extend, and
+    // an instance of the base alone tracks no items and has no use. AsyncMapBase below does the
+    // same.
+    private protected AsyncMapStatus(
         Cell<bool> isRunning,
         Action dispose)
     {
