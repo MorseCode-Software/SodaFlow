@@ -5,16 +5,17 @@
 /// </summary>
 /// <remarks>
 ///     <para>
-///         The F# equivalent of SodaFlow.Collections' C# extension methods, with the arguments
-///         ordered for the pipeline: the collection comes last, so <c>collection |> filter p |>
-///         take 10</c> reads in the order it runs. Predicates and selectors are F# functions rather
-///         than <c>Func</c>, converted at this boundary.
+///         This module is the F# equivalent of the C# extension methods in SodaFlow.Collections,
+///         with the arguments in the sequence of a pipeline. The collection is last, thus
+///         <c>collection |> filter p |> take 10</c> reads in the sequence of its operations. A
+///         predicate and a selector are F# functions and not a <c>Func</c>, and this boundary
+///         changes them.
 ///     </para>
 ///     <para>
-///         Optionality is F#'s own <c>option</c>. The core answers in <c>TryGet</c>s and
-///         integers rather than in any optional type, precisely so that each language surface can
-///         put its own back on top: this module never sees SodaFlow.Functional, and neither does
-///         anything that installs this package.
+///         An optional value is the F# <c>option</c>. The core answers with a <c>TryGet</c> and
+///         with an integer, and not with an optional type. Thus each language surface can add its
+///         own optional type above the core. This module never uses SodaFlow.Functional, and code
+///         that installs this package does not use it.
 ///     </para>
 /// </remarks>
 module SodaFlow.Collections
@@ -23,19 +24,20 @@ open System
 open System.Collections.Generic
 open System.Runtime.CompilerServices
 open SodaFlow
-// The types this module wraps live in the namespace SodaFlow.Collections, which this module
-// shadows by having the same name - as SodaFlow.FSharp.Async's module does over SodaFlow.Async.
+// The types of this module are in the namespace SodaFlow.Collections, and this module has the
+// same name and thus hides that namespace. The module in SodaFlow.FSharp.Async does the same above
+// SodaFlow.Async.
 open SodaFlow.Collections
 
 // --- construction -------------------------------------------------------------------------
 
 /// <summary>
-///     Defines a collection from its initial contents and every stream that will ever edit it.
-///     There is no imperative entry point: what can change the collection is fixed here.
+///     Defines a collection from its initial contents and each stream that edits it. There is no
+///     imperative entry point. This construction sets the code that can change the collection.
 /// </summary>
-/// <param name="keySelector">Derives an item's key from its immutable portion.</param>
+/// <param name="keySelector">Makes the key of an item from its immutable part.</param>
 /// <param name="initialEntries">The collection's initial contents.</param>
-/// <param name="editStreams">Every stream that will ever edit the collection.</param>
+/// <param name="editStreams">Each stream that edits the collection.</param>
 /// <returns>The collection.</returns>
 [<MethodImpl(MethodImplOptions.NoInlining)>]
 let create
@@ -47,10 +49,11 @@ let create
         .Create(Func<_, _> keySelector, initialEntries, Array.ofSeq editStreams)
 
 /// <summary>
-///     Defines a collection whose identities carry their own key, so no selector is needed.
+///     Defines a collection whose identities hold their own key, thus a selector is not
+///     necessary.
 /// </summary>
 /// <param name="initialEntries">The collection's initial contents.</param>
-/// <param name="editStreams">Every stream that will ever edit the collection.</param>
+/// <param name="editStreams">Each stream that edits the collection.</param>
 /// <returns>The collection.</returns>
 [<MethodImpl(MethodImplOptions.NoInlining)>]
 let createByIdentity
@@ -59,9 +62,9 @@ let createByIdentity
     =
     ReactiveCollection.Create<'TKey, 'TIdentity, 'TState>(initialEntries, Array.ofSeq editStreams)
 
-/// <summary>An item, from its immutable and mutable portions.</summary>
-/// <param name="identity">The immutable portion, which the key is derived from.</param>
-/// <param name="state">The mutable portion.</param>
+/// <summary>An item, from its immutable part and its mutable part.</summary>
+/// <param name="identity">The immutable part, which gives the key.</param>
+/// <param name="state">The mutable part.</param>
 /// <returns>The item.</returns>
 [<MethodImpl(MethodImplOptions.NoInlining)>]
 let item (identity: 'TIdentity) (state: 'TState) =
@@ -141,45 +144,46 @@ let fromRemoves (removesStream: Stream<'TKey>) : Stream<CollectionEdit<'TKey, 'T
 // --- observation --------------------------------------------------------------------------
 
 /// <summary>
-///     The item's mutable portion, <c>None</c> while the key is absent from the store.
+///     The mutable part of the item. It is <c>None</c> while the store has no such key.
 /// </summary>
-/// <param name="key">The key to observe.</param>
-/// <param name="collection">The collection or view to ask.</param>
+/// <param name="key">The key to monitor.</param>
+/// <param name="collection">The collection or view to read.</param>
 /// <returns>A cell tracking that key's state.</returns>
 /// <remarks>
-///     Cheap enough to create per bound row: it filters on a single hash lookup and never touches
-///     the rest of the collection. Cached weakly per key, so N observers of one key share a node,
-///     and asking two views of the same root gives the same cell.
-///     The key need not exist yet. A removal fires <c>None</c> and a later add under the same key
-///     fires <c>Some</c> again, so a view bound to a key can outlive the item.
+///     The cost is low, thus code can make one for each bound row. It filters on one hash lookup
+///     and does not read the other items. A weak cache holds one for each key, thus N observers of
+///     one key share a node, and two views of the same root give the same cell.
+///     The key can be missing now. A removal sends <c>None</c>, and a subsequent add with the same
+///     key sends <c>Some</c> again. Thus a view that binds to a key can continue after the item.
 /// </remarks>
 [<MethodImpl(MethodImplOptions.NoInlining)>]
 let stateCell (key: 'TKey) (collection: ReactiveCollection<'TKey, 'TIdentity, 'TState>) =
     collection.StateCellImpl(key, Func<_, _> Some, Func<_>(fun () -> None))
 
-/// <summary>The item's immutable portion, <c>None</c> while the key is absent.</summary>
-/// <param name="key">The key to observe.</param>
-/// <param name="collection">The collection or view to ask.</param>
+/// <summary>The immutable part of the item. It is <c>None</c> while the key is missing.</summary>
+/// <param name="key">The key to monitor.</param>
+/// <param name="collection">The collection or view to read.</param>
 /// <returns>A cell tracking that key's identity.</returns>
-/// <remarks>Fires only on structural change, so it is near-free to hold.</remarks>
+/// <remarks>It sends a value only at a structural change, thus it costs almost nothing to
+/// hold.</remarks>
 [<MethodImpl(MethodImplOptions.NoInlining)>]
 let identityCell (key: 'TKey) (collection: ReactiveCollection<'TKey, 'TIdentity, 'TState>) =
     collection.IdentityCellImpl(key, Func<_, _> Some, Func<_>(fun () -> None))
 
-/// <summary>Both halves of the item stored under a key, if there is one.</summary>
+/// <summary>The two parts of the item for a key, when there is one.</summary>
 /// <param name="key">The key to look up.</param>
 /// <param name="snapshot">The snapshot to look in.</param>
-/// <returns>The item, or <c>None</c> if the key is absent.</returns>
+/// <returns>The item, or <c>None</c> when the key is missing.</returns>
 [<MethodImpl(MethodImplOptions.NoInlining)>]
 let lookup (key: 'TKey) (snapshot: CollectionSnapshot<'TKey, 'TIdentity, 'TState>) =
     match snapshot.TryGetItem key with
     | true, item -> Some item
     | _ -> None
 
-/// <summary>The state stored under a key, if there is one.</summary>
+/// <summary>The state for a key, when there is one.</summary>
 /// <param name="key">The key to look up.</param>
 /// <param name="states">The state map to look in.</param>
-/// <returns>The state, or <c>None</c> if the key is absent.</returns>
+/// <returns>The state, or <c>None</c> when the key is missing.</returns>
 [<MethodImpl(MethodImplOptions.NoInlining)>]
 let lookupState (key: 'TKey) (states: StateMap<'TKey, 'TState>) =
     match states.TryGetState key with
@@ -187,28 +191,28 @@ let lookupState (key: 'TKey) (states: StateMap<'TKey, 'TState>) =
     | _ -> None
 
 /// <summary>
-///     What a change did to one key. The nesting is deliberate and the two levels mean different
-///     things: the outer <c>option</c> is whether the key moved at all - <c>None</c> meaning no
-///     event for this observer - and the inner one is whether the key is present afterwards, so a
-///     removal arrives as <c>Some None</c>.
+///     The result of a change on one key. The two levels are deliberate and they give
+///     different data. The outer <c>option</c> gives if the key changed, and <c>None</c> means no
+///     event for this observer. The inner <c>option</c> gives if the key is in the collection
+///     after the change, thus a removal comes as <c>Some None</c>.
 /// </summary>
-/// <param name="key">The key to ask about.</param>
-/// <param name="change">The change to ask about.</param>
-/// <returns>What happened to that key, if anything.</returns>
+/// <param name="key">The key to read.</param>
+/// <param name="change">The change to read.</param>
+/// <returns>The change to that key, when there is one.</returns>
 [<MethodImpl(MethodImplOptions.NoInlining)>]
 let changeFor (key: 'TKey) (change: ItemChange<'TKey, 'TIdentity, 'TState>) =
     match change.TryGetNewState key with
     | true, state -> Some(Some state)
     | _ -> if change.WasChanged key then Some None else None
 
-/// <summary>The position of a key in an ordered set, if it is present.</summary>
+/// <summary>The position of a key in an ordered set, when the set has that key.</summary>
 /// <param name="key">The key to look for.</param>
 /// <param name="keys">The ordered set to look in.</param>
-/// <returns>Its position, or <c>None</c> if the key is absent.</returns>
+/// <returns>Its position, or <c>None</c> when the key is missing.</returns>
 /// <remarks>
-///     The core answers -1 for an absent key, following the convention every other
-///     <c>IndexOf</c> in the framework does, and keeps that answer to itself. This is the only
-///     <c>IndexOf</c> the F# API exposes, and it answers the F# way.
+///     The core answers -1 for a missing key, which is the convention of each other
+///     <c>IndexOf</c> in the framework, and it keeps that answer private. This is the only
+///     <c>IndexOf</c> in the public F# API, and it answers with an F# type.
 /// </remarks>
 [<MethodImpl(MethodImplOptions.NoInlining)>]
 let indexOf (key: 'TKey) (keys: OrderedKeys<'TKey, 'TIdentity, 'TState>) =
@@ -216,41 +220,43 @@ let indexOf (key: 'TKey) (keys: OrderedKeys<'TKey, 'TIdentity, 'TState>) =
     | index when index >= 0 -> Some index
     | _ -> None
 
-/// <summary>The shared item store, spanning every view of the same root.</summary>
-/// <param name="collection">The collection or view to ask.</param>
-/// <returns>A cell holding the whole store.</returns>
+/// <summary>The shared item store. Each view of the same root has it.</summary>
+/// <param name="collection">The collection or view to read.</param>
+/// <returns>A cell that holds the full store.</returns>
 [<MethodImpl(MethodImplOptions.NoInlining)>]
 let snapshotCell (collection: ReactiveCollection<'TKey, 'TIdentity, 'TState>) = collection.SnapshotCell
 
 /// <summary>This collection's keys, in order.</summary>
-/// <param name="collection">The collection or view to ask.</param>
+/// <param name="collection">The collection or view to read.</param>
 /// <returns>A cell holding the ordered keys.</returns>
 [<MethodImpl(MethodImplOptions.NoInlining)>]
 let keysCell (collection: ReactiveCollection<'TKey, 'TIdentity, 'TState>) = collection.KeysCell
 
 /// <summary>
-///     How this view's keys changed: which entered, which left, which moved, and to what position.
-///     Positions and no states, where <c>itemChangesStream</c> carries states and no positions.
+///     The change to the keys of this view: the keys that entered, the keys that left, the keys
+///     that moved, and their new positions. This stream has positions and no states, and
+///     <c>itemChangesStream</c> has states and no positions.
 /// </summary>
-/// <param name="collection">The collection or view to ask.</param>
+/// <param name="collection">The collection or view to read.</param>
 /// <returns>The stream of changes.</returns>
 [<MethodImpl(MethodImplOptions.NoInlining)>]
 let keyChangesStream (collection: ReactiveCollection<'TKey, 'TIdentity, 'TState>) = collection.KeyChangesStream
 
-/// <summary>The outer view: fires only when the item count changes or a key changes.</summary>
-/// <param name="collection">The collection to ask.</param>
+/// <summary>The outer view. It sends a value only at a change of the item count or a change of a
+/// key.</summary>
+/// <param name="collection">The collection to read.</param>
 /// <returns>A cell holding the identity map.</returns>
 [<MethodImpl(MethodImplOptions.NoInlining)>]
 let shapeCell (collection: ReactiveCollection<'TKey, 'TIdentity, 'TState>) = collection.ShapeCell
 
 /// <summary>
-///     How the store changed: the keys whose items were added, removed or altered, carrying the new
-///     state of each. States and no positions, where <c>keyChangesStream</c> carries positions and
-///     no states.
-///     On the root only, because it reports the shared store rather than any one view. For a total
-///     over a filtered view, fold <c>keyChangesStream</c> instead.
+///     The change to the store: the keys of the items that an edit added, removed, or changed,
+///     with the new state of each one. This stream has states and no positions, and
+///     <c>keyChangesStream</c> has positions and no states.
+///     It is on the root only, because it gives the shared store and not one view. For a total
+///     across a filtered view, fold <c>keyChangesStream</c>.
 /// </summary>
-/// <param name="collection">The root collection to ask.</param>
+/// <param name="collection">The root collection to read.</param>
 /// <returns>The stream of keyed changes.</returns>
 [<MethodImpl(MethodImplOptions.NoInlining)>]
 let itemChangesStream (collection: ReactiveCollection<'TKey, 'TIdentity, 'TState>) = collection.ItemChangesStream
@@ -265,29 +271,30 @@ let itemChangesStream (collection: ReactiveCollection<'TKey, 'TIdentity, 'TState
 let sortByKey (keyComparer: IComparer<'TKey>) (upstream: ReactiveCollection<'TKey, 'TIdentity, 'TState>) =
     CollectionViewUtility.SortByKeyImpl(upstream, keyComparer)
 
-/// <summary>Reorders by arrival - the collection's own order, available over any stage.</summary>
+/// <summary>Reorders by arrival, which is the order of the collection. It is available above
+/// each stage.</summary>
 /// <param name="upstream">The collection or view to reorder.</param>
 /// <returns>A view in the order its items arrived.</returns>
 [<MethodImpl(MethodImplOptions.NoInlining)>]
 let sortByArrival (upstream: ReactiveCollection<'TKey, 'TIdentity, 'TState>) =
     CollectionViewUtility.SortByArrivalImpl upstream
 
-/// <summary>Narrows the view, preserving the upstream order.</summary>
-/// <param name="predicate">Whether an item belongs in the view.</param>
+/// <summary>Narrows the view and keeps the upstream order.</summary>
+/// <param name="predicate">True when an item is in the view.</param>
 /// <param name="upstream">The collection or view to narrow.</param>
-/// <returns>A view holding the items which pass.</returns>
+/// <returns>A view with the items that the predicate accepts.</returns>
 [<MethodImpl(MethodImplOptions.NoInlining)>]
 let filter (predicate: 'TIdentity -> 'TState -> bool) (upstream: ReactiveCollection<'TKey, 'TIdentity, 'TState>) =
     CollectionViewUtility.FilterImpl(upstream, CellInternal.ConstantImpl(Func<_, _, _> predicate))
 
 /// <summary>
-///     Narrows the view by a predicate which can itself change. Each change to it rebuilds this
-///     stage, which is O(m log m) in the upstream size, so keystroke-driven criteria are worth
-///     debouncing upstream.
+///     Narrows the view with a predicate that can change. Each change to the predicate builds
+///     this stage again, at a cost of <c>O(m log m)</c> in the size of the upstream. Thus a
+///     criteria from a keystroke needs a Calm stage above this one.
 /// </summary>
 /// <param name="predicateCell">The predicate in force.</param>
 /// <param name="upstream">The collection or view to narrow.</param>
-/// <returns>A view holding the items which pass.</returns>
+/// <returns>A view with the items that the predicate accepts.</returns>
 [<MethodImpl(MethodImplOptions.NoInlining)>]
 let filterC
     (predicateCell: Cell<'TIdentity -> 'TState -> bool>)
@@ -327,34 +334,36 @@ let sortByDescending
     )
 
 /// <summary>
-///     Narrows the view by a predicate over each item's immutable half - its identity - which a
-///     state edit cannot change.
+///     Narrows the view with a predicate on the immutable part of each item, which is its
+///     identity. A state edit cannot change that part.
 /// </summary>
-/// <param name="predicate">Whether an item belongs in the view, given its identity.</param>
+/// <param name="predicate">True when an item is in the view, from its identity.</param>
 /// <param name="upstream">The collection or view to narrow.</param>
-/// <returns>A view holding the items which pass.</returns>
+/// <returns>A view with the items that the predicate accepts.</returns>
 /// <remarks>
-///     The same membership <c>filter</c> gives for the same answers, and cheaper to keep: a state
-///     edit cannot move a key into this filter or out of it, so the stage neither re-tests the
-///     predicate nor asks whether the key was already in. The predicate is handed the identity and
-///     not the state, so it cannot read what it says it does not.
+///     This gives the same members as <c>filter</c> for the same answers, and it costs less to
+///     keep. A state edit cannot move a key into this filter or out of it, thus the stage does not
+///     test the predicate again and does not read the previous membership of the key. The
+///     predicate receives the identity and not the state, thus it cannot read the state that it
+///     says it does not read.
 /// </remarks>
 [<MethodImpl(MethodImplOptions.NoInlining)>]
 let filterByIdentity (predicate: 'TIdentity -> bool) (upstream: ReactiveCollection<'TKey, 'TIdentity, 'TState>) =
     CollectionViewUtility.FilterByIdentityImpl(upstream, Func<_, _> predicate)
 
 /// <summary>
-///     Reorders the view by a value projected from each item's immutable half - its identity -
-///     which a state edit cannot change.
+///     Reorders the view by a value from the immutable part of each item, which is its identity.
+///     A state edit cannot change that part.
 /// </summary>
 /// <param name="selector">Projects the sort value from an item's identity.</param>
 /// <param name="upstream">The collection or view to reorder.</param>
 /// <returns>A view ordered by that value.</returns>
 /// <remarks>
-///     The same ordering <c>sortBy</c> gives for the same values, and cheaper to keep: a state
-///     edit cannot move a key under this order, so a stage skips re-filing one it is told merely
-///     changed, and building the stage never reads the state map. The selector is handed the
-///     identity and not the state, so it cannot read what it says it does not.
+///     This gives the same order as <c>sortBy</c> for the same values, and it costs less to keep.
+///     A state edit cannot move a key in this order, thus a stage does not sort a key again when
+///     it hears only that the key changed, and the construction of the stage never reads the state
+///     map. The selector receives the identity and not the state, thus it cannot read the state
+///     that it says it does not read.
 /// </remarks>
 [<MethodImpl(MethodImplOptions.NoInlining)>]
 let sortByIdentity (selector: 'TIdentity -> 'TSortKey) (upstream: ReactiveCollection<'TKey, 'TIdentity, 'TState>) =
@@ -390,8 +399,8 @@ let sortByIdentityDescending
 /// </summary>
 /// <param name="selector">Projects the sort value from an item's identity.</param>
 /// <param name="sortComparer">Compares two projected sort values.</param>
-/// <param name="keyComparer">Breaks ties, so that the order is total.</param>
-/// <param name="isDescending">Whether to reverse the sort comparison.</param>
+/// <param name="keyComparer">Compares two keys with equal sort values, thus the order is total.</param>
+/// <param name="isDescending">True when the sort uses the opposite direction.</param>
 /// <param name="upstream">The collection or view to reorder.</param>
 /// <returns>A view in that order.</returns>
 [<MethodImpl(MethodImplOptions.NoInlining)>]
@@ -405,14 +414,14 @@ let sortByIdentityWith
     CollectionViewUtility.SortByIdentityImpl(upstream, Func<_, _> selector, sortComparer, keyComparer, isDescending)
 
 /// <summary>
-///     Reorders the view with explicit comparers. The sort key type stays a real generic
-///     parameter all the way down to the comparer, so sort values are compared as themselves and
-///     never boxed.
+///     Reorders the view with explicit comparers. The sort key type stays a generic parameter to
+///     the comparer, thus this code compares each sort value as its own type and never boxes
+///     it.
 /// </summary>
 /// <param name="selector">Projects the sort value from an item.</param>
 /// <param name="sortComparer">Compares two projected sort values.</param>
-/// <param name="keyComparer">Breaks ties, so that the order is total.</param>
-/// <param name="isDescending">Whether to reverse the sort comparison.</param>
+/// <param name="keyComparer">Compares two keys with equal sort values, thus the order is total.</param>
+/// <param name="isDescending">True when the sort uses the opposite direction.</param>
 /// <param name="upstream">The collection or view to reorder.</param>
 /// <returns>A view in that order.</returns>
 [<MethodImpl(MethodImplOptions.NoInlining)>]
@@ -430,9 +439,9 @@ let sortByWith
 /// <param name="upstream">The collection or view to reorder.</param>
 /// <returns>A view in that order.</returns>
 /// <remarks>
-///     How a sort with more than one level is written when its levels never change: build the order
-///     with <c>orderBy</c> and <c>thenBy</c>, and pipe the collection here. An order that does change
-///     goes in a cell instead - see <c>sortByOrderC</c>.
+///     This is the shape of a sort with more than one level whose levels do not change. Build the
+///     order with <c>orderBy</c> and <c>thenBy</c>, and send the collection here. An order that
+///     changes goes in a cell. See <c>sortByOrderC</c>.
 /// </remarks>
 [<MethodImpl(MethodImplOptions.NoInlining)>]
 let sortByOrder
@@ -442,20 +451,20 @@ let sortByOrder
     CollectionViewUtility.SortByImpl(upstream, CellInternal.ConstantImpl order)
 
 /// <summary>Reorders the view by whichever order the cell currently holds.</summary>
-/// <param name="orderCell">The order to sort by, which may change.</param>
+/// <param name="orderCell">The order for the sort. It can change.</param>
 /// <param name="upstream">The collection or view to reorder.</param>
 /// <returns>A view in whichever order that cell holds.</returns>
 /// <remarks>
-///     This is the stage the other sorts are built from, they being sorts whose order never
-///     changes, and it is how a clickable column header is written. Build the orders with
-///     <c>orderBy</c> and its siblings below, which mirror those sorts one for one - and because
-///     an order carries its own sort value type inside itself, one cell can hold orders that sort
-///     by values of different types.
-///     A new order is a criteria change like any other: it rebuilds this stage and reports a
-///     reset, and a stage below re-files under the new order without being told, because a filter
-///     builds from its upstream's own order whatever that has become. It is always a reset, even
-///     when the new order is the old one reversed; a change of order is never reported as moves,
-///     which are kept for keys a value change has moved.
+///     This stage is the base of the other sorts, and the order of each one does not change. This
+///     stage is also the shape of a column header that a user can click. Build the orders with
+///     <c>orderBy</c> and the functions below it, which are the equivalent of those sorts. An
+///     order holds its own sort value type, thus one cell can hold orders that sort on values of
+///     different types.
+///     A new order is a change of criteria, as each other criteria is. It builds this stage again
+///     and reports a reset. A stage below sorts again in the new order and no code tells it to,
+///     because a filter builds from the current order of its upstream. It is always a reset, also
+///     when the new order is the previous order in the opposite direction. A change of order is
+///     never a set of moves, because a move is for a key that a change of value moved.
 /// </remarks>
 [<MethodImpl(MethodImplOptions.NoInlining)>]
 let sortByOrderC
@@ -481,14 +490,14 @@ let orderByDescending (selector: 'TIdentity -> 'TState -> 'TSortKey) : KeyOrder<
         .By(Func<_, _, _> selector, Comparer<'TSortKey>.Default, Comparer<'TKey>.Default, true)
 
 /// <summary>
-///     An order by a value projected from each item, with explicit comparers. The sort key type
-///     stays a real generic parameter all the way down to the comparer, so sort values are
-///     compared as themselves and never boxed.
+///     An order by a value from each item, with explicit comparers. The sort key type stays a
+///     generic parameter to the comparer, thus this code compares each sort value as its own type
+///     and never boxes it.
 /// </summary>
 /// <param name="selector">Projects the sort value from an item.</param>
 /// <param name="sortComparer">Compares two projected sort values.</param>
-/// <param name="keyComparer">Breaks ties, so that the order is total.</param>
-/// <param name="isDescending">Whether to reverse the sort comparison.</param>
+/// <param name="keyComparer">Compares two keys with equal sort values, thus the order is total.</param>
+/// <param name="isDescending">True when the sort uses the opposite direction.</param>
 /// <returns>The order.</returns>
 [<MethodImpl(MethodImplOptions.NoInlining)>]
 let orderByWith
@@ -500,15 +509,16 @@ let orderByWith
     KeyOrder<'TKey, 'TIdentity, 'TState>.By(Func<_, _, _> selector, sortComparer, keyComparer, isDescending)
 
 /// <summary>
-///     An order by a value projected from each item's immutable half alone, which a state edit
-///     cannot change.
+///     An order by a value from the immutable part of each item only. A state edit cannot change
+///     that part.
 /// </summary>
 /// <param name="selector">Projects the sort value from an identity.</param>
 /// <returns>The order.</returns>
 /// <remarks>
-///     Cheaper to keep than <c>orderBy</c> for the same values: a stage under this order skips
-///     re-filing a key it is told merely changed, and building one never reads the state map. The
-///     selector is not handed the state, so it cannot read what it says it does not.
+///     This costs less to keep than <c>orderBy</c> for the same values. A stage in this order
+///     does not sort a key again when it hears only that the key changed, and the construction of
+///     a stage never reads the state map. The selector does not receive the state, thus it cannot
+///     read the state that it says it does not read.
 /// </remarks>
 [<MethodImpl(MethodImplOptions.NoInlining)>]
 let orderByIdentity (selector: 'TIdentity -> 'TSortKey) : KeyOrder<'TKey, 'TIdentity, 'TState> =
@@ -516,7 +526,7 @@ let orderByIdentity (selector: 'TIdentity -> 'TSortKey) : KeyOrder<'TKey, 'TIden
         .ByIdentity(Func<_, _> selector, Comparer<'TSortKey>.Default, Comparer<'TKey>.Default, false)
 
 /// <summary>
-///     An order, descending, by a value projected from each item's immutable half alone.
+///     An order, descending, by a value from the immutable part of each item only.
 /// </summary>
 /// <param name="selector">Projects the sort value from an identity.</param>
 /// <returns>The order.</returns>
@@ -526,13 +536,13 @@ let orderByIdentityDescending (selector: 'TIdentity -> 'TSortKey) : KeyOrder<'TK
         .ByIdentity(Func<_, _> selector, Comparer<'TSortKey>.Default, Comparer<'TKey>.Default, true)
 
 /// <summary>
-///     An order by a value projected from each item's immutable half alone, with explicit
+///     An order by a value from the immutable part of each item only, with explicit
 ///     comparers.
 /// </summary>
 /// <param name="selector">Projects the sort value from an identity.</param>
 /// <param name="sortComparer">Compares two projected sort values.</param>
-/// <param name="keyComparer">Breaks ties, so that the order is total.</param>
-/// <param name="isDescending">Whether to reverse the sort comparison.</param>
+/// <param name="keyComparer">Compares two keys with equal sort values, thus the order is total.</param>
+/// <param name="isDescending">True when the sort uses the opposite direction.</param>
 /// <returns>The order.</returns>
 [<MethodImpl(MethodImplOptions.NoInlining)>]
 let orderByIdentityWith
@@ -550,24 +560,27 @@ let orderByIdentityWith
 let orderByKey (keyComparer: IComparer<'TKey>) : KeyOrder<'TKey, 'TIdentity, 'TState> =
     KeyOrder<'TKey, 'TIdentity, 'TState>.ByKey keyComparer
 
-/// <summary>An order by arrival - the collection's own order, available over any stage.</summary>
+/// <summary>An order by arrival, which is the order of the collection. It is available above
+/// each stage.</summary>
 /// <returns>The order.</returns>
 /// <remarks>
-///     Under a sort this is how a cell goes back to unsorted - the third state of a column header that
-///     cycles ascending, descending and off.
+///     With a sort, this is the path from a cell back to no sort. It is the third state of a
+///     column header that moves between ascending, descending, and off.
 /// </remarks>
 [<MethodImpl(MethodImplOptions.NoInlining)>]
 let orderByArrival () : KeyOrder<'TKey, 'TIdentity, 'TState> =
     KeyOrder<'TKey, 'TIdentity, 'TState>.ByArrival()
 
-/// <summary>An order with its ties broken by a value projected from each item.</summary>
+/// <summary>An order with a second level, by a value from each item, for keys with equal sort
+/// values.</summary>
 /// <param name="selector">Projects the next level's sort value from an item.</param>
-/// <param name="order">The order to refine, which is left unchanged.</param>
+/// <param name="order">The order to refine. It does not change.</param>
 /// <returns>The refined order.</returns>
 /// <remarks>
-///     What <c>ThenBy</c> is after <c>OrderBy</c> in LINQ: the new level decides only between keys
-///     the order ranks equal. Every level keeps its own sort value type down to its comparer, so
-///     nothing is boxed however many levels there are, and the key still breaks the last tie.
+///     This is the equivalent of <c>ThenBy</c> after <c>OrderBy</c> in LINQ. The new level
+///     selects only between keys that the order ranks equal. Each level keeps its own sort value
+///     type to its comparer, thus this code boxes nothing at each count of levels, and the key is
+///     the last level in each order.
 /// </remarks>
 [<MethodImpl(MethodImplOptions.NoInlining)>]
 let thenBy
@@ -576,9 +589,10 @@ let thenBy
     : KeyOrder<'TKey, 'TIdentity, 'TState> =
     order.ThenBy(Func<_, _, _> selector, Comparer<'TSortKey>.Default, false)
 
-/// <summary>An order with its ties broken, descending, by a value projected from each item.</summary>
+/// <summary>An order with a second level, descending, by a value from each item, for keys with
+/// equal sort values.</summary>
 /// <param name="selector">Projects the next level's sort value from an item.</param>
-/// <param name="order">The order to refine, which is left unchanged.</param>
+/// <param name="order">The order to refine. It does not change.</param>
 /// <returns>The refined order.</returns>
 [<MethodImpl(MethodImplOptions.NoInlining)>]
 let thenByDescending
@@ -587,15 +601,18 @@ let thenByDescending
     : KeyOrder<'TKey, 'TIdentity, 'TState> =
     order.ThenBy(Func<_, _, _> selector, Comparer<'TSortKey>.Default, true)
 
-/// <summary>An order with its ties broken by a value projected from each item, with a comparer.</summary>
+/// <summary>An order with a second level, by a value from each item, for keys with equal sort
+/// values, with a comparer.</summary>
 /// <param name="selector">Projects the next level's sort value from an item.</param>
 /// <param name="sortComparer">Compares two of the next level's sort values.</param>
-/// <param name="isDescending">Whether this level runs in reverse, whichever way the levels above it run.</param>
-/// <param name="order">The order to refine, which is left unchanged.</param>
+/// <param name="isDescending">
+///     True when this level uses the opposite direction, at each direction of the levels above it.
+/// </param>
+/// <param name="order">The order to refine. It does not change.</param>
 /// <returns>The refined order.</returns>
 /// <remarks>
-///     There is no key comparer to give here. The key breaks the last tie in every order, and which
-///     comparer does that was settled when the first level was built.
+///     There is no key comparer for this call. The key is the last level in each order, and the
+///     construction of the first level selected the comparer for it.
 /// </remarks>
 [<MethodImpl(MethodImplOptions.NoInlining)>]
 let thenByWith
@@ -607,14 +624,16 @@ let thenByWith
     order.ThenBy(Func<_, _, _> selector, sortComparer, isDescending)
 
 /// <summary>
-///     An order with its ties broken by a value projected from each item's immutable half alone.
+///     An order with a second level, by a value from the immutable part of each item only, for
+///     keys with equal sort values.
 /// </summary>
 /// <param name="selector">Projects the next level's sort value from an identity.</param>
-/// <param name="order">The order to refine, which is left unchanged.</param>
+/// <param name="order">The order to refine. It does not change.</param>
 /// <returns>The refined order.</returns>
 /// <remarks>
-///     The refined order is over the identity alone only if the order it refines is too. One level
-///     that reads the state is enough for a state edit to move a key.
+///     The refined order uses the identity only when the order that it refines also uses the
+///     identity only. One level that reads the state is sufficient to let a state edit move a
+///     key.
 /// </remarks>
 [<MethodImpl(MethodImplOptions.NoInlining)>]
 let thenByIdentity
@@ -624,11 +643,11 @@ let thenByIdentity
     order.ThenByIdentity(Func<_, _> selector, Comparer<'TSortKey>.Default, false)
 
 /// <summary>
-///     An order with its ties broken, descending, by a value projected from each item's immutable
-///     half alone.
+///     An order with a second level, descending, by a value from the immutable part of each item
+///     only, for keys with equal sort values.
 /// </summary>
 /// <param name="selector">Projects the next level's sort value from an identity.</param>
-/// <param name="order">The order to refine, which is left unchanged.</param>
+/// <param name="order">The order to refine. It does not change.</param>
 /// <returns>The refined order.</returns>
 [<MethodImpl(MethodImplOptions.NoInlining)>]
 let thenByIdentityDescending
@@ -638,13 +657,15 @@ let thenByIdentityDescending
     order.ThenByIdentity(Func<_, _> selector, Comparer<'TSortKey>.Default, true)
 
 /// <summary>
-///     An order with its ties broken by a value projected from each item's immutable half alone, with
-///     a comparer.
+///     An order with a second level, by a value from the immutable part of each item only, for
+///     keys with equal sort values, with a comparer.
 /// </summary>
 /// <param name="selector">Projects the next level's sort value from an identity.</param>
 /// <param name="sortComparer">Compares two of the next level's sort values.</param>
-/// <param name="isDescending">Whether this level runs in reverse, whichever way the levels above it run.</param>
-/// <param name="order">The order to refine, which is left unchanged.</param>
+/// <param name="isDescending">
+///     True when this level uses the opposite direction, at each direction of the levels above it.
+/// </param>
+/// <param name="order">The order to refine. It does not change.</param>
 /// <returns>The refined order.</returns>
 [<MethodImpl(MethodImplOptions.NoInlining)>]
 let thenByIdentityWith
@@ -659,15 +680,15 @@ let thenByIdentityWith
 ///     The first <c>limit</c> keys of the upstream — the top-n of whatever ordering and filtering
 ///     precedes it.
 /// </summary>
-/// <param name="limit">How many keys to keep.</param>
+/// <param name="limit">The number of keys to keep.</param>
 /// <param name="upstream">The collection or view to window.</param>
 /// <returns>A view of that window.</returns>
 [<MethodImpl(MethodImplOptions.NoInlining)>]
 let take (limit: int) (upstream: ReactiveCollection<'TKey, 'TIdentity, 'TState>) =
     CollectionViewUtility.TakeImpl(upstream, CellInternal.ConstantImpl limit)
 
-/// <summary>The first however many keys of the upstream, where that count can itself change.</summary>
-/// <param name="limitCell">How many keys to keep.</param>
+/// <summary>The first keys of the upstream, and that count can change.</summary>
+/// <param name="limitCell">The number of keys to keep.</param>
 /// <param name="upstream">The collection or view to window.</param>
 /// <returns>A view of that window.</returns>
 [<MethodImpl(MethodImplOptions.NoInlining)>]
@@ -679,12 +700,12 @@ let takeC (limitCell: Cell<int>) (upstream: ReactiveCollection<'TKey, 'TIdentity
 ///     and filtering precedes it.
 /// </summary>
 /// <remarks>
-///     There is no <c>skip</c> to pair with <c>take</c>, and this is why: a window with both ends
-///     is bounded, so this stage stays O(limit) per transaction, where a skip alone would yield a
-///     view whose size follows the collection. Paging wants both ends anyway.
+///     There is no <c>skip</c> for a pair with <c>take</c>, for this cause. A window with the two
+///     ends has a limit, thus this stage stays <c>O(limit)</c> for each transaction. A skip alone
+///     gives a view whose size follows the collection. A page also needs the two ends.
 /// </remarks>
-/// <param name="offset">How many keys to pass over before the window begins.</param>
-/// <param name="limit">How many keys to keep.</param>
+/// <param name="offset">The number of keys before the start of the window.</param>
+/// <param name="limit">The number of keys to keep.</param>
 /// <param name="upstream">The collection or view to window.</param>
 /// <returns>A view of that window.</returns>
 [<MethodImpl(MethodImplOptions.NoInlining)>]
@@ -692,11 +713,11 @@ let slice (offset: int) (limit: int) (upstream: ReactiveCollection<'TKey, 'TIden
     CollectionViewUtility.SliceImpl(upstream, CellInternal.ConstantImpl offset, CellInternal.ConstantImpl limit)
 
 /// <summary>
-///     A page of the upstream where either end can itself change — send a new offset to turn the
+///     A page of the upstream where each end can change. Send a new offset to move to a different
 ///     page.
 /// </summary>
-/// <param name="offsetCell">How many keys to pass over before the window begins.</param>
-/// <param name="limitCell">How many keys to keep.</param>
+/// <param name="offsetCell">The number of keys before the start of the window.</param>
+/// <param name="limitCell">The number of keys to keep.</param>
 /// <param name="upstream">The collection or view to window.</param>
 /// <returns>A view of that window.</returns>
 [<MethodImpl(MethodImplOptions.NoInlining)>]
@@ -707,14 +728,15 @@ let sliceC (offsetCell: Cell<int>) (limitCell: Cell<int>) (upstream: ReactiveCol
 ///     One object per key, in this collection's order, so a list can bind to something stable.
 /// </summary>
 /// <remarks>
-///     The end of a chain rather than a stage of one: what comes back is objects, which have no
-///     identity and no state for a later stage to work on. <c>project</c> runs once per key and the
-///     object is kept, so a collection whose items changed but whose membership and order did not
-///     yields the same objects in the same order - build each one from <c>stateCell</c> and
-///     <c>identityCell</c> and it will then follow its own item.
+///     This is the end of a chain and not a stage in one. The result is objects, and an object
+///     has no identity and no state for a subsequent stage. <c>project</c> runs one time for each
+///     key and this code keeps the object. Thus a collection whose items changed, and whose
+///     members and order did not change, gives the same objects in the same sequence. Build each
+///     object from <c>stateCell</c> and <c>identityCell</c>, and the object then follows its own
+///     item.
 ///     <para />
-///     What is kept is bounded by <c>MappedItems.DefaultRetainedBeyondTheView</c>; use
-///     <c>mapWith</c> to choose the bound or to be told when something is dropped.
+///     <c>MappedItems.DefaultRetainedBeyondTheView</c> limits the objects that this code keeps.
+///     Use <c>mapWith</c> to set that limit, or to get a message at each removal.
 /// </remarks>
 /// <param name="project">Builds the object for one key.</param>
 /// <param name="collection">The collection or view to project.</param>
@@ -727,13 +749,14 @@ let map (project: 'TKey -> 'TResult) (collection: ReactiveCollection<'TKey, 'TId
 ///     The same, choosing how much to keep and hearing about what is dropped.
 /// </summary>
 /// <remarks>
-///     The bound counts keys that have <i>left</i>: everything currently here is kept whatever it
-///     says, so a bound smaller than the collection cannot evict what is on screen. <c>onEvicted</c>
-///     is where anything a projected object owns is released - and disposing the result releases
-///     what is still held, which eviction never reaches.
+///     The limit counts the keys that <i>left</i>. This code keeps each key that is here now, at
+///     each value of the limit, thus a limit below the size of the collection cannot remove an
+///     object from the screen. <c>onEvicted</c> is the position to release the resources of a
+///     projected object. A disposal of the result releases the objects that this code holds, and
+///     an eviction never reaches those.
 /// </remarks>
-/// <param name="retainedBeyondTheView">How many departed keys to keep objects for.</param>
-/// <param name="onEvicted">Called with an object whose key has been dropped.</param>
+/// <param name="retainedBeyondTheView">The number of keys that left to keep objects for.</param>
+/// <param name="onEvicted">This receives an object whose key this code removed.</param>
 /// <param name="project">Builds the object for one key.</param>
 /// <param name="collection">The collection or view to project.</param>
 /// <returns>The projected objects, and the means to release them.</returns>
