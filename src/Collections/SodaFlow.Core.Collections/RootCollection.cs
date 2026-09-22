@@ -7,26 +7,27 @@ using System.Threading;
 namespace SodaFlow.Collections;
 
 /// <summary>
-///     A large keyed collection exposed to SodaFlow as a flat graph: one cell holding the whole
-///     snapshot, one stream of resolved changes, and a derived cell that fires only when the shape
-///     changes.
+///     A large collection with keys, as a flat graph in SodaFlow: one cell that holds the full
+///     snapshot, one stream of resolved changes, and a cell from those changes that sends a value
+///     only at a change of the shape.
 /// </summary>
 /// <remarks>
 ///     <para>
-///         Per-item observation costs one hash lookup per active observer per transaction, and is
-///         independent of collection size. Observers are created on demand and cached weakly, so
-///         only the items actually being watched carry any graph nodes.
+///         An observer of one item costs one hash lookup for each active observer and for each
+///         transaction, and that cost does not change with the size of the collection. This code
+///         makes an observer at the first read and keeps it in a weak cache. Thus only the items
+///         with an observer have graph nodes.
 ///     </para>
 ///     <para>
-///         Note that no cell is nested inside another cell's value. A <c>Cell&lt;Collection&gt;</c>
-///         whose value carried its own inner cell would construct graph nodes inside the fold that
-///         produces each new value — new nodes per structural change, per observer, flattened back
-///         out only by a switch. The two views here are derived from one change stream instead.
+///         No cell is in the value of a second cell. A <c>Cell&lt;Collection&gt;</c> whose value
+///         holds its own cell builds graph nodes in the fold that makes each new value. Those are
+///         new nodes for each structural change and for each observer, and only a switch removes
+///         them. One change stream gives the two views here.
 ///     </para>
 /// </remarks>
 /// <typeparam name="TKey">The type of the keys.</typeparam>
-/// <typeparam name="TIdentity">The type of the immutable portion of an item.</typeparam>
-/// <typeparam name="TState">The type of the mutable portion of an item.</typeparam>
+/// <typeparam name="TIdentity">The type of the immutable part of an item.</typeparam>
+/// <typeparam name="TState">The type of the mutable part of an item.</typeparam>
 // ReSharper disable once InheritdocConsiderUsage
 internal sealed class RootCollection<TKey, TIdentity, TState>
     : ReactiveCollection<TKey, TIdentity, TState>
@@ -46,10 +47,10 @@ internal sealed class RootCollection<TKey, TIdentity, TState>
         this.SnapshotCell = snapshotCell;
         this.ShapeCell = shapeCell;
 
-        // The ordering is built on first use, so a collection nobody lists never pays for an ordered
-        // key set. It is the order the items arrived in rather than an order of their own, so keys are
-        // never compared and TKey never has to be comparable - SortByKey is there when key order is
-        // what is wanted.
+        // This code builds the order at its first use, thus a collection that no code lists has no
+        // cost for an ordered key set. It is the sequence of the arrival of the items and not an
+        // order of their values, thus this code never compares two keys and TKey needs no
+        // compare operation. Use SortByKey for an order of the keys.
         this.orderedByArrival =
             new Lazy<ReactiveCollection<TKey, TIdentity, TState>>(
                 valueFactory: () => CollectionViewUtility.CreateRootImpl(this),
@@ -69,7 +70,8 @@ internal sealed class RootCollection<TKey, TIdentity, TState>
         this.orderedByArrival.Value.KeyChangesStream;
 
     /// <inheritdoc />
-    /// <remarks>On the collection itself this is the whole store, and it fires on every change.</remarks>
+    /// <remarks>On the collection this is the full store, and it sends a value at each
+    /// change.</remarks>
     public override Cell<CollectionSnapshot<TKey, TIdentity, TState>> SnapshotCell { get; }
 
     /// <inheritdoc />
@@ -80,13 +82,14 @@ internal sealed class RootCollection<TKey, TIdentity, TState>
     internal override RootCollection<TKey, TIdentity, TState> Root => this;
 
     /// <summary>
-    ///     Builds the collection every public <c>Create</c> factory returns, on
-    ///     <see cref="ReactiveCollection{TKey,TIdentity,TState}" /> and on its non-generic companion.
+    ///     Builds the collection that each public <c>Create</c> factory returns. Those factories
+    ///     are on <see cref="ReactiveCollection{TKey,TIdentity,TState}" /> and on the class beside
+    ///     it that is not generic.
     /// </summary>
-    /// <param name="keySelector">Derives an item's key from its immutable portion.</param>
+    /// <param name="keySelector">Makes the key of an item from its immutable part.</param>
     /// <param name="keyEqualityComparer">The equality comparer for keys.</param>
-    /// <param name="initialEntries">The collection's initial contents, lazily held.</param>
-    /// <param name="editStreams">Every stream that will ever edit the collection.</param>
+    /// <param name="initialEntries">The initial contents of the collection, read at their first use.</param>
+    /// <param name="editStreams">Each stream that edits the collection.</param>
     /// <returns>The collection.</returns>
     internal static ReactiveCollection<TKey, TIdentity, TState> CreateImpl(
         Func<TIdentity, TKey> keySelector,
@@ -100,7 +103,8 @@ internal sealed class RootCollection<TKey, TIdentity, TState>
 
             Dictionary<TKey, TState> states = new(keyEqualityComparer);
 
-            // Numbered in the order the items are enumerated, which is the order the collection lists them.
+            // This code gives a number to each item in the sequence of the enumeration, and the
+            // collection lists the items in that sequence.
             ImmutableDictionary<TKey, long>.Builder arrivals =
                 ImmutableDictionary.CreateBuilder<TKey, long>(keyEqualityComparer);
 
@@ -112,8 +116,9 @@ internal sealed class RootCollection<TKey, TIdentity, TState>
                         {
                             TKey key = keySelector(item.Identity);
 
-                            // ContainsKey rather than TryAdd, which netstandard2.0 and net472 do not have on a
-                            // dictionary and which a builder does not have at all.
+                            // This uses ContainsKey and not TryAdd. A dictionary in
+                            // netstandard2.0 and in net472 has no TryAdd, and a builder has
+                            // none.
                             if (identities.ContainsKey(key))
                             {
                                 throw new ArgumentException($"Duplicate key '{key}' in the initial items.");
@@ -134,8 +139,8 @@ internal sealed class RootCollection<TKey, TIdentity, TState>
 
             Stream<CollectionEdit<TKey, TIdentity, TState>> editsStream = MergeEdits(editStreams);
 
-            // The resolution of an edit depends on the state it is resolved against, and that state
-            // is produced by resolving edits: an explicit loop.
+            // The resolution of an edit uses the state that it resolves against, and the
+            // resolution of the edits makes that state. Thus this code has an explicit loop.
             LoopedCell<CollectionSnapshot<TKey, TIdentity, TState>> snapshotLoopCell = new();
 
             Stream<ItemChange<TKey, TIdentity, TState>> itemChangesStream =
@@ -157,10 +162,10 @@ internal sealed class RootCollection<TKey, TIdentity, TState>
 
             snapshotLoopCell.Loop(trans: trans, c: snapshotCell);
 
-            // Derived by its own hold off the same stream rather than by calming a map of the
-            // snapshot cell — both holds see the same transaction, so the two views can never
-            // disagree, and this one fires on exactly the stated condition: the item count changed,
-            // or a key changed.
+            // This comes from its own hold on the same stream, and not from a Calm on a map of
+            // the snapshot cell. The two holds read the same transaction, thus the two views always
+            // agree. This cell also sends a value only at the condition above: a change of the item
+            // count, or a change of a key.
             Cell<IReadOnlyDictionary<TKey, TIdentity>> shapeCell =
                 itemChangesStream
                     .FilterImpl(static change => change.IsStructural)
@@ -176,14 +181,15 @@ internal sealed class RootCollection<TKey, TIdentity, TState>
 
     /// <inheritdoc />
     /// <remarks>
-    ///     Cheap enough to create per bound view: it filters on a single hash lookup and never
-    ///     touches the rest of the collection.
-    ///     The key need not exist yet. Removal fires <paramref name="onAbsent" /> and a later add
-    ///     under the same key fires <paramref name="onPresent" /> again, so a view bound to a key
-    ///     can outlive the item.
-    ///     Cached weakly per key, so N observers of one key share a node and the node goes away
-    ///     when the last observer does. Two projections of the same key are two cells, which is
-    ///     what keeps the C# and F# surfaces from handing each other the wrong one.
+    ///     The cost is low, thus code can make one for each bound view. It filters on one hash
+    ///     lookup and does not read the other items.
+    ///     The key can be missing now. A removal sends <paramref name="onAbsent" />, and a
+    ///     subsequent add with the same key sends <paramref name="onPresent" /> again. Thus a view
+    ///     that binds to a key can continue after the item.
+    ///     A weak cache holds one for each key, thus N observers of one key share a node, and the
+    ///     node goes out of memory with the last observer. Two projections of the same key are two
+    ///     cells, thus the C# surface and the F# surface never give each other an incorrect
+    ///     cell.
     /// </remarks>
     internal override Cell<TProjected> CreateIdentityCell<TProjected>(
         TKey key,
@@ -201,11 +207,11 @@ internal sealed class RootCollection<TKey, TIdentity, TState>
                                 : onAbsent())));
 
     /// <summary>
-    ///     Merges the input streams into one. Edits arriving from different streams in the same
-    ///     transaction combine into a single change event and a single cell update; the ambiguous
-    ///     case is rejected inside
-    ///     <see cref="CollectionEdit{TKey,TIdentity,TState}.CombineWith" /> rather than resolved by merge
-    ///     order, which SodaFlow does not define.
+    ///     Merges the input streams into one stream. Edits from different streams in the same
+    ///     transaction become one change event and one cell update.
+    ///     <see cref="CollectionEdit{TKey,TIdentity,TState}.CombineWith" /> refuses an ambiguous
+    ///     condition, and no code resolves it with the sequence of the merge, because SodaFlow does
+    ///     not give that sequence.
     /// </summary>
     private static Stream<CollectionEdit<TKey, TIdentity, TState>> MergeEdits(
         IEnumerable<Stream<CollectionEdit<TKey, TIdentity, TState>>> editStreams) =>
@@ -268,9 +274,9 @@ internal sealed class RootCollection<TKey, TIdentity, TState>
             return MaybeInternal<ItemChange<TKey, TIdentity, TState>>.None;
         }
 
-        // Only a structural edit moves the identity map, and it moves it by building the next
-        // version from this one rather than copying it - so an add costs one write rather than a
-        // pass over the collection.
+        // Only a structural edit changes the identity map, and it builds the next version from
+        // this version and does not copy it. Thus an add costs one write and not one read of the
+        // full collection.
         ImmutableDictionary<TKey, TIdentity> identities =
             added.Count > 0 || removed.Count > 0
                 ? before.WithIdentities(
@@ -279,9 +285,10 @@ internal sealed class RootCollection<TKey, TIdentity, TState>
                     removed: removed)
                 : before.IdentitiesImpl;
 
-        // Numbered on the same structural edits the identity map moves on, and in the order the edit
-        // lists its adds - the order they join the end of the collection in. Edits from several streams
-        // in one transaction are combined in the order the streams were given, adds included.
+        // This code gives a number at each structural edit that changes the identity map, in the
+        // sequence of the adds in that edit, which is the sequence of their arrival at the end of
+        // the collection. Edits from more than one stream in one transaction come together in the
+        // sequence of the streams, and their adds come together in that sequence also.
         (ImmutableDictionary<TKey, long> arrivals, long nextArrival) =
             added.Count > 0 || removed.Count > 0
                 ? before.WithArrivals(added: edit.Adds.Select(item => keySelector(item.Identity)), removed: removed)
@@ -312,19 +319,20 @@ internal sealed class RootCollection<TKey, TIdentity, TState>
     {
         Cell<TProjected> stateCell =
             TransactionInternal.RunImpl(() =>
-                // Read the new value off the event rather than snapshotting the snapshot cell: a cell
-                // sampled during a transaction still holds its pre-transaction value.
+                // This reads the new value from the event and does not sample the snapshot cell.
+                // A sample of a cell in a transaction gives the value from before the
+                // transaction.
                 //
-                // The seed is lazy for the same reason. This cell may well be built during the very
-                // transaction that adds its key - a row constructed in response to a structural change
-                // - and by then the change stream has already fired, so the seed is all the cell has to
-                // go on. An eager sample here would read the pre-transaction snapshot, in which the key
-                // does not yet exist, and the cell would sit at no value until the next edit touching
-                // that key. A lazy sample is forced after the transaction settles and yields the
-                // correct value.
+                // The seed is lazy for the same cause. This code can build this cell in the
+                // transaction that adds its key, for example a row from a structural change. The
+                // change stream then sent its value before this construction, thus the seed is the
+                // only source for the cell. A sample here, before the lazy step, reads the
+                // snapshot from before the transaction, which does not have the key, and the cell
+                // then has no value until the next edit to that key. A lazy sample runs after the
+                // transaction is stable and gives the correct value.
                 //
-                // The projection happens inside this map rather than in one chained after it, so a
-                // wrapper's choice of optional type costs no extra node.
+                // The projection is in this map and not in a second map after it, thus the
+                // optional type of a wrapper costs no more nodes.
                 this.ItemChangesStream
                     .MapImpl(change => change.ProjectChangeFor(key: key, onPresent: onPresent, onAbsent: onAbsent))
                     .FilterSomeInternal()

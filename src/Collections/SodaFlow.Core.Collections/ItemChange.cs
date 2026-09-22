@@ -7,30 +7,31 @@ using JetBrains.Annotations;
 namespace SodaFlow.Collections;
 
 /// <summary>
-///     An edit after resolution: the new snapshot, plus the resolved new state of every key that
-///     moved. Per-key observers read this off the event itself rather than snapshotting a cell,
-///     because a cell sampled mid-transaction still holds its pre-transaction value.
+///     An edit after its resolution. It holds the new snapshot and the new state of each key that
+///     changed. An observer of one key reads this event and does not sample a cell, because a
+///     sample of a cell in a transaction gives the value from before the transaction.
 /// </summary>
 /// <remarks>
-///     What this change did to one key is two questions, not one, and they are separate members
-///     here for the same reason the C# wrapper folds them back into a nested optional:
-///     <see cref="WasChanged" /> is whether the key moved at all, and
-///     <see cref="TryGetNewState" /> is whether it is present afterward. A removal is the pair
-///     (<see langword="true" />, <see langword="false" />).
+///     The result of this change on one key is two questions and not one. They are two members
+///     here, for the cause that makes the C# wrapper put them in one nested optional value.
+///     <see cref="WasChanged" /> gives if the change named the key, and
+///     <see cref="TryGetNewState" /> gives if the collection has the key after the change. A
+///     removal is the pair (<see langword="true" />, <see langword="false" />).
 /// </remarks>
 /// <typeparam name="TKey">The type of the keys.</typeparam>
-/// <typeparam name="TIdentity">The type of the immutable portion of an item.</typeparam>
-/// <typeparam name="TState">The type of the mutable portion of an item.</typeparam>
+/// <typeparam name="TIdentity">The type of the immutable part of an item.</typeparam>
+/// <typeparam name="TState">The type of the mutable part of an item.</typeparam>
 [PublicAPI]
 public sealed class ItemChange<TKey, TIdentity, TState>
     where TKey : notnull
     where TIdentity : notnull
 {
     /// <summary>
-    ///     Held as sets rather than reached for through <see cref="Added" />, so that the membership
-    ///     tests below stay O(1). <see cref="Added" /> and <see cref="Removed" /> are declared as
-    ///     <see cref="IReadOnlyCollection{T}" /> rather than <c>IReadOnlySet</c> because that
-    ///     interface arrived in .NET 5 and this package also targets net472 and netstandard2.0.
+    ///     This code holds these as sets and does not read them through <see cref="Added" />, thus
+    ///     the membership tests below stay <c>O(1)</c>. <see cref="Added" /> and
+    ///     <see cref="Removed" /> have the type <see cref="IReadOnlyCollection{T}" /> and not
+    ///     <c>IReadOnlySet</c>, because that interface came with .NET 5 and this package also
+    ///     targets net472 and netstandard2.0.
     /// </summary>
     private readonly HashSet<TKey> added;
 
@@ -52,20 +53,22 @@ public sealed class ItemChange<TKey, TIdentity, TState>
 
     /// <summary>The store as this transaction left it.</summary>
     /// <remarks>
-    ///     Paired with <see cref="Before" />, so a delta over any value an item carries - a total,
-    ///     an average, a count - needs no copy of the previous values kept alongside.
-    ///     <see cref="NewStates" /> says which keys to ask about; these two say what they held.
+    ///     This comes with <see cref="Before" />, thus a delta across a value of an item needs no
+    ///     copy of the previous values. Examples of such a delta are a total, an average, and a
+    ///     count. <see cref="NewStates" /> gives the keys to read, and these two give their
+    ///     values.
     /// </remarks>
     public CollectionSnapshot<TKey, TIdentity, TState> After { get; }
 
     /// <summary>The store as this transaction found it.</summary>
     /// <remarks>
-    ///     The same instance as the previous change's <see cref="After" />, so following a sequence
-    ///     of these retains no more than following their <see cref="After" /> alone would.
+    ///     This is the same instance as the <see cref="After" /> of the previous change. Thus a
+    ///     listener on a sequence of these changes keeps no more memory than a listener on their
+    ///     <see cref="After" /> alone.
     /// </remarks>
     public CollectionSnapshot<TKey, TIdentity, TState> Before { get; }
 
-    /// <summary>The resolved state of every added or updated key.</summary>
+    /// <summary>The resolved state of each key that an edit added or updated.</summary>
     public IReadOnlyDictionary<TKey, TState> NewStates { get; }
 
     /// <summary>The keys this change added.</summary>
@@ -77,24 +80,24 @@ public sealed class ItemChange<TKey, TIdentity, TState>
     /// <summary>Whether the item count changed or a key changed.</summary>
     public bool IsStructural => this.added.Count > 0 || this.removed.Count > 0;
 
-    /// <summary>Every key this change touched, added, updated or removed.</summary>
+    /// <summary>Each key that this change added, updated, or removed.</summary>
     public IEnumerable<TKey> ChangedKeys => this.NewStates.Keys.Concat(this.removed);
 
     /// <summary>
-    ///     Whether this change touched the key at all. An observer of a key this returns
-    ///     <see langword="false" /> for has no event to react to.
+    ///     True when this change names the key. An observer of a key with a
+    ///     <see langword="false" /> answer has no event to react to.
     /// </summary>
-    /// <param name="key">The key to ask about.</param>
-    /// <returns><see langword="true" /> if the key was added, updated or removed.</returns>
+    /// <param name="key">The key to read.</param>
+    /// <returns><see langword="true" /> when the change added, updated, or removed the key.</returns>
     public bool WasChanged(TKey key) => this.NewStates.ContainsKey(key) || this.removed.Contains(key);
 
-    /// <summary>The key's state after this change, if it is still present.</summary>
-    /// <param name="key">The key to ask about.</param>
-    /// <param name="state">Its new state, when this returns true.</param>
+    /// <summary>The state of the key after this change, when the collection has the key.</summary>
+    /// <param name="key">The key to read.</param>
+    /// <param name="state">Its new state, when this method returns true.</param>
     /// <returns>
-    ///     <see langword="true" /> if this change gave the key a new state. A key this returns
-    ///     <see langword="false" /> for was either removed or left alone;
-    ///     <see cref="WasChanged" /> is what separates those two.
+    ///     <see langword="true" /> when this change gave the key a new state. For a key with a
+    ///     <see langword="false" /> answer, the change removed the key or did not name it.
+    ///     <see cref="WasChanged" /> gives which one of the two occurred.
     /// </returns>
     public bool TryGetNewState(TKey key, [NotNullWhen(true)] out TState? state) =>
         this.NewStates.TryGet(key: key, value: out state);
@@ -102,18 +105,18 @@ public sealed class ItemChange<TKey, TIdentity, TState>
     internal bool WasAdded(TKey key) => this.added.Contains(key);
 
     /// <summary>
-    ///     What this change did to one key, in whatever shape the caller wants it. This is what a
-    ///     per-item cell filters on: no value means no event for that observer, and the projection
-    ///     is applied inside the same map rather than needing a second one.
+    ///     The result of this change on one key, in the shape that the caller selects. A cell for
+    ///     one item filters on this result. No value means no event for that observer, and this
+    ///     code applies the projection in the same map, and a second map is not necessary.
     /// </summary>
     /// <summary>
-    ///     What this change means for one key's identity, or nothing if it means nothing for it.
+    ///     The result of this change for the identity of one key, or nothing when the change has
+    ///     no result for it.
     /// </summary>
     /// <remarks>
-    ///     An identity is fixed for as long as its key is present, so only an add or a remove can
-    ///     move one. A state edit is nothing to an observer of the identity and yields nothing here,
-    ///     which is what lets such an observer be held for the life of a row and cost nothing to
-    ///     hold.
+    ///     An identity is constant while the collection has its key, thus only an add or a removal
+    ///     can change one. A state edit has no result for an observer of the identity and gives no
+    ///     value here. Thus code can hold such an observer for the life of a row at no cost.
     /// </remarks>
     internal MaybeInternal<TProjected> ProjectIdentityChangeFor<TProjected>(
         TKey key,

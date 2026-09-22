@@ -8,36 +8,38 @@ using JetBrains.Annotations;
 namespace SodaFlow.Collections;
 
 /// <summary>
-///     A collection at one logical version: the identity map (which only changes on a structural
-///     edit) and the state map, seen through whichever view asked for it.
+///     A collection at one version: the identity map, which changes only at a structural edit, and
+///     the state map. A view reads them through its own scope.
 /// </summary>
 /// <remarks>
-///     The root's snapshot is the whole store. A view's is this same pair of maps behind a set of
-///     visible keys, so a stage costs one small object per change rather than a copy of anything,
-///     and a key the view does not hold is absent from it - <see cref="Count" /> counts the view,
-///     <see cref="ContainsKey" /> answers for the view, and a lookup outside it finds nothing.
-///     That is why there is no way to reach past a view to the store it draws on: the scoping is
-///     the snapshot, not a wrapper the caller can unwrap.
+///     The snapshot of the root is the full store. The snapshot of a view is the same two maps
+///     behind a set of keys that the view holds. Thus a stage costs one small object for each
+///     change and copies nothing, and a key that the view does not hold is missing from it.
+///     <see cref="Count" /> counts the view, <see cref="ContainsKey" /> answers for the view, and a
+///     lookup of a key out of the view finds nothing. For that cause there is no path from a view
+///     to the store below it. The scope is the snapshot, and it is not a wrapper that a caller can
+///     remove.
 /// </remarks>
 /// <typeparam name="TKey">The type of the keys.</typeparam>
-/// <typeparam name="TIdentity">The type of the immutable portion of an item.</typeparam>
-/// <typeparam name="TState">The type of the mutable portion of an item.</typeparam>
+/// <typeparam name="TIdentity">The type of the immutable part of an item.</typeparam>
+/// <typeparam name="TState">The type of the mutable part of an item.</typeparam>
 [PublicAPI]
 public sealed class CollectionSnapshot<TKey, TIdentity, TState>
     where TKey : notnull
     where TIdentity : notnull
 {
-    /// <summary>The keys this snapshot admits, or <see langword="null" /> for the whole store.</summary>
+    /// <summary>The keys that this snapshot accepts, or <see langword="null" /> for the full store.</summary>
     private readonly OrderedKeys<TKey, TIdentity, TState>? visible;
 
     /// <summary>
-    ///     The scoped faces of the two maps, built on first use because the paths that matter -
-    ///     rebuilding a stage, testing a predicate - go through <see cref="TryGetHalves" /> and
-    ///     never ask for either.
+    ///     The scoped faces of the two maps. This code builds them at their first use, because the
+    ///     important paths use <see cref="TryGetHalves" /> and read no face. Those paths
+    ///     are a new build of a stage and a test of a predicate.
     /// </summary>
     /// <remarks>
-    ///     Raced rather than locked. Two threads can each build one, and the loser's is discarded;
-    ///     both are immutable and answer identically, so the only cost of losing is the allocation.
+    ///     There is no lock here. Two threads can each build one, and this code discards one of
+    ///     the two. The two are immutable and give the same answers, thus the only cost is one
+    ///     allocation.
     /// </remarks>
     private IReadOnlyDictionary<TKey, TIdentity>? scopedIdentities;
 
@@ -67,14 +69,14 @@ public sealed class CollectionSnapshot<TKey, TIdentity, TState>
     }
 
     /// <summary>
-    ///     The state map as stored, before any scoping. Concrete, because the collection advances
-    ///     it and only this type can be advanced.
+    ///     The state map in the store, before a scope. It has the concrete type, because the
+    ///     collection moves it forward and only this type can move forward.
     /// </summary>
     internal ImmutableStateMap<TKey, TState> StatesImpl { get; }
 
     /// <summary>
-    ///     The immutable portion of every item. This object is replaced only on a structural edit,
-    ///     which is what makes reference equality a sound test for "did the shape change".
+    ///     The immutable part of each item. This code replaces this object only at a structural
+    ///     edit, thus a test of the two references is a correct test for a change of the shape.
     /// </summary>
     public IReadOnlyDictionary<TKey, TIdentity> Identities =>
         this.visible is null
@@ -82,7 +84,7 @@ public sealed class CollectionSnapshot<TKey, TIdentity, TState>
             : this.scopedIdentities ??=
                 new ScopedIdentityMap<TKey, TIdentity, TState>(inner: this.IdentitiesImpl, visible: this.visible);
 
-    /// <summary>The mutable portion of every item.</summary>
+    /// <summary>The mutable part of each item.</summary>
     public StateMap<TKey, TState> States =>
         this.visible is null
             ? this.StatesImpl
@@ -90,30 +92,32 @@ public sealed class CollectionSnapshot<TKey, TIdentity, TState>
                 new ScopedStateMap<TKey, TIdentity, TState>(inner: this.StatesImpl, visible: this.visible);
 
     /// <summary>
-    ///     The identity map as its concrete type, which is what lets the next version of it be
-    ///     built from this one rather than copied out of it.
+    ///     The identity map as its concrete type. Thus this code builds the next version from this
+    ///     version and does not copy it.
     /// </summary>
     /// <remarks>
-    ///     A trie rather than the plain dictionary this was. A plain one is faster to read and costs
-    ///     O(n) to write, because the only way to produce its next version is to copy it — so a
-    ///     structural edit scaled with the collection however cheaply the view stages below it
-    ///     absorbed the change. <c>KeyedCollectionViewBenchmarks</c>'s add-and-remove is what found
-    ///     that; it costs O(log32 n) per key touched now, which puts the identity map on the same
-    ///     footing as the state map beside it, and that was always a trie.
+    ///     This is a trie, and it was a usual dictionary. A usual dictionary reads faster and costs
+    ///     <c>O(n)</c> to write, because a copy is the only path to its next version. Thus a
+    ///     structural edit had a cost in proportion to the collection, at each cost of the view
+    ///     stages below it. The add-and-remove benchmark in <c>KeyedCollectionViewBenchmarks</c>
+    ///     found that. The cost is now <c>O(log32 n)</c> for each key in the edit, which gives the
+    ///     identity map the cost of the state map beside it. The state map was always a trie.
     /// </remarks>
     internal ImmutableDictionary<TKey, TIdentity> IdentitiesImpl { get; }
 
     /// <summary>
-    ///     When each key arrived, as a number that only ever grows. This is the collection's own order:
-    ///     items are listed in the order they came in, not in any order of their own.
+    ///     The time of the arrival of each key, as a number that only increases. This is the order
+    ///     of the collection: the items come in the sequence of their arrival, and not in an order
+    ///     of their values.
     /// </summary>
     /// <remarks>
-    ///     Written only on a structural edit, like the identity map beside it, so a state edit - the
-    ///     common case - costs nothing more than it did. A key removed and added back is a new arrival.
+    ///     This code writes this only at a structural edit, as it writes the identity map beside
+    ///     it. Thus a state edit, which is the usual edit, has no more cost. A key that an edit
+    ///     removes and then adds is a new arrival.
     /// </remarks>
     internal ImmutableDictionary<TKey, long> ArrivalsImpl { get; }
 
-    /// <summary>The number the next key to arrive will be given.</summary>
+    /// <summary>The number of the next key that comes to the collection.</summary>
     internal long NextArrival { get; }
 
     /// <summary>The number of items.</summary>
@@ -121,8 +125,8 @@ public sealed class CollectionSnapshot<TKey, TIdentity, TState>
 
     /// <summary>The same two maps, admitting only <paramref name="keys" />.</summary>
     /// <remarks>
-    ///     Scoping replaces rather than intersects, which is sound because a stage's keys are always
-    ///     a subset of the keys of the stage above it.
+    ///     A scope replaces the previous scope and does not add to it. That is correct,
+    ///     because the keys of a stage are always a subset of the keys of the stage above it.
     /// </remarks>
     internal CollectionSnapshot<TKey, TIdentity, TState> ScopedTo(OrderedKeys<TKey, TIdentity, TState> keys) =>
         new(
@@ -135,19 +139,19 @@ public sealed class CollectionSnapshot<TKey, TIdentity, TState>
     /// <summary>Whether a key is one this snapshot admits.</summary>
     private bool IsVisible(TKey key) => this.visible is null || this.visible.Contains(key);
 
-    /// <summary>Whether a key is present.</summary>
+    /// <summary>True when this snapshot has a key.</summary>
     /// <param name="key">The key to look for.</param>
-    /// <returns><see langword="true" /> if the key is present.</returns>
+    /// <returns><see langword="true" /> when the key is available.</returns>
     public bool ContainsKey(TKey key) => this.IsVisible(key) && this.IdentitiesImpl.ContainsKey(key);
 
-    /// <summary>Returns both halves of the item stored under a key, if there is one.</summary>
+    /// <summary>Returns the two parts of the item for a key, when there is one.</summary>
     /// <param name="key">The key to look up.</param>
-    /// <param name="item">The item stored under it, when this returns true.</param>
-    /// <returns><see langword="true" /> if the key is present.</returns>
+    /// <param name="item">The item for that key, when this method returns true.</param>
+    /// <returns><see langword="true" /> when the key is available.</returns>
     /// <remarks>
-    ///     A <c>TryGet</c> rather than an optional value because this assembly does not reference
-    ///     SodaFlow.Functional; the language wrappers add <c>Lookup</c> over this, answering with
-    ///     each language's own optional type.
+    ///     This is a <c>TryGet</c> and not an optional value, because this assembly does not
+    ///     reference SodaFlow.Functional. Each language wrapper adds a <c>Lookup</c> above this
+    ///     method, and that <c>Lookup</c> answers with the optional type of its language.
     /// </remarks>
     public bool TryGetItem(TKey key, [NotNullWhen(true)] out Item<TIdentity, TState>? item)
     {
@@ -163,10 +167,11 @@ public sealed class CollectionSnapshot<TKey, TIdentity, TState>
         return false;
     }
 
-    /// <summary>The immutable half of an item, without reading the state map for it.</summary>
+    /// <summary>The immutable part of an item, with no read of the state map.</summary>
     /// <remarks>
-    ///     For an order that projects its sort value from the identity alone, which then costs one
-    ///     lookup per key rather than two - and a rebuild does this for every key it keeps.
+    ///     This is for an order that makes its sort value from the identity only. That order then
+    ///     costs one lookup for each key and not two, and a new build does this for each key that
+    ///     it keeps.
     /// </remarks>
     internal bool TryGetIdentity(TKey key, [NotNullWhen(true)] out TIdentity? identity) =>
         this.IdentitiesImpl.TryGet(key: key, value: out identity) && this.IsVisible(key);
@@ -176,43 +181,47 @@ public sealed class CollectionSnapshot<TKey, TIdentity, TState>
         this.ArrivalsImpl.TryGet(key: key, value: out arrival) && this.IsVisible(key);
 
     /// <summary>
-    ///     Both halves of an item, without the <see cref="Item{TIdentity,TState}" /> that
-    ///     <see cref="TryGetItem" /> wraps them in.
+    ///     The two parts of an item, with no <see cref="Item{TIdentity,TState}" /> around them.
+    ///     <see cref="TryGetItem" /> adds that type.
     /// </summary>
     /// <remarks>
-    ///     For the paths that read every key rather than one - rebuilding a view stage, testing a
-    ///     filter's predicate - where that wrapper is an allocation per key per rebuild and nothing
-    ///     keeps it afterward.
-    ///     Both lookups happen either way, rather than the second being skipped when the first
-    ///     misses, so that both outputs are definitely assigned without a suppression. A key absent
-    ///     from the identity map is absent from the state map too, so the wasted lookup only
-    ///     happens for a key that is not there at all.
+    ///     This is for the paths that read each key and not one key, such as a new build of a view
+    ///     stage and a test of the predicate of a filter. On those paths that type is one
+    ///     allocation for each key and for each build, and no code keeps it.
+    ///     This code does the two lookups in each condition, and does not omit the second lookup
+    ///     when the first lookup finds nothing. Thus the compiler can see that this code assigns
+    ///     the two outputs, and no suppression is necessary. A key that is missing from the
+    ///     identity map is also missing from the state map, thus the second lookup is unnecessary
+    ///     only for a key that the collection does not have.
     /// </remarks>
     internal bool TryGetHalves(
         TKey key,
         [NotNullWhen(true)] out TIdentity? identity,
         [NotNullWhen(true)] out TState? state)
     {
-        // Through the assembly's own helper rather than the concrete TryGetValue, which is
-        // annotated to leave its output null on false and so warns against a notnull TIdentity.
+        // This calls the helper of this assembly and not the concrete TryGetValue. TryGetValue
+        // declares a null output at false, and that makes a warning for a notnull TIdentity.
         bool hasIdentity = this.IdentitiesImpl.TryGet(key: key, value: out identity);
         bool hasState = this.StatesImpl.TryGetState(key: key, state: out state);
 
-        // The visibility test comes last so that the root, where it is a null check, pays nothing
-        // for it, and so that both outputs are assigned on every path without a suppression.
+        // The test of the scope is last. Thus the root, where that test is a test against null,
+        // has no cost for it, and this code assigns the two outputs on each path with no
+        // suppression.
         return hasIdentity && hasState && this.IsVisible(key);
     }
 
     /// <summary>
-    ///     The next version of the identity map, with <paramref name="removed" /> dropped and
-    ///     <paramref name="added" /> put in. Built from this one rather than copied out of it.
+    ///     The next version of the identity map, with <paramref name="removed" /> out of it and
+    ///     <paramref name="added" /> in it. This code builds it from this version and does not copy
+    ///     this version.
     /// </summary>
     internal ImmutableDictionary<TKey, TIdentity> WithIdentities(
         IEnumerable<KeyValuePair<TKey, TIdentity>> added,
         IEnumerable<TKey> removed)
     {
-        // ToBuilder and ToImmutable are both O(1) - the builder wraps this map's root rather than
-        // copying it - so what this costs is one O(log32 n) write per key touched.
+        // ToBuilder and ToImmutable are each <c>O(1)</c>, because the builder uses the root of
+        // this map and does not copy it. Thus the cost is one <c>O(log32 n)</c> write for each key
+        // in the edit.
         ImmutableDictionary<TKey, TIdentity>.Builder builder = this.IdentitiesImpl.ToBuilder();
 
         foreach (TKey key in removed)
@@ -229,13 +238,15 @@ public sealed class CollectionSnapshot<TKey, TIdentity, TState>
     }
 
     /// <summary>
-    ///     The next version of the arrival numbers, with <paramref name="removed" /> dropped and each of
-    ///     <paramref name="added" /> numbered in the order given.
+    ///     The next version of the arrival numbers, with <paramref name="removed" /> out of it.
+    ///     This code gives a number to each key in <paramref name="added" />, in the sequence of
+    ///     that collection.
     /// </summary>
     /// <remarks>
-    ///     A key that is added while it is still here - removed and added back in one edit, which is how
-    ///     an item's identity is replaced - is numbered like any other arrival, so it goes to the end.
-    ///     Built from this version rather than copied out of it, as the identity map is.
+    ///     An add of a key that is here now gets a number as each other arrival does, thus it goes
+    ///     to the end. Such an add is a removal and an add in one edit, which is the method to
+    ///     replace the identity of an item. This code builds the result from this version and does
+    ///     not copy this version, as it does for the identity map.
     /// </remarks>
     internal (ImmutableDictionary<TKey, long> Arrivals, long NextArrival) WithArrivals(
         IEnumerable<TKey> added,
@@ -260,12 +271,13 @@ public sealed class CollectionSnapshot<TKey, TIdentity, TState>
 }
 
 /// <summary>
-///     The identity map of a snapshot, admitting only the keys one view holds.
+///     The identity map of a snapshot, with only the keys that one view holds.
 /// </summary>
 /// <remarks>
-///     Enumeration walks the view's keys and looks each one up, which is a lookup per key rather
-///     than the single walk the unscoped map allows. That is inherent: the keys a view holds are
-///     not contiguous in the map's storage, so nothing can be read in storage order.
+///     An enumeration reads the keys of the view and looks up each one, which is one lookup for
+///     each key. The map with no scope permits one read of all keys. That difference is necessary,
+///     because the keys of a view are not adjacent in the storage of the map, thus no code can read
+///     them in the sequence of the storage.
 /// </remarks>
 // ReSharper disable once InheritdocConsiderUsage
 internal sealed class ScopedIdentityMap<TKey, TIdentity, TState> : IReadOnlyDictionary<TKey, TIdentity>
@@ -323,9 +335,9 @@ internal sealed class ScopedIdentityMap<TKey, TIdentity, TState> : IReadOnlyDict
 
     /// <summary>The identity of a key this view holds.</summary>
     /// <remarks>
-    ///     A view's keys are a subset of the map's, so this cannot miss unless the two have been
-    ///     allowed to disagree. It throws rather than yielding a default, because a default here
-    ///     would be a wrong answer traveling quietly.
+    ///     The keys of a view are a subset of the keys of the map, thus this lookup finds each key
+    ///     while the two agree. It throws an exception and does not give a default value, because a
+    ///     default value here is an incorrect answer with no message.
     /// </remarks>
     private TIdentity IdentityOf(TKey key) =>
         this.inner.TryGet(key: key, value: out TIdentity? identity)
@@ -356,14 +368,16 @@ internal sealed class ScopedStateMap<TKey, TIdentity, TState> : StateMap<TKey, T
 
     /// <inheritdoc />
     /// <remarks>
-    ///     A lookup per key, unlike the unscoped map's single walk. See
+    ///     This is one lookup for each key, and the map with no scope permits one read of all
+    ///     keys. See
     ///     <see cref="ScopedIdentityMap{TKey,TIdentity,TState}" /> for why that cannot be avoided.
     /// </remarks>
     public override IEnumerable<KeyValuePair<TKey, TState>> Pairs =>
         this.visible.Select(key => new KeyValuePair<TKey, TState>(key: key, value: this.StateOf(key)));
 
     /// <summary>The state of a key this view holds.</summary>
-    /// <remarks>Throws rather than yielding a default, for the reason the identity map's does.</remarks>
+    /// <remarks>This throws an exception and does not give a default value, for the cause in the
+    /// identity map.</remarks>
     private TState StateOf(TKey key) =>
         this.inner.TryGetState(key: key, state: out TState? state)
             ? state

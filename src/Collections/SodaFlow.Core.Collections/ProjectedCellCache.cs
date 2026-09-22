@@ -4,44 +4,47 @@ using System.Collections.Generic;
 namespace SodaFlow.Collections;
 
 /// <summary>
-///     The per-entry cells one language surface has asked for, held weakly and keyed by entry.
+///     The cells for one entry that one language surface read. A weak cache holds them, with the
+///     entry as the key.
 /// </summary>
 /// <remarks>
 ///     <para>
-///         One of these per projected type, which is what keeps the cells typed. The alternative -
-///         a single dictionary keyed by the pair of type and entry key, holding <see cref="object" />
-///         - needs a cast on every lookup to recover what the type in the key had already promised.
-///         Here the cast happens once, when the root first hands out a cache for a projection, and
-///         everything downstream of it is a <c>Cell&lt;TProjected&gt;</c> the compiler can see.
+///         There is one of these for each projected type, and that keeps a type on the cells. The
+///         alternative is one dictionary with the pair of the type and the entry key as its key,
+///         which holds an <see cref="object" />. That alternative needs a cast at each lookup, for
+///         a type that the key gives. Here the cast is one time, when the root first gives a cache
+///         for a projection, and each value after it is a <c>Cell&lt;TProjected&gt;</c> that the
+///         compiler can see.
 ///     </para>
 ///     <para>
-///         Two projections of the same key are two cells in two caches, which is what keeps the C#
-///         and F# surfaces from handing each other the wrong one while still sharing a store.
+///         Two projections of the same key are two cells in two caches. Thus the C# surface and
+///         the F# surface never give each other an incorrect cell, and the two share one store.
 ///     </para>
 /// </remarks>
 /// <typeparam name="TKey">The type of the keys.</typeparam>
-/// <typeparam name="TProjected">What the wrapper asked the cell to hold.</typeparam>
+/// <typeparam name="TProjected">The type that the wrapper gives to the cell.</typeparam>
 internal sealed class ProjectedCellCache<TKey, TProjected>
     where TKey : notnull
 {
-    /// <summary>How many entries may accumulate before dead ones are swept.</summary>
+    /// <summary>The number of entries that this cache holds before a sweep removes the entries
+    /// with no observer.</summary>
     /// <remarks>
-    ///     A sweep walks every entry, so doing one per insert would make filling the cache
-    ///     quadratic. Waiting until there are enough entries for a sweep to be worth its walk keeps
-    ///     that amortized.
+    ///     A sweep reads each entry, thus one sweep for each add makes the cost of a full cache
+    ///     quadratic. This code waits for a sufficient number of entries, and that keeps the cost
+    ///     of each add low.
     /// </remarks>
     private const int PruneThreshold = 64;
 
     /// <summary>
-    ///     Weakly held, so that observers of one key share a node and the node goes away when the
-    ///     last of them does rather than when the collection does.
+    ///     A weak cache holds these, thus the observers of one key share a node and that node goes
+    ///     out of memory with the last observer, and not with the collection.
     /// </summary>
     private readonly Dictionary<TKey, WeakReference<Cell<TProjected>>> cells = new();
 
-    /// <summary>The cell for a key, or <see langword="null" /> if none is still alive.</summary>
+    /// <summary>The cell for a key, or <see langword="null" /> when no cell is in memory.</summary>
     /// <remarks>
-    ///     A nullable return rather than a <c>TryGet</c>, because the caller's next move is to
-    ///     create one when this yields nothing and a null coalesce says that in one line.
+    ///     This returns a nullable value and not a <c>TryGet</c>, because the caller makes one when
+    ///     this method gives no value, and a null coalesce writes that in one line.
     /// </remarks>
     internal Cell<TProjected>? Get(TKey key) =>
         this.cells.TryGetValue(key: key, value: out WeakReference<Cell<TProjected>>? reference)
@@ -49,14 +52,15 @@ internal sealed class ProjectedCellCache<TKey, TProjected>
             ? cached
             : null;
 
-    /// <summary>Records the cell for a key, sweeping dead entries first if there are enough.</summary>
+    /// <summary>Records the cell for a key. It first removes the entries with no observer, when
+    /// their count is sufficient.</summary>
     internal void Set(TKey key, Cell<TProjected> cell)
     {
         this.Prune();
         this.cells[key] = new WeakReference<Cell<TProjected>>(cell);
     }
 
-    /// <summary>Drops the entries whose cells have been collected.</summary>
+    /// <summary>Removes each entry whose cell a GC collected.</summary>
     private void Prune()
     {
         if (this.cells.Count < PruneThreshold)
