@@ -138,7 +138,7 @@ StreamSink<Exception> errors = Stream.CreateSink<Exception>();
 AsyncMapStatus<string> status = queries.Calm().MapAsync(
     results: results,
     errors: errors,
-    operation: (q, token) => SearchAsync(q, token),
+    operation: async (q, factory, token) => factory.FromResult(await SearchAsync(q, token)),
     strategy: AsyncConcurrencyStrategy.SwitchLatest());
 
 Cell<bool> spinner = status.IsRunning;

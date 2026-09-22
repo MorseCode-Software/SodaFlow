@@ -1,5 +1,51 @@
 5.0.0
 
+BREAKING: the operation that MapAsync takes is a MapAsyncOperation<TInput,
+TResult> delegate, where it was a Func<TInput, CancellationToken,
+Task<TResult>>. It takes a third argument, a factory, and answers with what that
+factory makes:
+
+  operation: async (query, factory, token) =>
+      factory.FromResult(await SearchAsync(query, token))
+
+FromResult carries a value the operation has. ConstructResult carries a function
+that the pipeline calls in the transaction that sends the result, which is what
+a result that holds a cell or a stream needs:
+
+  operation: async (request, factory, token) =>
+  {
+      Document document = await LoadAsync(request, token);
+
+      return factory.ConstructResult(() => new DocumentViewModel(document));
+  }
+
+Keep such a function short, because it holds the transaction while it runs, and
+put no effect in it that matters outside the value it returns: the pipeline
+calls it only for an item that it publishes. A throw from it goes to the errors
+stream in place of a result.
+
+A lambda takes the third parameter and compiles. A stored Func does not convert
+to the delegate and needs its own edit.
+
+BREAKING: MapAsync has three overloads, where it had nine. The six that are gone
+each named a result type for the strategy, and a strategy no longer reads a
+result: OnCompleted takes an AsyncCompletion, which says that the operation
+returned, that it threw, with the exception, or that a cancellation stopped it.
+The pipeline asks the strategy before it makes the result, and it makes the
+result only for an item that it publishes.
+
+The result type of a strategy is gone with the overloads, in
+AsyncConcurrencyStrategy<TInput, TResult, TState>, which is
+AsyncConcurrencyStrategy<TInput, TState> now, and in the
+AsyncConcurrencyStrategy<TInput, TState> shorthand, which was the same type and
+is not necessary. The remaining three overloads differ in how the strategy reads
+the input: not at all, as it stands, or through an inputConverter.
+
+A call that gives no converter needs no edit for this. A call with a
+resultConverter drops that argument. A custom strategy changes its base class
+and its OnCompleted signature, and one that reads results can filter the results
+stream instead.
+
 BREAKING, and the break is in SodaFlow.Async.Core 5.0.0, which this release
 takes: the AsyncMapStatus<TInput> that every MapAsync overload returns is a
 class where it was a readonly struct, and it extends a new non-generic
@@ -78,6 +124,11 @@ runs when.
   queueStrategy         one at a time, in order
   switchLatestStrategy  a new firing supersedes whatever is in flight
   queuePerGroup         one independent queue per key
+
+An operation takes the input, a factory for its answer, and a token, and answers
+with factory.FromResult(value) or factory.ConstructResult(() => ...). The second
+one runs in the transaction that publishes, for a result that holds part of a
+graph.
 
 MapAsync returns an AsyncMapStatus<TInput>: IsRunning is a Cell<bool> that is
 true while at least one invocation is actually running, updating glitch-free in
