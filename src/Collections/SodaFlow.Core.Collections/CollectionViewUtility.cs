@@ -5,46 +5,50 @@ using System.Linq;
 namespace SodaFlow.Collections;
 
 /// <summary>
-///     The whole of the view chain, reached by the C# and F# wrappers through their own surfaces.
+///     The full view chain. The C# wrapper and the F# wrapper use it through their own
+///     surfaces.
 /// </summary>
 /// <remarks>
 ///     Each stage keeps its own <see cref="OrderedKeys{TKey,TIdentity,TState}" /> and applies the
-///     operations from above:
-///     Filter tests on insert or remove, and may enter, leave or move on update or on an upstream
-///     move; Sort adds or drops on insert or remove, and re-files in O(log n) on update or on an
-///     upstream move; Take re-windows on insert, remove or move, and forwards an update inside the
-///     window.
-///     An upstream move is re-filed rather than ignored because a re-file that moves a key reports
-///     the move alone - it is the only thing carrying the key's new sort value, so a stage below
-///     has to file against it the way it would against an update.
+///     operations from above. Filter tests a key at an add and at a removal. At an update, and at
+///     a move above it, the key can enter the view, go out of the view, or move in it. Sort adds a
+///     key or removes a key at an add and at a removal. At an update, and at a move above it, Sort
+///     puts the key in its new position at a cost of <c>O(log n)</c>. Take makes its window again
+///     at an add, a removal, or a move, and it sends an update for a key in the window. This code
+///     sorts a move from above again and does not ignore it. A sort that moves a key reports only
+///     the move, and that report is the only value with the new sort value of the key. Thus a
+///     stage below must sort against it, as it sorts against an update.
 /// </remarks>
 internal static class CollectionViewUtility
 {
     /// <summary>
-    ///     How much work a stage does incrementally on one change before rebuilding instead.
+    ///     The quantity of work that a stage does on one change before it builds again.
     /// </summary>
     /// <remarks>
     ///     <para>
-    ///         What counts is work, not traffic: an insert, a remove, or a re-file under an order that
-    ///         reads the state, each of which rewrites paths through the stage's trees. An update the
-    ///         stage passes on without touching them does not count - one for a key it does not hold,
-    ///         which it skips after a lookup, or one under an order a state edit cannot move, which it
-    ///         reports where the key already is.
+    ///         This counts work and not messages. The work is an add, a removal, or a sort in an
+    ///         order that reads the state, and each one writes paths through the trees of the
+    ///         stage again. An update that the stage sends on, and that does not change a tree,
+    ///         does not count. Such an update is for a key that the stage does not hold, which it
+    ///         omits after one lookup, or it is in an order that a state edit cannot move, and the
+    ///         stage then reports the key at its current position.
     ///     </para>
     ///     <para>
-    ///         That distinction matters most at the root, because a reset there makes every stage in the
-    ///         chain rebuild. Counting every key an edit named, a large update to items a filter below
-    ///         does not show - draining every frozen account, say - rebuilt the whole chain for rows
-    ///         nobody could see, where listing it cost the filter a skip per key. Each stage still
-    ///         budgets the work it does itself, so an update it does have to re-file is counted there.
+    ///         That difference is most important at the root, because a reset there makes each
+    ///         stage in the chain build again. A count of each key in an edit gives an incorrect
+    ///         result. A large update to items that a filter below does not show, such as a drain
+    ///         of each frozen account, built the full chain again for rows that no user sees. A
+    ///         list of those keys costs the filter one omission for each key. Each stage sets a
+    ///         limit on its own work, thus an update that a stage must sort again counts at that
+    ///         stage.
     ///     </para>
     /// </remarks>
     private static int GetMaxNumberOfOperations(int totalItems) => Math.Max(val1: 1000, val2: totalItems / 10);
 
     /// <summary>
-    ///     Builds the root ordering for a collection: every key, in the order it arrived. Called lazily
-    ///     by <see cref="ReactiveCollection{TKey,TIdentity,TState}" /> the first time anything asks it
-    ///     for keys in order.
+    ///     Builds the root order of a collection, which is each key in the sequence of its
+    ///     arrival. <see cref="ReactiveCollection{TKey,TIdentity,TState}" /> calls this at the
+    ///     first read of the keys in order, and not before.
     /// </summary>
     internal static ReactiveCollection<TKey, TIdentity, TState> CreateRootImpl<TKey, TIdentity, TState>(
         ReactiveCollection<TKey, TIdentity, TState> collection)
@@ -94,8 +98,8 @@ internal static class CollectionViewUtility
             return new ViewStage<TKey, TIdentity, TState>(
                 source: collection,
                 keysCell: PublishedKeys(resultsStream: resultsStream, stateKeysCell: keysCell),
-                // The root's ordering holds every key, so scoping it would wrap the store in a
-                // filter that admits all of it.
+                // The order of the root holds each key, thus a scope on it puts the store in a
+                // filter that accepts each key.
                 snapshotCell: () => collection.SnapshotCell,
                 keyChangesStream: ToChangesStream(
                     resultsStream: resultsStream,
@@ -113,7 +117,8 @@ internal static class CollectionViewUtility
             upstream: upstream,
             orderCell: CellInternal.ConstantImpl(KeyOrder<TKey, TIdentity, TState>.ByKey(keyComparer)));
 
-    /// <summary>Reorders by arrival - the collection's own order, available over any stage.</summary>
+    /// <summary>Reorders by arrival, which is the order of the collection. It is available above
+    /// each stage.</summary>
     internal static ReactiveCollection<TKey, TIdentity, TState> SortByArrivalImpl<TKey, TIdentity, TState>(
         ReactiveCollection<TKey, TIdentity, TState> upstream)
         where TKey : notnull
@@ -123,9 +128,9 @@ internal static class CollectionViewUtility
             orderCell: CellInternal.ConstantImpl(KeyOrder<TKey, TIdentity, TState>.ByArrival()));
 
     /// <summary>
-    ///     Narrows the view, preserving the upstream order. The stage files its members into a set
-    ///     built from the upstream's own order, so it does not need to know what that order sorts by,
-    ///     and it does not have to track positions within the upstream list.
+    ///     Narrows the view and keeps the upstream order. The stage puts its members into a set
+    ///     that comes from the order of the upstream. Thus the stage does not know the sort value
+    ///     of that order, and it does not monitor a position in the upstream list.
     /// </summary>
     internal static ReactiveCollection<TKey, TIdentity, TState> FilterImpl<TKey, TIdentity, TState>(
         ReactiveCollection<TKey, TIdentity, TState> upstream,
@@ -141,9 +146,9 @@ internal static class CollectionViewUtility
             reorder: ReorderFilter);
 
     /// <summary>
-    ///     Reorders the view. <typeparamref name="TSortKey" /> stays a real generic parameter all
-    ///     the way down to the comparer, so sort values are stored and compared as themselves and
-    ///     never boxed.
+    ///     Reorders the view. <typeparamref name="TSortKey" /> stays a generic parameter to the
+    ///     comparer, thus this code keeps and compares each sort value as its own type and never
+    ///     boxes it.
     /// </summary>
     internal static ReactiveCollection<TKey, TIdentity, TState> SortByImpl<TKey, TIdentity, TState, TSortKey>(
         ReactiveCollection<TKey, TIdentity, TState> upstream,
@@ -163,15 +168,16 @@ internal static class CollectionViewUtility
                     isDescending: isDescending)));
 
     /// <summary>
-    ///     Narrows the view by a predicate over each item's immutable half alone, which a state
-    ///     edit cannot change.
+    ///     Narrows the view with a predicate on the immutable part of each item only. A state
+    ///     edit cannot change that part.
     /// </summary>
     /// <remarks>
-    ///     The same membership <see cref="FilterImpl{TKey,TIdentity,TState}" /> would give for the same
-    ///     answers, and cheaper to keep. A state edit cannot move a key into this filter or out of
-    ///     it, so the stage never re-tests the predicate on one - it re-files a key it holds, which
-    ///     over an order that reads no state is only reporting the update. The predicate is not
-    ///     handed the state, which is what makes that checkable rather than promised.
+    ///     This gives the same members as <see cref="FilterImpl{TKey,TIdentity,TState}" /> for the
+    ///     same answers, and it costs less to keep. A state edit cannot move a key into this filter
+    ///     or out of it, thus the stage never tests the predicate on such a key again. The stage
+    ///     sorts a key that it holds, and in an order that reads no state that operation only
+    ///     reports the update. The predicate does not receive the state, thus a reader can test
+    ///     this property and does not use a statement.
     /// </remarks>
     internal static ReactiveCollection<TKey, TIdentity, TState> FilterByIdentityImpl<TKey, TIdentity, TState>(
         ReactiveCollection<TKey, TIdentity, TState> upstream,
@@ -187,14 +193,16 @@ internal static class CollectionViewUtility
             reorder: ReorderFilter);
 
     /// <summary>
-    ///     Reorders the view by a value projected from each item's immutable half alone, which a
-    ///     state edit cannot change.
+    ///     Reorders the view by a value from the immutable part of each item only. A state edit
+    ///     cannot change that part.
     /// </summary>
     /// <remarks>
-    ///     The same ordering <see cref="SortByImpl{TKey,TIdentity,TState,TSortKey}" /> would give for the
-    ///     same values, and cheaper to keep: a stage under this order skips re-filing a key it is
-    ///     told merely changed, and building one never reads the state map. The selector is not
-    ///     handed the state, which is what makes the claim checkable rather than promised.
+    ///     This gives the same order as
+    ///     <see cref="SortByImpl{TKey,TIdentity,TState,TSortKey}" /> for the same values, and it
+    ///     costs less to keep. A stage in this order does not sort a key again when it hears only
+    ///     that the key changed, and the construction of a stage never reads the state map. The
+    ///     selector does not receive the state, thus a reader can test this property and does not
+    ///     use a statement.
     /// </remarks>
     internal static ReactiveCollection<TKey, TIdentity, TState> SortByIdentityImpl<TKey, TIdentity, TState, TSortKey>(
         ReactiveCollection<TKey, TIdentity, TState> upstream,
@@ -216,34 +224,37 @@ internal static class CollectionViewUtility
     /// <summary>Reorders the view by whichever order the cell currently holds.</summary>
     /// <remarks>
     ///     <para>
-    ///         This is the stage every other sort is built from, those being sorts whose order never
-    ///         changes. Holding the order as criteria rather than closing over it is what lets one
-    ///         stage follow a clickable column header: an order carries its own sort key type
-    ///         inside itself, so the cell's type does not mention that type and two orders held in
-    ///         one cell need not agree on it.
+    ///         This stage is the base of each other sort, and the order of each one does not
+    ///         change. This stage holds the order as criteria and does not capture it in a
+    ///         closure. Thus one stage can follow a column header that a user clicks. An order
+    ///         holds its own sort key type, thus the type of the cell does not name that type, and
+    ///         two orders in one cell can have different sort key types.
     ///     </para>
     ///     <para>
-    ///         A new order is an ordinary criteria change, and it is always reported as a reset. The
-    ///         stage rebuilds under it, or, where the new order is the one it holds run the other way,
-    ///         sorts what it holds again with the sort values it already has - but either way it
-    ///         resets. The only order it answers with anything else is one equivalent to the order it
-    ///         already holds, which is no change and reports nothing. A stage below re-files under
-    ///         whichever order this ends up with without being told anything, because a filter files
-    ///         under its upstream collection's own order whatever that has become.
+    ///         A new order is a usual change of criteria, and this stage always reports it as a
+    ///         reset. The stage builds again in the new order. When the new order is the order that
+    ///         the stage holds in the opposite direction, the stage sorts its keys again with the
+    ///         sort values that it has. The report is a reset in the two conditions. The one order
+    ///         with a different answer is an order equivalent to the order that the stage holds,
+    ///         which is no change and reports nothing. A stage below sorts again in the new order
+    ///         and no code tells it to, because a filter uses the current order of its upstream
+    ///         collection.
     ///     </para>
     ///     <para>
-    ///         The reset says it only reordered, because nothing else reached this stage in the
-    ///         transaction. A filter below takes its members over to the new order without testing its
-    ///         predicate again, a sort below keeps its list, and both pass the same on; a window below
-    ///         rebuilds, since a reorder changes what falls inside it. See
+    ///         The reset reports only a change of order, because no other change came to this
+    ///         stage in the transaction. A filter below moves its members to the new order and does
+    ///         not test its predicate again. A sort below keeps its list. The two stages send the
+    ///         same report on. A window below builds again, because a change of order changes the
+    ///         keys in the window. See
     ///         <see cref="CollectionViewChange{TKey,TIdentity,TState}.ReordersOnly" />.
     ///     </para>
     ///     <para>
-    ///         Never report a change of order as moves, however few keys it would move. A move
-    ///         means a key's value changed, and the stages below rely on that: a filter re-files a
-    ///         moved key under the order it already holds, which would leave it filed under the old
-    ///         order, and every stage and per-item cell below takes a move for a changed value, so
-    ///         would re-file or fire for nothing. See <see cref="ViewMove{TKey}" />.
+    ///         Never report a change of order as moves, at each count of the keys that move. A
+    ///         move means a change to the value of a key, and the stages below use that rule. A
+    ///         filter sorts a key that moved in the order that it holds, and the key then stays in
+    ///         the previous order. Each stage below, and each cell for one item, reads a move as a
+    ///         change of value, thus each one sorts again or sends a value for no cause. See
+    ///         <see cref="ViewMove{TKey}" />.
     ///     </para>
     /// </remarks>
     internal static ReactiveCollection<TKey, TIdentity, TState> SortByImpl<TKey, TIdentity, TState>(
@@ -258,19 +269,20 @@ internal static class CollectionViewUtility
                 RebuildSort(order: order, upstreamKeys: upstreamKeys, snapshot: snapshot),
             processNewCriteria: ProcessSortNewCriteria,
             process: static (_, keys, change) => ProcessSort(state: keys, change: change),
-            // Its own order and its members are both where they were, so the list it holds is the
-            // list a rebuild would file.
+            // The order of the stage and its members do not change, thus the list that it holds
+            // is the list from a new build.
             reorder: static (state, _) => state);
 
     /// <summary>
-    ///     The first <c>limit</c> keys of the upstream — the top-n of whatever ordering and
-    ///     filtering precedes it.
+    ///     The first <c>limit</c> keys of the upstream, which are the highest keys of the order
+    ///     and the filter above this stage.
     /// </summary>
     /// <remarks>
-    ///     This stage diffs its old and new windows rather than translating upstream operations,
-    ///     which costs O(limit) per transaction and yields a coarser operation list: a reorder
-    ///     inside the window is reported as removes and inserts from the first differing position
-    ///     rather than as moves. For a top-n that is the cheap direction to be wrong in.
+    ///     This stage compares its previous window against its new window, and does not change
+    ///     the operations from above. That costs <c>O(limit)</c> for each transaction and gives a
+    ///     less accurate list of operations. It reports a change of order in the window as
+    ///     removals and adds from the first different position, and not as moves. For a window of
+    ///     the highest keys, that is the less expensive error.
     /// </remarks>
     internal static ReactiveCollection<TKey, TIdentity, TState> TakeImpl<TKey, TIdentity, TState>(
         ReactiveCollection<TKey, TIdentity, TState> upstream,
@@ -280,23 +292,23 @@ internal static class CollectionViewUtility
         SliceImpl(upstream: upstream, offsetCell: CellInternal.ConstantImpl(0), limitCell: limitCell);
 
     /// <summary>
-    ///     A window of <c>limit</c> keys starting at <c>offset</c> - the page of whatever ordering
-    ///     and filtering precedes it.
+    ///     A window of <c>limit</c> keys that starts at <c>offset</c>, which is a page of the
+    ///     order and the filter above this stage.
     /// </summary>
     /// <remarks>
     ///     <para>
-    ///         This is the stage <see cref="TakeImpl{TKey,TIdentity,TState}" /> is built from, a take
-    ///         being a window whose offset is zero.
+    ///         This stage is the base of <see cref="TakeImpl{TKey,TIdentity,TState}" />, and a
+    ///         <c>TakeImpl</c> is a window with an offset of zero.
     ///     </para>
     ///     <para>
-    ///         There is deliberately no skip. This stage diffs its old window against its new one
-    ///         rather than translating operations, which is what keeps it at O(limit) per
-    ///         transaction; a skip has no limit, so the same strategy would materialize the whole
-    ///         remainder of the collection twice per edit. Translating operations instead would
-    ///         bound it, at the cost of boundary logic - an insert above the window pushes one key
-    ///         into it, a remove above it pops one out - and a skip on its own yields a view whose
-    ///         size follows the collection, which is the property this design exists to avoid.
-    ///         Paging wants both halves anyway, and that is this.
+    ///         There is no skip. This stage compares its previous window against its new window
+    ///         and does not change the operations from above, and that keeps the cost at
+    ///         <c>O(limit)</c> for each transaction. A skip has no limit, thus the same method
+    ///         makes the full remainder of the collection two times for each edit. A change of the
+    ///         operations gives a limit, at the cost of the code for the two edges: an add above
+    ///         the window moves one key into it, and a removal above the window moves one key out
+    ///         of it. A skip alone also gives a view whose size follows the collection, and this
+    ///         rule prevents that. A page needs the two ends, and this stage gives them.
     ///     </para>
     /// </remarks>
     internal static ReactiveCollection<TKey, TIdentity, TState> SliceImpl<TKey, TIdentity, TState>(
@@ -314,7 +326,7 @@ internal static class CollectionViewUtility
                 RebuildSlice(upstreamKeys: upstreamKeys, offset: bounds.Offset, limit: bounds.Limit),
             processNewCriteria: static (_, createResultFromRebuild, _, _, _, _, _) => createResultFromRebuild(),
             process: static (bounds, keys, change) => ProcessSlice(bounds: bounds, state: keys, change: change),
-            // Reordering what is above a window changes which keys fall inside it.
+            // A change of the order above a window changes the keys in the window.
             reorder: null);
 
     private static ReactiveCollection<TKey, TIdentity, TState> BuildStage<TKey, TIdentity, TState, TCriteria>(
@@ -330,10 +342,10 @@ internal static class CollectionViewUtility
         {
             LoopedCell<OrderedKeys<TKey, TIdentity, TState>> stateLoopCell = new();
 
-            // The store, not the stage above's view of it. Reading upstream.SnapshotCell here would
-            // force the lazy scoped cell of every stage in the chain, which is the whole cost
-            // deferring it was meant to avoid - and this needs no scoping, because what it feeds
-            // is scoped explicitly below.
+            // This is the store, and not the view of the store in the stage above. A read of
+            // upstream.SnapshotCell here makes the lazy scoped cell of each stage in the chain,
+            // which is the cost that the deferral prevents. This code needs no scope, because the
+            // code below gives an explicit scope to the value that it receives.
             Cell<StageContext<TKey, TIdentity, TState, TCriteria>> contextCell =
                 criteriaCell.LiftImpl(
                     b2: upstream.KeysCell,
@@ -368,8 +380,8 @@ internal static class CollectionViewUtility
                     c2: contextCell,
                     f: (input, state, context) =>
                     {
-                        // Anything the input carries is newer than the context, which is still the
-                        // pre-transaction sample.
+                        // Each value in the input is newer than the context, which is the sample
+                        // from before the transaction.
                         TCriteria criteria =
                             input.Criteria.Match(onSome: static c => c, onNone: () => context.Criteria);
 
@@ -393,8 +405,8 @@ internal static class CollectionViewUtility
 
                         if (mustRebuild)
                         {
-                            // A reorder above, and no criteria of this stage's own to apply with it,
-                            // leaves this stage's members and their values as they were.
+                            // A change of order above, with no criteria of this stage to apply,
+                            // does not change the members of this stage or their values.
                             return input.Change.Match(
                                 onSome: change =>
                                     !hasCriteriaChange && change.ReordersOnly && reorder is not null
@@ -487,7 +499,8 @@ internal static class CollectionViewUtility
             return new ViewStage<TKey, TIdentity, TState>(
                 source: upstream,
                 keysCell: PublishedKeys(resultsStream: resultsStream, stateKeysCell: keysCell),
-                // The one above it behind this stage's keys, built only if something asks.
+                // The cell above it is behind the keys of this stage, and this code builds it
+                // only when other code reads it.
                 snapshotCell: () =>
                     TransactionInternal.RunImpl(() =>
                         upstream.SnapshotCell.LiftImpl(
@@ -518,20 +531,22 @@ internal static class CollectionViewUtility
             .FilterImpl(static change => change.IsReset || change.Operations.Count > 0);
 
     /// <summary>
-    ///     The keys a stage shows the world, which move only when its membership or order does.
+    ///     The keys that a stage gives to other code. They move only at a change of its members
+    ///     or its order.
     /// </summary>
     /// <remarks>
     ///     <para>
-    ///         Not the cell the stage loops its own state through. That one takes every result,
-    ///         because a re-file that moves nothing still builds a new version of the keys carrying
-    ///         the new sort value, and the next edit has to be filed against it.
+    ///         This is not the cell that the stage loops its own state through. That cell takes
+    ///         each result, because a sort that moves no key builds a new version of the keys with
+    ///         the new sort value, and the next edit sorts against that version.
     ///     </para>
     ///     <para>
-    ///         This one skips a result that only updates. Its keys have the same members in the same
-    ///         order as the version already held, so there is nothing for a consumer to react to -
-    ///         and a projection over them, a bound list or a count, would otherwise be rebuilt for
-    ///         every state edit that reached the stage. Starting from the loop cell's own value
-    ///         means the stage's keys are still built once at construction, not twice.
+    ///         This cell omits a result that only updates. Its keys have the same members in the
+    ///         same order as the version that it holds, thus a consumer has no change to react to.
+    ///         Without this, each state edit that comes to the stage builds a projection of those
+    ///         keys, a bound list, or a count again. This code starts from the value of the loop
+    ///         cell, thus the construction builds the keys of the stage one time and not two
+    ///         times.
     ///     </para>
     /// </remarks>
     private static Cell<OrderedKeys<TKey, TIdentity, TState>> PublishedKeys<TKey, TIdentity, TState>(
@@ -545,14 +560,14 @@ internal static class CollectionViewUtility
             .HoldLazyImpl(stateKeysCell.SampleLazyImpl());
 
     /// <summary>
-    ///     Increment the operation counter and return <see langword="false" /> if we have exceeded the maximum number of
-    ///     operations allowed.
+    ///     Increases the operation counter. It returns <see langword="false" /> when the count is
+    ///     above the maximum number of operations.
     /// </summary>
     /// <param name="numberOfOperations">The operation counter, passed by reference.</param>
     /// <param name="maxNumberOfOperations">The maximum number of operations allowed.</param>
     /// <returns>
-    ///     <see langword="true" /> if we are still within the allowed number of operations, <see langword="false" />
-    ///     if we have exceeded the maximum.
+    ///     <see langword="true" /> when the count is not above the maximum number of operations,
+    ///     and <see langword="false" /> when the count is above the maximum.
     /// </returns>
     private static bool OperationAddedWasValid(ref int numberOfOperations, int maxNumberOfOperations)
     {
@@ -569,12 +584,14 @@ internal static class CollectionViewUtility
     #region Map
 
     /// <summary>
-    ///     One object per key, in the collection's order, rebuilt only when the keys move.
+    ///     One object for each key, in the order of the collection. This code builds the list
+    ///     again only at a move of the keys.
     /// </summary>
     /// <remarks>
-    ///     The projection runs once per key and the object is kept, so a collection whose items
-    ///     changed but whose membership and order did not yield the same objects in the same
-    ///     order - which is what keeps a bound list from rebuilding when one row's value moves.
+    ///     The projection runs one time for each key and this code keeps the object. Thus a
+    ///     collection whose items changed, and whose members and order did not change, gives the
+    ///     same objects in the same sequence. That stops a new build of a bound list at a change
+    ///     to the value of one row.
     /// </remarks>
     internal static MappedItems<TResult> MapImpl<TKey, TIdentity, TState, TResult>(
         ReactiveCollection<TKey, TIdentity, TState> collection,
@@ -625,11 +642,11 @@ internal static class CollectionViewUtility
         where TIdentity : notnull;
 
     /// <summary>
-    ///     The keys a stage holds once the stage above it has reordered and nothing else has changed,
-    ///     for a stage that can answer that without rebuilding.
+    ///     The keys of a stage after the stage above it changed its order and nothing else
+    ///     changed. This applies to a stage that can answer with no new build.
     /// </summary>
-    /// <param name="state">What the stage holds now.</param>
-    /// <param name="change">The reorder, whose keys are the stage above's in their new order.</param>
+    /// <param name="state">The current content of the stage.</param>
+    /// <param name="change">The change of order. Its keys are the keys of the stage above, in the new order.</param>
     private delegate OrderedKeys<TKey, TIdentity, TState> Reorder<TKey, TIdentity, TState>(
         OrderedKeys<TKey, TIdentity, TState> state,
         CollectionViewChange<TKey, TIdentity, TState> change)
@@ -661,8 +678,9 @@ internal static class CollectionViewUtility
     {
         int maxNumberOfOperations = GetMaxNumberOfOperations(state.Count);
 
-        // Only what files or unfiles a key counts. The root orders by arrival, which no update can move,
-        // so an update costs it a lookup - and every stage below budgets what the update costs it.
+        // Only an operation that adds a key to the order, or removes a key from it, counts. The
+        // root uses the order of arrival, and no update can move a key in that order. Thus an
+        // update costs the root one lookup, and each stage below counts its own cost.
         if (change.Added.Count + change.Removed.Count > maxNumberOfOperations)
         {
             return MaybeInternal<StageResult<TKey, TIdentity, TState>>.None;
@@ -690,10 +708,11 @@ internal static class CollectionViewUtility
         {
             if (change.WasAdded(key))
             {
-                // A key added while it is still here is an item replaced within one edit - removed and
-                // added back. It is a new arrival and goes to the end, so the place it leaves is reported
-                // as a remove before its new place is reported as an insert; an insert alone would have a
-                // list bound to this count the key twice.
+                // An add of a key that is here now is a replacement of an item in one edit: a
+                // removal and then an add. The key is a new arrival and goes to the end. Thus this
+                // code reports a removal at its previous position before it reports an add at its
+                // new position. With only an add, a list that binds to this counts the key two
+                // times.
                 int replaced = keys.IndexOfInternal(key);
 
                 if (replaced >= 0)
@@ -712,9 +731,9 @@ internal static class CollectionViewUtility
             }
             else
             {
-                // The root orders by arrival, and an update is not an arrival, so it never moves
-                // anything here. It still has to be reported: a stage further down may sort or
-                // filter on the state that just changed.
+                // The root uses the order of arrival, and an update is not an arrival, thus an
+                // update moves no key here. This code must report it, because a stage below can
+                // sort or filter on the state that changed.
                 int index = keys.IndexOfInternal(key);
 
                 if (index >= 0)
@@ -746,8 +765,8 @@ internal static class CollectionViewUtility
         CollectionSnapshot<TKey, TIdentity, TState> snapshot)
         where TKey : notnull
         where TIdentity : notnull =>
-        // Built from the upstream's own order, so this stage sorts exactly as its upstream does
-        // without knowing what that order is.
+        // This comes from the order of the upstream, thus this stage sorts as its upstream sorts
+        // and does not know that order.
         FileAll(
             order: upstreamKeys.Order,
             keys: upstreamKeys.Where(key => Passes(key: key, predicate: predicate, snapshot: snapshot)),
@@ -764,12 +783,12 @@ internal static class CollectionViewUtility
             keys: upstreamKeys.Where(key => PassesByIdentity(key: key, predicate: predicate, snapshot: snapshot)),
             snapshot: snapshot);
 
-    /// <summary>A filter's members, taken over to the order its upstream has just changed to.</summary>
+    /// <summary>The members of a filter, in the new order of its upstream.</summary>
     /// <remarks>
-    ///     Nothing a predicate reads changed, so the members are the members: this files them under the
-    ///     new order rather than walking the whole upstream and testing each item again. Where the order
-    ///     is the one already held - a reorder passed down from above a stage that kept its own - they are
-    ///     already filed under it.
+    ///     No value that the predicate reads changed, thus the members do not change. This code
+    ///     puts them in the new order, and does not read the full upstream and test each item
+    ///     again. When the order is the order that the stage holds, which occurs for a change of
+    ///     order from above a stage that kept its own order, the members are in that order.
     /// </remarks>
     private static OrderedKeys<TKey, TIdentity, TState> ReorderFilter<TKey, TIdentity, TState>(
         OrderedKeys<TKey, TIdentity, TState> state,
@@ -932,8 +951,8 @@ internal static class CollectionViewUtility
         int maxNumberOfOperations = GetMaxNumberOfOperations(state.Count);
         int numberOfOperations = 0;
 
-        // Under an order that reads no state, a re-file is a lookup and an update, which the budget does
-        // not count. See GetMaxNumberOfOperations.
+        // In an order that reads no state, a sort is one lookup and one update, and the limit does
+        // not count those. See GetMaxNumberOfOperations.
         bool refilingCostsWork = state.Order.DependsOnState;
 
         OrderedKeys<TKey, TIdentity, TState> keys = state;
@@ -1031,8 +1050,8 @@ internal static class CollectionViewUtility
         {
             int index = keys.IndexOfInternal(key);
 
-            // Not an error when absent: an upstream remove names every key leaving the stage above,
-            // including the ones this filter never admitted.
+            // A missing key is not an error here. A removal from above names each key that leaves
+            // the stage above, with the keys that this filter never accepted.
             if (index >= 0)
             {
                 operations.Add(new ViewRemove<TKey>(key: key, index: index));
@@ -1046,7 +1065,7 @@ internal static class CollectionViewUtility
             return false;
         }
 
-        // Whether the update or move cost this stage work its budget counts.
+        // True when the update or the move cost this stage work that its limit counts.
         bool Refresh(TKey key)
         {
             bool was = keys.Contains(key);
@@ -1091,22 +1110,24 @@ internal static class CollectionViewUtility
     }
 
     /// <summary>
-    ///     What an identity-only filter does with a change, which on an update or a move is to re-file
-    ///     a key it holds and never to re-test one.
+    ///     The operation of a filter on the identity only. At an update, and at a move, it sorts a
+    ///     key that it holds again and never tests a key again.
     /// </summary>
     /// <remarks>
     ///     <para>
-    ///         An update or a move carries a new state and nothing else, so it cannot have moved a key
-    ///         into this filter or out of it - the ordinary path's predicate test would be computing a
-    ///         foregone conclusion, and a key this stage does not hold is settled by one failed lookup.
+    ///         An update and a move give a new state and nothing else, thus the two cannot move a
+    ///         key into this filter or out of it. The predicate test on the usual path
+    ///         calculates a known answer, and one lookup with no result answers for a key that
+    ///         this stage does not hold.
     ///     </para>
     ///     <para>
-    ///         It can move a key within it. This stage keeps its upstream collection's order, and when that order
-    ///         reads the state, a state edit changes the value a held key is filed under - whether or
-    ///         not the upstream reported it as a move, since a value can change without passing
-    ///         another key and still be wrong to file the next arrival against. So a held key is
-    ///         re-filed, and reported at this stage's own positions. Under an order that reads no
-    ///         state the re-file is one lookup and an update, which is all this ever did there.
+    ///         An update can move a key in the filter. This stage keeps the order of its upstream
+    ///         collection. When that order reads the state, a state edit changes the sort value of
+    ///         a key that the stage holds, and the upstream can report that as a move or not. A
+    ///         value can change and not move the key across a second key, and the next arrival
+    ///         then sorts against an incorrect value. Thus this code sorts a key that it holds
+    ///         again, and reports the positions of this stage. In an order that reads no state,
+    ///         that sort is one lookup and one update, which is the only operation here.
     ///     </para>
     /// </remarks>
     private static MaybeInternal<StageOutcome<TKey, TIdentity, TState>>
@@ -1120,7 +1141,8 @@ internal static class CollectionViewUtility
         int maxNumberOfOperations = GetMaxNumberOfOperations(state.Count);
         int numberOfOperations = 0;
 
-        // As in the ordinary filter: a re-file under an order that reads no state is not counted.
+        // This is the same as the usual filter. A sort in an order that reads no state does not
+        // count.
         bool refilingCostsWork = state.Order.DependsOnState;
 
         OrderedKeys<TKey, TIdentity, TState> keys = state;
@@ -1222,7 +1244,7 @@ internal static class CollectionViewUtility
                 movesKeys: movesKeys,
                 changesMembership: changesMembership));
 
-        // Whether the update or move cost this stage work its budget counts.
+        // True when the update or the move cost this stage work that its limit counts.
         bool Refresh(TKey key)
         {
             if (!keys.Contains(key))
@@ -1251,11 +1273,12 @@ internal static class CollectionViewUtility
         where TIdentity : notnull =>
         FileAll(order: order, keys: upstreamKeys, snapshot: snapshot);
 
-    /// <summary>What a sort stage reports when it is handed a new order and nothing else changed.</summary>
+    /// <summary>The report of a sort stage at a new order, when nothing else changed.</summary>
     /// <remarks>
-    ///     A reset, or nothing for an order equivalent to the one held - never operations. Reusing the
-    ///     held sort values for a reversed order saves projecting every key again, not reporting a
-    ///     reset; see
+    ///     It is a reset, or nothing for an order equivalent to the order that the stage holds. It
+    ///     is never a set of operations. A second use of the sort values that the stage holds, for
+    ///     an order in the opposite direction, prevents a new sort value for each key. It does not
+    ///     prevent the report of a reset. See
     ///     <see
     ///         cref="SortByImpl{TKey,TIdentity,TState}(ReactiveCollection{TKey,TIdentity,TState},Cell{KeyOrder{TKey,TIdentity,TState}})" />
     ///     for why a change of order cannot be reported as moves.
@@ -1284,8 +1307,9 @@ internal static class CollectionViewUtility
                 reordersOnly: false);
         }
 
-        // Reached only when nothing but the order reached this stage in the transaction, so it holds
-        // the keys it held before, with the values they had: a reorder, whichever way it is answered.
+        // This code runs only when the order is the one change that came to this stage in the
+        // transaction. Thus the stage holds the keys that it held, with their values, and each
+        // answer is a change of order.
         return createResultForReorder(
             order.TryReverse(keys: state, reversedKeys: out OrderedKeys<TKey, TIdentity, TState>? reversedKeys)
                 ? reversedKeys
@@ -1314,8 +1338,8 @@ internal static class CollectionViewUtility
 
                 int index = keys.IndexOfInternal(update.Key);
 
-                // A sort holds every key its upstream holds, so an update it cannot find is a fault
-                // upstream rather than a key it chose to leave out.
+                // A sort holds each key of its upstream, thus an update for a key that it cannot
+                // find is a defect above it, and not a key that the sort removed.
                 if (index < 0)
                 {
                     throw new InvalidOperationException("A sort can only hear an update for a key it holds.");
@@ -1335,13 +1359,13 @@ internal static class CollectionViewUtility
         int maxNumberOfOperations = GetMaxNumberOfOperations(state.Count);
         int numberOfOperations = 0;
 
-        // A re-file under an order that reads no state is not counted. See GetMaxNumberOfOperations.
+        // A sort in an order that reads no state does not count. See GetMaxNumberOfOperations.
         bool refilingCostsWork = state.Order.DependsOnState;
 
-        // A sort holds every key the stage above it does, so every operation names a key it holds, and
-        // under an order that reads the state every one of them costs work. Whether the change is past
-        // the budget is then known before any of it is done, rather than after as much as the budget
-        // allows - work a rebuild would only throw away.
+        // A sort holds each key of the stage above it, thus each operation names a key that the
+        // sort holds. In an order that reads the state, each one of those operations costs work.
+        // Thus this code knows before the work if the change is above the limit, and does not know
+        // it after the work at the limit. A new build discards that work.
         if (refilingCostsWork && change.Operations.Count > maxNumberOfOperations)
         {
             return MaybeInternal<StageOutcome<TKey, TIdentity, TState>>.None;
@@ -1375,8 +1399,8 @@ internal static class CollectionViewUtility
                 {
                     int index = keys.IndexOfInternal(remove.Key);
 
-                    // As for an update: a sort holds every key its upstream held, so one it cannot
-                    // find to remove is a fault upstream.
+                    // This is the same as an update. A sort holds each key of its upstream, thus a
+                    // key that it cannot find to remove is a defect above it.
                     if (index < 0)
                     {
                         throw new InvalidOperationException("A sort can only hear a remove for a key it holds.");
@@ -1500,8 +1524,8 @@ internal static class CollectionViewUtility
             }
         }
 
-        // Keys that survived in place still need their updates forwarded, or a stage below this one
-        // would never hear that their state changed.
+        // A key that stays at its position also needs its update, or a stage below this one does
+        // not learn about the change to its state.
         foreach (ViewOperation<TKey> operation in change.Operations)
         {
             if (operation is not ViewUpdate<TKey> update)
@@ -1529,9 +1553,10 @@ internal static class CollectionViewUtility
 
     #region Shared
 
-    /// <summary>Files every key into a new set under one order.</summary>
+    /// <summary>Puts each key into a new set, in one order.</summary>
     /// <remarks>
-    ///     In bulk, which is what keeps a rebuild from costing one persistent write per key. See
+    ///     This operates on all keys together, thus a new build does not cost one write for each
+    ///     key. See
     ///     <see cref="KeyOrder{TKey,TIdentity,TState}.CreateFrom" />.
     /// </remarks>
     private static OrderedKeys<TKey, TIdentity, TState> FileAll<TKey, TIdentity, TState>(
@@ -1543,8 +1568,8 @@ internal static class CollectionViewUtility
         order.CreateFrom(keys: keys, snapshot: snapshot);
 
     /// <summary>
-    ///     Whether an item passes a predicate that reads its identity and not its state, which is
-    ///     one lookup rather than two.
+    ///     True when an item agrees with a predicate that reads its identity and not its state.
+    ///     That is one lookup and not two.
     /// </summary>
     private static bool PassesByIdentity<TKey, TIdentity, TState>(
         TKey key,
@@ -1564,38 +1589,41 @@ internal static class CollectionViewUtility
         && predicate(arg1: identity, arg2: state);
 
     /// <summary>
-    ///     Files a key the stage holds under its new sort value, reporting one operation: a move if
-    ///     that changed its position, and an update if it did not.
+    ///     Puts a key that the stage holds at its new sort value, and reports one operation. That
+    ///     operation is a move when the position changed, and an update when it did not change.
     /// </summary>
-    /// <returns>Whether the key moved.</returns>
+    /// <returns>True when the key moved.</returns>
     /// <remarks>
     ///     <para>
-    ///         A move is reported alone, with no update beside it. The move is the re-file, and what
-    ///         moved the key is its new value, so a consumer or a stage below treats it as an update
-    ///         that also moved.
+    ///         This code reports a move alone, with no update. The move is the sort, and the new
+    ///         value of the key moved it. Thus a consumer, and a stage below, reads the move as an
+    ///         update that also moved the key.
     ///     </para>
     ///     <para>
-    ///         An order that cannot move a key on a state edit skips the removing and re-adding, which
-    ///         would be four tree operations to put the key back where it already was. Every caller
-    ///         reaches this on every state edit that touches a key it holds, so that is the incremental
-    ///         path, and an order projecting its sort value from the key or the identity - the root's,
-    ///         and any filter sitting directly on it - can never move a key on a state edit.
+    ///         An order that cannot move a key at a state edit omits the removal and the add,
+    ///         which are four tree operations to put the key at its current position. Each caller
+    ///         comes here at each state edit to a key that it holds, thus this is the incremental
+    ///         path. An order that makes its sort value from the key or from the identity can never
+    ///         move a key at a state edit. The order of the root is such an order, and so is each
+    ///         filter directly above it.
     ///     </para>
     ///     <para>
-    ///         Re-filing is always under <paramref name="keys" />' own order, never the upstream's.
-    ///         A sort imposes that order itself, so for a sort this is always right. A filter keeps its
-    ///         upstream collection's order, and for a filter it is right only because a change of order is always
-    ///         a reset and never a move: every operation that reaches this was caused by a value
-    ///         changing under an order that has not. For the same reason, taking the shortcut on a move
-    ///         is as sound as on an update: under an order that reads no state, a value change cannot
-    ///         have moved anything, whichever operation reported it.
+    ///         This code always sorts in the order of <paramref name="keys" />, and never in the
+    ///         order of the upstream. A sort sets that order itself, thus this is always correct
+    ///         for a sort. A filter keeps the order of its upstream collection, and this is correct
+    ///         for a filter because a change of order is always a reset and never a move. A change
+    ///         of value in an order that did not change causes each operation that comes here. For
+    ///         the same cause, the short path is correct at a move and at an update. In an order
+    ///         that reads no state, a change of value cannot move a key, at each operation that
+    ///         reports it.
     ///     </para>
     ///     <para>
-    ///         The key has to be one that the stage holds and one the snapshot still has. Every caller only
-    ///         re-files keys it holds, for operations naming keys the snapshot has, so either failing
-    ///         is a fault upstream: this throws for a key the stage does not hold, and filing a key the
-    ///         snapshot does not hold throws in <c>Project</c>, rather than reporting an operation at
-    ///         no position.
+    ///         The key must be a key that the stage holds and a key that the snapshot has. Each
+    ///         caller sorts only the keys that it holds, for operations that name keys in the
+    ///         snapshot. Thus a key that fails one of the two tests is a defect above this code.
+    ///         This method throws an exception for a key that the stage does not hold, and a sort
+    ///         of a key that the snapshot does not hold throws an exception in <c>Project</c>. It
+    ///         does not report an operation with no position.
     ///     </para>
     /// </remarks>
     private static bool Refile<TKey, TIdentity, TState>(
@@ -1639,10 +1667,10 @@ internal static class CollectionViewUtility
 }
 
 /// <summary>
-///     What a stage's incremental step produced. A named type rather than the value tuple the
-///     original used: this assembly compiles at C# 10 for netstandard2.0 and net472 as well, where a
-///     tuple in a generic delegate's return position costs a System.ValueTuple reference for no
-///     gain in readability here.
+///     The result of the incremental step of a stage. This is a named type and not the value
+///     tuple of the initial code. This assembly also compiles at C# 10 for netstandard2.0 and
+///     net472, where a tuple in the return position of a generic delegate costs a
+///     System.ValueTuple reference and gives no better readability here.
 /// </summary>
 internal sealed class StageOutcome<TKey, TIdentity, TState>
     where TKey : notnull
