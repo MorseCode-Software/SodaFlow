@@ -27,8 +27,7 @@ public sealed class AsyncConcurrencyStrategyFactoryTests
                 errors: errors,
                 operation: op.Operation,
                 strategy: AsyncConcurrencyStrategyFactory.Parallel("unused"),
-                inputConverter: static v => v,
-                resultConverter: static v => v);
+                inputConverter: static v => v);
 
         source.Send("a");
         source.Send("b");
@@ -66,8 +65,7 @@ public sealed class AsyncConcurrencyStrategyFactoryTests
                 errors: errors,
                 operation: op.Operation,
                 strategy: AsyncConcurrencyStrategyFactory.Parallel("unused"),
-                inputConverter: static v => v,
-                resultConverter: static v => v);
+                inputConverter: static v => v);
 
         source.Send("a");
         source.Send("b");
@@ -115,8 +113,7 @@ public sealed class AsyncConcurrencyStrategyFactoryTests
                 errors: errors,
                 operation: op.Operation,
                 strategy: AsyncConcurrencyStrategyFactory.Queue<string>(),
-                inputConverter: static v => v,
-                resultConverter: static v => v);
+                inputConverter: static v => v);
 
         source.Send("a");
         source.Send("b");
@@ -158,8 +155,7 @@ public sealed class AsyncConcurrencyStrategyFactoryTests
                 errors: errors,
                 operation: op.Operation,
                 strategy: AsyncConcurrencyStrategyFactory.QueuePerGroup<string, string, string>(GetGroup),
-                inputConverter: static v => v,
-                resultConverter: static v => v);
+                inputConverter: static v => v);
 
         source.Send("g1-a");
         source.Send("g1-b");
@@ -203,8 +199,7 @@ public sealed class AsyncConcurrencyStrategyFactoryTests
                 errors: errors,
                 operation: op.Operation,
                 strategy: AsyncConcurrencyStrategyFactory.SwitchLatest<string>(),
-                inputConverter: static v => v,
-                resultConverter: static v => v);
+                inputConverter: static v => v);
 
         source.Send("a");
         TestUtil.WaitUntil(() => op.HasStarted("a"));
@@ -230,7 +225,7 @@ public sealed class AsyncConcurrencyStrategyFactoryTests
     [Test]
     public void Queue_SameStrategyInstanceSharedAcrossTwoPipelinesDoesNotCrossSerialize()
     {
-        AsyncConcurrencyStrategyBase<string, string> sharedQueue = AsyncConcurrencyStrategyFactory.Queue<string>();
+        AsyncConcurrencyStrategyBase<string> sharedQueue = AsyncConcurrencyStrategyFactory.Queue<string>();
 
         StreamSink<string> source1 = Stream.CreateSink<string>();
         StreamSink<string> results1 = Stream.CreateSink<string>();
@@ -252,8 +247,7 @@ public sealed class AsyncConcurrencyStrategyFactoryTests
                 errors: errors1,
                 operation: op1.Operation,
                 strategy: sharedQueue,
-                inputConverter: static v => v,
-                resultConverter: static v => v);
+                inputConverter: static v => v);
 
         AsyncMapStatus<string> status2 =
             source2.MapAsyncImpl(
@@ -261,8 +255,7 @@ public sealed class AsyncConcurrencyStrategyFactoryTests
                 errors: errors2,
                 operation: op2.Operation,
                 strategy: sharedQueue,
-                inputConverter: static v => v,
-                resultConverter: static v => v);
+                inputConverter: static v => v);
 
         source1.Send("x");
 

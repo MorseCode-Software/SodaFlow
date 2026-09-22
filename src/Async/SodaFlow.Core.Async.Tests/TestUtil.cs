@@ -40,7 +40,7 @@ internal sealed class ControlledOperation<TInput, TResult>
     private readonly ConcurrentDictionary<TInput, TaskCompletionSource<TResult>> gates = new();
     private readonly ConcurrentDictionary<TInput, bool> startedInputs = new();
 
-    public Func<TInput, CancellationToken, Task<TResult>> Operation => this.Run;
+    public MapAsyncOperation<TInput, TResult> Operation => this.Run;
 
     public bool HasStarted(TInput input) => this.startedInputs.ContainsKey(input);
 
@@ -48,7 +48,10 @@ internal sealed class ControlledOperation<TInput, TResult>
 
     public void Fail(TInput input, Exception error) => this.GateFor(input).TrySetException(error);
 
-    private async Task<TResult> Run(TInput input, CancellationToken token)
+    private async Task<ResultConstructor<TResult>> Run(
+        TInput input,
+        ResultConstructorFactory<TResult> resultFactory,
+        CancellationToken token)
     {
         this.startedInputs[input] = true;
 
@@ -59,7 +62,9 @@ internal sealed class ControlledOperation<TInput, TResult>
         using CancellationTokenRegistration registration =
             token.Register(() => tcs.TrySetCanceled(token));
 
-        return await tcs.Task.ConfigureAwait(false);
+        TResult result = await tcs.Task.ConfigureAwait(false);
+
+        return resultFactory.FromResult(result);
     }
 
     private TaskCompletionSource<TResult> GateFor(TInput input) =>
