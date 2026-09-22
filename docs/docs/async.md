@@ -27,7 +27,7 @@ StreamSink<Exception> errors = Stream.CreateSink<Exception>();
 AsyncMapStatus<string> status = queries.MapAsync(
     results: results,
     errors: errors,
-    operation: async (query, factory, token) => factory.FromResult(await SearchAsync(query, token)),
+    operation: async (query, factory, token) => factory.FromValue(await SearchAsync(query, token)),
     strategy: AsyncConcurrencyStrategy.SwitchLatest());
 ```
 
@@ -36,8 +36,8 @@ itself, and a concurrency strategy. Successful values arrive on `results` in com
 every exception arrives on `errors`. Nothing throws into the transaction.
 
 The operation gets three arguments, not two: the input, a factory for its answer, and a
-cancellation token. `factory.FromResult(value)` is the answer when you have a plain value, which
-is most of the time. The other answer, `factory.ConstructResult(() => ...)`, is for a result that
+cancellation token. `factory.FromValue(value)` is the answer when you have a plain value, which
+is most of the time. The other answer, `factory.Construct(() => ...)`, is for a result that
 contains part of a SodaFlow graph — see [Building a result in the
 transaction](#building-a-result-in-the-transaction).
 
@@ -87,7 +87,7 @@ can hold that and never name the input type:
 AsyncMapStatus status = queries.MapAsync(
     results: results,
     errors: errors,
-    operation: async (query, factory, token) => factory.FromResult(await SearchAsync(query, token)),
+    operation: async (query, factory, token) => factory.FromValue(await SearchAsync(query, token)),
     strategy: AsyncConcurrencyStrategy.SwitchLatest());
 
 Cell<bool> busy = status.IsRunning;
@@ -113,12 +113,12 @@ AsyncMapStatus status = requests.MapAsync(
         Document document = await LoadAsync(request, token);
 
         // Inside the transaction that publishes: the graph.
-        return factory.ConstructResult(() => new DocumentViewModel(document));
+        return factory.Construct(() => new DocumentViewModel(document));
     },
     strategy: AsyncConcurrencyStrategy.SwitchLatest());
 ```
 
-The function you hand to `ConstructResult` runs once, in the transaction that sends the result,
+The function you hand to `Construct` runs once, in the transaction that sends the result,
 so anything it builds is part of that same instant. Two things follow from that:
 
 - **Keep it short.** It holds the transaction while it runs. Do the waiting before it.

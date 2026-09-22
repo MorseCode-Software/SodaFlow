@@ -6,9 +6,9 @@ Task<TResult>>. It takes a third argument, a factory, and answers with what that
 factory makes:
 
   operation: async (query, factory, token) =>
-      factory.FromResult(await SearchAsync(query, token))
+      factory.FromValue(await SearchAsync(query, token))
 
-FromResult carries a value the operation has. ConstructResult carries a function
+FromResult carries a value the operation has. Construct carries a function
 that the pipeline calls in the transaction that sends the result, which is what
 a result that holds a cell or a stream needs:
 
@@ -16,7 +16,7 @@ a result that holds a cell or a stream needs:
   {
       Document document = await LoadAsync(request, token);
 
-      return factory.ConstructResult(() => new DocumentViewModel(document));
+      return factory.Construct(() => new DocumentViewModel(document));
   }
 
 Keep such a function short, because it holds the transaction while it runs, and
@@ -126,7 +126,7 @@ runs when.
   queuePerGroup         one independent queue per key
 
 An operation takes the input, a factory for its answer, and a token, and answers
-with factory.FromResult(value) or factory.ConstructResult(() => ...). The second
+with factory.FromValue(value) or factory.Construct(() => ...). The second
 one runs in the transaction that publishes, for a result that holds part of a
 graph.
 

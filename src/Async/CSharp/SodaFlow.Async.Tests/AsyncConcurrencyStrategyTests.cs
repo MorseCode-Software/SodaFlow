@@ -231,7 +231,7 @@ public sealed class AsyncConcurrencyStrategyTests
             source.MapAsync(
                 results: results,
                 errors: errors,
-                operation: static (_, factory, _) => Task.FromResult(factory.FromResult(Unit.Value)),
+                operation: static (_, factory, _) => Task.FromResult(factory.FromValue(Unit.Value)),
                 strategy: strategy);
 
         source.Send("a");

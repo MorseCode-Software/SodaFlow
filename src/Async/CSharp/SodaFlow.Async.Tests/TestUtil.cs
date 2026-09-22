@@ -49,7 +49,7 @@ internal sealed class ControlledOperation<TInput, TResult>
 
     private async Task<ResultConstructor<TResult>> Run(
         TInput input,
-        ResultConstructorFactory<TResult> resultFactory,
+        ResultFactory<TResult> resultFactory,
         CancellationToken token)
     {
         this.startedInputs[input] = true;
@@ -63,7 +63,7 @@ internal sealed class ControlledOperation<TInput, TResult>
 
         TResult result = await tcs.Task.ConfigureAwait(false);
 
-        return resultFactory.FromResult(result);
+        return resultFactory.FromValue(result);
     }
 
     private TaskCompletionSource<TResult> GateFor(TInput input) =>

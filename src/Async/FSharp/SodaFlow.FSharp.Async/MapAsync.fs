@@ -230,7 +230,7 @@ let private toUnitInternalStream (cancelAll: Stream<unit> option) : Stream<UnitI
 let mapAsync
     (results: StreamSink<'TResult>)
     (errors: StreamSink<exn>)
-    (operation: 'TInput -> ResultConstructorFactory<'TResult> -> CancellationToken -> Task<ResultConstructor<'TResult>>)
+    (operation: 'TInput -> ResultFactory<'TResult> -> CancellationToken -> Task<ResultConstructor<'TResult>>)
     (strategy: AsyncConcurrencyStrategyBase<unit>)
     (cancelAll: Stream<unit> option)
     (cancelMatching: Stream<IReadOnlyCollection<'TInput>> option)
@@ -281,7 +281,7 @@ let mapAsync
 let mapAsyncWithInputConverter
     (results: StreamSink<'TResult>)
     (errors: StreamSink<exn>)
-    (operation: 'TInput -> ResultConstructorFactory<'TResult> -> CancellationToken -> Task<ResultConstructor<'TResult>>)
+    (operation: 'TInput -> ResultFactory<'TResult> -> CancellationToken -> Task<ResultConstructor<'TResult>>)
     (strategy: AsyncConcurrencyStrategyBase<'TStrategyInput>)
     (inputConverter: 'TInput -> 'TStrategyInput)
     (cancelAll: Stream<unit> option)

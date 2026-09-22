@@ -25,7 +25,7 @@ public sealed class MapAsyncImplTests
             source.MapAsyncImpl(
                 results: results,
                 errors: errors,
-                operation: static (v, factory, _) => Task.FromResult(factory.FromResult(v.ToUpperInvariant())),
+                operation: static (v, factory, _) => Task.FromResult(factory.FromValue(v.ToUpperInvariant())),
                 strategy: AsyncConcurrencyStrategyFactory.Parallel("unused"),
                 inputConverter: static v => v);
 
@@ -81,7 +81,7 @@ public sealed class MapAsyncImplTests
             source.MapAsyncImpl(
                 results: results,
                 errors: errors,
-                operation: static (v, factory, _) => Task.FromResult(factory.FromResult(v.ToUpperInvariant())),
+                operation: static (v, factory, _) => Task.FromResult(factory.FromValue(v.ToUpperInvariant())),
                 strategy: strategy,
                 inputConverter: static v => v.Length);
 
@@ -113,7 +113,7 @@ public sealed class MapAsyncImplTests
             source.MapAsyncImpl(
                 results: results,
                 errors: errors,
-                operation: static (v, factory, _) => Task.FromResult(factory.FromResult(v)),
+                operation: static (v, factory, _) => Task.FromResult(factory.FromValue(v)),
                 strategy: strategy,
                 inputConverter: static v => v);
 
@@ -166,7 +166,7 @@ public sealed class MapAsyncImplTests
             source.MapAsyncImpl(
                 results: results,
                 errors: errors,
-                operation: static (v, factory, _) => Task.FromResult(factory.FromResult(v)),
+                operation: static (v, factory, _) => Task.FromResult(factory.FromValue(v)),
                 strategy: new CancelAndPromoteSameItemStrategy(),
                 inputConverter: static v => v);
 
@@ -196,7 +196,7 @@ public sealed class MapAsyncImplTests
             source.MapAsyncImpl(
                 results: results,
                 errors: errors,
-                operation: static (v, factory, _) => Task.FromResult(factory.FromResult(v)),
+                operation: static (v, factory, _) => Task.FromResult(factory.FromValue(v)),
                 strategy: AsyncConcurrencyStrategyFactory.Parallel("unused"),
                 inputConverter: static v => v);
 
@@ -322,7 +322,7 @@ public sealed class MapAsyncImplTests
                     source: null!,
                     results: results,
                     errors: errors,
-                    operation: static (v, factory, _) => Task.FromResult(factory.FromResult(v)),
+                    operation: static (v, factory, _) => Task.FromResult(factory.FromValue(v)),
                     strategy: AsyncConcurrencyStrategyFactory.Parallel("unused"),
                     inputConverter: static v => v))
             .ThrowsExactly<ArgumentNullException>();
@@ -339,7 +339,7 @@ public sealed class MapAsyncImplTests
                     // ReSharper disable once NullableWarningSuppressionIsUsed - Testing for exception on null.
                     results: null!,
                     errors: errors,
-                    operation: static (v, factory, _) => Task.FromResult(factory.FromResult(v)),
+                    operation: static (v, factory, _) => Task.FromResult(factory.FromValue(v)),
                     strategy: AsyncConcurrencyStrategyFactory.Parallel("unused"),
                     inputConverter: static v => v))
             .ThrowsExactly<ArgumentNullException>();
@@ -356,7 +356,7 @@ public sealed class MapAsyncImplTests
                     results: results,
                     // ReSharper disable once NullableWarningSuppressionIsUsed - Testing for exception on null.
                     errors: null!,
-                    operation: static (v, factory, _) => Task.FromResult(factory.FromResult(v)),
+                    operation: static (v, factory, _) => Task.FromResult(factory.FromValue(v)),
                     strategy: AsyncConcurrencyStrategyFactory.Parallel("unused"),
                     inputConverter: static v => v))
             .ThrowsExactly<ArgumentNullException>();
@@ -391,7 +391,7 @@ public sealed class MapAsyncImplTests
                 source.MapAsyncImpl(
                     results: results,
                     errors: errors,
-                    operation: static (v, factory, _) => Task.FromResult(factory.FromResult(v)),
+                    operation: static (v, factory, _) => Task.FromResult(factory.FromValue(v)),
                     // ReSharper disable once NullableWarningSuppressionIsUsed - Testing for exception on null.
                     strategy: null!,
                     inputConverter: static v => v))

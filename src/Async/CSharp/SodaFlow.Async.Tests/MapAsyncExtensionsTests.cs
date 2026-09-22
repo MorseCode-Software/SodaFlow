@@ -25,7 +25,7 @@ public sealed class MapAsyncExtensionsTests
             source.MapAsync(
                 results: results,
                 errors: errors,
-                operation: static (v, factory, _) => Task.FromResult(factory.FromResult(v.ToUpperInvariant())),
+                operation: static (v, factory, _) => Task.FromResult(factory.FromValue(v.ToUpperInvariant())),
                 strategy: AsyncConcurrencyStrategy.Parallel());
 
         source.Send("hello");
@@ -51,7 +51,7 @@ public sealed class MapAsyncExtensionsTests
             source.MapAsync(
                 results: results,
                 errors: errors,
-                operation: static (_, factory, _) => Task.FromResult(factory.FromResult("done")),
+                operation: static (_, factory, _) => Task.FromResult(factory.FromValue("done")),
                 strategy: strategy);
 
         source.Send(dog);
@@ -78,7 +78,7 @@ public sealed class MapAsyncExtensionsTests
             source.MapAsync(
                 results: results,
                 errors: errors,
-                operation: static (v, factory, _) => Task.FromResult(factory.FromResult(v.ToUpperInvariant())),
+                operation: static (v, factory, _) => Task.FromResult(factory.FromValue(v.ToUpperInvariant())),
                 strategy: strategy,
                 inputConverter: static v => v.Length);
 
@@ -314,7 +314,7 @@ public sealed class MapAsyncExtensionsTests
     }
 
     [Test]
-    public async Task ConstructResult_RunsInTheTransactionThatSendsTheResult()
+    public async Task Construct_RunsInTheTransactionThatSendsTheResult()
     {
         StreamSink<string> source = Stream.CreateSink<string>();
         StreamSink<string> results = Stream.CreateSink<string>();
@@ -328,7 +328,7 @@ public sealed class MapAsyncExtensionsTests
                 results: results,
                 errors: errors,
                 operation: (v, factory, _) => Task.FromResult(
-                    factory.ConstructResult(() =>
+                    factory.Construct(() =>
                     {
                         inTransaction = Transaction.IsActive();
 
@@ -349,7 +349,7 @@ public sealed class MapAsyncExtensionsTests
     }
 
     [Test]
-    public async Task ConstructResult_DoesNotRunWhenTheStrategyDoesNotPublish()
+    public async Task Construct_DoesNotRunWhenTheStrategyDoesNotPublish()
     {
         StreamSink<string> source = Stream.CreateSink<string>();
         StreamSink<string> results = Stream.CreateSink<string>();
@@ -364,7 +364,7 @@ public sealed class MapAsyncExtensionsTests
                 results: results,
                 errors: errors,
                 operation: (v, factory, _) => Task.FromResult(
-                    factory.ConstructResult(() =>
+                    factory.Construct(() =>
                     {
                         lock (constructions)
                         {
@@ -386,7 +386,7 @@ public sealed class MapAsyncExtensionsTests
     }
 
     [Test]
-    public async Task ConstructResult_DoesNotRunForAnItemThatACancellationStopped()
+    public async Task Construct_DoesNotRunForAnItemThatACancellationStopped()
     {
         StreamSink<string> source = Stream.CreateSink<string>();
         StreamSink<string> results = Stream.CreateSink<string>();
@@ -411,7 +411,7 @@ public sealed class MapAsyncExtensionsTests
                     {
                         release.Wait(millisecondsTimeout: 5000);
 
-                        return factory.ConstructResult(() =>
+                        return factory.Construct(() =>
                         {
                             lock (constructions)
                             {
@@ -443,7 +443,7 @@ public sealed class MapAsyncExtensionsTests
     }
 
     [Test]
-    public async Task ConstructResult_AThrowPublishesToErrorsAndNoResult()
+    public async Task Construct_AThrowPublishesToErrorsAndNoResult()
     {
         StreamSink<string> source = Stream.CreateSink<string>();
         StreamSink<string> results = Stream.CreateSink<string>();
@@ -459,7 +459,7 @@ public sealed class MapAsyncExtensionsTests
                 results: results,
                 errors: errors,
                 operation: (_, factory, _) => Task.FromResult(
-                    factory.ConstructResult(() => throw thrown)),
+                    factory.Construct(() => throw thrown)),
                 strategy: AsyncConcurrencyStrategy.Parallel());
 
         source.Send("hello");
@@ -487,7 +487,7 @@ public sealed class MapAsyncExtensionsTests
                 errors: errors,
                 operation: static (v, factory, _) => v == "fail"
                     ? Task.FromException<ResultConstructor<string>>(new InvalidOperationException("no"))
-                    : Task.FromResult(factory.FromResult(v)),
+                    : Task.FromResult(factory.FromValue(v)),
                 strategy: strategy);
 
         source.Send("ok");

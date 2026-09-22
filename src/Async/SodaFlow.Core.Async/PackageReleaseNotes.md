@@ -2,11 +2,11 @@
 
 BREAKING: the operation of a MapAsync call is a MapAsyncOperation<TInput,
 TResult> delegate, where it was a Func<TInput, CancellationToken,
-Task<TResult>>. It takes a third argument, a ResultConstructorFactory<TResult>,
+Task<TResult>>. It takes a third argument, a ResultFactory<TResult>,
 and answers with what that factory makes:
 
-  resultFactory.FromResult(value)        a value the operation has
-  resultFactory.ConstructResult(() => .) a function the pipeline calls
+  resultFactory.FromValue(value)        a value the operation has
+  resultFactory.Construct(() => .) a function the pipeline calls
 
 The second one is the cause for the change. The pipeline calls that function
 in the transaction that sends the result, so a result that holds a cell, a

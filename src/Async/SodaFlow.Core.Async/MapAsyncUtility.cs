@@ -11,11 +11,11 @@ namespace SodaFlow.Async;
 /// <summary>
 ///     The work that a MapAsync pipeline does for one value from the source stream. It gives a
 ///     <see cref="ResultConstructor{TResult}" /> and not a result, because the two answers are not
-///     the same: <see cref="ResultConstructorFactory{TResult}.FromResult" /> carries a value that
-///     the operation has, and <see cref="ResultConstructorFactory{TResult}.ConstructResult" />
-///     carries a function that the pipeline calls in the transaction that sends the result. Use
-///     the second one when the result contains a cell, a stream, or an other part of a SodaFlow
-///     graph, because such a part must come into existence in that transaction.
+///     the same: <see cref="ResultFactory{TResult}.FromValue" /> carries a value that the
+///     operation has, and <see cref="ResultFactory{TResult}.Construct" /> carries a function that
+///     the pipeline calls in the transaction that sends the result. Use the second one when the
+///     result contains a cell, a stream, or an other part of a SodaFlow graph, because such a
+///     part must come into existence in that transaction.
 /// </summary>
 /// <typeparam name="TInput">The type in the source stream.</typeparam>
 /// <typeparam name="TResult">The type that the pipeline publishes.</typeparam>
@@ -30,7 +30,7 @@ namespace SodaFlow.Async;
 [PublicAPI]
 public delegate Task<ResultConstructor<TResult>> MapAsyncOperation<in TInput, TResult>(
     TInput input,
-    ResultConstructorFactory<TResult> resultFactory,
+    ResultFactory<TResult> resultFactory,
     CancellationToken token);
 
 /// <summary>The two states of a tracked item: a wait for a slot, or execution.</summary>
@@ -71,8 +71,8 @@ public readonly struct AsyncItem<TInput>
 /// <summary>
 ///     The answer of a <see cref="MapAsyncOperation{TInput,TResult}" />: a result, or a function
 ///     that makes one. The pipeline calls such a function in the transaction that sends the
-///     result. Make one with <see cref="ResultConstructorFactory{TResult}" />, which the
-///     operation receives.
+///     result. Make one with <see cref="ResultFactory{TResult}" />, which the operation
+///     receives.
 /// </summary>
 /// <typeparam name="TResult">The type that the pipeline publishes.</typeparam>
 [PublicAPI]
@@ -95,11 +95,11 @@ public sealed class ResultConstructor<TResult>
 /// </summary>
 /// <typeparam name="TResult">The type that the pipeline publishes.</typeparam>
 [PublicAPI]
-public sealed class ResultConstructorFactory<TResult>
+public sealed class ResultFactory<TResult>
 {
-    internal static readonly ResultConstructorFactory<TResult> Instance = new();
+    internal static readonly ResultFactory<TResult> Instance = new();
 
-    private ResultConstructorFactory()
+    private ResultFactory()
     {
     }
 
@@ -107,21 +107,21 @@ public sealed class ResultConstructorFactory<TResult>
     ///     Carries a result that the operation has. Use this one when the operation makes no part
     ///     of a SodaFlow graph.
     /// </summary>
-    /// <param name="result">The value to publish.</param>
+    /// <param name="value">The value to publish.</param>
     /// <returns>The answer to return from the operation.</returns>
-    public ResultConstructor<TResult> FromResult(TResult result) => new(result);
+    public ResultConstructor<TResult> FromValue(TResult value) => new(value);
 
     /// <summary>
     ///     Carries a function that makes the result. The pipeline calls it one time, in the
     ///     transaction that sends the result, which is what a result with a cell or a stream in it
     ///     must have. Keep the function short, because it holds that transaction while it runs.
-    ///     The pipeline can also call it for a result that it does not publish: a strategy decides
-    ///     at the end of an operation if the pipeline publishes the result, and it makes that
-    ///     decision after this function runs.
+    ///     The pipeline calls it only for an item that it publishes: the strategy decides that
+    ///     first, and this function runs after that decision. Thus an item that a cancellation
+    ///     stopped, or that a strategy refused, makes no result at all.
     /// </summary>
-    /// <param name="constructResult">Makes the value to publish.</param>
+    /// <param name="makeResult">Makes the value to publish.</param>
     /// <returns>The answer to return from the operation.</returns>
-    public ResultConstructor<TResult> ConstructResult(Func<TResult> constructResult) => new(constructResult);
+    public ResultConstructor<TResult> Construct(Func<TResult> makeResult) => new(makeResult);
 }
 
 /// <summary>
@@ -334,9 +334,9 @@ public abstract class AsyncMapBase
     /// <summary>
     ///     How an item ended, which is what a strategy reads. It carries no result value: the
     ///     pipeline makes the result of a MapAsync operation after the strategy decides, and only
-    ///     for an item that it publishes. See
-    ///     <see cref="ResultConstructorFactory{TResult}.ConstructResult" />. A value here thus
-    ///     obliges the pipeline to make each result, also the results that no code reads.
+    ///     for an item that it publishes. See <see cref="ResultFactory{TResult}.Construct" />. A
+    ///     value here thus obliges the pipeline to make each result, also the results that no code
+    ///     reads.
     ///     <para>
     ///         Succeeded says that the operation returned. The pipeline publishes an error for
     ///         such an item when the function that makes the result throws.
@@ -1761,7 +1761,7 @@ internal sealed class AsyncMapExecutionManager<TInput, TResult, TStrategyInput> 
             ResultConstructor<TResult> resultConstructor =
                 await this.operation(
                         input: value,
-                        resultFactory: ResultConstructorFactory<TResult>.Instance,
+                        resultFactory: ResultFactory<TResult>.Instance,
                         token: linked.Token)
                     .ConfigureAwait(false);
 
@@ -2041,7 +2041,7 @@ fully opaque to callers.
 
 A strategy never sees a result. OnCompleted takes an AsyncCompletion, which says only whether
 the operation returned, threw, or was canceled, and the pipeline makes the result afterwards and
-only for an item it publishes — see ResultConstructorFactory.ConstructResult. That is why there
+only for an item it publishes — see ResultFactory.Construct. That is why there
 is no TStrategyResult and no resultConverter: they existed to give the strategy a value, and the
 strategy no longer reads one.
 */

@@ -275,8 +275,8 @@ type ``MapAsync Tests``() =
             let l = results |> listenStrongS received.Add
             let strategy = CountingStrategy()
 
-            let operation (_: string) (resultFactory: ResultConstructorFactory<unit>) (_: CancellationToken) =
-                Task.FromResult(resultFactory.FromResult(()))
+            let operation (_: string) (resultFactory: ResultFactory<unit>) (_: CancellationToken) =
+                Task.FromResult(resultFactory.FromValue(()))
 
             let status = source |> mapAsync results errors operation strategy None None true
 
@@ -412,7 +412,7 @@ type ``MapAsync Tests``() =
 
             let operation
                 (_: string)
-                (_: ResultConstructorFactory<string>)
+                (_: ResultFactory<string>)
                 (_: CancellationToken)
                 : Task<ResultConstructor<string>> =
                 Task.FromException<ResultConstructor<string>>(thrown)
