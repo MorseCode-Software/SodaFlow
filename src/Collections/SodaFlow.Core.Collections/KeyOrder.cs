@@ -6,83 +6,89 @@ using JetBrains.Annotations;
 namespace SodaFlow.Collections;
 
 /// <summary>
-///     One way of ordering a view's keys — what <c>SortBy</c> sorts by, as a value.
+///     One order of the keys of a view, as a value. <c>SortBy</c> sorts on it.
 /// </summary>
 /// <remarks>
 ///     <para>
-///         An order carries its own sort value type inside itself, so this type does not mention
-///         it. That is the whole point: two orders projecting sort values of different types are
-///         still the same type here, so a cell can hold either and a sort stage can follow one -
-///         which is what a clickable column header needs. Without it a header would need a
-///         separately built view per column and something to choose between them, which is a graph
-///         rebuilt on every click rather than a key set re-filed.
+///         An order holds its own sort value type, thus this type does not name that type. That
+///         is the purpose. Two orders with sort values of different types have the same type here,
+///         thus one cell can hold each one and a sort stage can follow it. A column header that a
+///         user can click needs that. Without it, a header needs one view for each column and code
+///         to select between them, which builds a graph again at each click and does not sort a
+///         key set again.
 ///     </para>
 ///     <para>
-///         Nothing outside this assembly can implement one. Build them with the factories here,
-///         which mirror the sort methods one for one: <c>By</c> is what <c>SortBy</c> sorts by,
-///         <see cref="ByKey" /> what <c>SortByKey</c> does, and so on. An order is not tied to
-///         the collection it was built for, only to its type parameters, so one built once can be
-///         handed to any view of the same shape.
+///         Code out of this assembly cannot make one. Build them with the factories here, which
+///         are the equivalent of the sort methods. <c>SortBy</c> sorts on <c>By</c>,
+///         <c>SortByKey</c> sorts on <see cref="ByKey" />, and the other pairs agree in the same
+///         manner. An order is not attached to the collection of its construction, and only to
+///         its type parameters. Thus each view of the same shape can use one order.
 ///     </para>
 ///     <para>
-///         An order can have more than one level. <c>ThenBy</c> and its siblings return this order
-///         refined by another level, which decides only between keys this order ranks equal - a
-///         holder's name under a balance, or the column header clicked second - and what comes back
-///         is one order like any other, so it goes in the same cell.
+///         An order can have more than one level. <c>ThenBy</c> and the functions with it return
+///         this order with one more level, and that level selects only between keys that this
+///         order ranks equal. Examples are the name of a holder with a balance, and the second
+///         column header that a user clicks. The result is one order, as each other order is, thus
+///         it goes in the same cell.
 ///     </para>
 /// </remarks>
 /// <typeparam name="TKey">The type of the keys.</typeparam>
-/// <typeparam name="TIdentity">The type of the immutable portion of an item.</typeparam>
-/// <typeparam name="TState">The type of the mutable portion of an item.</typeparam>
+/// <typeparam name="TIdentity">The type of the immutable part of an item.</typeparam>
+/// <typeparam name="TState">The type of the mutable part of an item.</typeparam>
 [PublicAPI]
 public abstract class KeyOrder<TKey, TIdentity, TState>
     where TKey : notnull
     where TIdentity : notnull
 {
     /// <summary>
-    ///     Internal, so that this assembly is the only thing that can produce one. The members
-    ///     below it are the protocol between stages: an order exists to forget a type parameter
-    ///     rather than to abstract over implementations, so the sets that hold one need not carry
-    ///     the sort value's type through every signature that touches them.
+    ///     This is internal, thus only this assembly can make one. The members below it are the
+    ///     protocol between two stages. An order removes a type parameter, and it is not an
+    ///     abstraction across implementations. Thus a set that holds one does not keep the sort
+    ///     value type through each signature that uses it.
     /// </summary>
     internal KeyOrder()
     {
     }
 
     /// <summary>
-    ///     Whether a key's position under this order can be changed by a state edit.
+    ///     True when a state edit can change the position of a key in this order.
     /// </summary>
     /// <remarks>
-    ///     False for an order that projects its sort value from the key or the identity alone,
-    ///     neither of which a state edit can touch - which is what lets a stage skip re-filing a
-    ///     key it has been told merely changed. <see cref="ByKey" /> is false and so is
-    ///     <c>ByIdentity</c>; an order over a caller's whole-item selector is conservatively true,
-    ///     because nothing here can see whether that selector read the state it was handed.
+    ///     It is false for an order that makes its sort value from the key or from the identity
+    ///     only, and a state edit cannot change the key or the identity. Thus a stage does not sort
+    ///     a key again when it hears only that the key changed. <see cref="ByKey" /> is false, and
+    ///     <c>ByIdentity</c> is also false. An order on a full-item selector from the caller is
+    ///     true, because this code cannot see if that selector read the state that it got.
     /// </remarks>
     internal abstract bool DependsOnState { get; }
 
-    /// <summary>Whether <paramref name="other" /> is known to order keys exactly as this does.</summary>
-    /// <param name="other">The order to compare with.</param>
+    /// <summary>True when this code knows that <paramref name="other" /> orders the keys as this
+    /// order does.</summary>
+    /// <param name="other">The order to compare against.</param>
     /// <returns>
-    ///     True only when that is certain. False means not known to be, rather than known not to be.
+    ///     True only when the two orders are the same and this code knows it. False means that
+    ///     this code cannot show that the two are the same, and not that the two are
+    ///     different.
     /// </returns>
     /// <remarks>
-    ///     What lets a sort stage handed a new order that is really the one it holds report nothing.
-    ///     A false negative costs a rebuild; a false positive leaves a list filed under the wrong
-    ///     order, so an implementation that cannot tell has to answer false.
+    ///     This lets a sort stage that gets a new order equal to the order that it holds report
+    ///     nothing. An incorrect false costs one build. An incorrect true leaves a list in the
+    ///     incorrect order, thus an implementation that cannot give the answer must answer
+    ///     false.
     /// </remarks>
     internal abstract bool IsEquivalentTo(KeyOrder<TKey, TIdentity, TState> other);
 
     /// <summary>
-    ///     The keys filed under this order, if this order is theirs run the other way, so they can be
-    ///     sorted again with the sort values they already hold rather than projected and filed again.
+    ///     The keys in this order, when this order is their order in the opposite direction. This
+    ///     code then sorts them again with the sort values that they hold, and does not make each
+    ///     sort value again.
     /// </summary>
-    /// <param name="keys">Keys filed under some order, possibly this one reversed.</param>
-    /// <param name="reversedKeys">The same keys filed under this order, when this returns true.</param>
-    /// <returns>Whether the keys could be reversed.</returns>
+    /// <param name="keys">Keys in an order, which can be this order in the opposite direction.</param>
+    /// <param name="reversedKeys">The same keys in this order, when this method returns true.</param>
+    /// <returns>True when this code put the keys in the opposite direction.</returns>
     /// <remarks>
-    ///     The same bargain as <see cref="IsEquivalentTo" />: answer false unless certain, because the
-    ///     caller rebuilds on false and trusts the list on true.
+    ///     This has the agreement of <see cref="IsEquivalentTo" />. Answer false when the result
+    ///     is not sure, because the caller builds again at false and uses the list at true.
     /// </remarks>
     internal abstract bool TryReverse(
         OrderedKeys<TKey, TIdentity, TState> keys,
@@ -112,15 +118,15 @@ public abstract class KeyOrder<TKey, TIdentity, TState>
             isDescending: true);
 
     /// <summary>
-    ///     Orders by a value projected from each item. <typeparamref name="TSortKey" /> stays a
-    ///     real generic parameter all the way down to the comparer, so sort values are stored and
-    ///     compared as themselves and never boxed.
+    ///     Orders by a value from each item. <typeparamref name="TSortKey" /> stays a generic
+    ///     parameter to the comparer, thus this code keeps and compares each sort value as its own
+    ///     type and never boxes it.
     /// </summary>
     /// <typeparam name="TSortKey">The type of the projected sort value.</typeparam>
     /// <param name="selector">Projects the sort value from an item.</param>
     /// <param name="sortComparer">Compares two projected sort values.</param>
-    /// <param name="keyComparer">Breaks ties, so that the order is total.</param>
-    /// <param name="isDescending">Whether to reverse the sort comparison.</param>
+    /// <param name="keyComparer">Compares two keys with equal sort values, thus the order is total.</param>
+    /// <param name="isDescending">True when the sort uses the opposite direction.</param>
     /// <returns>The order.</returns>
     public static KeyOrder<TKey, TIdentity, TState> By<TSortKey>(
         Func<TIdentity, TState, TSortKey> selector,
@@ -135,17 +141,17 @@ public abstract class KeyOrder<TKey, TIdentity, TState>
             isDescending: isDescending);
 
     /// <summary>
-    ///     Orders by a value projected from each item's immutable half alone, which a state edit
-    ///     cannot change.
+    ///     Orders by a value from the immutable part of each item only. A state edit cannot change
+    ///     that part.
     /// </summary>
     /// <typeparam name="TSortKey">The type of the projected sort value.</typeparam>
     /// <param name="selector">Projects the sort value from an identity.</param>
     /// <returns>The order.</returns>
     /// <remarks>
-    ///     Cheaper to keep than <c>By</c> for the same values: a stage under this order skips
-    ///     re-filing a key it is told merely changed, and building one never reads the state map.
-    ///     The selector is not handed the state, which is what makes that checkable rather than
-    ///     promised.
+    ///     This costs less to keep than <c>By</c> for the same values. A stage in this order does
+    ///     not sort a key again when it hears only that the key changed, and the construction of a
+    ///     stage never reads the state map. The selector does not receive the state, thus a reader
+    ///     can test this property and does not use a statement.
     /// </remarks>
     public static KeyOrder<TKey, TIdentity, TState> ByIdentity<TSortKey>(Func<TIdentity, TSortKey> selector) =>
         ByIdentity(
@@ -155,7 +161,7 @@ public abstract class KeyOrder<TKey, TIdentity, TState>
             isDescending: false);
 
     /// <summary>
-    ///     Orders, descending, by a value projected from each item's immutable half alone.
+    ///     Orders, descending, by a value from the immutable part of each item only.
     /// </summary>
     /// <typeparam name="TSortKey">The type of the projected sort value.</typeparam>
     /// <param name="selector">Projects the sort value from an identity.</param>
@@ -169,14 +175,14 @@ public abstract class KeyOrder<TKey, TIdentity, TState>
             isDescending: true);
 
     /// <summary>
-    ///     Orders by a value projected from each item's immutable half alone, which a state edit
-    ///     cannot change.
+    ///     Orders by a value from the immutable part of each item only. A state edit cannot change
+    ///     that part.
     /// </summary>
     /// <typeparam name="TSortKey">The type of the projected sort value.</typeparam>
     /// <param name="selector">Projects the sort value from an identity.</param>
     /// <param name="sortComparer">Compares two projected sort values.</param>
-    /// <param name="keyComparer">Breaks ties, so that the order is total.</param>
-    /// <param name="isDescending">Whether to reverse the sort comparison.</param>
+    /// <param name="keyComparer">Compares two keys with equal sort values, thus the order is total.</param>
+    /// <param name="isDescending">True when the sort uses the opposite direction.</param>
     /// <returns>The order.</returns>
     public static KeyOrder<TKey, TIdentity, TState> ByIdentity<TSortKey>(
         Func<TIdentity, TSortKey> selector,
@@ -194,10 +200,10 @@ public abstract class KeyOrder<TKey, TIdentity, TState>
     /// <param name="keyComparer">The comparer to order keys by.</param>
     /// <returns>The order.</returns>
     /// <remarks>
-    ///     The selector is a lambda rather than a method group so that every order built here shares
-    ///     one delegate instance, which is what lets two of them over the same comparer be recognized
-    ///     as the same order. A lambda that captures nothing is cached by the compiler; a method
-    ///     group is only cached from C# 11, and this assembly also compiles at C# 10.
+    ///     The selector is a lambda and not a method group, thus each order from this code shares
+    ///     one delegate instance. That lets this code identify two orders with the same comparer as
+    ///     the same order. The compiler caches a lambda that captures nothing. It caches a method
+    ///     group only from C# 11, and this assembly also compiles at C# 10.
     /// </remarks>
     public static KeyOrder<TKey, TIdentity, TState> ByKey(IComparer<TKey> keyComparer)
     {
@@ -214,23 +220,25 @@ public abstract class KeyOrder<TKey, TIdentity, TState>
     /// <summary>Orders by arrival - the collection's own order, available over any stage.</summary>
     /// <returns>The order.</returns>
     /// <remarks>
-    ///     Items are listed in the order they were enumerated when the collection was created, then in
-    ///     the order edits added them, and a key removed and added back is a new arrival. Under a sort
-    ///     this is how a cell goes back to unsorted - the third state of a column header that cycles
-    ///     ascending, descending and off. Keys are never compared, so they need no order of their own,
-    ///     and a further level is never consulted, because no two keys arrive together.
+    ///     The items come in the sequence of their enumeration at the construction of the
+    ///     collection, and then in the sequence of the edits that added them. A key that an edit
+    ///     removes and then adds is a new arrival. With a sort, this is the path from a cell back
+    ///     to no sort. It is the third state of a column header that moves between ascending,
+    ///     descending, and off. This code never compares the keys, thus an order of the keys is
+    ///     not necessary. It also never reads a second level, because two keys never come at the
+    ///     same time.
     /// </remarks>
     public static KeyOrder<TKey, TIdentity, TState> ByArrival() => ArrivalOrder<TKey, TIdentity, TState>.Instance;
 
     /// <summary>This order, with its ties broken by a value projected from each item.</summary>
     /// <typeparam name="TSortKey">The type of the projected sort value.</typeparam>
     /// <param name="selector">Projects the next level's sort value from an item.</param>
-    /// <returns>The refined order. This order is unchanged, and can still be used alone.</returns>
+    /// <returns>The refined order. This order does not change, and other code can use it alone.</returns>
     /// <remarks>
-    ///     What <c>ThenBy</c> is after <c>OrderBy</c>: the new level decides only between keys this
-    ///     order ranks equal. Every level keeps its own sort value type down to its comparer, so
-    ///     nothing is boxed however many levels there are, and the key still breaks the last tie with
-    ///     the comparer the first level was given.
+    ///     This is the equivalent of <c>ThenBy</c> after <c>OrderBy</c>. The new level selects only
+    ///     between keys that this order ranks equal. Each level keeps its own sort value type to
+    ///     its comparer, thus this code boxes nothing at each count of levels. The key is the last
+    ///     level, with the comparer of the first level.
     /// </remarks>
     public KeyOrder<TKey, TIdentity, TState> ThenBy<TSortKey>(Func<TIdentity, TState, TSortKey> selector) =>
         this.ThenBy(selector: selector, sortComparer: Comparer<TSortKey>.Default, isDescending: false);
@@ -238,7 +246,7 @@ public abstract class KeyOrder<TKey, TIdentity, TState>
     /// <summary>This order, with its ties broken, descending, by a value projected from each item.</summary>
     /// <typeparam name="TSortKey">The type of the projected sort value.</typeparam>
     /// <param name="selector">Projects the next level's sort value from an item.</param>
-    /// <returns>The refined order. This order is unchanged, and can still be used alone.</returns>
+    /// <returns>The refined order. This order does not change, and other code can use it alone.</returns>
     public KeyOrder<TKey, TIdentity, TState> ThenByDescending<TSortKey>(Func<TIdentity, TState, TSortKey> selector) =>
         this.ThenBy(selector: selector, sortComparer: Comparer<TSortKey>.Default, isDescending: true);
 
@@ -246,11 +254,14 @@ public abstract class KeyOrder<TKey, TIdentity, TState>
     /// <typeparam name="TSortKey">The type of the projected sort value.</typeparam>
     /// <param name="selector">Projects the next level's sort value from an item.</param>
     /// <param name="sortComparer">Compares two of the next level's sort values.</param>
-    /// <param name="isDescending">Whether this level runs in reverse, whichever way the levels above it run.</param>
-    /// <returns>The refined order. This order is unchanged, and can still be used alone.</returns>
+    /// <param name="isDescending">
+    ///     True when this level uses the opposite direction, at each direction of the levels above
+    ///     it.
+    /// </param>
+    /// <returns>The refined order. This order does not change, and other code can use it alone.</returns>
     /// <remarks>
-    ///     There is no key comparer to give here. The key breaks the last tie in every order, and
-    ///     which comparer does that was settled when the first level was built.
+    ///     There is no key comparer for this call. The key is the last level in each order, and the
+    ///     construction of the first level selected the comparer for it.
     /// </remarks>
     public KeyOrder<TKey, TIdentity, TState> ThenBy<TSortKey>(
         Func<TIdentity, TState, TSortKey> selector,
@@ -263,38 +274,41 @@ public abstract class KeyOrder<TKey, TIdentity, TState>
             nextIsDescending: isDescending);
 
     /// <summary>
-    ///     This order, with its ties broken by a value projected from each item's immutable half
-    ///     alone.
+    ///     This order, with a second level for keys with equal sort values, by a value from the
+    ///     immutable part of each item only.
     /// </summary>
     /// <typeparam name="TSortKey">The type of the projected sort value.</typeparam>
     /// <param name="selector">Projects the next level's sort value from an identity.</param>
-    /// <returns>The refined order. This order is unchanged, and can still be used alone.</returns>
+    /// <returns>The refined order. This order does not change, and other code can use it alone.</returns>
     /// <remarks>
-    ///     The refined order is over the identity alone only if this order is too. One level that
-    ///     reads the state is enough for a state edit to move a key.
+    ///     The refined order uses the identity only when this order also uses the identity only.
+    ///     One level that reads the state is sufficient to let a state edit move a key.
     /// </remarks>
     public KeyOrder<TKey, TIdentity, TState> ThenByIdentity<TSortKey>(Func<TIdentity, TSortKey> selector) =>
         this.ThenByIdentity(selector: selector, sortComparer: Comparer<TSortKey>.Default, isDescending: false);
 
     /// <summary>
-    ///     This order, with its ties broken, descending, by a value projected from each item's
-    ///     immutable half alone.
+    ///     This order, with a second level for keys with equal sort values, descending, by a value
+    ///     from the immutable part of each item only.
     /// </summary>
     /// <typeparam name="TSortKey">The type of the projected sort value.</typeparam>
     /// <param name="selector">Projects the next level's sort value from an identity.</param>
-    /// <returns>The refined order. This order is unchanged, and can still be used alone.</returns>
+    /// <returns>The refined order. This order does not change, and other code can use it alone.</returns>
     public KeyOrder<TKey, TIdentity, TState> ThenByIdentityDescending<TSortKey>(Func<TIdentity, TSortKey> selector) =>
         this.ThenByIdentity(selector: selector, sortComparer: Comparer<TSortKey>.Default, isDescending: true);
 
     /// <summary>
-    ///     This order, with its ties broken by a value projected from each item's immutable half
-    ///     alone.
+    ///     This order, with a second level for keys with equal sort values, by a value from the
+    ///     immutable part of each item only.
     /// </summary>
     /// <typeparam name="TSortKey">The type of the projected sort value.</typeparam>
     /// <param name="selector">Projects the next level's sort value from an identity.</param>
     /// <param name="sortComparer">Compares two of the next level's sort values.</param>
-    /// <param name="isDescending">Whether this level runs in reverse, whichever way the levels above it run.</param>
-    /// <returns>The refined order. This order is unchanged, and can still be used alone.</returns>
+    /// <param name="isDescending">
+    ///     True when this level uses the opposite direction, at each direction of the levels above
+    ///     it.
+    /// </param>
+    /// <returns>The refined order. This order does not change, and other code can use it alone.</returns>
     public KeyOrder<TKey, TIdentity, TState> ThenByIdentity<TSortKey>(
         Func<TIdentity, TSortKey> selector,
         IComparer<TSortKey> sortComparer,
@@ -306,19 +320,20 @@ public abstract class KeyOrder<TKey, TIdentity, TState>
             nextIsDescending: isDescending);
 
     /// <summary>
-    ///     This order refined by one more level, which decides only between keys this order ranks
-    ///     equal.
+    ///     This order with one more level, and that level selects only between keys that this
+    ///     order ranks equal.
     /// </summary>
-    /// <param name="nextSelector">Projects the level's sort value from a whole item, or null.</param>
-    /// <param name="nextIdentitySelector">Projects it from the key and identity alone, or null.</param>
-    /// <param name="nextComparer">Compares two of the level's sort values.</param>
-    /// <param name="nextIsDescending">Whether the level runs in reverse.</param>
+    /// <param name="nextSelector">Makes the sort value of the level from a full item, or null.</param>
+    /// <param name="nextIdentitySelector">Makes it from the key and the identity only, or null.</param>
+    /// <param name="nextComparer">Compares two sort values of the level.</param>
+    /// <param name="nextIsDescending">True when the level uses the opposite direction.</param>
     /// <returns>The refined order.</returns>
     /// <remarks>
-    ///     Exactly one selector is set, for the reason the orders themselves keep one: a level built over
-    ///     the identity is never handed the state, so the combined order can say truthfully whether a
-    ///     state edit can move a key. Internal and generic because only the implementation knows its own
-    ///     sort value type, and a level has to be paired with that type to be compared without boxing.
+    ///     One of the two selectors has a value, for the cause that applies to an order. A level
+    ///     on the identity never receives the state, thus the combined order can give a correct
+    ///     answer for a state edit that moves a key. This method is internal and generic, because
+    ///     only the implementation knows its own sort value type, and a level needs that type for a
+    ///     compare operation with no boxing.
     /// </remarks>
     internal abstract KeyOrder<TKey, TIdentity, TState> Then<TNext>(
         Func<TKey, TIdentity, TState, TNext>? nextSelector,
@@ -327,25 +342,27 @@ public abstract class KeyOrder<TKey, TIdentity, TState>
         bool nextIsDescending);
 
     /// <summary>
-    ///     A key set holding <paramref name="keys" />, ordered the way this order orders them.
+    ///     A key set that holds <paramref name="keys" />, in this order.
     /// </summary>
-    /// <param name="keys">The keys to file. Any the snapshot does not have are skipped.</param>
-    /// <param name="snapshot">The collection to project each key's sort value from.</param>
+    /// <param name="keys">The keys to add. This code omits a key that the snapshot does not have.</param>
+    /// <param name="snapshot">The collection that gives the sort value of each key.</param>
     /// <returns>The set.</returns>
     /// <remarks>
-    ///     This is also what lets a filter preserve its upstream collection's order without knowing what that
-    ///     order sorts by: it asks the upstream's set for its order and gets back a set that
-    ///     compares exactly the same way, holding whichever of its members it chose to keep.
-    ///     Bulk rather than a sequence of <see cref="OrderedKeys{TKey,TIdentity,TState}.Add" /> calls,
-    ///     and that is the whole reason it exists. Filing n keys one at a time means n persistent
-    ///     writes, each copying its path through the tree and allocating a wrapper, which is what a
-    ///     stage rebuild used to cost. Building through a builder writes into unfrozen nodes and
-    ///     freezes once: two and a half times quicker and a thirteenth of the allocation, measured
-    ///     on the criteria change in <c>KeyedCollectionViewBenchmarks</c>.
-    ///     It does not make a rebuild cheap, and nothing here could. Building a persistent tree
-    ///     costs an allocation per node where re-deriving the same view with LINQ sorts an array
-    ///     for none, so a criteria change stays several times dearer than not having a chain -
-    ///     which is the thing the documentation tells people to debounce for.
+    ///     This also lets a filter keep the order of its upstream collection and not know the sort
+    ///     value of that order. The filter reads the order from the set of the upstream, and gets a
+    ///     set that compares in the same manner and holds the members that the filter keeps.
+    ///     This method operates on all keys together and does not call
+    ///     <see cref="OrderedKeys{TKey,TIdentity,TState}.Add" /> for each key, and that is its
+    ///     purpose. One key at a time is n immutable writes, and each write copies its path
+    ///     through the tree and allocates a wrapper. A stage build had that cost. A build through a
+    ///     builder writes into nodes that are not frozen and freezes them one time. That is two
+    ///     and one half times faster, with one thirteenth of the allocation, on the criteria change
+    ///     in <c>KeyedCollectionViewBenchmarks</c>.
+    ///     A build stays expensive, and no code here can change that. A build of an immutable tree
+    ///     costs one allocation for each node, and the same view from LINQ sorts an array with
+    ///     no allocation. Thus a change of criteria stays some times more expensive than the same
+    ///     result with no chain, and the documentation tells a reader to add a Calm stage for
+    ///     it.
     /// </remarks>
     internal abstract OrderedKeys<TKey, TIdentity, TState> CreateFrom(
         IEnumerable<TKey> keys,
