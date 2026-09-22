@@ -103,7 +103,15 @@ public class AsyncMapStatus : IDisposable
     ///     nothing.
     /// </summary>
     // ReSharper disable once InheritdocConsiderUsage
-    public void Dispose() => this.dispose();
+    public void Dispose()
+    {
+        this.dispose();
+
+        // This type has no finalizer, but it is a base class, thus a subclass can add one. The
+        // call makes a disposal here sufficient for such a subclass. CA1816 asks for it on each
+        // IDisposable type that other types can extend.
+        GC.SuppressFinalize(this);
+    }
 }
 
 /// <summary>
@@ -1483,7 +1491,7 @@ internal sealed class AsyncMapExecutionManager<TInput, TResult, TStrategyInput, 
     }
 
     /// <summary>
-    ///     Stops this pipeline. See <see cref="AsyncMapStatus{TInput}.Dispose" /> for the full
+    ///     Stops this pipeline. See <see cref="AsyncMapStatus.Dispose" /> for the full
     ///     contract. The cancelOnDispose value at Attach sets the cancellation of the tracked
     ///     items, and this method has no parameter for it, because IDisposable.Dispose() is the
     ///     only public path to a disposal. <see cref="disposeState" /> makes this method run one
