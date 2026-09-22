@@ -27,6 +27,14 @@ stream in place of a result.
 A lambda takes the third parameter and compiles. A stored Func does not convert
 to the delegate and needs its own edit.
 
+BREAKING: a custom strategy takes one more argument in Admit and in
+OnCompleted, the queue of the pipeline: each item that it tracks, Queued or
+Running, in the sequence of their admissions, with the status of each one. A
+strategy that schedules on that sequence alone keeps no queue of its own. In
+Admit the list does not hold the value that the pipeline admits now, and in
+OnCompleted it still holds the item that ends now. A call of MapAsync with a
+strategy from this library needs no edit for this.
+
 BREAKING: MapAsync has three overloads, where it had nine. The six that are gone
 each named a result type for the strategy, and a strategy no longer reads a
 result: OnCompleted takes an AsyncCompletion, which says that the operation

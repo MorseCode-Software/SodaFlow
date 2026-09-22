@@ -67,6 +67,22 @@ exception), or a cancellation stopped it — and never the result itself. That i
 pipeline build a result only for an item it is going to publish; see below. If you want to decide
 what to publish by looking at a value, filter the `results` stream downstream instead.
 
+Both callbacks are also handed the pipeline's queue: every item it tracks, `Queued` or `Running`,
+in admission order, as `IReadOnlyList<AsyncTrackedItem<TInput>>`. Each entry carries the
+`AsyncQueuedItem` the strategy was given at admission — the same instance, so `ReferenceEquals`
+works and `Cancel()` on it cancels that item — plus its current status. A strategy that schedules
+on order alone needs no queue in its own state.
+
+Two boundaries worth knowing, because they decide what "next" means:
+
+- In `Admit`, the list does **not** include the value being admitted; the pipeline adds it after
+  the call.
+- In `OnCompleted`, the list **still** includes the item that just ended, so skip it when picking
+  what to start next.
+
+It is a snapshot taken at the start of the transaction, so it does not change while your callback
+runs, and an item your decision promotes still reads as `Queued` in it.
+
 ## Cancellation and status
 
 `MapAsync` takes two optional cancellation streams: `cancelAll`, where any firing cancels

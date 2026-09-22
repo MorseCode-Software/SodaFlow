@@ -1,4 +1,5 @@
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using System.Runtime.ExceptionServices;
@@ -332,6 +333,36 @@ public abstract class AsyncMapBase
     }
 
     /// <summary>
+    ///     One item that a MapAsync pipeline tracks now, with its status. A strategy reads a list
+    ///     of these for the queue of the pipeline. See
+    ///     <see cref="AsyncConcurrencyStrategy{TInput,TState}.Admit" /> and
+    ///     <see cref="AsyncConcurrencyStrategy{TInput,TState}.OnCompleted" />.
+    /// </summary>
+    /// <typeparam name="TInput">The input type of the strategy.</typeparam>
+    [PublicAPI]
+    protected internal sealed class AsyncTrackedItem<TInput>
+    {
+        internal AsyncTrackedItem(AsyncQueuedItem<TInput> item, AsyncItemStatus status)
+        {
+            this.Item = item;
+            this.Status = status;
+        }
+
+        /// <summary>
+        ///     The item, as the strategy received it at its admission. It is the same instance,
+        ///     thus ReferenceEquals recognizes it, Id recognizes it, and Cancel on it cancels this
+        ///     item.
+        /// </summary>
+        public AsyncQueuedItem<TInput> Item { get; }
+
+        /// <summary>The status of this item now: Queued, or Running.</summary>
+        public AsyncItemStatus Status { get; }
+
+        internal AsyncTrackedItem<TInput> WithStatus(AsyncItemStatus status) =>
+            new(item: this.Item, status: status);
+    }
+
+    /// <summary>
     ///     How an item ended, which is what a strategy reads. It carries no result value: the
     ///     pipeline makes the result of a MapAsync operation after the strategy decides, and only
     ///     for an item that it publishes. See <see cref="ResultFactory{TResult}.Construct" />. A
@@ -609,14 +640,19 @@ public abstract class AsyncMapBase
         ///     <see cref="AsyncConcurrencyStrategy{TInput,TState}.Admit" /> with the state
         ///     in the closure.
         /// </summary>
-        IReadOnlyList<AsyncToStart<TInput>> Admit(AsyncQueuedItem<TInput> incoming);
+        IReadOnlyList<AsyncToStart<TInput>> Admit(
+            AsyncQueuedItem<TInput> incoming,
+            IReadOnlyList<AsyncTrackedItem<TInput>> tracked);
 
         /// <summary>
         ///     Sends the call to
         ///     <see cref="AsyncConcurrencyStrategy{TInput,TState}.OnCompleted" /> with the
         ///     state in the closure.
         /// </summary>
-        AsyncStrategyResult<TInput> OnCompleted(AsyncQueuedItem<TInput> item, AsyncCompletion completion);
+        AsyncStrategyResult<TInput> OnCompleted(
+            AsyncQueuedItem<TInput> item,
+            AsyncCompletion completion,
+            IReadOnlyList<AsyncTrackedItem<TInput>> tracked);
     }
 
     /// <summary>
@@ -639,13 +675,20 @@ public abstract class AsyncMapBase
             this.state = state;
         }
 
-        public IReadOnlyList<AsyncToStart<TInput>> Admit(AsyncQueuedItem<TInput> incoming) =>
-            this.strategy.Admit(state: this.state, incoming: incoming);
+        public IReadOnlyList<AsyncToStart<TInput>> Admit(
+            AsyncQueuedItem<TInput> incoming,
+            IReadOnlyList<AsyncTrackedItem<TInput>> tracked) =>
+            this.strategy.Admit(state: this.state, incoming: incoming, tracked: tracked);
 
         public AsyncStrategyResult<TInput> OnCompleted(
             AsyncQueuedItem<TInput> item,
-            AsyncCompletion completion) =>
-            this.strategy.OnCompleted(state: this.state, item: item, completion: completion);
+            AsyncCompletion completion,
+            IReadOnlyList<AsyncTrackedItem<TInput>> tracked) =>
+            this.strategy.OnCompleted(
+                state: this.state,
+                item: item,
+                completion: completion,
+                tracked: tracked);
     }
 }
 
@@ -886,11 +929,22 @@ public abstract class AsyncConcurrencyStrategy<TInput, TState>
     ///     Queued status. To start a Queued item after this, keep <paramref name="incoming" /> in
     ///     <paramref name="state" />, and not only its Value. That keeps its identity and its
     ///     cancellation during the wait, and it is the value that <see cref="OnCompleted" /> gives
-    ///     back.
+    ///     back. <paramref name="tracked" /> gives the same items, thus a strategy that reads only
+    ///     the queue of the pipeline can keep no queue of its own.
     /// </summary>
+    /// <param name="state">The scheduling state of this MapAsync call.</param>
+    /// <param name="incoming">The value that the pipeline admits now.</param>
+    /// <param name="tracked">
+    ///     Each item that the pipeline tracks, Queued or Running, in the sequence of their
+    ///     admissions. It does not hold <paramref name="incoming" />, which the pipeline adds
+    ///     after this call. It is a snapshot from the start of this transaction: each item that a
+    ///     previous transaction admitted is in it, with the status it had at that moment, and this
+    ///     list does not change while this method runs.
+    /// </param>
     protected internal abstract IReadOnlyList<AsyncToStart<TInput>> Admit(
         TState state,
-        AsyncQueuedItem<TInput> incoming);
+        AsyncQueuedItem<TInput> incoming,
+        IReadOnlyList<AsyncTrackedItem<TInput>> tracked);
 
     /// <summary>
     ///     Gives two answers for the outcome of an item at its end: if the pipeline publishes
@@ -908,10 +962,21 @@ public abstract class AsyncConcurrencyStrategy<TInput, TState>
     ///     replaces its own previous run, or a Queued item that a cancellation removes before its
     ///     turn.
     /// </summary>
+    /// <param name="state">The scheduling state of this MapAsync call.</param>
+    /// <param name="item">The item that ends now.</param>
+    /// <param name="completion">How the operation of that item ended.</param>
+    /// <param name="tracked">
+    ///     Each item that the pipeline tracks, Queued or Running, in the sequence of their
+    ///     admissions. It continues to hold <paramref name="item" />, which the pipeline removes
+    ///     after this call, thus a strategy that selects the next item must not select that one. It
+    ///     is a snapshot from the start of this transaction: an item that this decision starts is
+    ///     Queued in it, and not Running.
+    /// </param>
     protected internal abstract AsyncStrategyResult<TInput> OnCompleted(
         TState state,
         AsyncQueuedItem<TInput> item,
-        AsyncCompletion completion);
+        AsyncCompletion completion,
+        IReadOnlyList<AsyncTrackedItem<TInput>> tracked);
 }
 
 /// <summary>
@@ -1015,13 +1080,15 @@ internal static class AsyncConcurrencyStrategyFactory
 
         protected internal override IReadOnlyList<AsyncToStart<TUnit>> Admit(
             TUnit state,
-            AsyncQueuedItem<TUnit> incoming) =>
+            AsyncQueuedItem<TUnit> incoming,
+            IReadOnlyList<AsyncTrackedItem<TUnit>> tracked) =>
             new[] { new AsyncToStart<TUnit>(incoming) };
 
         protected internal override AsyncStrategyResult<TUnit> OnCompleted(
             TUnit state,
             AsyncQueuedItem<TUnit> item,
-            AsyncCompletion completion) =>
+            AsyncCompletion completion,
+            IReadOnlyList<AsyncTrackedItem<TUnit>> tracked) =>
             new(publish: true, next: AsyncStrategyResult<TUnit>.None);
     }
 
@@ -1038,7 +1105,8 @@ internal static class AsyncConcurrencyStrategyFactory
 
         protected internal override IReadOnlyList<AsyncToStart<TUnit>> Admit(
             State state,
-            AsyncQueuedItem<TUnit> incoming)
+            AsyncQueuedItem<TUnit> incoming,
+            IReadOnlyList<AsyncTrackedItem<TUnit>> tracked)
         {
             if (state.Busy)
             {
@@ -1057,7 +1125,8 @@ internal static class AsyncConcurrencyStrategyFactory
         protected internal override AsyncStrategyResult<TUnit> OnCompleted(
             State state,
             AsyncQueuedItem<TUnit> item,
-            AsyncCompletion completion)
+            AsyncCompletion completion,
+            IReadOnlyList<AsyncTrackedItem<TUnit>> tracked)
         {
             if (state.Pending.Count > 0)
             {
@@ -1107,7 +1176,8 @@ internal static class AsyncConcurrencyStrategyFactory
 
         protected internal override IReadOnlyList<AsyncToStart<TInput>> Admit(
             State state,
-            AsyncQueuedItem<TInput> incoming)
+            AsyncQueuedItem<TInput> incoming,
+            IReadOnlyList<AsyncTrackedItem<TInput>> tracked)
         {
             TGroup group = this.getGroup(incoming.Value);
 
@@ -1136,7 +1206,8 @@ internal static class AsyncConcurrencyStrategyFactory
         protected internal override AsyncStrategyResult<TInput> OnCompleted(
             State state,
             AsyncQueuedItem<TInput> item,
-            AsyncCompletion completion)
+            AsyncCompletion completion,
+            IReadOnlyList<AsyncTrackedItem<TInput>> tracked)
         {
             TGroup group = this.getGroup(item.Value);
 
@@ -1193,7 +1264,8 @@ internal static class AsyncConcurrencyStrategyFactory
 
         protected internal override IReadOnlyList<AsyncToStart<TUnit>> Admit(
             State state,
-            AsyncQueuedItem<TUnit> incoming)
+            AsyncQueuedItem<TUnit> incoming,
+            IReadOnlyList<AsyncTrackedItem<TUnit>> tracked)
         {
             // This cancels the item that the new item replaces, through the cancellation of that
             // item. This code makes no second CancellationTokenSource, and holds and disposes
@@ -1207,7 +1279,8 @@ internal static class AsyncConcurrencyStrategyFactory
         protected internal override AsyncStrategyResult<TUnit> OnCompleted(
             State state,
             AsyncQueuedItem<TUnit> item,
-            AsyncCompletion completion)
+            AsyncCompletion completion,
+            IReadOnlyList<AsyncTrackedItem<TUnit>> tracked)
         {
             // Publish only when no newer run replaced this run.
             bool isCurrent = state.Active != null && state.Active.Id == item.Id;
@@ -1357,6 +1430,7 @@ internal sealed class AsyncMapExecutionManager<TInput, TResult, TStrategyInput> 
             TransactionInternal.Apply((trans, _) =>
             {
                 LoopedCell<Dictionary<Guid, Entry>> entryByIdCellLoop = new();
+                LoopedCell<Entry[]> trackedCellLoop = new();
 
                 // Map runs as usual transaction code and is not a registered listener callback.
                 // Thus, the SodaFlow rule against Send in a callback does not apply to it, and
@@ -1369,8 +1443,8 @@ internal sealed class AsyncMapExecutionManager<TInput, TResult, TStrategyInput> 
                 Stream<Mutation> starts =
                     source
                         .SnapshotImpl(
-                            c: entryByIdCellLoop,
-                            f: static (value, entryById) => (Value: value, EntryById: entryById))
+                            c: trackedCellLoop,
+                            f: static (value, tracked) => (Value: value, Tracked: tracked))
                         .MapImpl(o =>
                         {
                             if (this.disposed)
@@ -1398,11 +1472,18 @@ internal sealed class AsyncMapExecutionManager<TInput, TResult, TStrategyInput> 
                                         value: o.Value,
                                         id: newEntryId,
                                         cancellation: cancellation),
-                                    status: AsyncItemStatus.Queued,
+                                    tracked: new AsyncTrackedItem<TStrategyInput>(
+                                        item: incoming,
+                                        status: AsyncItemStatus.Queued),
                                     value: o.Value);
 
+                            // The queue that the strategy reads holds what the pipeline tracked at
+                            // the start of this transaction, thus it does not hold `incoming`. The
+                            // mutation below is what adds that one.
                             IReadOnlyList<AsyncToStart<TStrategyInput>> toStart =
-                                this.stateManager.Admit(incoming: incoming);
+                                this.stateManager.Admit(
+                                    incoming: incoming,
+                                    tracked: new TrackedItems(o.Tracked));
 
                             Guid[] promote = new Guid[toStart.Count];
 
@@ -1416,19 +1497,25 @@ internal sealed class AsyncMapExecutionManager<TInput, TResult, TStrategyInput> 
                                 {
                                     value = o.Value;
                                 }
-                                else if (o.EntryById.TryGetValue(key: promote[i], value: out Entry? entry))
-                                {
-                                    value = entry.Value;
-                                }
                                 else
                                 {
-                                    throw new InvalidOperationException("Could not find item to start.");
+                                    Guid idToStart = promote[i];
+
+                                    Entry? entry = Array.Find(array: o.Tracked, match: e => e.Item.Id == idToStart);
+
+                                    if (entry is null)
+                                    {
+                                        throw new InvalidOperationException("Could not find item to start.");
+                                    }
+
+                                    value = entry.Value;
                                 }
 
                                 this.PromoteAndLaunch(
                                     toStart: toStart[i],
                                     value: value,
-                                    entryByIdCell: entryByIdCellLoop);
+                                    entryByIdCell: entryByIdCellLoop,
+                                    trackedCell: trackedCellLoop);
                             }
 
                             return new Mutation(
@@ -1448,6 +1535,7 @@ internal sealed class AsyncMapExecutionManager<TInput, TResult, TStrategyInput> 
                     trackedCell.MapImpl(static tracked => tracked.ToDictionary(static e => e.Item.Id));
 
                 entryByIdCellLoop.Loop(trans: trans, c: entryByIdCell);
+                trackedCellLoop.Loop(trans: trans, c: trackedCell);
 
                 return trackedCell;
             });
@@ -1704,7 +1792,8 @@ internal sealed class AsyncMapExecutionManager<TInput, TResult, TStrategyInput> 
     private void PromoteAndLaunch(
         AsyncToStart<TStrategyInput> toStart,
         TInput value,
-        Cell<Dictionary<Guid, Entry>> entryByIdCell)
+        Cell<Dictionary<Guid, Entry>> entryByIdCell,
+        Cell<Entry[]> trackedCell)
     {
         if (toStart.Item.Cancellation.IsCancellationRequested)
         {
@@ -1723,6 +1812,7 @@ internal sealed class AsyncMapExecutionManager<TInput, TResult, TStrategyInput> 
                     item: toStart.Item,
                     pending: AsyncOutcome<MapAsyncResult<TResult>>.Canceled(),
                     entryByIdCell: entryByIdCell,
+                    trackedCell: trackedCell,
                     tokenToCheck: null));
 
             return;
@@ -1734,13 +1824,19 @@ internal sealed class AsyncMapExecutionManager<TInput, TResult, TStrategyInput> 
         // a usual async Task method. FireAndForget is the one position where this code does not
         // await its Task, and that is explicit and not a discard in an async void method.
         TransactionInternal.PostImpl(() =>
-            FireAndForget(this.StartOperation(toStart: toStart, value: value, entryByIdCell: entryByIdCell)));
+            FireAndForget(
+                this.StartOperation(
+                    toStart: toStart,
+                    value: value,
+                    entryByIdCell: entryByIdCell,
+                    trackedCell: trackedCell)));
     }
 
     private async Task StartOperation(
         AsyncToStart<TStrategyInput> toStart,
         TInput value,
-        Cell<Dictionary<Guid, Entry>> entryByIdCell)
+        Cell<Dictionary<Guid, Entry>> entryByIdCell,
+        Cell<Entry[]> trackedCell)
     {
         // The operation monitors the token of the strategy, when there is one, such as an
         // external timeout, and also the cancellation of this item. The two are linked.
@@ -1769,6 +1865,7 @@ internal sealed class AsyncMapExecutionManager<TInput, TResult, TStrategyInput> 
                 item: toStart.Item,
                 pending: AsyncOutcome<MapAsyncResult<TResult>>.Succeeded(operationResult),
                 entryByIdCell: entryByIdCell,
+                trackedCell: trackedCell,
                 tokenToCheck: linked.Token);
         }
         catch (OperationCanceledException) when (linked.IsCancellationRequested)
@@ -1777,6 +1874,7 @@ internal sealed class AsyncMapExecutionManager<TInput, TResult, TStrategyInput> 
                 item: toStart.Item,
                 pending: AsyncOutcome<MapAsyncResult<TResult>>.Canceled(),
                 entryByIdCell: entryByIdCell,
+                trackedCell: trackedCell,
                 tokenToCheck: null);
         }
         catch (Exception ex)
@@ -1785,6 +1883,7 @@ internal sealed class AsyncMapExecutionManager<TInput, TResult, TStrategyInput> 
                 item: toStart.Item,
                 pending: AsyncOutcome<MapAsyncResult<TResult>>.Failed(ex),
                 entryByIdCell: entryByIdCell,
+                trackedCell: trackedCell,
                 tokenToCheck: linked.Token);
         }
         finally
@@ -1812,6 +1911,7 @@ internal sealed class AsyncMapExecutionManager<TInput, TResult, TStrategyInput> 
         AsyncQueuedItem<TStrategyInput> item,
         AsyncOutcome<MapAsyncResult<TResult>> pending,
         Cell<Dictionary<Guid, Entry>> entryByIdCell,
+        Cell<Entry[]> trackedCell,
         CancellationToken? tokenToCheck) =>
         TransactionInternal.RunImpl(() =>
         {
@@ -1831,7 +1931,11 @@ internal sealed class AsyncMapExecutionManager<TInput, TResult, TStrategyInput> 
                     completion: outcome.Match(
                         onSucceeded: static _ => AsyncCompletion.Succeeded(),
                         onFailed: AsyncCompletion.Failed,
-                        onCanceled: AsyncCompletion.Canceled));
+                        onCanceled: AsyncCompletion.Canceled),
+
+                    // This item remains in the queue here. The mutation at the end of this method
+                    // is what removes it.
+                    tracked: new TrackedItems(trackedCell.SampleImpl()));
 
             if (decision.Publish)
             {
@@ -1879,7 +1983,8 @@ internal sealed class AsyncMapExecutionManager<TInput, TResult, TStrategyInput> 
                 this.PromoteAndLaunch(
                     toStart: decision.Next[i],
                     value: values[i],
-                    entryByIdCell: entryByIdCell);
+                    entryByIdCell: entryByIdCell,
+                    trackedCell: trackedCell);
             }
 
             return UnitInternal.Value;
@@ -1929,20 +2034,48 @@ internal sealed class AsyncMapExecutionManager<TInput, TResult, TStrategyInput> 
 
     private sealed class Entry
     {
-        public Entry(TInput value, AsyncQueuedItem<TInput> item, AsyncItemStatus status)
+        public Entry(TInput value, AsyncQueuedItem<TInput> item, AsyncTrackedItem<TStrategyInput> tracked)
         {
             this.Value = value;
             this.Item = item;
-            this.Status = status;
+            this.Tracked = tracked;
         }
 
         public TInput Value { get; }
 
         public AsyncQueuedItem<TInput> Item { get; }
 
-        public AsyncItemStatus Status { get; }
+        // The same item in the types of the strategy, with its status. This is what the queue
+        // that Admit and OnCompleted read is made of, and the status lives here alone.
+        public AsyncTrackedItem<TStrategyInput> Tracked { get; }
 
-        public Entry WithStatus(AsyncItemStatus status) => new(value: this.Value, item: this.Item, status: status);
+        public AsyncItemStatus Status => this.Tracked.Status;
+
+        public Entry WithStatus(AsyncItemStatus status) =>
+            new(value: this.Value, item: this.Item, tracked: this.Tracked.WithStatus(status));
+    }
+
+    /// <summary>
+    ///     The queue of the pipeline, as a strategy reads it. It holds the array that the tracked
+    ///     cell has now and takes the item of each entry, thus a call of Admit or OnCompleted
+    ///     copies no list. The array is immutable after the transaction that made it, which is
+    ///     what makes this safe to give away.
+    /// </summary>
+    // ReSharper disable once InheritdocConsiderUsage
+    private sealed class TrackedItems : IReadOnlyList<AsyncTrackedItem<TStrategyInput>>
+    {
+        private readonly Entry[] entries;
+
+        public TrackedItems(Entry[] entries) => this.entries = entries;
+
+        public int Count => this.entries.Length;
+
+        public AsyncTrackedItem<TStrategyInput> this[int index] => this.entries[index].Tracked;
+
+        public IEnumerator<AsyncTrackedItem<TStrategyInput>> GetEnumerator() =>
+            this.entries.Select(static entry => entry.Tracked).GetEnumerator();
+
+        IEnumerator IEnumerable.GetEnumerator() => this.GetEnumerator();
     }
 
     private sealed class Mutation
@@ -2018,11 +2151,16 @@ strategy instance safe to reuse across multiple MapAsync calls without their sch
 bleeding into each other. The one thing you can do imperatively is item.Cancel(), to cancel an
 item you're managing (queued or running); it still completes normally through OnCompleted as
 AsyncCompletion.Canceled, so you can chain from there. Every value you don't immediately start stays
-tracked as Queued automatically; hold onto its AsyncQueuedItem (not just its Value) in TState if
-you intend to promote it later or recognize it again in OnCompleted — AsyncQueuedItem is a
-sealed class you can't construct, and you're always handed back the very instance you were
-given, so ReferenceEquals — or comparing Id, as the built-in SwitchLatest strategy does — is
-enough for "is this still current?" checks, with no separate handle needed. A strategy that
+tracked as Queued automatically, and both Admit and OnCompleted are handed the whole queue —
+every item the pipeline tracks, Queued or Running, in admission order — so a strategy that
+schedules purely on that order doesn't have to keep a queue of its own in TState at all. Keep an
+AsyncQueuedItem (not just its Value) in TState when you want to recognize a particular item later
+rather than scan for it: AsyncQueuedItem is a sealed class you can't construct, and you're always
+handed back the very instance you were given, so ReferenceEquals — or comparing Id, as the
+built-in SwitchLatest strategy does — is enough for "is this still current?" checks, with no
+separate handle needed. Two details about that list: in Admit it does not contain the value being
+admitted, and in OnCompleted it still contains the item that just ended, so a strategy picking
+"the next one" has to skip it. A strategy that
 neither starts nor remembers an incoming value leaves it
 permanently Queued — if you want a "reject outright" behavior, promote it immediately and have
 your own logic complete it right away instead.

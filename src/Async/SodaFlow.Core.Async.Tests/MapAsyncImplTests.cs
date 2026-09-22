@@ -414,7 +414,8 @@ public sealed class MapAsyncImplTests
 
         protected internal override IReadOnlyList<AsyncToStart<TStrategyInput>> Admit(
             object? state,
-            AsyncQueuedItem<TStrategyInput> incoming)
+            AsyncQueuedItem<TStrategyInput> incoming,
+            IReadOnlyList<AsyncTrackedItem<TStrategyInput>> tracked)
         {
             this.admittedValues.Add(incoming.Value);
 
@@ -424,7 +425,8 @@ public sealed class MapAsyncImplTests
         protected internal override AsyncStrategyResult<TStrategyInput> OnCompleted(
             object? state,
             AsyncQueuedItem<TStrategyInput> item,
-            AsyncCompletion completion) =>
+            AsyncCompletion completion,
+            IReadOnlyList<AsyncTrackedItem<TStrategyInput>> tracked) =>
             new(publish: true, next: AsyncStrategyResult<TStrategyInput>.None);
     }
 
@@ -442,7 +444,8 @@ public sealed class MapAsyncImplTests
 
         protected internal override IReadOnlyList<AsyncToStart<int>> Admit(
             object? state,
-            AsyncQueuedItem<int> incoming)
+            AsyncQueuedItem<int> incoming,
+            IReadOnlyList<AsyncTrackedItem<int>> tracked)
         {
             if (incoming.Value < 0)
             {
@@ -456,7 +459,8 @@ public sealed class MapAsyncImplTests
         protected internal override AsyncStrategyResult<int> OnCompleted(
             object? state,
             AsyncQueuedItem<int> item,
-            AsyncCompletion completion) =>
+            AsyncCompletion completion,
+            IReadOnlyList<AsyncTrackedItem<int>> tracked) =>
             new(publish: true, next: AsyncStrategyResult<int>.None);
     }
 
@@ -476,7 +480,8 @@ public sealed class MapAsyncImplTests
 
         protected internal override IReadOnlyList<AsyncToStart<int>> Admit(
             object? state,
-            AsyncQueuedItem<int> incoming)
+            AsyncQueuedItem<int> incoming,
+            IReadOnlyList<AsyncTrackedItem<int>> tracked)
         {
             incoming.Cancel();
             return [new AsyncToStart<int>(incoming)];
@@ -485,7 +490,8 @@ public sealed class MapAsyncImplTests
         protected internal override AsyncStrategyResult<int> OnCompleted(
             object? state,
             AsyncQueuedItem<int> item,
-            AsyncCompletion completion) =>
+            AsyncCompletion completion,
+            IReadOnlyList<AsyncTrackedItem<int>> tracked) =>
             new(publish: true, next: AsyncStrategyResult<int>.None);
     }
 }

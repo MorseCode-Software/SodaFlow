@@ -50,7 +50,12 @@ type private AlwaysStartStrategy<'TStrategyInput>() =
 
     override _.CreateState() = EmptyState
 
-    override _.Admit(_state: EmptyState, incoming: AsyncMapBase.AsyncQueuedItem<'TStrategyInput>) =
+    override _.Admit
+        (
+            _state: EmptyState,
+            incoming: AsyncMapBase.AsyncQueuedItem<'TStrategyInput>,
+            _tracked: IReadOnlyList<AsyncMapBase.AsyncTrackedItem<'TStrategyInput>>
+        ) =
         // A closure cannot read the members of the protected-internal item. Read the value into a
         // local first, and then use that local in the closure.
         let v = incoming.Value
@@ -62,7 +67,8 @@ type private AlwaysStartStrategy<'TStrategyInput>() =
         (
             _state: EmptyState,
             _item: AsyncMapBase.AsyncQueuedItem<'TStrategyInput>,
-            completion: AsyncMapBase.AsyncCompletion
+            completion: AsyncMapBase.AsyncCompletion,
+            _tracked: IReadOnlyList<AsyncMapBase.AsyncTrackedItem<'TStrategyInput>>
         ) =
         let mutable ended = ""
 
@@ -88,14 +94,23 @@ type private CountingStrategy() =
 
     override _.CreateState() = EmptyState
 
-    override _.Admit(_state: EmptyState, incoming: AsyncMapBase.AsyncQueuedItem<unit>) =
+    override _.Admit
+        (
+            _state: EmptyState,
+            incoming: AsyncMapBase.AsyncQueuedItem<unit>,
+            _tracked: IReadOnlyList<AsyncMapBase.AsyncTrackedItem<unit>>
+        ) =
         count <- count + 1
         let toStart = AsyncMapBase.AsyncToStart<unit>(incoming)
         [| toStart |] :> IReadOnlyList<_>
 
     override _.OnCompleted
-        (_state: EmptyState, _item: AsyncMapBase.AsyncQueuedItem<unit>, _completion: AsyncMapBase.AsyncCompletion)
-        =
+        (
+            _state: EmptyState,
+            _item: AsyncMapBase.AsyncQueuedItem<unit>,
+            _completion: AsyncMapBase.AsyncCompletion,
+            _tracked: IReadOnlyList<AsyncMapBase.AsyncTrackedItem<unit>>
+        ) =
         AsyncMapBase.AsyncStrategyResult<unit>(true, AsyncMapBase.AsyncStrategyResult<unit>.None)
 
 type ``MapAsync Tests``() =

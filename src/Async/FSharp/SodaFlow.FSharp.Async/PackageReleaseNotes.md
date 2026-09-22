@@ -22,6 +22,14 @@ matters outside the value it returns: the pipeline calls it only for an item
 that it publishes. A throw from it goes to the errors stream in place of a
 result.
 
+BREAKING: a custom strategy takes one more argument in Admit and in
+OnCompleted, the queue of the pipeline: each item that it tracks, Queued or
+Running, in the sequence of their admissions, with the status of each one. A
+strategy that schedules on that sequence alone keeps no queue of its own. In
+Admit the list does not hold the value that the pipeline admits now, and in
+OnCompleted it still holds the item that ends now. A call of MapAsync with a
+strategy from this library needs no edit for this.
+
 BREAKING: mapAsyncWithResultConverter and mapAsyncWithConverters are gone, and
 mapAsync and mapAsyncWithInputConverter stay. A strategy no longer reads a
 result: OnCompleted takes an AsyncCompletion, which says that the operation

@@ -22,6 +22,21 @@ publish. A throw from it goes to the errors stream in place of a result.
 A lambda takes the third parameter and compiles. A stored Func does not convert
 to the delegate and needs its own edit.
 
+BREAKING: Admit and OnCompleted take one more argument, the queue of the
+pipeline: each item that it tracks, Queued or Running, in the sequence of their
+admissions, as an IReadOnlyList<AsyncTrackedItem<TInput>>. An entry holds the
+AsyncQueuedItem that the strategy received at the admission, which is the same
+instance, and the status of that item now.
+
+A strategy that schedules on the sequence alone thus keeps no queue of its own.
+Two limits decide what the next item is: in Admit the list does not hold the
+value that the pipeline admits now, and in OnCompleted it still holds the item
+that ends now. It is a snapshot from the start of the transaction, thus it does
+not change while the call runs, and an item that the call starts is Queued in
+it.
+
+Each custom strategy takes the new parameter, also one that does not read it.
+
 BREAKING: a strategy no longer reads a result. OnCompleted takes an
 AsyncCompletion - the operation returned, it threw, with the exception, or a
 cancellation stopped it - in place of an AsyncOutcome<TStrategyResult>. The

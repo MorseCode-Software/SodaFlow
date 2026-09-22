@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using SodaFlow.Functional;
@@ -503,6 +504,83 @@ public sealed class MapAsyncExtensionsTests
         status.Dispose();
     }
 
+    [Test]
+    public async Task Admit_SeesTheQueueWithoutTheIncomingItem()
+    {
+        StreamSink<string> source = Stream.CreateSink<string>();
+        StreamSink<string> results = Stream.CreateSink<string>();
+        StreamSink<Exception> errors = Stream.CreateSink<Exception>();
+        ControlledOperation<string, string> op = new();
+        QueueFromTrackedStrategy strategy = new();
+
+        AsyncMapStatus status =
+            source.MapAsync(
+                results: results,
+                errors: errors,
+                operation: op.Operation,
+                strategy: strategy);
+
+        source.Send("a");
+        TestUtil.WaitUntil(() => op.HasStarted("a"));
+
+        source.Send("b");
+        TestUtil.WaitUntil(() => strategy.AdmitSaw.Count == 2);
+
+        source.Send("c");
+        TestUtil.WaitUntil(() => strategy.AdmitSaw.Count == 3);
+
+        // The first admission sees an empty pipeline. The second sees the first item Running,
+        // and no call sees the value that it is admitting.
+        await Assert.That(strategy.AdmitSaw)
+            .IsEquivalentTo(
+                expected: [string.Empty, "a:R", "a:R,b:Q"],
+                ordering: CollectionOrdering.Matching);
+
+        status.Dispose();
+    }
+
+    [Test]
+    public async Task OnCompleted_SeesTheQueueWithTheItemThatEnds()
+    {
+        StreamSink<string> source = Stream.CreateSink<string>();
+        StreamSink<string> results = Stream.CreateSink<string>();
+        StreamSink<Exception> errors = Stream.CreateSink<Exception>();
+        ControlledOperation<string, string> op = new();
+        QueueFromTrackedStrategy strategy = new();
+        List<string> received = [];
+        IListener l = results.ListenStrong(received.Add);
+
+        AsyncMapStatus status =
+            source.MapAsync(
+                results: results,
+                errors: errors,
+                operation: op.Operation,
+                strategy: strategy);
+
+        source.Send("a");
+        TestUtil.WaitUntil(() => op.HasStarted("a"));
+        source.Send("b");
+        TestUtil.WaitUntil(() => strategy.AdmitSaw.Count == 2);
+
+        // This strategy keeps no queue of its own. It takes the next item out of the list that
+        // the pipeline gives it, which is the point of the test.
+        op.Release(input: "a", result: "A");
+        TestUtil.WaitUntil(() => op.HasStarted("b"));
+
+        op.Release(input: "b", result: "B");
+        TestUtil.WaitUntil(() => received.Count == 2);
+
+        // The item that ended remains in the list, with the status it had.
+        await Assert.That(strategy.CompletedSaw)
+            .IsEquivalentTo(expected: ["a:R,b:Q", "b:R"], ordering: CollectionOrdering.Matching);
+
+        await Assert.That(received)
+            .IsEquivalentTo(expected: ["A", "B"], ordering: CollectionOrdering.Matching);
+
+        status.Dispose();
+        l.Unlisten();
+    }
+
     private class Animal;
 
     private sealed class Dog : Animal;
@@ -516,13 +594,17 @@ public sealed class MapAsyncExtensionsTests
 
         protected override Unit CreateState() => Unit.Value;
 
-        protected override IReadOnlyList<AsyncToStart<Unit>> Admit(Unit state, AsyncQueuedItem<Unit> incoming) =>
+        protected override IReadOnlyList<AsyncToStart<Unit>> Admit(
+            Unit state,
+            AsyncQueuedItem<Unit> incoming,
+            IReadOnlyList<AsyncTrackedItem<Unit>> tracked) =>
             [new(incoming)];
 
         protected override AsyncStrategyResult<Unit> OnCompleted(
             Unit state,
             AsyncQueuedItem<Unit> item,
-            AsyncCompletion completion)
+            AsyncCompletion completion,
+            IReadOnlyList<AsyncTrackedItem<Unit>> tracked)
         {
             lock (this.Completions)
             {
@@ -531,6 +613,66 @@ public sealed class MapAsyncExtensionsTests
 
             return new AsyncStrategyResult<Unit>(publish: false, next: AsyncStrategyResult<Unit>.None);
         }
+    }
+
+    /// <summary>
+    ///     Queues each item and starts one at a time, as the Queue strategy in the library does,
+    ///     but with no queue of its own: it reads the queue of the pipeline. It also records what
+    ///     that queue held at each call.
+    /// </summary>
+    // ReSharper disable once InheritdocConsiderUsage
+    private sealed class QueueFromTrackedStrategy : AsyncConcurrencyStrategy<string, Unit>
+    {
+        public readonly List<string> AdmitSaw = [];
+        public readonly List<string> CompletedSaw = [];
+
+        protected override Unit CreateState() => Unit.Value;
+
+        protected override IReadOnlyList<AsyncToStart<string>> Admit(
+            Unit state,
+            AsyncQueuedItem<string> incoming,
+            IReadOnlyList<AsyncTrackedItem<string>> tracked)
+        {
+            lock (this.AdmitSaw)
+            {
+                this.AdmitSaw.Add(Describe(tracked));
+            }
+
+            // Nothing runs when no tracked item has the Running status.
+            bool idle = tracked.All(static item => item.Status != AsyncItemStatus.Running);
+
+            return idle ? [new AsyncToStart<string>(incoming)] : [];
+        }
+
+        protected override AsyncStrategyResult<string> OnCompleted(
+            Unit state,
+            AsyncQueuedItem<string> item,
+            AsyncCompletion completion,
+            IReadOnlyList<AsyncTrackedItem<string>> tracked)
+        {
+            lock (this.CompletedSaw)
+            {
+                this.CompletedSaw.Add(Describe(tracked));
+            }
+
+            // The item that ends remains in the list, thus this selects the first Queued item
+            // that is a different one.
+            AsyncTrackedItem<string>? next =
+                tracked.FirstOrDefault(
+                    predicate: candidate =>
+                        candidate.Status == AsyncItemStatus.Queued
+                        && !ReferenceEquals(objA: candidate.Item, objB: item));
+
+            return new AsyncStrategyResult<string>(
+                publish: true,
+                next: next is null ? AsyncStrategyResult<string>.None : [new AsyncToStart<string>(next.Item)]);
+        }
+
+        private static string Describe(IEnumerable<AsyncTrackedItem<string>> tracked) =>
+            string.Join(
+                separator: ",",
+                values: tracked.Select(
+                    static e => e.Item.Value + ":" + (e.Status == AsyncItemStatus.Running ? "R" : "Q")));
     }
 
     /// <summary>
@@ -548,7 +690,8 @@ public sealed class MapAsyncExtensionsTests
 
         protected override IReadOnlyList<AsyncToStart<TStrategyInput>> Admit(
             Unit state,
-            AsyncQueuedItem<TStrategyInput> incoming)
+            AsyncQueuedItem<TStrategyInput> incoming,
+            IReadOnlyList<AsyncTrackedItem<TStrategyInput>> tracked)
         {
             lock (this.AdmittedValues)
             {
@@ -561,7 +704,8 @@ public sealed class MapAsyncExtensionsTests
         protected override AsyncStrategyResult<TStrategyInput> OnCompleted(
             Unit state,
             AsyncQueuedItem<TStrategyInput> item,
-            AsyncCompletion completion)
+            AsyncCompletion completion,
+            IReadOnlyList<AsyncTrackedItem<TStrategyInput>> tracked)
         {
             lock (this.Completions)
             {

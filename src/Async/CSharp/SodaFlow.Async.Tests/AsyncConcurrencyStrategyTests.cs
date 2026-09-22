@@ -261,7 +261,8 @@ public sealed class AsyncConcurrencyStrategyTests
 
         protected override IReadOnlyList<AsyncToStart<Unit>> Admit(
             int state,
-            AsyncQueuedItem<Unit> incoming)
+            AsyncQueuedItem<Unit> incoming,
+            IReadOnlyList<AsyncTrackedItem<Unit>> tracked)
         {
             Interlocked.Increment(ref this.count);
             return [new AsyncToStart<Unit>(incoming)];
@@ -270,7 +271,8 @@ public sealed class AsyncConcurrencyStrategyTests
         protected override AsyncStrategyResult<Unit> OnCompleted(
             int state,
             AsyncQueuedItem<Unit> item,
-            AsyncCompletion completion) =>
+            AsyncCompletion completion,
+            IReadOnlyList<AsyncTrackedItem<Unit>> tracked) =>
             new(publish: true, next: AsyncStrategyResult<Unit>.None);
     }
 }
