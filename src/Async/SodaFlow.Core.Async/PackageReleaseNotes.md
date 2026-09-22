@@ -1,3 +1,21 @@
+5.0.0
+
+BREAKING: AsyncMapStatus<TInput> is a class, where it was a readonly struct, and
+it now extends a new non-generic AsyncMapStatus that carries IsRunning and
+Dispose. Items stays on the generic type, because only that part depends on the
+input type.
+
+The point of the split is the caller that never reads Items. It can hold an
+AsyncMapStatus and does not have to name the input type to do it - a view model
+that shows a busy indicator and disposes the pipeline is the usual case.
+
+Source that names AsyncMapStatus<TInput> and reads its members needs no edit.
+Anything compiled against 4.x does, because a struct and a class are not the
+same type to the runtime, which is what makes this a major. Two smaller changes
+come with the type: the value is a reference now, so default(AsyncMapStatus<T>)
+is null where it was a zeroed value, and two of them compare by reference where
+they compared field by field.
+
 4.0.1
 
 Adds the package icon that nuget.org shows beside this package.
@@ -62,7 +80,8 @@ pipeline for good. Upgrade the two together.
 About this package
 
 The engine behind MapAsync: the tracking, the concurrency strategies and the
-AsyncMapStatus a caller holds. Not installed directly - take SodaFlow.Async for
+AsyncMapStatus a caller holds, generic in the input type when the caller wants
+the tracked items and non-generic when it does not. Not installed directly - take SodaFlow.Async for
 C# or SodaFlow.FSharp.Async for F#, both of which bring it with them.
 
 Full notes: https://github.com/MorseCode-Software/SodaFlow/releases

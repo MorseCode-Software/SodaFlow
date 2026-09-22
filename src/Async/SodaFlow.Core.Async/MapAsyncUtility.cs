@@ -46,34 +46,56 @@ public readonly struct AsyncItem<TInput>
 /// <summary>
 ///     The status of a MapAsync pipeline. It gives the operation of the pipeline, and each input
 ///     value that the pipeline tracks now with the status of that value. It is also the only
-///     handle to stop the pipeline. See <see cref="Dispose" />.
+///     handle to stop the pipeline. See <see cref="AsyncMapStatus.Dispose" />. This type adds
+///     <see cref="Items" /> to <see cref="AsyncMapStatus" />, which is what makes it generic: a
+///     caller that reads only <see cref="AsyncMapStatus.IsRunning" /> or stops the pipeline can
+///     hold the base type.
 /// </summary>
 [PublicAPI]
 // ReSharper disable once InheritdocConsiderUsage
-public readonly struct AsyncMapStatus<TInput>
-    : IDisposable
+public sealed class AsyncMapStatus<TInput> : AsyncMapStatus
 {
-    private readonly Action dispose;
-
     internal AsyncMapStatus(
         Cell<bool> isRunning,
         Cell<IReadOnlyList<AsyncItem<TInput>>> items,
         Action dispose)
-    {
-        this.IsRunning = isRunning;
+        : base(isRunning: isRunning, dispose: dispose) =>
         this.Items = items;
-        this.dispose = dispose;
-    }
-
-    /// <summary>True while one item or more has Status == Running. An item with the Queued status
-    /// does not count.</summary>
-    public Cell<bool> IsRunning { get; }
 
     /// <summary>
     ///     Each value that the pipeline tracks now, Queued or Running. The sequence is not
     ///     specified, but each update is one snapshot that agrees with itself.
     /// </summary>
     public Cell<IReadOnlyList<AsyncItem<TInput>>> Items { get; }
+}
+
+/// <summary>
+///     The status of a MapAsync pipeline, without the part that the input type decides. It gives
+///     the operation of the pipeline, and it is the only handle to stop the pipeline. See
+///     <see cref="Dispose" />. A caller that does not read
+///     <see cref="AsyncMapStatus{TInput}.Items" /> can hold this type and does not have to name
+///     the input type. <see cref="AsyncMapStatus{TInput}" /> is the type that MapAsync returns.
+/// </summary>
+[PublicAPI]
+// ReSharper disable once InheritdocConsiderUsage
+public abstract class AsyncMapStatus : IDisposable
+{
+    private readonly Action dispose;
+
+    // private protected, and not internal: this base is for AsyncMapStatus<TInput> to extend, and
+    // an instance of the base alone tracks no items and has no use. AsyncMapBase below does the
+    // same.
+    private protected AsyncMapStatus(
+        Cell<bool> isRunning,
+        Action dispose)
+    {
+        this.IsRunning = isRunning;
+        this.dispose = dispose;
+    }
+
+    /// <summary>True while one item or more has Status == Running. An item with the Queued status
+    /// does not count.</summary>
+    public Cell<bool> IsRunning { get; }
 
     /// <summary>
     ///     Stops this pipeline. The pipeline admits no more values from the source stream, and it
@@ -90,7 +112,15 @@ public readonly struct AsyncMapStatus<TInput>
     ///     nothing.
     /// </summary>
     // ReSharper disable once InheritdocConsiderUsage
-    public void Dispose() => this.dispose();
+    public void Dispose()
+    {
+        this.dispose();
+
+        // This type has no finalizer, but it is a base class, thus a subclass can add one. The
+        // call makes a disposal here sufficient for such a subclass. CA1816 asks for it on each
+        // IDisposable type that other types can extend.
+        GC.SuppressFinalize(this);
+    }
 }
 
 /// <summary>
@@ -1470,7 +1500,7 @@ internal sealed class AsyncMapExecutionManager<TInput, TResult, TStrategyInput, 
     }
 
     /// <summary>
-    ///     Stops this pipeline. See <see cref="AsyncMapStatus{TInput}.Dispose" /> for the full
+    ///     Stops this pipeline. See <see cref="AsyncMapStatus.Dispose" /> for the full
     ///     contract. The cancelOnDispose value at Attach sets the cancellation of the tracked
     ///     items, and this method has no parameter for it, because IDisposable.Dispose() is the
     ///     only public path to a disposal. <see cref="disposeState" /> makes this method run one

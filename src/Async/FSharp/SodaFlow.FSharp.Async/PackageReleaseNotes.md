@@ -1,3 +1,16 @@
+5.0.0
+
+BREAKING, and the break is in SodaFlow.Async.Core 5.0.0, which this release
+takes: the AsyncMapStatus<'TInput> that mapAsync and its siblings return is a
+class where it was a readonly struct, and it extends a new non-generic
+AsyncMapStatus that carries IsRunning and Dispose. Items stays on the generic
+type.
+
+Code that binds the result and reads its members needs no edit. Code compiled
+against 4.x does, because a struct and a class are not the same type to the
+runtime. A function that only watches IsRunning or disposes the pipeline can
+annotate its parameter AsyncMapStatus and leave the input type out.
+
 4.0.1
 
 Adds the package icon that nuget.org shows beside this package. No source file
@@ -71,6 +84,8 @@ rather than defaulted - pass None, None and true for the common case.
 
 Each returns an AsyncMapStatus<'TInput>: IsRunning is a Cell<bool> true while at
 least one invocation is actually running, Items lists everything tracked with
-its status, and disposing it tears the pipeline down.
+its status, and disposing it tears the pipeline down. IsRunning and disposal
+live on its non-generic base, AsyncMapStatus, which is what code that does not
+read Items can hold.
 
 Full notes: https://github.com/MorseCode-Software/SodaFlow/releases
