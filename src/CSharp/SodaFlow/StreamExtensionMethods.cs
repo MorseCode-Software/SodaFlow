@@ -116,7 +116,21 @@ public static class StreamExtensionMethods
     ///     arrives, if it is no longer wanted.
     /// </returns>
     [MethodImpl(MethodImplOptions.NoInlining)]
-    public static IStrongListener ListenOnce<T>(this Stream<T> s, Action<T> handler) => s.ListenOnceImpl(handler);
+    public static IWeakListener ListenOnce<T>(this Stream<T> s, Action<T> handler) => s.ListenOnceImpl(handler);
+
+    /// <summary>
+    ///     Handle the first event on this stream and then automatically unregister.
+    /// </summary>
+    /// <typeparam name="T">The type of the stream.</typeparam>
+    /// <param name="s">The stream.</param>
+    /// <param name="handler">The handler to execute for values fired by this stream.</param>
+    /// <returns>
+    ///     An <see cref="IStrongListener" /> which may be disposed to stop listening before that first event
+    ///     arrives, if it is no longer wanted.
+    /// </returns>
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    public static IStrongListener ListenOnceStrong<T>(this Stream<T> s, Action<T> handler) =>
+        s.ListenOnceStrongImpl(handler);
 
     /// <summary>
     ///     Handle the first event on this stream and then automatically unregister.

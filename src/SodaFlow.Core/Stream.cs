@@ -129,7 +129,43 @@ public class Stream<T>
         }
     }
 
-    internal IStrongListener ListenOnceImpl(Action<T> handler)
+    internal IWeakListener ListenOnceImpl(Action<T> handler)
+    {
+        IWeakListener? listener = null;
+        bool unlistenEarly = false;
+
+        IWeakListener listenerToReturn =
+            this.ListenImpl(a =>
+            {
+                // ReSharper disable once AccessToModifiedClosure
+                IListener? listenerLocal = listener;
+
+                if (listenerLocal == null)
+                {
+                    unlistenEarly = true;
+                }
+                else
+                {
+                    listenerLocal.Unlisten();
+                    listener = null;
+                }
+
+                handler(a);
+            });
+
+        listener = listenerToReturn;
+
+        if (unlistenEarly)
+        {
+            listenerToReturn.Unlisten();
+            listenerToReturn = NoListener.Value;
+            listener = null;
+        }
+
+        return listenerToReturn;
+    }
+
+    internal IStrongListener ListenOnceStrongImpl(Action<T> handler)
     {
         IStrongListener? listener = null;
         bool unlistenEarly = false;

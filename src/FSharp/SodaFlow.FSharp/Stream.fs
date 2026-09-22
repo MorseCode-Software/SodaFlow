@@ -129,6 +129,19 @@ let listenOnce handler (stream: Stream<_>) =
     stream.ListenOnceImpl(Action<_> handler)
 
 /// <summary>
+///     Listens for the next firing only, then stops.
+/// </summary>
+/// <param name="handler">Run with the first fired value.</param>
+/// <param name="stream">The stream to listen to.</param>
+/// <returns>
+///     A strong listener, which may be stopped before that first firing arrives if it is no longer
+///     wanted.
+/// </returns>
+[<MethodImpl(MethodImplOptions.NoInlining)>]
+let listenOnceStrong handler (stream: Stream<_>) =
+    stream.ListenOnceStrongImpl(Action<_> handler)
+
+/// <summary>
 ///     Waits asynchronously for the next firing.
 /// </summary>
 /// <param name="stream">The stream to wait on.</param>
