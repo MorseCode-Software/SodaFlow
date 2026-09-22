@@ -456,6 +456,39 @@ public sealed class MapAsyncExtensionsTests
         status.Dispose();
     }
 
+    [Test]
+    public async Task NonGenericStatus_GivesIsRunningAndDisposalWithoutTheInputType()
+    {
+        StreamSink<string> source = Stream.CreateSink<string>();
+        StreamSink<string> results = Stream.CreateSink<string>();
+        StreamSink<Exception> errors = Stream.CreateSink<Exception>();
+        ControlledOperation<string, string> op = new();
+
+        // The type on the left is the point of this test: a caller that reads IsRunning and
+        // disposes the pipeline does not name the input type.
+        AsyncMapStatus status =
+            source.MapAsync(
+                results: results,
+                errors: errors,
+                operation: op.Operation,
+                strategy: AsyncConcurrencyStrategy.Queue());
+
+        await Assert.That(status.IsRunning.Sample()).IsFalse();
+
+        source.Send("a");
+        TestUtil.WaitUntil(() => op.HasStarted("a"));
+        TestUtil.WaitUntil(() => status.IsRunning.Sample());
+
+        op.Release(input: "a", result: "A");
+        TestUtil.WaitUntil(() => !status.IsRunning.Sample());
+
+        status.Dispose();
+
+        // A second disposal does nothing, which the base must keep true now that it holds
+        // Dispose.
+        status.Dispose();
+    }
+
     private class Animal;
 
     private sealed class Dog : Animal;
