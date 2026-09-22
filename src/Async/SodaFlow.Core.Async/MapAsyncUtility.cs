@@ -8,6 +8,25 @@ using JetBrains.Annotations;
 
 namespace SodaFlow.Async;
 
+/// <summary>
+///     The work that a MapAsync pipeline does for one value from the source stream. It gives a
+///     <see cref="ResultConstructor{TResult}" /> and not a result, because the two answers are not
+///     the same: <see cref="ResultConstructorFactory{TResult}.FromResult" /> carries a value that
+///     the operation has, and <see cref="ResultConstructorFactory{TResult}.ConstructResult" />
+///     carries a function that the pipeline calls in the transaction that sends the result. Use
+///     the second one when the result contains a cell, a stream, or an other part of a SodaFlow
+///     graph, because such a part must come into existence in that transaction.
+/// </summary>
+/// <typeparam name="TInput">The type in the source stream.</typeparam>
+/// <typeparam name="TResult">The type that the pipeline publishes.</typeparam>
+/// <param name="input">The value from the source stream, as the pipeline admitted it.</param>
+/// <param name="resultFactory">Makes the two kinds of answer. It has no state.</param>
+/// <param name="token">
+///     Cancels this operation. It combines the cancellation of this item with the cancellation of
+///     the strategy. An operation that does not monitor it runs to its end, and the pipeline then
+///     does not publish its result.
+/// </param>
+/// <returns>A Task with the value, or with the function that makes the value.</returns>
 [PublicAPI]
 public delegate Task<ResultConstructor<TResult>> MapAsyncOperation<in TInput, TResult>(
     TInput input,
@@ -49,8 +68,15 @@ public readonly struct AsyncItem<TInput>
     public AsyncItemStatus Status { get; }
 }
 
+/// <summary>
+///     The answer of a <see cref="MapAsyncOperation{TInput,TResult}" />: a result, or a function
+///     that makes one. The pipeline calls such a function in the transaction that sends the
+///     result. Make one with <see cref="ResultConstructorFactory{TResult}" />, which the
+///     operation receives.
+/// </summary>
+/// <typeparam name="TResult">The type that the pipeline publishes.</typeparam>
 [PublicAPI]
-public class ResultConstructor<TResult>
+public sealed class ResultConstructor<TResult>
 {
     private readonly TResult? result;
     private readonly Func<TResult>? constructResult;
@@ -63,17 +89,38 @@ public class ResultConstructor<TResult>
     internal TResult GetResult() => this.constructResult != null ? this.constructResult() : this.result!;
 }
 
+/// <summary>
+///     Makes the answer of a <see cref="MapAsyncOperation{TInput,TResult}" />. The pipeline gives
+///     one to each call of the operation. It holds no state, and a caller cannot make one.
+/// </summary>
+/// <typeparam name="TResult">The type that the pipeline publishes.</typeparam>
 [PublicAPI]
-public class ResultConstructorFactory<TResult>
+public sealed class ResultConstructorFactory<TResult>
 {
-    internal static ResultConstructorFactory<TResult> Instance = new();
+    internal static readonly ResultConstructorFactory<TResult> Instance = new();
 
     private ResultConstructorFactory()
     {
     }
 
+    /// <summary>
+    ///     Carries a result that the operation has. Use this one when the operation makes no part
+    ///     of a SodaFlow graph.
+    /// </summary>
+    /// <param name="result">The value to publish.</param>
+    /// <returns>The answer to return from the operation.</returns>
     public ResultConstructor<TResult> FromResult(TResult result) => new(result);
 
+    /// <summary>
+    ///     Carries a function that makes the result. The pipeline calls it one time, in the
+    ///     transaction that sends the result, which is what a result with a cell or a stream in it
+    ///     must have. Keep the function short, because it holds that transaction while it runs.
+    ///     The pipeline can also call it for a result that it does not publish: a strategy decides
+    ///     at the end of an operation if the pipeline publishes the result, and it makes that
+    ///     decision after this function runs.
+    /// </summary>
+    /// <param name="constructResult">Makes the value to publish.</param>
+    /// <returns>The answer to return from the operation.</returns>
     public ResultConstructor<TResult> ConstructResult(Func<TResult> constructResult) => new(constructResult);
 }
 
@@ -1582,9 +1629,7 @@ internal sealed class AsyncMapExecutionManager<TInput, TResult, TStrategyInput, 
             TransactionInternal.PostImpl(() =>
                 this.Complete(
                     item: toStart.Item,
-                    isCanceled: true,
-                    exception: null,
-                    resultConstructor: null,
+                    pending: AsyncOutcome<ResultConstructor<TResult>>.Canceled(),
                     entryByIdCell: entryByIdCell,
                     tokenToCheck: null));
 
@@ -1630,9 +1675,7 @@ internal sealed class AsyncMapExecutionManager<TInput, TResult, TStrategyInput, 
 
             this.Complete(
                 item: toStart.Item,
-                isCanceled: false,
-                exception: null,
-                resultConstructor: resultConstructor,
+                pending: AsyncOutcome<ResultConstructor<TResult>>.Succeeded(resultConstructor),
                 entryByIdCell: entryByIdCell,
                 tokenToCheck: linked.Token);
         }
@@ -1640,9 +1683,7 @@ internal sealed class AsyncMapExecutionManager<TInput, TResult, TStrategyInput, 
         {
             this.Complete(
                 item: toStart.Item,
-                isCanceled: true,
-                exception: null,
-                resultConstructor: null,
+                pending: AsyncOutcome<ResultConstructor<TResult>>.Canceled(),
                 entryByIdCell: entryByIdCell,
                 tokenToCheck: null);
         }
@@ -1650,9 +1691,7 @@ internal sealed class AsyncMapExecutionManager<TInput, TResult, TStrategyInput, 
         {
             this.Complete(
                 item: toStart.Item,
-                isCanceled: false,
-                exception: ex,
-                resultConstructor: null,
+                pending: AsyncOutcome<ResultConstructor<TResult>>.Failed(ex),
                 entryByIdCell: entryByIdCell,
                 tokenToCheck: linked.Token);
         }
@@ -1679,73 +1718,51 @@ internal sealed class AsyncMapExecutionManager<TInput, TResult, TStrategyInput, 
     /// </summary>
     private void Complete(
         AsyncQueuedItem<TStrategyInput> item,
-        bool isCanceled,
-        Exception? exception,
-        ResultConstructor<TResult>? resultConstructor,
+        AsyncOutcome<ResultConstructor<TResult>> pending,
         Cell<Dictionary<Guid, Entry>> entryByIdCell,
         CancellationToken? tokenToCheck) =>
         TransactionInternal.RunImpl(() =>
         {
-            if (!isCanceled)
+            // One step makes the two outcomes, because the strategy sees what resultConverter
+            // makes from the result, and a throw in that converter must make the two of them
+            // Failed together.
+            (AsyncOutcome<TResult> Outcome, AsyncOutcome<TStrategyResult> StrategyOutcome) Construct(
+                ResultConstructor<TResult> resultConstructor)
             {
-                if (tokenToCheck is { IsCancellationRequested: true })
+                try
                 {
-                    isCanceled = true;
+                    TResult result = resultConstructor.GetResult();
+
+                    return (AsyncOutcome<TResult>.Succeeded(result),
+                        AsyncOutcome<TStrategyResult>.Succeeded(this.resultConverter(result)));
+                }
+                catch (OperationCanceledException) when (tokenToCheck is { IsCancellationRequested: true })
+                {
+                    return (AsyncOutcome<TResult>.Canceled(), AsyncOutcome<TStrategyResult>.Canceled());
+                }
+                catch (Exception e)
+                {
+                    return (AsyncOutcome<TResult>.Failed(e), AsyncOutcome<TStrategyResult>.Failed(e));
                 }
             }
 
-            AsyncOutcome<TResult> outcome;
-            AsyncOutcome<TStrategyResult> strategyOutcome;
-
-            if (isCanceled)
-            {
-                outcome = AsyncOutcome<TResult>.Canceled();
-                strategyOutcome = AsyncOutcome<TStrategyResult>.Canceled();
-            }
-            else
-            {
-                if (exception != null)
-                {
-                    outcome = AsyncOutcome<TResult>.Failed(exception);
-                    strategyOutcome = AsyncOutcome<TStrategyResult>.Failed(exception);
-                }
-                else
-                {
-                    try
-                    {
-                        if (resultConstructor == null)
-                        {
-                            throw new InvalidOperationException(
-                                $"If {nameof(isCanceled)} is false, either {nameof(exception)} or {nameof(resultConstructor)} must be non-null.");
-                        }
-
-                        TResult result = resultConstructor.GetResult();
-                        TStrategyResult strategyResult = this.resultConverter(result);
-
-                        outcome = AsyncOutcome<TResult>.Succeeded(result);
-                        strategyOutcome = AsyncOutcome<TStrategyResult>.Succeeded(strategyResult);
-                    }
-                    catch (OperationCanceledException) when (tokenToCheck is { IsCancellationRequested: true })
-                    {
-                        isCanceled = true;
-
-                        outcome = AsyncOutcome<TResult>.Canceled();
-                        strategyOutcome = AsyncOutcome<TStrategyResult>.Canceled();
-                    }
-                    catch (Exception e)
-                    {
-                        exception = e;
-
-                        outcome = AsyncOutcome<TResult>.Failed(e);
-                        strategyOutcome = AsyncOutcome<TStrategyResult>.Failed(e);
-                    }
-                }
-            }
+            // A cancellation that arrived while the operation ran makes the item Canceled, also
+            // when the operation gave a result or threw. Thus the construction below does not run
+            // for a result that the pipeline cannot publish.
+            (AsyncOutcome<TResult> outcome, AsyncOutcome<TStrategyResult> strategyOutcome) =
+                tokenToCheck is { IsCancellationRequested: true }
+                    ? (AsyncOutcome<TResult>.Canceled(), AsyncOutcome<TStrategyResult>.Canceled())
+                    : pending.Match(
+                        onSucceeded: Construct,
+                        onFailed: static e =>
+                            (AsyncOutcome<TResult>.Failed(e), AsyncOutcome<TStrategyResult>.Failed(e)),
+                        onCanceled: static () =>
+                            (AsyncOutcome<TResult>.Canceled(), AsyncOutcome<TStrategyResult>.Canceled()));
 
             AsyncStrategyResult<TStrategyInput> decision =
                 this.stateManager.OnCompleted(item: item, outcome: strategyOutcome);
 
-            if (!isCanceled && decision.Publish)
+            if (decision.Publish)
             {
                 // This matches on `outcome` and not on `strategyOutcome`. `outcome` holds the
                 // TResult from StartOperation, which the pipeline publishes. `strategyOutcome`
