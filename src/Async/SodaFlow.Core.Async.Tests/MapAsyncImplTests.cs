@@ -25,10 +25,9 @@ public sealed class MapAsyncImplTests
             source.MapAsyncImpl(
                 results: results,
                 errors: errors,
-                operation: static (v, _) => Task.FromResult(v.ToUpperInvariant()),
+                operation: static (v, factory, _) => Task.FromResult(factory.FromValue(v.ToUpperInvariant())),
                 strategy: AsyncConcurrencyStrategyFactory.Parallel("unused"),
-                inputConverter: static v => v,
-                resultConverter: static v => v);
+                inputConverter: static v => v);
 
         source.Send("hello");
 
@@ -53,10 +52,9 @@ public sealed class MapAsyncImplTests
             source.MapAsyncImpl(
                 results: results,
                 errors: errors,
-                operation: (_, _) => Task.FromException<string>(thrown),
+                operation: (_, _, _) => Task.FromException<MapAsyncResult<string>>(thrown),
                 strategy: AsyncConcurrencyStrategyFactory.Parallel("unused"),
-                inputConverter: static v => v,
-                resultConverter: static v => v);
+                inputConverter: static v => v);
 
         source.Send("hello");
 
@@ -68,26 +66,24 @@ public sealed class MapAsyncImplTests
     }
 
     [Test]
-    public async Task InputAndResultConvertersAreAppliedBeforeTheStrategySeesThem()
+    public async Task InputConverterIsAppliedBeforeTheStrategySeesTheValue()
     {
         StreamSink<string> source = Stream.CreateSink<string>();
         StreamSink<string> results = Stream.CreateSink<string>();
         StreamSink<Exception> errors = Stream.CreateSink<Exception>();
-        RecordingStrategy<int, int> strategy = new();
+        RecordingStrategy<int> strategy = new();
         List<string> received = [];
         IListener l = results.ListenStrong(received.Add);
 
-        // TStrategyInput and TStrategyResult, which are an int and a length, have no inheritance
-        // relation to TInput and TResult, which are a string. Only this fully general overload
-        // permits that.
+        // TStrategyInput, which is an int, has no inheritance relation to TInput, which is a
+        // string. The inputConverter is what permits that.
         AsyncMapStatus<string> status =
             source.MapAsyncImpl(
                 results: results,
                 errors: errors,
-                operation: static (v, _) => Task.FromResult(v.ToUpperInvariant()),
+                operation: static (v, factory, _) => Task.FromResult(factory.FromValue(v.ToUpperInvariant())),
                 strategy: strategy,
-                inputConverter: static v => v.Length,
-                resultConverter: static v => v.Length);
+                inputConverter: static v => v.Length);
 
         source.Send("hello");
 
@@ -96,8 +92,7 @@ public sealed class MapAsyncImplTests
         // The strategy sees only the converted int, and never the initial string.
         await Assert.That(strategy.AdmittedValues).IsEquivalentTo(expected: [5], ordering: CollectionOrdering.Matching);
 
-        // The TResult that the pipeline publishes is the output of the operation, with no
-        // conversion.
+        // The pipeline publishes the output of the operation.
         await Assert.That(received[0]).IsEqualTo("HELLO");
 
         status.Dispose();
@@ -118,10 +113,9 @@ public sealed class MapAsyncImplTests
             source.MapAsyncImpl(
                 results: results,
                 errors: errors,
-                operation: static (v, _) => Task.FromResult(v),
+                operation: static (v, factory, _) => Task.FromResult(factory.FromValue(v)),
                 strategy: strategy,
-                inputConverter: static v => v,
-                resultConverter: static v => v);
+                inputConverter: static v => v);
 
         source.Send(-1);
         source.Send(2);
@@ -172,10 +166,9 @@ public sealed class MapAsyncImplTests
             source.MapAsyncImpl(
                 results: results,
                 errors: errors,
-                operation: static (v, _) => Task.FromResult(v),
+                operation: static (v, factory, _) => Task.FromResult(factory.FromValue(v)),
                 strategy: new CancelAndPromoteSameItemStrategy(),
-                inputConverter: static v => v,
-                resultConverter: static v => v);
+                inputConverter: static v => v);
 
         await Assert.That(() => source.Send(1))
             .ThrowsNothing()
@@ -203,10 +196,9 @@ public sealed class MapAsyncImplTests
             source.MapAsyncImpl(
                 results: results,
                 errors: errors,
-                operation: static (v, _) => Task.FromResult(v),
+                operation: static (v, factory, _) => Task.FromResult(factory.FromValue(v)),
                 strategy: AsyncConcurrencyStrategyFactory.Parallel("unused"),
-                inputConverter: static v => v,
-                resultConverter: static v => v);
+                inputConverter: static v => v);
 
         status.Dispose();
         source.Send("after-dispose");
@@ -234,7 +226,6 @@ public sealed class MapAsyncImplTests
                 operation: op.Operation,
                 strategy: AsyncConcurrencyStrategyFactory.Parallel("unused"),
                 inputConverter: static v => v,
-                resultConverter: static v => v,
                 cancelOnDispose: true);
 
         source.Send("a");
@@ -265,7 +256,6 @@ public sealed class MapAsyncImplTests
                 operation: op.Operation,
                 strategy: AsyncConcurrencyStrategyFactory.Parallel("unused"),
                 inputConverter: static v => v,
-                resultConverter: static v => v,
                 cancelOnDispose: false);
 
         source.Send("a");
@@ -294,8 +284,7 @@ public sealed class MapAsyncImplTests
                 errors: errors,
                 operation: op.Operation,
                 strategy: AsyncConcurrencyStrategyFactory.Queue<string>(),
-                inputConverter: static v => v,
-                resultConverter: static v => v);
+                inputConverter: static v => v);
 
         await Assert.That(status.IsRunning.Sample()).IsFalse();
         await Assert.That(status.Items.Sample().Count).IsEqualTo(0);
@@ -328,15 +317,14 @@ public sealed class MapAsyncImplTests
         StreamSink<Exception> errors = Stream.CreateSink<Exception>();
 
         await Assert.That(() =>
-                AsyncStreamUtility.MapAsyncImpl<string, string, string, string>(
+                AsyncStreamUtility.MapAsyncImpl<string, string, string>(
                     // ReSharper disable once NullableWarningSuppressionIsUsed - Testing for exception on null.
                     source: null!,
                     results: results,
                     errors: errors,
-                    operation: static (v, _) => Task.FromResult(v),
+                    operation: static (v, factory, _) => Task.FromResult(factory.FromValue(v)),
                     strategy: AsyncConcurrencyStrategyFactory.Parallel("unused"),
-                    inputConverter: static v => v,
-                    resultConverter: static v => v))
+                    inputConverter: static v => v))
             .ThrowsExactly<ArgumentNullException>();
     }
 
@@ -347,14 +335,13 @@ public sealed class MapAsyncImplTests
         StreamSink<Exception> errors = Stream.CreateSink<Exception>();
 
         await Assert.That(() =>
-                source.MapAsyncImpl(
+                source.MapAsyncImpl<string, string, string>(
                     // ReSharper disable once NullableWarningSuppressionIsUsed - Testing for exception on null.
                     results: null!,
                     errors: errors,
-                    operation: static (v, _) => Task.FromResult(v),
+                    operation: static (v, factory, _) => Task.FromResult(factory.FromValue(v)),
                     strategy: AsyncConcurrencyStrategyFactory.Parallel("unused"),
-                    inputConverter: static v => v,
-                    resultConverter: static v => v))
+                    inputConverter: static v => v))
             .ThrowsExactly<ArgumentNullException>();
     }
 
@@ -369,10 +356,9 @@ public sealed class MapAsyncImplTests
                     results: results,
                     // ReSharper disable once NullableWarningSuppressionIsUsed - Testing for exception on null.
                     errors: null!,
-                    operation: static (v, _) => Task.FromResult(v),
+                    operation: static (v, factory, _) => Task.FromResult(factory.FromValue(v)),
                     strategy: AsyncConcurrencyStrategyFactory.Parallel("unused"),
-                    inputConverter: static v => v,
-                    resultConverter: static v => v))
+                    inputConverter: static v => v))
             .ThrowsExactly<ArgumentNullException>();
     }
 
@@ -390,8 +376,7 @@ public sealed class MapAsyncImplTests
                     // ReSharper disable once NullableWarningSuppressionIsUsed - Testing for exception on null.
                     operation: null!,
                     strategy: AsyncConcurrencyStrategyFactory.Parallel("unused"),
-                    inputConverter: static v => v,
-                    resultConverter: static v => v))
+                    inputConverter: static v => v))
             .ThrowsExactly<ArgumentNullException>();
     }
 
@@ -406,19 +391,18 @@ public sealed class MapAsyncImplTests
                 source.MapAsyncImpl(
                     results: results,
                     errors: errors,
-                    operation: static (v, _) => Task.FromResult(v),
+                    operation: static (v, factory, _) => Task.FromResult(factory.FromValue(v)),
                     // ReSharper disable once NullableWarningSuppressionIsUsed - Testing for exception on null.
                     strategy: null!,
-                    inputConverter: static v => v,
-                    resultConverter: static v => v))
+                    inputConverter: static v => v))
             .ThrowsExactly<ArgumentNullException>();
     }
 
     /// <summary>Starts each item immediately and records the converted value of each item at its
     /// admission.</summary>
     // ReSharper disable once InheritdocConsiderUsage
-    private sealed class RecordingStrategy<TStrategyInput, TStrategyResult>
-        : AsyncConcurrencyStrategy<TStrategyInput, TStrategyResult, object?>
+    private sealed class RecordingStrategy<TStrategyInput>
+        : AsyncConcurrencyStrategy<TStrategyInput, object?>
     {
         // This state is global and is not the state of one MapAsync call. A TState object holds
         // the state of one MapAsync call.
@@ -430,7 +414,8 @@ public sealed class MapAsyncImplTests
 
         protected internal override IReadOnlyList<AsyncToStart<TStrategyInput>> Admit(
             object? state,
-            AsyncQueuedItem<TStrategyInput> incoming)
+            AsyncQueuedItem<TStrategyInput> incoming,
+            IReadOnlyList<AsyncTrackedItem<TStrategyInput>> tracked)
         {
             this.admittedValues.Add(incoming.Value);
 
@@ -440,7 +425,8 @@ public sealed class MapAsyncImplTests
         protected internal override AsyncStrategyResult<TStrategyInput> OnCompleted(
             object? state,
             AsyncQueuedItem<TStrategyInput> item,
-            AsyncOutcome<TStrategyResult> outcome) =>
+            AsyncCompletion completion,
+            IReadOnlyList<AsyncTrackedItem<TStrategyInput>> tracked) =>
             new(publish: true, next: AsyncStrategyResult<TStrategyInput>.None);
     }
 
@@ -452,13 +438,14 @@ public sealed class MapAsyncImplTests
     ///     call.
     /// </summary>
     // ReSharper disable once InheritdocConsiderUsage
-    private sealed class RejectNegativeStrategy : AsyncConcurrencyStrategy<int, int, object?>
+    private sealed class RejectNegativeStrategy : AsyncConcurrencyStrategy<int, object?>
     {
         protected override object? CreateState() => null;
 
         protected internal override IReadOnlyList<AsyncToStart<int>> Admit(
             object? state,
-            AsyncQueuedItem<int> incoming)
+            AsyncQueuedItem<int> incoming,
+            IReadOnlyList<AsyncTrackedItem<int>> tracked)
         {
             if (incoming.Value < 0)
             {
@@ -472,7 +459,8 @@ public sealed class MapAsyncImplTests
         protected internal override AsyncStrategyResult<int> OnCompleted(
             object? state,
             AsyncQueuedItem<int> item,
-            AsyncOutcome<int> outcome) =>
+            AsyncCompletion completion,
+            IReadOnlyList<AsyncTrackedItem<int>> tracked) =>
             new(publish: true, next: AsyncStrategyResult<int>.None);
     }
 
@@ -486,13 +474,14 @@ public sealed class MapAsyncImplTests
     ///     cancelMatching stream, or the end of one item that promotes a Queued item.
     /// </summary>
     // ReSharper disable once InheritdocConsiderUsage
-    private sealed class CancelAndPromoteSameItemStrategy : AsyncConcurrencyStrategy<int, int, object?>
+    private sealed class CancelAndPromoteSameItemStrategy : AsyncConcurrencyStrategy<int, object?>
     {
         protected override object? CreateState() => null;
 
         protected internal override IReadOnlyList<AsyncToStart<int>> Admit(
             object? state,
-            AsyncQueuedItem<int> incoming)
+            AsyncQueuedItem<int> incoming,
+            IReadOnlyList<AsyncTrackedItem<int>> tracked)
         {
             incoming.Cancel();
             return [new AsyncToStart<int>(incoming)];
@@ -501,7 +490,8 @@ public sealed class MapAsyncImplTests
         protected internal override AsyncStrategyResult<int> OnCompleted(
             object? state,
             AsyncQueuedItem<int> item,
-            AsyncOutcome<int> outcome) =>
+            AsyncCompletion completion,
+            IReadOnlyList<AsyncTrackedItem<int>> tracked) =>
             new(publish: true, next: AsyncStrategyResult<int>.None);
     }
 }

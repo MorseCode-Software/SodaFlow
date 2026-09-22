@@ -140,7 +140,7 @@ public sealed class AsyncConcurrencyStrategyTests
         List<string> received = [];
         IListener l = results.ListenStrong(received.Add);
 
-        AsyncConcurrencyStrategyBase<string, Unit> strategy =
+        AsyncConcurrencyStrategyBase<string> strategy =
             AsyncConcurrencyStrategy.QueuePerGroup<string>().Create(static v => v.Split('-')[0]);
 
         AsyncMapStatus<string> status =
@@ -231,7 +231,7 @@ public sealed class AsyncConcurrencyStrategyTests
             source.MapAsync(
                 results: results,
                 errors: errors,
-                operation: static (_, _) => Task.FromResult(Unit.Value),
+                operation: static (_, factory, _) => Task.FromResult(factory.FromValue(Unit.Value)),
                 strategy: strategy);
 
         source.Send("a");
@@ -246,9 +246,9 @@ public sealed class AsyncConcurrencyStrategyTests
 
     /// <summary>
     ///     A small custom strategy on the short
-    ///     <see cref="AsyncConcurrencyStrategy{TState}" /> shape, where the input type and the
-    ///     result type are <see cref="Unit" />. Each value starts immediately, as Parallel does,
-    ///     and this strategy also counts the admissions.
+    ///     <see cref="AsyncConcurrencyStrategy{TState}" /> shape, where the input type is
+    ///     <see cref="Unit" />. Each value starts immediately, as Parallel does, and this strategy
+    ///     also counts the admissions.
     /// </summary>
     // ReSharper disable once InheritdocConsiderUsage
     private sealed class CountingStrategy : AsyncConcurrencyStrategy<int>
@@ -261,7 +261,8 @@ public sealed class AsyncConcurrencyStrategyTests
 
         protected override IReadOnlyList<AsyncToStart<Unit>> Admit(
             int state,
-            AsyncQueuedItem<Unit> incoming)
+            AsyncQueuedItem<Unit> incoming,
+            IReadOnlyList<AsyncTrackedItem<Unit>> tracked)
         {
             Interlocked.Increment(ref this.count);
             return [new AsyncToStart<Unit>(incoming)];
@@ -270,7 +271,8 @@ public sealed class AsyncConcurrencyStrategyTests
         protected override AsyncStrategyResult<Unit> OnCompleted(
             int state,
             AsyncQueuedItem<Unit> item,
-            AsyncOutcome<Unit> outcome) =>
+            AsyncCompletion completion,
+            IReadOnlyList<AsyncTrackedItem<Unit>> tracked) =>
             new(publish: true, next: AsyncStrategyResult<Unit>.None);
     }
 }

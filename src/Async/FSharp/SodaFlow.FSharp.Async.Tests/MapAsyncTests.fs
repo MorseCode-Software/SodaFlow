@@ -36,21 +36,26 @@ open TUnit.Core
 //     instance first, and only a reference to that local in the array. See Admit below, in the
 //     two strategies.
 
-/// Starts each item immediately, as parallelStrategy does. It operates on each 'TStrategyInput
-/// and each 'TStrategyResult, and records the value at the admission and the value at the end.
-/// Thus, a test can show that a converter ran, and not only that it compiled.
-type private AlwaysStartStrategy<'TStrategyInput, 'TStrategyResult>() =
-    inherit AsyncConcurrencyStrategy<'TStrategyInput, 'TStrategyResult, EmptyState>()
+/// Starts each item immediately, as parallelStrategy does. It operates on each 'TStrategyInput,
+/// and records the value at the admission and how each item ended. Thus, a test can show that a
+/// converter ran, and not only that it compiled.
+type private AlwaysStartStrategy<'TStrategyInput>() =
+    inherit AsyncConcurrencyStrategy<'TStrategyInput, EmptyState>()
 
     let admittedValues = ResizeArray<'TStrategyInput>()
-    let completedResults = ResizeArray<'TStrategyResult>()
+    let completions = ResizeArray<string>()
 
     member _.AdmittedValues = admittedValues
-    member _.CompletedResults = completedResults
+    member _.Completions = completions
 
     override _.CreateState() = EmptyState
 
-    override _.Admit(_state: EmptyState, incoming: AsyncMapBase.AsyncQueuedItem<'TStrategyInput>) =
+    override _.Admit
+        (
+            _state: EmptyState,
+            incoming: AsyncMapBase.AsyncQueuedItem<'TStrategyInput>,
+            _tracked: IReadOnlyList<AsyncMapBase.AsyncTrackedItem<'TStrategyInput>>
+        ) =
         // A closure cannot read the members of the protected-internal item. Read the value into a
         // local first, and then use that local in the closure.
         let v = incoming.Value
@@ -62,11 +67,18 @@ type private AlwaysStartStrategy<'TStrategyInput, 'TStrategyResult>() =
         (
             _state: EmptyState,
             _item: AsyncMapBase.AsyncQueuedItem<'TStrategyInput>,
-            outcome: AsyncMapBase.AsyncOutcome<'TStrategyResult>
+            completion: AsyncMapBase.AsyncCompletion,
+            _tracked: IReadOnlyList<AsyncMapBase.AsyncTrackedItem<'TStrategyInput>>
         ) =
-        let mutable captured = Unchecked.defaultof<'TStrategyResult>
-        outcome.MatchVoid(Action<'TStrategyResult>(fun v -> captured <- v), null, null)
-        lock completedResults (fun () -> completedResults.Add(captured))
+        let mutable ended = ""
+
+        completion.MatchVoid(
+            Action(fun () -> ended <- "succeeded"),
+            Action<exn>(fun e -> ended <- "failed:" + e.Message),
+            Action(fun () -> ended <- "canceled")
+        )
+
+        lock completions (fun () -> completions.Add(ended))
         AsyncMapBase.AsyncStrategyResult<'TStrategyInput>(true, AsyncMapBase.AsyncStrategyResult<'TStrategyInput>.None)
 
 /// A small custom strategy that uses EmptyState directly. The input type and the result type are
@@ -82,14 +94,23 @@ type private CountingStrategy() =
 
     override _.CreateState() = EmptyState
 
-    override _.Admit(_state: EmptyState, incoming: AsyncMapBase.AsyncQueuedItem<unit>) =
+    override _.Admit
+        (
+            _state: EmptyState,
+            incoming: AsyncMapBase.AsyncQueuedItem<unit>,
+            _tracked: IReadOnlyList<AsyncMapBase.AsyncTrackedItem<unit>>
+        ) =
         count <- count + 1
         let toStart = AsyncMapBase.AsyncToStart<unit>(incoming)
         [| toStart |] :> IReadOnlyList<_>
 
     override _.OnCompleted
-        (_state: EmptyState, _item: AsyncMapBase.AsyncQueuedItem<unit>, _outcome: AsyncMapBase.AsyncOutcome<unit>)
-        =
+        (
+            _state: EmptyState,
+            _item: AsyncMapBase.AsyncQueuedItem<unit>,
+            _completion: AsyncMapBase.AsyncCompletion,
+            _tracked: IReadOnlyList<AsyncMapBase.AsyncTrackedItem<unit>>
+        ) =
         AsyncMapBase.AsyncStrategyResult<unit>(true, AsyncMapBase.AsyncStrategyResult<unit>.None)
 
 type ``MapAsync Tests``() =
@@ -260,79 +281,6 @@ type ``MapAsync Tests``() =
         }
 
     [<Test>]
-    member _.``mapAsyncWithResultConverter applies the result converter before the strategy sees it``() =
-        task {
-            let source = sinkS<string> ()
-            let results = sinkS<string> ()
-            let errors = sinkS<exn> ()
-            let received = List<string>()
-            let l = results |> listenStrongS received.Add
-            let strategy = AlwaysStartStrategy<unit, int>()
-
-            let operation (v: string) (_: CancellationToken) = Task.FromResult(v.ToUpperInvariant())
-
-            let status =
-                source
-                |> mapAsyncWithResultConverter
-                    results
-                    errors
-                    operation
-                    strategy
-                    (fun (v: string) -> v.Length)
-                    None
-                    None
-                    true
-
-            source |> sendS "hello"
-            waitUntil (fun () -> received.Count = 1)
-
-            do! Expect.Sequence([ 5 ], strategy.CompletedResults)
-            do! Expect.Equal("HELLO", received[0])
-
-            status.Dispose()
-            l |> unlistenL
-        }
-
-    [<Test>]
-    member _.``mapAsyncWithConverters applies both converters to strategy types unrelated to TInput or TResult``() =
-        task {
-            let source = sinkS<string> ()
-            let results = sinkS<string> ()
-            let errors = sinkS<exn> ()
-            let received = List<string>()
-            let l = results |> listenStrongS received.Add
-            let strategy = AlwaysStartStrategy<int, bool>()
-
-            let operation (v: string) (_: CancellationToken) = Task.FromResult(v.ToUpperInvariant())
-
-            // 'TStrategyInput, which is an int length, and 'TStrategyResult, which is a bool for
-            // "is long", have no inheritance relation to 'TInput and 'TResult, which are a string.
-            // Only this overload permits that.
-            let status =
-                source
-                |> mapAsyncWithConverters
-                    results
-                    errors
-                    operation
-                    strategy
-                    (fun (v: string) -> v.Length)
-                    (fun (v: string) -> v.Length > 3)
-                    None
-                    None
-                    true
-
-            source |> sendS "hello"
-            waitUntil (fun () -> received.Count = 1)
-
-            do! Expect.Sequence([ 5 ], strategy.AdmittedValues)
-            do! Expect.Sequence([ true ], strategy.CompletedResults)
-            do! Expect.Equal("HELLO", received[0])
-
-            status.Dispose()
-            l |> unlistenL
-        }
-
-    [<Test>]
     member _.``a custom strategy using EmptyState works``() =
         task {
             let source = sinkS<string> ()
@@ -342,7 +290,8 @@ type ``MapAsync Tests``() =
             let l = results |> listenStrongS received.Add
             let strategy = CountingStrategy()
 
-            let operation (_: string) (_: CancellationToken) = Task.FromResult(())
+            let operation (_: string) (resultFactory: ResultFactory<unit>) (_: CancellationToken) =
+                Task.FromResult(resultFactory.FromValue(()))
 
             let status = source |> mapAsync results errors operation strategy None None true
 
@@ -476,7 +425,12 @@ type ``MapAsync Tests``() =
             let received = List<exn>()
             let l = errors |> listenStrongS received.Add
 
-            let operation (_: string) (_: CancellationToken) : Task<string> = Task.FromException<string>(thrown)
+            let operation
+                (_: string)
+                (_: ResultFactory<string>)
+                (_: CancellationToken)
+                : Task<MapAsyncResult<string>> =
+                Task.FromException<MapAsyncResult<string>>(thrown)
 
             let status =
                 source |> mapAsync results errors operation (parallelStrategy ()) None None true

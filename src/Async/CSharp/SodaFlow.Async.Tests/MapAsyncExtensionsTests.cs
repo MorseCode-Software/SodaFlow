@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using SodaFlow.Functional;
@@ -25,7 +26,7 @@ public sealed class MapAsyncExtensionsTests
             source.MapAsync(
                 results: results,
                 errors: errors,
-                operation: static (v, _) => Task.FromResult(v.ToUpperInvariant()),
+                operation: static (v, factory, _) => Task.FromResult(factory.FromValue(v.ToUpperInvariant())),
                 strategy: AsyncConcurrencyStrategy.Parallel());
 
         source.Send("hello");
@@ -45,13 +46,13 @@ public sealed class MapAsyncExtensionsTests
         List<string> received = [];
         IListener l = results.ListenStrong(received.Add);
         Dog dog = new();
-        AlwaysStartStrategy<Animal, Unit> strategy = new();
+        AlwaysStartStrategy<Animal> strategy = new();
 
         AsyncMapStatus<Dog> status =
             source.MapAsync(
                 results: results,
                 errors: errors,
-                operation: static (_, _) => Task.FromResult("done"),
+                operation: static (_, factory, _) => Task.FromResult(factory.FromValue("done")),
                 strategy: strategy);
 
         source.Send(dog);
@@ -72,13 +73,13 @@ public sealed class MapAsyncExtensionsTests
         StreamSink<Exception> errors = Stream.CreateSink<Exception>();
         List<string> received = [];
         IListener l = results.ListenStrong(received.Add);
-        AlwaysStartStrategy<int, Unit> strategy = new();
+        AlwaysStartStrategy<int> strategy = new();
 
         AsyncMapStatus<string> status =
             source.MapAsync(
                 results: results,
                 errors: errors,
-                operation: static (v, _) => Task.FromResult(v.ToUpperInvariant()),
+                operation: static (v, factory, _) => Task.FromResult(factory.FromValue(v.ToUpperInvariant())),
                 strategy: strategy,
                 inputConverter: static v => v.Length);
 
@@ -86,182 +87,6 @@ public sealed class MapAsyncExtensionsTests
         TestUtil.WaitUntil(() => received.Count == 1);
 
         await Assert.That(strategy.AdmittedValues).IsEquivalentTo(expected: [5], ordering: CollectionOrdering.Matching);
-        await Assert.That(received[0]).IsEqualTo("HELLO");
-
-        status.Dispose();
-        l.Unlisten();
-    }
-
-    [Test]
-    public async Task MapAsync_TStrategyResultWithoutConverter_AcceptsTResultAsSubtypeOfTStrategyResult()
-    {
-        StreamSink<string> source = Stream.CreateSink<string>();
-        StreamSink<Dog> results = Stream.CreateSink<Dog>();
-        StreamSink<Exception> errors = Stream.CreateSink<Exception>();
-        List<Dog> received = [];
-        IListener l = results.ListenStrong(received.Add);
-        Dog dog = new();
-
-        AsyncMapStatus<string> status =
-            source.MapAsync(
-                results: results,
-                errors: errors,
-                operation: (_, _) => Task.FromResult(dog),
-                strategy: new AlwaysStartStrategy<Unit, Animal>());
-
-        source.Send("hello");
-        TestUtil.WaitUntil(() => received.Count == 1);
-        await Assert.That(received[0]).IsSameReferenceAs(dog);
-
-        status.Dispose();
-        l.Unlisten();
-    }
-
-    [Test]
-    public async Task MapAsync_TStrategyResultWithConverter_AppliesResultConverter()
-    {
-        StreamSink<string> source = Stream.CreateSink<string>();
-        StreamSink<string> results = Stream.CreateSink<string>();
-        StreamSink<Exception> errors = Stream.CreateSink<Exception>();
-        List<string> received = [];
-        IListener l = results.ListenStrong(received.Add);
-        AlwaysStartStrategy<Unit, int> strategy = new();
-
-        AsyncMapStatus<string> status =
-            source.MapAsync(
-                results: results,
-                errors: errors,
-                operation: static (v, _) => Task.FromResult(v.ToUpperInvariant()),
-                strategy: strategy,
-                resultConverter: static v => v.Length);
-
-        source.Send("hello");
-        TestUtil.WaitUntil(() => received.Count == 1);
-
-        await Assert.That(strategy.CompletedResults)
-            .IsEquivalentTo(expected: [5], ordering: CollectionOrdering.Matching);
-
-        await Assert.That(received[0]).IsEqualTo("HELLO");
-
-        status.Dispose();
-        l.Unlisten();
-    }
-
-    [Test]
-    public async Task MapAsync_FourTypeArgsWithoutConverters_AcceptsBothAsSubtypes()
-    {
-        StreamSink<Dog> source = Stream.CreateSink<Dog>();
-        StreamSink<Dog> results = Stream.CreateSink<Dog>();
-        StreamSink<Exception> errors = Stream.CreateSink<Exception>();
-        List<Dog> received = [];
-        IListener l = results.ListenStrong(received.Add);
-        Dog dog = new();
-
-        AsyncMapStatus<Dog> status =
-            source.MapAsync(
-                results: results,
-                errors: errors,
-                operation: static (v, _) => Task.FromResult(v),
-                strategy: new AlwaysStartStrategy<Animal, Animal>());
-
-        source.Send(dog);
-        TestUtil.WaitUntil(() => received.Count == 1);
-        await Assert.That(received[0]).IsSameReferenceAs(dog);
-
-        status.Dispose();
-        l.Unlisten();
-    }
-
-    [Test]
-    public async Task MapAsync_FourTypeArgsWithInputConverterOnly_AppliesInputConverter()
-    {
-        StreamSink<string> source = Stream.CreateSink<string>();
-        StreamSink<Dog> results = Stream.CreateSink<Dog>();
-        StreamSink<Exception> errors = Stream.CreateSink<Exception>();
-        List<Dog> received = [];
-        IListener l = results.ListenStrong(received.Add);
-        Dog dog = new();
-        AlwaysStartStrategy<int, Animal> strategy = new();
-
-        AsyncMapStatus<string> status =
-            source.MapAsync(
-                results: results,
-                errors: errors,
-                operation: (_, _) => Task.FromResult(dog),
-                strategy: strategy,
-                inputConverter: static v => v.Length);
-
-        source.Send("hello");
-        TestUtil.WaitUntil(() => received.Count == 1);
-
-        await Assert.That(strategy.AdmittedValues).IsEquivalentTo(expected: [5], ordering: CollectionOrdering.Matching);
-        await Assert.That(received[0]).IsSameReferenceAs(dog);
-
-        status.Dispose();
-        l.Unlisten();
-    }
-
-    [Test]
-    public async Task MapAsync_FourTypeArgsWithResultConverterOnly_AppliesResultConverter()
-    {
-        StreamSink<Dog> source = Stream.CreateSink<Dog>();
-        StreamSink<string> results = Stream.CreateSink<string>();
-        StreamSink<Exception> errors = Stream.CreateSink<Exception>();
-        List<string> received = [];
-        IListener l = results.ListenStrong(received.Add);
-        Dog dog = new();
-        AlwaysStartStrategy<Animal, int> strategy = new();
-
-        AsyncMapStatus<Dog> status =
-            source.MapAsync(
-                results: results,
-                errors: errors,
-                operation: static (_, _) => Task.FromResult("done"),
-                strategy: strategy,
-                resultConverter: static v => v.Length);
-
-        source.Send(dog);
-        TestUtil.WaitUntil(() => received.Count == 1);
-
-        await Assert.That(strategy.CompletedResults)
-            .IsEquivalentTo(expected: [4], ordering: CollectionOrdering.Matching);
-
-        await Assert.That(received[0]).IsEqualTo("done");
-
-        status.Dispose();
-        l.Unlisten();
-    }
-
-    [Test]
-    public async Task MapAsync_FullyGeneralOverload_AppliesBothConvertersToUnrelatedTypes()
-    {
-        StreamSink<string> source = Stream.CreateSink<string>();
-        StreamSink<string> results = Stream.CreateSink<string>();
-        StreamSink<Exception> errors = Stream.CreateSink<Exception>();
-        List<string> received = [];
-        IListener l = results.ListenStrong(received.Add);
-        AlwaysStartStrategy<int, bool> strategy = new();
-
-        // TStrategyInput, which is an int length, and TStrategyResult, which is a bool for "is
-        // long", have no inheritance relation to TInput and TResult, which are a string. Only this
-        // overload permits that.
-        AsyncMapStatus<string> status =
-            source.MapAsync(
-                results: results,
-                errors: errors,
-                operation: static (v, _) => Task.FromResult(v.ToUpperInvariant()),
-                strategy: strategy,
-                inputConverter: static v => v.Length,
-                resultConverter: static v => v.Length > 3);
-
-        source.Send("hello");
-        TestUtil.WaitUntil(() => received.Count == 1);
-
-        await Assert.That(strategy.AdmittedValues).IsEquivalentTo(expected: [5], ordering: CollectionOrdering.Matching);
-
-        await Assert.That(strategy.CompletedResults)
-            .IsEquivalentTo(expected: [true], ordering: CollectionOrdering.Matching);
-
         await Assert.That(received[0]).IsEqualTo("HELLO");
 
         status.Dispose();
@@ -409,7 +234,7 @@ public sealed class MapAsyncExtensionsTests
             source.MapAsync(
                 results: results,
                 errors: errors,
-                operation: (_, _) => Task.FromException<string>(thrown),
+                operation: (_, _, _) => Task.FromException<MapAsyncResult<string>>(thrown),
                 strategy: AsyncConcurrencyStrategy.Parallel());
 
         source.Send("hello");
@@ -489,28 +314,384 @@ public sealed class MapAsyncExtensionsTests
         status.Dispose();
     }
 
+    [Test]
+    public async Task Construct_RunsInTheTransactionThatSendsTheResult()
+    {
+        StreamSink<string> source = Stream.CreateSink<string>();
+        StreamSink<string> results = Stream.CreateSink<string>();
+        StreamSink<Exception> errors = Stream.CreateSink<Exception>();
+        List<string> received = [];
+        IListener l = results.ListenStrong(received.Add);
+        bool? inTransaction = null;
+
+        AsyncMapStatus status =
+            source.MapAsync(
+                results: results,
+                errors: errors,
+                operation: (v, factory, _) => Task.FromResult(
+                    factory.Construct(() =>
+                    {
+                        inTransaction = Transaction.IsActive();
+
+                        return v.ToUpperInvariant();
+                    })),
+                strategy: AsyncConcurrencyStrategy.Parallel());
+
+        source.Send("hello");
+        TestUtil.WaitUntil(() => received.Count == 1);
+
+        // A result that holds a cell or a stream needs this, and it is the cause for a
+        // constructor and not a value in the operation.
+        await Assert.That(inTransaction).IsTrue();
+        await Assert.That(received[0]).IsEqualTo("HELLO");
+
+        status.Dispose();
+        l.Unlisten();
+    }
+
+    [Test]
+    public async Task Construct_DoesNotRunWhenTheStrategyDoesNotPublish()
+    {
+        StreamSink<string> source = Stream.CreateSink<string>();
+        StreamSink<string> results = Stream.CreateSink<string>();
+        StreamSink<Exception> errors = Stream.CreateSink<Exception>();
+        List<string> received = [];
+        IListener l = results.ListenStrong(received.Add);
+        DropEverythingStrategy strategy = new();
+        List<string> constructions = [];
+
+        AsyncMapStatus status =
+            source.MapAsync(
+                results: results,
+                errors: errors,
+                operation: (v, factory, _) => Task.FromResult(
+                    factory.Construct(() =>
+                    {
+                        lock (constructions)
+                        {
+                            constructions.Add(v);
+                        }
+
+                        return v;
+                    })),
+                strategy: strategy);
+
+        source.Send("hello");
+        TestUtil.WaitUntil(() => strategy.Completions.Count == 1);
+
+        await Assert.That(received.Count).IsEqualTo(0);
+        await Assert.That(constructions.Count).IsEqualTo(0);
+
+        status.Dispose();
+        l.Unlisten();
+    }
+
+    [Test]
+    public async Task Construct_DoesNotRunForAnItemThatACancellationStopped()
+    {
+        StreamSink<string> source = Stream.CreateSink<string>();
+        StreamSink<string> results = Stream.CreateSink<string>();
+        StreamSink<Exception> errors = Stream.CreateSink<Exception>();
+        StreamSink<Unit> cancelAll = Stream.CreateSink<Unit>();
+        List<string> received = [];
+        List<Exception> failures = [];
+        IListener lr = results.ListenStrong(received.Add);
+        IListener le = errors.ListenStrong(failures.Add);
+        AlwaysStartStrategy<Unit> strategy = new();
+        ManualResetEventSlim release = new(false);
+        List<string> constructions = [];
+
+        // The operation ignores its token and returns a constructor, thus the cancellation and
+        // not the operation is what stops the result here.
+        AsyncMapStatus status =
+            source.MapAsync(
+                results: results,
+                errors: errors,
+                operation: (v, factory, _) => Task.Run(
+                    function: () =>
+                    {
+                        release.Wait(millisecondsTimeout: 5000);
+
+                        return factory.Construct(() =>
+                        {
+                            lock (constructions)
+                            {
+                                constructions.Add(v);
+                            }
+
+                            return v;
+                        });
+                    },
+                    cancellationToken: CancellationToken.None),
+                strategy: strategy,
+                cancelAll: cancelAll);
+
+        source.Send("a");
+        TestUtil.WaitUntil(() => status.IsRunning.Sample());
+
+        cancelAll.Send(Unit.Value);
+        release.Set();
+        TestUtil.WaitUntil(() => strategy.Completions.Count == 1);
+
+        await Assert.That(strategy.Completions[0]).IsEqualTo("canceled");
+        await Assert.That(received.Count).IsEqualTo(0);
+        await Assert.That(failures.Count).IsEqualTo(0);
+        await Assert.That(constructions.Count).IsEqualTo(0);
+
+        status.Dispose();
+        lr.Unlisten();
+        le.Unlisten();
+    }
+
+    [Test]
+    public async Task Construct_AThrowPublishesToErrorsAndNoResult()
+    {
+        StreamSink<string> source = Stream.CreateSink<string>();
+        StreamSink<string> results = Stream.CreateSink<string>();
+        StreamSink<Exception> errors = Stream.CreateSink<Exception>();
+        InvalidOperationException thrown = new("boom");
+        List<string> received = [];
+        List<Exception> failures = [];
+        IListener lr = results.ListenStrong(received.Add);
+        IListener le = errors.ListenStrong(failures.Add);
+
+        AsyncMapStatus status =
+            source.MapAsync(
+                results: results,
+                errors: errors,
+                operation: (_, factory, _) => Task.FromResult(
+                    factory.Construct(() => throw thrown)),
+                strategy: AsyncConcurrencyStrategy.Parallel());
+
+        source.Send("hello");
+        TestUtil.WaitUntil(() => failures.Count == 1);
+
+        await Assert.That(failures[0]).IsSameReferenceAs(thrown);
+        await Assert.That(received.Count).IsEqualTo(0);
+
+        status.Dispose();
+        lr.Unlisten();
+        le.Unlisten();
+    }
+
+    [Test]
+    public async Task OnCompleted_SeesHowTheOperationEnded()
+    {
+        StreamSink<string> source = Stream.CreateSink<string>();
+        StreamSink<string> results = Stream.CreateSink<string>();
+        StreamSink<Exception> errors = Stream.CreateSink<Exception>();
+        AlwaysStartStrategy<Unit> strategy = new();
+
+        AsyncMapStatus status =
+            source.MapAsync(
+                results: results,
+                errors: errors,
+                operation: static (v, factory, _) => v == "fail"
+                    ? Task.FromException<MapAsyncResult<string>>(new InvalidOperationException("no"))
+                    : Task.FromResult(factory.FromValue(v)),
+                strategy: strategy);
+
+        source.Send("ok");
+        TestUtil.WaitUntil(() => strategy.Completions.Count == 1);
+
+        source.Send("fail");
+        TestUtil.WaitUntil(() => strategy.Completions.Count == 2);
+
+        // The strategy reads how the operation ended and never a result.
+        await Assert.That(strategy.Completions)
+            .IsEquivalentTo(expected: ["succeeded", "failed:no"], ordering: CollectionOrdering.Matching);
+
+        status.Dispose();
+    }
+
+    [Test]
+    public async Task Admit_SeesTheQueueWithoutTheIncomingItem()
+    {
+        StreamSink<string> source = Stream.CreateSink<string>();
+        StreamSink<string> results = Stream.CreateSink<string>();
+        StreamSink<Exception> errors = Stream.CreateSink<Exception>();
+        ControlledOperation<string, string> op = new();
+        QueueFromTrackedStrategy strategy = new();
+
+        AsyncMapStatus status =
+            source.MapAsync(
+                results: results,
+                errors: errors,
+                operation: op.Operation,
+                strategy: strategy);
+
+        source.Send("a");
+        TestUtil.WaitUntil(() => op.HasStarted("a"));
+
+        source.Send("b");
+        TestUtil.WaitUntil(() => strategy.AdmitSaw.Count == 2);
+
+        source.Send("c");
+        TestUtil.WaitUntil(() => strategy.AdmitSaw.Count == 3);
+
+        // The first admission sees an empty pipeline. The second sees the first item Running,
+        // and no call sees the value that it is admitting.
+        await Assert.That(strategy.AdmitSaw)
+            .IsEquivalentTo(
+                expected: [string.Empty, "a:R", "a:R,b:Q"],
+                ordering: CollectionOrdering.Matching);
+
+        status.Dispose();
+    }
+
+    [Test]
+    public async Task OnCompleted_SeesTheQueueWithTheItemThatEnds()
+    {
+        StreamSink<string> source = Stream.CreateSink<string>();
+        StreamSink<string> results = Stream.CreateSink<string>();
+        StreamSink<Exception> errors = Stream.CreateSink<Exception>();
+        ControlledOperation<string, string> op = new();
+        QueueFromTrackedStrategy strategy = new();
+        List<string> received = [];
+        IListener l = results.ListenStrong(received.Add);
+
+        AsyncMapStatus status =
+            source.MapAsync(
+                results: results,
+                errors: errors,
+                operation: op.Operation,
+                strategy: strategy);
+
+        source.Send("a");
+        TestUtil.WaitUntil(() => op.HasStarted("a"));
+        source.Send("b");
+        TestUtil.WaitUntil(() => strategy.AdmitSaw.Count == 2);
+
+        // This strategy keeps no queue of its own. It takes the next item out of the list that
+        // the pipeline gives it, which is the point of the test.
+        op.Release(input: "a", result: "A");
+        TestUtil.WaitUntil(() => op.HasStarted("b"));
+
+        op.Release(input: "b", result: "B");
+        TestUtil.WaitUntil(() => received.Count == 2);
+
+        // The item that ended remains in the list, with the status it had.
+        await Assert.That(strategy.CompletedSaw)
+            .IsEquivalentTo(expected: ["a:R,b:Q", "b:R"], ordering: CollectionOrdering.Matching);
+
+        await Assert.That(received)
+            .IsEquivalentTo(expected: ["A", "B"], ordering: CollectionOrdering.Matching);
+
+        status.Dispose();
+        l.Unlisten();
+    }
+
     private class Animal;
 
     private sealed class Dog : Animal;
 
+    /// <summary>Starts each item immediately and then refuses to publish its result. It shows
+    /// that the pipeline makes a result only for an item that it publishes.</summary>
+    // ReSharper disable once InheritdocConsiderUsage
+    private sealed class DropEverythingStrategy : AsyncConcurrencyStrategy<Unit>
+    {
+        public readonly List<string> Completions = [];
+
+        protected override Unit CreateState() => Unit.Value;
+
+        protected override IReadOnlyList<AsyncToStart<Unit>> Admit(
+            Unit state,
+            AsyncQueuedItem<Unit> incoming,
+            IReadOnlyList<AsyncTrackedItem<Unit>> tracked) =>
+            [new(incoming)];
+
+        protected override AsyncStrategyResult<Unit> OnCompleted(
+            Unit state,
+            AsyncQueuedItem<Unit> item,
+            AsyncCompletion completion,
+            IReadOnlyList<AsyncTrackedItem<Unit>> tracked)
+        {
+            lock (this.Completions)
+            {
+                this.Completions.Add("completed");
+            }
+
+            return new AsyncStrategyResult<Unit>(publish: false, next: AsyncStrategyResult<Unit>.None);
+        }
+    }
+
     /// <summary>
-    ///     Starts each item immediately, as the Parallel strategy in the library does. It
-    ///     operates on each TStrategyInput and each TStrategyResult, and records the value at the
-    ///     admission and the value at the end. Thus, a test can show that a converter ran, and not
-    ///     only that it compiled.
+    ///     Queues each item and starts one at a time, as the Queue strategy in the library does,
+    ///     but with no queue of its own: it reads the queue of the pipeline. It also records what
+    ///     that queue held at each call.
     /// </summary>
     // ReSharper disable once InheritdocConsiderUsage
-    private sealed class AlwaysStartStrategy<TStrategyInput, TStrategyResult>
-        : AsyncConcurrencyStrategy<TStrategyInput, TStrategyResult, Unit>
+    private sealed class QueueFromTrackedStrategy : AsyncConcurrencyStrategy<string, Unit>
+    {
+        public readonly List<string> AdmitSaw = [];
+        public readonly List<string> CompletedSaw = [];
+
+        protected override Unit CreateState() => Unit.Value;
+
+        protected override IReadOnlyList<AsyncToStart<string>> Admit(
+            Unit state,
+            AsyncQueuedItem<string> incoming,
+            IReadOnlyList<AsyncTrackedItem<string>> tracked)
+        {
+            lock (this.AdmitSaw)
+            {
+                this.AdmitSaw.Add(Describe(tracked));
+            }
+
+            // Nothing runs when no tracked item has the Running status.
+            bool idle = tracked.All(static item => item.Status != AsyncItemStatus.Running);
+
+            return idle ? [new AsyncToStart<string>(incoming)] : [];
+        }
+
+        protected override AsyncStrategyResult<string> OnCompleted(
+            Unit state,
+            AsyncQueuedItem<string> item,
+            AsyncCompletion completion,
+            IReadOnlyList<AsyncTrackedItem<string>> tracked)
+        {
+            lock (this.CompletedSaw)
+            {
+                this.CompletedSaw.Add(Describe(tracked));
+            }
+
+            // The item that ends remains in the list, thus this selects the first Queued item
+            // that is a different one.
+            AsyncTrackedItem<string>? next =
+                tracked.FirstOrDefault(
+                    predicate: candidate =>
+                        candidate.Status == AsyncItemStatus.Queued
+                        && !ReferenceEquals(objA: candidate.Item, objB: item));
+
+            return new AsyncStrategyResult<string>(
+                publish: true,
+                next: next is null ? AsyncStrategyResult<string>.None : [new AsyncToStart<string>(next.Item)]);
+        }
+
+        private static string Describe(IEnumerable<AsyncTrackedItem<string>> tracked) =>
+            string.Join(
+                separator: ",",
+                values: tracked.Select(
+                    static e => e.Item.Value + ":" + (e.Status == AsyncItemStatus.Running ? "R" : "Q")));
+    }
+
+    /// <summary>
+    ///     Starts each item immediately, as the Parallel strategy in the library does. It
+    ///     operates on each TStrategyInput, and records the value at the admission and how each
+    ///     item ended. Thus, a test can show that a converter ran, and not only that it compiled.
+    /// </summary>
+    // ReSharper disable once InheritdocConsiderUsage
+    private sealed class AlwaysStartStrategy<TStrategyInput> : AsyncConcurrencyStrategy<TStrategyInput, Unit>
     {
         public readonly List<TStrategyInput> AdmittedValues = [];
-        public readonly List<TStrategyResult> CompletedResults = [];
+        public readonly List<string> Completions = [];
 
         protected override Unit CreateState() => Unit.Value;
 
         protected override IReadOnlyList<AsyncToStart<TStrategyInput>> Admit(
             Unit state,
-            AsyncQueuedItem<TStrategyInput> incoming)
+            AsyncQueuedItem<TStrategyInput> incoming,
+            IReadOnlyList<AsyncTrackedItem<TStrategyInput>> tracked)
         {
             lock (this.AdmittedValues)
             {
@@ -523,18 +704,16 @@ public sealed class MapAsyncExtensionsTests
         protected override AsyncStrategyResult<TStrategyInput> OnCompleted(
             Unit state,
             AsyncQueuedItem<TStrategyInput> item,
-            AsyncOutcome<TStrategyResult> outcome)
+            AsyncCompletion completion,
+            IReadOnlyList<AsyncTrackedItem<TStrategyInput>> tracked)
         {
-            outcome.MatchVoid(
-                onSucceeded: v =>
-                {
-                    lock (this.CompletedResults)
-                    {
-                        this.CompletedResults.Add(v);
-                    }
-                },
-                onFailed: null,
-                onCanceled: null);
+            lock (this.Completions)
+            {
+                completion.MatchVoid(
+                    onSucceeded: () => this.Completions.Add("succeeded"),
+                    onFailed: e => this.Completions.Add("failed:" + e.Message),
+                    onCanceled: () => this.Completions.Add("canceled"));
+            }
 
             return new AsyncStrategyResult<TStrategyInput>(
                 publish: true,

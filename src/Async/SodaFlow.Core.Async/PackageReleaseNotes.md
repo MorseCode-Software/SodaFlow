@@ -1,5 +1,68 @@
 5.0.0
 
+BREAKING: the operation of a MapAsync call is a MapAsyncOperation<TInput,
+TResult> delegate, where it was a Func<TInput, CancellationToken,
+Task<TResult>>. It takes a third argument, a ResultFactory<TResult>,
+and answers with what that factory makes:
+
+  resultFactory.FromValue(value)        a value the operation has
+  resultFactory.Construct(() => .) a function the pipeline calls
+
+The second one is the cause for the change. The pipeline calls that function
+in the transaction that sends the result, so a result that holds a cell, a
+stream, or a view model built out of them comes into existence in that
+transaction. An operation runs outside a transaction and cannot do that for
+itself.
+
+Keep such a function short, because it holds the transaction while it runs, and
+put no effect in it that matters outside the value it returns: the pipeline
+calls it only for an item that it publishes, and a strategy can decide not to
+publish. A throw from it goes to the errors stream in place of a result.
+
+A lambda takes the third parameter and compiles. A stored Func does not convert
+to the delegate and needs its own edit.
+
+BREAKING: Admit and OnCompleted take one more argument, the queue of the
+pipeline: each item that it tracks, Queued or Running, in the sequence of their
+admissions, as an IReadOnlyList<AsyncTrackedItem<TInput>>. An entry holds the
+AsyncQueuedItem that the strategy received at the admission, which is the same
+instance, and the status of that item now.
+
+A strategy that schedules on the sequence alone thus keeps no queue of its own.
+Two limits decide what the next item is: in Admit the list does not hold the
+value that the pipeline admits now, and in OnCompleted it still holds the item
+that ends now. It is a snapshot from the start of the transaction, thus it does
+not change while the call runs, and an item that the call starts is Queued in
+it.
+
+Each custom strategy takes the new parameter, also one that does not read it.
+
+Queue and QueuePerGroup in this library read that queue now and hold no queue of
+their own. Their behavior does not change - the same sequence, the same
+treatment of an item that a cancellation removed before its turn - and a
+measurement of 5,000 items through each one gives the same time as before, in
+one group and in 500 groups. The state type of Queue is gone with its queue, and
+the state of QueuePerGroup holds the group comparer alone.
+
+
+BREAKING: a strategy no longer reads a result. OnCompleted takes an
+AsyncCompletion - the operation returned, it threw, with the exception, or a
+cancellation stopped it - in place of an AsyncOutcome<TStrategyResult>. The
+pipeline asks the strategy first and makes the result after, and only for an
+item that it publishes, which is what the paragraph above describes.
+
+The result type of a strategy existed to carry that value, so it is gone with
+it:
+
+  AsyncConcurrencyStrategyBase<TInput, TResult>
+      becomes AsyncConcurrencyStrategyBase<TInput>
+  AsyncConcurrencyStrategy<TInput, TResult, TState>
+      becomes AsyncConcurrencyStrategy<TInput, TState>
+
+MapAsyncImpl loses its TStrategyResult and its resultConverter with them. None
+of the strategies in this library read a result, and a strategy that wants to
+select what reaches a consumer can filter the results stream instead.
+
 BREAKING: AsyncMapStatus<TInput> is a class, where it was a readonly struct, and
 it now extends a new non-generic AsyncMapStatus that carries IsRunning and
 Dispose. Items stays on the generic type, because only that part depends on the
@@ -81,7 +144,9 @@ About this package
 
 The engine behind MapAsync: the tracking, the concurrency strategies and the
 AsyncMapStatus a caller holds, generic in the input type when the caller wants
-the tracked items and non-generic when it does not. Not installed directly - take SodaFlow.Async for
+the tracked items and non-generic when it does not. An operation answers with a
+MapAsyncResult, which carries a value or a function that this engine calls in
+the transaction that publishes. Not installed directly - take SodaFlow.Async for
 C# or SodaFlow.FSharp.Async for F#, both of which bring it with them.
 
 Full notes: https://github.com/MorseCode-Software/SodaFlow/releases

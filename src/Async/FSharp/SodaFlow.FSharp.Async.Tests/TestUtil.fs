@@ -5,6 +5,7 @@ open System.Collections.Concurrent
 open System.Diagnostics
 open System.Threading
 open System.Threading.Tasks
+open SodaFlow.Async
 
 /// Reads `condition` until it is true, or fails the test at a timeout.
 let waitUntil (condition: unit -> bool) =
@@ -35,9 +36,10 @@ type ControlledOperation<'TInput, 'TResult when 'TInput: equality>() =
     member _.Fail(input: 'TInput, error: exn) =
         (gateFor input).TrySetException(error) |> ignore
 
-    member _.Operation: 'TInput -> CancellationToken -> Task<'TResult> =
-        fun input token ->
+    member _.Operation
+        : 'TInput -> ResultFactory<'TResult> -> CancellationToken -> Task<MapAsyncResult<'TResult>> =
+        fun input resultFactory token ->
             started[input] <- true
             let tcs = gateFor input
             token.Register(fun () -> tcs.TrySetCanceled(token) |> ignore) |> ignore
-            tcs.Task
+            tcs.Task.ContinueWith(fun (t: Task<'TResult>) -> resultFactory.FromValue(t.Result))
