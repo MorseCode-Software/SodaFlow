@@ -48,7 +48,7 @@ internal sealed class ControlledOperation<TInput, TResult>
 
     public void Fail(TInput input, Exception error) => this.GateFor(input).TrySetException(error);
 
-    private async Task<ResultConstructor<TResult>> Run(
+    private async Task<MapAsyncResult<TResult>> Run(
         TInput input,
         ResultFactory<TResult> resultFactory,
         CancellationToken token)

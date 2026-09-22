@@ -233,7 +233,7 @@ public sealed class MapAsyncExtensionsTests
             source.MapAsync(
                 results: results,
                 errors: errors,
-                operation: (_, _, _) => Task.FromException<ResultConstructor<string>>(thrown),
+                operation: (_, _, _) => Task.FromException<MapAsyncResult<string>>(thrown),
                 strategy: AsyncConcurrencyStrategy.Parallel());
 
         source.Send("hello");
@@ -486,7 +486,7 @@ public sealed class MapAsyncExtensionsTests
                 results: results,
                 errors: errors,
                 operation: static (v, factory, _) => v == "fail"
-                    ? Task.FromException<ResultConstructor<string>>(new InvalidOperationException("no"))
+                    ? Task.FromException<MapAsyncResult<string>>(new InvalidOperationException("no"))
                     : Task.FromResult(factory.FromValue(v)),
                 strategy: strategy);
 

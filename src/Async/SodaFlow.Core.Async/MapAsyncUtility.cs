@@ -10,7 +10,7 @@ namespace SodaFlow.Async;
 
 /// <summary>
 ///     The work that a MapAsync pipeline does for one value from the source stream. It gives a
-///     <see cref="ResultConstructor{TResult}" /> and not a result, because the two answers are not
+///     <see cref="MapAsyncResult{TResult}" /> and not a result, because the two answers are not
 ///     the same: <see cref="ResultFactory{TResult}.FromValue" /> carries a value that the
 ///     operation has, and <see cref="ResultFactory{TResult}.Construct" /> carries a function that
 ///     the pipeline calls in the transaction that sends the result. Use the second one when the
@@ -28,7 +28,7 @@ namespace SodaFlow.Async;
 /// </param>
 /// <returns>A Task with the value, or with the function that makes the value.</returns>
 [PublicAPI]
-public delegate Task<ResultConstructor<TResult>> MapAsyncOperation<in TInput, TResult>(
+public delegate Task<MapAsyncResult<TResult>> MapAsyncOperation<in TInput, TResult>(
     TInput input,
     ResultFactory<TResult> resultFactory,
     CancellationToken token);
@@ -76,14 +76,14 @@ public readonly struct AsyncItem<TInput>
 /// </summary>
 /// <typeparam name="TResult">The type that the pipeline publishes.</typeparam>
 [PublicAPI]
-public sealed class ResultConstructor<TResult>
+public sealed class MapAsyncResult<TResult>
 {
     private readonly TResult? result;
     private readonly Func<TResult>? constructResult;
 
-    internal ResultConstructor(TResult result) => this.result = result;
+    internal MapAsyncResult(TResult result) => this.result = result;
 
-    internal ResultConstructor(Func<TResult> constructResult) => this.constructResult = constructResult;
+    internal MapAsyncResult(Func<TResult> constructResult) => this.constructResult = constructResult;
 
     // ReSharper disable once NullableWarningSuppressionIsUsed - result is not null if constructResult is null
     internal TResult GetResult() => this.constructResult != null ? this.constructResult() : this.result!;
@@ -109,7 +109,7 @@ public sealed class ResultFactory<TResult>
     /// </summary>
     /// <param name="value">The value to publish.</param>
     /// <returns>The answer to return from the operation.</returns>
-    public ResultConstructor<TResult> FromValue(TResult value) => new(value);
+    public MapAsyncResult<TResult> FromValue(TResult value) => new(value);
 
     /// <summary>
     ///     Carries a function that makes the result. The pipeline calls it one time, in the
@@ -121,7 +121,7 @@ public sealed class ResultFactory<TResult>
     /// </summary>
     /// <param name="makeResult">Makes the value to publish.</param>
     /// <returns>The answer to return from the operation.</returns>
-    public ResultConstructor<TResult> Construct(Func<TResult> makeResult) => new(makeResult);
+    public MapAsyncResult<TResult> Construct(Func<TResult> makeResult) => new(makeResult);
 }
 
 /// <summary>
@@ -1721,7 +1721,7 @@ internal sealed class AsyncMapExecutionManager<TInput, TResult, TStrategyInput> 
             TransactionInternal.PostImpl(() =>
                 this.Complete(
                     item: toStart.Item,
-                    pending: AsyncOutcome<ResultConstructor<TResult>>.Canceled(),
+                    pending: AsyncOutcome<MapAsyncResult<TResult>>.Canceled(),
                     entryByIdCell: entryByIdCell,
                     tokenToCheck: null));
 
@@ -1758,7 +1758,7 @@ internal sealed class AsyncMapExecutionManager<TInput, TResult, TStrategyInput> 
             // no continuation on a different thread. `value` is the initial TInput at the
             // admission of this item. PromoteAndLaunch gives it to this method, as the class
             // remarks give, and no code calculates it again from TStrategyInput.
-            ResultConstructor<TResult> resultConstructor =
+            MapAsyncResult<TResult> operationResult =
                 await this.operation(
                         input: value,
                         resultFactory: ResultFactory<TResult>.Instance,
@@ -1767,7 +1767,7 @@ internal sealed class AsyncMapExecutionManager<TInput, TResult, TStrategyInput> 
 
             this.Complete(
                 item: toStart.Item,
-                pending: AsyncOutcome<ResultConstructor<TResult>>.Succeeded(resultConstructor),
+                pending: AsyncOutcome<MapAsyncResult<TResult>>.Succeeded(operationResult),
                 entryByIdCell: entryByIdCell,
                 tokenToCheck: linked.Token);
         }
@@ -1775,7 +1775,7 @@ internal sealed class AsyncMapExecutionManager<TInput, TResult, TStrategyInput> 
         {
             this.Complete(
                 item: toStart.Item,
-                pending: AsyncOutcome<ResultConstructor<TResult>>.Canceled(),
+                pending: AsyncOutcome<MapAsyncResult<TResult>>.Canceled(),
                 entryByIdCell: entryByIdCell,
                 tokenToCheck: null);
         }
@@ -1783,7 +1783,7 @@ internal sealed class AsyncMapExecutionManager<TInput, TResult, TStrategyInput> 
         {
             this.Complete(
                 item: toStart.Item,
-                pending: AsyncOutcome<ResultConstructor<TResult>>.Failed(ex),
+                pending: AsyncOutcome<MapAsyncResult<TResult>>.Failed(ex),
                 entryByIdCell: entryByIdCell,
                 tokenToCheck: linked.Token);
         }
@@ -1810,16 +1810,16 @@ internal sealed class AsyncMapExecutionManager<TInput, TResult, TStrategyInput> 
     /// </summary>
     private void Complete(
         AsyncQueuedItem<TStrategyInput> item,
-        AsyncOutcome<ResultConstructor<TResult>> pending,
+        AsyncOutcome<MapAsyncResult<TResult>> pending,
         Cell<Dictionary<Guid, Entry>> entryByIdCell,
         CancellationToken? tokenToCheck) =>
         TransactionInternal.RunImpl(() =>
         {
             // A cancellation that arrived while the operation ran makes the item Canceled, also
             // when the operation gave a result or threw.
-            AsyncOutcome<ResultConstructor<TResult>> outcome =
+            AsyncOutcome<MapAsyncResult<TResult>> outcome =
                 tokenToCheck is { IsCancellationRequested: true }
-                    ? AsyncOutcome<ResultConstructor<TResult>>.Canceled()
+                    ? AsyncOutcome<MapAsyncResult<TResult>>.Canceled()
                     : pending;
 
             // The strategy reads how the operation ended and not the result, thus this call comes
@@ -1836,8 +1836,8 @@ internal sealed class AsyncMapExecutionManager<TInput, TResult, TStrategyInput> 
             if (decision.Publish)
             {
                 outcome.MatchVoid(
-                    onSucceeded: resultConstructor => this.Publish(
-                        resultConstructor: resultConstructor,
+                    onSucceeded: operationResult => this.Publish(
+                        operationResult: operationResult,
                         tokenToCheck: tokenToCheck),
                     onFailed: this.errors.SendImpl,
                     onCanceled: null);
@@ -1887,7 +1887,7 @@ internal sealed class AsyncMapExecutionManager<TInput, TResult, TStrategyInput> 
 
     /// <summary>
     ///     Makes the result of an item and sends it. This is the one code that calls the function
-    ///     of a <see cref="ResultConstructor{TResult}" />, and it runs in the transaction that
+    ///     of a <see cref="MapAsyncResult{TResult}" />, and it runs in the transaction that
     ///     publishes. Thus a result that holds a cell or a stream comes into existence in that
     ///     transaction, and that is the cause for a constructor and not a value.
     ///     <para>
@@ -1902,13 +1902,13 @@ internal sealed class AsyncMapExecutionManager<TInput, TResult, TStrategyInput> 
     ///         operation, and an error stream that receives such a throw hides its source.
     ///     </para>
     /// </summary>
-    private void Publish(ResultConstructor<TResult> resultConstructor, CancellationToken? tokenToCheck)
+    private void Publish(MapAsyncResult<TResult> operationResult, CancellationToken? tokenToCheck)
     {
         TResult result;
 
         try
         {
-            result = resultConstructor.GetResult();
+            result = operationResult.GetResult();
         }
         catch (OperationCanceledException) when (tokenToCheck is { IsCancellationRequested: true })
         {

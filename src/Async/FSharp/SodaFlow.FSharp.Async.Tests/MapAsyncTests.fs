@@ -414,8 +414,8 @@ type ``MapAsync Tests``() =
                 (_: string)
                 (_: ResultFactory<string>)
                 (_: CancellationToken)
-                : Task<ResultConstructor<string>> =
-                Task.FromException<ResultConstructor<string>>(thrown)
+                : Task<MapAsyncResult<string>> =
+                Task.FromException<MapAsyncResult<string>>(thrown)
 
             let status =
                 source |> mapAsync results errors operation (parallelStrategy ()) None None true

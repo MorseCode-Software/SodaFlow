@@ -37,7 +37,7 @@ type ControlledOperation<'TInput, 'TResult when 'TInput: equality>() =
         (gateFor input).TrySetException(error) |> ignore
 
     member _.Operation
-        : 'TInput -> ResultFactory<'TResult> -> CancellationToken -> Task<ResultConstructor<'TResult>> =
+        : 'TInput -> ResultFactory<'TResult> -> CancellationToken -> Task<MapAsyncResult<'TResult>> =
         fun input resultFactory token ->
             started[input] <- true
             let tcs = gateFor input

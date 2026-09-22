@@ -122,7 +122,7 @@ About this package
 The engine behind MapAsync: the tracking, the concurrency strategies and the
 AsyncMapStatus a caller holds, generic in the input type when the caller wants
 the tracked items and non-generic when it does not. An operation answers with a
-ResultConstructor, which carries a value or a function that this engine calls in
+MapAsyncResult, which carries a value or a function that this engine calls in
 the transaction that publishes. Not installed directly - take SodaFlow.Async for
 C# or SodaFlow.FSharp.Async for F#, both of which bring it with them.
 

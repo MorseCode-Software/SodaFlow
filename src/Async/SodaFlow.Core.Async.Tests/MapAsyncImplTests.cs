@@ -52,7 +52,7 @@ public sealed class MapAsyncImplTests
             source.MapAsyncImpl(
                 results: results,
                 errors: errors,
-                operation: (_, _, _) => Task.FromException<ResultConstructor<string>>(thrown),
+                operation: (_, _, _) => Task.FromException<MapAsyncResult<string>>(thrown),
                 strategy: AsyncConcurrencyStrategyFactory.Parallel("unused"),
                 inputConverter: static v => v);
 
