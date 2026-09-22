@@ -67,6 +67,20 @@ straightforward: `IsRunning` is a `Cell<bool>`, and `Items` is a
 `Cell<IReadOnlyList<AsyncItem<TInput>>>` describing what is queued and running. Bind them
 directly to your UI. Disposing the status tears the pipeline down.
 
+Only `Items` depends on the input type. `IsRunning` and disposal live on a non-generic base,
+`AsyncMapStatus`, so a view model that shows a busy indicator and owns the pipeline's lifetime
+can hold that and never name the input type:
+
+```csharp
+AsyncMapStatus status = queries.MapAsync(
+    results: results,
+    errors: errors,
+    operation: (query, token) => SearchAsync(query, token),
+    strategy: AsyncConcurrencyStrategy.SwitchLatest());
+
+Cell<bool> busy = status.IsRunning;
+```
+
 > [!NOTE]
 > `MapAsync` has nine overloads, differing in whether the strategy inspects the input, the
 > result, both, or neither, and whether converters are needed. The generated

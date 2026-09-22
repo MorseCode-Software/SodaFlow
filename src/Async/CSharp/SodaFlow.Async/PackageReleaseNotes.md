@@ -1,3 +1,19 @@
+5.0.0
+
+BREAKING, and the break is in SodaFlow.Async.Core 5.0.0, which this release
+takes: the AsyncMapStatus<TInput> that every MapAsync overload returns is a
+class where it was a readonly struct, and it extends a new non-generic
+AsyncMapStatus that carries IsRunning and Dispose. Items stays on the generic
+type.
+
+A caller that never reads Items can now hold an AsyncMapStatus and does not
+have to name the input type. A view model that shows a busy indicator and
+disposes the pipeline is the usual case.
+
+Source that names AsyncMapStatus<TInput> needs no edit. Anything compiled
+against 4.x does, because a struct and a class are not the same type to the
+runtime.
+
 4.0.1
 
 Adds the package icon that nuget.org shows beside this package. No source file
@@ -66,7 +82,9 @@ runs when.
 MapAsync returns an AsyncMapStatus<TInput>: IsRunning is a Cell<bool> that is
 true while at least one invocation is actually running, updating glitch-free in
 the same transaction as whatever caused it to change; Items lists everything
-tracked with its status; disposing it tears the pipeline down.
+tracked with its status; disposing it tears the pipeline down. IsRunning and
+disposal live on its non-generic base, AsyncMapStatus, so code that does not
+read Items can hold that instead of naming the input type.
 
 Operations are handed a CancellationToken combining the item's own cancellation
 with the strategy's. Honoring it is what makes cancellation take effect on work
