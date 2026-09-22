@@ -13,7 +13,7 @@ internal sealed class TransactionInternal
     // These fields use [ThreadStatic] and not ThreadLocal<T>. Almost all public entry points
     // read them. A thread-static field is a TLS access with no table, but ThreadLocal<T>.Value uses a
     // generic slot table. This code does not use the other members of ThreadLocal, which are
-    // Values, IsValueCreated, value factories, and disposal. Thus the two are equivalent here.
+    // Values, IsValueCreated, value factories, and disposal. Thus, the two are equivalent here.
     [ThreadStatic] private static TransactionInternal? localTransaction;
 
     [ThreadStatic] private static bool runningOnStartHooks;
@@ -22,7 +22,7 @@ internal sealed class TransactionInternal
     //
     // The library gives one transaction at a time across the process. This is a guarantee and not
     // an accident of the implementation. It makes a transaction atomic across threads and keeps
-    // the sequence of updates the same on each run. Thus a caller needs no synchronization. A
+    // the sequence of updates the same on each run. Thus, a caller needs no synchronization. A
     // smaller lock, or many locks, changes the threading behavior of the library, also if
     // that looks like a good correction for contention. The remarks on the public
     // SodaFlow.Transaction class give the guarantee and its results.
@@ -45,7 +45,7 @@ internal sealed class TransactionInternal
 
     // SodaFlow allocates all of these on first use and not in the constructor. It creates a
     // transaction for each send that is not already in one, and most transactions use only two
-    // of these fields. Thus eager allocation of all seven fields, and of the dictionary and the
+    // of these fields. Thus, eager allocation of all seven fields, and of the dictionary and the
     // set in particular, was most of the cost of an empty transaction.
     private List<Action<TransactionInternal>>? sendQueue;
     private Dictionary<int, Action<TransactionInternal>>? splitQueue;
@@ -62,7 +62,7 @@ internal sealed class TransactionInternal
     }
 
     // The root transaction owns the post queue and the split queue. It shares them with the
-    // child transactions that it creates as it closes. Thus work that a deferred action defers
+    // child transactions that it creates as it closes. Thus, work that a deferred action defers
     // goes into the queue that the root still drains. A child reaches these queues through
     // deferredOwner and does not hold its own.
     private TransactionInternal DeferredOwner => field ?? this;
@@ -360,7 +360,7 @@ internal sealed class TransactionInternal
                 {
                     try
                     {
-                        // The child defers into the queues of this transaction. Thus a Post
+                        // The child defers into the queues of this transaction. Thus, a Post
                         // or a Split from inside a deferred action joins the drain that runs
                         // here, and does not stay on the child.
                         TransactionInternal transaction = new(this);
@@ -436,7 +436,7 @@ internal sealed class TransactionInternal
             // capacity that the failed transaction made. The scope of the parent holds a nested
             // transaction until the parent completes. Null is already the correct empty state,
             // because SodaFlow allocates each of these on first use and each reader tests
-            // for null. Thus no later code can fail on it.
+            // for null. Thus, no later code can fail on it.
             this.sendQueue = null;
 
             while (!PrioritizedQueue.IsEmpty())
@@ -467,7 +467,7 @@ internal sealed class TransactionInternal
         public Entry? PqPrev;
         public int PqRank;
 
-        // The position of this entry in Node.Entries. Thus removal needs no examination and no
+        // The position of this entry in Node.Entries. Thus, removal needs no examination and no
         // move. A value of -1 means "not in the list". This also makes a second call to
         // Dispose do nothing, and prevents the removal of the entry that is now at that
         // position.
@@ -493,7 +493,7 @@ internal sealed class TransactionInternal
 
             // Move the last entry into this position and do not move the entries after it.
             // SodaFlow reads Node.Entries only to put entries into rerankEntriesSet, which
-            // is a HashSet. Thus no code depends on the sequence. A wide fan-in also makes the
+            // is a HashSet. Thus, no code depends on the sequence. A wide fan-in also makes the
             // repeated RemoveAt(0) that this code replaces quadratic in the number of entries.
             // Cell.Lift on N cells is such a fan-in, because it links all N cells to one
             // node.
@@ -512,7 +512,7 @@ internal sealed class TransactionInternal
             entries.RemoveAt(last);
         }
 
-        // A subclass holds the state that the queued work needs, as fields. Thus a caller on a
+        // A subclass holds the state that the queued work needs, as fields. Thus, a caller on a
         // frequent path does not allocate a closure and a delegate and also the entry.
         public abstract void Execute(TransactionInternal trans);
     }

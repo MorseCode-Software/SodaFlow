@@ -9,7 +9,7 @@ namespace SodaFlow.Samples.Bounce.ViewModels;
 /// </summary>
 /// <remarks>
 ///     <para>
-///         XAML binds by name to the data context, at each type of that data context. Thus a type
+///         XAML binds by name to the data context, at each type of that data context. Thus, a type
 ///         for the data context has a value. The type shows the bindable members, gives the
 ///         designer and the compiler a target for the binding paths, and keeps the construction of
 ///         the view model away from a view.

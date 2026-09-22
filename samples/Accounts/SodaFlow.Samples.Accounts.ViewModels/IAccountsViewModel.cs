@@ -125,7 +125,7 @@ public interface IAccountsViewModel : IDisposable
     /// it.</summary>
     /// <remarks>
     ///     A sort on the account number uses the identity part of an account, and no edit can
-    ///     change that part. Thus with this order a deposit changes a balance and cannot move a
+    ///     change that part. Thus, with this order a deposit changes a balance and cannot move a
     ///     row. The collection finds that itself, and no code tells it. The selector receives the
     ///     identity and never the state, thus the sort does not see an edit to a state.
     /// </remarks>

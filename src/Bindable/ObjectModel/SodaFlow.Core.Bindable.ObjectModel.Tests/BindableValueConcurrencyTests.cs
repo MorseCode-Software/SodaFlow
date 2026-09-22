@@ -31,7 +31,7 @@ namespace SodaFlow.Bindable.ObjectModel.Tests;
 public sealed class BindableValueConcurrencyTests
 {
     // This is the contract of ImmediateBindingScheduler. It defers, but only to the end of the
-    // open transaction. Thus a test does not have to run a message loop to see the
+    // open transaction. Thus, a test does not have to run a message loop to see the
     // notification.
     [Test]
     public async Task TheImmediateSchedulerHasNotifiedByTheTimeTheSendReturns()
@@ -64,7 +64,7 @@ public sealed class BindableValueConcurrencyTests
         ITwoWayBindableValue<int> b = c.ToTwoWayImpl(scheduler: BindingScheduler.Immediate);
 
         // This uses a TaskCompletionSource and not an event, because no object here needs a call
-        // to Dispose. Thus the threads below capture no object with a life shorter than their
+        // to Dispose. Thus, the threads below capture no object with a life shorter than their
         // own.
         TaskCompletionSource<bool> holding = new();
         TaskCompletionSource<bool> release = new();
@@ -144,7 +144,7 @@ public sealed class BindableValueConcurrencyTests
     }
 
     // The same two writes on the other path. A setter usually sends immediately, because with no
-    // open transaction PostWrite runs the write there. Thus the first write reaches the
+    // open transaction PostWrite runs the write there. Thus, the first write reaches the
     // cell before the code calls the second setter, and no refresh can sample between the two.
     // From inside a transaction the write defers, and the two stay in the post queue until that
     // transaction closes. In that arrangement a refresh that samples before that point gives the view the
@@ -226,7 +226,7 @@ public sealed class BindableValueConcurrencyTests
     // The constructor samples the cell and attaches its listener in one transaction, and it
     // keeps the sample before it attaches the listener. A build in a transaction that then
     // updates the same cell is the condition where the listener can fire before the constructor
-    // returns. Thus this test holds that behavior. The update must win, because it is newer than
+    // returns. Thus, this test holds that behavior. The update must win, because it is newer than
     // the sample. A lost update means that an update went through the interval between the sample
     // and the subscription. A report of the sample after the update means that the constructor
     // wrote over the update.
@@ -365,7 +365,7 @@ public sealed class BindableValueConcurrencyTests
         await Assert.That(c.Sample()).IsEqualTo(0);
     }
 
-    // Nothing changes for a scheduler with no thread of its own. Thus each test that exists,
+    // Nothing changes for a scheduler with no thread of its own. Thus, each test that exists,
     // and each host with no UI, continues to operate.
     [Test]
     public async Task TheImmediateSchedulerNeverRejectsAThread()
@@ -444,7 +444,7 @@ public sealed class BindableValueConcurrencyTests
 
     /// <summary>
     ///     This takes the place of a dispatcher. It queues work, which is the important part. A
-    ///     real scheduler gives work to the message loop of a different thread and returns. Thus
+    ///     real scheduler gives work to the message loop of a different thread and returns. Thus,
     ///     work that a write posts is in the queue when the setter returns.
     /// </summary>
     // ReSharper disable once InheritdocConsiderUsage

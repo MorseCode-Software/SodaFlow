@@ -11,7 +11,7 @@ namespace SodaFlow.Samples.Bounce.ViewModels;
 ///     <para>
 ///         This is the purpose of the switch. The position of a ball is the position of the
 ///         pointer or the position from its flight, and <c>SwitchB</c> makes one behavior from the
-///         two. Thus the position stays continuous at the moment when a user holds the ball, and
+///         two. Thus, the position stays continuous at the moment when a user holds the ball, and
 ///         no code copies a value between the two.
 ///     </para>
 ///     <para>
@@ -58,7 +58,7 @@ internal sealed class GrabScene : IInteractiveScene
                     f: static (p, previous) => previous.Add(time: p.Time, x: p.X, y: p.Y));
 
         // The ball at the release, and the time of the release. The snapshot of held reads the
-        // value from the start of the transaction. Thus Release can clear that value in the
+        // value from the start of the transaction. Thus, Release can clear that value in the
         // transaction that reports it.
         Stream<Throw> thrown =
             this.released
@@ -94,7 +94,7 @@ internal sealed class GrabScene : IInteractiveScene
                     min: minX,
                     max: maxX,
                     // A throw and a new start are the same type of event, which is a flight from
-                    // other code. Thus the two come on one stream, and no code tells the axis
+                    // other code. Thus, the two come on one stream, and no code tells the axis
                     // about two streams.
                     restarts: mine
                         .Map(t =>

@@ -182,7 +182,7 @@ public sealed class AsyncConcurrencyStrategyFactoryTests
         l.Unlisten();
         return;
 
-        // The group is the text before the hyphen. Thus "g1-a" and "g1-b" have one group, and
+        // The group is the text before the hyphen. Thus, "g1-a" and "g1-b" have one group, and
         // "g2-a" has a different group.
         static string GetGroup(string v) => v.Split('-')[0];
     }

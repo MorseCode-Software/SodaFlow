@@ -32,7 +32,7 @@ internal static class Arrangement
     ///     The initial flights of a ball, as members of the start that gives them.
     /// </summary>
     /// <remarks>
-    ///     This is an extension block and not a set of methods on <see cref="Start" />. Thus the
+    ///     This is an extension block and not a set of methods on <see cref="Start" />. Thus, the
     ///     record keeps its one subject, which is the initial position of a ball, and the code that
     ///     makes a <see cref="Flight" /> stays here with <see cref="Gravity" />. The vertical
     ///     flight uses that gravity. The call reads as a member call with each shape, and that is

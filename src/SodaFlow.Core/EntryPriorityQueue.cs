@@ -74,7 +74,7 @@ internal sealed class EntryPriorityQueue
             throw new Exception("Enqueue requires ranks to agree.");
         }
 
-        // A rank is an index into the entries array. Thus the array must be longer than the
+        // A rank is an index into the entries array. Thus, the array must be longer than the
         // rank, and this test uses >= and not >. The size must double again and again until the
         // array holds the rank, because one increase is not sufficient for a rank far after the
         // end.

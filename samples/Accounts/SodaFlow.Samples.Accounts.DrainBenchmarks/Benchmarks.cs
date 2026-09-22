@@ -189,7 +189,7 @@ public class DrainBenchmarks
 ///         The filter tests each account again. It lists the accounts that entered or left only
 ///         while their count is sufficiently small. Show frozen accounts adds approximately 25,000
 ///         accounts to a filter with approximately 75,000 accounts. That count is above the limit
-///         of the filter, which is one tenth of its content. Thus the filter builds again and
+///         of the filter, which is one tenth of its content. Thus, the filter builds again and
 ///         reports a reset, and the sort, the page, and the rows below it also build again. This
 ///         is the cost of that operation for the full chain to the rows on the screen.
 ///     </para>
@@ -204,7 +204,7 @@ public class DrainBenchmarks
 ///     <para>
 ///         Each iteration builds a new view model, before the measurement, thus the toggle
 ///         always moves in the same direction. The cleanup tests that the toggle changed and that
-///         the row list changed. Thus a click with no result causes a failure of the run, and does
+///         the row list changed. Thus, a click with no result causes a failure of the run, and does
 ///         not show a fast time. The tests read the cells and not the values of the bindables. A
 ///         scheduler that uses a dispatcher sends those values only after the click, thus these
 ///         tests are correct with each scheduler.

@@ -22,9 +22,9 @@ public static partial class BindableCoreExtensionMethods
     ///     <para>
     ///         That pass also announces the stable value, and it announces the value when the
     ///         graph makes no change. The graph can accept a write with no change, but each
-    ///         binding other than the one that wrote shows the previous value. Thus the
+    ///         binding other than the one that wrote shows the previous value. Thus, the
     ///         write is a change to all of them. The notification carries the value that the cell
-    ///         settled on and not the optimistic value. Thus it announces no value that the graph
+    ///         settled on and not the optimistic value. Thus, it announces no value that the graph
     ///         refused.
     ///     </para>
     ///     <para>
@@ -69,7 +69,7 @@ public static partial class BindableCoreExtensionMethods
         /// </summary>
         /// <remarks>
         ///     This is different from <see cref="cachedValue" />, and the difference is
-        ///     necessary. The setter writes the cached value optimistically. Thus after the graph
+        ///     necessary. The setter writes the cached value optimistically. Thus, after the graph
         ///     accepts a write, the cache agrees with the cell, but each binding on this property
         ///     shows the previous value. When this code compares the cell against the cache alone cannot
         ///     find that condition, and reads it as no change. Only the binding thread touches
@@ -117,11 +117,11 @@ public static partial class BindableCoreExtensionMethods
             this.lastNotifiedValue = default!;
 
             // The attachment of the listener puts this object into the graph before the
-            // constructor returns. Thus the listener can fire while the constructor runs. This
+            // constructor returns. Thus, the listener can fire while the constructor runs. This
             // occurs when SodaFlow builds this object in a transaction that then updates the
             // same cell. The structure makes this safe, and not the sequence of events.
             // OnSourceChanged does not touch the cached value. It only posts to the scheduler.
-            // Thus the listener cannot write over the sample that this code takes. The scheduled
+            // Thus, the listener cannot write over the sample that this code takes. The scheduled
             // work runs after that, on the binding thread, and a newer update wins.
 
             this.listener =
@@ -157,7 +157,7 @@ public static partial class BindableCoreExtensionMethods
 
                 // This code can discard a write when the cached value is equal, but only while
                 // that cached value is the value of the cell. The cached value is a record of the
-                // cell at the last sample. Thus between an update and the refresh that it queues,
+                // cell at the last sample. Thus, between an update and the refresh that it queues,
                 // the two disagree, and this code can discard a write that is equal to the stale
                 // value although the graph never got it. While the queue holds work, send the
                 // value and let the refresh decide.
@@ -172,7 +172,7 @@ public static partial class BindableCoreExtensionMethods
                 PostWrite(() =>
                 {
                     // This code tests again here, and does not depend on the ThrowIfDisposed
-                    // above. PostWrite defers while a transaction is open. Thus a Dispose
+                    // above. PostWrite defers while a transaction is open. Thus, a Dispose
                     // between the two can let this write reach the graph.
                     if (this.IsDisposed)
                     {
@@ -220,7 +220,7 @@ public static partial class BindableCoreExtensionMethods
         ///     </para>
         ///     <para>
         ///         The sample has a cost, and you must know that cost before you remove it.
-        ///         Posted work runs after the transaction that sends closes. Thus there is no
+        ///         Posted work runs after the transaction that sends closes. Thus, there is no
         ///         transaction to join and this method opens one. That measured 45ns on .NET 8
         ///         and 62ns on .NET Framework, which is the cost of an empty transaction on those
         ///         platforms. The cost is the transaction and not the sample. One complete update
@@ -230,7 +230,7 @@ public static partial class BindableCoreExtensionMethods
         ///     <para>
         ///         This does make an update take the transaction lock of the process two times
         ///         and not one time: one time to send, and one more time to sample. That is a
-        ///         delay when threads compete for the lock, and not a cost in throughput. Thus do
+        ///         delay when threads compete for the lock, and not a cost in throughput. Thus, do
         ///         not change this unless a measurement tells you differently. See
         ///         BindableRefreshBenchmarks in SodaFlow.Benchmarks.
         ///     </para>
@@ -238,7 +238,7 @@ public static partial class BindableCoreExtensionMethods
         ///         One change can give a benefit: do not queue a refresh while the queue holds
         ///         one. The refresh operations in the queue give the same result, because they
         ///         all sample the same stable cell. The first one does the work and the others
-        ///         find no change. Thus one sample and not many changes no notification and
+        ///         find no change. Thus, one sample and not many changes no notification and
         ///         no value. You must know why this code does not do that. The change cannot use
         ///         pendingRefreshes, which means "the cache can disagree with the cell" and not
         ///         "a post is in the queue". The two are different when a refresh ran and a newer update
@@ -252,7 +252,7 @@ public static partial class BindableCoreExtensionMethods
         /// </remarks>
         private void ScheduleRefreshFromCell()
         {
-            // This counts before the post and not in it. Thus a setter that runs between the
+            // This counts before the post and not in it. Thus, a setter that runs between the
             // two sees that the refresh is in the queue.
             Interlocked.Increment(ref this.pendingRefreshes);
 
@@ -268,7 +268,7 @@ public static partial class BindableCoreExtensionMethods
                     T authoritative = this.Cell.SampleImpl();
 
                     // Two values can be behind the cell, and each one is a cause to announce.
-                    // Thus there is no work only when the two agree with the cell.
+                    // Thus, there is no work only when the two agree with the cell.
                     //
                     // The cached value is the value that the control wrote optimistically. It is
                     // behind when the graph refused that write or changed it, which is the
@@ -282,7 +282,7 @@ public static partial class BindableCoreExtensionMethods
                     // announce.
                     //
                     // The short-circuit is deliberate. A first test that fails shows that
-                    // this is not the return above. Thus the second test adds no answer,
+                    // this is not the return above. Thus, the second test adds no answer,
                     // and a comparer is code that this class does not control.
                     if (this.comparer.Equals(x: this.cachedValue, y: authoritative)
                         && this.comparer.Equals(x: this.lastNotifiedValue, y: authoritative))
@@ -302,7 +302,7 @@ public static partial class BindableCoreExtensionMethods
                 }
                 finally
                 {
-                    // This runs in a finally block. Thus a disposal, or a throw from the
+                    // This runs in a finally block. Thus, a disposal, or a throw from the
                     // comparer, cannot leave the count too high. A count that is too high stops
                     // the equality test for the full life of this object.
                     Interlocked.Decrement(ref this.pendingRefreshes);

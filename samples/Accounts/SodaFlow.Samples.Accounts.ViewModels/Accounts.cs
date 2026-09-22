@@ -6,7 +6,7 @@ namespace SodaFlow.Samples.Accounts.ViewModels;
 
 /// <summary>The part of an account that does not change: its identity.</summary>
 /// <remarks>
-///     The key comes from this part only. Thus the collection knows that a state edit cannot move
+///     The key comes from this part only. Thus, the collection knows that a state edit cannot move
 ///     an item into a view with a key on the identity, and cannot move an item out of such a
 ///     view.
 /// </remarks>
@@ -48,7 +48,7 @@ internal sealed record AccountState(long Balance, bool IsFrozen)
 ///     </para>
 ///     <para>
 ///         This code makes the accounts and does not write them, and it makes the same accounts
-///         at each run. Thus each run shows the same accounts in the same positions, and a user
+///         at each run. Thus, each run shows the same accounts in the same positions, and a user
 ///         can find a number from the screen again.
 ///     </para>
 /// </remarks>
@@ -92,7 +92,7 @@ internal static class AccountSeed
     private static Item<AccountIdentity, AccountState> Create(int index)
     {
         // There are two hashes, thus the code makes the holder and the balance independently of
-        // each other and of the account number. Thus a sort on one column moves the rows of the
+        // each other and of the account number. Thus, a sort on one column moves the rows of the
         // list.
         uint forState = Scramble((uint)index + 1);
         uint forHolder = Scramble(forState);

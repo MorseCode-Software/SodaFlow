@@ -61,7 +61,7 @@ public sealed class BindableValueTests
     }
 
     // The name of the property is necessary. The documented binding path is
-    // {Binding Foo.Value}. Thus a notification with a different name does not update the view,
+    // {Binding Foo.Value}. Thus, a notification with a different name does not update the view,
     // and it gives no warning.
     [Test]
     public async Task OneWayRaisesForTheValueProperty()
@@ -137,7 +137,7 @@ public sealed class BindableValueTests
 
     // More than one control usually binds to a two-way value. A checkbox writes it, and the same
     // answer makes other controls available or visible. Only the control that wrote knows the
-    // value. Thus a write that the graph accepts with no change is a change to each other
+    // value. Thus, a write that the graph accepts with no change is a change to each other
     // binding, and this class must announce it or those bindings do not change.
     [Test]
     public async Task TwoWayNotifiesWhenTheViewIsTheWriter()
@@ -175,7 +175,7 @@ public sealed class BindableValueTests
         await Assert.That(names).IsEmpty().Because("nothing changed, so there is nothing to announce");
     }
 
-    // A second write of the same value announces nothing. Thus a control that writes at each
+    // A second write of the same value announces nothing. Thus, a control that writes at each
     // keystroke does not make the other controls read the value at each keystroke.
     [Test]
     public async Task TwoWayNotifiesOncePerActualChange()
@@ -198,7 +198,7 @@ public sealed class BindableValueTests
 
     // A value that the comparer calls equal is equal to each part of this class. A value of the
     // cell that differs only in a part that the comparer ignores must not replace the value that
-    // the view shows. There is no notification for such a value. Thus the replacement stays with
+    // the view shows. There is no notification for such a value. Thus, the replacement stays with
     // no correction, and the property reports a value that the view never showed.
     [Test]
     public async Task TwoWayKeepsItsValueWhenTheComparerCallsTheCellsEquivalent()
@@ -391,7 +391,7 @@ public sealed class BindableValueTests
         await Assert.That(a.CanExecute(null)).IsFalse();
     }
 
-    // Each bindable has the one interface that makes it disposable. Thus a view model can
+    // Each bindable has the one interface that makes it disposable. Thus, a view model can
     // keep all of them in one collection and dispose all of them together. Before, the value that
     // a caller can only write did not implement that interface.
     [Test]

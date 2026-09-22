@@ -5,7 +5,7 @@ namespace SodaFlow.Bindable.ObjectModel;
 
 /// <summary>
 ///     Extension methods that give you a bindable. Each implementation is a private nested type.
-///     Thus the public surface is the four interfaces only.
+///     Thus, the public surface is the four interfaces only.
 /// </summary>
 public static partial class BindableExtensionMethods
 {

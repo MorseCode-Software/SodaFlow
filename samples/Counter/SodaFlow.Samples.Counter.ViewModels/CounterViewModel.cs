@@ -15,7 +15,7 @@ namespace SodaFlow.Samples.Counter.ViewModels;
 ///         <c>OnPropertyChanged("Count")</c>, and no code that must remember to examine the
 ///         enabled state of Reset again. The count is a fold across a stream of edits, the label
 ///         is a function of the count, and the enabled state of Reset is a second function of the
-///         count. Thus the three values are always in agreement.
+///         count. Thus, the three values are always in agreement.
 ///     </para>
 ///     <para>
 ///         The view binds to <c>SomeProperty.Value</c> and never to <c>SomeProperty</c>. That is
@@ -94,7 +94,7 @@ public sealed class CounterViewModel
             StreamSink<Unit> decrement = Stream.CreateSink<Unit>();
             StreamSink<Unit> reset = Stream.CreateSink<Unit>();
 
-            // Each button gives a function of the current count and not a number. Thus Reset
+            // Each button gives a function of the current count and not a number. Thus, Reset
             // uses the same stream as the other two buttons, and does not use a mechanism of its
             // own.
             Stream<Func<int, int>> edits =

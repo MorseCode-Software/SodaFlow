@@ -20,7 +20,7 @@ namespace SodaFlow;
 ///         <see cref="GcSweepTrigger" /> is one object with a finalizer for the complete process. It
 ///         is not one object for each stream, which is the cost that this method prevents. It
 ///         starts the sweeper after each collection. It only sends a signal, and the background
-///         thread does the sweep. Thus no code that takes a node lock runs on the finalizer
+///         thread does the sweep. Thus, no code that takes a node lock runs on the finalizer
 ///         thread, where a block would stop finalization across the process. Without this, the
 ///         registry kept the data for dead streams until the next cycle of the timer. That
 ///         measured approximately 10MB after the release of 22,000 streams.
@@ -28,7 +28,7 @@ namespace SodaFlow;
 ///     <para>
 ///         The handle is a weak <see cref="GCHandle" /> and not a
 ///         <see cref="System.WeakReference" />. A WeakReference owns a handle that it must
-///         release in a finalizer. Thus one WeakReference for each stream costs approximately
+///         release in a finalizer. Thus, one WeakReference for each stream costs approximately
 ///         the same as the <c>~Stream</c> finalizer that this method replaced. Both measured
 ///         approximately 150ns for each stream, against 50ns for the handle. An object with a
 ///         finalizer for each stream removes this saving.
@@ -36,14 +36,14 @@ namespace SodaFlow;
 ///     <para>
 ///         This sweep is not the primary cleanup path and can be slow.
 ///         <see cref="Stream{T}.Send" /> removes a target with a dead weak reference as it reads
-///         the listener set. Thus it disconnects a node that links to a collected stream at the
+///         the listener set. Thus, it disconnects a node that links to a collected stream at the
 ///         next firing. The sweep finds the streams that do not fire again.
 ///     </para>
 /// </remarks>
 internal static class StreamListenerManager
 {
     // This interval is long, because it is only a backstop. SodaFlow can remove an entry when
-    // the garbage collector collects a stream, and each collection signals a sweep. Thus in a
+    // the garbage collector collects a stream, and each collection signals a sweep. Thus, in a
     // correct process this interval finds no work. It is for the condition when the signal
     // stops. Other code that blocks the finalizer thread is the most probable cause. The
     // sweeper thread is not affected and can continue.
@@ -103,7 +103,7 @@ internal static class StreamListenerManager
         lock (RegistryLock)
         {
             // This moves backwards and puts the last entry into each empty position. Each entry
-            // that it moves comes from a position that it read first. Thus it reads each entry
+            // that it moves comes from a position that it read first. Thus, it reads each entry
             // one time.
             for (int i = Registry.Count - 1; i >= 0; i--)
             {

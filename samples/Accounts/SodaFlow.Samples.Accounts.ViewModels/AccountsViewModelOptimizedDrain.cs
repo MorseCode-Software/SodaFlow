@@ -227,7 +227,7 @@ public sealed class AccountsViewModelOptimizedDrain : IAccountsViewModel
                         f: static (changes, drainableAccountKeys) =>
                         {
                             // This calls Contains on the set until the membership of a key
-                            // changes. Thus an edit that changes no membership, such as a Pay,
+                            // changes. Thus, an edit that changes no membership, such as a Pay,
                             // which is almost each edit, allocates nothing and gives the same set.
                             // From the first key that changes, this code uses the builder directly.
                             // Add and Remove on the builder do nothing for a key in the correct
@@ -363,7 +363,7 @@ public sealed class AccountsViewModelOptimizedDrain : IAccountsViewModel
 
                 return new AccountsViewModelOptimizedDrain(
                     // A list of rows is a list of the interface of those rows, but a cell is a
-                    // class and cannot be covariant. Thus this code gives the conversion as the
+                    // class and cannot be covariant. Thus, this code gives the conversion as the
                     // return type of the lambda.
                     rows: rows.Items
                         .Map(static IReadOnlyList<IAccountRowViewModel> (items) => items)
@@ -406,7 +406,7 @@ public sealed class AccountsViewModelOptimizedDrain : IAccountsViewModel
 
     /// <summary>One edit that empties all of these accounts.</summary>
     /// <remarks>
-    ///     This is one edit, and not one edit for each account. Thus the collection changes one
+    ///     This is one edit, and not one edit for each account. Thus, the collection changes one
     ///     time for each drain, at all counts of accounts. Each view sorts one time, and the total
     ///     folds one delta.
     /// </remarks>

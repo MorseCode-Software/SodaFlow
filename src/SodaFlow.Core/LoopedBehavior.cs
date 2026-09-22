@@ -41,7 +41,7 @@ public class LoopedBehavior<T> : Behavior<T>
     ///     A looped behavior gets its initial value from the value that closes the loop, and it
     ///     reads that value only when a caller asks for it. The value that closes the loop is
     ///     not known when SodaFlow creates the loop. After the behavior gets a value, the
-    ///     deferred value is no longer necessary. Thus SodaFlow releases it and does not keep it
+    ///     deferred value is no longer necessary. Thus, SodaFlow releases it and does not keep it
     ///     alive for the full life of the behavior.
     /// </remarks>
     // ReSharper disable once InheritdocConsiderUsage

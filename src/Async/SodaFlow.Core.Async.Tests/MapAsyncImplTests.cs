@@ -129,7 +129,7 @@ public sealed class MapAsyncImplTests
         TestUtil.WaitUntil(() => received.Count == 1);
 
         // The strategy refused -1. It canceled that item and left it with the Queued status
-        // permanently, which is the documented method to refuse a value. Thus -1 never got to the
+        // permanently, which is the documented method to refuse a value. Thus, -1 never got to the
         // operation, and only the value of zero or more went through.
         await Assert.That(received).IsEquivalentTo(expected: [2], ordering: CollectionOrdering.Matching);
 

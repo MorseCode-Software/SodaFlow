@@ -11,7 +11,7 @@ namespace SodaFlow.Bindable.ObjectModel.Tests;
 /// <summary>
 ///     Tests the one operation that the factory does and the extension methods do not: it moves
 ///     one supplied scheduler into each object that it creates. A method that does not pass the
-///     scheduler makes a bindable that operates. Thus only a test of this shape finds that
+///     scheduler makes a bindable that operates. Thus, only a test of this shape finds that
 ///     error.
 /// </summary>
 public sealed class BindableFactoryTests
@@ -108,7 +108,7 @@ public sealed class BindableFactoryTests
 
     /// <summary>
     ///     Keeps a record that the code asked it, and then operates as the immediate scheduler.
-    ///     Thus the bindable in the test continues to operate.
+    ///     Thus, the bindable in the test continues to operate.
     /// </summary>
     // ReSharper disable once InheritdocConsiderUsage
     private sealed class RecordingScheduler : IBindingScheduler

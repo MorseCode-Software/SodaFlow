@@ -33,7 +33,7 @@ public class Cell<T>
     // Map, and Lift, and a caller calls Updates or Calm on only a few of them.
     //
     // This field is volatile, because the fast path below reads it when there is no
-    // transaction. Thus that reader holds no lock. SodaFlow does the write while it holds the
+    // transaction. Thus, that reader holds no lock. SodaFlow does the write while it holds the
     // transaction lock. A release without an acquire gives that reader no guarantee. The reader could see the reference from this
     // write and then read the fields of the Stream from a stale cache. This is the usual
     // double-checked locking problem. The x86 and x64 architectures prevent the sequence change

@@ -10,7 +10,7 @@
 ///     This module is the F# equivalent of AsyncStreamExtensions and AsyncConcurrencyStrategy in
 ///     the C# wrapper SodaFlow.Async. It uses the F# <c>unit</c> and not
 ///     <c>SodaFlow.Functional.Unit</c> for a value that a strategy does not use. F# has no
-///     overload and no optional parameter on a let-bound function. Thus the nine MapAsync
+///     overload and no optional parameter on a let-bound function. Thus, the nine MapAsync
 ///     overloads in C# are four functions with different names here, and each cancellation
 ///     argument is explicit and has no default.
 /// </remarks>

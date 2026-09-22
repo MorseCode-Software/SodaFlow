@@ -35,7 +35,7 @@ public abstract class AsyncConcurrencyStrategy<TState>
 ///     <c>AsyncConcurrencyStrategyFactory</c> in SodaFlow.Core.Async. That factory is generic over
 ///     the type of a value that a strategy does not use, because Core has no dependency on
 ///     SodaFlow.Functional and thus no type of its own for it. The static methods below give
-///     <see cref="Unit" /> as that type argument and return the result. Thus a consumer of this C#
+///     <see cref="Unit" /> as that type argument and return the result. Thus, a consumer of this C#
 ///     wrapper gets a version with the <see cref="Unit" /> type, which this wrapper also uses for
 ///     <c>cancelAll</c> and for other values. This class, and its short base classes below, which
 ///     are <see cref="AsyncConcurrencyStrategy{TState}" /> and
