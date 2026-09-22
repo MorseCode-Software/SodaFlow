@@ -9,8 +9,8 @@ using TUnit.Core;
 namespace SodaFlow.Collections.Tests;
 
 /// <summary>
-///     The optional-valued surface, which is the C# wrapper's rather than the core's: the core
-///     answers in <c>TryGet</c>s so that F# can put <c>option</c> on top instead.
+///     The surface with optional values, which is in the C# wrapper and not in the core. The core
+///     answers with a <c>TryGet</c>, thus F# can add <c>option</c> above it.
 /// </summary>
 public sealed class PerItemCellTests
 {
@@ -30,8 +30,8 @@ public sealed class PerItemCellTests
 
         ReactiveCollection<int, ItemIdentity, ItemState> collection = Create(edits);
 
-        // Built before the key exists, which is the point: a bound view can outlive its item, and
-        // can be created before it.
+        // This code builds the cell before the key is in the collection, and that is the purpose.
+        // A bound view can continue after its item, and code can make one before the item.
         Cell<Maybe<ItemState>> stateCell = collection.StateCell(7);
 
         List<string> seen = [];
@@ -63,9 +63,10 @@ public sealed class PerItemCellTests
 
         Cell<Maybe<ItemState>>? built = null;
 
-        // A row constructed in response to the structural change that created its item. By the time
-        // this runs the change stream has already fired, so the lazy seed is all the cell has - an
-        // eager sample would read the pre-transaction snapshot and sit at no value.
+        // This is a row from the structural change that made its item. The change stream sent its
+        // value before this code runs, thus the lazy seed is the only source for the cell. A sample
+        // before the lazy step reads the snapshot from before the transaction, and the cell then
+        // has no value.
         IListener l = collection.ShapeCell.Updates().ListenStrong(_ => built ??= collection.StateCell(5));
 
         edits.Send(TestUtil.Add(TestUtil.Item(number: 5, name: "five", score: 50)));
@@ -141,7 +142,8 @@ public sealed class PerItemCellTests
 
         ItemChange<int, ItemIdentity, ItemState> change = changes[0];
 
-        // Removed: it moved, and it is not present afterwards.
+        // A removal: the change named the key, and the collection does not have it after the
+        // change.
         await Assert.That(
                 change.ChangeFor(1)
                     .Match(
@@ -149,7 +151,7 @@ public sealed class PerItemCellTests
                         onNone: static () => "no event"))
             .IsEqualTo("none");
 
-        // Untouched: no event for an observer of this key at all.
+        // No change: an observer of this key gets no event.
         await Assert.That(change.ChangeFor(2).Match(onSome: static _ => "event", onNone: static () => "no event"))
             .IsEqualTo("no event");
     }
@@ -186,9 +188,9 @@ public sealed class PerItemCellTests
     }
 
     /// <summary>
-    ///     A state edit that also re-files the row. The stage reports the re-file as a move alone,
-    ///     so a per-item cell that skipped moves would never hear the new value — the row would
-    ///     slide to its new position still showing the old one.
+    ///     A state edit that also sorts the row again. The stage reports that sort as a move alone.
+    ///     Thus a cell for one item that omits a move never gets the new value, and the row moves to
+    ///     its new position and shows the previous value.
     /// </summary>
     [Test]
     public async Task StateCellOnASortedViewSeesAnUpdateThatMovesItsRow()
@@ -212,7 +214,7 @@ public sealed class PerItemCellTests
             byScore.StateCell(1)
                 .ListenStrong(state => scores.Add(state.Match(onSome: static s => s.Score, onNone: static () => -1)));
 
-        // 10 -> 99 sends key 1 from the front of the view to the back.
+        // A change from 10 to 99 moves key 1 from the front of the view to the end.
         edits.Send(TestUtil.Score(key: 1, score: 99));
 
         l.Unlisten();
@@ -224,8 +226,8 @@ public sealed class PerItemCellTests
     }
 
     /// <summary>
-    ///     The same, one stage further down: the filter hears the move from the sort above it and
-    ///     re-files under the same order, so its own change is a move alone as well.
+    ///     The same test, one stage below. The filter gets the move from the sort above it and
+    ///     sorts in the same order, thus its own change is also a move alone.
     /// </summary>
     [Test]
     public async Task StateCellOnAFilterOverASortedViewSeesAnUpdateThatMovesItsRow()
@@ -240,7 +242,8 @@ public sealed class PerItemCellTests
                 TestUtil.Item(number: 2, name: "two", score: 20),
                 TestUtil.Item(number: 3, name: "three", score: 30));
 
-        // Every item passes, so the filter holds the sort's whole list and mirrors its moves.
+        // Each item agrees with the predicate, thus the filter holds the full list of the sort and
+        // has the same moves.
         ReactiveCollection<int, ItemIdentity, ItemState> passing =
             collection
                 .SortBy(static (_, state) => state.Score)

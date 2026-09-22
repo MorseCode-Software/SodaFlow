@@ -90,8 +90,8 @@ public sealed class ReactiveCollectionTests
         shapeListener.Unlisten();
         snapshotListener.Unlisten();
 
-        // The update is not structural, so only the two structural edits reach the shape cell,
-        // while all three reach the snapshot.
+        // The update is not structural, thus only the two structural edits come to the shape cell,
+        // and the three edits come to the snapshot.
         await Assert.That(shapes).IsEquivalentTo(expected: [2, 1], ordering: CollectionOrdering.Matching);
         await Assert.That(snapshots).IsEquivalentTo(expected: [2, 2, 1], ordering: CollectionOrdering.Matching);
     }
@@ -111,7 +111,7 @@ public sealed class ReactiveCollectionTests
         List<int> fired = [];
         IListener l = collection.SnapshotCell.Updates().ListenStrong(s => fired.Add(s.Count));
 
-        // Removing a key that is not there resolves to no change at all.
+        // A removal of a key that the collection does not have resolves to no change.
         edits.Send(TestUtil.Remove(99));
 
         l.Unlisten();
@@ -217,8 +217,8 @@ public sealed class ReactiveCollectionTests
             first,
             second);
 
-        // Merge order is arbitrary, so composing them has no defined result and is refused rather
-        // than resolved.
+        // SodaFlow does not give the sequence of a merge, thus a composition of the two has no
+        // result and this code refuses it and does not resolve it.
         await Assert.That(() =>
                 Transaction.RunVoid(() =>
                 {
@@ -267,12 +267,13 @@ public sealed class ReactiveCollectionTests
 
         ItemChange<int, ItemIdentity, ItemState> change = changes[0];
 
-        // Removed: it moved, and it is not present afterward. The two questions are separate
-        // members here; the C# wrapper folds them back into one nested optional.
+        // A removal: the change named the key, and the collection does not have it after the
+        // change. The two questions are two members here, and the C# wrapper puts them in one
+        // nested optional value.
         await Assert.That(change.WasChanged(1)).IsTrue();
         await Assert.That(change.TryGetNewState(key: 1, state: out _)).IsFalse();
 
-        // Untouched: no event for an observer of this key at all.
+        // No change: an observer of this key gets no event.
         await Assert.That(change.WasChanged(2)).IsFalse();
     }
 
@@ -282,8 +283,9 @@ public sealed class ReactiveCollectionTests
         StreamSink<CollectionEdit<int, SelfKeyedItemIdentity, ItemState>> edits =
             Stream.CreateSink<CollectionEdit<int, SelfKeyedItemIdentity, ItemState>>();
 
-        // No key selector: the identity implements IIdentity<int>, and TKey is inferred from the
-        // edit stream rather than from the constraint, which inference does not read.
+        // There is no key selector, because the identity is an IIdentity<int>. The compiler infers
+        // TKey from the edit stream and not from the constraint, because type inference does not
+        // read a constraint.
         ReactiveCollection<int, SelfKeyedItemIdentity, ItemState> collection =
             ReactiveCollection.Create(
                 initialEntries:
@@ -296,7 +298,7 @@ public sealed class ReactiveCollectionTests
         await Assert.That(TestUtil.Keys(collection.KeysCell.Sample()))
             .IsEquivalentTo(expected: [1, 2], ordering: CollectionOrdering.Matching);
 
-        // The derived selector is used for later adds too, not only the initial contents.
+        // A subsequent add also uses the derived selector, and not only the initial contents.
         edits.Send(
             CollectionEdit<int, SelfKeyedItemIdentity, ItemState>.Add(
                 TestUtil.SelfKeyedItem(number: 3, name: "three", score: 30)));
@@ -326,7 +328,7 @@ public sealed class ReactiveCollectionTests
 
         ItemChange<int, ItemIdentity, ItemState> change = changes[0];
 
-        // The whole point of the pair: a delta needs no copy of the previous value kept alongside.
+        // This is the purpose of the pair: a delta needs no copy of the previous value.
         await Assert.That(change.Before.States.TryGetState(key: 1, state: out ItemState? was)).IsTrue();
         await Assert.That(was).IsNotNull();
 #pragma warning disable CS8602 // Dereference of a possibly null reference.
@@ -362,8 +364,8 @@ public sealed class ReactiveCollectionTests
 
         await Assert.That(changes.Count).IsEqualTo(2);
 
-        // Reference equality, not just equal contents: this is what makes holding a sequence of
-        // changes cost no more than holding their After alone would.
+        // These are the same reference, and not two objects with equal contents. Thus a hold on a
+        // sequence of changes costs no more than a hold on their After alone.
         await Assert.That(ReferenceEquals(objA: changes[1].Before, objB: changes[0].After)).IsTrue();
     }
 }
