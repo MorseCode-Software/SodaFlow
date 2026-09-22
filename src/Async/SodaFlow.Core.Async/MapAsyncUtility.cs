@@ -1456,7 +1456,6 @@ internal sealed class AsyncMapExecutionManager<TInput, TResult, TStrategyInput> 
         Cell<Entry[]> trackedCell =
             TransactionInternal.Apply((trans, _) =>
             {
-                LoopedCell<Dictionary<Guid, Entry>> entryByIdCellLoop = new();
                 LoopedCell<Entry[]> trackedCellLoop = new();
 
                 // Map runs as usual transaction code and is not a registered listener callback.
@@ -1541,7 +1540,6 @@ internal sealed class AsyncMapExecutionManager<TInput, TResult, TStrategyInput> 
                                 this.PromoteAndLaunch(
                                     toStart: toStart[i],
                                     value: value,
-                                    entryByIdCell: entryByIdCellLoop,
                                     trackedCell: trackedCellLoop);
                             }
 
@@ -1558,10 +1556,6 @@ internal sealed class AsyncMapExecutionManager<TInput, TResult, TStrategyInput> 
                             initialState: Array.Empty<Entry>(),
                             f: static (mutation, list) => Apply(list: list, mutation: mutation));
 
-                Cell<Dictionary<Guid, Entry>> entryByIdCell =
-                    trackedCell.MapImpl(static tracked => tracked.ToDictionary(static e => e.Item.Id));
-
-                entryByIdCellLoop.Loop(trans: trans, c: entryByIdCell);
                 trackedCellLoop.Loop(trans: trans, c: trackedCell);
 
                 return trackedCell;
@@ -1819,7 +1813,6 @@ internal sealed class AsyncMapExecutionManager<TInput, TResult, TStrategyInput> 
     private void PromoteAndLaunch(
         AsyncToStart<TStrategyInput> toStart,
         TInput value,
-        Cell<Dictionary<Guid, Entry>> entryByIdCell,
         Cell<Entry[]> trackedCell)
     {
         if (toStart.Item.Cancellation.IsCancellationRequested)
@@ -1838,7 +1831,6 @@ internal sealed class AsyncMapExecutionManager<TInput, TResult, TStrategyInput> 
                 this.Complete(
                     item: toStart.Item,
                     pending: AsyncOutcome<MapAsyncResult<TResult>>.Canceled(),
-                    entryByIdCell: entryByIdCell,
                     trackedCell: trackedCell,
                     tokenToCheck: null));
 
@@ -1855,14 +1847,12 @@ internal sealed class AsyncMapExecutionManager<TInput, TResult, TStrategyInput> 
                 this.StartOperation(
                     toStart: toStart,
                     value: value,
-                    entryByIdCell: entryByIdCell,
                     trackedCell: trackedCell)));
     }
 
     private async Task StartOperation(
         AsyncToStart<TStrategyInput> toStart,
         TInput value,
-        Cell<Dictionary<Guid, Entry>> entryByIdCell,
         Cell<Entry[]> trackedCell)
     {
         // The operation monitors the token of the strategy, when there is one, such as an
@@ -1891,7 +1881,6 @@ internal sealed class AsyncMapExecutionManager<TInput, TResult, TStrategyInput> 
             this.Complete(
                 item: toStart.Item,
                 pending: AsyncOutcome<MapAsyncResult<TResult>>.Succeeded(operationResult),
-                entryByIdCell: entryByIdCell,
                 trackedCell: trackedCell,
                 tokenToCheck: linked.Token);
         }
@@ -1900,7 +1889,6 @@ internal sealed class AsyncMapExecutionManager<TInput, TResult, TStrategyInput> 
             this.Complete(
                 item: toStart.Item,
                 pending: AsyncOutcome<MapAsyncResult<TResult>>.Canceled(),
-                entryByIdCell: entryByIdCell,
                 trackedCell: trackedCell,
                 tokenToCheck: null);
         }
@@ -1909,7 +1897,6 @@ internal sealed class AsyncMapExecutionManager<TInput, TResult, TStrategyInput> 
             this.Complete(
                 item: toStart.Item,
                 pending: AsyncOutcome<MapAsyncResult<TResult>>.Failed(ex),
-                entryByIdCell: entryByIdCell,
                 trackedCell: trackedCell,
                 tokenToCheck: linked.Token);
         }
@@ -1937,7 +1924,6 @@ internal sealed class AsyncMapExecutionManager<TInput, TResult, TStrategyInput> 
     private void Complete(
         AsyncQueuedItem<TStrategyInput> item,
         AsyncOutcome<MapAsyncResult<TResult>> pending,
-        Cell<Dictionary<Guid, Entry>> entryByIdCell,
         Cell<Entry[]> trackedCell,
         CancellationToken? tokenToCheck) =>
         TransactionInternal.RunImpl(() =>
@@ -1952,6 +1938,8 @@ internal sealed class AsyncMapExecutionManager<TInput, TResult, TStrategyInput> 
             // The strategy reads how the operation ended and not the result, thus this call comes
             // before the construction of the result. See AsyncCompletion for what that gives: the
             // pipeline makes a result only for an item that it publishes.
+            Entry[] tracked = trackedCell.SampleImpl();
+
             AsyncStrategyResult<TStrategyInput> decision =
                 this.stateManager.OnCompleted(
                     item: item,
@@ -1962,7 +1950,7 @@ internal sealed class AsyncMapExecutionManager<TInput, TResult, TStrategyInput> 
 
                     // This item remains in the queue here. The mutation at the end of this method
                     // is what removes it.
-                    tracked: new TrackedItems(trackedCell.SampleImpl()));
+                    tracked: new TrackedItems(tracked));
 
             if (decision.Publish)
             {
@@ -1977,23 +1965,18 @@ internal sealed class AsyncMapExecutionManager<TInput, TResult, TStrategyInput> 
             Guid[] promote = new Guid[decision.Next.Count];
             TInput[] values = new TInput[decision.Next.Count];
 
-            Dictionary<Guid, Entry>? entryById = null;
-
             for (int i = 0; i < decision.Next.Count; i++)
             {
-                entryById ??= entryByIdCell.SampleImpl();
-
                 Guid id = decision.Next[i].Item.Id;
 
-                if (entryById.TryGetValue(key: id, value: out Entry? entry))
-                {
-                    values[i] = entry.Value;
-                }
-                else
+                Entry? entry = Array.Find(array: tracked, match: e => e.Item.Id == id);
+
+                if (entry is null)
                 {
                     throw new InvalidOperationException("Could not find item to start.");
                 }
 
+                values[i] = entry.Value;
                 promote[i] = id;
             }
 
@@ -2010,7 +1993,6 @@ internal sealed class AsyncMapExecutionManager<TInput, TResult, TStrategyInput> 
                 this.PromoteAndLaunch(
                     toStart: decision.Next[i],
                     value: values[i],
-                    entryByIdCell: entryByIdCell,
                     trackedCell: trackedCell);
             }
 
