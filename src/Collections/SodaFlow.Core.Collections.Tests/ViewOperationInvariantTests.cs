@@ -10,28 +10,29 @@ using TUnit.Core;
 namespace SodaFlow.Collections.Tests;
 
 /// <summary>
-///     What a stage promises about the change it reports, checked over a run of edits rather than
-///     one at a time.
+///     The rules of a stage for the change that it reports, with a test across a sequence of edits
+///     and not one edit at a time.
 /// </summary>
 /// <remarks>
 ///     <para>
-///         Every operation names a position in the list a consumer is applying them to, so a
-///         position that was never found is not something to report - it is a row index, and
-///         nothing downstream can do anything sensible with -1.
+///         Each operation names a position in the list of a consumer, thus this code does not
+///         report a position with no value. The position is a row index, and no code below can use
+///         a value of -1.
 ///     </para>
 ///     <para>
-///         The two flags a change carries have to agree with the operations in it. A stage
-///         publishes its key list only when it says its keys moved, and a sort below it takes a
-///         change that says neither flag for one that can only hold updates - so a flag that
-///         understates what happened leaves a stale list published, or throws one stage down.
+///         The two flags in a change must agree with its operations. A stage publishes its key
+///         list only when it reports a change to its keys. A sort below it reads a change with no
+///         flag as a change with only updates. Thus, a flag that is below the true change leaves an
+///         previous list in the public cell, or throws an exception one stage below.
 ///     </para>
 ///     <para>
-///         A re-file throws on the two cases that would break either promise - a key the stage does
-///         not hold, and a key the snapshot has dropped - rather than reporting an operation at no
-///         position. Neither is reachable through the public surface today, since a stage only
-///         re-files keys it holds and only for operations naming keys the snapshot still has, so
-///         these run every shape of stage through a mix of edits to keep it that way: an edit that
-///         reached either would throw out of <c>Send</c> and fail them.
+///         A sort throws an exception for the two conditions that break one of those rules, and
+///         does not report an operation with no position. Those conditions are a key that the stage
+///         does not hold and a key that the snapshot removed. No code can get to one of the two
+///         through the public surface now, because a stage sorts only the keys that it holds and
+///         only for operations that name keys in the snapshot. These tests run each shape of stage
+///         through a set of edits to keep that rule. An edit that reaches one of the two conditions
+///         throws an exception out of <c>Send</c> and fails these tests.
 ///     </para>
 /// </remarks>
 public sealed class ViewOperationInvariantTests
@@ -82,15 +83,17 @@ public sealed class ViewOperationInvariantTests
         ];
     }
 
-    /// <summary>A run of edits that has every stage inserting, removing, updating and re-filing.</summary>
+    /// <summary>A sequence of edits that makes each stage add a key, remove a key, update a key, and
+/// sort a key again.</summary>
     private static void SendEdits(StreamSink<CollectionEdit<int, ItemIdentity, ItemState>> edits)
     {
-        // Re-files in the score order, and moves rows into and out of the filter and the slice.
+        // This sorts again in the score order, and moves rows into the filter and the slice and out
+        // of them.
         edits.Send(TestUtil.Score(key: 1, score: 99));
         edits.Send(TestUtil.Score(key: 5, score: 1));
         edits.Send(TestUtil.Score(key: 3, score: 3));
 
-        // Leaves every sort value alone, so it can only be an update.
+        // This changes no sort value, thus it can be only an update.
         edits.Send(
             CollectionEdit<int, ItemIdentity, ItemState>.Update(
                 key: 2,
@@ -99,12 +102,12 @@ public sealed class ViewOperationInvariantTests
         edits.Send(TestUtil.Add(TestUtil.Item(number: 6, name: "six", score: 15)));
         edits.Send(TestUtil.Remove(4));
 
-        // An add and a remove in one transaction.
+        // This is an add and a removal in one transaction.
         edits.Send(
             TestUtil.Add(TestUtil.Item(number: 7, name: "seven", score: 5))
                 .CombineWith(TestUtil.Remove(2)));
 
-        // Big enough to be answered with a reset rather than operations.
+        // This is sufficiently large for an answer of a reset and not a list of operations.
         edits.Send(TestUtil.Remove([.. Enumerable.Range(start: 1, count: 7)]));
     }
 
@@ -194,7 +197,8 @@ public sealed class ViewOperationInvariantTests
                         bool membership =
                             change.Operations.Any(static operation => operation is ViewInsert<int> or ViewRemove<int>);
 
-                        // A reset says both and lists nothing, which is the one case they part.
+                        // A reset gives the two flags and lists no operation, and that is the one
+                        // condition where the two are different.
                         if (change.IsReset)
                         {
                             return;
@@ -229,9 +233,9 @@ public sealed class ViewOperationInvariantTests
     }
 
     /// <summary>
-    ///     What understating those flags costs. A stage publishes its keys only when it says they
-    ///     moved, so the list the world reads has to match the one the stage is working from after
-    ///     every edit, whatever the flags said.
+    ///     The cost of a flag below the true change. A stage publishes its keys only when it
+    ///     reports a change to them. Thus, the list in the public cell must be the list of the stage
+    ///     after each edit, at each value of the flags.
     /// </summary>
     [Test]
     public async Task EveryStagePublishesTheKeysItsOwnOperationsAddUpTo()
@@ -250,7 +254,7 @@ public sealed class ViewOperationInvariantTests
 
         List<(string Name, ReactiveCollection<int, ItemIdentity, ItemState> View)> stages = Stages(collection);
 
-        // The keys each change reports, which the published cell has to agree with.
+        // These are the keys from each change, and the public cell must agree with them.
         Dictionary<string, List<int>> reported =
             stages.ToDictionary(
                 keySelector: static stage => stage.Name,
@@ -277,9 +281,10 @@ public sealed class ViewOperationInvariantTests
     }
 
     /// <summary>
-    ///     A new order reaches each stage below it as a reset that says it only reordered - and so
-    ///     leaves the shape alone - until it reaches a window, which cannot say that and resets outright.
-    ///     A transaction that also edits is never a reorder, at any stage.
+    ///     A new order comes to each stage below it as a reset that reports only a change of order,
+    ///     thus it does not change the shape. It continues to a window, which cannot report that
+    ///     and gives a usual reset. A transaction that also holds an edit is never a change of order
+    ///     alone, at each stage.
     /// </summary>
     [Test]
     public async Task ANewOrderIsReportedAsAReorderDownToAWindow()
@@ -386,7 +391,8 @@ public sealed class ViewOperationInvariantTests
         await Assert.That(reorderWithAnEdit.Where(static line => line.Contains("reordersOnly=True"))).IsEmpty();
         await Assert.That(reorderWithAnEdit.Count).IsEqualTo(stages.Count);
 
-        // And every stage still holds what it should: the key order above the window, and the window.
+        // Each stage also holds the correct content: the key order above the window, and the
+        // window.
         await Assert.That(TestUtil.Keys(byIdentity.KeysCell.Sample()))
             .IsEquivalentTo(expected: [2, 3, 5, 6], ordering: CollectionOrdering.Matching);
 

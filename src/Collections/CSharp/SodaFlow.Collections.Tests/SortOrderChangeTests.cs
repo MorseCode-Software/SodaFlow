@@ -8,9 +8,9 @@ using TUnit.Core;
 namespace SodaFlow.Collections.Tests;
 
 /// <summary>
-///     Handing a sort stage a new order. Where the new order is the old one run the other way, the
-///     stage can turn the list it already has around instead of filing every key again - a path
-///     that was unreachable while its result was computed and dropped.
+///     A new order for a sort stage. Where the new order is the previous order in the opposite
+///     direction, the stage can turn the list that it holds and does not sort each key again.
+///     No code reached that path while this class calculated its result and then discarded it.
 /// </summary>
 public sealed class SortOrderChangeTests
 {
@@ -63,16 +63,18 @@ public sealed class SortOrderChangeTests
 
         await Assert.That(KeysOf(sorted)).IsEquivalentTo(expected: [2, 3, 1], ordering: CollectionOrdering.Matching);
 
-        // And back, so the turned-around list is itself a sound thing to turn around again.
+        // This reverses the list again, thus a reversed list is also correct for a second
+        // reversal.
         order.Send(ByScore(isDescending: false));
 
         await Assert.That(KeysOf(sorted)).IsEquivalentTo(expected: [1, 3, 2], ordering: CollectionOrdering.Matching);
     }
 
     /// <summary>
-    ///     A stage handed its order reversed keeps tied items in key order, the way a descending sort
-    ///     built afresh does, rather than flipping the list it held and with it the ties. Edits after the
-    ///     reversal are filed the same way.
+    ///     A stage that gets its order in the opposite direction keeps the items with equal sort
+    ///     values in the order of their keys, as a new descending sort does. It does not turn the
+    ///     list that it held, which also turns those items. An edit after the reversal uses
+    ///     the same rule.
     /// </summary>
     [Test]
     public async Task ReversingAnOrderKeepsTiedItemsInKeyOrder()
@@ -99,17 +101,17 @@ public sealed class SortOrderChangeTests
 
         order.Send(ByScore(isDescending: true));
 
-        // Not [5, 4, 2, 6, 3, 1], the list flipped.
+        // This is not [5, 4, 2, 6, 3, 1], which is the list in the opposite direction.
         await Assert.That(KeysOf(sorted))
             .IsEquivalentTo(expected: [5, 2, 4, 1, 3, 6], ordering: CollectionOrdering.Matching);
 
-        // A key joining a tie lands in key order within it.
+        // A key with a sort value equal to a second key goes in the order of the two keys.
         edits.Send(TestUtil.Add(TestUtil.Item(number: 0, name: "zero", score: 20)));
 
         await Assert.That(KeysOf(sorted))
             .IsEquivalentTo(expected: [5, 0, 2, 4, 1, 3, 6], ordering: CollectionOrdering.Matching);
 
-        // And back again.
+        // This reverses the order again.
         order.Send(ByScore(isDescending: false));
 
         await Assert.That(KeysOf(sorted))
@@ -117,9 +119,9 @@ public sealed class SortOrderChangeTests
     }
 
     /// <summary>
-    ///     A stage that turned its list around still has to carry the new order, not the one it was
-    ///     built under. A filter below it builds from its upstream collection's order, so it is where keeping
-    ///     the old one would show.
+    ///     A stage that reversed its list must hold the new order, and not the order of its
+    ///     construction. A filter below it builds from the order of its upstream collection, thus
+    ///     that filter shows the error when the stage keeps the previous order.
     /// </summary>
     [Test]
     public async Task AReversedStageCarriesTheNewOrderDownstream()
@@ -136,7 +138,8 @@ public sealed class SortOrderChangeTests
 
         CellSink<KeyOrder<int, ItemIdentity, ItemState>> order = Cell.CreateSink(ByScore(isDescending: false));
 
-        // Everything passes, so the filter holds the whole list in its upstream collection's order.
+        // Each key agrees with the predicate, thus the filter holds the full list in the order of
+        // its upstream collection.
         ReactiveCollection<int, ItemIdentity, ItemState> passing =
             collection.SortBy(order).Filter(static (_, state) => state.Score > 0);
 
@@ -146,7 +149,8 @@ public sealed class SortOrderChangeTests
 
         await Assert.That(KeysOf(passing)).IsEquivalentTo(expected: [2, 3, 1], ordering: CollectionOrdering.Matching);
 
-        // A later edit has to be filed under the new order too, not the one the list was built with.
+        // A subsequent edit also sorts in the new order, and not in the order of the construction
+        // of the list.
         edits.Send(TestUtil.Add(TestUtil.Item(number: 4, name: "four", score: 25)));
 
         await Assert.That(KeysOf(passing))
@@ -154,13 +158,14 @@ public sealed class SortOrderChangeTests
     }
 
     /// <summary>
-    ///     A new order that runs the same way but reads a different value is not the old order, and
-    ///     leaving the list alone would not sort it.
+    ///     A new order with the same direction that reads a different value is not the previous
+    ///     order, and the list that the stage holds is not in that new order.
     /// </summary>
     /// <remarks>
-    ///     Two orders are told apart by the selector the caller handed over as well as the comparers
-    ///     and the direction. Comparing comparers and sort key types alone took orders that project
-    ///     different values through the same comparers for one another, and the stage reported nothing.
+    ///     This code compares two orders with the selector from the caller, and also with the
+    ///     comparers and the direction. A test of the comparers and the sort key types alone
+    ///     reads two orders with different values through the same comparers as one order, and the
+    ///     stage then reported nothing.
     /// </remarks>
     [Test]
     public async Task AnIdenticallyDirectedOrderOverADifferentValueIsNotTreatedAsTheSameOrder()
@@ -181,8 +186,8 @@ public sealed class SortOrderChangeTests
 
         await Assert.That(KeysOf(sorted)).IsEquivalentTo(expected: [1, 3, 2], ordering: CollectionOrdering.Matching);
 
-        // Lengths ascending are "one" (3) and "two" (3), 1 before 2 on the key tie-break, then
-        // "three" (5).
+        // The ascending lengths are "one" at 3 and "two" at 3, with key 1 before key 2 because the
+        // key is the last level, and then "three" at 5.
         order.Send(
             KeyOrder<int, ItemIdentity, ItemState>.By(
                 selector: static (_, state) => state.Name.Length,
@@ -194,13 +199,14 @@ public sealed class SortOrderChangeTests
     }
 
     /// <summary>
-    ///     A new order that runs the other way but reads a different value is not the old one
-    ///     reversed, and turning the list around would not sort it.
+    ///     A new order in the opposite direction that reads a different value is not the previous
+    ///     order in the opposite direction, and a reversal of the list does not put it in that new
+    ///     order.
     /// </summary>
     /// <remarks>
-    ///     The reversal has the same test to pass as equivalence: the same selector, comparers and key
-    ///     equality comparer, run the other way. Without the selector in it, the stage turned its list
-    ///     around for an order that sorts by something else entirely.
+    ///     The reversal has the test of an equivalence: the same selector, the same comparers, the
+    ///     same key equality comparer, and the opposite direction. Without the selector in that
+    ///     test, the stage reversed its list for an order on a different value.
     /// </remarks>
     [Test]
     public async Task AnOppositeOrderOverADifferentValueIsNotTreatedAsAReversal()
@@ -221,9 +227,10 @@ public sealed class SortOrderChangeTests
 
         await Assert.That(KeysOf(sorted)).IsEquivalentTo(expected: [1, 3, 2], ordering: CollectionOrdering.Matching);
 
-        // Same sort key type and the same two comparers, opposite direction - but over the name's
-        // length rather than the score. Scores ascending are 1, 3, 2; lengths descending are
-        // "three" (5), "one" (3), "two" (3), which is 3, then 1 before 2 on the key tie-break.
+        // This has the same sort key type, the same two comparers, and the opposite direction, and
+        // it reads the length of the name and not the score. The ascending scores are 1, 3, and 2.
+        // The descending lengths are "three" at 5, "one" at 3, and "two" at 3, which is key 3, and
+        // then key 1 before key 2 because the key is the last level.
         order.Send(
             KeyOrder<int, ItemIdentity, ItemState>.By(
                 selector: static (_, state) => state.Name.Length,
@@ -245,8 +252,8 @@ public sealed class SortOrderChangeTests
             TestUtil.Item(number: 5, name: "five", score: 50));
 
     /// <summary>
-    ///     A new order above a filter changes where its members sit and nothing about which items they
-    ///     are, so the filter takes its members over to the new order rather than testing every item
+    ///     A new order above a filter changes the positions of its members and does not change the
+    ///     members. Thus, the filter moves its members to the new order and does not test each item
     ///     above it against its predicate again.
     /// </summary>
     [Test]
@@ -278,13 +285,14 @@ public sealed class SortOrderChangeTests
 
         tests = 0;
 
-        // The same order reversed, which the sort answers by turning its list around.
+        // This is the same order in the opposite direction, and the sort answers it with a
+        // reversal of its list.
         order.Send(ByScore(isDescending: true));
 
         await Assert.That(KeysOf(passing))
             .IsEquivalentTo(expected: [5, 2, 3, 4], ordering: CollectionOrdering.Matching);
 
-        // A different order altogether, which the sort answers by filing everything again.
+        // This is a different order, and the sort answers it with a new sort of each key.
         order.Send(ByName);
 
         await Assert.That(KeysOf(passing))
@@ -294,7 +302,8 @@ public sealed class SortOrderChangeTests
 
         await Assert.That(tests).IsEqualTo(0);
 
-        // Still a reset: every position may differ, so a consumer reads the keys wholesale.
+        // This is also a reset, because each position can be different, thus a consumer reads all
+        // of the keys.
         await Assert.That(resets).IsEquivalentTo(expected: [true, true], ordering: CollectionOrdering.Matching);
     }
 
@@ -331,8 +340,9 @@ public sealed class SortOrderChangeTests
     }
 
     /// <summary>
-    ///     Only a transaction that changed nothing but the order is a reorder. An edit landing in the
-    ///     same transaction can move items into or out of the filter, so then it has to test again.
+    ///     Only a transaction that changed the order and nothing else is a change of order. An edit
+    ///     in the same transaction can move items into the filter or out of it, thus the filter must
+    ///     then test again.
     /// </summary>
     [Test]
     public async Task AFilterBelowANewOrderStillTestsAnEditInTheSameTransaction()
@@ -352,7 +362,7 @@ public sealed class SortOrderChangeTests
         {
             order.Send(ByScore(isDescending: true));
 
-            // Key 1 scores into the filter and key 4 scores out of it.
+            // A new score moves key 1 into the filter and moves key 4 out of it.
             edits.Send(TestUtil.Score(key: 1, score: 35).CombineWith(TestUtil.Score(key: 4, score: 5)));
         });
 
@@ -385,9 +395,10 @@ public sealed class SortOrderChangeTests
     }
 
     /// <summary>
-    ///     A reorder carries on down the chain past every stage it does not change: a second filter
-    ///     keeps its members too, and a sort with an order of its own keeps its list. A window is where
-    ///     it stops, because reordering what is above a window changes what is in it.
+    ///     A change of order continues down the chain, through each stage that it does not change.
+    ///     A second filter also keeps its members, and a sort with its own order keeps its list. It
+    ///     stops at a window, because a change of the order above a window changes the keys in the
+    ///     window.
     /// </summary>
     [Test]
     public async Task EveryStageBelowANewOrderHoldsWhatItShould()
@@ -438,7 +449,7 @@ public sealed class SortOrderChangeTests
         await Assert.That(KeysOf(belowTheWindow))
             .IsEquivalentTo(expected: [5, 2], ordering: CollectionOrdering.Matching);
 
-        // After the reorder, edits are filed under the new order all the way down.
+        // After the change of order, each stage sorts an edit in the new order.
         edits.Send(TestUtil.Score(key: 4, score: 45));
 
         await Assert.That(KeysOf(second)).IsEquivalentTo(expected: [5, 4, 2], ordering: CollectionOrdering.Matching);

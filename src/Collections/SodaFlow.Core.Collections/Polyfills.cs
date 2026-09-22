@@ -11,7 +11,8 @@ namespace System.Diagnostics.CodeAnalysis
     {
         /// <summary>Initializes the attribute with the specified return value condition.</summary>
         /// <param name="returnValue">
-        ///     The return value condition. If the method returns this value, the associated parameter may be null.
+        ///     The condition on the return value. When the method returns this value, the parameter
+        ///     can be null.
         /// </param>
         // ReSharper disable once InheritdocConsiderUsage
         public MaybeNullWhenAttribute(bool returnValue) => this.ReturnValue = returnValue;
@@ -22,8 +23,8 @@ namespace System.Diagnostics.CodeAnalysis
     }
 
     /// <summary>
-    ///     Specifies that when a method returns <see cref="ReturnValue" />, the parameter will not be null even if the
-    ///     corresponding type allows it.
+    ///     Gives that the parameter is not null when a method returns
+    ///     <see cref="ReturnValue" />, at each type of the parameter that permits null.
     /// </summary>
     // ReSharper disable once RedundantAttributeUsageProperty
     [AttributeUsage(AttributeTargets.Parameter, Inherited = false)]
@@ -32,7 +33,8 @@ namespace System.Diagnostics.CodeAnalysis
     {
         /// <summary>Initializes the attribute with the specified return value condition.</summary>
         /// <param name="returnValue">
-        ///     The return value condition. If the method returns this value, the associated parameter will not be null.
+        ///     The condition on the return value. When the method returns this value, the parameter
+        ///     is not null.
         /// </param>
         // ReSharper disable once InheritdocConsiderUsage
         public NotNullWhenAttribute(bool returnValue) => this.ReturnValue = returnValue;

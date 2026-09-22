@@ -9,16 +9,17 @@ using JetBrains.Annotations;
 namespace SodaFlow.Collections;
 
 /// <summary>
-///     An immutable ordered set of keys. Every stage of a view chain holds one of these.
+///     An immutable ordered set of keys. Each stage of a view chain holds one of these sets.
 /// </summary>
 /// <remarks>
-///     The sort key type never appears here. It stays a generic parameter of the implementation, so
-///     sort values are stored and compared as themselves, with no boxing, while the chain composes
-///     at this interface and its type does not grow with each stage.
+///     The sort key type is not in this interface. It stays a generic parameter of the
+///     implementation, thus this code keeps and compares each sort value as its own type and boxes
+///     none of them. The chain composes at this interface, and the type of the interface does not
+///     become larger at each stage.
 /// </remarks>
 /// <typeparam name="TKey">The type of the keys.</typeparam>
-/// <typeparam name="TIdentity">The type of the immutable portion of an item.</typeparam>
-/// <typeparam name="TState">The type of the mutable portion of an item.</typeparam>
+/// <typeparam name="TIdentity">The type of the immutable part of an item.</typeparam>
+/// <typeparam name="TState">The type of the mutable part of an item.</typeparam>
 [PublicAPI]
 // ReSharper disable once InheritdocConsiderUsage
 public abstract class OrderedKeys<TKey, TIdentity, TState> : IReadOnlyList<TKey>
@@ -26,15 +27,15 @@ public abstract class OrderedKeys<TKey, TIdentity, TState> : IReadOnlyList<TKey>
     where TIdentity : notnull
 {
     /// <summary>
-    ///     Internal, so that this assembly is the only thing that can produce one. A key set is a
-    ///     stage's own bookkeeping, and the members below that build the next version of one are
-    ///     the protocol between stages rather than anything a consumer has business calling.
+    ///     This is internal, thus only this assembly can make one. A key set is the record of one
+    ///     stage, and the members below that build the next version of a set are the protocol
+    ///     between two stages. A consumer must not call them.
     /// </summary>
     internal OrderedKeys()
     {
     }
 
-    /// <summary>The order this set files keys under.</summary>
+    /// <summary>The order of the keys in this set.</summary>
     internal abstract KeyOrder<TKey, TIdentity, TState> Order { get; }
 
     /// <inheritdoc />
@@ -49,31 +50,31 @@ public abstract class OrderedKeys<TKey, TIdentity, TState> : IReadOnlyList<TKey>
     /// <inheritdoc />
     IEnumerator IEnumerable.GetEnumerator() => this.GetEnumerator();
 
-    /// <summary>Whether a key is in this set.</summary>
+    /// <summary>True when a key is in this set.</summary>
     /// <param name="key">The key to look for.</param>
-    /// <returns><see langword="true" /> if the key is present.</returns>
+    /// <returns><see langword="true" /> when the key is available.</returns>
     public abstract bool Contains(TKey key);
 
     /// <summary>The position of a key in this set.</summary>
     /// <param name="key">The key to look for.</param>
-    /// <returns>Its position, or -1 if the key is absent.</returns>
+    /// <returns>Its position, or -1 when the key is missing.</returns>
     /// <remarks>
-    ///     -1 rather than an optional value, both because this assembly does not reference
-    ///     SodaFlow.Functional and because it is the convention every <c>IndexOf</c> in the
-    ///     framework already follows. Internal because that sentinel is an arrangement between
-    ///     this assembly and the language surfaces rather than something a caller should have to
-    ///     know: each surface exposes an <c>IndexOf</c> of its own answering with that language's
-    ///     optional type.
+    ///     This answers -1 and not an optional value, for two causes. This assembly does not
+    ///     reference SodaFlow.Functional, and -1 is the convention of each <c>IndexOf</c> in the
+    ///     framework. It is internal because that value is an agreement between this assembly and
+    ///     the language surfaces, and a caller must not know it. Each surface has its own
+    ///     <c>IndexOf</c> that answers with the optional type of that language.
     /// </remarks>
     internal abstract int IndexOfInternal(TKey key);
 
     /// <summary>
-    ///     Files the key under the sort value it projects from <paramref name="snapshot" />. A key
-    ///     absent from the snapshot is not added.
+    ///     Puts the key at the sort value that this order makes from
+    ///     <paramref name="snapshot" />. This code does not add a key that the snapshot does not
+    ///     hold.
     /// </summary>
-    /// <param name="key">The key to file.</param>
-    /// <param name="snapshot">The collection to project the sort value from.</param>
-    /// <returns>The set with the key filed in it.</returns>
+    /// <param name="key">The key to add.</param>
+    /// <param name="snapshot">The collection that gives the sort value.</param>
+    /// <returns>The set with the key in it.</returns>
     internal abstract OrderedKeys<TKey, TIdentity, TState> Add(
         TKey key,
         CollectionSnapshot<TKey, TIdentity, TState> snapshot);
@@ -84,11 +85,11 @@ public abstract class OrderedKeys<TKey, TIdentity, TState> : IReadOnlyList<TKey>
     internal abstract OrderedKeys<TKey, TIdentity, TState> Remove(TKey key);
 }
 
-/// <summary>A key together with the sort value it was filed under.</summary>
+/// <summary>A key with the sort value of its position.</summary>
 /// <remarks>
-///     Keeping the projection alongside the key is what makes re-filing O(log n): the old entry is
-///     removed with the comparison that placed it, rather than being hunted for after its sort value
-///     has moved underneath the set.
+///     This code keeps the sort value with the key, and that makes a second sort cost
+///     <c>O(log n)</c>. It removes the previous entry with the comparer that put it there, and
+///     does not search for it after its sort value changed.
 /// </remarks>
 internal sealed class SortedEntry<TKey, TSortKey>
     where TKey : notnull
@@ -128,9 +129,10 @@ internal sealed class SortedEntryComparer<TKey, TSortKey> : IComparer<SortedEntr
             return 0;
         }
 
-        // A direction is applied by swapping the operands rather than negating the result. Negating
-        // int.MinValue leaves it negative, so a comparer that returns it would sort the same way in
-        // both directions; swapping cannot go wrong like that.
+        // This code applies a direction with an interchange of the two operands, and does not
+        // negate the result. A negation of int.MinValue gives a negative value, thus a comparer
+        // that returns it sorts in the same direction at each value of isDescending. An
+        // interchange cannot have that error.
         //
         // ReSharper disable NullableWarningSuppressionIsUsed - The set only ever holds entries
         // filed by Add, and nothing outside this file constructs one, so neither side is null.
@@ -140,20 +142,24 @@ internal sealed class SortedEntryComparer<TKey, TSortKey> : IComparer<SortedEntr
                 : this.SortComparer.Compare(x: left!.SortValue, y: right!.SortValue);
         // ReSharper restore NullableWarningSuppressionIsUsed
 
-        // The key breaks ties, so the order is total and two entries that sort equally are never
-        // conflated.
+        // The key is the last level, thus the order is total and this code never puts two entries
+        // with equal sort values together.
         return result != 0 ? result : this.KeyComparer.Compare(x: left.Key, y: right.Key);
     }
 }
 
-/// <summary>Two sort values compared level by level - what a multi-level order files a key under.</summary>
+/// <summary>Two sort values, compared one level at a time. An order with more than one level uses
+/// this type as the sort value of a key.</summary>
 /// <remarks>
-///     A struct holding both levels as themselves, so an order with several levels keeps every level's
-///     sort value type all the way down to its comparer and nothing is boxed. A third level is a pair
-///     whose first half is a pair, which is how any number of levels fits a type with two parameters.
+///     This struct holds the two levels as their own types, thus an order with more than one level
+///     keeps the sort value type of each level to its comparer and boxes none of them. A third
+///     level is a pair whose first part is a pair, and thus a type with two parameters holds each
+///     count of levels.
 /// </remarks>
 /// <typeparam name="TFirst">The type of the level that decides first.</typeparam>
-/// <typeparam name="TSecond">The type of the level that decides between what the first ranks equal.</typeparam>
+/// <typeparam name="TSecond">
+///     The type of the level that selects between the keys that the first level ranks equal.
+/// </typeparam>
 internal readonly struct SortPair<TFirst, TSecond>
 {
     internal SortPair(TFirst first, TSecond second)
@@ -169,12 +175,15 @@ internal readonly struct SortPair<TFirst, TSecond>
 
 /// <summary>Compares two <see cref="SortPair{TFirst,TSecond}" /> values: the first level, then the second.</summary>
 /// <remarks>
-///     Each level carries its own direction, because a secondary level runs whichever way it was asked
-///     to regardless of the level above it. Directions are applied by swapping operands, for the reason
-///     given in <see cref="SortedEntryComparer{TKey,TSortKey}" />.
+///     Each level holds its own direction, because a second level uses the direction that the
+///     caller gave, at each direction of the level above it. This code applies a direction with an
+///     interchange of the two operands, for the cause in
+///     <see cref="SortedEntryComparer{TKey,TSortKey}" />.
 /// </remarks>
 /// <typeparam name="TFirst">The type of the level that decides first.</typeparam>
-/// <typeparam name="TSecond">The type of the level that decides between what the first ranks equal.</typeparam>
+/// <typeparam name="TSecond">
+///     The type of the level that selects between the keys that the first level ranks equal.
+/// </typeparam>
 // ReSharper disable once InheritdocConsiderUsage
 internal sealed class SortPairComparer<TFirst, TSecond> : IComparer<SortPair<TFirst, TSecond>>
 {
@@ -214,16 +223,17 @@ internal sealed class SortPairComparer<TFirst, TSecond> : IComparer<SortPair<TFi
 }
 
 /// <summary>
-///     An order which files each key under a sort value it projects for that key from a snapshot.
+///     An order that puts each key at a sort value that it makes for that key from a snapshot.
 /// </summary>
 /// <remarks>
-///     What the two kinds of order have in common, and all a sorted key set needs from either: how to
-///     project a key's sort value, and how to compare two entries once they are projected. An order over
-///     the items projects from an item; the arrival order projects from when the key arrived.
+///     This is the part that is the same in the two types of order, and a sorted key set needs
+///     only this part from each one. It gives the sort value of a key, and it compares two entries
+///     with their sort values. An order on the items makes the sort value from an item, and the
+///     arrival order makes it from the time of the arrival of the key.
 /// </remarks>
 /// <typeparam name="TKey">The type of the keys.</typeparam>
-/// <typeparam name="TIdentity">The type of the immutable portion of an item.</typeparam>
-/// <typeparam name="TState">The type of the mutable portion of an item.</typeparam>
+/// <typeparam name="TIdentity">The type of the immutable part of an item.</typeparam>
+/// <typeparam name="TState">The type of the mutable part of an item.</typeparam>
 /// <typeparam name="TSortKey">The type of the projected sort value.</typeparam>
 // ReSharper disable once InheritdocConsiderUsage
 internal abstract class ProjectedKeyOrder<TKey, TIdentity, TState, TSortKey> : KeyOrder<TKey, TIdentity, TState>
@@ -233,25 +243,26 @@ internal abstract class ProjectedKeyOrder<TKey, TIdentity, TState, TSortKey> : K
     protected ProjectedKeyOrder(IEqualityComparer<TKey> keyEqualityComparer) =>
         this.KeyEqualityComparer = keyEqualityComparer;
 
-    /// <summary>Compares two entries this order has filed.</summary>
+    /// <summary>Compares two entries in this order.</summary>
     protected internal abstract SortedEntryComparer<TKey, TSortKey> EntryComparer { get; }
 
     protected IEqualityComparer<TKey> KeyEqualityComparer { get; }
 
-    /// <summary>The sort value this order files <paramref name="key" /> under.</summary>
-    /// <param name="key">A key the snapshot holds.</param>
-    /// <param name="snapshot">The snapshot to project the sort value from.</param>
+    /// <summary>The sort value of <paramref name="key" /> in this order.</summary>
+    /// <param name="key">A key that the snapshot holds.</param>
+    /// <param name="snapshot">The snapshot that gives the sort value.</param>
     /// <returns>The sort value.</returns>
     /// <exception cref="InvalidOperationException">The snapshot does not hold the key.</exception>
     /// <remarks>
-    ///     Every caller files only keys the snapshot it passes holds: keys it took from that snapshot,
-    ///     keys it has just tested against it, or keys an operation of the stage above names, which
-    ///     that stage's snapshot admits. A key it does not hold has no sort value to file under, and
-    ///     being asked for one is a fault in the stage that asked.
+    ///     Each caller adds only the keys that the snapshot holds. Those are the keys from that
+    ///     snapshot, the keys that the caller tested against it, and the keys in an operation of
+    ///     the stage above, which the snapshot of that stage accepts. A key that the snapshot does
+    ///     not hold has no sort value, and a read of one is a defect in the stage that does it.
     /// </remarks>
     internal abstract TSortKey Project(TKey key, CollectionSnapshot<TKey, TIdentity, TState> snapshot);
 
-    /// <summary>What <see cref="Project" /> throws for a key the snapshot does not hold.</summary>
+    /// <summary>The exception that <see cref="Project" /> throws for a key that the snapshot does
+    /// not hold.</summary>
     protected static InvalidOperationException KeyNotInSnapshot(TKey key) =>
         new(
             $"The snapshot does not hold the key {key}, so it has no sort value to file it under. "
@@ -284,23 +295,24 @@ internal abstract class ProjectedKeyOrder<TKey, TIdentity, TState, TSortKey> : K
 }
 
 /// <summary>
-///     The order items arrived in: the collection's own order, and what <c>ByArrival</c> returns.
+///     The sequence of the arrival of the items, which is the order of the collection.
+///     <c>ByArrival</c> returns it.
 /// </summary>
 /// <remarks>
 ///     <para>
-///         Every key is numbered once as it arrives, so no two keys share a sort value and the key is
-///         never compared. That is why a collection can list keys of a type with no order of its own.
+///         This code gives a number to each key one time, at its arrival. Thus, two keys never have
+///         the same sort value, and this code never compares the keys. For that cause a collection
+///         can list keys of a type with no order of its own.
 ///     </para>
 ///     <para>
-///         For the same reason a further level would never be consulted, so
-///         <see cref="Then{TNext}" /> answers with this order unchanged rather than building a level
-///         that could not decide anything. And it never depends on the state: an update is not an
-///         arrival.
+///         For the same cause, this code never reads a second level. Thus,
+///         <see cref="Then{TNext}" /> answers with this order, and does not build a level with no
+///         effect. This order also never reads the state, because an update is not an arrival.
 ///     </para>
 /// </remarks>
 /// <typeparam name="TKey">The type of the keys.</typeparam>
-/// <typeparam name="TIdentity">The type of the immutable portion of an item.</typeparam>
-/// <typeparam name="TState">The type of the mutable portion of an item.</typeparam>
+/// <typeparam name="TIdentity">The type of the immutable part of an item.</typeparam>
+/// <typeparam name="TState">The type of the mutable part of an item.</typeparam>
 // ReSharper disable once InheritdocConsiderUsage
 internal sealed class ArrivalOrder<TKey, TIdentity, TState> : ProjectedKeyOrder<TKey, TIdentity, TState, long>
     where TKey : notnull
@@ -351,11 +363,12 @@ internal sealed class ArrivalOrder<TKey, TIdentity, TState> : ProjectedKeyOrder<
         snapshot.TryGetArrival(key: key, arrival: out long arrival) ? arrival : throw KeyNotInSnapshot(key);
 }
 
-/// <summary>The tie-break of an order whose sort values are never equal, which has no tie to break.</summary>
+/// <summary>The second level of an order whose sort values are never equal. Such an order needs no
+/// second level.</summary>
 /// <remarks>
-///     Throws rather than answering. Being asked at all means two keys were filed under a sort value
-///     that is only ever given out once - a set that no longer describes itself, which an answer would
-///     hide.
+///     This throws an exception and does not answer. A call to it means that two keys have the same
+///     sort value, and this code gives each sort value one time. Such a set is incorrect, and an
+///     answer hides that.
 /// </remarks>
 /// <typeparam name="TKey">The type of the keys.</typeparam>
 // ReSharper disable once InheritdocConsiderUsage
@@ -374,19 +387,20 @@ internal sealed class NoTieComparer<TKey> : IComparer<TKey>
 }
 
 /// <summary>
-///     An order which files each key under a value projected from its item.
+///     An order that puts each key at a value from its item.
 /// </summary>
 /// <typeparam name="TKey">The type of the keys.</typeparam>
-/// <typeparam name="TIdentity">The type of the immutable portion of an item.</typeparam>
-/// <typeparam name="TState">The type of the mutable portion of an item.</typeparam>
+/// <typeparam name="TIdentity">The type of the immutable part of an item.</typeparam>
+/// <typeparam name="TState">The type of the mutable part of an item.</typeparam>
 /// <typeparam name="TSortKey">The type of the projected sort value.</typeparam>
 /// <remarks>
-///     Internal, because nothing outside this assembly can put an order into a view: the sort
-///     stages build their own from the selector they are handed. <see cref="KeyOrder{TKey,TIdentity,TState}" />
-///     stays public because <see cref="OrderedKeys{TKey,TIdentity,TState}.Order" /> answers with one, so
-///     an order can be read and not supplied - which is what keeps the claim
-///     <see cref="DependsOnState" /> makes checkable. An order that could be supplied from outside
-///     could assert it falsely, and a view would silently stop re-filing.
+///     This is internal, because code out of this assembly cannot put an order into a view. Each
+///     sort stage builds its own order from the selector that it receives.
+///     <see cref="KeyOrder{TKey,TIdentity,TState}" /> is public because
+///     <see cref="OrderedKeys{TKey,TIdentity,TState}.Order" /> answers with one. Thus, other code
+///     can read an order and cannot give one, and that lets a reader test the statement of
+///     <see cref="DependsOnState" />. An order from external code can make that statement
+///     incorrectly, and a view then stops its sorts and gives no message.
 /// </remarks>
 // ReSharper disable once InheritdocConsiderUsage
 internal sealed class SortKeyOrder<TKey, TIdentity, TState, TSortKey>
@@ -395,43 +409,44 @@ internal sealed class SortKeyOrder<TKey, TIdentity, TState, TSortKey>
     where TIdentity : notnull
 {
     /// <summary>
-    ///     Exactly one of these is set, and which one is what <see cref="DependsOnState" />
-    ///     answers. That is deliberate: an order cannot claim not to read the state while reading
-    ///     it, because the selector that claims it is never handed any.
+    ///     One of these two fields has a value, and <see cref="DependsOnState" /> gives which one.
+    ///     That is deliberate. An order cannot say that it does not read the state and then read
+    ///     the state, because the selector that says it receives no state.
     /// </summary>
     private readonly Func<TKey, TIdentity, TSortKey>? identitySelector;
 
     /// <summary>
-    ///     The selector as the caller handed it over, before it was adapted to the shape stored
-    ///     above, or null for an order that has no single one to point at.
+    ///     The selector from the caller, before this code changed it to the shape of the field
+    ///     above. It is null for an order with no single selector.
     /// </summary>
     /// <remarks>
-    ///     What <see cref="IsEquivalentTo" /> and <see cref="TryReverse" /> tell two orders apart by.
-    ///     The adapted selector is a new delegate every time an order is built, so it would never
-    ///     match; the caller's own is the same instance whenever the caller's code builds the order
-    ///     from the same lambda. A combined order has none, and is never taken for another.
+    ///     <see cref="IsEquivalentTo" /> and <see cref="TryReverse" /> compare two orders with this
+    ///     field. The changed selector is a new delegate at each construction of an order, thus two
+    ///     of them are never equal. The selector from the caller is the same instance at each
+    ///     construction from the same lambda. An order that combines two orders has no such
+    ///     selector, and this code never reads it as equivalent to a different order.
     /// </remarks>
     private readonly object? originalSelectorReference;
 
     /// <summary>
-    ///     Exactly one of these is set, and which one is what <see cref="DependsOnState" />
-    ///     answers. That is deliberate: an order cannot claim not to read the state while reading
-    ///     it, because the selector that claims it is never handed any.
+    ///     One of these two fields has a value, and <see cref="DependsOnState" /> gives which one.
+    ///     That is deliberate. An order cannot say that it does not read the state and then read
+    ///     the state, because the selector that says it receives no state.
     /// </summary>
     private readonly Func<TKey, TIdentity, TState, TSortKey>? selector;
 
-    /// <summary>Creates an order whose sort value is projected from the whole item.</summary>
+    /// <summary>Makes an order whose sort value comes from the full item.</summary>
     /// <param name="selector">Projects the sort value from a key and its item.</param>
     /// <param name="originalSelectorReference">
-    ///     The selector as the caller handed it over, which is what orders are compared by.
+    ///     The selector from the caller. This code compares two orders with it.
     /// </param>
     /// <param name="sortComparer">Compares two projected sort values.</param>
-    /// <param name="keyComparer">Breaks ties, so that the order is total.</param>
-    /// <param name="isDescending">Whether to reverse the sort comparison.</param>
+    /// <param name="keyComparer">Compares two keys with equal sort values, thus the order is total.</param>
+    /// <param name="isDescending">True when the sort uses the opposite direction.</param>
     /// <remarks>
-    ///     Pass the reference from as close to the caller's own code as possible - the delegate
-    ///     they wrote, not one adapted from it - because two orders are recognized as the same
-    ///     order only when these are the same instance.
+    ///     Give the reference from a position as near to the code of the caller as possible, which
+    ///     is the delegate that the caller wrote and not a delegate from it. This code reads two
+    ///     orders as the same order only when these references are the same instance.
     /// </remarks>
     public SortKeyOrder(
         Func<TKey, TIdentity, TState, TSortKey> selector,
@@ -452,24 +467,25 @@ internal sealed class SortKeyOrder<TKey, TIdentity, TState, TSortKey>
     }
 
     /// <summary>
-    ///     Creates an order whose sort value is projected from the key and the immutable half
-    ///     alone, neither of which a state edit can touch.
+    ///     Makes an order whose sort value comes from the key and the immutable part only. A state
+    ///     edit cannot change the key or that part.
     /// </summary>
     /// <param name="selector">Projects the sort value from a key and its identity.</param>
     /// <param name="originalSelectorReference">
-    ///     The selector as the caller handed it over, which is what orders are compared by.
+    ///     The selector from the caller. This code compares two orders with it.
     /// </param>
     /// <param name="sortComparer">Compares two projected sort values.</param>
-    /// <param name="keyComparer">Breaks ties, so that the order is total.</param>
-    /// <param name="isDescending">Whether to reverse the sort comparison.</param>
+    /// <param name="keyComparer">Compares two keys with equal sort values, thus the order is total.</param>
+    /// <param name="isDescending">True when the sort uses the opposite direction.</param>
     /// <remarks>
     ///     <para>
-    ///         What this buys is in <see cref="DependsOnState" />: a stage under this order skips
-    ///         re-filing a key on a state edit, and building one skips reading the state map at all.
+    ///         <see cref="DependsOnState" /> gives the benefit. A stage in this order does not sort
+    ///         a key again at a state edit, and the construction of a stage does not read the state
+    ///         map.
     ///     </para>
     ///     <para>
-    ///         Pass the reference from as close to the caller's own code as possible, for the reason
-    ///         the other constructor gives.
+    ///         Give the reference from a position as near to the code of the caller as possible,
+    ///         for the cause in the other constructor.
     ///     </para>
     /// </remarks>
     public SortKeyOrder(
@@ -511,16 +527,19 @@ internal sealed class SortKeyOrder<TKey, TIdentity, TState, TSortKey>
     protected internal override SortedEntryComparer<TKey, TSortKey> EntryComparer { get; }
 
     /// <summary>
-    ///     Whether <paramref name="other" /> sorts by the same value with the same comparers, whichever
-    ///     direction either runs in.
+    ///     True when <paramref name="other" /> sorts on the same value with the same comparers, at
+    ///     each direction of the two orders.
     /// </summary>
-    /// <param name="other">The order to compare with.</param>
-    /// <param name="isSameDirection">Whether the two run the same way; meaningful only on a match.</param>
-    /// <returns>Whether the two differ, if at all, only in direction.</returns>
+    /// <param name="other">The order to compare against.</param>
+    /// <param name="isSameDirection">
+    ///     True when the two orders have the same direction. It has a value only when the two
+    ///     orders agree.
+    /// </param>
+    /// <returns>True when the direction is the only difference between the two orders.</returns>
     /// <remarks>
-    ///     By reference throughout. Two orders built from equal but distinct comparers, or from two
-    ///     lambdas that happen to read the same field, are not recognized - which costs a rebuild the
-    ///     stage could have skipped, and never a list filed under the wrong order.
+    ///     This code compares references only. It does not identify two orders that use two equal
+    ///     comparers with different instances, or two lambdas that read the same field. That costs
+    ///     one build that the stage can omit, and it never puts a list in an incorrect order.
     /// </remarks>
     private bool SortsTheSameValueAs(KeyOrder<TKey, TIdentity, TState> other, out bool isSameDirection)
     {
@@ -571,9 +590,10 @@ internal sealed class SortKeyOrder<TKey, TIdentity, TState, TSortKey>
         IComparer<TNext> nextComparer,
         bool nextIsDescending)
     {
-        // The pair carries both levels' directions, so the entry comparer above it compares
-        // ascending. The key still breaks the last tie, with the comparer this order was built with:
-        // a further level refines the order and has no say in what makes it total.
+        // The pair holds the direction of each of the two levels, thus the entry comparer above it
+        // compares in the ascending direction. The key is the last level, with the comparer from
+        // the construction of this order. One more level refines the order and does not change the
+        // level that makes the order total.
         SortPairComparer<TSortKey, TNext> pairComparer =
             new(
                 first: this.EntryComparer.SortComparer,
@@ -581,8 +601,9 @@ internal sealed class SortKeyOrder<TKey, TIdentity, TState, TSortKey>
                 second: nextComparer,
                 secondIsDescending: nextIsDescending);
 
-        // Over the identity alone only if every level is, which is what keeps DependsOnState honest
-        // for the combined order: one level that reads the state makes the whole order read it.
+        // This order uses the identity only when each level uses the identity only, and that makes
+        // DependsOnState correct for the combined order. One level that reads the state makes the
+        // full order read the state.
         if (this.identitySelector is not null && nextIdentitySelector is not null)
         {
             Func<TKey, TIdentity, TSortKey> firstIdentity = this.identitySelector;
@@ -630,7 +651,7 @@ internal sealed class SortKeyOrder<TKey, TIdentity, TState, TSortKey>
             entryComparer: this.EntryComparer,
             keyEqualityComparer: keyEqualityComparer);
 
-    /// <summary>A level as a projection from the whole item, whichever kind it was built as.</summary>
+    /// <summary>A level as a function from the full item, at each type of its construction.</summary>
     private static Func<TKey, TIdentity, TState, T> WholeItem<T>(
         Func<TKey, TIdentity, TState, T>? selector,
         Func<TKey, TIdentity, T>? identitySelector) =>
@@ -642,10 +663,11 @@ internal sealed class SortKeyOrder<TKey, TIdentity, TState, TSortKey>
 
     /// <inheritdoc />
     /// <remarks>
-    ///     An order that does not read the state does not read the state map either, which is one
-    ///     fewer lookup per key - and a rebuild does this for every key it keeps.
-    ///     The two branches disagree only for a key the identity map holds and the state map does
-    ///     not, which the two being written together in <c>Resolve</c> rules out.
+    ///     An order that does not read the state also does not read the state map, which is one
+    ///     lookup less for each key. A new build does this for each key that it keeps.
+    ///     The two paths give different answers only for a key that the identity map holds and the
+    ///     state map does not hold. <c>Resolve</c> writes the two maps together, thus that
+    ///     condition cannot occur.
     /// </remarks>
     internal override TSortKey Project(TKey key, CollectionSnapshot<TKey, TIdentity, TState> snapshot)
     {
@@ -692,16 +714,16 @@ internal sealed class SortedKeys<TKey, TIdentity, TState, TSortKey> : OrderedKey
 
     /// <inheritdoc />
     /// <exception cref="InvalidOperationException">
-    ///     If the key is filed but its entry is not in the ordering, which cannot happen and would
-    ///     mean this set had been built wrongly.
+    ///     The map holds the key and the ordering does not hold its entry. That condition cannot
+    ///     occur, and it means an incorrect build of this set.
     /// </exception>
     /// <remarks>
-    ///     The two answers here are not the same kind of thing. A key this set does not hold is
-    ///     absent, which is what -1 says and what every caller reads it as. A key it does hold whose
-    ///     entry is not in the ordering is not an answer at all: the map and the ordering are only
-    ///     ever written together, so one having what the other does not means they have drifted, and
-    ///     returning -1 for it would report a broken set as an ordinary absence and leave a stage
-    ///     quietly filing keys into something that no longer describes itself.
+    ///     The two answers here are different types of answer. A key that this set does not hold is
+    ///     missing, which is the meaning of -1 and the meaning that each caller reads. A key that
+    ///     the map holds, and whose entry is not in the ordering, is not an answer. This code
+    ///     writes the map and the ordering together, thus one with a key that the other does not
+    ///     have means that the two are no longer equal. An answer of -1 reports an incorrect set as
+    ///     a usual missing key, and a stage then adds keys to a set that is incorrect.
     /// </remarks>
     internal override int IndexOfInternal(TKey key)
     {
@@ -723,14 +745,16 @@ internal sealed class SortedKeys<TKey, TIdentity, TState, TSortKey> : OrderedKey
         TKey key,
         CollectionSnapshot<TKey, TIdentity, TState> snapshot)
     {
-        // Throws for a key the snapshot does not hold; see ProjectedKeyOrder.Project.
+        // This throws an exception for a key that the snapshot does not hold. See
+        // ProjectedKeyOrder.Project.
         SortedEntry<TKey, TSortKey> entry = new(key: key, sortValue: this.order.Project(key: key, snapshot: snapshot));
 
-        // A key already filed is re-filed rather than filed again. The map holds one entry per key
-        // and the ordering holds one per sort value, so adding a key that is already in under a
-        // different value would leave the old entry orphaned in the ordering - the set would count
-        // it, enumerate the key twice, and disagree with its own map. No stage does that today,
-        // because a re-file removes before it adds; nothing about this type said they had to.
+        // This code sorts a key in the set again, and does not add it a second time. The map holds
+        // one entry for each key and the ordering holds one entry for each sort value. An add of a
+        // key in the set, at a different value, leaves the previous entry in the ordering with no
+        // key. The set then counts that entry, gives the key two times, and does not agree with its
+        // own map. No stage does that now, because a second sort removes the key before it adds the
+        // key, but this type did not give that rule.
         ImmutableSortedSet<SortedEntry<TKey, TSortKey>> ordering =
             this.byKey.TryGet(key: key, value: out SortedEntry<TKey, TSortKey>? filed)
                 ? this.entries.Remove(filed)
@@ -760,16 +784,16 @@ internal sealed class SortedKeys<TKey, TIdentity, TState, TSortKey> : OrderedKey
 }
 
 /// <summary>
-///     A contiguous window of another ordered set, without copying it. This is what a
-///     <c>Slice</c> stage holds - and a <c>Take</c> stage too, which is a window starting at zero
-///     - so a stage chained after one still sees a real ordered set and can index into it in
-///     O(log n).
+///     A continuous window of a second ordered set, with no copy of that set. A <c>Slice</c> stage
+///     holds one of these windows, and a <c>Take</c> stage also holds one, because <c>Take</c> is a
+///     window that starts at zero. Thus, a stage after one of those stages reads an ordered set and
+///     can find a position in it at a cost of <c>O(log n)</c>.
 /// </summary>
 /// <remarks>
-///     The window is bounded, and that is what makes the stage above it affordable: its process
-///     step diffs the old window against the new one rather than translating operations, which
-///     costs O(limit) and not O(n). A skip with no limit would have no such bound, which is why
-///     there is no stage offering one.
+///     The window has a limit, and that limit keeps the cost of the stage above it low. The
+///     step of that stage compares the previous window against the new window and does not change
+///     the operations from above, at a cost of <c>O(limit)</c> and not <c>O(n)</c>. A skip has no
+///     limit, and for that cause there is no stage for a skip.
 /// </remarks>
 // ReSharper disable once InheritdocConsiderUsage
 internal sealed class RangeKeys<TKey, TIdentity, TState> : OrderedKeys<TKey, TIdentity, TState>

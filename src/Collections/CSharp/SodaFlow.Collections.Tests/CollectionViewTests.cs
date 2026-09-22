@@ -23,7 +23,7 @@ public sealed class CollectionViewTests
     private static List<int> KeysOf(ReactiveCollection<int, ItemIdentity, ItemState> view) =>
         TestUtil.Keys(view.KeysCell.Sample());
 
-    /// <summary>An operation as "kind:key", which is what these tests assert on.</summary>
+    /// <summary>An operation as "type:key". These tests assert on that text.</summary>
     private static string Describe(ViewOperation<int> operation) =>
         $"{operation.GetType().Name.Replace(oldValue: "`1", newValue: string.Empty)}:{operation.Key}";
 
@@ -40,11 +40,12 @@ public sealed class CollectionViewTests
                 TestUtil.Item(number: 1, name: "one", score: 10),
                 TestUtil.Item(number: 2, name: "two", score: 20));
 
-        // The order the initial items were enumerated in, not the order of their keys.
+        // This is the sequence of the enumeration of the initial items, and not the sequence of
+        // their keys.
         await Assert.That(KeysOf(collection))
             .IsEquivalentTo(expected: [3, 1, 2], ordering: CollectionOrdering.Matching);
 
-        // Added to the end, in the order the edit lists them.
+        // The collection adds them at the end, in the sequence of the edit.
         edits.Send(
             TestUtil.Add(
                 TestUtil.Item(number: 5, name: "five", score: 50),
@@ -59,7 +60,7 @@ public sealed class CollectionViewTests
         await Assert.That(KeysOf(collection))
             .IsEquivalentTo(expected: [3, 1, 2, 5, 0], ordering: CollectionOrdering.Matching);
 
-        // A key removed and added back later is a new arrival.
+        // A key that an edit removes, and that a subsequent edit adds, is a new arrival.
         edits.Send(TestUtil.Remove(1));
 
         await Assert.That(KeysOf(collection))
@@ -97,8 +98,8 @@ public sealed class CollectionViewTests
         IListener l =
             collection.KeyChangesStream.ListenStrong(change => operations.AddRange(change.Operations.Select(Describe)));
 
-        // A remove and an add of one key in one transaction is how an item is replaced, and the
-        // replacement is a new arrival.
+        // A removal and an add of one key in one transaction replaces an item, and the new item is
+        // a new arrival.
         Transaction.RunVoid(() =>
         {
             removals.Send(TestUtil.Remove(1));
@@ -110,8 +111,8 @@ public sealed class CollectionViewTests
         await Assert.That(KeysOf(collection))
             .IsEquivalentTo(expected: [2, 3, 1], ordering: CollectionOrdering.Matching);
 
-        // The place it left and then the place it went. An insert alone would have a list bound to
-        // this count the key twice.
+        // This is the position that the key left, and then its new position. With only an add, a
+        // list that binds to this counts the key two times.
         await Assert.That(operations)
             .IsEquivalentTo(expected: ["ViewRemove:1", "ViewInsert:1"], ordering: CollectionOrdering.Matching);
     }
@@ -132,8 +133,9 @@ public sealed class CollectionViewTests
                 first,
                 second);
 
-        // Sent the other way round to the order the streams were given in, both times: which stream
-        // was handed to Create first decides, not which one happened to send first.
+        // The sends are in the opposite sequence to the streams, in the two conditions. The
+        // sequence of the streams at the Create call selects, and the sequence of the sends does
+        // not.
         Transaction.RunVoid(() =>
         {
             second.Send(TestUtil.Add(TestUtil.Item(number: 2, name: "two", score: 20)));
@@ -156,7 +158,8 @@ public sealed class CollectionViewTests
         StreamSink<CollectionEdit<Handle, ItemIdentity, ItemState>> edits =
             Stream.CreateSink<CollectionEdit<Handle, ItemIdentity, ItemState>>();
 
-        // Handle has no order: comparing two of them by default throws. The collection never asks.
+        // Handle has no order, thus a default compare operation on two of them throws an
+        // exception. The collection never compares two of them.
         ReactiveCollection<Handle, ItemIdentity, ItemState> collection =
             ReactiveCollection<Handle, ItemIdentity, ItemState>.Create(
                 keySelector: static identity => new Handle(identity.Number),
@@ -201,7 +204,7 @@ public sealed class CollectionViewTests
         await Assert.That(KeysOf(collection.SortBy(static (_, state) => state.Score).SortByArrival()))
             .IsEquivalentTo(expected: [3, 1, 2], ordering: CollectionOrdering.Matching);
 
-        // No two keys arrive together, so a further level would never be consulted.
+        // Two keys never come at the same time, thus this code never reads a second level.
         KeyOrder<int, ItemIdentity, ItemState> byArrival = KeyOrder<int, ItemIdentity, ItemState>.ByArrival();
 
         await Assert.That(byArrival.ThenBy(static (_, state) => state.Name)).IsSameReferenceAs(byArrival);
@@ -225,7 +228,8 @@ public sealed class CollectionViewTests
 
         await Assert.That(KeysOf(byScore)).IsEquivalentTo(expected: [2, 3, 1], ordering: CollectionOrdering.Matching);
 
-        // Moving item 1 to the bottom of the range re-files it rather than rebuilding.
+        // A move of item 1 to the end of the range sorts it again and does not build the stage
+        // again.
         edits.Send(TestUtil.Score(key: 1, score: 5));
 
         await Assert.That(KeysOf(byScore)).IsEquivalentTo(expected: [1, 2, 3], ordering: CollectionOrdering.Matching);
@@ -329,8 +333,8 @@ public sealed class CollectionViewTests
         IListener l =
             collection.KeyChangesStream.ListenStrong(change => operations.AddRange(change.Operations.Select(Describe)));
 
-        // The root orders by arrival, so this moves nothing - but a stage below might sort on exactly
-        // the state that just changed, so it has to hear about it.
+        // The root uses the order of arrival, thus this moves no key. A stage below can sort on
+        // the state that changed, thus this code must send the change to it.
         edits.Send(TestUtil.Score(key: 1, score: 99));
 
         l.Unlisten();
@@ -351,9 +355,10 @@ public sealed class CollectionViewTests
                 TestUtil.Item(number: 2, name: "two", score: 20),
                 TestUtil.Item(number: 3, name: "three", score: 30));
 
-        // Sitting directly on the collection, so this stage inherits the root's order, which
-        // projects the key - and a key cannot change. A state edit therefore cannot move anything
-        // here, which is the case Refile short-circuits rather than removing and re-adding.
+        // This stage is directly above the collection, thus it gets the order of the root. That
+        // order uses the key, and a key cannot change. Thus, a state edit can move no key here,
+        // which is the condition where Refile takes the short path and does not remove the key and
+        // add it again.
         ReactiveCollection<int, ItemIdentity, ItemState> passing =
             collection.Filter(static (_, state) => state.Score >= 0);
 
@@ -366,7 +371,7 @@ public sealed class CollectionViewTests
 
         l.Unlisten();
 
-        // One update, no move, and the order untouched.
+        // There is one update, no move, and no change to the order.
         await Assert.That(operations).IsEquivalentTo(expected: ["ViewUpdate:2"], ordering: CollectionOrdering.Matching);
         await Assert.That(KeysOf(passing)).IsEquivalentTo(expected: [1, 2, 3], ordering: CollectionOrdering.Matching);
     }
@@ -474,11 +479,12 @@ public sealed class CollectionViewTests
         IListener l =
             evens.KeyChangesStream.ListenStrong(change => operations.AddRange(change.Operations.Select(Describe)));
 
-        // In the view: a score change cannot move it out, so this reports the update and nothing
-        // else - the membership was never in question.
+        // The key is in the view. A change of score cannot move it out, thus this reports the
+        // update and nothing more. The membership cannot change here.
         edits.Send(TestUtil.Score(key: 2, score: -1));
 
-        // Not in the view: an update for a key this filter does not hold does not report anything at all.
+        // The key is not in the view. An update for a key that this filter does not hold reports
+        // nothing.
         edits.Send(TestUtil.Score(key: 1, score: -1));
 
         l.Unlisten();
@@ -501,7 +507,8 @@ public sealed class CollectionViewTests
 
         await Assert.That(KeysOf(evens)).IsEquivalentTo(expected: [2], ordering: CollectionOrdering.Matching);
 
-        // An identity arriving is the one thing that can change this membership, and it is tested.
+        // The arrival of an identity is the one event that can change these members, and this code
+        // tests it.
         edits.Send(TestUtil.Add(TestUtil.Item(number: 4, name: "four", score: 40)));
         await Assert.That(KeysOf(evens)).IsEquivalentTo(expected: [2, 4], ordering: CollectionOrdering.Matching);
 
@@ -513,10 +520,10 @@ public sealed class CollectionViewTests
     }
 
     /// <summary>
-    ///     A state edit cannot move a key into or out of an identity filter, but it can move one
-    ///     within it: the filter keeps its upstream collection's order, and an upstream sorting by state moves
-    ///     keys on a state edit. The move has to be followed, and reported at this stage's own
-    ///     positions rather than the upstream's.
+    ///     A state edit cannot move a key into an identity filter or out of it, and it can move a
+    ///     key in that filter. The filter keeps the order of its upstream collection, and an
+    ///     upstream that sorts on the state moves keys at a state edit. This stage must follow that
+    ///     move and must report its own positions, and not the positions of the upstream.
     /// </summary>
     [Test]
     public async Task FilterByIdentityFollowsAMoveInAStateOrderAboveIt()
@@ -549,8 +556,8 @@ public sealed class CollectionViewTests
                             ? $"{Describe(move)}:{move.FromIndex}->{move.ToIndex}"
                             : Describe(operation))));
 
-        // 10 -> 35 moves key 1 from the front of the sort to third, [2, 3, 1, 4], and so from the
-        // front of this filter to the back.
+        // A change from 10 to 35 moves key 1 from the front of the sort to the third position,
+        // which is [2, 3, 1, 4], and thus from the front of this filter to the end.
         edits.Send(TestUtil.Score(key: 1, score: 35));
 
         l.Unlisten();
@@ -560,7 +567,8 @@ public sealed class CollectionViewTests
 
         await Assert.That(KeysOf(odds)).IsEquivalentTo(expected: [3, 1], ordering: CollectionOrdering.Matching);
 
-        // This stage's positions: 0 to 1 here, where the sort above moved it 0 to 2.
+        // These are the positions of this stage: 0 to 1 here, and the sort above moved the key
+        // from 0 to 2.
         await Assert.That(operations)
             .IsEquivalentTo(expected: ["ViewMove:1:0->1"], ordering: CollectionOrdering.Matching);
     }
@@ -626,8 +634,8 @@ public sealed class CollectionViewTests
     }
 
     /// <summary>
-    ///     An update that moves nothing still changes the value the key is filed under. A filter that
-    ///     only passed the update on would keep the old value, and file the next arrival against it.
+    ///     An update that moves no key changes the sort value of that key. A filter that only sends
+    ///     the update on keeps the previous value, and sorts the next arrival against it.
     /// </summary>
     [Test]
     public async Task FilterByIdentityFilesTheNextArrivalAgainstAnUpdatedSortValue()
@@ -647,12 +655,13 @@ public sealed class CollectionViewTests
         ReactiveCollection<int, ItemIdentity, ItemState> all =
             byScore.FilterByIdentity(static identity => identity.Number > 0);
 
-        // 20 -> 25 keeps key 2 between 1 and 3, so the sort reports an update and no move.
+        // A change from 20 to 25 keeps key 2 between 1 and 3, thus the sort reports an update and
+        // no move.
         edits.Send(TestUtil.Score(key: 2, score: 25));
 
         await Assert.That(KeysOf(all)).IsEquivalentTo(expected: [1, 2, 3], ordering: CollectionOrdering.Matching);
 
-        // 22 belongs before 25. Filed against the stale 20, it would land after key 2.
+        // A value of 22 goes before 25. Against the previous value of 20, it goes after key 2.
         edits.Send(TestUtil.Add(TestUtil.Item(number: 4, name: "four", score: 22)));
 
         await Assert.That(KeysOf(byScore))
@@ -675,7 +684,7 @@ public sealed class CollectionViewTests
                 TestUtil.Item(number: 3, name: "three", score: 30),
                 TestUtil.Item(number: 4, name: "four", score: 40));
 
-        // Neither stage reads the state, so nothing a state edit does can reach either of them.
+        // The two stages read no state, thus a state edit cannot come to one of them.
         ReactiveCollection<int, ItemIdentity, ItemState> view =
             collection
                 .FilterByIdentity(static identity => identity.Number % 2 == 0)
@@ -701,7 +710,8 @@ public sealed class CollectionViewTests
                 TestUtil.Item(number: 2, name: "two", score: 20),
                 TestUtil.Item(number: 3, name: "three", score: 30));
 
-        // Codes are "C1", "C2", "C3", so descending by code is descending by number here.
+        // The codes are "C1", "C2", and "C3", thus a descending order on the code is a descending
+        // order on the number here.
         ReactiveCollection<int, ItemIdentity, ItemState> byCode =
             collection.SortByIdentityDescending(static identity => identity.Code);
 
@@ -712,8 +722,8 @@ public sealed class CollectionViewTests
         IListener l =
             byCode.KeyChangesStream.ListenStrong(change => operations.AddRange(change.Operations.Select(Describe)));
 
-        // A score change cannot touch a code, so this must report the update and move nothing -
-        // which is the license the identity-only selector buys.
+        // A change of score cannot change a code, thus this reports the update and moves no key.
+        // The selector on the identity only gives that permission.
         edits.Send(TestUtil.Score(key: 3, score: -99));
 
         l.Unlisten();
@@ -739,7 +749,7 @@ public sealed class CollectionViewTests
 
         await Assert.That(KeysOf(byCode)).IsEquivalentTo(expected: [1, 3], ordering: CollectionOrdering.Matching);
 
-        // An identity arriving or leaving is exactly what this order does follow.
+        // This order follows the arrival of an identity and the departure of one.
         edits.Send(TestUtil.Add(TestUtil.Item(number: 2, name: "two", score: 20)));
         await Assert.That(KeysOf(byCode)).IsEquivalentTo(expected: [1, 2, 3], ordering: CollectionOrdering.Matching);
 
@@ -768,7 +778,7 @@ public sealed class CollectionViewTests
 
         await Assert.That(KeysOf(topTwo)).IsEquivalentTo(expected: [4, 3], ordering: CollectionOrdering.Matching);
 
-        // A new item at the top pushes the last one out of the window.
+        // A new item at the front moves the last item out of the window.
         edits.Send(TestUtil.Add(TestUtil.Item(number: 5, name: "five", score: 50)));
 
         await Assert.That(KeysOf(topTwo)).IsEquivalentTo(expected: [5, 4], ordering: CollectionOrdering.Matching);
@@ -817,13 +827,13 @@ public sealed class CollectionViewTests
 
         await Assert.That(KeysOf(page)).IsEquivalentTo(expected: [2, 3], ordering: CollectionOrdering.Matching);
 
-        // Asserted by position as well as by content, because which keys land in the window is the
-        // whole of what an offset does and a set comparison would not see it move.
+        // This test uses the positions and the content, because the keys in the window are the
+        // full result of an offset, and a test of the set alone does not see a move.
         await Assert.That(KeysOf(page)[0]).IsEqualTo(2);
         await Assert.That(KeysOf(page)[1]).IsEqualTo(3);
 
-        // Removing a key before the window moves everything after that key one place earlier, so the
-        // window holds different items without its bounds having changed.
+        // A removal of a key before the window moves each key after it one position earlier, thus
+        // the window holds different items and its limits do not change.
         edits.Send(TestUtil.Remove(1));
 
         await Assert.That(KeysOf(page)).IsEquivalentTo(expected: [3, 4], ordering: CollectionOrdering.Matching);
@@ -851,13 +861,13 @@ public sealed class CollectionViewTests
 
         await Assert.That(KeysOf(page)).IsEquivalentTo(expected: [1, 2], ordering: CollectionOrdering.Matching);
 
-        // Turning the page is one send.
+        // A move to a different page is one send.
         offset.Send(2);
 
         await Assert.That(KeysOf(page)).IsEquivalentTo(expected: [3, 4], ordering: CollectionOrdering.Matching);
 
-        // The last page is short rather than padded, and an offset past the end is empty rather
-        // than an error.
+        // The last page has fewer keys and no fill values, and an offset above the end gives an
+        // empty page and not an error.
         offset.Send(4);
 
         await Assert.That(KeysOf(page)).IsEquivalentTo(expected: [5], ordering: CollectionOrdering.Matching);
@@ -881,7 +891,8 @@ public sealed class CollectionViewTests
                 TestUtil.Item(number: 3, name: "three", score: 30),
                 TestUtil.Item(number: 4, name: "four", score: 40));
 
-        // Scores descending are 4, 3, 2, 1 - so the second page of two is keys 2 and 1.
+        // The descending scores are 4, 3, 2, and 1, thus the second page of two keys is key 2 and
+        // key 1.
         ReactiveCollection<int, ItemIdentity, ItemState> page =
             collection
                 .SortByDescending(static (_, state) => state.Score)
@@ -940,7 +951,8 @@ public sealed class CollectionViewTests
         await Assert.That(KeysOf(topTwoOfTheEvens))
             .IsEquivalentTo(expected: [2, 4], ordering: CollectionOrdering.Matching);
 
-        // The filter sits above the window, so an odd item scoring highest changes nothing here.
+        // The filter is above the window, thus an odd item with the highest score changes nothing
+        // here.
         edits.Send(TestUtil.Score(key: 1, score: 99));
 
         await Assert.That(KeysOf(topTwoOfTheEvens))
@@ -962,11 +974,11 @@ public sealed class CollectionViewTests
         ReactiveCollection<int, ItemIdentity, ItemState> passing =
             collection.Filter(static (_, state) => state.Score >= 20);
 
-        // Two answers, so two cells. This asserted the opposite until a view became a collection
-        // rather than a window onto one.
+        // There are two answers, thus there are two cells. This test asserted the opposite before
+        // a view became a collection and not a window on one.
         await Assert.That(passing.StateCell(1)).IsNotSameReferenceAs(collection.StateCell(1));
 
-        // The view has no value for a key it does not hold; the collection still does.
+        // The view has no value for a key that it does not hold, and the collection has one.
         await Assert.That(passing.StateCell(1).Sample().Match(onSome: static s => s.Name, onNone: static () => "none"))
             .IsEqualTo("none");
 
@@ -976,8 +988,8 @@ public sealed class CollectionViewTests
 
         await Assert.That(passing.KeysCell.Sample().Contains(1)).IsFalse();
 
-        // Sharing still falls out of never copying - within one view, which is where it means
-        // something.
+        // Two observers share a cell because this code never copies one, in one view, which is
+        // where that result is important.
         await Assert.That(passing.StateCell(2)).IsSameReferenceAs(passing.StateCell(2));
     }
 
@@ -1001,19 +1013,19 @@ public sealed class CollectionViewTests
         await Assert.That(cell.Sample().Match(onSome: static s => s.Name, onNone: static () => "none"))
             .IsEqualTo("none");
 
-        // Scoring it into the view gives the cell a value.
+        // A score that moves the item into the view gives the cell a value.
         edits.Send(TestUtil.Score(key: 1, score: 99));
 
         await Assert.That(cell.Sample().Match(onSome: static s => s.Name, onNone: static () => "none"))
             .IsEqualTo("one");
 
-        // A later edit while it is in the view reaches the cell.
+        // A subsequent edit, while the item is in the view, comes to the cell.
         edits.Send(TestUtil.Rename(key: 1, name: "renamed"));
 
         await Assert.That(cell.Sample().Match(onSome: static s => s.Name, onNone: static () => "none"))
             .IsEqualTo("renamed");
 
-        // And scoring it back out takes the value away again.
+        // A score that moves the item out of the view removes the value again.
         edits.Send(TestUtil.Score(key: 1, score: 1));
 
         await Assert.That(cell.Sample().Match(onSome: static s => s.Name, onNone: static () => "none"))
@@ -1070,7 +1082,8 @@ public sealed class CollectionViewTests
         KeyOrder<int, ItemIdentity, ItemState> byScore =
             KeyOrder<int, ItemIdentity, ItemState>.ByDescending(static (_, state) => state.Score);
 
-        // Alone, the key breaks the ties. With a second level, the name breaks them first.
+        // With one level, the key selects between two equal scores. With a second level, the name
+        // selects first.
         await Assert.That(KeysOf(collection.SortBy(byScore)))
             .IsEquivalentTo(expected: [1, 2, 3, 4], ordering: CollectionOrdering.Matching);
 
@@ -1136,7 +1149,8 @@ public sealed class CollectionViewTests
                 TestUtil.Item(number: 2, name: "a", score: 1),
                 TestUtil.Item(number: 3, name: "b", score: 1));
 
-        // Three levels, two kinds of projection, two directions: a pair whose first half is a pair.
+        // There are three levels, two types of selector, and two directions. The sort value is a
+        // pair whose first part is a pair.
         KeyOrder<int, ItemIdentity, ItemState> order =
             KeyOrder<int, ItemIdentity, ItemState>
                 .By(static (_, state) => state.Score)
@@ -1161,9 +1175,9 @@ public sealed class CollectionViewTests
                 TestUtil.Item(number: 3, name: "three", score: 5),
                 TestUtil.Item(number: 4, name: "four", score: 10));
 
-        // The first level cannot be moved by a state edit and the second can, so the order as a whole
-        // can: a stage that skipped re-filing on the strength of the first level would leave 4 where it
-        // was.
+        // A state edit cannot move the first level and can move the second level, thus it can move
+        // the full order. A stage that omits a sort because of the first level leaves key 4 at its
+        // position.
         ReactiveCollection<int, ItemIdentity, ItemState> sorted =
             collection.SortBy(
                 KeyOrder<int, ItemIdentity, ItemState>
@@ -1190,8 +1204,9 @@ public sealed class CollectionViewTests
                 TestUtil.Item(number: 2, name: "two", score: 30),
                 TestUtil.Item(number: 3, name: "three", score: 20));
 
-        // Negating int.MinValue leaves it negative, so a direction applied by negation sorts this the
-        // same way both ways - and not consistently at that.
+        // A negation of int.MinValue gives a negative value, thus a direction from a negation sorts
+        // this in the same sequence in the two directions, and that sequence is not always the
+        // same.
         KeyOrder<int, ItemIdentity, ItemState> isDescending =
             KeyOrder<int, ItemIdentity, ItemState>.By(
                 selector: static (_, state) => state.Score,
@@ -1202,7 +1217,8 @@ public sealed class CollectionViewTests
         await Assert.That(KeysOf(collection.SortBy(isDescending)))
             .IsEquivalentTo(expected: [2, 3, 1], ordering: CollectionOrdering.Matching);
 
-        // The same comparer as a second level, under a first level that ties everything.
+        // This is the same comparer as a second level, below a first level that ranks each key
+        // equal.
         KeyOrder<int, ItemIdentity, ItemState> secondLevel =
             KeyOrder<int, ItemIdentity, ItemState>
                 .ByIdentity(static _ => 0)
@@ -1228,8 +1244,8 @@ public sealed class CollectionViewTests
                 TestUtil.Item(number: 2, name: "two", score: 10),
                 TestUtil.Item(number: 3, name: "three", score: 20));
 
-        // One sorts by an int and the other by a string. The cell holds either, because the sort
-        // value's type lives inside the order rather than in the type of the order.
+        // One order sorts on an int and the other order sorts on a string. The cell holds each
+        // one, because the sort value type is in the order and not in the type of the order.
         KeyOrder<int, ItemIdentity, ItemState> byScore =
             KeyOrder<int, ItemIdentity, ItemState>.By(static (_, state) => state.Score);
 
@@ -1248,7 +1264,7 @@ public sealed class CollectionViewTests
 
         l.Unlisten();
 
-        // A new order is a criteria change, and a criteria change is a reset.
+        // A new order is a change of criteria, and a change of criteria is a reset.
         await Assert.That(resets).IsEquivalentTo(expected: [true], ordering: CollectionOrdering.Matching);
         await Assert.That(KeysOf(sorted)).IsEquivalentTo(expected: [1, 3, 2], ordering: CollectionOrdering.Matching);
     }
@@ -1270,8 +1286,8 @@ public sealed class CollectionViewTests
         CellSink<KeyOrder<int, ItemIdentity, ItemState>> order =
             Cell.CreateSink(KeyOrder<int, ItemIdentity, ItemState>.By(static (_, state) => state.Score));
 
-        // The filter is told nothing about the order. It builds from whatever its upstream collection's set
-        // orders by, so re-filing under the new one needs no wiring of its own.
+        // No code tells the filter about the order. It builds from the order of the set of its
+        // upstream collection, thus a sort in the new order needs no other code.
         ReactiveCollection<int, ItemIdentity, ItemState> filtered =
             collection
                 .SortBy(order)
@@ -1296,8 +1312,8 @@ public sealed class CollectionViewTests
                 TestUtil.Item(number: 1, name: "one", score: 30),
                 TestUtil.Item(number: 2, name: "two", score: 10));
 
-        // Swapping a whole-item order for an identity-only one changes what a state edit costs,
-        // because the stage reads DependsOnState off whichever order built its current set.
+        // A change from a full-item order to an order on the identity only changes the cost of a
+        // state edit, because the stage reads DependsOnState from the order of its current set.
         CellSink<KeyOrder<int, ItemIdentity, ItemState>> order =
             Cell.CreateSink(KeyOrder<int, ItemIdentity, ItemState>.By(static (_, state) => state.Score));
 
@@ -1309,7 +1325,7 @@ public sealed class CollectionViewTests
 
         await Assert.That(KeysOf(sorted)).IsEquivalentTo(expected: [1, 2], ordering: CollectionOrdering.Matching);
 
-        // Under an identity order a state edit cannot move anything, and does not.
+        // In an identity order a state edit cannot move a key, and it moves none.
         edits.Send(TestUtil.Score(key: 2, score: 99));
 
         await Assert.That(KeysOf(sorted)).IsEquivalentTo(expected: [1, 2], ordering: CollectionOrdering.Matching);
@@ -1333,14 +1349,14 @@ public sealed class CollectionViewTests
 
         CollectionSnapshot<int, ItemIdentity, ItemState> view = passing.SnapshotCell.Sample();
 
-        // The view's snapshot counts the view, not the store behind it.
+        // The snapshot of the view counts the view and not the store below it.
         await Assert.That(view.Count).IsEqualTo(2);
         await Assert.That(view.ContainsKey(1)).IsFalse();
         await Assert.That(view.ContainsKey(2)).IsTrue();
         await Assert.That(view.TryGetItem(key: 1, item: out Item<ItemIdentity, ItemState>? _)).IsFalse();
         await Assert.That(view.TryGetItem(key: 2, item: out Item<ItemIdentity, ItemState>? _)).IsTrue();
 
-        // And the two maps behind it agree with it rather than with the store.
+        // The two maps below it agree with the view and not with the store.
         await Assert.That(view.States.Count).IsEqualTo(2);
 
         await Assert.That(TestUtil.Keys(view.Identities.Keys))
@@ -1348,7 +1364,7 @@ public sealed class CollectionViewTests
 
         await Assert.That(view.States.TryGetState(key: 1, state: out _)).IsFalse();
 
-        // The root still sees everything, which is what makes it the root.
+        // The root reads each item, and that makes it the root.
         await Assert.That(collection.SnapshotCell.Sample().Count).IsEqualTo(3);
         await Assert.That(collection.SnapshotCell.Sample().ContainsKey(1)).IsTrue();
     }
@@ -1370,7 +1386,7 @@ public sealed class CollectionViewTests
 
         await Assert.That(passing.SnapshotCell.Sample().ContainsKey(1)).IsFalse();
 
-        // Scoring it into the view puts it in the view's snapshot too.
+        // A score that moves the item into the view also puts it in the snapshot of the view.
         edits.Send(TestUtil.Score(key: 1, score: 99));
 
         await Assert.That(passing.SnapshotCell.Sample().ContainsKey(1)).IsTrue();
@@ -1401,8 +1417,8 @@ public sealed class CollectionViewTests
 
         CollectionViewChange<int, ItemIdentity, ItemState> change = changes[0];
 
-        // Before is the view as it stood, which did not hold key 1; After is the view now, which
-        // does. Neither is the store, and that is the whole point of the scoping.
+        // Before is the previous view, which did not hold key 1. After is the current view, which
+        // holds it. The two are not the store, and that is the purpose of the scope.
         await Assert.That(change.Before.ContainsKey(1)).IsFalse();
         await Assert.That(change.After.ContainsKey(1)).IsTrue();
         await Assert.That(change.Before.Count).IsEqualTo(1);
@@ -1433,11 +1449,11 @@ public sealed class CollectionViewTests
                 collection.IdentityCell(1).Sample().Match(onSome: static i => i.Code, onNone: static () => "none"))
             .IsEqualTo("C1");
 
-        // Observers of one key through one view share a cell. The old implementation mapped the
-        // collection's shape cell and built a new node for every caller.
+        // The observers of one key through one view share a cell. The previous implementation
+        // mapped the shape cell of the collection and built a new node for each caller.
         await Assert.That(passing.IdentityCell(1)).IsSameReferenceAs(cell);
 
-        // Scoring it into the view gives the identity a value.
+        // A score that moves the item into the view gives the identity a value.
         edits.Send(TestUtil.Score(key: 1, score: 99));
 
         await Assert.That(cell.Sample().Match(onSome: static i => i.Code, onNone: static () => "none")).IsEqualTo("C1");
@@ -1464,8 +1480,9 @@ public sealed class CollectionViewTests
         IListener a = collection.IdentityCell(2).Updates().ListenStrong(onCollection.Add);
         IListener b = passing.IdentityCell(2).Updates().ListenStrong(onView.Add);
 
-        // An identity cannot change while its key stays put, so neither observer should hear
-        // anything - not the rename, and not the reorder the score edit causes in the view.
+        // An identity cannot change while its key stays in the collection, thus no observer gets a
+        // value. The new name gives none, and the change of order from the score edit gives
+        // none.
         edits.Send(TestUtil.Rename(key: 2, name: "renamed"));
         edits.Send(TestUtil.Score(key: 1, score: 99));
 
@@ -1497,13 +1514,14 @@ public sealed class CollectionViewTests
         IListener a = passing.ItemChangesStream.ListenStrong(onView.Add);
         IListener b = collection.ItemChangesStream.ListenStrong(onCollection.Add);
 
-        // An item the view does not hold changes. The collection hears it; the view does not.
+        // An item that the view does not hold changes. The collection gets that change and the
+        // view does not.
         edits.Send(TestUtil.Rename(key: 1, name: "renamed"));
 
         await Assert.That(onCollection.Count).IsEqualTo(1);
         await Assert.That(onView).IsEmpty();
 
-        // Scoring it in reads to the view as the item arriving.
+        // A score that moves the item in is an arrival for the view.
         edits.Send(TestUtil.Score(key: 1, score: 99));
 
         await Assert.That(onView.Count).IsEqualTo(1);
@@ -1514,7 +1532,8 @@ public sealed class CollectionViewTests
         await Assert.That(state.Name).IsEqualTo("renamed");
 #pragma warning restore CS8602 // Dereference of a possibly null reference.
 
-        // And scoring it back out reads as the item leaving, though the store still has it.
+        // A score that moves the item out is a departure for the view, and the store keeps the
+        // item.
         edits.Send(TestUtil.Score(key: 1, score: 1));
 
         await Assert.That(onView.Count).IsEqualTo(2);
@@ -1551,12 +1570,12 @@ public sealed class CollectionViewTests
         List<IReadOnlyDictionary<int, ItemIdentity>> shapes = [];
         IListener l = passing.ShapeCell.Updates().ListenStrong(shapes.Add);
 
-        // A rename changes no membership anywhere, so nothing fires.
+        // A new name changes no members, thus no cell sends a value.
         edits.Send(TestUtil.Rename(key: 2, name: "renamed"));
 
         await Assert.That(shapes).IsEmpty();
 
-        // Scoring an item into the view does.
+        // A score that moves an item into the view does change the members.
         edits.Send(TestUtil.Score(key: 1, score: 99));
 
         await Assert.That(shapes.Count).IsEqualTo(1);
@@ -1594,7 +1613,7 @@ public sealed class CollectionViewTests
 
         await Assert.That(projections).IsEqualTo(2);
 
-        // An edit that moves no key projects nothing new, and hands back the same objects.
+        // An edit that moves no key makes no new object, and gives the same objects.
         IReadOnlyList<string> before = mapped.Items.Sample();
 
         edits.Send(TestUtil.Rename(key: 1, name: "renamed"));
@@ -1602,7 +1621,7 @@ public sealed class CollectionViewTests
         await Assert.That(projections).IsEqualTo(2);
         await Assert.That(ReferenceEquals(objA: mapped.Items.Sample()[0], objB: before[0])).IsTrue();
 
-        // A new key projects once.
+        // A new key makes one object.
         edits.Send(TestUtil.Add(TestUtil.Item(number: 3, name: "three", score: 30)));
 
         await Assert.That(projections).IsEqualTo(3);
@@ -1645,9 +1664,9 @@ public sealed class CollectionViewTests
 
         IReadOnlyList<string> before = rows.Items.Sample();
 
-        // A rename leaves the sort value alone, and a new score that stays between its neighbors
-        // re-files the key to where it already was. Both reach the page as updates and move nothing,
-        // so neither keys cell stirs and the projection hands back the list it already had.
+        // A new name does not change the sort value, and a new score between the two adjacent
+        // scores sorts the key to its current position. The two come to the page as updates and
+        // move no key, thus no keys cell sends a value and the projection gives the same list.
         edits.Send(TestUtil.Rename(key: 2, name: "renamed"));
         edits.Send(TestUtil.Score(key: 2, score: 25));
 
@@ -1658,20 +1677,20 @@ public sealed class CollectionViewTests
         await Assert.That(pageOperations)
             .IsEquivalentTo(expected: ["ViewUpdate:2", "ViewUpdate:2"], ordering: CollectionOrdering.Matching);
 
-        // The sort still holds the score it did not publish: 3 is filed against 25, not 20, and so
-        // lands between 1 and 2.
+        // The sort holds the score that it did not publish. Key 3 is at 25 and not at 20, thus it
+        // goes between key 1 and key 2.
         edits.Send(TestUtil.Score(key: 3, score: 22));
 
         await Assert.That(pageUpdates).IsEqualTo(1);
         await Assert.That(KeysOf(page)).IsEquivalentTo(expected: [1, 3, 2], ordering: CollectionOrdering.Matching);
 
-        // Leaving the filter changes membership, and 4 enters the page behind it.
+        // A departure from the filter changes the members, and key 4 enters the page behind it.
         edits.Send(TestUtil.Score(key: 1, score: 500));
 
         await Assert.That(pageUpdates).IsEqualTo(2);
         await Assert.That(KeysOf(page)).IsEquivalentTo(expected: [3, 2, 4], ordering: CollectionOrdering.Matching);
 
-        // None of that touched the collection's own arrival order. An add does.
+        // No part of that changed the arrival order of the collection. An add changes it.
         await Assert.That(collectionUpdates).IsEqualTo(0);
 
         edits.Send(TestUtil.Add(TestUtil.Item(number: 5, name: "five", score: 5)));
@@ -1701,7 +1720,7 @@ public sealed class CollectionViewTests
         List<string> evicted = [];
         int projections = 0;
 
-        // A bound of zero retains nothing that has left, and everything that has not.
+        // A limit of zero keeps no key that left, and each key that is here.
         using MappedItems<string> mapped =
             collection.Map(
                 project: key =>
@@ -1718,13 +1737,15 @@ public sealed class CollectionViewTests
         await Assert.That(projections).IsEqualTo(3);
         await Assert.That(evicted).IsEmpty();
 
-        // Nothing left the view, so nothing was evicted and nothing is rebuilt.
+        // No key left the view, thus an eviction removed no object and this code builds none
+        // again.
         edits.Send(TestUtil.Rename(key: 2, name: "renamed"));
 
         await Assert.That(projections).IsEqualTo(3);
         await Assert.That(ReferenceEquals(objA: mapped.Items.Sample()[1], objB: first[1])).IsTrue();
 
-        // Removing one does evict it, because it has left and the bound keeps none.
+        // A removal of one key removes its object, because the key left and the limit keeps
+        // none.
         edits.Send(TestUtil.Remove(2));
 
         await Assert.That(evicted).IsEquivalentTo(expected: ["row 2"], ordering: CollectionOrdering.Matching);
@@ -1753,18 +1774,19 @@ public sealed class CollectionViewTests
 
         await Assert.That(released).IsEmpty();
 
-        // The rows never left the view, so eviction never fired for them. Disposal is what
-        // releases them, and without it, they would outlive the thing that built them.
+        // The rows never left the view, thus an eviction never ran for them. A disposal releases
+        // them, and without a disposal they continue after the code that built them.
         mapped.Dispose();
 
         await Assert.That(released).IsEquivalentTo(expected: ["row 1", "row 2"], ordering: CollectionOrdering.Any);
     }
 
     /// <summary>
-    ///     A stage rebuilds instead of adjusting once a change costs more operations than a
-    ///     rebuild would. The budget has to have a floor: scaled to the stage's own size alone it
-    ///     is zero for an empty one, and then the first operation of all tips it into a rebuild -
-    ///     which for a filter means re-testing the whole upstream, and a reset for everything below.
+    ///     A stage builds again, and does not change its keys incrementally, when a change costs
+    ///     more operations than a new build. The limit needs a minimum value. A limit from the size
+    ///     of the stage alone is zero for an empty stage, and the first operation then causes a new
+    ///     build. For a filter that is a test of the full upstream, and a reset for each stage
+    ///     below.
     /// </summary>
     [Test]
     public async Task OneItemEnteringAnEmptyFilterIsReportedAsAnInsert()
@@ -1772,7 +1794,8 @@ public sealed class CollectionViewTests
         StreamSink<CollectionEdit<int, ItemIdentity, ItemState>> edits =
             Stream.CreateSink<CollectionEdit<int, ItemIdentity, ItemState>>();
 
-        // Enough upstream that a rebuild would be the expensive answer, and nothing passing yet.
+        // The upstream is sufficiently large to make a new build expensive, and no key agrees with
+        // the predicate.
         ReactiveCollection<int, ItemIdentity, ItemState> collection =
             Create(
                 edits: edits,
@@ -1836,7 +1859,8 @@ public sealed class CollectionViewTests
         await Assert.That(operations).IsEquivalentTo(expected: ["ViewInsert:1"], ordering: CollectionOrdering.Matching);
     }
 
-    /// <summary>Five thousand items scored 1 to 5,000, which every test of what the budget counts starts from.</summary>
+    /// <summary>Five thousand items with the scores 1 to 5,000. Each test of the limit starts from
+    /// them.</summary>
     private static ReactiveCollection<int, ItemIdentity, ItemState> FiveThousand(
         Stream<CollectionEdit<int, ItemIdentity, ItemState>> edits) =>
         Create(
@@ -1847,7 +1871,7 @@ public sealed class CollectionViewTests
                     .Select(static n => TestUtil.Item(number: n, name: $"n{n}", score: n))
             ]);
 
-    /// <summary>One edit setting a new score on each of <paramref name="keys" />.</summary>
+    /// <summary>One edit that gives a new score to each of <paramref name="keys" />.</summary>
     private static CollectionEdit<int, ItemIdentity, ItemState> Rescore(
         IEnumerable<int> keys,
         Func<int, int> score) =>
@@ -1858,7 +1882,7 @@ public sealed class CollectionViewTests
             adds: [],
             removes: []);
 
-    /// <summary>Records whether each change a view reports is a reset, and what operations it lists.</summary>
+    /// <summary>Records if each change from a view is a reset, and records its operations.</summary>
     private static (List<bool> Resets, List<string> Kinds, IListener Listener) Record(
         ReactiveCollection<int, ItemIdentity, ItemState> view)
     {
@@ -1879,9 +1903,10 @@ public sealed class CollectionViewTests
     }
 
     /// <summary>
-    ///     A budget counts the work a change costs a stage, not how many keys it names. The root orders
-    ///     by arrival, which a state edit cannot move, so an update costs it a lookup: three thousand of
-    ///     them, far past its budget of 1,000, are still listed rather than reset.
+    ///     A limit counts the work that a change costs a stage, and not the number of keys in that
+    ///     change. The root uses the order of arrival, and a state edit cannot move a key in that
+    ///     order. Thus, an update costs the root one lookup. Three thousand updates, which is far
+    ///     above its limit of 1,000, come as a list of operations and not as a reset.
     /// </summary>
     [Test]
     public async Task TheRootListsALargeEditThatOnlyUpdates()
@@ -1905,9 +1930,9 @@ public sealed class CollectionViewTests
     }
 
     /// <summary>
-    ///     The case that motivates it: a large update to items a filter does not show. The filter skips
-    ///     each one, so nothing reaches the stages below it - where a reset at the root would have had
-    ///     every one of them rebuild.
+    ///     This is the condition that causes the rule: a large update to items that a filter does
+    ///     not show. The filter omits each one, thus no change comes to the stages below it. A
+    ///     reset at the root makes each stage below build again.
     /// </summary>
     [Test]
     public async Task ALargeUpdateToItemsAFilterDoesNotShowReachesNothingBelowIt()
@@ -1926,7 +1951,8 @@ public sealed class CollectionViewTests
         (List<bool> filterResets, _, IListener filterListener) = Record(highScores);
         (List<bool> sortResets, _, IListener sortListener) = Record(sorted);
 
-        // Three thousand of the items the filter does not show, all still under its threshold.
+        // These are three thousand of the items that the filter does not show, and each one stays
+        // below its limit.
         edits.Send(Rescore(keys: Enumerable.Range(start: 1, count: 3_000), score: static key => key + 1));
 
         filterListener.Unlisten();
@@ -1938,8 +1964,9 @@ public sealed class CollectionViewTests
     }
 
     /// <summary>
-    ///     A filter's order is its upstream collection's, and a state edit cannot move a key under the root's order,
-    ///     so updates to items it shows cost a lookup each too: listed, not reset.
+    ///     The order of a filter is the order of its upstream collection, and a state edit cannot
+    ///     move a key in the order of the root. Thus, an update to an item that the filter shows also
+    ///     costs one lookup, and the change comes as a list of operations and not as a reset.
     /// </summary>
     [Test]
     public async Task AFilterListsALargeUpdateToItemsItShowsInAnOrderThatCannotMoveThem()
@@ -1971,8 +1998,9 @@ public sealed class CollectionViewTests
     }
 
     /// <summary>
-    ///     The same for a sort whose own order cannot be moved by a state edit, when the change also
-    ///     carries an insert and so is not the pass-through an update-only change gets.
+    ///     The same applies to a sort whose own order a state edit cannot move, when the change
+    ///     also holds an add. Such a change does not use the short path of a change with only
+    ///     updates.
     /// </summary>
     [Test]
     public async Task ASortByKeyListsALargeUpdateThatArrivesWithAnInsert()
@@ -2000,8 +2028,9 @@ public sealed class CollectionViewTests
     }
 
     /// <summary>
-    ///     Where a state edit does cost tree work - re-filing under an order that reads the state - the
-    ///     budget still bites, and a large enough change is rebuilt rather than listed.
+    ///     Where a state edit costs work in a tree, which is a sort in an order that reads the
+    ///     state, the limit applies. A change above that limit causes a new build and not a list of
+    ///     operations.
     /// </summary>
     [Test]
     public async Task ASortByStateStillResetsOnALargeUpdateItHasToReFile()
@@ -2016,7 +2045,7 @@ public sealed class CollectionViewTests
 
         (List<bool> resets, _, IListener l) = Record(byScore);
 
-        // Turns the first 3,000 around to the top of the order.
+        // This moves the first 3,000 keys to the front of the order.
         edits.Send(Rescore(keys: Enumerable.Range(start: 1, count: 3_000), score: static key => 20_000 - key));
 
         l.Unlisten();
@@ -2027,8 +2056,8 @@ public sealed class CollectionViewTests
     }
 
     /// <summary>
-    ///     The budget still bites: a change big enough that listing it would cost more than
-    ///     rebuilding is reported as a reset, with no operations to apply.
+    ///     The limit applies. A change whose list of operations costs more than a new build comes
+    ///     as a reset, with no operations to apply.
     /// </summary>
     [Test]
     public async Task AChangeLargerThanTheBudgetIsReportedAsAReset()
@@ -2055,7 +2084,7 @@ public sealed class CollectionViewTests
                 operationCounts.Add(change.Operations.Count);
             });
 
-        // Well past max(1000, 2000 / 10).
+        // This is far above max(1000, 2000 / 10).
         edits.Send(TestUtil.Remove([.. Enumerable.Range(start: 1, count: 1_500)]));
 
         l.Unlisten();
@@ -2066,8 +2095,9 @@ public sealed class CollectionViewTests
     }
 
     /// <summary>
-    ///     A predicate change names what entered and left rather than resetting, so a consumer can
-    ///     move the rows it has instead of rebuilding the list.
+    ///     A change of the predicate names the keys that entered and the keys that left, and it is
+    ///     not a reset. Thus, a consumer can move the rows that it has and does not build the list
+    ///     again.
     /// </summary>
     [Test]
     public async Task ChangingThePredicateNamesWhatEnteredAndLeft()
@@ -2096,7 +2126,7 @@ public sealed class CollectionViewTests
         IListener l =
             passing.KeyChangesStream.ListenStrong(change => operations.AddRange(change.Operations.Select(Describe)));
 
-        // One key enters at the front and nothing leaves.
+        // One key enters at the front and no key leaves.
         threshold.Send(5);
 
         await Assert.That(operations).IsEquivalentTo(expected: ["ViewInsert:1"], ordering: CollectionOrdering.Matching);
@@ -2104,7 +2134,7 @@ public sealed class CollectionViewTests
 
         operations.Clear();
 
-        // Two leave and nothing enters.
+        // Two keys go out and no key enters.
         threshold.Send(25);
 
         await Assert.That(operations)
@@ -2115,7 +2145,7 @@ public sealed class CollectionViewTests
         l.Unlisten();
     }
 
-    /// <summary>A predicate the collection answers the same way is no change at all.</summary>
+    /// <summary>A predicate that gives the same answers for the collection is no change.</summary>
     [Test]
     public async Task ChangingThePredicateToOneThatChoosesTheSameItemsReportsNothing()
     {
@@ -2139,7 +2169,7 @@ public sealed class CollectionViewTests
         int changes = 0;
         IListener l = passing.KeyChangesStream.ListenStrong(_ => changes++);
 
-        // A different limit that admits exactly the same two items.
+        // This is a different limit that accepts the same two items.
         threshold.Send(15);
 
         l.Unlisten();
@@ -2149,8 +2179,8 @@ public sealed class CollectionViewTests
     }
 
     /// <summary>
-    ///     A stage below the filter hears the same thing: operations to apply, not a reset telling
-    ///     it to start again.
+    ///     A stage below the filter gets the same change: operations to apply, and not a reset that
+    ///     tells it to build again.
     /// </summary>
     [Test]
     public async Task AStageBelowAPredicateChangeIsNotResetEither()

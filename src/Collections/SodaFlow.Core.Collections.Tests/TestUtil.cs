@@ -2,15 +2,14 @@ using System.Collections.Generic;
 
 namespace SodaFlow.Collections.Tests;
 
-/// <summary>The immutable portion of a test item. The key is its <see cref="Number" />.</summary>
+/// <summary>The immutable part of a test item. The key is its <see cref="Number" />.</summary>
 internal sealed record ItemIdentity(int Number, string Code);
 
-/// <summary>The mutable portion of a test item.</summary>
+/// <summary>The mutable part of a test item.</summary>
 internal sealed record ItemState(string Name, int Score);
 
 /// <summary>
-///     The same identity, carrying its own key, for the <c>Create</c> overloads that take no
-///     selector.
+///     The same identity, with its own key, for the <c>Create</c> overloads with no selector.
 /// </summary>
 // ReSharper disable once InheritdocConsiderUsage
 internal sealed record SelfKeyedItemIdentity(int Number) : IIdentity<int>

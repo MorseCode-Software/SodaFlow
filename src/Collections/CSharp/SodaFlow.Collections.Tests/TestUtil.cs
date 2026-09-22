@@ -2,10 +2,10 @@ using System.Collections.Generic;
 
 namespace SodaFlow.Collections.Tests;
 
-/// <summary>The immutable portion of a test item. The key is its <see cref="Number" />.</summary>
+/// <summary>The immutable part of a test item. The key is its <see cref="Number" />.</summary>
 internal sealed record ItemIdentity(int Number, string Code);
 
-/// <summary>The mutable portion of a test item.</summary>
+/// <summary>The mutable part of a test item.</summary>
 internal sealed record ItemState(string Name, int Score);
 
 internal static class TestUtil

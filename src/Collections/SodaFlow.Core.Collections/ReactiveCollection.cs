@@ -5,53 +5,53 @@ using JetBrains.Annotations;
 namespace SodaFlow.Collections;
 
 /// <summary>
-///     A keyed collection of items, ordered. The collection you create is one of these and so is
-///     every view derived from it, so <c>Filter</c> and <c>SortBy</c> take one and return one, the
-///     way <c>Where</c> takes and returns an <c>IEnumerable</c>.
+///     An ordered collection of items with keys. The collection that you make is one of these,
+///     and so is each view from it. Thus, <c>Filter</c> and <c>SortBy</c> accept one and return
+///     one, as <c>Where</c> accepts an <c>IEnumerable</c> and returns one.
 /// </summary>
 /// <remarks>
 ///     <para>
 ///         A view answers for itself. Its keys are its own, its changes are its own, and its
-///         snapshot and per-item cells hold what it holds and nothing else - a key its criteria
-///         excluded is simply not in it. Nothing here leads back to the collection a view was
-///         derived from, the way nothing on an <c>IEnumerable</c> leads back to the sequence it was
-///         projected from.
+///         snapshot and its cells for one item hold its content and nothing more. A key that its
+///         criteria removed is not in it. No member here goes back to the collection of the view,
+///         as no member of an <c>IEnumerable</c> goes back to its source sequence.
 ///     </para>
 ///     <para>
-///         A class rather than an interface, and one nobody outside this assembly can derive from,
-///         which is the same bargain <c>Cell</c> and <c>Stream</c> make. There is one implementation
-///         of a reactive collection and one of a view, they are not meant to be substituted or
-///         mocked, and being concrete is what lets the language wrappers reach the internals they
-///         need without a cast that could fail.
+///         This is a class and not an interface, and code out of this assembly cannot subclass
+///         it. <c>Cell</c> and <c>Stream</c> have the same agreement. There is one implementation
+///         of a reactive collection and one implementation of a view. No code replaces them with a
+///         replacement or a mock. A concrete class lets the language wrappers use the internal
+///         members that are necessary for them, with no cast that can fail.
 ///     </para>
 ///     <para>
-///         Nothing here mutates. What can change a collection is fixed when it is created, from the
-///         edit streams it is given; what can change a view is fixed by the stage that derives it.
+///         No member here changes a value. The construction of a collection sets the code that
+///         can change it, from the edit streams that it receives. The stage that makes a view sets
+///         the code that can change that view.
 ///     </para>
 ///     <para>
-///         The per-item cells are deliberately not on this class. They answer with an optional
-///         value, and which optional value differs by language - <c>Maybe</c> in C# and
-///         <c>option</c> in F# - so each wrapper declares its own over the internals below.
+///         The cells for one item are not on this class. Each one answers with an optional value,
+///         and each language has a different optional type: <c>Maybe</c> in C# and <c>option</c>
+///         in F#. Thus, each wrapper declares its own cells above the internal members below.
 ///     </para>
 /// </remarks>
 /// <typeparam name="TKey">The type of the keys.</typeparam>
-/// <typeparam name="TIdentity">The type of the immutable portion of an item.</typeparam>
-/// <typeparam name="TState">The type of the mutable portion of an item.</typeparam>
+/// <typeparam name="TIdentity">The type of the immutable part of an item.</typeparam>
+/// <typeparam name="TState">The type of the mutable part of an item.</typeparam>
 [PublicAPI]
 public abstract class ReactiveCollection<TKey, TIdentity, TState>
     where TKey : notnull
     where TIdentity : notnull
 {
     /// <summary>
-    ///     A plain object rather than <c>System.Threading.Lock</c>, which arrived in .NET 9 and is
-    ///     not available on any of this package's target frameworks.
+    ///     This is a usual object and not a <c>System.Threading.Lock</c>. That type came with
+    ///     .NET 9, and no target framework of this package has it.
     /// </summary>
     private readonly object cacheGate = new();
 
     /// <summary>
-    ///     The same for identities. Kept apart from the states rather than sharing one dictionary,
-    ///     because a collection whose identity and state are the same type would otherwise file two
-    ///     different questions under one key and answer the second with the first.
+    ///     This is the same for the identities. It is a second dictionary and not one shared
+    ///     dictionary, because a collection whose identity type and state type are the same type
+    ///     then puts two different values at one key and answers the second with the first.
     /// </summary>
     private readonly Dictionary<Type, object> identityCaches = new();
 
@@ -59,8 +59,8 @@ public abstract class ReactiveCollection<TKey, TIdentity, TState>
     private readonly Dictionary<Type, object> stateCaches = new();
 
     /// <summary>
-    ///     Internal, so that this assembly is the only thing that can produce one. See the class
-    ///     remarks for why that is deliberate.
+    ///     This is internal, thus only this assembly can make one. The class remarks give the
+    ///     cause.
     /// </summary>
     internal ReactiveCollection()
     {
@@ -68,19 +68,21 @@ public abstract class ReactiveCollection<TKey, TIdentity, TState>
 
     /// <summary>This collection's keys, in order.</summary>
     /// <remarks>
-    ///     Moves only when this collection's membership or order does. A state edit that re-files
-    ///     nothing reaches <see cref="KeyChangesStream" /> as an update and leaves this alone, so a
-    ///     list projected from it is not rebuilt for an edit that moved no row.
+    ///     This changes only at a change of the members or the order of this collection. A state
+    ///     edit that moves no key comes to <see cref="KeyChangesStream" /> as an update and does
+    ///     not change this cell. Thus, an edit that moved no row does not build a list from this
+    ///     cell again.
     /// </remarks>
     public abstract Cell<OrderedKeys<TKey, TIdentity, TState>> KeysCell { get; }
 
     /// <summary>
-    ///     How those keys changed: which entered, which left, which moved, and to what position -
-    ///     operations to apply in sequence.
+    ///     The change to those keys: the keys that entered, the keys that left, the keys that
+    ///     moved, and their new positions. They are operations to apply in sequence.
     /// </summary>
     /// <remarks>
-    ///     Positions and no states, where <see cref="ItemChangesStream" /> carries states and no
-    ///     positions. This is what a list binds to, because a list has to know where a row went.
+    ///     This stream has positions and no states, and <see cref="ItemChangesStream" /> has
+    ///     states and no positions. A list binds to this stream, because a list must know the new
+    ///     position of a row.
     /// </remarks>
     public abstract Stream<CollectionViewChange<TKey, TIdentity, TState>> KeyChangesStream { get; }
 
@@ -88,46 +90,47 @@ public abstract class ReactiveCollection<TKey, TIdentity, TState>
     public abstract Cell<CollectionSnapshot<TKey, TIdentity, TState>> SnapshotCell { get; }
 
     /// <summary>
-    ///     How this collection's items changed: the keys added, removed or altered, carrying the new
-    ///     state of each.
+    ///     The change to the items of this collection: the keys that an edit added, removed, or
+    ///     changed, with the new state of each one.
     /// </summary>
     /// <remarks>
-    ///     States and no positions, and keyed rather than ordered - reading it never asks this
-    ///     collection to order itself. Fold it when the answer follows values rather than order: a
-    ///     total, an average, a count of items matching something.
+    ///     This stream has states and no positions, and it uses keys and not an order. A read of
+    ///     it never makes this collection sort itself. Fold it when the answer comes from the
+    ///     values and not from the order, such as a total, an average, or a count of the items
+    ///     that agree with a predicate.
     /// </remarks>
     public abstract Stream<ItemChange<TKey, TIdentity, TState>> ItemChangesStream { get; }
 
     /// <summary>
-    ///     The immutable half of everything this collection holds, which moves only when its
-    ///     membership does.
+    ///     The immutable part of each item in this collection. It changes only at a change of the
+    ///     members.
     /// </summary>
     public abstract Cell<IReadOnlyDictionary<TKey, TIdentity>> ShapeCell { get; }
 
     /// <summary>
-    ///     The collection that owns the store. A collection created directly is its own; a view's is
-    ///     the one it was ultimately derived from.
+    ///     The collection that holds the store. A collection from its own construction is its own
+    ///     store holder. For a view, it is the collection at the start of the chain.
     /// </summary>
     /// <remarks>
-    ///     Internal because a view has nothing to want it for. It is here so that the per-item cell
-    ///     caches can be reached where they live.
+    ///     This is internal because a view has no use for it. It is here to give access to the
+    ///     caches of the cells for one item.
     /// </remarks>
     internal abstract RootCollection<TKey, TIdentity, TState> Root { get; }
 
     /// <summary>
-    ///     Defines a collection from its initial contents and every stream that will ever edit it.
-    ///     There is no imperative entry point: what can change the collection is fixed here, at
-    ///     construction, and is visible in one place.
+    ///     Defines a collection from its initial contents and each stream that edits it. There is
+    ///     no imperative entry point. This construction sets the code that can change the
+    ///     collection, and a reader finds all of it in one position.
     /// </summary>
-    /// <param name="keySelector">Derives an item's key from its immutable portion.</param>
+    /// <param name="keySelector">Makes the key of an item from its immutable part.</param>
     /// <param name="initialItems">The collection's initial contents.</param>
-    /// <param name="editStreams">Every stream that will ever edit the collection.</param>
+    /// <param name="editStreams">Each stream that edits the collection.</param>
     /// <returns>The collection.</returns>
     /// <remarks>
-    ///     Use <see cref="CollectionEdit{TKey,TIdentity,TState}" />'s lifting factories to turn
-    ///     domain streams into edits. Where the edits depend on something derived from the
-    ///     collection itself, close the circle with a stream loop at the call site rather than
-    ///     reaching for a sink.
+    ///     Use the lifting factories of
+    ///     <see cref="CollectionEdit{TKey,TIdentity,TState}" /> to change a domain stream into
+    ///     edits. Where an edit uses a value from the collection, close the cycle with a stream
+    ///     loop at the call, and do not use a sink.
     /// </remarks>
     public static ReactiveCollection<TKey, TIdentity, TState> Create(
         Func<TIdentity, TKey> keySelector,
@@ -140,20 +143,20 @@ public abstract class ReactiveCollection<TKey, TIdentity, TState>
             editStreams: editStreams);
 
     /// <summary>
-    ///     Defines a collection from its initial contents and every stream that will ever edit it.
-    ///     There is no imperative entry point: what can change the collection is fixed here, at
-    ///     construction, and is visible in one place.
+    ///     Defines a collection from its initial contents and each stream that edits it. There is
+    ///     no imperative entry point. This construction sets the code that can change the
+    ///     collection, and a reader finds all of it in one position.
     /// </summary>
-    /// <param name="keySelector">Derives an item's key from its immutable portion.</param>
+    /// <param name="keySelector">Makes the key of an item from its immutable part.</param>
     /// <param name="keyEqualityComparer">The equality comparer for keys.</param>
     /// <param name="initialItems">The collection's initial contents.</param>
-    /// <param name="editStreams">Every stream that will ever edit the collection.</param>
+    /// <param name="editStreams">Each stream that edits the collection.</param>
     /// <returns>The collection.</returns>
     /// <remarks>
-    ///     Use <see cref="CollectionEdit{TKey,TIdentity,TState}" />'s lifting factories to turn
-    ///     domain streams into edits. Where the edits depend on something derived from the
-    ///     collection itself, close the circle with a stream loop at the call site rather than
-    ///     reaching for a sink.
+    ///     Use the lifting factories of
+    ///     <see cref="CollectionEdit{TKey,TIdentity,TState}" /> to change a domain stream into
+    ///     edits. Where an edit uses a value from the collection, close the cycle with a stream
+    ///     loop at the call, and do not use a sink.
     /// </remarks>
     public static ReactiveCollection<TKey, TIdentity, TState> Create(
         Func<TIdentity, TKey> keySelector,
@@ -167,19 +170,19 @@ public abstract class ReactiveCollection<TKey, TIdentity, TState>
             editStreams: editStreams);
 
     /// <summary>
-    ///     Defines a collection from its initial contents and every stream that will ever edit it.
-    ///     There is no imperative entry point: what can change the collection is fixed here, at
-    ///     construction, and is visible in one place.
+    ///     Defines a collection from its initial contents and each stream that edits it. There is
+    ///     no imperative entry point. This construction sets the code that can change the
+    ///     collection, and a reader finds all of it in one position.
     /// </summary>
-    /// <param name="keySelector">Derives an item's key from its immutable portion.</param>
+    /// <param name="keySelector">Makes the key of an item from its immutable part.</param>
     /// <param name="initialItems">The collection's initial contents, sampled lazily.</param>
-    /// <param name="editStreams">Every stream that will ever edit the collection.</param>
+    /// <param name="editStreams">Each stream that edits the collection.</param>
     /// <returns>The collection.</returns>
     /// <remarks>
-    ///     Use <see cref="CollectionEdit{TKey,TIdentity,TState}" />'s lifting factories to turn
-    ///     domain streams into edits. Where the edits depend on something derived from the
-    ///     collection itself, close the circle with a stream loop at the call site rather than
-    ///     reaching for a sink.
+    ///     Use the lifting factories of
+    ///     <see cref="CollectionEdit{TKey,TIdentity,TState}" /> to change a domain stream into
+    ///     edits. Where an edit uses a value from the collection, close the cycle with a stream
+    ///     loop at the call, and do not use a sink.
     /// </remarks>
     public static ReactiveCollection<TKey, TIdentity, TState> Create(
         Func<TIdentity, TKey> keySelector,
@@ -192,20 +195,20 @@ public abstract class ReactiveCollection<TKey, TIdentity, TState>
             editStreams: editStreams);
 
     /// <summary>
-    ///     Defines a collection from its initial contents and every stream that will ever edit it.
-    ///     There is no imperative entry point: what can change the collection is fixed here, at
-    ///     construction, and is visible in one place.
+    ///     Defines a collection from its initial contents and each stream that edits it. There is
+    ///     no imperative entry point. This construction sets the code that can change the
+    ///     collection, and a reader finds all of it in one position.
     /// </summary>
-    /// <param name="keySelector">Derives an item's key from its immutable portion.</param>
+    /// <param name="keySelector">Makes the key of an item from its immutable part.</param>
     /// <param name="keyEqualityComparer">The equality comparer for keys.</param>
     /// <param name="initialItems">The collection's initial contents, sampled lazily.</param>
-    /// <param name="editStreams">Every stream that will ever edit the collection.</param>
+    /// <param name="editStreams">Each stream that edits the collection.</param>
     /// <returns>The collection.</returns>
     /// <remarks>
-    ///     Use <see cref="CollectionEdit{TKey,TIdentity,TState}" />'s lifting factories to turn
-    ///     domain streams into edits. Where the edits depend on something derived from the
-    ///     collection itself, close the circle with a stream loop at the call site rather than
-    ///     reaching for a sink.
+    ///     Use the lifting factories of
+    ///     <see cref="CollectionEdit{TKey,TIdentity,TState}" /> to change a domain stream into
+    ///     edits. Where an edit uses a value from the collection, close the cycle with a stream
+    ///     loop at the call, and do not use a sink.
     /// </remarks>
     public static ReactiveCollection<TKey, TIdentity, TState> Create(
         Func<TIdentity, TKey> keySelector,
@@ -219,18 +222,18 @@ public abstract class ReactiveCollection<TKey, TIdentity, TState>
             editStreams: editStreams);
 
     /// <summary>
-    ///     A cell tracking one item's mutable portion as this collection sees it, shaped by the
-    ///     projection the language wrapper supplies.
+    ///     A cell that follows the mutable part of one item, as this collection reads it, in the
+    ///     shape from the language wrapper.
     /// </summary>
     /// <remarks>
-    ///     Cached weakly per key and per projected type, so observers of one key through one
-    ///     collection share a node - and the same key through two views is two cells, because they
-    ///     are two answers.
+    ///     A weak cache holds one for each key and for each projected type. Thus, the observers of
+    ///     one key through one collection share a node. The same key through two views is two
+    ///     cells, because the two views give two answers.
     /// </remarks>
-    /// <typeparam name="TProjected">What the wrapper asked the cell to hold.</typeparam>
-    /// <param name="key">The key to observe.</param>
-    /// <param name="onPresent">Projects the value the cell holds while the key is there.</param>
-    /// <param name="onAbsent">Projects the value it holds while the key is not.</param>
+    /// <typeparam name="TProjected">The type that the wrapper gives to the cell.</typeparam>
+    /// <param name="key">The key to monitor.</param>
+    /// <param name="onPresent">Makes the value of the cell while the collection has the key.</param>
+    /// <param name="onAbsent">Makes the value of the cell while the collection does not have the key.</param>
     /// <returns>The cell.</returns>
     internal Cell<TProjected> StateCellImpl<TProjected>(
         TKey key,
@@ -254,15 +257,15 @@ public abstract class ReactiveCollection<TKey, TIdentity, TState>
         }
     }
 
-    /// <summary>The same for an item's immutable portion.</summary>
+    /// <summary>The same for the immutable part of an item.</summary>
     /// <remarks>
-    ///     Moves only when the key enters or leaves this collection, so a state edit never wakes
-    ///     one and holding one for the life of a row costs nothing.
+    ///     This changes only when the key enters this collection or leaves it. Thus, a state edit
+    ///     never sends a value from one, and a hold on one for the life of a row costs nothing.
     /// </remarks>
-    /// <typeparam name="TProjected">What the wrapper asked the cell to hold.</typeparam>
-    /// <param name="key">The key to observe.</param>
-    /// <param name="onPresent">Projects the value the cell holds while the key is there.</param>
-    /// <param name="onAbsent">Projects the value it holds while the key is not.</param>
+    /// <typeparam name="TProjected">The type that the wrapper gives to the cell.</typeparam>
+    /// <param name="key">The key to monitor.</param>
+    /// <param name="onPresent">Makes the value of the cell while the collection has the key.</param>
+    /// <param name="onAbsent">Makes the value of the cell while the collection does not have the key.</param>
     /// <returns>The cell.</returns>
     internal Cell<TProjected> IdentityCellImpl<TProjected>(
         TKey key,
@@ -300,11 +303,11 @@ public abstract class ReactiveCollection<TKey, TIdentity, TState>
 
     /// <summary>The cache for one projected type, created the first time that type is asked for.</summary>
     /// <remarks>
-    ///     This is where the one cast lives, and it is sound because the dictionary is keyed by the
-    ///     very type being cast to: an entry under <c>typeof(TProjected)</c> can only have been put
-    ///     there by a call whose <c>TProjected</c> was that type. A dictionary from a type to a
-    ///     thing parameterized by that type is a higher-kinded thing, which C# cannot express - so
-    ///     the claim is made here once rather than at every lookup.
+    ///     This method holds the one cast, and the cast is correct because the key of the
+    ///     dictionary is the type of the cast. Only a call whose <c>TProjected</c> is that type can
+    ///     put an entry at <c>typeof(TProjected)</c>. A dictionary from a type to a value with that
+    ///     type as its parameter is higher-kinded, and C# cannot give that. Thus, this code makes
+    ///     the statement here one time and not at each lookup.
     /// </remarks>
     private static ProjectedCellCache<TKey, TProjected> CacheFor<TProjected>(Dictionary<Type, object> caches)
     {
@@ -321,35 +324,36 @@ public abstract class ReactiveCollection<TKey, TIdentity, TState>
 }
 
 /// <summary>
-///     Creates collections whose identities carry their own key, so the selector every other
-///     overload asks for can be left out.
+///     Makes collections whose identities hold their own key. Thus, a caller can omit the selector
+///     of each other overload.
 /// </summary>
 /// <remarks>
 ///     <para>
-///         A companion to <see cref="ReactiveCollection{TKey,TIdentity,TState}" /> rather than more
-///         overloads on it, because a static method cannot add a constraint to the type parameters
-///         of the class declaring it - and <c>TIdentity : IIdentity&lt;TKey&gt;</c> is the whole of what
-///         these are. The same shape as <c>Cell</c> beside <c>Cell&lt;T&gt;</c>.
+///         This is a second class beside
+///         <see cref="ReactiveCollection{TKey,TIdentity,TState}" /> and not more overloads on that
+///         class, because a static method cannot add a constraint to the type parameters of its
+///         own class. <c>TIdentity : IIdentity&lt;TKey&gt;</c> is the one difference here. The
+///         shape is the shape of <c>Cell</c> beside <c>Cell&lt;T&gt;</c>.
 ///     </para>
 ///     <para>
-///         <c>TKey</c> is inferred from the edit streams. Type inference does not read constraints,
-///         so it cannot come from <see cref="IIdentity{TKey}" /> alone: a collection created with no
-///         edit streams at all has to name the three type arguments, or use the selector overloads
-///         instead.
+///         The compiler infers <c>TKey</c> from the edit streams. Type inference does not read a
+///         constraint, thus it cannot infer <c>TKey</c> from <see cref="IIdentity{TKey}" /> alone.
+///         A construction with no edit stream must name the three type arguments, or must use the
+///         overloads with a selector.
 ///     </para>
 /// </remarks>
 [PublicAPI]
 public static class ReactiveCollection
 {
     /// <summary>
-    ///     Defines a collection from its initial contents and every stream that will ever edit it,
-    ///     taking each item's key from the identity itself.
+    ///     Defines a collection from its initial contents and each stream that edits it,
+    ///     and this code takes the key of each item from the identity.
     /// </summary>
     /// <typeparam name="TKey">The type of the keys.</typeparam>
-    /// <typeparam name="TIdentity">The type of the immutable portion of an item.</typeparam>
-    /// <typeparam name="TState">The type of the mutable portion of an item.</typeparam>
+    /// <typeparam name="TIdentity">The type of the immutable part of an item.</typeparam>
+    /// <typeparam name="TState">The type of the mutable part of an item.</typeparam>
     /// <param name="initialEntries">The collection's initial contents.</param>
-    /// <param name="editStreams">Every stream that will ever edit the collection.</param>
+    /// <param name="editStreams">Each stream that edits the collection.</param>
     /// <returns>The collection.</returns>
     public static ReactiveCollection<TKey, TIdentity, TState> Create<TKey, TIdentity, TState>(
         IEnumerable<Item<TIdentity, TState>> initialEntries,

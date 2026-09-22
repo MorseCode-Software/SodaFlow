@@ -6,16 +6,17 @@ open SodaFlow.Collections
 open SodaFlow.Tests
 open TUnit.Core
 
-/// The immutable portion of a test item. The key is its Number.
+/// The immutable part of a test item. The key is its Number.
 type ItemIdentity = { Number: int; Code: string }
 
-/// The mutable portion of a test item.
+/// The mutable part of a test item.
 type ItemState = { Name: string; Score: int }
 
-/// The same identity, carrying its own key, for the create overloads that take no selector.
-/// The fields are named apart from ItemIdentity's deliberately: F# resolves a record expression by its
-/// field names, last declaration winning, so reusing Number and Code here would silently re-point
-/// every { Number = _; Code = _ } in this file at this type.
+/// The same identity, with its own key, for the `create` overloads with no selector.
+/// The names of these fields are different from the names in ItemIdentity, and that is deliberate.
+/// F# resolves a record expression by its field names and uses the last declaration. Thus, the names
+/// Number and Code here move each `{ Number = _; Code = _ }` in this file to this type, with no
+/// message.
 type SelfKeyedItemIdentity =
     { SelfNumber: int
       SelfCode: string }
@@ -25,8 +26,9 @@ type SelfKeyedItemIdentity =
 
 let private keyOf (identity: ItemIdentity) = identity.Number
 
-/// The library's item constructor, bound under another name because the helper below wants to be
-/// called `item` too and would otherwise shadow it. Eta-expanded so it generalizes.
+/// The item constructor of the library, with a different name because the helper below also has
+/// the name `item` and thus hides it. This code writes the parameters, and that makes it
+/// generic.
 let private ofHalves identity state = item identity state
 
 let private item number name score =
@@ -56,8 +58,8 @@ type ``Collections Tests``() =
 
             do! Expect.Equal(2, snapshot.Count)
 
-            // option rather than Maybe: the core answers in TryGets so that each language surface
-            // can put its own optional type on top.
+            // This is an `option` and not a Maybe. The core answers with a TryGet, thus each
+            // language surface can add its own optional type above it.
             do! Expect.Equal(Some "one", snapshot |> lookup 1 |> Option.map (fun e -> e.State.Name))
         }
 
@@ -67,8 +69,9 @@ type ``Collections Tests``() =
             let edits = sinkS<CollectionEdit<int, ItemIdentity, ItemState>> ()
             let collection = create keyOf [] [ edits ]
 
-            // Built before the key exists: a bound view can be created before its item and outlive
-            // it, because this is a cell of option rather than something that throws.
+            // This code builds the cell before the key is in the collection. Code can make a bound
+            // view before its item, and that view can continue after the item, because this is a
+            // cell of `option` and not a value that throws an exception.
             let seven = collection |> stateCell 7
             let seen = List<string>()
 
@@ -113,7 +116,8 @@ type ``Collections Tests``() =
             let collection =
                 create keyOf [ item 3 "three" 30; item 1 "one" 10; item 2 "two" 20 ] [ edits ]
 
-            // The order the initial items were enumerated in, not the order of their keys.
+            // This is the sequence of the enumeration of the initial items, and not the sequence
+            // of their keys.
             do! Expect.Sequence([ 3; 1; 2 ], keysOf collection)
 
             edits |> sendS (addEdit [ item 0 "zero" 0 ])
@@ -172,7 +176,8 @@ type ``Collections Tests``() =
 
             do! Expect.Sequence([ 2; 4 ], keysOf topTwoOfTheEvens)
 
-            // The filter sits above the window, so an odd item scoring highest changes nothing.
+            // The filter is above the window, thus an odd item with the highest score changes
+            // nothing.
             edits |> sendS (updateEdit 1 (fun state -> { state with Score = 99 }))
 
             do! Expect.Sequence([ 2; 4 ], keysOf topTwoOfTheEvens)
@@ -183,13 +188,13 @@ type ``Collections Tests``() =
         task {
             let edits = sinkS<CollectionEdit<int, SelfKeyedItemIdentity, ItemState>> ()
 
-            // No keyOf: the identity implements IIdentity<int>.
+            // There is no keyOf, because the identity is an IIdentity<int>.
             let collection =
                 createByIdentity [ selfKeyedItem 1 "one" 10; selfKeyedItem 2 "two" 20 ] [ edits ]
 
             do! Expect.Sequence([ 1; 2 ], keysOf collection)
 
-            // The derived selector is used for later adds too, not only the initial contents.
+            // A subsequent add also uses the derived selector, and not only the initial contents.
             edits |> sendS (addEdit [ selfKeyedItem 3 "three" 30 ])
 
             do! Expect.Sequence([ 1; 2; 3 ], keysOf collection)
@@ -214,18 +219,20 @@ type ``Collections Tests``() =
             do! Expect.Sequence([ "row 1"; "row 2" ], List<string>(mapped.Items |> sampleC))
             do! Expect.Equal(2, projections.Value)
 
-            // An edit that moves no key projects nothing new.
+            // An edit that moves no key makes no new object.
             edits |> sendS (updateEdit 1 (fun state -> { state with Name = "renamed" }))
 
             do! Expect.Equal(2, projections.Value)
             do! Expect.Equal(0, released.Count)
 
-            // Removing one drops it, because it has left and this bound keeps none.
+            // A removal of one key removes its object, because the key left and this limit keeps
+            // none.
             edits |> sendS (removeEdit [ 2 ])
 
             do! Expect.Sequence([ "row 2" ], released)
 
-            // Disposal releases what never left, which eviction never reaches.
+            // A disposal releases each object whose key stayed, and an eviction never reaches
+            // those.
             (mapped :> System.IDisposable).Dispose()
 
             do! Expect.Sequence([ "row 2"; "row 1" ], released)
@@ -250,8 +257,8 @@ type ``Collections Tests``() =
 
             do! Expect.Sequence([ 2; 3 ], keysOf page)
 
-            // Removing a key before the window moves everything after it one place earlier, so the
-            // window holds different items without its bounds having changed.
+            // A removal of a key before the window moves each key after it one position earlier,
+            // thus the window holds different items and its limits do not change.
             edits |> sendS (removeEdit [ 1 ])
 
             do! Expect.Sequence([ 3; 4 ], keysOf page)
@@ -281,7 +288,8 @@ type ``Collections Tests``() =
 
             do! Expect.Sequence([ 3; 4 ], keysOf page)
 
-            // The last page is short rather than padded, and an offset past the end is empty.
+            // The last page has fewer keys and no fill values, and an offset above the end gives an
+            // empty page.
             offset |> sendC 4
 
             do! Expect.Sequence([ 5 ], keysOf page)
@@ -334,8 +342,9 @@ type ``Collections Tests``() =
             let collection =
                 create keyOf [ item 1 "one" 30; item 2 "two" 10; item 3 "three" 20 ] [ edits ]
 
-            // One projects an int and the other a string, and the same cell holds both: an order
-            // carries its own sort value type inside itself rather than in its own type.
+            // One order gives an int and the other gives a string, and one cell holds the two. An
+            // order holds its own sort value type, and that type is not in the type of the
+            // order.
             let byScore = orderBy (fun _ state -> state.Score)
             let byName = orderBy (fun _ (state: ItemState) -> state.Name)
 
@@ -360,14 +369,14 @@ type ``Collections Tests``() =
 
             do! Expect.False((passing |> keysCell |> sampleC).Contains 1)
 
-            // The view has no value for a key it does not hold; the collection still does. This
-            // asserted that they were the same cell until a view became a collection in its own
-            // right.
+            // The view has no value for a key that it does not hold, and the collection has one.
+            // This test asserted that the two were the same cell before a view became a
+            // collection.
             do! Expect.Equal(None, passing |> stateCell 1 |> sampleC |> Option.map (fun s -> s.Name))
 
             do! Expect.Equal(Some "one", collection |> stateCell 1 |> sampleC |> Option.map (fun s -> s.Name))
 
-            // Sharing still falls out of never copying, within the one view where it means
-            // something.
+            // Two observers share a cell because this code never copies one, in one view, which is
+            // where that result is important.
             do! Expect.Same(passing |> stateCell 2, passing |> stateCell 2)
         }

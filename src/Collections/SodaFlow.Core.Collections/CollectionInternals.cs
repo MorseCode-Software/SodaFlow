@@ -4,22 +4,22 @@ using System.Diagnostics.CodeAnalysis;
 namespace SodaFlow.Collections;
 
 /// <summary>
-///     The one shorthand this assembly needs more than once.
+///     The one helper that this assembly uses more than one time.
 /// </summary>
 internal static class CollectionInternals
 {
     /// <summary>
-    ///     A dictionary lookup whose output is a plain <typeparamref name="TValue" /> rather than a
-    ///     nullable one, so that a <c>TryGet</c> declared over an unconstrained type parameter can
-    ///     forward to it without every call site restating why that is sound.
+    ///     A dictionary lookup whose output is a <typeparamref name="TValue" /> and not a nullable
+    ///     <typeparamref name="TValue" />. Thus, a <c>TryGet</c> on a type parameter with no
+    ///     constraint can call it, and each call does not give the cause again.
     /// </summary>
     /// <remarks>
-    ///     This is the one place in the assembly that suppresses a nullable warning, and it is here
-    ///     rather than at the six call sites which would otherwise each need it.
-    ///     <see cref="IReadOnlyDictionary{TKey,TValue}.TryGetValue" /> leaves its output at the
-    ///     default when it answers false, which is the whole of what an <see langword="out" />
-    ///     parameter of an unconstrained type can promise. net6.0 says so in an annotation; net472
-    ///     and netstandard2.0 carry none, which is what the compiler is complaining about.
+    ///     This is the one position in the assembly with a suppression of a nullable warning, and
+    ///     it is here and not at the six calls that each one requires.
+    ///     <see cref="IReadOnlyDictionary{TKey,TValue}.TryGetValue" /> gives the default value as
+    ///     its output when it answers false, and an <see langword="out" /> parameter of a type with
+    ///     no constraint can give no more. net6.0 declares that, and net472 and netstandard2.0
+    ///     declare nothing, which causes the warning.
     /// </remarks>
     internal static bool TryGet<TKey, TValue>(
         this IReadOnlyDictionary<TKey, TValue> dictionary,

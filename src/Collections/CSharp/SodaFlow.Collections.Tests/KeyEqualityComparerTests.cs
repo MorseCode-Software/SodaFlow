@@ -9,16 +9,17 @@ using TUnit.Core;
 
 namespace SodaFlow.Collections.Tests;
 
-/// <summary>The immutable portion of an item keyed by a string that is matched loosely.</summary>
+/// <summary>The immutable part of an item whose key is a string with a comparer that is not
+/// strict.</summary>
 internal sealed record NamedIdentity(string Name);
 
-/// <summary>The mutable portion of one.</summary>
+/// <summary>The mutable part of such an item.</summary>
 internal sealed record NamedState(int Score);
 
 /// <summary>
-///     A collection given its own key equality comparer. Every keyed thing a change carries has to
-///     agree with the store about what one key is, or a consumer that addresses an item by the key
-///     the collection reports it under misses the change.
+///     A collection with its own key equality comparer. Each value with a key in a change must
+///     agree with the store about the identity of a key. Without that agreement, a consumer that
+///     names an item by the key from the collection does not get the change.
 /// </summary>
 public sealed class KeyEqualityComparerTests
 {
@@ -40,7 +41,7 @@ public sealed class KeyEqualityComparerTests
             // ReSharper disable once WithExpressionModifiesAllMembers
             transform: state => state with { Score = score });
 
-    /// <summary>The store itself, which is the baseline everything else has to match.</summary>
+    /// <summary>The store, which is the base that each other value must agree with.</summary>
     [Test]
     public async Task TheStoreMatchesKeysWithTheGivenComparer()
     {
@@ -62,9 +63,10 @@ public sealed class KeyEqualityComparerTests
     }
 
     /// <summary>
-    ///     The keyed delta a root edit resolves to. An update addressed by one spelling lands in the
-    ///     store under the spelling the item arrived with, so the delta has to answer to that one -
-    ///     it is the only spelling a consumer reading the collection has ever been shown.
+    ///     The delta with keys from a root edit. An update that names one spelling of a key goes
+    ///     into the store at the spelling from the arrival of the item. Thus, the delta must use
+    ///     that spelling, because it is the only spelling that a consumer of the collection
+    ///     reads.
     /// </summary>
     [Test]
     public async Task ItemChangesMatchKeysWithTheGivenComparer()
@@ -98,13 +100,14 @@ public sealed class KeyEqualityComparerTests
     }
 
     /// <summary>
-    ///     The same delta, taken from a view rather than from the collection.
+    ///     The same delta, from a view and not from the collection.
     /// </summary>
     /// <remarks>
-    ///     This one failed by reporting nothing at all rather than the wrong key. The root ordering was
-    ///     built without the collection's comparer, so it could not find a key an edit addressed by
-    ///     another spelling, emitted no operation for it, and the empty change was filtered out before
-    ///     any view saw it - the store moved and every view above it went stale.
+    ///     This test reported nothing, and did not report an incorrect key. The construction of the
+    ///     root order did not use the comparer of the collection. Thus, it did not find a key that an
+    ///     edit named in a different spelling, it sent no operation for that key, and a filter
+    ///     removed the empty change before a view read it. The store changed, and each view above it
+    ///     became incorrect.
     /// </remarks>
     [Test]
     public async Task AViewsItemChangesMatchKeysWithTheGivenComparer()
@@ -133,10 +136,11 @@ public sealed class KeyEqualityComparerTests
     }
 
     /// <summary>
-    ///     A projection keeps one object per key, and keeps doing so under a comparer of the
-    ///     collection's own. Its caches are keyed by what the view lists, which is always the
-    ///     spelling the store holds, so matching those more tightly than the store does cannot go
-    ///     wrong today - this holds the invariant rather than reproducing a fault.
+    ///     A projection keeps one object for each key, and it does the same with a comparer of the
+    ///     collection. The key of each cache is a key from the view, which is always the spelling
+    ///     in the store. Thus, a comparer that is more strict than the comparer of the store cannot
+    ///     give an incorrect result now. This test holds that rule and does not reproduce a
+    ///     defect.
     /// </summary>
     [Test]
     public async Task AProjectionKeepsOneObjectPerKeyUnderTheGivenComparer()
@@ -159,20 +163,21 @@ public sealed class KeyEqualityComparerTests
 
         await Assert.That(rows.Items.Sample().Count).IsEqualTo(1);
 
-        // A structural edit, so the view moves and the projection runs again over every key.
+        // This is a structural edit, thus the view changes and the projection runs again for each
+        // key.
         edits.Send(CollectionEdit<string, NamedIdentity, NamedState>.Add(Item(name: "DEF", score: 3)));
 
         await Assert.That(rows.Items.Sample().Count).IsEqualTo(2);
 
-        // "ABC" was projected once and kept; only "DEF" is new.
+        // The projection made "ABC" one time and kept it, and only "DEF" is new.
         await Assert.That(projected).IsEquivalentTo(expected: ["ABC", "DEF"], ordering: CollectionOrdering.Matching);
 
         rows.Dispose();
     }
 
     /// <summary>
-    ///     A per-item cell is cached per key, so either spelling reaches the same cell and that
-    ///     cell hears an edit addressed by either.
+    ///     A cache holds one cell for each key, thus each spelling of a key reads the same cell,
+    ///     and that cell gets an edit that names each spelling.
     /// </summary>
     [Test]
     public async Task APerItemCellIsSharedAcrossSpellingsOfOneKey()

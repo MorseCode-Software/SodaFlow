@@ -5,12 +5,12 @@ using JetBrains.Annotations;
 namespace SodaFlow.Collections;
 
 /// <summary>
-///     A requested edit. Updates carry transforms rather than values so they compose against
-///     whatever the state is when the transaction runs.
+///     An edit from a caller. An update holds a transform and not a value, thus it composes
+///     against the state at the time of the transaction.
 /// </summary>
 /// <typeparam name="TKey">The type of the keys.</typeparam>
-/// <typeparam name="TIdentity">The type of the immutable portion of an item.</typeparam>
-/// <typeparam name="TState">The type of the mutable portion of an item.</typeparam>
+/// <typeparam name="TIdentity">The type of the immutable part of an item.</typeparam>
+/// <typeparam name="TState">The type of the mutable part of an item.</typeparam>
 [PublicAPI]
 public sealed class CollectionEdit<TKey, TIdentity, TState>
     where TKey : notnull
@@ -115,12 +115,13 @@ public sealed class CollectionEdit<TKey, TIdentity, TState>
         removesStream.MapImpl(static key => Remove(key));
 
     /// <summary>
-    ///     Coalesces two edits firing in the same transaction. SodaFlow gives no ordering guarantee
-    ///     between them, so anything order-dependent is rejected rather than silently resolved: two
-    ///     transforms for one key in one transaction would compose in an undefined order.
+    ///     Puts two edits from one transaction together. SodaFlow gives no sequence between them,
+    ///     thus this method refuses an operation that uses a sequence and does not resolve it with
+    ///     no message. Two transforms for one key in one transaction compose in a sequence that
+    ///     SodaFlow does not give.
     /// </summary>
-    /// <param name="other">The edit to combine with this one.</param>
-    /// <returns>The combined edit.</returns>
+    /// <param name="other">The edit to put with this edit.</param>
+    /// <returns>The edit with the two edits in it.</returns>
     public CollectionEdit<TKey, TIdentity, TState> CombineWith(CollectionEdit<TKey, TIdentity, TState> other)
     {
         Dictionary<TKey, Func<TState, TState>> updates = new(this.Updates.Count + other.Updates.Count);

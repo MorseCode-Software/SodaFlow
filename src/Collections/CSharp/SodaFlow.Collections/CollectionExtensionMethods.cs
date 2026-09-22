@@ -5,42 +5,46 @@ using SodaFlow.Functional;
 namespace SodaFlow.Collections;
 
 /// <summary>
-///     The optional-valued half of the C# surface: the per-item cells, and the lookups which
-///     answer with a <see cref="Maybe{T}" /> rather than a <c>TryGet</c>.
+///     The part of the C# surface with optional values: the cells for one item, and the lookups
+///     that answer with a <see cref="Maybe{T}" /> and not with a <c>TryGet</c>.
 /// </summary>
 /// <remarks>
-///     These are here rather than in SodaFlow.Collections.Core because <see cref="Maybe{T}" />
-///     lives in SodaFlow.Functional, which F# has no use for — it has <c>option</c>. The core
-///     therefore answers in <c>TryGet</c>s and integers, and each language surface puts its own
-///     optional type back on top. See <see cref="ReactiveCollection{TKey,TIdentity,TState}" />.
+///     These are here and not in SodaFlow.Collections.Core, because <see cref="Maybe{T}" /> is in
+///     SodaFlow.Functional and F# does not use that assembly. F# has <c>option</c>. Thus, the core
+///     answers with a <c>TryGet</c> and with an integer, and each language surface adds its own
+///     optional type above the core. See
+///     <see cref="ReactiveCollection{TKey,TIdentity,TState}" />.
 /// </remarks>
 [PublicAPI]
 public static class CollectionExtensionMethods
 {
     /// <summary>
-    ///     A cell tracking one item's mutable portion, with no value while the key is absent from
-    ///     the store.
+    ///     A cell that follows the mutable part of one item. It has no value while the store does
+    ///     not have the key.
     /// </summary>
     /// <typeparam name="TKey">The type of the keys.</typeparam>
-    /// <typeparam name="TIdentity">The type of the immutable portion of an item.</typeparam>
-    /// <typeparam name="TState">The type of the mutable portion of an item.</typeparam>
-    /// <param name="collection">The collection or view to observe through.</param>
-    /// <param name="key">The key to observe.</param>
+    /// <typeparam name="TIdentity">The type of the immutable part of an item.</typeparam>
+    /// <typeparam name="TState">The type of the mutable part of an item.</typeparam>
+    /// <param name="collection">The collection or view to monitor.</param>
+    /// <param name="key">The key to monitor.</param>
     /// <returns>A cell tracking that key's state.</returns>
     /// <remarks>
     ///     <para>
-    ///         Cheap enough to create per bound view: it filters on a single hash lookup and never
-    ///         touches the rest of the collection. Cached weakly per key, so N observers of one key
-    ///         share a node, and asking two views of the same root gives the same cell.
+    ///         The cost is low, thus code can make one for each bound view. It filters on one hash
+    ///         lookup and does not read the other items. A weak cache holds one for each key, thus
+    ///         N observers of one key share a node, and two views of the same root give the same
+    ///         cell.
     ///     </para>
     ///     <para>
-    ///         The key need not exist yet. A removal fires no value and a later add under the same
-    ///         key fires one again, so a view bound to a key can outlive the item.
+    ///         The key can be missing now. A removal sends no value, and a subsequent add with the
+    ///         same key sends a value again. Thus, a view that binds to a key can continue after the
+    ///         item.
     ///     </para>
     ///     <para>
-    ///         This answers for the store rather than for membership: asking a filtered view about a
-    ///         key it filtered out still gives that item's state. Membership questions belong to
-    ///         <see cref="ReactiveCollection{TKey,TIdentity,TState}.KeysCell" />.
+    ///         This answers for the store and not for the members of a view. A read of a filtered
+    ///         view for a key that its filter removed gives the state of that item.
+    ///         <see cref="ReactiveCollection{TKey,TIdentity,TState}.KeysCell" /> answers for the
+    ///         members.
     ///     </para>
     /// </remarks>
     [MethodImpl(MethodImplOptions.NoInlining)]
@@ -55,13 +59,14 @@ public static class CollectionExtensionMethods
             onAbsent: static () => Maybe<TState>.None);
 
     /// <summary>
-    ///     A cell tracking one item's immutable portion, with no value while the key is absent.
+    ///     A cell that follows the immutable part of one item. It has no value while the key is
+    ///     missing.
     /// </summary>
     /// <typeparam name="TKey">The type of the keys.</typeparam>
-    /// <typeparam name="TIdentity">The type of the immutable portion of an item.</typeparam>
-    /// <typeparam name="TState">The type of the mutable portion of an item.</typeparam>
-    /// <param name="collection">The collection or view to observe through.</param>
-    /// <param name="key">The key to observe.</param>
+    /// <typeparam name="TIdentity">The type of the immutable part of an item.</typeparam>
+    /// <typeparam name="TState">The type of the mutable part of an item.</typeparam>
+    /// <param name="collection">The collection or view to monitor.</param>
+    /// <param name="key">The key to monitor.</param>
     /// <returns>A cell tracking that key's identity.</returns>
     /// <remarks>Fires only on structural change, so it is near-free to hold.</remarks>
     [MethodImpl(MethodImplOptions.NoInlining)]
@@ -75,13 +80,13 @@ public static class CollectionExtensionMethods
             onPresent: static identity => Maybe.Some(identity),
             onAbsent: static () => Maybe<TIdentity>.None);
 
-    /// <summary>Returns both halves of the item stored under a key, if there is one.</summary>
+    /// <summary>Returns the two parts of the item for a key, when there is one.</summary>
     /// <typeparam name="TKey">The type of the keys.</typeparam>
-    /// <typeparam name="TIdentity">The type of the immutable portion of an item.</typeparam>
-    /// <typeparam name="TState">The type of the mutable portion of an item.</typeparam>
+    /// <typeparam name="TIdentity">The type of the immutable part of an item.</typeparam>
+    /// <typeparam name="TState">The type of the mutable part of an item.</typeparam>
     /// <param name="snapshot">The snapshot to look in.</param>
     /// <param name="key">The key to look up.</param>
-    /// <returns>The item, or no value if the key is absent.</returns>
+    /// <returns>The item, or no value when the key is missing.</returns>
     [Pure]
     [MethodImpl(MethodImplOptions.NoInlining)]
     public static Maybe<Item<TIdentity, TState>> Lookup<TKey, TIdentity, TState>(
@@ -93,12 +98,12 @@ public static class CollectionExtensionMethods
             ? Maybe.Some(item)
             : Maybe<Item<TIdentity, TState>>.None;
 
-    /// <summary>Returns the state stored under a key, if there is one.</summary>
+    /// <summary>Returns the state for a key, when there is one.</summary>
     /// <typeparam name="TKey">The type of the keys.</typeparam>
-    /// <typeparam name="TState">The type of the mutable portion of an item.</typeparam>
+    /// <typeparam name="TState">The type of the mutable part of an item.</typeparam>
     /// <param name="states">The state map to look in.</param>
     /// <param name="key">The key to look up.</param>
-    /// <returns>The state, or no value if the key is absent.</returns>
+    /// <returns>The state, or no value when the key is missing.</returns>
     [Pure]
     [MethodImpl(MethodImplOptions.NoInlining)]
     public static Maybe<TState> Lookup<TKey, TState>(
@@ -108,17 +113,18 @@ public static class CollectionExtensionMethods
         states.TryGetState(key: key, state: out TState? state) ? Maybe.Some(state) : Maybe<TState>.None;
 
     /// <summary>
-    ///     What a change did to one key. The nesting is deliberate and the two levels mean
-    ///     different things: the outer <see cref="Maybe{T}" /> is whether the key moved at all — no
-    ///     value meaning no event for this observer — and the inner one is whether the key is
-    ///     present afterwards, so a removal arrives as a value containing no value.
+    ///     The result of a change on one key. The two levels are deliberate and they give
+    ///     different data. The outer <see cref="Maybe{T}" /> gives if the change named the key, and
+    ///     no value means no event for this observer. The inner <see cref="Maybe{T}" /> gives if
+    ///     the collection has the key after the change, thus a removal comes as a value that holds
+    ///     no value.
     /// </summary>
     /// <typeparam name="TKey">The type of the keys.</typeparam>
-    /// <typeparam name="TIdentity">The type of the immutable portion of an item.</typeparam>
-    /// <typeparam name="TState">The type of the mutable portion of an item.</typeparam>
-    /// <param name="change">The change to ask about.</param>
-    /// <param name="key">The key to ask about.</param>
-    /// <returns>What happened to that key, if anything.</returns>
+    /// <typeparam name="TIdentity">The type of the immutable part of an item.</typeparam>
+    /// <typeparam name="TState">The type of the mutable part of an item.</typeparam>
+    /// <param name="change">The change to read.</param>
+    /// <param name="key">The key to read.</param>
+    /// <returns>The change to that key, when there is one.</returns>
     [Pure]
     [MethodImpl(MethodImplOptions.NoInlining)]
     public static Maybe<Maybe<TState>> ChangeFor<TKey, TIdentity, TState>(
@@ -137,17 +143,18 @@ public static class CollectionExtensionMethods
             : Maybe<Maybe<TState>>.None;
     }
 
-    /// <summary>The position of a key in an ordered set, if it is present.</summary>
+    /// <summary>The position of a key in an ordered set, when the set has that key.</summary>
     /// <typeparam name="TKey">The type of the keys.</typeparam>
-    /// <typeparam name="TIdentity">The type of the immutable portion of an item.</typeparam>
-    /// <typeparam name="TState">The type of the mutable portion of an item.</typeparam>
+    /// <typeparam name="TIdentity">The type of the immutable part of an item.</typeparam>
+    /// <typeparam name="TState">The type of the mutable part of an item.</typeparam>
     /// <param name="keys">The ordered set to look in.</param>
     /// <param name="key">The key to look for.</param>
-    /// <returns>Its position, or no value if the key is absent.</returns>
+    /// <returns>Its position, or no value when the key is missing.</returns>
     /// <remarks>
-    ///     The core answers -1 for an absent key, following the convention every other
-    ///     <c>IndexOf</c> in the framework does, and keeps that answer to itself. This is the only
-    ///     <c>IndexOf</c> the C# API exposes, and it answers the way the rest of the C# API does.
+    ///     The core answers -1 for a missing key, which is the convention of each other
+    ///     <c>IndexOf</c> in the framework, and it keeps that answer private. This is the only
+    ///     <c>IndexOf</c> in the public C# API, and it answers as the other parts of the C# API
+    ///     do.
     /// </remarks>
     [Pure]
     [MethodImpl(MethodImplOptions.NoInlining)]
