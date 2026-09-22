@@ -6,7 +6,7 @@ namespace SodaFlow.Collections;
 
 /// <summary>
 ///     An ordered collection of items with keys. The collection that you make is one of these,
-///     and so is each view from it. Thus <c>Filter</c> and <c>SortBy</c> accept one and return
+///     and so is each view from it. Thus, <c>Filter</c> and <c>SortBy</c> accept one and return
 ///     one, as <c>Where</c> accepts an <c>IEnumerable</c> and returns one.
 /// </summary>
 /// <remarks>
@@ -31,7 +31,7 @@ namespace SodaFlow.Collections;
 ///     <para>
 ///         The cells for one item are not on this class. Each one answers with an optional value,
 ///         and each language has a different optional type: <c>Maybe</c> in C# and <c>option</c>
-///         in F#. Thus each wrapper declares its own cells above the internal members below.
+///         in F#. Thus, each wrapper declares its own cells above the internal members below.
 ///     </para>
 /// </remarks>
 /// <typeparam name="TKey">The type of the keys.</typeparam>
@@ -70,7 +70,7 @@ public abstract class ReactiveCollection<TKey, TIdentity, TState>
     /// <remarks>
     ///     This changes only at a change of the members or the order of this collection. A state
     ///     edit that moves no key comes to <see cref="KeyChangesStream" /> as an update and does
-    ///     not change this cell. Thus an edit that moved no row does not build a list from this
+    ///     not change this cell. Thus, an edit that moved no row does not build a list from this
     ///     cell again.
     /// </remarks>
     public abstract Cell<OrderedKeys<TKey, TIdentity, TState>> KeysCell { get; }
@@ -226,7 +226,7 @@ public abstract class ReactiveCollection<TKey, TIdentity, TState>
     ///     shape from the language wrapper.
     /// </summary>
     /// <remarks>
-    ///     A weak cache holds one for each key and for each projected type. Thus the observers of
+    ///     A weak cache holds one for each key and for each projected type. Thus, the observers of
     ///     one key through one collection share a node. The same key through two views is two
     ///     cells, because the two views give two answers.
     /// </remarks>
@@ -259,7 +259,7 @@ public abstract class ReactiveCollection<TKey, TIdentity, TState>
 
     /// <summary>The same for the immutable part of an item.</summary>
     /// <remarks>
-    ///     This changes only when the key enters this collection or leaves it. Thus a state edit
+    ///     This changes only when the key enters this collection or leaves it. Thus, a state edit
     ///     never sends a value from one, and a hold on one for the life of a row costs nothing.
     /// </remarks>
     /// <typeparam name="TProjected">The type that the wrapper gives to the cell.</typeparam>
@@ -306,7 +306,7 @@ public abstract class ReactiveCollection<TKey, TIdentity, TState>
     ///     This method holds the one cast, and the cast is correct because the key of the
     ///     dictionary is the type of the cast. Only a call whose <c>TProjected</c> is that type can
     ///     put an entry at <c>typeof(TProjected)</c>. A dictionary from a type to a value with that
-    ///     type as its parameter is higher-kinded, and C# cannot give that. Thus this code makes
+    ///     type as its parameter is higher-kinded, and C# cannot give that. Thus, this code makes
     ///     the statement here one time and not at each lookup.
     /// </remarks>
     private static ProjectedCellCache<TKey, TProjected> CacheFor<TProjected>(Dictionary<Type, object> caches)
@@ -324,7 +324,7 @@ public abstract class ReactiveCollection<TKey, TIdentity, TState>
 }
 
 /// <summary>
-///     Makes collections whose identities hold their own key. Thus a caller can omit the selector
+///     Makes collections whose identities hold their own key. Thus, a caller can omit the selector
 ///     of each other overload.
 /// </summary>
 /// <remarks>

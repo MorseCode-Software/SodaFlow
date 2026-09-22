@@ -10,7 +10,7 @@ internal static class CollectionInternals
 {
     /// <summary>
     ///     A dictionary lookup whose output is a <typeparamref name="TValue" /> and not a nullable
-    ///     <typeparamref name="TValue" />. Thus a <c>TryGet</c> on a type parameter with no
+    ///     <typeparamref name="TValue" />. Thus, a <c>TryGet</c> on a type parameter with no
     ///     constraint can call it, and each call does not give the cause again.
     /// </summary>
     /// <remarks>

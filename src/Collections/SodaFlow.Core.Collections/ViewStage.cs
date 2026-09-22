@@ -52,7 +52,7 @@ internal sealed class ViewStage<TKey, TIdentity, TState> : ReactiveCollection<TK
                 mode: LazyThreadSafetyMode.ExecutionAndPublication);
 
         // These are the items of this stage as deltas with keys. A view change names the keys that
-        // entered, the keys that left, and the keys that changed. Thus this code changes the shape
+        // entered, the keys that left, and the keys that changed. Thus, this code changes the shape
         // of the data and does not calculate it again. A read of it also never makes the stage sort
         // itself, which is the contract of the item stream of the collection.
         this.itemChangesStream =

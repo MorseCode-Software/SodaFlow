@@ -189,7 +189,7 @@ public sealed class PerItemCellTests
 
     /// <summary>
     ///     A state edit that also sorts the row again. The stage reports that sort as a move alone.
-    ///     Thus a cell for one item that omits a move never gets the new value, and the row moves to
+    ///     Thus, a cell for one item that omits a move never gets the new value, and the row moves to
     ///     its new position and shows the previous value.
     /// </summary>
     [Test]

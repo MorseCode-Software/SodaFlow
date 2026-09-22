@@ -16,7 +16,7 @@ namespace SodaFlow.Collections;
 ///     puts the key in its new position at a cost of <c>O(log n)</c>. Take makes its window again
 ///     at an add, a removal, or a move, and it sends an update for a key in the window. This code
 ///     sorts a move from above again and does not ignore it. A sort that moves a key reports only
-///     the move, and that report is the only value with the new sort value of the key. Thus a
+///     the move, and that report is the only value with the new sort value of the key. Thus, a
 ///     stage below must sort against it, as it sorts against an update.
 /// </remarks>
 internal static class CollectionViewUtility
@@ -129,7 +129,7 @@ internal static class CollectionViewUtility
 
     /// <summary>
     ///     Narrows the view and keeps the upstream order. The stage puts its members into a set
-    ///     that comes from the order of the upstream. Thus the stage does not know the sort value
+    ///     that comes from the order of the upstream. Thus, the stage does not know the sort value
     ///     of that order, and it does not monitor a position in the upstream list.
     /// </summary>
     internal static ReactiveCollection<TKey, TIdentity, TState> FilterImpl<TKey, TIdentity, TState>(
@@ -226,7 +226,7 @@ internal static class CollectionViewUtility
     ///     <para>
     ///         This stage is the base of each other sort, and the order of each one does not
     ///         change. This stage holds the order as criteria and does not capture it in a
-    ///         closure. Thus one stage can follow a column header that a user clicks. An order
+    ///         closure. Thus, one stage can follow a column header that a user clicks. An order
     ///         holds its own sort key type, thus the type of the cell does not name that type, and
     ///         two orders in one cell can have different sort key types.
     ///     </para>
@@ -588,7 +588,7 @@ internal static class CollectionViewUtility
     ///     again only at a move of the keys.
     /// </summary>
     /// <remarks>
-    ///     The projection runs one time for each key and this code keeps the object. Thus a
+    ///     The projection runs one time for each key and this code keeps the object. Thus, a
     ///     collection whose items changed, and whose members and order did not change, gives the
     ///     same objects in the same sequence. That stops a new build of a bound list at a change
     ///     to the value of one row.
@@ -679,7 +679,7 @@ internal static class CollectionViewUtility
         int maxNumberOfOperations = GetMaxNumberOfOperations(state.Count);
 
         // Only an operation that adds a key to the order, or removes a key from it, counts. The
-        // root uses the order of arrival, and no update can move a key in that order. Thus an
+        // root uses the order of arrival, and no update can move a key in that order. Thus, an
         // update costs the root one lookup, and each stage below counts its own cost.
         if (change.Added.Count + change.Removed.Count > maxNumberOfOperations)
         {
@@ -709,7 +709,7 @@ internal static class CollectionViewUtility
             if (change.WasAdded(key))
             {
                 // An add of a key that is here now is a replacement of an item in one edit: a
-                // removal and then an add. The key is a new arrival and goes to the end. Thus this
+                // removal and then an add. The key is a new arrival and goes to the end. Thus, this
                 // code reports a removal at its previous position before it reports an add at its
                 // new position. With only an add, a list that binds to this counts the key two
                 // times.
@@ -1125,7 +1125,7 @@ internal static class CollectionViewUtility
     ///         collection. When that order reads the state, a state edit changes the sort value of
     ///         a key that the stage holds, and the upstream can report that as a move or not. A
     ///         value can change and not move the key across a second key, and the next arrival
-    ///         then sorts against an incorrect value. Thus this code sorts a key that it holds
+    ///         then sorts against an incorrect value. Thus, this code sorts a key that it holds
     ///         again, and reports the positions of this stage. In an order that reads no state,
     ///         that sort is one lookup and one update, which is the only operation here.
     ///     </para>
@@ -1308,7 +1308,7 @@ internal static class CollectionViewUtility
         }
 
         // This code runs only when the order is the one change that came to this stage in the
-        // transaction. Thus the stage holds the keys that it held, with their values, and each
+        // transaction. Thus, the stage holds the keys that it held, with their values, and each
         // answer is a change of order.
         return createResultForReorder(
             order.TryReverse(keys: state, reversedKeys: out OrderedKeys<TKey, TIdentity, TState>? reversedKeys)
@@ -1364,7 +1364,7 @@ internal static class CollectionViewUtility
 
         // A sort holds each key of the stage above it, thus each operation names a key that the
         // sort holds. In an order that reads the state, each one of those operations costs work.
-        // Thus this code knows before the work if the change is above the limit, and does not know
+        // Thus, this code knows before the work if the change is above the limit, and does not know
         // it after the work at the limit. A new build discards that work.
         if (refilingCostsWork && change.Operations.Count > maxNumberOfOperations)
         {
@@ -1596,7 +1596,7 @@ internal static class CollectionViewUtility
     /// <remarks>
     ///     <para>
     ///         This code reports a move alone, with no update. The move is the sort, and the new
-    ///         value of the key moved it. Thus a consumer, and a stage below, reads the move as an
+    ///         value of the key moved it. Thus, a consumer, and a stage below, reads the move as an
     ///         update that also moved the key.
     ///     </para>
     ///     <para>
@@ -1620,7 +1620,7 @@ internal static class CollectionViewUtility
     ///     <para>
     ///         The key must be a key that the stage holds and a key that the snapshot has. Each
     ///         caller sorts only the keys that it holds, for operations that name keys in the
-    ///         snapshot. Thus a key that fails one of the two tests is a defect above this code.
+    ///         snapshot. Thus, a key that fails one of the two tests is a defect above this code.
     ///         This method throws an exception for a key that the stage does not hold, and a sort
     ///         of a key that the snapshot does not hold throws an exception in <c>Project</c>. It
     ///         does not report an operation with no position.

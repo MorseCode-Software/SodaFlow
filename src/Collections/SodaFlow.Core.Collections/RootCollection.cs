@@ -15,7 +15,7 @@ namespace SodaFlow.Collections;
 ///     <para>
 ///         An observer of one item costs one hash lookup for each active observer and for each
 ///         transaction, and that cost does not change with the size of the collection. This code
-///         makes an observer at the first read and keeps it in a weak cache. Thus only the items
+///         makes an observer at the first read and keeps it in a weak cache. Thus, only the items
 ///         with an observer have graph nodes.
 ///     </para>
 ///     <para>
@@ -140,7 +140,7 @@ internal sealed class RootCollection<TKey, TIdentity, TState>
             Stream<CollectionEdit<TKey, TIdentity, TState>> editsStream = MergeEdits(editStreams);
 
             // The resolution of an edit uses the state that it resolves against, and the
-            // resolution of the edits makes that state. Thus this code has an explicit loop.
+            // resolution of the edits makes that state. Thus, this code has an explicit loop.
             LoopedCell<CollectionSnapshot<TKey, TIdentity, TState>> snapshotLoopCell = new();
 
             Stream<ItemChange<TKey, TIdentity, TState>> itemChangesStream =
@@ -184,7 +184,7 @@ internal sealed class RootCollection<TKey, TIdentity, TState>
     ///     The cost is low, thus code can make one for each bound view. It filters on one hash
     ///     lookup and does not read the other items.
     ///     The key can be missing now. A removal sends <paramref name="onAbsent" />, and a
-    ///     subsequent add with the same key sends <paramref name="onPresent" /> again. Thus a view
+    ///     subsequent add with the same key sends <paramref name="onPresent" /> again. Thus, a view
     ///     that binds to a key can continue after the item.
     ///     A weak cache holds one for each key, thus N observers of one key share a node, and the
     ///     node goes out of memory with the last observer. Two projections of the same key are two
@@ -275,7 +275,7 @@ internal sealed class RootCollection<TKey, TIdentity, TState>
         }
 
         // Only a structural edit changes the identity map, and it builds the next version from
-        // this version and does not copy it. Thus an add costs one write and not one read of the
+        // this version and does not copy it. Thus, an add costs one write and not one read of the
         // full collection.
         ImmutableDictionary<TKey, TIdentity> identities =
             added.Count > 0 || removed.Count > 0

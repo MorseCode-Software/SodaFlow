@@ -13,7 +13,7 @@
 ///     </para>
 ///     <para>
 ///         An optional value is the F# <c>option</c>. The core answers with a <c>TryGet</c> and
-///         with an integer, and not with an optional type. Thus each language surface can add its
+///         with an integer, and not with an optional type. Thus, each language surface can add its
 ///         own optional type above the core. This module never uses SodaFlow.Functional, and code
 ///         that installs this package does not use it.
 ///     </para>
@@ -154,7 +154,7 @@ let fromRemoves (removesStream: Stream<'TKey>) : Stream<CollectionEdit<'TKey, 'T
 ///     and does not read the other items. A weak cache holds one for each key, thus N observers of
 ///     one key share a node, and two views of the same root give the same cell.
 ///     The key can be missing now. A removal sends <c>None</c>, and a subsequent add with the same
-///     key sends <c>Some</c> again. Thus a view that binds to a key can continue after the item.
+///     key sends <c>Some</c> again. Thus, a view that binds to a key can continue after the item.
 /// </remarks>
 [<MethodImpl(MethodImplOptions.NoInlining)>]
 let stateCell (key: 'TKey) (collection: ReactiveCollection<'TKey, 'TIdentity, 'TState>) =
@@ -289,7 +289,7 @@ let filter (predicate: 'TIdentity -> 'TState -> bool) (upstream: ReactiveCollect
 
 /// <summary>
 ///     Narrows the view with a predicate that can change. Each change to the predicate builds
-///     this stage again, at a cost of <c>O(m log m)</c> in the size of the upstream. Thus a
+///     this stage again, at a cost of <c>O(m log m)</c> in the size of the upstream. Thus, a
 ///     criteria from a keystroke needs a Calm stage above this one.
 /// </summary>
 /// <param name="predicateCell">The predicate in force.</param>
@@ -730,7 +730,7 @@ let sliceC (offsetCell: Cell<int>) (limitCell: Cell<int>) (upstream: ReactiveCol
 /// <remarks>
 ///     This is the end of a chain and not a stage in one. The result is objects, and an object
 ///     has no identity and no state for a subsequent stage. <c>project</c> runs one time for each
-///     key and this code keeps the object. Thus a collection whose items changed, and whose
+///     key and this code keeps the object. Thus, a collection whose items changed, and whose
 ///     members and order did not change, gives the same objects in the same sequence. Build each
 ///     object from <c>stateCell</c> and <c>identityCell</c>, and the object then follows its own
 ///     item.

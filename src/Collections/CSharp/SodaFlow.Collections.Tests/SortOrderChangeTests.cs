@@ -253,7 +253,7 @@ public sealed class SortOrderChangeTests
 
     /// <summary>
     ///     A new order above a filter changes the positions of its members and does not change the
-    ///     members. Thus the filter moves its members to the new order and does not test each item
+    ///     members. Thus, the filter moves its members to the new order and does not test each item
     ///     above it against its predicate again.
     /// </summary>
     [Test]

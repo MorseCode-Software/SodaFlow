@@ -13,7 +13,7 @@ namespace SodaFlow.Collections;
 /// </summary>
 /// <remarks>
 ///     The snapshot of the root is the full store. The snapshot of a view is the same two maps
-///     behind a set of keys that the view holds. Thus a stage costs one small object for each
+///     behind a set of keys that the view holds. Thus, a stage costs one small object for each
 ///     change and copies nothing, and a key that the view does not hold is missing from it.
 ///     <see cref="Count" /> counts the view, <see cref="ContainsKey" /> answers for the view, and a
 ///     lookup of a key out of the view finds nothing. For that cause there is no path from a view
@@ -92,12 +92,12 @@ public sealed class CollectionSnapshot<TKey, TIdentity, TState>
                 new ScopedStateMap<TKey, TIdentity, TState>(inner: this.StatesImpl, visible: this.visible);
 
     /// <summary>
-    ///     The identity map as its concrete type. Thus this code builds the next version from this
+    ///     The identity map as its concrete type. Thus, this code builds the next version from this
     ///     version and does not copy it.
     /// </summary>
     /// <remarks>
     ///     This is a trie, and it was a usual dictionary. A usual dictionary reads faster and costs
-    ///     <c>O(n)</c> to write, because a copy is the only path to its next version. Thus a
+    ///     <c>O(n)</c> to write, because a copy is the only path to its next version. Thus, a
     ///     structural edit had a cost in proportion to the collection, at each cost of the view
     ///     stages below it. The add-and-remove benchmark in <c>KeyedCollectionViewBenchmarks</c>
     ///     found that. The cost is now <c>O(log32 n)</c> for each key in the edit, which gives the
@@ -112,7 +112,7 @@ public sealed class CollectionSnapshot<TKey, TIdentity, TState>
     /// </summary>
     /// <remarks>
     ///     This code writes this only at a structural edit, as it writes the identity map beside
-    ///     it. Thus a state edit, which is the usual edit, has no more cost. A key that an edit
+    ///     it. Thus, a state edit, which is the usual edit, has no more cost. A key that an edit
     ///     removes and then adds is a new arrival.
     /// </remarks>
     internal ImmutableDictionary<TKey, long> ArrivalsImpl { get; }
@@ -189,7 +189,7 @@ public sealed class CollectionSnapshot<TKey, TIdentity, TState>
     ///     stage and a test of the predicate of a filter. On those paths that type is one
     ///     allocation for each key and for each build, and no code keeps it.
     ///     This code does the two lookups in each condition, and does not omit the second lookup
-    ///     when the first lookup finds nothing. Thus the compiler can see that this code assigns
+    ///     when the first lookup finds nothing. Thus, the compiler can see that this code assigns
     ///     the two outputs, and no suppression is necessary. A key that is missing from the
     ///     identity map is also missing from the state map, thus the second lookup is unnecessary
     ///     only for a key that the collection does not have.
@@ -204,7 +204,7 @@ public sealed class CollectionSnapshot<TKey, TIdentity, TState>
         bool hasIdentity = this.IdentitiesImpl.TryGet(key: key, value: out identity);
         bool hasState = this.StatesImpl.TryGetState(key: key, state: out state);
 
-        // The test of the scope is last. Thus the root, where that test is a test against null,
+        // The test of the scope is last. Thus, the root, where that test is a test against null,
         // has no cost for it, and this code assigns the two outputs on each path with no
         // suppression.
         return hasIdentity && hasState && this.IsVisible(key);
@@ -220,7 +220,7 @@ public sealed class CollectionSnapshot<TKey, TIdentity, TState>
         IEnumerable<TKey> removed)
     {
         // ToBuilder and ToImmutable are each <c>O(1)</c>, because the builder uses the root of
-        // this map and does not copy it. Thus the cost is one <c>O(log32 n)</c> write for each key
+        // this map and does not copy it. Thus, the cost is one <c>O(log32 n)</c> write for each key
         // in the edit.
         ImmutableDictionary<TKey, TIdentity>.Builder builder = this.IdentitiesImpl.ToBuilder();
 

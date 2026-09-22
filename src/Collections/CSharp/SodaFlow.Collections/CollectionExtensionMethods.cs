@@ -10,7 +10,7 @@ namespace SodaFlow.Collections;
 /// </summary>
 /// <remarks>
 ///     These are here and not in SodaFlow.Collections.Core, because <see cref="Maybe{T}" /> is in
-///     SodaFlow.Functional and F# does not use that assembly. F# has <c>option</c>. Thus the core
+///     SodaFlow.Functional and F# does not use that assembly. F# has <c>option</c>. Thus, the core
 ///     answers with a <c>TryGet</c> and with an integer, and each language surface adds its own
 ///     optional type above the core. See
 ///     <see cref="ReactiveCollection{TKey,TIdentity,TState}" />.
@@ -37,7 +37,7 @@ public static class CollectionExtensionMethods
     ///     </para>
     ///     <para>
     ///         The key can be missing now. A removal sends no value, and a subsequent add with the
-    ///         same key sends a value again. Thus a view that binds to a key can continue after the
+    ///         same key sends a value again. Thus, a view that binds to a key can continue after the
     ///         item.
     ///     </para>
     ///     <para>

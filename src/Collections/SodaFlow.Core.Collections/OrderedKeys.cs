@@ -300,12 +300,12 @@ internal abstract class ProjectedKeyOrder<TKey, TIdentity, TState, TSortKey> : K
 /// </summary>
 /// <remarks>
 ///     <para>
-///         This code gives a number to each key one time, at its arrival. Thus two keys never have
+///         This code gives a number to each key one time, at its arrival. Thus, two keys never have
 ///         the same sort value, and this code never compares the keys. For that cause a collection
 ///         can list keys of a type with no order of its own.
 ///     </para>
 ///     <para>
-///         For the same cause, this code never reads a second level. Thus
+///         For the same cause, this code never reads a second level. Thus,
 ///         <see cref="Then{TNext}" /> answers with this order, and does not build a level with no
 ///         effect. This order also never reads the state, because an update is not an arrival.
 ///     </para>
@@ -397,7 +397,7 @@ internal sealed class NoTieComparer<TKey> : IComparer<TKey>
 ///     This is internal, because code out of this assembly cannot put an order into a view. Each
 ///     sort stage builds its own order from the selector that it receives.
 ///     <see cref="KeyOrder{TKey,TIdentity,TState}" /> is public because
-///     <see cref="OrderedKeys{TKey,TIdentity,TState}.Order" /> answers with one. Thus other code
+///     <see cref="OrderedKeys{TKey,TIdentity,TState}.Order" /> answers with one. Thus, other code
 ///     can read an order and cannot give one, and that lets a reader test the statement of
 ///     <see cref="DependsOnState" />. An order from external code can make that statement
 ///     incorrectly, and a view then stops its sorts and gives no message.
@@ -786,7 +786,7 @@ internal sealed class SortedKeys<TKey, TIdentity, TState, TSortKey> : OrderedKey
 /// <summary>
 ///     A continuous window of a second ordered set, with no copy of that set. A <c>Slice</c> stage
 ///     holds one of these windows, and a <c>Take</c> stage also holds one, because <c>Take</c> is a
-///     window that starts at zero. Thus a stage after one of those stages reads an ordered set and
+///     window that starts at zero. Thus, a stage after one of those stages reads an ordered set and
 ///     can find a position in it at a cost of <c>O(log n)</c>.
 /// </summary>
 /// <remarks>

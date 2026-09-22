@@ -111,7 +111,7 @@ public sealed class OrderedKeysTests
                 .By(static (_, state) => state.Score)
                 .ThenByIdentity(static identity => identity.Code);
 
-        // A stage omits a sort of a key at a state edit only when no level can move that key. Thus
+        // A stage omits a sort of a key at a state edit only when no level can move that key. Thus,
         // one level that reads the state must remove that short path.
         await Assert.That(KeyOrder<int, ItemIdentity, ItemState>.ByArrival().DependsOnState).IsFalse();
         await Assert.That(identityOnly.DependsOnState).IsFalse();
@@ -220,7 +220,7 @@ public sealed class OrderedKeysTests
     /// <summary>
     ///     An order in the opposite direction is not the list in the opposite direction. A
     ///     descending order puts the sort values in the opposite direction and keeps the ascending
-    ///     key as its last level. Thus two keys with equal sort values keep their sequence when the
+    ///     key as its last level. Thus, two keys with equal sort values keep their sequence when the
     ///     stage turns the list, and a simple reversal of the positions does not keep it.
     /// </summary>
     [Test]
@@ -283,7 +283,7 @@ public sealed class OrderedKeysTests
 
     /// <summary>
     ///     A key that the snapshot does not hold has no sort value, and each stage adds only the
-    ///     keys in its snapshot. Thus a call to add such a key is a defect. This code throws an
+    ///     keys in its snapshot. Thus, a call to add such a key is a defect. This code throws an
     ///     exception and does not omit the key with no message, at an add of one key and at a build
     ///     of a full set.
     /// </summary>
@@ -380,7 +380,7 @@ public sealed class OrderedKeysTests
         // This is a sequence that adds a key, removes it, adds it again, and removes it again, with
         // a test after each step. This code writes the two structures together, and this test shows
         // that. Contains reads the map, IndexOf reads the two, and Count and the enumeration read
-        // the ordering. Thus the answers agree only when the two structures are equal.
+        // the ordering. Thus, the answers agree only when the two structures are equal.
         int[] toAdd = [3, 1, 5, 2, 4];
 
         foreach (int key in toAdd)
@@ -443,7 +443,7 @@ public sealed class OrderedKeysTests
         {
             int key = enumerated[index];
 
-            // IndexOf reads the map and then the ordering. Thus an answer equal to the position
+            // IndexOf reads the map and then the ordering. Thus, an answer equal to the position
             // from the enumeration shows that the two structures agree.
             await Assert.That(keys.IndexOfInternal(key)).IsEqualTo(index);
             await Assert.That(keys.Contains(key)).IsTrue();

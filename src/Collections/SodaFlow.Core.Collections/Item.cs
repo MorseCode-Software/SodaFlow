@@ -9,7 +9,7 @@ namespace SodaFlow.Collections;
 /// <remarks>
 ///     The key comes from <see cref="Identity" /> only. No code in the update path can read
 ///     <see cref="Identity" />, because an update holds only a
-///     <c>Func&lt;TState, TState&gt;</c>. Thus the structure keeps each key constant, and no test
+///     <c>Func&lt;TState, TState&gt;</c>. Thus, the structure keeps each key constant, and no test
 ///     at run time is necessary. A change to an identity is a removal and then an add, which is a
 ///     structural edit.
 /// </remarks>

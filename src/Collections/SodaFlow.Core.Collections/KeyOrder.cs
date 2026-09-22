@@ -22,7 +22,7 @@ namespace SodaFlow.Collections;
 ///         are the equivalent of the sort methods. <c>SortBy</c> sorts on <c>By</c>,
 ///         <c>SortByKey</c> sorts on <see cref="ByKey" />, and the other pairs agree in the same
 ///         manner. An order is not attached to the collection of its construction, and only to
-///         its type parameters. Thus each view of the same shape can use one order.
+///         its type parameters. Thus, each view of the same shape can use one order.
 ///     </para>
 ///     <para>
 ///         An order can have more than one level. <c>ThenBy</c> and the functions with it return
@@ -43,7 +43,7 @@ public abstract class KeyOrder<TKey, TIdentity, TState>
     /// <summary>
     ///     This is internal, thus only this assembly can make one. The members below it are the
     ///     protocol between two stages. An order removes a type parameter, and it is not an
-    ///     abstraction across implementations. Thus a set that holds one does not keep the sort
+    ///     abstraction across implementations. Thus, a set that holds one does not keep the sort
     ///     value type through each signature that uses it.
     /// </summary>
     internal KeyOrder()
@@ -55,7 +55,7 @@ public abstract class KeyOrder<TKey, TIdentity, TState>
     /// </summary>
     /// <remarks>
     ///     It is false for an order that makes its sort value from the key or from the identity
-    ///     only, and a state edit cannot change the key or the identity. Thus a stage does not sort
+    ///     only, and a state edit cannot change the key or the identity. Thus, a stage does not sort
     ///     a key again when it hears only that the key changed. <see cref="ByKey" /> is false, and
     ///     <c>ByIdentity</c> is also false. An order on a full-item selector from the caller is
     ///     true, because this code cannot see if that selector read the state that it got.
@@ -360,7 +360,7 @@ public abstract class KeyOrder<TKey, TIdentity, TState>
     ///     in <c>KeyedCollectionViewBenchmarks</c>.
     ///     A build stays expensive, and no code here can change that. A build of an immutable tree
     ///     costs one allocation for each node, and the same view from LINQ sorts an array with
-    ///     no allocation. Thus a change of criteria stays some times more expensive than the same
+    ///     no allocation. Thus, a change of criteria stays some times more expensive than the same
     ///     result with no chain, and the documentation tells a reader to add a Calm stage for
     ///     it.
     /// </remarks>

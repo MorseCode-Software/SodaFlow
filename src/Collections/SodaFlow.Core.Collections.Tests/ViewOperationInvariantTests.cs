@@ -22,7 +22,7 @@ namespace SodaFlow.Collections.Tests;
 ///     <para>
 ///         The two flags in a change must agree with its operations. A stage publishes its key
 ///         list only when it reports a change to its keys. A sort below it reads a change with no
-///         flag as a change with only updates. Thus a flag that is below the true change leaves an
+///         flag as a change with only updates. Thus, a flag that is below the true change leaves an
 ///         previous list in the public cell, or throws an exception one stage below.
 ///     </para>
 ///     <para>
@@ -234,7 +234,7 @@ public sealed class ViewOperationInvariantTests
 
     /// <summary>
     ///     The cost of a flag below the true change. A stage publishes its keys only when it
-    ///     reports a change to them. Thus the list in the public cell must be the list of the stage
+    ///     reports a change to them. Thus, the list in the public cell must be the list of the stage
     ///     after each edit, at each value of the flags.
     /// </summary>
     [Test]

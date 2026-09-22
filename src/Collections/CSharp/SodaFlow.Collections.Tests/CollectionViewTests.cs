@@ -356,7 +356,7 @@ public sealed class CollectionViewTests
                 TestUtil.Item(number: 3, name: "three", score: 30));
 
         // This stage is directly above the collection, thus it gets the order of the root. That
-        // order uses the key, and a key cannot change. Thus a state edit can move no key here,
+        // order uses the key, and a key cannot change. Thus, a state edit can move no key here,
         // which is the condition where Refile takes the short path and does not remove the key and
         // add it again.
         ReactiveCollection<int, ItemIdentity, ItemState> passing =
@@ -1905,7 +1905,7 @@ public sealed class CollectionViewTests
     /// <summary>
     ///     A limit counts the work that a change costs a stage, and not the number of keys in that
     ///     change. The root uses the order of arrival, and a state edit cannot move a key in that
-    ///     order. Thus an update costs the root one lookup. Three thousand updates, which is far
+    ///     order. Thus, an update costs the root one lookup. Three thousand updates, which is far
     ///     above its limit of 1,000, come as a list of operations and not as a reset.
     /// </summary>
     [Test]
@@ -1965,7 +1965,7 @@ public sealed class CollectionViewTests
 
     /// <summary>
     ///     The order of a filter is the order of its upstream collection, and a state edit cannot
-    ///     move a key in the order of the root. Thus an update to an item that the filter shows also
+    ///     move a key in the order of the root. Thus, an update to an item that the filter shows also
     ///     costs one lookup, and the change comes as a list of operations and not as a reset.
     /// </summary>
     [Test]
@@ -2096,7 +2096,7 @@ public sealed class CollectionViewTests
 
     /// <summary>
     ///     A change of the predicate names the keys that entered and the keys that left, and it is
-    ///     not a reset. Thus a consumer can move the rows that it has and does not build the list
+    ///     not a reset. Thus, a consumer can move the rows that it has and does not build the list
     ///     again.
     /// </summary>
     [Test]

@@ -364,7 +364,7 @@ public sealed class ReactiveCollectionTests
 
         await Assert.That(changes.Count).IsEqualTo(2);
 
-        // These are the same reference, and not two objects with equal contents. Thus a hold on a
+        // These are the same reference, and not two objects with equal contents. Thus, a hold on a
         // sequence of changes costs no more than a hold on their After alone.
         await Assert.That(ReferenceEquals(objA: changes[1].Before, objB: changes[0].After)).IsTrue();
     }

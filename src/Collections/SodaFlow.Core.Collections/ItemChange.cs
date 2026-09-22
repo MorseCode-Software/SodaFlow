@@ -62,7 +62,7 @@ public sealed class ItemChange<TKey, TIdentity, TState>
 
     /// <summary>The store as this transaction found it.</summary>
     /// <remarks>
-    ///     This is the same instance as the <see cref="After" /> of the previous change. Thus a
+    ///     This is the same instance as the <see cref="After" /> of the previous change. Thus, a
     ///     listener on a sequence of these changes keeps no more memory than a listener on their
     ///     <see cref="After" /> alone.
     /// </remarks>
@@ -116,7 +116,7 @@ public sealed class ItemChange<TKey, TIdentity, TState>
     /// <remarks>
     ///     An identity is constant while the collection has its key, thus only an add or a removal
     ///     can change one. A state edit has no result for an observer of the identity and gives no
-    ///     value here. Thus code can hold such an observer for the life of a row at no cost.
+    ///     value here. Thus, code can hold such an observer for the life of a row at no cost.
     /// </remarks>
     internal MaybeInternal<TProjected> ProjectIdentityChangeFor<TProjected>(
         TKey key,

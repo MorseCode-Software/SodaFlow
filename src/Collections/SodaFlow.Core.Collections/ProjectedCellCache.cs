@@ -17,7 +17,7 @@ namespace SodaFlow.Collections;
 ///         compiler can see.
 ///     </para>
 ///     <para>
-///         Two projections of the same key are two cells in two caches. Thus the C# surface and
+///         Two projections of the same key are two cells in two caches. Thus, the C# surface and
 ///         the F# surface never give each other an incorrect cell, and the two share one store.
 ///     </para>
 /// </remarks>

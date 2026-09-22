@@ -26,7 +26,7 @@ namespace SodaFlow.Collections;
 ///         and
 ///         <see cref="Slice{TKey,TIdentity,TState}(ReactiveCollection{TKey,TIdentity,TState},int,int)" />,
 ///         of which the first is the condition with an offset of zero, compare their previous
-///         window against their new window and do not change the operations from above. Thus a
+///         window against their new window and do not change the operations from above. Thus, a
 ///         change of order in the window comes as removals and adds, and not as moves. For the
 ///         same cause there is no <c>Skip</c>: that step has a low cost because the
 ///         window has a limit at each end. Third, a <c>Filter</c> after a <c>Take</c> filters the
@@ -460,7 +460,7 @@ public static class CollectionViewExtensionMethods
     ///     </para>
     ///     <para>
     ///         <paramref name="project" /> runs one time for each key and this code keeps the
-    ///         object. Thus a collection whose items changed, and whose members and order did not
+    ///         object. Thus, a collection whose items changed, and whose members and order did not
     ///         change, gives the same objects in the same sequence. That stops a new build of each
     ///         row of a bound list at a change to the value of one row. Build the bindings of a row
     ///         from <see cref="CollectionExtensionMethods.StateCell{TKey,TIdentity,TState}" /> and
@@ -474,7 +474,7 @@ public static class CollectionViewExtensionMethods
     ///         the limit, thus a limit below the size of the collection cannot remove a row that
     ///         the code reads again immediately. The keys that left go out in the sequence of their
     ///         departure, and the first key to go out is the key with the longest interval since it
-    ///         left. Thus a move between the same two pages costs nothing.
+    ///         left. Thus, a move between the same two pages costs nothing.
     ///     </para>
     /// </remarks>
     /// <typeparam name="TKey">The type of the keys.</typeparam>

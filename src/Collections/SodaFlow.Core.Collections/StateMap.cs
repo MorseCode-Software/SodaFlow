@@ -23,7 +23,7 @@ namespace SodaFlow.Collections;
 ///     <para>
 ///         In a transaction, SodaFlow reads the value of a cell from <i>before</i> that
 ///         transaction. When a snapshot from before points to storage that other code changed,
-///         those reads give a future value and no message. Thus an implementation that changes its
+///         those reads give a future value and no message. Thus, an implementation that changes its
 ///         storage in position must give a version to that storage and must answer an older
 ///         instance from a record. It must not answer with the live map.
 ///     </para>
@@ -91,7 +91,7 @@ internal static class ImmutableStateMap<TState>
 
 /// <summary>
 ///     The default strategy, which is a hash array mapped trie. An update costs approximately
-///     <c>O(log32 n)</c> and allocates only the path from the root. Thus a collection with 100k
+///     <c>O(log32 n)</c> and allocates only the path from the root. Thus, a collection with 100k
 ///     items writes approximately four nodes again for each edit. Start with this strategy. Use a
 ///     strategy that changes its storage in position only after a measurement shows that this
 ///     strategy is the limit.

@@ -4,7 +4,7 @@ using JetBrains.Annotations;
 
 namespace SodaFlow.Collections;
 
-/// <summary>The position of the default limit of a projection. Thus the two language surfaces name
+/// <summary>The position of the default limit of a projection. Thus, the two language surfaces name
 /// one value.</summary>
 [PublicAPI]
 public static class MappedItems
@@ -56,7 +56,7 @@ public readonly struct MappedItems<TResult> : IDisposable
     /// <inheritdoc />
     /// <remarks>
     ///     Releases each object that the projection holds, which is each object that it built and
-    ///     did not remove. This code calls the eviction callback for each one. Thus a projection
+    ///     did not remove. This code calls the eviction callback for each one. Thus, a projection
     ///     that builds objects with resources releases all of them in one position, at each time of
     ///     their departure.
     /// </remarks>
@@ -96,7 +96,7 @@ internal sealed class MappedItemCache<TKey, TResult>
     /// <summary>The keys no longer in the view, most recently departed at the front.</summary>
     private readonly LinkedList<TKey> departed = new();
 
-    /// <summary>The position of each key that left. Thus a departure and a return each cost
+    /// <summary>The position of each key that left. Thus, a departure and a return each cost
     /// <c>O(1)</c>.</summary>
     private readonly Dictionary<TKey, LinkedListNode<TKey>> departedNodes;
 

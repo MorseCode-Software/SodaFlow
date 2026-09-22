@@ -14,7 +14,7 @@ type ItemState = { Name: string; Score: int }
 
 /// The same identity, with its own key, for the `create` overloads with no selector.
 /// The names of these fields are different from the names in ItemIdentity, and that is deliberate.
-/// F# resolves a record expression by its field names and uses the last declaration. Thus the names
+/// F# resolves a record expression by its field names and uses the last declaration. Thus, the names
 /// Number and Code here move each `{ Number = _; Code = _ }` in this file to this type, with no
 /// message.
 type SelfKeyedItemIdentity =

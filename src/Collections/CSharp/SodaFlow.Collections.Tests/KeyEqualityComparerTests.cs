@@ -64,7 +64,7 @@ public sealed class KeyEqualityComparerTests
 
     /// <summary>
     ///     The delta with keys from a root edit. An update that names one spelling of a key goes
-    ///     into the store at the spelling from the arrival of the item. Thus the delta must use
+    ///     into the store at the spelling from the arrival of the item. Thus, the delta must use
     ///     that spelling, because it is the only spelling that a consumer of the collection
     ///     reads.
     /// </summary>
@@ -104,7 +104,7 @@ public sealed class KeyEqualityComparerTests
     /// </summary>
     /// <remarks>
     ///     This test reported nothing, and did not report an incorrect key. The construction of the
-    ///     root order did not use the comparer of the collection. Thus it did not find a key that an
+    ///     root order did not use the comparer of the collection. Thus, it did not find a key that an
     ///     edit named in a different spelling, it sent no operation for that key, and a filter
     ///     removed the empty change before a view read it. The store changed, and each view above it
     ///     became incorrect.
@@ -138,7 +138,7 @@ public sealed class KeyEqualityComparerTests
     /// <summary>
     ///     A projection keeps one object for each key, and it does the same with a comparer of the
     ///     collection. The key of each cache is a key from the view, which is always the spelling
-    ///     in the store. Thus a comparer that is more strict than the comparer of the store cannot
+    ///     in the store. Thus, a comparer that is more strict than the comparer of the store cannot
     ///     give an incorrect result now. This test holds that rule and does not reproduce a
     ///     defect.
     /// </summary>

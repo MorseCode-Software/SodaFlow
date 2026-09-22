@@ -14,7 +14,7 @@ namespace SodaFlow.Collections;
 ///         The event holds its result <see cref="Keys" /> and the store on the two sides of the
 ///         change, which are <see cref="Before" /> and <see cref="After" />. The next stage does
 ///         not sample them. A stage below runs in the same transaction, and a sample of a cell
-///         there gives the value from before the transaction. Thus the event must hold the
+///         there gives the value from before the transaction. Thus, the event must hold the
 ///         results, or the chain does not agree with itself. That also lets a consumer make a
 ///         delta with no copy of the previous values.
 ///     </para>
@@ -57,13 +57,13 @@ public sealed class CollectionViewChange<TKey, TIdentity, TState>
     /// <remarks>
     ///     This is the store and not the content of this view, which is <see cref="Keys" />. It
     ///     comes with <see cref="Before" />, which is the same store from before the transaction.
-    ///     Thus a delta across a value of an item needs no other data.
+    ///     Thus, a delta across a value of an item needs no other data.
     /// </remarks>
     public CollectionSnapshot<TKey, TIdentity, TState> After { get; }
 
     /// <summary>The store as this transaction found it.</summary>
     /// <remarks>
-    ///     This is the same instance as the <see cref="After" /> of the previous change. Thus a
+    ///     This is the same instance as the <see cref="After" /> of the previous change. Thus, a
     ///     listener on a sequence of these changes keeps no more memory than a listener on their
     ///     <see cref="After" /> alone. A transaction that changes only a criteria does not change
     ///     the store, and this field and <see cref="After" /> are then the same object.
@@ -137,7 +137,7 @@ public sealed class CollectionViewChange<TKey, TIdentity, TState>
     ///         show approximately four times the cost.
     ///     </para>
     ///     <para>
-    ///         A reset has no operations, because each position can be different. Thus this code
+    ///         A reset has no operations, because each position can be different. Thus, this code
     ///         calculates the answer again from the store, and only for a key that one of the two
     ///         sides holds.
     ///     </para>
@@ -373,7 +373,7 @@ public sealed class ViewRemove<TKey> : ViewOperation<TKey>
 ///         always a reset, with
 ///         <see cref="CollectionViewChange{TKey,TIdentity,TState}.IsReset" /> set. The stages use
 ///         that rule. A filter keeps the order of its upstream collection and sorts a key that
-///         moved in the order that it holds. Thus a move from a new order leaves the filter in the
+///         moved in the order that it holds. Thus, a move from a new order leaves the filter in the
 ///         previous order. Each stage below also reads a move as a change of value: a stage sorts
 ///         the key again, and a cell for one item sends a value. For a change of order alone, that
 ///         is work with no result.
