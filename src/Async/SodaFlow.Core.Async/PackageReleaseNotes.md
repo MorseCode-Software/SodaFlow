@@ -37,6 +37,14 @@ it.
 
 Each custom strategy takes the new parameter, also one that does not read it.
 
+Queue and QueuePerGroup in this library read that queue now and hold no queue of
+their own. Their behavior does not change - the same sequence, the same
+treatment of an item that a cancellation removed before its turn - and a
+measurement of 5,000 items through each one gives the same time as before, in
+one group and in 500 groups. The state type of Queue is gone with its queue, and
+the state of QueuePerGroup holds the group comparer alone.
+
+
 BREAKING: a strategy no longer reads a result. OnCompleted takes an
 AsyncCompletion - the operation returned, it threw, with the exception, or a
 cancellation stopped it - in place of an AsyncOutcome<TStrategyResult>. The

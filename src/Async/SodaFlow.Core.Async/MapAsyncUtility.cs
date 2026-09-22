@@ -1093,7 +1093,7 @@ internal static class AsyncConcurrencyStrategyFactory
     }
 
     private sealed class QueueStrategy<TUnit>
-        : AsyncConcurrencyStrategy<TUnit, QueueStrategy<TUnit>.State>
+        : AsyncConcurrencyStrategy<TUnit, object?>
     {
         internal static readonly QueueStrategy<TUnit> Instance = new();
 
@@ -1101,56 +1101,75 @@ internal static class AsyncConcurrencyStrategyFactory
         {
         }
 
-        protected override State CreateState() => new();
+        // This strategy holds no state of its own. The queue that it reads is the queue of the
+        // pipeline, which keeps each item that no code started in the sequence of the admissions.
+        protected override object? CreateState() => null;
 
         protected internal override IReadOnlyList<AsyncToStart<TUnit>> Admit(
-            State state,
+            object? state,
             AsyncQueuedItem<TUnit> incoming,
-            IReadOnlyList<AsyncTrackedItem<TUnit>> tracked)
-        {
-            if (state.Busy)
-            {
+            IReadOnlyList<AsyncTrackedItem<TUnit>> tracked) =>
+            IsBusy(tracked)
+
                 // The item keeps the Queued status, and a cancellation can remove it during the
-                // wait.
-                state.Pending.Enqueue(incoming);
-
-                return AsyncStrategyResult<TUnit>.None;
-            }
-
-            state.Busy = true;
-
-            return new[] { new AsyncToStart<TUnit>(incoming) };
-        }
+                // wait. The pipeline holds it, thus this strategy does not.
+                ? AsyncStrategyResult<TUnit>.None
+                : new[] { new AsyncToStart<TUnit>(incoming) };
 
         protected internal override AsyncStrategyResult<TUnit> OnCompleted(
-            State state,
+            object? state,
             AsyncQueuedItem<TUnit> item,
             AsyncCompletion completion,
             IReadOnlyList<AsyncTrackedItem<TUnit>> tracked)
         {
-            if (state.Pending.Count > 0)
-            {
-                AsyncQueuedItem<TUnit> next = state.Pending.Dequeue();
+            // The item that ends now is in `tracked` and has the Running status, thus the test
+            // for the next item takes the Queued status and finds the item behind it. The
+            // sequence of `tracked` is the sequence of the admissions.
+            //
+            // When a cancellation removed that next item during its wait, the execution engine
+            // finds that at the promotion and goes directly to AsyncCompletion.Canceled. That
+            // calls OnCompleted again, in a new transaction, where `tracked` no longer holds the
+            // canceled item and this code takes the one behind it.
+            AsyncTrackedItem<TUnit>? next = FirstQueued(tracked);
 
-                // When a cancellation removed `next` during its wait here, the execution engine
-                // finds that at the promotion and goes directly to Outcome.Canceled(). That calls
-                // OnCompleted again, and OnCompleted then takes the next item from the queue.
-                return new AsyncStrategyResult<TUnit>(
-                    publish: true,
-                    next: new[] { new AsyncToStart<TUnit>(next) });
-            }
-
-            state.Busy = false;
-
-            return new AsyncStrategyResult<TUnit>(publish: true, next: AsyncStrategyResult<TUnit>.None);
+            return new AsyncStrategyResult<TUnit>(
+                publish: true,
+                next: next is null
+                    ? AsyncStrategyResult<TUnit>.None
+                    : new[] { new AsyncToStart<TUnit>(next.Item) });
         }
 
-        /// <summary>The item with the Running status, when there is one, and the items that wait
-        /// behind it.</summary>
-        public sealed class State
+        private static bool IsBusy(IReadOnlyList<AsyncTrackedItem<TUnit>> tracked)
         {
-            internal readonly Queue<AsyncQueuedItem<TUnit>> Pending = new();
-            internal bool Busy;
+            // An indexed loop, and not Any: this runs for each admission, and the item with the
+            // Running status is the oldest one that the pipeline holds, thus it is at the start
+            // of the list.
+            // ReSharper disable once LoopCanBeConvertedToQuery - Done for performance reasons.
+            // ReSharper disable once ForCanBeConvertedToForeach - Done for performance reasons.
+            for (int i = 0; i < tracked.Count; i++)
+            {
+                if (tracked[i].Status == AsyncItemStatus.Running)
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        private static AsyncTrackedItem<TUnit>? FirstQueued(IReadOnlyList<AsyncTrackedItem<TUnit>> tracked)
+        {
+            // ReSharper disable once LoopCanBeConvertedToQuery - Done for performance reasons.
+            // ReSharper disable once ForCanBeConvertedToForeach - Done for performance reasons.
+            for (int i = 0; i < tracked.Count; i++)
+            {
+                if (tracked[i].Status == AsyncItemStatus.Queued)
+                {
+                    return tracked[i];
+                }
+            }
+
+            return null;
         }
     }
 
@@ -1181,26 +1200,12 @@ internal static class AsyncConcurrencyStrategyFactory
         {
             TGroup group = this.getGroup(incoming.Value);
 
-            if (!state.Groups.TryGetValue(key: group, value: out GroupState? groupState))
-            {
-                // This is the first value of this group, and it gets its own queue. OnCompleted
-                // removes that queue when the group becomes empty.
-                groupState = new GroupState();
-                state.Groups.Add(key: group, value: groupState);
-            }
+            return this.IsBusy(tracked: tracked, state: state, group: group)
 
-            if (groupState.Busy)
-            {
                 // The item keeps the Queued status, and a cancellation can remove it during the
-                // wait.
-                groupState.Pending.Enqueue(incoming);
-
-                return AsyncStrategyResult<TInput>.None;
-            }
-
-            groupState.Busy = true;
-
-            return new[] { new AsyncToStart<TInput>(incoming) };
+                // wait. The pipeline holds it, thus this strategy does not.
+                ? AsyncStrategyResult<TInput>.None
+                : new[] { new AsyncToStart<TInput>(incoming) };
         }
 
         protected internal override AsyncStrategyResult<TInput> OnCompleted(
@@ -1211,43 +1216,65 @@ internal static class AsyncConcurrencyStrategyFactory
         {
             TGroup group = this.getGroup(item.Value);
 
-            if (!state.Groups.TryGetValue(key: group, value: out GroupState? groupState))
-            {
-                throw new InvalidOperationException("Could not find group.");
-            }
+            // The item that ends now is in `tracked` and has the Running status, thus the test for
+            // the next item takes the Queued status and finds the item behind it in this group.
+            // The sequence of `tracked` is the sequence of the admissions, and a different group
+            // between two items of this group does not change that sequence.
+            AsyncTrackedItem<TInput>? next =
+                this.FirstQueued(tracked: tracked, state: state, group: group);
 
-            if (groupState.Pending.Count > 0)
-            {
-                AsyncQueuedItem<TInput> next = groupState.Pending.Dequeue();
-
-                // When a cancellation removed `next` during its wait here, the execution engine
-                // finds that at the promotion and goes directly to Outcome.Canceled(). That calls
-                // OnCompleted again, and OnCompleted then takes the next item from the queue.
-                return new AsyncStrategyResult<TInput>(
-                    publish: true,
-                    next: new[] { new AsyncToStart<TInput>(next) });
-            }
-
-            groupState.Busy = false;
-            state.Groups.Remove(group);
-
-            return new AsyncStrategyResult<TInput>(publish: true, next: AsyncStrategyResult<TInput>.None);
+            return new AsyncStrategyResult<TInput>(
+                publish: true,
+                next: next is null
+                    ? AsyncStrategyResult<TInput>.None
+                    : new[] { new AsyncToStart<TInput>(next.Item) });
         }
 
-        /// <summary>The queue state of each group, with the group as the key. This code adds a
-        /// group at its first use and removes it when the group becomes empty.</summary>
+        private bool IsBusy(IReadOnlyList<AsyncTrackedItem<TInput>> tracked, State state, TGroup group)
+        {
+            // ReSharper disable once LoopCanBeConvertedToQuery - Done for performance reasons.
+            // ReSharper disable once ForCanBeConvertedToForeach - Done for performance reasons.
+            for (int i = 0; i < tracked.Count; i++)
+            {
+                if (tracked[i].Status == AsyncItemStatus.Running
+                    && state.GroupComparer.Equals(x: this.getGroup(tracked[i].Item.Value), y: group))
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        private AsyncTrackedItem<TInput>? FirstQueued(
+            IReadOnlyList<AsyncTrackedItem<TInput>> tracked,
+            State state,
+            TGroup group)
+        {
+            // ReSharper disable once LoopCanBeConvertedToQuery - Done for performance reasons.
+            // ReSharper disable once ForCanBeConvertedToForeach - Done for performance reasons.
+            for (int i = 0; i < tracked.Count; i++)
+            {
+                if (tracked[i].Status == AsyncItemStatus.Queued
+                    && state.GroupComparer.Equals(x: this.getGroup(tracked[i].Item.Value), y: group))
+                {
+                    return tracked[i];
+                }
+            }
+
+            return null;
+        }
+
+        /// <summary>
+        ///     The comparer for the group keys. This strategy holds no queue: the queue of the
+        ///     pipeline holds each item, and a group is a test on that queue.
+        /// </summary>
         public sealed class State
         {
-            internal readonly Dictionary<TGroup, GroupState> Groups;
+            internal readonly IEqualityComparer<TGroup> GroupComparer;
 
             public State(IEqualityComparer<TGroup>? groupComparer) =>
-                this.Groups = new Dictionary<TGroup, GroupState>(groupComparer);
-        }
-
-        internal sealed class GroupState
-        {
-            internal readonly Queue<AsyncQueuedItem<TInput>> Pending = new();
-            internal bool Busy;
+                this.GroupComparer = groupComparer ?? EqualityComparer<TGroup>.Default;
         }
     }
 

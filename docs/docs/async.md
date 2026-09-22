@@ -83,6 +83,11 @@ Two boundaries worth knowing, because they decide what "next" means:
 It is a snapshot taken at the start of the transaction, so it does not change while your callback
 runs, and an item your decision promotes still reads as `Queued` in it.
 
+`Queue` and `QueuePerGroup` are written this way: neither keeps a queue in its own state, because
+the pipeline already has one in the right order. `Queue` starts an item when nothing is `Running`
+and, on completion, starts the first item still `Queued`. `QueuePerGroup` does the same test per
+group.
+
 ## Cancellation and status
 
 `MapAsync` takes two optional cancellation streams: `cancelAll`, where any firing cancels
