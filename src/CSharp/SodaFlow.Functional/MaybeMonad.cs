@@ -19,9 +19,8 @@ public static class MaybeMonad
     ///     The <see cref="Maybe{T}" /> value to transform.
     /// </param>
     /// <param name="transformation">
-    ///     The transformation function, which takes a value of type <typeparamref name="T" /> contained in the monad and
-    ///     transforms it
-    ///     into a new monad of type <see cref="Maybe{TResult}" />.
+    ///     The transformation function, which takes a value of type <typeparamref name="T" /> contained in
+    ///     the monad and transforms it into a new monad of type <see cref="Maybe{TResult}" />.
     /// </param>
     /// <typeparam name="T">
     ///     The type of the value contained in the monad to transform.
@@ -71,9 +70,8 @@ public static class MaybeMonad
     ///     The <see cref="Maybe{T}" /> value to transform.
     /// </param>
     /// <param name="transformation">
-    ///     The transformation function, which takes a value of type <typeparamref name="T1" /> contained in the monad and
-    ///     transforms it
-    ///     into a new monad of type <see cref="Maybe{T2}" />.
+    ///     The transformation function, which takes a value of type <typeparamref name="T1" /> contained in
+    ///     the monad and transforms it into a new monad of type <see cref="Maybe{T2}" />.
     /// </param>
     /// <param name="collation">
     ///     The collation function, which takes a value of type <typeparamref name="T1" /> and a value of type
@@ -111,8 +109,8 @@ public static class MaybeMonad
     ///     The <see cref="Maybe{T}" /> value to transform.
     /// </param>
     /// <param name="transformation">
-    ///     The transformation function, which takes a value of type <typeparamref name="T" /> contained in the monad and
-    ///     transforms it into a value of type <typeparamref name="TResult" />.
+    ///     The transformation function, which takes a value of type <typeparamref name="T" /> contained in
+    ///     the monad and transforms it into a value of type <typeparamref name="TResult" />.
     /// </param>
     /// <typeparam name="T">
     ///     The type of the value contained in the monad to transform.
@@ -125,7 +123,7 @@ public static class MaybeMonad
     ///     <paramref name="transformation" />.
     /// </returns>
     /// <remarks>
-    ///     The same operation as <see cref="Maybe{T}.Map{TResult}" />, under the name the compiler
+    ///     The same operation as <see cref="Maybe{T}.Map{TResult}" />, with the name the compiler
     ///     looks for. It is what lets a <see cref="Maybe{T}" /> be the source of a query
     ///     expression, so that <c>from x in m select f(x)</c> compiles.
     /// </remarks>
@@ -153,8 +151,8 @@ public static class MaybeMonad
     /// </returns>
     /// <remarks>
     ///     <paramref name="predicate" /> is run only when there is a value, so this narrows a value
-    ///     which is already there rather than producing one. It is also what lets a query
-    ///     expression over a <see cref="Maybe{T}" /> carry a <c>where</c> clause.
+    ///     which is there, and does not make one. It is also what lets a query
+    ///     expression over a <see cref="Maybe{T}" /> have a <c>where</c> clause.
     /// </remarks>
     public static Maybe<T> Where<T>(
         this Maybe<T> value,

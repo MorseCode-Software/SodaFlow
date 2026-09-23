@@ -10,22 +10,22 @@ using TUnit.Core;
 namespace SodaFlow.Tests.Memory;
 
 /// <summary>
-///     Lifetime tests that run under plain <c>dotnet test</c>.
+///     Lifetime tests that run with plain <c>dotnet test</c>.
 /// </summary>
 /// <remarks>
 ///     <para>
 ///         The tests in <see cref="StreamTests" /> cover the same ground but count live objects with
-///         dotMemory, so they are all <c>[Ignore]</c>d and never run in CI. These assert the same
-///         invariants using only weak references and the node's own listener set, so they actually
-///         guard the cleanup machinery on every build.
+///         dotMemory, so they are all <c>[Ignore]</c>d and never run in CI. These assert the same invariants
+///         using only weak references and the node's own listener set, so they actually guard the cleanup
+///         machinery on each build.
 ///     </para>
 ///     <para>
-///         Two things are deliberately not asserted. First, that a node is still connected immediately
-///         after a collection: <see cref="StreamListenerManager" /> unhooks nodes from a background
-///         thread, so whether that has happened yet is a race. Second, which of the two cleanup paths
-///         did the work - the background thread, or the lazy pruning in <c>Stream.Send</c> when a
-///         target's weak reference has died. What matters is that the node ends up disconnected, so
-///         these tests send a value to force a deterministic outcome and check that.
+///         Two things are deliberately not asserted. First, that a node stays connected immediately after a
+///         collection: <see cref="StreamListenerManager" /> unhooks nodes from a background thread, thus that
+///         is a race. Second, which of the two cleanup paths did the work. That is the background thread, or
+///         the lazy prune in <c>Stream.Send</c> when a weak reference of the target died. What matters is
+///         that the node becomes disconnected, thus these tests send a value to force a deterministic outcome
+///         and check that.
 ///     </para>
 /// </remarks>
 public sealed class GarbageCollectionTests
@@ -63,8 +63,8 @@ public sealed class GarbageCollectionTests
 
         await Assert.That(mapped.IsAlive).IsFalse().Because("the mapped stream should have been collected");
 
-        // Sending is what makes this deterministic: either the cleanup thread already unhooked
-        // the node, or this send prunes the target whose weak reference has died.
+        // Sending is what makes this deterministic. The cleanup thread unhooked
+        // the node, or this send removes the target whose weak reference died.
         s.Send(2);
 
         await Assert.That(s.Node.GetListenersCopy().Count)
@@ -104,9 +104,9 @@ public sealed class GarbageCollectionTests
 
         Collect();
 
-        // This is deliberate, not an oversight: ListenStrong roots the listener in the stream's
-        // keep-alive set precisely so that a caller which ignores the return value still
-        // receives values. Losing this would make listeners silently stop firing.
+        // This is deliberate, and not an oversight. ListenStrong roots the listener in the keep-alive
+        // set of the stream for this cause: a caller that ignores the return value receives values.
+        // Without this, a listener stops to fire with no message.
         await Assert.That(listener.IsAlive)
             .IsTrue()
             .Because("an active listener should stay alive even once the caller drops it");
@@ -140,10 +140,10 @@ public sealed class GarbageCollectionTests
     [Test]
     public async Task CollectedStreamsAreReapedFromTheRegistry()
     {
-        // StreamListenerManager tracks every stream ever created, so if the sweep failed to
-        // reap collected ones the registry would grow without bound. Nothing else here would
-        // notice: the node-level tests above pass either way, because Stream.Send prunes dead
-        // targets on its own.
+        // StreamListenerManager tracks each stream ever created. Thus, a sweep that does not reap the
+        // collected ones lets the registry become larger with no limit. Nothing else here reports that. The
+        // node-level tests above succeed in each condition, because Stream.Send prunes dead targets on
+        // its own.
         Collect();
         StreamListenerManager.Sweep();
         int before = StreamListenerManager.RegistryCount;
@@ -169,10 +169,9 @@ public sealed class GarbageCollectionTests
 
         Collect();
 
-        // The mirror image of ListenerIsKeptAliveWhileStillListening. It shows why ListenOnce
-        // and ListenOnceStrong are two methods. ListenOnce roots nothing, so the listener it
-        // returns is the only thing that holds the handler. A caller which drops it loses that
-        // firing.
+        // The mirror image of ListenerIsKeptAliveWhileStillListening. It shows why ListenOnce and
+        // ListenOnceStrong are two methods. ListenOnce roots nothing, thus the listener from the call
+        // is the only thing that holds the handler. A caller that drops it loses that firing.
         await Assert.That(listener.IsAlive)
             .IsFalse()
             .Because("a weak one-shot listener should be collected once the caller drops it");
@@ -226,8 +225,8 @@ public sealed class GarbageCollectionTests
             .Because("the one firing should have arrived before the listener stopped");
     }
 
-    // Each of these runs in its own non-inlined method so the locals are certainly out of scope
-    // by the time the caller collects, whatever the JIT decides to keep alive.
+    // Each of these runs in its own non-inlined method. Thus, the locals are out of scope before
+    // the caller collects, at each decision the JIT makes about what to keep in memory.
 
     [MethodImpl(MethodImplOptions.NoInlining)]
     private static void CreateGarbageStreams(int count)
@@ -316,12 +315,12 @@ public sealed class GarbageCollectionTests
 
     private static void Collect()
     {
-        // Every generation, and a finalizer pass in between. Stream has no finalizer - this
-        // said it did, which was true when it was written and is not now. The finalizer that
-        // matters is StreamListenerManager's sweep trigger, which asks for a sweep by being
-        // finalized, and these tests do read RegistryCount after a sweep. The generation is the
-        // other half: a promoted object is not seen by a young collection, so a collection meant
-        // to be conclusive has to reach all of them.
+        // Each generation, and a finalizer step in between. Stream has no finalizer. This said it
+        // did, which was true at the time of writing and is not now. The finalizer that matters is
+        // the sweep mechanism of StreamListenerManager, which asks for a sweep when a GC finalizes
+        // it. These tests do read RegistryCount after a sweep. The generation is the other half. A
+        // young collection does not see an object in a higher generation. Thus, a conclusive
+        // collection has to get to all of them.
         GC.Collect();
         GC.WaitForPendingFinalizers();
         GC.Collect();

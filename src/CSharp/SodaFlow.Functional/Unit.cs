@@ -6,7 +6,7 @@ using JetBrains.Annotations;
 namespace SodaFlow.Functional;
 
 /// <summary>
-///     A struct representing the unit type (similar to <code>void</code>).
+///     A struct for the unit type, which is close to <code>void</code>.
 /// </summary>
 [PublicAPI]
 // ReSharper disable once InheritdocConsiderUsage
@@ -19,7 +19,7 @@ public readonly struct Unit
     public static readonly Unit Value;
 
     /// <summary>
-    ///     Determines whether the given object is also a <see cref="Unit" />.
+    ///     Gives true when the given object is also a <see cref="Unit" />.
     /// </summary>
     /// <param name="obj">The object to compare against.</param>
     /// <returns>
@@ -58,7 +58,7 @@ public readonly struct Unit
     /// <summary>
     ///     Returns a hash code for this instance.
     /// </summary>
-    /// <returns>The same constant for every instance, since all of them are equal.</returns>
+    /// <returns>The same constant for each instance, since all of them are equal.</returns>
     public override int GetHashCode() => 1;
 
     int IStructuralEquatable.GetHashCode(IEqualityComparer comparer) => 0;
@@ -68,7 +68,7 @@ public readonly struct Unit
     /// </summary>
     /// <returns>The string representation of this <see cref="Unit" /> instance.</returns>
     /// <remarks>
-    ///     The string returned by this method takes the form <c>()</c>.
+    ///     The string returned by this method has the text <c>()</c>.
     /// </remarks>
     public override string ToString() => "()";
 

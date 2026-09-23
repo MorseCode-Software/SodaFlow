@@ -15,7 +15,7 @@ public class SystemClockTimerSystem : TimerSystem<DateTime>
     ///     time with <see cref="DateTime.Now" />.
     /// </summary>
     /// <param name="handleException">
-    ///     Called with any exception raised while waiting for or firing timers.
+    ///     Called with each exception from a wait for a timer, and from a timer that fires.
     /// </param>
     // ReSharper disable once InheritdocConsiderUsage
     public SystemClockTimerSystem(Action<Exception> handleException)

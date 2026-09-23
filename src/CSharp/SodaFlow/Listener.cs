@@ -5,11 +5,11 @@ using JetBrains.Annotations;
 namespace SodaFlow;
 
 /// <summary>
-///     Empty listeners, and combinators for treating several listeners as one.
+///     Empty listeners, and combinators for treating some listeners as one.
 /// </summary>
 /// <remarks>
-///     The composites returned here unlisten every listener they were built from, so a graph fragment
-///     with several subscriptions can be torn down through a single handle.
+///     Each composite here stops each listener that made it. Thus, one handle releases a part of
+///     the graph with some subscriptions.
 /// </remarks>
 [PublicAPI]
 public static class Listener
@@ -37,26 +37,27 @@ public static class Listener
     public static readonly IStrongListener EmptyStrong = ListenerInternal.EmptyStrongImpl;
 
     /// <summary>
-    ///     Combines several listeners into one which unlistens all of them.
+    ///     Combines some listeners into one which unlistens all of them.
     /// </summary>
-    /// <param name="listeners">The listeners to combine.</param>
+    /// <param name="listeners">The listeners to put together.</param>
     /// <returns>
-    ///     A listener whose <see cref="IListener.Unlisten" /> unlistens every listener in
+    ///     A listener whose <see cref="IListener.Unlisten" /> unlistens each listener in
     ///     <paramref name="listeners" />.
     /// </returns>
     /// <remarks>
-    ///     The list is captured when the composite is created; later changes to it are not seen.
+    ///     This code reads the list at the construction of the composite. A subsequent change to the list has
+    ///     no effect.
     /// </remarks>
     [MethodImpl(MethodImplOptions.NoInlining)]
     public static IListener CreateComposite(IReadOnlyList<IListener> listeners) =>
         ListenerInternal.CreateCompositeImpl(listeners);
 
     /// <summary>
-    ///     Combines several weak listeners into one weak listener which unlistens all of them.
+    ///     Combines some weak listeners into one weak listener which unlistens all of them.
     /// </summary>
-    /// <param name="listeners">The listeners to combine.</param>
+    /// <param name="listeners">The listeners to put together.</param>
     /// <returns>
-    ///     An <see cref="IWeakListener" /> whose <see cref="IListener.Unlisten" /> unlistens every
+    ///     An <see cref="IWeakListener" /> whose <see cref="IListener.Unlisten" /> unlistens each
     ///     listener in <paramref name="listeners" />.
     /// </returns>
     /// <remarks>
@@ -67,54 +68,54 @@ public static class Listener
         ListenerInternal.CreateWeakCompositeImpl(listeners);
 
     /// <summary>
-    ///     Combines several strong listeners into one strong listener which unlistens all of them.
+    ///     Combines some strong listeners into one strong listener which unlistens all of them.
     /// </summary>
-    /// <param name="listeners">The listeners to combine.</param>
+    /// <param name="listeners">The listeners to put together.</param>
     /// <returns>
-    ///     An <see cref="IStrongListener" /> whose <see cref="IListener.Unlisten" /> unlistens every
-    ///     listener in <paramref name="listeners" />, and which may be disposed to the same effect.
+    ///     An <see cref="IStrongListener" /> whose <see cref="IListener.Unlisten" /> unlistens each
+    ///     listener in <paramref name="listeners" />, and a disposal does the same.
     /// </returns>
     /// <remarks>
-    ///     Like the listeners it combines, the result keeps the observed streams alive until it is
-    ///     unlistened or disposed.
+    ///     As the listeners in it do, the result keeps the monitored streams in memory until a call
+    ///     stops it, or a disposal stops it.
     /// </remarks>
     [MethodImpl(MethodImplOptions.NoInlining)]
     public static IStrongListener CreateStrongComposite(IReadOnlyList<IStrongListener> listeners) =>
         ListenerInternal.CreateStrongCompositeImpl(listeners);
 
     /// <summary>
-    ///     Combines two listeners into one which unlistens both.
+    ///     Combines two listeners into one which unlistens the two.
     /// </summary>
     /// <param name="listener1">The first listener.</param>
     /// <param name="listener2">The second listener.</param>
-    /// <returns>A listener which unlistens both of the given listeners.</returns>
+    /// <returns>A listener which unlistens the two given listeners.</returns>
     /// <remarks>
-    ///     A convenience over <see cref="CreateComposite" /> for the two-listener case.
+    ///     A convenience over <see cref="CreateComposite" /> for two listeners.
     /// </remarks>
     public static IListener Append(IListener listener1, IListener listener2) => CreateComposite([listener1, listener2]);
 
     /// <summary>
-    ///     Combines two weak listeners into one weak listener which unlistens both.
+    ///     Combines two weak listeners into one weak listener which unlistens the two.
     /// </summary>
     /// <param name="listener1">The first listener.</param>
     /// <param name="listener2">The second listener.</param>
-    /// <returns>An <see cref="IWeakListener" /> which unlistens both of the given listeners.</returns>
+    /// <returns>An <see cref="IWeakListener" /> which unlistens the two given listeners.</returns>
     /// <remarks>
-    ///     Named differently from <see cref="Append(IListener, IListener)" /> because
-    ///     <see cref="IWeakListener" /> and <see cref="IListener" /> would otherwise give two
-    ///     overloads that a pair of weak listeners could match either of.
+    ///     This has a different name from <see cref="Append(IListener, IListener)" />, because
+    ///     <see cref="IWeakListener" /> and <see cref="IListener" /> give two overloads, and a pair
+    ///     of weak listeners matches one of them.
     /// </remarks>
     public static IWeakListener AppendWeak(IWeakListener listener1, IWeakListener listener2) =>
         CreateWeakComposite([listener1, listener2]);
 
     /// <summary>
-    ///     Combines two strong listeners into one strong listener which unlistens both.
+    ///     Combines two strong listeners into one strong listener which unlistens the two.
     /// </summary>
     /// <param name="listener1">The first listener.</param>
     /// <param name="listener2">The second listener.</param>
     /// <returns>
-    ///     An <see cref="IStrongListener" /> which unlistens both of the given listeners, and which
-    ///     may be disposed to the same effect.
+    ///     An <see cref="IStrongListener" /> which unlistens the two given listeners, and which
+    ///     A disposal does the same.
     /// </returns>
     public static IStrongListener Append(IStrongListener listener1, IStrongListener listener2) =>
         CreateStrongComposite([listener1, listener2]);

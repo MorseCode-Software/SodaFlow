@@ -52,7 +52,7 @@ public sealed class ForwardReferenceTests
     [Test]
     public async Task TestWithoutCapturesReferenceNeverChanges()
     {
-        // The single-valued case of a cell loop: the reference resolves once and stays there.
+        // The cell loop with one value. The reference resolves one time and stays.
         Node node =
             ForwardReference<Node>.WithoutCaptures(static reference => Node.WithChildHolding(reference.AsCell()));
 
@@ -94,7 +94,8 @@ public sealed class ForwardReferenceTests
     [Test]
     public async Task TestTwoObjectsCanReferToEachOther()
     {
-        // Neither exists when the other is constructed, which is the knot this unties.
+        // At the construction of each one, the other one is not available. This is the cycle that
+        // this code breaks.
         (Node node, Child child) =
             ForwardReference<Node>.WithCaptures(static reference =>
             {
@@ -118,8 +119,8 @@ public sealed class ForwardReferenceTests
 
     [Test]
     public async Task TestReferenceCannotBeReadDuringConstruction() =>
-        // The reference is a promise about what the value will be, not the value, so asking
-        // for it before the constructing function has returned has no answer.
+        // The reference is a promise about the value, and not the value. A read of it before the
+        // construction function returns has no answer.
         await Assert.That(static () =>
                 // ReSharper disable once ReturnValueOfPureMethodIsNotUsed - Testing for side effect only.
                 ForwardReference<int>.WithoutCaptures(static reference => reference.Sample()))

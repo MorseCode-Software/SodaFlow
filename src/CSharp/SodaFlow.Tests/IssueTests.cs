@@ -24,7 +24,7 @@ public sealed class IssueTests
             {
                 StreamLoop<int> submitPooledAmount = new();
 
-                // Ways that the pool is modified.
+                // The ways to change the pool.
                 Stream<Func<int, int>> poolAddByInput = addPoolSink.Map(static i => (Func<int, int>)(x => x + i));
 
                 Stream<Func<int, int>>
@@ -85,7 +85,7 @@ public sealed class IssueTests
             {
                 StreamLoop<int> submitPooledAmount = new();
 
-                // Ways that the pool is modified.
+                // The ways to change the pool.
                 Stream<Func<int, int>> poolAddByInput = addPoolSink.Map(static i => (Func<int, int>)(x => x + i));
 
                 Stream<Func<int, int>> poolRemoveByUsage =
@@ -130,8 +130,8 @@ public sealed class IssueTests
 
         using (input.ListenStrong(submissions.Add))
         {
-            // Add amount which can be immediately used based on threshold.
-            // Pool should remain zero after the transaction is complete.
+            // The quantity to add, which the code can use immediately with the threshold.
+            // Pool must stay at zero after the transaction completes.
             addPoolSink.Send(10);
         }
 
