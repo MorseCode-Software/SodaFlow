@@ -26,17 +26,17 @@ public static class BehaviorExtensionMethods
     /// <returns>The current value of the behavior.</returns>
     /// <remarks>
     ///     <para>
-    ///         The functions that the primitives give to a stream can call this method. There it is the
-    ///         same as a snapshot of the behavior. Those primitives are
-    ///         <see cref="StreamExtensionMethods.Map{T, TResult}(Stream{T}, Func{T,TResult})" />,
+    ///         The functions that the primitives give to a stream can call this method. Those primitives are
+    ///         <see cref="StreamExtensionMethods.Map{T, TResult}(Stream{T}, Func{T,TResult})" />, where a call
+    ///         here is the same as a snapshot of the behavior,
     ///         <see cref=" StreamExtensionMethods.Snapshot{T, T2, TResult}(Stream{T}, Behavior{T2}, Func{T, T2, TResult})" />,
     ///         <see cref="StreamExtensionMethods.Filter{T}(Stream{T}, Func{T, bool})" />, and
     ///         <see cref="StreamExtensionMethods.Merge{T}(Stream{T}, Stream{T}, Func{T, T, T})" />.
     ///     </para>
     ///     <para>
     ///         It can be best to use this method in an explicit transaction (using
-    ///         <see cref="Transaction.Run{T}(Func{T})" /> or <see cref="Transaction.RunVoid(Action)" />).
-    ///         For example, a b.Sample() in an explicit transaction, with a b.Updates().ListenStrong(...),
+    ///         <see cref="Transaction.Run{T}(Func{T})" /> or <see cref="Transaction.RunVoid(Action)" />). For
+    ///         example, a b.Sample() in an explicit transaction, with a b.Updates().ListenStrong(...),
     ///         captures the current value and each update. The code keeps each value between the two.
     ///     </para>
     /// </remarks>
@@ -76,12 +76,17 @@ public static class BehaviorExtensionMethods
     /// <summary>
     ///     Lift a binary function into behaviors, so the returned behavior always reflects the specified
     ///     function applied to the input behaviors' values.
-    /// </summary> <typeparam name="T">The type of the behavior.</typeparam> <typeparam name="T2">The type
-    /// of second behavior.</typeparam> <typeparam name="TResult">The type of the result.</typeparam>
-    /// <param name="b">The behavior.</param> <param name="b2">The second behavior.</param>
-    /// <param name="f">The binary function to lift into the behaviors.</param> <returns>A behavior
-    /// containing values resulting from the binary function applied to the input behaviors'
-    /// values.</returns>
+    /// </summary>
+    /// <typeparam name="T">The type of the behavior.</typeparam>
+    /// <typeparam name="T2">The type of second behavior.</typeparam>
+    /// <typeparam name="TResult">The type of the result.</typeparam>
+    /// <param name="b">The behavior.</param>
+    /// <param name="b2">The second behavior.</param>
+    /// <param name="f">The binary function to lift into the behaviors.</param>
+    /// <returns>
+    ///     A behavior containing values resulting from the binary function applied to the input behaviors'
+    ///     values.
+    /// </returns>
     [MethodImpl(MethodImplOptions.NoInlining)]
     public static Behavior<TResult> Lift<T, T2, TResult>(
         this Behavior<T> b,
@@ -92,12 +97,19 @@ public static class BehaviorExtensionMethods
     /// <summary>
     ///     Lift a ternary function into behaviors, so the returned behavior always reflects the specified
     ///     function applied to the input behaviors' values.
-    /// </summary> <typeparam name="T">The type of the behavior.</typeparam> <typeparam name="T2">The type of
-    /// second behavior.</typeparam> <typeparam name="T3">The type of third behavior.</typeparam>
-    /// <typeparam name="TResult">The type of the result.</typeparam> <param name="b">The behavior.</param>
-    /// <param name="b2">The second behavior.</param> <param name="b3">The third behavior.</param>
-    /// <param name="f">The binary function to lift into the behaviors.</param> <returns>A behavior containing
-    /// values resulting from the ternary function applied to the input behaviors' values.</returns>
+    /// </summary>
+    /// <typeparam name="T">The type of the behavior.</typeparam>
+    /// <typeparam name="T2">The type of second behavior.</typeparam>
+    /// <typeparam name="T3">The type of third behavior.</typeparam>
+    /// <typeparam name="TResult">The type of the result.</typeparam>
+    /// <param name="b">The behavior.</param>
+    /// <param name="b2">The second behavior.</param>
+    /// <param name="b3">The third behavior.</param>
+    /// <param name="f">The binary function to lift into the behaviors.</param>
+    /// <returns>
+    ///     A behavior containing values resulting from the ternary function applied to the input behaviors'
+    ///     values.
+    /// </returns>
     [MethodImpl(MethodImplOptions.NoInlining)]
     public static Behavior<TResult> Lift<T, T2, T3, TResult>(
         this Behavior<T> b,
@@ -109,14 +121,21 @@ public static class BehaviorExtensionMethods
     /// <summary>
     ///     Lift a quaternary function into behaviors, so the returned behavior always reflects the specified
     ///     function applied to the input behaviors' values.
-    /// </summary> <typeparam name="T">The type of the behavior.</typeparam> <typeparam name="T2">The type
-    /// of second behavior.</typeparam> <typeparam name="T3">The type of third behavior.</typeparam>
-    /// <typeparam name="T4">The type of fourth behavior.</typeparam> <typeparam name="TResult">The type of
-    /// the result.</typeparam> <param name="b">The behavior.</param> <param name="b2">The second
-    /// behavior.</param> <param name="b3">The third behavior.</param> <param name="b4">The fourth
-    /// behavior.</param> <param name="f">The binary function to lift into the behaviors.</param> <returns>A
-    /// behavior containing values resulting from the quaternary function applied to the input behaviors'
-    /// values.</returns>
+    /// </summary>
+    /// <typeparam name="T">The type of the behavior.</typeparam>
+    /// <typeparam name="T2">The type of second behavior.</typeparam>
+    /// <typeparam name="T3">The type of third behavior.</typeparam>
+    /// <typeparam name="T4">The type of fourth behavior.</typeparam>
+    /// <typeparam name="TResult">The type of the result.</typeparam>
+    /// <param name="b">The behavior.</param>
+    /// <param name="b2">The second behavior.</param>
+    /// <param name="b3">The third behavior.</param>
+    /// <param name="b4">The fourth behavior.</param>
+    /// <param name="f">The binary function to lift into the behaviors.</param>
+    /// <returns>
+    ///     A behavior containing values resulting from the quaternary function applied to the input
+    ///     behaviors' values.
+    /// </returns>
     [MethodImpl(MethodImplOptions.NoInlining)]
     public static Behavior<TResult> Lift<T, T2, T3, T4, TResult>(
         this Behavior<T> b,
@@ -129,15 +148,23 @@ public static class BehaviorExtensionMethods
     /// <summary>
     ///     Lift a 5-argument function into behaviors, so the returned behavior always reflects the specified
     ///     function applied to the input behaviors' values.
-    /// </summary> <typeparam name="T">The type of the behavior.</typeparam> <typeparam name="T2">The type
-    /// of second behavior.</typeparam> <typeparam name="T3">The type of third behavior.</typeparam>
-    /// <typeparam name="T4">The type of fourth behavior.</typeparam> <typeparam name="T5">The type of fifth
-    /// behavior.</typeparam> <typeparam name="TResult">The type of the result.</typeparam>
-    /// <param name="b">The behavior.</param> <param name="b2">The second behavior.</param>
-    /// <param name="b3">The third behavior.</param> <param name="b4">The fourth behavior.</param>
-    /// <param name="b5">The fifth behavior.</param> <param name="f">The binary function to lift into the
-    /// behaviors.</param> <returns>A behavior containing values resulting from the 5-argument function
-    /// applied to the input behaviors' values.</returns>
+    /// </summary>
+    /// <typeparam name="T">The type of the behavior.</typeparam>
+    /// <typeparam name="T2">The type of second behavior.</typeparam>
+    /// <typeparam name="T3">The type of third behavior.</typeparam>
+    /// <typeparam name="T4">The type of fourth behavior.</typeparam>
+    /// <typeparam name="T5">The type of fifth behavior.</typeparam>
+    /// <typeparam name="TResult">The type of the result.</typeparam>
+    /// <param name="b">The behavior.</param>
+    /// <param name="b2">The second behavior.</param>
+    /// <param name="b3">The third behavior.</param>
+    /// <param name="b4">The fourth behavior.</param>
+    /// <param name="b5">The fifth behavior.</param>
+    /// <param name="f">The binary function to lift into the behaviors.</param>
+    /// <returns>
+    ///     A behavior containing values resulting from the 5-argument function applied to the input
+    ///     behaviors' values.
+    /// </returns>
     [MethodImpl(MethodImplOptions.NoInlining)]
     public static Behavior<TResult> Lift<T, T2, T3, T4, T5, TResult>(
         this Behavior<T> b,
@@ -151,16 +178,25 @@ public static class BehaviorExtensionMethods
     /// <summary>
     ///     Lift a 6-argument function into behaviors, so the returned behavior always reflects the specified
     ///     function applied to the input behaviors' values.
-    /// </summary> <typeparam name="T">The type of the behavior.</typeparam> <typeparam name="T2">The
-    /// type of second behavior.</typeparam> <typeparam name="T3">The type of third behavior.</typeparam>
-    /// <typeparam name="T4">The type of fourth behavior.</typeparam> <typeparam name="T5">The type of
-    /// fifth behavior.</typeparam> <typeparam name="T6">The type of sixth behavior.</typeparam>
-    /// <typeparam name="TResult">The type of the result.</typeparam> <param name="b">The
-    /// behavior.</param> <param name="b2">The second behavior.</param> <param name="b3">The third
-    /// behavior.</param> <param name="b4">The fourth behavior.</param> <param name="b5">The fifth
-    /// behavior.</param> <param name="b6">The sixth behavior.</param> <param name="f">The binary
-    /// function to lift into the behaviors.</param> <returns>A behavior containing values resulting from
-    /// the 6-argument function applied to the input behaviors' values.</returns>
+    /// </summary>
+    /// <typeparam name="T">The type of the behavior.</typeparam>
+    /// <typeparam name="T2">The type of second behavior.</typeparam>
+    /// <typeparam name="T3">The type of third behavior.</typeparam>
+    /// <typeparam name="T4">The type of fourth behavior.</typeparam>
+    /// <typeparam name="T5">The type of fifth behavior.</typeparam>
+    /// <typeparam name="T6">The type of sixth behavior.</typeparam>
+    /// <typeparam name="TResult">The type of the result.</typeparam>
+    /// <param name="b">The behavior.</param>
+    /// <param name="b2">The second behavior.</param>
+    /// <param name="b3">The third behavior.</param>
+    /// <param name="b4">The fourth behavior.</param>
+    /// <param name="b5">The fifth behavior.</param>
+    /// <param name="b6">The sixth behavior.</param>
+    /// <param name="f">The binary function to lift into the behaviors.</param>
+    /// <returns>
+    ///     A behavior containing values resulting from the 6-argument function applied to the input
+    ///     behaviors' values.
+    /// </returns>
     [MethodImpl(MethodImplOptions.NoInlining)]
     public static Behavior<TResult> Lift<T, T2, T3, T4, T5, T6, TResult>(
         this Behavior<T> b,
@@ -217,13 +253,16 @@ public static class BehaviorExtensionMethods
     public static Stream<T> SwitchS<T>(this Behavior<Stream<T>> bsa) => bsa.SwitchSImpl<T, Stream<T>>();
 
     /// <summary>
-    ///     Lift a function into a collection of behaviors, so the returned behavior always reflects the specified
-    ///     function applied to the input behaviors' values.
+    ///     Lift a function into a collection of behaviors, so the returned behavior always reflects the
+    ///     specified function applied to the input behaviors' values.
     /// </summary>
-    /// <typeparam name="T">The type of the behaviors.</typeparam> <typeparam name="TResult">The type of the
-    /// result.</typeparam> <param name="b">The collection of behaviors.</param> <param name="f">The binary
-    /// function to lift into the behaviors.</param> <returns>A behavior containing values resulting from the
-    /// function applied to the input behaviors' values.</returns>
+    /// <typeparam name="T">The type of the behaviors.</typeparam>
+    /// <typeparam name="TResult">The type of the result.</typeparam>
+    /// <param name="b">The collection of behaviors.</param>
+    /// <param name="f">The binary function to lift into the behaviors.</param>
+    /// <returns>
+    ///     A behavior containing values resulting from the function applied to the input behaviors' values.
+    /// </returns>
     [MethodImpl(MethodImplOptions.NoInlining)]
     public static Behavior<TResult> Lift<T, TResult>(
         this IEnumerable<Behavior<T>> b,
@@ -234,10 +273,13 @@ public static class BehaviorExtensionMethods
     ///     Lift a function into a collection of behaviors, so the returned behavior always reflects the
     ///     specified function applied to the input behaviors' values.
     /// </summary>
-    /// <typeparam name="T">The type of the behaviors.</typeparam> <typeparam name="TResult">The type of the
-    /// result.</typeparam> <param name="b">The collection of behaviors.</param> <param name="f">The binary
-    /// function to lift into the behaviors.</param> <returns>A behavior containing values resulting from the
-    /// function applied to the input behaviors' values.</returns>
+    /// <typeparam name="T">The type of the behaviors.</typeparam>
+    /// <typeparam name="TResult">The type of the result.</typeparam>
+    /// <param name="b">The collection of behaviors.</param>
+    /// <param name="f">The binary function to lift into the behaviors.</param>
+    /// <returns>
+    ///     A behavior containing values resulting from the function applied to the input behaviors' values.
+    /// </returns>
     [MethodImpl(MethodImplOptions.NoInlining)]
     public static Behavior<TResult> Lift<T, TResult>(
         this IReadOnlyCollection<Behavior<T>> b,

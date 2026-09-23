@@ -151,8 +151,8 @@ public sealed class CalmTests
     // the same value at the next firing.
     //
     // The throw has to occur downstream of Calm, and not before the send operation, because sends
-    // go in the queue. An exception before the drain aborts the transaction without
-    // the handler of Calm ever runs, which cannot tell the two designs apart.
+    // go in the queue. An exception before the drain aborts the transaction, and the handler of
+    // Calm never runs. That cannot tell the two designs apart.
     [Test]
     public async Task AFailedTransactionDoesNotCommitTheRememberedValue()
     {

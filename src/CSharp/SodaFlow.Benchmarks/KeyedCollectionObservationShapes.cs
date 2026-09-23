@@ -77,14 +77,14 @@ internal enum ObservationStyle
 /// </summary>
 /// <remarks>
 ///     <para>
-///         The view is a filter over a sort. That is the configuration that makes the question
-///         interesting. Membership can change with no change to an observed item, and the order can
-///         change with no change to the membership. An observer that watches the keys of the view wakes for
-///         the two. One that watches its own item wakes for no key.
+///         The view is a filter over a sort. That is the configuration that makes the question interesting.
+///         Membership can change with no change to an observed item, and the order can change with no change
+///         to the membership. An observer that watches the keys of the view wakes for the two. One that
+///         watches its own item wakes for no key.
 ///     </para>
 ///     <para>
-///         Each style observes the same keys and each one holds its listeners, because a cell
-///         nobody listens to is never evaluated and measures nothing.
+///         Each style observes the same keys and each one holds its listeners, because a cell nobody listens
+///         to is never evaluated and measures nothing.
 ///     </para>
 /// </remarks>
 internal sealed class ObservationShape

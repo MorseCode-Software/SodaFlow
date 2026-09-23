@@ -7,28 +7,27 @@ using SodaFlow.Bindable.ObjectModel;
 namespace SodaFlow.Benchmarks;
 
 /// <summary>
-///     What it costs to send one update from the graph to a bound property. It also gives how much of
-///     that is the two-way value sampling its cell.
+///     What it costs to send one update from the graph to a bound property. It also gives how much of that is
+///     the two-way value sampling its cell.
 /// </summary>
 /// <remarks>
 ///     <para>
-///         The two-way value wrote back the value that the update carried. It now samples the cell,
-///         thus a late update cannot put a stale value on the screen. A sample out of a transaction
-///         opens one, and a transaction takes a process-wide lock. Thus, the change has a cost, and
-///         the question of how much it costs is a fair one.
+///         The two-way value wrote back the value that the update carried. It now samples the cell, thus a
+///         late update cannot put a stale value on the screen. A sample out of a transaction opens one, and a
+///         transaction takes a process-wide lock. Thus, the change has a cost, and the question of how much
+///         it costs is a fair one.
 ///     </para>
 ///     <para>
 ///         The scheduler here queues, and other code drains it explicitly, which is what a dispatcher does
-///         and is the condition that matters. The work goes in the queue in a transaction and runs at
-///         its end, with no transaction in flight. Thus, the sample has to open its own. With
-///         <see cref="ImmediateBindingScheduler" /> the refresh runs while the sending
-///         transaction is open and joins it, which has a lower cost and flatters
-///         the numbers.
+///         and is the condition that matters. The work goes in the queue in a transaction and runs at its
+///         end, with no transaction in flight. Thus, the sample has to open its own. With
+///         <see cref="ImmediateBindingScheduler" /> the refresh runs while the sending transaction is open
+///         and joins it, which has a lower cost and flatters the numbers.
 ///     </para>
 ///     <para>
-///         One-way values are the contrast and not a control. They were not changed, and they
-///         write back the value the update carried, thus the difference between the two is what a sample
-///         costs. Most bindings are one-way, and pay none of this.
+///         One-way values are the contrast and not a control. They were not changed, and they write back the
+///         value the update carried, thus the difference between the two is what a sample costs. Most
+///         bindings are one-way, and pay none of this.
 ///     </para>
 /// </remarks>
 [MemoryDiagnoser]

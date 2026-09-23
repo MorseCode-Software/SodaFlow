@@ -8,41 +8,38 @@ using JetBrains.Annotations;
 namespace SodaFlow.Benchmarks;
 
 /// <summary>
-///     What it costs to keep a filtered, sorted, windowed view of a collection up to date as the
-///     collection changes. It compares a full re-derivation at each change against a chain of
-///     stages that adjust.
+///     What it costs to keep a filtered, sorted, windowed view of a collection up to date as the collection
+///     changes. It compares a full re-derivation at each change against a chain of stages that adjust.
 /// </summary>
 /// <remarks>
 ///     <para>
-///         The view is the same in the two. It holds the unfrozen items with a score at a threshold or
-///         above it, in order by score descending, and the first twenty of those. The setup checks
-///         that the two give the same keys before it times the two.
+///         The view is the same in the two. It holds the unfrozen items with a score at a threshold or above
+///         it, in order by score descending, and the first twenty of those. The setup checks that the two
+///         give the same keys before it times the two.
 ///     </para>
 ///     <para>
 ///         This measures three things, and they do not all point in the same direction.
 ///     </para>
 ///     <para>
-///         An <b>edit</b> is where the chain must win, and win by more as the collection grows.
-///         Re-deriving sorts everything that passed the filter, thus it is <c>O(n log n)</c> in the
-///         collection. The chain files one key again in one sorted set, which is <c>O(log n)</c>, and then
-///         re-windows twenty.
+///         An <b>edit</b> is where the chain must win, and win by more as the collection grows. Re-deriving
+///         sorts everything that passed the filter, thus it is <c>O(n log n)</c> in the collection. The chain
+///         files one key again in one sorted set, which is <c>O(log n)</c>, and then re-windows twenty.
 ///     </para>
 ///     <para>
-///         An <b>add and remove</b> is the same story for structural change, and this benchmark is
-///         what made it true. The identity map in <c>CollectionSnapshot</c> was a plain dictionary,
-///         which makes its next version only with a copy. Thus, a structural edit was <c>O(n)</c>, at
-///         each cost of the change in the stages below it. That showed here as a chain that won by
-///         less as the collection grew, and not by more. The map is a trie now,
-///         and this is flat.
+///         An <b>add and remove</b> is the same story for structural change, and this benchmark is what made
+///         it true. The identity map in <c>CollectionSnapshot</c> was a plain dictionary, which makes its
+///         next version only with a copy. Thus, a structural edit was <c>O(n)</c>, and a low cost for the
+///         change in the stages below it made no difference. That showed here as a chain that won by less as
+///         the collection grew, and not by more. The map is a trie now, and this is flat.
 ///     </para>
 ///     <para>
-///         A <b>threshold change</b> is the condition the chain loses. A change to a criteria rebuilds
-///         that stage and each stage below it. A rebuild files each surviving key into a new ordered
-///         set. Where a re-derivation sorts an array, the chain builds a tree that stays. That costs
-///         an allocation for each node, where the sort costs none. The two are Θ(n), thus parity is
-///         the ceiling and this does not get to it. This measures it for this cause. It does not
-///         flatter this code. It is also the number to show a reader who asks why to debounce a
-///         search box, and not to filter at each keystroke.
+///         A <b>threshold change</b> is the condition the chain loses. A change to a criteria rebuilds that
+///         stage and each stage below it. A rebuild files each surviving key into a new ordered set. Where a
+///         re-derivation sorts an array, the chain builds a tree that stays. That costs an allocation for
+///         each node, where the sort costs none. The two are Θ(n), thus parity is the ceiling and this does
+///         not get to it. This measures it for this cause. It does not flatter this code. It is also the
+///         number to show a reader who asks why to debounce a search box, and not to filter at each
+///         keystroke.
 ///     </para>
 /// </remarks>
 [MemoryDiagnoser]
@@ -96,7 +93,7 @@ public class KeyedCollectionViewBenchmarks
     /// <summary>
     ///     Scored to the top of the range, thus the added item enters the window. Each stage of the
     ///     chain then has to do something about it. Scored below the threshold, the filter drops it,
-    ///     and the sort and the window never see it. Those measure a chain that refuses the work, and
+    ///     and the sort and the window never see it. That measures a chain that refuses the work, and
     ///     not a chain that does it.
     /// </summary>
     private static ItemState AddedState => new(name: "added", score: int.MaxValue, isFrozen: false);
@@ -202,8 +199,8 @@ public class KeyedCollectionViewBenchmarks
         this.selectiveByState.Replace(key: ExcludedKey, state: this.NextExcludedState());
 
     /// <summary>
-    ///     The same edit, against a filter that selects from the identity, which cannot
-    ///     changed, thus one index lookup that misses gives the answer.
+    ///     The same edit, against a filter that selects from the identity, which does not change. Thus,
+    ///     one index lookup that misses gives the answer.
     /// </summary>
     [Benchmark(Description = "edit an excluded item, identity filter")]
     public void EditExcludedByIdentity() =>
@@ -261,8 +258,8 @@ public class KeyedCollectionViewBenchmarks
     }
 
     /// <summary>
-    ///     Two thresholds, alternating, the two low, thus the filter passes almost
-    ///     everything, thus this measures the rebuild and not an empty collection.
+    ///     Two thresholds, alternating, and the two are sufficiently low. Thus, the filter passes almost
+    ///     everything, and this measures the rebuild and not an empty collection.
     /// </summary>
     private int NextThreshold()
     {

@@ -15,17 +15,17 @@ namespace SodaFlow.Tests.Memory;
 /// <remarks>
 ///     <para>
 ///         The tests in <see cref="StreamTests" /> cover the same ground but count live objects with
-///         dotMemory, so they are all <c>[Ignore]</c>d and never run in CI. These assert the same
-///         invariants using only weak references and the node's own listener set, so they actually
-///         guard the cleanup machinery on each build.
+///         dotMemory, so they are all <c>[Ignore]</c>d and never run in CI. These assert the same invariants
+///         using only weak references and the node's own listener set, so they actually guard the cleanup
+///         machinery on each build.
 ///     </para>
 ///     <para>
-///         Two things are deliberately not asserted. First, that a node stays connected immediately
-///         after a collection: <see cref="StreamListenerManager" /> unhooks nodes from a background
-///         thread, thus that is a race. Second, which of the two cleanup paths did the work. That is
-///         the background thread, or the lazy prune in <c>Stream.Send</c> when a weak reference of the
-///         target died. What matters is that the node becomes disconnected, thus
-///         these tests send a value to force a deterministic outcome and check that.
+///         Two things are deliberately not asserted. First, that a node stays connected immediately after a
+///         collection: <see cref="StreamListenerManager" /> unhooks nodes from a background thread, thus that
+///         is a race. Second, which of the two cleanup paths did the work. That is the background thread, or
+///         the lazy prune in <c>Stream.Send</c> when a weak reference of the target died. What matters is
+///         that the node becomes disconnected, thus these tests send a value to force a deterministic outcome
+///         and check that.
 ///     </para>
 /// </remarks>
 public sealed class GarbageCollectionTests
@@ -140,10 +140,10 @@ public sealed class GarbageCollectionTests
     [Test]
     public async Task CollectedStreamsAreReapedFromTheRegistry()
     {
-        // StreamListenerManager tracks each stream ever created, thus when the sweep did not
-        // reap collected ones the registry grows with no limit. Nothing else here
-        // notice: the node-level tests above succeed in each condition, because Stream.Send prunes dead
-        // targets on its own.
+        // StreamListenerManager tracks each stream ever created. Thus, a sweep that does not reap the
+        // collected ones lets the registry become larger with no limit. Nothing else here reports that. The
+        // node-level tests above succeed in each condition, because Stream.Send prunes dead targets on
+        // its own.
         Collect();
         StreamListenerManager.Sweep();
         int before = StreamListenerManager.RegistryCount;
@@ -169,10 +169,9 @@ public sealed class GarbageCollectionTests
 
         Collect();
 
-        // The mirror image of ListenerIsKeptAliveWhileStillListening. It shows why ListenOnce
-        // and ListenOnceStrong are two methods. ListenOnce roots nothing, so the listener it
-        // returns is the only thing that holds the handler. A caller which drops it loses that
-        // firing.
+        // The mirror image of ListenerIsKeptAliveWhileStillListening. It shows why ListenOnce and
+        // ListenOnceStrong are two methods. ListenOnce roots nothing, thus the listener from the call
+        // is the only thing that holds the handler. A caller that drops it loses that firing.
         await Assert.That(listener.IsAlive)
             .IsFalse()
             .Because("a weak one-shot listener should be collected once the caller drops it");

@@ -9,21 +9,20 @@ namespace SodaFlow.Benchmarks;
 /// </summary>
 /// <remarks>
 ///     <para>
-///         Unlike a view, an aggregate genuinely depends on each item, so there is no window to
-///         hide behind. There is also no configuration where the answer is cheap to make from scratch. The
-///         difference is if the code makes it from scratch.
+///         Unlike a view, an aggregate genuinely depends on each item, so there is no window to hide behind.
+///         There is also no configuration where the answer is cheap to make from scratch. The difference is
+///         if the code makes it from scratch.
 ///     </para>
 ///     <para>
-///         The naive shape reads the full store on each edit. That is what a <c>Map</c> over the
-///         snapshot cell gives, and what most readers write first. The incremental shape folds the
-///         change stream. An edit carries the keys that changed and their new states, and the
-///         snapshot the transaction started from holds the previous ones. Thus, the delta costs one
-///         subtraction and one sum for each changed key, at each size of the collection.
+///         The naive shape reads the full store on each edit. That is what a <c>Map</c> over the snapshot
+///         cell gives, and what most readers write first. The incremental shape folds the change stream. An
+///         edit carries the keys that changed and their new states, and the snapshot the transaction started
+///         from holds the previous ones. Thus, the delta costs one subtraction and one sum for each changed
+///         key, at each size of the collection.
 ///     </para>
 ///     <para>
-///         The setup checks the two against each other, and again after an edit. A
-///         total that drifts is the defect this shape invites. A total that drifts has
-///         no lower cost than a correct one.
+///         The setup checks the two against each other, and again after an edit. A total that drifts is the
+///         defect this shape invites. A total that drifts has no lower cost than a correct one.
 ///     </para>
 /// </remarks>
 file interface IKeyedAggregateShape

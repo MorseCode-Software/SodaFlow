@@ -5,23 +5,23 @@ using JetBrains.Annotations;
 namespace SodaFlow.Benchmarks;
 
 /// <summary>
-///     What a per-item observer costs, which changes with what it is bound to. It also gives the
-///     cost when an observer through a view answered for the view, and not for the collection.
+///     What a per-item observer costs, which changes with what it is bound to. It also gives the cost when an
+///     observer through a view answered for the view, and not for the collection.
 /// </summary>
 /// <remarks>
 ///     <para>
-///         <c>StateCell</c> on a filtered view currently hands back the collection's own cell, so a
-///         key the filter excluded keeps its state. That is the last thing a view exposes that
-///         is not the view's own, and the decision to close it is open. A closed decision makes the
-///         cell of a view the cell of the collection, lifted against the membership of that view.
-///         The cost of that is what this measures, before the decision and not after it.
+///         <c>StateCell</c> on a filtered view currently hands back the collection's own cell, so a key the
+///         filter excluded keeps its state. That is the last thing a view exposes that is not the view's own,
+///         and the decision to close it is open. A closed decision makes the cell of a view the cell of the
+///         collection, lifted against the membership of that view. The cost of that is what this measures,
+///         before the decision and not after it.
 ///     </para>
 ///     <para>
 ///         The arm to monitor is the last pair. An observer bound to its own item wakes when that item
-///         changes. One lifted against the keys of a view wakes at each move of what the view holds.
-///         The keys of a view are one cell, and a reorder replaces it. Thus, twenty observers wake
-///         for an edit to an item that none of them monitor. That is a different shape of cost
-///         from "one more node per observer", and it is the number the decision turns on.
+///         changes. One lifted against the keys of a view wakes at each move of what the view holds. The keys
+///         of a view are one cell, and a reorder replaces it. Thus, twenty observers wake for an edit to an
+///         item that none of them monitor. That is a different shape of cost from "one more node per
+///         observer", and it is the number the decision turns on.
 ///     </para>
 /// </remarks>
 [MemoryDiagnoser]

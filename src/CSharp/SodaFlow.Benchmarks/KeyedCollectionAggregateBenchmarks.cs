@@ -6,22 +6,21 @@ using JetBrains.Annotations;
 namespace SodaFlow.Benchmarks;
 
 /// <summary>
-///     What it costs to keep a total of one state value across the full collection current as the
-///     collection changes.
+///     What it costs to keep a total of one state value across the full collection current as the collection
+///     changes.
 /// </summary>
 /// <remarks>
 ///     <para>
-///         Each other benchmark here measures something that depends on a screenful. An aggregate
-///         depends on each item by definition. Thus, it is the honest test of the value of the
-///         collection for more than windows.
+///         Each other benchmark here measures something that depends on a screenful. An aggregate depends on
+///         each item by definition. Thus, it is the honest test of the value of the collection for more than
+///         windows.
 ///     </para>
 ///     <para>
-///         The answer is that it is, but not by holding a cell over the store. Mapping the snapshot
-///         cell reads each item on each edit. Thus, a total costs the collection at each edit, and the
-///         size of the change has no effect. A fold over the change stream costs what changed. The
-///         change carries the
-///         new states, the snapshot the transaction started from holds the previous ones, and the
-///         difference between them is the full update.
+///         The answer is that it is, but not by holding a cell over the store. Mapping the snapshot cell
+///         reads each item on each edit. Thus, a total costs the collection at each edit, and the size of the
+///         change has no effect. A fold over the change stream costs what changed. The change carries the new
+///         states, the snapshot the transaction started from holds the previous ones, and the difference
+///         between them is the full update.
 ///     </para>
 ///     <para>
 ///         What this does not measure is a first computation. The two shapes sum the collection one time to

@@ -510,7 +510,7 @@ public static class Either
 /// <typeparam name="T2">The type of the second possibility.</typeparam>
 /// <remarks>
 ///     A discriminated union. The value is one of the two cases. Which one it is is part
-///     of the value and not something the caller must monitor with it.
+///     of the value, and not something the caller must monitor next to it.
 ///     There is no property that hands the value out unchecked. Read it with
 ///     <c>Match</c>, or with one of the helpers on it, thus the code must answer each case.
 ///     This is a struct, so <see langword="default" /> is a correct instance. It holds the
@@ -857,7 +857,7 @@ public struct Either<T1, T2> : IEitherOfTwo, IEquatable<Either<T1, T2>>
 /// <typeparam name="T3">The type of the third possibility.</typeparam>
 /// <remarks>
 ///     A discriminated union. The value is one of the three cases. Which one it is is part
-///     of the value and not something the caller must monitor with it.
+///     of the value, and not something the caller must monitor next to it.
 ///     There is no property that hands the value out unchecked. Read it with
 ///     <c>Match</c>, or with one of the helpers on it, thus the code must answer each case.
 ///     This is a struct, so <see langword="default" /> is a correct instance. It holds the
@@ -1308,7 +1308,7 @@ public struct Either<T1, T2, T3> : IEitherOfThree, IEquatable<Either<T1, T2, T3>
 /// <typeparam name="T4">The type of the fourth possibility.</typeparam>
 /// <remarks>
 ///     A discriminated union. The value is one of the four cases. Which one it is is part
-///     of the value and not something the caller must monitor with it.
+///     of the value, and not something the caller must monitor next to it.
 ///     There is no property that hands the value out unchecked. Read it with
 ///     <c>Match</c>, or with one of the helpers on it, thus the code must answer each case.
 ///     This is a struct, so <see langword="default" /> is a correct instance. It holds the
@@ -1907,7 +1907,7 @@ public struct Either<T1, T2, T3, T4> : IEitherOfFour, IEquatable<Either<T1, T2, 
 /// <typeparam name="T5">The type of the fifth possibility.</typeparam>
 /// <remarks>
 ///     A discriminated union. The value is one of the five cases. Which one it is is part
-///     of the value and not something the caller must monitor with it.
+///     of the value, and not something the caller must monitor next to it.
 ///     There is no property that hands the value out unchecked. Read it with
 ///     <c>Match</c>, or with one of the helpers on it, thus the code must answer each case.
 ///     This is a struct, so <see langword="default" /> is a correct instance. It holds the
@@ -2658,7 +2658,7 @@ public struct Either<T1, T2, T3, T4, T5> : IEitherOfFive, IEquatable<Either<T1, 
 /// <typeparam name="T6">The type of the sixth possibility.</typeparam>
 /// <remarks>
 ///     A discriminated union. The value is one of the six cases. Which one it is is part
-///     of the value and not something the caller must monitor with it.
+///     of the value, and not something the caller must monitor next to it.
 ///     There is no property that hands the value out unchecked. Read it with
 ///     <c>Match</c>, or with one of the helpers on it, thus the code must answer each case.
 ///     This is a struct, so <see langword="default" /> is a correct instance. It holds the
@@ -3562,7 +3562,7 @@ public struct Either<T1, T2, T3, T4, T5, T6> : IEitherOfSix, IEquatable<Either<T
 /// <typeparam name="T7">The type of the seventh possibility.</typeparam>
 /// <remarks>
 ///     A discriminated union. The value is one of the seven cases. Which one it is is part
-///     of the value and not something the caller must monitor with it.
+///     of the value, and not something the caller must monitor next to it.
 ///     There is no property that hands the value out unchecked. Read it with
 ///     <c>Match</c>, or with one of the helpers on it, thus the code must answer each case.
 ///     This is a struct, so <see langword="default" /> is a correct instance. It holds the
@@ -4621,7 +4621,7 @@ public struct Either<T1, T2, T3, T4, T5, T6, T7> : IEitherOfSeven, IEquatable<Ei
 /// <typeparam name="T8">The type of the eighth possibility.</typeparam>
 /// <remarks>
 ///     A discriminated union. The value is one of the eight cases. Which one it is is part
-///     of the value and not something the caller must monitor with it.
+///     of the value, and not something the caller must monitor next to it.
 ///     There is no property that hands the value out unchecked. Read it with
 ///     <c>Match</c>, or with one of the helpers on it, thus the code must answer each case.
 ///     This is a struct, so <see langword="default" /> is a correct instance. It holds the

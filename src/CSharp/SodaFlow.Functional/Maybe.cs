@@ -375,8 +375,8 @@ public struct Maybe<T> : IMaybe, IEquatable<Maybe<T>>, IComparable<Maybe<T>>
         this.MatchAsyncVoid(onSome: static _ => Task.FromResult(false), onNone: onNone);
 
     /// <summary>
-    ///     Map the <see cref="Maybe{T}" /> value using a mapping function if a value exists, or propogate the
-    ///     None value if it does not.
+    ///     Maps the value with the given function when there is one, and gives no value when there is
+    ///     none.
     /// </summary>
     /// <param name="f">The function to transform this <see cref="Maybe{T}" />.</param>
     /// <typeparam name="TResult">The type of the maybe result value.</typeparam>

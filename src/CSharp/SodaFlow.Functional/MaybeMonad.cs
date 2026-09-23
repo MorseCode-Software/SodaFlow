@@ -152,7 +152,7 @@ public static class MaybeMonad
     /// <remarks>
     ///     <paramref name="predicate" /> is run only when there is a value, so this narrows a value
     ///     which is there, and does not make one. It is also what lets a query
-    ///     expression over a <see cref="Maybe{T}" /> can have a <c>where</c> clause.
+    ///     expression over a <see cref="Maybe{T}" /> have a <c>where</c> clause.
     /// </remarks>
     public static Maybe<T> Where<T>(
         this Maybe<T> value,

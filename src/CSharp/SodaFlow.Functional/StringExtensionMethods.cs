@@ -725,7 +725,7 @@ public static class StringExtensionMethods
     /// </returns>
     /// <remarks>
     ///     Wraps <see cref="Enum.TryParse{TEnum}(string,bool,out TEnum)" />. A string of digits
-    ///     parses to that number when the enumeration does not declare it. See
+    ///     parses to that number, and it makes no difference if the enumeration declares it. See
     ///     <see cref="TryParseDefinedEnum{TEnum}(string,bool)" />.
     /// </remarks>
     [Pure]

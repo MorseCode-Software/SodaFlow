@@ -13,21 +13,21 @@ namespace SodaFlow.Benchmarks;
 /// <remarks>
 ///     <para>
 ///         This is a criteria change. <see cref="KeyedCollectionViewBenchmarks" /> reports it as the
-///         condition a chain loses. A change to a predicate rebuilds that stage, and the rebuild of a
-///         filter files each surviving key into a new ordered set. Thus, it is Θ(n) with an allocation
-///         for each node, where a re-derivation sorts an array.
+///         condition a chain loses. A change to a predicate rebuilds that stage, and the rebuild of a filter
+///         files each surviving key into a new ordered set. Thus, it is Θ(n) with an allocation for each
+///         node, where a re-derivation sorts an array.
 ///     </para>
 ///     <para>
-///         A slice is the exception, and that is what this measures. Its rebuild makes a
-///         <c>RangeKeys</c> over the ordering that the stage above it holds. That is a lazy view with
-///         a start and an end, which costs nothing to build, at each size of the collection. The
-///         ordering is not touched, because an offset cannot reorder anything. Re-deriving the same
-///         page has to sort the collection again to find out what is in it.
+///         A slice is the exception, and that is what this measures. Its rebuild makes a <c>RangeKeys</c>
+///         over the ordering that the stage above it holds. That is a lazy view with a start and an end,
+///         which costs nothing to build, at each size of the collection. The ordering is not touched, because
+///         an offset cannot reorder anything. Re-deriving the same page has to sort the collection again to
+///         find out what is in it.
 ///     </para>
 ///     <para>
-///         The page turned to alternates between the first and the second, which is what a reader
-///         clicking through does. The two shapes hold the same page of the same ordering and the setup
-///         checks that before it times the two.
+///         The page turned to alternates between the first and the second, which is what a reader clicking
+///         through does. The two shapes hold the same page of the same ordering and the setup checks that
+///         before it times the two.
 ///     </para>
 /// </remarks>
 [MemoryDiagnoser]
@@ -162,7 +162,7 @@ public class KeyedCollectionPagingBenchmarks
 
     /// <summary>
     ///     A new state for a key that leaves its sort value alone. Thus, nothing can move, and this
-    ///     measures the cost of the window for each edit, and not a second file operation.
+    ///     measures the cost of the window for each edit, and not the cost to move the key again.
     /// </summary>
     /// <remarks>
     ///     Only the name changes. An edit that moved the item is a different question, measured by

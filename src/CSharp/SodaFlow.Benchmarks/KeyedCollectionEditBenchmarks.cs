@@ -7,40 +7,39 @@ using JetBrains.Annotations;
 namespace SodaFlow.Benchmarks;
 
 /// <summary>
-///     What one edit costs after the construction of the collection, with a screenful of it bound, in each
-///     of the three shapes.
+///     What one edit costs after the construction of the collection, with a screenful of it bound, in each of
+///     the three shapes.
 /// </summary>
 /// <remarks>
 ///     <para>
-///         This measures two edits, and the difference between them is the full argument. An edit
-///         to an <i>observed</i> key has work to do in each shape. An edit to an
-///         <i>unobserved</i> key is what almost each edit is, when twenty rows are bound
-///         out of ten thousand items. Such an edit must cost nothing downstream, and what it
-///         actually costs is what separates these three.
+///         This measures two edits, and the difference between them is the full argument. An edit to an
+///         <i>observed</i> key has work to do in each shape. An edit to an <i>unobserved</i> key is what
+///         almost each edit is, when twenty rows are bound out of ten thousand items. Such an edit must cost
+///         nothing downstream, and what it actually costs is what separates these three.
 ///     </para>
 ///     <para>
-///         Expect sinks per field to win on time here, and to win by more as
-///         <see cref="ItemCount" /> grows. A send into one cell goes to the listeners of that cell
-///         and to nothing else. That is a true result and not one to hide.
+///         Expect sinks per field to win on time here, and to win by more as <see cref="ItemCount" /> grows.
+///         A send into one cell goes to the listeners of that cell and to nothing else. That is a true result
+///         and not one to hide.
 ///     </para>
 ///     <para>
-///         It is also a result about a shape most collections cannot have. A sink takes events from
-///         out of the graph and nothing else, and <c>Send</c> throws in a transaction. Thus, a cell
-///         for each field with a sink behind it needs each mutable value to come in full from other
-///         code. No logic comes between the two. One derived field, and it is the second
-///         shape. See
+///         It is also a result about a shape most collections cannot have. A sink takes events from out of
+///         the graph and nothing else, and <c>Send</c> throws in a transaction. Thus, a cell for each field
+///         with a sink behind it needs each mutable value to come in full from other code. No logic comes
+///         between the two. One derived field, and it is the second shape. See
 ///         <see cref="IKeyedCollectionShape" />, and read this row as the floor rather than as the
 ///         alternative.
 ///     </para>
 ///     <para>
-///         Cells per field fed from a stream is the one to monitor as the collection grows. Each edit evaluates one
-///         filter for each item, thus its cost grows with <see cref="ItemCount" /> when
-///         nothing is observing. The unobserved condition costs almost what the observed one costs.
+///         Cells per field fed from a stream is the one to monitor as the collection grows. Each edit
+///         evaluates one filter for each item, thus its cost grows with <see cref="ItemCount" />. It makes no
+///         difference if something observes the collection, and the unobserved condition costs almost what
+///         the observed one costs.
 ///     </para>
 ///     <para>
 ///         The reactive collection resolves the edit one time and then evaluates one hash lookup per
-///         <i>observer</i>. That grows with the twenty bound rows and it does not change with the
-///         ten thousand items, which is the property this library is for.
+///         <i>observer</i>. That grows with the twenty bound rows and it does not change with the ten
+///         thousand items, which is the property this library is for.
 ///     </para>
 /// </remarks>
 [MemoryDiagnoser]

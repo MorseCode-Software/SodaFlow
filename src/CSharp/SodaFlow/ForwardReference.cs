@@ -29,8 +29,8 @@ namespace SodaFlow;
 ///     construction function returns.
 ///     That last point is the constraint worth remembering. The reference is a promise about
 ///     what a value will be, and not the value. A read of it during the construction, with
-///     <see cref="CellExtensionMethods.Sample{T}" /> or anything built on it - asks a question
-///     which has no answer now. The read throws an exception to say this.
+///     <see cref="CellExtensionMethods.Sample{T}" /> or with anything on it, asks a question with
+///     no answer now. The read throws an exception to say this.
 ///     Everything here builds one transaction of its own, thus a caller can call this out of a
 ///     transaction and in one.
 /// </remarks>
@@ -54,7 +54,7 @@ public static class ForwardReference<T>
     ///     The function gives <typeparamref name="TCaptures" /> to type inference.
     ///     <see cref="ForwardReference{T}" /> itself names <typeparamref name="T" />, which is what
     ///     leaves it free. A lambda gives type inference nothing to work from, and C# does not accept
-    ///     only some of the type arguments of a method. Thus, with the two names here, a caller writes
+    ///     only some of the type arguments of a method. Thus, a second name here makes a caller write
     ///     the two at each call.
     /// </remarks>
     [Pure]

@@ -11,8 +11,8 @@ namespace SodaFlow;
 /// <remarks>
 ///     A cell is a behavior that also gives the stream of its own changes. Thus, it has everything in
 ///     <see cref="BehaviorExtensionMethods" />, and the operations that use those updates. Build the graph in
-///     a <see cref="Transaction.Run{T}(System.Func{T})" /> so that no first firing goes to the listener. That
-///     is most important with <see cref="Values{T}" />, which always fires immediately.
+///     a <see cref="Transaction.Run{T}(System.Func{T})" />, thus the listener gets the first firing. That is
+///     most important with <see cref="Values{T}" />, which always fires immediately.
 /// </remarks>
 [PublicAPI]
 public static class CellExtensionMethods
@@ -25,9 +25,9 @@ public static class CellExtensionMethods
     /// <returns>The current value of the cell.</returns>
     /// <remarks>
     ///     <para>
-    ///         The functions that the primitives give to a stream can call this method. There it is the same
-    ///         as a snapshot of the cell. Those primitives are
-    ///         <see cref="StreamExtensionMethods.Map{T, TResult}(Stream{T}, Func{T,TResult})" />,
+    ///         The functions that the primitives give to a stream can call this method. Those primitives are
+    ///         <see cref="StreamExtensionMethods.Map{T, TResult}(Stream{T}, Func{T,TResult})" />, where a call
+    ///         here is the same as a snapshot of the cell,
     ///         <see cref=" StreamExtensionMethods.Snapshot{T, T2, TResult}(Stream{T}, Cell{T2}, Func{T, T2, TResult})" />,
     ///         <see cref="StreamExtensionMethods.Filter{T}(Stream{T}, Func{T, bool})" />, and
     ///         <see cref="StreamExtensionMethods.Merge{T}(Stream{T}, Stream{T}, Func{T, T, T})" />.
@@ -38,8 +38,8 @@ public static class CellExtensionMethods
     ///     </para>
     ///     <para>
     ///         It can be best to use this method in an explicit transaction (using
-    ///         <see cref="Transaction.Run{T}(Func{T})" /> or <see cref="Transaction.RunVoid(Action)" />).
-    ///         For example, a c.Sample() in an explicit transaction, with a c.Updates().ListenStrong(...),
+    ///         <see cref="Transaction.Run{T}(Func{T})" /> or <see cref="Transaction.RunVoid(Action)" />). For
+    ///         example, a c.Sample() in an explicit transaction, with a c.Updates().ListenStrong(...),
     ///         captures the current value and each update. The code keeps each value between the two.
     ///     </para>
     /// </remarks>
@@ -99,9 +99,8 @@ public static class CellExtensionMethods
 
     /// <summary>
     ///     Listen for updates to the value of this cell, keeping the cell alive for as long as the returned
-    ///     listener is reachable. A disposal of the <see cref="IStrongListener" /> from this call stops
-    ///     the listener. This is an OPERATIONAL mechanism for the boundary between
-    ///     the world of I/O and FRP.
+    ///     listener is reachable. A disposal of the <see cref="IStrongListener" /> from this call stops the
+    ///     listener. This is an OPERATIONAL mechanism for the boundary between the world of I/O and FRP.
     /// </summary>
     /// <typeparam name="T">The type of the cell.</typeparam>
     /// <param name="c">The cell.</param>
@@ -111,26 +110,26 @@ public static class CellExtensionMethods
     ///     <para>
     ///         Make no assumption about the thread that calls the handler, and the handler must not block.
     ///         The handler must not call <see cref="StreamSinkExtensionMethods.Send{T}" /> or
-    ///         <see cref="CellSinkExtensionMethods.Send{T}" />.
-    ///         They throw an exception, because this method is not for the definition of a new primitive.
+    ///         <see cref="CellSinkExtensionMethods.Send{T}" />. They throw an exception, because this method
+    ///         is not for the definition of a new primitive.
     ///     </para>
     ///     <para>
     ///         With no disposal of the <see cref="IStrongListener" />, the listener continues until a
     ///         disposal of this cell, or until a GC collects it.
     ///     </para>
     ///     <para>
-    ///         This roots the cell, thus a GC cannot collect the graph behind it while the listener from this call is
-    ///         reachable.  Use <see cref="Listen{T}(Cell{T}, Action{T})" /> where that is not wanted.
+    ///         This roots the cell, thus a GC cannot collect the graph behind it while the listener from this
+    ///         call is reachable. Use <see cref="Listen{T}(Cell{T}, Action{T})" /> where that is not wanted.
     ///     </para>
     /// </remarks>
     [MethodImpl(MethodImplOptions.NoInlining)]
     public static IStrongListener ListenStrong<T>(this Cell<T> c, Action<T> handler) => c.ListenStrongImpl(handler);
 
     /// <summary>
-    ///     Listen for updates to the value of this cell, without keeping the cell alive.  The returned
-    ///     <see cref="IWeakListener" />. A call to <see cref="IListener.Unlisten" /> stops the listener,
-    ///     and the listener also stops when a GC collects it.
-    ///     This is an OPERATIONAL mechanism for interfacing between the world of I/O and FRP.
+    ///     Listen for updates to the value of this cell, without keeping the cell alive. The returned
+    ///     <see cref="IWeakListener" />. A call to <see cref="IListener.Unlisten" /> stops the listener, and
+    ///     the listener also stops when a GC collects it. This is an OPERATIONAL mechanism for interfacing
+    ///     between the world of I/O and FRP.
     /// </summary>
     /// <typeparam name="T">The type of the cell.</typeparam>
     /// <param name="c">The cell.</param>
@@ -143,8 +142,8 @@ public static class CellExtensionMethods
     ///     <para>
     ///         Make no assumption about the thread that calls the handler, and the handler must not block.
     ///         The handler must not call <see cref="StreamSinkExtensionMethods.Send{T}" /> or
-    ///         <see cref="CellSinkExtensionMethods.Send{T}" />.
-    ///         They throw an exception, because this method is not for the definition of a new primitive.
+    ///         <see cref="CellSinkExtensionMethods.Send{T}" />. They throw an exception, because this method
+    ///         is not for the definition of a new primitive.
     ///     </para>
     ///     <para>
     ///         With no call to <see cref="IListener.Unlisten" />, the listener continues. It stops at a
@@ -178,11 +177,15 @@ public static class CellExtensionMethods
     ///     Lift a binary function into cells, so the returned cell always reflects the specified function
     ///     applied to the input cells' values.
     /// </summary>
-    /// <typeparam name="T">The type of the cell.</typeparam> <typeparam name="T2">The type of second
-    /// cell.</typeparam> <typeparam name="TResult">The type of the result.</typeparam> <param name="c">The
-    /// cell.</param> <param name="c2">The second cell.</param> <param name="f">The binary function to lift
-    /// into the cells.</param> <returns>A cell containing values resulting from the binary function applied
-    /// to the input cells' values.</returns>
+    /// <typeparam name="T">The type of the cell.</typeparam>
+    /// <typeparam name="T2">The type of second cell.</typeparam>
+    /// <typeparam name="TResult">The type of the result.</typeparam>
+    /// <param name="c">The cell.</param>
+    /// <param name="c2">The second cell.</param>
+    /// <param name="f">The binary function to lift into the cells.</param>
+    /// <returns>
+    ///     A cell containing values resulting from the binary function applied to the input cells' values.
+    /// </returns>
     [MethodImpl(MethodImplOptions.NoInlining)]
     public static Cell<TResult> Lift<T, T2, TResult>(this Cell<T> c, Cell<T2> c2, Func<T, T2, TResult> f) =>
         c.LiftImpl(b2: c2, f: f);
@@ -190,12 +193,18 @@ public static class CellExtensionMethods
     /// <summary>
     ///     Lift a ternary function into cells, so the returned cell always reflects the specified function
     ///     applied to the input cells' values.
-    /// </summary> <typeparam name="T">The type of the cell.</typeparam> <typeparam name="T2">The type of
-    /// second cell.</typeparam> <typeparam name="T3">The type of third cell.</typeparam>
-    /// <typeparam name="TResult">The type of the result.</typeparam> <param name="c">The cell.</param>
-    /// <param name="c2">The second cell.</param> <param name="c3">The third cell.</param> <param name="f">The
-    /// binary function to lift into the cells.</param> <returns>A cell containing values resulting from the
-    /// ternary function applied to the input cells' values.</returns>
+    /// </summary>
+    /// <typeparam name="T">The type of the cell.</typeparam>
+    /// <typeparam name="T2">The type of second cell.</typeparam>
+    /// <typeparam name="T3">The type of third cell.</typeparam>
+    /// <typeparam name="TResult">The type of the result.</typeparam>
+    /// <param name="c">The cell.</param>
+    /// <param name="c2">The second cell.</param>
+    /// <param name="c3">The third cell.</param>
+    /// <param name="f">The binary function to lift into the cells.</param>
+    /// <returns>
+    ///     A cell containing values resulting from the ternary function applied to the input cells' values.
+    /// </returns>
     [MethodImpl(MethodImplOptions.NoInlining)]
     public static Cell<TResult> Lift<T, T2, T3, TResult>(
         this Cell<T> c,
@@ -207,13 +216,21 @@ public static class CellExtensionMethods
     /// <summary>
     ///     Lift a quaternary function into cells, so the returned cell always reflects the specified function
     ///     applied to the input cells' values.
-    /// </summary> <typeparam name="T">The type of the cell.</typeparam> <typeparam name="T2">The type of
-    /// second cell.</typeparam> <typeparam name="T3">The type of third cell.</typeparam>
-    /// <typeparam name="T4">The type of fourth cell.</typeparam> <typeparam name="TResult">The type of the
-    /// result.</typeparam> <param name="c">The cell.</param> <param name="c2">The second cell.</param>
-    /// <param name="c3">The third cell.</param> <param name="c4">The fourth cell.</param>
-    /// <param name="f">The binary function to lift into the cells.</param> <returns>A cell containing values
-    /// resulting from the quaternary function applied to the input cells' values.</returns>
+    /// </summary>
+    /// <typeparam name="T">The type of the cell.</typeparam>
+    /// <typeparam name="T2">The type of second cell.</typeparam>
+    /// <typeparam name="T3">The type of third cell.</typeparam>
+    /// <typeparam name="T4">The type of fourth cell.</typeparam>
+    /// <typeparam name="TResult">The type of the result.</typeparam>
+    /// <param name="c">The cell.</param>
+    /// <param name="c2">The second cell.</param>
+    /// <param name="c3">The third cell.</param>
+    /// <param name="c4">The fourth cell.</param>
+    /// <param name="f">The binary function to lift into the cells.</param>
+    /// <returns>
+    ///     A cell containing values resulting from the quaternary function applied to the input cells'
+    ///     values.
+    /// </returns>
     [MethodImpl(MethodImplOptions.NoInlining)]
     public static Cell<TResult> Lift<T, T2, T3, T4, TResult>(
         this Cell<T> c,
@@ -226,14 +243,23 @@ public static class CellExtensionMethods
     /// <summary>
     ///     Lift a 5-argument function into cells, so the returned cell always reflects the specified function
     ///     applied to the input cells' values.
-    /// </summary> <typeparam name="T">The type of the cell.</typeparam> <typeparam name="T2">The type of
-    /// second cell.</typeparam> <typeparam name="T3">The type of third cell.</typeparam>
-    /// <typeparam name="T4">The type of fourth cell.</typeparam> <typeparam name="T5">The type of fifth
-    /// cell.</typeparam> <typeparam name="TResult">The type of the result.</typeparam> <param name="c">The
-    /// cell.</param> <param name="c2">The second cell.</param> <param name="c3">The third cell.</param>
-    /// <param name="c4">The fourth cell.</param> <param name="c5">The fifth cell.</param>
-    /// <param name="f">The binary function to lift into the cells.</param> <returns>A cell containing values
-    /// resulting from the 5-argument function applied to the input cells' values.</returns>
+    /// </summary>
+    /// <typeparam name="T">The type of the cell.</typeparam>
+    /// <typeparam name="T2">The type of second cell.</typeparam>
+    /// <typeparam name="T3">The type of third cell.</typeparam>
+    /// <typeparam name="T4">The type of fourth cell.</typeparam>
+    /// <typeparam name="T5">The type of fifth cell.</typeparam>
+    /// <typeparam name="TResult">The type of the result.</typeparam>
+    /// <param name="c">The cell.</param>
+    /// <param name="c2">The second cell.</param>
+    /// <param name="c3">The third cell.</param>
+    /// <param name="c4">The fourth cell.</param>
+    /// <param name="c5">The fifth cell.</param>
+    /// <param name="f">The binary function to lift into the cells.</param>
+    /// <returns>
+    ///     A cell containing values resulting from the 5-argument function applied to the input cells'
+    ///     values.
+    /// </returns>
     [MethodImpl(MethodImplOptions.NoInlining)]
     public static Cell<TResult> Lift<T, T2, T3, T4, T5, TResult>(
         this Cell<T> c,
@@ -247,16 +273,25 @@ public static class CellExtensionMethods
     /// <summary>
     ///     Lift a 6-argument function into cells, so the returned cell always reflects the specified function
     ///     applied to the input cells' values.
-    /// </summary> <typeparam name="T">The type of the cell.</typeparam> <typeparam name="T2">The type of
-    /// second cell.</typeparam> <typeparam name="T3">The type of third cell.</typeparam>
-    /// <typeparam name="T4">The type of fourth cell.</typeparam> <typeparam name="T5">The type of fifth
-    /// cell.</typeparam> <typeparam name="T6">The type of sixth cell.</typeparam>
-    /// <typeparam name="TResult">The type of the result.</typeparam> <param name="c">The cell.</param>
-    /// <param name="c2">The second cell.</param> <param name="c3">The third cell.</param>
-    /// <param name="c4">The fourth cell.</param> <param name="c5">The fifth cell.</param>
-    /// <param name="c6">The sixth cell.</param> <param name="f">The binary function to lift into the
-    /// cells.</param> <returns>A cell containing values resulting from the 6-argument function applied to the
-    /// input cells' values.</returns>
+    /// </summary>
+    /// <typeparam name="T">The type of the cell.</typeparam>
+    /// <typeparam name="T2">The type of second cell.</typeparam>
+    /// <typeparam name="T3">The type of third cell.</typeparam>
+    /// <typeparam name="T4">The type of fourth cell.</typeparam>
+    /// <typeparam name="T5">The type of fifth cell.</typeparam>
+    /// <typeparam name="T6">The type of sixth cell.</typeparam>
+    /// <typeparam name="TResult">The type of the result.</typeparam>
+    /// <param name="c">The cell.</param>
+    /// <param name="c2">The second cell.</param>
+    /// <param name="c3">The third cell.</param>
+    /// <param name="c4">The fourth cell.</param>
+    /// <param name="c5">The fifth cell.</param>
+    /// <param name="c6">The sixth cell.</param>
+    /// <param name="f">The binary function to lift into the cells.</param>
+    /// <returns>
+    ///     A cell containing values resulting from the 6-argument function applied to the input cells'
+    ///     values.
+    /// </returns>
     [MethodImpl(MethodImplOptions.NoInlining)]
     public static Cell<TResult> Lift<T, T2, T3, T4, T5, T6, TResult>(
         this Cell<T> c,
@@ -283,28 +318,40 @@ public static class CellExtensionMethods
     public static Cell<TResult> Apply<T, TResult>(this Cell<T> c, Cell<Func<T, TResult>> cf) => c.ApplyImpl(cf);
 
     /// <summary>
-    ///     Return a cell whose stream only receives events which have a different value than the previous event.
+    ///     Return a cell whose stream only receives events which have a different value than the previous
+    ///     event.
     /// </summary>
-    /// <typeparam name="T">The type of the cell.</typeparam> <param name="c">The cell.</param> <returns>A
-    /// cell whose stream only receives events which have a different value than the previous event.</returns>
+    /// <typeparam name="T">The type of the cell.</typeparam>
+    /// <param name="c">The cell.</param>
+    /// <returns>
+    ///     A cell whose stream only receives events which have a different value than the previous event.
+    /// </returns>
     [MethodImpl(MethodImplOptions.NoInlining)]
     public static Cell<T> Calm<T>(this Cell<T> c) => c.CalmImpl(EqualityComparer<T>.Default.Equals);
 
     /// <summary>
-    ///     Return a cell whose stream only receives events which have a different value than the previous event.
-    /// </summary> <typeparam name="T">The type of the cell.</typeparam> <param name="c">The cell.</param>
+    ///     Return a cell whose stream only receives events which have a different value than the previous
+    ///     event.
+    /// </summary>
+    /// <typeparam name="T">The type of the cell.</typeparam>
+    /// <param name="c">The cell.</param>
     /// <param name="comparer">The equality comparer that gives true when two items are equal.</param>
-    /// <returns>A cell whose stream only receives events which have a different value than the previous
-    /// event.</returns>
+    /// <returns>
+    ///     A cell whose stream only receives events which have a different value than the previous event.
+    /// </returns>
     [MethodImpl(MethodImplOptions.NoInlining)]
     public static Cell<T> Calm<T>(this Cell<T> c, IEqualityComparer<T> comparer) => c.CalmImpl(comparer.Equals);
 
     /// <summary>
-    ///     Return a cell whose stream only receives events which have a different value than the previous event.
-    /// </summary> <typeparam name="T">The type of the cell.</typeparam> <param name="c">The cell.</param>
-    /// <param name="areEqual">The function that gives true when two items are equal.</param> <returns>A
-    /// cell whose stream only receives events which have a different value than the previous
-    /// event.</returns>
+    ///     Return a cell whose stream only receives events which have a different value than the previous
+    ///     event.
+    /// </summary>
+    /// <typeparam name="T">The type of the cell.</typeparam>
+    /// <param name="c">The cell.</param>
+    /// <param name="areEqual">The function that gives true when two items are equal.</param>
+    /// <returns>
+    ///     A cell whose stream only receives events which have a different value than the previous event.
+    /// </returns>
     [MethodImpl(MethodImplOptions.NoInlining)]
     public static Cell<T> Calm<T>(this Cell<T> c, Func<T, T, bool> areEqual) => c.CalmImpl(areEqual);
 

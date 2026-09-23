@@ -29,7 +29,7 @@ public class StreamLoop<T> : LoopedStream<T>
     ///     with <see cref="Transaction.Run{T}(Func{T})" /> or
     ///     <see cref="Transaction.RunVoid(Action)" />. Resolve the loop by calling
     ///     <see cref="Loop" /> before that transaction ends. A loop with no resolution is a defect, and not
-    ///     than a no-op, thus this reports it as one.
+    ///     a no-op, thus this reports it as a defect.
     /// </remarks>
     [MethodImpl(MethodImplOptions.NoInlining)]
     public StreamLoop()

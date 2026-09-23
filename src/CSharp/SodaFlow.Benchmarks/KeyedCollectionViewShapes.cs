@@ -6,27 +6,28 @@ using SodaFlow.Collections;
 namespace SodaFlow.Benchmarks;
 
 /// <summary>
-///     The two ways to keep "the top twenty unfrozen accounts by balance" up to date as the
-///     collection below it changes.
+///     The two ways to keep "the top twenty unfrozen accounts by balance" up to date as the collection below
+///     it changes.
 /// </summary>
 /// <remarks>
 ///     <para>
-///         <b>Re-derived</b> is what a lift over the full collection gives. It holds each item in one
-///         cell, and maps it through <c>Where</c>, <c>OrderByDescending</c> and <c>Take</c>. It is
-///         three lines, it is obviously correct, and it does all of that work again for each edit, at
-///         each size of the edit. The version here is the charitable one. The items live in an
-///         immutable dictionary, thus the edit itself is <c>O(log32 n)</c> and not a copy of the full
-///         list. That leaves the re-derivation as the thing this measures.
+///         <b>Re-derived</b> is what a lift over the full collection gives. It holds each item in one cell,
+///         and maps it through <c>Where</c>, <c>OrderByDescending</c> and <c>Take</c>. It is three lines, it
+///         is obviously correct, and it does all of that work again for each edit. The size of the edit makes
+///         no difference. The version here is the charitable one. The items live in an immutable dictionary,
+///         thus the edit
+///         itself is <c>O(log32 n)</c> and not a copy of the full list. That leaves the re-derivation as the
+///         thing this measures.
 ///     </para>
 ///     <para>
-///         <b>Chained</b> is <c>Filter</c>, then <c>SortByDescending</c>, then <c>Take</c>. Each
-///         stage keeps its own ordered key set and uses the operations from the stage above. Thus, an
-///         edit files one key again, and does not sort a collection again.
+///         <b>Chained</b> is <c>Filter</c>, then <c>SortByDescending</c>, then <c>Take</c>. Each stage keeps
+///         its own ordered key set and uses the operations from the stage above. Thus, an edit files one key
+///         again, and does not sort a collection again.
 ///     </para>
 ///     <para>
 ///         The benchmark asks the two for the same answer, and <see cref="IKeyedCollectionViewShape.Keys" />
-///         exists so the benchmark can check in its setup that they give it. A compare between
-///         two things that give different results are not worth a run.
+///         exists so the benchmark can check in its setup that they give it. A compare between two things
+///         that give different results is not worth a run.
 ///     </para>
 /// </remarks>
 file interface IKeyedCollectionViewShape
@@ -304,22 +305,20 @@ internal sealed class ChainedViewShape : IKeyedCollectionViewShape
 }
 
 /// <summary>
-///     The collection with no view stages, and a listener on its own change stream. This is the
-///     floor that an edit cannot go below.
+///     The collection with no view stages, and a listener on its own change stream. This is the floor that an
+///     edit cannot go below.
 /// </summary>
 /// <remarks>
 ///     <para>
-///         This exists because without it no reader can read the view benchmarks. An edit through a
-///         chain pays for the transaction, the send operation, the trie write to the state map, the
-///         snapshot, and the change object. All of that comes before it reads any stage. At ten
-///         thousand items that is
-///         2.8 of the 6.5 microseconds an excluded-key edit costs. Report the 6.5 and a
-///         stage-level difference of a fifth of a microsecond reads as noise. Subtract the floor
-///         and the same difference is six percent of what the chain actually does.
+///         This exists because without it no reader can read the view benchmarks. An edit through a chain
+///         pays for the transaction, the send operation, the trie write to the state map, the snapshot, and
+///         the change object. All of that comes before it reads any stage. At ten thousand items that is 2.8
+///         of the 6.5 microseconds an excluded-key edit costs. Report the 6.5 and a stage-level difference of
+///         a fifth of a microsecond reads as noise. Subtract the floor and the same difference is six percent
+///         of what the chain actually does.
 ///     </para>
 ///     <para>
-///         Subtract this from the arms beside it and what is left is what the chain actually
-///         costs.
+///         Subtract this from the arms beside it and what is left is what the chain actually costs.
 ///     </para>
 /// </remarks>
 // ReSharper disable once InheritdocConsiderUsage

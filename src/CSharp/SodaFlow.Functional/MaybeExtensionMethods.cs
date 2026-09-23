@@ -100,8 +100,8 @@ public static class MaybeExtensionMethods
     ///     that fails makes the full result meaningless. An example is a parse of a file of numbers,
     ///     and not a selection of the numbers in a file of mixed lines.
     ///     Like the other overload this enumerates the source immediately. <paramref name="f" />
-    ///     runs on each element after one gives no value, thus it must not be dependent
-    ///     on a stop before the end.
+    ///     runs on each element, and a value of none from one element does not stop it. Thus, it must
+    ///     not be dependent on a stop before the end.
     /// </remarks>
     [Pure]
     public static Maybe<IEnumerable<TResult>> AllSomeOrNone<T, TResult>(

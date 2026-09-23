@@ -11,25 +11,24 @@ namespace SodaFlow;
 /// <remarks>
 ///     <para>
 ///         The process runs only one transaction at a time, on all of its threads. A thread that starts a
-///         transaction waits until the transaction on a different thread ends. This is deliberate. It makes
-///         a transaction atomic for each other thread, thus no code sees the graph in the middle of an
-///         update. It also keeps the sequence of the updates deterministic, at each count of the threads
-///         that push values in. Thus, code on more than one thread can use SodaFlow with no more
+///         transaction waits until the transaction on a different thread ends. This is deliberate. It makes a
+///         transaction atomic for each other thread, thus no code sees the graph in the middle of an update.
+///         The sequence of the updates also stays deterministic, and the number of threads that push values
+///         in makes no difference. Thus, code on more than one thread can use SodaFlow with no more
 ///         synchronization of its own.
 ///     </para>
 ///     <para>
 ///         The cost of that guarantee is that the transaction keeps the lock for all of its operation. That
-///         includes each listener callback that it fires and each <see cref="Post" /> action that it
-///         queues, which run while the transaction closes, with the lock held. While a callback runs, no
-///         other thread can start a transaction. Thus, a callback must return quickly. Give work that takes
-///         a long time, and work that blocks, to a different thread, and do not do it inline. A callback
-///         that waits on a thread that tries to start a transaction causes a deadlock.
+///         includes each listener callback that it fires and each <see cref="Post" /> action that it queues,
+///         which run while the transaction closes, with the lock held. While a callback runs, no other thread
+///         can start a transaction. Thus, a callback must return quickly. Give work that takes a long time,
+///         and work that blocks, to a different thread, and do not do it inline. A callback that waits on a
+///         thread that tries to start a transaction causes a deadlock.
 ///     </para>
 ///     <para>
-///         A nested transaction has no cost. A transaction that starts while one is open on the same
-///         thread becomes part of the open transaction, and does not get the lock again. Thus, the
-///         primitives that open their own transactions add no cost in <see cref="Run{T}" /> or
-///         <see cref="RunVoid" />.
+///         A nested transaction has no cost. A transaction that starts while one is open on the same thread
+///         becomes part of the open transaction, and does not get the lock again. Thus, the primitives that
+///         open their own transactions add no cost in <see cref="Run{T}" /> or <see cref="RunVoid" />.
 ///     </para>
 /// </remarks>
 [PublicAPI]

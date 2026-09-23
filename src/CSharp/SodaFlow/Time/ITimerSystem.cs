@@ -14,8 +14,9 @@ namespace SodaFlow.Time;
 /// </typeparam>
 /// <remarks>
 ///     <see cref="TimerSystem{T}" /> is the implementation in this library.
-///     <see cref="SystemClockTimerSystem" /> and <see cref="SecondsTimerSystem" /> are made
-///     ones over the system clock and over the count of seconds. Alarms from <see cref="At" /> get
+///     <see cref="SystemClockTimerSystem" /> and <see cref="SecondsTimerSystem" /> are two that this
+///     library supplies, over the system clock and over the count of seconds. Alarms from
+///     <see cref="At" /> get
 ///     to the graph in a transaction of their own, thus other code only has to listen to receive
 ///     them beyond listening.
 /// </remarks>
