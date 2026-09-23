@@ -40,13 +40,8 @@ public static class StreamExtensionMethods
     ///         They will throw an exception because this method is not meant to be used to create new primitives.
     ///     </para>
     ///     <para>
-    ///         If the <see cref="IStrongListener" /> is not disposed, it will continue to listen until this stream is either
-    ///         disposed or garbage collected.
-    ///     </para>
-    ///     <para>
-    ///         To ensure this <see cref="IStrongListener" /> is disposed as soon as the stream it is listening to is either
-    ///         disposed or garbage collected, pass the returned listener to this stream's <see cref="AttachListener{T}" />
-    ///         method.
+    ///         If the <see cref="IStrongListener" /> is not disposed, it will continue to listen until this
+    ///         stream is garbage collected.
     ///     </para>
     ///     <para>
     ///         This roots the stream: the graph behind it cannot be collected while the returned listener is
@@ -79,12 +74,7 @@ public static class StreamExtensionMethods
     ///     </para>
     ///     <para>
     ///         If <see cref="IListener.Unlisten" /> is not called, it will continue to listen until this
-    ///         stream is either disposed or garbage collected or the listener itself is garbage collected.
-    ///     </para>
-    ///     <para>
-    ///         To ensure this <see cref="IWeakListener" /> stops as soon as the stream it is listening to
-    ///         is either disposed or garbage collected, pass the returned listener to this stream's
-    ///         <see cref="AttachListener{T}" /> method.
+    ///         stream is garbage collected, or the listener itself is garbage collected.
     ///     </para>
     ///     <para>
     ///         This does not root the stream.  Nothing here keeps the observed graph alive, so listening stops

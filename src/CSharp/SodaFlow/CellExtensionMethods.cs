@@ -120,7 +120,7 @@ public static class CellExtensionMethods
     ///     </para>
     ///     <para>
     ///         If the <see cref="IStrongListener" /> is not disposed, it will continue to listen until this
-    ///         cell is either disposed or garbage collected.
+    ///         cell is garbage collected.
     ///     </para>
     ///     <para>
     ///         This roots the cell: the graph behind it cannot be collected while the returned listener is
@@ -153,7 +153,7 @@ public static class CellExtensionMethods
     ///     </para>
     ///     <para>
     ///         If <see cref="IListener.Unlisten" /> is not called, it will continue to listen until this
-    ///         cell is either disposed or garbage collected or the listener itself is garbage collected.
+    ///         cell is garbage collected, or the listener itself is garbage collected.
     ///     </para>
     ///     <para>
     ///         This does not root the cell.  Nothing here keeps the observed graph alive, so listening stops
