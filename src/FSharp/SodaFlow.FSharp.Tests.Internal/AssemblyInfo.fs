@@ -1,7 +1,7 @@
-// SodaFlow serializes every transaction behind a single process-wide lock, and a graph built in one
-// test is reachable from the same static machinery as a graph built in another, so these tests
-// cannot run alongside each other. NUnit ran them one at a time; TUnit runs tests in parallel by
-// default, so the constraint has to be stated rather than assumed.
+// SodaFlow runs each transaction behind one process-wide lock. The same static machinery that
+// holds a graph from one test also holds a graph from a second test. Thus, these tests cannot
+// operate at the same time. NUnit ran them one at a time. TUnit runs tests in parallel by
+// default, thus this code must give the constraint.
 module SodaFlow.Tests.Internal.AssemblyInfo
 
 open TUnit.Core

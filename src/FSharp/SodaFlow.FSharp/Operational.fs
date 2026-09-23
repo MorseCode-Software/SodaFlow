@@ -1,12 +1,11 @@
 /// <summary>
-///     Operations which reach past the FRP abstraction to the transactions underneath.
+///     Operations that go below the FRP abstraction, to the transactions.
 /// </summary>
 /// <remarks>
-///     These expose how updates are actually delivered rather than what they mean, so a graph
-///     built with them is no longer described by the denotational semantics the rest of the
-///     library obeys. They exist for building new primitives and for interfacing with the outside
-///     world; reach for them only when nothing in <c>Stream</c>, <c>Cell</c> or <c>Behavior</c>
-///     will do.
+///     These give the mechanism that sends the updates, and not the meaning of the updates. Thus,
+///     the denotational semantics of the other parts of the library do not apply to a graph that
+///     uses them. Use them to make new primitives, and to connect to other code. Use them only when
+///     nothing in <c>Stream</c>, <c>Cell</c> or <c>Behavior</c> is sufficient.
 /// </remarks>
 module SodaFlow.Operational
 
@@ -15,7 +14,7 @@ open System.Runtime.CompilerServices
 /// <summary>
 ///     Gets a stream firing the new value of a behavior each time it changes.
 /// </summary>
-/// <param name="behavior">The behavior to observe.</param>
+/// <param name="behavior">The behavior to monitor.</param>
 /// <returns>A stream which fires the updated value, in the transaction the update happened in.</returns>
 /// <remarks>
 ///     Does not fire for the initial value - only for changes. Use <c>value</c> to get the
@@ -26,17 +25,17 @@ let updates behavior =
     OperationalInternal.UpdatesImpl behavior
 
 /// <summary>
-///     Gets a stream firing the behavior's current value at once, and its new value on every change.
+///     Gets a stream firing the current value of the behavior immediately, and its new value on each change.
 /// </summary>
-/// <param name="behavior">The behavior to observe.</param>
+/// <param name="behavior">The behavior to monitor.</param>
 /// <returns>
-///     A stream which fires the current value in the transaction this is called in, and then the
-///     updated value on every change.
+///     A stream which fires the current value in the transaction of this call, and then the
+///     updated value on each change.
 /// </returns>
 /// <remarks>
-///     The immediate firing happens in the transaction this is called in, so this must be called
-///     inside <c>Transaction.run</c> if that firing is to be observed - a listener attached
-///     afterward, in a later transaction, has already missed it.
+///     The first firing occurs in the transaction of this call. Thus, a caller must call this in
+///     <c>Transaction.run</c> for a listener to see that firing. A listener that attaches after
+///     that, in a subsequent transaction, does not get it.
 /// </remarks>
 [<MethodImpl(MethodImplOptions.NoInlining)>]
 let value behavior = OperationalInternal.ValueImpl behavior
@@ -45,16 +44,16 @@ let value behavior = OperationalInternal.ValueImpl behavior
 ///     Gets a stream which fires each element of a fired collection in its own transaction.
 /// </summary>
 /// <param name="stream">The stream of collections to split.</param>
-/// <returns>A stream firing the elements one at a time, each in a separate later transaction.</returns>
+/// <returns>A stream firing the elements one at a time, each one in its own subsequent transaction.</returns>
 /// <remarks>
-///     The firings are deferred: they happen in transactions after the one the collection fired
-///     in, in the order the collection yields them.
+///     The result defers the firings. They occur in the transactions after the transaction of the
+///     collection, in the sequence that the collection gives them.
 /// </remarks>
 [<MethodImpl(MethodImplOptions.NoInlining)>]
 let split (stream: Stream<#seq<_>>) = OperationalInternal.SplitImpl stream
 
 /// <summary>
-///     Gets a stream which re-fires each value in a later transaction.
+///     Gets a stream which fires each value again in a subsequent transaction.
 /// </summary>
 /// <param name="stream">The stream to defer.</param>
 /// <returns>A stream firing the same values, each in a transaction after the one it arrived in.</returns>

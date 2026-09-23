@@ -266,9 +266,9 @@ module Issue138 =
          *)
         [<Test>]
         member _.``Test SwitchC Deferred Loop With Better API``() =
-            // Outside the task block on purpose: a generic function declared inside one leaves the
-            // state machine unable to compile statically, and F# falls back to a slower dynamic
-            // implementation rather than failing.
+            // This is not in the task block, on purpose. A generic function in one prevents a static
+            // compilation of the state machine. F# then uses a dynamic implementation with a lower speed,
+            // and does not report an error.
             let switchCWithDeferredValues cell =
                 cell |> switchC |> valuesC |> Operational.defer
 

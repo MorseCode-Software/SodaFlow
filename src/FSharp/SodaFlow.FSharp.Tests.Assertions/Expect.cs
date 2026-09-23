@@ -13,28 +13,29 @@ namespace SodaFlow.Tests;
 /// <remarks>
 ///     <para>
 ///         This exists because F# cannot call <c>Assert.That</c>. It has twenty-six overloads, and a
-///         <see cref="List{T}" /> is an acceptable argument to seven of them. C# picks the most
-///         specific and compiles; F# has no such tie-break and reports the call as ambiguous, for
-///         every collection assertion and for every one on a value of an unresolved type. No
-///         annotation or upcast at the call site helps, because the candidates stay applicable
-///         whatever the argument is narrowed to.
+///         <see cref="List{T}" /> is a permitted argument to seven of them. C# selects the closest
+///         overload and compiles. F# has no such rule and reports the call as ambiguous. This occurs for
+///         each collection assertion, and for each one on a value of an unresolved type. No type
+///         declaration and no upcast at the call site helps, because the candidates stay applicable for
+///         each type of the argument.
 ///     </para>
 ///     <para>
-///         Resolving the overload here, in the language that can, is what lets the F# tests keep
-///         reading as one assertion per line. Awaiting inside each method is the other half: a TUnit
-///         assertion is awaited, and hands back the value it checked rather than nothing, which an
-///         F# <c>do!</c> cannot bind. These hand back a <see cref="Task" />, which it can.
+///         This code resolves the overload in the language that can, thus the F# tests keep one
+///         assertion on each line. The await in each method is the second half. An await of a TUnit
+///         assertion gives the value that it checked, and not nothing, and an F# <c>do!</c> cannot bind
+///         that value. These methods give a <see cref="Task" />, which it can bind.
 ///     </para>
 ///     <para>
 ///         The expected value comes first, as it did in the NUnit calls these replace.
 ///     </para>
 /// </remarks>
-// Every assertion below is awaited, in Run, one call away from where it is built. TUnit's
-// analyzer only recognizes an await in the same expression, so it reads each of these as an
-// assertion that is never checked. Awaiting in place instead would mean writing each method
-// twice, once with the message and once without.
+// Run awaits each assertion below, one call away from the location that makes it. The TUnit
+// analyzer recognizes only an await in the same expression, thus it reads each of these as an
+// assertion with no check. An await in each method needs two copies of each method: one with
+// the message and one with no message.
 #pragma warning disable TUnitAssertions0002
-// Called only from F#, which inspectcode does not analyze, so every member here reads as dead.
+// Called only from F#, which inspectcode does not include in its analysis, thus each member
+// here reads as dead.
 [PublicAPI]
 public static class Expect
 {
@@ -44,19 +45,26 @@ public static class Expect
 
     /// <summary>Asserts that <paramref name="actual" /> is the same object as <paramref name="expected" />.</summary>
     /// <remarks>
-    ///     Untyped, as NUnit's AreSame was. Reference identity does not need the two sides to share a
-    ///     static type, and some of these call sites compare an exception to one held as its base.
+    ///     This has no type parameter, as the AreSame of NUnit had none. Reference identity has no
+    ///     requirement for the two sides to share a static type. Some of these call sites compare an
+    ///     exception to an exception with its base type.
     /// </remarks>
     public static Task Same(object? expected, object? actual, string? because = null) =>
         Run(assertion: Assert.That(actual).IsSameReferenceAs(expected), because: because);
 
-    /// <summary>Asserts that <paramref name="actual" /> holds exactly <paramref name="expected" />, in that order.</summary>
+    /// <summary>
+    ///     Asserts that <paramref name="actual" /> holds <paramref name="expected" /> and nothing
+    ///     more, in that order.
+    /// </summary>
     public static Task Sequence<T>(IEnumerable<T> expected, IEnumerable<T> actual, string? because = null) =>
         Run(
             assertion: Assert.That(actual).IsEquivalentTo(expected: expected, ordering: CollectionOrdering.Matching),
             because: because);
 
-    /// <summary>Asserts that <paramref name="actual" /> holds exactly <paramref name="expected" />, in any order.</summary>
+    /// <summary>
+    ///     Asserts that <paramref name="actual" /> holds <paramref name="expected" /> and nothing
+    ///     more, in any order.
+    /// </summary>
     public static Task SameItems<T>(IEnumerable<T> expected, IEnumerable<T> actual, string? because = null) =>
         Run(assertion: Assert.That(actual).IsEquivalentTo(expected), because: because);
 
@@ -78,7 +86,10 @@ public static class Expect
         where T : IComparable<T> =>
         Run(assertion: Assert.That(actual).IsLessThan(limit), because: because);
 
-    /// <summary>Asserts that <paramref name="action" /> throws exactly <typeparamref name="TException" />.</summary>
+    /// <summary>
+    ///     Asserts that <paramref name="action" /> throws <typeparamref name="TException" /> and no
+    ///     other type.
+    /// </summary>
     public static Task Throws<TException>(Action action, string? because = null)
         where TException : Exception =>
         Run(assertion: Assert.That(action).ThrowsExactly<TException>(), because: because);

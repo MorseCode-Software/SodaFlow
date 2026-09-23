@@ -1,70 +1,70 @@
 /// <summary>
-///     Short names for the whole library, opened automatically.
+///     Short names for the full library, opened automatically.
 /// </summary>
 /// <remarks>
-///     Every binding here is an alias for one in <c>Stream</c>, <c>Cell</c>, <c>Behavior</c> or one
-///     of their sinks, with a suffix naming which: <c>S</c> for stream, <c>C</c> for cell, <c>B</c>
-///     for behavior, <c>T</c> for transaction and <c>L</c> for listener. The suffix is what
-///     differentiates operations that exist on more than one of them - <c>mapS</c>, <c>mapC</c> and
-///     <c>mapB</c> - and lets all of them be used unqualified in the same scope.
+///     Each binding here is an alias for one in <c>Stream</c>, <c>Cell</c>, <c>Behavior</c> or one
+///     of their sinks. A suffix gives the module: <c>S</c> for stream, <c>C</c> for cell, <c>B</c>
+///     for behavior, <c>T</c> for transaction, and <c>L</c> for listener. The suffix
+///     differentiates the operations that are on more than one of them: <c>mapS</c>, <c>mapC</c>,
+///     and <c>mapB</c>. Thus, code can use all of them with no qualification in the same scope.
 ///
-///     Where an operation takes one kind of value but produces another the suffix names the
-///     argument, not the result: <c>snapshotC</c> samples a cell, <c>holdS</c> holds a stream into
-///     a cell, and <c>switchSB</c> takes a behavior of streams. The module is <c>AutoOpen</c>, so
-///     opening <c>SodaFlow</c> is enough to bring these into scope.
+///     Where an operation takes one type of value and gives a second type, the suffix names the
+///     argument, and not the result. <c>snapshotC</c> samples a cell, <c>holdS</c> holds a stream
+///     into a cell, and <c>switchSB</c> takes a behavior of streams. The module is <c>AutoOpen</c>,
+///     thus an open of <c>SodaFlow</c> puts these in scope.
 /// </remarks>
 [<AutoOpen>]
 module SodaFlow.Shorthand
 
 /// <summary>
-/// Returns whether a transaction is currently running on this thread.
+/// Gives true when a transaction is open on this thread.
 /// </summary>
 /// <returns><c>true</c> if there is a current transaction, and <c>false</c> otherwise.</returns>
 /// <remarks>
-/// Shorthand for <c>Transaction.isActive</c>; see it for the full contract.
+/// Shorthand for <c>Transaction.isActive</c>. See it for the full contract.
 /// </remarks>
 let inline isActiveT () = Transaction.isActive ()
 
 /// <summary>
-/// Runs a function inside a single transaction and returns its result.
+/// Runs a function in a single transaction and returns its result.
 /// </summary>
 /// <param name="f">The function to run.</param>
 /// <returns>Whatever <paramref name="f" /> returned.</returns>
 /// <remarks>
-/// Shorthand for <c>Transaction.run</c>; see it for the full contract.
+/// Shorthand for <c>Transaction.run</c>. See it for the full contract.
 ///
-/// Rarely needed for a single operation, since every primitive opens a transaction of its own
-/// where it needs one. It is for making several operations atomic together.
+/// Rarely needed for a single operation, since each primitive opens a transaction of its own
+/// where it needs one. It is for making some operations atomic together.
 ///
-/// Build the graph inside one of these so that no first firing is missed - particularly where
-/// <c>Cell.values</c> is involved, which always fires immediately. It is also required for
-/// <c>Stream.loop</c>, <c>Cell.loop</c> and <c>Behavior.loop</c>, which must be created and
-/// closed within one transaction.
+/// Build the graph in one of these, and the graph then keeps the first firing. That is most
+/// important with <c>Cell.values</c>, which always fires immediately. It is also necessary for
+/// <c>Stream.loop</c>, <c>Cell.loop</c> and <c>Behavior.loop</c>. The code must make and close
+/// each of these in one transaction.
 /// </remarks>
 let inline runT f = Transaction.run f
 
 /// <summary>
-/// Registers an action to run whenever a transaction starts.
+/// Registers an action to run when a transaction starts.
 /// </summary>
-/// <param name="a">The action to run at the start of every transaction.</param>
+/// <param name="a">The action to run at the start of each transaction.</param>
 /// <remarks>
-/// Shorthand for <c>Transaction.onStart</c>; see it for the full contract.
+/// Shorthand for <c>Transaction.onStart</c>. See it for the full contract.
 ///
-/// The action may start transactions itself without the hooks running recursively. This exists
+/// The action can start its own transactions, and the hooks do not then run again. This exists
 /// for implementing a timer system - it is how <c>SodaFlow.Time</c> delivers alarms - and is
-/// rarely what application code wants.
+/// rarely what calling code needs.
 /// </remarks>
 let inline onStartT a = Transaction.onStart a
 
 /// <summary>
-/// Runs an action once the current transaction has closed, or immediately if none is running.
+/// Runs an action after the current transaction closes, or immediately when no transaction is open.
 /// </summary>
 /// <param name="a">The action to run.</param>
 /// <remarks>
-/// Shorthand for <c>Transaction.post</c>; see it for the full contract.
+/// Shorthand for <c>Transaction.post</c>. See it for the full contract.
 ///
-/// The action still runs under the transaction lock, while the transaction is closing, so it
-/// is subject to the same guidance as a listener callback: return promptly.
+/// The action runs with the transaction lock held, while the transaction closes. Thus, the rule
+/// for a listener callback also applies: return quickly.
 /// </remarks>
 let inline postT a = Transaction.post a
 
@@ -73,9 +73,9 @@ let inline postT a = Transaction.post a
 /// </summary>
 /// <param name="listener">The listener to stop.</param>
 /// <remarks>
-/// Shorthand for <c>Listener.unlisten</c>; see it for the full contract.
+/// Shorthand for <c>Listener.unlisten</c>. See it for the full contract.
 ///
-/// Safe to call more than once; later calls do nothing.
+/// A second call is safe. Each call after the first does nothing.
 /// </remarks>
 let inline unlistenL listener = Listener.unlisten listener
 
@@ -84,9 +84,9 @@ let inline unlistenL listener = Listener.unlisten listener
 /// </summary>
 /// <param name="listener">The listener to stop.</param>
 /// <remarks>
-/// Shorthand for <c>WeakListener.unlisten</c>; see it for the full contract.
+/// Shorthand for <c>WeakListener.unlisten</c>. See it for the full contract.
 ///
-/// Safe to call more than once; later calls do nothing.
+/// A second call is safe. Each call after the first does nothing.
 /// </remarks>
 let inline unlistenWeakL listener = WeakListener.unlisten listener
 
@@ -95,77 +95,75 @@ let inline unlistenWeakL listener = WeakListener.unlisten listener
 /// </summary>
 /// <param name="listener">The listener to stop.</param>
 /// <remarks>
-/// Shorthand for <c>StrongListener.unlisten</c>; see it for the full contract.
+/// Shorthand for <c>StrongListener.unlisten</c>. See it for the full contract.
 ///
-/// Safe to call more than once; later calls do nothing. Disposing the listener does the same
-/// thing.
+/// A second call is safe and does nothing. A disposal of the listener has the same result.
 /// </remarks>
 let inline unlistenStrongL listener = StrongListener.unlisten listener
 
 /// <summary>
 /// Creates a stream which never fires.
 /// </summary>
-/// <typeparam name="'a">The type the stream would fire, were it ever to fire.</typeparam>
+/// <typeparam name="'a">The type that the stream fires, if it fires.</typeparam>
 /// <returns>A stream that never fires.</returns>
 /// <remarks>
-/// Shorthand for <c>Stream.never</c>; see it for the full contract.
+/// Shorthand for <c>Stream.never</c>. See it for the full contract.
 ///
 /// The identity for <c>orElse</c>, and what to return from a branch which has nothing to fire.
 /// </remarks>
 let inline neverS<'a> () = Stream.never<'a> ()
 
 /// <summary>
-/// Creates a stream sink which throws if <c>send</c> is called more than once in a transaction.
+/// Creates a stream sink. A second <c>send</c> in one transaction throws an exception.
 /// </summary>
 /// <typeparam name="'a">The type of the values the stream sink fires.</typeparam>
 /// <returns>A new stream sink.</returns>
 /// <remarks>
-/// Shorthand for <c>StreamSink.create</c>; see it for the full contract.
+/// Shorthand for <c>StreamSink.create</c>. See it for the full contract.
 ///
-/// Two sends in one transaction is usually a mistake rather than an intent, so it is reported
-/// rather than silently resolved. Use <c>createWithCoalesce</c> where it is intended.
+/// Two sends in one transaction are usually an error and not an intention. Thus, the sink
+/// reports this, and does not resolve it without a message. Use <c>createWithCoalesce</c> where
+/// the second send is correct.
 /// </remarks>
 let inline sinkS<'a> () = StreamSink.create<'a> ()
 
 /// <summary>
-/// Creates a stream sink which combines values when <c>send</c> is called more than once in a
-/// single transaction.
+/// Creates a stream sink that combines the values of more than one <c>send</c> in one transaction.
 /// </summary>
 /// <param name="coalesce">
-/// Combines two values sent in the same transaction. Called with the value already
-/// accumulated and the value just sent, in that order.
+/// Puts two values from the same transaction together. It receives the value from before this
+/// send and the new value, in that sequence.
 /// </param>
 /// <returns>A new stream sink.</returns>
 /// <remarks>
-/// Shorthand for <c>StreamSink.createWithCoalesce</c>; see it for the full contract.
+/// Shorthand for <c>StreamSink.createWithCoalesce</c>. See it for the full contract.
 ///
-/// A stream fires at most once per transaction, which is what this preserves: whatever is sent
-/// within one transaction is folded down to the single value that fires.
+/// A stream fires one time or no times in each transaction, and this keeps that rule. The sink
+/// folds all that a caller sends in one transaction into the one value that fires.
 /// </remarks>
 let inline sinkWithCoalesceS coalesce = StreamSink.createWithCoalesce coalesce
 
 /// <summary>
-/// Creates a cell stream sink which throws if <c>StreamSink.send</c> is called more than once in
-/// a transaction.
+/// Creates a cell stream sink. A second <c>StreamSink.send</c> in one transaction throws an exception.
 /// </summary>
 /// <typeparam name="'a">The type of the values the cell stream sink fires.</typeparam>
 /// <returns>A new cell stream sink.</returns>
 /// <remarks>
-/// Shorthand for <c>CellStreamSink.create</c>; see it for the full contract.
+/// Shorthand for <c>CellStreamSink.create</c>. See it for the full contract.
 /// </remarks>
 let inline sinkCS<'a> () = CellStreamSink.create<'a> ()
 
 /// <summary>
-/// Creates a cell stream sink which combines values when <c>StreamSink.send</c> is called more
-/// than once in a single transaction.
+/// Creates a cell stream sink that combines the values of more than one
+/// <c>StreamSink.send</c> in one transaction.
 /// </summary>
 /// <param name="coalesce">
-/// Combines two values sent in the same transaction. Called with the value already
-/// accumulated and the value just sent, in that order.
+/// Puts two values from the same transaction together. It receives the value from before this
+/// send and the new value, in that sequence.
 /// </param>
 /// <returns>A new cell stream sink.</returns>
 /// <remarks>
-/// Shorthand for <c>CellStreamSink.createWithCoalesce</c>; see it for the full contract.
+/// Shorthand for <c>CellStreamSink.createWithCoalesce</c>. See it for the full contract.
 /// </remarks>
 let inline sinkWithCoalesceCS coalesce =
     CellStreamSink.createWithCoalesce coalesce
@@ -176,47 +174,47 @@ let inline sinkWithCoalesceCS coalesce =
 /// <param name="a">The value to send.</param>
 /// <param name="streamSink">The stream sink to send it to.</param>
 /// <remarks>
-/// Shorthand for <c>StreamSink.send</c>; see it for the full contract.
+/// Shorthand for <c>StreamSink.send</c>. See it for the full contract.
 ///
-/// Must not be called from inside a listener callback; doing so throws. Sinks are for getting
+/// A call from a listener callback throws an exception. Sinks are for getting
 /// I/O into FRP, not for building new primitives out of.
 ///
-/// Sending twice in one transaction throws unless the sink was created with
-/// <c>createWithCoalesce</c>.
+/// Two sends in one transaction throw an exception, unless <c>createWithCoalesce</c> made the
+/// sink.
 /// </remarks>
 let inline sendS a streamSink = StreamSink.send a streamSink
 
 /// <summary>
-/// Builds a stream which refers to itself, closing the loop within one transaction.
+/// Builds a stream which refers to itself, closing the loop in one transaction.
 /// </summary>
 /// <param name="f">
 /// Given the forward reference, returns a struct tuple of the stream it stands for and
 /// anything else the caller wants back out.
 /// </param>
 /// <returns>
-/// A struct tuple of the stream the forward reference was closed with, and whatever
+/// A struct tuple of the stream that closed the forward reference, and whatever
 /// <paramref name="f" /> returned alongside it.
 /// </returns>
 /// <remarks>
-/// Shorthand for <c>Stream.loop</c>; see it for the full contract.
+/// Shorthand for <c>Stream.loop</c>. See it for the full contract.
 ///
-/// A stream defined in terms of itself needs a forward reference to exist before the stream it
-/// refers to does. Both the reference and its resolution must happen in a single transaction,
-/// which this opens if none is running.
+/// A stream that refers to itself needs a forward reference. The code makes the reference
+/// before the stream that it refers to. The reference and its resolution must occur in one
+/// transaction, which this opens when no transaction is open.
 ///
-/// Use <c>loopWithNoCaptures</c> where nothing but the stream itself is needed.
+/// Use <c>loopWithNoCaptures</c> where the caller needs only the stream.
 /// </remarks>
 let inline loopS f = Stream.loop f
 
 /// <summary>
-/// Builds a self-referential stream where nothing but the stream itself is wanted back.
+/// Builds a self-referential stream where the caller needs only the stream.
 /// </summary>
 /// <param name="f">Given the forward reference, returns the stream it stands for.</param>
-/// <returns>The stream the forward reference was closed with.</returns>
+/// <returns>The stream that closed the forward reference.</returns>
 /// <remarks>
-/// Shorthand for <c>Stream.loopWithNoCaptures</c>; see it for the full contract.
+/// Shorthand for <c>Stream.loopWithNoCaptures</c>. See it for the full contract.
 ///
-/// <c>loop</c> where something more than the stream needs to escape the loop.
+/// <c>loop</c> where the caller needs more than the stream from the loop.
 /// </remarks>
 let inline loopWithNoCapturesS f = Stream.loopWithNoCaptures f
 
@@ -225,14 +223,14 @@ let inline loopWithNoCapturesS f = Stream.loopWithNoCaptures f
 /// </summary>
 /// <param name="handler">Run with each fired value.</param>
 /// <param name="stream">The stream to listen to.</param>
-/// <returns>A weak listener, which may be stopped with <c>WeakListener.unlisten</c>.</returns>
+/// <returns>A weak listener. <c>WeakListener.unlisten</c> stops it.</returns>
 /// <remarks>
-/// Shorthand for <c>Stream.listen</c>; see it for the full contract.
+/// Shorthand for <c>Stream.listen</c>. See it for the full contract.
 ///
-/// The listener stops on its own once the stream is collected, which makes this the right
-/// choice where there is no clean moment to stop listening: hold the returned handle as a field
-/// of the object doing the listening, and the two go away together. Where the stream should be
-/// kept alive for as long as something is listening, use <c>listenStrong</c>.
+/// The listener stops when a GC collects the stream, thus this is the correct selection where there is no
+/// clear moment to stop the listener. Keep the handle from this call in a field of the object doing the
+/// listening, and the two go away together. Where other code must keep the stream kept alive for as long
+/// as something is listening, use <c>listenStrong</c>.
 /// </remarks>
 let inline listenS handler stream = Stream.listen handler stream
 
@@ -242,17 +240,17 @@ let inline listenS handler stream = Stream.listen handler stream
 /// <param name="handler">Run with each fired value.</param>
 /// <param name="stream">The stream to listen to.</param>
 /// <returns>
-/// A strong listener, which may be stopped with <c>StrongListener.unlisten</c> or disposed.
+/// A strong listener. <c>StrongListener.unlisten</c> stops it, and a disposal also stops it.
 /// </returns>
 /// <remarks>
-/// Shorthand for <c>Stream.listenStrong</c>; see it for the full contract.
+/// Shorthand for <c>Stream.listenStrong</c>. See it for the full contract.
 ///
 /// The listener roots the stream, so the graph behind it stays alive for as long as the
 /// returned handle is reachable. Keep the handle and stop it when finished, or use
 /// <c>listen</c> where there is no good moment to do that.
 ///
-/// The handler runs under the transaction lock, so it should return promptly; hand
-/// long-running or blocking work to another thread.
+/// The handler runs with the transaction lock held, thus it must return quickly. Give work
+/// that takes a long time, and work that blocks, to a different thread.
 /// </remarks>
 let inline listenStrongS handler stream = Stream.listenStrong handler stream
 
@@ -263,12 +261,12 @@ let inline listenStrongS handler stream = Stream.listenStrong handler stream
 /// <param name="stream">The stream to attach it to.</param>
 /// <returns>The same stream, now keeping <paramref name="listener" /> alive.</returns>
 /// <remarks>
-/// Shorthand for <c>Stream.attachListener</c>; see it for the full contract.
+/// Shorthand for <c>Stream.attachListener</c>. See it for the full contract.
 ///
-/// For building a primitive whose returned stream depends on internal wiring that nothing else
-/// holds a reference to - the timer system does exactly this with the listener that watches
-/// its alarm cell. Without the attachment the wiring is collected and the returned stream
-/// quietly stops firing.
+/// Use this to make a primitive whose stream depends on internal wiring that no other code
+/// references. The timer system does this with the listener that monitors its alarm cell. With
+/// no attached listener a GC collects the wiring, and the stream from this call stops with no
+/// message.
 /// </remarks>
 let inline attachListenerS listener stream = Stream.attachListener listener stream
 
@@ -277,15 +275,12 @@ let inline attachListenerS listener stream = Stream.attachListener listener stre
 /// </summary>
 /// <param name="handler">Run with the first fired value.</param>
 /// <param name="stream">The stream to listen to.</param>
-/// <returns>
-/// A weak listener, which may be stopped with <c>WeakListener.unlisten</c> before that first
-/// firing arrives if it is no longer wanted.
-/// </returns>
+/// <returns>A weak listener. <c>WeakListener.unlisten</c> stops it before that first firing.</returns>
 /// <remarks>
-/// Shorthand for <c>Stream.listenOnce</c>; see it for the full contract.
+/// Shorthand for <c>Stream.listenOnce</c>. See it for the full contract.
 ///
-/// The returned handle is the only thing which keeps the handler alive, so hold it until that
-/// first firing arrives. Where the caller does not keep the handle, use
+/// The handle from this call is the only thing that keeps the handler alive, thus hold it until
+/// that first firing arrives. Where the caller does not keep the handle, use
 /// <c>listenOnceStrongS</c>.
 /// </remarks>
 let inline listenOnceS handler stream = Stream.listenOnce handler stream
@@ -296,14 +291,14 @@ let inline listenOnceS handler stream = Stream.listenOnce handler stream
 /// <param name="handler">Run with the first fired value.</param>
 /// <param name="stream">The stream to listen to.</param>
 /// <returns>
-/// A strong listener, which may be stopped with <c>StrongListener.unlisten</c> or disposed
-/// before that first firing arrives if it is no longer wanted.
+/// A strong listener. <c>StrongListener.unlisten</c> stops it before that first firing, and a
+/// disposal also stops it.
 /// </returns>
 /// <remarks>
-/// Shorthand for <c>Stream.listenOnceStrong</c>; see it for the full contract.
+/// Shorthand for <c>Stream.listenOnceStrong</c>. See it for the full contract.
 ///
-/// The listener roots the stream until that first firing. Thus the handler runs when the
-/// caller discards the handle.
+/// The listener roots the stream until that first firing, thus the handler runs when the caller
+/// discards the handle.
 /// </remarks>
 let inline listenOnceStrongS handler stream = Stream.listenOnceStrong handler stream
 
@@ -313,14 +308,14 @@ let inline listenOnceStrongS handler stream = Stream.listenOnceStrong handler st
 /// <param name="stream">The stream to wait on.</param>
 /// <returns>An async which produces the next value the stream fires.</returns>
 /// <remarks>
-/// Shorthand for <c>Stream.listenOnceAsync</c>; see it for the full contract.
+/// Shorthand for <c>Stream.listenOnceAsync</c>. See it for the full contract.
 ///
-/// The listener is attached at once, before the async is run, so a firing between this call
+/// The listener attaches immediately, before the async runs, so a firing between this call
 /// and the await is not missed.
 ///
-/// Canceling the async stops listening and cancels the result. The value is produced on a
-/// thread other than the one that fired it, so awaiting this does not run continuations under
-/// the transaction lock.
+/// A cancellation of the async stops the listener and cancels the result. A thread that is not
+/// the thread that fired the value gives the value. Thus, an await of this does not run a
+/// continuation with the transaction lock.
 /// </remarks>
 let inline listenOnceAsyncS stream = Stream.listenOnceAsync stream
 
@@ -331,21 +326,21 @@ let inline listenOnceAsyncS stream = Stream.listenOnceAsync stream
 /// <param name="stream">The stream to transform.</param>
 /// <returns>A stream firing <paramref name="f" /> applied to each value the input fires.</returns>
 /// <remarks>
-/// Shorthand for <c>Stream.map</c>; see it for the full contract.
+/// Shorthand for <c>Stream.map</c>. See it for the full contract.
 ///
-/// <paramref name="f" /> may construct FRP logic or sample behaviors and cells; apart from
-/// that it must be pure.
+/// <paramref name="f" /> can make FRP logic, and it can sample a behavior and a cell. In each
+/// other operation it must be pure.
 /// </remarks>
 let inline mapS f stream = Stream.map f stream
 
 /// <summary>
-/// Replaces every fired value with a constant.
+/// Replaces each fired value with a constant.
 /// </summary>
-/// <param name="value">The value to fire instead.</param>
+/// <param name="value">The replacement value to fire.</param>
 /// <param name="stream">The stream to transform.</param>
-/// <returns>A stream firing <paramref name="value" /> whenever the input fires.</returns>
+/// <returns>A stream that fires <paramref name="value" /> at each firing of the input.</returns>
 /// <remarks>
-/// Shorthand for <c>Stream.mapTo</c>; see it for the full contract.
+/// Shorthand for <c>Stream.mapTo</c>. See it for the full contract.
 ///
 /// For when only the fact that something happened matters, not what it carried.
 /// </remarks>
@@ -358,11 +353,11 @@ let inline mapToS value stream = Stream.mapTo value stream
 /// <param name="stream">The stream to hold.</param>
 /// <returns>A cell holding the last value fired, or <paramref name="initialValue" /> before any.</returns>
 /// <remarks>
-/// Shorthand for <c>Stream.hold</c>; see it for the full contract.
+/// Shorthand for <c>Stream.hold</c>. See it for the full contract.
 ///
-/// The cell's new value is visible to anything sampling it after the transaction in which the
-/// firing happened, not within it. That delay is what makes a loop through a cell well-defined
-/// rather than circular.
+/// A sample after the transaction of the firing gives the new value of the cell, and a sample
+/// in that transaction does not. That interval is what makes a loop through a cell correct,
+/// and not circular.
 /// </remarks>
 let inline holdS initialValue stream = Stream.hold initialValue stream
 
@@ -373,11 +368,10 @@ let inline holdS initialValue stream = Stream.hold initialValue stream
 /// <param name="stream">The stream to hold.</param>
 /// <returns>A cell holding the last value fired, or <paramref name="initialValue" /> before any.</returns>
 /// <remarks>
-/// Shorthand for <c>Stream.holdLazy</c>; see it for the full contract.
+/// Shorthand for <c>Stream.holdLazy</c>. See it for the full contract.
 ///
-/// This is the form that closes a loop: inside <c>Cell.loop</c> the initial value comes from
-/// the very cell being defined, so it cannot be forced yet - <c>Cell.sampleLazy</c> produces
-/// exactly what this takes.
+/// This is the version that closes a loop. In <c>Cell.loop</c> the initial value comes from the
+/// same cell, thus no code can force it now. <c>Cell.sampleLazy</c> gives what this takes.
 /// </remarks>
 let inline holdLazyS initialValue stream = Stream.holdLazy initialValue stream
 
@@ -386,18 +380,18 @@ let inline holdLazyS initialValue stream = Stream.holdLazy initialValue stream
 /// </summary>
 /// <param name="behavior">The behavior to sample.</param>
 /// <param name="f">Combines the fired value with the sampled value.</param>
-/// <param name="stream">The stream whose firings drive the result.</param>
+/// <param name="stream">The stream that causes each firing of the result.</param>
 /// <returns>
 /// A stream firing <paramref name="f" /> applied to the fired value and the sampled
 /// value.
 /// </returns>
 /// <remarks>
-/// Shorthand for <c>Stream.snapshotB</c>; see it for the full contract.
+/// Shorthand for <c>Stream.snapshotB</c>. See it for the full contract.
 ///
-/// Sampling rather than merging: only the stream drives the firing, and the sampled values are the
-/// ones held at the start of the transaction the firing belongs to. A cell updated in that same
-/// transaction is therefore seen with its old value, which is what keeps the result independent of
-/// the order the graph happens to be evaluated in.
+/// This samples and does not merge. Only the stream causes the firing, and each sampled value is
+/// the value at the start of the transaction of that firing. Thus, a cell that the same
+/// transaction updates gives its previous value. The result does not change when the graph
+/// operates in a different sequence.
 /// </remarks>
 let inline snapshotB behavior f stream = Stream.snapshotB behavior f stream
 
@@ -406,18 +400,18 @@ let inline snapshotB behavior f stream = Stream.snapshotB behavior f stream
 /// </summary>
 /// <param name="cell">The cell to sample.</param>
 /// <param name="f">Combines the fired value with the sampled value.</param>
-/// <param name="stream">The stream whose firings drive the result.</param>
+/// <param name="stream">The stream that causes each firing of the result.</param>
 /// <returns>
 /// A stream firing <paramref name="f" /> applied to the fired value and the sampled
 /// value.
 /// </returns>
 /// <remarks>
-/// Shorthand for <c>Stream.snapshot</c>; see it for the full contract.
+/// Shorthand for <c>Stream.snapshot</c>. See it for the full contract.
 ///
-/// Sampling rather than merging: only the stream drives the firing, and the sampled values are the
-/// ones held at the start of the transaction the firing belongs to. A cell updated in that same
-/// transaction is therefore seen with its old value, which is what keeps the result independent of
-/// the order the graph happens to be evaluated in.
+/// This samples and does not merge. Only the stream causes the firing, and each sampled value is
+/// the value at the start of the transaction of that firing. Thus, a cell that the same
+/// transaction updates gives its previous value. The result does not change when the graph
+/// operates in a different sequence.
 /// </remarks>
 let inline snapshotC cell f stream = Stream.snapshot cell f stream
 
@@ -426,15 +420,15 @@ let inline snapshotC cell f stream = Stream.snapshot cell f stream
 /// stream's own.
 /// </summary>
 /// <param name="behavior">The behavior to sample.</param>
-/// <param name="stream">The stream whose firings drive the result.</param>
+/// <param name="stream">The stream that causes each firing of the result.</param>
 /// <returns>A stream firing the behavior's value at each firing of the input.</returns>
 /// <remarks>
-/// Shorthand for <c>Stream.snapshotAndTakeB</c>; see it for the full contract.
+/// Shorthand for <c>Stream.snapshotAndTakeB</c>. See it for the full contract.
 ///
-/// Sampling rather than merging: only the stream drives the firing, and the sampled values are the
-/// ones held at the start of the transaction the firing belongs to. A cell updated in that same
-/// transaction is therefore seen with its old value, which is what keeps the result independent of
-/// the order the graph happens to be evaluated in.
+/// This samples and does not merge. Only the stream causes the firing, and each sampled value is
+/// the value at the start of the transaction of that firing. Thus, a cell that the same
+/// transaction updates gives its previous value. The result does not change when the graph
+/// operates in a different sequence.
 /// </remarks>
 let inline snapshotAndTakeB behavior stream = Stream.snapshotAndTakeB behavior stream
 
@@ -442,15 +436,15 @@ let inline snapshotAndTakeB behavior stream = Stream.snapshotAndTakeB behavior s
 /// Samples a cell when the stream fires, and fires the cell's value, discarding the stream's own.
 /// </summary>
 /// <param name="cell">The cell to sample.</param>
-/// <param name="stream">The stream whose firings drive the result.</param>
+/// <param name="stream">The stream that causes each firing of the result.</param>
 /// <returns>A stream firing the cell's value at each firing of the input.</returns>
 /// <remarks>
-/// Shorthand for <c>Stream.snapshotAndTake</c>; see it for the full contract.
+/// Shorthand for <c>Stream.snapshotAndTake</c>. See it for the full contract.
 ///
-/// Sampling rather than merging: only the stream drives the firing, and the sampled values are the
-/// ones held at the start of the transaction the firing belongs to. A cell updated in that same
-/// transaction is therefore seen with its old value, which is what keeps the result independent of
-/// the order the graph happens to be evaluated in.
+/// This samples and does not merge. Only the stream causes the firing, and each sampled value is
+/// the value at the start of the transaction of that firing. Thus, a cell that the same
+/// transaction updates gives its previous value. The result does not change when the graph
+/// operates in a different sequence.
 /// </remarks>
 let inline snapshotAndTakeC cell stream = Stream.snapshotAndTake cell stream
 
@@ -460,18 +454,18 @@ let inline snapshotAndTakeC cell stream = Stream.snapshotAndTake cell stream
 /// <param name="behavior1">The first behavior to sample.</param>
 /// <param name="behavior2">The second behavior to sample.</param>
 /// <param name="f">Combines the fired value with the two sampled values.</param>
-/// <param name="stream">The stream whose firings drive the result.</param>
+/// <param name="stream">The stream that causes each firing of the result.</param>
 /// <returns>
 /// A stream firing <paramref name="f" /> applied to the fired value and the two sampled
 /// values.
 /// </returns>
 /// <remarks>
-/// Shorthand for <c>Stream.snapshot2B</c>; see it for the full contract.
+/// Shorthand for <c>Stream.snapshot2B</c>. See it for the full contract.
 ///
-/// Sampling rather than merging: only the stream drives the firing, and the sampled values are the
-/// ones held at the start of the transaction the firing belongs to. A cell updated in that same
-/// transaction is therefore seen with its old value, which is what keeps the result independent of
-/// the order the graph happens to be evaluated in.
+/// This samples and does not merge. Only the stream causes the firing, and each sampled value is
+/// the value at the start of the transaction of that firing. Thus, a cell that the same
+/// transaction updates gives its previous value. The result does not change when the graph
+/// operates in a different sequence.
 /// </remarks>
 let inline snapshot2B behavior1 behavior2 f stream =
     Stream.snapshot2B behavior1 behavior2 f stream
@@ -482,18 +476,18 @@ let inline snapshot2B behavior1 behavior2 f stream =
 /// <param name="cell1">The first cell to sample.</param>
 /// <param name="cell2">The second cell to sample.</param>
 /// <param name="f">Combines the fired value with the two sampled values.</param>
-/// <param name="stream">The stream whose firings drive the result.</param>
+/// <param name="stream">The stream that causes each firing of the result.</param>
 /// <returns>
 /// A stream firing <paramref name="f" /> applied to the fired value and the two sampled
 /// values.
 /// </returns>
 /// <remarks>
-/// Shorthand for <c>Stream.snapshot2</c>; see it for the full contract.
+/// Shorthand for <c>Stream.snapshot2</c>. See it for the full contract.
 ///
-/// Sampling rather than merging: only the stream drives the firing, and the sampled values are the
-/// ones held at the start of the transaction the firing belongs to. A cell updated in that same
-/// transaction is therefore seen with its old value, which is what keeps the result independent of
-/// the order the graph happens to be evaluated in.
+/// This samples and does not merge. Only the stream causes the firing, and each sampled value is
+/// the value at the start of the transaction of that firing. Thus, a cell that the same
+/// transaction updates gives its previous value. The result does not change when the graph
+/// operates in a different sequence.
 /// </remarks>
 let inline snapshot2C cell1 cell2 f stream = Stream.snapshot2 cell1 cell2 f stream
 
@@ -504,18 +498,18 @@ let inline snapshot2C cell1 cell2 f stream = Stream.snapshot2 cell1 cell2 f stre
 /// <param name="behavior2">The second behavior to sample.</param>
 /// <param name="behavior3">The third behavior to sample.</param>
 /// <param name="f">Combines the fired value with the three sampled values.</param>
-/// <param name="stream">The stream whose firings drive the result.</param>
+/// <param name="stream">The stream that causes each firing of the result.</param>
 /// <returns>
 /// A stream firing <paramref name="f" /> applied to the fired value and the three sampled
 /// values.
 /// </returns>
 /// <remarks>
-/// Shorthand for <c>Stream.snapshot3B</c>; see it for the full contract.
+/// Shorthand for <c>Stream.snapshot3B</c>. See it for the full contract.
 ///
-/// Sampling rather than merging: only the stream drives the firing, and the sampled values are the
-/// ones held at the start of the transaction the firing belongs to. A cell updated in that same
-/// transaction is therefore seen with its old value, which is what keeps the result independent of
-/// the order the graph happens to be evaluated in.
+/// This samples and does not merge. Only the stream causes the firing, and each sampled value is
+/// the value at the start of the transaction of that firing. Thus, a cell that the same
+/// transaction updates gives its previous value. The result does not change when the graph
+/// operates in a different sequence.
 /// </remarks>
 let inline snapshot3B behavior1 behavior2 behavior3 f stream =
     Stream.snapshot3B behavior1 behavior2 behavior3 f stream
@@ -527,18 +521,18 @@ let inline snapshot3B behavior1 behavior2 behavior3 f stream =
 /// <param name="cell2">The second cell to sample.</param>
 /// <param name="cell3">The third cell to sample.</param>
 /// <param name="f">Combines the fired value with the three sampled values.</param>
-/// <param name="stream">The stream whose firings drive the result.</param>
+/// <param name="stream">The stream that causes each firing of the result.</param>
 /// <returns>
 /// A stream firing <paramref name="f" /> applied to the fired value and the three sampled
 /// values.
 /// </returns>
 /// <remarks>
-/// Shorthand for <c>Stream.snapshot3</c>; see it for the full contract.
+/// Shorthand for <c>Stream.snapshot3</c>. See it for the full contract.
 ///
-/// Sampling rather than merging: only the stream drives the firing, and the sampled values are the
-/// ones held at the start of the transaction the firing belongs to. A cell updated in that same
-/// transaction is therefore seen with its old value, which is what keeps the result independent of
-/// the order the graph happens to be evaluated in.
+/// This samples and does not merge. Only the stream causes the firing, and each sampled value is
+/// the value at the start of the transaction of that firing. Thus, a cell that the same
+/// transaction updates gives its previous value. The result does not change when the graph
+/// operates in a different sequence.
 /// </remarks>
 let inline snapshot3C cell1 cell2 cell3 f stream =
     Stream.snapshot3 cell1 cell2 cell3 f stream
@@ -551,18 +545,18 @@ let inline snapshot3C cell1 cell2 cell3 f stream =
 /// <param name="behavior3">The third behavior to sample.</param>
 /// <param name="behavior4">The fourth behavior to sample.</param>
 /// <param name="f">Combines the fired value with the four sampled values.</param>
-/// <param name="stream">The stream whose firings drive the result.</param>
+/// <param name="stream">The stream that causes each firing of the result.</param>
 /// <returns>
 /// A stream firing <paramref name="f" /> applied to the fired value and the four sampled
 /// values.
 /// </returns>
 /// <remarks>
-/// Shorthand for <c>Stream.snapshot4B</c>; see it for the full contract.
+/// Shorthand for <c>Stream.snapshot4B</c>. See it for the full contract.
 ///
-/// Sampling rather than merging: only the stream drives the firing, and the sampled values are the
-/// ones held at the start of the transaction the firing belongs to. A cell updated in that same
-/// transaction is therefore seen with its old value, which is what keeps the result independent of
-/// the order the graph happens to be evaluated in.
+/// This samples and does not merge. Only the stream causes the firing, and each sampled value is
+/// the value at the start of the transaction of that firing. Thus, a cell that the same
+/// transaction updates gives its previous value. The result does not change when the graph
+/// operates in a different sequence.
 /// </remarks>
 let inline snapshot4B behavior1 behavior2 behavior3 behavior4 f stream =
     Stream.snapshot4B behavior1 behavior2 behavior3 behavior4 f stream
@@ -575,18 +569,18 @@ let inline snapshot4B behavior1 behavior2 behavior3 behavior4 f stream =
 /// <param name="cell3">The third cell to sample.</param>
 /// <param name="cell4">The fourth cell to sample.</param>
 /// <param name="f">Combines the fired value with the four sampled values.</param>
-/// <param name="stream">The stream whose firings drive the result.</param>
+/// <param name="stream">The stream that causes each firing of the result.</param>
 /// <returns>
 /// A stream firing <paramref name="f" /> applied to the fired value and the four sampled
 /// values.
 /// </returns>
 /// <remarks>
-/// Shorthand for <c>Stream.snapshot4</c>; see it for the full contract.
+/// Shorthand for <c>Stream.snapshot4</c>. See it for the full contract.
 ///
-/// Sampling rather than merging: only the stream drives the firing, and the sampled values are the
-/// ones held at the start of the transaction the firing belongs to. A cell updated in that same
-/// transaction is therefore seen with its old value, which is what keeps the result independent of
-/// the order the graph happens to be evaluated in.
+/// This samples and does not merge. Only the stream causes the firing, and each sampled value is
+/// the value at the start of the transaction of that firing. Thus, a cell that the same
+/// transaction updates gives its previous value. The result does not change when the graph
+/// operates in a different sequence.
 /// </remarks>
 let inline snapshot4C cell1 cell2 cell3 cell4 f stream =
     Stream.snapshot4 cell1 cell2 cell3 cell4 f stream
@@ -600,18 +594,18 @@ let inline snapshot4C cell1 cell2 cell3 cell4 f stream =
 /// <param name="behavior4">The fourth behavior to sample.</param>
 /// <param name="behavior5">The fifth behavior to sample.</param>
 /// <param name="f">Combines the fired value with the five sampled values.</param>
-/// <param name="stream">The stream whose firings drive the result.</param>
+/// <param name="stream">The stream that causes each firing of the result.</param>
 /// <returns>
 /// A stream firing <paramref name="f" /> applied to the fired value and the five sampled
 /// values.
 /// </returns>
 /// <remarks>
-/// Shorthand for <c>Stream.snapshot5B</c>; see it for the full contract.
+/// Shorthand for <c>Stream.snapshot5B</c>. See it for the full contract.
 ///
-/// Sampling rather than merging: only the stream drives the firing, and the sampled values are the
-/// ones held at the start of the transaction the firing belongs to. A cell updated in that same
-/// transaction is therefore seen with its old value, which is what keeps the result independent of
-/// the order the graph happens to be evaluated in.
+/// This samples and does not merge. Only the stream causes the firing, and each sampled value is
+/// the value at the start of the transaction of that firing. Thus, a cell that the same
+/// transaction updates gives its previous value. The result does not change when the graph
+/// operates in a different sequence.
 /// </remarks>
 let inline snapshot5B behavior1 behavior2 behavior3 behavior4 behavior5 f stream =
     Stream.snapshot5B behavior1 behavior2 behavior3 behavior4 behavior5 f stream
@@ -625,18 +619,18 @@ let inline snapshot5B behavior1 behavior2 behavior3 behavior4 behavior5 f stream
 /// <param name="cell4">The fourth cell to sample.</param>
 /// <param name="cell5">The fifth cell to sample.</param>
 /// <param name="f">Combines the fired value with the five sampled values.</param>
-/// <param name="stream">The stream whose firings drive the result.</param>
+/// <param name="stream">The stream that causes each firing of the result.</param>
 /// <returns>
 /// A stream firing <paramref name="f" /> applied to the fired value and the five sampled
 /// values.
 /// </returns>
 /// <remarks>
-/// Shorthand for <c>Stream.snapshot5</c>; see it for the full contract.
+/// Shorthand for <c>Stream.snapshot5</c>. See it for the full contract.
 ///
-/// Sampling rather than merging: only the stream drives the firing, and the sampled values are the
-/// ones held at the start of the transaction the firing belongs to. A cell updated in that same
-/// transaction is therefore seen with its old value, which is what keeps the result independent of
-/// the order the graph happens to be evaluated in.
+/// This samples and does not merge. Only the stream causes the firing, and each sampled value is
+/// the value at the start of the transaction of that firing. Thus, a cell that the same
+/// transaction updates gives its previous value. The result does not change when the graph
+/// operates in a different sequence.
 /// </remarks>
 let inline snapshot5C cell1 cell2 cell3 cell4 cell5 f stream =
     Stream.snapshot5 cell1 cell2 cell3 cell4 cell5 f stream
@@ -651,18 +645,18 @@ let inline snapshot5C cell1 cell2 cell3 cell4 cell5 f stream =
 /// <param name="behavior5">The fifth behavior to sample.</param>
 /// <param name="behavior6">The sixth behavior to sample.</param>
 /// <param name="f">Combines the fired value with the six sampled values.</param>
-/// <param name="stream">The stream whose firings drive the result.</param>
+/// <param name="stream">The stream that causes each firing of the result.</param>
 /// <returns>
 /// A stream firing <paramref name="f" /> applied to the fired value and the six sampled
 /// values.
 /// </returns>
 /// <remarks>
-/// Shorthand for <c>Stream.snapshot6B</c>; see it for the full contract.
+/// Shorthand for <c>Stream.snapshot6B</c>. See it for the full contract.
 ///
-/// Sampling rather than merging: only the stream drives the firing, and the sampled values are the
-/// ones held at the start of the transaction the firing belongs to. A cell updated in that same
-/// transaction is therefore seen with its old value, which is what keeps the result independent of
-/// the order the graph happens to be evaluated in.
+/// This samples and does not merge. Only the stream causes the firing, and each sampled value is
+/// the value at the start of the transaction of that firing. Thus, a cell that the same
+/// transaction updates gives its previous value. The result does not change when the graph
+/// operates in a different sequence.
 /// </remarks>
 let inline snapshot6B behavior1 behavior2 behavior3 behavior4 behavior5 behavior6 f stream =
     Stream.snapshot6B behavior1 behavior2 behavior3 behavior4 behavior5 behavior6 f stream
@@ -677,18 +671,18 @@ let inline snapshot6B behavior1 behavior2 behavior3 behavior4 behavior5 behavior
 /// <param name="cell5">The fifth cell to sample.</param>
 /// <param name="cell6">The sixth cell to sample.</param>
 /// <param name="f">Combines the fired value with the six sampled values.</param>
-/// <param name="stream">The stream whose firings drive the result.</param>
+/// <param name="stream">The stream that causes each firing of the result.</param>
 /// <returns>
 /// A stream firing <paramref name="f" /> applied to the fired value and the six sampled
 /// values.
 /// </returns>
 /// <remarks>
-/// Shorthand for <c>Stream.snapshot6</c>; see it for the full contract.
+/// Shorthand for <c>Stream.snapshot6</c>. See it for the full contract.
 ///
-/// Sampling rather than merging: only the stream drives the firing, and the sampled values are the
-/// ones held at the start of the transaction the firing belongs to. A cell updated in that same
-/// transaction is therefore seen with its old value, which is what keeps the result independent of
-/// the order the graph happens to be evaluated in.
+/// This samples and does not merge. Only the stream causes the firing, and each sampled value is
+/// the value at the start of the transaction of that firing. Thus, a cell that the same
+/// transaction updates gives its previous value. The result does not change when the graph
+/// operates in a different sequence.
 /// </remarks>
 let inline snapshot6C cell1 cell2 cell3 cell4 cell5 cell6 f stream =
     Stream.snapshot6 cell1 cell2 cell3 cell4 cell5 cell6 f stream
@@ -704,18 +698,18 @@ let inline snapshot6C cell1 cell2 cell3 cell4 cell5 cell6 f stream =
 /// <param name="behavior6">The sixth behavior to sample.</param>
 /// <param name="behavior7">The seventh behavior to sample.</param>
 /// <param name="f">Combines the fired value with the seven sampled values.</param>
-/// <param name="stream">The stream whose firings drive the result.</param>
+/// <param name="stream">The stream that causes each firing of the result.</param>
 /// <returns>
 /// A stream firing <paramref name="f" /> applied to the fired value and the seven sampled
 /// values.
 /// </returns>
 /// <remarks>
-/// Shorthand for <c>Stream.snapshot7B</c>; see it for the full contract.
+/// Shorthand for <c>Stream.snapshot7B</c>. See it for the full contract.
 ///
-/// Sampling rather than merging: only the stream drives the firing, and the sampled values are the
-/// ones held at the start of the transaction the firing belongs to. A cell updated in that same
-/// transaction is therefore seen with its old value, which is what keeps the result independent of
-/// the order the graph happens to be evaluated in.
+/// This samples and does not merge. Only the stream causes the firing, and each sampled value is
+/// the value at the start of the transaction of that firing. Thus, a cell that the same
+/// transaction updates gives its previous value. The result does not change when the graph
+/// operates in a different sequence.
 /// </remarks>
 let inline snapshot7B behavior1 behavior2 behavior3 behavior4 behavior5 behavior6 behavior7 f stream =
     Stream.snapshot7B behavior1 behavior2 behavior3 behavior4 behavior5 behavior6 behavior7 f stream
@@ -731,18 +725,18 @@ let inline snapshot7B behavior1 behavior2 behavior3 behavior4 behavior5 behavior
 /// <param name="cell6">The sixth cell to sample.</param>
 /// <param name="cell7">The seventh cell to sample.</param>
 /// <param name="f">Combines the fired value with the seven sampled values.</param>
-/// <param name="stream">The stream whose firings drive the result.</param>
+/// <param name="stream">The stream that causes each firing of the result.</param>
 /// <returns>
 /// A stream firing <paramref name="f" /> applied to the fired value and the seven sampled
 /// values.
 /// </returns>
 /// <remarks>
-/// Shorthand for <c>Stream.snapshot7</c>; see it for the full contract.
+/// Shorthand for <c>Stream.snapshot7</c>. See it for the full contract.
 ///
-/// Sampling rather than merging: only the stream drives the firing, and the sampled values are the
-/// ones held at the start of the transaction the firing belongs to. A cell updated in that same
-/// transaction is therefore seen with its old value, which is what keeps the result independent of
-/// the order the graph happens to be evaluated in.
+/// This samples and does not merge. Only the stream causes the firing, and each sampled value is
+/// the value at the start of the transaction of that firing. Thus, a cell that the same
+/// transaction updates gives its previous value. The result does not change when the graph
+/// operates in a different sequence.
 /// </remarks>
 let inline snapshot7C cell1 cell2 cell3 cell4 cell5 cell6 cell7 f stream =
     Stream.snapshot7 cell1 cell2 cell3 cell4 cell5 cell6 cell7 f stream
@@ -759,18 +753,18 @@ let inline snapshot7C cell1 cell2 cell3 cell4 cell5 cell6 cell7 f stream =
 /// <param name="behavior7">The seventh behavior to sample.</param>
 /// <param name="behavior8">The eighth behavior to sample.</param>
 /// <param name="f">Combines the fired value with the eight sampled values.</param>
-/// <param name="stream">The stream whose firings drive the result.</param>
+/// <param name="stream">The stream that causes each firing of the result.</param>
 /// <returns>
 /// A stream firing <paramref name="f" /> applied to the fired value and the eight sampled
 /// values.
 /// </returns>
 /// <remarks>
-/// Shorthand for <c>Stream.snapshot8B</c>; see it for the full contract.
+/// Shorthand for <c>Stream.snapshot8B</c>. See it for the full contract.
 ///
-/// Sampling rather than merging: only the stream drives the firing, and the sampled values are the
-/// ones held at the start of the transaction the firing belongs to. A cell updated in that same
-/// transaction is therefore seen with its old value, which is what keeps the result independent of
-/// the order the graph happens to be evaluated in.
+/// This samples and does not merge. Only the stream causes the firing, and each sampled value is
+/// the value at the start of the transaction of that firing. Thus, a cell that the same
+/// transaction updates gives its previous value. The result does not change when the graph
+/// operates in a different sequence.
 /// </remarks>
 let inline snapshot8B behavior1 behavior2 behavior3 behavior4 behavior5 behavior6 behavior7 behavior8 f stream =
     Stream.snapshot8B behavior1 behavior2 behavior3 behavior4 behavior5 behavior6 behavior7 behavior8 f stream
@@ -787,24 +781,24 @@ let inline snapshot8B behavior1 behavior2 behavior3 behavior4 behavior5 behavior
 /// <param name="cell7">The seventh cell to sample.</param>
 /// <param name="cell8">The eighth cell to sample.</param>
 /// <param name="f">Combines the fired value with the eight sampled values.</param>
-/// <param name="stream">The stream whose firings drive the result.</param>
+/// <param name="stream">The stream that causes each firing of the result.</param>
 /// <returns>
 /// A stream firing <paramref name="f" /> applied to the fired value and the eight sampled
 /// values.
 /// </returns>
 /// <remarks>
-/// Shorthand for <c>Stream.snapshot8</c>; see it for the full contract.
+/// Shorthand for <c>Stream.snapshot8</c>. See it for the full contract.
 ///
-/// Sampling rather than merging: only the stream drives the firing, and the sampled values are the
-/// ones held at the start of the transaction the firing belongs to. A cell updated in that same
-/// transaction is therefore seen with its old value, which is what keeps the result independent of
-/// the order the graph happens to be evaluated in.
+/// This samples and does not merge. Only the stream causes the firing, and each sampled value is
+/// the value at the start of the transaction of that firing. Thus, a cell that the same
+/// transaction updates gives its previous value. The result does not change when the graph
+/// operates in a different sequence.
 /// </remarks>
 let inline snapshot8C cell1 cell2 cell3 cell4 cell5 cell6 cell7 cell8 f stream =
     Stream.snapshot8 cell1 cell2 cell3 cell4 cell5 cell6 cell7 cell8 f stream
 
 /// <summary>
-/// Merges two streams, combining the values where both fire in one transaction.
+/// Merges two streams, combining the values where the two fire in one transaction.
 /// </summary>
 /// <param name="f">
 /// Combines two simultaneous values. The value from the first stream is the left
@@ -812,38 +806,38 @@ let inline snapshot8C cell1 cell2 cell3 cell4 cell5 cell6 cell7 cell8 f stream =
 /// </param>
 /// <param name="stream">The first stream.</param>
 /// <param name="stream2">The second stream.</param>
-/// <returns>A stream firing whenever either input does, at most once per transaction.</returns>
+/// <returns>A stream that fires at each firing of an input, one time or no times in a transaction.</returns>
 /// <remarks>
-/// Shorthand for <c>Stream.merge</c>; see it for the full contract.
+/// Shorthand for <c>Stream.merge</c>. See it for the full contract.
 ///
-/// A stream fires at most once per transaction, so simultaneous firings must be resolved
-/// rather than both delivered - that is what <paramref name="f" /> is for. Use <c>orElse</c>
-/// to take the first instead of combining.
+/// A stream fires one time or no times in each transaction, thus the result must give one value
+/// for two firings at the same time. <paramref name="f" /> gives that value. Use <c>orElse</c>
+/// to use the first value, and not the result of <paramref name="f" />.
 /// </remarks>
 let inline mergeS f (stream, stream2) = Stream.merge f (stream, stream2)
 
 /// <summary>
-/// Merges two streams, preferring the first where both fire in one transaction.
+/// Merges two streams, preferring the first where the two fire in one transaction.
 /// </summary>
 /// <param name="stream">The stream to prefer.</param>
-/// <param name="stream2">The stream to fall back to.</param>
-/// <returns>A stream firing whenever either input does, at most once per transaction.</returns>
+/// <param name="stream2">The alternative stream.</param>
+/// <returns>A stream that fires at each firing of an input, one time or no times in a transaction.</returns>
 /// <remarks>
-/// Shorthand for <c>Stream.orElse</c>; see it for the full contract.
+/// Shorthand for <c>Stream.orElse</c>. See it for the full contract.
 ///
 /// <c>merge</c> with a function that keeps the left value and drops the right. The dropped
-/// value is gone, not deferred - use <c>merge</c> where both matter.
+/// value is gone, not deferred - use <c>merge</c> where the two are necessary.
 /// </remarks>
 let inline orElseS (stream, stream2) = Stream.orElse (stream, stream2)
 
 /// <summary>
 /// Keeps only the firings whose value satisfies a predicate.
 /// </summary>
-/// <param name="predicate">Returns whether to keep the fired value.</param>
+/// <param name="predicate">Gives true when the result keeps the value.</param>
 /// <param name="stream">The stream to filter.</param>
 /// <returns>A stream firing only the values <paramref name="predicate" /> accepted.</returns>
 /// <remarks>
-/// Shorthand for <c>Stream.filter</c>; see it for the full contract.
+/// Shorthand for <c>Stream.filter</c>. See it for the full contract.
 /// </remarks>
 let inline filterS predicate stream = Stream.filter predicate stream
 
@@ -851,37 +845,37 @@ let inline filterS predicate stream = Stream.filter predicate stream
 /// Keeps only the firings which carried <c>Some</c>, and unwraps them.
 /// </summary>
 /// <param name="stream">The stream of options to filter.</param>
-/// <returns>A stream firing the value inside each <c>Some</c>, and not firing for <c>None</c>.</returns>
+/// <returns>A stream firing the value in each <c>Some</c>, and not firing for <c>None</c>.</returns>
 /// <remarks>
-/// Shorthand for <c>Stream.filterSome</c>; see it for the full contract.
+/// Shorthand for <c>Stream.filterSome</c>. See it for the full contract.
 /// </remarks>
 let inline filterSomeS stream = Stream.filterSome stream
 
 /// <summary>
-/// Transforms the firings with a function which may produce no value, and fires only the values it
+/// Transforms the firings with a function that can give no value, and fires only the values it
 /// produced.
 /// </summary>
-/// <param name="f">Applied to each fired value; the firings it returns <c>None</c> for are dropped.</param>
+/// <param name="f">Runs on each fired value. The result drops the firings that give <c>None</c>.</param>
 /// <param name="stream">The stream to transform.</param>
 /// <returns>
-/// A stream firing the value inside each <c>Some</c> that <paramref name="f" /> returned, and not
+/// A stream firing the value in each <c>Some</c> that <paramref name="f" /> returned, and not
 /// firing for the values it returned <c>None</c> for.
 /// </returns>
 /// <remarks>
-/// Shorthand for <c>Stream.choose</c>; see it for the full contract.
+/// Shorthand for <c>Stream.choose</c>. See it for the full contract.
 /// </remarks>
 let inline chooseS f stream = Stream.choose f stream
 
 /// <summary>
 /// Lets firings through only while a behavior holds true.
 /// </summary>
-/// <param name="behavior">The behavior deciding whether firings pass.</param>
+/// <param name="behavior">The behavior that gives true for the firings to keep.</param>
 /// <param name="stream">The stream to gate.</param>
 /// <returns>A stream firing only when the behavior held true at the time of the firing.</returns>
 /// <remarks>
-/// Shorthand for <c>Stream.gateB</c>; see it for the full contract.
+/// Shorthand for <c>Stream.gateB</c>. See it for the full contract.
 ///
-/// The behavior is sampled the way <c>snapshotB</c> samples it: the value read is the one held
+/// This samples the behavior as <c>snapshotB</c> samples it: the value read is the one held
 /// at the start of the transaction the firing belongs to.
 /// </remarks>
 let inline gateB behavior stream = Stream.gateB behavior stream
@@ -889,13 +883,13 @@ let inline gateB behavior stream = Stream.gateB behavior stream
 /// <summary>
 /// Lets firings through only while a cell holds true.
 /// </summary>
-/// <param name="cell">The cell deciding whether firings pass.</param>
+/// <param name="cell">The cell that gives true for the firings to keep.</param>
 /// <param name="stream">The stream to gate.</param>
 /// <returns>A stream firing only when the cell held true at the time of the firing.</returns>
 /// <remarks>
-/// Shorthand for <c>Stream.gate</c>; see it for the full contract.
+/// Shorthand for <c>Stream.gate</c>. See it for the full contract.
 ///
-/// The cell is sampled the way <c>snapshot</c> samples it: the value read is the one held at
+/// This samples the cell as <c>snapshot</c> samples it: the value read is the one held at
 /// the start of the transaction the firing belongs to.
 /// </remarks>
 let inline gateC cell stream = Stream.gate cell stream
@@ -907,18 +901,18 @@ let inline gateC cell stream = Stream.gate cell stream
 /// <param name="initialState">The lazy state to start from.</param>
 /// <param name="f">
 /// Given the fired value and the current state, returns a struct tuple of the value
-/// to fire and the state to carry forward.
+/// to fire and the state for the next firing.
 /// </param>
 /// <param name="stream">The stream to fold over.</param>
 /// <returns>A stream firing the value <paramref name="f" /> returned for each input firing.</returns>
 /// <remarks>
-/// Shorthand for <c>Stream.collectLazy</c>; see it for the full contract.
+/// Shorthand for <c>Stream.collectLazy</c>. See it for the full contract.
 ///
-/// The state is committed at the end of the transaction rather than in place, so a second
-/// firing within one transaction does not see the first one's state, and a transaction that
-/// throws leaves the state as though nothing had happened.
+/// The transaction commits the state at its end, and not immediately. Thus, a second firing in one
+/// transaction does not see the state of the first firing. A transaction that throws an exception
+/// leaves the state with no change.
 ///
-/// This is the lazy form, for closing a loop where the initial state is not yet available.
+/// This is the lazy version, to close a loop where the initial state is not available now.
 /// </remarks>
 let inline collectLazyS initialState f stream =
     Stream.collectLazy initialState f stream
@@ -929,33 +923,33 @@ let inline collectLazyS initialState f stream =
 /// <param name="initialState">The state to start from.</param>
 /// <param name="f">
 /// Given the fired value and the current state, returns a struct tuple of the value
-/// to fire and the state to carry forward.
+/// to fire and the state for the next firing.
 /// </param>
 /// <param name="stream">The stream to fold over.</param>
 /// <returns>A stream firing the value <paramref name="f" /> returned for each input firing.</returns>
 /// <remarks>
-/// Shorthand for <c>Stream.collect</c>; see it for the full contract.
+/// Shorthand for <c>Stream.collect</c>. See it for the full contract.
 ///
-/// The state is committed at the end of the transaction rather than in place, so a second
-/// firing within one transaction does not see the first one's state, and a transaction that
-/// throws leaves the state as though nothing had happened.
+/// The transaction commits the state at its end, and not immediately. Thus, a second firing in one
+/// transaction does not see the state of the first firing. A transaction that throws an exception
+/// leaves the state with no change.
 ///
-/// Use <c>accum</c> where the state itself is what should be published.
+/// Use <c>accum</c> where the pipeline publishes the state itself.
 /// </remarks>
 let inline collectS initialState f stream = Stream.collect initialState f stream
 
 /// <summary>
-/// Suppresses firings whose value the given comparison considers equal to the last one that got
+/// Suppresses firings whose value the given function considers equal to the last one that got
 /// through.
 /// </summary>
-/// <param name="compare">Returns whether two values are to be treated as equal.</param>
+/// <param name="compare">Gives true when this code must read two values as equal.</param>
 /// <param name="stream">The stream to calm.</param>
 /// <returns>A stream firing only when the value actually changed.</returns>
 /// <remarks>
-/// Shorthand for <c>Stream.calmWithCompare</c>; see it for the full contract.
+/// Shorthand for <c>Stream.calmWithCompare</c>. See it for the full contract.
 ///
-/// Suppressing a firing is not the same as it not happening: the next comparison is made against
-/// the value that was suppressed, not against the last one that got through.
+/// A suppressed firing is not a missing firing. The next comparer call reads the value that this
+/// code suppressed, and not the last value that the stream published.
 /// </remarks>
 let inline calmWithCompareS compare stream = Stream.calmWithCompare compare stream
 
@@ -963,14 +957,14 @@ let inline calmWithCompareS compare stream = Stream.calmWithCompare compare stre
 /// Suppresses firings whose value the given comparer considers equal to the last one that got
 /// through.
 /// </summary>
-/// <param name="equalityComparer">Decides whether two values are equal.</param>
+/// <param name="equalityComparer">Gives true when two values are equal.</param>
 /// <param name="stream">The stream to calm.</param>
 /// <returns>A stream firing only when the value actually changed.</returns>
 /// <remarks>
-/// Shorthand for <c>Stream.calmWithEqualityComparer</c>; see it for the full contract.
+/// Shorthand for <c>Stream.calmWithEqualityComparer</c>. See it for the full contract.
 ///
-/// Suppressing a firing is not the same as it not happening: the next comparison is made against
-/// the value that was suppressed, not against the last one that got through.
+/// A suppressed firing is not a missing firing. The next comparer call reads the value that this
+/// code suppressed, and not the last value that the stream published.
 /// </remarks>
 let inline calmWithEqualityComparerS equalityComparer stream =
     Stream.calmWithEqualityComparer equalityComparer stream
@@ -981,13 +975,13 @@ let inline calmWithEqualityComparerS equalityComparer stream =
 /// <param name="stream">The stream to calm.</param>
 /// <returns>A stream firing only when the value actually changed.</returns>
 /// <remarks>
-/// Shorthand for <c>Stream.calm</c>; see it for the full contract.
+/// Shorthand for <c>Stream.calm</c>. See it for the full contract.
 ///
-/// Suppressing a firing is not the same as it not happening: the next comparison is made against
-/// the value that was suppressed, not against the last one that got through.
+/// A suppressed firing is not a missing firing. The next comparer call reads the value that this
+/// code suppressed, and not the last value that the stream published.
 ///
 /// Uses <c>=</c>, so for a type without meaningful structural equality use
-/// <c>calmWithCompare</c> instead.
+/// the alternative <c>calmWithCompare</c>.
 /// </remarks>
 let inline calmS stream = Stream.calm stream
 
@@ -999,9 +993,9 @@ let inline calmS stream = Stream.calm stream
 /// <param name="stream">The stream to fold over.</param>
 /// <returns>A cell holding the accumulated state.</returns>
 /// <remarks>
-/// Shorthand for <c>Stream.accumLazy</c>; see it for the full contract.
+/// Shorthand for <c>Stream.accumLazy</c>. See it for the full contract.
 ///
-/// This is the lazy form, for closing a loop where the initial state is not yet available.
+/// This is the lazy version, to close a loop where the initial state is not available now.
 /// </remarks>
 let inline accumLazyS initialState f stream = Stream.accumLazy initialState f stream
 
@@ -1013,9 +1007,9 @@ let inline accumLazyS initialState f stream = Stream.accumLazy initialState f st
 /// <param name="stream">The stream to fold over.</param>
 /// <returns>A cell holding the accumulated state.</returns>
 /// <remarks>
-/// Shorthand for <c>Stream.accum</c>; see it for the full contract.
+/// Shorthand for <c>Stream.accum</c>. See it for the full contract.
 ///
-/// A running total, a counter, anything where the state itself is what is wanted. Use
+/// A total, a counter, or a different value where the state itself is the result. Use
 /// <c>collect</c> where the published value differs from the state carried forward.
 /// </remarks>
 let inline accumS initialState f stream = Stream.accum initialState f stream
@@ -1023,37 +1017,37 @@ let inline accumS initialState f stream = Stream.accum initialState f stream
 /// <summary>
 /// Keeps only the first firing.
 /// </summary>
-/// <param name="stream">The stream to take from.</param>
+/// <param name="stream">The stream to read.</param>
 /// <returns>A stream firing the first value the input fires, and never again.</returns>
 /// <remarks>
-/// Shorthand for <c>Stream.once</c>; see it for the full contract.
+/// Shorthand for <c>Stream.once</c>. See it for the full contract.
 /// </remarks>
 let inline onceS stream = Stream.once stream
 
 /// <summary>
-/// Merges any number of streams, combining the values where several fire in one transaction.
+/// Merges any number of streams, combining the values where some fire in one transaction.
 /// </summary>
 /// <param name="f">
 /// Combines two simultaneous values. The value from the stream earlier in the sequence
 /// is the left argument.
 /// </param>
 /// <param name="streams">The streams to merge.</param>
-/// <returns>A stream firing whenever any input does, at most once per transaction.</returns>
+/// <returns>A stream that fires at each firing of an input, one time or no times in a transaction.</returns>
 /// <remarks>
-/// Shorthand for <c>Stream.mergeAll</c>; see it for the full contract.
+/// Shorthand for <c>Stream.mergeAll</c>. See it for the full contract.
 /// </remarks>
 let inline mergeAllS f streams = Stream.mergeAll f streams
 
 /// <summary>
-/// Merges any number of streams, preferring the earliest where several fire in one transaction.
+/// Merges any number of streams, preferring the earliest where some fire in one transaction.
 /// </summary>
 /// <param name="streams">The streams to merge, in order of preference.</param>
-/// <returns>A stream firing whenever any input does, at most once per transaction.</returns>
+/// <returns>A stream that fires at each firing of an input, one time or no times in a transaction.</returns>
 /// <remarks>
-/// Shorthand for <c>Stream.orElseAll</c>; see it for the full contract.
+/// Shorthand for <c>Stream.orElseAll</c>. See it for the full contract.
 ///
-/// <c>mergeAll</c> with a function that keeps the left value; the values from the later
-/// streams are dropped rather than deferred.
+/// This is <c>mergeAll</c> with a function that keeps the left value. The result drops the values
+/// from the subsequent streams, and does not defer them.
 /// </remarks>
 let inline orElseAllS streams = Stream.orElseAll streams
 
@@ -1063,7 +1057,7 @@ let inline orElseAllS streams = Stream.orElseAll streams
 /// <param name="value">The value the behavior always has.</param>
 /// <returns>A behavior whose value is always <paramref name="value" />.</returns>
 /// <remarks>
-/// Shorthand for <c>Behavior.constant</c>; see it for the full contract.
+/// Shorthand for <c>Behavior.constant</c>. See it for the full contract.
 /// </remarks>
 let inline constantB value = Behavior.constant value
 
@@ -1073,36 +1067,35 @@ let inline constantB value = Behavior.constant value
 /// <param name="value">The lazy value the behavior always has.</param>
 /// <returns>A behavior whose value is always the value of <paramref name="value" />.</returns>
 /// <remarks>
-/// Shorthand for <c>Behavior.constantLazy</c>; see it for the full contract.
+/// Shorthand for <c>Behavior.constantLazy</c>. See it for the full contract.
 ///
-/// For a constant that is expensive to produce, or that is not yet available when the graph
-/// is being built - the value is forced only when the behavior is first sampled.
+/// For a constant with a high cost, or that is not available when the code builds the graph.
+/// The code forces the value only at the first sample of the behavior.
 /// </remarks>
 let inline constantLazyB value = Behavior.constantLazy value
 
 /// <summary>
-/// Creates a behavior sink which keeps the last value sent when <c>send</c> is called more than
-/// once in a single transaction.
+/// Creates a behavior sink that keeps the last value of more than one <c>send</c> in one
+/// transaction.
 /// </summary>
 /// <param name="initialValue">The value the behavior holds until something is sent.</param>
 /// <returns>A new behavior sink.</returns>
 /// <remarks>
-/// Shorthand for <c>BehaviorSink.create</c>; see it for the full contract.
+/// Shorthand for <c>BehaviorSink.create</c>. See it for the full contract.
 /// </remarks>
 let inline sinkB initialValue = BehaviorSink.create initialValue
 
 /// <summary>
-/// Creates a behavior sink which combines values when <c>send</c> is called more than once in a
-/// single transaction.
+/// Creates a behavior sink that combines the values of more than one <c>send</c> in one transaction.
 /// </summary>
 /// <param name="initialValue">The value the behavior holds until something is sent.</param>
 /// <param name="coalesce">
-/// Combines two values sent in the same transaction. Called with the value already
-/// accumulated and the value just sent, in that order.
+/// Puts two values from the same transaction together. It receives the value from before this
+/// send and the new value, in that sequence.
 /// </param>
 /// <returns>A new behavior sink.</returns>
 /// <remarks>
-/// Shorthand for <c>BehaviorSink.createWithCoalesce</c>; see it for the full contract.
+/// Shorthand for <c>BehaviorSink.createWithCoalesce</c>. See it for the full contract.
 /// </remarks>
 let inline sinkWithCoalesceB initialValue coalesce =
     BehaviorSink.createWithCoalesce initialValue coalesce
@@ -1113,43 +1106,43 @@ let inline sinkWithCoalesceB initialValue coalesce =
 /// <param name="a">The value to send.</param>
 /// <param name="behaviorSink">The behavior sink to send it to.</param>
 /// <remarks>
-/// Shorthand for <c>BehaviorSink.send</c>; see it for the full contract.
+/// Shorthand for <c>BehaviorSink.send</c>. See it for the full contract.
 ///
-/// Must not be called from inside a listener callback; doing so throws.
+/// A call from a listener callback throws an exception.
 /// </remarks>
 let inline sendB a behaviorSink = BehaviorSink.send a behaviorSink
 
 /// <summary>
-/// Builds a behavior which refers to itself, closing the loop within one transaction.
+/// Builds a behavior which refers to itself, closing the loop in one transaction.
 /// </summary>
 /// <param name="f">
 /// Given the forward reference, returns a struct tuple of the behavior it stands for and
 /// anything else the caller wants back out.
 /// </param>
 /// <returns>
-/// A struct tuple of the behavior the forward reference was closed with, and whatever
+/// A struct tuple of the behavior that closed the forward reference, and whatever
 /// <paramref name="f" /> returned alongside it.
 /// </returns>
 /// <remarks>
-/// Shorthand for <c>Behavior.loop</c>; see it for the full contract.
+/// Shorthand for <c>Behavior.loop</c>. See it for the full contract.
 ///
-/// A behavior defined in terms of itself needs a forward reference to exist before the value
-/// it refers to does. Both the reference and its resolution must happen in a single
-/// transaction, which this opens if none is running.
+/// A behavior that refers to itself needs a forward reference. The code makes the reference
+/// before the value that it refers to. The reference and its resolution must occur in one
+/// transaction, which this opens when no transaction is open.
 ///
-/// Use <c>loopWithNoCaptures</c> where nothing but the behavior itself is needed.
+/// Use <c>loopWithNoCaptures</c> where the caller needs only the behavior.
 /// </remarks>
 let inline loopB f = Behavior.loop f
 
 /// <summary>
-/// Builds a self-referential behavior where nothing but the behavior itself is wanted back.
+/// Builds a self-referential behavior where the caller needs only the behavior.
 /// </summary>
 /// <param name="f">Given the forward reference, returns the behavior it stands for.</param>
-/// <returns>The behavior the forward reference was closed with.</returns>
+/// <returns>The behavior that closed the forward reference.</returns>
 /// <remarks>
-/// Shorthand for <c>Behavior.loopWithNoCaptures</c>; see it for the full contract.
+/// Shorthand for <c>Behavior.loopWithNoCaptures</c>. See it for the full contract.
 ///
-/// <c>loop</c> where something more than the behavior needs to escape the loop.
+/// <c>loop</c> where the caller needs more than the behavior from the loop.
 /// </remarks>
 let inline loopWithNoCapturesB f = Behavior.loopWithNoCaptures f
 
@@ -1159,25 +1152,25 @@ let inline loopWithNoCapturesB f = Behavior.loopWithNoCaptures f
 /// <param name="behavior">The behavior to sample.</param>
 /// <returns>The value the behavior has at this moment.</returns>
 /// <remarks>
-/// Shorthand for <c>Behavior.sample</c>; see it for the full contract.
+/// Shorthand for <c>Behavior.sample</c>. See it for the full contract.
 ///
-/// May be used inside the functions passed to the primitives that apply them to streams, where
-/// it means the same as snapshotting. Outside a transaction it opens one of its own, so the
-/// value read is never a half-updated one.
+/// The functions that the primitives give to a stream can call this, and there it is the same as
+/// a snapshot. With no transaction it opens its own transaction, thus a read never gives a value
+/// in the middle of an update.
 /// </remarks>
 let inline sampleB behavior = Behavior.sample behavior
 
 /// <summary>
-/// Gets a behavior's value as of now, without forcing it yet.
+/// Gets the current value of a behavior, and does not force it.
 /// </summary>
 /// <param name="behavior">The behavior to sample.</param>
 /// <returns>A lazy value which yields what the behavior held at the moment of this call.</returns>
 /// <remarks>
-/// Shorthand for <c>Behavior.sampleLazy</c>; see it for the full contract.
+/// Shorthand for <c>Behavior.sampleLazy</c>. See it for the full contract.
 ///
-/// The value is pinned now and computed later. This is what <c>Stream.holdLazy</c> and the
-/// looping constructs need: at the point a loop is being closed the value is not yet known,
-/// but which moment it is to be taken from already is.
+/// This code sets the value now and calculates it after this. This is necessary for
+/// <c>Stream.holdLazy</c> and the loop constructs. At the moment that the code closes a loop,
+/// the value is not known, but the moment of the value is known.
 /// </remarks>
 let inline sampleLazyB behavior = Behavior.sampleLazy behavior
 
@@ -1187,14 +1180,14 @@ let inline sampleLazyB behavior = Behavior.sampleLazy behavior
 /// <param name="f">The behavior holding the function to apply.</param>
 /// <param name="behavior">The behavior holding the value to apply it to.</param>
 /// <returns>
-/// A behavior whose value is the current function in <paramref name="f" /> applied to the
+/// A behavior whose value is the result of the current function in <paramref name="f" /> on the
 /// input behavior's current value.
 /// </returns>
 /// <remarks>
-/// Shorthand for <c>Behavior.apply</c>; see it for the full contract.
+/// Shorthand for <c>Behavior.apply</c>. See it for the full contract.
 ///
-/// The primitive all the <c>lift</c> functions are built from. Reach for <c>lift2</c> and
-/// its siblings first; this is for the cases they do not cover.
+/// This is the primitive of all the <c>lift</c> functions. Use <c>lift2</c> and the other
+/// <c>lift</c> functions first. Use this function only for the conditions that they do not cover.
 /// </remarks>
 let inline applyB f behavior = Behavior.apply f behavior
 
@@ -1204,14 +1197,15 @@ let inline applyB f behavior = Behavior.apply f behavior
 /// <param name="f">Transforms the value.</param>
 /// <param name="behavior">The behavior to transform.</param>
 /// <returns>
-/// A behavior whose value is <paramref name="f" /> applied to the input behavior's current
+/// A behavior whose value is the result of <paramref name="f" /> on the input behavior's current
 /// value.
 /// </returns>
 /// <remarks>
-/// Shorthand for <c>Behavior.map</c>; see it for the full contract.
+/// Shorthand for <c>Behavior.map</c>. See it for the full contract.
 ///
-/// <paramref name="f" /> may construct FRP logic or sample behaviors and cells; apart from
-/// that it must be pure, since it may be called more than once for one input.
+/// <paramref name="f" /> can build FRP logic, and it can sample a behavior and a cell. It must
+/// be pure in each other operation, because this code can call it more than one time for one
+/// input.
 /// </remarks>
 let inline mapB f behavior = Behavior.map f behavior
 
@@ -1222,14 +1216,14 @@ let inline mapB f behavior = Behavior.map f behavior
 /// <param name="behavior">The first behavior.</param>
 /// <param name="behavior2">The second behavior.</param>
 /// <returns>
-/// A behavior whose value is <paramref name="f" /> applied to the current values of the two
+/// A behavior whose value is the result of <paramref name="f" /> on the current values of the two
 /// inputs.
 /// </returns>
 /// <remarks>
-/// Shorthand for <c>Behavior.lift2</c>; see it for the full contract.
+/// Shorthand for <c>Behavior.lift2</c>. See it for the full contract.
 ///
-/// Glitch-free: when several of the inputs change in one transaction, the result updates
-/// once, with all the new values, rather than once per input.
+/// There is no glitch. When some of the inputs change in one transaction, the result updates one
+/// time, with each new value, and not one time for each input.
 /// </remarks>
 let inline lift2B f (behavior, behavior2) = Behavior.lift2 f (behavior, behavior2)
 
@@ -1241,14 +1235,14 @@ let inline lift2B f (behavior, behavior2) = Behavior.lift2 f (behavior, behavior
 /// <param name="behavior2">The second behavior.</param>
 /// <param name="behavior3">The third behavior.</param>
 /// <returns>
-/// A behavior whose value is <paramref name="f" /> applied to the current values of the three
+/// A behavior whose value is the result of <paramref name="f" /> on the current values of the three
 /// inputs.
 /// </returns>
 /// <remarks>
-/// Shorthand for <c>Behavior.lift3</c>; see it for the full contract.
+/// Shorthand for <c>Behavior.lift3</c>. See it for the full contract.
 ///
-/// Glitch-free: when several of the inputs change in one transaction, the result updates
-/// once, with all the new values, rather than once per input.
+/// There is no glitch. When some of the inputs change in one transaction, the result updates one
+/// time, with each new value, and not one time for each input.
 /// </remarks>
 let inline lift3B f (behavior, behavior2, behavior3) =
     Behavior.lift3 f (behavior, behavior2, behavior3)
@@ -1262,14 +1256,14 @@ let inline lift3B f (behavior, behavior2, behavior3) =
 /// <param name="behavior3">The third behavior.</param>
 /// <param name="behavior4">The fourth behavior.</param>
 /// <returns>
-/// A behavior whose value is <paramref name="f" /> applied to the current values of the four
+/// A behavior whose value is the result of <paramref name="f" /> on the current values of the four
 /// inputs.
 /// </returns>
 /// <remarks>
-/// Shorthand for <c>Behavior.lift4</c>; see it for the full contract.
+/// Shorthand for <c>Behavior.lift4</c>. See it for the full contract.
 ///
-/// Glitch-free: when several of the inputs change in one transaction, the result updates
-/// once, with all the new values, rather than once per input.
+/// There is no glitch. When some of the inputs change in one transaction, the result updates one
+/// time, with each new value, and not one time for each input.
 /// </remarks>
 let inline lift4B f (behavior, behavior2, behavior3, behavior4) =
     Behavior.lift4 f (behavior, behavior2, behavior3, behavior4)
@@ -1284,14 +1278,14 @@ let inline lift4B f (behavior, behavior2, behavior3, behavior4) =
 /// <param name="behavior4">The fourth behavior.</param>
 /// <param name="behavior5">The fifth behavior.</param>
 /// <returns>
-/// A behavior whose value is <paramref name="f" /> applied to the current values of the five
+/// A behavior whose value is the result of <paramref name="f" /> on the current values of the five
 /// inputs.
 /// </returns>
 /// <remarks>
-/// Shorthand for <c>Behavior.lift5</c>; see it for the full contract.
+/// Shorthand for <c>Behavior.lift5</c>. See it for the full contract.
 ///
-/// Glitch-free: when several of the inputs change in one transaction, the result updates
-/// once, with all the new values, rather than once per input.
+/// There is no glitch. When some of the inputs change in one transaction, the result updates one
+/// time, with each new value, and not one time for each input.
 /// </remarks>
 let inline lift5B f (behavior, behavior2, behavior3, behavior4, behavior5) =
     Behavior.lift5 f (behavior, behavior2, behavior3, behavior4, behavior5)
@@ -1307,14 +1301,14 @@ let inline lift5B f (behavior, behavior2, behavior3, behavior4, behavior5) =
 /// <param name="behavior5">The fifth behavior.</param>
 /// <param name="behavior6">The sixth behavior.</param>
 /// <returns>
-/// A behavior whose value is <paramref name="f" /> applied to the current values of the six
+/// A behavior whose value is the result of <paramref name="f" /> on the current values of the six
 /// inputs.
 /// </returns>
 /// <remarks>
-/// Shorthand for <c>Behavior.lift6</c>; see it for the full contract.
+/// Shorthand for <c>Behavior.lift6</c>. See it for the full contract.
 ///
-/// Glitch-free: when several of the inputs change in one transaction, the result updates
-/// once, with all the new values, rather than once per input.
+/// There is no glitch. When some of the inputs change in one transaction, the result updates one
+/// time, with each new value, and not one time for each input.
 /// </remarks>
 let inline lift6B f (behavior, behavior2, behavior3, behavior4, behavior5, behavior6) =
     Behavior.lift6 f (behavior, behavior2, behavior3, behavior4, behavior5, behavior6)
@@ -1331,14 +1325,14 @@ let inline lift6B f (behavior, behavior2, behavior3, behavior4, behavior5, behav
 /// <param name="behavior6">The sixth behavior.</param>
 /// <param name="behavior7">The seventh behavior.</param>
 /// <returns>
-/// A behavior whose value is <paramref name="f" /> applied to the current values of the seven
+/// A behavior whose value is the result of <paramref name="f" /> on the current values of the seven
 /// inputs.
 /// </returns>
 /// <remarks>
-/// Shorthand for <c>Behavior.lift7</c>; see it for the full contract.
+/// Shorthand for <c>Behavior.lift7</c>. See it for the full contract.
 ///
-/// Glitch-free: when several of the inputs change in one transaction, the result updates
-/// once, with all the new values, rather than once per input.
+/// There is no glitch. When some of the inputs change in one transaction, the result updates one
+/// time, with each new value, and not one time for each input.
 /// </remarks>
 let inline lift7B f (behavior, behavior2, behavior3, behavior4, behavior5, behavior6, behavior7) =
     Behavior.lift7 f (behavior, behavior2, behavior3, behavior4, behavior5, behavior6, behavior7)
@@ -1356,14 +1350,14 @@ let inline lift7B f (behavior, behavior2, behavior3, behavior4, behavior5, behav
 /// <param name="behavior7">The seventh behavior.</param>
 /// <param name="behavior8">The eighth behavior.</param>
 /// <returns>
-/// A behavior whose value is <paramref name="f" /> applied to the current values of the eight
+/// A behavior whose value is the result of <paramref name="f" /> on the current values of the eight
 /// inputs.
 /// </returns>
 /// <remarks>
-/// Shorthand for <c>Behavior.lift8</c>; see it for the full contract.
+/// Shorthand for <c>Behavior.lift8</c>. See it for the full contract.
 ///
-/// Glitch-free: when several of the inputs change in one transaction, the result updates
-/// once, with all the new values, rather than once per input.
+/// There is no glitch. When some of the inputs change in one transaction, the result updates one
+/// time, with each new value, and not one time for each input.
 /// </remarks>
 let inline lift8B f (behavior, behavior2, behavior3, behavior4, behavior5, behavior6, behavior7, behavior8) =
     Behavior.lift8 f (behavior, behavior2, behavior3, behavior4, behavior5, behavior6, behavior7, behavior8)
@@ -1371,28 +1365,28 @@ let inline lift8B f (behavior, behavior2, behavior3, behavior4, behavior5, behav
 /// <summary>
 /// Combines any number of behaviors into one whose value is a function of all of theirs.
 /// </summary>
-/// <param name="f">Combines the current values, given in the order the behaviors were supplied.</param>
-/// <param name="behaviors">The behaviors to combine.</param>
-/// <returns>A behavior whose value is <paramref name="f" /> applied to all the current values.</returns>
+/// <param name="f">Combines the current values, in the sequence of the behaviors.</param>
+/// <param name="behaviors">The behaviors to put together.</param>
+/// <returns>A behavior whose value is the result of <paramref name="f" /> on all the current values.</returns>
 /// <remarks>
-/// Shorthand for <c>Behavior.liftAll</c>; see it for the full contract.
+/// Shorthand for <c>Behavior.liftAll</c>. See it for the full contract.
 ///
 /// The <c>lift</c> family where the number of inputs is not known until run time. Glitch-free
-/// in the same way: however many of the inputs change in one transaction, the result updates
-/// once.
+/// in the same manner. At each count of the inputs that change in one transaction, the result
+/// updates one time.
 /// </remarks>
 let inline liftAllB f behaviors = Behavior.liftAll f behaviors
 
 /// <summary>
 /// Unwraps a behavior of behaviors into a behavior which follows whichever one is current.
 /// </summary>
-/// <param name="behavior">The behavior holding another behavior.</param>
+/// <param name="behavior">The behavior that holds a second behavior.</param>
 /// <returns>A behavior whose value is the current value of the currently held behavior.</returns>
 /// <remarks>
-/// Shorthand for <c>Behavior.switchB</c>; see it for the full contract.
+/// Shorthand for <c>Behavior.switchB</c>. See it for the full contract.
 ///
-/// This is how a graph changes shape at run time: the outer behavior chooses which inner one
-/// is being followed.
+/// This is how a graph changes its shape at run time. The external behavior selects the
+/// internal behavior to follow.
 /// </remarks>
 let inline switchBB behavior = Behavior.switchB behavior
 
@@ -1402,7 +1396,7 @@ let inline switchBB behavior = Behavior.switchB behavior
 /// <param name="behavior">The behavior holding a cell.</param>
 /// <returns>A cell whose value is the current value of the currently held cell.</returns>
 /// <remarks>
-/// Shorthand for <c>Behavior.switchC</c>; see it for the full contract.
+/// Shorthand for <c>Behavior.switchC</c>. See it for the full contract.
 /// </remarks>
 let inline switchCB behavior = Behavior.switchC behavior
 
@@ -1412,10 +1406,10 @@ let inline switchCB behavior = Behavior.switchC behavior
 /// <param name="behavior">The behavior holding a stream.</param>
 /// <returns>A stream firing the firings of the currently held stream.</returns>
 /// <remarks>
-/// Shorthand for <c>Behavior.switchS</c>; see it for the full contract.
+/// Shorthand for <c>Behavior.switchS</c>. See it for the full contract.
 ///
-/// On the transaction where the behavior changes, the firing taken is the one from the stream
-/// held at the start of that transaction, not the newly selected one.
+/// In the transaction where the behavior changes, the result takes the firing from the stream
+/// at the start of that transaction. It does not use the firing from the new stream.
 /// </remarks>
 let inline switchSB behavior = Behavior.switchS behavior
 
@@ -1425,7 +1419,7 @@ let inline switchSB behavior = Behavior.switchS behavior
 /// <param name="value">The value the cell always has.</param>
 /// <returns>A cell whose value is always <paramref name="value" />.</returns>
 /// <remarks>
-/// Shorthand for <c>Cell.constant</c>; see it for the full contract.
+/// Shorthand for <c>Cell.constant</c>. See it for the full contract.
 /// </remarks>
 let inline constantC value = Cell.constant value
 
@@ -1435,36 +1429,34 @@ let inline constantC value = Cell.constant value
 /// <param name="value">The lazy value the cell always has.</param>
 /// <returns>A cell whose value is always the value of <paramref name="value" />.</returns>
 /// <remarks>
-/// Shorthand for <c>Cell.constantLazy</c>; see it for the full contract.
+/// Shorthand for <c>Cell.constantLazy</c>. See it for the full contract.
 ///
-/// For a constant that is expensive to produce, or that is not yet available when the graph is
-/// being built - the value is forced only when the cell is first sampled.
+/// For a constant with a high cost, or that is not available when the code builds the graph.
+/// The code forces the value only at the first sample of the cell.
 /// </remarks>
 let inline constantLazyC value = Cell.constantLazy value
 
 /// <summary>
-/// Creates a cell sink which keeps the last value sent when <c>send</c> is called more than once
-/// in a single transaction.
+/// Creates a cell sink that keeps the last value of more than one <c>send</c> in one transaction.
 /// </summary>
 /// <param name="initialValue">The value the cell holds until something is sent.</param>
 /// <returns>A new cell sink.</returns>
 /// <remarks>
-/// Shorthand for <c>CellSink.create</c>; see it for the full contract.
+/// Shorthand for <c>CellSink.create</c>. See it for the full contract.
 /// </remarks>
 let inline sinkC initialValue = CellSink.create initialValue
 
 /// <summary>
-/// Creates a cell sink which combines values when <c>send</c> is called more than once in a
-/// single transaction.
+/// Creates a cell sink that combines the values of more than one <c>send</c> in one transaction.
 /// </summary>
 /// <param name="initialValue">The value the cell holds until something is sent.</param>
 /// <param name="coalesce">
-/// Combines two values sent in the same transaction. Called with the value already
-/// accumulated and the value just sent, in that order.
+/// Puts two values from the same transaction together. It receives the value from before this
+/// send and the new value, in that sequence.
 /// </param>
 /// <returns>A new cell sink.</returns>
 /// <remarks>
-/// Shorthand for <c>CellSink.createWithCoalesce</c>; see it for the full contract.
+/// Shorthand for <c>CellSink.createWithCoalesce</c>. See it for the full contract.
 /// </remarks>
 let inline sinkWithCoalesceC initialValue coalesce =
     CellSink.createWithCoalesce initialValue coalesce
@@ -1475,43 +1467,43 @@ let inline sinkWithCoalesceC initialValue coalesce =
 /// <param name="a">The value to send.</param>
 /// <param name="cellSink">The cell sink to send it to.</param>
 /// <remarks>
-/// Shorthand for <c>CellSink.send</c>; see it for the full contract.
+/// Shorthand for <c>CellSink.send</c>. See it for the full contract.
 ///
-/// Must not be called from inside a listener callback; doing so throws.
+/// A call from a listener callback throws an exception.
 /// </remarks>
 let inline sendC a cellSink = CellSink.send a cellSink
 
 /// <summary>
-/// Builds a cell which refers to itself, closing the loop within one transaction.
+/// Builds a cell which refers to itself, closing the loop in one transaction.
 /// </summary>
 /// <param name="f">
 /// Given the forward reference, returns a struct tuple of the cell it stands for and
 /// anything else the caller wants back out.
 /// </param>
 /// <returns>
-/// A struct tuple of the cell the forward reference was closed with, and whatever
+/// A struct tuple of the cell that closed the forward reference, and whatever
 /// <paramref name="f" /> returned alongside it.
 /// </returns>
 /// <remarks>
-/// Shorthand for <c>Cell.loop</c>; see it for the full contract.
+/// Shorthand for <c>Cell.loop</c>. See it for the full contract.
 ///
-/// A cell defined in terms of itself needs a forward reference to exist before the value it
-/// refers to does. Both the reference and its resolution must happen in a single transaction,
-/// which this opens if none is running.
+/// A cell that refers to itself needs a forward reference. The code makes the reference before
+/// the value that it refers to. The reference and its resolution must occur in one transaction,
+/// which this opens when no transaction is open.
 ///
-/// Use <c>loopWithNoCaptures</c> where nothing but the cell itself is needed.
+/// Use <c>loopWithNoCaptures</c> where the caller needs only the cell.
 /// </remarks>
 let inline loopC f = Cell.loop f
 
 /// <summary>
-/// Builds a self-referential cell where nothing but the cell itself is wanted back.
+/// Builds a self-referential cell where the caller needs only the cell.
 /// </summary>
 /// <param name="f">Given the forward reference, returns the cell it stands for.</param>
-/// <returns>The cell the forward reference was closed with.</returns>
+/// <returns>The cell that closed the forward reference.</returns>
 /// <remarks>
-/// Shorthand for <c>Cell.loopWithNoCaptures</c>; see it for the full contract.
+/// Shorthand for <c>Cell.loopWithNoCaptures</c>. See it for the full contract.
 ///
-/// <c>loop</c> where something more than the cell needs to escape the loop.
+/// <c>loop</c> where the caller needs more than the cell from the loop.
 /// </remarks>
 let inline loopWithNoCapturesC f = Cell.loopWithNoCaptures f
 
@@ -1524,28 +1516,28 @@ let inline loopWithNoCapturesC f = Cell.loopWithNoCaptures f
 /// else the caller wants back out.
 /// </param>
 /// <returns>
-/// A struct tuple of the value the forward reference was closed with, and whatever
+/// A struct tuple of the value that closed the forward reference, and whatever
 /// <paramref name="f" /> returned alongside it.
 /// </returns>
 /// <remarks>
-/// Shorthand for <c>ForwardReference.create</c>; see it for the full contract.
+/// Shorthand for <c>ForwardReference.create</c>. See it for the full contract.
 ///
-/// The single-valued case of a cell loop: the loop handed to <paramref name="f" /> is closed with
-/// a constant cell, so the reference resolves to the value produced and never changes.
+/// The cell loop with one value. A constant cell closes the loop that <paramref name="f" />
+/// gets, thus the reference resolves to that value and never changes.
 ///
-/// Use <c>forwardReferenceWithNoCaptures</c> where nothing but the value itself is needed.
+/// Use <c>forwardReferenceWithNoCaptures</c> where the caller needs only the value.
 /// </remarks>
 let inline forwardReference f = ForwardReference.create f
 
 /// <summary>
-/// Builds a value which can refer to itself, where nothing but the value itself is wanted back.
+/// Builds a value which can refer to itself, where the caller needs only the value.
 /// </summary>
 /// <param name="f">Given the forward reference, returns the value it stands for.</param>
-/// <returns>The value the forward reference was closed with.</returns>
+/// <returns>The value that closed the forward reference.</returns>
 /// <remarks>
-/// Shorthand for <c>ForwardReference.createWithNoCaptures</c>; see it for the full contract.
+/// Shorthand for <c>ForwardReference.createWithNoCaptures</c>. See it for the full contract.
 ///
-/// <c>forwardReference</c> where something more than the value needs to escape the construction.
+/// <c>forwardReference</c> where the caller needs more than the value from the construction.
 /// </remarks>
 let inline forwardReferenceWithNoCaptures f = ForwardReference.createWithNoCaptures f
 
@@ -1555,35 +1547,35 @@ let inline forwardReferenceWithNoCaptures f = ForwardReference.createWithNoCaptu
 /// <param name="cell">The cell to sample.</param>
 /// <returns>The value the cell has at this moment.</returns>
 /// <remarks>
-/// Shorthand for <c>Cell.sample</c>; see it for the full contract.
+/// Shorthand for <c>Cell.sample</c>. See it for the full contract.
 ///
-/// May be used inside the functions passed to the primitives that apply them to streams, where
-/// it means the same as snapshotting. Outside a transaction it opens one of its own, so the
-/// value read is never a half-updated one.
+/// The functions that the primitives give to a stream can call this, and there it is the same as
+/// a snapshot. With no transaction it opens its own transaction, thus a read never gives a value
+/// in the middle of an update.
 /// </remarks>
 let inline sampleC cell = Cell.sample cell
 
 /// <summary>
-/// Gets a cell's value as of now, without forcing it yet.
+/// Gets the current value of a cell, and does not force it.
 /// </summary>
 /// <param name="cell">The cell to sample.</param>
 /// <returns>A lazy value which yields what the cell held at the moment of this call.</returns>
 /// <remarks>
-/// Shorthand for <c>Cell.sampleLazy</c>; see it for the full contract.
+/// Shorthand for <c>Cell.sampleLazy</c>. See it for the full contract.
 ///
-/// The value is pinned now and computed later, which is what the looping constructs need: at
-/// the point a loop is being closed the value is not yet known, but which moment it is to be
-/// taken from already is.
+/// This code sets the value now and calculates it after this. This is necessary for the loop
+/// constructs. At the moment that the code closes a loop, the value is not known, but the
+/// moment of the value is known.
 /// </remarks>
 let inline sampleLazyC cell = Cell.sampleLazy cell
 
 /// <summary>
 /// Gets a stream firing the new value of a cell each time it changes.
 /// </summary>
-/// <param name="cell">The cell to observe.</param>
+/// <param name="cell">The cell to monitor.</param>
 /// <returns>A stream firing the updated value, in the transaction the update happened in.</returns>
 /// <remarks>
-/// Shorthand for <c>Cell.updates</c>; see it for the full contract.
+/// Shorthand for <c>Cell.updates</c>. See it for the full contract.
 ///
 /// Does not fire for the value the cell starts with - only for changes. Use <c>values</c> to
 /// get that initial value as a firing too.
@@ -1591,20 +1583,20 @@ let inline sampleLazyC cell = Cell.sampleLazy cell
 let inline updatesC cell = Cell.updates cell
 
 /// <summary>
-/// Gets a stream firing the cell's current value at once, and its new value on every change.
+/// Gets a stream firing the current value of the cell immediately, and its new value on each change.
 /// </summary>
-/// <param name="cell">The cell to observe.</param>
+/// <param name="cell">The cell to monitor.</param>
 /// <returns>
-/// A stream which fires the current value in the transaction this is called in, and then the
-/// updated value on every change.
+/// A stream which fires the current value in the transaction of this call, and then the
+/// updated value on each change.
 /// </returns>
 /// <remarks>
-/// Shorthand for <c>Cell.values</c>; see it for the full contract.
+/// Shorthand for <c>Cell.values</c>. See it for the full contract.
 ///
-/// The immediate firing happens in the transaction this is called in, so this must be called
-/// inside <c>Transaction.run</c> if that firing is to be observed at all - a listener attached
-/// afterward, in a later transaction, has already missed it. This is the single most common
-/// reason to wrap graph construction in a transaction.
+/// The first firing occurs in the transaction of this call. Thus, a caller must call this in
+/// <c>Transaction.run</c> for a listener to see that firing. A listener that attaches after that,
+/// in a subsequent transaction, does not get it. This is why most code puts the construction of a
+/// graph in a transaction.
 /// </remarks>
 let inline valuesC cell = Cell.values cell
 
@@ -1614,10 +1606,10 @@ let inline valuesC cell = Cell.values cell
 /// <param name="cell">The cell to view.</param>
 /// <returns>The same value, seen as a behavior, without the stream of its changes.</returns>
 /// <remarks>
-/// Shorthand for <c>Cell.asBehavior</c>; see it for the full contract.
+/// Shorthand for <c>Cell.asBehavior</c>. See it for the full contract.
 ///
-/// Nothing is created or converted; a cell already is a behavior with updates attached. This
-/// is for passing one to something written against <c>Behavior</c>.
+/// This creates nothing and changes nothing. A cell is a behavior with updates attached. Use
+/// this to give a cell to code that takes a <c>Behavior</c>.
 /// </remarks>
 let inline asBehaviorC cell = Cell.asBehavior cell
 
@@ -1626,16 +1618,16 @@ let inline asBehaviorC cell = Cell.asBehavior cell
 /// </summary>
 /// <param name="handler">Run with each new value.</param>
 /// <param name="cell">The cell to listen to.</param>
-/// <returns>A weak listener, which may be stopped with <c>WeakListener.unlisten</c>.</returns>
+/// <returns>A weak listener. <c>WeakListener.unlisten</c> stops it.</returns>
 /// <remarks>
-/// Shorthand for <c>Cell.listen</c>; see it for the full contract.
+/// Shorthand for <c>Cell.listen</c>. See it for the full contract.
 ///
-/// The listener stops on its own once the cell is collected, which makes this the right choice
-/// where there is no clean moment to stop listening: hold the returned handle as a field of the
-/// object doing the listening, and the two go away together. Where the cell should be kept
+/// The listener stops when a GC collects the cell, thus this is the correct selection where there
+/// is no clear moment to stop the listener. Keep the handle from this call in a field of the
+/// object doing the listening, and the two go away together. Where other code must keep the cell
 /// alive for as long as something is listening, use <c>listenStrong</c>.
 ///
-/// Fires the current value immediately, in the transaction this is called in.
+/// Fires the current value immediately, in the transaction of this call.
 /// </remarks>
 let inline listenC handler cell = Cell.listen handler cell
 
@@ -1645,17 +1637,17 @@ let inline listenC handler cell = Cell.listen handler cell
 /// <param name="handler">Run with each new value.</param>
 /// <param name="cell">The cell to listen to.</param>
 /// <returns>
-/// A strong listener, which may be stopped with <c>StrongListener.unlisten</c> or disposed.
+/// A strong listener. <c>StrongListener.unlisten</c> stops it, and a disposal also stops it.
 /// </returns>
 /// <remarks>
-/// Shorthand for <c>Cell.listenStrong</c>; see it for the full contract.
+/// Shorthand for <c>Cell.listenStrong</c>. See it for the full contract.
 ///
 /// The listener roots the cell, so the graph behind it stays alive for as long as the returned
 /// handle is reachable. Keep the handle and stop it when finished, or use <c>listen</c>
 /// where there is no good moment to do that.
 ///
-/// Fires the current value immediately, in the transaction this is called in. The handler runs
-/// under the transaction lock, so it should return promptly.
+/// Fires the current value immediately, in the transaction of this call. The handler runs
+/// with the transaction lock held, thus it must return quickly.
 /// </remarks>
 let inline listenStrongC handler cell = Cell.listenStrong handler cell
 
@@ -1665,14 +1657,14 @@ let inline listenStrongC handler cell = Cell.listenStrong handler cell
 /// <param name="f">The cell holding the function to apply.</param>
 /// <param name="cell">The cell holding the value to apply it to.</param>
 /// <returns>
-/// A cell whose value is the current function in <paramref name="f" /> applied to the input
+/// A cell whose value is the result of the current function in <paramref name="f" /> on the input
 /// cell's current value.
 /// </returns>
 /// <remarks>
-/// Shorthand for <c>Cell.apply</c>; see it for the full contract.
+/// Shorthand for <c>Cell.apply</c>. See it for the full contract.
 ///
-/// The primitive all the <c>lift</c> functions are built from. Reach for <c>lift2</c> and
-/// its siblings first; this is for the cases they do not cover.
+/// This is the primitive of all the <c>lift</c> functions. Use <c>lift2</c> and the other
+/// <c>lift</c> functions first. Use this function only for the conditions that they do not cover.
 /// </remarks>
 let inline applyC f cell = Cell.apply f cell
 
@@ -1681,12 +1673,13 @@ let inline applyC f cell = Cell.apply f cell
 /// </summary>
 /// <param name="f">Transforms the value.</param>
 /// <param name="cell">The cell to transform.</param>
-/// <returns>A cell whose value is <paramref name="f" /> applied to the input cell's current value.</returns>
+/// <returns>A cell whose value is the result of <paramref name="f" /> on the input cell's current value.</returns>
 /// <remarks>
-/// Shorthand for <c>Cell.map</c>; see it for the full contract.
+/// Shorthand for <c>Cell.map</c>. See it for the full contract.
 ///
-/// <paramref name="f" /> may construct FRP logic or sample behaviors and cells; apart from
-/// that it must be pure, since it may be called more than once for one input.
+/// <paramref name="f" /> can build FRP logic, and it can sample a behavior and a cell. It must
+/// be pure in each other operation, because this code can call it more than one time for one
+/// input.
 /// </remarks>
 let inline mapC f cell = Cell.map f cell
 
@@ -1697,14 +1690,14 @@ let inline mapC f cell = Cell.map f cell
 /// <param name="cell">The first cell.</param>
 /// <param name="cell2">The second cell.</param>
 /// <returns>
-/// A cell whose value is <paramref name="f" /> applied to the current values of the two
+/// A cell whose value is the result of <paramref name="f" /> on the current values of the two
 /// inputs.
 /// </returns>
 /// <remarks>
-/// Shorthand for <c>Cell.lift2</c>; see it for the full contract.
+/// Shorthand for <c>Cell.lift2</c>. See it for the full contract.
 ///
-/// Glitch-free: when several of the inputs change in one transaction, the result updates
-/// once, with all the new values, rather than once per input.
+/// There is no glitch. When some of the inputs change in one transaction, the result updates one
+/// time, with each new value, and not one time for each input.
 /// </remarks>
 let inline lift2C f (cell, cell2) = Cell.lift2 f (cell, cell2)
 
@@ -1716,14 +1709,14 @@ let inline lift2C f (cell, cell2) = Cell.lift2 f (cell, cell2)
 /// <param name="cell2">The second cell.</param>
 /// <param name="cell3">The third cell.</param>
 /// <returns>
-/// A cell whose value is <paramref name="f" /> applied to the current values of the three
+/// A cell whose value is the result of <paramref name="f" /> on the current values of the three
 /// inputs.
 /// </returns>
 /// <remarks>
-/// Shorthand for <c>Cell.lift3</c>; see it for the full contract.
+/// Shorthand for <c>Cell.lift3</c>. See it for the full contract.
 ///
-/// Glitch-free: when several of the inputs change in one transaction, the result updates
-/// once, with all the new values, rather than once per input.
+/// There is no glitch. When some of the inputs change in one transaction, the result updates one
+/// time, with each new value, and not one time for each input.
 /// </remarks>
 let inline lift3C f (cell, cell2, cell3) = Cell.lift3 f (cell, cell2, cell3)
 
@@ -1736,14 +1729,14 @@ let inline lift3C f (cell, cell2, cell3) = Cell.lift3 f (cell, cell2, cell3)
 /// <param name="cell3">The third cell.</param>
 /// <param name="cell4">The fourth cell.</param>
 /// <returns>
-/// A cell whose value is <paramref name="f" /> applied to the current values of the four
+/// A cell whose value is the result of <paramref name="f" /> on the current values of the four
 /// inputs.
 /// </returns>
 /// <remarks>
-/// Shorthand for <c>Cell.lift4</c>; see it for the full contract.
+/// Shorthand for <c>Cell.lift4</c>. See it for the full contract.
 ///
-/// Glitch-free: when several of the inputs change in one transaction, the result updates
-/// once, with all the new values, rather than once per input.
+/// There is no glitch. When some of the inputs change in one transaction, the result updates one
+/// time, with each new value, and not one time for each input.
 /// </remarks>
 let inline lift4C f (cell, cell2, cell3, cell4) =
     Cell.lift4 f (cell, cell2, cell3, cell4)
@@ -1758,14 +1751,14 @@ let inline lift4C f (cell, cell2, cell3, cell4) =
 /// <param name="cell4">The fourth cell.</param>
 /// <param name="cell5">The fifth cell.</param>
 /// <returns>
-/// A cell whose value is <paramref name="f" /> applied to the current values of the five
+/// A cell whose value is the result of <paramref name="f" /> on the current values of the five
 /// inputs.
 /// </returns>
 /// <remarks>
-/// Shorthand for <c>Cell.lift5</c>; see it for the full contract.
+/// Shorthand for <c>Cell.lift5</c>. See it for the full contract.
 ///
-/// Glitch-free: when several of the inputs change in one transaction, the result updates
-/// once, with all the new values, rather than once per input.
+/// There is no glitch. When some of the inputs change in one transaction, the result updates one
+/// time, with each new value, and not one time for each input.
 /// </remarks>
 let inline lift5C f (cell, cell2, cell3, cell4, cell5) =
     Cell.lift5 f (cell, cell2, cell3, cell4, cell5)
@@ -1781,14 +1774,14 @@ let inline lift5C f (cell, cell2, cell3, cell4, cell5) =
 /// <param name="cell5">The fifth cell.</param>
 /// <param name="cell6">The sixth cell.</param>
 /// <returns>
-/// A cell whose value is <paramref name="f" /> applied to the current values of the six
+/// A cell whose value is the result of <paramref name="f" /> on the current values of the six
 /// inputs.
 /// </returns>
 /// <remarks>
-/// Shorthand for <c>Cell.lift6</c>; see it for the full contract.
+/// Shorthand for <c>Cell.lift6</c>. See it for the full contract.
 ///
-/// Glitch-free: when several of the inputs change in one transaction, the result updates
-/// once, with all the new values, rather than once per input.
+/// There is no glitch. When some of the inputs change in one transaction, the result updates one
+/// time, with each new value, and not one time for each input.
 /// </remarks>
 let inline lift6C f (cell, cell2, cell3, cell4, cell5, cell6) =
     Cell.lift6 f (cell, cell2, cell3, cell4, cell5, cell6)
@@ -1805,14 +1798,14 @@ let inline lift6C f (cell, cell2, cell3, cell4, cell5, cell6) =
 /// <param name="cell6">The sixth cell.</param>
 /// <param name="cell7">The seventh cell.</param>
 /// <returns>
-/// A cell whose value is <paramref name="f" /> applied to the current values of the seven
+/// A cell whose value is the result of <paramref name="f" /> on the current values of the seven
 /// inputs.
 /// </returns>
 /// <remarks>
-/// Shorthand for <c>Cell.lift7</c>; see it for the full contract.
+/// Shorthand for <c>Cell.lift7</c>. See it for the full contract.
 ///
-/// Glitch-free: when several of the inputs change in one transaction, the result updates
-/// once, with all the new values, rather than once per input.
+/// There is no glitch. When some of the inputs change in one transaction, the result updates one
+/// time, with each new value, and not one time for each input.
 /// </remarks>
 let inline lift7C f (cell, cell2, cell3, cell4, cell5, cell6, cell7) =
     Cell.lift7 f (cell, cell2, cell3, cell4, cell5, cell6, cell7)
@@ -1830,30 +1823,30 @@ let inline lift7C f (cell, cell2, cell3, cell4, cell5, cell6, cell7) =
 /// <param name="cell7">The seventh cell.</param>
 /// <param name="cell8">The eighth cell.</param>
 /// <returns>
-/// A cell whose value is <paramref name="f" /> applied to the current values of the eight
+/// A cell whose value is the result of <paramref name="f" /> on the current values of the eight
 /// inputs.
 /// </returns>
 /// <remarks>
-/// Shorthand for <c>Cell.lift8</c>; see it for the full contract.
+/// Shorthand for <c>Cell.lift8</c>. See it for the full contract.
 ///
-/// Glitch-free: when several of the inputs change in one transaction, the result updates
-/// once, with all the new values, rather than once per input.
+/// There is no glitch. When some of the inputs change in one transaction, the result updates one
+/// time, with each new value, and not one time for each input.
 /// </remarks>
 let inline lift8C f (cell, cell2, cell3, cell4, cell5, cell6, cell7, cell8) =
     Cell.lift8 f (cell, cell2, cell3, cell4, cell5, cell6, cell7, cell8)
 
 /// <summary>
-/// Suppresses updates whose value the given comparison considers equal to the last one that got
+/// Suppresses updates whose value the given function considers equal to the last one that got
 /// through.
 /// </summary>
-/// <param name="compare">Returns whether two values are to be treated as equal.</param>
+/// <param name="compare">Gives true when this code must read two values as equal.</param>
 /// <param name="cell">The cell to calm.</param>
 /// <returns>A cell which updates only when the value actually changed.</returns>
 /// <remarks>
-/// Shorthand for <c>Cell.calmWithCompare</c>; see it for the full contract.
+/// Shorthand for <c>Cell.calmWithCompare</c>. See it for the full contract.
 ///
-/// Suppressing an update is not the same as it not happening: the cell still takes the new value,
-/// and the next comparison is made against the last value that got through.
+/// A suppressed update is not a missing update. The cell takes the new value, and the next
+/// comparer call reads the last value that the cell published.
 /// </remarks>
 let inline calmWithCompareC compare cell = Cell.calmWithCompare compare cell
 
@@ -1861,14 +1854,14 @@ let inline calmWithCompareC compare cell = Cell.calmWithCompare compare cell
 /// Suppresses updates whose value the given comparer considers equal to the last one that got
 /// through.
 /// </summary>
-/// <param name="equalityComparer">Decides whether two values are equal.</param>
+/// <param name="equalityComparer">Gives true when two values are equal.</param>
 /// <param name="cell">The cell to calm.</param>
 /// <returns>A cell which updates only when the value actually changed.</returns>
 /// <remarks>
-/// Shorthand for <c>Cell.calmWithEqualityComparer</c>; see it for the full contract.
+/// Shorthand for <c>Cell.calmWithEqualityComparer</c>. See it for the full contract.
 ///
-/// Suppressing an update is not the same as it not happening: the cell still takes the new value,
-/// and the next comparison is made against the last value that got through.
+/// A suppressed update is not a missing update. The cell takes the new value, and the next
+/// comparer call reads the last value that the cell published.
 /// </remarks>
 let inline calmWithEqualityComparerC equalityComparer cell =
     Cell.calmWithEqualityComparer equalityComparer cell
@@ -1879,28 +1872,28 @@ let inline calmWithEqualityComparerC equalityComparer cell =
 /// <param name="cell">The cell to calm.</param>
 /// <returns>A cell which updates only when the value actually changed.</returns>
 /// <remarks>
-/// Shorthand for <c>Cell.calm</c>; see it for the full contract.
+/// Shorthand for <c>Cell.calm</c>. See it for the full contract.
 ///
-/// Suppressing an update is not the same as it not happening: the cell still takes the new value,
-/// and the next comparison is made against the last value that got through.
+/// A suppressed update is not a missing update. The cell takes the new value, and the next
+/// comparer call reads the last value that the cell published.
 ///
 /// Uses <c>=</c>, so for a type without meaningful structural equality use
-/// <c>calmWithCompare</c> instead.
+/// the alternative <c>calmWithCompare</c>.
 /// </remarks>
 let inline calmC cell = Cell.calm cell
 
 /// <summary>
 /// Combines any number of cells into one whose value is a function of all of theirs.
 /// </summary>
-/// <param name="f">Combines the current values, given in the order the cells were supplied.</param>
-/// <param name="cells">The cells to combine.</param>
-/// <returns>A cell whose value is <paramref name="f" /> applied to all the current values.</returns>
+/// <param name="f">Combines the current values, in the sequence of the cells.</param>
+/// <param name="cells">The cells to put together.</param>
+/// <returns>A cell whose value is the result of <paramref name="f" /> on all the current values.</returns>
 /// <remarks>
-/// Shorthand for <c>Cell.liftAll</c>; see it for the full contract.
+/// Shorthand for <c>Cell.liftAll</c>. See it for the full contract.
 ///
 /// The <c>lift</c> family where the number of inputs is not known until run time. Glitch-free
-/// in the same way: however many of the inputs change in one transaction, the result updates
-/// once.
+/// in the same manner. At each count of the inputs that change in one transaction, the result
+/// updates one time.
 /// </remarks>
 let inline liftAllC f cells = Cell.liftAll f cells
 
@@ -1910,20 +1903,20 @@ let inline liftAllC f cells = Cell.liftAll f cells
 /// <param name="cell">The cell holding a behavior.</param>
 /// <returns>A behavior whose value is the current value of the currently held behavior.</returns>
 /// <remarks>
-/// Shorthand for <c>Cell.switchB</c>; see it for the full contract.
+/// Shorthand for <c>Cell.switchB</c>. See it for the full contract.
 /// </remarks>
 let inline switchB cell = Cell.switchB cell
 
 /// <summary>
 /// Unwraps a cell of cells into a cell which follows whichever one is current.
 /// </summary>
-/// <param name="cell">The cell holding another cell.</param>
+/// <param name="cell">The cell that holds a second cell.</param>
 /// <returns>A cell whose value is the current value of the currently held cell.</returns>
 /// <remarks>
-/// Shorthand for <c>Cell.switchC</c>; see it for the full contract.
+/// Shorthand for <c>Cell.switchC</c>. See it for the full contract.
 ///
-/// This is how a graph changes shape at run time: the outer cell chooses which inner one is
-/// being followed.
+/// This is how a graph changes its shape at run time. The external cell selects the internal
+/// cell to follow.
 /// </remarks>
 let inline switchC cell = Cell.switchC cell
 
@@ -1933,9 +1926,9 @@ let inline switchC cell = Cell.switchC cell
 /// <param name="cell">The cell holding a stream.</param>
 /// <returns>A stream firing the firings of the currently held stream.</returns>
 /// <remarks>
-/// Shorthand for <c>Cell.switchS</c>; see it for the full contract.
+/// Shorthand for <c>Cell.switchS</c>. See it for the full contract.
 ///
-/// On the transaction where the cell changes, the firing taken is the one from the stream held
-/// at the start of that transaction, not the newly selected one.
+/// In the transaction where the cell changes, the result takes the firing from the stream at
+/// the start of that transaction. It does not use the firing from the new stream.
 /// </remarks>
 let inline switchS cell = Cell.switchS cell

@@ -11,7 +11,7 @@ type Node(child: Child) =
 and Child(parent: Cell<Node>) =
     member _.Parent = parent
 
-/// Builds the node whose child holds a reference back to it, which is the knot under test.
+/// Builds the node whose child holds a reference back to it, which is the cycle that this test measures.
 let private nodeHolding reference = Node(Child reference)
 
 type ``Forward Reference Tests``() =
@@ -50,7 +50,7 @@ type ``Forward Reference Tests``() =
     [<Test>]
     member _.``Test Create With No Captures Reference Never Changes``() =
         task {
-            // The single-valued case of a cell loop: the reference resolves once and stays there.
+            // The cell loop with one value. The reference resolves one time and stays.
             let node = forwardReferenceWithNoCaptures nodeHolding
             let out = List<_>()
             let l = node.Child.Parent |> listenStrongC out.Add
@@ -85,7 +85,8 @@ type ``Forward Reference Tests``() =
     [<Test>]
     member _.``Test Two Objects Can Refer To Each Other``() =
         task {
-            // Neither exists when the other is constructed, which is the knot this unties.
+            // At the construction of each one, the other one is not available. This is the cycle that this
+            // code breaks.
             let struct (node, child) =
                 forwardReference (fun reference -> struct (nodeHolding reference, Child reference))
 
@@ -104,7 +105,7 @@ type ``Forward Reference Tests``() =
     [<Test>]
     member _.``Test Reference Cannot Be Read During Construction``() =
         task {
-            // The reference is a promise about what the value will be, not the value, so asking for
-            // it before the constructing function has returned has no answer.
+            // The reference is a promise about the value, and not the value. A read of it before the
+            // construction function returns has no answer.
             do! Expect.Throws<InvalidOperationException>(fun () -> forwardReferenceWithNoCaptures sampleC |> ignore)
         }
