@@ -1,5 +1,18 @@
 5.0.0
 
+BREAKING: Stream.AttachListener is gone. It tied a listener's lifetime to a
+chosen stream, which is how a combinator keeps its own wiring alive, and every
+combinator in this library does that through an internal method rather than
+through this one. Nothing outside the library called it, and nothing outside
+could: building a primitive that way also needs the weak Listen overload taking
+a node, which is internal, and a handler that sends, which throws. It named a
+part of how the graph is assembled that the rest of this API keeps behind the
+primitives it gives you.
+
+If a call to it exists, the listener it attached was already tied to the stream
+by the method that made it. Hold the listener for as long as the subscription
+should live, or use ListenStrong, which roots it for you.
+
 BREAKING: ListenOnce returns IWeakListener, where it returned IStrongListener,
 and ListenOnceStrong is new and does what ListenOnce used to do. The one-shot
 listeners now divide the way Listen and ListenStrong have divided since 4.0.0:

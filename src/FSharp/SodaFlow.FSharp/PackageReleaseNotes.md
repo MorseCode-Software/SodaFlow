@@ -1,5 +1,18 @@
 5.0.0
 
+BREAKING: Stream.attachListener and its alias attachListenerS are gone. They
+tied a listener's lifetime to a chosen stream, which is how a combinator keeps
+its own wiring alive, and every combinator in this library does that through an
+internal method rather than through these. Nothing outside the library called
+them, and nothing outside could: building a primitive that way also needs the
+weak listen overload taking a node, which is internal, and a handler that sends,
+which throws. They named a part of how the graph is assembled that the rest of
+this API keeps behind the primitives it gives you.
+
+If a call to either exists, the listener it attached was already tied to the
+stream by the function that made it. Keep the listener for as long as the
+subscription should live, or use listenStrong, which roots it for you.
+
 BREAKING: Stream.listenOnce answers with a weak listener, where it answered with
 a strong one, and Stream.listenOnceStrong is new and answers with what
 listenOnce used to. The aliases follow: listenOnceS is the weak one and
