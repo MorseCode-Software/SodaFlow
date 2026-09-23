@@ -1,3 +1,7 @@
+---
+title: Denotational semantics
+---
+
 # Denotational semantics
 
 SodaFlow implements the **denotational semantics of Sodium**, unchanged.
@@ -44,8 +48,9 @@ deliberately left alone.
 ## How conformance is checked
 
 The semantics are not just cited, they are executed. `DenotationalSemanticsTests`
-transcribes the Haskell reference cases into both language surfaces — **23 tests
-in C# and 23 in F#** — and asserts SodaFlow produces the specified occurrences:
+transcribes the Haskell reference cases into both language surfaces — the same
+cases in each, case for case — and asserts SodaFlow produces the specified
+occurrences:
 
 | | |
 | --- | --- |

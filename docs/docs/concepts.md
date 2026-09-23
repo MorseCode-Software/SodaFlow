@@ -26,7 +26,13 @@ Create one with `Cell.Constant(value)`, `Cell.CreateSink(initial)`, or — most 
 calling `Hold` on a stream. `Hold` is the bridge from the discrete world to the stateful one:
 
 ```csharp
-Cell<int> count = clicks.Accum(0, (_, n) => n + 1).Hold(0);
+Cell<string> lastClicked = clickedNames.Hold("none yet");
+```
+
+`Accum` is `Hold` with a fold in front of it, and it also gives back a cell:
+
+```csharp
+Cell<int> count = clicks.Accum(0, static (_, n) => n + 1);
 ```
 
 ## Behavior
@@ -77,6 +83,56 @@ Streams carry events, `Hold` turns them into state, and `Snapshot` reads that st
 the next event arrives. Almost every SodaFlow program is that cycle, sometimes closed into a
 [feedback loop](loops.md).
 
+## The cycle, end to end
+
+A shopping basket is small enough to read in one go and walks the whole cycle. Items arrive as
+events, the basket is state, and the checkout button reads that state back at the moment it is
+pressed.
+
+# [C#](#tab/csharp)
+
+```csharp
+StreamSink<Item> added = Stream.CreateSink<Item>();
+StreamSink<Unit> checkedOut = Stream.CreateSink<Unit>();
+
+// Stream to cell: fold the additions into the basket.
+Cell<ImmutableList<Item>> basket = added.Accum(
+    ImmutableList<Item>.Empty,
+    static (item, items) => items.Add(item));
+
+// Cell to cell: a derived value, recomputed for you.
+Cell<decimal> total = basket.Map(static items => items.Sum(static i => i.Price));
+
+// Cell back to stream: read the total at the instant the button is pressed.
+Stream<decimal> orders = checkedOut.Snapshot(total, static (_, t) => t);
+
+IListener l = orders.ListenStrong(t => Console.WriteLine($"charging {t:C}"));
+```
+
+# [F#](#tab/fsharp)
+
+```fsharp
+let added = sinkS<Item> ()
+let checkedOut = sinkS<unit> ()
+
+// Stream to cell: fold the additions into the basket.
+let basket = added |> accumS [] (fun item items -> item :: items)
+
+// Cell to cell: a derived value, recomputed for you.
+let total = basket |> mapC (List.sumBy (fun i -> i.Price))
+
+// Cell back to stream: read the total at the instant the button is pressed.
+let orders = checkedOut |> snapshotC total (fun _ t -> t)
+
+let l = orders |> listenStrongS (printfn "charging %M")
+```
+
+---
+
+Nothing here holds a `total` field or remembers to update one. `total` is *defined as* the sum
+of the basket, so it cannot disagree with it, and `orders` carries the total that was correct at
+the instant of the press rather than whatever a field happened to contain.
+
 ## Where to go next
 
 | Topic | Page |
@@ -87,5 +143,6 @@ the next event arrives. Almost every SodaFlow program is that cycle, sometimes c
 | Graphs whose shape changes at runtime | [Switch](switch.md) |
 | Clocks, alarms, deterministic tests | [Time and timers](time.md) |
 | Subscriptions and garbage collection | [Listener lifetimes](lifetimes.md) |
+| A large keyed collection behind a few bound rows | [Reactive collections](collections.md) |
 | `Maybe`, `Either`, `Unit` | [SodaFlow.Functional](functional.md) |
 | The formal meaning of every primitive | [Denotational semantics](semantics.md) |

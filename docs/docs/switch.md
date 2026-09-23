@@ -77,6 +77,31 @@ looked, and the atomicity guarantee would be gone.
 Practically: if you switch to a new stream and it fires in that same transaction, you will not
 see that firing. You will see it from the next transaction onward.
 
+It is easier to believe once you have watched it happen:
+
+```csharp
+StreamSink<int> fromA = Stream.CreateSink<int>();
+StreamSink<int> fromB = Stream.CreateSink<int>();
+CellSink<Stream<int>> which = Cell.CreateSink<Stream<int>>(fromA);
+
+Stream<int> selected = which.SwitchS();
+
+using (selected.ListenStrong(v => Console.WriteLine($"got {v}")))
+{
+    // One transaction: switch to B and fire both. The switch has not taken
+    // effect yet, so this prints "got 1" — A's value, not B's.
+    Transaction.RunVoid(() =>
+    {
+        which.Send(fromB);
+        fromA.Send(1);
+        fromB.Send(2);
+    });
+
+    // The next transaction sees the new shape. This prints "got 3".
+    fromB.Send(3);
+}
+```
+
 ## Resource lifetime
 
 `Switch` is where FRP graphs start allocating and releasing at runtime. Its own wiring is

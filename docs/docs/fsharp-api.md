@@ -24,7 +24,7 @@ what is missing is a renderer that presents the F# surface as F#.
 
 The F# surface is covered in the conceptual pages, which show C# and F# side by side —
 start with [Getting started](getting-started.md). Beyond that, the source is short, documented and
-readable: fourteen files under `src/FSharp/SodaFlow.FSharp`.
+readable: one file per type under `src/FSharp/SodaFlow.FSharp`.
 
 Two spellings exist for every operation:
 

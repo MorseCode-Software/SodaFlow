@@ -46,7 +46,7 @@ Notice what is absent: no `count` field, no `OnPropertyChanged("Count")`, and no
 re-checks whether Reset should be enabled. Enablement is just another cell, so the command
 follows the cell and the cell follows the count. They cannot disagree.
 
-## The four bindables
+## What you can turn into a bindable
 
 | You have | You call | You get | Direction |
 | --- | --- | --- | --- |
