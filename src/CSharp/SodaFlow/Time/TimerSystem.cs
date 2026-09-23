@@ -7,17 +7,17 @@ namespace SodaFlow.Time;
 
 /// <summary>
 ///     A timer system built on an <see cref="ITimerSystemImplementation{T}" />, which supplies the
-///     clock and the waiting; this class supplies the FRP.
+///     clock and the wait mechanism. This class gives the FRP.
 /// </summary>
 /// <typeparam name="T">The type used to express a point in time.</typeparam>
 /// <remarks>
-///     Alarms reach the graph through a <c>Transaction.OnStart</c> hook installed by the
-///     constructor. When a transaction starts, the hook reads the current time, runs any timer that
-///     has come due, and sends the resulting alarms; events which came due at the same time are
-///     delivered together, and events at different times in separate transactions.
+///     Alarms get to the graph through a <c>Transaction.OnStart</c> handler installed by the
+///     constructor. When a transaction starts, the handler reads the current time, runs any timer that
+///     has come due, and sends the alarms. The handler sends events that became due at the same time
+///     delivered together, and events at different times in different transactions.
 ///     Use <see cref="SystemClockTimerSystem" /> or <see cref="SecondsTimerSystem" /> unless you
-///     need a clock of your own, in which case derive from
-///     <see cref="TimerSystemImplementationBase{T}" /> and pass it here.
+///     a different clock is necessary, and then derive from
+///     <see cref="TimerSystemImplementationBase{T}" /> and give it here.
 /// </remarks>
 [PublicAPI]
 // ReSharper disable once InheritdocConsiderUsage
@@ -36,8 +36,8 @@ public class TimerSystem<T> : ITimerSystem<T>
     ///     Called with any exception raised while waiting for or firing timers.
     /// </param>
     /// <remarks>
-    ///     Constructing a timer system starts its implementation and installs a transaction hook
-    ///     which lives for the lifetime of the process, so these are meant to be created once rather
+    ///     Constructing a timer system starts its implementation and installs a transaction handler
+    ///     which lives for the lifetime of the process, so the code makes one of these and not one
     ///     than per unit of work.
     /// </remarks>
     public TimerSystem(ITimerSystemImplementation<T> implementation, Action<Exception> handleException)
@@ -136,7 +136,7 @@ public class TimerSystem<T> : ITimerSystem<T>
                                             this.eventQueue.Enqueue(new Event(time: time, alarm: alarm));
                                         }
 
-                                        // Open and close a transaction to trigger queued
+                                        // Open and close a transaction to cause queued
                                         // events to run.
                                         Transaction.RunVoid(static () =>
                                         {

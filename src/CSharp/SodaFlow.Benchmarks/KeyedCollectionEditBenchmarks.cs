@@ -7,41 +7,40 @@ using JetBrains.Annotations;
 namespace SodaFlow.Benchmarks;
 
 /// <summary>
-///     What one edit costs once the collection is standing and a screenful of it is bound, in each
+///     What one edit costs after the construction of the collection, with a screenful of it bound, in each
 ///     of the three shapes.
 /// </summary>
 /// <remarks>
 ///     <para>
-///         Two edits are measured, and the difference between them is the whole argument. An edit
+///         Two edits are measured, and the difference between them is the full argument. An edit
 ///         to an <i>observed</i> key has work to do in each shape. An edit to an
 ///         <i>unobserved</i> key — which is what almost each edit is, when twenty rows are bound
-///         out of ten thousand items — should ideally cost nothing at all downstream, and what it
+///         out of ten thousand items — must cost nothing downstream, and what it
 ///         actually costs is what separates these three.
 ///     </para>
 ///     <para>
 ///         Expect sinks per field to win on time here and to keep winning as
 ///         <see cref="ItemCount" /> grows: a send into one cell fans out to that cell's listeners
-///         and to nothing else. That is a real result and not one to hide.
+///         and to nothing else. That is a true result and not one to hide.
 ///     </para>
 ///     <para>
 ///         It is also a result about a shape most collections cannot have. A sink takes events from
-///         outside the graph and nothing else — <c>Send</c> throws when it is reached in a
+///         out of the graph and nothing else — <c>Send</c> throws when it is reached in a
 ///         transaction — so a cell per field fed by sinks requires each mutable value in the
-///         collection to arrive whole from the outside world, with no logic anywhere between the
-///         two. One derived field and it is the second shape instead. See
+///         collection to come in full from other code, with no logic anywhere between the
+///         two. One derived field and it is the second shape. See
 ///         <see cref="IKeyedCollectionShape" />, and read this row as the floor rather than as the
 ///         alternative.
 ///     </para>
 ///     <para>
-///         Cells per field fed from a stream is the one to watch scale. Each edit evaluates one
-///         filter per item, so its cost is proportional to <see cref="ItemCount" /> whether
-///         anything is observing or not, and the unobserved case costs very nearly what the
-///         observed one does.
+///         Cells per field fed from a stream is the one to monitor as the collection grows. Each edit evaluates one
+///         filter for each item, thus its cost grows with <see cref="ItemCount" /> when
+///         nothing is observing. The unobserved condition costs almost what the observed one costs.
 ///     </para>
 ///     <para>
-///         The reactive collection resolves the edit once and then evaluates one hash lookup per
-///         <i>observer</i>. That is proportional to the twenty bound rows and independent of the
-///         ten thousand items, which is the property the whole design is for.
+///         The reactive collection resolves the edit one time and then evaluates one hash lookup per
+///         <i>observer</i>. That grows with the twenty bound rows and it does not change with the
+///         ten thousand items, which is the property this library is for.
 ///     </para>
 /// </remarks>
 [MemoryDiagnoser]
@@ -59,7 +58,7 @@ public class KeyedCollectionEditBenchmarks
     private int nextScore;
     private Bound reactiveCollection = Bound.Of(shape: ReactiveCollectionShape.Build(1), itemCount: 1);
 
-    // Populated for real in the setup; built small here so the fields never have to be nullable.
+    // Populated fully in the setup. built small here so the fields never have to be nullable.
     private Bound sinkPerField = Bound.Of(shape: SinkPerFieldShape.Build(1), itemCount: 1);
     private Bound streamFedCells = Bound.Of(shape: StreamFedCellShape.Build(1), itemCount: 1);
 
@@ -104,7 +103,7 @@ public class KeyedCollectionEditBenchmarks
     public void EditUnobservedSinkPerField() => this.Edit(bound: this.sinkPerField, observed: false);
 
     /// <summary>
-    ///     An edit to a key nothing is watching, fed through one stream — which still evaluates
+    ///     An edit to a key nothing is watching, fed through one stream — which evaluates
     ///     one filter per item in the collection.
     /// </summary>
     [Benchmark(Description = "edit an unobserved item, cells per field from a stream")]
@@ -158,7 +157,7 @@ public class KeyedCollectionEditBenchmarks
             IReadOnlyList<int> observedKeys = ItemSeed.ObservedKeys(itemCount: itemCount, observerCount: ObserverCount);
             List<IListener> listeners = [.. observedKeys.Select(shape.Observe)];
 
-            // The first observed key, and the one after it, which the even spread guarantees is
+            // The first observed key, and the one after it, which the equal distances guarantee is
             // not observed as long as there are more items than rows.
             int observedKey = observedKeys[0];
 

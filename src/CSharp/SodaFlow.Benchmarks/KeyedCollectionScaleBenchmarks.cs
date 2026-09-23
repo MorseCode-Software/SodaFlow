@@ -14,28 +14,28 @@ namespace SodaFlow.Benchmarks;
 ///     <para>
 ///         <see cref="KeyedCollectionViewBenchmarks" /> asks the same question at a thousand items
 ///         and ten thousand, alongside everything else it measures. This asks only this question,
-///         and up to a million — because the two paths differ by two trie lookups, a trie lookup
-///         costs O(log32 n), and past a certain size neither structure is in cache anymore. If
-///         the gap grows with the collection, this is where it shows.
+///         and up to a million — because the two paths are different by two trie lookups, a trie lookup
+///         costs O(log32 n), and after a given size no structure stays in cache. If
+///         the difference grows with the collection, this is where it shows.
 ///     </para>
 ///     <para>
 ///         Two shapes rather than the six next door, and that is deliberate: a chain at a million
-///         items holds an ordered key set per stage, and six of them would measure the garbage
+///         items holds an ordered key set per stage, and six of them measure the garbage
 ///         collector.
 ///     </para>
 ///     <para>
 ///         The third arm has no chain at all, and it is here because the first run of this
-///         benchmark could not be read without it. An edit pays for the transaction, the send operation, the
+///         benchmark is not readable without it. An edit pays for the transaction, the send operation, the
 ///         trie write and the change object before any stage is consulted, and that floor is
-///         roughly two fifths of what an excluded-key edit costs. Against the whole number a
-///         stage-level difference reads as noise, and the honest-looking conclusion is that there
-///         is none; against the chain's own cost the same measurement is a steady few percent.
+///         roughly two fifths of what an excluded-key edit costs. Against the full number a
+///         stage-level difference reads as noise, and the honest-looking result is that there
+///         is none. Against the cost of the chain, the same measurement is a constant few percent.
 ///         Subtract the floor before comparing anything.
 ///     </para>
 ///     <para>
-///         Both filters keep the same half. The seed gives each item a score equal to its number,
+///         The two filters keep the same half. The seed gives each item a score equal to its number,
 ///         so even scores and even numbers are the same items, and the sort below is over the
-///         identity in both — leaving the filter as the only thing that differs.
+///         identity in the two — leaving the filter as the only thing that differs.
 ///     </para>
 /// </remarks>
 [MemoryDiagnoser]
@@ -53,20 +53,20 @@ public class KeyedCollectionScaleBenchmarks
 
     private int editCount;
 
-    // Populated for real in the setup; built small here so the fields never have to be nullable.
+    // Populated fully in the setup. built small here so the fields never have to be nullable.
     private RootOnlyViewShape rootOnly = RootOnlyViewShape.Build(1);
 
     /// <summary>How many items the collection holds.</summary>
     [Params(10_000, 100_000, 1_000_000)]
     public int ItemCount { get; [UsedImplicitly] set; }
 
-    /// <summary>An even key, which both filters keep.</summary>
+    /// <summary>An even key, which the two filters keep.</summary>
     private static int InViewKey => 0;
 
-    /// <summary>An odd key, which neither filter keeps.</summary>
+    /// <summary>An odd key, which no filter keeps.</summary>
     private static int ExcludedKey => 1;
 
-    /// <summary>Stands both chains up, and refuses to run if they keep different items.</summary>
+    /// <summary>Builds the two chains, and refuses to run if they keep different items.</summary>
     [GlobalSetup]
     public void Setup()
     {
@@ -107,13 +107,13 @@ public class KeyedCollectionScaleBenchmarks
 
     /// <summary>
     ///     The same edit, against a filter that selects from the identity — which cannot have
-    ///     changed, so one failed index lookup settles it.
+    ///     changed, thus one index lookup that misses gives the answer.
     /// </summary>
     [Benchmark(Description = "edit an excluded item, identity filter")]
     public void EditExcludedByIdentity() => this.byIdentity.Replace(key: ExcludedKey, state: this.NextExcludedState());
 
     /// <summary>
-    ///     Two states, alternating, both scoring even — so the state filter keeps the item before
+    ///     Two states, alternating, the two scoring even — so the state filter keeps the item before
     ///     and after, and is measured deciding that rather than acting on a change of mind.
     /// </summary>
     private ItemState NextInViewState()
@@ -124,9 +124,9 @@ public class KeyedCollectionScaleBenchmarks
     }
 
     /// <summary>
-    ///     Two states, alternating, both scoring odd. If the parity moved, the state filter would
-    ///     admit the item and do a stage's worth of real work while the identity filter did none —
-    ///     a difference in what they were asked rather than in what asking cost.
+    ///     Two states, alternating, the two scoring odd. With a change to the parity, the state filter
+    ///     admits the item and does the full work of a stage while the identity filter does none. That
+    ///     is a difference in what they were asked, and not in the cost of the question.
     /// </summary>
     private ItemState NextExcludedState()
     {

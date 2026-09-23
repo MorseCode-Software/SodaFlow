@@ -6,25 +6,26 @@ using JetBrains.Annotations;
 namespace SodaFlow.Benchmarks;
 
 /// <summary>
-///     What it costs to keep a total of one state value across the whole collection current as the
+///     What it costs to keep a total of one state value across the full collection current as the
 ///     collection changes.
 /// </summary>
 /// <remarks>
 ///     <para>
 ///         Each other benchmark here measures something that depends on a screenful. An aggregate
-///         depends on each item by definition, which makes it the honest test of whether the
-///         collection is useful for anything but windows.
+///         depends on each item by definition. Thus, it is the honest test of the value of the
+///         collection for more than windows.
 ///     </para>
 ///     <para>
 ///         The answer is that it is, but not by holding a cell over the store. Mapping the snapshot
-///         cell reads each item on each edit, so a total costs the collection each time however
-///         little of it moved. Folding the change stream costs what changed: the change carries the
-///         new states, the snapshot the transaction started from still holds the old ones, and the
-///         difference between them is the whole update.
+///         cell reads each item on each edit, thus a total costs the collection at each edit, and the
+///         size of the change has no effect. A fold over the change stream costs what changed: the
+///         change carries the
+///         new states, the snapshot the transaction started from holds the previous ones, and the
+///         difference between them is the full update.
 ///     </para>
 ///     <para>
-///         What this does not measure is a first computation. Both shapes sum the collection once to
-///         start; only the second avoids doing it again.
+///         What this does not measure is a first computation. The two shapes sum the collection one time to
+///         start. Only the second avoids a second sum.
 ///     </para>
 /// </remarks>
 [MemoryDiagnoser]
@@ -40,14 +41,14 @@ public class KeyedCollectionAggregateBenchmarks
 
     private IncrementalAggregateShape incremental = IncrementalAggregateShape.Build(1);
 
-    // Populated for real in the setup; built small here so the fields never have to be nullable.
+    // Populated fully in the setup. built small here so the fields never have to be nullable.
     private RederivedAggregateShape rederived = RederivedAggregateShape.Build(1);
 
     /// <summary>How many items the collection holds.</summary>
     [Params(1_000, 10_000, 100_000)]
     public int ItemCount { get; [UsedImplicitly] set; }
 
-    /// <summary>The key both shapes edit. Which one it is does not matter to either.</summary>
+    /// <summary>The key the two shapes edit. Which one it is has no effect on either.</summary>
     private static int EditedKey => 0;
 
     /// <summary>
@@ -56,9 +57,9 @@ public class KeyedCollectionAggregateBenchmarks
     private static int AddedKey => -1;
 
     /// <summary>
-    ///     Builds both shapes and refuses to run unless they agree on the total, before an edit and
+    ///     Builds the two shapes and refuses to run unless they agree on the total, before an edit and
     ///     after one. A fold that drifts is the bug this shape invites, and a drifting total is no
-    ///     cheaper to compute than a correct one.
+    ///     of a lower cost than a correct one.
     /// </summary>
     [GlobalSetup]
     public void Setup()
@@ -68,8 +69,8 @@ public class KeyedCollectionAggregateBenchmarks
 
         Agree("before any edit");
 
-        // One state, handed to both. Calling NextState twice gives them different ones, which is
-        // a bug in the check rather than in either shape - and was, the first time this ran.
+        // One state, handed to the two. Two calls to NextState give them different ones, which is
+        // a bug in the check rather than in one of the two shapes - and was, the first time this ran.
         ItemState edited = this.NextState();
 
         this.rederived.Replace(key: EditedKey, state: edited);
@@ -100,7 +101,7 @@ public class KeyedCollectionAggregateBenchmarks
         }
     }
 
-    /// <summary>One edit, with the total recomputed from the whole store.</summary>
+    /// <summary>One edit, with the total recomputed from the full store.</summary>
     [Benchmark(Description = "total after an edit, re-derived", Baseline = true)]
     public void EditRederived() => this.rederived.Replace(key: EditedKey, state: this.NextState());
 
@@ -110,8 +111,8 @@ public class KeyedCollectionAggregateBenchmarks
 
     /// <summary>
     ///     Two states, alternating, so the total oscillates between two values rather than climbing
-    ///     as the benchmark runs. A total that grew without bound would eventually measure
-    ///     arithmetic on larger numbers, and would also stop being comparable between the arms if
+    ///     as the benchmark runs. A total with no limit measures
+    ///     arithmetic on larger numbers, and also stops being comparable between the arms if
     ///     they ran a different number of times.
     /// </summary>
     private ItemState NextState()

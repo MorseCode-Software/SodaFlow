@@ -10,7 +10,7 @@ using TUnit.Core;
 namespace SodaFlow.Tests.Memory;
 
 /// <summary>
-///     Lifetime tests that run under plain <c>dotnet test</c>.
+///     Lifetime tests that run with plain <c>dotnet test</c>.
 /// </summary>
 /// <remarks>
 ///     <para>
@@ -20,9 +20,9 @@ namespace SodaFlow.Tests.Memory;
 ///         guard the cleanup machinery on each build.
 ///     </para>
 ///     <para>
-///         Two things are deliberately not asserted. First, that a node is still connected immediately
+///         Two things are deliberately not asserted. First, that a node stays connected immediately
 ///         after a collection: <see cref="StreamListenerManager" /> unhooks nodes from a background
-///         thread, so whether that has happened yet is a race. Second, which of the two cleanup paths
+///         thread, thus that is a race. Second, which of the two cleanup paths
 ///         did the work - the background thread, or the lazy pruning in <c>Stream.Send</c> when a
 ///         target's weak reference has died. What matters is that the node ends up disconnected, so
 ///         these tests send a value to force a deterministic outcome and check that.
@@ -63,7 +63,7 @@ public sealed class GarbageCollectionTests
 
         await Assert.That(mapped.IsAlive).IsFalse().Because("the mapped stream should have been collected");
 
-        // Sending is what makes this deterministic: either the cleanup thread already unhooked
+        // Sending is what makes this deterministic. The cleanup thread unhooked
         // the node, or this send prunes the target whose weak reference has died.
         s.Send(2);
 
@@ -105,8 +105,8 @@ public sealed class GarbageCollectionTests
         Collect();
 
         // This is deliberate, not an oversight: ListenStrong roots the listener in the stream's
-        // keep-alive set precisely so that a caller which ignores the return value still
-        // receives values. Losing this would make listeners silently stop firing.
+        // keep-alive set for this cause: a caller that ignores the return value
+        // receives values. Without this, a listener stops to fire with no message.
         await Assert.That(listener.IsAlive)
             .IsTrue()
             .Because("an active listener should stay alive even once the caller drops it");
@@ -140,9 +140,9 @@ public sealed class GarbageCollectionTests
     [Test]
     public async Task CollectedStreamsAreReapedFromTheRegistry()
     {
-        // StreamListenerManager tracks each stream ever created, so if the sweep failed to
-        // reap collected ones the registry would grow without bound. Nothing else here would
-        // notice: the node-level tests above pass either way, because Stream.Send prunes dead
+        // StreamListenerManager tracks each stream ever created, thus when the sweep did not
+        // reap collected ones the registry grows with no limit. Nothing else here
+        // notice: the node-level tests above succeed in each condition, because Stream.Send prunes dead
         // targets on its own.
         Collect();
         StreamListenerManager.Sweep();
@@ -227,12 +227,12 @@ public sealed class GarbageCollectionTests
 
     private static void Collect()
     {
-        // Each generation, and a finalizer pass in between. Stream has no finalizer - this
+        // Each generation, and a finalizer step in between. Stream has no finalizer - this
         // said it did, which was true when it was written and is not now. The finalizer that
-        // matters is StreamListenerManager's sweep trigger, which asks for a sweep by being
+        // matters is the sweep mechanism of StreamListenerManager, which asks for a sweep when a GC
         // finalized, and these tests do read RegistryCount after a sweep. The generation is the
         // other half: a promoted object is not seen by a young collection, so a collection meant
-        // to be conclusive has to reach all of them.
+        // to be conclusive has to get to all of them.
         GC.Collect();
         GC.WaitForPendingFinalizers();
         GC.Collect();

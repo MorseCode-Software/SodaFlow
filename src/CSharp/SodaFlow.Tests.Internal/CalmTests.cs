@@ -9,10 +9,10 @@ using TUnit.Core;
 namespace SodaFlow.Tests.Internal;
 
 /// <summary>
-///     Covers the state protocol behind Calm rather than its filtering, which StreamTests already
-///     exercises. These reach the internal Calm(Lazy, areEqual) overload so the initial value can be
+///     Covers the state protocol behind Calm rather than its filtering, which StreamTests
+///     exercises. These use the internal Calm(Lazy, areEqual) overload so the initial value can be
 ///     instrumented: from the public API it always comes from SampleLazy and its forcing is invisible.
-///     Calm has no denotational conformance coverage, so this is the only specification-level cover
+///     Calm has no denotational coverage, so this is the only specification-level cover
 ///     the protocol has.
 /// </summary>
 public sealed class CalmTests
@@ -20,7 +20,7 @@ public sealed class CalmTests
     private static Stream<int> Calm(Stream<int> source, Lazy<MaybeInternal<int>> init) =>
         source.Calm(init: init, areEqual: static (x, y) => x == y);
 
-    // The initial value is forced in the sample phase whether or not anything fires, matching the
+    // The initial value is forced in the sample phase when nothing fires, and this matches the
     // behavior Calm replaced. Nothing observable depends on the value here - only on it having been
     // asked for at all.
     [Test]
@@ -52,9 +52,9 @@ public sealed class CalmTests
         l.Unlisten();
     }
 
-    // Forced once, not once per firing. A bare `committed = init.Value` without the guard would
-    // still force only once - Lazy caches - but would also reset the remembered value on each
-    // firing, so the count and the output are asserted together.
+    // Forced one time, and not one time for each firing. A bare `committed = init.Value` with no
+    // guard forces only one time, because Lazy caches, but it also resets the remembered
+    // value at each firing. Thus, the test asserts the count and the output together.
     [Test]
     public async Task InitialValueIsForcedOnceAcrossManyFirings()
     {
@@ -92,8 +92,8 @@ public sealed class CalmTests
                 + "duplicates through");
     }
 
-    // A non-None initial value seeds the comparison, so a first firing equal to it is suppressed.
-    // This is the case a sentinel cannot express: None is a legitimate initial value, so
+    // A non-None initial value seeds the compare, so a first firing equal to it is suppressed.
+    // This is the condition a sentinel cannot express: None is a legitimate initial value, so
     // "uninitialized" needs its own flag.
     [Test]
     public async Task NonEmptyInitialValueSuppressesAMatchingFirstFiring()
@@ -118,7 +118,7 @@ public sealed class CalmTests
             .Because("the first 7 matches the initial value");
     }
 
-    // A suppressed firing must carry the remembered value forward rather than clearing it, which is
+    // A suppressed firing must keep the remembered value, and must not clear it, which is
     // what the behavior-backed version got from feeding its state back on each firing.
     [Test]
     public async Task SuppressedFiringKeepsTheRememberedValue()
@@ -144,14 +144,14 @@ public sealed class CalmTests
             .Because("a run of suppressed firings must not clear what was remembered");
     }
 
-    // A transaction that fails must not leave the remembered value updated. Calm defers the
-    // commit to trans.Last, and the failing path drops that queue, so a firing in a
-    // transaction that throws is as though it never happened. Committing in place instead would
-    // record it and wrongly suppress the same value next time.
+    // A transaction that fails must not keep the remembered value updated. Calm defers the
+    // commit to trans.Last, and the failing path drops that queue. Thus, a firing in a transaction
+    // that throws leaves no record. A commit at that point records it, and then incorrectly suppresses
+    // the same value at the next firing.
     //
-    // The throw has to come from downstream of Calm rather than before the send operation, because sends
-    // are queued: an exception raised before the drain would abort the transaction without
-    // Calm's handler ever running, which cannot tell the two designs apart.
+    // The throw has to occur downstream of Calm, and not before the send operation, because sends
+    // are queued: an exception before the drain aborts the transaction without
+    // the handler of Calm ever runs, which cannot tell the two designs apart.
     [Test]
     public async Task AFailedTransactionDoesNotCommitTheRememberedValue()
     {

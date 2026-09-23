@@ -1038,8 +1038,8 @@ public sealed class BehaviorTests
 
     // Lift builds one pulse stream that each input feeds, coalesced so a transaction produces a
     // single firing. That only gives the right answer if each input's new value has been captured
-    // before the recombine runs - so updating some inputs at once has to yield exactly one
-    // output, carrying each new value and none of the old ones.
+    // before the recombine runs - so an update of some inputs at the same time has to give one and only one
+    // output, which carries each new value and none of the previous ones.
     [Test]
     public async Task TestLiftSimultaneousUpdatesFireOnceWithAllNewValues()
     {
@@ -1052,7 +1052,7 @@ public sealed class BehaviorTests
         List<string> @out = [];
         IListener l = lifted.ListenStrong(@out.Add);
 
-        // All three at once: one firing, all new.
+        // All three at the same time: one firing, all new.
         Transaction.RunVoid(() =>
         {
             a.Send(2);
@@ -1078,7 +1078,7 @@ public sealed class BehaviorTests
                 ordering: CollectionOrdering.Matching);
     }
 
-    // Inputs updating one at a time across separate transactions: each firing has to pair the
+    // Inputs that update one at a time across different transactions: each firing has to pair the
     // input that changed with the settled values of the ones that did not.
     [Test]
     public async Task TestLiftInterleavedSingleInputUpdates()
@@ -1104,8 +1104,8 @@ public sealed class BehaviorTests
 
     // Lift links each one of the input behaviors to a single output node, so updating them
     // all in one transaction leaves that node holding one queued entry per cell. This walks
-    // that fan-in wide enough, and drains it at enough different occupancies, to catch a
-    // queue entry that removes itself from the wrong slot on the way out.
+    // that fan-in to a sufficient width, and drains it at a sufficient set of occupancies, to catch a
+    // queue entry that removes itself from the incorrect slot as it goes out.
     [Test]
     public async Task TestLiftListWideFanIn()
     {
@@ -1120,7 +1120,7 @@ public sealed class BehaviorTests
         List<int> @out = [];
         IListener l = sum.ListenStrong(@out.Add);
 
-        // Each cell at once.
+        // Each cell at the same time.
         Transaction.RunVoid(() =>
         {
             foreach (CellSink<int> cellSink in cellSinks)

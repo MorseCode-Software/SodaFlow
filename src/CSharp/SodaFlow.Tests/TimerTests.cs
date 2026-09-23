@@ -40,18 +40,18 @@ public sealed class TimerTests
             });
         });
 
-        // Wait for the alarms rather than assuming a fixed window is long enough. The alarms
-        // are 99ms and 100ms out, so a flat 200ms sleep left about 100ms of slack, and a
-        // loaded CI agent overran it: the run failed with zero events rather than the wrong
+        // This waits for the alarms, and does not use a constant window. The alarms
+        // are 99ms and 100ms out, so a flat 200ms sleep left approximately 100ms of margin, and a
+        // loaded CI agent overran it: the run gave zero events and not the incorrect
         // number, which is a delayed timer thread, not a coalescing bug. Waiting on the
-        // condition makes a slow machine take longer instead of failing.
+        // condition makes a slow machine use more time, and it does not fail.
         //
-        // The settle afterward is what keeps the assertion meaningful: it still has to be
-        // exactly two, so a third firing - a2 and a3 failing to coalesce - is caught rather
-        // than being raced past.
+        // The wait after this is what keeps the assertion useful: it must be
+        // two, thus a third firing - a2 and a3 failing to coalesce - is caught rather
+        // than a race over it.
         //
         // The lock is not incidental. l is written from the timer thread and read here, which
-        // the original fixed sleep left unsynchronized.
+        // the initial test with a constant sleep had no lock.
         SpinWait.SpinUntil(
             condition: () =>
             {
@@ -66,7 +66,7 @@ public sealed class TimerTests
 
         int count;
 
-        // Read under the lock and asserted outside it: await is not allowed in a lock body, and
+        // Read with the lock held and asserted out of it: await is not allowed in a lock body, and
         // the lock is here to make the read safe rather than the assertion.
         lock (l)
         {

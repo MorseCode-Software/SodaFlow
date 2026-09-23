@@ -10,18 +10,18 @@ namespace SodaFlow.Functional;
 ///     than with a default value or an exception.
 /// </summary>
 /// <remarks>
-///     Each of these mirrors a LINQ operator whose <c>OrDefault</c> form cannot say whether it
+///     Each of these mirrors a LINQ operator whose <c>OrDefault</c> version cannot say if it
 ///     found anything: <c>FirstOrDefault</c> over a sequence of <see cref="int" /> returns zero
-///     both for an empty sequence and for one whose first element is zero. Answering with a
+///     for an empty sequence and for one whose first element is zero. Answering with a
 ///     <see cref="Maybe{T}" /> keeps the two apart.
-///     A <see langword="null" /> sequence is treated as empty throughout, matching the behavior
+///     A <see langword="null" /> sequence is treated as empty in each member here, and this matches the behavior
 ///     of <see cref="MaybeExtensionMethods" />.
 /// </remarks>
 [PublicAPI]
 public static class EnumerableExtensionMethods
 {
     /// <summary>
-    ///     Applies a function which can produce no value to each element of a sequence, and
+    ///     Applies a function which can give no value to each element of a sequence, and
     ///     returns the results which were produced.
     /// </summary>
     /// <typeparam name="T">The type of the values in the sequence.</typeparam>
@@ -33,15 +33,15 @@ public static class EnumerableExtensionMethods
     ///     elements it produced nothing for left out.
     /// </returns>
     /// <remarks>
-    ///     Filtering and mapping in one step, for the common case where deciding whether to keep
+    ///     Filters and maps in one step, for the usual condition where a test of what to keep
     ///     an element is the same work as producing the value to keep - parsing, looking up,
-    ///     narrowing a type. Written with LINQ alone that means either doing the work twice or
+    ///     narrowing a type. Written with LINQ alone that means the work two times, or
     ///     mapping to a <see cref="Maybe{T}" /> and unwrapping afterward, which is what this
     ///     does for you.
-    ///     Lazy: neither the source nor <paramref name="selector" /> is touched until the result
+    ///     Lazy: this code does not touch the source or <paramref name="selector" /> until the result
     ///     is enumerated.
     ///     Use <see cref="MaybeExtensionMethods.AllSomeOrNone{T,TResult}" /> where a single
-    ///     element producing nothing should fail the whole thing instead.
+    ///     an element that gives nothing must fail the full result.
     /// </remarks>
     [Pure]
     public static IEnumerable<TResult> Choose<T, TResult>(
@@ -50,7 +50,7 @@ public static class EnumerableExtensionMethods
         (source ?? []).Select(selector).WhereSome();
 
     /// <summary>
-    ///     Applies a function which can produce no value to each element of a sequence along with
+    ///     Applies a function which can give no value to each element of a sequence along with
     ///     its index, and returns the results which were produced.
     /// </summary>
     /// <typeparam name="T">The type of the values in the sequence.</typeparam>
@@ -64,7 +64,7 @@ public static class EnumerableExtensionMethods
     ///     elements it produced nothing for left out.
     /// </returns>
     /// <remarks>
-    ///     The index is the position in the source, so it still counts the elements which produced
+    ///     The index is the position in the source, thus it counts the elements that gave
     ///     nothing.
     /// </remarks>
     [Pure]
@@ -109,7 +109,7 @@ public static class EnumerableExtensionMethods
     ///     value if there is none.
     /// </returns>
     /// <remarks>
-    ///     Stops at the first match.
+    ///     Stops at the first element that satisfies it.
     /// </remarks>
     [Pure]
     public static Maybe<T> FirstOrNone<T>(
@@ -127,7 +127,7 @@ public static class EnumerableExtensionMethods
     ///     the sequence is empty.
     /// </returns>
     /// <remarks>
-    ///     A sequence which can be indexed is indexed; anything else has to be enumerated to the
+    ///     This code indexes a sequence that permits an index. It enumerates each other sequence to the
     ///     end to find out what the last element was.
     /// </remarks>
     [Pure]
@@ -190,9 +190,9 @@ public static class EnumerableExtensionMethods
     /// </exception>
     /// <remarks>
     ///     This throws where <see cref="Enumerable.SingleOrDefault{T}(IEnumerable{T})" /> throws,
-    ///     and for the same reason: a sequence with two elements has not failed to produce an
-    ///     answer, it has contradicted the assumption that there was only ever one to produce.
-    ///     Returning no value would hide that. Where more than one is expected and simply not
+    ///     and for the same cause: a sequence with two elements did not fail to give an
+    ///     answer, it has contradicted the assumption that there was only one to give.
+    ///     A result with no value hides that. Where more than one is expected and simply not
     ///     wanted, filter first, or use <see cref="FirstOrNone{T}(IEnumerable{T})" />.
     ///     Reads at most two elements of the source.
     /// </remarks>
@@ -250,13 +250,13 @@ public static class EnumerableExtensionMethods
     ///     was only one, and no value if the sequence was empty.
     /// </returns>
     /// <remarks>
-    ///     The seedless <see cref="Enumerable.Aggregate{TSource}(IEnumerable{TSource},Func{TSource,TSource,TSource})" />,
-    ///     which throws on an empty sequence because it has nothing to return. There is no such
-    ///     problem when the answer can say there was nothing to combine.
-    ///     Where a seed exists,
+    ///     The seedless
+    ///     <see cref="Enumerable.Aggregate{TSource}(IEnumerable{TSource},Func{TSource,TSource,TSource})" />,
+    ///     which throws on an empty sequence because it has nothing to return. There is no such problem when
+    ///     the answer can say there was nothing to put together. Where a seed exists,
     ///     <see
     ///         cref="Enumerable.Aggregate{TSource,TAccumulate}(IEnumerable{TSource},TAccumulate,Func{TAccumulate,TSource,TAccumulate})" />
-    ///     is already total and is the one to use.
+    ///     is total and is the one to use.
     /// </remarks>
     [Pure]
     public static Maybe<T> AggregateOrNone<T>(
@@ -295,7 +295,7 @@ public static class EnumerableExtensionMethods
     ///     <see cref="Enumerable.Min{TSource}(IEnumerable{TSource})" /> throws on an empty sequence
     ///     of a non-nullable type, and returns <see langword="null" /> on one of a nullable type -
     ///     which is indistinguishable from a sequence whose smallest element is
-    ///     <see langword="null" />. Neither is a good answer, and neither is needed once the
+    ///     <see langword="null" />. The two are not good answers, and the two are not necessary after the
     ///     result can say there was nothing to compare.
     /// </remarks>
     [Pure]
@@ -325,14 +325,14 @@ public static class EnumerableExtensionMethods
     /// <typeparam name="T">The type of the values in the sequence.</typeparam>
     /// <typeparam name="TResult">The type of the values to compare.</typeparam>
     /// <param name="source">The sequence to search. A <see langword="null" /> sequence is treated as empty.</param>
-    /// <param name="selector">Applied to each element to produce the value to compare.</param>
+    /// <param name="selector">Applied to each element to give the value to compare.</param>
     /// <returns>
     ///     A <see cref="Maybe{T}" /> containing the smallest produced value by
     ///     <see cref="Comparer{T}.Default" />, and no value if there is nothing to compare.
     /// </returns>
     /// <remarks>
     ///     This returns the smallest value <paramref name="selector" /> produced, not the element
-    ///     which produced it. For the element, order by the key and take
+    ///     which gave it. For the element, order by the key and use
     ///     <see cref="FirstOrNone{T}(IEnumerable{T})" />.
     /// </remarks>
     [Pure]
@@ -380,7 +380,7 @@ public static class EnumerableExtensionMethods
     /// <typeparam name="T">The type of the values in the sequence.</typeparam>
     /// <typeparam name="TResult">The type of the values to compare.</typeparam>
     /// <param name="source">The sequence to search. A <see langword="null" /> sequence is treated as empty.</param>
-    /// <param name="selector">Applied to each element to produce the value to compare.</param>
+    /// <param name="selector">Applied to each element to give the value to compare.</param>
     /// <returns>
     ///     A <see cref="Maybe{T}" /> containing the largest produced value by
     ///     <see cref="Comparer{T}.Default" />, and no value if there is nothing to compare.
@@ -410,8 +410,8 @@ public static class EnumerableExtensionMethods
     ///     A negative index gives no value rather than throwing, which is where this differs from
     ///     <see cref="Enumerable.ElementAt{T}(IEnumerable{T},int)" /> and agrees with
     ///     <see cref="Enumerable.ElementAtOrDefault{T}(IEnumerable{T},int)" />.
-    ///     A sequence which can be indexed is indexed; anything else is enumerated up to
-    ///     <paramref name="index" /> and no further.
+    ///     This code indexes a sequence that permits an index. It enumerates each other sequence to
+    ///     <paramref name="index" /> and no more.
     /// </remarks>
     [Pure]
     public static Maybe<T> ElementAtOrNone<T>(
@@ -448,11 +448,11 @@ public static class EnumerableExtensionMethods
     /// <remarks>
     ///     Elements which are <see langword="null" /> are skipped, which is what
     ///     <see cref="Enumerable.Min{TSource}(IEnumerable{TSource})" /> does and is almost never
-    ///     what <see cref="Comparer{T}.Default" /> would do - it sorts <see langword="null" />
-    ///     before everything, so a single null element would otherwise be the answer for each
-    ///     sequence of a reference type. A sequence of nothing but nulls therefore has nothing to
-    ///     compare and gives no value, where LINQ would give <see langword="null" />.
-    ///     The test is only made for types which can actually hold one; for a non-nullable value
+    ///     what <see cref="Comparer{T}.Default" /> does - it sorts <see langword="null" />
+    ///     before everything, thus a single null element is the answer for each
+    ///     sequence of a reference type. Thus, a sequence of nothing but nulls has nothing to
+    ///     compare and gives no value, where LINQ gives <see langword="null" />.
+    ///     The test is only for types that can hold one. For a non-nullable value
     ///     type the branch is never taken and nothing is boxed.
     /// </remarks>
     private static Maybe<T> ExtremeOrNone<T>(this IEnumerable<T>? source, IComparer<T>? comparer, bool wantLarger)

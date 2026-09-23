@@ -16,7 +16,7 @@ public static class MutableListenerExtensionMethods
         ///     Points the mutable listener at <paramref name="listener" />, unlistening whatever it was
         ///     pointed at before.
         /// </summary>
-        /// <param name="listener">The listener to take over.</param>
+        /// <param name="listener">The listener to become the target.</param>
         /// <remarks>
         ///     Ownership passes to <paramref name="m" />: unlistening it unlistens
         ///     <paramref name="listener" /> too, as does the next call to this method or to
@@ -30,9 +30,8 @@ public static class MutableListenerExtensionMethods
         ///     nothing.
         /// </summary>
         /// <remarks>
-        ///     The mutable listener remains usable afterward and can be pointed at another listener
-        ///     with <see cref="SetListener" />. To finish with it entirely, call <see cref="Unlisten" />
-        ///     instead.
+        ///     The mutable listener stays usable after this, and can point to a different listener with
+        ///     <see cref="SetListener" />. To finish with it fully, call <see cref="Unlisten" />.
         /// </remarks>
         [MethodImpl(MethodImplOptions.NoInlining)]
         public void ClearListener() => m.ClearListenerImpl();
@@ -41,7 +40,7 @@ public static class MutableListenerExtensionMethods
         ///     Stops listening, unlistening whatever the mutable listener is currently pointed at.
         /// </summary>
         /// <remarks>
-        ///     Safe to call more than once; subsequent calls do nothing.
+        ///     A second call is safe. Each call after the first does nothing.
         /// </remarks>
         public void Unlisten()
         {
@@ -53,9 +52,8 @@ public static class MutableListenerExtensionMethods
         ///     Gets a view of this mutable listener which does not keep the streams it listens to alive.
         /// </summary>
         /// <returns>
-        ///     A listener which can still be used to
-        ///     <see cref="IListenerWithWeakReference.Unlisten" />, but which will not by itself prevent
-        ///     the observed streams from being garbage collected.
+        ///     A listener for <see cref="IListenerWithWeakReference.Unlisten" />. It does not by itself
+        ///     keep the monitored streams in memory.
         /// </returns>
         public IListenerWithWeakReference GetListenerWithWeakReference()
         {

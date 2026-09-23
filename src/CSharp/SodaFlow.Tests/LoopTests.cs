@@ -637,16 +637,16 @@ public sealed class LoopTests
     // Desired behavior:
     //A list of items of type TestObject are held in a cell.  TestObject contains a cell of type int named Output, which
     //is calculated from other values. Any time a new TestObject is created, it will have the values for the cells from
-    //which Output is calculated.  The sum of all Output values in the list should always be 50 or greater.
+    //which Output is calculated.  The sum of all Output values in the list must always be 50 or greater.
     // Public rather than private, and the change is not cosmetic: while this was private its one
-    // test never ran, under NUnit or anything else. TUnit requires a public type and says so at
-    // build time, so the choice was to let the test run or to delete it. It runs.
+    // test never ran, with NUnit or anything else. TUnit requires a public type and says so at
+    // build time, thus the selection was to let the test run, or to remove it. It runs.
     public sealed class DependencyCycleTest
     {
         // Switch over the sum of the Output cells in the list.
-        // This won't work because we would need to recurse to keep the list correct when the sum is very low (only one
-        // item can be added per transaction). The current implementation throws an exception stating that a dependency
-        // cycle was detected, and I think this is the correct behavior.
+        // This does not work, because the code must recurse to keep the list correct when the sum is
+        // very low (only one item can be added per transaction). The current implementation throws an
+        // exception that reports a dependency cycle, and that is the correct behavior.
         [Test]
         public async Task TestSwitchCLoop()
         {
@@ -703,9 +703,9 @@ public sealed class LoopTests
         }
 
         // Switch over the sum of the Output cell value streams in the list.
-        // This won't work both because we miss the first Values stream event when the list changes and also because we
-        // would need to recurse to keep the list correct when the sum is very low (only one item can be added per
-        // transaction).
+        // This does not work, because we miss the first Values stream event when the list changes, and
+        // also because the code must recurse to keep the list correct when the sum is very low (only
+        // one item can be added per transaction).
         [Test]
         public async Task TestSwitchSValuesLoop()
         {
@@ -752,7 +752,8 @@ public sealed class LoopTests
             //await Assert.That(objectCounts).IsEquivalentTo(new[] { -1, 10, -1, 11, -1, 15, -1, 10, -1 });
 
             // Glitchy result, also not returned by this method.
-            //await Assert.That(objectCounts).IsEquivalentTo(new[] { -1, 10, -1, 11, -1, 12, 13, 14, 15, -1, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, -1 });
+            //await Assert.That(objectCounts).IsEquivalentTo(new[] { -1, 10, -1, 11, -1, 12, 13, 14, 15, -1,
+            //0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, -1 });
 
             // Incorrect result we will see.
             await Assert.That(objectCounts).IsEquivalentTo([-1, 10, -1, 11, -1, 12, -1, 0, -1]);
@@ -760,9 +761,9 @@ public sealed class LoopTests
 
         // Switch over the sum of the Output cells in the list, deferring the firings from the Values stream.
         // This will work because it allows the Values to recurse by firing each step in a new transaction immediately
-        // following the transaction for the previous step. The only drawback to this method is that each step of the
-        // recursion is in a new transaction, so it exhibits "glitchy" behavior where the intermediate invalid states
-        // are externally visible.
+        // after the transaction of the previous step. The only drawback to this method is that each step of the
+        // recursion is in a new transaction, so it exhibits "glitchy" behavior where the incorrect states in the middle
+        // are external.
         [Test]
         public async Task TestSwitchCDeferredLoop()
         {
@@ -814,10 +815,10 @@ public sealed class LoopTests
 
         // Switch over the sum of the Output cells in the list, deferring the firings from the Values stream, and use a
         // better API.
-        // This is identical to the previous solution except that it uses a special version of SwitchC which defers the
-        // Values stream firings. Using this API, we can better capture the intent of the SwitchC call and allow the
-        // type system to eventually check for valid usages of the looped cell.
-        // Note that when the types are modified, the SwitchCWithDeferredValues() call will actually become
+        // This is the same as the previous solution, but it uses a special version of SwitchC that defers the
+        // Values stream firings. Using this API, we can better capture the intent of the SwitchC call and let the
+        // type system to eventually check for correct uses of the looped cell.
+        // When the types change, the SwitchCWithDeferredValues() call becomes
         // SwitchC().DeferredValues() with SwitchC() on the cell loop returning a special type containing the
         // DeferredValues() and DeferredUpdates() methods.
         [Test]

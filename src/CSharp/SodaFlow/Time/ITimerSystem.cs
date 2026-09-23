@@ -13,10 +13,10 @@ namespace SodaFlow.Time;
 ///     <see cref="SecondsTimerSystem" />.
 /// </typeparam>
 /// <remarks>
-///     <see cref="TimerSystem{T}" /> is the implementation that ships;
-///     <see cref="SystemClockTimerSystem" /> and <see cref="SecondsTimerSystem" /> are ready-made
+///     <see cref="TimerSystem{T}" /> is the implementation in this library.
+///     <see cref="SystemClockTimerSystem" /> and <see cref="SecondsTimerSystem" /> are made
 ///     ones over the system clock and over seconds elapsed. Alarms from <see cref="At" /> are
-///     delivered in their own transaction, so nothing is required of the application to receive
+///     delivered in their own transaction, thus other code does not have to do anything to receive
 ///     them beyond listening.
 /// </remarks>
 [PublicAPI]

@@ -6,7 +6,7 @@ using JetBrains.Annotations;
 namespace SodaFlow.Functional;
 
 /// <summary>
-///     Constructors for <see cref="Maybe{T}" /> which do not require the type argument to be
+///     Constructors for <see cref="Maybe{T}" /> for which the type argument does not have to be
 ///     written out.
 /// </summary>
 [PublicAPI]
@@ -16,10 +16,10 @@ public static class Maybe
     ///     The absence of a value, convertible to a <see cref="Maybe{T}" /> of any type.
     /// </summary>
     /// <remarks>
-    ///     Assigning or returning this converts it implicitly to the <see cref="Maybe{T}" /> the
+    ///     Assigning or returning this changes it implicitly to the <see cref="Maybe{T}" /> the
     ///     context calls for, so the type argument never has to be written out. Where no conversion
     ///     is available - a ternary whose other branch is also untyped, for instance - use
-    ///     <see cref="Maybe{T}.None" /> instead.
+    ///     <see cref="Maybe{T}.None" /> as an alternative.
     /// </remarks>
     public static readonly NoneType None;
 
@@ -49,9 +49,9 @@ public static class Maybe
     ///     otherwise.
     /// </returns>
     /// <remarks>
-    ///     This is the direct translation of an <c>if</c> which produces a value in one branch and
-    ///     has nothing to produce in the other. <paramref name="value" /> is evaluated either way,
-    ///     since it is an argument; where that is not wanted, use
+    ///     This is the translation of an <c>if</c> that gives a value in one branch and
+    ///     has nothing to give in the other. <paramref name="value" /> is evaluated in each condition,
+    ///     because it is an argument. Where that is not necessary, use
     ///     <see cref="SomeIf{T}(bool,System.Func{T})" />.
     /// </remarks>
     [Pure]
@@ -63,7 +63,7 @@ public static class Maybe
     /// </summary>
     /// <typeparam name="T">The type of the value, inferred from <paramref name="valueFactory" />.</typeparam>
     /// <param name="condition">True to make a value and hold it.</param>
-    /// <param name="valueFactory">Run to produce the value when <paramref name="condition" /> holds.</param>
+    /// <param name="valueFactory">Run to give the value when <paramref name="condition" /> holds.</param>
     /// <returns>
     ///     A <see cref="Maybe{T}" /> containing the result of <paramref name="valueFactory" /> if
     ///     <paramref name="condition" /> is <see langword="true" />, and one containing no value
@@ -71,8 +71,8 @@ public static class Maybe
     /// </returns>
     /// <remarks>
     ///     <paramref name="valueFactory" /> is run only when <paramref name="condition" /> holds, so
-    ///     this is the form to reach for when producing the value is expensive, or when producing it
-    ///     is only valid in that case.
+    ///     this is the version to use when the value has a high cost, or when the value
+    ///     is only correct in that condition.
     /// </remarks>
     [Pure]
     public static Maybe<T> SomeIf<T>(
@@ -107,7 +107,7 @@ public static class Maybe
     ///     <see cref="System.Nullable{T}" />, if it has one.
     /// </summary>
     /// <typeparam name="T">The underlying type of <paramref name="value" />.</typeparam>
-    /// <param name="value">The nullable value to convert.</param>
+    /// <param name="value">The nullable value to change.</param>
     /// <returns>
     ///     A <see cref="Maybe{T}" /> containing the value of <paramref name="value" /> if it has
     ///     one, and one containing no value otherwise.
@@ -128,8 +128,8 @@ public static class Maybe
     /// </returns>
     /// <remarks>
     ///     The wrappers this library ships - on <see cref="StringExtensionMethods" /> and
-    ///     <see cref="ReadOnlyDictionaryExtensionMethods" /> - cover the common cases. This is for
-    ///     the ones it does not know about: your own, or another library.
+    ///     <see cref="ReadOnlyDictionaryExtensionMethods" /> - cover the usual conditions. This is for
+    ///     the ones it does not know about: your own, or a different library.
     /// </remarks>
     [Pure]
     public static Maybe<TResult> FromTryGet<TResult>([InstantHandle] TryGet<TResult> tryGet) =>
@@ -141,14 +141,14 @@ public static class Maybe
     /// </summary>
     /// <typeparam name="T">The type of the input.</typeparam>
     /// <typeparam name="TResult">The type of the value the method produces.</typeparam>
-    /// <param name="value">The input to pass to <paramref name="tryGet" />.</param>
+    /// <param name="value">The input to give to <paramref name="tryGet" />.</param>
     /// <param name="tryGet">The method to run.</param>
     /// <returns>
     ///     A <see cref="Maybe{T}" /> containing the output of <paramref name="tryGet" /> if it
     ///     returned <see langword="true" />, and one containing no value otherwise.
     /// </returns>
     /// <remarks>
-    ///     Both type arguments have to be written out, since a method group carries no type of its
+    ///     The two type arguments have to be written out, since a method group carries no type of its
     ///     own for them to be inferred from:
     ///     <c>Maybe.FromTryGet&lt;string, int&gt;(s, int.TryParse)</c>.
     /// </remarks>
@@ -165,8 +165,8 @@ public static class Maybe
     /// <typeparam name="T1">The type of the first input.</typeparam>
     /// <typeparam name="T2">The type of the second input.</typeparam>
     /// <typeparam name="TResult">The type of the value the method produces.</typeparam>
-    /// <param name="value1">The first input to pass to <paramref name="tryGet" />.</param>
-    /// <param name="value2">The second input to pass to <paramref name="tryGet" />.</param>
+    /// <param name="value1">The first input to give to <paramref name="tryGet" />.</param>
+    /// <param name="value2">The second input to give to <paramref name="tryGet" />.</param>
     /// <param name="tryGet">The method to run.</param>
     /// <returns>
     ///     A <see cref="Maybe{T}" /> containing the output of <paramref name="tryGet" /> if it
@@ -187,9 +187,9 @@ public static class Maybe
     /// <typeparam name="T2">The type of the second input.</typeparam>
     /// <typeparam name="T3">The type of the third input.</typeparam>
     /// <typeparam name="TResult">The type of the value the method produces.</typeparam>
-    /// <param name="value1">The first input to pass to <paramref name="tryGet" />.</param>
-    /// <param name="value2">The second input to pass to <paramref name="tryGet" />.</param>
-    /// <param name="value3">The third input to pass to <paramref name="tryGet" />.</param>
+    /// <param name="value1">The first input to give to <paramref name="tryGet" />.</param>
+    /// <param name="value2">The second input to give to <paramref name="tryGet" />.</param>
+    /// <param name="value3">The third input to give to <paramref name="tryGet" />.</param>
     /// <param name="tryGet">The method to run.</param>
     /// <returns>
     ///     A <see cref="Maybe{T}" /> containing the output of <paramref name="tryGet" /> if it
@@ -205,23 +205,23 @@ public static class Maybe
 
     /// <summary>
     ///     The type of <see cref="Maybe.None" />: a value carrying no information, whose only
-    ///     purpose is to convert to a <see cref="Maybe{T}" /> containing nothing.
+    ///     purpose is to change to a <see cref="Maybe{T}" /> containing nothing.
     /// </summary>
     public struct NoneType;
 }
 
 /// <summary>
-///     A value that is present, or that is not present.
+///     A value that is there, or that is not there.
 /// </summary>
 /// <typeparam name="T">The type of the value, when there is one.</typeparam>
 /// <remarks>
-///     Unlike <see cref="System.Nullable{T}" /> this works for reference types as well as value
-///     types, and unlike a <see langword="null" /> reference it says in the type whether the
+///     Unlike <see cref="System.Nullable{T}" /> this works for reference types and for value
+///     types, and unlike a <see langword="null" /> reference it says in the type if the
 ///     absence of a value is expected.
-///     There is no property that hands the value out unchecked. Reach the value with
-///     <see cref="Match{TResult}" /> or one of the helpers built on it, so that the case where
+///     There is no property that hands the value out unchecked. Read the value with
+///     <see cref="Match{TResult}" /> or one of the helpers built on it, so that the condition where
 ///     there is none has to be answered for.
-///     This is a struct, so <see langword="default" /> is a valid instance and contains nothing -
+///     This is a struct, so <see langword="default" /> is a correct instance and holds nothing:
 ///     the same as <see cref="None" />.
 /// </remarks>
 [PublicAPI]
@@ -255,7 +255,7 @@ public struct Maybe<T> : IMaybe, IEquatable<Maybe<T>>, IComparable<Maybe<T>>
     ///     A <see cref="Maybe{T}" /> containing no value.
     /// </summary>
     /// <remarks>
-    ///     <see cref="Maybe.None" /> is usually more convenient, since it converts to whichever
+    ///     <see cref="Maybe.None" /> is usually more convenient, since it changes to whichever
     ///     <see cref="Maybe{T}" /> the context calls for. Use this where no such conversion is
     ///     available.
     /// </remarks>
@@ -276,8 +276,8 @@ public struct Maybe<T> : IMaybe, IEquatable<Maybe<T>>, IComparable<Maybe<T>>
     /// <param name="onNone">Run when there is no value.</param>
     /// <returns>Whatever the function that was run returned.</returns>
     /// <remarks>
-    ///     This is the only way the contained value is reached, and each other member here is
-    ///     expressed in terms of it. Exactly one of the two functions is called, before this method
+    ///     This is the only member that reads the contained value, and each other member here is
+    ///     expressed in terms of it. This calls one function of the two, before this method
     ///     returns.
     /// </remarks>
     public TResult Match<TResult>(Func<T, TResult> onSome, Func<TResult> onNone) =>
@@ -333,7 +333,7 @@ public struct Maybe<T> : IMaybe, IEquatable<Maybe<T>>, IComparable<Maybe<T>>
     /// <param name="onNone">Run when there is no value.</param>
     /// <returns>The task returned by whichever function was run.</returns>
     /// <remarks>
-    ///     Only the selected function is invoked; the returned task is its task, not a wrapper, so
+    ///     Only the selected function runs. The task from this call is its task, and not a wrapper, so
     ///     failures surface as that task faulting rather than as an exception from this call.
     /// </remarks>
     public Task<TResult> MatchAsync<TResult>(
@@ -358,8 +358,8 @@ public struct Maybe<T> : IMaybe, IEquatable<Maybe<T>>, IComparable<Maybe<T>>
     /// </summary>
     /// <param name="onSome">Run with the contained value when there is one.</param>
     /// <returns>
-    ///     A task which completes when the action has completed, or an already completed task if no
-    ///     value is present.
+    ///     A task which completes when the action has completed, or a completed task if no
+    ///     value is there.
     /// </returns>
     public Task MatchSomeAsync([InstantHandle] Func<T, Task> onSome) =>
         this.MatchAsyncVoid(onSome: onSome, onNone: static () => Task.FromResult(false));
@@ -369,15 +369,15 @@ public struct Maybe<T> : IMaybe, IEquatable<Maybe<T>>, IComparable<Maybe<T>>
     /// </summary>
     /// <param name="onNone">Run when there is no value.</param>
     /// <returns>
-    ///     A task which completes when the action has completed, or an already completed task if a
-    ///     value is present.
+    ///     A task which completes when the action has completed, or a completed task if a
+    ///     value is there.
     /// </returns>
     public Task MatchNoneAsync([InstantHandle] Func<Task> onNone) =>
         this.MatchAsyncVoid(onSome: static _ => Task.FromResult(false), onNone: onNone);
 
     /// <summary>
-    ///     Map the <see cref="Maybe{T}" /> value using a mapping function if a value exists, or propogate the None value if
-    ///     it does not.
+    ///     Map the <see cref="Maybe{T}" /> value using a mapping function if a value exists, or propogate the
+    ///     None value if it does not.
     /// </summary>
     /// <param name="f">The function to transform this <see cref="Maybe{T}" />.</param>
     /// <typeparam name="TResult">The type of the maybe result value.</typeparam>
@@ -395,8 +395,8 @@ public struct Maybe<T> : IMaybe, IEquatable<Maybe<T>>, IComparable<Maybe<T>>
     /// </returns>
     /// <remarks>
     ///     There is no matching property to read the value with, deliberately. This is for the cases
-    ///     where only the presence matters; where the value is wanted, use
-    ///     <see cref="Match{TResult}" /> so that both cases are handled.
+    ///     where only the existence of a value matters. Where the value is necessary, use
+    ///     <see cref="Match{TResult}" /> so that the two cases are handled.
     /// </remarks>
     [Pure]
     public bool HasValue() => this.Match(onSome: static _ => true, onNone: static () => false);
@@ -438,10 +438,10 @@ public struct Maybe<T> : IMaybe, IEquatable<Maybe<T>>, IComparable<Maybe<T>>
     #endregion
 
     /// <summary>
-    ///     Converts the untyped <see cref="Maybe.None" /> into a <see cref="Maybe{T}" /> of this
+    ///     Changes the untyped <see cref="Maybe.None" /> into a <see cref="Maybe{T}" /> of this
     ///     type containing no value.
     /// </summary>
-    /// <param name="_">The untyped absence of a value; it carries no information.</param>
+    /// <param name="_">The untyped absence of a value. It carries no information.</param>
     /// <returns>A <see cref="Maybe{T}" /> containing no value.</returns>
     /// <remarks>
     ///     This is what lets <see cref="Maybe.None" /> be returned or assigned wherever a
@@ -450,12 +450,12 @@ public struct Maybe<T> : IMaybe, IEquatable<Maybe<T>>, IComparable<Maybe<T>>
     public static implicit operator Maybe<T>(Maybe.NoneType _) => None;
 
     /// <summary>
-    ///     Gives true when two instances contain equal values, or both contain none.
+    ///     Gives true when two instances contain equal values, or the two contain none.
     /// </summary>
     /// <param name="x">The first instance.</param>
     /// <param name="y">The second instance.</param>
     /// <returns>
-    ///     <see langword="true" /> if both contain no value, or both contain values which
+    ///     <see langword="true" /> if the two contain no value, or the two contain values which
     ///     <see cref="EqualityComparer{T}.Default" /> considers equal.
     /// </returns>
     public static bool operator ==(Maybe<T> x, Maybe<T> y) =>
@@ -465,12 +465,12 @@ public struct Maybe<T> : IMaybe, IEquatable<Maybe<T>>, IComparable<Maybe<T>>
     // ReSharper restore NullableWarningSuppressionIsUsed
 
     /// <summary>
-    ///     Gives true when two instances differ. This negates <see cref="op_Equality" />.
+    ///     Gives true when two instances are different. This negates <see cref="op_Equality" />.
     /// </summary>
     /// <param name="x">The first instance.</param>
     /// <param name="y">The second instance.</param>
     /// <returns>
-    ///     <see langword="true" /> if one contains a value and the other does not, or if both
+    ///     <see langword="true" /> if one contains a value and the other does not, or if the two
     ///     contain values which are not equal.
     /// </returns>
     public static bool operator !=(Maybe<T> x, Maybe<T> y) => !(x == y);
@@ -485,7 +485,7 @@ public struct Maybe<T> : IMaybe, IEquatable<Maybe<T>>, IComparable<Maybe<T>>
     ///     same type which <see cref="op_Equality" /> considers equal to this one.
     /// </returns>
     /// <remarks>
-    ///     A <see cref="Maybe{T}" /> is never equal to the bare value it contains, only to another
+    ///     A <see cref="Maybe{T}" /> is never equal to the bare value it contains, only to a second
     ///     <see cref="Maybe{T}" />.
     /// </remarks>
     public override bool Equals(object? obj) => obj is Maybe<T> m && this == m;
@@ -498,44 +498,44 @@ public struct Maybe<T> : IMaybe, IEquatable<Maybe<T>>, IComparable<Maybe<T>>
     ///     <see langword="true" /> if <see cref="op_Equality" /> considers the two equal.
     /// </returns>
     /// <remarks>
-    ///     The same comparison as <see cref="op_Equality" />, under the name
+    ///     The same compare as <see cref="op_Equality" />, with the name
     ///     <see cref="EqualityComparer{T}.Default" /> looks for. Without it, this being a struct
-    ///     which does not implement <see cref="IEquatable{T}" /> sends each comparison through
-    ///     <see cref="Equals(object)" /> instead, boxing both operands - on each
+    ///     with no <see cref="IEquatable{T}" /> sends each compare through
+    ///     <see cref="Equals(object)" />, which boxes the two operands - on each
     ///     <see cref="System.Linq.Enumerable.Distinct{TSource}(IEnumerable{TSource})" />,
     ///     <see cref="System.Linq.Enumerable.Contains{TSource}(IEnumerable{TSource},TSource)" />,
     ///     <see cref="List{T}.IndexOf(T)" /> and dictionary lookup. Being a struct is how this
-    ///     type avoids allocating; that made it allocate anyway, in exactly the
-    ///     collection-heavy code which would notice.
+    ///     type avoids an allocation. That made it allocate in the collection-heavy code that
+    ///     notices.
     /// </remarks>
     // ReSharper disable once InheritdocConsiderUsage
     public bool Equals(Maybe<T> other) => this == other;
 
     /// <summary>
-    ///     Orders this instance against another, with the absence of a value coming first.
+    ///     Puts this instance in order against a second one, and a missing value comes first.
     /// </summary>
     /// <param name="other">The instance to compare against.</param>
     /// <returns>
-    ///     A negative number if this sorts before <paramref name="other" />, zero if neither
+    ///     A negative number if this sorts before <paramref name="other" />, zero when no one of the two
     ///     sorts before the other, and a positive number if this sorts after it.
     /// </returns>
     /// <remarks>
     ///     No value sorts before each value, which is how <see cref="System.Nullable{T}" /> is
-    ///     ordered under <see cref="Comparer{T}.Default" /> and so is the answer least likely to
-    ///     surprise. Two instances which both have values are ordered by
+    ///     in order by <see cref="Comparer{T}.Default" /> and so is the answer that gives the fewest surprises to
+    ///     surprise. Two instances that each have a value are ordered by
     ///     <see cref="Comparer{T}.Default" /> for <typeparamref name="T" />, which throws if
     ///     <typeparamref name="T" /> has no ordering - the same failure, at the same point, as
-    ///     ordering bare <typeparamref name="T" /> values would give.
-    ///     Note that this reads <see cref="Comparer{T}.Default" /> where
+    ///     ordering bare <typeparamref name="T" /> values gives.
+    ///     This reads <see cref="Comparer{T}.Default" /> where
     ///     <see cref="op_Equality" /> reads <see cref="EqualityComparer{T}.Default" />. For a
     ///     type whose ordering and equality disagree - <see cref="string" /> is one, being
     ///     ordered by culture and compared for equality ordinally - a zero result here does not
     ///     have to mean <see cref="op_Equality" /> is <see langword="true" />. That is inherited
     ///     from those two comparers rather than introduced here, and is what ordering bare
-    ///     <typeparamref name="T" /> values already does.
+    ///     <typeparamref name="T" /> values does.
     ///     There are deliberately no <c>&lt;</c> and <c>&gt;</c> operators to go with this.
     ///     <see cref="System.Nullable{T}" /> has them, and they are a trap: they answer
-    ///     <see langword="false" /> in both directions when either side is absent, so
+    ///     <see langword="false" /> in the two directions when one side is missing, so
     ///     <c>!(a &lt; b)</c> stops meaning <c>a &gt;= b</c>. Sorting is what an ordering is
     ///     wanted for, and sorting goes through this method.
     /// </remarks>
@@ -549,7 +549,7 @@ public struct Maybe<T> : IMaybe, IEquatable<Maybe<T>>, IComparable<Maybe<T>>
             onNone: () => other.Match(onSome: static _ => -1, onNone: static () => 0));
 
     /// <summary>
-    ///     Returns a hash code consistent with <see cref="op_Equality" />.
+    ///     Gives a hash code that agrees with <see cref="op_Equality" />.
     /// </summary>
     /// <returns>A hash code for this instance.</returns>
     public override int GetHashCode()

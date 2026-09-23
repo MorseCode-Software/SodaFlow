@@ -4,7 +4,7 @@ using JetBrains.Annotations;
 namespace SodaFlow.Time;
 
 /// <summary>
-///     A timer system using the number of seconds since the application started.
+///     A timer system that uses the number of seconds after the start of the process.
 /// </summary>
 [PublicAPI]
 // ReSharper disable once InheritdocConsiderUsage

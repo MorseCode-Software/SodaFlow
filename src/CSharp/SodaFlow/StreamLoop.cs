@@ -5,7 +5,7 @@ using JetBrains.Annotations;
 namespace SodaFlow;
 
 /// <summary>
-///     A forward reference for a <see cref="Stream{T}" /> equivalent to the <see cref="Stream{T}" /> that is referenced.
+///     A forward reference for a <see cref="Stream{T}" /> equivalent to the <see cref="Stream{T}" /> it stands for.
 /// </summary>
 /// <typeparam name="T">The type of values fired by the stream loop.</typeparam>
 [PublicAPI]
@@ -18,17 +18,17 @@ public class StreamLoop<T> : LoopedStream<T>
 
     /// <summary>
     ///     Initializes a new instance of the <see cref="StreamLoop{T}" /> class, a forward reference to a
-    ///     stream that has not been defined yet.
+    ///     stream with no definition at this point.
     /// </summary>
     /// <exception cref="InvalidOperationException">
-    ///     Thrown if there is no explicit transaction running, or, at the end of that transaction,
+    ///     Thrown when there is no explicit transaction open, or, at the end of that transaction,
     ///     if <see cref="Loop" /> was never called on this instance.
     /// </exception>
     /// <remarks>
-    ///     A loop only makes sense in a single transaction, so one must be running - create it
+    ///     A loop only makes sense in a single transaction, thus one must be open - make it
     ///     with <see cref="Transaction.Run{T}(Func{T})" /> or
     ///     <see cref="Transaction.RunVoid(Action)" />. Resolve the loop by calling
-    ///     <see cref="Loop" /> before that transaction ends; a loop left unresolved is a bug rather
+    ///     <see cref="Loop" /> before that transaction ends. A loop with no resolution is a defect, and not
     ///     than a no-op, so it is reported as one.
     /// </remarks>
     [MethodImpl(MethodImplOptions.NoInlining)]
@@ -59,7 +59,7 @@ public class StreamLoop<T> : LoopedStream<T>
     ///     This requires an explicit transaction to be created with <see cref="Transaction.Run{T}(Func{T})" /> or
     ///     <see cref="Transaction.RunVoid(Action)" />.
     /// </summary>
-    /// <param name="stream">The stream that was forward referenced.</param>
+    /// <param name="stream">The stream of the forward reference.</param>
     [MethodImpl(MethodImplOptions.NoInlining)]
     public void Loop(Stream<T> stream) =>
         TransactionInternal.Apply((trans, _) =>

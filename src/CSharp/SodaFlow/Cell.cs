@@ -29,8 +29,8 @@ public static class Cell
     public static Cell<T> ConstantLazy<T>(Lazy<T> value) => CellInternal.ConstantLazyImpl(value);
 
     /// <summary>
-    ///     Construct a writable cell that uses the last value if <see cref="CellSinkExtensionMethods.Send{T}" /> is called
-    ///     more than once per transaction.
+    ///     Makes a writable cell that uses the last value if <see cref="CellSinkExtensionMethods.Send{T}" /> is called
+    ///     more than one time per transaction.
     /// </summary>
     /// <typeparam name="T">The type of the value in the cell sink.</typeparam>
     /// <param name="initialValue">The initial value of the cell.</param>
@@ -38,23 +38,24 @@ public static class Cell
     public static CellSink<T> CreateSink<T>(T initialValue) => CellInternal.CreateSinkImpl(initialValue);
 
     /// <summary>
-    ///     Construct a writable cell that uses <paramref name="coalesce" />
-    ///     to combine values if <see cref="CellSinkExtensionMethods.Send{T}(CellSink{T}, T)" /> is called more than once per
-    ///     transaction.
+    ///     Makes a writable cell that uses <paramref name="coalesce" /> to put values together when
+    ///     <see cref="CellSinkExtensionMethods.Send{T}(CellSink{T}, T)" /> is called more than one time
+    ///     per transaction.
     /// </summary>
     /// <typeparam name="T">The type of the value in the cell sink.</typeparam>
     /// <param name="initialValue">The initial value of the cell.</param>
     /// <param name="coalesce">
-    ///     Function to combine values when <see cref="CellSinkExtensionMethods.Send{T}(CellSink{T}, T)" /> is called more
-    ///     than once per transaction.
+    ///     Function to put values together when
+    ///     <see cref="CellSinkExtensionMethods.Send{T}(CellSink{T}, T)" /> is called more than one time in
+    ///     each transaction.
     /// </param>
     [MethodImpl(MethodImplOptions.NoInlining)]
     public static CellSink<T> CreateSink<T>(T initialValue, Func<T, T, T> coalesce) =>
         CellInternal.CreateSinkImpl(initialValue: initialValue, coalesce: coalesce);
 
     /// <summary>
-    ///     Construct a writable cell stream sink that uses the last value if <see cref="CellSinkExtensionMethods.Send{T}" />
-    ///     is called more than once per transaction.
+    ///     Makes a writable cell stream sink that uses the last value if
+    ///     <see cref="CellSinkExtensionMethods.Send{T}" /> is called more than one time per transaction.
     ///     This stream sink is meant to be turned into a <see cref="Cell{T}" /> through the use of
     ///     <see cref="StreamExtensionMethods.Hold{T}(Stream{T}, T)" />.
     /// </summary>
@@ -63,16 +64,16 @@ public static class Cell
     public static CellStreamSink<T> CreateStreamSink<T>() => CellInternal.CreateStreamSinkImpl<T>();
 
     /// <summary>
-    ///     Construct a writable cell stream sink that uses <paramref name="coalesce" />
-    ///     to combine values if <see cref="StreamSinkExtensionMethods.Send{T}(StreamSink{T}, T)" /> is called more than once
-    ///     per transaction.
-    ///     This stream sink is meant to be turned into a <see cref="Cell{T}" /> through the use of
-    ///     <see cref="StreamExtensionMethods.Hold{T}(Stream{T}, T)" />.
+    ///     Makes a writable cell stream sink that uses <paramref name="coalesce" /> to put values together
+    ///     when <see cref="StreamSinkExtensionMethods.Send{T}(StreamSink{T}, T)" /> is called more than one
+    ///     time per transaction. This stream sink is meant to be turned into a <see cref="Cell{T}" /> through
+    ///     the use of <see cref="StreamExtensionMethods.Hold{T}(Stream{T}, T)" />.
     /// </summary>
     /// <typeparam name="T">The type of the value in the cell stream sink.</typeparam>
     /// <param name="coalesce">
-    ///     Function to combine values when <see cref="StreamSinkExtensionMethods.Send{T}(StreamSink{T}, T)" /> is called more
-    ///     than once per transaction.
+    ///     Function to put values together when
+    ///     <see cref="StreamSinkExtensionMethods.Send{T}(StreamSink{T}, T)" /> is called more than one time
+    ///     in each transaction.
     /// </param>
     [MethodImpl(MethodImplOptions.NoInlining)]
     public static CellStreamSink<T> CreateStreamSink<T>(Func<T, T, T> coalesce) =>
@@ -89,7 +90,7 @@ public static class Cell
     ///     Creates a helper to loop over a cell for the specified type.
     /// </summary>
     /// <typeparam name="T">The type of the cell to loop.</typeparam>
-    /// <returns>A <see cref="CellLooper{T}" /> which should be used to complete the loop.</returns>
+    /// <returns>A <see cref="CellLooper{T}" /> which completes the loop.</returns>
     [Pure]
     public static CellLooper<T> Loop<T>() => new();
 }

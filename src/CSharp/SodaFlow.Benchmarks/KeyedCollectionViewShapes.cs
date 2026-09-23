@@ -7,16 +7,16 @@ namespace SodaFlow.Benchmarks;
 
 /// <summary>
 ///     The two ways to keep "the top twenty unfrozen accounts by balance" up to date as the
-///     collection underneath it changes.
+///     collection below it changes.
 /// </summary>
 /// <remarks>
 ///     <para>
-///         <b>Re-derived</b> is what a lift over the whole collection gives you: hold each item in
+///         <b>Re-derived</b> is what a lift over the full collection gives you: hold each item in
 ///         one cell, and map it through <c>Where</c>, <c>OrderByDescending</c> and <c>Take</c>. It
 ///         is three lines, it is obviously correct, and it does all of that work again for each
-///         edit, however small. The version here is the charitable one — the items live in an
+///         edit, at each size of the edit. The version here is the charitable one — the items live in an
 ///         immutable dictionary so that applying the edit itself is O(log32 n) rather than a copy
-///         of the whole list, which leaves the re-derivation as the thing actually being measured.
+///         of the full list, which leaves the re-derivation as the thing actually being measured.
 ///     </para>
 ///     <para>
 ///         <b>Chained</b> is <c>Filter</c>, then <c>SortByDescending</c>, then <c>Take</c>. Each
@@ -24,14 +24,14 @@ namespace SodaFlow.Benchmarks;
 ///         an edit re-files one key rather than re-sorting a collection.
 ///     </para>
 ///     <para>
-///         Both are asked for the same answer, and <see cref="IKeyedCollectionViewShape.Keys" />
-///         exists so the benchmark can check in its setup that they give it. A comparison between
-///         two things computing different results would not be worth running.
+///         The two are asked for the same answer, and <see cref="IKeyedCollectionViewShape.Keys" />
+///         exists so the benchmark can check in its setup that they give it. A compare between
+///         two things that give different results are not worth a run.
 ///     </para>
 /// </remarks>
 file interface IKeyedCollectionViewShape
 {
-    /// <summary>The view's keys, in order, as they stand.</summary>
+    /// <summary>The keys of the view, in order, at this moment.</summary>
     // ReSharper disable once UnusedMemberInSuper.Global - Defines shape expected for implementers
     IReadOnlyList<int> Keys { get; }
 
@@ -40,9 +40,9 @@ file interface IKeyedCollectionViewShape
     void Replace(int key, ItemState state);
 
     /// <summary>
-    ///     Adds an item and removes it again, which is two structural edits that leave the
-    ///     collection the size it started. A benchmark that only added would measure a collection
-    ///     growing under it.
+    ///     Adds an item and removes it again, which is two structural edits that keep the collection
+    ///     at the size it started. A benchmark that only adds measures a collection that grows below
+    ///     it.
     /// </summary>
     // ReSharper disable once UnusedMemberInSuper.Global - Defines shape expected for implementers
     void AddAndRemove(int key, ItemState state);
@@ -59,8 +59,8 @@ internal static class ViewSeed
     internal const int Limit = 20;
 
     /// <summary>
-    ///     Low enough that nearly everything passes, so the filter is not quietly doing the
-    ///     <c>Take</c>'s job for it.
+    ///     Low, thus almost everything passes, so the filter is not quietly doing the
+    ///     work of the <c>Take</c> for it.
     /// </summary>
     internal const int InitialThreshold = 0;
 
@@ -77,7 +77,7 @@ internal sealed class RederivedViewShape : IKeyedCollectionViewShape
     private readonly CellSink<ImmutableDictionary<int, Item<ItemIdentity, ItemState>>> items;
 
     // Load-bearing: the map above is only evaluated because something is listening to it, and a
-    // benchmark measuring a projection nobody asked for would measure nothing.
+    // benchmark that measures a projection nobody asked for measures nothing.
     // ReSharper disable once NotAccessedField.Local
     private readonly IListener listener;
     private readonly CellSink<int> threshold;
@@ -176,7 +176,7 @@ internal enum ChainStyle
     SortByIdentity,
 
     /// <summary>
-    ///     Neither stage reads the state, so nothing a state edit carries can reach either of them
+    ///     No stage reads the state, thus nothing a state edit carries can get to one of them
     ///     beyond the update they are obliged to forward.
     /// </summary>
     ByIdentity,
@@ -184,7 +184,7 @@ internal enum ChainStyle
     /// <summary>
     ///     A filter that keeps half of what it sees, tested against the state, over an identity
     ///     sort. Paired with <see cref="SelectiveByIdentity" />, which keeps the same half by asking the
-    ///     identity instead.
+    ///     the identity as an alternative.
     /// </summary>
     SelectiveByState,
 
@@ -237,10 +237,10 @@ internal sealed class ChainedViewShape : IKeyedCollectionViewShape
 
     /// <param name="itemCount">How many items the collection holds.</param>
     /// <param name="style">
-    ///     Which halves the two stages read. Each arrangement holds the same keys in the same
+    ///     Which halves the two stages read. Each configuration holds the same keys in the same
     ///     places: the seed gives each item a score equal to its number, and the initial threshold
     ///     admits all of them - so what differs between them is only which half each stage reads,
-    ///     and therefore how much of a state edit it can ignore.
+    ///     and thus how much of a state edit it can ignore.
     /// </param>
     internal static ChainedViewShape Build(int itemCount, ChainStyle style)
     {
@@ -269,10 +269,10 @@ internal sealed class ChainedViewShape : IKeyedCollectionViewShape
 
             // The identity filter admits everything, as the threshold one does at its initial
             // value. What is being measured is not what the predicate answers - the ordinary
-            // filter looks the item up and asks either way - but whether it has to ask at all.
+            // filter looks the item up and tests in each condition - but if it has to test at all.
             // The two selective arrangements keep the same items - the seed gives each item a
             // score equal to its number, so even scores and even numbers are the same half - and
-            // differ only in which half they had to read to find that out.
+            // are different only in which half they had to read to find that.
             ReactiveCollection<int, ItemIdentity, ItemState> filtered =
                 style switch
                 {
@@ -305,7 +305,7 @@ internal sealed class ChainedViewShape : IKeyedCollectionViewShape
 
 /// <summary>
 ///     The collection with no view stages at all, listening to its own change stream — the floor
-///     an edit cannot go below however little the stages above it choose to do.
+///     an edit cannot go below the minimum work that the stages above it do.
 /// </summary>
 /// <remarks>
 ///     <para>
@@ -313,7 +313,7 @@ internal sealed class ChainedViewShape : IKeyedCollectionViewShape
 ///         chain pays for the transaction, the send operation, the trie write to the state map, the snapshot
 ///         and the change object before any stage is consulted, and at ten thousand items that is
 ///         2.8 of the 6.5 microseconds an excluded-key edit costs. Report the 6.5 and a
-///         stage-level difference of a fifth of a microsecond reads as noise; subtract the floor
+///         stage-level difference of a fifth of a microsecond reads as noise. Subtract the floor
 ///         and the same difference is six percent of what the chain actually does.
 ///     </para>
 ///     <para>
@@ -396,12 +396,12 @@ internal sealed class RootOnlyViewShape : IKeyedCollectionViewShape
 
 /// <summary>A page of a sorted collection, the two ways of keeping one.</summary>
 /// <remarks>
-///     Both hold the same page of the same ordering, and the benchmark checks that in its setup
+///     The two hold the same page of the same ordering, and the benchmark checks that in its setup
 ///     before timing either.
 /// </remarks>
 file interface IKeyedPagingShape
 {
-    /// <summary>The page's keys, in order, as they stand.</summary>
+    /// <summary>The keys of the page, in order, at this moment.</summary>
     // ReSharper disable once UnusedMemberInSuper.Global - Defines shape expected for implementers
     IReadOnlyList<int> Keys { get; }
 
@@ -505,9 +505,9 @@ internal sealed class RederivedPageShape : IKeyedPagingShape
 /// </summary>
 /// <remarks>
 ///     A criteria change rebuilds the stage that owns the criteria, and for most stages that is the
-///     expensive path - a filter files each surviving key into a fresh ordered set. A slice's
-///     rebuild is a <c>RangeKeys</c> over the ordering it already had, which is a lazy view and
-///     costs nothing to construct. That is the asymmetry the page-turn benchmarks exist to show.
+///     expensive path - a filter files each surviving key into a new ordered set. A slice's
+///     rebuild is a <c>RangeKeys</c> over the ordering it had, which is a lazy view and
+///     costs nothing to make. That is the asymmetry the page-turn benchmarks show.
 /// </remarks>
 // ReSharper disable once InheritdocConsiderUsage
 internal sealed class ChainedPageShape : IKeyedPagingShape

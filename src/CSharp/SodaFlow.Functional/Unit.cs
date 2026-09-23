@@ -6,7 +6,7 @@ using JetBrains.Annotations;
 namespace SodaFlow.Functional;
 
 /// <summary>
-///     A struct representing the unit type (similar to <code>void</code>).
+///     A struct for the unit type, which is close to <code>void</code>.
 /// </summary>
 [PublicAPI]
 // ReSharper disable once InheritdocConsiderUsage
@@ -68,7 +68,7 @@ public readonly struct Unit
     /// </summary>
     /// <returns>The string representation of this <see cref="Unit" /> instance.</returns>
     /// <remarks>
-    ///     The string returned by this method takes the form <c>()</c>.
+    ///     The string returned by this method has the text <c>()</c>.
     /// </remarks>
     public override string ToString() => "()";
 

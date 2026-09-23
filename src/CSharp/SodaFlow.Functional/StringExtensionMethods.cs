@@ -3,14 +3,14 @@ using System.Globalization;
 using JetBrains.Annotations;
 
 // Every method here is an extension on a string, and ReSharper offers to gather them into
-// extension blocks. Declined for the file rather than method by method, because the reason applies
-// to all of them and to any added later.
+// extension blocks. Declined for the file rather than method by method, because the cause applies
+// to all of them, and to each one added after this.
 //
-// The block form emits an identical public API - the same static methods, with the same signatures
+// The block version emits the same public API - the same static methods, with the same signatures
 // and the same ExtensionAttribute - but it rewrites the documentation, which is most of what this
 // file is. Each public method is left holding an <inheritdoc /> pointing at a compiler-generated
-// type whose name is a hash, and its summary, parameters and returns move under that name.
-// Anything reading the XML without resolving inheritdoc - IntelliSense over a package reference
+// type whose name is a hash, and its summary, parameters and returns move to that name.
+// A reader of the XML that does not resolve inheritdoc - IntelliSense over a package reference
 // included - then shows nothing at all for a method which is documented here in full.
 // ReSharper disable ConvertToExtensionBlock
 
@@ -21,15 +21,15 @@ namespace SodaFlow.Functional;
 /// </summary>
 /// <remarks>
 ///     Each of these wraps the framework's own <c>TryParse</c> for the type it names, so what
-///     counts as parseable is exactly what that method accepts. What changes is the shape of the
-///     answer: a <see cref="Maybe{T}" /> which can be mapped, filtered and combined, in place of
+///     counts as parseable is what that method accepts. What changes is the shape of the
+///     answer: a <see cref="Maybe{T}" /> which code can map, filter and put together, as a replacement for
 ///     a <see cref="bool" /> and an output parameter which cannot be used until the
 ///     <see cref="bool" /> has been checked.
-///     The overloads which take no <see cref="IFormatProvider" /> use the current culture, again
-///     matching the method being wrapped. Pass <see cref="CultureInfo.InvariantCulture" />
+///     The overloads with no <see cref="IFormatProvider" /> parameter use the current culture, again
+///     matching the method being wrapped. Give <see cref="CultureInfo.InvariantCulture" />
 ///     explicitly for text which is not meant to follow the user's culture - a configuration
-///     file, a wire format, a machine-written log.
-///     A <see langword="null" /> string parses as no value throughout, since that is what each
+///     file, a transmission format, or a machine-written record.
+///     A <see langword="null" /> string parses as no value in each member here, because that is what each
 ///     framework <c>TryParse</c> does with one.
 /// </remarks>
 [PublicAPI]
@@ -58,7 +58,7 @@ public static class StringExtensionMethods
     /// </summary>
     /// <param name="value">The string to parse. A <see langword="null" /> string gives no value.</param>
     /// <param name="styles">The number styles permitted in <paramref name="value" />.</param>
-    /// <param name="provider">The culture-specific formatting information to read with.</param>
+    /// <param name="provider">The formatting information of the culture to read with.</param>
     /// <returns>
     ///     A <see cref="Maybe{T}" /> containing the parsed value, and one containing no value if
     ///     <paramref name="value" /> does not hold one.
@@ -95,7 +95,7 @@ public static class StringExtensionMethods
     /// </summary>
     /// <param name="value">The string to parse. A <see langword="null" /> string gives no value.</param>
     /// <param name="styles">The number styles permitted in <paramref name="value" />.</param>
-    /// <param name="provider">The culture-specific formatting information to read with.</param>
+    /// <param name="provider">The formatting information of the culture to read with.</param>
     /// <returns>
     ///     A <see cref="Maybe{T}" /> containing the parsed value, and one containing no value if
     ///     <paramref name="value" /> does not hold one.
@@ -132,7 +132,7 @@ public static class StringExtensionMethods
     /// </summary>
     /// <param name="value">The string to parse. A <see langword="null" /> string gives no value.</param>
     /// <param name="styles">The number styles permitted in <paramref name="value" />.</param>
-    /// <param name="provider">The culture-specific formatting information to read with.</param>
+    /// <param name="provider">The formatting information of the culture to read with.</param>
     /// <returns>
     ///     A <see cref="Maybe{T}" /> containing the parsed value, and one containing no value if
     ///     <paramref name="value" /> does not hold one.
@@ -169,7 +169,7 @@ public static class StringExtensionMethods
     /// </summary>
     /// <param name="value">The string to parse. A <see langword="null" /> string gives no value.</param>
     /// <param name="styles">The number styles permitted in <paramref name="value" />.</param>
-    /// <param name="provider">The culture-specific formatting information to read with.</param>
+    /// <param name="provider">The formatting information of the culture to read with.</param>
     /// <returns>
     ///     A <see cref="Maybe{T}" /> containing the parsed value, and one containing no value if
     ///     <paramref name="value" /> does not hold one.
@@ -206,7 +206,7 @@ public static class StringExtensionMethods
     /// </summary>
     /// <param name="value">The string to parse. A <see langword="null" /> string gives no value.</param>
     /// <param name="styles">The number styles permitted in <paramref name="value" />.</param>
-    /// <param name="provider">The culture-specific formatting information to read with.</param>
+    /// <param name="provider">The formatting information of the culture to read with.</param>
     /// <returns>
     ///     A <see cref="Maybe{T}" /> containing the parsed value, and one containing no value if
     ///     <paramref name="value" /> does not hold one.
@@ -243,7 +243,7 @@ public static class StringExtensionMethods
     /// </summary>
     /// <param name="value">The string to parse. A <see langword="null" /> string gives no value.</param>
     /// <param name="styles">The number styles permitted in <paramref name="value" />.</param>
-    /// <param name="provider">The culture-specific formatting information to read with.</param>
+    /// <param name="provider">The formatting information of the culture to read with.</param>
     /// <returns>
     ///     A <see cref="Maybe{T}" /> containing the parsed value, and one containing no value if
     ///     <paramref name="value" /> does not hold one.
@@ -280,7 +280,7 @@ public static class StringExtensionMethods
     /// </summary>
     /// <param name="value">The string to parse. A <see langword="null" /> string gives no value.</param>
     /// <param name="styles">The number styles permitted in <paramref name="value" />.</param>
-    /// <param name="provider">The culture-specific formatting information to read with.</param>
+    /// <param name="provider">The formatting information of the culture to read with.</param>
     /// <returns>
     ///     A <see cref="Maybe{T}" /> containing the parsed value, and one containing no value if
     ///     <paramref name="value" /> does not hold one.
@@ -317,7 +317,7 @@ public static class StringExtensionMethods
     /// </summary>
     /// <param name="value">The string to parse. A <see langword="null" /> string gives no value.</param>
     /// <param name="styles">The number styles permitted in <paramref name="value" />.</param>
-    /// <param name="provider">The culture-specific formatting information to read with.</param>
+    /// <param name="provider">The formatting information of the culture to read with.</param>
     /// <returns>
     ///     A <see cref="Maybe{T}" /> containing the parsed value, and one containing no value if
     ///     <paramref name="value" /> does not hold one.
@@ -354,7 +354,7 @@ public static class StringExtensionMethods
     /// </summary>
     /// <param name="value">The string to parse. A <see langword="null" /> string gives no value.</param>
     /// <param name="styles">The number styles permitted in <paramref name="value" />.</param>
-    /// <param name="provider">The culture-specific formatting information to read with.</param>
+    /// <param name="provider">The formatting information of the culture to read with.</param>
     /// <returns>
     ///     A <see cref="Maybe{T}" /> containing the parsed value, and one containing no value if
     ///     <paramref name="value" /> does not hold one.
@@ -391,7 +391,7 @@ public static class StringExtensionMethods
     /// </summary>
     /// <param name="value">The string to parse. A <see langword="null" /> string gives no value.</param>
     /// <param name="styles">The number styles permitted in <paramref name="value" />.</param>
-    /// <param name="provider">The culture-specific formatting information to read with.</param>
+    /// <param name="provider">The formatting information of the culture to read with.</param>
     /// <returns>
     ///     A <see cref="Maybe{T}" /> containing the parsed value, and one containing no value if
     ///     <paramref name="value" /> does not hold one.
@@ -428,7 +428,7 @@ public static class StringExtensionMethods
     /// </summary>
     /// <param name="value">The string to parse. A <see langword="null" /> string gives no value.</param>
     /// <param name="styles">The number styles permitted in <paramref name="value" />.</param>
-    /// <param name="provider">The culture-specific formatting information to read with.</param>
+    /// <param name="provider">The formatting information of the culture to read with.</param>
     /// <returns>
     ///     A <see cref="Maybe{T}" /> containing the parsed value, and one containing no value if
     ///     <paramref name="value" /> does not hold one.
@@ -452,7 +452,7 @@ public static class StringExtensionMethods
     /// </returns>
     /// <remarks>
     ///     Wraps <see cref="bool.TryParse(string,out bool)" />, which accepts only
-    ///     <c>True</c> and <c>False</c> in any casing, with surrounding whitespace allowed. It
+    ///     <c>True</c> and <c>False</c> in any casing, and whitespace on each side is permitted. It
     ///     does not accept <c>1</c>, <c>0</c>, <c>yes</c> or <c>no</c>, and is not
     ///     culture-sensitive.
     /// </remarks>
@@ -461,13 +461,12 @@ public static class StringExtensionMethods
         bool.TryParse(value: value, result: out bool result) ? Maybe.Some(result) : Maybe.None;
 
     /// <summary>
-    ///     Parses a <see cref="char" /> from this string, if it holds exactly one.
+    ///     Parses a <see cref="char" /> from this string, if it holds one character and no more.
     /// </summary>
     /// <param name="value">The string to parse. A <see langword="null" /> string gives no value.</param>
     /// <returns>
-    ///     A <see cref="Maybe{T}" /> containing the single character of
-    ///     <paramref name="value" />, and one containing no value if it is not exactly one
-    ///     character long.
+    ///     A <see cref="Maybe{T}" /> that holds the one character of <paramref name="value" />, and
+    ///     one that holds no value when the length is not one character.
     /// </returns>
     /// <remarks>
     ///     Wraps <see cref="char.TryParse(string,out char)" />. A surrogate pair is two characters
@@ -495,7 +494,7 @@ public static class StringExtensionMethods
         Guid.TryParse(input: value, result: out Guid result) ? Maybe.Some(result) : Maybe.None;
 
     /// <summary>
-    ///     Parses a <see cref="Guid" /> from this string in exactly the given layout, if it holds
+    ///     Parses a <see cref="Guid" /> from this string in the given layout, if it holds
     ///     one.
     /// </summary>
     /// <param name="value">The string to parse. A <see langword="null" /> string gives no value.</param>
@@ -509,7 +508,7 @@ public static class StringExtensionMethods
     /// </returns>
     /// <remarks>
     ///     Wraps <see cref="Guid.TryParseExact(string,string,out Guid)" />, which allows no
-    ///     surrounding whitespace.
+    ///     whitespace on each side.
     /// </remarks>
     [Pure]
     public static Maybe<Guid> TryParseGuidExact(this string? value, string format) =>
@@ -526,7 +525,7 @@ public static class StringExtensionMethods
     /// <remarks>
     ///     Wraps <see cref="DateTime.TryParse(string,out DateTime)" />, so this reads the current
     ///     culture. Date text is where that matters most - <c>03/04/2026</c> is two different days
-    ///     depending on the culture reading it - so prefer
+    ///     and this changes with the culture that reads it, thus prefer
     ///     <see cref="TryParseDateTime(string,IFormatProvider,DateTimeStyles)" /> for anything not
     ///     typed by the user.
     /// </remarks>
@@ -539,7 +538,7 @@ public static class StringExtensionMethods
     ///     holds one.
     /// </summary>
     /// <param name="value">The string to parse. A <see langword="null" /> string gives no value.</param>
-    /// <param name="provider">The culture-specific formatting information to read with.</param>
+    /// <param name="provider">The formatting information of the culture to read with.</param>
     /// <param name="styles">The formatting options permitted in <paramref name="value" />.</param>
     /// <returns>
     ///     A <see cref="Maybe{T}" /> containing the parsed value, and one containing no value if
@@ -558,12 +557,12 @@ public static class StringExtensionMethods
             : Maybe.None;
 
     /// <summary>
-    ///     Parses a <see cref="DateTime" /> from this string in exactly the given format, if it
+    ///     Parses a <see cref="DateTime" /> from this string in the given format, if it
     ///     holds one.
     /// </summary>
     /// <param name="value">The string to parse. A <see langword="null" /> string gives no value.</param>
     /// <param name="format">The format <paramref name="value" /> must be in.</param>
-    /// <param name="provider">The culture-specific formatting information to read with.</param>
+    /// <param name="provider">The formatting information of the culture to read with.</param>
     /// <param name="styles">The formatting options permitted in <paramref name="value" />.</param>
     /// <returns>
     ///     A <see cref="Maybe{T}" /> containing the parsed value, and one containing no value if
@@ -603,7 +602,7 @@ public static class StringExtensionMethods
     ///     if it holds one.
     /// </summary>
     /// <param name="value">The string to parse. A <see langword="null" /> string gives no value.</param>
-    /// <param name="provider">The culture-specific formatting information to read with.</param>
+    /// <param name="provider">The formatting information of the culture to read with.</param>
     /// <param name="styles">The formatting options permitted in <paramref name="value" />.</param>
     /// <returns>
     ///     A <see cref="Maybe{T}" /> containing the parsed value, and one containing no value if
@@ -645,7 +644,7 @@ public static class StringExtensionMethods
     ///     Parses a <see cref="TimeSpan" /> from this string in the given culture, if it holds one.
     /// </summary>
     /// <param name="value">The string to parse. A <see langword="null" /> string gives no value.</param>
-    /// <param name="provider">The culture-specific formatting information to read with.</param>
+    /// <param name="provider">The formatting information of the culture to read with.</param>
     /// <returns>
     ///     A <see cref="Maybe{T}" /> containing the parsed value, and one containing no value if
     ///     <paramref name="value" /> does not hold one.
@@ -676,13 +675,13 @@ public static class StringExtensionMethods
     public static Maybe<Uri> TryParseUri(this string? value) => value.TryParseUri(UriKind.Absolute);
 
     /// <summary>
-    ///     Parses a <see cref="Uri" /> of the given kind from this string, if it holds one.
+    ///     Parses a <see cref="Uri" /> of the given type from this string, if it holds one.
     /// </summary>
     /// <param name="value">The string to parse. A <see langword="null" /> string gives no value.</param>
-    /// <param name="uriKind">The permitted kind: absolute, relative, or one of the two.</param>
+    /// <param name="uriKind">The permitted type: absolute, relative, or one of the two.</param>
     /// <returns>
     ///     A <see cref="Maybe{T}" /> containing the parsed value, and one containing no value if
-    ///     <paramref name="value" /> does not hold a URI of that kind.
+    ///     <paramref name="value" /> does not hold a URI of that type.
     /// </returns>
     /// <remarks>
     ///     Wraps <see cref="Uri.TryCreate(string,UriKind,out Uri)" />.
@@ -703,8 +702,8 @@ public static class StringExtensionMethods
     /// <remarks>
     ///     Wraps <see cref="Enum.TryParse{TEnum}(string,out TEnum)" />, and inherits its two
     ///     surprises. Matching is case-sensitive, which
-    ///     <see cref="TryParseEnum{TEnum}(string,bool)" /> can turn off. More importantly, a
-    ///     string of digits parses to that number whether or not the enumeration declares it, so
+    ///     <see cref="TryParseEnum{TEnum}(string,bool)" /> can disable. More importantly, a
+    ///     string of digits parses to that number when the enumeration does not declare it, thus
     ///     <c>"37"</c> succeeds for an enumeration with three members - use
     ///     <see cref="TryParseDefinedEnum{TEnum}(string)" /> where only a declared member will do.
     /// </remarks>
@@ -715,18 +714,18 @@ public static class StringExtensionMethods
 
     /// <summary>
     ///     Parses a value of the given enumeration type from this string, if it holds one,
-    ///     optionally ignoring case.
+    ///     The compare can be case-insensitive.
     /// </summary>
     /// <typeparam name="TEnum">The enumeration type to parse.</typeparam>
     /// <param name="value">The string to parse. A <see langword="null" /> string gives no value.</param>
-    /// <param name="ignoreCase">True for a case-insensitive match of the member names.</param>
+    /// <param name="ignoreCase">True for a case-insensitive compare of the member names.</param>
     /// <returns>
     ///     A <see cref="Maybe{T}" /> containing the parsed value, and one containing no value if
     ///     <paramref name="value" /> does not hold one.
     /// </returns>
     /// <remarks>
     ///     Wraps <see cref="Enum.TryParse{TEnum}(string,bool,out TEnum)" />. A string of digits
-    ///     parses to that number whether or not the enumeration declares it; see
+    ///     parses to that number when the enumeration does not declare it. See
     ///     <see cref="TryParseDefinedEnum{TEnum}(string,bool)" />.
     /// </remarks>
     [Pure]
@@ -749,8 +748,8 @@ public static class StringExtensionMethods
     /// <remarks>
     ///     <see cref="TryParseEnum{TEnum}(string)" /> plus the check that the result is a member
     ///     the enumeration actually declares, which is what keeps <c>"37"</c> from parsing to a
-    ///     value nothing will ever handle. This is the one to reach for when the string came from
-    ///     outside the program.
+    ///     value nothing will ever handle. Use this one when the string came from
+    ///     out of the process.
     ///     Not for an enumeration marked <see cref="FlagsAttribute" />: a combination of declared
     ///     flags is a perfectly good value but is not itself declared, so it gives no value here.
     ///     Use <see cref="TryParseEnum{TEnum}(string)" /> for those.
@@ -762,17 +761,17 @@ public static class StringExtensionMethods
 
     /// <summary>
     ///     Parses a declared member of the given enumeration type from this string, if it holds
-    ///     one, optionally ignoring case.
+    ///     one, and the compare can be case-insensitive.
     /// </summary>
     /// <typeparam name="TEnum">The enumeration type to parse.</typeparam>
     /// <param name="value">The string to parse. A <see langword="null" /> string gives no value.</param>
-    /// <param name="ignoreCase">True for a case-insensitive match of the member names.</param>
+    /// <param name="ignoreCase">True for a case-insensitive compare of the member names.</param>
     /// <returns>
     ///     A <see cref="Maybe{T}" /> containing the parsed value if the enumeration declares it,
     ///     and one containing no value otherwise.
     /// </returns>
     /// <remarks>
-    ///     Not for an enumeration marked <see cref="FlagsAttribute" />; see
+    ///     Not for an enumeration marked <see cref="FlagsAttribute" />. See
     ///     <see cref="TryParseDefinedEnum{TEnum}(string)" />.
     /// </remarks>
     [Pure]

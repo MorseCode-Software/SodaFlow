@@ -7,28 +7,28 @@ using SodaFlow.Bindable.ObjectModel;
 namespace SodaFlow.Benchmarks;
 
 /// <summary>
-///     What it costs to deliver one update from the graph to a bound property, and how much of
+///     What it costs to send one update from the graph to a bound property, and how much of
 ///     that is the two-way value sampling its cell.
 /// </summary>
 /// <remarks>
 ///     <para>
-///         The two-way value used to write back whatever the update carried. It samples the cell
-///         instead, so that an update delivered late cannot put a stale value on screen. Sampling
-///         outside a transaction opens one, and a transaction takes a process-wide lock, so the
-///         change is not free and the question of how much it costs is a fair one.
+///         The two-way value wrote back the value that the update carried. It now samples the cell,
+///         thus a late update cannot put a stale value on the screen. A sample out of a transaction
+///         opens one, and a transaction takes a process-wide lock. Thus, the change has a cost, and
+///         the question of how much it costs is a fair one.
 ///     </para>
 ///     <para>
 ///         The scheduler here queues and is drained explicitly, which is what a dispatcher does
-///         and is the case that matters: work posted in a transaction and run after it
-///         closes, with no transaction in flight, so the sample has to open its own. Under
+///         and is the condition that matters: work posted in a transaction and run after it
+///         closes, with no transaction in flight, so the sample has to open its own. With
 ///         <see cref="ImmediateBindingScheduler" /> the refresh runs while the sending
-///         transaction is still open and joins it instead, which is cheaper and would flatter
+///         transaction is open and joins it, which has a lower cost and flatters
 ///         the numbers.
 ///     </para>
 ///     <para>
-///         One-way values are the contrast rather than a control: they were not changed and still
-///         write back the value the update carried, so the gap between the two is what sampling
-///         costs. Most bindings in an application are one-way, and pay none of this.
+///         One-way values are the contrast rather than a control: they were not changed and they
+///         write back the value the update carried, thus the difference between the two is what a sample
+///         costs. Most bindings are one-way, and pay none of this.
 ///     </para>
 /// </remarks>
 [MemoryDiagnoser]
@@ -68,7 +68,7 @@ public class BindableRefreshBenchmarks
 
     /// <summary>
     ///     One update into a cell nothing is bound to: the transaction and the graph, with no
-    ///     bindable in the way. The baseline, so the ratios read as what binding adds.
+    ///     bindable in the path. The baseline, so the ratios read as what binding adds.
     /// </summary>
     [Benchmark(Baseline = true, Description = "send, nothing bound")]
     public void SendToAnUnboundCell() => this.unboundCell.Send(++this.next);
@@ -92,13 +92,13 @@ public class BindableRefreshBenchmarks
         this.twoWayScheduler.Drain();
     }
 
-    /// <summary>The added operation on its own: a sample with no transaction to join.</summary>
+    /// <summary>The added operation on its own: a sample with no open transaction.</summary>
     [Benchmark(Description = "sample, no transaction open")]
     public int SampleOutsideATransaction() => this.twoWayCell.Sample();
 
     /// <summary>
-    ///     An empty transaction, which is the floor under the sample above: what it costs to take
-    ///     the lock, open and close, having done nothing in between.
+    ///     An empty transaction, which is the floor below the sample above. It gives the cost to get
+    ///     the lock, to open, and to close, with nothing in between.
     /// </summary>
     [Benchmark(Description = "empty transaction")]
     public int EmptyTransaction() => Transaction.Run(static () => 0);

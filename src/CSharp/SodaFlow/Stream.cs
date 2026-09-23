@@ -13,25 +13,25 @@ public static class Stream
     /// <summary>
     ///     Creates a stream that never fires.
     /// </summary>
-    /// <typeparam name="T">The type of the values that would be fired by the stream if it did fire values.</typeparam>
+    /// <typeparam name="T">The type of the values that the stream fires, if it fires values.</typeparam>
     /// <returns>A stream that never fires.</returns>
     [MethodImpl(MethodImplOptions.NoInlining)]
     public static Stream<T> Never<T>() => StreamInternal.NeverImpl<T>();
 
     /// <summary>
-    ///     Creates a StreamSink that throws an exception if <see cref="Stream{T}.Send" /> is called more than once per
-    ///     transaction.
+    ///     Creates a StreamSink that throws an exception if <see cref="Stream{T}.Send" /> is called more than
+    ///     one time per transaction.
     /// </summary>
     /// <typeparam name="T">The type of values fired by the stream sink.</typeparam>
     [MethodImpl(MethodImplOptions.NoInlining)]
     public static StreamSink<T> CreateSink<T>() => StreamInternal.CreateSinkImpl<T>();
 
     /// <summary>
-    ///     Construct a StreamSink that uses <paramref name="coalesce" />
-    ///     to combine values if <see cref="Stream{T}.Send" /> is called more than once per transaction.
+    ///     Makes a StreamSink that uses <paramref name="coalesce" />
+    ///     to put values together when <see cref="Stream{T}.Send" /> is called more than one time per transaction.
     /// </summary>
     /// <param name="coalesce">
-    ///     Function to combine values when <see cref="Stream{T}.Send" /> is called more than once per
+    ///     Function to put values together when <see cref="Stream{T}.Send" /> is called more than one time per
     ///     transaction.
     /// </param>
     /// <typeparam name="T">The type of values fired by the stream sink.</typeparam>
@@ -48,7 +48,7 @@ public static class Stream
     ///     Creates a helper to loop over a stream for the specified type.
     /// </summary>
     /// <typeparam name="T">The type of the stream to loop.</typeparam>
-    /// <returns>A <see cref="StreamLooper{T}" /> which should be used to complete the loop.</returns>
+    /// <returns>A <see cref="StreamLooper{T}" /> which completes the loop.</returns>
     [Pure]
     public static StreamLooper<T> Loop<T>() => new();
 }

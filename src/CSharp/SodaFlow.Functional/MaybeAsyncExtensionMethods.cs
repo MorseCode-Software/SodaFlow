@@ -5,15 +5,15 @@ using JetBrains.Annotations;
 namespace SodaFlow.Functional;
 
 /// <summary>
-///     The operations which carry a <see cref="Maybe{T}" /> across an asynchronous step.
+///     The operations that move a <see cref="Maybe{T}" /> across an asynchronous step.
 /// </summary>
 /// <remarks>
-///     <see cref="Maybe{T}" /> already speaks asynchronously on the consuming side, through
+///     <see cref="Maybe{T}" /> speaks asynchronously on the consuming side, through
 ///     <see cref="Maybe{T}.MatchAsync{TResult}" /> and the helpers built on it. What is here is
 ///     the composing side: the same <c>Map</c>, <c>Bind</c>, <c>Where</c> and <c>ValueOr</c>
 ///     vocabulary, in the two shapes an asynchronous chain needs.
-///     The <c>Async</c>-suffixed members take a function which returns a task, for the step
-///     which does the awaiting. The members without the suffix take a
+///     The <c>Async</c>-suffixed members have a function parameter that returns a task, for the step
+///     which does the awaiting. The members with no suffix have a
 ///     <see cref="Task{TResult}" /> of a <see cref="Maybe{T}" /> as their subject, so a chain
 ///     started asynchronously can be continued without awaiting in the middle of it and
 ///     parenthesizing what came before:
@@ -27,8 +27,8 @@ namespace SodaFlow.Functional;
 ///     the empty path - which is also why the empty path returns a cached completed task rather
 ///     than allocating one.
 ///     Each await here is configured not to capture the calling context. Nothing in this file
-///     runs caller code on the continuation - the awaits exist only to rewrap a result - so
-///     resuming on a captured context would cost a hop and gain nothing, and would deadlock a
+///     runs caller code on the continuation - the awaits are only there to put a result in a task again, thus
+///     a continuation on a captured context costs a hop and gains nothing, and deadlocks a
 ///     caller which blocks on the returned task.
 /// </remarks>
 [PublicAPI]
@@ -46,7 +46,7 @@ public static class MaybeAsyncExtensionMethods
     ///     if <paramref name="a" /> contained a value, and one containing no value otherwise.
     /// </returns>
     /// <remarks>
-    ///     <paramref name="f" /> is not run when there is no value, so this is also how to avoid
+    ///     <paramref name="f" /> is not run when there is no value, thus this is also how to prevent
     ///     starting work that has no input.
     /// </remarks>
     public static Task<Maybe<TResult>> MapAsync<T, TResult>(
@@ -55,7 +55,7 @@ public static class MaybeAsyncExtensionMethods
         a.Match(onSome: v => WrapAsync(f(v)), onNone: NoneTask<TResult>);
 
     /// <summary>
-    ///     Transforms the contained value into another <see cref="Maybe{T}" /> with an
+    ///     Transforms the contained value into a second <see cref="Maybe{T}" /> with an
     ///     asynchronous function, if there is one, flattening the result.
     /// </summary>
     /// <typeparam name="T">The type of the value, when there is one.</typeparam>
@@ -126,7 +126,7 @@ public static class MaybeAsyncExtensionMethods
         await (await a.ConfigureAwait(false)).MapAsync(f).ConfigureAwait(false);
 
     /// <summary>
-    ///     Transforms the value the task will give into another <see cref="Maybe{T}" />, if it
+    ///     Transforms the value the task will give into a second <see cref="Maybe{T}" />, if it
     ///     gives one, flattening the result.
     /// </summary>
     /// <typeparam name="T">The type of the value, when there is one.</typeparam>
@@ -143,7 +143,7 @@ public static class MaybeAsyncExtensionMethods
         (await a.ConfigureAwait(false)).Bind(f);
 
     /// <summary>
-    ///     Transforms the value the task will give into another <see cref="Maybe{T}" /> with an
+    ///     Transforms the value the task will give into a second <see cref="Maybe{T}" /> with an
     ///     asynchronous function, if it gives one, flattening the result.
     /// </summary>
     /// <typeparam name="T">The type of the value, when there is one.</typeparam>
@@ -190,7 +190,7 @@ public static class MaybeAsyncExtensionMethods
         await (await a.ConfigureAwait(false)).WhereAsync(predicate).ConfigureAwait(false);
 
     /// <summary>
-    ///     Falls back to another <see cref="Maybe{T}" /> if the task gives no value.
+    ///     Uses a second <see cref="Maybe{T}" /> when the task gives no value.
     /// </summary>
     /// <typeparam name="T">The type of the value, when there is one.</typeparam>
     /// <param name="a">The task giving the value to prefer.</param>
@@ -208,7 +208,7 @@ public static class MaybeAsyncExtensionMethods
     /// </summary>
     /// <typeparam name="T">The type of the value, when there is one.</typeparam>
     /// <typeparam name="TResult">The type each of the two functions returns.</typeparam>
-    /// <param name="a">The task giving the value to match on.</param>
+    /// <param name="a">The task that gives the value for <c>Match</c>.</param>
     /// <param name="onSome">Run with the contained value when there is one.</param>
     /// <param name="onNone">Run when there is no value.</param>
     /// <returns>A task giving whatever the function that was run returned.</returns>
@@ -251,11 +251,11 @@ public static class MaybeAsyncExtensionMethods
     /// </summary>
     /// <typeparam name="T">The type of the value, when there is one.</typeparam>
     /// <param name="a">The task giving the value to read.</param>
-    /// <param name="onNone">Run to produce the exception to throw when there is no value.</param>
+    /// <param name="onNone">Run to give the exception to throw when there is no value.</param>
     /// <returns>A task giving the contained value.</returns>
     /// <remarks>
     ///     The exception faults the returned task rather than being thrown from this call, since
-    ///     whether there is a value is not known until the task completes.
+    ///     no code knows if there is a value until the task completes.
     /// </remarks>
     public static async Task<T> ValueOrThrow<T>(this Task<Maybe<T>> a, Func<Exception> onNone) =>
         (await a.ConfigureAwait(false)).ValueOrThrow(onNone);
@@ -271,10 +271,10 @@ public static class MaybeAsyncExtensionMethods
     /// <summary>
     ///     Holds the one completed task giving no value, per type.
     /// </summary>
-    /// <typeparam name="T">The type the absent value would have had.</typeparam>
+    /// <typeparam name="T">The type of the missing value.</typeparam>
     /// <remarks>
-    ///     The empty path is the common one for a lookup that misses, and it always produces the
-    ///     same answer, so there is no reason to allocate a fresh task for it each time.
+    ///     The empty path is the usual one for a lookup that misses, and it always produces the
+    ///     same answer, thus there is no cause to allocate a new task for it at each call.
     /// </remarks>
     private static class CompletedNone<T>
     {

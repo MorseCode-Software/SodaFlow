@@ -5,11 +5,11 @@ using JetBrains.Annotations;
 namespace SodaFlow.Functional;
 
 /// <summary>
-///     The common non-generic view of each either, regardless of how many cases it has.
+///     The general non-generic view of each either, regardless of how many cases it has.
 /// </summary>
 /// <remarks>
 ///     Where the number of cases is known, <see cref="IEitherOfTwo" /> and its wider siblings
-///     add the matching operations; where the types are known, prefer
+///     add the operations that agree. Where the types are known, prefer
 ///     <see cref="Either{T1,T2}" /> itself.
 /// </remarks>
 [PublicAPI]
@@ -20,8 +20,8 @@ public interface IEither
     /// </summary>
     /// <returns>The held value, boxed if it is a value type.</returns>
     /// <remarks>
-    ///     The case is lost along with the type. Where either matters, use one of the match
-    ///     operations instead.
+    ///     This loses the case with the type. Where one of the two is necessary, use one of the <c>Match</c>
+    ///     operations.
     /// </remarks>
     [Pure]
     object? GetValueAsObject();
@@ -29,7 +29,7 @@ public interface IEither
 
 /// <summary>
 ///     A non-generic view of an either of two cases, for code which must handle one
-///     without knowing what types the cases would be.
+///     with no knowledge of the types of the cases.
 /// </summary>
 /// <remarks>
 ///     Each member mirrors one on <see cref="Either{T1,T2}" /> and its wider siblings, with
@@ -49,8 +49,8 @@ public interface IEitherOfTwo : IEither
     /// <param name="onSecond">Run with the value when the second case is held.</param>
     /// <returns>Whatever the function that was run returned.</returns>
     /// <remarks>
-    ///     This is the only way the held value is reached, and each other member here is
-    ///     expressed in terms of it. Exactly one of the functions is called, and it is called
+    ///     This is the only member that reads the held value, and each other member here is
+    ///     expressed in terms of it. This calls one function of the set, and it calls that function
     ///     before this method returns.
     /// </remarks>
     T Match<T>(
@@ -75,7 +75,7 @@ public interface IEitherOfTwo : IEither
     /// <param name="onSecond">Run with the value when the second case is held.</param>
     /// <returns>The task returned by whichever function was run.</returns>
     /// <remarks>
-    ///     Only the selected function is invoked; the returned task is its task, not a wrapper,
+    ///     Only the selected function runs. The task from this call is its task, and not a wrapper,
     ///     so failures surface as that task faulting rather than as an exception from this call.
     /// </remarks>
     Task<T> MatchAsync<T>(
@@ -95,7 +95,7 @@ public interface IEitherOfTwo : IEither
 
 /// <summary>
 ///     A non-generic view of an either of three cases, for code which must handle one
-///     without knowing what types the cases would be.
+///     with no knowledge of the types of the cases.
 /// </summary>
 /// <remarks>
 ///     Each member mirrors one on <see cref="Either{T1,T2}" /> and its wider siblings, with
@@ -116,8 +116,8 @@ public interface IEitherOfThree : IEither
     /// <param name="onThird">Run with the value when the third case is held.</param>
     /// <returns>Whatever the function that was run returned.</returns>
     /// <remarks>
-    ///     This is the only way the held value is reached, and each other member here is
-    ///     expressed in terms of it. Exactly one of the functions is called, and it is called
+    ///     This is the only member that reads the held value, and each other member here is
+    ///     expressed in terms of it. This calls one function of the set, and it calls that function
     ///     before this method returns.
     /// </remarks>
     T Match<T>(
@@ -146,7 +146,7 @@ public interface IEitherOfThree : IEither
     /// <param name="onThird">Run with the value when the third case is held.</param>
     /// <returns>The task returned by whichever function was run.</returns>
     /// <remarks>
-    ///     Only the selected function is invoked; the returned task is its task, not a wrapper,
+    ///     Only the selected function runs. The task from this call is its task, and not a wrapper,
     ///     so failures surface as that task faulting rather than as an exception from this call.
     /// </remarks>
     Task<T> MatchAsync<T>(
@@ -169,7 +169,7 @@ public interface IEitherOfThree : IEither
 
 /// <summary>
 ///     A non-generic view of an either of four cases, for code which must handle one
-///     without knowing what types the cases would be.
+///     with no knowledge of the types of the cases.
 /// </summary>
 /// <remarks>
 ///     Each member mirrors one on <see cref="Either{T1,T2}" /> and its wider siblings, with
@@ -191,8 +191,8 @@ public interface IEitherOfFour : IEither
     /// <param name="onFourth">Run with the value when the fourth case is held.</param>
     /// <returns>Whatever the function that was run returned.</returns>
     /// <remarks>
-    ///     This is the only way the held value is reached, and each other member here is
-    ///     expressed in terms of it. Exactly one of the functions is called, and it is called
+    ///     This is the only member that reads the held value, and each other member here is
+    ///     expressed in terms of it. This calls one function of the set, and it calls that function
     ///     before this method returns.
     /// </remarks>
     T Match<T>(
@@ -225,7 +225,7 @@ public interface IEitherOfFour : IEither
     /// <param name="onFourth">Run with the value when the fourth case is held.</param>
     /// <returns>The task returned by whichever function was run.</returns>
     /// <remarks>
-    ///     Only the selected function is invoked; the returned task is its task, not a wrapper,
+    ///     Only the selected function runs. The task from this call is its task, and not a wrapper,
     ///     so failures surface as that task faulting rather than as an exception from this call.
     /// </remarks>
     Task<T> MatchAsync<T>(
@@ -251,7 +251,7 @@ public interface IEitherOfFour : IEither
 
 /// <summary>
 ///     A non-generic view of an either of five cases, for code which must handle one
-///     without knowing what types the cases would be.
+///     with no knowledge of the types of the cases.
 /// </summary>
 /// <remarks>
 ///     Each member mirrors one on <see cref="Either{T1,T2}" /> and its wider siblings, with
@@ -274,8 +274,8 @@ public interface IEitherOfFive : IEither
     /// <param name="onFifth">Run with the value when the fifth case is held.</param>
     /// <returns>Whatever the function that was run returned.</returns>
     /// <remarks>
-    ///     This is the only way the held value is reached, and each other member here is
-    ///     expressed in terms of it. Exactly one of the functions is called, and it is called
+    ///     This is the only member that reads the held value, and each other member here is
+    ///     expressed in terms of it. This calls one function of the set, and it calls that function
     ///     before this method returns.
     /// </remarks>
     T Match<T>(
@@ -312,7 +312,7 @@ public interface IEitherOfFive : IEither
     /// <param name="onFifth">Run with the value when the fifth case is held.</param>
     /// <returns>The task returned by whichever function was run.</returns>
     /// <remarks>
-    ///     Only the selected function is invoked; the returned task is its task, not a wrapper,
+    ///     Only the selected function runs. The task from this call is its task, and not a wrapper,
     ///     so failures surface as that task faulting rather than as an exception from this call.
     /// </remarks>
     Task<T> MatchAsync<T>(
@@ -341,7 +341,7 @@ public interface IEitherOfFive : IEither
 
 /// <summary>
 ///     A non-generic view of an either of six cases, for code which must handle one
-///     without knowing what types the cases would be.
+///     with no knowledge of the types of the cases.
 /// </summary>
 /// <remarks>
 ///     Each member mirrors one on <see cref="Either{T1,T2}" /> and its wider siblings, with
@@ -365,8 +365,8 @@ public interface IEitherOfSix : IEither
     /// <param name="onSixth">Run with the value when the sixth case is held.</param>
     /// <returns>Whatever the function that was run returned.</returns>
     /// <remarks>
-    ///     This is the only way the held value is reached, and each other member here is
-    ///     expressed in terms of it. Exactly one of the functions is called, and it is called
+    ///     This is the only member that reads the held value, and each other member here is
+    ///     expressed in terms of it. This calls one function of the set, and it calls that function
     ///     before this method returns.
     /// </remarks>
     T Match<T>(
@@ -407,7 +407,7 @@ public interface IEitherOfSix : IEither
     /// <param name="onSixth">Run with the value when the sixth case is held.</param>
     /// <returns>The task returned by whichever function was run.</returns>
     /// <remarks>
-    ///     Only the selected function is invoked; the returned task is its task, not a wrapper,
+    ///     Only the selected function runs. The task from this call is its task, and not a wrapper,
     ///     so failures surface as that task faulting rather than as an exception from this call.
     /// </remarks>
     Task<T> MatchAsync<T>(
@@ -439,7 +439,7 @@ public interface IEitherOfSix : IEither
 
 /// <summary>
 ///     A non-generic view of an either of seven cases, for code which must handle one
-///     without knowing what types the cases would be.
+///     with no knowledge of the types of the cases.
 /// </summary>
 /// <remarks>
 ///     Each member mirrors one on <see cref="Either{T1,T2}" /> and its wider siblings, with
@@ -464,8 +464,8 @@ public interface IEitherOfSeven : IEither
     /// <param name="onSeventh">Run with the value when the seventh case is held.</param>
     /// <returns>Whatever the function that was run returned.</returns>
     /// <remarks>
-    ///     This is the only way the held value is reached, and each other member here is
-    ///     expressed in terms of it. Exactly one of the functions is called, and it is called
+    ///     This is the only member that reads the held value, and each other member here is
+    ///     expressed in terms of it. This calls one function of the set, and it calls that function
     ///     before this method returns.
     /// </remarks>
     T Match<T>(
@@ -510,7 +510,7 @@ public interface IEitherOfSeven : IEither
     /// <param name="onSeventh">Run with the value when the seventh case is held.</param>
     /// <returns>The task returned by whichever function was run.</returns>
     /// <remarks>
-    ///     Only the selected function is invoked; the returned task is its task, not a wrapper,
+    ///     Only the selected function runs. The task from this call is its task, and not a wrapper,
     ///     so failures surface as that task faulting rather than as an exception from this call.
     /// </remarks>
     Task<T> MatchAsync<T>(
@@ -545,7 +545,7 @@ public interface IEitherOfSeven : IEither
 
 /// <summary>
 ///     A non-generic view of an either of eight cases, for code which must handle one
-///     without knowing what types the cases would be.
+///     with no knowledge of the types of the cases.
 /// </summary>
 /// <remarks>
 ///     Each member mirrors one on <see cref="Either{T1,T2}" /> and its wider siblings, with
@@ -571,8 +571,8 @@ public interface IEitherOfEight : IEither
     /// <param name="onEighth">Run with the value when the eighth case is held.</param>
     /// <returns>Whatever the function that was run returned.</returns>
     /// <remarks>
-    ///     This is the only way the held value is reached, and each other member here is
-    ///     expressed in terms of it. Exactly one of the functions is called, and it is called
+    ///     This is the only member that reads the held value, and each other member here is
+    ///     expressed in terms of it. This calls one function of the set, and it calls that function
     ///     before this method returns.
     /// </remarks>
     T Match<T>(
@@ -621,7 +621,7 @@ public interface IEitherOfEight : IEither
     /// <param name="onEighth">Run with the value when the eighth case is held.</param>
     /// <returns>The task returned by whichever function was run.</returns>
     /// <remarks>
-    ///     Only the selected function is invoked; the returned task is its task, not a wrapper,
+    ///     Only the selected function runs. The task from this call is its task, and not a wrapper,
     ///     so failures surface as that task faulting rather than as an exception from this call.
     /// </remarks>
     Task<T> MatchAsync<T>(

@@ -5,25 +5,25 @@ using SodaFlow.Collections;
 namespace SodaFlow.Benchmarks;
 
 /// <summary>
-///     A running total of one state value across the whole collection, the two ways of keeping one.
+///     A total of one state value across the full collection, the two ways of keeping one.
 /// </summary>
 /// <remarks>
 ///     <para>
 ///         Unlike a view, an aggregate genuinely depends on each item, so there is no window to
-///         hide behind and no arrangement in which the answer is cheap to produce from scratch.
-///         What differs is whether it is produced from scratch.
+///         hide behind, and no configuration where the answer is cheap to make from scratch. The
+///         difference is if the code makes it from scratch.
 ///     </para>
 ///     <para>
-///         The naive shape reads the whole store on each edit, which is what a <c>Map</c> over the
-///         snapshot cell gives you and what most people write first. The incremental shape folds the
-///         change stream instead: an edit carries the keys that changed and their new states, and
-///         the snapshot the transaction started from still holds the old ones, so the delta costs
-///         one subtraction and one addition per changed key however large the collection is.
+///         The naive shape reads the full store on each edit, which is what a <c>Map</c> over the
+///         snapshot cell gives, and what most readers write first. The incremental shape folds the
+///         change stream: an edit carries the keys that changed and their new states, and
+///         the snapshot the transaction started from holds the previous ones, thus the delta costs
+///         one subtraction and one sum for each changed key, at each size of the collection.
 ///     </para>
 ///     <para>
-///         Both are checked against each other in the setup, and again after an edit, because a
-///         running total that drifts is exactly the bug this shape invites and a drifting total is
-///         no cheaper to compute than a correct one.
+///         The two are checked against each other in the setup, and again after an edit, because a
+///         total that drifts is the bug this shape invites and a drifting total is
+///         no of a lower cost than a correct one.
 ///     </para>
 /// </remarks>
 file interface IKeyedAggregateShape
@@ -38,8 +38,8 @@ file interface IKeyedAggregateShape
 
     /// <summary>
     ///     Adds an item and removes it again, which is the only thing that exercises the added and
-    ///     removed halves of an incremental fold. Not timed; the setup uses it to check the fold
-    ///     agrees with the sum after a structural change as well as after a state change.
+    ///     removed halves of an incremental fold. Not timed. The setup uses it to check the fold
+    ///     agrees with the sum after a structural change and after a state change.
     /// </summary>
     // ReSharper disable once UnusedMemberInSuper.Global - Defines shape expected for implementers
     void AddAndRemove(int key, ItemState state);
@@ -51,7 +51,7 @@ file static class AggregateSeed
     /// <summary>The value being totaled, from one item.</summary>
     internal static long ValueOf(ItemState state) => state.Score;
 
-    /// <summary>The initial contents both shapes are built on.</summary>
+    /// <summary>The initial contents the two shapes are built on.</summary>
     internal static List<Item<ItemIdentity, ItemState>> Entries(int itemCount)
     {
         List<Item<ItemIdentity, ItemState>> items = new(itemCount);
@@ -69,14 +69,14 @@ file static class AggregateSeed
 }
 
 /// <summary>
-///     The total recomputed from the whole store on each edit, by mapping the snapshot cell.
+///     The total recomputed from the full store on each edit, by mapping the snapshot cell.
 /// </summary>
 // ReSharper disable once InheritdocConsiderUsage
 internal sealed class RederivedAggregateShape : IKeyedAggregateShape
 {
     private readonly StreamSink<CollectionEdit<int, ItemIdentity, ItemState>> edits;
 
-    // Load-bearing: a map nobody listens to is never evaluated, and this benchmark would then
+    // Load-bearing: a map nobody listens to is never evaluated, and this benchmark then
     // measure a sum that is never taken.
     // ReSharper disable once NotAccessedField.Local
     private readonly IListener listener;
@@ -122,18 +122,18 @@ internal sealed class RederivedAggregateShape : IKeyedAggregateShape
                     edits);
 
             // Through Pairs rather than Keys plus a lookup each. The first version of this
-            // benchmark did the latter, and it made the baseline slower than it had any need to be
-            // - on a hundred thousand items, summing one field cost more than sorting the whole
-            // collection did next door. The gap being measured here is meant to be the one between
-            // re-reading and folding, not the one between walking a trie and searching it.
+            // benchmark did the latter, and it made the baseline slower than necessary
+            // - on a hundred thousand items, summing one field cost more than sorting the full
+            // collection did next door. The difference that this measures is the one between
+            // a re-read with a fold, and not the one between a walk of a trie and a search of it.
             Cell<long> total =
                 collection.SnapshotCell.Map(static snapshot =>
                 {
                     long sum = 0;
 
                     // A loop rather than Sum, because this arm is the thing being measured and the
-                    // comparison should be against the fastest reasonable way to write it. LINQ costs
-                    // a delegate call per item here, which would flatter the other arm for a reason
+                    // compare must be against the fastest reasonable procedure to write it. LINQ costs
+                    // a delegate call per item here, which flatters the other arm for a cause
                     // that has nothing to do with folding.
                     // ReSharper disable once LoopCanBeConvertedToQuery
                     foreach (KeyValuePair<int, ItemState> pair in snapshot.States.Pairs)
@@ -159,9 +159,9 @@ internal sealed class RederivedAggregateShape : IKeyedAggregateShape
 ///     The total folded from the change stream, adjusted by what actually changed.
 /// </summary>
 /// <remarks>
-///     The old states come from snapshotting the collection's own snapshot cell, which during the
-///     transaction that produced the change still holds the version the transaction started from.
-///     That is the whole trick, and it is why no separate copy of the previous values has to be
+///     A snapshot of the snapshot cell of the collection gives the previous states. During the
+///     transaction that made the change, that cell holds the version the transaction started from.
+///     That is the trick, and it is why no second copy of the previous values has to be
 ///     kept alongside.
 /// </remarks>
 // ReSharper disable once InheritdocConsiderUsage
@@ -237,8 +237,8 @@ internal sealed class IncrementalAggregateShape : IKeyedAggregateShape
     /// </summary>
     /// <remarks>
     ///     An added key has no state in <paramref name="before" />, so it contributes only its new
-    ///     value; a removed key is absent from <c>NewStates</c>, so it contributes only the negation
-    ///     of its old one. Neither needs a special case beyond looking.
+    ///     value. A removed key is missing from <c>NewStates</c>, thus it contributes only the negation
+    ///     of its previous one. Nothing special is necessary for the two, more than a look.
     /// </remarks>
     private static long DeltaOf(
         ItemChange<int, ItemIdentity, ItemState> change,

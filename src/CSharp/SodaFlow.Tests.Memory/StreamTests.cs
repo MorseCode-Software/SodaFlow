@@ -225,7 +225,7 @@ public sealed class StreamTests
 
         // The lambda above stays synchronous on purpose: it exists so that its locals are out of
         // scope by the time the snapshot below is taken. What the listener collected is checked
-        // here instead, where @out still holds it and nothing has appended to it since.
+        // here as an alternative, where @out holds it and nothing has appended to it since.
         await Assert.That(@out).IsEquivalentTo(expected: ["7", "5"], ordering: CollectionOrdering.Matching);
 
         dotMemory.Check(memory =>
@@ -283,7 +283,7 @@ public sealed class StreamTests
 
         // The lambda above stays synchronous on purpose: it exists so that its locals are out of
         // scope by the time the snapshot below is taken. What the listener collected is checked
-        // here instead, where @out still holds it and nothing has appended to it since.
+        // here as an alternative, where @out holds it and nothing has appended to it since.
         await Assert.That(@out).IsEquivalentTo(expected: ["15", "11"], ordering: CollectionOrdering.Matching);
 
         dotMemory.Check(memory =>
@@ -294,7 +294,8 @@ public sealed class StreamTests
         dotMemory.Check(memory =>
             afterListenerCount = memory.GetObjects(static where => where.Interface.Is<IListener>()).ObjectsCount);
 
-        // although all listeners and streams have been cleaned up, the nodes will not be disconnected until the stream fires next
+        // although all listeners and streams have been cleaned up, the nodes will not be disconnected until
+        // the stream fires next
         await Assert.That(s.Node.GetListenersCopy().Count).IsEqualTo(1);
         s.Send(1);
         await Assert.That(s.Node.GetListenersCopy().Count).IsEqualTo(0);

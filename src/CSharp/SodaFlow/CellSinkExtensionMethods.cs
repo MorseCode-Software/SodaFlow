@@ -8,19 +8,18 @@ namespace SodaFlow;
 ///     The operations available on a <see cref="CellSink{T}" />.
 /// </summary>
 /// <remarks>
-///     A cell sink is how a value from outside the FRP graph is pushed into it. These operations are
+///     A cell sink puts a value from other code into the FRP graph. These operations are
 ///     for interfacing I/O to FRP only, and throw if called in a listener handler.
 /// </remarks>
 [PublicAPI]
 public static class CellSinkExtensionMethods
 {
     /// <summary>
-    ///     Send a value, modifying the value of the cell.  A caller must not call this method in a handler registered with
-    ///     <see cref="StreamExtensionMethods.Listen{T}(Stream{T}, Action{T})" />,
-    ///     <see cref="StreamExtensionMethods.ListenStrong{T}(Stream{T}, Action{T})" /> or either of their cell
-    ///     equivalents.
-    ///     An exception will be thrown, because sinks are for interfacing I/O to FRP only.  They are not meant to be used to
-    ///     define new primitives.
+    ///     Send a value, modifying the value of the cell. A caller must not call this method in a handler
+    ///     registered with <see cref="StreamExtensionMethods.Listen{T}(Stream{T}, Action{T})" />,
+    ///     <see cref="StreamExtensionMethods.ListenStrong{T}(Stream{T}, Action{T})" /> or one of their cell
+    ///     equivalents. An exception will be thrown, because sinks are for interfacing I/O to FRP only. They
+    ///     are not meant to be used to make new primitives.
     /// </summary>
     /// <typeparam name="T">The type of the cell sink.</typeparam>
     /// <param name="c">The cell sink.</param>

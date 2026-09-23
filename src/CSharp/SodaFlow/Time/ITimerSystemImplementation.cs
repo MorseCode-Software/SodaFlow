@@ -21,20 +21,20 @@ public interface ITimerSystemImplementation<T>
     /// </summary>
     /// <param name="handleException">
     ///     Called with any exception raised while waiting for or firing timers. It is expected to
-    ///     absorb the exception: the implementation is not required to keep running if this throws.
+    ///     absorb the exception: the implementation does not have to continue after this throws.
     /// </param>
     /// <remarks>
-    ///     Called once, from the <see cref="TimerSystem{T}" /> constructor. An implementation which
-    ///     waits should do so on a thread it owns rather than on the thread pool, since alarms
-    ///     stop being delivered entirely if that wait cannot be scheduled.
+    ///     Called one time, from the <see cref="TimerSystem{T}" /> constructor. An implementation which
+    ///     waits must wait on a thread of its own, and not on the thread pool, because alarms
+    ///     stop fully when the pool cannot schedule that wait.
     /// </remarks>
     void Start(Action<Exception> handleException);
 
     /// <summary>
-    ///     Set a timer that will execute the specified callback at the specified time.
+    ///     Sets a timer that runs the given callback at the given time.
     /// </summary>
-    /// <param name="time">The time at which to execute the callback.</param>
-    /// <param name="callback">The callback to execute.</param>
+    /// <param name="time">The time to run the callback at.</param>
+    /// <param name="callback">The callback to run.</param>
     /// <returns>A handle that can be used to cancel the timer.</returns>
     ITimer SetTimer(T time, Action callback);
 

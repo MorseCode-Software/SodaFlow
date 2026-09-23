@@ -22,7 +22,7 @@ public static class LazyExtensionMethods
     /// <param name="a">The lazy input.</param>
     /// <param name="f">The function to transform the lazy input value.</param>
     /// <returns>
-    ///     A lazy value which will produce the value of the lazy input value <paramref name="a" /> transformed by the
+    ///     A lazy value which will give the value of the lazy input value <paramref name="a" /> transformed by the
     ///     function <paramref name="f" />.
     /// </returns>
     public static Lazy<TResult> Map<T, TResult>(this Lazy<T> a, Func<T, TResult> f) => new(() => f(a.Value));
@@ -33,8 +33,8 @@ public static class LazyExtensionMethods
     //  */
 
     /// <summary>
-    ///     Lift a binary function into lazy input values so the lazy return value reflects the value of the function applied
-    ///     to the lazy input values.
+    ///     Lift a binary function into lazy input values so the lazy return value reflects the value of the
+    ///     function applied to the lazy input values.
     /// </summary>
     /// <typeparam name="T1">The type of the first lazy input value.</typeparam>
     /// <typeparam name="T2">The type of the second lazy input value.</typeparam>
@@ -43,15 +43,15 @@ public static class LazyExtensionMethods
     /// <param name="b">The second lazy input.</param>
     /// <param name="f">The function to transform the lazy input value.</param>
     /// <returns>
-    ///     A lazy value which will produce the value of the lazy input values <paramref name="a" /> and
+    ///     A lazy value which will give the value of the lazy input values <paramref name="a" /> and
     ///     <paramref name="b" /> transformed by the function <paramref name="f" />.
     /// </returns>
     public static Lazy<TResult> Lift<T1, T2, TResult>(this Lazy<T1> a, Lazy<T2> b, Func<T1, T2, TResult> f) =>
         new(() => f(arg1: a.Value, arg2: b.Value));
 
     /// <summary>
-    ///     Lift a binary function into lazy input values so the lazy return value reflects the value of the function applied
-    ///     to the lazy input values.
+    ///     Lift a binary function into lazy input values so the lazy return value reflects the value of the
+    ///     function applied to the lazy input values.
     /// </summary>
     /// <typeparam name="T1">The type of the first lazy input value.</typeparam>
     /// <typeparam name="T2">The type of the second lazy input value.</typeparam>
@@ -62,7 +62,7 @@ public static class LazyExtensionMethods
     /// <param name="c">The third lazy input.</param>
     /// <param name="f">The function to transform the lazy input value.</param>
     /// <returns>
-    ///     A lazy value which will produce the value of the lazy input values <paramref name="a" />,
+    ///     A lazy value which will give the value of the lazy input values <paramref name="a" />,
     ///     <paramref name="b" />, and <paramref name="c" /> transformed by the function <paramref name="f" />.
     /// </returns>
     public static Lazy<TResult> Lift<T1, T2, T3, TResult>(
@@ -73,8 +73,8 @@ public static class LazyExtensionMethods
         new(() => f(arg1: a.Value, arg2: b.Value, arg3: c.Value));
 
     /// <summary>
-    ///     Lift a binary function into lazy input values so the lazy return value reflects the value of the function applied
-    ///     to the lazy input values.
+    ///     Lift a binary function into lazy input values so the lazy return value reflects the value of the
+    ///     function applied to the lazy input values.
     /// </summary>
     /// <typeparam name="T1">The type of the first lazy input value.</typeparam>
     /// <typeparam name="T2">The type of the second lazy input value.</typeparam>
@@ -87,7 +87,7 @@ public static class LazyExtensionMethods
     /// <param name="d">The fourth lazy input.</param>
     /// <param name="f">The function to transform the lazy input value.</param>
     /// <returns>
-    ///     A lazy value which will produce the value of the lazy input values <paramref name="a" />,
+    ///     A lazy value which will give the value of the lazy input values <paramref name="a" />,
     ///     <paramref name="b" />, <paramref name="c" />, and <paramref name="d" /> transformed by the function
     ///     <paramref name="f" />.
     /// </returns>

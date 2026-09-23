@@ -240,7 +240,7 @@ public sealed class EnumerableExtensionMethodsTests
 
     [Test]
     public async Task TestMinOrNoneKeepsZero() =>
-        // Min throws on an empty sequence precisely so it need not conflate it with this.
+        // Min throws on an empty sequence for this cause: it must not confuse it with this.
         await Assert.That(Items(0, 1).MinOrNone()).IsEqualTo(Maybe.Some(0));
 
     [Test]
@@ -269,7 +269,7 @@ public sealed class EnumerableExtensionMethodsTests
     public async Task TestMinOrNoneSkipsNulls()
     {
         // Comparer<string>.Default sorts null before everything, so without skipping them a
-        // single null would be the answer for each sequence of a reference type.
+        // single null is the answer for each sequence of a reference type.
         string?[] source = ["b", null, "a"];
 
         await Assert.That(source.MinOrNone()).IsEqualTo(Maybe.Some<string?>("a"));
@@ -309,9 +309,9 @@ public sealed class EnumerableExtensionMethodsTests
     // array is not.
     private static T[] Items<T>(params T[] items) => items;
 
-    // A sequence that is only a sequence. Returning the params array itself would hand back something
-    // that is still an IReadOnlyList<T> at runtime, and the NotIndexable tests would take the very
-    // indexable path they exist to avoid.
+    // A sequence that is only a sequence. A return of the params array itself gives something
+    // that is an IReadOnlyList<T> at runtime, and the NotIndexable tests then use the indexable
+    // path that they prevent.
     private static IEnumerable<T> Yield<T>(params T[] items)
     {
         // ReSharper disable once LoopCanBeConvertedToQuery - A query operator is free to return something indexable, which is the one thing this must not be.
