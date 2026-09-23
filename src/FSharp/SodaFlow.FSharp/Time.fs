@@ -192,7 +192,7 @@ type TimerSystem<'T when 'T: comparison>(implementation: 'T ITimerSystemImplemen
                                 lock eventQueue (fun () -> eventQueue.Enqueue { Time = time; Alarm = alarm })
                                 Transaction.run id)))
 
-            alarm |> Stream.attachListener listener
+            alarm.AttachListenerInternal listener
 
 type private WaitOrFire =
     | Wait of TimeSpan

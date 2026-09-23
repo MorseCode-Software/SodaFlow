@@ -101,21 +101,6 @@ let listenStrong handler (stream: Stream<_>) =
     stream.ListenStrongImpl(Action<_> handler)
 
 /// <summary>
-///     Ties a listener to the lifetime of a stream, so the listener lives while the stream does.
-/// </summary>
-/// <param name="listener">The listener to attach.</param>
-/// <param name="stream">The stream to attach it to.</param>
-/// <returns>The same stream, now keeping <paramref name="listener" /> alive.</returns>
-/// <remarks>
-///     Use this to make a primitive whose stream depends on internal wiring that no other code
-///     references. The timer system does this with the listener that monitors its alarm cell. With
-///     no attached listener a GC collects the wiring, and the stream from this call stops with no
-///     message.
-/// </remarks>
-[<MethodImpl(MethodImplOptions.NoInlining)>]
-let attachListener listener (stream: Stream<_>) = stream.AttachListenerImpl listener
-
-/// <summary>
 ///     Listens for the next firing only, then stops, without keeping the stream alive.
 /// </summary>
 /// <param name="handler">Run with the first fired value.</param>

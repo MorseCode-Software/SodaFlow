@@ -86,19 +86,6 @@ public static class StreamExtensionMethods
     public static IWeakListener Listen<T>(this Stream<T> s, Action<T> handler) => s.ListenImpl(handler);
 
     /// <summary>
-    ///     Attach a listener to this stream so it doesn't get garbage collected until this stream is garbage collected.
-    /// </summary>
-    /// <typeparam name="T">The type of the stream.</typeparam>
-    /// <param name="s">The stream.</param>
-    /// <param name="listener">The listener to garbage collect along with this stream.</param>
-    /// <returns>
-    ///     A new stream equivalent to this stream which will garbage collect <paramref name="listener" /> when it is
-    ///     garbage collected.
-    /// </returns>
-    [MethodImpl(MethodImplOptions.NoInlining)]
-    public static Stream<T> AttachListener<T>(this Stream<T> s, IListener listener) => s.AttachListenerImpl(listener);
-
-    /// <summary>
     ///     Handle the first event on this stream and then automatically unregister, without keeping the
     ///     stream alive.
     /// </summary>

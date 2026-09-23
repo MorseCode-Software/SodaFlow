@@ -145,7 +145,7 @@ public class TimerSystem<T> : ITimerSystem<T>
                         onNone: static () => Maybe.None);
             });
 
-        return alarm.AttachListener(l);
+        return alarm.AttachListenerInternal(l);
     }
 
     private class Event

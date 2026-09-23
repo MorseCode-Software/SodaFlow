@@ -27,8 +27,8 @@ public class Stream<T>
     // SodaFlow allocates the fields below on first use. It creates streams in large
     // numbers. One two-cell Lift builds approximately twenty streams. A stream that is only a
     // middle step in a chain does not send, does not receive a listener, and does not
-    // receive a call to AttachListener. Thus, eager allocation of all three fields was most of
-    // the cost to construct a stream.
+    // receive a call to AttachListenerInternal. Thus, eager allocation of all three fields was
+    // most of the cost to construct a stream.
 
     // ReSharper disable once CollectionNeverQueried.Local
     private List<IListener>? attachedListeners;
@@ -121,7 +121,7 @@ public class Stream<T>
     internal IWeakListener ListenImpl(Action<T> handler) =>
         this.Listen(target: Node<T>.Null, action: (_, a) => handler(a));
 
-    internal Stream<T> AttachListenerImpl(IListener listener)
+    internal Stream<T> AttachListenerInternal(IListener listener)
     {
         lock (this.AttachListenerLock)
         {
