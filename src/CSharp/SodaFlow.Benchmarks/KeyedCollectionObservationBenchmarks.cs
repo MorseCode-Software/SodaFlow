@@ -5,22 +5,22 @@ using JetBrains.Annotations;
 namespace SodaFlow.Benchmarks;
 
 /// <summary>
-///     What a per-item observer costs depending on what it is bound to, and what it costs if
-///     observing through a view answered for the view rather than for the collection.
+///     What a per-item observer costs, which changes with what it is bound to. It also gives the
+///     cost when an observer through a view answered for the view, and not for the collection.
 /// </summary>
 /// <remarks>
 ///     <para>
 ///         <c>StateCell</c> on a filtered view currently hands back the collection's own cell, so a
 ///         key the filter excluded keeps its state. That is the last thing a view exposes that
-///         is not the view's own, and the decision to close it is open. Closing it means a view's cell is
-///         the collection's cell lifted against that view's membership, and the cost of that is
-///         what this measures - before the decision rather than after it.
+///         is not the view's own, and the decision to close it is open. A closed decision makes the
+///         cell of a view the cell of the collection, lifted against the membership of that view.
+///         The cost of that is what this measures, before the decision and not after it.
 ///     </para>
 ///     <para>
 ///         The arm to monitor is the last pair. An observer bound to its own item wakes when that item
-///         changes. One lifted against a view's keys wakes when <i>anything</i> the view holds moves,
-///         because the view's keys are one cell and reordering replaces it - so twenty observers
-///         wake for an edit to an item none of them are watching. That is a different shape of cost
+///         changes. One lifted against the keys of a view wakes at each move of what the view holds.
+///         The keys of a view are one cell, and a reorder replaces it. Thus, twenty observers wake
+///         for an edit to an item that none of them monitor. That is a different shape of cost
 ///         from "one more node per observer", and it is the number the decision turns on.
 ///     </para>
 /// </remarks>
@@ -134,18 +134,18 @@ public class KeyedCollectionObservationBenchmarks
         this.viewScoped.Replace(key: ObservationShape.UnobservedKeyInView, state: this.NextState());
 
     /// <summary>
-    ///     The edit that decides it. Nobody watches this item and nobody's membership moves, so an
-    ///     observer that asks only about its own key has nothing to do - if the calming works, this
-    ///     costs what observing the collection costs.
+    ///     The edit that decides it. Nobody watches this item, and no membership moves. Thus, an
+    ///     observer that asks only about its own key has nothing to do. When the calm operates, this
+    ///     costs what an observer on the collection costs.
     /// </summary>
     [Benchmark(Description = "edit an unwatched item, observed with membership per key")]
     public void EditUnwatchedViewScopedPerKey() =>
         this.viewScopedPerKey.Replace(key: ObservationShape.UnobservedKeyInView, state: this.NextState());
 
     /// <summary>
-    ///     The edit that this full set of benchmarks is about: nobody watches this item and nobody's membership
-    ///     moves, so an observer that filters itself out of a change naming a different key must cost
-    ///     what observing the collection costs.
+    ///     The edit that this full set of benchmarks is about. Nobody watches this item, and no
+    ///     membership moves. Thus, an observer that filters itself out of a change with a different
+    ///     key must cost what an observer on the collection costs.
     /// </summary>
     [Benchmark(Description = "edit an unwatched item, observed by the view itself")]
     public void EditUnwatchedViewNative() =>
@@ -153,7 +153,7 @@ public class KeyedCollectionObservationBenchmarks
 
     /// <summary>
     ///     A structural change touching nobody's key, with identities observed as this library
-    ///     used to answer them. The shape cell is replaced, so all twenty observers wake.
+    ///     used to answer them. A replacement of the shape cell wakes all twenty observers.
     /// </summary>
     [Benchmark(Description = "add and remove, identity by mapping the shape cell")]
     public void AddAndRemoveIdentityShapeMapped() =>

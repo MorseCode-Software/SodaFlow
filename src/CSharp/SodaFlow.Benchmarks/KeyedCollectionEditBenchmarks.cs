@@ -12,23 +12,23 @@ namespace SodaFlow.Benchmarks;
 /// </summary>
 /// <remarks>
 ///     <para>
-///         Two edits are measured, and the difference between them is the full argument. An edit
+///         This measures two edits, and the difference between them is the full argument. An edit
 ///         to an <i>observed</i> key has work to do in each shape. An edit to an
-///         <i>unobserved</i> key — which is what almost each edit is, when twenty rows are bound
-///         out of ten thousand items — must cost nothing downstream, and what it
+///         <i>unobserved</i> key is what almost each edit is, when twenty rows are bound
+///         out of ten thousand items. Such an edit must cost nothing downstream, and what it
 ///         actually costs is what separates these three.
 ///     </para>
 ///     <para>
-///         Expect sinks per field to win on time here and to keep winning as
-///         <see cref="ItemCount" /> grows: a send into one cell fans out to that cell's listeners
+///         Expect sinks per field to win on time here, and to win by more as
+///         <see cref="ItemCount" /> grows. A send into one cell goes to the listeners of that cell
 ///         and to nothing else. That is a true result and not one to hide.
 ///     </para>
 ///     <para>
 ///         It is also a result about a shape most collections cannot have. A sink takes events from
-///         out of the graph and nothing else — <c>Send</c> throws when it is reached in a
-///         transaction — so a cell per field fed by sinks requires each mutable value in the
-///         collection to come in full from other code, with no logic anywhere between the
-///         two. One derived field and it is the second shape. See
+///         out of the graph and nothing else, and <c>Send</c> throws in a transaction. Thus, a cell
+///         for each field with a sink behind it needs each mutable value to come in full from other
+///         code. No logic comes between the two. One derived field, and it is the second
+///         shape. See
 ///         <see cref="IKeyedCollectionShape" />, and read this row as the floor rather than as the
 ///         alternative.
 ///     </para>
@@ -157,7 +157,7 @@ public class KeyedCollectionEditBenchmarks
             IReadOnlyList<int> observedKeys = ItemSeed.ObservedKeys(itemCount: itemCount, observerCount: ObserverCount);
             List<IListener> listeners = [.. observedKeys.Select(shape.Observe)];
 
-            // The first observed key, and the one after it, which the equal distances guarantee is
+            // The first observed key, and the one after it. The equal distances guarantee that it is
             // not observed as long as there are more items than rows.
             int observedKey = observedKeys[0];
 

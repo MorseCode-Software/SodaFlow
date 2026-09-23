@@ -8,8 +8,8 @@ namespace SodaFlow.Benchmarks;
 /// </summary>
 /// <remarks>
 ///     <para>
-///         A switcher rather than a single <c>BenchmarkRunner.Run</c> call, so that adding a class
-///         is all it takes to add a benchmark: nothing here has to name it.
+///         A switcher, and not one <c>BenchmarkRunner.Run</c> call. Thus, a new class is all it takes
+///         to add a benchmark, and nothing here has to name it.
 ///     </para>
 ///     <para>
 ///         Run everything, which takes a while, with

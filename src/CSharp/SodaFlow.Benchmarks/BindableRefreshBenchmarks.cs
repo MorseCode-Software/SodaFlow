@@ -7,7 +7,7 @@ using SodaFlow.Bindable.ObjectModel;
 namespace SodaFlow.Benchmarks;
 
 /// <summary>
-///     What it costs to send one update from the graph to a bound property, and how much of
+///     What it costs to send one update from the graph to a bound property. It also gives how much of
 ///     that is the two-way value sampling its cell.
 /// </summary>
 /// <remarks>
@@ -18,15 +18,15 @@ namespace SodaFlow.Benchmarks;
 ///         the question of how much it costs is a fair one.
 ///     </para>
 ///     <para>
-///         The scheduler here queues and is drained explicitly, which is what a dispatcher does
-///         and is the condition that matters: work posted in a transaction and run after it
-///         closes, with no transaction in flight, so the sample has to open its own. With
+///         The scheduler here queues, and other code drains it explicitly, which is what a dispatcher does
+///         and is the condition that matters. The work goes in the queue in a transaction and runs at
+///         its end, with no transaction in flight. Thus, the sample has to open its own. With
 ///         <see cref="ImmediateBindingScheduler" /> the refresh runs while the sending
 ///         transaction is open and joins it, which has a lower cost and flatters
 ///         the numbers.
 ///     </para>
 ///     <para>
-///         One-way values are the contrast rather than a control: they were not changed and they
+///         One-way values are the contrast and not a control. They were not changed, and they
 ///         write back the value the update carried, thus the difference between the two is what a sample
 ///         costs. Most bindings are one-way, and pay none of this.
 ///     </para>
@@ -73,7 +73,7 @@ public class BindableRefreshBenchmarks
     [Benchmark(Baseline = true, Description = "send, nothing bound")]
     public void SendToAnUnboundCell() => this.unboundCell.Send(++this.next);
 
-    /// <summary>One update delivered to a one-way value, which writes back what it was handed.</summary>
+    /// <summary>One update to a one-way value, which writes back the value it got.</summary>
     [Benchmark(Description = "send and deliver, one-way")]
     public void SendAndDeliverOneWay()
     {
@@ -82,7 +82,7 @@ public class BindableRefreshBenchmarks
     }
 
     /// <summary>
-    ///     One update delivered to a two-way value, which samples the cell — opening a transaction
+    ///     One update to a two-way value, which samples the cell. The sample opens a transaction
     ///     of its own, since the drain runs with none in flight.
     /// </summary>
     [Benchmark(Description = "send and deliver, two-way")]
@@ -103,7 +103,7 @@ public class BindableRefreshBenchmarks
     [Benchmark(Description = "empty transaction")]
     public int EmptyTransaction() => Transaction.Run(static () => 0);
 
-    /// <summary>Keeps the bindable objects from being collected, and their listeners with them.</summary>
+    /// <summary>Keeps the bindable objects in memory, and their listeners with them.</summary>
     [GlobalCleanup]
     public void Cleanup()
     {

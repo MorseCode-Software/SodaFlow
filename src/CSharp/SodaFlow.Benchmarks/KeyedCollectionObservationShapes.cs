@@ -32,9 +32,9 @@ internal enum ObservationStyle
     ViewScoped,
 
     /// <summary>
-    ///     The same, with each observer's membership held as its own value and calmed, so that a
-    ///     change to the view which does not move <i>this</i> key propagates no more than the
-    ///     compare that says so.
+    ///     The same, with the membership of each observer held as its own value and calmed. Thus, a
+    ///     change to the view that does not move <i>this</i> key stops at the compare
+    ///     that says so.
     /// </summary>
     /// <remarks>
     ///     <see cref="ViewScoped" /> is the obvious procedure to write view-scoping and wakes each
@@ -44,8 +44,8 @@ internal enum ObservationStyle
     ViewScopedPerKey,
 
     /// <summary>
-    ///     Through a filtered view, using what the library now does: the view's own per-item cell,
-    ///     hung off the view's change stream rather than lifted against its keys.
+    ///     Through a filtered view, with what the library now does. That is the per-item cell of the
+    ///     view, hung off the change stream of the view, and not lifted against its keys.
     /// </summary>
     /// <remarks>
     ///     This is <see cref="ThroughView" /> after the change, and the two are the same call - the
@@ -65,9 +65,9 @@ internal enum ObservationStyle
     ///     collection's shape cell, per observer, uncached.
     /// </summary>
     /// <remarks>
-    ///     Kept so the change has something to be measured against. The shape cell is replaced on
-    ///     each structural change, thus each add wakes each observer with this construction, and
-    ///     each remove anywhere in the collection, and a remove that did not touch their key.
+    ///     Kept to give the change a measurement to compare against. A replacement of the shape cell
+    ///     occurs at each structural change. Thus, each add wakes each observer with this construction,
+    ///     and so does each remove anywhere in the collection, and a remove that missed their key.
     /// </remarks>
     IdentityShapeMapped
 }
@@ -77,9 +77,9 @@ internal enum ObservationStyle
 /// </summary>
 /// <remarks>
 ///     <para>
-///         The view is a filter over a sort, which is the configuration that makes the question
-///         interesting: membership can change without an observed item changing, and order can
-///         change without membership changing. An observer that watches the view's keys wakes for
+///         The view is a filter over a sort. That is the configuration that makes the question
+///         interesting. Membership can change with no change to an observed item, and the order can
+///         change with no change to the membership. An observer that watches the keys of the view wakes for
 ///         the two. One that watches its own item wakes for no key.
 ///     </para>
 ///     <para>
@@ -110,8 +110,8 @@ internal sealed class ObservationShape
     internal static int UnobservedKeyInView => 2;
 
     /// <summary>
-    ///     An even key - so the filter keeps it, and the view sees the structural change - that no
-    ///     observer watches and no seeded item uses.
+    ///     An even key, thus the filter keeps it and the view sees the structural change. No observer
+    ///     watches it, and no seeded item uses it.
     /// </summary>
     internal static int UnobservedStructuralKey => -2;
 
@@ -149,9 +149,9 @@ internal sealed class ObservationShape
                     .FilterByIdentity(static identity => Passes(identity))
                     .SortByDescending(static (_, state) => state.Score);
 
-            // The view is listened to whatever the style, because otherwise the arm observing the
-            // collection measures a chain nobody asked to run, and the arms are not
-            // comparable. What differs between them is where the per-item observers are bound, not
+            // A listener monitors the view at each style. Without one, the arm that observes the
+            // collection measures a chain nobody asked to run, and the arms do not compare. What differs
+            // between them is where the per-item observers are bound, and not
             // if the view is alive.
             List<IListener> listeners =
             [
@@ -169,10 +169,10 @@ internal sealed class ObservationShape
     /// <summary>The keys that observers are bound to: even, thus the filter keeps them, and at a distance
     /// from each other.</summary>
     /// <remarks>
-    ///     The stride is even for each size this runs at, so each key is too. Checked rather than
-    ///     assumed, by <see cref="VerifyPremises" /> - an earlier version of this multiplied the
-    ///     stride and took a remainder, which wrapped and gave half as many different keys as
-    ///     observers, thus the benchmark bound ten and reported twenty.
+    ///     The stride is even for each size this runs at, thus each key is too.
+    ///     <see cref="VerifyPremises" /> checks that, and does not accept it without a test. An
+    ///     this multiplied the stride and took a remainder, which wrapped and gave half as many
+    ///     different keys as it needed. Thus, the benchmark bound ten and reported twenty.
     /// </remarks>
     internal static IReadOnlyList<int> ObservedKeys(int itemCount)
     {
@@ -182,9 +182,9 @@ internal sealed class ObservationShape
     }
 
     /// <summary>
-    ///     Checks the conditions for the arms below: that there are as many different observed keys as
-    ///     observers, that the filter keeps each one of them, and that observing through a view is
-    ///     the same cell as observing the collection.
+    ///     Checks the conditions for the arms below. There must be as many different observed keys as
+    ///     observers, and the filter must keep each one of them. An observer through a view must also
+    ///     get the same cell as an observer on the collection.
     /// </summary>
     /// <exception cref="InvalidOperationException">If any of that stops being true.</exception>
     internal static void VerifyPremises(int itemCount)
@@ -291,10 +291,10 @@ internal sealed class ObservationShape
                         c2: view.KeysCell,
                         f: (state, keys) => keys.Contains(key) ? state : Maybe<ItemState>.None),
 
-            // Membership as one boolean per observer. The map runs when the view's keys move,
-            // because the code must test again if this key is one of them - but Calm stops there
-            // unless the answer changed, so the cell below it recomputes only when this key really
-            // enters or leaves.
+            // Membership as one boolean for each observer. The map runs at each move of the keys of the
+            // view, because the code must test again if this key is one of them. But Calm stops there
+            // when the answer did not change. Thus, the cell below it calculates again only when this key
+            // enters or goes out.
             _ => collection.StateCell(key)
                 .Lift<Maybe<ItemState>, bool, Maybe<ItemState>>(
                     c2: view.KeysCell.Map(keys => keys.Contains(key)).Calm(),

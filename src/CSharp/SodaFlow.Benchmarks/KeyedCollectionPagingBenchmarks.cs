@@ -12,15 +12,15 @@ namespace SodaFlow.Benchmarks;
 /// </summary>
 /// <remarks>
 ///     <para>
-///         This is a criteria change, which <see cref="KeyedCollectionViewBenchmarks" /> reports as
-///         the condition a chain loses: changing a predicate rebuilds that stage, and a filter's rebuild
-///         files each surviving key into a new ordered set, thus it is Θ(n) with an allocation per
-///         node where re-deriving sorts an array.
+///         This is a criteria change. <see cref="KeyedCollectionViewBenchmarks" /> reports it as the
+///         condition a chain loses. A change to a predicate rebuilds that stage, and the rebuild of a
+///         filter files each surviving key into a new ordered set. Thus, it is Θ(n) with an allocation
+///         for each node, where a re-derivation sorts an array.
 ///     </para>
 ///     <para>
-///         A slice is the exception, and that is what this measures. Its rebuild constructs a
-///         <c>RangeKeys</c> over the ordering the stage above it holds - a lazy view with a
-///         start and an end, which costs nothing to build, at each size of the collection. The
+///         A slice is the exception, and that is what this measures. Its rebuild makes a
+///         <c>RangeKeys</c> over the ordering that the stage above it holds. That is a lazy view with
+///         a start and an end, which costs nothing to build, at each size of the collection. The
 ///         ordering is not touched, because an offset cannot reorder anything. Re-deriving the same
 ///         page has to sort the collection again to find out what is in it.
 ///     </para>
@@ -52,9 +52,10 @@ public class KeyedCollectionPagingBenchmarks
     public int ItemCount { get; [UsedImplicitly] set; }
 
     /// <summary>
-    ///     A key the second page holds. The seed scores each item with its own number and the sort
-    ///     is descending, so position p holds key <c>ItemCount - 1 - p</c> and the second page runs
-    ///     from <c>ItemCount - 21</c> down to <c>ItemCount - 40</c>. This sits in the middle of it.
+    ///     A key the second page holds. The seed scores each item with its own number, and the sort
+    ///     is descending. Thus, position p holds key <c>ItemCount - 1 - p</c>, and the second page
+    ///     runs from <c>ItemCount - 21</c> down to <c>ItemCount - 40</c>. This sits in the middle of
+    ///     it.
     /// </summary>
     private int InPageKey => this.ItemCount - 30;
 
@@ -79,8 +80,8 @@ public class KeyedCollectionPagingBenchmarks
                 + $"Chained: [{Describe(this.chained.Keys)}].");
         }
 
-        // And again after a turn, because the first page is the one condition where an offset of zero
-        // can hide an off-by-one in one of the two directions.
+        // And again after a turn. The first page is the one condition where an offset of zero can
+        // hide an off-by-one in one of the two directions.
         this.rederived.TurnTo(ViewSeed.Limit);
         this.chained.TurnTo(ViewSeed.Limit);
 
@@ -91,11 +92,12 @@ public class KeyedCollectionPagingBenchmarks
                 + $"[{Describe(this.rederived.Keys)}]. Chained: [{Describe(this.chained.Keys)}].");
         }
 
-        // Left on the second page rather than the first, thus the edit benchmarks below use a
-        // non-zero offset - the primary point of a slice, and the condition that a <c>Take</c> cannot replace.
+        // Left on the second page and not the first. Thus, the edit benchmarks below use a non-zero
+        // offset, which is the primary point of a slice, and the condition that a <c>Take</c> cannot
+        // replace.
 
-        // The edit arms are dependent on one key in that page and the other out of it, which
-        // is arithmetic on the seed rather than anything the code enforces. Checked, because an
+        // The edit arms are dependent on one key in that page and the other out of it. That is
+        // arithmetic on the seed, and not something the code enforces. Checked, because an
         // in-page key that fell out of the window measures the cheap path below the
         // expensive path's name.
         if (!this.chained.Keys.Contains(this.InPageKey))
@@ -159,14 +161,14 @@ public class KeyedCollectionPagingBenchmarks
     }
 
     /// <summary>
-    ///     A new state for a key that leaves its sort value alone, so nothing can move and what is
-    ///     measured is the window's per-edit cost rather than a re-file.
+    ///     A new state for a key that leaves its sort value alone. Thus, nothing can move, and this
+    ///     measures the cost of the window for each edit, and not a second file operation.
     /// </summary>
     /// <remarks>
     ///     Only the name changes. An edit that moved the item is a different question, measured by
-    ///     <see cref="KeyedCollectionViewBenchmarks" />. A mix of the two here leaves the two
-    ///     arms doing visibly different amounts of work depending on where the item landed, and the
-    ///     compare stops being about the window.
+    ///     <see cref="KeyedCollectionViewBenchmarks" />. A mix of the two here leaves the two arms
+    ///     with visibly different quantities of work. That changes with the position of the item, and
+    ///     the compare stops to be about the window.
     /// </remarks>
     private ItemState NextStateFor(int key)
     {

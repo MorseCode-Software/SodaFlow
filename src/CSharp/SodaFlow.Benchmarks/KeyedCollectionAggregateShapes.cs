@@ -10,20 +10,20 @@ namespace SodaFlow.Benchmarks;
 /// <remarks>
 ///     <para>
 ///         Unlike a view, an aggregate genuinely depends on each item, so there is no window to
-///         hide behind, and no configuration where the answer is cheap to make from scratch. The
+///         hide behind. There is also no configuration where the answer is cheap to make from scratch. The
 ///         difference is if the code makes it from scratch.
 ///     </para>
 ///     <para>
-///         The naive shape reads the full store on each edit, which is what a <c>Map</c> over the
+///         The naive shape reads the full store on each edit. That is what a <c>Map</c> over the
 ///         snapshot cell gives, and what most readers write first. The incremental shape folds the
-///         change stream: an edit carries the keys that changed and their new states, and
-///         the snapshot the transaction started from holds the previous ones, thus the delta costs
-///         one subtraction and one sum for each changed key, at each size of the collection.
+///         change stream. An edit carries the keys that changed and their new states, and the
+///         snapshot the transaction started from holds the previous ones. Thus, the delta costs one
+///         subtraction and one sum for each changed key, at each size of the collection.
 ///     </para>
 ///     <para>
-///         The two are checked against each other in the setup, and again after an edit, because a
-///         total that drifts is the bug this shape invites and a drifting total is
-///         no of a lower cost than a correct one.
+///         The setup checks the two against each other, and again after an edit. A
+///         total that drifts is the defect this shape invites. A total that drifts has
+///         no lower cost than a correct one.
 ///     </para>
 /// </remarks>
 file interface IKeyedAggregateShape
@@ -45,10 +45,10 @@ file interface IKeyedAggregateShape
     void AddAndRemove(int key, ItemState state);
 }
 
-/// <summary>Shared by the two aggregate shapes, so they are asked for the same thing.</summary>
+/// <summary>Shared by the two aggregate shapes, thus the benchmark asks them the same question.</summary>
 file static class AggregateSeed
 {
-    /// <summary>The value being totaled, from one item.</summary>
+    /// <summary>The value in the total, from one item.</summary>
     internal static long ValueOf(ItemState state) => state.Score;
 
     /// <summary>The initial contents the two shapes are built on.</summary>
@@ -121,17 +121,17 @@ internal sealed class RederivedAggregateShape : IKeyedAggregateShape
                     initialItems: items,
                     edits);
 
-            // Through Pairs rather than Keys plus a lookup each. The first version of this
-            // benchmark did the latter, and it made the baseline slower than necessary
-            // - on a hundred thousand items, summing one field cost more than sorting the full
-            // collection did next door. The difference that this measures is the one between
-            // a re-read with a fold, and not the one between a walk of a trie and a search of it.
+            // Through Pairs, and not Keys with a lookup for each. The first version of this benchmark
+            // did the second one, which made the baseline slower than necessary. On a hundred thousand
+            // items, a sum of one field cost more than a sort of the full collection did next door. The
+            // difference that this measures is the one between a re-read and a fold. It is not the one
+            // between a walk of a trie and a search of it.
             Cell<long> total =
                 collection.SnapshotCell.Map(static snapshot =>
                 {
                     long sum = 0;
 
-                    // A loop rather than Sum, because this arm is the thing being measured and the
+                    // A loop and not Sum, because this arm is the thing that the benchmark measures. The
                     // compare must be against the fastest reasonable procedure to write it. LINQ costs
                     // a delegate call per item here, which flatters the other arm for a cause
                     // that has nothing to do with folding.

@@ -17,8 +17,8 @@ namespace SodaFlow.Benchmarks;
 ///     </para>
 ///     <para>
 ///         The answer is that it is, but not by holding a cell over the store. Mapping the snapshot
-///         cell reads each item on each edit, thus a total costs the collection at each edit, and the
-///         size of the change has no effect. A fold over the change stream costs what changed: the
+///         cell reads each item on each edit. Thus, a total costs the collection at each edit, and the
+///         size of the change has no effect. A fold over the change stream costs what changed. The
 ///         change carries the
 ///         new states, the snapshot the transaction started from holds the previous ones, and the
 ///         difference between them is the full update.
@@ -58,8 +58,8 @@ public class KeyedCollectionAggregateBenchmarks
 
     /// <summary>
     ///     Builds the two shapes and refuses to run unless they agree on the total, before an edit and
-    ///     after one. A fold that drifts is the bug this shape invites, and a drifting total is no
-    ///     of a lower cost than a correct one.
+    ///     after one. A fold that drifts is the defect this shape invites, and a total that drifts has no
+    ///     lower cost than a correct one.
     /// </summary>
     [GlobalSetup]
     public void Setup()
@@ -69,8 +69,8 @@ public class KeyedCollectionAggregateBenchmarks
 
         Agree("before any edit");
 
-        // One state, handed to the two. Two calls to NextState give them different ones, which is
-        // a bug in the check rather than in one of the two shapes - and was, the first time this ran.
+        // One state, handed to the two. Two calls to NextState give them different ones. That is
+        // a defect in the check, and not in one of the two shapes. It was, the first time this ran.
         ItemState edited = this.NextState();
 
         this.rederived.Replace(key: EditedKey, state: edited);
@@ -78,8 +78,8 @@ public class KeyedCollectionAggregateBenchmarks
 
         Agree("after one edit");
 
-        // A structural change too, because adding and removing is the only thing that reaches the
-        // added and removed halves of the fold, and nothing timed below goes near them.
+        // A structural change too. An add and a remove get to the added and removed halves of the
+        // fold, and nothing else does. Nothing timed below goes near them.
         ItemState added = new(name: "added", score: 1234, isFrozen: false);
 
         this.rederived.AddAndRemove(key: AddedKey, state: added);
@@ -111,9 +111,8 @@ public class KeyedCollectionAggregateBenchmarks
 
     /// <summary>
     ///     Two states, alternating, so the total oscillates between two values rather than climbing
-    ///     as the benchmark runs. A total with no limit measures
-    ///     arithmetic on larger numbers, and also stops being comparable between the arms if
-    ///     they ran a different number of times.
+    ///     as the benchmark runs. A total with no limit measures arithmetic on larger numbers. It
+    ///     also stops to compare between the arms at a different count of the runs.
     /// </summary>
     private ItemState NextState()
     {

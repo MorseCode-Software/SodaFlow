@@ -11,20 +11,20 @@ namespace SodaFlow.Benchmarks;
 /// </summary>
 /// <remarks>
 ///     <para>
-///         <b>Re-derived</b> is what a lift over the full collection gives you: hold each item in
-///         one cell, and map it through <c>Where</c>, <c>OrderByDescending</c> and <c>Take</c>. It
-///         is three lines, it is obviously correct, and it does all of that work again for each
-///         edit, at each size of the edit. The version here is the charitable one — the items live in an
-///         immutable dictionary so that applying the edit itself is O(log32 n) rather than a copy
-///         of the full list, which leaves the re-derivation as the thing actually being measured.
+///         <b>Re-derived</b> is what a lift over the full collection gives. It holds each item in one
+///         cell, and maps it through <c>Where</c>, <c>OrderByDescending</c> and <c>Take</c>. It is
+///         three lines, it is obviously correct, and it does all of that work again for each edit, at
+///         each size of the edit. The version here is the charitable one. The items live in an
+///         immutable dictionary, thus the edit itself is <c>O(log32 n)</c> and not a copy of the full
+///         list. That leaves the re-derivation as the thing this measures.
 ///     </para>
 ///     <para>
 ///         <b>Chained</b> is <c>Filter</c>, then <c>SortByDescending</c>, then <c>Take</c>. Each
-///         stage keeps its own ordered key set and applies the operations from the stage above, so
-///         an edit re-files one key rather than re-sorting a collection.
+///         stage keeps its own ordered key set and uses the operations from the stage above. Thus, an
+///         edit files one key again, and does not sort a collection again.
 ///     </para>
 ///     <para>
-///         The two are asked for the same answer, and <see cref="IKeyedCollectionViewShape.Keys" />
+///         The benchmark asks the two for the same answer, and <see cref="IKeyedCollectionViewShape.Keys" />
 ///         exists so the benchmark can check in its setup that they give it. A compare between
 ///         two things that give different results are not worth a run.
 ///     </para>
@@ -52,7 +52,7 @@ file interface IKeyedCollectionViewShape
     void SetThreshold(int threshold);
 }
 
-/// <summary>Shared by the two view shapes, so they are asked for the same thing.</summary>
+/// <summary>Shared by the two view shapes, thus the benchmark asks them the same question.</summary>
 internal static class ViewSeed
 {
     /// <summary>How many rows the view keeps — a screenful, as in the other benchmarks.</summary>
@@ -177,7 +177,7 @@ internal enum ChainStyle
 
     /// <summary>
     ///     No stage reads the state, thus nothing a state edit carries can get to one of them
-    ///     beyond the update they are obliged to forward.
+    ///     more than the update they have to forward.
     /// </summary>
     ByIdentity,
 
@@ -238,9 +238,9 @@ internal sealed class ChainedViewShape : IKeyedCollectionViewShape
     /// <param name="itemCount">How many items the collection holds.</param>
     /// <param name="style">
     ///     Which halves the two stages read. Each configuration holds the same keys in the same
-    ///     places: the seed gives each item a score equal to its number, and the initial threshold
-    ///     admits all of them - so what differs between them is only which half each stage reads,
-    ///     and thus how much of a state edit it can ignore.
+    ///     places. The seed gives each item a score equal to its number, and the initial threshold
+    ///     admits all of them. Thus, what differs between them is only which half each stage reads,
+    ///     and how much of a state edit it can ignore.
     /// </param>
     internal static ChainedViewShape Build(int itemCount, ChainStyle style)
     {
@@ -268,11 +268,11 @@ internal sealed class ChainedViewShape : IKeyedCollectionViewShape
             CellSink<int> threshold = Cell.CreateSink(ViewSeed.InitialThreshold);
 
             // The identity filter admits everything, as the threshold one does at its initial
-            // value. What is being measured is not what the predicate answers - the ordinary
-            // filter looks the item up and tests in each condition - but if it has to test at all.
-            // The two selective arrangements keep the same items - the seed gives each item a
-            // score equal to its number, so even scores and even numbers are the same half - and
-            // are different only in which half they had to read to find that.
+            // value. This does not measure what the predicate answers. The ordinary filter looks the
+            // item up and tests in each condition, thus the question is if it has to test at all. The
+            // two selective configurations keep the same items. The seed gives each item a score equal to
+            // its number, thus even scores and even numbers are the same half. They are different only in
+            // which half they had to read to find that.
             ReactiveCollection<int, ItemIdentity, ItemState> filtered =
                 style switch
                 {
@@ -304,14 +304,15 @@ internal sealed class ChainedViewShape : IKeyedCollectionViewShape
 }
 
 /// <summary>
-///     The collection with no view stages at all, listening to its own change stream — the floor
-///     an edit cannot go below the minimum work that the stages above it do.
+///     The collection with no view stages, and a listener on its own change stream. This is the
+///     floor that an edit cannot go below.
 /// </summary>
 /// <remarks>
 ///     <para>
-///         This exists because without it the view benchmarks cannot be read. An edit through a
-///         chain pays for the transaction, the send operation, the trie write to the state map, the snapshot
-///         and the change object before any stage is consulted, and at ten thousand items that is
+///         This exists because without it no reader can read the view benchmarks. An edit through a
+///         chain pays for the transaction, the send operation, the trie write to the state map, the
+///         snapshot, and the change object. All of that comes before it reads any stage. At ten
+///         thousand items that is
 ///         2.8 of the 6.5 microseconds an excluded-key edit costs. Report the 6.5 and a
 ///         stage-level difference of a fifth of a microsecond reads as noise. Subtract the floor
 ///         and the same difference is six percent of what the chain actually does.
@@ -327,7 +328,7 @@ internal sealed class RootOnlyViewShape : IKeyedCollectionViewShape
     private readonly ReactiveCollection<int, ItemIdentity, ItemState> collection;
     private readonly StreamSink<CollectionEdit<int, ItemIdentity, ItemState>> edits;
 
-    // Load-bearing, as in the other shapes: something must be listening or nothing is evaluated.
+    // Load-bearing, as in the other shapes: a listener is necessary, or nothing evaluates.
     // ReSharper disable once NotAccessedField.Local
     private readonly IListener listener;
 
@@ -504,9 +505,9 @@ internal sealed class RederivedPageShape : IKeyedPagingShape
 ///     cell and nothing else.
 /// </summary>
 /// <remarks>
-///     A criteria change rebuilds the stage that owns the criteria, and for most stages that is the
-///     expensive path - a filter files each surviving key into a new ordered set. A slice's
-///     rebuild is a <c>RangeKeys</c> over the ordering it had, which is a lazy view and
+///     A criteria change rebuilds the stage that owns the criteria. For most stages that is the
+///     expensive path, because a filter files each surviving key into a new ordered set. The
+///     rebuild of a slice is a <c>RangeKeys</c> over the ordering it had, which is a lazy view and
 ///     costs nothing to make. That is the asymmetry the page-turn benchmarks show.
 /// </remarks>
 // ReSharper disable once InheritdocConsiderUsage
