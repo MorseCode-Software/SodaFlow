@@ -2,16 +2,16 @@
 ///     Creating behavior sinks, and pushing values into them.
 /// </summary>
 /// <remarks>
-///     A behavior sink is how a value from outside the FRP graph gets into it. These are for
-///     interfacing I/O to FRP only: <c>send</c> throws if called from inside a listener callback.
+///     A behavior sink puts a value from other code into the FRP graph. Use these only to connect
+///     I/O to FRP. <c>send</c> throws an exception in a listener callback.
 /// </remarks>
 module SodaFlow.BehaviorSink
 
 open System.Runtime.CompilerServices
 
 /// <summary>
-///     Creates a behavior sink which keeps the last value sent when <c>send</c> is called more than
-///     once in a single transaction.
+///     Creates a behavior sink that keeps the last value of more than one <c>send</c> in one
+///     transaction.
 /// </summary>
 /// <param name="initialValue">The value the behavior holds until something is sent.</param>
 /// <returns>A new behavior sink.</returns>
@@ -20,13 +20,12 @@ let create initialValue =
     BehaviorInternal.CreateSinkImpl initialValue
 
 /// <summary>
-///     Creates a behavior sink which combines values when <c>send</c> is called more than once in a
-///     single transaction.
+/// Creates a behavior sink that combines the values of more than one <c>send</c> in one transaction.
 /// </summary>
 /// <param name="initialValue">The value the behavior holds until something is sent.</param>
 /// <param name="coalesce">
-///     Combines two values sent in the same transaction. Called with the value already
-///     accumulated and the value just sent, in that order.
+/// Puts two values from the same transaction together. It receives the value from before this
+/// send and the new value, in that sequence.
 /// </param>
 /// <returns>A new behavior sink.</returns>
 [<MethodImpl(MethodImplOptions.NoInlining)>]
@@ -39,7 +38,7 @@ let createWithCoalesce initialValue coalesce =
 /// <param name="a">The value to send.</param>
 /// <param name="behaviorSink">The behavior sink to send it to.</param>
 /// <remarks>
-///     Must not be called from inside a listener callback; doing so throws.
+///     A call from a listener callback throws an exception.
 /// </remarks>
 [<MethodImpl(MethodImplOptions.NoInlining)>]
 let send a (behaviorSink: BehaviorSink<'T>) = behaviorSink.SendImpl a

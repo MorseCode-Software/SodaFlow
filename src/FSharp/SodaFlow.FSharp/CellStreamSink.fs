@@ -1,10 +1,10 @@
 /// <summary>
-///     Creating cell stream sinks - stream sinks which may be held to make a cell.
+///     Creating cell stream sinks - stream sinks that a caller can hold to make a cell.
 /// </summary>
 /// <remarks>
-///     A plain stream sink cannot be held into a cell, because a cell must have a value from the
-///     moment it exists and a stream sink has none until something is sent. A cell stream sink
-///     exists to be held, supplying the initial value at that point.
+///     A hold of a plain stream sink into a cell is not possible. A cell must have a value from the
+///     moment of its construction, and a stream sink has no value before the first send. A cell
+///     stream sink is for a hold, and it gives the initial value at that moment.
 /// </remarks>
 module SodaFlow.CellStreamSink
 
@@ -12,8 +12,7 @@ open System
 open System.Runtime.CompilerServices
 
 /// <summary>
-///     Creates a cell stream sink which throws if <c>StreamSink.send</c> is called more than once in
-///     a transaction.
+/// Creates a cell stream sink. A second <c>StreamSink.send</c> in one transaction throws an exception.
 /// </summary>
 /// <typeparam name="'a">The type of the values the cell stream sink fires.</typeparam>
 /// <returns>A new cell stream sink.</returns>
@@ -21,12 +20,12 @@ open System.Runtime.CompilerServices
 let create<'a> () = CellInternal.CreateStreamSinkImpl<'a>()
 
 /// <summary>
-///     Creates a cell stream sink which combines values when <c>StreamSink.send</c> is called more
-///     than once in a single transaction.
+///     Creates a cell stream sink that combines the values of more than one
+///     <c>StreamSink.send</c> in one transaction.
 /// </summary>
 /// <param name="coalesce">
-///     Combines two values sent in the same transaction. Called with the value already
-///     accumulated and the value just sent, in that order.
+///     Puts two values from the same transaction together. It receives the value from before this
+///     send and the new value, in that sequence.
 /// </param>
 /// <returns>A new cell stream sink.</returns>
 [<MethodImpl(MethodImplOptions.NoInlining)>]

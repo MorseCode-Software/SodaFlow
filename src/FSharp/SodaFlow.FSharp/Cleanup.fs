@@ -1,5 +1,5 @@
 /// <summary>
-///     Running a <c>Cleanup</c> at a known moment rather than waiting for the collector.
+///     Runs a <c>Cleanup</c> at a known moment, and does not wait for the collector.
 /// </summary>
 module SodaFlow.Cleanup
 
