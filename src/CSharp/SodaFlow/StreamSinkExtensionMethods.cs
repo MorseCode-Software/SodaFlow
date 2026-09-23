@@ -8,19 +8,18 @@ namespace SodaFlow;
 ///     The operations available on a <see cref="StreamSink{T}" />.
 /// </summary>
 /// <remarks>
-///     A stream sink is how an event from outside the FRP graph is pushed into it. These operations
-///     are for interfacing I/O to FRP only, and throw if called from inside a listener handler.
+///     A stream sink puts an event from other code into the FRP graph. These operations
+///     are for interfacing I/O to FRP only, and throw if called in a listener handler.
 /// </remarks>
 [PublicAPI]
 public static class StreamSinkExtensionMethods
 {
     /// <summary>
-    ///     Send a value.  This method may not be called from inside handlers registered with
+    ///     Send a value. A caller must not call this method in a handler registered with
     ///     <see cref="StreamExtensionMethods.Listen{T}(Stream{T}, Action{T})" />,
-    ///     <see cref="StreamExtensionMethods.ListenStrong{T}(Stream{T}, Action{T})" /> or either of their cell
-    ///     equivalents.
-    ///     An exception will be thrown, because sinks are for interfacing I/O to FRP only.  They are not meant to be used to
-    ///     define new primitives.
+    ///     <see cref="StreamExtensionMethods.ListenStrong{T}(Stream{T}, Action{T})" /> or one of their cell
+    ///     equivalents. An exception will be thrown, because sinks are for interfacing I/O to FRP only. They
+    ///     are not for the definition of a new primitive.
     /// </summary>
     /// <typeparam name="T">The type of the stream sink.</typeparam>
     /// <param name="s">The stream sink.</param>

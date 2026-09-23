@@ -8,8 +8,8 @@ namespace SodaFlow.Time;
 /// </summary>
 /// <remarks>
 ///     Disposing of the timer has the same effect as calling <see cref="Cancel" />.
-///     Only one or the other needs to be called to cancel the timer.
-///     Otherwise, objects implementing this interface do not need to be disposed.
+///     One of the two cancels the timer.
+///     Otherwise, a caller does not have to dispose of an object that implements this interface.
 /// </remarks>
 [PublicAPI]
 // ReSharper disable once InheritdocConsiderUsage
@@ -19,8 +19,8 @@ public interface ITimer : IDisposable
     ///     Cancels the timer, so that it will not fire.
     /// </summary>
     /// <remarks>
-    ///     Has no effect if the timer has already fired or already been canceled, so it is safe to
-    ///     call more than once. Disposing the timer does the same thing.
+    ///     This does nothing when the timer fired, and when a call canceled it, thus it is safe to
+    ///     call more than one time. Disposing the timer does the same thing.
     /// </remarks>
     void Cancel();
 }

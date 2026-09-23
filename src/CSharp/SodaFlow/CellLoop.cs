@@ -5,8 +5,8 @@ using JetBrains.Annotations;
 namespace SodaFlow;
 
 /// <summary>
-///     A forward reference for a <see cref="Cell{T}" /> equivalent to the <see cref="Cell{T}" /> that is
-///     referenced.
+///     A forward reference for a <see cref="Cell{T}" />, equivalent to the <see cref="Cell{T}" />
+///     that it stands for.
 /// </summary>
 /// <typeparam name="T">The type of values in the cell loop.</typeparam>
 [PublicAPI]
@@ -19,18 +19,18 @@ public class CellLoop<T> : LoopedCell<T>
 
     /// <summary>
     ///     Initializes a new instance of the <see cref="CellLoop{T}" /> class, a forward reference to a
-    ///     cell that has not been defined yet.
+    ///     cell with no definition at this point.
     /// </summary>
     /// <exception cref="InvalidOperationException">
-    ///     Thrown if there is no explicit transaction running, or, at the end of that transaction,
+    ///     Thrown when there is no explicit transaction open, or, at the end of that transaction,
     ///     if <see cref="Loop" /> was never called on this instance.
     /// </exception>
     /// <remarks>
-    ///     A loop only makes sense within a single transaction, so one must be running - create it
+    ///     A loop only makes sense in a single transaction, thus one must be open - make it
     ///     with <see cref="Transaction.Run{T}(Func{T})" /> or
     ///     <see cref="Transaction.RunVoid(Action)" />. Resolve the loop by calling
-    ///     <see cref="Loop" /> before that transaction ends; a loop left unresolved is a bug rather
-    ///     than a no-op, so it is reported as one.
+    ///     <see cref="Loop" /> before that transaction ends. A loop with no resolution is a defect, and not
+    ///     a no-op, thus this reports it as a defect.
     /// </remarks>
     [MethodImpl(MethodImplOptions.NoInlining)]
     public CellLoop()
@@ -55,12 +55,12 @@ public class CellLoop<T> : LoopedCell<T>
 
     /// <summary>
     ///     Resolve the loop to specify what the <see cref="CellLoop{T}" /> was a forward reference to.  This method
-    ///     must be called inside the same transaction as the one in which this <see cref="CellLoop{T}" /> instance was
+    ///     must run in the same transaction as the one that made this <see cref="CellLoop{T}" />
     ///     created and used.
-    ///     This requires an explicit transaction to be created with <see cref="Transaction.Run{T}(Func{T})" /> or
+    ///     This needs an explicit transaction from <see cref="Transaction.Run{T}(Func{T})" /> or
     ///     <see cref="Transaction.RunVoid(Action)" />.
     /// </summary>
-    /// <param name="c">The cell that was forward referenced.</param>
+    /// <param name="c">The cell of the forward reference.</param>
     [MethodImpl(MethodImplOptions.NoInlining)]
     public void Loop(Cell<T> c) =>
         TransactionInternal.Apply((trans, _) =>

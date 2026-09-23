@@ -53,8 +53,8 @@ public sealed class TransactionTests
     {
         int value = 0;
 
-        // Captured rather than asserted in place: Transaction.RunVoid takes an Action, so an
-        // assertion inside it cannot be awaited. Seeded with a value the lambda must overwrite,
+        // Captured, and not asserted at that point: Transaction.RunVoid takes an Action, and no code
+        // can await an assertion in it. It starts with a value that the lambda must overwrite,
         // so a lambda which never ran fails here rather than passing.
         int valueInsideTransaction = -1;
 
@@ -76,8 +76,8 @@ public sealed class TransactionTests
     {
         int value = 0;
 
-        // Captured rather than asserted in place: Transaction.RunVoid takes an Action, so an
-        // assertion inside it cannot be awaited. Seeded with a value the lambda must overwrite,
+        // Captured, and not asserted at that point: Transaction.RunVoid takes an Action, and no code
+        // can await an assertion in it. It starts with a value that the lambda must overwrite,
         // so a lambda which never ran fails here rather than passing.
         int valueInsideTransaction = -1;
 
@@ -104,8 +104,8 @@ public sealed class TransactionTests
     {
         int value = 0;
 
-        // Captured rather than asserted in place: Transaction.RunVoid takes an Action, so an
-        // assertion inside it cannot be awaited. Seeded with a value the lambda must overwrite,
+        // Captured, and not asserted at that point: Transaction.RunVoid takes an Action, and no code
+        // can await an assertion in it. It starts with a value that the lambda must overwrite,
         // so a lambda which never ran fails here rather than passing.
         int valueInsideTransaction = -1;
 

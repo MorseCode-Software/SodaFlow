@@ -8,24 +8,22 @@ using SodaFlow.Functional;
 namespace SodaFlow.Benchmarks;
 
 /// <summary>
-///     The select-all graph: a list of objects each holding a selection cell, a cell over the whole
-///     list built by lifting theirs, and a tri-state "all selected" fed back through a loop so that
-///     one toggle drives every element.
+///     The select-all graph. It is a list of objects that each hold a selection cell. Above that is a cell
+///     over the full list, from a lift of theirs, and a tri-state "all selected" that goes back through a
+///     loop. Thus, one toggle drives each element.
 /// </summary>
 /// <remarks>
 ///     <para>
-///         This is the shape the library exists for and the one that stresses it: a loop, a lift
-///         over every element, and a switch that rebuilds the lift whenever the collection changes.
-///         It came from SodaFlow.Tests.Performance, a console harness deleted once this replaced
-///         it, where the graph was timed by a stopwatch around a sequence which included
-///         twenty-five half-second sleeps — so the number it printed was mostly sleep, and reading
-///         it meant running a program and pressing keys at it. What is measured here is one
-///         operation at a time, which is the thing worth knowing and the thing that can be
-///         compared between runs.
+///         This is the shape the library exists for, and the one that stresses it. It has a loop, a lift over
+///         each element, and a switch that rebuilds the lift when the collection changes. It came from
+///         SodaFlow.Tests.Performance, a console harness deleted after this replaced it. There, a stopwatch
+///         timed the graph around a sequence with twenty-five half-second sleeps. Thus, the number it printed
+///         was mostly sleep, and a read of it meant a run with key presses. This measures one operation at a
+///         time, which is the thing worth a measurement, and the thing to compare between runs.
 ///     </para>
 ///     <para>
-///         Element count is a parameter because how these scale is the question. A toggle touches
-///         every element; replacing the collection rebuilds the lift.
+///         Element count is a parameter because how these scale is the question. A toggle touches each
+///         element. A replacement of the collection rebuilds the lift.
 ///     </para>
 /// </remarks>
 [MemoryDiagnoser]
@@ -37,7 +35,7 @@ namespace SodaFlow.Benchmarks;
 // ReSharper disable once MemberCanBeFileLocal
 public class SelectAllBenchmarks
 {
-    // Populated for real in the setup; built small here so the field never has to be nullable.
+    // Populated fully in the setup. built small here so the field never has to be nullable.
     private Graph graph = Graph.Build(1);
 
     private bool nextSelection;
@@ -54,7 +52,7 @@ public class SelectAllBenchmarks
     [GlobalCleanup]
     public void Cleanup() => this.graph.Listener.Unlisten();
 
-    /// <summary>Building the graph and filling it, which is what a view model does once.</summary>
+    /// <summary>Builds the graph and fills it, which is what a view model does one time.</summary>
     [Benchmark(Description = "build the graph")]
     public int BuildTheGraph()
     {
@@ -64,7 +62,7 @@ public class SelectAllBenchmarks
         return built.Objects.Sample().Count;
     }
 
-    /// <summary>One toggle, which flips every element and recomputes the tri-state above them.</summary>
+    /// <summary>One toggle, which flips each element and recomputes the tri-state above them.</summary>
     [Benchmark(Description = "toggle all selected")]
     public void ToggleAllSelected() => this.graph.ToggleAllSelected.Send(Unit.Value);
 
@@ -120,7 +118,7 @@ public class SelectAllBenchmarks
 
         internal StreamSink<Unit> ToggleAllSelected { get; }
 
-        /// <summary>Builds the whole graph and populates it with <paramref name="count" /> objects.</summary>
+        /// <summary>Builds the full graph and populates it with <paramref name="count" /> objects.</summary>
         internal static Graph Build(int count)
         {
             (StreamSink<Unit> toggleAllSelected,
@@ -160,7 +158,7 @@ public class SelectAllBenchmarks
 
             // Something has to be listening, or the lift and the switch above are never evaluated
             // and the benchmark measures a graph nobody asked anything of. Counting is the cheapest
-            // way to ask.
+            // question to answer.
             IListener listener =
                 Transaction.Run(() =>
                     objectsAndIsSelected
@@ -182,7 +180,7 @@ public class SelectAllBenchmarks
             return graph;
         }
 
-        /// <summary>A fresh set of objects wired to this graph's select-all stream.</summary>
+        /// <summary>A new set of objects wired to the select-all stream of this graph.</summary>
         internal IReadOnlyList<TestObject> NewObjects(int count) =>
         [
             .. Enumerable.Range(start: 0, count: count).Select(_ => new TestObject(this.SelectAllStream))

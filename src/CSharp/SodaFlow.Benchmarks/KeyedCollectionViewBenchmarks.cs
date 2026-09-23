@@ -8,40 +8,38 @@ using JetBrains.Annotations;
 namespace SodaFlow.Benchmarks;
 
 /// <summary>
-///     What it costs to keep a filtered, sorted, windowed view of a collection up to date as the
-///     collection changes — re-derived in full each time, against a chain of stages that adjust.
+///     What it costs to keep a filtered, sorted, windowed view of a collection up to date as the collection
+///     changes. It compares a full re-derivation at each change against a chain of stages that adjust.
 /// </summary>
 /// <remarks>
 ///     <para>
-///         The view is the same in both: unfrozen items scoring at least a threshold, ordered by
-///         score descending, the first twenty. Both are checked in the setup to be producing the
-///         same keys before either is timed.
+///         The view is the same in the two. It holds the unfrozen items with a score at a threshold or above
+///         it, in order by score descending, and the first twenty of those. The setup checks that the two
+///         give the same keys before it times the two.
 ///     </para>
 ///     <para>
-///         Three things are measured, and they do not all point the same way.
+///         This measures three things, and they do not all point in the same direction.
 ///     </para>
 ///     <para>
-///         An <b>edit</b> is where the chain should win and win by more as the collection grows.
-///         Re-deriving sorts everything that passed the filter, so it is O(n log n) in the
-///         collection; the chain re-files one key in one sorted set, which is O(log n), and then
-///         re-windows twenty.
+///         An <b>edit</b> is where the chain must win, and win by more as the collection grows. Re-deriving
+///         sorts everything that passed the filter, thus it is <c>O(n log n)</c> in the collection. The chain
+///         files one key again in one sorted set, which is <c>O(log n)</c>, and then re-windows twenty.
 ///     </para>
 ///     <para>
-///         An <b>add and remove</b> is the same story for structural change, and this benchmark is
-///         what made it true. The identity map in <c>CollectionSnapshot</c> was a plain dictionary,
-///         which can only produce its next version by being copied, so a structural edit was O(n)
-///         however cheaply the stages below it absorbed the change — and it showed up here as a
-///         chain that won by less as the collection grew rather than more. The map is a trie now,
-///         and this is flat.
+///         An <b>add and remove</b> is the same story for structural change, and this benchmark is what made
+///         it true. The identity map in <c>CollectionSnapshot</c> was a plain dictionary, which makes its
+///         next version only with a copy. Thus, a structural edit was <c>O(n)</c>, and a low cost for the
+///         change in the stages below it made no difference. That showed here as a chain that won by less as
+///         the collection grew, and not by more. The map is a trie now, and this is flat.
 ///     </para>
 ///     <para>
-///         A <b>threshold change</b> is the case the chain loses. Changing a criteria rebuilds that
-///         stage and every stage below it, and a rebuild files every surviving key into a fresh
-///         ordered set — so where re-deriving sorts an array, the chain builds a persistent tree,
-///         which costs an allocation per node where the sort costs none. Both are Θ(n), so parity
-///         is the ceiling and this does not reach it. It is measured here precisely because it does
-///         not flatter the design, and it is the number to point at when telling someone to
-///         debounce a search box rather than filtering on every keystroke.
+///         A <b>threshold change</b> is the condition the chain loses. A change to a criteria rebuilds that
+///         stage and each stage below it. A rebuild files each surviving key into a new ordered set. Where a
+///         re-derivation sorts an array, the chain builds a tree that stays. That costs an allocation for
+///         each node, where the sort costs none. The two are Θ(n), thus parity is the ceiling and this does
+///         not get to it. This measures it for this cause. It does not flatter this code. It is also the
+///         number to show a reader who asks why to debounce a search box, and not to filter at each
+///         keystroke.
 ///     </para>
 /// </remarks>
 [MemoryDiagnoser]
@@ -63,7 +61,7 @@ public class KeyedCollectionViewBenchmarks
 
     private int editCount;
 
-    // Populated for real in the setup; built small here so the fields never have to be nullable.
+    // Populated fully in the setup. built small here so the fields never have to be nullable.
     private RederivedViewShape rederived = RederivedViewShape.Build(1);
 
     private ChainedViewShape selectiveByIdentity =
@@ -79,35 +77,36 @@ public class KeyedCollectionViewBenchmarks
     public int ItemCount { get; [UsedImplicitly] set; }
 
     /// <summary>
-    ///     The key both shapes edit. Which one hardly matters, because <see cref="NextState" />
-    ///     scores it to the top of the range either way, so the edit lands inside the window rather
-    ///     than being filtered away before either shape has to do anything about it.
+    ///     The key the two shapes edit. Which one it is hardly matters, because
+    ///     <see cref="NextState" /> scores it to the top of the range in each condition. Thus, the
+    ///     edit gets to the window, and no filter removes it before one of the two shapes has to do
+    ///     anything about it.
     /// </summary>
     private static int EditedKey => 0;
 
     /// <summary>
-    ///     A key no seeded item uses, so adding it cannot collide and removing it cannot leave the
+    ///     A key no seeded item uses, thus an add of it cannot collide and a remove of it cannot keep the
     ///     collection short.
     /// </summary>
     private static int AddedKey => -1;
 
     /// <summary>
-    ///     Scored to the top of the range, so the added item actually enters the window and every
-    ///     stage of the chain has to do something about it. Scored below the threshold instead, the
-    ///     filter would drop it and the sort and the window would never hear of it - which would
-    ///     measure the chain declining to work rather than the chain working.
+    ///     Scored to the top of the range, thus the added item enters the window. Each stage of the
+    ///     chain then has to do something about it. Scored below the threshold, the filter drops it,
+    ///     and the sort and the window never see it. That measures a chain that refuses the work, and
+    ///     not a chain that does it.
     /// </summary>
     private static ItemState AddedState => new(name: "added", score: int.MaxValue, isFrozen: false);
 
     /// <summary>
-    ///     An odd key, which both selective filters exclude and neither can be made to admit: the
-    ///     identity one because a number cannot change, and the state one because
+    ///     An odd key, which the two selective filters exclude and no filter can accept. The identity
+    ///     one excludes it because a number cannot change. The state one excludes it because
     ///     <see cref="NextExcludedState" /> keeps the score odd.
     /// </summary>
     private static int ExcludedKey => 1;
 
     /// <summary>
-    ///     Builds both shapes, and refuses to run if they disagree about what the view contains.
+    ///     Builds the two shapes, and refuses to run if they disagree about what the view contains.
     /// </summary>
     [GlobalSetup]
     public void Setup()
@@ -126,9 +125,9 @@ public class KeyedCollectionViewBenchmarks
         this.selectiveByIdentity =
             ChainedViewShape.Build(itemCount: this.ItemCount, style: ChainStyle.SelectiveByIdentity);
 
-        // These two are checked against each other rather than against the re-derived view, whose
-        // predicate keeps everything: what has to match is that asking the state and asking the
-        // identity select the same half.
+        // The setup checks these two against each other, and not against the re-derived view, whose
+        // predicate keeps everything. What has to agree is that a question to the state and a
+        // question to the identity select the same half.
         if (!this.selectiveByState.Keys.SequenceEqual(this.selectiveByIdentity.Keys))
         {
             throw new InvalidOperationException(
@@ -165,7 +164,7 @@ public class KeyedCollectionViewBenchmarks
         }
     }
 
-    /// <summary>One item's state changes, which may move it within the view or out of it.</summary>
+    /// <summary>One item's state changes, which can move it in the view or out of it.</summary>
     [Benchmark(Description = "edit an item, re-derived", Baseline = true)]
     public void EditRederived() => this.rederived.Replace(key: EditedKey, state: this.NextState());
 
@@ -174,34 +173,34 @@ public class KeyedCollectionViewBenchmarks
     public void EditChained() => this.chained.Replace(key: EditedKey, state: this.NextState());
 
     /// <summary>
-    ///     The same edit again, through a chain whose sort reads the identity rather than the
-    ///     state — so nothing it holds can have moved, and it is allowed to say so.
+    ///     The same edit again, through a chain whose sort reads the identity and not the state.
+    ///     Thus, nothing it holds moved, and it can say so.
     /// </summary>
     [Benchmark(Description = "edit an item, chained on an identity sort")]
     public void EditChainedByIdentitySort() =>
         this.chainedByIdentitySort.Replace(key: EditedKey, state: this.NextState());
 
     /// <summary>
-    ///     And again, through a chain where neither stage reads the state. Membership cannot have
-    ///     changed and neither can any position, so between them the two stages do nothing but
-    ///     look up an index and forward the update — which is the floor, because a stage cannot
-    ///     know whether something below it sorts on what just changed.
+    ///     And again, through a chain where no stage reads the state. Membership cannot change, and
+    ///     no position can change. Thus, between them the two stages only look up an index and
+    ///     forward the update. That is the floor, because a stage cannot know if something below it
+    ///     sorts on the value that changed.
     /// </summary>
     [Benchmark(Description = "edit an item, chained on identity throughout")]
     public void EditChainedByIdentityThroughout() =>
         this.chainedByIdentityThroughout.Replace(key: EditedKey, state: this.NextState());
 
     /// <summary>
-    ///     An edit to an item a selective filter does not keep, tested against the state — which
-    ///     costs a membership test and a predicate test to conclude there is nothing to do.
+    ///     An edit to an item a selective filter does not keep, tested against the state. That costs
+    ///     a membership test and a predicate test, to conclude that there is nothing to do.
     /// </summary>
     [Benchmark(Description = "edit an excluded item, state filter")]
     public void EditExcludedByState() =>
         this.selectiveByState.Replace(key: ExcludedKey, state: this.NextExcludedState());
 
     /// <summary>
-    ///     The same edit, against a filter that selects from the identity — which cannot have
-    ///     changed, so one failed index lookup settles it.
+    ///     The same edit, against a filter that selects from the identity, which does not change. Thus,
+    ///     one index lookup that misses gives the answer.
     /// </summary>
     [Benchmark(Description = "edit an excluded item, identity filter")]
     public void EditExcludedByIdentity() =>
@@ -215,7 +214,7 @@ public class KeyedCollectionViewBenchmarks
     [Benchmark(Description = "add and remove an item, chained")]
     public void AddAndRemoveChained() => this.chained.AddAndRemove(key: AddedKey, state: AddedState);
 
-    /// <summary>The filter's criteria changes, which re-derives everything either way.</summary>
+    /// <summary>The filter's criteria changes, which re-derives everything in each condition.</summary>
     [Benchmark(Description = "change the threshold, re-derived")]
     public void SetThresholdRederived() => this.rederived.SetThreshold(this.NextThreshold());
 
@@ -224,10 +223,10 @@ public class KeyedCollectionViewBenchmarks
     public void SetThresholdChained() => this.chained.SetThreshold(this.NextThreshold());
 
     /// <summary>
-    ///     The same change again, through the identity-ordered chain. A rebuild reads every key it
-    ///     keeps, and an order projecting from the identity reads one map where the other reads
-    ///     two — so this is the rebuild half of what an identity sort buys, which the re-filing
-    ///     benchmarks above cannot see.
+    ///     The same change again, through the identity-ordered chain. A rebuild reads each key it
+    ///     keeps, and an order that projects from the identity reads one map where the other reads
+    ///     two. Thus, this is the rebuild half of what an identity sort buys, and the benchmarks
+    ///     above on a second file operation cannot see it.
     /// </summary>
     [Benchmark(Description = "change the threshold, chained on an identity sort")]
     public void SetThresholdChainedByIdentitySort() => this.chainedByIdentitySort.SetThreshold(this.NextThreshold());
@@ -235,10 +234,10 @@ public class KeyedCollectionViewBenchmarks
     private static string Describe(IEnumerable<int> keys) => string.Join(separator: ", ", values: keys);
 
     /// <summary>
-    ///     Two states, alternating, both scoring odd. If the score's parity moved, the state filter
-    ///     would admit the item and do a stage's worth of real work while the identity filter did
-    ///     none - which would be a difference in what they were asked, not in what they cost to
-    ///     ask.
+    ///     Two states, alternating, the two scoring odd. With a change to the parity of the score,
+    ///     the state filter admits the item. It then does the full work of a stage, while the
+    ///     identity filter does none. That is a difference in the question, and not in what they cost
+    ///     to answer.
     /// </summary>
     private ItemState NextExcludedState()
     {
@@ -248,8 +247,8 @@ public class KeyedCollectionViewBenchmarks
     }
 
     /// <summary>
-    ///     Two states, alternating. A score that only ever climbed would migrate the edited item
-    ///     through the ordering as the benchmark ran, so what was measured would drift with it.
+    ///     Two states, alternating. A score that only climbs moves the edited item
+    ///     through the ordering as the benchmark ran, thus the measurement drifts with it.
     /// </summary>
     private ItemState NextState()
     {
@@ -259,8 +258,8 @@ public class KeyedCollectionViewBenchmarks
     }
 
     /// <summary>
-    ///     Two thresholds, alternating, both low enough that the filter still passes nearly
-    ///     everything — so what is measured is the rebuild rather than the collection emptying.
+    ///     Two thresholds, alternating, and the two are sufficiently low. Thus, the filter passes almost
+    ///     everything, and this measures the rebuild and not an empty collection.
     /// </summary>
     private int NextThreshold()
     {

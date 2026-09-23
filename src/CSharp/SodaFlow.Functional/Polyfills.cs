@@ -5,8 +5,8 @@ using JetBrains.Annotations;
 namespace System.Diagnostics.CodeAnalysis
 {
     /// <summary>
-    ///     Specifies that when a method returns <see cref="ReturnValue" />, the parameter will not be null even if the
-    ///     corresponding type allows it.
+    ///     Specifies that the parameter is not null when a method returns <see cref="ReturnValue" />,
+    ///     and that this holds when the type of the parameter permits null.
     /// </summary>
     // ReSharper disable once RedundantAttributeUsageProperty
     [AttributeUsage(AttributeTargets.Parameter, Inherited = false)]
@@ -15,7 +15,7 @@ namespace System.Diagnostics.CodeAnalysis
     {
         /// <summary>Initializes the attribute with the specified return value condition.</summary>
         /// <param name="returnValue">
-        ///     The return value condition. If the method returns this value, the associated parameter will not be null.
+        ///     The return value condition. If the method returns this value, the parameter is not null.
         /// </param>
         // ReSharper disable once InheritdocConsiderUsage
         public NotNullWhenAttribute(bool returnValue) => this.ReturnValue = returnValue;

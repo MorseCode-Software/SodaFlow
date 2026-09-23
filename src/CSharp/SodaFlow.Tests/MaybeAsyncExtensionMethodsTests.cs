@@ -181,7 +181,7 @@ public sealed class MaybeAsyncExtensionMethodsTests
 
     [Test]
     public async Task TestEmptyPathDoesNotAllocateANewTask() =>
-        // The completed task giving no value is the same one every time, so a lookup which
+        // The completed task giving no value is the same one each time, so a lookup which
         // misses costs nothing beyond the miss itself.
         await Assert.That((object)Maybe<int>.None.MapAsync(Task.FromResult))
             .IsSameReferenceAs(Maybe<int>.None.MapAsync(Task.FromResult));

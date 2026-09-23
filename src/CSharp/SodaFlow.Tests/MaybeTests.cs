@@ -220,8 +220,8 @@ public sealed class MaybeTests
 
     [Test]
     public async Task DefaultEqualityComparerDoesNotBox() =>
-        // A struct which does not implement IEquatable<T> gets ObjectEqualityComparer, which
-        // compares through Equals(object) and boxes both operands on every comparison.
+        // A struct with no IEquatable<T> gets ObjectEqualityComparer, which
+        // compares through Equals(object) and boxes the two operands on each compare.
         await Assert.That(EqualityComparer<Maybe<int>>.Default.GetType().Name).IsNotEqualTo("ObjectEqualityComparer`1");
 
     [Test]
@@ -258,7 +258,7 @@ public sealed class MaybeTests
     [Test]
     public async Task DefaultOrderingComparerDoesNotBox() =>
         // Without IComparable<T> a struct gets ObjectComparer, which compares through the
-        // non-generic IComparable and boxes both operands.
+        // non-generic IComparable and boxes the two operands.
         await Assert.That(Comparer<Maybe<int>>.Default.GetType().Name).IsNotEqualTo("ObjectComparer`1");
 
     [Test]
@@ -280,7 +280,7 @@ public sealed class MaybeTests
     [Test]
     public async Task CompareToMatchesNullableOrdering()
     {
-        // None sorts before every value, exactly as null does for Nullable<T>.
+        // None sorts before each value, as null does for Nullable<T>.
         await Assert.That(Math.Sign(Maybe<int>.None.CompareTo(Maybe.Some(0))))
             .IsEqualTo(Math.Sign(Comparer<int?>.Default.Compare(x: null, y: 0)));
 
@@ -294,7 +294,7 @@ public sealed class MaybeTests
     [Test]
     public async Task CompareToOrdersAContainedNullBeforeAContainedValue()
     {
-        // A contained null is still a value, so it sorts after None and before "a".
+        // A contained null is a value, so it sorts after None and before "a".
         await Assert.That(Maybe<string?>.None.CompareTo(Maybe.Some<string?>(null))).IsLessThan(0);
         await Assert.That(Maybe.Some<string?>(null).CompareTo(Maybe.Some<string?>("a"))).IsLessThan(0);
     }

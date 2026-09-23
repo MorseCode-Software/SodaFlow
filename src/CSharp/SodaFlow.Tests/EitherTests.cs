@@ -397,8 +397,8 @@ public sealed class EitherTests
     [Test]
     public async Task SwapReachesTheOtherCaseTest()
     {
-        // MapSecond only addresses the second case; swapping either side of it is how the
-        // first case is reached, and the second swap puts the result back where it started.
+        // MapSecond only addresses the second case. A change of one side of it is how the
+        // first case, and the second change puts the result back at its initial position.
         Either<int, string> e = Either.First(2);
 
         await Assert.That(e.Swap().MapSecond(static v => v.ToString()).Swap())
