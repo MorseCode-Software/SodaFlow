@@ -38,8 +38,8 @@ internal enum ObservationStyle
     ///     comparison that says so.
     /// </summary>
     /// <remarks>
-    ///     <see cref="ViewScoped" /> is the obvious way to write view-scoping and wakes every
-    ///     observer whenever the view reorders. This is the careful way, and the question it answers
+    ///     <see cref="ViewScoped" /> is the obvious way to write view-scoping and wakes each
+    ///     observer when the view reorders. This is the careful way, and the question it answers
     ///     is how much of that cost was the idea and how much was the writing.
     /// </remarks>
     ViewScopedPerKey,
@@ -67,8 +67,8 @@ internal enum ObservationStyle
     /// </summary>
     /// <remarks>
     ///     Kept so the change has something to be measured against. The shape cell is replaced on
-    ///     every structural change, so every observer built this way is woken by every add and
-    ///     every remove anywhere in the collection, whether or not it touched their key.
+    ///     each structural change, so each observer built this way is woken by each add and
+    ///     each remove anywhere in the collection, whether or not it touched their key.
     /// </remarks>
     IdentityShapeMapped
 }
@@ -84,7 +84,7 @@ internal enum ObservationStyle
 ///         both; one that watches its own item wakes for neither.
 ///     </para>
 ///     <para>
-///         Every style observes the same keys and every one holds its listeners, because a cell
+///         Each style observes the same keys and each one holds its listeners, because a cell
 ///         nobody listens to is never evaluated and would measure nothing.
 ///     </para>
 /// </remarks>
@@ -117,8 +117,8 @@ internal sealed class ObservationShape
     internal static int UnobservedStructuralKey => -2;
 
     /// <summary>
-    ///     The filter every view here uses. It keeps the even-numbered items, so the observed keys
-    ///     below are inside it and the odd ones outside.
+    ///     The filter each view here uses. It keeps the even-numbered items, so the observed keys
+    ///     below are in it and the odd ones outside.
     /// </summary>
     private static bool Passes(ItemIdentity identity) => identity.Number % 2 == 0;
 
@@ -169,7 +169,7 @@ internal sealed class ObservationShape
 
     /// <summary>The keys observers are bound to: even, so the filter keeps them, and spread out.</summary>
     /// <remarks>
-    ///     The stride is even for every size this runs at, so every key is too. Checked rather than
+    ///     The stride is even for each size this runs at, so each key is too. Checked rather than
     ///     assumed, by <see cref="VerifyPremises" /> - an earlier version of this multiplied the
     ///     stride and took a remainder, which wrapped and produced half as many distinct keys as
     ///     observers, so the benchmark would have bound ten and reported twenty.
@@ -183,7 +183,7 @@ internal sealed class ObservationShape
 
     /// <summary>
     ///     Checks what the arms below assume: that there are as many distinct observed keys as
-    ///     observers, that the filter keeps every one of them, and that observing through a view is
+    ///     observers, that the filter keeps each one of them, and that observing through a view is
     ///     the same cell as observing the collection.
     /// </summary>
     /// <exception cref="InvalidOperationException">If any of that stops being true.</exception>

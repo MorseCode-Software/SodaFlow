@@ -44,7 +44,7 @@ public class KeyedCollectionBuildBenchmarks
     [Params(1_000, 10_000)]
     public int ItemCount { get; [UsedImplicitly] set; }
 
-    /// <summary>A cell sink per mutable value on every object, built up front.</summary>
+    /// <summary>A cell sink per mutable value on each object, built up front.</summary>
     [Benchmark(Description = "build, sinks per field", Baseline = true)]
     public void BuildSinkPerField() =>
         Observe(shape: SinkPerFieldShape.Build(this.ItemCount), itemCount: this.ItemCount);

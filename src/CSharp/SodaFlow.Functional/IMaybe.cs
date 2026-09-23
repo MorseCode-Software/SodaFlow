@@ -5,11 +5,11 @@ using JetBrains.Annotations;
 namespace SodaFlow.Functional;
 
 /// <summary>
-///     A non-generic view of a <see cref="Maybe{T}" />, for code which must handle a value that may
-///     or may not be present without knowing what type it would be.
+///     A non-generic view of a <see cref="Maybe{T}" />, for code which must handle a value that can
+///     or can not be present without knowing what type it would be.
 /// </summary>
 /// <remarks>
-///     Every member mirrors one on <see cref="Maybe{T}" />, with the contained value surfaced as
+///     Each member mirrors one on <see cref="Maybe{T}" />, with the contained value surfaced as
 ///     <see cref="object" />. Prefer <see cref="Maybe{T}" /> itself wherever the type is known: this
 ///     interface boxes, and loses the type of the value.
 /// </remarks>
@@ -17,11 +17,11 @@ namespace SodaFlow.Functional;
 public interface IMaybe
 {
     /// <summary>
-    ///     Runs one of two functions depending on whether a value is present, and returns its result.
+    ///     Runs one function when there is a value, and a different one when there is none.
     /// </summary>
     /// <typeparam name="T">The type each of the two functions returns.</typeparam>
-    /// <param name="onSome">Run with the contained value when one is present.</param>
-    /// <param name="onNone">Run when no value is present.</param>
+    /// <param name="onSome">Run with the contained value when there is one.</param>
+    /// <param name="onNone">Run when there is no value.</param>
     /// <returns>Whatever the function that was run returned.</returns>
     /// <remarks>
     ///     Exactly one of the two functions is called, and it is called before this method returns.
@@ -32,33 +32,33 @@ public interface IMaybe
         [InstantHandle] Func<T> onNone);
 
     /// <summary>
-    ///     Runs one of two actions depending on whether a value is present.
+    ///     Runs one action when there is a value, and a different action when there is none.
     /// </summary>
-    /// <param name="onSome">Run with the contained value when one is present.</param>
-    /// <param name="onNone">Run when no value is present.</param>
+    /// <param name="onSome">Run with the contained value when there is one.</param>
+    /// <param name="onNone">Run when there is no value.</param>
     void MatchVoid(
         [InstantHandle] Action<object?> onSome,
         [InstantHandle] Action onNone);
 
     /// <summary>
-    ///     Runs an action with the contained value if one is present, and otherwise does nothing.
+    ///     Runs an action with the contained value when there is one, and otherwise does nothing.
     /// </summary>
-    /// <param name="onSome">Run with the contained value when one is present.</param>
+    /// <param name="onSome">Run with the contained value when there is one.</param>
     void MatchSome([InstantHandle] Action<object?> onSome);
 
     /// <summary>
-    ///     Runs an action if no value is present, and otherwise does nothing.
+    ///     Runs an action when there is no value, and otherwise does nothing.
     /// </summary>
-    /// <param name="onNone">Run when no value is present.</param>
+    /// <param name="onNone">Run when there is no value.</param>
     void MatchNone([InstantHandle] Action onNone);
 
     /// <summary>
-    ///     Runs one of two asynchronous functions depending on whether a value is present, and
+    ///     Runs one asynchronous function when there is a value, and a different one when there is none.
     ///     returns its result.
     /// </summary>
     /// <typeparam name="T">The type each of the two functions produces.</typeparam>
-    /// <param name="onSome">Run with the contained value when one is present.</param>
-    /// <param name="onNone">Run when no value is present.</param>
+    /// <param name="onSome">Run with the contained value when there is one.</param>
+    /// <param name="onNone">Run when there is no value.</param>
     /// <returns>The task returned by whichever function was run.</returns>
     /// <remarks>
     ///     Only the selected function is invoked; the returned task is its task, not a wrapper, so
@@ -69,20 +69,20 @@ public interface IMaybe
         [InstantHandle] Func<Task<T>> onNone);
 
     /// <summary>
-    ///     Runs one of two asynchronous actions depending on whether a value is present.
+    ///     Runs one asynchronous action when there is a value, and a different one when there is none.
     /// </summary>
-    /// <param name="onSome">Run with the contained value when one is present.</param>
-    /// <param name="onNone">Run when no value is present.</param>
+    /// <param name="onSome">Run with the contained value when there is one.</param>
+    /// <param name="onNone">Run when there is no value.</param>
     /// <returns>A task which completes when the selected action has completed.</returns>
     Task MatchAsyncVoid(
         [InstantHandle] Func<object?, Task> onSome,
         [InstantHandle] Func<Task> onNone);
 
     /// <summary>
-    ///     Runs an asynchronous action with the contained value if one is present, and otherwise
+    ///     Runs an asynchronous action with the contained value when there is one, and otherwise
     ///     does nothing.
     /// </summary>
-    /// <param name="onSome">Run with the contained value when one is present.</param>
+    /// <param name="onSome">Run with the contained value when there is one.</param>
     /// <returns>
     ///     A task which completes when the action has completed, or an already completed task if no
     ///     value is present.
@@ -90,9 +90,9 @@ public interface IMaybe
     Task MatchSomeAsync([InstantHandle] Func<object?, Task> onSome);
 
     /// <summary>
-    ///     Runs an asynchronous action if no value is present, and otherwise does nothing.
+    ///     Runs an asynchronous action when there is no value, and otherwise does nothing.
     /// </summary>
-    /// <param name="onNone">Run when no value is present.</param>
+    /// <param name="onNone">Run when there is no value.</param>
     /// <returns>
     ///     A task which completes when the action has completed, or an already completed task if a
     ///     value is present.

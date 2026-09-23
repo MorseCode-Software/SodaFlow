@@ -12,13 +12,13 @@ namespace SodaFlow;
 ///     <para>
 ///         Transactions are serialized process-wide: at most one runs at a time, however many threads are
 ///         involved. A thread starting a transaction blocks until any transaction running on another thread has
-///         finished. This is deliberate. It is what makes a transaction atomic with respect to every other thread
+///         finished. This is deliberate. It is what makes a transaction atomic with respect to each other thread
 ///         - no observer can ever see the graph half-updated - and it keeps the order in which updates are applied
 ///         deterministic no matter how many threads are pushing values in. SodaFlow can therefore be used from
 ///         multiple threads without any additional synchronization of your own.
 ///     </para>
 ///     <para>
-///         The cost of that guarantee is that the lock is held for the whole transaction, which includes every
+///         The cost of that guarantee is that the lock is held for the whole transaction, which includes each
 ///         listener callback it fires and any <see cref="Post" /> action it queues - those run while the
 ///         transaction is closing, still under the lock. While a callback runs, no other thread can begin a
 ///         transaction, so callbacks should return promptly. Hand long-running or blocking work off to another
@@ -28,21 +28,21 @@ namespace SodaFlow;
 ///     <para>
 ///         Nesting is free. Starting a transaction while one is already running on the same thread joins the
 ///         running transaction rather than acquiring the lock again, so the primitives that create their own
-///         transactions cost nothing extra inside <see cref="Run{T}" /> or <see cref="RunVoid" />.
+///         transactions cost nothing extra in <see cref="Run{T}" /> or <see cref="RunVoid" />.
 ///     </para>
 /// </remarks>
 [PublicAPI]
 public static class Transaction
 {
     /// <summary>
-    ///     Return whether or not there is a current transaction.
+    ///     Gives true when there is a current transaction.
     /// </summary>
     /// <returns><code>true</code> if there is a current transaction, <code>false</code> otherwise.</returns>
     [MethodImpl(MethodImplOptions.NoInlining)]
     public static bool IsActive() => TransactionInternal.HasCurrentTransaction();
 
     /// <summary>
-    ///     Execute the specified action inside a single transaction.
+    ///     Execute the specified action in a single transaction.
     /// </summary>
     /// <param name="action">The action to execute.</param>
     /// <remarks>
@@ -58,7 +58,7 @@ public static class Transaction
         });
 
     /// <summary>
-    ///     Execute the specified function inside a single transaction.
+    ///     Execute the specified function in a single transaction.
     /// </summary>
     /// <typeparam name="T">The type of the value returned.</typeparam>
     /// <param name="f">The function to execute.</param>
@@ -71,11 +71,11 @@ public static class Transaction
     public static T Run<T>(Func<T> f) => TransactionInternal.RunImpl(f);
 
     /// <summary>
-    ///     Add an action that will be executed whenever a transaction is started.
+    ///     Add an action that will be executed when a transaction is started.
     /// </summary>
-    /// <param name="action">The action to run at the start of every transaction.</param>
+    /// <param name="action">The action to run at the start of each transaction.</param>
     /// <remarks>
-    ///     The action may start transactions itself, which will not cause the hooks to execute recursively.
+    ///     The action can start transactions itself, which will not cause the hooks to execute recursively.
     ///     The main use case of this is for the implementation of a time/alarm system.
     /// </remarks>
     [MethodImpl(MethodImplOptions.NoInlining)]

@@ -13,8 +13,8 @@ namespace SodaFlow.Benchmarks;
 /// <remarks>
 ///     <para>
 ///         Two edits are measured, and the difference between them is the whole argument. An edit
-///         to an <i>observed</i> key has work to do in every shape. An edit to an
-///         <i>unobserved</i> key — which is what almost every edit is, when twenty rows are bound
+///         to an <i>observed</i> key has work to do in each shape. An edit to an
+///         <i>unobserved</i> key — which is what almost each edit is, when twenty rows are bound
 ///         out of ten thousand items — should ideally cost nothing at all downstream, and what it
 ///         actually costs is what separates these three.
 ///     </para>
@@ -25,15 +25,15 @@ namespace SodaFlow.Benchmarks;
 ///     </para>
 ///     <para>
 ///         It is also a result about a shape most collections cannot have. A sink takes events from
-///         outside the graph and nothing else — <c>Send</c> throws when it is reached from inside a
-///         transaction — so a cell per field fed by sinks requires every mutable value in the
+///         outside the graph and nothing else — <c>Send</c> throws when it is reached in a
+///         transaction — so a cell per field fed by sinks requires each mutable value in the
 ///         collection to arrive whole from the outside world, with no logic anywhere between the
 ///         two. One derived field and it is the second shape instead. See
 ///         <see cref="IKeyedCollectionShape" />, and read this row as the floor rather than as the
 ///         alternative.
 ///     </para>
 ///     <para>
-///         Cells per field fed from a stream is the one to watch scale. Every edit evaluates one
+///         Cells per field fed from a stream is the one to watch scale. Each edit evaluates one
 ///         filter per item, so its cost is proportional to <see cref="ItemCount" /> whether
 ///         anything is observing or not, and the unobserved case costs very nearly what the
 ///         observed one does.

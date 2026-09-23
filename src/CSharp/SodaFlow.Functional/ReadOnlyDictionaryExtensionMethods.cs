@@ -9,8 +9,8 @@ namespace SodaFlow.Functional;
 /// </summary>
 /// <remarks>
 ///     These are on <see cref="IReadOnlyDictionary{TKey,TValue}" /> and not also on
-///     <see cref="IDictionary{TKey,TValue}" /> on purpose. Almost every dictionary implements
-///     both interfaces, and an overload for each would make every call on a concrete
+///     <see cref="IDictionary{TKey,TValue}" /> on purpose. Almost each dictionary implements
+///     both interfaces, and an overload for each would make each call on a concrete
 ///     <see cref="Dictionary{TKey,TValue}" /> ambiguous. Where only an
 ///     <see cref="IDictionary{TKey,TValue}" /> is in hand, reach for
 ///     <see cref="Maybe.FromTryGet{T,TResult}" /> instead.

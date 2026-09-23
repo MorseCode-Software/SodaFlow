@@ -53,7 +53,7 @@ public sealed class CalmTests
     }
 
     // Forced once, not once per firing. A bare `committed = init.Value` without the guard would
-    // still force only once - Lazy caches - but would also reset the remembered value on every
+    // still force only once - Lazy caches - but would also reset the remembered value on each
     // firing, so the count and the output are asserted together.
     [Test]
     public async Task InitialValueIsForcedOnceAcrossManyFirings()
@@ -119,7 +119,7 @@ public sealed class CalmTests
     }
 
     // A suppressed firing must carry the remembered value forward rather than clearing it, which is
-    // what the behavior-backed version got from feeding its state back on every firing.
+    // what the behavior-backed version got from feeding its state back on each firing.
     [Test]
     public async Task SuppressedFiringKeepsTheRememberedValue()
     {
@@ -145,7 +145,7 @@ public sealed class CalmTests
     }
 
     // A transaction that fails must not leave the remembered value updated. Calm defers the
-    // commit to trans.Last, and the failing path drops that queue, so a firing inside a
+    // commit to trans.Last, and the failing path drops that queue, so a firing in a
     // transaction that throws is as though it never happened. Committing in place instead would
     // record it and wrongly suppress the same value next time.
     //
@@ -181,7 +181,7 @@ public sealed class CalmTests
 
     // The remembered value is committed at the end of the transaction, so simultaneous sources
     // feeding one firing compare against what the previous transaction left, not against anything
-    // computed within this one.
+    // computed in this one.
     [Test]
     public async Task ComparisonUsesTheValueCommittedByThePreviousTransaction()
     {

@@ -51,12 +51,12 @@ public static class MaybeExtensionMethods
 
     /// <summary>
     ///     Turns a sequence of possibly-absent values into a possibly-absent sequence of values,
-    ///     which is present only if every entry was.
+    ///     which has a value only when each entry was.
     /// </summary>
     /// <typeparam name="T">The type of the values in the sequence.</typeparam>
     /// <param name="o">The sequence to collect. A <see langword="null" /> sequence is treated as empty.</param>
     /// <returns>
-    ///     All the values if every entry had one, and no value if any entry did not. An empty
+    ///     All the values if each entry had one, and no value if any entry did not. An empty
     ///     sequence gives an empty sequence rather than no value.
     /// </returns>
     /// <remarks>
@@ -81,7 +81,7 @@ public static class MaybeExtensionMethods
     }
 
     /// <summary>
-    ///     Applies a function which may produce no value to every element of a sequence, and
+    ///     Applies a function which can produce no value to each element of a sequence, and
     ///     collects the results only if all of them were produced.
     /// </summary>
     /// <typeparam name="T">The type of the values in the sequence.</typeparam>
@@ -89,7 +89,7 @@ public static class MaybeExtensionMethods
     /// <param name="o">The sequence to map. A <see langword="null" /> sequence is treated as empty.</param>
     /// <param name="f">Applied to each element in turn.</param>
     /// <returns>
-    ///     All the results if <paramref name="f" /> produced a value for every element, and no
+    ///     All the results if <paramref name="f" /> produced a value for each element, and no
     ///     value if it did not produce one for any. An empty sequence gives an empty sequence
     ///     rather than no value.
     /// </returns>
@@ -100,7 +100,7 @@ public static class MaybeExtensionMethods
     ///     element failing means the whole result is meaningless - parsing a file of numbers,
     ///     say, rather than picking the numbers out of a file of mixed lines.
     ///     Like the other overload this enumerates the source immediately. <paramref name="f" />
-    ///     is applied to every element even once one has produced no value, so it must not depend
+    ///     is applied to each element even once one has produced no value, so it must not depend
     ///     on stopping early.
     /// </remarks>
     [Pure]
@@ -147,7 +147,7 @@ public static class MaybeExtensionMethods
         a.Match(onSome: static v => (T?)v, onNone: static () => null);
 
     /// <summary>
-    ///     Converts a reference which may be <see langword="null" /> into a <see cref="Maybe{T}" />.
+    ///     Converts a reference which can be <see langword="null" /> into a <see cref="Maybe{T}" />.
     /// </summary>
     /// <typeparam name="T">The type of the reference.</typeparam>
     /// <param name="value">The reference to convert.</param>
@@ -296,7 +296,7 @@ public static class MaybeExtensionMethods
         a.Match(onSome: _ => a, onNone: b);
 
     /// <summary>
-    ///     Lift a binary function into possibly-absent values, so the result is present only if
+    ///     Lift a binary function into possibly-absent values, so the result has a value only when
     ///     both inputs were.
     /// </summary>
     /// <typeparam name="T1">The type of the first value.</typeparam>
@@ -304,15 +304,15 @@ public static class MaybeExtensionMethods
     /// <typeparam name="TResult">The type of the result.</typeparam>
     /// <param name="a">The first value.</param>
     /// <param name="b">The second value.</param>
-    /// <param name="f">Applied to the two contained values when both are present.</param>
+    /// <param name="f">Applied to the two contained values when the two have values.</param>
     /// <returns>
     ///     A <see cref="Maybe{T}" /> containing the result of <paramref name="f" /> if both
     ///     <paramref name="a" /> and <paramref name="b" /> contain values, and one containing no
     ///     value otherwise.
     /// </returns>
     /// <remarks>
-    ///     <paramref name="f" /> is run only when every input has a value, which is what makes this
-    ///     the way to combine several parsed or looked-up values without nesting a match per input.
+    ///     <paramref name="f" /> is run only when each input has a value, which is what makes this
+    ///     the way to combine some parsed or looked-up values without nesting a match per input.
     /// </remarks>
     [Pure]
     public static Maybe<TResult> Lift<T1, T2, TResult>(
@@ -322,7 +322,7 @@ public static class MaybeExtensionMethods
         a.Bind(v1 => b.Map(v2 => f(arg1: v1, arg2: v2)));
 
     /// <summary>
-    ///     Lift a ternary function into possibly-absent values, so the result is present only if
+    ///     Lift a ternary function into possibly-absent values, so the result has a value only when
     ///     all three inputs were.
     /// </summary>
     /// <typeparam name="T1">The type of the first value.</typeparam>
@@ -332,7 +332,7 @@ public static class MaybeExtensionMethods
     /// <param name="a">The first value.</param>
     /// <param name="b">The second value.</param>
     /// <param name="c">The third value.</param>
-    /// <param name="f">Applied to the three contained values when all are present.</param>
+    /// <param name="f">Applied to the three contained values when each one has a value.</param>
     /// <returns>
     ///     A <see cref="Maybe{T}" /> containing the result of <paramref name="f" /> if
     ///     <paramref name="a" />, <paramref name="b" /> and <paramref name="c" /> all contain
@@ -347,7 +347,7 @@ public static class MaybeExtensionMethods
         a.Bind(v1 => b.Bind(v2 => c.Map(v3 => f(arg1: v1, arg2: v2, arg3: v3))));
 
     /// <summary>
-    ///     Lift a quaternary function into possibly-absent values, so the result is present only if
+    ///     Lift a quaternary function into possibly-absent values, so the result has a value only when
     ///     all four inputs were.
     /// </summary>
     /// <typeparam name="T1">The type of the first value.</typeparam>
@@ -359,7 +359,7 @@ public static class MaybeExtensionMethods
     /// <param name="b">The second value.</param>
     /// <param name="c">The third value.</param>
     /// <param name="d">The fourth value.</param>
-    /// <param name="f">Applied to the four contained values when all are present.</param>
+    /// <param name="f">Applied to the four contained values when each one has a value.</param>
     /// <returns>
     ///     A <see cref="Maybe{T}" /> containing the result of <paramref name="f" /> if
     ///     <paramref name="a" />, <paramref name="b" />, <paramref name="c" /> and

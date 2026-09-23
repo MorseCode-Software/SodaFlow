@@ -17,7 +17,7 @@ namespace SodaFlow.Tests.Memory;
 ///         The tests in <see cref="StreamTests" /> cover the same ground but count live objects with
 ///         dotMemory, so they are all <c>[Ignore]</c>d and never run in CI. These assert the same
 ///         invariants using only weak references and the node's own listener set, so they actually
-///         guard the cleanup machinery on every build.
+///         guard the cleanup machinery on each build.
 ///     </para>
 ///     <para>
 ///         Two things are deliberately not asserted. First, that a node is still connected immediately
@@ -140,7 +140,7 @@ public sealed class GarbageCollectionTests
     [Test]
     public async Task CollectedStreamsAreReapedFromTheRegistry()
     {
-        // StreamListenerManager tracks every stream ever created, so if the sweep failed to
+        // StreamListenerManager tracks each stream ever created, so if the sweep failed to
         // reap collected ones the registry would grow without bound. Nothing else here would
         // notice: the node-level tests above pass either way, because Stream.Send prunes dead
         // targets on its own.
@@ -227,7 +227,7 @@ public sealed class GarbageCollectionTests
 
     private static void Collect()
     {
-        // Every generation, and a finalizer pass in between. Stream has no finalizer - this
+        // Each generation, and a finalizer pass in between. Stream has no finalizer - this
         // said it did, which was true when it was written and is not now. The finalizer that
         // matters is StreamListenerManager's sweep trigger, which asks for a sweep by being
         // finalized, and these tests do read RegistryCount after a sweep. The generation is the

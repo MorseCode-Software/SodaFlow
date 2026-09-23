@@ -9,13 +9,13 @@ namespace SodaFlow;
 /// </summary>
 /// <remarks>
 ///     A behavior sink is how a value from outside the FRP graph is pushed into it. These operations
-///     are for interfacing I/O to FRP only, and throw if called from inside a listener handler.
+///     are for interfacing I/O to FRP only, and throw if called in a listener handler.
 /// </remarks>
 [PublicAPI]
 public static class BehaviorSinkExtensionMethods
 {
     /// <summary>
-    ///     Send a value, modifying the value of the behavior.  This method may not be called from inside handlers registered
+    ///     Send a value, modifying the value of the behavior.  A caller must not call this method in a handler registered
     ///     with
     ///     <see cref="StreamExtensionMethods.Listen{T}(Stream{T}, Action{T})" />,
     ///     <see cref="StreamExtensionMethods.ListenStrong{T}(Stream{T}, Action{T})" /> or either of their cell

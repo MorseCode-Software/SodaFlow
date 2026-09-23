@@ -36,12 +36,12 @@ namespace SodaFlow.Benchmarks;
 ///     </para>
 ///     <para>
 ///         A <b>threshold change</b> is the case the chain loses. Changing a criteria rebuilds that
-///         stage and every stage below it, and a rebuild files every surviving key into a fresh
+///         stage and each stage below it, and a rebuild files each surviving key into a fresh
 ///         ordered set — so where re-deriving sorts an array, the chain builds a persistent tree,
 ///         which costs an allocation per node where the sort costs none. Both are Θ(n), so parity
 ///         is the ceiling and this does not reach it. It is measured here precisely because it does
 ///         not flatter the design, and it is the number to point at when telling someone to
-///         debounce a search box rather than filtering on every keystroke.
+///         debounce a search box rather than filtering on each keystroke.
 ///     </para>
 /// </remarks>
 [MemoryDiagnoser]
@@ -80,7 +80,7 @@ public class KeyedCollectionViewBenchmarks
 
     /// <summary>
     ///     The key both shapes edit. Which one hardly matters, because <see cref="NextState" />
-    ///     scores it to the top of the range either way, so the edit lands inside the window rather
+    ///     scores it to the top of the range either way, so the edit lands in the window rather
     ///     than being filtered away before either shape has to do anything about it.
     /// </summary>
     private static int EditedKey => 0;
@@ -92,7 +92,7 @@ public class KeyedCollectionViewBenchmarks
     private static int AddedKey => -1;
 
     /// <summary>
-    ///     Scored to the top of the range, so the added item actually enters the window and every
+    ///     Scored to the top of the range, so the added item actually enters the window and each
     ///     stage of the chain has to do something about it. Scored below the threshold instead, the
     ///     filter would drop it and the sort and the window would never hear of it - which would
     ///     measure the chain declining to work rather than the chain working.
@@ -165,7 +165,7 @@ public class KeyedCollectionViewBenchmarks
         }
     }
 
-    /// <summary>One item's state changes, which may move it within the view or out of it.</summary>
+    /// <summary>One item's state changes, which can move it in the view or out of it.</summary>
     [Benchmark(Description = "edit an item, re-derived", Baseline = true)]
     public void EditRederived() => this.rederived.Replace(key: EditedKey, state: this.NextState());
 
@@ -224,7 +224,7 @@ public class KeyedCollectionViewBenchmarks
     public void SetThresholdChained() => this.chained.SetThreshold(this.NextThreshold());
 
     /// <summary>
-    ///     The same change again, through the identity-ordered chain. A rebuild reads every key it
+    ///     The same change again, through the identity-ordered chain. A rebuild reads each key it
     ///     keeps, and an order projecting from the identity reads one map where the other reads
     ///     two — so this is the rebuild half of what an identity sort buys, which the re-filing
     ///     benchmarks above cannot see.

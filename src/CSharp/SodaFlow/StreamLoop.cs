@@ -25,7 +25,7 @@ public class StreamLoop<T> : LoopedStream<T>
     ///     if <see cref="Loop" /> was never called on this instance.
     /// </exception>
     /// <remarks>
-    ///     A loop only makes sense within a single transaction, so one must be running - create it
+    ///     A loop only makes sense in a single transaction, so one must be running - create it
     ///     with <see cref="Transaction.Run{T}(Func{T})" /> or
     ///     <see cref="Transaction.RunVoid(Action)" />. Resolve the loop by calling
     ///     <see cref="Loop" /> before that transaction ends; a loop left unresolved is a bug rather
@@ -54,7 +54,7 @@ public class StreamLoop<T> : LoopedStream<T>
 
     /// <summary>
     ///     Resolve the loop to specify what the <see cref="StreamLoop{T}" /> was a forward reference to.  This method
-    ///     must be called inside the same transaction as the one in which this <see cref="StreamLoop{T}" /> instance was
+    ///     must be called in the same transaction as the one in which this <see cref="StreamLoop{T}" /> instance was
     ///     created and used.
     ///     This requires an explicit transaction to be created with <see cref="Transaction.Run{T}(Func{T})" /> or
     ///     <see cref="Transaction.RunVoid(Action)" />.

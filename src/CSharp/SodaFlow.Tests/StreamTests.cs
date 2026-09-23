@@ -598,7 +598,7 @@ public sealed class StreamTests
 
     // Calm remembers the last value it let through, and that memory has to survive the end of a
     // transaction. The existing Calm tests only ever send outside one, so they never exercise a
-    // firing that arrives with several sources feeding it in a single transaction, nor whether
+    // firing that arrives with some sources feeding it in a single transaction, nor whether
     // the remembered value committed at the end of one transaction is what the next compares
     // against. Both are checked here: the second transaction is suppressed only if the first
     // committed correctly, and the fourth only if the third did.
@@ -684,9 +684,9 @@ public sealed class StreamTests
 
     // Collect carries state between firings, and that state has to survive the end of a
     // transaction. TestCollect only ever sends outside one, so it never covers a firing that
-    // arrives with several sources feeding it in a single transaction, nor whether the state
+    // arrives with some sources feeding it in a single transaction, nor whether the state
     // committed at the end of one transaction is what the next one folds over. The count in the
-    // state makes both visible: it can only reach 3 if every transaction committed.
+    // state makes both visible: it can only reach 3 if each transaction committed.
     [Test]
     public async Task TestCollectStateSurvivesTransactions()
     {
@@ -1153,9 +1153,9 @@ public sealed class StreamTests
     }
 
     // Node ranks index directly into the prioritized queue's backing array, which starts at
-    // 1000 entries. A chain this long pushes ranks past that boundary and past several
+    // 1000 entries. A chain this long pushes ranks past that boundary and past some
     // regrowth operations. Because that queue is static, getting this wrong did not just fail the deep
-    // graph - it left the queue unusable for every later transaction in the process, which is
+    // graph - it left the queue unusable for each later transaction in the process, which is
     // what the trailing shallow chain checks.
     [Test]
     public async Task TestDeepChainGrowsPrioritizedQueue()
@@ -1191,7 +1191,7 @@ public sealed class StreamTests
 
     private static void Collect()
     {
-        // Every generation, not only generation 0. These tests turn on a listener being reclaimed
+        // Each generation, not only generation 0. These tests turn on a listener being reclaimed
         // once nothing roots it, and a generation-0 collection reclaims only what is still in
         // generation 0. Running a whole suite in one process allocates enough that the listener has
         // usually been promoted by the time the test asks, and a promoted object survives the

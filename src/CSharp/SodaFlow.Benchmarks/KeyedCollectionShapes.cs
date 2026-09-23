@@ -49,7 +49,7 @@ internal sealed class ItemState
 /// </summary>
 /// <remarks>
 ///     <para>
-///         <b>Sinks per field</b> is the shape people reach for first: every mutable value on every
+///         <b>Sinks per field</b> is the shape people reach for first: each mutable value on each
 ///         object gets its own <see cref="CellSink{T}" />, and an edit is a send straight into the
 ///         one it concerns. Nothing fans out, so an edit is O(1) — and it is the quickest thing in
 ///         these benchmarks by an order of magnitude. What it costs is <c>items × fields</c> cells
@@ -60,7 +60,7 @@ internal sealed class ItemState
 ///         to the numbers rather than leaving them to flatter it. A sink is how an event from
 ///         <i>outside</i> the graph gets in, and SodaFlow enforces that rather than advising it:
 ///         <c>Send</c> throws "Send may not be called inside a callback" when it is reached from
-///         within a transaction. So this shape holds only while every mutable value in the
+///         in a transaction. So this shape holds only while each mutable value in the
 ///         collection is one the outside world hands over whole. Put any logic between the source
 ///         and the value — a balance derived from a running total, a status computed from two other
 ///         fields, anything downstream of another cell at all — and you cannot send it, and you are
@@ -70,7 +70,7 @@ internal sealed class ItemState
 ///     <para>
 ///         <b>Cells per field, fed from one edit stream</b> is what that turns into as soon as the
 ///         edits arrive as events rather than as method calls: each item filters the shared stream
-///         for its own key, and its field cells hang off that. It composes — and every edit in the
+///         for its own key, and its field cells hang off that. It composes — and each edit in the
 ///         collection now evaluates one filter per item, plus the cells behind whichever one
 ///         matched. That is the shape this collection exists to replace, written as charitably as
 ///         it can be: one filter per item rather than one per field, which is what a careful hand
@@ -134,7 +134,7 @@ internal sealed class SinkPerFieldShape : IKeyedCollectionShape
         Item item = this.items[key];
 
         // Reading the whole state means putting the three cells back together, which is the cost
-        // this shape hands to every reader.
+        // this shape hands to each reader.
         return Transaction.Run(() =>
             item.Name
                 .Lift(
@@ -197,7 +197,7 @@ internal sealed class SinkPerFieldShape : IKeyedCollectionShape
 
 /// <summary>
 ///     A cell per mutable value per object, with one filter per object picking that object's edits
-///     out of a shared stream. Every edit evaluates every one of those filters.
+///     out of a shared stream. Each edit evaluates each one of those filters.
 /// </summary>
 // ReSharper disable once InheritdocConsiderUsage
 internal sealed class StreamFedCellShape : IKeyedCollectionShape
@@ -267,7 +267,7 @@ internal sealed class StreamFedCellShape : IKeyedCollectionShape
             // One filter over the shared stream, per item, shared by this item's three cells -
             // the charitable version of this shape, since a filter per field would be three times
             // this. It is still the line the benchmark is about: the graph now has a node per item
-            // that wakes for every edit in the collection, whether or not anything is observing
+            // that wakes for each edit in the collection, whether or not anything is observing
             // it.
             Stream<Edit> mine = edits.Filter(edit => edit.Key == identity.Number);
 

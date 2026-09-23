@@ -29,7 +29,7 @@ namespace SodaFlow.Functional;
 ///     matching the method being wrapped. Pass <see cref="CultureInfo.InvariantCulture" />
 ///     explicitly for text which is not meant to follow the user's culture - a configuration
 ///     file, a wire format, a machine-written log.
-///     A <see langword="null" /> string parses as no value throughout, since that is what every
+///     A <see langword="null" /> string parses as no value throughout, since that is what each
 ///     framework <c>TryParse</c> does with one.
 /// </remarks>
 [PublicAPI]
@@ -679,7 +679,7 @@ public static class StringExtensionMethods
     ///     Parses a <see cref="Uri" /> of the given kind from this string, if it holds one.
     /// </summary>
     /// <param name="value">The string to parse. A <see langword="null" /> string gives no value.</param>
-    /// <param name="uriKind">Whether an absolute URI, a relative one, or either is acceptable.</param>
+    /// <param name="uriKind">The permitted kind: absolute, relative, or one of the two.</param>
     /// <returns>
     ///     A <see cref="Maybe{T}" /> containing the parsed value, and one containing no value if
     ///     <paramref name="value" /> does not hold a URI of that kind.
@@ -719,7 +719,7 @@ public static class StringExtensionMethods
     /// </summary>
     /// <typeparam name="TEnum">The enumeration type to parse.</typeparam>
     /// <param name="value">The string to parse. A <see langword="null" /> string gives no value.</param>
-    /// <param name="ignoreCase">Whether to match member names without regard to case.</param>
+    /// <param name="ignoreCase">True for a case-insensitive match of the member names.</param>
     /// <returns>
     ///     A <see cref="Maybe{T}" /> containing the parsed value, and one containing no value if
     ///     <paramref name="value" /> does not hold one.
@@ -766,7 +766,7 @@ public static class StringExtensionMethods
     /// </summary>
     /// <typeparam name="TEnum">The enumeration type to parse.</typeparam>
     /// <param name="value">The string to parse. A <see langword="null" /> string gives no value.</param>
-    /// <param name="ignoreCase">Whether to match member names without regard to case.</param>
+    /// <param name="ignoreCase">True for a case-insensitive match of the member names.</param>
     /// <returns>
     ///     A <see cref="Maybe{T}" /> containing the parsed value if the enumeration declares it,
     ///     and one containing no value otherwise.

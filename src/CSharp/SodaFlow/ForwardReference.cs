@@ -31,7 +31,7 @@ namespace SodaFlow;
 ///     <see cref="CellExtensionMethods.Sample{T}" /> or anything built on it - asks a question
 ///     which has no answer yet, and says so by throwing.
 ///     Everything here builds one transaction of its own, so this can be called from outside a
-///     transaction as well as within one.
+///     transaction as well as in one.
 /// </remarks>
 [PublicAPI]
 public static class ForwardReference<T>
@@ -54,7 +54,7 @@ public static class ForwardReference<T>
     ///     <typeparamref name="T" /> is named on <see cref="ForwardReference{T}" /> itself,
     ///     which is what leaves it free to be: a lambda gives type inference nothing to work
     ///     from, and C# does not allow only some of a method's type arguments to be given, so
-    ///     naming both here would have meant writing both at every call.
+    ///     naming both here would have meant writing both at each call.
     /// </remarks>
     [Pure]
     public static (T Value, TCaptures Captures) WithCaptures<TCaptures>(

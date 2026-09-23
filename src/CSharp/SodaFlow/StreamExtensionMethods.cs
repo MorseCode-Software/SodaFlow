@@ -15,7 +15,7 @@ namespace SodaFlow;
 ///     A stream is a sequence of discrete firings. These are extension methods rather than instance
 ///     members so that the combinators live outside the small assembly the FRP engine is built in;
 ///     the effect at the call site is the same.
-///     Build the graph inside a <see cref="Transaction.Run{T}(System.Func{T})" /> so that no first
+///     Build the graph in a <see cref="Transaction.Run{T}(System.Func{T})" /> so that no first
 ///     firing is missed.
 /// </remarks>
 [PublicAPI]
@@ -23,19 +23,19 @@ public static class StreamExtensionMethods
 {
     /// <summary>
     ///     Listen for events/firings on this stream, keeping the stream alive for as long as the returned
-    ///     listener is reachable.  The returned <see cref="IStrongListener" /> may be
+    ///     listener is reachable.  The returned <see cref="IStrongListener" /> can be
     ///     disposed to stop listening.  This is an OPERATIONAL mechanism for interfacing between
     ///     the world of I/O and FRP.
     /// </summary>
     /// <typeparam name="T">The type of the stream.</typeparam>
     /// <param name="s">The stream.</param>
     /// <param name="handler">The handler to execute for values fired by the stream.</param>
-    /// <returns>An <see cref="IStrongListener" /> which may be disposed to stop listening.</returns>
+    /// <returns>An <see cref="IStrongListener" /> which can be disposed to stop listening.</returns>
     /// <remarks>
     ///     <para>
     ///         No assumptions should be made about what thread the handler is called on, and it should not block.
     ///         Neither <see cref="StreamSinkExtensionMethods.Send{T}" /> nor <see cref="CellSinkExtensionMethods.Send{T}" />
-    ///         may be called from the
+    ///         can be called from the
     ///         handler.
     ///         They will throw an exception because this method is not meant to be used to create new primitives.
     ///     </para>
@@ -58,19 +58,19 @@ public static class StreamExtensionMethods
 
     /// <summary>
     ///     Listen for events/firings on this stream, without keeping the stream alive.  The returned
-    ///     <see cref="IWeakListener" /> may be
+    ///     <see cref="IWeakListener" /> can be
     ///     disposed to stop listening, or it will automatically stop listening when it is garbage collected.
     ///     This is an OPERATIONAL mechanism for interfacing between the world of I/O and FRP.
     /// </summary>
     /// <typeparam name="T">The type of the stream.</typeparam>
     /// <param name="s">The stream.</param>
     /// <param name="handler">The handler to execute for values fired by the stream.</param>
-    /// <returns>An <see cref="IWeakListener" /> which may be disposed to stop listening.</returns>
+    /// <returns>An <see cref="IWeakListener" /> which can be disposed to stop listening.</returns>
     /// <remarks>
     ///     <para>
     ///         No assumptions should be made about what thread the handler is called on, and it should not block.
     ///         Neither <see cref="StreamSinkExtensionMethods.Send{T}" /> nor <see cref="CellSinkExtensionMethods.Send{T}" />
-    ///         may be called from the
+    ///         can be called from the
     ///         handler.
     ///         They will throw an exception because this method is not meant to be used to create new primitives.
     ///     </para>
@@ -112,7 +112,7 @@ public static class StreamExtensionMethods
     /// <param name="s">The stream.</param>
     /// <param name="handler">The handler to execute for values fired by this stream.</param>
     /// <returns>
-    ///     An <see cref="IStrongListener" /> which may be disposed to stop listening before that first event
+    ///     An <see cref="IStrongListener" /> which can be disposed to stop listening before that first event
     ///     arrives, if it is no longer wanted.
     /// </returns>
     [MethodImpl(MethodImplOptions.NoInlining)]
@@ -202,7 +202,7 @@ public static class StreamExtensionMethods
     /// <typeparam name="TResult">The type of values fired by the returned stream.</typeparam>
     /// <param name="s">The stream.</param>
     /// <param name="f">
-    ///     Function to apply to convert the values.  It may construct FRP logic or use
+    ///     Function to apply to convert the values.  It can construct FRP logic or use
     ///     <see cref="CellExtensionMethods.Sample{T}(Cell{T})" />,
     ///     in which case it is equivalent to calling <see cref="Snapshot{T, TResult}(Stream{T}, Cell{TResult})" /> on the
     ///     cell.
@@ -491,7 +491,7 @@ public static class StreamExtensionMethods
     /// <remarks>
     ///     <para>
     ///         In the case where two stream events are simultaneous (i.e. both
-    ///         within the same transaction), the event value from this stream will take precedence, and
+    ///         in the same transaction), the event value from this stream will take precedence, and
     ///         the event value from <paramref name="s2" /> will be dropped.
     ///         To specify a custom combining function, use
     ///         <see cref="StreamExtensionMethods.Merge{T}(Stream{T}, Stream{T}, Func{T, T, T})" />.
@@ -513,7 +513,7 @@ public static class StreamExtensionMethods
     /// <param name="s">The stream.</param>
     /// <param name="s2">The stream to merge this stream with.</param>
     /// <param name="f">
-    ///     Function to combine the values. It may construct FRP logic or use <see cref="CellExtensionMethods.Sample{T}" />.
+    ///     Function to combine the values. It can construct FRP logic or use <see cref="CellExtensionMethods.Sample{T}" />.
     ///     Apart from this the function must be pure.
     /// </param>
     /// <returns>
@@ -604,7 +604,7 @@ public static class StreamExtensionMethods
     /// <param name="s">The stream.</param>
     /// <param name="initialState">The initial state of the Mealy machine.</param>
     /// <param name="f">
-    ///     Function to apply to update the state.  It may construct FRP logic or use
+    ///     Function to apply to update the state.  It can construct FRP logic or use
     ///     <see cref="CellExtensionMethods.Sample{T}" />, in which case it is equivalent to snapshotting the cell with
     ///     <see cref="Snapshot{T, TReturn}(Stream{T}, Cell{TReturn})" />.  Apart from this, the function must be pure.
     /// </param>
@@ -626,7 +626,7 @@ public static class StreamExtensionMethods
     /// <param name="s">The stream.</param>
     /// <param name="initialState">The lazily evaluated initial state of the Mealy machine.</param>
     /// <param name="f">
-    ///     Function to apply to update the state.  It may construct FRP logic or use
+    ///     Function to apply to update the state.  It can construct FRP logic or use
     ///     <see cref="CellExtensionMethods.Sample{T}" />, in which case it is equivalent to snapshotting the cell with
     ///     <see cref="Snapshot{T, TReturn}(Stream{T}, Cell{TReturn})" />.  Apart from this, the function must be pure.
     /// </param>
@@ -646,7 +646,7 @@ public static class StreamExtensionMethods
     /// <param name="s">The stream.</param>
     /// <param name="initialState">The initial state.</param>
     /// <param name="f">
-    ///     Function to apply to update the state.  It may construct FRP logic or use
+    ///     Function to apply to update the state.  It can construct FRP logic or use
     ///     <see cref="CellExtensionMethods.Sample{T}" />, in which case it is equivalent to snapshotting the cell with
     ///     <see cref="Snapshot{T, TReturn}(Stream{T}, Cell{TReturn})" />.  Apart from this, the function must be pure.
     /// </param>
@@ -667,7 +667,7 @@ public static class StreamExtensionMethods
     /// <param name="s">The stream.</param>
     /// <param name="initialState">The lazily evaluated initial state.</param>
     /// <param name="f">
-    ///     Function to apply to update the state.  It may construct FRP logic or use
+    ///     Function to apply to update the state.  It can construct FRP logic or use
     ///     <see cref="CellExtensionMethods.Sample{T}" />, in which case it is equivalent to snapshotting the cell with
     ///     <see cref="Snapshot{T, TReturn}(Stream{T}, Cell{TReturn})" />.  Apart from this, the function must be pure.
     /// </param>
@@ -709,7 +709,7 @@ public static class StreamExtensionMethods
     /// </summary>
     /// <param name="s">The collection of streams to merge.</param>
     /// <param name="f">
-    ///     Function to combine the values. It may construct FRP logic or use <see cref="CellExtensionMethods.Sample{T}" />.
+    ///     Function to combine the values. It can construct FRP logic or use <see cref="CellExtensionMethods.Sample{T}" />.
     ///     Apart
     ///     from this the function must be pure.
     /// </param>
@@ -740,11 +740,11 @@ public static class StreamExtensionMethods
         s.FilterSomeImpl<T, Maybe<T>>(static (m, a) => m.MatchSome(a));
 
     /// <summary>
-    ///     Transform the stream values with a function which may produce no value, and fire only the values it produced.
+    ///     Transform the stream values with a function which can produce no value, and fire only the values it produced.
     /// </summary>
     /// <param name="s">The stream to transform.</param>
     /// <param name="f">
-    ///     Function to apply to each value. It may construct FRP logic or use <see cref="CellExtensionMethods.Sample{T}" />.
+    ///     Function to apply to each value. It can construct FRP logic or use <see cref="CellExtensionMethods.Sample{T}" />.
     ///     Apart
     ///     from this the function must be pure.
     /// </param>

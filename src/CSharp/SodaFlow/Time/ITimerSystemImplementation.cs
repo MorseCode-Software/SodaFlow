@@ -39,7 +39,7 @@ public interface ITimerSystemImplementation<T>
     ITimer SetTimer(T time, Action callback);
 
     /// <summary>
-    ///     Fires every timer scheduled at or before <paramref name="now" />, on the calling thread.
+    ///     Fires each timer scheduled at or before <paramref name="now" />, on the calling thread.
     /// </summary>
     /// <param name="now">The point in time to run timers up to.</param>
     void RunTimersTo(T now);

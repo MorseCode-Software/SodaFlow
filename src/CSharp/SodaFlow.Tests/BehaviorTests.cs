@@ -1036,10 +1036,10 @@ public sealed class BehaviorTests
         await Assert.That(@out).IsEquivalentTo(expected: [50, 54, 58, 74], ordering: CollectionOrdering.Matching);
     }
 
-    // Lift builds one pulse stream that every input feeds, coalesced so a transaction produces a
+    // Lift builds one pulse stream that each input feeds, coalesced so a transaction produces a
     // single firing. That only gives the right answer if each input's new value has been captured
-    // before the recombine runs - so updating several inputs at once has to yield exactly one
-    // output, carrying every new value and none of the old ones.
+    // before the recombine runs - so updating some inputs at once has to yield exactly one
+    // output, carrying each new value and none of the old ones.
     [Test]
     public async Task TestLiftSimultaneousUpdatesFireOnceWithAllNewValues()
     {
@@ -1102,7 +1102,7 @@ public sealed class BehaviorTests
             .IsEquivalentTo(expected: ["1/10", "2/10", "2/20", "3/20", "3/30"], ordering: CollectionOrdering.Matching);
     }
 
-    // Lift links every one of the input behaviors to a single output node, so updating them
+    // Lift links each one of the input behaviors to a single output node, so updating them
     // all in one transaction leaves that node holding one queued entry per cell. This walks
     // that fan-in wide enough, and drains it at enough different occupancies, to catch a
     // queue entry that removes itself from the wrong slot on the way out.
@@ -1120,7 +1120,7 @@ public sealed class BehaviorTests
         List<int> @out = [];
         IListener l = sum.ListenStrong(@out.Add);
 
-        // Every cell at once.
+        // Each cell at once.
         Transaction.RunVoid(() =>
         {
             foreach (CellSink<int> cellSink in cellSinks)
@@ -1129,7 +1129,7 @@ public sealed class BehaviorTests
             }
         });
 
-        // Every other cell, so the entries drain from a partially populated node.
+        // Each other cell, so the entries drain from a partially populated node.
         Transaction.RunVoid(() =>
         {
             for (int i = 0; i < count; i += 2)

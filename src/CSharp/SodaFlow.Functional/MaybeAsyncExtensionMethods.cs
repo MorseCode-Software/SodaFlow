@@ -23,10 +23,10 @@ namespace SodaFlow.Functional;
 ///         .Map(u =&gt; u.Name)
 ///         .Where(n =&gt; n.Length &gt; 0);
 ///     </code>
-///     The function is run only when there is a value, in every case, so nothing is awaited on
+///     The function is run only when there is a value, in each case, so nothing is awaited on
 ///     the empty path - which is also why the empty path returns a cached completed task rather
 ///     than allocating one.
-///     Every await here is configured not to capture the calling context. Nothing in this file
+///     Each await here is configured not to capture the calling context. Nothing in this file
 ///     runs caller code on the continuation - the awaits exist only to rewrap a result - so
 ///     resuming on a captured context would cost a hop and gain nothing, and would deadlock a
 ///     caller which blocks on the returned task.
@@ -40,7 +40,7 @@ public static class MaybeAsyncExtensionMethods
     /// <typeparam name="T">The type of the value, when there is one.</typeparam>
     /// <typeparam name="TResult">The type of the value the function produces.</typeparam>
     /// <param name="a">The value to transform.</param>
-    /// <param name="f">Run with the contained value when one is present.</param>
+    /// <param name="f">Run with the contained value when there is one.</param>
     /// <returns>
     ///     A task giving a <see cref="Maybe{T}" /> containing the result of <paramref name="f" />
     ///     if <paramref name="a" /> contained a value, and one containing no value otherwise.
@@ -61,14 +61,14 @@ public static class MaybeAsyncExtensionMethods
     /// <typeparam name="T">The type of the value, when there is one.</typeparam>
     /// <typeparam name="TResult">The type of the value the function produces.</typeparam>
     /// <param name="a">The value to transform.</param>
-    /// <param name="f">Run with the contained value when one is present.</param>
+    /// <param name="f">Run with the contained value when there is one.</param>
     /// <returns>
     ///     The task returned by <paramref name="f" /> if <paramref name="a" /> contained a value,
     ///     and a completed task giving no value otherwise.
     /// </returns>
     /// <remarks>
     ///     The asynchronous <see cref="MaybeMonad.Bind{T,TResult}" />, for the lookup which is
-    ///     itself asynchronous and may find nothing. When there is a value the task returned is
+    ///     itself asynchronous and can find nothing. When there is a value the task returned is
     ///     the one <paramref name="f" /> returned, not a wrapper around it, so a failure surfaces
     ///     as that task faulting.
     /// </remarks>
@@ -82,7 +82,7 @@ public static class MaybeAsyncExtensionMethods
     /// </summary>
     /// <typeparam name="T">The type of the value, when there is one.</typeparam>
     /// <param name="a">The value to filter.</param>
-    /// <param name="predicate">Run with the contained value when one is present.</param>
+    /// <param name="predicate">Run with the contained value when there is one.</param>
     /// <returns>
     ///     A task giving <paramref name="a" /> if it contained a value which satisfied
     ///     <paramref name="predicate" />, and a <see cref="Maybe{T}" /> containing no value
@@ -99,7 +99,7 @@ public static class MaybeAsyncExtensionMethods
     /// <typeparam name="T">The type of the value, when there is one.</typeparam>
     /// <typeparam name="TResult">The type of the value the function produces.</typeparam>
     /// <param name="a">The task giving the value to transform.</param>
-    /// <param name="f">Run with the contained value when one is present.</param>
+    /// <param name="f">Run with the contained value when there is one.</param>
     /// <returns>
     ///     A task giving a <see cref="Maybe{T}" /> containing the result of <paramref name="f" />
     ///     if the awaited value contained one, and one containing no value otherwise.
@@ -115,7 +115,7 @@ public static class MaybeAsyncExtensionMethods
     /// <typeparam name="T">The type of the value, when there is one.</typeparam>
     /// <typeparam name="TResult">The type of the value the function produces.</typeparam>
     /// <param name="a">The task giving the value to transform.</param>
-    /// <param name="f">Run with the contained value when one is present.</param>
+    /// <param name="f">Run with the contained value when there is one.</param>
     /// <returns>
     ///     A task giving a <see cref="Maybe{T}" /> containing the result of <paramref name="f" />
     ///     if the awaited value contained one, and one containing no value otherwise.
@@ -132,7 +132,7 @@ public static class MaybeAsyncExtensionMethods
     /// <typeparam name="T">The type of the value, when there is one.</typeparam>
     /// <typeparam name="TResult">The type of the value the function produces.</typeparam>
     /// <param name="a">The task giving the value to transform.</param>
-    /// <param name="f">Run with the contained value when one is present.</param>
+    /// <param name="f">Run with the contained value when there is one.</param>
     /// <returns>
     ///     A task giving the result of <paramref name="f" /> if the awaited value contained a
     ///     value, and a <see cref="Maybe{T}" /> containing no value otherwise.
@@ -149,7 +149,7 @@ public static class MaybeAsyncExtensionMethods
     /// <typeparam name="T">The type of the value, when there is one.</typeparam>
     /// <typeparam name="TResult">The type of the value the function produces.</typeparam>
     /// <param name="a">The task giving the value to transform.</param>
-    /// <param name="f">Run with the contained value when one is present.</param>
+    /// <param name="f">Run with the contained value when there is one.</param>
     /// <returns>
     ///     A task giving the result of <paramref name="f" /> if the awaited value contained a
     ///     value, and a <see cref="Maybe{T}" /> containing no value otherwise.
@@ -164,7 +164,7 @@ public static class MaybeAsyncExtensionMethods
     /// </summary>
     /// <typeparam name="T">The type of the value, when there is one.</typeparam>
     /// <param name="a">The task giving the value to filter.</param>
-    /// <param name="predicate">Run with the contained value when one is present.</param>
+    /// <param name="predicate">Run with the contained value when there is one.</param>
     /// <returns>
     ///     A task giving the awaited value if it contained one which satisfied
     ///     <paramref name="predicate" />, and a <see cref="Maybe{T}" /> containing no value
@@ -178,7 +178,7 @@ public static class MaybeAsyncExtensionMethods
     /// </summary>
     /// <typeparam name="T">The type of the value, when there is one.</typeparam>
     /// <param name="a">The task giving the value to filter.</param>
-    /// <param name="predicate">Run with the contained value when one is present.</param>
+    /// <param name="predicate">Run with the contained value when there is one.</param>
     /// <returns>
     ///     A task giving the awaited value if it contained one which satisfied
     ///     <paramref name="predicate" />, and a <see cref="Maybe{T}" /> containing no value
@@ -203,14 +203,14 @@ public static class MaybeAsyncExtensionMethods
         (await a.ConfigureAwait(false)).OrElse(b);
 
     /// <summary>
-    ///     Runs one of two functions on the value the task gives, depending on whether there is
+    ///     Runs one function on the value that the task gives when there is a value, and a different
     ///     one, and returns its result.
     /// </summary>
     /// <typeparam name="T">The type of the value, when there is one.</typeparam>
     /// <typeparam name="TResult">The type each of the two functions returns.</typeparam>
     /// <param name="a">The task giving the value to match on.</param>
-    /// <param name="onSome">Run with the contained value when one is present.</param>
-    /// <param name="onNone">Run when no value is present.</param>
+    /// <param name="onSome">Run with the contained value when there is one.</param>
+    /// <param name="onNone">Run when there is no value.</param>
     /// <returns>A task giving whatever the function that was run returned.</returns>
     public static async Task<TResult> Match<T, TResult>(
         this Task<Maybe<T>> a,
@@ -274,7 +274,7 @@ public static class MaybeAsyncExtensionMethods
     /// <typeparam name="T">The type the absent value would have had.</typeparam>
     /// <remarks>
     ///     The empty path is the common one for a lookup that misses, and it always produces the
-    ///     same answer, so there is no reason to allocate a fresh task for it every time.
+    ///     same answer, so there is no reason to allocate a fresh task for it each time.
     /// </remarks>
     private static class CompletedNone<T>
     {

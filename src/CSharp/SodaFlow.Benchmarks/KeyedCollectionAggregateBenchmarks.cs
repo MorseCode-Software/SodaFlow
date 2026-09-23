@@ -11,13 +11,13 @@ namespace SodaFlow.Benchmarks;
 /// </summary>
 /// <remarks>
 ///     <para>
-///         Every other benchmark here measures something that depends on a screenful. An aggregate
-///         depends on every item by definition, which makes it the honest test of whether the
+///         Each other benchmark here measures something that depends on a screenful. An aggregate
+///         depends on each item by definition, which makes it the honest test of whether the
 ///         collection is useful for anything but windows.
 ///     </para>
 ///     <para>
 ///         The answer is that it is, but not by holding a cell over the store. Mapping the snapshot
-///         cell reads every item on every edit, so a total costs the collection each time however
+///         cell reads each item on each edit, so a total costs the collection each time however
 ///         little of it moved. Folding the change stream costs what changed: the change carries the
 ///         new states, the snapshot the transaction started from still holds the old ones, and the
 ///         difference between them is the whole update.

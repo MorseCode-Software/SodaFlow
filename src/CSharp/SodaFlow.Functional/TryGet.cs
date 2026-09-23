@@ -15,7 +15,7 @@ namespace SodaFlow.Functional;
 ///     <see langword="true" /> if a value was produced, and <see langword="false" /> otherwise.
 /// </returns>
 /// <remarks>
-///     This describes the shape the framework uses everywhere it has to say "there may be no
+///     This describes the shape the framework uses everywhere it has to say "there can be no
 ///     answer" without an exception. Naming that shape is what lets
 ///     <see cref="Maybe.FromTryGet{TResult}" /> turn any such method into a
 ///     <see cref="Maybe{T}" />, including ones this library knows nothing about.

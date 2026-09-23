@@ -36,7 +36,7 @@ public static class Operational
     /// <param name="b">The behavior to observe.</param>
     /// <returns>
     ///     A stream which fires the current value in the transaction this is called in, and then the updated
-    ///     value on every change.
+    ///     value on each change.
     /// </returns>
     /// <remarks>
     ///     This is an OPERATIONAL primitive, which is not part of the main SodaFlow

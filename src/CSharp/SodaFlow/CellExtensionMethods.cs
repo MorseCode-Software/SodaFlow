@@ -12,7 +12,7 @@ namespace SodaFlow;
 ///     A cell is a behavior which also exposes the stream of its own changes, so it supports
 ///     everything in <see cref="BehaviorExtensionMethods" /> along with operations built on those
 ///     updates.
-///     Build the graph inside a <see cref="Transaction.Run{T}(System.Func{T})" /> so that no first
+///     Build the graph in a <see cref="Transaction.Run{T}(System.Func{T})" /> so that no first
 ///     firing is missed - particularly with <see cref="Values{T}" />, which always fires immediately.
 /// </remarks>
 [PublicAPI]
@@ -26,7 +26,7 @@ public static class CellExtensionMethods
     /// <returns>The current value of the cell.</returns>
     /// <remarks>
     ///     <para>
-    ///         This method may be used inside the functions passed to primitives that apply them to streams,
+    ///         This method can be used in the functions passed to primitives that apply them to streams,
     ///         including <see cref="StreamExtensionMethods.Map{T, TResult}(Stream{T}, Func{T,TResult})" /> in which case it is
     ///         equivalent to
     ///         snapshotting the cell,
@@ -39,9 +39,9 @@ public static class CellExtensionMethods
     ///         so updates aren't missed, but in many circumstances it makes sense.
     ///     </para>
     ///     <para>
-    ///         It can be best to use this method inside an explicit transaction (using
+    ///         It can be best to use this method in an explicit transaction (using
     ///         <see cref="Transaction.Run{T}(Func{T})" /> or <see cref="Transaction.RunVoid(Action)" />).
-    ///         For example, a c.Sample() inside an explicit transaction along with a c.Updates().ListenStrong(...) will
+    ///         For example, a c.Sample() in an explicit transaction along with a c.Updates().ListenStrong(...) will
     ///         capture the
     ///         current value and any updates without risk of missing any in between.
     ///     </para>
@@ -54,11 +54,11 @@ public static class CellExtensionMethods
     /// </summary>
     /// <typeparam name="T">The type of the cell.</typeparam>
     /// <param name="c">The cell.</param>
-    /// <returns>A lazy which may be used to get the current value of the cell.</returns>
+    /// <returns>A lazy which can be used to get the current value of the cell.</returns>
     /// <remarks>
     ///     This is a variant of <see cref="Sample{T}" /> that works with the <see cref="CellLoop{T}" /> class
     ///     when the cell loop has not yet been looped.  It should be used in any code that is general
-    ///     enough that it may be passed a <see cref="CellLoop{T}" />.  See
+    ///     enough that it can be passed a <see cref="CellLoop{T}" />.  See
     ///     <see cref="StreamExtensionMethods.HoldLazy{T}(Stream{T}, Lazy{T})" />.
     /// </remarks>
     [MethodImpl(MethodImplOptions.NoInlining)]
@@ -86,7 +86,7 @@ public static class CellExtensionMethods
     /// <remarks>
     ///     This stream is identical to the stream returned by <see cref="Updates{T}(Cell{T})" /> except that it also fires
     ///     during the transaction in which it was obtained.
-    ///     To observe the first value, this property must be accessed and used within the same explicit transaction.
+    ///     To observe the first value, this property must be accessed and used in the same explicit transaction.
     /// </remarks>
     [MethodImpl(MethodImplOptions.NoInlining)]
     public static Stream<T> Values<T>(this Cell<T> c) => c.ValuesImpl;
@@ -102,19 +102,19 @@ public static class CellExtensionMethods
 
     /// <summary>
     ///     Listen for updates to the value of this cell, keeping the cell alive for as long as the returned
-    ///     listener is reachable.  The returned <see cref="IListener" /> may be
+    ///     listener is reachable.  The returned <see cref="IListener" /> can be
     ///     disposed to stop listening.  This is an OPERATIONAL mechanism for interfacing between
     ///     the world of I/O and FRP.
     /// </summary>
     /// <typeparam name="T">The type of the cell.</typeparam>
     /// <param name="c">The cell.</param>
     /// <param name="handler">The handler to execute for each value.</param>
-    /// <returns>An <see cref="IListener" /> which may be disposed to stop listening.</returns>
+    /// <returns>An <see cref="IListener" /> which can be disposed to stop listening.</returns>
     /// <remarks>
     ///     <para>
     ///         No assumptions should be made about what thread the handler is called on, and it should not block.
     ///         Neither <see cref="StreamSinkExtensionMethods.Send{T}" /> nor <see cref="CellSinkExtensionMethods.Send{T}" />
-    ///         may be called from the
+    ///         can be called from the
     ///         handler.
     ///         They will throw an exception because this method is not meant to be used to create new primitives.
     ///     </para>
@@ -132,19 +132,19 @@ public static class CellExtensionMethods
 
     /// <summary>
     ///     Listen for updates to the value of this cell, without keeping the cell alive.  The returned
-    ///     <see cref="IListener" /> may be
+    ///     <see cref="IListener" /> can be
     ///     disposed to stop listening, or it will automatically stop listening when it is garbage collected.
     ///     This is an OPERATIONAL mechanism for interfacing between the world of I/O and FRP.
     /// </summary>
     /// <typeparam name="T">The type of the cell.</typeparam>
     /// <param name="c">The cell.</param>
     /// <param name="handler">The handler to execute for each value.</param>
-    /// <returns>An <see cref="IListener" /> which may be disposed to stop listening.</returns>
+    /// <returns>An <see cref="IListener" /> which can be disposed to stop listening.</returns>
     /// <remarks>
     ///     <para>
     ///         No assumptions should be made about what thread the handler is called on, and it should not block.
     ///         Neither <see cref="StreamSinkExtensionMethods.Send{T}" /> nor <see cref="CellSinkExtensionMethods.Send{T}" />
-    ///         may be called from the
+    ///         can be called from the
     ///         handler.
     ///         They will throw an exception because this method is not meant to be used to create new primitives.
     ///     </para>
@@ -293,7 +293,7 @@ public static class CellExtensionMethods
         c.LiftImpl(b2: c2, b3: c3, b4: c4, b5: c5, b6: c6, f: f);
 
     /// <summary>
-    ///     Apply a value inside a cell to a function inside a cell.  This is the primitive for all function lifting.
+    ///     Apply a value in a cell to a function in a cell.  This is the primitive for all function lifting.
     /// </summary>
     /// <typeparam name="T">The type of the cell.</typeparam>
     /// <typeparam name="TResult">The type of the result.</typeparam>
@@ -336,7 +336,7 @@ public static class CellExtensionMethods
     public static Cell<T> Calm<T>(this Cell<T> c, Func<T, T, bool> areEqual) => c.CalmImpl(areEqual);
 
     /// <summary>
-    ///     Unwrap a behavior inside a cell to give a time-varying behavior implementation.
+    ///     Unwrap a behavior in a cell to give a time-varying behavior implementation.
     /// </summary>
     /// <typeparam name="T">The type of the behavior.</typeparam>
     /// <param name="cba">The cell containing a behavior.</param>
@@ -345,7 +345,7 @@ public static class CellExtensionMethods
     public static Behavior<T> SwitchB<T>(this Cell<Behavior<T>> cba) => cba.SwitchBImpl<T, Behavior<T>>();
 
     /// <summary>
-    ///     Unwrap a cell inside another cell to give a time-varying cell implementation.
+    ///     Unwrap a cell in another cell to give a time-varying cell implementation.
     /// </summary>
     /// <typeparam name="T">The type of the cell.</typeparam>
     /// <param name="cca">The cell containing another cell.</param>
@@ -354,7 +354,7 @@ public static class CellExtensionMethods
     public static Cell<T> SwitchC<T>(this Cell<Cell<T>> cca) => cca.SwitchCImpl<T, Cell<T>>();
 
     /// <summary>
-    ///     Unwrap a stream inside a cell to give a time-varying stream implementation.
+    ///     Unwrap a stream in a cell to give a time-varying stream implementation.
     ///     When the cell changes value, the output stream will fire the simultaneous firing (if one exists) from the
     ///     stream which the cell held at the beginning of the transaction.
     /// </summary>

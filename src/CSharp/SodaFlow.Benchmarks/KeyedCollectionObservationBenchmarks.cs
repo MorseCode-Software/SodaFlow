@@ -178,7 +178,7 @@ public class KeyedCollectionObservationBenchmarks
         this.identityThroughView.Replace(key: ObservationShape.UnobservedKeyInView, state: this.NextState());
 
     /// <summary>
-    ///     Two states, alternating, so the item moves within the sort and back rather than climbing
+    ///     Two states, alternating, so the item moves in the sort and back rather than climbing
     ///     out of it as the benchmark runs.
     /// </summary>
     private ItemState NextState()

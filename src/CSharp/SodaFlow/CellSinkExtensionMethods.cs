@@ -9,13 +9,13 @@ namespace SodaFlow;
 /// </summary>
 /// <remarks>
 ///     A cell sink is how a value from outside the FRP graph is pushed into it. These operations are
-///     for interfacing I/O to FRP only, and throw if called from inside a listener handler.
+///     for interfacing I/O to FRP only, and throw if called in a listener handler.
 /// </remarks>
 [PublicAPI]
 public static class CellSinkExtensionMethods
 {
     /// <summary>
-    ///     Send a value, modifying the value of the cell.  This method may not be called from inside handlers registered with
+    ///     Send a value, modifying the value of the cell.  A caller must not call this method in a handler registered with
     ///     <see cref="StreamExtensionMethods.Listen{T}(Stream{T}, Action{T})" />,
     ///     <see cref="StreamExtensionMethods.ListenStrong{T}(Stream{T}, Action{T})" /> or either of their cell
     ///     equivalents.

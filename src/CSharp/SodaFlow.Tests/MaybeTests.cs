@@ -221,7 +221,7 @@ public sealed class MaybeTests
     [Test]
     public async Task DefaultEqualityComparerDoesNotBox() =>
         // A struct which does not implement IEquatable<T> gets ObjectEqualityComparer, which
-        // compares through Equals(object) and boxes both operands on every comparison.
+        // compares through Equals(object) and boxes both operands on each comparison.
         await Assert.That(EqualityComparer<Maybe<int>>.Default.GetType().Name).IsNotEqualTo("ObjectEqualityComparer`1");
 
     [Test]
@@ -280,7 +280,7 @@ public sealed class MaybeTests
     [Test]
     public async Task CompareToMatchesNullableOrdering()
     {
-        // None sorts before every value, exactly as null does for Nullable<T>.
+        // None sorts before each value, exactly as null does for Nullable<T>.
         await Assert.That(Math.Sign(Maybe<int>.None.CompareTo(Maybe.Some(0))))
             .IsEqualTo(Math.Sign(Comparer<int?>.Default.Compare(x: null, y: 0)));
 

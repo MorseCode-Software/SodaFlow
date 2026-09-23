@@ -13,7 +13,7 @@ namespace SodaFlow.Benchmarks;
 ///     <para>
 ///         The check exists because the cached value behind <c>Value</c> is an ordinary field, safe
 ///         only while the property is touched on one thread; reading it from anywhere else used to
-///         return a stale value silently. It is on the path a binding engine walks for every
+///         return a stale value silently. It is on the path a binding engine walks for each
 ///         refresh, so what it costs is worth knowing rather than assuming - the first
 ///         measurement of it came out an order of magnitude above the guess that preceded it.
 ///     </para>

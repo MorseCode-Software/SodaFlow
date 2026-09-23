@@ -14,7 +14,7 @@ namespace SodaFlow.Benchmarks;
 ///     <para>
 ///         This is a criteria change, which <see cref="KeyedCollectionViewBenchmarks" /> reports as
 ///         the case a chain loses: changing a predicate rebuilds that stage, and a filter's rebuild
-///         files every surviving key into a fresh ordered set, so it is Θ(n) with an allocation per
+///         files each surviving key into a fresh ordered set, so it is Θ(n) with an allocation per
 ///         node where re-deriving sorts an array.
 ///     </para>
 ///     <para>
@@ -52,7 +52,7 @@ public class KeyedCollectionPagingBenchmarks
     public int ItemCount { get; [UsedImplicitly] set; }
 
     /// <summary>
-    ///     A key the second page holds. The seed scores every item with its own number and the sort
+    ///     A key the second page holds. The seed scores each item with its own number and the sort
     ///     is descending, so position p holds key <c>ItemCount - 1 - p</c> and the second page runs
     ///     from <c>ItemCount - 21</c> down to <c>ItemCount - 40</c>. This sits in the middle of it.
     /// </summary>

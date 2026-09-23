@@ -21,7 +21,7 @@ namespace SodaFlow.Functional;
 public static class EnumerableExtensionMethods
 {
     /// <summary>
-    ///     Applies a function which may produce no value to every element of a sequence, and
+    ///     Applies a function which can produce no value to each element of a sequence, and
     ///     returns the results which were produced.
     /// </summary>
     /// <typeparam name="T">The type of the values in the sequence.</typeparam>
@@ -50,7 +50,7 @@ public static class EnumerableExtensionMethods
         (source ?? []).Select(selector).WhereSome();
 
     /// <summary>
-    ///     Applies a function which may produce no value to every element of a sequence along with
+    ///     Applies a function which can produce no value to each element of a sequence along with
     ///     its index, and returns the results which were produced.
     /// </summary>
     /// <typeparam name="T">The type of the values in the sequence.</typeparam>
@@ -449,7 +449,7 @@ public static class EnumerableExtensionMethods
     ///     Elements which are <see langword="null" /> are skipped, which is what
     ///     <see cref="Enumerable.Min{TSource}(IEnumerable{TSource})" /> does and is almost never
     ///     what <see cref="Comparer{T}.Default" /> would do - it sorts <see langword="null" />
-    ///     before everything, so a single null element would otherwise be the answer for every
+    ///     before everything, so a single null element would otherwise be the answer for each
     ///     sequence of a reference type. A sequence of nothing but nulls therefore has nothing to
     ///     compare and gives no value, where LINQ would give <see langword="null" />.
     ///     The test is only made for types which can actually hold one; for a non-nullable value

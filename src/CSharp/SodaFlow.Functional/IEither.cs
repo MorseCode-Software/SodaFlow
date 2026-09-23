@@ -5,7 +5,7 @@ using JetBrains.Annotations;
 namespace SodaFlow.Functional;
 
 /// <summary>
-///     The common non-generic view of every either, regardless of how many cases it has.
+///     The common non-generic view of each either, regardless of how many cases it has.
 /// </summary>
 /// <remarks>
 ///     Where the number of cases is known, <see cref="IEitherOfTwo" /> and its wider siblings
@@ -32,7 +32,7 @@ public interface IEither
 ///     without knowing what types the cases would be.
 /// </summary>
 /// <remarks>
-///     Every member mirrors one on <see cref="Either{T1,T2}" /> and its wider siblings, with
+///     Each member mirrors one on <see cref="Either{T1,T2}" /> and its wider siblings, with
 ///     the held value surfaced as <see cref="object" />. Prefer the generic type wherever the
 ///     types are known: this interface boxes, and loses the type of the value.
 /// </remarks>
@@ -49,7 +49,7 @@ public interface IEitherOfTwo : IEither
     /// <param name="onSecond">Run with the value when the second case is held.</param>
     /// <returns>Whatever the function that was run returned.</returns>
     /// <remarks>
-    ///     This is the only way the held value is reached, and every other member here is
+    ///     This is the only way the held value is reached, and each other member here is
     ///     expressed in terms of it. Exactly one of the functions is called, and it is called
     ///     before this method returns.
     /// </remarks>
@@ -98,7 +98,7 @@ public interface IEitherOfTwo : IEither
 ///     without knowing what types the cases would be.
 /// </summary>
 /// <remarks>
-///     Every member mirrors one on <see cref="Either{T1,T2}" /> and its wider siblings, with
+///     Each member mirrors one on <see cref="Either{T1,T2}" /> and its wider siblings, with
 ///     the held value surfaced as <see cref="object" />. Prefer the generic type wherever the
 ///     types are known: this interface boxes, and loses the type of the value.
 /// </remarks>
@@ -116,7 +116,7 @@ public interface IEitherOfThree : IEither
     /// <param name="onThird">Run with the value when the third case is held.</param>
     /// <returns>Whatever the function that was run returned.</returns>
     /// <remarks>
-    ///     This is the only way the held value is reached, and every other member here is
+    ///     This is the only way the held value is reached, and each other member here is
     ///     expressed in terms of it. Exactly one of the functions is called, and it is called
     ///     before this method returns.
     /// </remarks>
@@ -172,7 +172,7 @@ public interface IEitherOfThree : IEither
 ///     without knowing what types the cases would be.
 /// </summary>
 /// <remarks>
-///     Every member mirrors one on <see cref="Either{T1,T2}" /> and its wider siblings, with
+///     Each member mirrors one on <see cref="Either{T1,T2}" /> and its wider siblings, with
 ///     the held value surfaced as <see cref="object" />. Prefer the generic type wherever the
 ///     types are known: this interface boxes, and loses the type of the value.
 /// </remarks>
@@ -191,7 +191,7 @@ public interface IEitherOfFour : IEither
     /// <param name="onFourth">Run with the value when the fourth case is held.</param>
     /// <returns>Whatever the function that was run returned.</returns>
     /// <remarks>
-    ///     This is the only way the held value is reached, and every other member here is
+    ///     This is the only way the held value is reached, and each other member here is
     ///     expressed in terms of it. Exactly one of the functions is called, and it is called
     ///     before this method returns.
     /// </remarks>
@@ -254,7 +254,7 @@ public interface IEitherOfFour : IEither
 ///     without knowing what types the cases would be.
 /// </summary>
 /// <remarks>
-///     Every member mirrors one on <see cref="Either{T1,T2}" /> and its wider siblings, with
+///     Each member mirrors one on <see cref="Either{T1,T2}" /> and its wider siblings, with
 ///     the held value surfaced as <see cref="object" />. Prefer the generic type wherever the
 ///     types are known: this interface boxes, and loses the type of the value.
 /// </remarks>
@@ -274,7 +274,7 @@ public interface IEitherOfFive : IEither
     /// <param name="onFifth">Run with the value when the fifth case is held.</param>
     /// <returns>Whatever the function that was run returned.</returns>
     /// <remarks>
-    ///     This is the only way the held value is reached, and every other member here is
+    ///     This is the only way the held value is reached, and each other member here is
     ///     expressed in terms of it. Exactly one of the functions is called, and it is called
     ///     before this method returns.
     /// </remarks>
@@ -344,7 +344,7 @@ public interface IEitherOfFive : IEither
 ///     without knowing what types the cases would be.
 /// </summary>
 /// <remarks>
-///     Every member mirrors one on <see cref="Either{T1,T2}" /> and its wider siblings, with
+///     Each member mirrors one on <see cref="Either{T1,T2}" /> and its wider siblings, with
 ///     the held value surfaced as <see cref="object" />. Prefer the generic type wherever the
 ///     types are known: this interface boxes, and loses the type of the value.
 /// </remarks>
@@ -365,7 +365,7 @@ public interface IEitherOfSix : IEither
     /// <param name="onSixth">Run with the value when the sixth case is held.</param>
     /// <returns>Whatever the function that was run returned.</returns>
     /// <remarks>
-    ///     This is the only way the held value is reached, and every other member here is
+    ///     This is the only way the held value is reached, and each other member here is
     ///     expressed in terms of it. Exactly one of the functions is called, and it is called
     ///     before this method returns.
     /// </remarks>
@@ -442,7 +442,7 @@ public interface IEitherOfSix : IEither
 ///     without knowing what types the cases would be.
 /// </summary>
 /// <remarks>
-///     Every member mirrors one on <see cref="Either{T1,T2}" /> and its wider siblings, with
+///     Each member mirrors one on <see cref="Either{T1,T2}" /> and its wider siblings, with
 ///     the held value surfaced as <see cref="object" />. Prefer the generic type wherever the
 ///     types are known: this interface boxes, and loses the type of the value.
 /// </remarks>
@@ -464,7 +464,7 @@ public interface IEitherOfSeven : IEither
     /// <param name="onSeventh">Run with the value when the seventh case is held.</param>
     /// <returns>Whatever the function that was run returned.</returns>
     /// <remarks>
-    ///     This is the only way the held value is reached, and every other member here is
+    ///     This is the only way the held value is reached, and each other member here is
     ///     expressed in terms of it. Exactly one of the functions is called, and it is called
     ///     before this method returns.
     /// </remarks>
@@ -548,7 +548,7 @@ public interface IEitherOfSeven : IEither
 ///     without knowing what types the cases would be.
 /// </summary>
 /// <remarks>
-///     Every member mirrors one on <see cref="Either{T1,T2}" /> and its wider siblings, with
+///     Each member mirrors one on <see cref="Either{T1,T2}" /> and its wider siblings, with
 ///     the held value surfaced as <see cref="object" />. Prefer the generic type wherever the
 ///     types are known: this interface boxes, and loses the type of the value.
 /// </remarks>
@@ -571,7 +571,7 @@ public interface IEitherOfEight : IEither
     /// <param name="onEighth">Run with the value when the eighth case is held.</param>
     /// <returns>Whatever the function that was run returned.</returns>
     /// <remarks>
-    ///     This is the only way the held value is reached, and every other member here is
+    ///     This is the only way the held value is reached, and each other member here is
     ///     expressed in terms of it. Exactly one of the functions is called, and it is called
     ///     before this method returns.
     /// </remarks>

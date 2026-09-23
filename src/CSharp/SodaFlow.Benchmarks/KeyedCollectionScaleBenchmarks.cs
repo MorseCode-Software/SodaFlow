@@ -33,7 +33,7 @@ namespace SodaFlow.Benchmarks;
 ///         Subtract the floor before comparing anything.
 ///     </para>
 ///     <para>
-///         Both filters keep the same half. The seed gives every item a score equal to its number,
+///         Both filters keep the same half. The seed gives each item a score equal to its number,
 ///         so even scores and even numbers are the same items, and the sort below is over the
 ///         identity in both — leaving the filter as the only thing that differs.
 ///     </para>
@@ -83,7 +83,7 @@ public class KeyedCollectionScaleBenchmarks
     }
 
     /// <summary>
-    ///     An edit with no view stages at all, which every arm below pays before it does anything
+    ///     An edit with no view stages at all, which each arm below pays before it does anything
     ///     of its own. The baseline, because the difference between the arms is what is being
     ///     asked about and this is how much of each of them is not that.
     /// </summary>

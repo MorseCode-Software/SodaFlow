@@ -269,7 +269,7 @@ public sealed class EnumerableExtensionMethodsTests
     public async Task TestMinOrNoneSkipsNulls()
     {
         // Comparer<string>.Default sorts null before everything, so without skipping them a
-        // single null would be the answer for every sequence of a reference type.
+        // single null would be the answer for each sequence of a reference type.
         string?[] source = ["b", null, "a"];
 
         await Assert.That(source.MinOrNone()).IsEqualTo(Maybe.Some<string?>("a"));

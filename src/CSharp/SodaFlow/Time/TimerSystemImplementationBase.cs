@@ -24,11 +24,11 @@ public abstract class TimerSystemImplementationBase<T> : ITimerSystemImplementat
     private readonly object lockObject = new();
     private readonly SortedSet<SimpleTimer> timers = [];
 
-    // Signaled whenever the timer set changes, to wake the timer thread so it can recompute
+    // Signaled when the timer set changes, to wake the timer thread so it can recompute
     // how long to wait. An AutoResetEvent rather than a CancellationTokenSource: a signal
     // raised while the thread is between computing its wait and entering it is latched, so the
     // next wait returns immediately instead of sleeping through the change. The previous
-    // design allocated a fresh CancellationTokenSource on every iteration and never disposed
+    // design allocated a fresh CancellationTokenSource on each iteration and never disposed
     // one.
     private readonly AutoResetEvent timersChanged = new(false);
 
@@ -42,7 +42,7 @@ public abstract class TimerSystemImplementationBase<T> : ITimerSystemImplementat
         // Nothing else fires alarms: the Transaction.OnStart hook calls RunTimersTo, but only when
         // some transaction happens to start, so an application that is merely waiting depends
         // entirely on this loop. Running it on the thread pool made that dependency a liveness
-        // hazard - every iteration needed a pool thread, once to start and again for each
+        // hazard - each iteration needed a pool thread, once to start and again for each
         // Task.Delay continuation, and a cancellation only queued that continuation. With the pool
         // saturated the loop simply never ran, and alarms were never fired at all.
         //
@@ -110,7 +110,7 @@ public abstract class TimerSystemImplementationBase<T> : ITimerSystemImplementat
     }
 
     /// <summary>
-    ///     Fires every timer scheduled at or before <paramref name="now" />, on the calling thread.
+    ///     Fires each timer scheduled at or before <paramref name="now" />, on the calling thread.
     /// </summary>
     /// <param name="now">The point in time to run timers up to.</param>
     /// <remarks>

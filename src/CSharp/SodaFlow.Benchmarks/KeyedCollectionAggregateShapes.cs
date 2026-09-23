@@ -9,12 +9,12 @@ namespace SodaFlow.Benchmarks;
 /// </summary>
 /// <remarks>
 ///     <para>
-///         Unlike a view, an aggregate genuinely depends on every item, so there is no window to
+///         Unlike a view, an aggregate genuinely depends on each item, so there is no window to
 ///         hide behind and no arrangement in which the answer is cheap to produce from scratch.
 ///         What differs is whether it is produced from scratch.
 ///     </para>
 ///     <para>
-///         The naive shape reads the whole store on every edit, which is what a <c>Map</c> over the
+///         The naive shape reads the whole store on each edit, which is what a <c>Map</c> over the
 ///         snapshot cell gives you and what most people write first. The incremental shape folds the
 ///         change stream instead: an edit carries the keys that changed and their new states, and
 ///         the snapshot the transaction started from still holds the old ones, so the delta costs
@@ -69,7 +69,7 @@ file static class AggregateSeed
 }
 
 /// <summary>
-///     The total recomputed from the whole store on every edit, by mapping the snapshot cell.
+///     The total recomputed from the whole store on each edit, by mapping the snapshot cell.
 /// </summary>
 // ReSharper disable once InheritdocConsiderUsage
 internal sealed class RederivedAggregateShape : IKeyedAggregateShape

@@ -19,7 +19,7 @@ namespace SodaFlow.Benchmarks;
 ///     </para>
 ///     <para>
 ///         The scheduler here queues and is drained explicitly, which is what a dispatcher does
-///         and is the case that matters: work posted from inside a transaction and run after it
+///         and is the case that matters: work posted in a transaction and run after it
 ///         closes, with no transaction in flight, so the sample has to open its own. Under
 ///         <see cref="ImmediateBindingScheduler" /> the refresh runs while the sending
 ///         transaction is still open and joins it instead, which is cheaper and would flatter

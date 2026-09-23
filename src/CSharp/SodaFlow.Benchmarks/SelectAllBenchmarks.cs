@@ -10,12 +10,12 @@ namespace SodaFlow.Benchmarks;
 /// <summary>
 ///     The select-all graph: a list of objects each holding a selection cell, a cell over the whole
 ///     list built by lifting theirs, and a tri-state "all selected" fed back through a loop so that
-///     one toggle drives every element.
+///     one toggle drives each element.
 /// </summary>
 /// <remarks>
 ///     <para>
 ///         This is the shape the library exists for and the one that stresses it: a loop, a lift
-///         over every element, and a switch that rebuilds the lift whenever the collection changes.
+///         over each element, and a switch that rebuilds the lift when the collection changes.
 ///         It came from SodaFlow.Tests.Performance, a console harness deleted once this replaced
 ///         it, where the graph was timed by a stopwatch around a sequence which included
 ///         twenty-five half-second sleeps — so the number it printed was mostly sleep, and reading
@@ -25,7 +25,7 @@ namespace SodaFlow.Benchmarks;
 ///     </para>
 ///     <para>
 ///         Element count is a parameter because how these scale is the question. A toggle touches
-///         every element; replacing the collection rebuilds the lift.
+///         each element; replacing the collection rebuilds the lift.
 ///     </para>
 /// </remarks>
 [MemoryDiagnoser]
@@ -64,7 +64,7 @@ public class SelectAllBenchmarks
         return built.Objects.Sample().Count;
     }
 
-    /// <summary>One toggle, which flips every element and recomputes the tri-state above them.</summary>
+    /// <summary>One toggle, which flips each element and recomputes the tri-state above them.</summary>
     [Benchmark(Description = "toggle all selected")]
     public void ToggleAllSelected() => this.graph.ToggleAllSelected.Send(Unit.Value);
 

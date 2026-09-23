@@ -26,7 +26,7 @@ public static class BehaviorExtensionMethods
     /// <returns>The current value of the behavior.</returns>
     /// <remarks>
     ///     <para>
-    ///         This method may be used inside the functions passed to primitives that apply them to streams,
+    ///         This method can be used in the functions passed to primitives that apply them to streams,
     ///         including <see cref="StreamExtensionMethods.Map{T, TResult}(Stream{T}, Func{T,TResult})" /> in which case it is
     ///         equivalent to
     ///         snapshotting the behavior,
@@ -35,9 +35,9 @@ public static class BehaviorExtensionMethods
     ///         <see cref="StreamExtensionMethods.Merge{T}(Stream{T}, Stream{T}, Func{T, T, T})" />
     ///     </para>
     ///     <para>
-    ///         It can be best to use this method inside an explicit transaction (using
+    ///         It can be best to use this method in an explicit transaction (using
     ///         <see cref="Transaction.Run{T}(Func{T})" /> or <see cref="Transaction.RunVoid(Action)" />).
-    ///         For example, a b.Sample() inside an explicit transaction along with a b.Updates().ListenStrong(...) will
+    ///         For example, a b.Sample() in an explicit transaction along with a b.Updates().ListenStrong(...) will
     ///         capture the
     ///         current value and any updates without risk of missing any in between.
     ///     </para>
@@ -50,11 +50,11 @@ public static class BehaviorExtensionMethods
     /// </summary>
     /// <typeparam name="T">The type of the behavior.</typeparam>
     /// <param name="b">The behavior.</param>
-    /// <returns>A lazy which may be used to get the current value of the behavior.</returns>
+    /// <returns>A lazy which can be used to get the current value of the behavior.</returns>
     /// <remarks>
     ///     This is a variant of <see cref="Sample{T}" /> that works with the <see cref="BehaviorLoop{T}" /> class
     ///     when the behavior loop has not yet been looped.  It should be used in any code that is general
-    ///     enough that it may be passed a <see cref="BehaviorLoop{T}" />.  See
+    ///     enough that it can be passed a <see cref="BehaviorLoop{T}" />.  See
     ///     <see cref="StreamExtensionMethods.HoldLazy{T}(Stream{T}, Lazy{T})" />.
     /// </remarks>
     [MethodImpl(MethodImplOptions.NoInlining)]
@@ -200,7 +200,7 @@ public static class BehaviorExtensionMethods
         b.LiftImpl(b2: b2, b3: b3, b4: b4, b5: b5, b6: b6, f: f);
 
     /// <summary>
-    ///     Apply a value inside a behavior to a function inside a behavior.  This is the primitive for all function lifting.
+    ///     Apply a value in a behavior to a function in a behavior.  This is the primitive for all function lifting.
     /// </summary>
     /// <typeparam name="T">The type of the behavior.</typeparam>
     /// <typeparam name="TResult">The type of the result.</typeparam>
@@ -215,7 +215,7 @@ public static class BehaviorExtensionMethods
         b.ApplyImpl(bf);
 
     /// <summary>
-    ///     Unwrap a behavior inside another behavior to give a time-varying behavior implementation.
+    ///     Unwrap a behavior in another behavior to give a time-varying behavior implementation.
     /// </summary>
     /// <typeparam name="T">The type of the behavior.</typeparam>
     /// <param name="bba">The behavior containing another behavior.</param>
@@ -224,7 +224,7 @@ public static class BehaviorExtensionMethods
     public static Behavior<T> SwitchB<T>(this Behavior<Behavior<T>> bba) => bba.SwitchBImpl<T, Behavior<T>>();
 
     /// <summary>
-    ///     Unwrap a cell inside a behavior to give a time-varying cell implementation.
+    ///     Unwrap a cell in a behavior to give a time-varying cell implementation.
     /// </summary>
     /// <typeparam name="T">The type of the cell.</typeparam>
     /// <param name="bca">The behavior containing a cell.</param>
@@ -233,7 +233,7 @@ public static class BehaviorExtensionMethods
     public static Cell<T> SwitchC<T>(this Behavior<Cell<T>> bca) => bca.SwitchCImpl<T, Cell<T>>();
 
     /// <summary>
-    ///     Unwrap a stream inside a behavior to give a time-varying stream implementation.
+    ///     Unwrap a stream in a behavior to give a time-varying stream implementation.
     ///     When the behavior changes value, the output stream will fire the simultaneous firing (if one exists) from the
     ///     stream
     ///     which the behavior held at the beginning of the transaction.

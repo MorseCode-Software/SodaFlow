@@ -41,7 +41,7 @@ public static class Maybe
     ///     and one containing nothing if it does not.
     /// </summary>
     /// <typeparam name="T">The type of the value, inferred from <paramref name="value" />.</typeparam>
-    /// <param name="condition">Whether the value should be contained.</param>
+    /// <param name="condition">True to hold the value.</param>
     /// <param name="value">The value to contain when <paramref name="condition" /> holds.</param>
     /// <returns>
     ///     A <see cref="Maybe{T}" /> containing <paramref name="value" /> if
@@ -62,7 +62,7 @@ public static class Maybe
     ///     condition holds, and one containing nothing if it does not.
     /// </summary>
     /// <typeparam name="T">The type of the value, inferred from <paramref name="valueFactory" />.</typeparam>
-    /// <param name="condition">Whether a value should be produced and contained.</param>
+    /// <param name="condition">True to make a value and hold it.</param>
     /// <param name="valueFactory">Run to produce the value when <paramref name="condition" /> holds.</param>
     /// <returns>
     ///     A <see cref="Maybe{T}" /> containing the result of <paramref name="valueFactory" /> if
@@ -211,7 +211,7 @@ public static class Maybe
 }
 
 /// <summary>
-///     A value which may or may not be present.
+///     A value that is present, or that is not present.
 /// </summary>
 /// <typeparam name="T">The type of the value, when there is one.</typeparam>
 /// <remarks>
@@ -269,14 +269,14 @@ public struct Maybe<T> : IMaybe, IEquatable<Maybe<T>>, IComparable<Maybe<T>>
         this.Match(onSome: v => onSome(v), onNone: onNone);
 
     /// <summary>
-    ///     Runs one of two functions depending on whether a value is present, and returns its result.
+    ///     Runs one function when there is a value, and a different one when there is none.
     /// </summary>
     /// <typeparam name="TResult">The type each of the two functions returns.</typeparam>
-    /// <param name="onSome">Run with the contained value when one is present.</param>
-    /// <param name="onNone">Run when no value is present.</param>
+    /// <param name="onSome">Run with the contained value when there is one.</param>
+    /// <param name="onNone">Run when there is no value.</param>
     /// <returns>Whatever the function that was run returned.</returns>
     /// <remarks>
-    ///     This is the only way the contained value is reached, and every other member here is
+    ///     This is the only way the contained value is reached, and each other member here is
     ///     expressed in terms of it. Exactly one of the two functions is called, before this method
     ///     returns.
     /// </remarks>
@@ -291,10 +291,10 @@ public struct Maybe<T> : IMaybe, IEquatable<Maybe<T>>, IComparable<Maybe<T>>
 
     // ReSharper disable once ReturnValueOfPureMethodIsNotUsed
     /// <summary>
-    ///     Runs one of two actions depending on whether a value is present.
+    ///     Runs one action when there is a value, and a different action when there is none.
     /// </summary>
-    /// <param name="onSome">Run with the contained value when one is present.</param>
-    /// <param name="onNone">Run when no value is present.</param>
+    /// <param name="onSome">Run with the contained value when there is one.</param>
+    /// <param name="onNone">Run when there is no value.</param>
     public void MatchVoid(
         [InstantHandle] Action<T> onSome,
         [InstantHandle] Action onNone) =>
@@ -302,9 +302,9 @@ public struct Maybe<T> : IMaybe, IEquatable<Maybe<T>>, IComparable<Maybe<T>>
 
     // ReSharper disable once ReturnValueOfPureMethodIsNotUsed
     /// <summary>
-    ///     Runs an action with the contained value if one is present, and otherwise does nothing.
+    ///     Runs an action with the contained value when there is one, and otherwise does nothing.
     /// </summary>
-    /// <param name="onSome">Run with the contained value when one is present.</param>
+    /// <param name="onSome">Run with the contained value when there is one.</param>
     public void MatchSome([InstantHandle] Action<T> onSome) =>
         this.MatchVoid(
             onSome: onSome,
@@ -314,9 +314,9 @@ public struct Maybe<T> : IMaybe, IEquatable<Maybe<T>>, IComparable<Maybe<T>>
 
     // ReSharper disable once ReturnValueOfPureMethodIsNotUsed
     /// <summary>
-    ///     Runs an action if no value is present, and otherwise does nothing.
+    ///     Runs an action when there is no value, and otherwise does nothing.
     /// </summary>
-    /// <param name="onNone">Run when no value is present.</param>
+    /// <param name="onNone">Run when there is no value.</param>
     public void MatchNone([InstantHandle] Action onNone) =>
         this.MatchVoid(
             onSome: static _ =>
@@ -325,12 +325,12 @@ public struct Maybe<T> : IMaybe, IEquatable<Maybe<T>>, IComparable<Maybe<T>>
             onNone: onNone);
 
     /// <summary>
-    ///     Runs one of two asynchronous functions depending on whether a value is present, and
+    ///     Runs one asynchronous function when there is a value, and a different one when there is none.
     ///     returns its result.
     /// </summary>
     /// <typeparam name="TResult">The type each of the two functions produces.</typeparam>
-    /// <param name="onSome">Run with the contained value when one is present.</param>
-    /// <param name="onNone">Run when no value is present.</param>
+    /// <param name="onSome">Run with the contained value when there is one.</param>
+    /// <param name="onNone">Run when there is no value.</param>
     /// <returns>The task returned by whichever function was run.</returns>
     /// <remarks>
     ///     Only the selected function is invoked; the returned task is its task, not a wrapper, so
@@ -342,10 +342,10 @@ public struct Maybe<T> : IMaybe, IEquatable<Maybe<T>>, IComparable<Maybe<T>>
         this.Match(onSome: onSome, onNone: onNone);
 
     /// <summary>
-    ///     Runs one of two asynchronous actions depending on whether a value is present.
+    ///     Runs one asynchronous action when there is a value, and a different one when there is none.
     /// </summary>
-    /// <param name="onSome">Run with the contained value when one is present.</param>
-    /// <param name="onNone">Run when no value is present.</param>
+    /// <param name="onSome">Run with the contained value when there is one.</param>
+    /// <param name="onNone">Run when there is no value.</param>
     /// <returns>A task which completes when the selected action has completed.</returns>
     public Task MatchAsyncVoid(
         [InstantHandle] Func<T, Task> onSome,
@@ -353,10 +353,10 @@ public struct Maybe<T> : IMaybe, IEquatable<Maybe<T>>, IComparable<Maybe<T>>
         this.MatchAsync(onSome: onSome.ToAsyncFunc(), onNone: onNone.ToAsyncFunc());
 
     /// <summary>
-    ///     Runs an asynchronous action with the contained value if one is present, and otherwise
+    ///     Runs an asynchronous action with the contained value when there is one, and otherwise
     ///     does nothing.
     /// </summary>
-    /// <param name="onSome">Run with the contained value when one is present.</param>
+    /// <param name="onSome">Run with the contained value when there is one.</param>
     /// <returns>
     ///     A task which completes when the action has completed, or an already completed task if no
     ///     value is present.
@@ -365,9 +365,9 @@ public struct Maybe<T> : IMaybe, IEquatable<Maybe<T>>, IComparable<Maybe<T>>
         this.MatchAsyncVoid(onSome: onSome, onNone: static () => Task.FromResult(false));
 
     /// <summary>
-    ///     Runs an asynchronous action if no value is present, and otherwise does nothing.
+    ///     Runs an asynchronous action when there is no value, and otherwise does nothing.
     /// </summary>
-    /// <param name="onNone">Run when no value is present.</param>
+    /// <param name="onNone">Run when there is no value.</param>
     /// <returns>
     ///     A task which completes when the action has completed, or an already completed task if a
     ///     value is present.
@@ -388,7 +388,7 @@ public struct Maybe<T> : IMaybe, IEquatable<Maybe<T>>, IComparable<Maybe<T>>
     public Maybe<TResult> Map<TResult>([InstantHandle] Func<T, TResult> f) => this.Bind(v => Maybe.Some(f(v)));
 
     /// <summary>
-    ///     Returns whether a value is present.
+    ///     Gives true when there is a value.
     /// </summary>
     /// <returns>
     ///     <see langword="true" /> if this contains a value, and <see langword="false" /> otherwise.
@@ -450,7 +450,7 @@ public struct Maybe<T> : IMaybe, IEquatable<Maybe<T>>, IComparable<Maybe<T>>
     public static implicit operator Maybe<T>(Maybe.NoneType _) => None;
 
     /// <summary>
-    ///     Determines whether two instances contain equal values, or both contain none.
+    ///     Gives true when two instances contain equal values, or both contain none.
     /// </summary>
     /// <param name="x">The first instance.</param>
     /// <param name="y">The second instance.</param>
@@ -465,7 +465,7 @@ public struct Maybe<T> : IMaybe, IEquatable<Maybe<T>>, IComparable<Maybe<T>>
     // ReSharper restore NullableWarningSuppressionIsUsed
 
     /// <summary>
-    ///     Determines whether two instances differ, by negating <see cref="op_Equality" />.
+    ///     Gives true when two instances differ. This negates <see cref="op_Equality" />.
     /// </summary>
     /// <param name="x">The first instance.</param>
     /// <param name="y">The second instance.</param>
@@ -476,7 +476,7 @@ public struct Maybe<T> : IMaybe, IEquatable<Maybe<T>>, IComparable<Maybe<T>>
     public static bool operator !=(Maybe<T> x, Maybe<T> y) => !(x == y);
 
     /// <summary>
-    ///     Determines whether the given object is a <see cref="Maybe{T}" /> of this type equal to
+    ///     Gives true when the given object is a <see cref="Maybe{T}" /> of this type equal to
     ///     this one.
     /// </summary>
     /// <param name="obj">The object to compare against.</param>
@@ -491,7 +491,7 @@ public struct Maybe<T> : IMaybe, IEquatable<Maybe<T>>, IComparable<Maybe<T>>
     public override bool Equals(object? obj) => obj is Maybe<T> m && this == m;
 
     /// <summary>
-    ///     Determines whether the given instance is equal to this one.
+    ///     Gives true when the given instance is equal to this one.
     /// </summary>
     /// <param name="other">The instance to compare against.</param>
     /// <returns>
@@ -500,8 +500,8 @@ public struct Maybe<T> : IMaybe, IEquatable<Maybe<T>>, IComparable<Maybe<T>>
     /// <remarks>
     ///     The same comparison as <see cref="op_Equality" />, under the name
     ///     <see cref="EqualityComparer{T}.Default" /> looks for. Without it, this being a struct
-    ///     which does not implement <see cref="IEquatable{T}" /> sends every comparison through
-    ///     <see cref="Equals(object)" /> instead, boxing both operands - on every
+    ///     which does not implement <see cref="IEquatable{T}" /> sends each comparison through
+    ///     <see cref="Equals(object)" /> instead, boxing both operands - on each
     ///     <see cref="System.Linq.Enumerable.Distinct{TSource}(IEnumerable{TSource})" />,
     ///     <see cref="System.Linq.Enumerable.Contains{TSource}(IEnumerable{TSource},TSource)" />,
     ///     <see cref="List{T}.IndexOf(T)" /> and dictionary lookup. Being a struct is how this
@@ -520,7 +520,7 @@ public struct Maybe<T> : IMaybe, IEquatable<Maybe<T>>, IComparable<Maybe<T>>
     ///     sorts before the other, and a positive number if this sorts after it.
     /// </returns>
     /// <remarks>
-    ///     No value sorts before every value, which is how <see cref="System.Nullable{T}" /> is
+    ///     No value sorts before each value, which is how <see cref="System.Nullable{T}" /> is
     ///     ordered under <see cref="Comparer{T}.Default" /> and so is the answer least likely to
     ///     surprise. Two instances which both have values are ordered by
     ///     <see cref="Comparer{T}.Default" /> for <typeparamref name="T" />, which throws if
@@ -571,7 +571,7 @@ public struct Maybe<T> : IMaybe, IEquatable<Maybe<T>>, IComparable<Maybe<T>>
     ///     Returns a readable description of this instance, for diagnostics.
     /// </summary>
     /// <returns>
-    ///     <c>{Some: value}</c> when a value is present, and <c>{None}</c> when one is not.
+    ///     <c>{Some: value}</c> when there is a value, and <c>{None}</c> when one is not.
     /// </returns>
     public override string ToString() =>
         this.Match(onSome: static v => $"{{Some: {v}}}", onNone: static () => "{None}");

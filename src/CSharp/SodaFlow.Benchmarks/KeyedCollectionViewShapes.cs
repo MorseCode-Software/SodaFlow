@@ -11,9 +11,9 @@ namespace SodaFlow.Benchmarks;
 /// </summary>
 /// <remarks>
 ///     <para>
-///         <b>Re-derived</b> is what a lift over the whole collection gives you: hold every item in
+///         <b>Re-derived</b> is what a lift over the whole collection gives you: hold each item in
 ///         one cell, and map it through <c>Where</c>, <c>OrderByDescending</c> and <c>Take</c>. It
-///         is three lines, it is obviously correct, and it does all of that work again for every
+///         is three lines, it is obviously correct, and it does all of that work again for each
 ///         edit, however small. The version here is the charitable one — the items live in an
 ///         immutable dictionary so that applying the edit itself is O(log32 n) rather than a copy
 ///         of the whole list, which leaves the re-derivation as the thing actually being measured.
@@ -35,7 +35,7 @@ file interface IKeyedCollectionViewShape
     // ReSharper disable once UnusedMemberInSuper.Global - Defines shape expected for implementers
     IReadOnlyList<int> Keys { get; }
 
-    /// <summary>Replaces one item's state, which may move it within the view or out of it.</summary>
+    /// <summary>Replaces one item's state, which can move it in the view or out of it.</summary>
     // ReSharper disable once UnusedMemberInSuper.Global - Defines shape expected for implementers
     void Replace(int key, ItemState state);
 
@@ -68,8 +68,8 @@ internal static class ViewSeed
 }
 
 /// <summary>
-///     One cell holding every item, mapped through <c>Where</c>, <c>OrderByDescending</c> and
-///     <c>Take</c> — re-derived in full on every edit.
+///     One cell holding each item, mapped through <c>Where</c>, <c>OrderByDescending</c> and
+///     <c>Take</c> — re-derived in full on each edit.
 /// </summary>
 // ReSharper disable once InheritdocConsiderUsage
 internal sealed class RederivedViewShape : IKeyedCollectionViewShape
@@ -237,8 +237,8 @@ internal sealed class ChainedViewShape : IKeyedCollectionViewShape
 
     /// <param name="itemCount">How many items the collection holds.</param>
     /// <param name="style">
-    ///     Which halves the two stages read. Every arrangement holds the same keys in the same
-    ///     places: the seed gives every item a score equal to its number, and the initial threshold
+    ///     Which halves the two stages read. Each arrangement holds the same keys in the same
+    ///     places: the seed gives each item a score equal to its number, and the initial threshold
     ///     admits all of them - so what differs between them is only which half each stage reads,
     ///     and therefore how much of a state edit it can ignore.
     /// </param>
@@ -270,7 +270,7 @@ internal sealed class ChainedViewShape : IKeyedCollectionViewShape
             // The identity filter admits everything, as the threshold one does at its initial
             // value. What is being measured is not what the predicate answers - the ordinary
             // filter looks the item up and asks either way - but whether it has to ask at all.
-            // The two selective arrangements keep the same items - the seed gives every item a
+            // The two selective arrangements keep the same items - the seed gives each item a
             // score equal to its number, so even scores and even numbers are the same half - and
             // differ only in which half they had to read to find that out.
             ReactiveCollection<int, ItemIdentity, ItemState> filtered =
@@ -415,7 +415,7 @@ file interface IKeyedPagingShape
 }
 
 /// <summary>
-///     One cell holding every item, re-sorted and re-windowed on every page turn and every edit.
+///     One cell holding each item, re-sorted and re-windowed on each page turn and each edit.
 /// </summary>
 // ReSharper disable once InheritdocConsiderUsage
 internal sealed class RederivedPageShape : IKeyedPagingShape
@@ -505,7 +505,7 @@ internal sealed class RederivedPageShape : IKeyedPagingShape
 /// </summary>
 /// <remarks>
 ///     A criteria change rebuilds the stage that owns the criteria, and for most stages that is the
-///     expensive path - a filter files every surviving key into a fresh ordered set. A slice's
+///     expensive path - a filter files each surviving key into a fresh ordered set. A slice's
 ///     rebuild is a <c>RangeKeys</c> over the ordering it already had, which is a lazy view and
 ///     costs nothing to construct. That is the asymmetry the page-turn benchmarks exist to show.
 /// </remarks>
