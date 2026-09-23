@@ -116,27 +116,38 @@ let listenStrong handler (stream: Stream<_>) =
 let attachListener listener (stream: Stream<_>) = stream.AttachListenerImpl listener
 
 /// <summary>
-///     Listens for the next firing only, then stops.
+///     Listens for the next firing only, then stops, without keeping the stream alive.
 /// </summary>
 /// <param name="handler">Run with the first fired value.</param>
 /// <param name="stream">The stream to listen to.</param>
 /// <returns>
-///     A strong listener, which may be stopped before that first firing arrives if it is no longer
-///     wanted.
+///     A weak listener, which may be stopped with <c>WeakListener.unlisten</c> before that first
+///     firing arrives if it is no longer wanted.
 /// </returns>
+/// <remarks>
+///     The returned handle is the only thing which keeps the handler alive, so hold it until that
+///     first firing arrives. A caller which discards it compiles, and the handler then runs or
+///     does not run according to when the garbage collector runs. Use <c>listenOnceStrong</c>
+///     where the caller does not keep the handle.
+/// </remarks>
 [<MethodImpl(MethodImplOptions.NoInlining)>]
 let listenOnce handler (stream: Stream<_>) =
     stream.ListenOnceImpl(Action<_> handler)
 
 /// <summary>
-///     Listens for the next firing only, then stops.
+///     Listens for the next firing only, then stops, and keeps the stream alive until that firing.
 /// </summary>
 /// <param name="handler">Run with the first fired value.</param>
 /// <param name="stream">The stream to listen to.</param>
 /// <returns>
-///     A strong listener, which may be stopped before that first firing arrives if it is no longer
-///     wanted.
+///     A strong listener, which may be stopped with <c>StrongListener.unlisten</c> or disposed
+///     before that first firing arrives if it is no longer wanted.
 /// </returns>
+/// <remarks>
+///     The listener roots the stream until that first firing. Thus the handler runs when the
+///     caller discards the handle. The root ends with that firing, or with an earlier stop.
+///     Use <c>listenOnce</c> where the listener must not extend the lifetime of what it observes.
+/// </remarks>
 [<MethodImpl(MethodImplOptions.NoInlining)>]
 let listenOnceStrong handler (stream: Stream<_>) =
     stream.ListenOnceStrongImpl(Action<_> handler)

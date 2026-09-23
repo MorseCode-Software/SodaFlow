@@ -106,20 +106,29 @@ public static class StreamExtensionMethods
     public static Stream<T> AttachListener<T>(this Stream<T> s, IListener listener) => s.AttachListenerImpl(listener);
 
     /// <summary>
-    ///     Handle the first event on this stream and then automatically unregister.
+    ///     Handle the first event on this stream and then automatically unregister, without keeping the
+    ///     stream alive.
     /// </summary>
     /// <typeparam name="T">The type of the stream.</typeparam>
     /// <param name="s">The stream.</param>
     /// <param name="handler">The handler to execute for values fired by this stream.</param>
     /// <returns>
-    ///     An <see cref="IStrongListener" /> which may be disposed to stop listening before that first event
-    ///     arrives, if it is no longer wanted.
+    ///     An <see cref="IWeakListener" /> whose <see cref="IListener.Unlisten" /> stops the listener before
+    ///     that first event arrives, if it is no longer wanted.
     /// </returns>
+    /// <remarks>
+    ///     This does not root the stream, and the returned listener is the only thing which keeps the
+    ///     handler alive.  Hold it until that first event arrives.  A caller which discards it compiles,
+    ///     and the handler then runs or does not run according to when the garbage collector runs.  Use
+    ///     <see cref="ListenOnceStrong{T}(Stream{T}, Action{T})" /> where the caller does not keep the
+    ///     listener.
+    /// </remarks>
     [MethodImpl(MethodImplOptions.NoInlining)]
     public static IWeakListener ListenOnce<T>(this Stream<T> s, Action<T> handler) => s.ListenOnceImpl(handler);
 
     /// <summary>
-    ///     Handle the first event on this stream and then automatically unregister.
+    ///     Handle the first event on this stream and then automatically unregister, keeping the stream
+    ///     alive until that first event arrives.
     /// </summary>
     /// <typeparam name="T">The type of the stream.</typeparam>
     /// <param name="s">The stream.</param>
@@ -128,6 +137,12 @@ public static class StreamExtensionMethods
     ///     An <see cref="IStrongListener" /> which may be disposed to stop listening before that first event
     ///     arrives, if it is no longer wanted.
     /// </returns>
+    /// <remarks>
+    ///     This roots the stream until that first event arrives.  Thus the handler runs when the caller
+    ///     discards the returned listener.  The root ends with that first event, or with an earlier
+    ///     <see cref="IListener.Unlisten" />.  Use <see cref="ListenOnce{T}(Stream{T}, Action{T})" /> where
+    ///     the listener must not extend the lifetime of what it observes.
+    /// </remarks>
     [MethodImpl(MethodImplOptions.NoInlining)]
     public static IStrongListener ListenOnceStrong<T>(this Stream<T> s, Action<T> handler) =>
         s.ListenOnceStrongImpl(handler);
