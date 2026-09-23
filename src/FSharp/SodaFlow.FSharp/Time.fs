@@ -2,14 +2,13 @@
 ///     Timer systems: clocks, and streams which fire at times drawn from them.
 /// </summary>
 /// <remarks>
-///     Use <c>SystemClockTimerSystem</c> or <c>SecondsTimerSystem</c> unless a clock of your own
-///     is needed, in which case derive from <c>TimerSystemImplementationBase</c> and pass it to
-///     <c>TimerSystem</c>.
+///     Use <c>SystemClockTimerSystem</c> or <c>SecondsTimerSystem</c>. For a different clock,
+///     derive a type from <c>TimerSystemImplementationBase</c> and give it to <c>TimerSystem</c>.
 ///
-///     Alarms reach the graph through a <c>Transaction.onStart</c> hook: when a transaction starts,
-///     the hook reads the clock, runs any timer that has come due and sends the resulting alarms.
-///     Alarms that came due at the same time are delivered together, and alarms at different times
-///     in separate transactions.
+///     Alarms get to the graph through a <c>Transaction.onStart</c> handler. When a transaction starts,
+///     the handler reads the clock, runs each timer that is due, and sends the alarms. It sends the
+///     alarms that became due at the same time together, and it sends alarms at different times in
+///     different transactions.
 /// </remarks>
 module SodaFlow.Time
 
@@ -19,11 +18,11 @@ open System.Collections.Generic
 open System.Threading
 
 /// <summary>
-///     A handle for canceling a timer that has been set.
+///     A handle to cancel a timer.
 /// </summary>
 /// <remarks>
-///     Disposing the timer does the same thing as canceling it; only one of the two is needed.
-///     Apart from that, these do not need to be disposed.
+///     A disposal of the timer has the same result as a cancellation. Only one of the two is
+///     necessary. In each other condition, a disposal of a timer is not necessary.
 /// </remarks>
 type ITimer =
     inherit IDisposable
@@ -31,8 +30,8 @@ type ITimer =
     ///     Cancels the timer, so that it will not fire.
     /// </summary>
     /// <remarks>
-    ///     Has no effect if the timer has already fired or already been canceled, so it is safe to
-    ///     call more than once.
+    ///     This does nothing when the timer fired, and when a call canceled it, so it is safe to
+    ///     call more than one time.
     /// </remarks>
     abstract member Cancel: unit -> unit
 
@@ -44,30 +43,30 @@ type ITimer =
 ///     <c>SystemClockTimerSystem</c>, <c>float</c> for <c>SecondsTimerSystem</c>.
 /// </typeparam>
 /// <remarks>
-///     <c>TimerSystem</c> is the implementation that ships. Alarms from <c>At</c> arrive in a
-///     transaction of their own, so nothing is required of the application beyond listening.
+///     <c>TimerSystem</c> is the implementation in this library. Alarms from <c>At</c> get to the
+///     graph in a transaction of their own, thus other code must only listen.
 /// </remarks>
 type ITimerSystem<'T when 'T: comparison> =
     /// <summary>
     ///     A behavior giving the current clock time.
     /// </summary>
     /// <remarks>
-    ///     Updated as alarms are delivered rather than continuously, so it moves in the steps the
-    ///     timers make it take, not with every tick of the underlying clock.
+    ///     This changes as the timer system sends alarms, and not continuously. Thus, it moves in the
+    ///     steps of the timers, and not with each count of the clock below it.
     /// </remarks>
     abstract member Time: Behavior<'T>
     /// <summary>
     ///     A stream which fires at the time held in a cell.
     /// </summary>
     /// <returns>
-    ///     A stream firing the alarm time, once, each time the cell settles on a <c>Some</c> whose
-    ///     time is reached.
+    ///     A stream that fires the alarm time one time. This occurs at each move of the cell to a
+    ///     <c>Some</c> with a time that the clock gets to.
     /// </returns>
     /// <remarks>
-    ///     The cell holding <c>None</c> means no alarm is pending. Changing the cell cancels whatever
-    ///     alarm was outstanding and schedules the new one, so this is how a timer is rescheduled or
-    ///     called off. A time already in the past fires at the next opportunity rather than being
-    ///     dropped.
+    ///     A cell that holds <c>None</c> means that no alarm is pending. A change to the cell cancels
+    ///     the alarm that was set and schedules the new alarm. Thus, this is how code sets a timer
+    ///     again, and how it cancels a timer. A time before now fires at the next opportunity, and the
+    ///     timer system does not drop it.
     /// </remarks>
     abstract member At: Cell<'T option> -> Stream<'T>
 
@@ -85,27 +84,28 @@ type ITimerSystemImplementation<'T> =
     ///     Starts whatever machinery this implementation uses to notice that a timer has come due.
     /// </summary>
     /// <remarks>
-    ///     Called once, from the <c>TimerSystem</c> constructor. The function passed in is called with
-    ///     any exception raised while waiting for or firing timers, and is expected to absorb it.
+    ///     The <c>TimerSystem</c> constructor calls this one time. This code calls the given function
+    ///     with each exception from a wait for a timer, and from a timer that fires. That function must
+    ///     absorb the exception.
     ///
-    ///     An implementation which waits should do so on a thread it owns rather than on the thread
-    ///     pool, since alarms stop being delivered entirely if that wait cannot be scheduled.
+    ///     An implementation that waits must wait on a thread of its own, and not on the thread pool.
+    ///     The alarms stop fully when the pool cannot schedule that wait.
     /// </remarks>
     abstract member Start: (exn -> unit) -> unit
     /// <summary>
-    ///     Schedules a callback to run once the clock reaches the given time.
+    ///     Schedules a callback to run when the clock reaches the given time.
     /// </summary>
-    /// <returns>A handle which can be used to cancel the timer before it fires.</returns>
+    /// <returns>A handle to cancel the timer before it fires.</returns>
     /// <remarks>
-    ///     A time already in the past fires at the next opportunity rather than being dropped.
+    ///     A time before now fires at the next opportunity, and the timer system does not drop it.
     /// </remarks>
     abstract member SetTimer: 'T -> (unit -> unit) -> ITimer
     /// <summary>
-    ///     Fires every timer scheduled at or before the given time, on the calling thread.
+    ///     Fires each timer scheduled at or before the given time, on the calling thread.
     /// </summary>
     /// <remarks>
-    ///     Called from the transaction start hook, which is what lets alarms be delivered by a
-    ///     transaction that happens to start rather than only by the implementation itself.
+    ///     The <c>Transaction.onStart</c> handler calls this. Thus, a transaction that starts can send alarms, and
+    ///     not only the implementation.
     /// </remarks>
     abstract member RunTimersTo: 'T -> unit
     abstract member Now: 'T
@@ -113,19 +113,19 @@ type ITimerSystemImplementation<'T> =
 type private Event<'T> = { Time: 'T; Alarm: StreamSink<'T> }
 
 /// <summary>
-///     A timer system built on an <c>ITimerSystemImplementation</c>, which supplies the clock and
-///     the waiting; this type supplies the FRP.
+///     A timer system on an <c>ITimerSystemImplementation</c>, which gives the clock and the wait
+///     mechanism. This type gives the FRP.
 /// </summary>
 /// <typeparam name="'T">The type used to express a point in time.</typeparam>
 /// <param name="implementation">The clock and waiting mechanism to build on.</param>
 /// <param name="handleException">Called with any exception raised while waiting for or firing timers.</param>
 /// <remarks>
-///     Constructing one starts its implementation and installs a <c>Transaction.onStart</c> hook
-///     which lives for the lifetime of the process, so these are meant to be created once rather
-///     than per unit of work.
+///     The construction of one starts its implementation and installs a <c>Transaction.onStart</c>
+///     handler that stays for the life of the process. Thus, make one of these one time, and not one
+///     for each unit of work.
 ///
-///     Use <c>SystemClockTimerSystem</c> or <c>SecondsTimerSystem</c> unless a clock of your own
-///     is needed.
+///     Use <c>SystemClockTimerSystem</c> or <c>SecondsTimerSystem</c>, unless a different clock is
+///     necessary.
 /// </remarks>
 type TimerSystem<'T when 'T: comparison>(implementation: 'T ITimerSystemImplementation, handleException: exn -> unit) =
     let eventQueue = Queue<Event<'T>>()
@@ -204,25 +204,24 @@ type private WaitOrFire =
 /// </summary>
 /// <typeparam name="'T">The type used to express a point in time.</typeparam>
 /// <remarks>
-///     Override <c>Now</c> and <c>SubtractTimes</c>; the ordering, waiting and firing of timers is
-///     handled here.
+///     Override <c>Now</c> and <c>SubtractTimes</c>. This type puts the timers in order, waits, and
+///     fires them.
 ///
-///     The waiting is done on a dedicated background thread rather than on the thread pool.
-///     Nothing else fires alarms on its own - the transaction start hook only runs timers when some
-///     transaction happens to start - so an application that is merely waiting for an alarm depends
-///     entirely on that loop, and a loop that can be starved by pool work would stop delivering
-///     alarms altogether. The thread does not keep the process alive.
+///     The wait occurs on a dedicated background thread, and not on the thread pool. No other code fires
+///     alarms, because the <c>Transaction.onStart</c> handler runs timers only when a transaction starts. Thus,
+///     code that waits for an alarm is dependent on that loop, and pool work that starves the loop stops the
+///     alarms. The thread does not keep the process in operation.
 /// </remarks>
 [<AbstractClass>]
 type TimerSystemImplementationBase<'T when 'T: comparison>() as this =
     let lockObject = obj ()
     let timers = SortedSet<SimpleTimer<'T>>()
 
-    // Signaled whenever the timer set changes, to wake the timer thread so it can recompute how
-    // long to wait. An AutoResetEvent rather than a CancellationTokenSource: a signal raised while
-    // the thread is between computing its wait and entering it is latched, so the next wait returns
-    // immediately instead of sleeping through the change. The previous design allocated a fresh
-    // CancellationTokenSource on every iteration and never disposed one.
+    // A change to the timer set signals this, to wake the timer thread. The thread then calculates
+    // the new wait. This is an AutoResetEvent and not a CancellationTokenSource. A signal latches
+    // after the thread calculates its wait and before that wait starts. Thus, the next wait
+    // returns immediately, and does not sleep through the change. The initial code allocated a new
+    // CancellationTokenSource at each step, and disposed of none of them.
     let timersChanged = new AutoResetEvent(false)
 
     let mutable nextSeq = 0
@@ -260,8 +259,8 @@ type TimerSystemImplementationBase<'T when 'T: comparison>() as this =
     ///     the two.
     /// </returns>
     /// <remarks>
-    ///     Used to work out how long to wait for the next timer, so it must return a real duration
-    ///     rather than a comparison result.
+    ///     This calculates the wait for the next timer, thus it must return a true interval, and not
+    ///     the result of a compare.
     /// </remarks>
     abstract member SubtractTimes: 'T -> 'T -> TimeSpan
 
@@ -269,25 +268,24 @@ type TimerSystemImplementationBase<'T when 'T: comparison>() as this =
     ///     The current time according to this implementation's clock.
     /// </summary>
     /// <remarks>
-    ///     Read on every pass of the waiting loop, so it should be cheap, and it must move forward
-    ///     monotonically enough that scheduled times are eventually reached.
+    ///     The wait loop reads this at each step, thus its cost must be low. It must also move forward
+    ///     sufficiently for the clock to get to each scheduled time.
     /// </remarks>
     abstract member Now: 'T
 
     interface 'T ITimerSystemImplementation with
         // A dedicated thread rather than the thread pool.
         //
-        // Nothing else fires alarms: the Transaction.onStart hook calls RunTimersTo, but only when
-        // some transaction happens to start, so an application that is merely waiting depends
-        // entirely on this loop. Running it with Async.Start made that dependency a liveness
-        // hazard - every iteration needed a pool thread, once to start and again for each
-        // Task.Delay continuation, and a cancellation only queued that continuation. With the pool
-        // saturated the loop simply never ran, and alarms were never fired at all.
+        // No other code fires alarms. The <c>Transaction.onStart</c> handler calls RunTimersTo, but
+        // only when a transaction starts. Thus, code that only waits is dependent on this loop.
+        // Async.Start made that dependency dangerous for liveness. Each step needed a pool thread: one
+        // time to start, and again for each Task.Delay continuation. A cancellation only put that
+        // continuation in the queue. With a full pool the loop never ran, and no alarm fired.
         //
-        // A background thread cannot be starved by pool work, and WaitOne serves as both the timed
-        // wait and the wake. This mirrors the C# implementation, where the same bug was diagnosed
-        // by saturating the pool: eight of eight runs delivered zero events after waiting two
-        // seconds for alarms a hundred milliseconds out, against zero of eight unstarved.
+        // Pool work cannot starve a background thread, and WaitOne is the timed wait and the wake. This
+        // is the same as the C# implementation, where a full pool showed the same bug. Eight of eight
+        // runs sent zero events after a wait of two seconds. The alarms were one hundred milliseconds in
+        // the future. Zero of eight runs gave this result with a pool that was not full.
         member this.Start handleException =
             let timerThread =
                 Thread(
@@ -310,10 +308,10 @@ type TimerSystemImplementationBase<'T when 'T: comparison>() as this =
             let timer = new SimpleTimer<_>(this, time, callback)
             lock lockObject (fun () -> timers.Add(timer) |> ignore)
 
-            // Signaled outside the lock. Canceling the old token source was done while holding
-            // it, and cancellation runs its callbacks synchronously, so the waiting loop could
-            // resume inline on this thread and re-enter timeUntilNext while the caller still held
-            // the lock.
+            // This signals out of the lock. The initial code canceled the previous token source with the
+            // lock held, and a cancellation runs its callbacks synchronously. Thus, the wait loop can
+            // start again inline on this thread, and enter timeUntilNext again while the caller holds the
+            // lock.
             timersChanged.Set() |> ignore
             upcast timer
 
@@ -322,16 +320,16 @@ type TimerSystemImplementationBase<'T when 'T: comparison>() as this =
         member this.Now = this.Now
 
 /// <summary>
-///     One scheduled timer within a <c>TimerSystemImplementationBase</c>.
+///     One scheduled timer in a <c>TimerSystemImplementationBase</c>.
 /// </summary>
 /// <typeparam name="'T">The type used to express a point in time.</typeparam>
-/// <param name="implementation">The implementation this timer is scheduled in.</param>
+/// <param name="implementation">The implementation that holds this timer.</param>
 /// <param name="time">The time at which the callback is to run.</param>
 /// <param name="callback">The callback to run.</param>
 /// <remarks>
-///     Returned from <c>SetTimer</c> as an <c>ITimer</c>; there is no reason to construct one
-///     directly. Ordered by time, and by creation order where two share a time, so that timers set
-///     for the same instant fire in the order they were set.
+///     <c>SetTimer</c> gives one of these as an <c>ITimer</c>. Do not make one directly. These are
+///     in order of time, and in order of construction where two have the same time. Thus, timers
+///     for the same instant fire in the sequence that the code set them.
 /// </remarks>
 and SimpleTimer<'T when 'T: comparison>
     (implementation: 'T TimerSystemImplementationBase, time: 'T, callback: unit -> unit) as this =
@@ -349,11 +347,11 @@ and SimpleTimer<'T when 'T: comparison>
         else
             compare x.Seq y.Seq
 
-    // Deliberately does not signal the timer thread. Waking it early to recompute a deadline that
-    // has only got later gains nothing, and with an AutoResetEvent it costs: the signal here
-    // releases the waiter, and the Set in whichever SetTimer replaces this timer latches for the
-    // next wait, so one replacement drives two recompute cycles where a stale wait replaced once
-    // would have done.
+    // This does not signal the timer thread, on purpose. A signal to calculate a deadline that
+    // moved forward gains nothing, and with an AutoResetEvent it has a cost. The signal here
+    // releases the waiter, and the Set in the SetTimer that replaces this timer latches for the
+    // next wait. Thus, one replacement causes the thread to calculate two times, and one time is
+    // sufficient.
     let cancel () =
         lock implementation.LockObject (fun () -> implementation.Timers.Remove(this) |> ignore)
 
@@ -365,7 +363,7 @@ and SimpleTimer<'T when 'T: comparison>
         member this.Cancel() = cancel ()
 
     /// <summary>
-    ///     Determines whether another object is the same scheduled timer.
+    ///     Gives true when a second object is the same scheduled timer.
     /// </summary>
     /// <returns>
     ///     <c>true</c> if the other object is a timer of the same type scheduled for the same time and
@@ -379,7 +377,7 @@ and SimpleTimer<'T when 'T: comparison>
     /// <summary>
     ///     Returns a hash code for this timer.
     /// </summary>
-    /// <returns>A hash of the time the timer is scheduled for.</returns>
+    /// <returns>A hash of the time of the timer.</returns>
     override this.GetHashCode() = hash this.Time
 
     interface IComparable<'T SimpleTimer> with
@@ -404,9 +402,9 @@ type private SystemClockTimerSystemImplementation() =
 /// </summary>
 /// <param name="handleException">Called with any exception raised while waiting for or firing timers.</param>
 /// <remarks>
-///     Times are <c>System.DateTime</c> values, so alarms can be set against wall-clock times
-///     directly. Note that the clock can move backwards - a manual change, or a daylight saving
-///     adjustment - and an alarm set past such a jump waits until the clock reaches it again.
+///     Times are <c>System.DateTime</c> values, thus code can set an alarm against a wall-clock
+///     time directly. The clock can move to an earlier time, after a manual change or a daylight
+///     saving adjustment. An alarm after such a change waits until the clock gets to it again.
 /// </remarks>
 type SystemClockTimerSystem(handleException: exn -> unit) =
     inherit TimerSystem<DateTime>(SystemClockTimerSystemImplementation(), handleException)
@@ -418,7 +416,7 @@ type private SecondsTimerSystemImplementation() =
     override _.Now = (DateTime.Now - startTime).TotalSeconds
 
 /// <summary>
-///     A timer system measuring time as the number of seconds elapsed since it was created.
+///     A timer system that measures time as the number of seconds after its construction.
 /// </summary>
 /// <param name="handleException">Called with any exception raised while waiting for or firing timers.</param>
 /// <remarks>
