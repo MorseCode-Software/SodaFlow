@@ -1,3 +1,27 @@
+5.0.0
+
+BREAKING: ListenOnce returns IWeakListener, where it returned IStrongListener,
+and ListenOnceStrong is new and does what ListenOnce used to do. The one-shot
+listeners now divide the way Listen and ListenStrong have divided since 4.0.0:
+the short name does not root the stream.
+
+This one breaks quietly, and more quietly than the 4.0.0 swap did. Assigning the
+result to an IStrongListener stops compiling and is easy to find. Discarding it
+- which a one-shot subscription invites, since there is often nothing a caller
+wants to do with the listener - keeps compiling and becomes a subscription that
+fires only where no collection happens first. Rename every existing ListenOnce
+call to ListenOnceStrong, then decide which of them want to be weak.
+
+Where a call keeps the weak listener, keep it until the firing arrives: nothing
+else holds the handler, because the node reaches it through a WeakReference.
+
+ListenOnceAsync is unchanged and stays strong. It answers with a task rather
+than a listener, so there is no handle a caller could hold.
+
+BREAKING: requires SodaFlow.Core 5.x, where it required 2.0.0 or newer. That
+package changed the return type of an internal method this one is built
+against, so the two move together. Nothing it changed is in its public surface.
+
 4.0.1
 
 Adds the package icon that nuget.org shows beside this package. No source file
