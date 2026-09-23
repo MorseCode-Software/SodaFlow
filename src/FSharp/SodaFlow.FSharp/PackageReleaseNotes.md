@@ -1,5 +1,15 @@
 5.0.0
 
+Fixed: the At member of the timer system no longer holds an alarm alive
+through the cell it reads. It listened to that cell with a strong listener,
+which the keep-alive set of the cell's graph roots, and that listener holds
+the alarm sink. So every call to At on a long-lived cell left an alarm and a
+listener that nothing could collect, however long ago the caller let go of the
+stream. The listener is weak now and the alarm holds it, which is the
+arrangement every other derived stream in this library uses, and it gives the
+same lifetime from the other side: the alarm keeps its listener while a caller
+keeps the alarm, and both go when the caller does.
+
 BREAKING: Stream.attachListener and its alias attachListenerS are gone. They
 tied a listener's lifetime to a chosen stream, which is how a combinator keeps
 its own wiring alive, and every combinator in this library does that through an

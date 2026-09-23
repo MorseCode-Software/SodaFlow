@@ -182,7 +182,7 @@ type TimerSystem<'T when 'T: comparison>(implementation: 'T ITimerSystemImplemen
 
             let listener =
                 t
-                |> Cell.listenStrong (fun o ->
+                |> Cell.listen (fun o ->
                     currentTimer |> Option.iter (fun timer -> timer.Cancel())
 
                     currentTimer <-

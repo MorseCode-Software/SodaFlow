@@ -22,13 +22,12 @@ namespace SodaFlow.Tests.Memory;
 ///         the parts that make the sink fire. Thus a collection is the event that can break it.
 ///     </para>
 ///     <para>
-///         This does not measure the listener that At attaches to the alarm. I removed that
-///         attached listener and the test did not fail. Two conditions cause that, and the two are
-///         worth a record. The listener is strong, thus the graph of the cell keeps it alive while
-///         a reference to some part above the cell stays. The clock also keeps the alarm, because
-///         the function that At gives to SetTimer holds it. Where no reference above the cell
-///         stays, the cell cannot change, and the listener has no more work. Thus think of the
-///         attached listener as a second safeguard until a test shows more.
+///         The listener that At makes over the cell is weak, and the alarm holds it because At
+///         attaches it. The three tests measure the two directions of that. The alarm keeps its
+///         listener while the caller keeps the alarm, and the cell releases the alarm when the
+///         caller drops it. A strong listener gives the first of those and not the second.
+///         The graph of the cell then holds a listener. That listener holds an alarm which no
+///         code can use.
 ///     </para>
 /// </remarks>
 public sealed class TimerGarbageCollectionTests
@@ -77,6 +76,63 @@ public sealed class TimerGarbageCollectionTests
             await Assert.That(@out)
                 .IsEquivalentTo(expected: [10], ordering: CollectionOrdering.Matching)
                 .Because("the alarm should fire when a collection takes all but the stream");
+        }
+    }
+
+    [Test]
+    public async Task AnAlarmIsCollectedWhenTheCallerDropsItAlthoughItsCellLives()
+    {
+        // No alarm time, so the clock holds nothing: the only question is what the listener
+        // holds. The cell stays reachable from here, as a long-lived sink in a program does.
+        CellSink<Maybe<int>> cell = Cell.CreateSink<Maybe<int>>(Maybe.None);
+
+        WeakReference alarm = this.CreateAlarmAndDropIt(cell);
+
+        Collect();
+
+        await Assert.That(this.implementation.SetTimerCount).IsEqualTo(0);
+
+        await Assert.That(alarm.IsAlive)
+            .IsFalse()
+            .Because("an alarm the caller dropped should not be held by the cell it reads");
+
+        GC.KeepAlive(cell);
+    }
+
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    private WeakReference CreateAlarmAndDropIt(Cell<Maybe<int>> cell) =>
+        new(Transaction.Run(() => this.timers.At(cell)));
+
+    [Test]
+    public async Task AnAlarmStillFollowsItsCellAfterACollection()
+    {
+        CellSink<Maybe<int>> cell = Cell.CreateSink<Maybe<int>>(Maybe.None);
+        List<int> @out = [];
+
+        Stream<int> alarm = Transaction.Run(() => this.timers.At(cell));
+
+        using (alarm.ListenStrong(@out.Add))
+        {
+            // No code but At holds the listener it made. The alarm holds it, because At
+            // attaches it, and the caller holds the alarm. Remove the attached listener and this
+            // collection ends the alarm with no message.
+            Collect();
+
+            Transaction.RunVoid(() => cell.Send(Maybe.Some(10)));
+
+            await Assert.That(this.implementation.SetTimerCount)
+                .IsEqualTo(1)
+                .Because("the alarm should still read its cell after a collection");
+
+            this.implementation.AdvanceTo(10);
+
+            Transaction.RunVoid(static () =>
+            {
+            });
+
+            await Assert.That(@out)
+                .IsEquivalentTo(expected: [10], ordering: CollectionOrdering.Matching)
+                .Because("the timer the cell set after the collection should fire");
         }
     }
 

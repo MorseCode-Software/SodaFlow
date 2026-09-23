@@ -119,7 +119,7 @@ public class TimerSystem<T> : ITimerSystem<T>
         Maybe<ITimer> currentTimer = Maybe.None;
 
         IListener l =
-            t.ListenStrong(m =>
+            t.Listen(m =>
             {
                 currentTimer.MatchSome(static timer => timer.Cancel());
 
