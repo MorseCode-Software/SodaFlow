@@ -271,18 +271,36 @@ let inline listenStrongS handler stream = Stream.listenStrong handler stream
 let inline attachListenerS listener stream = Stream.attachListener listener stream
 
 /// <summary>
-/// Listens for the next firing only, then stops.
+/// Listens for the next firing only, then stops, without keeping the stream alive.
+/// </summary>
+/// <param name="handler">Run with the first fired value.</param>
+/// <param name="stream">The stream to listen to.</param>
+/// <returns>A weak listener. <c>WeakListener.unlisten</c> stops it before that first firing.</returns>
+/// <remarks>
+/// Shorthand for <c>Stream.listenOnce</c>. See it for the full contract.
+///
+/// The handle from this call is the only thing that keeps the handler alive, thus hold it until
+/// that first firing arrives. Where the caller does not keep the handle, use
+/// <c>listenOnceStrongS</c>.
+/// </remarks>
+let inline listenOnceS handler stream = Stream.listenOnce handler stream
+
+/// <summary>
+/// Listens for the next firing only, then stops, and keeps the stream alive until that firing.
 /// </summary>
 /// <param name="handler">Run with the first fired value.</param>
 /// <param name="stream">The stream to listen to.</param>
 /// <returns>
-/// A strong listener, that a caller can stop before that first firing, when the caller no longer
-/// wanted.
+/// A strong listener. <c>StrongListener.unlisten</c> stops it before that first firing, and a
+/// disposal also stops it.
 /// </returns>
 /// <remarks>
-/// Shorthand for <c>Stream.listenOnce</c>. See it for the full contract.
+/// Shorthand for <c>Stream.listenOnceStrong</c>. See it for the full contract.
+///
+/// The listener roots the stream until that first firing, thus the handler runs when the caller
+/// discards the handle.
 /// </remarks>
-let inline listenOnceS handler stream = Stream.listenOnce handler stream
+let inline listenOnceStrongS handler stream = Stream.listenOnceStrong handler stream
 
 /// <summary>
 /// Waits asynchronously for the next firing.

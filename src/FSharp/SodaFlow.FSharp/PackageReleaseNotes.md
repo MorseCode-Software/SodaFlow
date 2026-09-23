@@ -1,3 +1,27 @@
+5.0.0
+
+BREAKING: Stream.listenOnce answers with a weak listener, where it answered with
+a strong one, and Stream.listenOnceStrong is new and answers with what
+listenOnce used to. The aliases follow: listenOnceS is the weak one and
+listenOnceStrongS is new. The one-shot listeners now divide the way listen and
+listenStrong have divided since 4.0.0.
+
+This one breaks quietly. A binding annotated as a strong listener stops
+compiling and is easy to find. A call that ignores the listener - which a
+one-shot subscription invites - keeps compiling and becomes a subscription that
+fires only where no collection happens first. Rename every existing listenOnce
+call to listenOnceStrong, then decide which of them want to be weak.
+
+Where a call keeps the weak listener, keep it until the firing arrives: nothing
+else holds the handler, because the node reaches it through a weak reference.
+
+Stream.listenOnceAsync is unchanged and stays strong. It answers with an async
+rather than a listener, so there is no handle a caller could hold.
+
+BREAKING: requires SodaFlow.Core 5.x, where it required 2.0.0 or newer. That
+package changed the return type of an internal method this one is built
+against, so the two move together. Nothing it changed is in its public surface.
+
 4.0.1
 
 Adds the package icon that nuget.org shows beside this package. No source file

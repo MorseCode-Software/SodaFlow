@@ -14,7 +14,7 @@ that factory makes:
           return factory.FromValue r
       }
 
-FromResult carries a value the operation has. Construct carries a function
+FromValue carries a value the operation has. Construct carries a function
 that the pipeline calls in the transaction that sends the result, which is what
 a result that holds a cell or a stream needs. Keep such a function short,
 because it holds the transaction while it runs, and put no effect in it that

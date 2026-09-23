@@ -31,8 +31,25 @@ something else already owns the lifetime and you do not want the subscription ex
 > genuinely want to be weak. In F# the same applies to `Stream.listen`/`Cell.listen` and their
 > `listenS`/`listenC` aliases.
 
-`ListenOnce` unsubscribes itself after the first firing. `ListenOnceAsync` gives you the same
-thing as a `Task<T>`, with an optional `CancellationToken`.
+`ListenOnce` and `ListenOnceStrong` unsubscribe themselves after the first firing, and divide
+the same way: `ListenOnce` returns an `IWeakListener` and roots nothing, `ListenOnceStrong`
+returns an `IStrongListener` that roots the stream until that first firing arrives. Hold the
+handle `ListenOnce` gives you until the firing you are waiting for; see [the mistake that does
+fail silently](#the-mistake-that-does-fail-silently), which applies to it exactly as it does to
+`Listen`.
+
+`ListenOnceAsync` gives you the same thing as a `Task<T>`, with an optional
+`CancellationToken`. It is strong, necessarily — you get a task rather than a listener, so
+there is no handle you could hold.
+
+> **Upgrading:** `ListenOnce` used to be strong, and `ListenOnceStrong` is new. This is the
+> same swap the two general listen methods went through, with the same failure mode, and it is
+> sharper here because a one-shot subscription is the kind you are most tempted to fire and
+> forget. `s.ListenOnce(handler);` as a bare statement compiles before and after; it delivered
+> before and now delivers only if a collection does not happen first. Rename every
+> pre-existing `ListenOnce` call to `ListenOnceStrong`, then choose which of them genuinely
+> want to be weak. In F# the same applies to `Stream.listenOnce` and its `listenOnceS` alias,
+> whose strong forms are `Stream.listenOnceStrong` and `listenOnceStrongS`.
 
 ## Dropping the listener `ListenStrong` returns
 
@@ -72,6 +89,9 @@ using (result.ListenStrong(@out.Add))
 ```csharp
 // Wrong: nothing holds the weak listener, so it can be collected and stop firing.
 s.Map(x => x * 2).Listen(Console.WriteLine);
+
+// Wrong for the same reason, and easier to write by accident.
+s.Map(x => x * 2).ListenOnce(Console.WriteLine);
 ```
 
 This compiles, runs, and works — until a garbage collection happens, after which it silently
@@ -80,7 +100,8 @@ stops. The node holds your handler through a `WeakReference`, and the returned
 that listener anywhere. Drop it and the handler becomes collectable.
 
 Use `Listen` only when something else owns the lifetime, and hold that reference for
-exactly as long as you want the subscription to live.
+exactly as long as you want the subscription to live. `ListenOnce` is the same method with a
+shorter lifetime: hold its listener until the firing arrives, or call `ListenOnceStrong`.
 
 ## When the framework gives you no teardown hook
 

@@ -64,7 +64,8 @@ handlers, timers, and network callbacks; everything downstream stays pure.
 | `s.Once()` | `onceS s` | Only the next firing, then never again. |
 | `s.Listen(handler)` | `listenS handler s` | Subscribe. Returns `IWeakListener`; does **not** keep the graph alive. |
 | `s.ListenStrong(handler)` | `listenStrongS handler s` | Subscribe and keep the graph alive. Returns `IStrongListener`. |
-| `s.ListenOnce(handler)` | `listenOnceS handler s` | Subscribe, then unsubscribe after one firing. |
+| `s.ListenOnce(handler)` | `listenOnceS handler s` | Subscribe, then unsubscribe after one firing. Returns `IWeakListener`; does **not** keep the graph alive. |
+| `s.ListenOnceStrong(handler)` | `listenOnceStrongS handler s` | As above, keeping the graph alive until that firing. Returns `IStrongListener`. |
 | `s.ListenOnceAsync()` | `listenOnceAsyncS s` | The next firing as a `Task<T>`. |
 | `s.AttachListener(l)` | `attachListenerS l s` | Tie a listener's lifetime to this stream. |
 

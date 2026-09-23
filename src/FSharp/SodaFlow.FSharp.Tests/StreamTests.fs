@@ -739,6 +739,30 @@ type ``Stream Tests``() =
         }
 
     [<Test>]
+    member _.``Test ListenOnceStrong``() =
+        task {
+            let s = sinkS ()
+            let out = List<_>()
+            let l = s |> listenOnceStrongS out.Add
+            s |> sendS 'A'
+            s |> sendS 'B'
+            s |> sendS 'C'
+            l |> unlistenL
+            do! Expect.Sequence([ 'A' ], out)
+        }
+
+    [<Test>]
+    member _.``Test ListenOnceStrong Unlisten Before The First Firing``() =
+        task {
+            let s = sinkS ()
+            let out = List<_>()
+            let l = s |> listenOnceStrongS out.Add
+            l |> unlistenL
+            s |> sendS 'A'
+            do! Expect.Sequence([], out)
+        }
+
+    [<Test>]
     member _.``Test ListenOnceAsync``() =
         task {
             let s = sinkS ()

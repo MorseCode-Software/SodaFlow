@@ -129,15 +129,32 @@ public class Stream<T>
         }
     }
 
-    internal IStrongListener ListenOnceImpl(Action<T> handler)
+    internal IWeakListener ListenOnceImpl(Action<T> handler) =>
+        ListenOnce(listen: this.ListenImpl, noListener: NoListener.Value, handler: handler);
+
+    internal IStrongListener ListenOnceStrongImpl(Action<T> handler) =>
+        ListenOnce(listen: this.ListenStrongImpl, noListener: NoListener.Value, handler: handler);
+
+    // The weak and the strong one-shot listeners do the same thing with a different listener
+    // type. The listener must stop itself at the first value, but listen makes that listener
+    // and returns it only at the end. Thus a value that listen sends again arrives before the
+    // variable listener has a value. The boolean records that condition, and the code after
+    // the call stops the new listener and gives the caller a listener that does nothing.
+    private static TListener ListenOnce<TListener>(
+        Func<Action<T>, TListener> listen,
+        TListener noListener,
+        Action<T> handler)
+        where TListener : class, IListener
     {
-        IStrongListener? listener = null;
+        TListener? listener = null;
         bool unlistenEarly = false;
 
-        IStrongListener listenerToReturn =
-            this.ListenStrongImpl(a =>
+        TListener listenerToReturn =
+            listen(a =>
             {
-                // ReSharper disable once AccessToModifiedClosure
+                // ReSharper disable once AccessToModifiedClosure - The assignment below gives
+                // listener its value after listen returns, and this closure must read the
+                // value it holds at the time the stream fires.
                 IListener? listenerLocal = listener;
 
                 if (listenerLocal == null)
@@ -158,7 +175,7 @@ public class Stream<T>
         if (unlistenEarly)
         {
             listenerToReturn.Unlisten();
-            listenerToReturn = NoListener.Value;
+            listenerToReturn = noListener;
             listener = null;
         }
 

@@ -116,7 +116,10 @@ Stream<Unit> firstLoad = dataArrived.Once();
 ```
 
 For the imperative side of the same idea, `ListenOnce` unsubscribes itself, and
-`ListenOnceAsync` gives you a `Task<T>` you can `await`.
+`ListenOnceAsync` gives you a `Task<T>` you can `await`. Hold the listener `ListenOnce`
+returns until the firing arrives — it is weak, so nothing else keeps your handler alive — or
+call `ListenOnceStrong`, which roots the stream until then. See
+[Listener lifetimes](lifetimes.md).
 
 ## Time-stamp events
 
