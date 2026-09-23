@@ -449,7 +449,7 @@ public sealed class BehaviorTests
     [Test]
     public async Task TestCellLoopThrowsException()
     {
-        //TODO: adjust the types so that loops can only be created safely through the type system
+        //TODO: adjust the types so that the type system permits only a safe loop.
 
         Exception? actual = null;
 
@@ -1036,10 +1036,10 @@ public sealed class BehaviorTests
         await Assert.That(@out).IsEquivalentTo(expected: [50, 54, 58, 74], ordering: CollectionOrdering.Matching);
     }
 
-    // Lift builds one pulse stream that each input feeds, coalesced so a transaction produces a
-    // single firing. That only gives the right answer if each input's new value has been captured
-    // before the recombine runs - so an update of some inputs at the same time has to give one and only one
-    // output, which carries each new value and none of the previous ones.
+    // Lift builds one pulse stream that each input feeds, coalesced thus a transaction gives one
+    // firing. That only gives the correct answer when the node holds the new value of each input
+    // before the recombine runs. Thus, an update of some inputs at the same time has to give one
+    // output and no more. That output carries each new value, and none of the previous ones.
     [Test]
     public async Task TestLiftSimultaneousUpdatesFireOnceWithAllNewValues()
     {
@@ -1078,8 +1078,8 @@ public sealed class BehaviorTests
                 ordering: CollectionOrdering.Matching);
     }
 
-    // Inputs that update one at a time across different transactions: each firing has to pair the
-    // input that changed with the settled values of the ones that did not.
+    // Inputs that update one at a time across different transactions. Each firing has to pair
+    // the input that changed with the settled values of the ones that did not.
     [Test]
     public async Task TestLiftInterleavedSingleInputUpdates()
     {
@@ -1102,10 +1102,10 @@ public sealed class BehaviorTests
             .IsEquivalentTo(expected: ["1/10", "2/10", "2/20", "3/20", "3/30"], ordering: CollectionOrdering.Matching);
     }
 
-    // Lift links each one of the input behaviors to a single output node, so updating them
-    // all in one transaction leaves that node holding one queued entry per cell. This walks
-    // that fan-in to a sufficient width, and drains it at a sufficient set of occupancies, to catch a
-    // queue entry that removes itself from the incorrect slot as it goes out.
+    // Lift links each one of the input behaviors to one output node. Thus, an update of all of
+    // them in one transaction leaves that node with one queued entry for each cell. This walks
+    // that fan-in to a sufficient width, and drains it at a sufficient set of occupancies. That
+    // catches a queue entry that removes itself from the incorrect slot as it goes out.
     [Test]
     public async Task TestLiftListWideFanIn()
     {

@@ -10,8 +10,9 @@ namespace SodaFlow.Tests.Internal;
 
 /// <summary>
 ///     Covers the state protocol behind Calm rather than its filtering, which StreamTests
-///     exercises. These use the internal Calm(Lazy, areEqual) overload so the initial value can be
-///     instrumented: from the public API it always comes from SampleLazy and its forcing is invisible.
+///     exercises. These use the internal Calm(Lazy, areEqual) overload, which gives an instrument on
+///     the initial value. From the public API it always comes from SampleLazy, and no code can see the
+///     moment that forces it.
 ///     Calm has no denotational coverage, so this is the only specification-level cover
 ///     the protocol has.
 /// </summary>
@@ -20,9 +21,9 @@ public sealed class CalmTests
     private static Stream<int> Calm(Stream<int> source, Lazy<MaybeInternal<int>> init) =>
         source.Calm(init: init, areEqual: static (x, y) => x == y);
 
-    // The initial value is forced in the sample phase when nothing fires, and this matches the
-    // behavior Calm replaced. Nothing observable depends on the value here - only on it having been
-    // asked for at all.
+    // The sample phase forces the initial value when nothing fires, and this matches the
+    // behavior that Calm replaced. Nothing observable is dependent on the value here, only on the
+    // question for it.
     [Test]
     public async Task InitialValueIsForcedEvenWhenNothingFires()
     {
@@ -92,7 +93,7 @@ public sealed class CalmTests
                 + "duplicates through");
     }
 
-    // A non-None initial value seeds the compare, so a first firing equal to it is suppressed.
+    // A non-None initial value seeds the compare, thus the cell suppresses a first firing equal to it.
     // This is the condition a sentinel cannot express: None is a legitimate initial value, so
     // "uninitialized" needs its own flag.
     [Test]
@@ -118,8 +119,8 @@ public sealed class CalmTests
             .Because("the first 7 matches the initial value");
     }
 
-    // A suppressed firing must keep the remembered value, and must not clear it, which is
-    // what the behavior-backed version got from feeding its state back on each firing.
+    // A suppressed firing must keep the remembered value, and must not clear it. The
+    // behavior-backed version got that when it put its state back at each firing.
     [Test]
     public async Task SuppressedFiringKeepsTheRememberedValue()
     {
@@ -150,7 +151,7 @@ public sealed class CalmTests
     // the same value at the next firing.
     //
     // The throw has to occur downstream of Calm, and not before the send operation, because sends
-    // are queued: an exception before the drain aborts the transaction without
+    // go in the queue. An exception before the drain aborts the transaction without
     // the handler of Calm ever runs, which cannot tell the two designs apart.
     [Test]
     public async Task AFailedTransactionDoesNotCommitTheRememberedValue()
@@ -169,7 +170,7 @@ public sealed class CalmTests
 
         boom.Unlisten();
 
-        // 1 again. The aborted transaction must not have committed it.
+        // 1 again. The transaction that aborted must not commit it.
         s.Send(1);
 
         good.Unlisten();
@@ -179,9 +180,9 @@ public sealed class CalmTests
             .Because("the firing from the failed transaction must not suppress the retry");
     }
 
-    // The remembered value is committed at the end of the transaction, so simultaneous sources
-    // feeding one firing compare against what the previous transaction left, not against anything
-    // computed in this one.
+    // The transaction commits the remembered value at its end. Thus, simultaneous sources in
+    // one firing compare against what the previous transaction left, and not against
+    // anything from this one.
     [Test]
     public async Task ComparisonUsesTheValueCommittedByThePreviousTransaction()
     {

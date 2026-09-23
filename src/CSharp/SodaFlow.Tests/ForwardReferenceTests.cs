@@ -119,8 +119,8 @@ public sealed class ForwardReferenceTests
 
     [Test]
     public async Task TestReferenceCannotBeReadDuringConstruction() =>
-        // The reference is a promise about what the value will be, not the value, so asking
-        // for it before the constructing function has returned has no answer.
+        // The reference is a promise about the value, and not the value. A read of it before the
+        // construction function returns has no answer.
         await Assert.That(static () =>
                 // ReSharper disable once ReturnValueOfPureMethodIsNotUsed - Testing for side effect only.
                 ForwardReference<int>.WithoutCaptures(static reference => reference.Sample()))

@@ -40,18 +40,18 @@ public sealed class TimerTests
             });
         });
 
-        // This waits for the alarms, and does not use a constant window. The alarms
-        // are 99ms and 100ms out, so a flat 200ms sleep left approximately 100ms of margin, and a
-        // loaded CI agent overran it: the run gave zero events and not the incorrect
-        // number, which is a delayed timer thread, not a coalescing bug. Waiting on the
-        // condition makes a slow machine use more time, and it does not fail.
+        // This waits for the alarms, and does not use a constant window. The alarms are 99ms and
+        // 100ms in the future. Thus, a constant sleep of 200ms left approximately 100ms of margin,
+        // and a CI agent with a high load used more than that margin. The run then gave zero events,
+        // and not an incorrect count. The cause was a late timer thread, and not an error in the
+        // coalesce. A wait on the condition makes a slow machine use more time, and it does not
+        // fail.
         //
-        // The wait after this is what keeps the assertion useful: it must be
-        // two, thus a third firing - a2 and a3 failing to coalesce - is caught rather
-        // than a race over it.
+        // The wait after this is what keeps the assertion useful. The count must be two. Thus, the
+        // test sees a third firing when a2 and a3 do not coalesce, and does not run before it.
         //
-        // The lock is not incidental. l is written from the timer thread and read here, which
-        // the initial test with a constant sleep had no lock.
+        // The lock is necessary, because the timer thread writes l and this code reads it. The
+        // initial test with a constant sleep had no lock.
         SpinWait.SpinUntil(
             condition: () =>
             {
@@ -66,8 +66,8 @@ public sealed class TimerTests
 
         int count;
 
-        // Read with the lock held and asserted out of it: await is not allowed in a lock body, and
-        // the lock is here to make the read safe rather than the assertion.
+        // Read with the lock held, and asserted out of it. A lock body permits no await, and the lock
+        // is here to make the read safe, and not the assertion.
         lock (l)
         {
             count = l.Count;

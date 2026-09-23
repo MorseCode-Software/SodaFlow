@@ -597,11 +597,11 @@ public sealed class StreamTests
     }
 
     // Calm remembers the last value it let through, and that memory has to survive the end of a
-    // transaction. The existing Calm tests only send out of one, thus they never use a
-    // firing that arrives with some sources feeding it in one transaction, and not if
-    // the remembered value committed at the end of one transaction is what the next compares
-    // against. The two are checked here: the second transaction is suppressed only if the first
-    // committed correctly, and the fourth only if the third did.
+    // transaction. The existing Calm tests only send out of one. Thus, they never use a firing
+    // that comes from some sources in one transaction. They also never test if the
+    // remembered value that committed at the end of one transaction is what the next one compares
+    // against. The test checks the two here. The cell suppresses the second transaction only when
+    // the first committed correctly, and the fourth only when the third did.
     [Test]
     public async Task TestCalmRemembersAcrossTransactions()
     {
@@ -618,7 +618,7 @@ public sealed class StreamTests
             b.Send(1);
         });
 
-        // 2 again, from a single source this time - must be suppressed.
+        // 2 again, from one source this time. The cell must suppress it.
         a.Send(2);
 
         Transaction.RunVoid(() =>
@@ -683,8 +683,8 @@ public sealed class StreamTests
     }
 
     // Collect carries state between firings, and that state has to survive the end of a
-    // transaction. TestCollect only sends out of one, thus it never covers a firing that
-    // arrives with some sources feeding it in a single transaction, and not if the state
+    // transaction. TestCollect only sends out of one. Thus, it never covers a firing that comes
+    // from some sources in one transaction. It also never tests if the state that
     // committed at the end of one transaction is what the next one folds over. The count in the
     // state shows the two: it can only get to 3 when each transaction committed.
     [Test]
@@ -1154,8 +1154,8 @@ public sealed class StreamTests
 
     // Node ranks index directly into the prioritized queue's backing array, which starts at
     // 1000 entries. A chain this long pushes ranks over that boundary and over some
-    // regrowth operations. Because that queue is static, an error here did not only fail the deep
-    // graph - it left the queue unusable for each subsequent transaction in the process, which is
+    // regrowth operations. That queue is static. Thus, an error here did not only fail the deep
+    // graph. It left the queue unusable for each subsequent transaction in the process, which is
     // what the trailing shallow chain checks.
     [Test]
     public async Task TestDeepChainGrowsPrioritizedQueue()
@@ -1191,18 +1191,18 @@ public sealed class StreamTests
 
     private static void Collect()
     {
-        // Each generation, not only generation 0. These tests are correct only if a GC reclaims a listener
-        // when no code roots it, and a generation-0 collection reclaims only what stays in
-        // generation 0. A full suite in one process allocates a sufficient quantity that the listener has
-        // usually been promoted by the time the test asks, and a promoted object survives the
-        // collection and goes on firing - which is how TestListen succeeded locally and on the
-        // branch build and fail on the PR build of the same commit, reporting four sends
-        // where it wanted two.
+        // Each generation, not only generation 0. These tests are correct only if a GC reclaims a
+        // listener when no code roots it. A generation-0 collection reclaims only what stays in
+        // generation 0. A full suite in one process allocates a sufficient quantity, thus the GC
+        // usually moves the listener to a higher generation before the test asks. An object in a
+        // higher generation survives the collection and continues to fire. That is how TestListen
+        // was correct locally and on the branch build, and was incorrect on the PR build of the same
+        // commit. It reported four sends where it wanted two.
         //
-        // The finalizer step and the second collection are for StreamListenerManager's sweep
-        // finalizes it. No code here waits on that sweep,
-        // because Send prunes dead targets itself, but letting it run keeps the collection this
-        // test forced from being left for whatever runs next.
+        // The finalizer step and the second collection are for the sweep mechanism of
+        // StreamListenerManager, which asks for a sweep when a GC finalizes it. No code here waits on
+        // that sweep, because Send removes the dead targets itself. A run of it keeps this test from
+        // a collection that it leaves for whatever runs next.
         GC.Collect();
         GC.WaitForPendingFinalizers();
         GC.Collect();

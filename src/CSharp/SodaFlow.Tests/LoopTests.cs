@@ -127,8 +127,8 @@ public sealed class LoopTests
                 }
                 catch (InvalidOperationException e)
                 {
-                    // This transaction creates the loop and never loops it, so it is expected to fail when it closes.
-                    // Catching it here is what keeps it from terminating the test host, and lets it be asserted below.
+                    // This transaction makes the loop and never closes it, thus it must fail at its end.
+                    // A catch here keeps it from the end of the test host, and lets the assertion below read it.
                     actualOnOtherThread = e;
                 }
             });
@@ -336,8 +336,8 @@ public sealed class LoopTests
                 }
                 catch (InvalidOperationException e)
                 {
-                    // This transaction creates the loop and never loops it, so it is expected to fail when it closes.
-                    // Catching it here is what keeps it from terminating the test host, and lets it be asserted below.
+                    // This transaction makes the loop and never closes it, thus it must fail at its end.
+                    // A catch here keeps it from the end of the test host, and lets the assertion below read it.
                     actualOnOtherThread = e;
                 }
             });
@@ -545,8 +545,8 @@ public sealed class LoopTests
                 }
                 catch (InvalidOperationException e)
                 {
-                    // This transaction creates the loop and never loops it, so it is expected to fail when it closes.
-                    // Catching it here is what keeps it from terminating the test host, and lets it be asserted below.
+                    // This transaction makes the loop and never closes it, thus it must fail at its end.
+                    // A catch here keeps it from the end of the test host, and lets the assertion below read it.
                     actualOnOtherThread = e;
                 }
             });
@@ -636,16 +636,16 @@ public sealed class LoopTests
 
     // Desired behavior:
     //A list of items of type TestObject are held in a cell.  TestObject contains a cell of type int named Output, which
-    //is calculated from other values. Any time a new TestObject is created, it will have the values for the cells from
-    //which Output is calculated.  The sum of all Output values in the list must always be 50 or greater.
+    //comes from other values. At each new TestObject, it has the values for the cells from
+    //which gives Output. The sum of all Output values in the list must always be 50 or greater.
     // Public rather than private, and the change is not cosmetic: while this was private its one
     // test never ran, with NUnit or anything else. TUnit requires a public type and says so at
     // build time, thus the selection was to let the test run, or to remove it. It runs.
     public sealed class DependencyCycleTest
     {
         // Switch over the sum of the Output cells in the list.
-        // This does not work, because the code must recurse to keep the list correct when the sum is
-        // very low (only one item can be added per transaction). The current implementation throws an
+        // This does not work. The code must recurse to keep the list correct when the sum is very low
+        // (a caller can add only one item in each transaction). The current implementation throws an
         // exception that reports a dependency cycle, and that is the correct behavior.
         [Test]
         public async Task TestSwitchCLoop()
@@ -703,9 +703,9 @@ public sealed class LoopTests
         }
 
         // Switch over the sum of the Output cell value streams in the list.
-        // This does not work, because we miss the first Values stream event when the list changes, and
-        // also because the code must recurse to keep the list correct when the sum is very low (only
-        // one item can be added per transaction).
+        // This does not work, because we miss the first Values stream event when the list changes.
+        // The code must also recurse to keep the list correct when the sum is very low. A caller can
+        // add only one item in each transaction.
         [Test]
         public async Task TestSwitchSValuesLoop()
         {
@@ -760,10 +760,10 @@ public sealed class LoopTests
         }
 
         // Switch over the sum of the Output cells in the list, deferring the firings from the Values stream.
-        // This will work because it allows the Values to recurse by firing each step in a new transaction immediately
-        // after the transaction of the previous step. The only drawback to this method is that each step of the
-        // recursion is in a new transaction, so it exhibits "glitchy" behavior where the incorrect states in the middle
-        // are external.
+        // This works, because it lets the Values recurse. It fires each step in a new transaction
+        // immediately after the transaction of the previous step. The one drawback is that each step
+        // of the recursion is in a new transaction. Thus, it shows "glitchy" behavior, where the
+        // incorrect states in the middle are external.
         [Test]
         public async Task TestSwitchCDeferredLoop()
         {
@@ -815,9 +815,9 @@ public sealed class LoopTests
 
         // Switch over the sum of the Output cells in the list, deferring the firings from the Values stream, and use a
         // better API.
-        // This is the same as the previous solution, but it uses a special version of SwitchC that defers the
-        // Values stream firings. Using this API, we can better capture the intent of the SwitchC call and let the
-        // type system to eventually check for correct uses of the looped cell.
+        // This is the same as the previous solution, but it uses a special version of SwitchC that
+        // defers the Values stream firings. This API captures the intent of the SwitchC call better.
+        // It also lets the type system check for correct uses of the looped cell.
         // When the types change, the SwitchCWithDeferredValues() call becomes
         // SwitchC().DeferredValues() with SwitchC() on the cell loop returning a special type containing the
         // DeferredValues() and DeferredUpdates() methods.

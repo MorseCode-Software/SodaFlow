@@ -22,9 +22,9 @@ namespace SodaFlow.Tests.Memory;
 ///     <para>
 ///         Two things are deliberately not asserted. First, that a node stays connected immediately
 ///         after a collection: <see cref="StreamListenerManager" /> unhooks nodes from a background
-///         thread, thus that is a race. Second, which of the two cleanup paths
-///         did the work - the background thread, or the lazy pruning in <c>Stream.Send</c> when a
-///         target's weak reference has died. What matters is that the node ends up disconnected, so
+///         thread, thus that is a race. Second, which of the two cleanup paths did the work. That is
+///         the background thread, or the lazy prune in <c>Stream.Send</c> when a weak reference of the
+///         target died. What matters is that the node becomes disconnected, thus
 ///         these tests send a value to force a deterministic outcome and check that.
 ///     </para>
 /// </remarks>
@@ -64,7 +64,7 @@ public sealed class GarbageCollectionTests
         await Assert.That(mapped.IsAlive).IsFalse().Because("the mapped stream should have been collected");
 
         // Sending is what makes this deterministic. The cleanup thread unhooked
-        // the node, or this send prunes the target whose weak reference has died.
+        // the node, or this send removes the target whose weak reference died.
         s.Send(2);
 
         await Assert.That(s.Node.GetListenersCopy().Count)
@@ -104,9 +104,9 @@ public sealed class GarbageCollectionTests
 
         Collect();
 
-        // This is deliberate, not an oversight: ListenStrong roots the listener in the stream's
-        // keep-alive set for this cause: a caller that ignores the return value
-        // receives values. Without this, a listener stops to fire with no message.
+        // This is deliberate, and not an oversight. ListenStrong roots the listener in the keep-alive
+        // set of the stream for this cause: a caller that ignores the return value receives values.
+        // Without this, a listener stops to fire with no message.
         await Assert.That(listener.IsAlive)
             .IsTrue()
             .Because("an active listener should stay alive even once the caller drops it");
@@ -159,8 +159,8 @@ public sealed class GarbageCollectionTests
             .Because("the registry should be back to its previous size once the streams it tracked are collected");
     }
 
-    // Each of these runs in its own non-inlined method so the locals are certainly out of scope
-    // by the time the caller collects, whatever the JIT decides to keep alive.
+    // Each of these runs in its own non-inlined method. Thus, the locals are out of scope before
+    // the caller collects, at each decision the JIT makes about what to keep in memory.
 
     [MethodImpl(MethodImplOptions.NoInlining)]
     private static void CreateGarbageStreams(int count)
@@ -227,12 +227,12 @@ public sealed class GarbageCollectionTests
 
     private static void Collect()
     {
-        // Each generation, and a finalizer step in between. Stream has no finalizer - this
-        // said it did, which was true when it was written and is not now. The finalizer that
-        // matters is the sweep mechanism of StreamListenerManager, which asks for a sweep when a GC
-        // finalized, and these tests do read RegistryCount after a sweep. The generation is the
-        // other half: a promoted object is not seen by a young collection, so a collection meant
-        // to be conclusive has to get to all of them.
+        // Each generation, and a finalizer step in between. Stream has no finalizer. This said it
+        // did, which was true at the time of writing and is not now. The finalizer that matters is
+        // the sweep mechanism of StreamListenerManager, which asks for a sweep when a GC finalizes
+        // it. These tests do read RegistryCount after a sweep. The generation is the other half. A
+        // young collection does not see an object in a higher generation. Thus, a conclusive
+        // collection has to get to all of them.
         GC.Collect();
         GC.WaitForPendingFinalizers();
         GC.Collect();

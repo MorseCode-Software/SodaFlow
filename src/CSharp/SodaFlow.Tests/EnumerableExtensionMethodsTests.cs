@@ -310,8 +310,8 @@ public sealed class EnumerableExtensionMethodsTests
     private static T[] Items<T>(params T[] items) => items;
 
     // A sequence that is only a sequence. A return of the params array itself gives something
-    // that is an IReadOnlyList<T> at runtime, and the NotIndexable tests then use the indexable
-    // path that they prevent.
+    // that is an IReadOnlyList<T> at runtime. The NotIndexable tests then use the indexable path
+    // that they prevent.
     private static IEnumerable<T> Yield<T>(params T[] items)
     {
         // ReSharper disable once LoopCanBeConvertedToQuery - A query operator is free to return something indexable, which is the one thing this must not be.

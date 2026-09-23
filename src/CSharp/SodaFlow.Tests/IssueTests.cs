@@ -24,7 +24,7 @@ public sealed class IssueTests
             {
                 StreamLoop<int> submitPooledAmount = new();
 
-                // Ways that the pool is modified.
+                // The ways to change the pool.
                 Stream<Func<int, int>> poolAddByInput = addPoolSink.Map(static i => (Func<int, int>)(x => x + i));
 
                 Stream<Func<int, int>>
@@ -85,7 +85,7 @@ public sealed class IssueTests
             {
                 StreamLoop<int> submitPooledAmount = new();
 
-                // Ways that the pool is modified.
+                // The ways to change the pool.
                 Stream<Func<int, int>> poolAddByInput = addPoolSink.Map(static i => (Func<int, int>)(x => x + i));
 
                 Stream<Func<int, int>> poolRemoveByUsage =
