@@ -993,6 +993,30 @@ public sealed class StreamTests
     }
 
     [Test]
+    public async Task TestListenOnceStrong()
+    {
+        StreamSink<char> s = Stream.CreateSink<char>();
+        List<char> @out = [];
+        IStrongListener l = s.ListenOnceStrong(@out.Add);
+        s.Send('A');
+        s.Send('B');
+        s.Send('C');
+        l.Unlisten();
+        await Assert.That(@out).IsEquivalentTo(expected: ['A'], ordering: CollectionOrdering.Matching);
+    }
+
+    [Test]
+    public async Task TestListenOnceStrongUnlistenBeforeTheFirstFiring()
+    {
+        StreamSink<char> s = Stream.CreateSink<char>();
+        List<char> @out = [];
+        IStrongListener l = s.ListenOnceStrong(@out.Add);
+        l.Unlisten();
+        s.Send('A');
+        await Assert.That(@out).IsEmpty();
+    }
+
+    [Test]
     public async Task TestListenOnceAsync()
     {
         StreamSink<char> s = Stream.CreateSink<char>();
