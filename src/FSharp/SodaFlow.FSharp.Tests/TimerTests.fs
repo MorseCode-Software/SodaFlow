@@ -24,17 +24,18 @@ type ``Timer Tests``() =
                 let m = Stream.orElseAll [ a1; a2; a3 ]
                 m |> Stream.listenStrong (fun v -> lock l (fun () -> l.Add v)) |> ignore)
 
-            // Wait for the alarms rather than assuming a fixed window is long enough. The alarms are
-            // 99ms and 100ms out, so a flat 200ms sleep left about 100ms of slack, and a loaded CI
-            // agent overran it, failing with zero events rather than the wrong number - a delayed
-            // timer thread, not a coalescing bug. Waiting on the condition makes a slow machine take
-            // longer instead of failing.
+            // This waits for the alarms, and does not use a constant window. The alarms are 99ms and 100ms
+            // in the future. Thus, a constant sleep of 200ms left approximately 100ms of margin, and a CI
+            // agent with a high load used more than that margin. The test then gave zero events, and not
+            // an incorrect count. The cause was a late timer thread, and not an error in the coalesce. A
+            // wait on the condition makes a slow machine use more time, and does not fail.
             //
-            // The settle afterward keeps the assertion meaningful: it still has to be exactly two,
-            // so a third firing - a2 and a3 failing to coalesce - is caught rather than raced past.
+            // The wait after this keeps the assertion useful. The count must stay at two. Thus, the test
+            // sees a third firing when a2 and a3 do not coalesce, and does not complete before that
+            // firing.
             //
-            // The lock is not incidental: l is written from the timer thread and read here, which the
-            // original fixed sleep left unsynchronized.
+            // The lock is necessary, because the timer thread writes l and this code reads it. The initial
+            // test with a constant sleep had no lock.
             SpinWait.SpinUntil((fun () -> lock l (fun () -> l.Count >= 2)), TimeSpan.FromSeconds(10.0))
             |> ignore
 

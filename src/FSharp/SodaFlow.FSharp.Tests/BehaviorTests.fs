@@ -389,10 +389,10 @@ type ``Behavior Tests``() =
             do! Expect.Sequence([ 9; 2; 7 ], out)
         }
 
-    // A Values stream obtained inside a transaction that has already sent fires with the value sent
-    // in that transaction, not the one the cell held when it opened - and a second Values obtained
-    // from within the first one's handler must see the same thing, rather than missing it for
-    // having been attached partway through.
+    // A Values stream from a transaction that sent a value before this fires with the value from
+    // that transaction. It does not fire with the value that the cell held at the start. A second
+    // Values stream from the handler of the first one must see the same value. It must not miss
+    // that value because it attached in the middle of the transaction.
     [<Test>]
     member _.``Test Values Attached Late``() =
         task {
