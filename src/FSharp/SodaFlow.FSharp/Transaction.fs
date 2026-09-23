@@ -1,22 +1,21 @@
 /// <summary>
-///     Running work inside a transaction, and hooking the transactions others run.
+///     Runs work in a transaction, and connects to the transactions of other code.
 /// </summary>
 /// <remarks>
-///     Transactions are serialized process-wide: at most one runs at a time, however many
-///     threads are involved, and a thread starting one blocks until any transaction running on
-///     another thread has finished. That is what makes a transaction atomic with respect to every
-///     other thread - no observer ever sees the graph half-updated - and it is why SodaFlow can be
-///     used from several threads with no synchronization of your own.
+///     The process runs only one transaction at a time, on all of its threads. A thread that starts
+///     a transaction waits until the transaction on a different thread ends. Thus, a transaction is
+///     atomic for each other thread, and no code sees the graph in the middle of an update. This is
+///     why code on more than one thread can use SodaFlow with no synchronization of its own.
 ///
-///     The cost is that the lock is held for the whole transaction, including every listener
-///     callback it fires and every <c>post</c> action it queues. While a callback runs, no other
-///     thread can begin a transaction, so callbacks should return promptly; hand long-running or
-///     blocking work to another thread rather than doing it inline. A callback that blocks waiting
-///     on a thread which is itself trying to start a transaction will deadlock.
+///     The cost is that the transaction keeps the lock for all of its operation. That includes each
+///     listener callback that it fires and each <c>post</c> action that it queues. While a callback
+///     runs, no other thread can start a transaction. Thus, a callback must return quickly.
+///     Give work that takes a long time, and work that blocks, to a different thread. A callback
+///     that waits on a thread that tries to start a transaction causes a deadlock.
 ///
-///     Nesting is free. Starting a transaction while one is already running on the same thread
-///     joins it rather than taking the lock again, so the primitives that open transactions of
-///     their own cost nothing extra inside <c>run</c>.
+///     A nested transaction has no cost. A transaction that starts while one is open on the same
+///     thread becomes part of the open transaction, and does not get the lock again. Thus, the
+///     primitives that open their own transactions add no cost in <c>run</c>.
 /// </remarks>
 module SodaFlow.Transaction
 
@@ -24,7 +23,7 @@ open System
 open System.Runtime.CompilerServices
 
 /// <summary>
-///     Returns whether a transaction is currently running on this thread.
+///     Gives true when a transaction is open on this thread.
 /// </summary>
 /// <returns><c>true</c> if there is a current transaction, and <c>false</c> otherwise.</returns>
 [<MethodImpl(MethodImplOptions.NoInlining)>]
@@ -32,42 +31,42 @@ let isActive () =
     TransactionInternal.HasCurrentTransaction()
 
 /// <summary>
-///     Runs a function inside a single transaction and returns its result.
+///     Runs a function in a single transaction and returns its result.
 /// </summary>
 /// <param name="f">The function to run.</param>
 /// <returns>Whatever <paramref name="f" /> returned.</returns>
 /// <remarks>
-///     Rarely needed for a single operation, since every primitive opens a transaction of its own
-///     where it needs one. It is for making several operations atomic together.
+///     Rarely needed for a single operation, since each primitive opens a transaction of its own
+///     where it needs one. It is for making some operations atomic together.
 ///
-///     Build the graph inside one of these so that no first firing is missed - particularly where
-///     <c>Cell.values</c> is involved, which always fires immediately. It is also required for
-///     <c>Stream.loop</c>, <c>Cell.loop</c> and <c>Behavior.loop</c>, which must be created and
-///     closed within one transaction.
+///     Build the graph in one of these, and the graph then keeps the first firing. That is most
+///     important with <c>Cell.values</c>, which always fires immediately. It is also necessary for
+///     <c>Stream.loop</c>, <c>Cell.loop</c> and <c>Behavior.loop</c>. The code must make and close
+///     each of these in one transaction.
 /// </remarks>
 [<MethodImpl(MethodImplOptions.NoInlining)>]
 let run f = TransactionInternal.RunImpl(Func<_> f)
 
 /// <summary>
-///     Registers an action to run whenever a transaction starts.
+///     Registers an action to run when a transaction starts.
 /// </summary>
-/// <param name="a">The action to run at the start of every transaction.</param>
+/// <param name="a">The action to run at the start of each transaction.</param>
 /// <remarks>
-///     The action may start transactions itself without the hooks running recursively. This exists
+///     The action can start its own transactions, and the hooks do not then run again. This exists
 ///     for implementing a timer system - it is how <c>SodaFlow.Time</c> delivers alarms - and is
-///     rarely what application code wants.
+///     rarely what calling code needs.
 /// </remarks>
 [<MethodImpl(MethodImplOptions.NoInlining)>]
 let onStart a =
     TransactionInternal.OnStartImpl(Action a)
 
 /// <summary>
-///     Runs an action once the current transaction has closed, or immediately if none is running.
+///     Runs an action after the current transaction closes, or immediately when no transaction is open.
 /// </summary>
 /// <param name="a">The action to run.</param>
 /// <remarks>
-///     The action still runs under the transaction lock, while the transaction is closing, so it
-///     is subject to the same guidance as a listener callback: return promptly.
+///     The action runs with the transaction lock held, while the transaction closes. Thus, the rule
+///     for a listener callback also applies: return quickly.
 /// </remarks>
 [<MethodImpl(MethodImplOptions.NoInlining)>]
 let post a = TransactionInternal.PostImpl(Action a)

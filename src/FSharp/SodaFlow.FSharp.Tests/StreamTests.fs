@@ -7,20 +7,22 @@ open System.Threading
 open SodaFlow
 open TUnit.Core
 
-// These two run outside the tests that assert on them, and not by preference. Each turns on a weak
-// listener being collected once the local holding it is dropped, and neither a task block nor an
-// inner `let f () = ...` gives it a frame that ends: the state machine holds every local for the
-// life of the method, and F# inlines a local function used once. So the part that has to go out of
-// scope is its own function, kept out of its caller, which is what the C# tests do too.
+// These two run out of the tests that assert on them, and not by preference. Each one is correct
+// only if a GC collects a weak listener when the local that holds it goes out of scope. A task
+// block does not give that local a frame that ends, and an internal `let f () = ...` does not give
+// it one. The state machine holds each local for the life of the method, and F# puts a local
+// function with one use inline. Thus, the part that must go out of scope is its own function, out
+// of its caller, as the C# tests also do.
 
-// Every generation, not only generation 0, as the C# tests do. These turn on a listener being
-// reclaimed once nothing roots it, and a generation-0 collection reclaims only what is still in
-// generation 0; running a whole suite in one process allocates enough that the listener has usually
-// been promoted by the time the test asks, and a promoted object survives and goes on firing.
+// Each generation, not only generation 0, as the C# tests do. These tests are correct only if
+// a GC reclaims a listener when no code roots it. A generation-0 collection reclaims only what
+// stays in generation 0. A full suite in one process allocates a sufficient quantity, thus the
+// GC usually moves the listener to a higher generation before the test asks. The listener then
+// stays in memory and continues to fire.
 //
-// The finalizer pass and the second collection are for StreamListenerManager's sweep trigger, which
-// asks for a sweep by being finalized. Nothing here waits on that sweep, because Send prunes dead
-// targets itself.
+// The finalizer step and the second collection are for the sweep mechanism of
+// StreamListenerManager, which asks for a sweep when a GC finalizes it. No code here waits on
+// that sweep, because Send removes the dead targets itself.
 let private collect () =
     GC.Collect()
     GC.WaitForPendingFinalizers()
