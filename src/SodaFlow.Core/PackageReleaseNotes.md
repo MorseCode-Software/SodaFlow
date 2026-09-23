@@ -1,3 +1,25 @@
+5.0.0
+
+BREAKING for the packages that reach these internals, though this assembly has
+no public API of its own to move: ListenOnceImpl returns IWeakListener, where it
+returned IStrongListener, and ListenOnceStrongImpl is new and returns what
+ListenOnceImpl used to. Internal is not private here - this assembly grants
+InternalsVisibleTo to the shipping packages around it - so a SodaFlow or a
+SodaFlow.FSharp built against 4.x names a method whose return type has changed
+and cannot bind to it at run time. Both of those packages carry 5.0.0 as their
+floor. No other package calls either method.
+
+The two one-shot listeners are one generic method now rather than two copies of
+the same thirty lines, which is what the split would otherwise have created.
+Nothing about the sequence changed: the listener stops itself at the first
+value, a value that the call to listen sends again unlistens early, and the
+caller gets a listener that does nothing in that case.
+
+This is the last of the rename that 2.0.0 began. That release swapped ListenImpl
+to the weak listener and removed ListenWeakImpl; ListenOnceImpl kept the old
+meaning until now, and was the one name left where the short form rooted the
+stream.
+
 4.0.2
 
 Adds the package icon that nuget.org shows beside this package. No source file

@@ -116,17 +116,38 @@ let listenStrong handler (stream: Stream<_>) =
 let attachListener listener (stream: Stream<_>) = stream.AttachListenerImpl listener
 
 /// <summary>
-///     Listens for the next firing only, then stops.
+///     Listens for the next firing only, then stops, without keeping the stream alive.
+/// </summary>
+/// <param name="handler">Run with the first fired value.</param>
+/// <param name="stream">The stream to listen to.</param>
+/// <returns>A weak listener. <c>WeakListener.unlisten</c> stops it before that first firing.</returns>
+/// <remarks>
+///     The handle from this call is the only thing that keeps the handler alive, thus hold it until
+///     that first firing arrives. A call that discards the handle compiles, and the handler then runs
+///     or does not run according to when a GC collects it. Use <c>listenOnceStrong</c> where the
+///     caller does not keep the handle.
+/// </remarks>
+[<MethodImpl(MethodImplOptions.NoInlining)>]
+let listenOnce handler (stream: Stream<_>) =
+    stream.ListenOnceImpl(Action<_> handler)
+
+/// <summary>
+///     Listens for the next firing only, then stops, and keeps the stream alive until that firing.
 /// </summary>
 /// <param name="handler">Run with the first fired value.</param>
 /// <param name="stream">The stream to listen to.</param>
 /// <returns>
-///     A strong listener, that a caller can stop before that first firing, when the caller no longer
-///     wanted.
+///     A strong listener. <c>StrongListener.unlisten</c> stops it before that first firing, and a
+///     disposal also stops it.
 /// </returns>
+/// <remarks>
+///     The listener roots the stream until that first firing, thus the handler runs when the caller
+///     discards the handle. The root ends with that firing, or with an earlier stop. Use
+///     <c>listenOnce</c> where the listener must not extend the lifetime of what it observes.
+/// </remarks>
 [<MethodImpl(MethodImplOptions.NoInlining)>]
-let listenOnce handler (stream: Stream<_>) =
-    stream.ListenOnceImpl(Action<_> handler)
+let listenOnceStrong handler (stream: Stream<_>) =
+    stream.ListenOnceStrongImpl(Action<_> handler)
 
 /// <summary>
 ///     Waits asynchronously for the next firing.

@@ -159,6 +159,73 @@ public sealed class GarbageCollectionTests
             .Because("the registry should be back to its previous size once the streams it tracked are collected");
     }
 
+    [Test]
+    public async Task ListenOnceIsCollectedOnceDropped()
+    {
+        StreamSink<int> s = Stream.CreateSink<int>();
+        List<int> @out = [];
+
+        WeakReference listener = CreateListenOnceAndDropTheReference(s: s, @out: @out);
+
+        Collect();
+
+        // The mirror image of ListenerIsKeptAliveWhileStillListening. It shows why ListenOnce
+        // and ListenOnceStrong are two methods. ListenOnce roots nothing, so the listener it
+        // returns is the only thing that holds the handler. A caller which drops it loses that
+        // firing.
+        await Assert.That(listener.IsAlive)
+            .IsFalse()
+            .Because("a weak one-shot listener should be collected once the caller drops it");
+
+        s.Send(5);
+
+        await Assert.That(@out).IsEmpty().Because("a collected one-shot listener should not fire");
+    }
+
+    [Test]
+    public async Task ListenOnceStrongKeepsFiringOnceDropped()
+    {
+        StreamSink<int> s = Stream.CreateSink<int>();
+        List<int> @out = [];
+
+        WeakReference listener = CreateListenOnceStrongAndDropTheReference(s: s, @out: @out);
+
+        Collect();
+
+        await Assert.That(listener.IsAlive)
+            .IsTrue()
+            .Because("a strong one-shot listener should stay rooted until its first firing");
+
+        s.Send(5);
+        s.Send(6);
+
+        await Assert.That(@out)
+            .IsEquivalentTo(expected: [5], ordering: CollectionOrdering.Matching)
+            .Because("a rooted one-shot listener should fire exactly one time");
+    }
+
+    [Test]
+    public async Task ListenOnceStrongReleasesItsRootAfterTheFirstFiring()
+    {
+        StreamSink<int> s = Stream.CreateSink<int>();
+        List<int> @out = [];
+
+        // The one-shot listener stops itself, and that must release the keep-alive root and the
+        // node. A release of only the node lets each ListenOnceStrong call add an object to the
+        // stream that nothing removes.
+        WeakReference listener = CreateListenOnceStrongAndFire(s: s, @out: @out);
+
+        Collect();
+
+        await Assert.That(listener.IsAlive)
+            .IsFalse()
+            .Because("a one-shot listener should stop rooting itself when it stops listening");
+
+        await Assert.That(@out)
+            .IsEquivalentTo(expected: [1], ordering: CollectionOrdering.Matching)
+            .Because("the one firing should have arrived before the listener stopped");
+    }
+
     // Each of these runs in its own non-inlined method. Thus, the locals are out of scope before
     // the caller collects, at each decision the JIT makes about what to keep in memory.
 
@@ -214,6 +281,28 @@ public sealed class GarbageCollectionTests
     private static WeakReference CreateListenerAndDropTheReference(Stream<int> s, ICollection<int> @out)
     {
         IListener listener = s.ListenStrong(@out.Add);
+        return new WeakReference(listener);
+    }
+
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    private static WeakReference CreateListenOnceAndDropTheReference(Stream<int> s, ICollection<int> @out)
+    {
+        IWeakListener listener = s.ListenOnce(@out.Add);
+        return new WeakReference(listener);
+    }
+
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    private static WeakReference CreateListenOnceStrongAndDropTheReference(Stream<int> s, ICollection<int> @out)
+    {
+        IStrongListener listener = s.ListenOnceStrong(@out.Add);
+        return new WeakReference(listener);
+    }
+
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    private static WeakReference CreateListenOnceStrongAndFire(StreamSink<int> s, ICollection<int> @out)
+    {
+        IStrongListener listener = s.ListenOnceStrong(@out.Add);
+        s.Send(1);
         return new WeakReference(listener);
     }
 

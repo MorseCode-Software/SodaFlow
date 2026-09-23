@@ -8,7 +8,7 @@ factory makes:
   operation: async (query, factory, token) =>
       factory.FromValue(await SearchAsync(query, token))
 
-FromResult carries a value the operation has. Construct carries a function
+FromValue carries a value the operation has. Construct carries a function
 that the pipeline calls in the transaction that sends the result, which is what
 a result that holds a cell or a stream needs:
 
