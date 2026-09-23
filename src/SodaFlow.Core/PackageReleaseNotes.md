@@ -1,5 +1,12 @@
 5.0.0
 
+BREAKING for the packages that reach these internals: AttachListenerImpl is
+named AttachListenerInternal. The Impl suffix here marks a method that a public
+extension forwards to, and the extension that forwarded to this one is gone from
+SodaFlow and SodaFlow.FSharp, so the name follows the one HoldInternal and
+HoldLazyInternal use for a method with no public counterpart. Only those two
+packages called it, and both move with this release.
+
 BREAKING for the packages that reach these internals, though this assembly has
 no public API of its own to move: ListenOnceImpl returns IWeakListener, where it
 returned IStrongListener, and ListenOnceStrongImpl is new and returns what

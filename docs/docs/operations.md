@@ -67,7 +67,6 @@ handlers, timers, and network callbacks; everything downstream stays pure.
 | `s.ListenOnce(handler)` | `listenOnceS handler s` | Subscribe, then unsubscribe after one firing. Returns `IWeakListener`; does **not** keep the graph alive. |
 | `s.ListenOnceStrong(handler)` | `listenOnceStrongS handler s` | As above, keeping the graph alive until that firing. Returns `IStrongListener`. |
 | `s.ListenOnceAsync()` | `listenOnceAsyncS s` | The next firing as a `Task<T>`. |
-| `s.AttachListener(l)` | `attachListenerS l s` | Tie a listener's lifetime to this stream. |
 
 The `Snapshot` family is the workhorse. `Gate` is `Snapshot` plus `Filter`; `MapTo` is `Map`
 with a constant. Reach for the specific one — it reads better and does less work.

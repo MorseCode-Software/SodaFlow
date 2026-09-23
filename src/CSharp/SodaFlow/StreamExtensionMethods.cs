@@ -39,12 +39,7 @@ public static class StreamExtensionMethods
     ///     </para>
     ///     <para>
     ///         With no disposal of the <see cref="IStrongListener" />, the listener continues until a
-    ///         disposal of this stream, or until a GC collects it.
-    ///     </para>
-    ///     <para>
-    ///         Give the listener from this call to <see cref="AttachListener{T}" /> on this stream. A
-    ///         disposal of this <see cref="IStrongListener" /> then occurs at the disposal of that stream,
-    ///         and at the moment a GC collects it.
+    ///         GC collects this stream.
     ///     </para>
     ///     <para>
     ///         This roots the stream, thus a GC cannot collect the graph behind it while the listener from
@@ -76,13 +71,8 @@ public static class StreamExtensionMethods
     ///         is not for the definition of a new primitive.
     ///     </para>
     ///     <para>
-    ///         With no call to <see cref="IListener.Unlisten" />, the listener continues. It stops at a
-    ///         disposal of this stream, when a GC collects the stream, or when a GC collects the listener.
-    ///     </para>
-    ///     <para>
-    ///         Give the listener from this call to <see cref="AttachListener{T}" /> on this stream. This
-    ///         <see cref="IWeakListener" /> then stops at the disposal of that stream, and at the moment a GC
-    ///         collects it.
+    ///         With no call to <see cref="IListener.Unlisten" />, the listener continues. It stops when
+    ///         a GC collects the stream, or when a GC collects the listener.
     ///     </para>
     ///     <para>
     ///         This does not root the stream. Nothing here keeps the monitored graph in memory, thus the
@@ -93,19 +83,6 @@ public static class StreamExtensionMethods
     /// </remarks>
     [MethodImpl(MethodImplOptions.NoInlining)]
     public static IWeakListener Listen<T>(this Stream<T> s, Action<T> handler) => s.ListenImpl(handler);
-
-    /// <summary>
-    ///     Attaches a listener to this stream, thus a GC does not collect the listener before it collects this stream.
-    /// </summary>
-    /// <typeparam name="T">The type of the stream.</typeparam>
-    /// <param name="s">The stream.</param>
-    /// <param name="listener">The listener to garbage collect along with this stream.</param>
-    /// <returns>
-    ///     A new stream equivalent to this stream which will garbage collect <paramref name="listener" /> when it is
-    ///     garbage collected.
-    /// </returns>
-    [MethodImpl(MethodImplOptions.NoInlining)]
-    public static Stream<T> AttachListener<T>(this Stream<T> s, IListener listener) => s.AttachListenerImpl(listener);
 
     /// <summary>
     ///     Handle the first event on this stream and then automatically unregister, without keeping the

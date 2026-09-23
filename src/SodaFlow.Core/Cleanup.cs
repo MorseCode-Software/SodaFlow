@@ -26,7 +26,7 @@ public sealed class Cleanup
     public Cleanup(Action cleanup)
     {
         Stream<UnitInternal> s = StreamInternal.NeverImpl<UnitInternal>();
-        s.AttachListenerImpl(ListenerInternal.CreateFromAction(cleanup));
+        s.AttachListenerInternal(ListenerInternal.CreateFromAction(cleanup));
 
         this.stream = s;
     }

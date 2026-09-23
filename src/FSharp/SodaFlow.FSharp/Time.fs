@@ -182,7 +182,7 @@ type TimerSystem<'T when 'T: comparison>(implementation: 'T ITimerSystemImplemen
 
             let listener =
                 t
-                |> Cell.listenStrong (fun o ->
+                |> Cell.listen (fun o ->
                     currentTimer |> Option.iter (fun timer -> timer.Cancel())
 
                     currentTimer <-
@@ -192,7 +192,7 @@ type TimerSystem<'T when 'T: comparison>(implementation: 'T ITimerSystemImplemen
                                 lock eventQueue (fun () -> eventQueue.Enqueue { Time = time; Alarm = alarm })
                                 Transaction.run id)))
 
-            alarm |> Stream.attachListener listener
+            alarm.AttachListenerInternal listener
 
 type private WaitOrFire =
     | Wait of TimeSpan

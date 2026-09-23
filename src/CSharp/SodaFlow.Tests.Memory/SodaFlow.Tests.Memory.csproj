@@ -34,6 +34,7 @@
         <Compile Include="..\..\TestParallelism.cs" Link="TestParallelism.cs"/>
         <Compile Include="GarbageCollectionTests.cs"/>
         <Compile Include="StreamTests.cs"/>
+        <Compile Include="TimerGarbageCollectionTests.cs"/>
     </ItemGroup>
 
     <ItemGroup>

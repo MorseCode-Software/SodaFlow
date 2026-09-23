@@ -166,30 +166,30 @@ thread they run on, and not to block.
 
 ## Machinery you probably do not need
 
-`AttachListener`, `MutableListener` and `Cleanup` are public, but they exist mainly so the
-library can build its own primitives. `Operational`, `LoopedStream`, `TimerSystem` and the
-`Switch` implementations all use them; nothing in the test suite uses them the way an
-application would.
+`MutableListener` and `Cleanup` are public, but they exist mainly so the library can build its
+own primitives. `Operational`, `LoopedStream`, `TimerSystem` and the `Switch` implementations
+all use them; nothing in the test suite uses them the way an application would.
 
-For ordinary subscriptions you do not need any of them. Both listen methods already tie the
+For ordinary subscriptions you do not need either. Both listen methods already tie the
 listener's lifetime to the stream's, from opposite ends. `Listen` gives you a handle that holds
 the stream, so the subscription lives exactly as long as you keep the handle. `ListenStrong`
 additionally roots the listener in the stream's keep-alive set, and the listener holds the stream
 in turn, so the two form a cycle that the collector reclaims together once you drop your handle.
 Neither permanently roots a stream by itself.
 
-What `AttachListener` adds is the ability to bind *some other* listener to *a chosen* stream's
-lifetime, and to have it actively unlistened — disconnecting its node from upstream — when that
-stream is collected, rather than merely becoming unreachable. The XML documentation on `Listen`
-points here for that case.
+The third piece of that machinery, `AttachListener`, used to be public too and is not any more.
+It bound *some other* listener to *a chosen* stream's lifetime, and had it actively unlistened —
+disconnecting its node from upstream — when that stream was collected, rather than merely
+becoming unreachable. That is how a combinator keeps its own wiring alive. [`Switch`](switch.md)
+subscribes to the outer cell to learn when the branch changes, and to whichever inner stream is
+currently selected; the caller holds neither, only the stream `Switch` returns. Both
+subscriptions are therefore attached to that returned stream, so they live exactly as long as
+the result does. `Operational`, `LoopedStream` and `TimerSystem` do the same thing.
 
-Internally that is how a combinator keeps its own wiring alive. [`Switch`](switch.md) subscribes
-to the outer cell to learn when the branch changes, and to whichever inner stream is currently
-selected; the caller holds neither, only the stream `Switch` returns. Both subscriptions are
-therefore attached to that returned stream, so they live exactly as long as the result does.
-`Operational`, `LoopedStream` and `TimerSystem` do the same thing. This is not a situation
-application code can get into: the weak `Listen` overload that makes it necessary is `internal`,
-and `Switch` has already done it for you.
+Application code could never get into that situation, which is why the method is gone rather
+than merely discouraged: building a primitive this way needs the weak `Listen` overload taking a
+node, which is `internal`, and a handler that sends, which throws. `Switch` has already done it
+for you.
 
 `MutableListener` is an `IListener` whose target can be swapped (`SetListener`, `ClearListener`,
 `Unlisten`) while the handle stays stable. `Switch` needs exactly that: the inner subscription is

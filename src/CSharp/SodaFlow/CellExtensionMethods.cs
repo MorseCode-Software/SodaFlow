@@ -115,7 +115,7 @@ public static class CellExtensionMethods
     ///     </para>
     ///     <para>
     ///         With no disposal of the <see cref="IStrongListener" />, the listener continues until a
-    ///         disposal of this cell, or until a GC collects it.
+    ///         GC collects this cell.
     ///     </para>
     ///     <para>
     ///         This roots the cell, thus a GC cannot collect the graph behind it while the listener from this
@@ -146,8 +146,8 @@ public static class CellExtensionMethods
     ///         is not for the definition of a new primitive.
     ///     </para>
     ///     <para>
-    ///         With no call to <see cref="IListener.Unlisten" />, the listener continues. It stops at a
-    ///         disposal of this cell, when a GC collects the cell, or when a GC collects the listener.
+    ///         With no call to <see cref="IListener.Unlisten" />, the listener continues. It stops when
+    ///         a GC collects the cell, or when a GC collects the listener.
     ///     </para>
     ///     <para>
     ///         This does not root the cell. Nothing here keeps the monitored graph in memory, thus the

@@ -42,7 +42,7 @@ public class LoopedStream<T> : Stream<T>
             this.isAssigned = true;
         }
 
-        this.AttachListenerImpl(stream.Listen(target: this.Node, action: this.Send));
+        this.AttachListenerInternal(stream.Listen(target: this.Node, action: this.Send));
 
         lock (stream.KeepListenersAlive)
         {
