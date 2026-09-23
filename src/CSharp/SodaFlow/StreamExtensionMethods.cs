@@ -58,14 +58,17 @@ public static class StreamExtensionMethods
 
     /// <summary>
     ///     Listen for events/firings on this stream, without keeping the stream alive.  The returned
-    ///     <see cref="IWeakListener" /> may be
-    ///     disposed to stop listening, or it will automatically stop listening when it is garbage collected.
+    ///     <see cref="IWeakListener" /> may be unlistened to stop listening, or it will automatically stop
+    ///     listening when it is garbage collected.
     ///     This is an OPERATIONAL mechanism for interfacing between the world of I/O and FRP.
     /// </summary>
     /// <typeparam name="T">The type of the stream.</typeparam>
     /// <param name="s">The stream.</param>
     /// <param name="handler">The handler to execute for values fired by the stream.</param>
-    /// <returns>An <see cref="IWeakListener" /> which may be disposed to stop listening.</returns>
+    /// <returns>
+    ///     An <see cref="IWeakListener" /> whose <see cref="IListener.Unlisten" /> stops the listener.
+    ///     Only <see cref="IStrongListener" /> is also an <see cref="IDisposable" />.
+    /// </returns>
     /// <remarks>
     ///     <para>
     ///         No assumptions should be made about what thread the handler is called on, and it should not block.
@@ -75,13 +78,13 @@ public static class StreamExtensionMethods
     ///         They will throw an exception because this method is not meant to be used to create new primitives.
     ///     </para>
     ///     <para>
-    ///         If the <see cref="IWeakListener" /> is not disposed, it will continue to listen until this stream is either
-    ///         disposed or garbage collected or the listener itself is garbage collected.
+    ///         If <see cref="IListener.Unlisten" /> is not called, it will continue to listen until this
+    ///         stream is either disposed or garbage collected or the listener itself is garbage collected.
     ///     </para>
     ///     <para>
-    ///         To ensure this <see cref="IWeakListener" /> is disposed as soon as the stream it is listening to is either
-    ///         disposed or garbage collected, pass the returned listener to this stream's <see cref="AttachListener{T}" />
-    ///         method.
+    ///         To ensure this <see cref="IWeakListener" /> stops as soon as the stream it is listening to
+    ///         is either disposed or garbage collected, pass the returned listener to this stream's
+    ///         <see cref="AttachListener{T}" /> method.
     ///     </para>
     ///     <para>
     ///         This does not root the stream.  Nothing here keeps the observed graph alive, so listening stops

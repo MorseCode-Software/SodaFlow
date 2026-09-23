@@ -102,14 +102,14 @@ public static class CellExtensionMethods
 
     /// <summary>
     ///     Listen for updates to the value of this cell, keeping the cell alive for as long as the returned
-    ///     listener is reachable.  The returned <see cref="IListener" /> may be
+    ///     listener is reachable.  The returned <see cref="IStrongListener" /> may be
     ///     disposed to stop listening.  This is an OPERATIONAL mechanism for interfacing between
     ///     the world of I/O and FRP.
     /// </summary>
     /// <typeparam name="T">The type of the cell.</typeparam>
     /// <param name="c">The cell.</param>
     /// <param name="handler">The handler to execute for each value.</param>
-    /// <returns>An <see cref="IListener" /> which may be disposed to stop listening.</returns>
+    /// <returns>An <see cref="IStrongListener" /> which may be disposed to stop listening.</returns>
     /// <remarks>
     ///     <para>
     ///         No assumptions should be made about what thread the handler is called on, and it should not block.
@@ -119,8 +119,8 @@ public static class CellExtensionMethods
     ///         They will throw an exception because this method is not meant to be used to create new primitives.
     ///     </para>
     ///     <para>
-    ///         If the <see cref="IListener" /> is not disposed, it will continue to listen until this cell is either
-    ///         disposed or garbage collected.
+    ///         If the <see cref="IStrongListener" /> is not disposed, it will continue to listen until this
+    ///         cell is either disposed or garbage collected.
     ///     </para>
     ///     <para>
     ///         This roots the cell: the graph behind it cannot be collected while the returned listener is
@@ -132,14 +132,17 @@ public static class CellExtensionMethods
 
     /// <summary>
     ///     Listen for updates to the value of this cell, without keeping the cell alive.  The returned
-    ///     <see cref="IListener" /> may be
-    ///     disposed to stop listening, or it will automatically stop listening when it is garbage collected.
+    ///     <see cref="IWeakListener" /> may be unlistened to stop listening, or it will automatically stop
+    ///     listening when it is garbage collected.
     ///     This is an OPERATIONAL mechanism for interfacing between the world of I/O and FRP.
     /// </summary>
     /// <typeparam name="T">The type of the cell.</typeparam>
     /// <param name="c">The cell.</param>
     /// <param name="handler">The handler to execute for each value.</param>
-    /// <returns>An <see cref="IListener" /> which may be disposed to stop listening.</returns>
+    /// <returns>
+    ///     An <see cref="IWeakListener" /> whose <see cref="IListener.Unlisten" /> stops the listener.
+    ///     Only <see cref="IStrongListener" /> is also an <see cref="IDisposable" />.
+    /// </returns>
     /// <remarks>
     ///     <para>
     ///         No assumptions should be made about what thread the handler is called on, and it should not block.
@@ -149,8 +152,8 @@ public static class CellExtensionMethods
     ///         They will throw an exception because this method is not meant to be used to create new primitives.
     ///     </para>
     ///     <para>
-    ///         If the <see cref="IListener" /> is not disposed, it will continue to listen until this cell is either
-    ///         disposed or garbage collected or the listener itself is garbage collected.
+    ///         If <see cref="IListener.Unlisten" /> is not called, it will continue to listen until this
+    ///         cell is either disposed or garbage collected or the listener itself is garbage collected.
     ///     </para>
     ///     <para>
     ///         This does not root the cell.  Nothing here keeps the observed graph alive, so listening stops
