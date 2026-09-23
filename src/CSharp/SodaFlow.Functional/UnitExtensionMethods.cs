@@ -10,9 +10,9 @@ namespace SodaFlow.Functional;
 /// <remarks>
 ///     C# splits what is one idea in a functional language into two: <see cref="System.Action" />
 ///     and <see cref="System.Func{TResult}" />. Thus, anything with a function parameter
-///     cannot be handed an action. These conversions remove that difference, so a single implementation
+///     accepts no action. These conversions remove that difference, thus one implementation
 ///     taking a function can serve the two - which is how, for instance,
-///     <c>Maybe&lt;T&gt;.MatchVoid</c> is expressed in terms of <c>Maybe&lt;T&gt;.Match</c>.
+///     <c>Maybe&lt;T&gt;.Match</c> expresses <c>Maybe&lt;T&gt;.MatchVoid</c>.
 /// </remarks>
 [PublicAPI]
 public static class UnitExtensionMethods
@@ -20,7 +20,7 @@ public static class UnitExtensionMethods
     /// <summary>
     ///     Discards a value and gives <see cref="Unit" /> as the replacement.
     /// </summary>
-    /// <typeparam name="T">The type of the value being discarded.</typeparam>
+    /// <typeparam name="T">The type of the value to discard.</typeparam>
     /// <param name="o">The value to discard.</param>
     /// <returns><see cref="Unit.Value" />.</returns>
     /// <remarks>
@@ -53,7 +53,7 @@ public static class UnitExtensionMethods
     ///     <see cref="Unit.Value" />.
     /// </returns>
     /// <remarks>
-    ///     Nothing is deferred: the returned function invokes <paramref name="action" /> each time
+    ///     This defers nothing. The function from this call runs <paramref name="action" /> at each
     ///     it is itself called.
     /// </remarks>
     public static Func<Unit> ToFunc(this Action action) =>
@@ -74,7 +74,7 @@ public static class UnitExtensionMethods
     ///     <see cref="Unit.Value" />.
     /// </returns>
     /// <remarks>
-    ///     Nothing is deferred: the returned function invokes <paramref name="action" /> each time
+    ///     This defers nothing. The function from this call runs <paramref name="action" /> at each
     ///     it is itself called.
     /// </remarks>
     public static Func<T, Unit> ToFunc<T>(this Action<T> action) =>
@@ -96,7 +96,7 @@ public static class UnitExtensionMethods
     ///     <see cref="Unit.Value" />.
     /// </returns>
     /// <remarks>
-    ///     Nothing is deferred: the returned function invokes <paramref name="action" /> each time
+    ///     This defers nothing. The function from this call runs <paramref name="action" /> at each
     ///     it is itself called.
     /// </remarks>
     public static Func<T1, T2, Unit> ToFunc<T1, T2>(this Action<T1, T2> action) =>
@@ -119,7 +119,7 @@ public static class UnitExtensionMethods
     ///     <see cref="Unit.Value" />.
     /// </returns>
     /// <remarks>
-    ///     Nothing is deferred: the returned function invokes <paramref name="action" /> each time
+    ///     This defers nothing. The function from this call runs <paramref name="action" /> at each
     ///     it is itself called.
     /// </remarks>
     public static Func<T1, T2, T3, Unit> ToFunc<T1, T2, T3>(this Action<T1, T2, T3> action) =>
@@ -143,7 +143,7 @@ public static class UnitExtensionMethods
     ///     <see cref="Unit.Value" />.
     /// </returns>
     /// <remarks>
-    ///     Nothing is deferred: the returned function invokes <paramref name="action" /> each time
+    ///     This defers nothing. The function from this call runs <paramref name="action" /> at each
     ///     it is itself called.
     /// </remarks>
     public static Func<T1, T2, T3, T4, Unit> ToFunc<T1, T2, T3, T4>(this Action<T1, T2, T3, T4> action) =>
@@ -168,7 +168,7 @@ public static class UnitExtensionMethods
     ///     <see cref="Unit.Value" />.
     /// </returns>
     /// <remarks>
-    ///     Nothing is deferred: the returned function invokes <paramref name="action" /> each time
+    ///     This defers nothing. The function from this call runs <paramref name="action" /> at each
     ///     it is itself called.
     /// </remarks>
     public static Func<T1, T2, T3, T4, T5, Unit> ToFunc<T1, T2, T3, T4, T5>(this Action<T1, T2, T3, T4, T5> action) =>
@@ -194,7 +194,7 @@ public static class UnitExtensionMethods
     ///     <see cref="Unit.Value" />.
     /// </returns>
     /// <remarks>
-    ///     Nothing is deferred: the returned function invokes <paramref name="action" /> each time
+    ///     This defers nothing. The function from this call runs <paramref name="action" /> at each
     ///     it is itself called.
     /// </remarks>
     public static Func<T1, T2, T3, T4, T5, T6, Unit> ToFunc<T1, T2, T3, T4, T5, T6>(
@@ -222,7 +222,7 @@ public static class UnitExtensionMethods
     ///     <see cref="Unit.Value" />.
     /// </returns>
     /// <remarks>
-    ///     Nothing is deferred: the returned function invokes <paramref name="action" /> each time
+    ///     This defers nothing. The function from this call runs <paramref name="action" /> at each
     ///     it is itself called.
     /// </remarks>
     public static Func<T1, T2, T3, T4, T5, T6, T7, Unit> ToFunc<T1, T2, T3, T4, T5, T6, T7>(
@@ -251,7 +251,7 @@ public static class UnitExtensionMethods
     ///     <see cref="Unit.Value" />.
     /// </returns>
     /// <remarks>
-    ///     Nothing is deferred: the returned function invokes <paramref name="action" /> each time
+    ///     This defers nothing. The function from this call runs <paramref name="action" /> at each
     ///     it is itself called.
     /// </remarks>
     public static Func<T1, T2, T3, T4, T5, T6, T7, T8, Unit> ToFunc<T1, T2, T3, T4, T5, T6, T7, T8>(
@@ -281,7 +281,7 @@ public static class UnitExtensionMethods
     ///     <see cref="Unit.Value" />.
     /// </returns>
     /// <remarks>
-    ///     Nothing is deferred: the returned function invokes <paramref name="action" /> each time
+    ///     This defers nothing. The function from this call runs <paramref name="action" /> at each
     ///     it is itself called.
     /// </remarks>
     public static Func<T1, T2, T3, T4, T5, T6, T7, T8, T9, Unit> ToFunc<T1, T2, T3, T4, T5, T6, T7, T8, T9>(
@@ -312,7 +312,7 @@ public static class UnitExtensionMethods
     ///     <see cref="Unit.Value" />.
     /// </returns>
     /// <remarks>
-    ///     Nothing is deferred: the returned function invokes <paramref name="action" /> each time
+    ///     This defers nothing. The function from this call runs <paramref name="action" /> at each
     ///     it is itself called.
     /// </remarks>
     public static Func<T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, Unit> ToFunc<T1, T2, T3, T4, T5, T6, T7, T8, T9,
@@ -355,7 +355,7 @@ public static class UnitExtensionMethods
     ///     <see cref="Unit.Value" />.
     /// </returns>
     /// <remarks>
-    ///     Nothing is deferred: the returned function invokes <paramref name="action" /> each time
+    ///     This defers nothing. The function from this call runs <paramref name="action" /> at each
     ///     it is itself called.
     /// </remarks>
     public static Func<T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, Unit> ToFunc<T1, T2, T3, T4, T5, T6, T7, T8,
@@ -400,7 +400,7 @@ public static class UnitExtensionMethods
     ///     <see cref="Unit.Value" />.
     /// </returns>
     /// <remarks>
-    ///     Nothing is deferred: the returned function invokes <paramref name="action" /> each time
+    ///     This defers nothing. The function from this call runs <paramref name="action" /> at each
     ///     it is itself called.
     /// </remarks>
     public static Func<T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, Unit> ToFunc<T1, T2, T3, T4, T5, T6, T7,
@@ -447,7 +447,7 @@ public static class UnitExtensionMethods
     ///     <see cref="Unit.Value" />.
     /// </returns>
     /// <remarks>
-    ///     Nothing is deferred: the returned function invokes <paramref name="action" /> each time
+    ///     This defers nothing. The function from this call runs <paramref name="action" /> at each
     ///     it is itself called.
     /// </remarks>
     public static Func<T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, Unit> ToFunc<T1, T2, T3, T4, T5, T6,
@@ -496,7 +496,7 @@ public static class UnitExtensionMethods
     ///     <see cref="Unit.Value" />.
     /// </returns>
     /// <remarks>
-    ///     Nothing is deferred: the returned function invokes <paramref name="action" /> each time
+    ///     This defers nothing. The function from this call runs <paramref name="action" /> at each
     ///     it is itself called.
     /// </remarks>
     public static Func<T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14, Unit> ToFunc<T1, T2, T3, T4, T5,
@@ -548,7 +548,7 @@ public static class UnitExtensionMethods
     ///     <see cref="Unit.Value" />.
     /// </returns>
     /// <remarks>
-    ///     Nothing is deferred: the returned function invokes <paramref name="action" /> each time
+    ///     This defers nothing. The function from this call runs <paramref name="action" /> at each
     ///     it is itself called.
     /// </remarks>
     public static Func<T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14, T15, Unit> ToFunc<T1, T2, T3,
@@ -602,7 +602,7 @@ public static class UnitExtensionMethods
     ///     <see cref="Unit.Value" />.
     /// </returns>
     /// <remarks>
-    ///     Nothing is deferred: the returned function invokes <paramref name="action" /> each time
+    ///     This defers nothing. The function from this call runs <paramref name="action" /> at each
     ///     it is itself called.
     /// </remarks>
     public static Func<T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14, T15, T16, Unit> ToFunc<T1, T2,
@@ -641,8 +641,8 @@ public static class UnitExtensionMethods
     ///     produces <see cref="Unit.Value" />.
     /// </returns>
     /// <remarks>
-    ///     Nothing is deferred beyond what the action itself defers: the returned function invokes
-    ///     <paramref name="action" /> each time it is called, and its task completes when that
+    ///     This defers nothing more than the action defers. The function from this call runs
+    ///     <paramref name="action" /> at each call, and its task completes when that
     ///     action's does.
     /// </remarks>
     public static Func<Task<Unit>> ToAsyncFunc(this Func<Task> action) =>
@@ -663,8 +663,8 @@ public static class UnitExtensionMethods
     ///     produces <see cref="Unit.Value" />.
     /// </returns>
     /// <remarks>
-    ///     Nothing is deferred beyond what the action itself defers: the returned function invokes
-    ///     <paramref name="action" /> each time it is called, and its task completes when that
+    ///     This defers nothing more than the action defers. The function from this call runs
+    ///     <paramref name="action" /> at each call, and its task completes when that
     ///     action's does.
     /// </remarks>
     public static Func<T, Task<Unit>> ToAsyncFunc<T>(this Func<T, Task> action) =>
@@ -686,8 +686,8 @@ public static class UnitExtensionMethods
     ///     produces <see cref="Unit.Value" />.
     /// </returns>
     /// <remarks>
-    ///     Nothing is deferred beyond what the action itself defers: the returned function invokes
-    ///     <paramref name="action" /> each time it is called, and its task completes when that
+    ///     This defers nothing more than the action defers. The function from this call runs
+    ///     <paramref name="action" /> at each call, and its task completes when that
     ///     action's does.
     /// </remarks>
     public static Func<T1, T2, Task<Unit>> ToAsyncFunc<T1, T2>(this Func<T1, T2, Task> action) =>
@@ -710,8 +710,8 @@ public static class UnitExtensionMethods
     ///     produces <see cref="Unit.Value" />.
     /// </returns>
     /// <remarks>
-    ///     Nothing is deferred beyond what the action itself defers: the returned function invokes
-    ///     <paramref name="action" /> each time it is called, and its task completes when that
+    ///     This defers nothing more than the action defers. The function from this call runs
+    ///     <paramref name="action" /> at each call, and its task completes when that
     ///     action's does.
     /// </remarks>
     public static Func<T1, T2, T3, Task<Unit>> ToAsyncFunc<T1, T2, T3>(this Func<T1, T2, T3, Task> action) =>
@@ -735,8 +735,8 @@ public static class UnitExtensionMethods
     ///     produces <see cref="Unit.Value" />.
     /// </returns>
     /// <remarks>
-    ///     Nothing is deferred beyond what the action itself defers: the returned function invokes
-    ///     <paramref name="action" /> each time it is called, and its task completes when that
+    ///     This defers nothing more than the action defers. The function from this call runs
+    ///     <paramref name="action" /> at each call, and its task completes when that
     ///     action's does.
     /// </remarks>
     public static Func<T1, T2, T3, T4, Task<Unit>> ToAsyncFunc<T1, T2, T3, T4>(
@@ -762,8 +762,8 @@ public static class UnitExtensionMethods
     ///     produces <see cref="Unit.Value" />.
     /// </returns>
     /// <remarks>
-    ///     Nothing is deferred beyond what the action itself defers: the returned function invokes
-    ///     <paramref name="action" /> each time it is called, and its task completes when that
+    ///     This defers nothing more than the action defers. The function from this call runs
+    ///     <paramref name="action" /> at each call, and its task completes when that
     ///     action's does.
     /// </remarks>
     public static Func<T1, T2, T3, T4, T5, Task<Unit>> ToAsyncFunc<T1, T2, T3, T4, T5>(
@@ -790,8 +790,8 @@ public static class UnitExtensionMethods
     ///     produces <see cref="Unit.Value" />.
     /// </returns>
     /// <remarks>
-    ///     Nothing is deferred beyond what the action itself defers: the returned function invokes
-    ///     <paramref name="action" /> each time it is called, and its task completes when that
+    ///     This defers nothing more than the action defers. The function from this call runs
+    ///     <paramref name="action" /> at each call, and its task completes when that
     ///     action's does.
     /// </remarks>
     public static Func<T1, T2, T3, T4, T5, T6, Task<Unit>> ToAsyncFunc<T1, T2, T3, T4, T5, T6>(
@@ -819,8 +819,8 @@ public static class UnitExtensionMethods
     ///     produces <see cref="Unit.Value" />.
     /// </returns>
     /// <remarks>
-    ///     Nothing is deferred beyond what the action itself defers: the returned function invokes
-    ///     <paramref name="action" /> each time it is called, and its task completes when that
+    ///     This defers nothing more than the action defers. The function from this call runs
+    ///     <paramref name="action" /> at each call, and its task completes when that
     ///     action's does.
     /// </remarks>
     public static Func<T1, T2, T3, T4, T5, T6, T7, Task<Unit>> ToAsyncFunc<T1, T2, T3, T4, T5, T6, T7>(
@@ -849,8 +849,8 @@ public static class UnitExtensionMethods
     ///     produces <see cref="Unit.Value" />.
     /// </returns>
     /// <remarks>
-    ///     Nothing is deferred beyond what the action itself defers: the returned function invokes
-    ///     <paramref name="action" /> each time it is called, and its task completes when that
+    ///     This defers nothing more than the action defers. The function from this call runs
+    ///     <paramref name="action" /> at each call, and its task completes when that
     ///     action's does.
     /// </remarks>
     public static Func<T1, T2, T3, T4, T5, T6, T7, T8, Task<Unit>> ToAsyncFunc<T1, T2, T3, T4, T5, T6, T7, T8>(
@@ -880,8 +880,8 @@ public static class UnitExtensionMethods
     ///     produces <see cref="Unit.Value" />.
     /// </returns>
     /// <remarks>
-    ///     Nothing is deferred beyond what the action itself defers: the returned function invokes
-    ///     <paramref name="action" /> each time it is called, and its task completes when that
+    ///     This defers nothing more than the action defers. The function from this call runs
+    ///     <paramref name="action" /> at each call, and its task completes when that
     ///     action's does.
     /// </remarks>
     public static Func<T1, T2, T3, T4, T5, T6, T7, T8, T9, Task<Unit>> ToAsyncFunc<T1, T2, T3, T4, T5, T6, T7, T8,
@@ -912,8 +912,8 @@ public static class UnitExtensionMethods
     ///     produces <see cref="Unit.Value" />.
     /// </returns>
     /// <remarks>
-    ///     Nothing is deferred beyond what the action itself defers: the returned function invokes
-    ///     <paramref name="action" /> each time it is called, and its task completes when that
+    ///     This defers nothing more than the action defers. The function from this call runs
+    ///     <paramref name="action" /> at each call, and its task completes when that
     ///     action's does.
     /// </remarks>
     public static Func<T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, Task<Unit>> ToAsyncFunc<T1, T2, T3, T4, T5, T6, T7,
@@ -956,8 +956,8 @@ public static class UnitExtensionMethods
     ///     produces <see cref="Unit.Value" />.
     /// </returns>
     /// <remarks>
-    ///     Nothing is deferred beyond what the action itself defers: the returned function invokes
-    ///     <paramref name="action" /> each time it is called, and its task completes when that
+    ///     This defers nothing more than the action defers. The function from this call runs
+    ///     <paramref name="action" /> at each call, and its task completes when that
     ///     action's does.
     /// </remarks>
     public static Func<T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, Task<Unit>> ToAsyncFunc<T1, T2, T3, T4, T5, T6,
@@ -1002,8 +1002,8 @@ public static class UnitExtensionMethods
     ///     produces <see cref="Unit.Value" />.
     /// </returns>
     /// <remarks>
-    ///     Nothing is deferred beyond what the action itself defers: the returned function invokes
-    ///     <paramref name="action" /> each time it is called, and its task completes when that
+    ///     This defers nothing more than the action defers. The function from this call runs
+    ///     <paramref name="action" /> at each call, and its task completes when that
     ///     action's does.
     /// </remarks>
     public static Func<T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, Task<Unit>> ToAsyncFunc<T1, T2, T3, T4,
@@ -1050,8 +1050,8 @@ public static class UnitExtensionMethods
     ///     produces <see cref="Unit.Value" />.
     /// </returns>
     /// <remarks>
-    ///     Nothing is deferred beyond what the action itself defers: the returned function invokes
-    ///     <paramref name="action" /> each time it is called, and its task completes when that
+    ///     This defers nothing more than the action defers. The function from this call runs
+    ///     <paramref name="action" /> at each call, and its task completes when that
     ///     action's does.
     /// </remarks>
     public static Func<T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, Task<Unit>> ToAsyncFunc<T1, T2, T3,
@@ -1101,8 +1101,8 @@ public static class UnitExtensionMethods
     ///     produces <see cref="Unit.Value" />.
     /// </returns>
     /// <remarks>
-    ///     Nothing is deferred beyond what the action itself defers: the returned function invokes
-    ///     <paramref name="action" /> each time it is called, and its task completes when that
+    ///     This defers nothing more than the action defers. The function from this call runs
+    ///     <paramref name="action" /> at each call, and its task completes when that
     ///     action's does.
     /// </remarks>
     public static Func<T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14, Task<Unit>> ToAsyncFunc<T1, T2,
@@ -1154,8 +1154,8 @@ public static class UnitExtensionMethods
     ///     produces <see cref="Unit.Value" />.
     /// </returns>
     /// <remarks>
-    ///     Nothing is deferred beyond what the action itself defers: the returned function invokes
-    ///     <paramref name="action" /> each time it is called, and its task completes when that
+    ///     This defers nothing more than the action defers. The function from this call runs
+    ///     <paramref name="action" /> at each call, and its task completes when that
     ///     action's does.
     /// </remarks>
     public static Func<T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14, T15, Task<Unit>> ToAsyncFunc<T1,
@@ -1209,8 +1209,8 @@ public static class UnitExtensionMethods
     ///     produces <see cref="Unit.Value" />.
     /// </returns>
     /// <remarks>
-    ///     Nothing is deferred beyond what the action itself defers: the returned function invokes
-    ///     <paramref name="action" /> each time it is called, and its task completes when that
+    ///     This defers nothing more than the action defers. The function from this call runs
+    ///     <paramref name="action" /> at each call, and its task completes when that
     ///     action's does.
     /// </remarks>
     public static Func<T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14, T15, T16, Task<Unit>>

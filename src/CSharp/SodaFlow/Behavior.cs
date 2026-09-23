@@ -30,7 +30,7 @@ public static class Behavior
 
     /// <summary>
     ///     Creates a writable behavior that uses the last value if
-    ///     <see cref="BehaviorSinkExtensionMethods.Send{T}" /> is called more than one time per
+    ///     <see cref="BehaviorSinkExtensionMethods.Send{T}" /> gets more than one call per
     ///     transaction.
     /// </summary>
     /// <param name="initialValue">The initial value of the behavior.</param>
@@ -40,11 +40,11 @@ public static class Behavior
 
     /// <summary>
     ///     Creates a writable behavior that uses <paramref name="coalesce" /> to put values together when
-    ///     <see cref="BehaviorSinkExtensionMethods.Send{T}" /> is called more than one time per transaction.
+    ///     <see cref="BehaviorSinkExtensionMethods.Send{T}" /> gets more than one call in one transaction.
     /// </summary>
     /// <param name="initialValue">The initial value of the behavior.</param>
     /// <param name="coalesce">
-    ///     Function to put values together when <see cref="BehaviorSinkExtensionMethods.Send{T}" /> is called
+    ///     Function to put values together when <see cref="BehaviorSinkExtensionMethods.Send{T}" /> gets a call
     ///     more than one time per transaction.
     /// </param>
     /// <typeparam name="T">The type of values in the behavior sink.</typeparam>
@@ -53,7 +53,7 @@ public static class Behavior
         BehaviorInternal.CreateSinkImpl(initialValue: initialValue, coalesce: coalesce);
 
     /// <summary>
-    ///     Creates a <see cref="BehaviorLoop{T}" />.  This must be called and looped in the same transaction.
+    ///     Makes a <see cref="BehaviorLoop{T}" />. A caller must call this and close the loop in one transaction.
     /// </summary>
     /// <typeparam name="T">The type of values in the behavior loop.</typeparam>
     public static BehaviorLoop<T> CreateLoop<T>() => new();
@@ -70,7 +70,7 @@ public static class Behavior
 /// <summary>
 ///     A helper to complete a loop over a behavior.
 /// </summary>
-/// <typeparam name="T">The type of the behavior being looped.</typeparam>
+/// <typeparam name="T">The type of the behavior in the loop.</typeparam>
 public struct BehaviorLooper<T>
 {
     /// <summary>

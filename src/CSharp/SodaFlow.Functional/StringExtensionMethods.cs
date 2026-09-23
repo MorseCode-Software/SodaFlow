@@ -6,12 +6,12 @@ using JetBrains.Annotations;
 // extension blocks. Declined for the file rather than method by method, because the cause applies
 // to all of them, and to each one added after this.
 //
-// The block version emits the same public API - the same static methods, with the same signatures
-// and the same ExtensionAttribute - but it rewrites the documentation, which is most of what this
-// file is. Each public method is left holding an <inheritdoc /> pointing at a compiler-generated
-// type whose name is a hash, and its summary, parameters and returns move to that name.
-// A reader of the XML that does not resolve inheritdoc - IntelliSense over a package reference
-// included - then shows nothing at all for a method which is documented here in full.
+// The block version emits the same public API: the same static methods, with the same
+// signatures and the same ExtensionAttribute. But it rewrites the documentation, which is most
+// of what this file is. Each public method then holds an <inheritdoc /> that points at a
+// compiler-generated type whose name is a hash. Its summary, parameters, and returns move to
+// that name. A reader of the XML that does not resolve inheritdoc then shows nothing for a
+// method that this file documents in full. IntelliSense over a package reference is one.
 // ReSharper disable ConvertToExtensionBlock
 
 namespace SodaFlow.Functional;
@@ -21,12 +21,12 @@ namespace SodaFlow.Functional;
 /// </summary>
 /// <remarks>
 ///     Each of these wraps the framework's own <c>TryParse</c> for the type it names, so what
-///     counts as parseable is what that method accepts. What changes is the shape of the
-///     answer: a <see cref="Maybe{T}" /> which code can map, filter and put together, as a replacement for
-///     a <see cref="bool" /> and an output parameter which cannot be used until the
-///     <see cref="bool" /> has been checked.
+///     counts as parseable is what that method accepts. What changes is the shape of the answer.
+///     It is a <see cref="Maybe{T}" /> that code can map, filter, and put together. It replaces a
+///     <see cref="bool" /> with an output parameter that no code can read until the
+///     <see cref="bool" />.
 ///     The overloads with no <see cref="IFormatProvider" /> parameter use the current culture, again
-///     matching the method being wrapped. Give <see cref="CultureInfo.InvariantCulture" />
+///     to agree with the method below it. Give <see cref="CultureInfo.InvariantCulture" />
 ///     explicitly for text which is not meant to follow the user's culture - a configuration
 ///     file, a transmission format, or a machine-written record.
 ///     A <see langword="null" /> string parses as no value in each member here, because that is what each
@@ -452,7 +452,7 @@ public static class StringExtensionMethods
     /// </returns>
     /// <remarks>
     ///     Wraps <see cref="bool.TryParse(string,out bool)" />, which accepts only
-    ///     <c>True</c> and <c>False</c> in any casing, and whitespace on each side is permitted. It
+    ///     <c>True</c> and <c>False</c> in any casing, and whitespace on each side is correct. It
     ///     does not accept <c>1</c>, <c>0</c>, <c>yes</c> or <c>no</c>, and is not
     ///     culture-sensitive.
     /// </remarks>
@@ -486,7 +486,7 @@ public static class StringExtensionMethods
     /// </returns>
     /// <remarks>
     ///     Wraps <see cref="Guid.TryParse(string,out Guid)" />, so any of the framework's
-    ///     recognized layouts is accepted. Use
+    ///     one of the layouts that it recognizes. Use
     ///     <see cref="TryParseGuidExact(string,string)" /> to insist on one of them.
     /// </remarks>
     [Pure]
@@ -524,10 +524,10 @@ public static class StringExtensionMethods
     /// </returns>
     /// <remarks>
     ///     Wraps <see cref="DateTime.TryParse(string,out DateTime)" />, so this reads the current
-    ///     culture. Date text is where that matters most - <c>03/04/2026</c> is two different days
-    ///     and this changes with the culture that reads it, thus prefer
-    ///     <see cref="TryParseDateTime(string,IFormatProvider,DateTimeStyles)" /> for anything not
-    ///     typed by the user.
+    ///     culture. Date text is where that matters most, because <c>03/04/2026</c> is two different
+    ///     days and this changes with the culture that reads it. Thus, prefer
+    ///     <see cref="TryParseDateTime(string,IFormatProvider,DateTimeStyles)" /> for text that the
+    ///     user did not type.
     /// </remarks>
     [Pure]
     public static Maybe<DateTime> TryParseDateTime(this string? value) =>
@@ -702,10 +702,10 @@ public static class StringExtensionMethods
     /// <remarks>
     ///     Wraps <see cref="Enum.TryParse{TEnum}(string,out TEnum)" />, and inherits its two
     ///     surprises. Matching is case-sensitive, which
-    ///     <see cref="TryParseEnum{TEnum}(string,bool)" /> can disable. More importantly, a
-    ///     string of digits parses to that number when the enumeration does not declare it, thus
-    ///     <c>"37"</c> succeeds for an enumeration with three members - use
-    ///     <see cref="TryParseDefinedEnum{TEnum}(string)" /> where only a declared member will do.
+    ///     <see cref="TryParseEnum{TEnum}(string,bool)" /> can disable. More important is that a
+    ///     string of digits parses to that number when the enumeration does not declare it. Thus,
+    ///     <c>"37"</c> succeeds for an enumeration with three members. Use
+    ///     <see cref="TryParseDefinedEnum{TEnum}(string)" /> where only a declared member is correct.
     /// </remarks>
     [Pure]
     public static Maybe<TEnum> TryParseEnum<TEnum>(this string? value)
@@ -746,12 +746,13 @@ public static class StringExtensionMethods
     ///     and one containing no value otherwise.
     /// </returns>
     /// <remarks>
-    ///     <see cref="TryParseEnum{TEnum}(string)" /> plus the check that the result is a member
-    ///     the enumeration actually declares, which is what keeps <c>"37"</c> from parsing to a
-    ///     value nothing will ever handle. Use this one when the string came from
+    ///     <see cref="TryParseEnum{TEnum}(string)" /> with one more check: the result must be a member
+    ///     that the enumeration declares. That is what keeps <c>"37"</c> from a parse to a value that
+    ///     no code handles. Use this one when the string came from
     ///     out of the process.
-    ///     Not for an enumeration marked <see cref="FlagsAttribute" />: a combination of declared
-    ///     flags is a perfectly good value but is not itself declared, so it gives no value here.
+    ///     Not for an enumeration marked <see cref="FlagsAttribute" />. A combination of declared
+    ///     flags is a good value, but the enumeration does not declare it. Thus, it gives no value
+    ///     here.
     ///     Use <see cref="TryParseEnum{TEnum}(string)" /> for those.
     /// </remarks>
     [Pure]

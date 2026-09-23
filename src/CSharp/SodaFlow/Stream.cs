@@ -19,7 +19,7 @@ public static class Stream
     public static Stream<T> Never<T>() => StreamInternal.NeverImpl<T>();
 
     /// <summary>
-    ///     Creates a StreamSink that throws an exception if <see cref="Stream{T}.Send" /> is called more than
+    ///     Creates a StreamSink that throws an exception if <see cref="Stream{T}.Send" /> gets more than
     ///     one time per transaction.
     /// </summary>
     /// <typeparam name="T">The type of values fired by the stream sink.</typeparam>
@@ -28,10 +28,10 @@ public static class Stream
 
     /// <summary>
     ///     Makes a StreamSink that uses <paramref name="coalesce" />
-    ///     to put values together when <see cref="Stream{T}.Send" /> is called more than one time per transaction.
+    ///     to put values together when <see cref="Stream{T}.Send" /> gets more than one call in one transaction.
     /// </summary>
     /// <param name="coalesce">
-    ///     Function to put values together when <see cref="Stream{T}.Send" /> is called more than one time per
+    ///     Function to put values together when <see cref="Stream{T}.Send" /> gets more than one call per
     ///     transaction.
     /// </param>
     /// <typeparam name="T">The type of values fired by the stream sink.</typeparam>
@@ -39,7 +39,7 @@ public static class Stream
     public static StreamSink<T> CreateSink<T>(Func<T, T, T> coalesce) => StreamInternal.CreateSinkImpl(coalesce);
 
     /// <summary>
-    ///     Creates a <see cref="StreamLoop{T}" />.  This must be called and looped in the same transaction.
+    ///     Makes a <see cref="StreamLoop{T}" />. A caller must call this and close the loop in one transaction.
     /// </summary>
     /// <typeparam name="T">The type of values in the stream loop.</typeparam>
     public static StreamLoop<T> CreateLoop<T>() => new();
@@ -56,7 +56,7 @@ public static class Stream
 /// <summary>
 ///     A helper to complete a loop over a stream.
 /// </summary>
-/// <typeparam name="T">The type of the stream being looped.</typeparam>
+/// <typeparam name="T">The type of the stream in the loop.</typeparam>
 public struct StreamLooper<T>
 {
     /// <summary>

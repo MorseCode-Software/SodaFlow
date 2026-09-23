@@ -4,28 +4,29 @@ using JetBrains.Annotations;
 namespace SodaFlow;
 
 /// <summary>
-///     Constructs a value which can refer to itself while it is being constructed.
+///     Constructs a value that can refer to itself during its own construction.
 /// </summary>
 /// <typeparam name="T">The type of the value to make.</typeparam>
 /// <remarks>
-///     A cell loop lets a cell be referred to before it exists, and is closed with the cell the
-///     reference turned out to mean. This is that with the cell taken back out: the function
-///     produces a single value rather than a cell of changing ones, and the loop it is handed
-///     resolves to that value and never changes again.
+///     A cell loop gives a reference to a cell before the cell exists, and the cell that the
+///     reference means closes the loop. This is the same, but it removes the cell. The function
+///     gives one value and not a cell of changing values, and a constant cell closes the loop that
+///     the function gets. Thus, the reference resolves to that value and never changes.
 ///     The two members here operate the same, and each closes a cell loop with a constant cell. That is
 ///     what makes this the loop with one value: the reference resolves to the value the
 ///     function produced and has nothing more to say.
 ///     Use this for the cycle between two objects where each one needs the other one at its construction.
-///     Ordinarily one of them has to be built half-formed and completed afterward, with a
-///     settable member that has no business as a settable member after the code builds the graph:
+///     Without this, the code must make one object incomplete and complete it after the other one.
+///     That needs a settable member, which is incorrect after the code builds the graph.
+///     For example:
 ///     <code>
 ///     Node node = ForwardReference&lt;Node&gt;.WithoutCaptures(
 ///         reference =&gt; new Node(new Child(reference.AsCell())));
 ///     </code>
-///     The child holds a <see cref="Cell{T}" /> which is empty of meaning until the call
-///     returns, and holds the finished node from then on. Nothing has to be mutable, and there
-///     is no window in which a half-built node is reachable, because the reference cannot be
-///     sampled before the constructing function returns.
+///     The child holds a <see cref="Cell{T}" /> with no meaning until the call returns. It holds
+///     the finished node after that. Nothing has to be mutable. There is also no window where a
+///     half-built node is reachable, because no code can sample the reference before the
+///     construction function returns.
 ///     That last point is the constraint worth remembering. The reference is a promise about
 ///     what a value will be, and not the value. A read of it during the construction, with
 ///     <see cref="CellExtensionMethods.Sample{T}" /> or anything built on it - asks a question
@@ -50,11 +51,11 @@ public static class ForwardReference<T>
     ///     The captures are for the parts that this code makes with the value, and that the value does
     ///     not give. Examples are a sink that sends to it, and an internal cell to monitor. No code can
     ///     get these after the function returns.
-    ///     <typeparamref name="TCaptures" /> is inferred from the function.
-    ///     <typeparamref name="T" /> is named on <see cref="ForwardReference{T}" /> itself,
-    ///     which is what leaves it free: a lambda gives type inference nothing to work from, and C#
-    ///     does not accept only some of the type arguments of a method. Thus, with the two names here,
-    ///     a caller writes the two at each call.
+    ///     The function gives <typeparamref name="TCaptures" /> to type inference.
+    ///     <see cref="ForwardReference{T}" /> itself names <typeparamref name="T" />, which is what
+    ///     leaves it free. A lambda gives type inference nothing to work from, and C# does not accept
+    ///     only some of the type arguments of a method. Thus, with the two names here, a caller writes
+    ///     the two at each call.
     /// </remarks>
     [Pure]
     public static (T Value, TCaptures Captures) WithCaptures<TCaptures>(
@@ -76,7 +77,7 @@ public static class ForwardReference<T>
     /// </param>
     /// <returns>The constructed value.</returns>
     /// <remarks>
-    ///     <typeparamref name="T" /> is named on <see cref="ForwardReference{T}" /> itself,
+    ///     <see cref="ForwardReference{T}" /> itself names <typeparamref name="T" />,
     ///     since a lambda gives type inference nothing to work from.
     /// </remarks>
     [Pure]

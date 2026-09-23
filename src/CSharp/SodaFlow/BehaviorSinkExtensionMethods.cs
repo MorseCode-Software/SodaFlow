@@ -19,7 +19,7 @@ public static class BehaviorSinkExtensionMethods
     ///     registered with <see cref="StreamExtensionMethods.Listen{T}(Stream{T}, Action{T})" />,
     ///     <see cref="StreamExtensionMethods.ListenStrong{T}(Stream{T}, Action{T})" /> or one of their cell
     ///     equivalents. An exception will be thrown, because sinks are for interfacing I/O to FRP only. They
-    ///     are not meant to be used to make new primitives.
+    ///     are not for the definition of a new primitive.
     /// </summary>
     /// <typeparam name="T">The type of the behavior sink.</typeparam>
     /// <param name="b">The behavior sink.</param>

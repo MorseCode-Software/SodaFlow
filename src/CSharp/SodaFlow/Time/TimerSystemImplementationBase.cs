@@ -13,7 +13,7 @@ namespace SodaFlow.Time;
 /// <typeparam name="T">The type used to express a point in time.</typeparam>
 /// <remarks>
 ///     Derive from this and write <see cref="Now" /> and <see cref="SubtractTimes" />. The
-///     ordering, waiting and firing of timers is handled here. <see cref="SystemClockTimerSystem" />
+///     This type puts the timers in order, waits, and fires them. <see cref="SystemClockTimerSystem" />
 ///     and <see cref="SecondsTimerSystem" /> are the two implementations that ship.
 /// </remarks>
 [PublicAPI]
@@ -25,11 +25,10 @@ public abstract class TimerSystemImplementationBase<T> : ITimerSystemImplementat
     private readonly SortedSet<SimpleTimer> timers = [];
 
     // Signaled when the timer set changes, to wake the timer thread so it can recompute
-    // how long to wait. An AutoResetEvent rather than a CancellationTokenSource: a signal
-    // raised while the thread is between computing its wait and entering it is latched, so the
-    // next wait returns immediately, and does not sleep through the change. The previous
-    // code allocated a new CancellationTokenSource at each step and disposed of none of
-    // one.
+    // how long to wait. An AutoResetEvent, and not a CancellationTokenSource. A signal latches
+    // after the thread calculates its wait and before that wait starts. Thus, the next wait
+    // returns immediately, and does not sleep through the change. The previous code allocated a
+    // new CancellationTokenSource at each step, and disposed of none of them.
     private readonly AutoResetEvent timersChanged = new(false);
 
     private long nextSeq;
@@ -43,16 +42,16 @@ public abstract class TimerSystemImplementationBase<T> : ITimerSystemImplementat
         // some transaction happens to start, thus code that only waits is dependent
         // fully on this loop. A run on the thread pool made that dependency dangerous for liveness.
         // Each step needed a pool thread, one time to start and again for each Task.Delay
-        // continuation, and a cancellation only put that continuation in the queue. With the pool
-        // saturated the loop simply never ran, and alarms were never fired at all.
+        // continuation. A cancellation only put that continuation in the queue. With the pool
+        // saturated the loop simply never ran, and alarms never fired.
         //
-        // That is not theoretical. Reproduced by saturating the pool with blocking work: eight of
-        // eight runs delivered zero events after waiting two seconds for alarms a hundred
-        // milliseconds out, against zero of eight unstarved. It had been failing intermittently on
-        // CI, always with zero events and not an incorrect count, which is the signature of the
-        // timers never firing rather than of a miscount.
+        // That is not theoretical. To reproduce it, fill the pool with blocking work. Eight of eight
+        // runs then gave zero events after a wait of two seconds for alarms a hundred milliseconds
+        // in the future. With a pool that was not full, zero of eight runs did that. CI gave the
+        // same incorrect result: always zero events, and not an incorrect count. That is
+        // the signature of timers that never fire, and not of a miscount.
         //
-        // A background thread cannot be starved by pool work, and WaitOne serves as the two the timed
+        // Pool work cannot starve a background thread, and WaitOne is the timed
         // wait and the wake. StreamListenerManager takes this approach for its sweeper.
         Thread timerThread =
             new(() =>
@@ -85,7 +84,7 @@ public abstract class TimerSystemImplementationBase<T> : ITimerSystemImplementat
     /// </summary>
     /// <param name="time">The time at which to run the callback.</param>
     /// <param name="callback">The callback to run.</param>
-    /// <returns>A handle which can be used to cancel the timer before it fires.</returns>
+    /// <returns>A handle to cancel the timer before it fires.</returns>
     /// <remarks>
     ///     A time before now fires at the next opportunity, and the timer system does not drop it. The
     ///     callback runs on the timer thread, or on whichever thread called
@@ -102,9 +101,8 @@ public abstract class TimerSystemImplementationBase<T> : ITimerSystemImplementat
         }
 
         // Signaled out of the lock. The initial code canceled the previous token source while it held
-        // it, and a cancellation runs its callbacks synchronously, thus the wait loop can
-        // start again inline on this thread and enter TimeUntilNext again while the caller held
-        // the lock.
+        // it. A cancellation runs its callbacks synchronously. Thus, the wait loop can start again
+        // inline on this thread, and enter TimeUntilNext again while the caller holds the lock.
         this.timersChanged.Set();
         return timer;
     }
@@ -125,8 +123,8 @@ public abstract class TimerSystemImplementationBase<T> : ITimerSystemImplementat
     /// </summary>
     /// <value>The current point in time.</value>
     /// <remarks>
-    ///     Read frequently by the timer thread, thus its cost must be low and it must move forward
-    ///     sufficiently for the clock to get to each scheduled time.
+    ///     The timer thread reads this frequently, thus its cost must be low. It must also move
+    ///     forward sufficiently for the clock to get to each scheduled time.
     /// </remarks>
     // ReSharper disable once InheritdocConsiderUsage
     public abstract T Now { get; }

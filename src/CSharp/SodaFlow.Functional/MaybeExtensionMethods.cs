@@ -21,8 +21,8 @@ public static class MaybeExtensionMethods
     ///     <see cref="Maybe{T}" /> containing no value otherwise.
     /// </returns>
     /// <remarks>
-    ///     The two conditions with no value give the same result: an outer with no value and
-    ///     an outer containing an inner with no value the two give no value.
+    ///     The two conditions with no value give the same result. An outer with no value gives no
+    ///     value, and an outer that holds an inner with no value gives no value.
     /// </remarks>
     [Pure]
     public static Maybe<T> Flatten<T>(this Maybe<Maybe<T>> a) => a.Bind(static v => v);
@@ -31,7 +31,7 @@ public static class MaybeExtensionMethods
     ///     Returns the values from a sequence which have one, discarding the entries which do not.
     /// </summary>
     /// <typeparam name="T">The type of the values in the sequence.</typeparam>
-    /// <param name="o">The sequence to filter. A <see langword="null" /> sequence is treated as empty.</param>
+    /// <param name="o">The sequence to filter. A <see langword="null" /> sequence counts as empty.</param>
     /// <returns>The contained values, in order, with the empty entries left out.</returns>
     /// <remarks>
     ///     Lazy, like the LINQ operators it is built from: the source is not enumerated until the
@@ -54,14 +54,14 @@ public static class MaybeExtensionMethods
     ///     which has a value only when each entry was.
     /// </summary>
     /// <typeparam name="T">The type of the values in the sequence.</typeparam>
-    /// <param name="o">The sequence to collect. A <see langword="null" /> sequence is treated as empty.</param>
+    /// <param name="o">The sequence to collect. A <see langword="null" /> sequence counts as empty.</param>
     /// <returns>
     ///     All the values if each entry had one, and no value if any entry did not. An empty
     ///     sequence gives an empty sequence rather than no value.
     /// </returns>
     /// <remarks>
-    ///     Unlike <see cref="WhereSome{T}" />, this enumerates the source immediately, since
-    ///     no code can know if the result has a value without a read to the end of it.
+    ///     Unlike <see cref="WhereSome{T}" />, this enumerates the source immediately. No code can
+    ///     know if the result has a value without a read to the end of it.
     /// </remarks>
     [Pure]
     public static Maybe<IEnumerable<T>> AllSomeOrNone<T>(this IEnumerable<Maybe<T>>? o)
@@ -82,11 +82,11 @@ public static class MaybeExtensionMethods
 
     /// <summary>
     ///     Applies a function which can give no value to each element of a sequence, and
-    ///     collects the results only if all of them were produced.
+    ///     collects the results only when each one has a value.
     /// </summary>
     /// <typeparam name="T">The type of the values in the sequence.</typeparam>
     /// <typeparam name="TResult">The type of the values the function produces.</typeparam>
-    /// <param name="o">The sequence to map. A <see langword="null" /> sequence is treated as empty.</param>
+    /// <param name="o">The sequence to map. A <see langword="null" /> sequence counts as empty.</param>
     /// <param name="f">Applied to each element in turn.</param>
     /// <returns>
     ///     All the results if <paramref name="f" /> produced a value for each element, and no
@@ -96,11 +96,11 @@ public static class MaybeExtensionMethods
     /// <remarks>
     ///     This is the all-or-nothing counterpart to
     ///     <see cref="EnumerableExtensionMethods.Choose{T,TResult}(IEnumerable{T},Func{T,Maybe{TResult}})" />,
-    ///     which keeps whatever it can get and discards the others. Use this one where a single
-    ///     element failing means the full result is meaningless - parsing a file of numbers,
-    ///     say, rather than picking the numbers out of a file of mixed lines.
+    ///     which keeps whatever it can get and discards the others. Use this one where one element
+    ///     that fails makes the full result meaningless. An example is a parse of a file of numbers,
+    ///     and not a selection of the numbers in a file of mixed lines.
     ///     Like the other overload this enumerates the source immediately. <paramref name="f" />
-    ///     is applied to each element after one has given no value, thus it must not be dependent
+    ///     runs on each element after one gives no value, thus it must not be dependent
     ///     on a stop before the end.
     /// </remarks>
     [Pure]
@@ -119,9 +119,9 @@ public static class MaybeExtensionMethods
     ///     otherwise.
     /// </returns>
     /// <remarks>
-    ///     This is what lets a <see cref="Maybe{T}" /> be fed to anything which takes a sequence -
-    ///     and <c>SelectMany</c>, where it removes entries with no value in the same
-    ///     step that produces them.
+    ///     This is what lets code give a <see cref="Maybe{T}" /> to anything with a sequence
+    ///     parameter. That includes <c>SelectMany</c>, where it removes entries with no value in the
+    ///     same step that makes them.
     /// </remarks>
     [Pure]
     public static IEnumerable<T> ToEnumerable<T>(this Maybe<T> a) =>
@@ -193,7 +193,7 @@ public static class MaybeExtensionMethods
     ///     The contained value, or <paramref name="defaultValue" /> if there is none.
     /// </returns>
     /// <remarks>
-    ///     <paramref name="defaultValue" /> is evaluated in each condition, because it is an argument. Where
+    ///     This code evaluates <paramref name="defaultValue" /> in each condition, because it is an argument. Where
     ///     that is not wanted, use <see cref="ValueOr{T}(Maybe{T},Func{T})" />.
     /// </remarks>
     [Pure]
@@ -229,10 +229,10 @@ public static class MaybeExtensionMethods
     ///     The contained value, or <see langword="default" /> if there is none.
     /// </returns>
     /// <remarks>
-    ///     This is the one helper here which cannot tell you which case you got: for a type whose
-    ///     default is itself a legitimate value - zero, <see langword="false" />,
-    ///     <see langword="null" /> - the answer is ambiguous. Use it only where that
-    ///     genuinely has no effect.
+    ///     This is the one helper here that cannot say which case you got. For a type whose default is
+    ///     itself a legitimate value, such as zero, <see langword="false" />, or
+    ///     <see langword="null" />, the answer is ambiguous. Use it only where that genuinely has no
+    ///     effect.
     /// </remarks>
     [Pure]
     public static T? ValueOrDefault<T>(this Maybe<T> a) =>
@@ -269,8 +269,8 @@ public static class MaybeExtensionMethods
     ///     <paramref name="a" /> if it contains a value, and <paramref name="b" /> otherwise.
     /// </returns>
     /// <remarks>
-    ///     Chained, this is a list of fallbacks: the first source which has an answer wins, and
-    ///     the result has no value only if none of them did.
+    ///     In a chain, this is a list of fallbacks. The first source with an answer wins, and the
+    ///     result has no value only when no source had one.
     /// </remarks>
     [Pure]
     public static Maybe<T> OrElse<T>(this Maybe<T> a, Maybe<T> b) => a.Match(onSome: _ => a, onNone: () => b);
@@ -286,9 +286,9 @@ public static class MaybeExtensionMethods
     ///     otherwise.
     /// </returns>
     /// <remarks>
-    ///     <paramref name="b" /> is run only when <paramref name="a" /> has no value, so this is
-    ///     the version to use when a read of the fallback costs something - a second lookup, a
-    ///     second parse.
+    ///     <paramref name="b" /> runs only when <paramref name="a" /> has no value. Thus, use this
+    ///     version when a read of the fallback costs something, such as a second lookup or a second
+    ///     parse.
     /// </remarks>
     [Pure]
     public static Maybe<T> OrElse<T>(
@@ -312,8 +312,8 @@ public static class MaybeExtensionMethods
     ///     value otherwise.
     /// </returns>
     /// <remarks>
-    ///     <paramref name="f" /> is run only when each input has a value, which is what makes this
-    ///     the procedure to put some parsed or looked-up values together, with no <c>Match</c> for each input.
+    ///     <paramref name="f" /> runs only when each input has a value. Thus, this is the procedure
+    ///     to put some parsed or looked-up values together, with no <c>Match</c> for each input.
     /// </remarks>
     [Pure]
     public static Maybe<TResult> Lift<T1, T2, TResult>(

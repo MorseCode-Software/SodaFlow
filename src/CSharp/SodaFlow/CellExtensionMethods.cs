@@ -9,11 +9,10 @@ namespace SodaFlow;
 ///     The operations available on a <see cref="Cell{T}" />.
 /// </summary>
 /// <remarks>
-///     A cell is a behavior which also exposes the stream of its own changes, so it supports
-///     everything in <see cref="BehaviorExtensionMethods" /> along with operations built on those
-///     updates.
-///     Build the graph in a <see cref="Transaction.Run{T}(System.Func{T})" /> so that no first
-///     firing is missed. That is most important with <see cref="Values{T}" />, which always fires immediately.
+///     A cell is a behavior that also gives the stream of its own changes. Thus, it has everything in
+///     <see cref="BehaviorExtensionMethods" />, and the operations that use those updates. Build the graph in
+///     a <see cref="Transaction.Run{T}(System.Func{T})" /> so that no first firing goes to the listener. That
+///     is most important with <see cref="Values{T}" />, which always fires immediately.
 /// </remarks>
 [PublicAPI]
 public static class CellExtensionMethods
@@ -26,23 +25,22 @@ public static class CellExtensionMethods
     /// <returns>The current value of the cell.</returns>
     /// <remarks>
     ///     <para>
-    ///         This method can be used in the functions passed to primitives that apply them to streams, and
-    ///         <see cref="StreamExtensionMethods.Map{T, TResult}(Stream{T}, Func{T,TResult})" />, and this is
-    ///         then equivalent to snapshotting the cell,
+    ///         The functions that the primitives give to a stream can call this method. There it is the same
+    ///         as a snapshot of the cell. Those primitives are
+    ///         <see cref="StreamExtensionMethods.Map{T, TResult}(Stream{T}, Func{T,TResult})" />,
     ///         <see cref=" StreamExtensionMethods.Snapshot{T, T2, TResult}(Stream{T}, Cell{T2}, Func{T, T2, TResult})" />,
     ///         <see cref="StreamExtensionMethods.Filter{T}(Stream{T}, Func{T, bool})" />, and
-    ///         <see cref="StreamExtensionMethods.Merge{T}(Stream{T}, Stream{T}, Func{T, T, T})" />
+    ///         <see cref="StreamExtensionMethods.Merge{T}(Stream{T}, Stream{T}, Func{T, T, T})" />.
     ///     </para>
     ///     <para>
-    ///         Usually, use this as a replacement for it: <see cref="ListenStrong{T}(Cell{T}, Action{T})" />
-    ///         thus the code keeps each update, but in many conditions it is correct.
+    ///         Usually, use <see cref="ListenStrong{T}(Cell{T}, Action{T})" /> as a replacement, thus the
+    ///         code keeps each update. But this method is correct in many conditions.
     ///     </para>
     ///     <para>
     ///         It can be best to use this method in an explicit transaction (using
     ///         <see cref="Transaction.Run{T}(Func{T})" /> or <see cref="Transaction.RunVoid(Action)" />).
-    ///         For example, a c.Sample() in an explicit transaction along with a c.Updates().ListenStrong(...) will
-    ///         capture the
-    ///         current value and any updates without risk of missing any in between.
+    ///         For example, a c.Sample() in an explicit transaction, with a c.Updates().ListenStrong(...),
+    ///         captures the current value and each update. The code keeps each value between the two.
     ///     </para>
     /// </remarks>
     [MethodImpl(MethodImplOptions.NoInlining)]
@@ -53,7 +51,7 @@ public static class CellExtensionMethods
     /// </summary>
     /// <typeparam name="T">The type of the cell.</typeparam>
     /// <param name="c">The cell.</param>
-    /// <returns>A lazy which can be used to get the current value of the cell.</returns>
+    /// <returns>A lazy value that gives the current value of the cell.</returns>
     /// <remarks>
     ///     This is a variant of <see cref="Sample{T}" /> that works with the <see cref="CellLoop{T}" /> class
     ///     when no code closed the cell loop.  Use it in code that is general
@@ -84,7 +82,7 @@ public static class CellExtensionMethods
     /// </returns>
     /// <remarks>
     ///     This stream is the same as the stream from <see cref="Updates{T}(Cell{T})" />, but it also fires
-    ///     during the transaction in which it was obtained.
+    ///     during the transaction that gave it.
     ///     To see the first value, read this property and use it in the same explicit transaction.
     /// </remarks>
     [MethodImpl(MethodImplOptions.NoInlining)]
@@ -101,14 +99,14 @@ public static class CellExtensionMethods
 
     /// <summary>
     ///     Listen for updates to the value of this cell, keeping the cell alive for as long as the returned
-    ///     listener is reachable.  The returned <see cref="IListener" /> can be
-    ///     disposed to stop listening.  This is an OPERATIONAL mechanism for interfacing between
+    ///     listener is reachable. A disposal of the <see cref="IListener" /> from this call stops the
+    ///     listener. This is an OPERATIONAL mechanism for the boundary between
     ///     the world of I/O and FRP.
     /// </summary>
     /// <typeparam name="T">The type of the cell.</typeparam>
     /// <param name="c">The cell.</param>
     /// <param name="handler">The handler to run with each value.</param>
-    /// <returns>An <see cref="IListener" /> which can be disposed to stop listening.</returns>
+    /// <returns>An <see cref="IListener" />. A disposal of it stops the listener.</returns>
     /// <remarks>
     ///     <para>
     ///         Make no assumption about the thread that calls the handler, and the handler must not block.
@@ -117,11 +115,11 @@ public static class CellExtensionMethods
     ///         They throw an exception, because this method is not for the definition of a new primitive.
     ///     </para>
     ///     <para>
-    ///         If the <see cref="IListener" /> is not disposed, it will continue to listen until this cell is
-    ///         disposed or garbage collected.
+    ///         With no disposal of the <see cref="IListener" />, the listener continues until a disposal of
+    ///         this cell, or until a GC collects it.
     ///     </para>
     ///     <para>
-    ///         This roots the cell: the graph behind it cannot be collected while the returned listener is
+    ///         This roots the cell, thus a GC cannot collect the graph behind it while the listener from this call is
     ///         reachable.  Use <see cref="Listen{T}(Cell{T}, Action{T})" /> where that is not wanted.
     ///     </para>
     /// </remarks>
@@ -130,14 +128,14 @@ public static class CellExtensionMethods
 
     /// <summary>
     ///     Listen for updates to the value of this cell, without keeping the cell alive.  The returned
-    ///     <see cref="IListener" /> can be
-    ///     disposed to stop listening, or it will automatically stop listening when it is garbage collected.
+    ///     <see cref="IListener" />. A disposal of it stops the listener, and the listener also stops
+    ///     when a GC collects it.
     ///     This is an OPERATIONAL mechanism for interfacing between the world of I/O and FRP.
     /// </summary>
     /// <typeparam name="T">The type of the cell.</typeparam>
     /// <param name="c">The cell.</param>
     /// <param name="handler">The handler to run with each value.</param>
-    /// <returns>An <see cref="IListener" /> which can be disposed to stop listening.</returns>
+    /// <returns>An <see cref="IListener" />. A disposal of it stops the listener.</returns>
     /// <remarks>
     ///     <para>
     ///         Make no assumption about the thread that calls the handler, and the handler must not block.
@@ -146,21 +144,21 @@ public static class CellExtensionMethods
     ///         They throw an exception, because this method is not for the definition of a new primitive.
     ///     </para>
     ///     <para>
-    ///         If the <see cref="IListener" /> is not disposed, it will continue to listen until this cell is
-    ///         disposed or garbage collected or the listener itself is garbage collected.
+    ///         With no disposal of the <see cref="IListener" />, the listener continues. It stops at a
+    ///         disposal of this cell, when a GC collects the cell, or when a GC collects the listener.
     ///     </para>
     ///     <para>
-    ///         This does not root the cell.  Nothing here keeps the observed graph alive, so listening stops
-    ///         without a call when a GC collects the cell - hold the returned listener where that matters,
-    ///         or use <see cref="ListenStrong{T}(Cell{T}, Action{T})" /> to keep the cell in memory.
+    ///         This does not root the cell. Nothing here keeps the monitored graph in memory, thus the
+    ///         listener stops when a GC collects the cell. Keep the listener from this call where that
+    ///         matters, or use <see cref="ListenStrong{T}(Cell{T}, Action{T})" /> to keep the cell in memory.
     ///     </para>
     /// </remarks>
     [MethodImpl(MethodImplOptions.NoInlining)]
     public static IWeakListener Listen<T>(this Cell<T> c, Action<T> handler) => c.ListenImpl(handler);
 
     /// <summary>
-    ///     Transform the cell values according to the supplied function, so the returned
-    ///     cell has the value of the function on the values of the input cell.
+    ///     Transforms the values of a cell with the given function. The cell from this call has the
+    ///     value of that function on the value of the input cell.
     /// </summary>
     /// <typeparam name="T">The type of the cell.</typeparam>
     /// <typeparam name="TResult">The type of values fired by the returned cell.</typeparam>
@@ -326,9 +324,9 @@ public static class CellExtensionMethods
     public static Cell<T> SwitchC<T>(this Cell<Cell<T>> cca) => cca.SwitchCImpl<T, Cell<T>>();
 
     /// <summary>
-    ///     Unwrap a stream in a cell to give a time-varying stream implementation.
-    ///     When the cell changes value, the output stream will fire the simultaneous firing (if one exists) from the
-    ///     stream which the cell held at the start of the transaction.
+    ///     Unwrap a stream in a cell to give a time-varying stream implementation. At a change to the
+    ///     cell, the output stream fires the simultaneous firing, if there is one. That firing comes
+    ///     from the stream that the cell held at the start of the transaction.
     /// </summary>
     /// <typeparam name="T">The type of the stream.</typeparam>
     /// <param name="csa">The cell containing the stream.</param>

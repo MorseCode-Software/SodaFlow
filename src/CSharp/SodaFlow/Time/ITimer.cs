@@ -8,7 +8,7 @@ namespace SodaFlow.Time;
 /// </summary>
 /// <remarks>
 ///     Disposing of the timer has the same effect as calling <see cref="Cancel" />.
-///     Only one or the other needs to be called to cancel the timer.
+///     One of the two cancels the timer.
 ///     Otherwise, a caller does not have to dispose of an object that implements this interface.
 /// </remarks>
 [PublicAPI]

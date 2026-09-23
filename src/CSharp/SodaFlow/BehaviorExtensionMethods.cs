@@ -26,19 +26,18 @@ public static class BehaviorExtensionMethods
     /// <returns>The current value of the behavior.</returns>
     /// <remarks>
     ///     <para>
-    ///         This method can be used in the functions passed to primitives that apply them to streams, and
-    ///         <see cref="StreamExtensionMethods.Map{T, TResult}(Stream{T}, Func{T,TResult})" />, and this is
-    ///         then equivalent to snapshotting the behavior,
+    ///         The functions that the primitives give to a stream can call this method. There it is the
+    ///         same as a snapshot of the behavior. Those primitives are
+    ///         <see cref="StreamExtensionMethods.Map{T, TResult}(Stream{T}, Func{T,TResult})" />,
     ///         <see cref=" StreamExtensionMethods.Snapshot{T, T2, TResult}(Stream{T}, Behavior{T2}, Func{T, T2, TResult})" />,
     ///         <see cref="StreamExtensionMethods.Filter{T}(Stream{T}, Func{T, bool})" />, and
-    ///         <see cref="StreamExtensionMethods.Merge{T}(Stream{T}, Stream{T}, Func{T, T, T})" />
+    ///         <see cref="StreamExtensionMethods.Merge{T}(Stream{T}, Stream{T}, Func{T, T, T})" />.
     ///     </para>
     ///     <para>
     ///         It can be best to use this method in an explicit transaction (using
     ///         <see cref="Transaction.Run{T}(Func{T})" /> or <see cref="Transaction.RunVoid(Action)" />).
-    ///         For example, a b.Sample() in an explicit transaction along with a b.Updates().ListenStrong(...) will
-    ///         capture the
-    ///         current value and any updates without risk of missing any in between.
+    ///         For example, a b.Sample() in an explicit transaction, with a b.Updates().ListenStrong(...),
+    ///         captures the current value and each update. The code keeps each value between the two.
     ///     </para>
     /// </remarks>
     [MethodImpl(MethodImplOptions.NoInlining)]
@@ -49,7 +48,7 @@ public static class BehaviorExtensionMethods
     /// </summary>
     /// <typeparam name="T">The type of the behavior.</typeparam>
     /// <param name="b">The behavior.</param>
-    /// <returns>A lazy which can be used to get the current value of the behavior.</returns>
+    /// <returns>A lazy value that gives the current value of the behavior.</returns>
     /// <remarks>
     ///     This is a variant of <see cref="Sample{T}" /> that works with the <see cref="BehaviorLoop{T}" /> class
     ///     when no code closed the behavior loop.  Use it in code that is general
@@ -60,8 +59,8 @@ public static class BehaviorExtensionMethods
     public static Lazy<T> SampleLazy<T>(this Behavior<T> b) => b.SampleLazyImpl();
 
     /// <summary>
-    ///     Transform the behavior values according to the supplied function, so the returned
-    ///     behavior has the value of the function on the values of the input behavior.
+    ///     Transforms the values of a behavior with the given function. The behavior from this call
+    ///     has the value of that function on the value of the input behavior.
     /// </summary>
     /// <typeparam name="T">The type of the behavior.</typeparam>
     /// <typeparam name="TResult">The type of values fired by the returned behavior.</typeparam>
@@ -207,9 +206,9 @@ public static class BehaviorExtensionMethods
     public static Cell<T> SwitchC<T>(this Behavior<Cell<T>> bca) => bca.SwitchCImpl<T, Cell<T>>();
 
     /// <summary>
-    ///     Unwrap a stream in a behavior to give a time-varying stream implementation. When the behavior
-    ///     changes value, the output stream will fire the simultaneous firing (if one exists) from the stream
-    ///     which the behavior held at the start of the transaction.
+    ///     Unwrap a stream in a behavior to give a time-varying stream implementation. At a change to
+    ///     the behavior, the output stream fires the simultaneous firing, if there is one. That firing
+    ///     comes from the stream that the behavior held at the start of the transaction.
     /// </summary>
     /// <typeparam name="T">The type of the stream.</typeparam>
     /// <param name="bsa">The behavior containing the stream.</param>

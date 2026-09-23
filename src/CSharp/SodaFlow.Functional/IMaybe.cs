@@ -5,8 +5,8 @@ using JetBrains.Annotations;
 namespace SodaFlow.Functional;
 
 /// <summary>
-///     A non-generic view of a <see cref="Maybe{T}" />, for code which must handle a value that can
-///     or that has none, with no knowledge of its type.
+///     A non-generic view of a <see cref="Maybe{T}" />. Use it in code that must handle a value
+///     that is there, or that has none, with no knowledge of its type.
 /// </summary>
 /// <remarks>
 ///     Each member mirrors one on <see cref="Maybe{T}" />, with the contained value surfaced as
@@ -53,16 +53,16 @@ public interface IMaybe
     void MatchNone([InstantHandle] Action onNone);
 
     /// <summary>
-    ///     Runs one asynchronous function when there is a value, and a different one when there is none.
-    ///     returns its result.
+    ///     Runs one asynchronous function when there is a value, and a different one when there is
+    ///     none, and gives the result.
     /// </summary>
     /// <typeparam name="T">The type each of the two functions produces.</typeparam>
     /// <param name="onSome">Run with the contained value when there is one.</param>
     /// <param name="onNone">Run when there is no value.</param>
     /// <returns>The task returned by whichever function was run.</returns>
     /// <remarks>
-    ///     Only the selected function runs. The task from this call is its task, and not a wrapper, so
-    ///     failures surface as that task faulting rather than as an exception from this call.
+    ///     Only the selected function runs. The task from this call is its task, and not a wrapper.
+    ///     Thus, a failure shows as a fault on that task, and not as an exception from this call.
     /// </remarks>
     Task<T> MatchAsync<T>(
         [InstantHandle] Func<object?, Task<T>> onSome,
@@ -73,7 +73,7 @@ public interface IMaybe
     /// </summary>
     /// <param name="onSome">Run with the contained value when there is one.</param>
     /// <param name="onNone">Run when there is no value.</param>
-    /// <returns>A task which completes when the selected action has completed.</returns>
+    /// <returns>A task that completes at the end of the selected action.</returns>
     Task MatchAsyncVoid(
         [InstantHandle] Func<object?, Task> onSome,
         [InstantHandle] Func<Task> onNone);
@@ -84,7 +84,7 @@ public interface IMaybe
     /// </summary>
     /// <param name="onSome">Run with the contained value when there is one.</param>
     /// <returns>
-    ///     A task which completes when the action has completed, or a completed task if no
+    ///     A task that completes at the end of the action, or a completed task if no
     ///     value is there.
     /// </returns>
     Task MatchSomeAsync([InstantHandle] Func<object?, Task> onSome);
@@ -94,7 +94,7 @@ public interface IMaybe
     /// </summary>
     /// <param name="onNone">Run when there is no value.</param>
     /// <returns>
-    ///     A task which completes when the action has completed, or a completed task if a
+    ///     A task that completes at the end of the action, or a completed task if a
     ///     value is there.
     /// </returns>
     Task MatchNoneAsync([InstantHandle] Func<Task> onNone);

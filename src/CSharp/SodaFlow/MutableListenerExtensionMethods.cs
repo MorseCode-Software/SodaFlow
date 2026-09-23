@@ -13,7 +13,7 @@ public static class MutableListenerExtensionMethods
     extension(MutableListener m)
     {
         /// <summary>
-        ///     Points the mutable listener at <paramref name="listener" />, unlistening whatever it was
+        ///     Points the mutable listener at <paramref name="listener" />, and stops the listener that it
         ///     pointed at before.
         /// </summary>
         /// <param name="listener">The listener to become the target.</param>

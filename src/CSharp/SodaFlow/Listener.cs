@@ -8,8 +8,8 @@ namespace SodaFlow;
 ///     Empty listeners, and combinators for treating some listeners as one.
 /// </summary>
 /// <remarks>
-///     The composites returned here unlisten each listener they were built from, so a graph fragment
-///     with some subscriptions can be torn down through a single handle.
+///     Each composite here stops each listener that made it. Thus, one handle releases a part of
+///     the graph with some subscriptions.
 /// </remarks>
 [PublicAPI]
 public static class Listener
@@ -73,11 +73,11 @@ public static class Listener
     /// <param name="listeners">The listeners to put together.</param>
     /// <returns>
     ///     An <see cref="IStrongListener" /> whose <see cref="IListener.Unlisten" /> unlistens each
-    ///     listener in <paramref name="listeners" />, and which can be disposed to the same effect.
+    ///     listener in <paramref name="listeners" />, and a disposal does the same.
     /// </returns>
     /// <remarks>
-    ///     Like the listeners it combines, the result keeps the observed streams alive until it is
-    ///     unlistened or disposed.
+    ///     As the listeners in it do, the result keeps the monitored streams in memory until a call
+    ///     stops it, or a disposal stops it.
     /// </remarks>
     [MethodImpl(MethodImplOptions.NoInlining)]
     public static IStrongListener CreateStrongComposite(IReadOnlyList<IStrongListener> listeners) =>
@@ -115,7 +115,7 @@ public static class Listener
     /// <param name="listener2">The second listener.</param>
     /// <returns>
     ///     An <see cref="IStrongListener" /> which unlistens the two given listeners, and which
-    ///     can be disposed to the same effect.
+    ///     A disposal does the same.
     /// </returns>
     public static IStrongListener Append(IStrongListener listener1, IStrongListener listener2) =>
         CreateStrongComposite([listener1, listener2]);

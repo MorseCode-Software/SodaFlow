@@ -24,7 +24,7 @@ public static class ReadOnlyDictionaryExtensionMethods
     /// <typeparam name="TKey">The type of the keys in the dictionary.</typeparam>
     /// <typeparam name="TValue">The type of the values in the dictionary.</typeparam>
     /// <param name="dictionary">
-    ///     The dictionary to look in. A <see langword="null" /> dictionary is treated as empty.
+    ///     The dictionary to look in. A <see langword="null" /> dictionary counts as empty.
     /// </param>
     /// <param name="key">The key to look up.</param>
     /// <returns>
@@ -35,7 +35,7 @@ public static class ReadOnlyDictionaryExtensionMethods
     ///     The same lookup as <see cref="IReadOnlyDictionary{TKey,TValue}.TryGetValue" />, without
     ///     the output parameter. It also removes the ambiguity where a missing key and a stored
     ///     default each give the default for the value type.
-    ///     A <see langword="null" /> key is passed straight through to the dictionary, so this
+    ///     This code gives a <see langword="null" /> key to the dictionary as it is, thus this
     ///     throws for the implementations which reject one. That is a mistake in the calling code
     ///     rather than a missing entry, and is not something to answer with no value.
     /// </remarks>
@@ -49,8 +49,8 @@ public static class ReadOnlyDictionaryExtensionMethods
             return Maybe.None;
         }
 
-        // The output is declared nullable and read as not nullable, and not the opposite,
-        // because TryGetValue is annotated to keep it null on false only on net6.0. the
+        // The declaration of the output is nullable and the read is not nullable, and not the
+        // opposite. The nullable mark on TryGetValue keeps it null on false only on net6.0. The
         // net472 and netstandard2.0 reference assemblies have no nullable mark.
         return dictionary.TryGetValue(key: key, value: out TValue? value) ? Maybe.Some(value) : Maybe.None;
     }

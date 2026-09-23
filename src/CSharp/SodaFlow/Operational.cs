@@ -29,13 +29,13 @@ public static class Operational
     public static Stream<T> Updates<T>(Behavior<T> b) => OperationalInternal.UpdatesImpl(b);
 
     /// <summary>
-    ///     A stream that is guaranteed to fire one time at the start of the listener, giving the current
-    ///     value of a behavior, and thereafter gives the updates/steps for the behavior.
+    ///     A stream that always fires one time at the start of the listener. That firing gives the
+    ///     current value of a behavior, and each firing after it gives an update or step.
     /// </summary>
     /// <typeparam name="T">The type of the values in the behavior.</typeparam>
     /// <param name="b">The behavior to monitor.</param>
     /// <returns>
-    ///     A stream which fires the current value in the transaction this is called in, and then the updated
+    ///     A stream which fires the current value in the transaction of this call, and then the updated
     ///     value on each change.
     /// </returns>
     /// <remarks>
@@ -59,12 +59,12 @@ public static class Operational
     public static Stream<T> Defer<T>(Stream<T> s) => OperationalInternal.DeferImpl(s);
 
     /// <summary>
-    ///     Push each stream event in the list of streams onto a newly created transaction guaranteed to come
-    ///     before the next externally initiated transaction. The semantics are such that two different
-    ///     invocations of this method can put stream events into the same new transaction, thus the events of
-    ///     the stream from this call can be simultaneous with events output by
-    ///     <see cref="Split{T, TCollection}(Stream{TCollection})" /> or <see cref="Defer{T}(Stream{T})" />
-    ///     invoked elsewhere in the code.
+    ///     Push each stream event in the list of streams onto a new transaction, which always comes
+    ///     before the next transaction from other code. Two calls to this method can put stream events
+    ///     into the same new transaction. Thus, the events of the stream from this call can be
+    ///     simultaneous with the events from a
+    ///     <see cref="Split{T, TCollection}(Stream{TCollection})" /> or a <see cref="Defer{T}(Stream{T})" />
+    ///     elsewhere.
     /// </summary>
     /// <typeparam name="T">The collection item type of the stream to split.</typeparam>
     /// <typeparam name="TCollection">The collection type of the stream to split.</typeparam>

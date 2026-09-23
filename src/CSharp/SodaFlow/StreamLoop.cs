@@ -29,7 +29,7 @@ public class StreamLoop<T> : LoopedStream<T>
     ///     with <see cref="Transaction.Run{T}(Func{T})" /> or
     ///     <see cref="Transaction.RunVoid(Action)" />. Resolve the loop by calling
     ///     <see cref="Loop" /> before that transaction ends. A loop with no resolution is a defect, and not
-    ///     than a no-op, so it is reported as one.
+    ///     than a no-op, thus this reports it as one.
     /// </remarks>
     [MethodImpl(MethodImplOptions.NoInlining)]
     public StreamLoop()
@@ -54,9 +54,9 @@ public class StreamLoop<T> : LoopedStream<T>
 
     /// <summary>
     ///     Resolve the loop to specify what the <see cref="StreamLoop{T}" /> was a forward reference to.  This method
-    ///     must be called in the same transaction as the one in which this <see cref="StreamLoop{T}" /> instance was
+    ///     must run in the same transaction as the one that made this <see cref="StreamLoop{T}" />
     ///     created and used.
-    ///     This requires an explicit transaction to be created with <see cref="Transaction.Run{T}(Func{T})" /> or
+    ///     This needs an explicit transaction from <see cref="Transaction.Run{T}(Func{T})" /> or
     ///     <see cref="Transaction.RunVoid(Action)" />.
     /// </summary>
     /// <param name="stream">The stream of the forward reference.</param>

@@ -12,10 +12,10 @@ public sealed class SecondsTimerSystem : TimerSystem<double>
 {
     /// <summary>
     ///     Initializes a new instance of the <see cref="SecondsTimerSystem" /> class, measuring time
-    ///     as the number of seconds elapsed since this timer system was created.
+    ///     as the number of seconds after the construction of this timer system.
     /// </summary>
     /// <param name="handleException">
-    ///     Called with any exception raised while waiting for or firing timers.
+    ///     Called with each exception from a wait for a timer, and from a timer that fires.
     /// </param>
     // ReSharper disable once InheritdocConsiderUsage
     public SecondsTimerSystem(Action<Exception> handleException)

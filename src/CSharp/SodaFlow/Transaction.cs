@@ -72,7 +72,7 @@ public static class Transaction
     public static T Run<T>(Func<T> f) => TransactionInternal.RunImpl(f);
 
     /// <summary>
-    ///     Add an action that will be executed when a transaction is started.
+    ///     Adds an action that runs at the start of each transaction.
     /// </summary>
     /// <param name="action">The action to run at the start of each transaction.</param>
     /// <remarks>
@@ -87,7 +87,7 @@ public static class Transaction
     ///     or immediately if there is no current transaction.
     /// </summary>
     /// <param name="action">
-    ///     The action to run after the current transaction is closed
+    ///     The action to run after the current transaction closes
     ///     or immediately if there is no current transaction.
     /// </param>
     [MethodImpl(MethodImplOptions.NoInlining)]

@@ -30,7 +30,7 @@ public class BehaviorLoop<T> : LoopedBehavior<T>
     ///     with <see cref="Transaction.Run{T}(Func{T})" /> or
     ///     <see cref="Transaction.RunVoid(Action)" />. Resolve the loop by calling
     ///     <see cref="Loop" /> before that transaction ends. A loop with no resolution is a defect, and not
-    ///     than a no-op, so it is reported as one.
+    ///     than a no-op, thus this reports it as one.
     /// </remarks>
     [MethodImpl(MethodImplOptions.NoInlining)]
     public BehaviorLoop()
@@ -55,9 +55,9 @@ public class BehaviorLoop<T> : LoopedBehavior<T>
 
     /// <summary>
     ///     Resolve the loop to specify what the <see cref="BehaviorLoop{T}" /> was a forward reference to.  This method
-    ///     must be called in the same transaction as the one in which this <see cref="BehaviorLoop{T}" /> instance was
+    ///     must run in the same transaction as the one that made this <see cref="BehaviorLoop{T}" />
     ///     created and used.
-    ///     This requires an explicit transaction to be created with <see cref="Transaction.Run{T}(Func{T})" /> or
+    ///     This needs an explicit transaction from <see cref="Transaction.Run{T}(Func{T})" /> or
     ///     <see cref="Transaction.RunVoid(Action)" />.
     /// </summary>
     /// <param name="b">The behavior of the forward reference.</param>

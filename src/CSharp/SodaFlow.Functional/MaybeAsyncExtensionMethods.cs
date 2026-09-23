@@ -12,24 +12,23 @@ namespace SodaFlow.Functional;
 ///     <see cref="Maybe{T}.MatchAsync{TResult}" /> and the helpers built on it. What is here is
 ///     the composing side: the same <c>Map</c>, <c>Bind</c>, <c>Where</c> and <c>ValueOr</c>
 ///     vocabulary, in the two shapes an asynchronous chain needs.
-///     The <c>Async</c>-suffixed members have a function parameter that returns a task, for the step
-///     which does the awaiting. The members with no suffix have a
-///     <see cref="Task{TResult}" /> of a <see cref="Maybe{T}" /> as their subject, so a chain
-///     started asynchronously can be continued without awaiting in the middle of it and
-///     parenthesizing what came before:
+///     The <c>Async</c>-suffixed members have a function parameter that returns a task, for the
+///     step with the await. The members with no suffix have a <see cref="Task{TResult}" /> of a
+///     <see cref="Maybe{T}" /> as their subject. Thus, a chain with an asynchronous start can
+///     continue with no await in the middle of it. It also needs no parentheses:
 ///     <code>
 ///     Maybe&lt;string&gt; name = await id.TryParseInt32()
 ///         .BindAsync(i =&gt; repository.FindAsync(i))
 ///         .Map(u =&gt; u.Name)
 ///         .Where(n =&gt; n.Length &gt; 0);
 ///     </code>
-///     The function is run only when there is a value, in each case, so nothing is awaited on
-///     the empty path - which is also why the empty path returns a cached completed task rather
-///     than allocating one.
-///     Each await here is configured not to capture the calling context. Nothing in this file
-///     runs caller code on the continuation - the awaits are only there to put a result in a task again, thus
-///     a continuation on a captured context costs a hop and gains nothing, and deadlocks a
-///     caller which blocks on the returned task.
+///     The function runs only when there is a value, in each case, thus nothing awaits on the
+///     empty path. That is also why the empty path gives a cached completed task, and does not
+///     allocate one.
+///     Each await here does not capture the calling context. Nothing in this file runs caller code
+///     on the continuation, because the awaits are only there to put a result in a task again.
+///     Thus, a continuation on a captured context costs a hop and gains nothing. It also deadlocks
+///     a caller that blocks on the task from this call.
 /// </remarks>
 [PublicAPI]
 public static class MaybeAsyncExtensionMethods
@@ -254,8 +253,8 @@ public static class MaybeAsyncExtensionMethods
     /// <param name="onNone">Run to give the exception to throw when there is no value.</param>
     /// <returns>A task giving the contained value.</returns>
     /// <remarks>
-    ///     The exception faults the returned task rather than being thrown from this call, since
-    ///     no code knows if there is a value until the task completes.
+    ///     The exception faults the task from this call, and does not come out of this call. No code
+    ///     knows if there is a value until the task completes.
     /// </remarks>
     public static async Task<T> ValueOrThrow<T>(this Task<Maybe<T>> a, Func<Exception> onNone) =>
         (await a.ConfigureAwait(false)).ValueOrThrow(onNone);
@@ -273,8 +272,8 @@ public static class MaybeAsyncExtensionMethods
     /// </summary>
     /// <typeparam name="T">The type of the missing value.</typeparam>
     /// <remarks>
-    ///     The empty path is the usual one for a lookup that misses, and it always produces the
-    ///     same answer, thus there is no cause to allocate a new task for it at each call.
+    ///     The empty path is the usual one for a lookup that misses, and it always gives the same
+    ///     answer. Thus, there is no cause to allocate a new task for it at each call.
     /// </remarks>
     private static class CompletedNone<T>
     {

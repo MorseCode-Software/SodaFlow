@@ -8,14 +8,14 @@ namespace SodaFlow.Functional;
 /// </summary>
 /// <remarks>
 ///     Everything here is itself lazy: the result is a <see cref="Lazy{T}" /> which forces its
-///     inputs only when the result is forced.
+///     inputs only when a read forces the result.
 /// </remarks>
 [PublicAPI]
 public static class LazyExtensionMethods
 {
     /// <summary>
-    ///     Map the lazy input value according to the specified function so the returned Lazy reflects the value of the
-    ///     function applied to the lazy input's value.
+    ///     Maps the lazy input value with the given function. The Lazy from this call has the value of
+    ///     that function on the value of the lazy input.
     /// </summary>
     /// <typeparam name="T">The type of the lazy input value.</typeparam>
     /// <typeparam name="TResult">The type of the lazy return value.</typeparam>
@@ -28,13 +28,13 @@ public static class LazyExtensionMethods
     public static Lazy<TResult> Map<T, TResult>(this Lazy<T> a, Func<T, TResult> f) => new(() => f(a.Value));
 
     //      /**
-    //     * Lift a binary function into lazy values, so the returned Lazy reflects
-    //   * the value of the function applied to the input Lazys' values.
+    //     * Lift a binary function into lazy values. The Lazy from this call has the value of the
+    //     * function on the values of the input Lazy values.
     //  */
 
     /// <summary>
-    ///     Lift a binary function into lazy input values so the lazy return value reflects the value of the
-    ///     function applied to the lazy input values.
+    ///     Lifts a function into lazy input values. The Lazy from this call has the value of that
+    ///     function on the values of the lazy inputs.
     /// </summary>
     /// <typeparam name="T1">The type of the first lazy input value.</typeparam>
     /// <typeparam name="T2">The type of the second lazy input value.</typeparam>
@@ -50,8 +50,8 @@ public static class LazyExtensionMethods
         new(() => f(arg1: a.Value, arg2: b.Value));
 
     /// <summary>
-    ///     Lift a binary function into lazy input values so the lazy return value reflects the value of the
-    ///     function applied to the lazy input values.
+    ///     Lifts a function into lazy input values. The Lazy from this call has the value of that
+    ///     function on the values of the lazy inputs.
     /// </summary>
     /// <typeparam name="T1">The type of the first lazy input value.</typeparam>
     /// <typeparam name="T2">The type of the second lazy input value.</typeparam>
@@ -73,8 +73,8 @@ public static class LazyExtensionMethods
         new(() => f(arg1: a.Value, arg2: b.Value, arg3: c.Value));
 
     /// <summary>
-    ///     Lift a binary function into lazy input values so the lazy return value reflects the value of the
-    ///     function applied to the lazy input values.
+    ///     Lifts a function into lazy input values. The Lazy from this call has the value of that
+    ///     function on the values of the lazy inputs.
     /// </summary>
     /// <typeparam name="T1">The type of the first lazy input value.</typeparam>
     /// <typeparam name="T2">The type of the second lazy input value.</typeparam>

@@ -33,12 +33,12 @@ public class TimerSystem<T> : ITimerSystem<T>
     /// </summary>
     /// <param name="implementation">The clock and waiting mechanism to build on.</param>
     /// <param name="handleException">
-    ///     Called with any exception raised while waiting for or firing timers.
+    ///     Called with each exception from a wait for a timer, and from a timer that fires.
     /// </param>
     /// <remarks>
-    ///     Constructing a timer system starts its implementation and installs a transaction handler
-    ///     which lives for the lifetime of the process, so the code makes one of these and not one
-    ///     than per unit of work.
+    ///     Construction starts the implementation and installs a transaction handler that lives for
+    ///     the lifetime of the process. Thus, make one timer system for the process, and not one for
+    ///     each unit of work.
     /// </remarks>
     public TimerSystem(ITimerSystemImplementation<T> implementation, Action<Exception> handleException)
     {
