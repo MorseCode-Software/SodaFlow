@@ -1,5 +1,32 @@
 5.0.0
 
+BREAKING: the queue that a strategy reads in Admit and in OnCompleted is the
+queue as the pipeline holds it at the moment of the call, and not a snapshot
+from the start of the transaction. OnCompleted no longer finds the item that
+ends now: the pipeline removes that one before the call, thus a strategy can
+take the first Queued item with no test against it. A strategy that filtered
+that item out by hand must drop the filter, or it skips a real item. Admit is
+unchanged in this: the value that the pipeline admits now is still absent,
+because the pipeline adds it after the call.
+
+Fixed: a MapAsync call no longer stalls where the graph feeds results back
+into inputs. A published result can fire the input stream in the transaction
+that ended the previous item, thus OnCompleted and Admit run one after the
+other in one transaction. Each read the queue from the start of that
+transaction before, thus OnCompleted found nothing Queued and Admit found the
+item that ended still Running. Neither started anything, and the new item
+stayed Queued with no event to start it. Queue and QueuePerGroup had this, and
+Parallel and SwitchLatest did not, because their Admit starts an item at each
+call.
+
+The queue is one value that the pipeline computes in one sequence of edits,
+and the cell behind the Items property takes that value. Before, the strategy
+read a sequential fold and the cell accumulated the edits of a transaction in
+groups: all the removals, then the additions, then the promotions. The two
+agreed for the inputs that occur, but agreement was a coincidence and not a
+property. The cell still takes one new value for each transaction, at the end
+of it, thus nothing sees a queue with some of the edits.
+
 BREAKING: an operation takes three arguments, where it took two. The second one
 is a ResultFactory<'TResult>, and the operation answers with what
 that factory makes:

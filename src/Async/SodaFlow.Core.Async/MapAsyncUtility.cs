@@ -937,9 +937,11 @@ public abstract class AsyncConcurrencyStrategy<TInput, TState>
     /// <param name="tracked">
     ///     Each item that the pipeline tracks, Queued or Running, in the sequence of their
     ///     admissions. It does not hold <paramref name="incoming" />, which the pipeline adds
-    ///     after this call. It is a snapshot from the start of this transaction: each item that a
-    ///     previous transaction admitted is in it, with the status it had at that moment, and this
-    ///     list does not change while this method runs.
+    ///     after this call. It holds each other item that the pipeline tracks at this moment, with
+    ///     the status that item has now. An earlier edit of this same transaction is in it. For
+    ///     example, an item that ended in this transaction is gone, and an item that
+    ///     <see cref="OnCompleted" /> started in this transaction is Running. This list does not
+    ///     change while this method runs.
     /// </param>
     protected internal abstract IReadOnlyList<AsyncToStart<TInput>> Admit(
         TState state,
@@ -967,10 +969,12 @@ public abstract class AsyncConcurrencyStrategy<TInput, TState>
     /// <param name="completion">How the operation of that item ended.</param>
     /// <param name="tracked">
     ///     Each item that the pipeline tracks, Queued or Running, in the sequence of their
-    ///     admissions. It continues to hold <paramref name="item" />, which the pipeline removes
-    ///     after this call, thus a strategy that selects the next item must not select that one. It
-    ///     is a snapshot from the start of this transaction: an item that this decision starts is
-    ///     Queued in it, and not Running.
+    ///     admissions. It does not hold <paramref name="item" />: the pipeline removes that one
+    ///     before this call, thus a strategy can select the first Queued item with no test against
+    ///     it. It holds each other item that the pipeline tracks at this moment, with the status
+    ///     that item has now, and an earlier edit of this same transaction is in it. An item that
+    ///     this decision starts is Queued in it, and not Running. This list does not change while
+    ///     this method runs.
     /// </param>
     protected internal abstract AsyncStrategyResult<TInput> OnCompleted(
         TState state,
@@ -1122,9 +1126,9 @@ internal static class AsyncConcurrencyStrategyFactory
             AsyncCompletion completion,
             IReadOnlyList<AsyncTrackedItem<TUnit>> tracked)
         {
-            // The item that ends now is in `tracked` and has the Running status, thus the test
-            // for the next item takes the Queued status and finds the item behind it. The
-            // sequence of `tracked` is the sequence of the admissions.
+            // `tracked` no longer holds the item that ends now, thus the test for the next item
+            // takes the first Queued item. The sequence of `tracked` is the sequence of the
+            // admissions.
             //
             // When a cancellation removed that next item during its wait, the execution engine
             // finds that at the promotion and goes directly to AsyncCompletion.Canceled. That
@@ -1216,10 +1220,10 @@ internal static class AsyncConcurrencyStrategyFactory
         {
             TGroup group = this.getGroup(item.Value);
 
-            // The item that ends now is in `tracked` and has the Running status, thus the test for
-            // the next item takes the Queued status and finds the item behind it in this group.
-            // The sequence of `tracked` is the sequence of the admissions, and a different group
-            // between two items of this group does not change that sequence.
+            // `tracked` no longer holds the item that ends now, thus the test for the next item
+            // takes the first Queued item of this group. The sequence of `tracked` is the sequence
+            // of the admissions, and a different group between two items of this group does not
+            // change that sequence.
             AsyncTrackedItem<TInput>? next =
                 this.FirstQueued(tracked: tracked, state: state, group: group);
 

@@ -77,11 +77,17 @@ Two boundaries worth knowing, because they decide what "next" means:
 
 - In `Admit`, the list does **not** include the value being admitted; the pipeline adds it after
   the call.
-- In `OnCompleted`, the list **still** includes the item that just ended, so skip it when picking
-  what to start next.
+- In `OnCompleted`, the list does **not** include the item that just ended either; the pipeline
+  removes that one before the call, so you can take the first `Queued` item without checking
+  whether it is the one you were told about.
 
-It is a snapshot taken at the start of the transaction, so it does not change while your callback
-runs, and an item your decision promotes still reads as `Queued` in it.
+The list is the queue as the pipeline holds it at the moment of the call, not a snapshot from the
+start of the transaction. It does not change while your callback runs, and an item your decision
+promotes still reads as `Queued` in it — but an edit made **earlier in the same transaction** is
+already there. That matters when the graph feeds results back into inputs: publishing a result can
+fire the input stream inside the transaction that completed the previous item, so `OnCompleted`
+and `Admit` run one after the other in a single transaction. Each sees what the other did, which
+is what stops a queueing strategy from stalling because both believed an item was still running.
 
 `Queue` and `QueuePerGroup` are written this way: neither keeps a queue in its own state, because
 the pipeline already has one in the right order. `Queue` starts an item when nothing is `Running`
