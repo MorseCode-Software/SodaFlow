@@ -1386,7 +1386,7 @@ internal sealed class AsyncMapExecutionManager<TInput, TResult, TStrategyInput> 
 
     private readonly Func<TInput, TStrategyInput> inputConverter;
 
-    // This carries the queue of tracked items after each edit that Complete makes. One sequence
+    // This carries the queue of tracked items after the edits that Complete makes. One sequence
     // of edits makes the value a strategy reads. It makes the value of the cell also. Thus, the
     // two cannot disagree.
     //
@@ -1401,12 +1401,19 @@ internal sealed class AsyncMapExecutionManager<TInput, TResult, TStrategyInput> 
 
     private readonly MapAsyncOperation<TInput, TResult> operation;
 
-    // The queue after each edit of this transaction. A Sample of the cell in a transaction gives
-    // the value from the start of that transaction. The cell takes a new value at the end of one.
-    // Admit and OnCompleted must read the value after each edit before the call, and this field
-    // keeps that value.
+    // The queue after the edits of Complete, with the transaction those edits belong to. A
+    // Sample of the cell in a transaction gives the value from the start of that transaction. The
+    // cell takes a new value at the end of one. Thus an Admit that runs after Complete, in the
+    // same transaction, cannot read the cell. It reads this field.
     //
-    // queueOwner is the transaction that the value belongs to. A transaction that ends, and a
+    // Complete is the one writer and CurrentQueue is the one reader. Complete keeps its own two
+    // edits as local values, thus OnCompleted needs no field. One transaction holds one call of
+    // Complete, and one firing of `source` at most. A firing of `source` cannot come before a
+    // call of Complete in one transaction. The code that starts an operation goes through PostImpl
+    // into a transaction of its own. Thus the queue after Complete is the only value that a read
+    // after it, in the same transaction, can want.
+    //
+    // Owner is the transaction that the value belongs to. A transaction that ends, and a
     // transaction that throws, keep a value against an owner that no code uses again. The next
     // transaction finds a different owner and reads the cell. Thus, no action must run to clear
     // this field. That is necessary, because Transaction discards its queue of last actions when
@@ -1581,7 +1588,7 @@ internal sealed class AsyncMapExecutionManager<TInput, TResult, TStrategyInput> 
                                 add: new[] { newEntry }));
                     });
 
-                // Hold and not Accum. This class makes the queue itself, in ApplyToQueue, and
+                // Hold and not Accum. This class makes the queue itself, with Apply, and
                 // the cell carries the value that it made. One sequence of edits makes the value
                 // that a strategy reads and the value that the cell takes. Thus, the two cannot
                 // disagree about the queue, or about the sequence of the edits.
@@ -1722,16 +1729,14 @@ internal sealed class AsyncMapExecutionManager<TInput, TResult, TStrategyInput> 
             continuationOptions: TaskContinuationOptions.OnlyOnFaulted | TaskContinuationOptions.ExecuteSynchronously,
             scheduler: TaskScheduler.Default);
 
-    // This has two uses. It is the coalesce function of mutations in one transaction, which is
-    // necessary because Complete can call itself (see the remarks of Complete) and can thus make
-    // more than one Send() to this sink in one transaction. It is also the merge function of
-    // starts.Merge(mutations, ...) in Attach, for the different condition where starts and
-    // mutations send in the same transaction. For example, the Admit of a strategy promotes a
-    // previous item that a cancellation removed and that the strategy holds, with the new item
-    // that it admits.
-    // The queue after each edit of this transaction. The first call of a transaction reads the
-    // cell, which gives the value from the start of the transaction. Each call after that gives
-    // the value that the edits of this transaction made.
+    // The queue that a strategy reads. A call of Complete in this transaction leaves the queue it
+    // made in completedQueueAndOwner, and this gives that value. Where no call of Complete in this
+    // transaction left one, the cell gives the queue from the start of the transaction, which is
+    // the correct answer.
+    //
+    // The transform in Attach is the one caller, and it always runs in a transaction. The test for
+    // a transaction records that. It changes no answer, because a call with no transaction finds
+    // no owner that is equal, and reads the cell.
     private Entry[] CurrentQueue(Cell<Entry[]> trackedCell)
     {
         if (this.completedQueueAndOwner != null)
@@ -2002,10 +2007,10 @@ internal sealed class AsyncMapExecutionManager<TInput, TResult, TStrategyInput> 
             // here. A loop from the result stream to the input stream makes one transaction of
             // the two calls. The two must agree about what this pipeline holds.
             //
-            // This edit goes on the queue and no code sends it. The send below carries the queue
-            // after this edit and after the promotions. It is the only send of this method, thus
-            // the cell takes one value that holds the two edits. No code can return between the
-            // two. A throw between them ends the transaction with no value at all.
+            // The two edits of this method are local values. The field below keeps the queue
+            // after the two, and the send gives it to the cell. Thus the cell takes one value,
+            // and an Admit after this reads that same value. No code can return between the
+            // edits. A throw between them ends the transaction with no value at all.
             Entry[] tracked =
                 Apply(
                     list: trackedCell.SampleImpl(),
