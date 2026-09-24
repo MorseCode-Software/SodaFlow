@@ -1364,12 +1364,6 @@ internal static class AsyncConcurrencyStrategyFactory
 // ReSharper disable once InheritdocConsiderUsage
 internal sealed class AsyncMapExecutionManager<TInput, TResult, TStrategyInput> : AsyncMapBase
 {
-    private static readonly Mutation NoMutation =
-        new(
-            remove: Array.Empty<Guid>(),
-            promote: Array.Empty<Guid>(),
-            add: Array.Empty<Entry>());
-
     private readonly Stream<UnitInternal>? cancelAll;
 
     private readonly Stream<IReadOnlyCollection<TInput>>? cancelMatching;
@@ -1388,14 +1382,40 @@ internal sealed class AsyncMapExecutionManager<TInput, TResult, TStrategyInput> 
 
     private readonly Func<TInput, TStrategyInput> inputConverter;
 
-    // This carries the edits to the list of tracked items: an add, a promotion, and a removal.
-    // The source is the transform of Map, which is not a registered listener callback (see
-    // Attach), or code that is not in a SodaFlow callback, such as a continuation on a background
-    // thread. Send is legal in the two conditions.
-    private readonly StreamSink<Mutation> mutations =
-        StreamInternal.CreateSinkImpl<Mutation>(CombineMutations);
+    // This carries the queue of tracked items after each edit that Complete makes. One sequence
+    // of edits makes the value a strategy reads. It makes the value of the cell also. Thus the two
+    // cannot disagree.
+    //
+    // Complete sends one value for each transaction, because one transaction holds one call of
+    // Complete. See the OrElse in Attach. The coalesce keeps the last value, which is correct for
+    // each count of sends. Each edit applies to the queue that the edit before it made.
+    //
+    // Complete is not in a SodaFlow callback. A continuation on a background thread opens its own
+    // transaction, and the deferred path opens one for each action. Thus Send is legal.
+    private readonly StreamSink<Entry[]> queueUpdates =
+        StreamInternal.CreateSinkImpl<Entry[]>(static (_, last) => last);
 
     private readonly MapAsyncOperation<TInput, TResult> operation;
+
+    // The queue after each edit of this transaction. A Sample of the cell in a transaction gives
+    // the value from the start of that transaction. The cell takes a new value at the end of one.
+    // Admit and OnCompleted must read the value after each edit before the call, and this field
+    // keeps that value.
+    //
+    // queueOwner is the transaction that the value belongs to. A transaction that ends, and a
+    // transaction that throws, keep a value against an owner that no code uses again. The next
+    // transaction finds a different owner and reads the cell. Thus no action must run to clear
+    // this field. That is necessary, because Transaction discards its queue of last actions when
+    // it throws.
+    //
+    // A TransactionInternal.RunImpl in an open transaction joins it and does not make a second
+    // one. Thus the owner of an admission, and the owner of an end in that admission, are the same
+    // object. Work that PostImpl defers runs in a transaction that Close makes, which is a
+    // different object. The cell keeps the value it took by then. Thus the test of the identity is
+    // correct for the two conditions.
+    private TransactionInternal? queueOwner;
+
+    private Entry[] queue = Array.Empty<Entry>();
 
     private readonly StreamSink<TResult> results;
 
@@ -1456,105 +1476,130 @@ internal sealed class AsyncMapExecutionManager<TInput, TResult, TStrategyInput> 
         Cell<Entry[]> trackedCell =
             TransactionInternal.Apply((trans, _) =>
             {
+                // CurrentQueue reads this cell at the first edit of each transaction. The loop is
+                // necessary because the transform below is upstream of the cell and reads it.
                 LoopedCell<Entry[]> trackedCellLoop = new();
 
                 // Map runs as usual transaction code and is not a registered listener callback.
-                // Thus, the SodaFlow rule against Send in a callback does not apply to it, and
-                // it runs in the transaction of the source. The pipeline tracks each admitted
-                // value from this moment. It adds the value with the Queued status, and then
-                // promotes it to Running for each ToStart that Admit returns. For the strategies
-                // in the library, that is usually the value itself. After a disposal this code
-                // does nothing permanently, because no code calls Admit again and thus no value
-                // goes to the queue or starts.
-                Stream<Mutation> starts =
-                    source
-                        .SnapshotImpl(
-                            c: trackedCellLoop,
-                            f: static (value, tracked) => (Value: value, Tracked: tracked))
-                        .MapImpl(o =>
+                // Thus it runs in the transaction of the source. It must not Send. The transaction
+                // counts it as a callback while a send drives it. Thus it returns the new queue
+                // into the graph, and Complete sends the edits that it makes.
+                //
+                // The pipeline tracks each admitted value from this moment. It adds the value with
+                // the Queued status, and then promotes it to Running for each ToStart that Admit
+                // returns. For the strategies in the library, that is usually the value itself.
+                // After a disposal this code does nothing permanently, because no code calls Admit
+                // again and thus no value goes to the queue or starts.
+                Stream<Entry[]> starts =
+                    source.MapImpl(o =>
+                    {
+                        if (this.disposed)
                         {
-                            if (this.disposed)
-                            {
-                                return NoMutation;
-                            }
+                            return this.CurrentQueue(trackedCellLoop);
+                        }
 
-                            CancellationTokenSource cancellation = new();
+                        CancellationTokenSource cancellation = new();
 
-                            Guid newEntryId = Guid.NewGuid();
+                        Guid newEntryId = Guid.NewGuid();
 
-                            // Here inputConverter changes TInput into TStrategyInput. This is the
-                            // input edge, and the class remarks give more. The newEntry below
-                            // keeps the initial TInput, because the result of inputConverter
-                            // usually has no inverse.
-                            AsyncQueuedItem<TStrategyInput> incoming =
-                                new(
-                                    value: this.inputConverter(o.Value),
+                        // Here inputConverter changes TInput into TStrategyInput. This is the input
+                        // edge, and the class remarks give more. The newEntry below keeps the
+                        // initial TInput, because the result of inputConverter usually has no
+                        // inverse.
+                        AsyncQueuedItem<TStrategyInput> incoming =
+                            new(
+                                value: this.inputConverter(o),
+                                id: newEntryId,
+                                cancellation: cancellation);
+
+                        Entry newEntry =
+                            new(
+                                item: new AsyncQueuedItem<TInput>(
+                                    value: o,
                                     id: newEntryId,
-                                    cancellation: cancellation);
+                                    cancellation: cancellation),
+                                tracked: new AsyncTrackedItem<TStrategyInput>(
+                                    item: incoming,
+                                    status: AsyncItemStatus.Queued),
+                                value: o);
 
-                            Entry newEntry =
-                                new(
-                                    item: new AsyncQueuedItem<TInput>(
-                                        value: o.Value,
-                                        id: newEntryId,
-                                        cancellation: cancellation),
-                                    tracked: new AsyncTrackedItem<TStrategyInput>(
-                                        item: incoming,
-                                        status: AsyncItemStatus.Queued),
-                                    value: o.Value);
+                        // The queue that the strategy reads holds each item that this pipeline
+                        // tracks now. That is the value after each edit of this transaction. It
+                        // does not hold `incoming`, because the edit below is what adds that one.
+                        Entry[] tracked = this.CurrentQueue(trackedCellLoop);
 
-                            // The queue that the strategy reads holds what the pipeline tracked at
-                            // the start of this transaction, thus it does not hold `incoming`. The
-                            // mutation below is what adds that one.
-                            IReadOnlyList<AsyncToStart<TStrategyInput>> toStart =
-                                this.stateManager.Admit(
-                                    incoming: incoming,
-                                    tracked: new TrackedItems(o.Tracked));
+                        IReadOnlyList<AsyncToStart<TStrategyInput>> toStart =
+                            this.stateManager.Admit(
+                                incoming: incoming,
+                                tracked: new TrackedItems(tracked));
 
-                            Guid[] promote = new Guid[toStart.Count];
+                        Guid[] promote = new Guid[toStart.Count];
+                        TInput[] values = new TInput[toStart.Count];
 
-                            for (int i = 0; i < toStart.Count; i++)
+                        for (int i = 0; i < toStart.Count; i++)
+                        {
+                            promote[i] = toStart[i].Item.Id;
+
+                            if (newEntryId == promote[i])
                             {
-                                promote[i] = toStart[i].Item.Id;
-
-                                TInput value;
-
-                                if (newEntryId == promote[i])
-                                {
-                                    value = o.Value;
-                                }
-                                else
-                                {
-                                    Guid idToStart = promote[i];
-
-                                    Entry? entry = Array.Find(array: o.Tracked, match: e => e.Item.Id == idToStart);
-
-                                    if (entry is null)
-                                    {
-                                        throw new InvalidOperationException("Could not find item to start.");
-                                    }
-
-                                    value = entry.Value;
-                                }
-
-                                this.PromoteAndLaunch(
-                                    toStart: toStart[i],
-                                    value: value,
-                                    trackedCell: trackedCellLoop);
+                                values[i] = o;
                             }
+                            else
+                            {
+                                Guid idToStart = promote[i];
 
-                            return new Mutation(
-                                remove: Array.Empty<Guid>(),
-                                promote: promote,
-                                add: new[] { newEntry });
-                        });
+                                Entry? entry =
+                                    Array.Find(array: tracked, match: e => e.Item.Id == idToStart);
 
+                                if (entry is null)
+                                {
+                                    throw new InvalidOperationException("Could not find item to start.");
+                                }
+
+                                values[i] = entry.Value;
+                            }
+                        }
+
+                        // One edit: the add of `incoming`, and the promotion of each item that
+                        // starts. Apply removes, then adds, then promotes, thus the promotion of
+                        // `incoming` in this same edit finds the entry that the add put there.
+                        Entry[] updated =
+                            this.ApplyToQueue(
+                                trackedCell: trackedCellLoop,
+                                mutation: new Mutation(
+                                    remove: Array.Empty<Guid>(),
+                                    promote: promote,
+                                    add: new[] { newEntry }));
+
+                        for (int i = 0; i < toStart.Count; i++)
+                        {
+                            this.PromoteAndLaunch(
+                                toStart: toStart[i],
+                                value: values[i],
+                                trackedCell: trackedCellLoop);
+                        }
+
+                        return updated;
+                    });
+
+                // Hold and not Accum. This class makes the queue itself, in ApplyToQueue, and
+                // the cell carries the value that it made. One sequence of edits makes the value
+                // that a strategy reads and the value that the cell takes. Thus the two cannot
+                // disagree about the queue, or about the sequence of the edits.
+                //
+                // OrElse, and the sequence of the two is what makes it correct. One transaction
+                // gives at most one value here from each side. `source` is a stream, thus it fires
+                // one time for each transaction. One transaction holds one call of Complete,
+                // because a continuation opens its own transaction and the deferred path opens one
+                // for each action.
+                //
+                // Where the two fire together, the graph of the caller makes `source` from the
+                // results. The value of `starts` then comes after the value of Complete. Complete
+                // sends in its own body. The publish that admits the next value goes to `source`
+                // when this transaction sends the values it holds, which is after that body.
+                // OrElse takes the value on the left, thus `starts` is on the left.
                 Cell<Entry[]> trackedCell =
-                    starts
-                        .MergeImpl(s: this.mutations, f: CombineMutations)
-                        .AccumImpl(
-                            initialState: Array.Empty<Entry>(),
-                            f: static (mutation, list) => Apply(list: list, mutation: mutation));
+                    starts.OrElseImpl(this.queueUpdates).HoldImpl(Array.Empty<Entry>());
 
                 trackedCellLoop.Loop(trans: trans, c: trackedCell);
 
@@ -1685,11 +1730,38 @@ internal sealed class AsyncMapExecutionManager<TInput, TResult, TStrategyInput> 
     // mutations send in the same transaction. For example, the Admit of a strategy promotes a
     // previous item that a cancellation removed and that the strategy holds, with the new item
     // that it admits.
-    private static Mutation CombineMutations(Mutation a, Mutation b) =>
-        new(
-            remove: Concat(a: a.Remove, b: b.Remove),
-            promote: Concat(a: a.Promote, b: b.Promote),
-            add: Concat(a: a.Add, b: b.Add));
+    // The queue after each edit of this transaction. The first call of a transaction reads the
+    // cell, which gives the value from the start of the transaction. Each call after that gives
+    // the value that the edits of this transaction made.
+    private Entry[] CurrentQueue(Cell<Entry[]> trackedCell)
+    {
+        TransactionInternal? current = TransactionInternal.GetCurrentTransaction();
+
+        if (!ReferenceEquals(objA: current, objB: this.queueOwner))
+        {
+            this.queueOwner = current;
+            this.queue = trackedCell.SampleImpl();
+        }
+
+        return this.queue;
+    }
+
+    // Puts one edit on the queue and gives the result. The caller is what takes the value to the
+    // cell. The transform in Attach returns it into the graph, and Complete sends it.
+    private Entry[] ApplyToQueue(Cell<Entry[]> trackedCell, Mutation mutation)
+    {
+        Entry[] updated = Apply(list: this.CurrentQueue(trackedCell), mutation: mutation);
+
+        this.queue = updated;
+
+        return updated;
+    }
+
+    // Puts one edit on the queue and sends the queue it makes. Complete is not in a callback,
+    // thus it can send. An edit that no code sends is correct only where a send after it, in the
+    // same transaction, carries the queue that holds it.
+    private void Send(Cell<Entry[]> trackedCell, Mutation mutation) =>
+        this.queueUpdates.SendImpl(this.ApplyToQueue(trackedCell: trackedCell, mutation: mutation));
 
     private static Entry[] Apply(Entry[] list, Mutation mutation)
     {
@@ -1935,11 +2007,26 @@ internal sealed class AsyncMapExecutionManager<TInput, TResult, TStrategyInput> 
                     ? AsyncOutcome<MapAsyncResult<TResult>>.Canceled()
                     : pending;
 
+            // The removal comes first. Thus the queue that OnCompleted reads, and the queue that
+            // an Admit of this same transaction reads, no longer hold the item that ends here. A
+            // loop from the result stream to the input stream makes one transaction of the two
+            // calls. The two must agree about what this pipeline holds.
+            //
+            // This edit goes on the queue and no code sends it. The send below carries the queue
+            // after this edit and after the promotions. It is the only send of this method, thus
+            // the cell takes one value that holds the two edits. No code can return between the
+            // two. A throw between them ends the transaction with no value at all.
+            Entry[] tracked =
+                this.ApplyToQueue(
+                    trackedCell: trackedCell,
+                    mutation: new Mutation(
+                        remove: new[] { item.Id },
+                        promote: Array.Empty<Guid>(),
+                        add: Array.Empty<Entry>()));
+
             // The strategy reads how the operation ended and not the result, thus this call comes
             // before the construction of the result. See AsyncCompletion for what that gives: the
             // pipeline makes a result only for an item that it publishes.
-            Entry[] tracked = trackedCell.SampleImpl();
-
             AsyncStrategyResult<TStrategyInput> decision =
                 this.stateManager.OnCompleted(
                     item: item,
@@ -1947,9 +2034,6 @@ internal sealed class AsyncMapExecutionManager<TInput, TResult, TStrategyInput> 
                         onSucceeded: static _ => AsyncCompletion.Succeeded(),
                         onFailed: AsyncCompletion.Failed,
                         onCanceled: AsyncCompletion.Canceled),
-
-                    // This item remains in the queue here. The mutation at the end of this method
-                    // is what removes it.
                     tracked: new TrackedItems(tracked));
 
             if (decision.Publish)
@@ -1980,9 +2064,10 @@ internal sealed class AsyncMapExecutionManager<TInput, TResult, TStrategyInput> 
                 promote[i] = id;
             }
 
-            this.mutations.SendImpl(
-                new Mutation(
-                    remove: new[] { item.Id },
+            this.Send(
+                trackedCell: trackedCell,
+                mutation: new Mutation(
+                    remove: Array.Empty<Guid>(),
                     promote: promote,
                     add: Array.Empty<Entry>()));
 
