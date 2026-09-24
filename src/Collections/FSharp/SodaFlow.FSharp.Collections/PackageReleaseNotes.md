@@ -1,3 +1,23 @@
+1.1.0
+
+Adds itemCell, which gives the two parts of one item as one optional value. It
+follows the key as stateCell does, and it answers for the collection or the
+view that a caller asks, with the same cache for each key.
+
+Use it for a value that reads the identity and the state together. A lift of
+identityCell against stateCell does the same work, and it gives two optional
+values, thus four combinations, of which the store cannot give two: an
+identity with no state, and a state with no identity. One cell gives one
+optional value and removes the two branches that no code can reach. It also
+costs one cell and not two cells with a lift above them.
+
+It is not the correct selection for each row. An item holds the state, thus
+itemCell sends a value at each edit to the state of its key. Each value that
+comes from it is made again at that moment, and that includes a part which
+reads the identity alone. Where one binding reads the identity and a different
+binding reads the state, take the two cells: identityCell sleeps through an
+edit to the state, and that is what makes it almost free to hold.
+
 1.0.1
 
 Adds the package icon that nuget.org shows beside this package. No source file

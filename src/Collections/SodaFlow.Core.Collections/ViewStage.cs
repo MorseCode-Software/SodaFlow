@@ -130,6 +130,32 @@ internal sealed class ViewStage<TKey, TIdentity, TState> : ReactiveCollection<TK
 
     /// <inheritdoc />
     /// <remarks>
+    ///     This comes from the change stream of this stage, as the state cell does, and it takes
+    ///     the same operations. An update and a move thus send a value from one of these.
+    /// </remarks>
+    internal override Cell<TProjected> CreateItemCell<TProjected>(
+        TKey key,
+        Func<Item<TIdentity, TState>, TProjected> onPresent,
+        Func<TProjected> onAbsent)
+    {
+        ReactiveCollection<TKey, TIdentity, TState> root = this.source.Root;
+
+        return TransactionInternal.RunImpl(() =>
+            this.KeyChangesStream
+                .MapImpl(change => change.ProjectItemChangeFor(key: key, onPresent: onPresent, onAbsent: onAbsent))
+                .FilterSomeInternal()
+                .HoldLazyImpl(
+                    this.KeysCell.SampleLazyImpl()
+                        .MapImpl(keys =>
+                            keys.Contains(key)
+                            && root.SnapshotCell.SampleImpl()
+                                .TryGetItem(key: key, item: out Item<TIdentity, TState>? item)
+                                ? onPresent(item)
+                                : onAbsent())));
+    }
+
+    /// <inheritdoc />
+    /// <remarks>
     ///     This comes from the change stream of this stage, as the state cell does. An update and a
     ///     move never come to it, thus an observer of the identity of one item through a view gets a
     ///     value only when that key enters the view or leaves it.

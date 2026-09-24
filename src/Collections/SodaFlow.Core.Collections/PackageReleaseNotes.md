@@ -1,3 +1,12 @@
+1.1.0
+
+Adds the internal members that the two language surfaces need for ItemCell:
+ItemCellImpl and CreateItemCell on ReactiveCollection, and the projection for
+one item on an item change and on a view change. This assembly has no public
+API of its own.
+
+No other change.
+
 1.0.1
 
 Adds the package icon that nuget.org shows beside this package. No source file
