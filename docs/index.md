@@ -116,6 +116,11 @@ TypeScript, and Rust live under the
 <span class="sf-card-title">Data binding</span>
 <span class="sf-card-text">Exposing a graph to XAML as properties and commands.</span>
 </a>
+<a class="sf-card" href="docs/functional.md">
+<i class="bi bi-puzzle"></i>
+<span class="sf-card-title">Maybe, Either and Unit</span>
+<span class="sf-card-text">The small functional vocabulary C# does not ship with.</span>
+</a>
 <a class="sf-card" href="docs/semantics.md">
 <i class="bi bi-calculator"></i>
 <span class="sf-card-title">Denotational semantics</span>

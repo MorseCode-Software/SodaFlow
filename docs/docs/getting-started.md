@@ -133,4 +133,5 @@ See [Transactions](transactions.md).
 - [Asynchronous work](async.md) — running tasks from a stream without breaking the model.
 - [Data binding](bindable.md) — exposing a graph to XAML as properties and commands.
 - [Reactive collections](collections.md) — a large keyed collection behind a few bound rows.
+- [Maybe, Either and Unit](functional.md) — the functional vocabulary the C# API uses throughout.
 - [Sample applications](samples.md) — complete WPF and Avalonia apps to read end to end.
