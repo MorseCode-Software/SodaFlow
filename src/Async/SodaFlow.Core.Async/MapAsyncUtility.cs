@@ -15,8 +15,8 @@ namespace SodaFlow.Async;
 ///     the same: <see cref="ResultFactory{TResult}.FromValue" /> carries a value that the
 ///     operation has, and <see cref="ResultFactory{TResult}.Construct" /> carries a function that
 ///     the pipeline calls in the transaction that sends the result. Use the second one when the
-///     result contains a cell, a stream, or an other part of a SodaFlow graph, because such a
-///     part must come into existence in that transaction.
+///     result contains a cell, a stream, or another part of a SodaFlow graph, because such a part
+///     must come into existence in that transaction.
 /// </summary>
 /// <typeparam name="TInput">The type in the source stream.</typeparam>
 /// <typeparam name="TResult">The type that the pipeline publishes.</typeparam>
@@ -117,7 +117,7 @@ public sealed class ResultFactory<TResult>
     ///     transaction that sends the result, which is what a result with a cell or a stream in it
     ///     must have. Keep the function short, because it holds that transaction while it runs.
     ///     The pipeline calls it only for an item that it publishes: the strategy decides that
-    ///     first, and this function runs after that decision. Thus an item that a cancellation
+    ///     first, and this function runs after that decision. Thus, an item that a cancellation
     ///     stopped, or that a strategy refused, makes no result at all.
     /// </summary>
     /// <param name="makeResult">Makes the value to publish.</param>
@@ -1387,8 +1387,8 @@ internal sealed class AsyncMapExecutionManager<TInput, TResult, TStrategyInput> 
     private readonly Func<TInput, TStrategyInput> inputConverter;
 
     // This carries the queue of tracked items after each edit that Complete makes. One sequence
-    // of edits makes the value a strategy reads. It makes the value of the cell also. Thus the two
-    // cannot disagree.
+    // of edits makes the value a strategy reads. It makes the value of the cell also. Thus, the
+    // two cannot disagree.
     //
     // Complete sends one value for each transaction, because one transaction holds one call of
     // Complete. See the OrElse in Attach. The coalesce keeps the last value, which is correct for
@@ -1408,18 +1408,16 @@ internal sealed class AsyncMapExecutionManager<TInput, TResult, TStrategyInput> 
     //
     // queueOwner is the transaction that the value belongs to. A transaction that ends, and a
     // transaction that throws, keep a value against an owner that no code uses again. The next
-    // transaction finds a different owner and reads the cell. Thus no action must run to clear
+    // transaction finds a different owner and reads the cell. Thus, no action must run to clear
     // this field. That is necessary, because Transaction discards its queue of last actions when
     // it throws.
     //
     // A TransactionInternal.RunImpl in an open transaction joins it and does not make a second
-    // one. Thus the owner of an admission, and the owner of an end in that admission, are the same
-    // object. Work that PostImpl defers runs in a transaction that Close makes, which is a
-    // different object. The cell keeps the value it took by then. Thus the test of the identity is
-    // correct for the two conditions.
-    private TransactionInternal? queueOwner;
-
-    private Entry[] queue = Array.Empty<Entry>();
+    // one. Thus, the owner of an admission, and the owner of an end in that admission, are the
+    // same object. Work that PostImpl defers runs in a transaction that Close makes, which is a
+    // different object. The cell keeps the value it took by then. Thus, the test of the identity
+    // is correct for the two conditions.
+    private (Entry[] Queue, TransactionInternal Owner)? completedQueueAndOwner;
 
     private readonly StreamSink<TResult> results;
 
@@ -1485,9 +1483,9 @@ internal sealed class AsyncMapExecutionManager<TInput, TResult, TStrategyInput> 
                 LoopedCell<Entry[]> trackedCellLoop = new();
 
                 // Map runs as usual transaction code and is not a registered listener callback.
-                // Thus it runs in the transaction of the source. It must not Send. The transaction
-                // counts it as a callback while a send drives it. Thus it returns the new queue
-                // into the graph, and Complete sends the edits that it makes.
+                // Thus, it runs in the transaction of the source. It must not Send. The
+                // transaction counts it as a callback while a send drives it. Thus, it returns the
+                // new queue into the graph, and Complete sends the edits that it makes.
                 //
                 // The pipeline tracks each admitted value from this moment. It adds the value with
                 // the Queued status, and then promotes it to Running for each ToStart that Admit
@@ -1564,17 +1562,6 @@ internal sealed class AsyncMapExecutionManager<TInput, TResult, TStrategyInput> 
                             }
                         }
 
-                        // One edit: the add of `incoming`, and the promotion of each item that
-                        // starts. Apply removes, then adds, then promotes, thus the promotion of
-                        // `incoming` in this same edit finds the entry that the add put there.
-                        Entry[] updated =
-                            this.ApplyToQueue(
-                                trackedCell: trackedCellLoop,
-                                mutation: new Mutation(
-                                    remove: Array.Empty<Guid>(),
-                                    promote: promote,
-                                    add: new[] { newEntry }));
-
                         for (int i = 0; i < toStart.Count; i++)
                         {
                             this.PromoteAndLaunch(
@@ -1583,12 +1570,20 @@ internal sealed class AsyncMapExecutionManager<TInput, TResult, TStrategyInput> 
                                 trackedCell: trackedCellLoop);
                         }
 
-                        return updated;
+                        // One edit: the add of `incoming`, and the promotion of each item that
+                        // starts. Apply removes, then adds, then promotes, thus the promotion of
+                        // `incoming` in this same edit finds the entry that the add put there.
+                        return Apply(
+                            list: tracked,
+                            mutation: new Mutation(
+                                remove: Array.Empty<Guid>(),
+                                promote: promote,
+                                add: new[] { newEntry }));
                     });
 
                 // Hold and not Accum. This class makes the queue itself, in ApplyToQueue, and
                 // the cell carries the value that it made. One sequence of edits makes the value
-                // that a strategy reads and the value that the cell takes. Thus the two cannot
+                // that a strategy reads and the value that the cell takes. Thus, the two cannot
                 // disagree about the queue, or about the sequence of the edits.
                 //
                 // OrElse, and the sequence of the two is what makes it correct. One transaction
@@ -1599,9 +1594,9 @@ internal sealed class AsyncMapExecutionManager<TInput, TResult, TStrategyInput> 
                 //
                 // Where the two fire together, the graph of the caller makes `source` from the
                 // results. The value of `starts` then comes after the value of Complete. Complete
-                // sends in its own body. The publish that admits the next value goes to `source`
-                // when this transaction sends the values it holds, which is after that body.
-                // OrElse takes the value on the left, thus `starts` is on the left.
+                // sends in its own body. The publish operation that admits the next value goes to
+                // `source` when this transaction sends the values it holds, which is after that
+                // body. OrElse takes the value on the left, thus `starts` is on the left.
                 Cell<Entry[]> trackedCell =
                     starts.OrElseImpl(this.queueUpdates).HoldImpl(Array.Empty<Entry>());
 
@@ -1739,33 +1734,24 @@ internal sealed class AsyncMapExecutionManager<TInput, TResult, TStrategyInput> 
     // the value that the edits of this transaction made.
     private Entry[] CurrentQueue(Cell<Entry[]> trackedCell)
     {
-        TransactionInternal? current = TransactionInternal.GetCurrentTransaction();
-
-        if (!ReferenceEquals(objA: current, objB: this.queueOwner))
+        if (this.completedQueueAndOwner != null)
         {
-            this.queueOwner = current;
-            this.queue = trackedCell.SampleImpl();
+            TransactionInternal? current = TransactionInternal.GetCurrentTransaction();
+
+            if (current is null)
+            {
+                throw new InvalidOperationException(
+                    $"{nameof(this.CurrentQueue)} must be called from within a transaction.");
+            }
+
+            if (ReferenceEquals(objA: current, objB: this.completedQueueAndOwner.Value.Owner))
+            {
+                return this.completedQueueAndOwner.Value.Queue;
+            }
         }
 
-        return this.queue;
+        return trackedCell.SampleImpl();
     }
-
-    // Puts one edit on the queue and gives the result. The caller is what takes the value to the
-    // cell. The transform in Attach returns it into the graph, and Complete sends it.
-    private Entry[] ApplyToQueue(Cell<Entry[]> trackedCell, Mutation mutation)
-    {
-        Entry[] updated = Apply(list: this.CurrentQueue(trackedCell), mutation: mutation);
-
-        this.queue = updated;
-
-        return updated;
-    }
-
-    // Puts one edit on the queue and sends the queue it makes. Complete is not in a callback,
-    // thus it can send. An edit that no code sends is correct only where a send after it, in the
-    // same transaction, carries the queue that holds it.
-    private void Send(Cell<Entry[]> trackedCell, Mutation mutation) =>
-        this.queueUpdates.SendImpl(this.ApplyToQueue(trackedCell: trackedCell, mutation: mutation));
 
     private static Entry[] Apply(Entry[] list, Mutation mutation)
     {
@@ -2002,7 +1988,7 @@ internal sealed class AsyncMapExecutionManager<TInput, TResult, TStrategyInput> 
         AsyncOutcome<MapAsyncResult<TResult>> pending,
         Cell<Entry[]> trackedCell,
         CancellationToken? tokenToCheck) =>
-        TransactionInternal.RunImpl(() =>
+        TransactionInternal.Apply((transaction, _) =>
         {
             // A cancellation that arrived while the operation ran makes the item Canceled, also
             // when the operation gave a result or threw.
@@ -2011,18 +1997,18 @@ internal sealed class AsyncMapExecutionManager<TInput, TResult, TStrategyInput> 
                     ? AsyncOutcome<MapAsyncResult<TResult>>.Canceled()
                     : pending;
 
-            // The removal comes first. Thus the queue that OnCompleted reads, and the queue that
-            // an Admit of this same transaction reads, no longer hold the item that ends here. A
-            // loop from the result stream to the input stream makes one transaction of the two
-            // calls. The two must agree about what this pipeline holds.
+            // The removal comes first. Thus, the queue that OnCompleted reads, and the queue
+            // that an Admit of this same transaction reads, no longer hold the item that ends
+            // here. A loop from the result stream to the input stream makes one transaction of
+            // the two calls. The two must agree about what this pipeline holds.
             //
             // This edit goes on the queue and no code sends it. The send below carries the queue
             // after this edit and after the promotions. It is the only send of this method, thus
             // the cell takes one value that holds the two edits. No code can return between the
             // two. A throw between them ends the transaction with no value at all.
             Entry[] tracked =
-                this.ApplyToQueue(
-                    trackedCell: trackedCell,
+                Apply(
+                    list: trackedCell.SampleImpl(),
                     mutation: new Mutation(
                         remove: new[] { item.Id },
                         promote: Array.Empty<Guid>(),
@@ -2068,12 +2054,17 @@ internal sealed class AsyncMapExecutionManager<TInput, TResult, TStrategyInput> 
                 promote[i] = id;
             }
 
-            this.Send(
-                trackedCell: trackedCell,
-                mutation: new Mutation(
-                    remove: Array.Empty<Guid>(),
-                    promote: promote,
-                    add: Array.Empty<Entry>()));
+            tracked =
+                Apply(
+                    list: tracked,
+                    mutation: new Mutation(
+                        remove: Array.Empty<Guid>(),
+                        promote: promote,
+                        add: Array.Empty<Entry>()));
+
+            this.completedQueueAndOwner = (Queue: tracked, Owner: transaction);
+
+            this.queueUpdates.SendImpl(tracked);
 
             item.Cancellation.Dispose();
 
@@ -2091,7 +2082,7 @@ internal sealed class AsyncMapExecutionManager<TInput, TResult, TStrategyInput> 
     /// <summary>
     ///     Makes the result of an item and sends it. This is the one code that calls the function
     ///     of a <see cref="MapAsyncResult{TResult}" />, and it runs in the transaction that
-    ///     publishes. Thus a result that holds a cell or a stream comes into existence in that
+    ///     publishes. Thus, a result that holds a cell or a stream comes into existence in that
     ///     transaction, and that is the cause for a constructor and not a value.
     ///     <para>
     ///         A throw from that function goes to the errors. The strategy saw this item as
@@ -2101,8 +2092,8 @@ internal sealed class AsyncMapExecutionManager<TInput, TResult, TStrategyInput> 
     ///         does.
     ///     </para>
     ///     <para>
-    ///         The send is not in the try. A listener that throws is not a failure of this
-    ///         operation, and an error stream that receives such a throw hides its source.
+    ///         The send operation is not in the try. A listener that throws is not a failure of
+    ///         this operation, and an error stream that receives such a throw hides its source.
     ///     </para>
     /// </summary>
     private void Publish(MapAsyncResult<TResult> operationResult, CancellationToken? tokenToCheck)
@@ -2276,7 +2267,7 @@ needs to be specified explicitly. TState never appears in a MapAsync signature a
 fully opaque to callers.
 
 A strategy never sees a result. OnCompleted takes an AsyncCompletion, which says only whether
-the operation returned, threw, or was canceled, and the pipeline makes the result afterwards and
+the operation returned, threw, or was canceled, and the pipeline makes the result afterward and
 only for an item it publishes — see ResultFactory.Construct. That is why there
 is no TStrategyResult and no resultConverter: they existed to give the strategy a value, and the
 strategy no longer reads one.
