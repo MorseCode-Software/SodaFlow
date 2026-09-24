@@ -118,6 +118,7 @@ which is where you wanted it.
 | --- | --- | --- |
 | One item's state | `StateCell(key)` | When that key changes, in the collection you asked |
 | One item's identity | `IdentityCell(key)` | Only when that key enters or leaves the collection you asked |
+| One item, both parts | `ItemCell(key)` | Same as `StateCell` — an item carries the state |
 | What this collection holds | `SnapshotCell` | On every change |
 | Count or key changes | `ShapeCell` | Only on structural change, root only |
 | A view's keys, in order | `KeysCell` | When that view's membership or order changes |
@@ -210,6 +211,18 @@ Holding membership per observer and calming it wins back about a quarter of that
 neither. A view's per-item cell hangs off the view's own change stream, exactly as the
 collection's hangs off its item change stream, so an observer whose key was not named filters
 itself out and propagates no further.
+
+`ItemCell` gives both parts as one `Maybe<Item<TIdentity, TState>>`. Reach for it when a value
+needs the identity *and* the state — a label built from an account number and its balance, say.
+Lifting `IdentityCell` and `StateCell` together does the same job, but hands you two optionals and
+so four combinations, two of which the store cannot produce: there is never an identity without a
+state or a state without an identity. `ItemCell` removes those two dead branches, and costs one
+cell rather than two plus a lift.
+
+It is not the default for a row. Because an item carries the state, `ItemCell` fires on every
+state edit — so anything derived from it recomputes then, including the parts that only depend on
+the identity. When one binding reads the identity and another reads the state, take the two cells:
+that is what lets the identity side sleep, which is the whole point of the paragraph below.
 
 `IdentityCell` answers the same way and moves even less: an identity cannot change while its key
 stays put, so only the key entering or leaving reaches it — on a view, that includes a criteria

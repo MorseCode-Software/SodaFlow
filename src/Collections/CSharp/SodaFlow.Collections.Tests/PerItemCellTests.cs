@@ -97,6 +97,183 @@ public sealed class PerItemCellTests
     }
 
     [Test]
+    public async Task ItemCellTracksOneKeyAcrossAddAndRemove()
+    {
+        StreamSink<CollectionEdit<int, ItemIdentity, ItemState>> edits =
+            Stream.CreateSink<CollectionEdit<int, ItemIdentity, ItemState>>();
+
+        ReactiveCollection<int, ItemIdentity, ItemState> collection = Create(edits);
+
+        Cell<Maybe<Item<ItemIdentity, ItemState>>> itemCell = collection.ItemCell(7);
+
+        List<string> seen = [];
+
+        IListener l =
+            itemCell.Updates()
+                .ListenStrong(item =>
+                    seen.Add(
+                        item.Match(
+                            onSome: static value => value.Identity.Code + ":" + value.State.Name,
+                            onNone: static () => "gone")));
+
+        await Assert.That(itemCell.Sample().Match(onSome: static _ => "some", onNone: static () => "none"))
+            .IsEqualTo("none");
+
+        edits.Send(TestUtil.Add(TestUtil.Item(number: 7, name: "seven", score: 70)));
+        edits.Send(TestUtil.Remove(7));
+        edits.Send(TestUtil.Add(TestUtil.Item(number: 7, name: "seven again", score: 71)));
+
+        l.Unlisten();
+
+        await Assert.That(seen)
+            .IsEquivalentTo(
+                expected: ["C7:seven", "gone", "C7:seven again"],
+                ordering: CollectionOrdering.Matching);
+    }
+
+    [Test]
+    public async Task ItemCellMovesOnAStateEditAndTheIdentityCellDoesNot()
+    {
+        StreamSink<CollectionEdit<int, ItemIdentity, ItemState>> edits =
+            Stream.CreateSink<CollectionEdit<int, ItemIdentity, ItemState>>();
+
+        ReactiveCollection<int, ItemIdentity, ItemState> collection =
+            Create(edits: edits, TestUtil.Item(number: 1, name: "one", score: 10));
+
+        List<string> fromItem = [];
+        List<string> fromIdentity = [];
+
+        IListener a =
+            collection.ItemCell(1)
+                .Updates()
+                .ListenStrong(item =>
+                    fromItem.Add(
+                        item.Match(
+                            onSome: static value => value.State.Name,
+                            onNone: static () => "gone")));
+
+        IListener b =
+            collection.IdentityCell(1)
+                .Updates()
+                .ListenStrong(identity =>
+                    fromIdentity.Add(identity.Match(onSome: static i => i.Code, onNone: static () => "gone")));
+
+        edits.Send(TestUtil.Rename(key: 1, name: "renamed"));
+
+        a.Unlisten();
+        b.Unlisten();
+
+        // This is the cost of the item cell, and the cause to keep the two cells where one binding
+        // reads the identity and a different binding reads the state.
+        await Assert.That(fromItem)
+            .IsEquivalentTo(expected: ["renamed"], ordering: CollectionOrdering.Matching)
+            .Because("an item holds the state, thus a state edit gives a new item");
+
+        await Assert.That(fromIdentity)
+            .IsEmpty()
+            .Because("an identity cannot change while its key is here");
+    }
+
+    [Test]
+    public async Task ItemCellAgreesWithTheTwoCellsItReplaces()
+    {
+        StreamSink<CollectionEdit<int, ItemIdentity, ItemState>> edits =
+            Stream.CreateSink<CollectionEdit<int, ItemIdentity, ItemState>>();
+
+        ReactiveCollection<int, ItemIdentity, ItemState> collection = Create(edits);
+
+        Cell<Maybe<Item<ItemIdentity, ItemState>>> itemCell = collection.ItemCell(3);
+        Cell<Maybe<ItemIdentity>> identityCell = collection.IdentityCell(3);
+        Cell<Maybe<ItemState>> stateCell = collection.StateCell(3);
+
+        List<string> fromItem = [];
+        List<string> fromPair = [];
+
+        IListener a =
+            itemCell.Values()
+                .ListenStrong(item =>
+                    fromItem.Add(
+                        item.Match(
+                            onSome: static value => value.Identity.Code + ":" + value.State.Name,
+                            onNone: static () => "gone")));
+
+        // The shape a caller writes today: two optional values, and two of their four
+        // combinations that the store cannot give.
+        IListener b =
+            identityCell
+                .Lift(
+                    c2: stateCell,
+                    f: static (identity, state) =>
+                        identity.Match(
+                            onSome: i => state.Match(
+                                onSome: s => i.Code + ":" + s.Name,
+                                onNone: static () => "identity with no state"),
+                            onNone: () => state.Match(
+                                onSome: static _ => "state with no identity",
+                                onNone: static () => "gone")))
+                .Values()
+                .ListenStrong(fromPair.Add);
+
+        edits.Send(TestUtil.Add(TestUtil.Item(number: 3, name: "three", score: 30)));
+        edits.Send(TestUtil.Score(key: 3, score: 31));
+        edits.Send(TestUtil.Rename(key: 3, name: "renamed"));
+        edits.Send(TestUtil.Remove(3));
+        edits.Send(TestUtil.Add(TestUtil.Item(number: 3, name: "again", score: 32)));
+
+        a.Unlisten();
+        b.Unlisten();
+
+        await Assert.That(fromItem)
+            .IsEquivalentTo(expected: fromPair, ordering: CollectionOrdering.Matching)
+            .Because("one cell should answer as the two cells do");
+
+        await Assert.That(fromItem).DoesNotContain("identity with no state");
+        await Assert.That(fromItem).DoesNotContain("state with no identity");
+    }
+
+    [Test]
+    public async Task ItemCellBuiltInTheTransactionThatAddsItsKeySeesTheNewValue()
+    {
+        StreamSink<CollectionEdit<int, ItemIdentity, ItemState>> edits =
+            Stream.CreateSink<CollectionEdit<int, ItemIdentity, ItemState>>();
+
+        ReactiveCollection<int, ItemIdentity, ItemState> collection = Create(edits);
+
+        Cell<Maybe<Item<ItemIdentity, ItemState>>>? built = null;
+
+        IListener l = collection.ShapeCell.Updates().ListenStrong(_ => built ??= collection.ItemCell(5));
+
+        edits.Send(TestUtil.Add(TestUtil.Item(number: 5, name: "five", score: 50)));
+
+        l.Unlisten();
+
+        await Assert.That(built).IsNotNull();
+
+        // ReSharper disable once NullableWarningSuppressionIsUsed - the assertion above is what
+        // rules out null, and the compiler cannot see through it.
+        await Assert.That(built!.Sample().Match(onSome: static i => i.State.Name, onNone: static () => "none"))
+            .IsEqualTo("five");
+    }
+
+    [Test]
+    public async Task ItemCellIsSharedPerKeyWhileSomethingHoldsIt()
+    {
+        StreamSink<CollectionEdit<int, ItemIdentity, ItemState>> edits =
+            Stream.CreateSink<CollectionEdit<int, ItemIdentity, ItemState>>();
+
+        ReactiveCollection<int, ItemIdentity, ItemState> collection =
+            Create(edits: edits, TestUtil.Item(number: 1, name: "one", score: 10));
+
+        Cell<Maybe<Item<ItemIdentity, ItemState>>> first = collection.ItemCell(1);
+        Cell<Maybe<Item<ItemIdentity, ItemState>>> second = collection.ItemCell(1);
+
+        await Assert.That(second).IsSameReferenceAs(first);
+
+        // The three caches are separate, thus no cast can take one cell for a different one.
+        await Assert.That((object)first).IsNotSameReferenceAs(collection.StateCell(1));
+    }
+
+    [Test]
     public async Task IdentityCellMovesOnlyOnStructuralChange()
     {
         StreamSink<CollectionEdit<int, ItemIdentity, ItemState>> edits =

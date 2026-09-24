@@ -960,7 +960,7 @@ public sealed class CollectionViewTests
     }
 
     [Test]
-    public async Task AViewsItemCellAnswersForTheView()
+    public async Task AViewsStateCellAnswersForTheView()
     {
         StreamSink<CollectionEdit<int, ItemIdentity, ItemState>> edits =
             Stream.CreateSink<CollectionEdit<int, ItemIdentity, ItemState>>();
@@ -994,7 +994,7 @@ public sealed class CollectionViewTests
     }
 
     [Test]
-    public async Task AViewsItemCellFollowsTheKeyInAndOutOfTheView()
+    public async Task AViewsStateCellFollowsTheKeyInAndOutOfTheView()
     {
         StreamSink<CollectionEdit<int, ItemIdentity, ItemState>> edits =
             Stream.CreateSink<CollectionEdit<int, ItemIdentity, ItemState>>();
@@ -1457,6 +1457,58 @@ public sealed class CollectionViewTests
         edits.Send(TestUtil.Score(key: 1, score: 99));
 
         await Assert.That(cell.Sample().Match(onSome: static i => i.Code, onNone: static () => "none")).IsEqualTo("C1");
+    }
+
+    [Test]
+    public async Task AViewsItemCellAnswersForTheView()
+    {
+        StreamSink<CollectionEdit<int, ItemIdentity, ItemState>> edits =
+            Stream.CreateSink<CollectionEdit<int, ItemIdentity, ItemState>>();
+
+        ReactiveCollection<int, ItemIdentity, ItemState> collection =
+            Create(
+                edits: edits,
+                TestUtil.Item(number: 1, name: "one", score: 10),
+                TestUtil.Item(number: 2, name: "two", score: 20));
+
+        ReactiveCollection<int, ItemIdentity, ItemState> passing =
+            collection.Filter(static (_, state) => state.Score >= 20);
+
+        Cell<Maybe<Item<ItemIdentity, ItemState>>> cell = passing.ItemCell(1);
+
+        List<string> seen = [];
+
+        IListener l =
+            cell.Updates()
+                .ListenStrong(item =>
+                    seen.Add(
+                        item.Match(
+                            onSome: static value => value.Identity.Code + ":" + value.State.Name,
+                            onNone: static () => "gone")));
+
+        // The filter removes this key, thus the view answers with no value where the collection
+        // answers with the item.
+        await Assert.That(cell.Sample().Match(onSome: static i => i.State.Name, onNone: static () => "none"))
+            .IsEqualTo("none");
+
+        await Assert.That(
+                collection.ItemCell(1).Sample().Match(onSome: static i => i.State.Name, onNone: static () => "none"))
+            .IsEqualTo("one");
+
+        await Assert.That(passing.ItemCell(1)).IsSameReferenceAs(cell);
+
+        // A score that moves the item into the view gives the cell a value, and an edit to an
+        // item that the view holds gives it another one.
+        edits.Send(TestUtil.Score(key: 1, score: 99));
+        edits.Send(TestUtil.Rename(key: 1, name: "renamed"));
+
+        // And one that moves it out takes the value away again.
+        edits.Send(TestUtil.Score(key: 1, score: 1));
+
+        l.Unlisten();
+
+        await Assert.That(seen)
+            .IsEquivalentTo(expected: ["C1:one", "C1:renamed", "gone"], ordering: CollectionOrdering.Matching);
     }
 
     [Test]

@@ -170,6 +170,25 @@ let stateCell (key: 'TKey) (collection: ReactiveCollection<'TKey, 'TIdentity, 'T
 let identityCell (key: 'TKey) (collection: ReactiveCollection<'TKey, 'TIdentity, 'TState>) =
     collection.IdentityCellImpl(key, Func<_, _> Some, Func<_>(fun () -> None))
 
+/// <summary>
+///     The two parts of the item together. It is <c>None</c> while the store has no such key.
+/// </summary>
+/// <param name="key">The key to monitor.</param>
+/// <param name="collection">The collection or view to read.</param>
+/// <returns>A cell tracking that key's item.</returns>
+/// <remarks>
+///     Use this for a value that reads the identity and the state together. It gives one
+///     optional value, and not two. Thus, no code must answer for an identity with no state, or
+///     for a state with no identity. The store cannot give those two conditions.
+///     It sends a value at each edit to the state of its key, as <c>stateCell</c> does. Where one
+///     binding reads the identity and a different binding reads the state, use the two cells and
+///     not this one. <c>identityCell</c> sleeps through an edit to the state, and a value from
+///     this one does not.
+/// </remarks>
+[<MethodImpl(MethodImplOptions.NoInlining)>]
+let itemCell (key: 'TKey) (collection: ReactiveCollection<'TKey, 'TIdentity, 'TState>) =
+    collection.ItemCellImpl(key, Func<_, _> Some, Func<_>(fun () -> None))
+
 /// <summary>The two parts of the item for a key, when there is one.</summary>
 /// <param name="key">The key to look up.</param>
 /// <param name="snapshot">The snapshot to look in.</param>

@@ -55,6 +55,8 @@ public abstract class ReactiveCollection<TKey, TIdentity, TState>
     /// </summary>
     private readonly Dictionary<Type, object> identityCaches = new();
 
+    private readonly Dictionary<Type, object> itemCaches = new();
+
     /// <summary>One per-key cell cache per projected type, for states.</summary>
     private readonly Dictionary<Type, object> stateCaches = new();
 
@@ -288,6 +290,48 @@ public abstract class ReactiveCollection<TKey, TIdentity, TState>
             return created;
         }
     }
+
+    /// <summary>
+    ///     The same for the two parts of an item together.
+    /// </summary>
+    /// <remarks>
+    ///     This sends a value at each change that the state cell sends one for, because an item
+    ///     holds the state. Use it for a value that reads the two parts. Where one binding reads
+    ///     the identity and a different binding reads the state, the two cells cost less: the
+    ///     identity cell sleeps through an edit to the state.
+    /// </remarks>
+    /// <typeparam name="TProjected">The type that the wrapper gives to the cell.</typeparam>
+    /// <param name="key">The key to monitor.</param>
+    /// <param name="onPresent">Makes the value of the cell while the collection has the key.</param>
+    /// <param name="onAbsent">Makes the value of the cell while the collection does not have the key.</param>
+    /// <returns>The cell.</returns>
+    internal Cell<TProjected> ItemCellImpl<TProjected>(
+        TKey key,
+        Func<Item<TIdentity, TState>, TProjected> onPresent,
+        Func<TProjected> onAbsent)
+    {
+        lock (this.cacheGate)
+        {
+            ProjectedCellCache<TKey, TProjected> cache = CacheFor<TProjected>(this.itemCaches);
+            Cell<TProjected>? cached = cache.Get(key);
+
+            if (cached is not null)
+            {
+                return cached;
+            }
+
+            Cell<TProjected> created = this.CreateItemCell(key: key, onPresent: onPresent, onAbsent: onAbsent);
+            cache.Set(key: key, cell: created);
+
+            return created;
+        }
+    }
+
+    /// <summary>Builds the cell <see cref="ItemCellImpl{TProjected}" /> will cache.</summary>
+    internal abstract Cell<TProjected> CreateItemCell<TProjected>(
+        TKey key,
+        Func<Item<TIdentity, TState>, TProjected> onPresent,
+        Func<TProjected> onAbsent);
 
     /// <summary>Builds the cell <see cref="StateCellImpl{TProjected}" /> will cache.</summary>
     internal abstract Cell<TProjected> CreateStateCell<TProjected>(

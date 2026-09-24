@@ -312,6 +312,26 @@ internal sealed class RootCollection<TKey, TIdentity, TState>
                 removed: removed));
     }
 
+    /// <inheritdoc />
+    /// <remarks>
+    ///     The seed and the stream are those of the state cell, because an item holds the state
+    ///     and moves with it. See the comment in that method for the cause of the lazy seed.
+    /// </remarks>
+    internal override Cell<TProjected> CreateItemCell<TProjected>(
+        TKey key,
+        Func<Item<TIdentity, TState>, TProjected> onPresent,
+        Func<TProjected> onAbsent) =>
+        TransactionInternal.RunImpl(() =>
+            this.ItemChangesStream
+                .MapImpl(change => change.ProjectItemChangeFor(key: key, onPresent: onPresent, onAbsent: onAbsent))
+                .FilterSomeInternal()
+                .HoldLazyImpl(
+                    this.SnapshotCell.SampleLazyImpl()
+                        .MapImpl(snapshot =>
+                            snapshot.TryGetItem(key: key, item: out Item<TIdentity, TState>? item)
+                                ? onPresent(item)
+                                : onAbsent())));
+
     internal override Cell<TProjected> CreateStateCell<TProjected>(
         TKey key,
         Func<TState, TProjected> onPresent,

@@ -105,11 +105,6 @@ public sealed class ItemChange<TKey, TIdentity, TState>
     internal bool WasAdded(TKey key) => this.added.Contains(key);
 
     /// <summary>
-    ///     The result of this change on one key, in the shape that the caller selects. A cell for
-    ///     one item filters on this result. No value means no event for that observer, and this
-    ///     code applies the projection in the same map, and a second map is not necessary.
-    /// </summary>
-    /// <summary>
     ///     The result of this change for the identity of one key, or nothing when the change has
     ///     no result for it.
     /// </summary>
@@ -149,5 +144,37 @@ public sealed class ItemChange<TKey, TIdentity, TState>
         return this.removed.Contains(key)
             ? MaybeInternal.Some(onAbsent())
             : MaybeInternal<TProjected>.None;
+    }
+
+    /// <summary>
+    ///     The result of this change for the two parts of one key together, or nothing when the
+    ///     change has no result for it.
+    /// </summary>
+    /// <remarks>
+    ///     This sends a value for each change that the state projection sends one for, because an
+    ///     item holds the state. Thus, an observer of this reads an identity again at each edit to
+    ///     the state of its key, and an observer of the identity alone does not.
+    /// </remarks>
+    internal MaybeInternal<TProjected> ProjectItemChangeFor<TProjected>(
+        TKey key,
+        Func<Item<TIdentity, TState>, TProjected> onPresent,
+        Func<TProjected> onAbsent)
+    {
+        if (this.removed.Contains(key))
+        {
+            return MaybeInternal.Some(onAbsent());
+        }
+
+        // NewStates holds each key that an edit added or updated, thus one test covers the entry
+        // of a key and an edit to the state of a key that is here.
+        if (!this.NewStates.ContainsKey(key) && !this.WasAdded(key))
+        {
+            return MaybeInternal<TProjected>.None;
+        }
+
+        return MaybeInternal.Some(
+            this.After.TryGetItem(key: key, item: out Item<TIdentity, TState>? item)
+                ? onPresent(item)
+                : onAbsent());
     }
 }

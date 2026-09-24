@@ -95,6 +95,37 @@ type ``Collections Tests``() =
         }
 
     [<Test>]
+    member _.``the item cell gives the two parts as one option``() =
+        task {
+            let edits = sinkS<CollectionEdit<int, ItemIdentity, ItemState>> ()
+            let collection = create keyOf [] [ edits ]
+
+            let seven = collection |> itemCell 7
+            let seen = List<string>()
+
+            let l =
+                seven
+                |> updatesC
+                |> listenStrongS (fun item ->
+                    seen.Add(
+                        match item with
+                        | Some i -> i.Identity.Code + ":" + i.State.Name
+                        | None -> "gone"
+                    ))
+
+            edits |> sendS (addEdit [ item 7 "seven" 70 ])
+
+            // An item holds the state, thus a state edit gives a new item. The identity cell
+            // sleeps through this one.
+            edits |> sendS (updateEdit 7 (fun state -> { state with Name = "renamed" }))
+            edits |> sendS (removeEdit [ 7 ])
+
+            l |> unlistenL
+
+            do! Expect.Sequence([ "C7:seven"; "C7:renamed"; "gone" ], seen)
+        }
+
+    [<Test>]
     member _.``fromUpdates lifts a domain stream into edits``() =
         task {
             let scores = sinkS<int * (ItemState -> ItemState)> ()

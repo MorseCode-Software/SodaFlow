@@ -80,6 +80,46 @@ public static class CollectionExtensionMethods
             onPresent: static identity => Maybe.Some(identity),
             onAbsent: static () => Maybe<TIdentity>.None);
 
+    /// <summary>
+    ///     A cell that follows the two parts of one item together. It has no value while the store
+    ///     does not have the key.
+    /// </summary>
+    /// <typeparam name="TKey">The type of the keys.</typeparam>
+    /// <typeparam name="TIdentity">The type of the immutable part of an item.</typeparam>
+    /// <typeparam name="TState">The type of the mutable part of an item.</typeparam>
+    /// <param name="collection">The collection or view to monitor.</param>
+    /// <param name="key">The key to monitor.</param>
+    /// <returns>A cell tracking that key's item.</returns>
+    /// <remarks>
+    ///     <para>
+    ///         Use this for a value that reads the identity and the state together. It gives one
+    ///         optional value, and not two. Thus, no code must answer for an identity with no
+    ///         state, or for a state with no identity. The store cannot give those two
+    ///         conditions.
+    ///     </para>
+    ///     <para>
+    ///         This sends a value at each edit to the state of its key, as
+    ///         <see cref="StateCell{TKey,TIdentity,TState}" /> does. Where one binding reads the
+    ///         identity and a different binding reads the state, use the two cells and not this
+    ///         one. <see cref="IdentityCell{TKey,TIdentity,TState}" /> sleeps through an edit to
+    ///         the state, and a value from this one does not.
+    ///     </para>
+    ///     <para>
+    ///         The cache, the answer for a view, and the behavior at a missing key are those of
+    ///         <see cref="StateCell{TKey,TIdentity,TState}" />.
+    ///     </para>
+    /// </remarks>
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    public static Cell<Maybe<Item<TIdentity, TState>>> ItemCell<TKey, TIdentity, TState>(
+        this ReactiveCollection<TKey, TIdentity, TState> collection,
+        TKey key)
+        where TKey : notnull
+        where TIdentity : notnull =>
+        collection.ItemCellImpl(
+            key: key,
+            onPresent: static item => Maybe.Some(item),
+            onAbsent: static () => Maybe<Item<TIdentity, TState>>.None);
+
     /// <summary>Returns the two parts of the item for a key, when there is one.</summary>
     /// <typeparam name="TKey">The type of the keys.</typeparam>
     /// <typeparam name="TIdentity">The type of the immutable part of an item.</typeparam>
