@@ -4,21 +4,54 @@ title: Reactive collections
 
 # Reactive collections
 
-A large keyed collection where only a small fraction of the items are being watched at any
-moment — a hundred thousand accounts behind a list showing twenty rows.
+`ReactiveCollection` is for a large keyed collection where only a small part of it is being
+watched at any moment: a hundred thousand accounts behind a list showing twenty rows.
 
-The naive shape does not work. A `Cell<IReadOnlyDictionary<K, V>>` fires on every edit, so
-every observer wakes for every change; and a `Cell` whose value carries its own inner cells
-builds graph nodes inside the fold that produces each new value. This builds neither. One cell
-holds the whole snapshot, one stream carries resolved changes, and a per-item observer is a
-filter over that stream costing one hash lookup per transaction, independent of collection
-size.
+## The problem it solves
+
+Two obvious shapes both scale with the collection rather than with the screen.
+
+- **A cell holding a dictionary.** `Cell<IReadOnlyDictionary<K, V>>` fires on every edit, so
+  every observer wakes for every change, whether or not the change concerns it.
+- **A cell per field per item.** That fans out correctly, but it builds graph nodes for every
+  item whether or not anything reads them, and you cannot feed those cells from a stream —
+  `Send` throws inside a transaction, so this shape only works when every value arrives whole
+  from outside the graph.
+
+A reactive collection is neither. One cell holds the whole snapshot, one stream carries resolved
+changes, and a per-item observer is a filter over that stream. Watching one item costs one hash
+lookup per transaction no matter how large the collection is, and nothing is built for the items
+nobody is looking at.
+
+That property is measured rather than asserted — see [Measuring it](#measuring-it), where an
+edit to an unwatched key costs 5.9 µs at a thousand items and 6.3 µs at ten thousand.
 
 It lives in a separate package; see [Which package do I install?](packages.md).
 
 ```bash
 dotnet add package SodaFlow.Collections
 ```
+
+## At a glance
+
+```csharp
+// A collection of accounts, edited by a stream of deposits.
+ReactiveCollection<Guid, AccountId, AccountState> accounts = ReactiveCollection.Create(
+    initialAccounts,
+    CollectionEdit<Guid, AccountId, AccountState>.FromUpdates(deposits));
+
+// A view: the unfrozen accounts, richest first, top twenty.
+ReactiveCollection<Guid, AccountId, AccountState> topTwenty = accounts
+    .Filter(static (_, state) => !state.IsFrozen)
+    .SortByDescending(static (_, state) => state.Balance)
+    .Take(20);
+
+// One row's balance. A deposit into a different account does not wake this.
+Cell<Maybe<AccountState>> oneAccount = topTwenty.StateCell(someKey);
+```
+
+The rest of this page is the detail behind those three steps: how a collection is created, how
+an item is observed, how views chain, and what each of those costs.
 
 ## Everything that can change it is declared at construction
 
@@ -98,10 +131,11 @@ you can see past; it *is* a collection, the way a `Where` is an `IEnumerable` an
 the sequence behind it. There is no `Root` to reach through, because there is nothing a view should
 need it for.
 
-That costs one small object per stage per change — the two maps behind a set of visible keys,
-never a copy — and one graph node per stage to keep the cell current.
+Each stage pays for that with one graph node, to keep its own snapshot current, and one small
+object per change. The object holds the two maps behind that stage's visible keys; the items
+themselves are never copied.
 
-The last two are a pair, and picking the wrong one is the easy mistake:
+The last two rows are a pair, and picking the wrong one is the easy mistake:
 
 | | `KeyChangesStream` | `ItemChangesStream` |
 | --- | --- | --- |
@@ -165,14 +199,17 @@ ReactiveCollection<Guid, AccountId, AccountState> topTen = accounts
 filter excluded, and gains one the moment that key scores into the view. Observers of one key
 through one view share a cell; two views are two cells, because they are two answers.
 
-That costs nothing, which was not obvious and had to be measured. The natural way to write it —
-the collection's cell lifted against the view's keys — costs about twice an ordinary edit, because
-every observer becomes a node the propagation walks whenever the view moves at all, and a reorder
-counts as moving. Holding membership per observer and calming it recovers about a quarter of that.
-Neither is how this works. A view's per-item cell hangs off the view's own change stream, exactly
-as the collection's hangs off its item change stream: an observer whose key was not named filters
-itself out and propagates no further. Measured against observing the collection directly, at
-twenty observers and ten thousand items, that is 14.1 microseconds against 14.2 — the same number.
+Observing through a view costs nothing over observing the collection directly. That was not
+obvious, and it had to be measured: at twenty observers and ten thousand items, 14.1 microseconds
+through a view against 14.2 without one.
+
+It is only free because of how it is built. The natural implementation — lifting the collection's
+cell against the view's keys — costs about twice an ordinary edit, because every observer becomes
+a node the propagation walks whenever the view moves at all, and a reorder counts as moving.
+Holding membership per observer and calming it wins back about a quarter of that. This does
+neither. A view's per-item cell hangs off the view's own change stream, exactly as the
+collection's hangs off its item change stream, so an observer whose key was not named filters
+itself out and propagates no further.
 
 `IdentityCell` answers the same way and moves even less: an identity cannot change while its key
 stays put, so only the key entering or leaving reaches it — on a view, that includes a criteria
@@ -220,31 +257,35 @@ In F# the orders come from `orderBy`, `orderByIdentity`, `orderByKey`, `orderByA
 levels from `thenBy` and its siblings, and the stage from `sortByOrderC` for a cell or `sortByOrder`
 for an order that does not change.
 
-A new order is a criteria change like any other: it rebuilds that stage and reports `IsReset`,
-at the cost the table below gives for a sort's rebuild. An order equivalent to the one the stage
-already holds is no change at all and reports nothing. That order run the other way is cheaper to
-answer - the stage sorts again with the sort values it already holds rather than filing every key
-again - but it still reports `IsReset`. A stage below re-files under whichever order the stage ends
-up with without being told anything, because a filter files under its upstream's own order whatever
-that order has become.
+A new order is a criteria change like any other: it rebuilds that stage and reports `IsReset`, at
+the cost the table below gives for a sort's rebuild. Three cases are cheaper than that:
 
-When nothing but the order changed in the transaction, the stages below do less than rebuild. A
-filter already holds the right members - its predicate reads nothing that changed - so it files
-those members under the new order without walking the stage above or testing a single item again.
-A sort below keeps its list outright, because neither its members nor its own order moved. Both
-still report `IsReset`, and pass on that it was only a reorder, so the same holds a stage further
-down. A slice is where it stops: reordering what is above a window changes which keys fall inside
-it, so it rebuilds, and the stages under it rebuild too. An edit or a criteria change landing in
-the same transaction makes it an ordinary reset, all the way down.
+- **An order equivalent to the one already held** is no change at all, and reports nothing.
+- **The same order reversed** re-sorts with the sort values the stage already holds, rather than
+  filing every key again. It still reports `IsReset`.
+- **A reorder with nothing else in the transaction** lets the stages *below* do less than
+  rebuild. A filter already holds the right members, because its predicate reads nothing that
+  changed, so it files them under the new order without walking the stage above or testing a
+  single item. A sort below keeps its list outright, because neither its members nor its own
+  order moved. Both still report `IsReset` and pass on that it was only a reorder, so the same
+  holds a stage further down.
 
-That makes a sort above a filter cheaper to reorder than it was, but not as cheap as a filter above a
-sort. The sort still files every key in the collection under the new order; below a filter it files
-only the ones the filter kept. Measured at 100,000 items with a filter keeping 5%, reversing the
-order took 30 ms sorted first and under 1 ms filtered first.
+A slice is where that stops. Reordering what is above a window changes which keys fall inside
+it, so the slice rebuilds and the stages under it rebuild too. An edit or another criteria change
+landing in the same transaction makes it an ordinary reset, all the way down.
+
+None of that has to be communicated downward. A filter files under its upstream's own order,
+whatever that order has become, so a stage below re-files under the new one without being told
+anything about it.
+
+So a sort above a filter is cheaper to reorder than it used to be, but still not as cheap as a
+filter above a sort: the sort files every key in the collection under the new order, where below
+a filter it files only the ones the filter kept. At 100,000 items with a filter keeping 5%,
+reversing the order took 30 ms sorted first and under 1 ms filtered first.
 
 A change of order is always a reset, never a sequence of moves, however few keys it would move.
-`ViewMove` is kept for one thing: a key whose value changed, under an order that reads that value.
-The stages below depend on the distinction - see [How the chain stays
+`ViewMove` is kept for one thing: a key whose value changed, under an order that reads that
+value. The stages below depend on that distinction — see [How the chain stays
 incremental](#how-the-chain-stays-incremental).
 
 An order can have more than one level. `ThenBy`, `ThenByDescending`, `ThenByIdentity` and
@@ -253,6 +294,8 @@ keys the order ranks equal — a holder's name under a balance. What comes back 
 any other, so a fixed one goes straight to `SortBy` and a changing one goes in the same cell:
 
 ```csharp
+using Orders = SodaFlow.Collections.KeyOrder<Guid, AccountId, AccountState>;
+
 ReactiveCollection<Guid, AccountId, AccountState> page = accounts
     .SortBy(Orders.ByDescending(static (_, state) => state.Balance)
         .ThenBy(static (identity, _) => identity.Holder))
@@ -300,17 +343,17 @@ entry whose sort position has already moved underneath it.
 
 ## Three costs worth knowing
 
-- Changing a criteria costs a pass over the stage's upstream however it is applied, because every
-  key has to be tested against the new criteria. Changing a *predicate* is the expensive end: a
-  filter re-tests every upstream key, and files the ones that actually moved. It reports those as
-  inserts and removes rather than as `IsReset`, so the stages below it adjust rather than
-  rebuilding — unless enough keys move to be worth a rebuild, and then it rebuilds and reports a
-  reset like any other stage. A rebuild files every surviving key into a fresh ordered set; at ten
+- **Changing a criteria** costs a pass over the stage's upstream however it is applied, because
+  every key has to be tested against the new criteria. A *predicate* is the expensive end: the
+  filter re-tests every upstream key and files the ones that moved, reporting them as inserts and
+  removes rather than as `IsReset`, so the stages below adjust rather than rebuild. Move enough
+  keys and a rebuild is worth more than listing them, and then it rebuilds and reports a reset
+  like any other stage. A rebuild files every surviving key into a fresh ordered set; at ten
   thousand items that measured about sixteen times the cost of re-deriving the same view with
-  LINQ. Debounce keystroke-driven predicates upstream, and do not drive a filter from something
-  that changes per frame. Changing a **slice's offset** is the cheap end, and by a wide margin -
-  an offset cannot reorder anything, so the rebuild is a lazy window over an ordering that did
-  not move. See [Paging](#paging-and-why-there-is-no-skip).
+  LINQ. So debounce keystroke-driven predicates upstream, and do not drive a filter from
+  something that changes every frame. A **slice's offset** is the cheap end by a wide margin: an
+  offset cannot reorder anything, so the rebuild is one lazy window over an ordering that did not
+  move. See [Paging](#paging-and-why-there-is-no-skip).
 - `Take` diffs its old and new windows rather than translating operations: O(limit) per
   transaction, and a reorder inside the window reports as removes and inserts from the first
   differing position rather than as moves. For a top-n that is the cheap direction to be wrong
@@ -358,13 +401,13 @@ offset is zero, which is literally how it is built. With a `Cell<int>` for the o
 the page is one send:
 
 ```csharp
-CellSink<int> page = Cell.CreateSink(0);
+CellSink<int> pageNumber = Cell.CreateSink(0);
 
-ReactiveCollection<int, AccountId, AccountState> rows = accounts
+ReactiveCollection<Guid, AccountId, AccountState> rows = accounts
     .SortByDescending(static (_, state) => state.Balance)
-    .Slice(page.Map(static p => p * 20), Cell.Constant(20));
+    .Slice(pageNumber.Map(static p => p * 20), Cell.Constant(20));
 
-page.Send(1);
+pageNumber.Send(1);
 ```
 
 There is no `Skip`, and the omission is deliberate rather than an oversight. This stage keeps

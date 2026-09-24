@@ -6,7 +6,7 @@ layout: landing
 <div class="sf-hero">
 <img class="sf-hero-logo" src="images/sodaflow-wordmark.svg" alt="SodaFlow">
 <p class="sf-hero-tagline">Functional Reactive Programming for .NET.</p>
-<p class="sf-hero-lede">Two composable primitives — a <strong>stream</strong> of discrete events and a <strong>cell</strong> holding a value over time — and a transaction system that guarantees anything you build out of them updates <em>atomically</em>, with no glitches and no intermediate states that never logically existed. In C# and F#.</p>
+<p class="sf-hero-lede">Two composable primitives: a <strong>stream</strong> of discrete events, and a <strong>cell</strong> holding a value over time. A transaction system updates everything you build from them <em>atomically</em>, so no observer ever sees a half-updated graph or a value that never logically existed. In C# and F#.</p>
 <p class="sf-actions">
 <a class="sf-button sf-button-primary" href="docs/getting-started.md">Get started</a>
 <a class="sf-button" href="docs/concepts.md">Core concepts</a>
@@ -27,10 +27,10 @@ l.Unlisten();
 
 SodaFlow is based on [Sodium](https://github.com/SodiumFRP/sodium), the Functional Reactive
 Programming library by Stephen Blackheath and Anthony Jones, and began as that project's .NET
-implementation. The model documented here — streams, cells, behaviors, and transactions — is
-Sodium's — including its [denotational semantics](docs/semantics.md), which SodaFlow
-implements unchanged — and the credit for it belongs there. Sodium's implementations for Java, Scala, C++,
-Kotlin, TypeScript, and Rust live under the
+implementation. The model documented here is Sodium's: streams, cells, behaviors, transactions,
+and the [denotational semantics](docs/semantics.md) that SodaFlow implements unchanged. The
+credit for that model belongs upstream. Sodium's implementations for Java, Scala, C++, Kotlin,
+TypeScript, and Rust live under the
 [SodiumFRP organization](https://github.com/SodiumFRP).
 
 ## Start here
@@ -106,10 +106,20 @@ Kotlin, TypeScript, and Rust live under the
 <span class="sf-card-title">Asynchronous work</span>
 <span class="sf-card-text">Running tasks without breaking the model.</span>
 </a>
+<a class="sf-card" href="docs/collections.md">
+<i class="bi bi-collection"></i>
+<span class="sf-card-title">Reactive collections</span>
+<span class="sf-card-text">Large keyed collections where an edit reaches only the rows bound to it.</span>
+</a>
 <a class="sf-card" href="docs/bindable.md">
 <i class="bi bi-ui-checks-grid"></i>
 <span class="sf-card-title">Data binding</span>
 <span class="sf-card-text">Exposing a graph to XAML as properties and commands.</span>
+</a>
+<a class="sf-card" href="docs/functional.md">
+<i class="bi bi-puzzle"></i>
+<span class="sf-card-title">Maybe, Either and Unit</span>
+<span class="sf-card-text">The small functional vocabulary C# does not ship with.</span>
 </a>
 <a class="sf-card" href="docs/semantics.md">
 <i class="bi bi-calculator"></i>

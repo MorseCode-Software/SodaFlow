@@ -7,18 +7,21 @@ title: Cookbook
 Recipes for things that come up constantly. Each one is short enough to read in full and
 adapt.
 
-## Debounce user input
+## Ignore repeated values
 
-Suppress firings that are equal to the previous one, so downstream work only happens on real
-changes:
+`Calm` drops a firing whose value equals the one before it, so downstream work only happens on a
+real change:
 
 ```csharp
 Stream<string> meaningful = keystrokes.Calm();
 ```
 
-`Calm` compares with `EqualityComparer<T>.Default` by default; overloads take an
-`IEqualityComparer<T>` or a plain `Func<T, T, bool>` when default equality is not what you
-want.
+It compares with `EqualityComparer<T>.Default`; overloads take an `IEqualityComparer<T>` or a
+plain `Func<T, T, bool>` when default equality is not what you want.
+
+`Calm` is about *values*, not about *timing* — it is not a debounce. Typing `ab`, deleting the
+`b`, and typing it again produces `ab`, `a`, `ab`, all of which get through. To rate-limit a
+fast source, gate or schedule it with a [timer](time.md) instead.
 
 ## Parse input, ignoring failures
 
@@ -68,11 +71,11 @@ Cell<int> total = allValues.Map(vs => vs.Sum());
 
 ## Keep a running total
 
-`Accum` is a loop with the plumbing already done:
+`Accum` is a loop with the plumbing already done. It folds a stream into a **cell**, so there is
+no `Hold` to add afterwards:
 
 ```csharp
-Stream<int> runningTotal = amounts.Accum(0, (v, acc) => v + acc);
-Cell<int> total = runningTotal.Hold(0);
+Cell<int> total = amounts.Accum(0, static (v, acc) => v + acc);
 ```
 
 When each firing needs to emit something *different* from the state it carries, `Collect` is
@@ -161,20 +164,33 @@ current rather than being rebuilt.
 ReactiveCollection<int, AccountIdentity, AccountState> accounts =
     ReactiveCollection.Create(initialEntries: seed, deposits);
 
-MappedItems<AccountRowViewModel> rows =
-    accounts
-        .Filter(static (_, state) => !state.IsFrozen)
-        .SortBy(static (identity, _) => identity.Number)
-        .Slice(offsetCell: offset, limitCell: Cell.Constant(PageSize))
-        .Map(
-            project: key => Row(page: page, key: key),
-            onEvicted: static row => row.Dispose());
+// One stage per question. Each keeps itself current as edits arrive.
+ReactiveCollection<int, AccountIdentity, AccountState> page = accounts
+    .Filter(static (_, state) => !state.IsFrozen)
+    .SortBy(static (identity, _) => identity.Number)
+    .Slice(offsetCell: offset, limitCell: Cell.Constant(PageSize));
+
+// One row object per key on the page, each bound to its own item.
+MappedItems<AccountRowViewModel> rows = page.Map(
+    project: key => new AccountRowViewModel(
+        number: page.IdentityCell(key)
+            .Map(static identity => identity.Match(i => i.Number, () => string.Empty))
+            .ToOneWay(),
+        balance: page.StateCell(key)
+            .Map(static state => state.Match(s => s.Balance, () => 0L))
+            .ToOneWay()),
+    onEvicted: static row => row.Dispose());
 ```
 
-Bind the view to `rows.Items`, and build each row's bindings from `IdentityCell` and `StateCell`
-*inside* the projection. That is what makes an edit reach the row it is about rather than the
-list: a deposit moves one balance while the other rows on the page, and the list itself, stay
-put.
+Bind the view to `rows.Items`. The important part is that each row's bindings are built from
+`IdentityCell` and `StateCell` *inside* the projection, so every row follows its own item. That
+is what makes an edit reach the row it is about rather than the list: a deposit moves one
+balance while the other rows on the page, and the list itself, stay put.
+
+Both cells answer with a `Maybe<T>`, which is why each projection has a `Match` in it. A row can
+outlive the item it is bound to — the key leaves the view, the cell stops having a value, and an
+add under the same key later gives it one again — so the empty case is a state the row has to
+render rather than an error.
 
 Two things decide whether this pays. An item is two halves — an identity that cannot change and a
 state that can — so a sort over the identity can never be disturbed by an edit to the state,

@@ -129,6 +129,19 @@ the current value first and needs none of this.
 `Sample` reads a cell's current value immediately. Several `Sample` calls outside a transaction
 can straddle an update and give you an inconsistent picture; inside one, they cannot.
 
+```csharp
+// Wrong: another thread can commit a move between the two reads, and the point
+// you build is one the graph never held.
+Point stale = new Point(x.Sample(), y.Sample());
+
+// Right: both reads see the same instant.
+Point consistent = Transaction.Run(() => new Point(x.Sample(), y.Sample()));
+```
+
+Deriving the value in the graph — `x.Lift(y, static (a, b) => new Point(a, b))` — is better
+still, because then there is no read to get wrong. Reach for the wrapped `Sample` at the edge of
+the program, where a value has to leave the graph for code that knows nothing about it.
+
 ## `Post` and `OnStart`
 
 `Transaction.Post(action)` defers work until after the current transaction closes — or runs it
