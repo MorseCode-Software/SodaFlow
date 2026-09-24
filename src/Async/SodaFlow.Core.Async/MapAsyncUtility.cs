@@ -1929,7 +1929,7 @@ internal sealed class AsyncMapExecutionManager<TInput, TResult, TStrategyInput> 
                         token: linked.Token)
                     .ConfigureAwait(false);
 
-            this.Complete(
+            this.CompleteOutsideAnyCallback(
                 item: toStart.Item,
                 pending: AsyncOutcome<MapAsyncResult<TResult>>.Succeeded(operationResult),
                 trackedCell: trackedCell,
@@ -1937,7 +1937,7 @@ internal sealed class AsyncMapExecutionManager<TInput, TResult, TStrategyInput> 
         }
         catch (OperationCanceledException) when (linked.IsCancellationRequested)
         {
-            this.Complete(
+            this.CompleteOutsideAnyCallback(
                 item: toStart.Item,
                 pending: AsyncOutcome<MapAsyncResult<TResult>>.Canceled(),
                 trackedCell: trackedCell,
@@ -1945,7 +1945,7 @@ internal sealed class AsyncMapExecutionManager<TInput, TResult, TStrategyInput> 
         }
         catch (Exception ex)
         {
-            this.Complete(
+            this.CompleteOutsideAnyCallback(
                 item: toStart.Item,
                 pending: AsyncOutcome<MapAsyncResult<TResult>>.Failed(ex),
                 trackedCell: trackedCell,
@@ -2011,6 +2011,43 @@ internal sealed class AsyncMapExecutionManager<TInput, TResult, TStrategyInput> 
                     trackedCell: trackedCell,
                     tokenToCheck: null));
         }
+    }
+
+    // Ends an item, and never from inside a SodaFlow callback.
+    //
+    // The operation of a Running item ends on the thread that cancels its token: Cancel() runs the
+    // registrations of the token, one of those completes the Task of the operation, and the
+    // continuation of that Task runs there. That thread is in the callback of the listener for a
+    // cancellation stream, thus a send from Complete throws, and the throw goes into the
+    // machinery of Cancel() where no code reports it. The item then had an OnCompleted and stayed
+    // in the queue, and the strategy and the pipeline disagreed from that moment.
+    //
+    // A test for a transaction covers each path to here. A continuation on a thread from the pool
+    // has none and takes the direct call. A continuation on the thread of a cancellation has one,
+    // and PostImpl gives the end its own transaction after that one closes.
+    private void CompleteOutsideAnyCallback(
+        AsyncQueuedItem<TStrategyInput> item,
+        AsyncOutcome<MapAsyncResult<TResult>> pending,
+        Cell<Entry[]> trackedCell,
+        CancellationToken? tokenToCheck)
+    {
+        if (TransactionInternal.HasCurrentTransaction())
+        {
+            TransactionInternal.PostImpl(() =>
+                this.Complete(
+                    item: item,
+                    pending: pending,
+                    trackedCell: trackedCell,
+                    tokenToCheck: tokenToCheck));
+
+            return;
+        }
+
+        this.Complete(
+            item: item,
+            pending: pending,
+            trackedCell: trackedCell,
+            tokenToCheck: tokenToCheck);
     }
 
     private void Complete(
