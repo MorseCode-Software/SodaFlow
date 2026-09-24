@@ -71,7 +71,7 @@ cannot be solved a ball at a time.
 It is worth seeing which half of it binds and which does not. The balls bind to nothing: they are
 behaviors, read by sampling, and a behavior has no changes to raise `PropertyChanged` about. Which
 scene is selected is an ordinary changing value, so it is an ordinary cell exposed as an ordinary
-two-way bindable property - which is what lets the summary above the tabs be a function of the
+two-way bindable property — which is what lets the summary above the tabs be a function of the
 selection, and lets the view model change the tab rather than only learn about it.
 
 **Accounts** is a hundred thousand of them behind a page of six, and the one about

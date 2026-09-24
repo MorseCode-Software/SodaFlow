@@ -55,7 +55,23 @@ flight. `AsyncConcurrencyStrategy` offers four answers:
 
 `SwitchLatest` is what you almost always want for search-as-you-type. `QueuePerGroup` is the
 one to reach for when operations are only mutually exclusive per entity — per user, per
-document, per connection.
+document, per connection. You supply the function that says which group a firing belongs to:
+
+```csharp
+// Saves to the same document run one at a time and in order. Saves to different
+// documents run concurrently, because they cannot conflict.
+AsyncMapStatus<SaveRequest> status = saves.MapAsync(
+    results: saved,
+    errors: saveErrors,
+    operation: static async (request, factory, token) =>
+        factory.FromValue(await SaveAsync(request, token)),
+    strategy: AsyncConcurrencyStrategy
+        .QueuePerGroup<SaveRequest>()
+        .Create(static request => request.DocumentId));
+```
+
+The group key is compared with `EqualityComparer<TGroup>.Default`, so any type that equates
+sensibly will do.
 
 You can also write your own by subclassing `AsyncConcurrencyStrategy<TInput, TState>`, with the
 `AsyncConcurrencyStrategy<TState>` shorthand when the strategy does not read the input either.
@@ -131,9 +147,12 @@ it is connected.
 That is what the second answer is for:
 
 ```csharp
+StreamSink<DocumentViewModel> documents = Stream.CreateSink<DocumentViewModel>();
+StreamSink<Exception> documentErrors = Stream.CreateSink<Exception>();
+
 AsyncMapStatus status = requests.MapAsync(
-    results: results,
-    errors: errors,
+    results: documents,
+    errors: documentErrors,
     operation: async (request, factory, token) =>
     {
         // Outside the transaction: the slow part.

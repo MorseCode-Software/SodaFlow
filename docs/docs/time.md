@@ -104,13 +104,89 @@ logic, do the send in a `Transaction.Post` — see [Transactions](transactions.m
 ## Testing
 
 `TimerSystem<T>` is built on `ITimerSystemImplementation<T>`, whose entire contract is `Now`,
-`SetTimer`, `Start`, and `RunTimersTo`. `TimerSystemImplementationBase<T>` supplies everything
-except `Now`.
+`Start`, `SetTimer`, and `RunTimersTo`. That is the reason to prefer a timer system over
+`DateTime.Now` scattered through your logic: supply your own implementation and time becomes a
+value the test controls.
 
-That is deliberate, and it is the reason to prefer a timer system over `DateTime.Now` scattered
-through your logic: supply your own implementation and time becomes a value you control. Tests
-advance the clock with `RunTimersTo` and run deterministically, with no sleeping and no
-flakiness.
+Implement the interface directly for a test. `TimerSystemImplementationBase<T>` is the base for
+a *real* clock — its `Start` spins a background thread that waits out the interval to the next
+alarm — which is the one thing a deterministic test must not do. Four members is the whole job:
+
+```csharp
+internal sealed class ManualClock : ITimerSystemImplementation<double>
+{
+    private readonly List<ManualTimer> timers = [];
+
+    public double Now { get; private set; }
+
+    // Nothing to start: this clock only moves when the test moves it.
+    public void Start(Action<Exception> handleException)
+    {
+    }
+
+    public ITimer SetTimer(double time, Action callback)
+    {
+        ManualTimer timer = new ManualTimer(time, callback);
+        this.timers.Add(timer);
+        return timer;
+    }
+
+    public void RunTimersTo(double now)
+    {
+        // A copy, because a callback that runs here can set a timer of its own.
+        ManualTimer[] due = [.. this.timers.Where(t => !t.Canceled && t.Time <= now)];
+
+        foreach (ManualTimer timer in due)
+        {
+            this.timers.Remove(timer);
+            timer.Fire();
+        }
+    }
+
+    public void AdvanceTo(double now)
+    {
+        this.Now = now;
+        this.RunTimersTo(now);
+    }
+
+    // ITimer is an IDisposable, and disposing one cancels it.
+    private sealed class ManualTimer(double time, Action callback) : ITimer
+    {
+        public double Time { get; } = time;
+
+        public bool Canceled { get; private set; }
+
+        public void Cancel() => this.Canceled = true;
+
+        public void Dispose() => this.Cancel();
+
+        public void Fire() => callback();
+    }
+}
+```
+
+The test then reads as a sequence of instants rather than a sequence of sleeps:
+
+```csharp
+ManualClock clock = new ManualClock();
+ITimerSystem<double> timers = new TimerSystem<double>(clock, static ex => throw ex);
+
+CellSink<Maybe<double>> alarm = Cell.CreateSink(Maybe.Some(5.0));
+List<double> fired = [];
+
+using (timers.At(alarm).ListenStrong(fired.Add))
+{
+    clock.AdvanceTo(4.9);
+    // fired is still empty.
+
+    clock.AdvanceTo(5.0);
+    // fired now holds one value, and nothing slept to get it there.
+}
+```
+
+Nothing in that test depends on wall-clock timing, so it cannot be flaky and it runs as fast as
+the processor can walk the graph. `TimerGarbageCollectionTests` in `SodaFlow.Tests.Memory` uses
+exactly this shape.
 
 The F# implementation mirrors all of this in `SodaFlow.Time` — `TimerSystem<'T>`,
 `SecondsTimerSystem`, `SystemClockTimerSystem`, and the same interfaces.

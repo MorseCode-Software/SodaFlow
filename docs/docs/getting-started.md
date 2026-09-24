@@ -132,4 +132,6 @@ See [Transactions](transactions.md).
 - [Listener lifetimes](lifetimes.md) — when to hold a listener and when to dispose it.
 - [Asynchronous work](async.md) — running tasks from a stream without breaking the model.
 - [Data binding](bindable.md) — exposing a graph to XAML as properties and commands.
-- [Sample applications](samples.md) — two full WPF and Avalonia apps to read end to end.
+- [Reactive collections](collections.md) — a large keyed collection behind a few bound rows.
+- [Maybe, Either and Unit](functional.md) — the functional vocabulary the C# API uses throughout.
+- [Sample applications](samples.md) — complete WPF and Avalonia apps to read end to end.

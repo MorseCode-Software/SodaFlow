@@ -4,8 +4,8 @@ title: Which package do I install?
 
 # Which package do I install?
 
-The .NET build publishes thirteen NuGet packages. Only two of them are things most people
-install directly.
+The build publishes a package per language surface, per add-on, and per shared core. Only two of
+them are ones most people install directly.
 
 ## The short answer
 
@@ -93,8 +93,8 @@ WPF and Avalonia can bind to a SodaFlow graph without either side knowing about 
 | You have | You call | You bind to |
 | --- | --- | --- |
 | `Cell<T>` | `ToOneWay()` / `oneWay` | `IOneWayBindableValue<T>` — read-only |
-| `Cell<T>` plus a `StreamSink<T>` | `ToTwoWay()` / `twoWay` | `ITwoWayBindableValue<T>` — reads and writes |
-| `StreamSink<T>` | `ToOneWayToSource()` / `oneWayToSource` | `IOneWayToSourceBindableValue<T>` — write-only |
+| `CellSink<T>`, or a `Cell<T>` plus a `StreamSink<T>` | `ToTwoWay()` / `twoWay` | `ITwoWayBindableValue<T>` — reads and writes |
+| `StreamSink<T>` plus an initial value | `ToOneWayToSource()` / `oneWayToSource` | `IOneWayToSourceBindableValue<T>` — write-only |
 | `StreamSink<T>` | `ToBindableAction()` / `toBindableAction` | `IBindableAction` — an `ICommand` |
 
 Bind to `SomeProperty.Value`, not `SomeProperty`: a bindable value is an object whose `Value`
@@ -117,7 +117,7 @@ is for one of those to be resolvable: if construction happens somewhere with no
 Each package versions independently from its own git tag prefix, via
 [MinVer](https://github.com/adamralph/minver). Pushing `sodaflow-async-1.1.0` releases
 `SodaFlow.Async` at 1.1.0 and leaves every other package exactly where its own last tag put
-it. Do not expect the thirteen version numbers to move together — they are not meant to.
+it. Do not expect the version numbers to move together — they are not meant to.
 
 | Package | Tag prefix |
 | --- | --- |
