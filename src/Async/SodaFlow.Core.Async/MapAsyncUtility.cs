@@ -1887,19 +1887,11 @@ internal sealed class AsyncMapExecutionManager<TInput, TResult, TStrategyInput> 
             // A cancellation removed this item with the Queued status. This code ends it
             // immediately and does not call the operation. It uses the usual end path, thus a
             // strategy such as Queue in the library starts the next item.
-            // Post defers this, as it defers the usual start below. Complete opens its own
-            // transaction with TransactionInternal.RunImpl, and this code can run synchronously
-            // in the transaction that processes the admission. A strategy can cancel incoming and
-            // return it as a ToStart in the same Admit call, and not only in a subsequent Admit
-            // call or OnCompleted call in a different transaction. A call of Complete inline here
-            // puts a transaction in an open transaction, and that throws "Send may not be called
-            // inside a callback."
-            TransactionInternal.PostImpl(() =>
-                this.Complete(
-                    item: toStart.Item,
-                    pending: AsyncOutcome<MapAsyncResult<TResult>>.Canceled(),
-                    trackedCell: trackedCell,
-                    tokenToCheck: null));
+            this.Complete(
+                item: toStart.Item,
+                pending: AsyncOutcome<MapAsyncResult<TResult>>.Canceled(),
+                trackedCell: trackedCell,
+                tokenToCheck: null);
 
             return;
         }
@@ -1993,7 +1985,7 @@ internal sealed class AsyncMapExecutionManager<TInput, TResult, TStrategyInput> 
         AsyncOutcome<MapAsyncResult<TResult>> pending,
         Cell<Entry[]> trackedCell,
         CancellationToken? tokenToCheck) =>
-        TransactionInternal.Apply((transaction, _) =>
+        TransactionInternal.PostInternal(transaction =>
         {
             // A cancellation that arrived while the operation ran makes the item Canceled, also
             // when the operation gave a result or threw.
@@ -2080,8 +2072,6 @@ internal sealed class AsyncMapExecutionManager<TInput, TResult, TStrategyInput> 
                     value: values[i],
                     trackedCell: trackedCell);
             }
-
-            return UnitInternal.Value;
         });
 
     /// <summary>
