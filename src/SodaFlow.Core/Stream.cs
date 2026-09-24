@@ -137,7 +137,7 @@ public class Stream<T>
 
     // The weak and the strong one-shot listeners do the same thing with a different listener
     // type. The listener must stop itself at the first value, but listen makes that listener
-    // and returns it only at the end. Thus a value that listen sends again arrives before the
+    // and returns it only at the end. Thus, a value that listen sends again arrives before the
     // variable listener has a value. The boolean records that condition, and the code after
     // the call stops the new listener and gives the caller a listener that does nothing.
     private static TListener ListenOnce<TListener>(

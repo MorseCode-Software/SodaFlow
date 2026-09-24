@@ -913,7 +913,7 @@ public abstract class AsyncConcurrencyStrategy<TInput, TState>
     ///     each call. See
     ///     <see
     ///         cref="AsyncStreamUtility.MapAsyncImpl{TInput,TResult,TStrategyInput}(Stream{TInput},StreamSink{TResult},StreamSink{Exception},MapAsyncOperation{TInput,TResult},AsyncConcurrencyStrategyBase{TStrategyInput},Func{TInput,TStrategyInput},Stream{UnitInternal},Stream{IReadOnlyCollection{TInput}},bool)" />
-    ///     Thus two pipelines with the same strategy instance never read the state of the other,
+    ///     Thus, two pipelines with the same strategy instance never read the state of the other,
     ///     also when the two run at the same time.
     /// </summary>
     protected abstract TState CreateState();
@@ -1403,14 +1403,14 @@ internal sealed class AsyncMapExecutionManager<TInput, TResult, TStrategyInput> 
 
     // The queue after the edits of Complete, with the transaction those edits belong to. A
     // Sample of the cell in a transaction gives the value from the start of that transaction. The
-    // cell takes a new value at the end of one. Thus an Admit that runs after Complete, in the
+    // cell takes a new value at the end of one. Thus, an Admit that runs after Complete, in the
     // same transaction, cannot read the cell. It reads this field.
     //
     // Complete is the one writer and CurrentQueue is the one reader. Complete keeps its own two
     // edits as local values, thus OnCompleted needs no field. One transaction holds one call of
     // Complete, and one firing of `source` at most. A firing of `source` cannot come before a
     // call of Complete in one transaction. The code that starts an operation goes through PostImpl
-    // into a transaction of its own. Thus the queue after Complete is the only value that a read
+    // into a transaction of its own. Thus, the queue after Complete is the only value that a read
     // after it, in the same transaction, can want.
     //
     // Owner is the transaction that the value belongs to. A transaction that ends, and a
@@ -2008,7 +2008,7 @@ internal sealed class AsyncMapExecutionManager<TInput, TResult, TStrategyInput> 
             // the two calls. The two must agree about what this pipeline holds.
             //
             // The two edits of this method are local values. The field below keeps the queue
-            // after the two, and the send gives it to the cell. Thus the cell takes one value,
+            // after the two, and the send gives it to the cell. Thus, the cell takes one value,
             // and an Admit after this reads that same value. No code can return between the
             // edits. A throw between them ends the transaction with no value at all.
             Entry[] tracked =

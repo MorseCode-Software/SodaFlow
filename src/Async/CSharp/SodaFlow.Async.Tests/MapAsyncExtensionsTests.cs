@@ -652,7 +652,7 @@ public sealed class MapAsyncExtensionsTests
         // This is the assertion of the test. The result admits "ax" in the transaction that ends
         // "a". Where OnCompleted and Admit each read the queue from the start of that transaction,
         // the two find no item to start. OnCompleted finds nothing Queued, and Admit finds "a"
-        // with the Running status. Thus no code starts "ax", here or in a transaction after it.
+        // with the Running status. Thus, no code starts "ax", here or in a transaction after it.
         op.Release(input: "a", result: "a");
         TestUtil.WaitUntil(() => op.HasStarted("ax"));
 

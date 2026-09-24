@@ -19,7 +19,7 @@ namespace SodaFlow.Tests.Memory;
 ///     <para>
 ///         TimerSystem.At builds a stream that no caller connects. It makes an alarm sink, listens
 ///         to the cell it gets, and gives the caller that sink alone. No other code can get to
-///         the parts that make the sink fire. Thus a collection is the event that can break it.
+///         the parts that make the sink fire. Thus, a collection is the event that can break it.
 ///     </para>
 ///     <para>
 ///         The listener that At makes over the cell is weak, and the alarm holds it because At
