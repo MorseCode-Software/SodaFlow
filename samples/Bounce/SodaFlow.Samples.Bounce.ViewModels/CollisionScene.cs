@@ -31,7 +31,7 @@ namespace SodaFlow.Samples.Bounce.ViewModels;
 ///         necessitate a different solver.
 ///     </para>
 ///     <para>
-///         Thus the state is one cell that holds each ball, and not one cell for each axis. The
+///         Thus, the state is one cell that holds each ball, and not one cell for each axis. The
 ///         scene moves forward one event at a time. It calculates the first event that occurs
 ///         next, moves to that time, applies the event, and calculates again. An event is a ball
 ///         that touches a wall, or two balls that touch each other. Between two events each ball
@@ -67,7 +67,7 @@ internal sealed class CollisionScene : IScene
     ///         quadratic. Each ball must have the same acceleration, or none of this operates.
     ///     </para>
     ///     <para>
-    ///         Thus a ball that damping stopped continues to bounce at this speed. With this
+    ///         Thus, a ball that damping stopped continues to bounce at this speed. With this
     ///         gravity that speed moves it 0.22px from the floor each 44ms. That is one fifth of a
     ///         pixel, and almost each frame rounds it away. The height falls with the square of
     ///         this number, but the number of events rises only with the number itself. Thus, you
@@ -110,7 +110,7 @@ internal sealed class CollisionScene : IScene
     ///         time.
     ///     </para>
     ///     <para>
-    ///         Thus this value limits the cost of that correction. At the smallest possible
+    ///         Thus, this value limits the cost of that correction. At the smallest possible
     ///         value the simulation can use one second of the clock on a group of balls, one
     ///         microsecond at a time, and the scene stops. At one millisecond a group of balls
     ///         costs at most one thousand steps each second, and the clock stays current. One

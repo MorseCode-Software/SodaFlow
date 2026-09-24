@@ -540,7 +540,7 @@ public sealed class MapAsyncExtensionsTests
     }
 
     [Test]
-    public async Task OnCompleted_SeesTheQueueWithTheItemThatEnds()
+    public async Task OnCompleted_SeesTheQueueWithoutTheItemThatEnds()
     {
         StreamSink<string> source = Stream.CreateSink<string>();
         StreamSink<string> results = Stream.CreateSink<string>();
@@ -570,9 +570,10 @@ public sealed class MapAsyncExtensionsTests
         op.Release(input: "b", result: "B");
         TestUtil.WaitUntil(() => received.Count == 2);
 
-        // The item that ended remains in the list, with the status it had.
+        // The pipeline takes the item that ends out of the list before it calls OnCompleted, thus
+        // the first call sees only the item behind it, and the second call sees an empty list.
         await Assert.That(strategy.CompletedSaw)
-            .IsEquivalentTo(expected: ["a:R,b:Q", "b:R"], ordering: CollectionOrdering.Matching);
+            .IsEquivalentTo(expected: ["b:Q", string.Empty], ordering: CollectionOrdering.Matching);
 
         await Assert.That(received)
             .IsEquivalentTo(expected: ["A", "B"], ordering: CollectionOrdering.Matching);
@@ -621,6 +622,101 @@ public sealed class MapAsyncExtensionsTests
     ///     that queue held at each call.
     /// </summary>
     // ReSharper disable once InheritdocConsiderUsage
+    [Test]
+    public async Task ResultThatFeedsTheInputStartsTheNextItemInTheSameTransaction()
+    {
+        StreamSink<string> trigger = Stream.CreateSink<string>();
+        StreamSink<string> results = Stream.CreateSink<string>();
+        StreamSink<Exception> errors = Stream.CreateSink<Exception>();
+        ControlledOperation<string, string> op = new();
+        List<string> received = [];
+        IListener l = results.ListenStrong(received.Add);
+
+        // The input depends on the result. Thus Complete publishes, the input fires, and Admit
+        // runs in the transaction that Complete opened. The two read the queue, and the two must
+        // see that the item which ends here does not count as an item that runs.
+        Stream<string> input = trigger.OrElse(results.Filter(static r => r.Length < 2).Map(static r => r + "x"));
+
+        AsyncMapStatus<string> status =
+            input.MapAsync(
+                results: results,
+                errors: errors,
+                operation: op.Operation,
+                strategy: AsyncConcurrencyStrategy.Queue());
+
+        Cell<IReadOnlyList<AsyncItem<string>>> tracked = status.Items;
+
+        trigger.Send("a");
+        TestUtil.WaitUntil(() => op.HasStarted("a"));
+
+        // This is the assertion of the test. The result admits "ax" in the transaction that ends
+        // "a". Where OnCompleted and Admit each read the queue from the start of that transaction,
+        // the two find no item to start. OnCompleted finds nothing Queued, and Admit finds "a"
+        // with the Running status. Thus, no code starts "ax", here or in a transaction after it.
+        op.Release(input: "a", result: "a");
+        TestUtil.WaitUntil(() => op.HasStarted("ax"));
+
+        // The queue after that transaction. Two edits got to the cell by two paths here: Complete
+        // sent one, and the transform that admitted "ax" returned one. The cell must keep the edit
+        // that this pipeline made last, which is the admission. A cell that keeps the other one
+        // holds an empty queue, and this assertion fails.
+        await Assert.That(Transaction.Run(tracked.Sample).Select(static item => item.Value + ":" + item.Status))
+            .IsEquivalentTo(expected: ["ax:Running"], ordering: CollectionOrdering.Matching)
+            .Because("the queue should hold the item that the result admitted");
+
+        op.Release(input: "ax", result: "ax");
+        TestUtil.WaitUntil(() => received.Count == 2);
+
+        await Assert.That(received)
+            .IsEquivalentTo(expected: ["a", "ax"], ordering: CollectionOrdering.Matching);
+
+        await Assert.That(Transaction.Run(tracked.Sample))
+            .IsEmpty()
+            .Because("the pipeline should hold nothing once the chain ends");
+
+        status.Dispose();
+        l.Unlisten();
+    }
+
+    [Test]
+    public async Task TheQueueAfterACompletionHoldsOnlyTheItemThatStarts()
+    {
+        StreamSink<string> source = Stream.CreateSink<string>();
+        StreamSink<string> results = Stream.CreateSink<string>();
+        StreamSink<Exception> errors = Stream.CreateSink<Exception>();
+        ControlledOperation<string, string> op = new();
+
+        AsyncMapStatus<string> status =
+            source.MapAsync(
+                results: results,
+                errors: errors,
+                operation: op.Operation,
+                strategy: AsyncConcurrencyStrategy.Queue());
+
+        Cell<IReadOnlyList<AsyncItem<string>>> tracked = status.Items;
+
+        source.Send("a");
+        TestUtil.WaitUntil(() => op.HasStarted("a"));
+        source.Send("b");
+
+        // One transaction removes "a" and promotes "b". The cell takes the value that this
+        // pipeline made, thus the two edits get to it in the sequence that made them. A cell that
+        // took the removals, then the additions, then the promotions can give a different answer.
+        op.Release(input: "a", result: "A");
+        TestUtil.WaitUntil(() => op.HasStarted("b"));
+
+        IReadOnlyList<AsyncItem<string>> items = Transaction.Run(tracked.Sample);
+
+        await Assert.That(items.Select(static item => item.Value + ":" + item.Status))
+            .IsEquivalentTo(expected: ["b:Running"], ordering: CollectionOrdering.Matching)
+            .Because("the item that ended should be gone and the item that started should run");
+
+        op.Release(input: "b", result: "B");
+        TestUtil.WaitUntil(() => Transaction.Run(tracked.Sample).Count == 0);
+
+        status.Dispose();
+    }
+
     private sealed class QueueFromTrackedStrategy : AsyncConcurrencyStrategy<string, Unit>
     {
         public readonly List<string> AdmitSaw = [];
@@ -655,13 +751,10 @@ public sealed class MapAsyncExtensionsTests
                 this.CompletedSaw.Add(Describe(tracked));
             }
 
-            // The item that ends remains in the list, thus this selects the first Queued item
-            // that is a different one.
+            // The queue no longer holds the item that ends, thus this takes the first Queued
+            // item with no test against that one.
             AsyncTrackedItem<string>? next =
-                tracked.FirstOrDefault(
-                    predicate: candidate =>
-                        candidate.Status == AsyncItemStatus.Queued
-                        && !ReferenceEquals(objA: candidate.Item, objB: item));
+                tracked.FirstOrDefault(predicate: static candidate => candidate.Status == AsyncItemStatus.Queued);
 
             return new AsyncStrategyResult<string>(
                 publish: true,
