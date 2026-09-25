@@ -223,18 +223,19 @@ public sealed class AsyncMapStatus<TInput, TResult> : AsyncMapStatus<TInput>
     ///         admission of the value cancels it.
     ///     </para>
     ///     <para>
-    ///         Two conditions give no end to the Task, and no one of them is in the position that
-    ///         this method is for. A strategy that keeps a value in the queue permanently, and does
-    ///         not cancel that value, gives no end for the pipeline to read. Each strategy in this
+    ///         One condition gives no end to the Task, and it is not in the position that this
+    ///         method is for. A strategy that keeps a value in the queue permanently, and does not
+    ///         cancel that value, gives no end for the pipeline to read. Each strategy in this
     ///         library ends each value. The documented method for a strategy to refuse a value
     ///         cancels that value, thus that method ends the Task.
     ///     </para>
     ///     <para>
-    ///         The other condition is a transaction that fails. Where a transaction is open, this
-    ///         method defers the value into the post queue of that transaction, and a transaction
-    ///         that throws discards that queue. The value then never enters the pipeline, thus
-    ///         nothing ends the Task. Code that calls this method in a transaction of its own, and
-    ///         throws in that transaction, meets this.
+    ///         A transaction that fails cancels the Task. Where a transaction is open, this method
+    ///         defers the value into the post queue of that transaction. A throw while that
+    ///         transaction propagates discards that queue, thus the value never enters the
+    ///         pipeline. This method asks the transaction to cancel the Task in that condition. A
+    ///         throw from the body of a transaction is different. That transaction closes, the
+    ///         queue drains, and the pipeline admits the value.
     ///     </para>
     ///     <para>
     ///         A call with a transaction open is legal. The code of an operation before its first
@@ -2071,7 +2072,9 @@ internal sealed class AsyncMapExecutionManager<TInput, TResult, TStrategyInput> 
     {
         TaskCompletionSource<TResult> completion = NewExecuteCompletion();
 
-        this.SendAdmission(() => new Admission(value: value, completion: completion));
+        this.SendAdmission(
+            admission: () => new Admission(value: value, completion: completion),
+            completion: completion);
 
         return completion.Task;
     }
@@ -2087,7 +2090,9 @@ internal sealed class AsyncMapExecutionManager<TInput, TResult, TStrategyInput> 
 
         TaskCompletionSource<TResult> completion = NewExecuteCompletion();
 
-        this.SendAdmission(() => new Admission(value: value.SampleImpl(), completion: completion));
+        this.SendAdmission(
+            admission: () => new Admission(value: value.SampleImpl(), completion: completion),
+            completion: completion);
 
         return completion.Task;
     }
@@ -2102,11 +2107,20 @@ internal sealed class AsyncMapExecutionManager<TInput, TResult, TStrategyInput> 
     //
     // `admission` makes the value in the transaction of the send and not before it. Thus, the
     // overload that takes a cell reads that cell in the transaction that admits its value.
-    private void SendAdmission(Func<Admission> admission)
+    //
+    // A throw while a transaction propagates discards the actions that PostImpl holds. The value
+    // then never enters the pipeline, and no end comes for the Task. Thus, the deferred path asks
+    // the transaction to cancel `completion` where that transaction fails. TrySetCanceled does
+    // nothing where the send ran, thus the two paths cannot disagree.
+    private void SendAdmission(Func<Admission> admission, TaskCompletionSource<TResult> completion)
     {
-        if (TransactionInternal.HasCurrentTransaction())
+        TransactionInternal? current = TransactionInternal.GetCurrentTransaction();
+
+        if (current != null)
         {
             TransactionInternal.PostImpl(() => this.executeRequests.SendImpl(admission()));
+
+            current.OnFailureInternal(() => completion.TrySetCanceled());
 
             return;
         }
@@ -2598,7 +2612,11 @@ internal sealed class AsyncMapExecutionManager<TInput, TResult, TStrategyInput> 
     // One value that this pipeline admits: the value, and the TaskCompletionSource of the Execute
     // call that gave it. Completion is null for a value from the source stream, which answers
     // through the results stream and the errors stream alone.
-    private sealed class Admission
+    //
+    // A readonly struct, because the pipeline makes one of these for each value that it admits. The
+    // type is private, thus no code can make a default instance of it. That is what made the
+    // protected-internal records of AsyncMapBase into sealed classes, and it does not apply here.
+    private readonly struct Admission
     {
         public Admission(TInput value, TaskCompletionSource<TResult>? completion)
         {

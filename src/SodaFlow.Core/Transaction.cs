@@ -39,6 +39,9 @@ internal sealed class TransactionInternal
     private Queue<Action>? lastQueue;
     private bool obtainedLock;
     private Queue<Action<TransactionInternal>>? postQueue;
+
+    // The actions to run if this transaction fails. See OnFailureInternal.
+    private Queue<Action>? failureQueue;
     private HashSet<Entry>? rerankEntriesSet;
 
     private List<Action>? sampleQueue;
@@ -281,6 +284,25 @@ internal sealed class TransactionInternal
 
     internal static void PostImpl(Action action) => PostInternal(_ => action());
 
+    /// <summary>
+    ///     Add an action to run if this transaction fails.
+    /// </summary>
+    /// <remarks>
+    ///     The counterpart of <see cref="Post" />. A transaction that throws discards each action
+    ///     that Post holds. Code can give a promise to something that is not in the graph, and keep
+    ///     that promise in a posted action. Such code needs this method to release the promise. An
+    ///     action here runs one time, in the failure of the transaction that owns the deferred work.
+    ///     It runs before the queues of that transaction go. A throw from one of these actions does
+    ///     not go to the caller, because the failure of the transaction is what the caller must
+    ///     see.
+    /// </remarks>
+    /// <param name="action">The action to run if this transaction fails.</param>
+    internal void OnFailureInternal(Action action)
+    {
+        TransactionInternal owner = this.DeferredOwner;
+        (owner.failureQueue ?? (owner.failureQueue = new Queue<Action>())).Enqueue(action);
+    }
+
     // If the priority queue holds entries when SodaFlow changes the rank of a node, SodaFlow must build the queue again to keep it correct.
     private void CheckRegen()
     {
@@ -426,10 +448,33 @@ internal sealed class TransactionInternal
                         }
                     }
                 }
+
+                // The deferred work of this transaction has run by here. Thus, a failure after
+                // this point has nothing left to release, and the actions go.
+                this.failureQueue = null;
             }
         }
         catch
         {
+            // The failure actions come first. Each one releases something that the deferred work
+            // of this transaction promised to release, and the queues below hold that work.
+            Queue<Action>? failures = this.failureQueue;
+            this.failureQueue = null;
+
+            while (failures?.Count > 0)
+            {
+                try
+                {
+                    failures.Dequeue()();
+                }
+                catch
+                {
+                    // ReSharper disable once EmptyGeneralCatchClause - The caller must see the
+                    // exception of the transaction. An action here releases something, thus a
+                    // throw from one is not the failure to report.
+                }
+            }
+
             // All of these become null and SodaFlow does not call Clear. The transaction
             // stops here, thus this releases the queues and not to empty them for a
             // second use. Clear keeps the list or the queue, and its backing array, at the

@@ -1296,6 +1296,78 @@ public sealed class MapAsyncExtensionsTests
     }
 
     [Test]
+    public async Task Execute_WhereTheTransactionPropagationThrows_CancelsTheTask()
+    {
+        StreamSink<string> source = Stream.CreateSink<string>();
+        StreamSink<string> results = Stream.CreateSink<string>();
+        StreamSink<Exception> errors = Stream.CreateSink<Exception>();
+        ControlledOperation<string, string> op = new();
+
+        AsyncMapStatus<string, string> status =
+            source.MapAsync(
+                results: results,
+                errors: errors,
+                operation: op.Operation,
+                strategy: AsyncConcurrencyStrategy.Parallel());
+
+        // The closure below reads this delegate and not `status`. A closure over `status` reads it
+        // after the disposal at the end of this method.
+        Func<string, Task<string>> execute = status.Execute;
+
+        // A throw while a transaction propagates reaches the catch in Close, which discards the
+        // post queue of that transaction. The deferred admission of this value is in that queue,
+        // thus it never runs. Execute asks the transaction to cancel the Task in that condition,
+        // and without that the Task waits for an end that cannot come.
+        //
+        // A throw from the body of a transaction is different, and it is not this. Apply holds that
+        // exception, closes the transaction, and the post queue drains. The pipeline admits the
+        // value.
+        Task<string> task = InAThrowingTransaction();
+
+        TestUtil.WaitUntil(() => task.IsCompleted);
+
+        await Assert.That(task.IsCanceled)
+            .IsTrue()
+            .Because("a transaction whose propagation throws discards the admission of this value");
+
+        await Assert.That(op.HasStarted("a")).IsFalse().Because("the value never entered the pipeline");
+
+        status.Dispose();
+
+        return;
+
+        Task<string> InAThrowingTransaction()
+        {
+            Task<string>? answer = null;
+
+            // A listener that throws while this transaction propagates. That throw reaches the
+            // catch in Close, which is the path that discards the post queue.
+            StreamSink<int> other = Stream.CreateSink<int>();
+            IListener bad = other.ListenStrong(static _ => throw new InvalidOperationException("listener"));
+
+            try
+            {
+                Transaction.RunVoid(() =>
+                {
+                    answer = execute("a");
+
+                    other.Send(1);
+                });
+            }
+            catch (Exception e)
+            {
+                // The listener above is what throws, and this test is about the value that the
+                // transaction dropped, and not about the exception.
+                _ = e;
+            }
+
+            bad.Unlisten();
+
+            return answer ?? throw new InvalidOperationException("Execute gave no Task.");
+        }
+    }
+
+    [Test]
     public async Task Execute_InsideATransaction_DefersTheAdmission()
     {
         StreamSink<string> source = Stream.CreateSink<string>();

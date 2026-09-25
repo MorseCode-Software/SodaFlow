@@ -1,5 +1,18 @@
 5.0.0
 
+Adds OnFailureInternal, for the packages that reach these internals. It is the
+counterpart of Post: Post runs an action after a transaction closes, and a
+transaction whose propagation throws discards each action that Post holds. Code
+that gives a promise to something outside the graph, and keeps that promise in a
+posted action, had no way to release that promise. An action here runs one time,
+in the failure of the transaction that owns the deferred work, and before the
+queues of that transaction go. A throw from such an action does not reach the
+caller, because the failure of the transaction is what the caller must see.
+
+SodaFlow.Core.Async is the first caller. Its Execute gives a Task to code outside
+the graph and completes that Task from a posted action, thus a transaction that
+failed left the Task with no end.
+
 BREAKING for the packages that reach these internals: AttachListenerImpl is
 named AttachListenerInternal. The Impl suffix here marks a method that a public
 extension forwards to, and the extension that forwarded to this one is gone from

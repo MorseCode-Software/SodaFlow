@@ -216,15 +216,16 @@ cancellation stops the value, when the strategy refuses it, when the strategy de
 the outcome, or when the pipeline was already disposed. Declining to publish means nobody wants the
 result any more, which is a cancellation that arrived late, so the task treats it as one.
 
-Two things can leave it pending, and both are outside the position `Execute` is for. One is a custom
-strategy that parks a value in the queue forever without cancelling it: nothing ends such an item, so
-nothing completes its task. The documented way to refuse a value — cancel it in `Admit` and do not
-promote it — does complete the task, as a cancellation, and every built-in strategy completes it.
+One thing can leave it pending, and it is outside the position `Execute` is for: a custom strategy
+that parks a value in the queue forever without cancelling it. Nothing ends such an item, so nothing
+completes its task. The documented way to refuse a value — cancel it in `Admit` and do not promote
+it — does complete the task, as a cancellation, and every built-in strategy completes it.
 
-The other is a transaction that throws. When a transaction is open, `Execute` defers the value into
-that transaction's post queue, and a transaction that throws discards that queue: the value never
-enters the pipeline, so nothing completes the task. You reach this by calling `Execute` inside a
-transaction of your own that then fails.
+A failing transaction is handled rather than excluded. When a transaction is open, `Execute` defers
+the value into that transaction's post queue, and a throw while that transaction *propagates*
+discards the queue — so the value never arrives. `Execute` registers a cancellation for exactly that
+case, so the task ends. A throw from a transaction's *body* is a different thing and needs no
+handling: the transaction still closes, the queue still drains, and the value is admitted normally.
 
 There is a second overload taking a `Cell<TInput>`, for when the value to run is whatever the cell
 holds at that moment — again, from inside an operation:
