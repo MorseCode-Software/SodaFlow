@@ -110,12 +110,14 @@ internal static class CollectionViewUtility
     /// <summary>Reorders by key, over any stage.</summary>
     internal static ReactiveCollection<TKey, TIdentity, TState> SortByKeyImpl<TKey, TIdentity, TState>(
         ReactiveCollection<TKey, TIdentity, TState> upstream,
-        IComparer<TKey> keyComparer)
+        IComparer<TKey> keyComparer,
+        bool isDescending)
         where TKey : notnull
         where TIdentity : notnull =>
         SortByImpl(
             upstream: upstream,
-            orderCell: CellInternal.ConstantImpl(KeyOrder<TKey, TIdentity, TState>.ByKey(keyComparer)));
+            orderCell: CellInternal.ConstantImpl(
+                KeyOrder<TKey, TIdentity, TState>.ByKey(keyComparer: keyComparer, isDescending: isDescending)));
 
     /// <summary>Reorders by arrival, which is the order of the collection. It is available above
     /// each stage.</summary>

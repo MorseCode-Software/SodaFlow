@@ -255,6 +255,37 @@ public sealed class CollectionViewTests
     }
 
     [Test]
+    public async Task SortByKeyOrdersByKeyInEitherDirection()
+    {
+        StreamSink<CollectionEdit<int, ItemIdentity, ItemState>> edits =
+            Stream.CreateSink<CollectionEdit<int, ItemIdentity, ItemState>>();
+
+        ReactiveCollection<int, ItemIdentity, ItemState> collection =
+            Create(
+                edits: edits,
+                TestUtil.Item(number: 2, name: "two", score: 10),
+                TestUtil.Item(number: 3, name: "three", score: 30),
+                TestUtil.Item(number: 1, name: "one", score: 20));
+
+        ReactiveCollection<int, ItemIdentity, ItemState> ascending = collection.SortByKey();
+        ReactiveCollection<int, ItemIdentity, ItemState> descending = collection.SortByKeyDescending();
+
+        ReactiveCollection<int, ItemIdentity, ItemState> explicitDescending =
+            collection.SortByKey(keyComparer: Comparer<int>.Default, isDescending: true);
+
+        await Assert.That(KeysOf(ascending)).IsEquivalentTo(expected: [1, 2, 3], ordering: CollectionOrdering.Matching);
+        await Assert.That(KeysOf(descending)).IsEquivalentTo(expected: [3, 2, 1], ordering: CollectionOrdering.Matching);
+
+        await Assert.That(KeysOf(explicitDescending))
+            .IsEquivalentTo(expected: [3, 2, 1], ordering: CollectionOrdering.Matching);
+
+        edits.Send(TestUtil.Add(TestUtil.Item(number: 4, name: "four", score: 0)));
+
+        await Assert.That(KeysOf(ascending)).IsEquivalentTo(expected: [1, 2, 3, 4], ordering: CollectionOrdering.Matching);
+        await Assert.That(KeysOf(descending)).IsEquivalentTo(expected: [4, 3, 2, 1], ordering: CollectionOrdering.Matching);
+    }
+
+    [Test]
     public async Task AReFilingUpdateReportsAMove()
     {
         StreamSink<CollectionEdit<int, ItemIdentity, ItemState>> edits =

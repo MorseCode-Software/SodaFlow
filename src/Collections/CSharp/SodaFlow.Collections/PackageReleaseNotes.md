@@ -24,6 +24,14 @@ criteria and the identity. A change to the predicate or to the criteria tests
 each item again and names what entered and what left. A state edit still does
 not test the predicate.
 
+Breaking: SortByKey(keyComparer) is now SortByKey(keyComparer, isDescending),
+as each other sort that takes a comparer also names its direction. Adds
+SortByKey() and SortByKeyDescending(), with the default comparer, to match
+SortBy and SortByDescending. KeyOrder has the same three: ByKey(),
+ByKeyDescending() and ByKey(keyComparer, isDescending). A cell that moves
+between two key orders with the same comparer turns the list that the stage
+holds and does not sort each key again.
+
 1.0.1
 
 Adds the package icon that nuget.org shows beside this package. No source file

@@ -190,7 +190,7 @@ ReactiveCollection<Guid, AccountId, AccountState> topTen = accounts
 | `SortBy` / `SortByDescending` | A selector, a selector with explicit comparers, a `KeyOrder<…>`, or a `Cell<KeyOrder<…>>` — see below |
 | `SortByIdentity` / `SortByIdentityDescending` | The same, over the identity alone — see below |
 | `FilterByIdentity` | The same, over the identity alone — see below |
-| `SortByKey` | Key order, over any stage |
+| `SortByKey` / `SortByKeyDescending` | Key order, over any stage, or a key comparer with a direction |
 | `SortByArrival` | The order items arrived in — the root's own order — over any stage |
 | `Take` | A count, or a `Cell<int>` |
 | `Slice` | An offset and a count, or a `Cell<int>` for either — see below |

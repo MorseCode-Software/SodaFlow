@@ -46,15 +46,43 @@ public static class CollectionViewExtensionMethods
     /// <typeparam name="TIdentity">The type of the immutable part of an item.</typeparam>
     /// <typeparam name="TState">The type of the mutable part of an item.</typeparam>
     /// <param name="upstream">The collection or view to reorder.</param>
+    /// <returns>A view of <paramref name="upstream" /> ordered by key.</returns>
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    public static ReactiveCollection<TKey, TIdentity, TState> SortByKey<TKey, TIdentity, TState>(
+        this ReactiveCollection<TKey, TIdentity, TState> upstream)
+        where TKey : notnull
+        where TIdentity : notnull =>
+        upstream.SortByKey(keyComparer: Comparer<TKey>.Default, isDescending: false);
+
+    /// <summary>Reorders by key, descending, over any stage.</summary>
+    /// <typeparam name="TKey">The type of the keys.</typeparam>
+    /// <typeparam name="TIdentity">The type of the immutable part of an item.</typeparam>
+    /// <typeparam name="TState">The type of the mutable part of an item.</typeparam>
+    /// <param name="upstream">The collection or view to reorder.</param>
+    /// <returns>A view of <paramref name="upstream" /> ordered by key, descending.</returns>
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    public static ReactiveCollection<TKey, TIdentity, TState> SortByKeyDescending<TKey, TIdentity, TState>(
+        this ReactiveCollection<TKey, TIdentity, TState> upstream)
+        where TKey : notnull
+        where TIdentity : notnull =>
+        upstream.SortByKey(keyComparer: Comparer<TKey>.Default, isDescending: true);
+
+    /// <summary>Reorders by key, over any stage, with an explicit comparer.</summary>
+    /// <typeparam name="TKey">The type of the keys.</typeparam>
+    /// <typeparam name="TIdentity">The type of the immutable part of an item.</typeparam>
+    /// <typeparam name="TState">The type of the mutable part of an item.</typeparam>
+    /// <param name="upstream">The collection or view to reorder.</param>
     /// <param name="keyComparer">The comparer to order keys by.</param>
+    /// <param name="isDescending">True when the sort uses the opposite direction.</param>
     /// <returns>A view of <paramref name="upstream" /> ordered by key.</returns>
     [MethodImpl(MethodImplOptions.NoInlining)]
     public static ReactiveCollection<TKey, TIdentity, TState> SortByKey<TKey, TIdentity, TState>(
         this ReactiveCollection<TKey, TIdentity, TState> upstream,
-        IComparer<TKey> keyComparer)
+        IComparer<TKey> keyComparer,
+        bool isDescending)
         where TKey : notnull
         where TIdentity : notnull =>
-        CollectionViewUtility.SortByKeyImpl(upstream: upstream, keyComparer: keyComparer);
+        CollectionViewUtility.SortByKeyImpl(upstream: upstream, keyComparer: keyComparer, isDescending: isDescending);
 
     /// <summary>Reorders by arrival, which is the order of the collection. It is available above
     /// each stage.</summary>

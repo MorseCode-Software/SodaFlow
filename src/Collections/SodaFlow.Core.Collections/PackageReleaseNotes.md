@@ -8,6 +8,10 @@ API of its own.
 FilterByIdentityImpl takes a cell of the predicate in place of the predicate,
 thus the two language surfaces can give a predicate that changes.
 
+Breaking: KeyOrder.ByKey(keyComparer) is now ByKey(keyComparer, isDescending).
+Adds ByKey() and ByKeyDescending(), with the default comparer. SortByKeyImpl
+takes the direction too.
+
 1.0.1
 
 Adds the package icon that nuget.org shows beside this package. No source file

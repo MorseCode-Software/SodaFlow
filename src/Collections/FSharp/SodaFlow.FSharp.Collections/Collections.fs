@@ -283,12 +283,31 @@ let itemChangesStream (collection: ReactiveCollection<'TKey, 'TIdentity, 'TState
 // --- views --------------------------------------------------------------------------------
 
 /// <summary>Reorders by key, over any stage.</summary>
-/// <param name="keyComparer">The comparer to order keys by.</param>
 /// <param name="upstream">The collection or view to reorder.</param>
 /// <returns>A view ordered by key.</returns>
 [<MethodImpl(MethodImplOptions.NoInlining)>]
-let sortByKey (keyComparer: IComparer<'TKey>) (upstream: ReactiveCollection<'TKey, 'TIdentity, 'TState>) =
-    CollectionViewUtility.SortByKeyImpl(upstream, keyComparer)
+let sortByKey (upstream: ReactiveCollection<'TKey, 'TIdentity, 'TState>) =
+    CollectionViewUtility.SortByKeyImpl(upstream, Comparer<'TKey>.Default, false)
+
+/// <summary>Reorders by key, descending, over any stage.</summary>
+/// <param name="upstream">The collection or view to reorder.</param>
+/// <returns>A view ordered by key, descending.</returns>
+[<MethodImpl(MethodImplOptions.NoInlining)>]
+let sortByKeyDescending (upstream: ReactiveCollection<'TKey, 'TIdentity, 'TState>) =
+    CollectionViewUtility.SortByKeyImpl(upstream, Comparer<'TKey>.Default, true)
+
+/// <summary>Reorders by key, over any stage, with an explicit comparer.</summary>
+/// <param name="keyComparer">The comparer to order keys by.</param>
+/// <param name="isDescending">True when the sort uses the opposite direction.</param>
+/// <param name="upstream">The collection or view to reorder.</param>
+/// <returns>A view ordered by key.</returns>
+[<MethodImpl(MethodImplOptions.NoInlining)>]
+let sortByKeyWith
+    (keyComparer: IComparer<'TKey>)
+    (isDescending: bool)
+    (upstream: ReactiveCollection<'TKey, 'TIdentity, 'TState>)
+    =
+    CollectionViewUtility.SortByKeyImpl(upstream, keyComparer, isDescending)
 
 /// <summary>Reorders by arrival, which is the order of the collection. It is available above
 /// each stage.</summary>
@@ -599,11 +618,24 @@ let orderByIdentityWith
     KeyOrder<'TKey, 'TIdentity, 'TState>.ByIdentity(Func<_, _> selector, sortComparer, keyComparer, isDescending)
 
 /// <summary>An order by key, over any stage.</summary>
-/// <param name="keyComparer">The comparer to order keys by.</param>
 /// <returns>The order.</returns>
 [<MethodImpl(MethodImplOptions.NoInlining)>]
-let orderByKey (keyComparer: IComparer<'TKey>) : KeyOrder<'TKey, 'TIdentity, 'TState> =
-    KeyOrder<'TKey, 'TIdentity, 'TState>.ByKey keyComparer
+let orderByKey () : KeyOrder<'TKey, 'TIdentity, 'TState> =
+    KeyOrder<'TKey, 'TIdentity, 'TState>.ByKey()
+
+/// <summary>An order by key, descending, over any stage.</summary>
+/// <returns>The order.</returns>
+[<MethodImpl(MethodImplOptions.NoInlining)>]
+let orderByKeyDescending () : KeyOrder<'TKey, 'TIdentity, 'TState> =
+    KeyOrder<'TKey, 'TIdentity, 'TState>.ByKeyDescending()
+
+/// <summary>An order by key, over any stage, with an explicit comparer.</summary>
+/// <param name="keyComparer">The comparer to order keys by.</param>
+/// <param name="isDescending">True when the sort uses the opposite direction.</param>
+/// <returns>The order.</returns>
+[<MethodImpl(MethodImplOptions.NoInlining)>]
+let orderByKeyWith (keyComparer: IComparer<'TKey>) (isDescending: bool) : KeyOrder<'TKey, 'TIdentity, 'TState> =
+    KeyOrder<'TKey, 'TIdentity, 'TState>.ByKey(keyComparer, isDescending)
 
 /// <summary>An order by arrival, which is the order of the collection. It is available above
 /// each stage.</summary>

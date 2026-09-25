@@ -64,7 +64,7 @@ public sealed class ViewOperationInvariantTests
             ("byKey",
                 CollectionViewUtility.SortByImpl(
                     upstream: collection,
-                    orderCell: Cell.Constant(KeyOrder<int, ItemIdentity, ItemState>.ByKey(Comparer<int>.Default)))),
+                    orderCell: Cell.Constant(KeyOrder<int, ItemIdentity, ItemState>.ByKey()))),
             ("filterOverRoot",
                 CollectionViewUtility.FilterImpl(
                     upstream: collection,
@@ -323,7 +323,7 @@ public sealed class ViewOperationInvariantTests
         ReactiveCollection<int, ItemIdentity, ItemState> resorted =
             CollectionViewUtility.SortByImpl(
                 upstream: byIdentity,
-                orderCell: Cell.Constant(KeyOrder<int, ItemIdentity, ItemState>.ByKey(Comparer<int>.Default)));
+                orderCell: Cell.Constant(KeyOrder<int, ItemIdentity, ItemState>.ByKey()));
 
         ReactiveCollection<int, ItemIdentity, ItemState> window =
             CollectionViewUtility.SliceImpl(

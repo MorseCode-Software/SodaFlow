@@ -132,9 +132,20 @@ public sealed class OrderedKeysTests
         IComparer<int> keyComparer = Comparer<int>.Default;
 
         await Assert.That(
-                KeyOrder<int, ItemIdentity, ItemState>.ByKey(keyComparer)
-                    .IsEquivalentTo(KeyOrder<int, ItemIdentity, ItemState>.ByKey(keyComparer)))
+                KeyOrder<int, ItemIdentity, ItemState>.ByKey(keyComparer: keyComparer, isDescending: false)
+                    .IsEquivalentTo(
+                        KeyOrder<int, ItemIdentity, ItemState>.ByKey(keyComparer: keyComparer, isDescending: false)))
             .IsTrue();
+
+        await Assert.That(
+                KeyOrder<int, ItemIdentity, ItemState>.ByKey()
+                    .IsEquivalentTo(KeyOrder<int, ItemIdentity, ItemState>.ByKey()))
+            .IsTrue();
+
+        await Assert.That(
+                KeyOrder<int, ItemIdentity, ItemState>.ByKey()
+                    .IsEquivalentTo(KeyOrder<int, ItemIdentity, ItemState>.ByKeyDescending()))
+            .IsFalse();
 
         await Assert.That(
                 KeyOrder<int, ItemIdentity, ItemState>.ByArrival()
@@ -148,10 +159,11 @@ public sealed class OrderedKeysTests
         await Assert.That(ByScore(isDescending: false).IsEquivalentTo(ByScore(isDescending: true))).IsFalse();
 
         await Assert.That(
-                KeyOrder<int, ItemIdentity, ItemState>.ByKey(keyComparer)
+                KeyOrder<int, ItemIdentity, ItemState>.ByKey(keyComparer: keyComparer, isDescending: false)
                     .IsEquivalentTo(
                         KeyOrder<int, ItemIdentity, ItemState>.ByKey(
-                            Comparer<int>.Create(static (x, y) => x.CompareTo(y)))))
+                            keyComparer: Comparer<int>.Create(static (x, y) => x.CompareTo(y)),
+                            isDescending: false)))
             .IsFalse();
     }
 

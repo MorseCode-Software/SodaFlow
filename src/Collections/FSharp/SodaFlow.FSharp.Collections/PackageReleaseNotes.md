@@ -23,6 +23,12 @@ as filterC is to filter. A change to the predicate tests each item again and
 names what entered and what left. A state edit still does not test the
 predicate.
 
+Breaking: sortByKey and orderByKey no longer take a comparer. sortByKey sorts
+by the default comparer, and orderByKey takes unit, as orderByArrival does.
+The comparer and the direction go to the new sortByKeyWith and
+orderByKeyWith, as the other With forms take them. Adds sortByKeyDescending
+and orderByKeyDescending.
+
 1.0.1
 
 Adds the package icon that nuget.org shows beside this package. No source file
