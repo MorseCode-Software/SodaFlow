@@ -131,13 +131,17 @@ public sealed class ResultFactory<TResult>
 ///     handle to stop the pipeline. See <see cref="AsyncMapStatus.Dispose" />. This type adds
 ///     <see cref="Items" /> to <see cref="AsyncMapStatus" />, which is what makes it generic: a
 ///     caller that reads only <see cref="AsyncMapStatus.IsRunning" /> or stops the pipeline can
-///     hold the base type.
+///     hold the base type. <see cref="AsyncMapStatus{TInput,TResult}" /> extends this one with
+///     Execute, thus the count of the type parameters a caller keeps selects what that caller
+///     can do.
 /// </summary>
 [PublicAPI]
 // ReSharper disable once InheritdocConsiderUsage
-public sealed class AsyncMapStatus<TInput> : AsyncMapStatus
+public class AsyncMapStatus<TInput> : AsyncMapStatus
 {
-    internal AsyncMapStatus(
+    // private protected, and not internal: AsyncMapStatus<TInput, TResult> is the one subclass,
+    // and it is in this assembly. This prevents a subclass by external code, as the base does.
+    private protected AsyncMapStatus(
         Cell<bool> isRunning,
         Cell<IReadOnlyList<AsyncItem<TInput>>> items,
         Action dispose)
@@ -149,6 +153,61 @@ public sealed class AsyncMapStatus<TInput> : AsyncMapStatus
     ///     specified, but each update is one snapshot that agrees with itself.
     /// </summary>
     public Cell<IReadOnlyList<AsyncItem<TInput>>> Items { get; }
+}
+
+/// <summary>
+///     The status of a MapAsync pipeline, with <see cref="Execute" />. MapAsync answers with this
+///     type. A caller that wants only <see cref="AsyncMapStatus.IsRunning" /> and the disposal
+///     holds <see cref="AsyncMapStatus" />. One that also wants
+///     <see cref="AsyncMapStatus{TInput}.Items" /> holds <see cref="AsyncMapStatus{TInput}" />, and
+///     one that also wants <see cref="Execute" /> holds this type. Thus, the count of the type
+///     parameters a caller keeps says what that caller does with the pipeline.
+/// </summary>
+/// <typeparam name="TInput">The type of the input values.</typeparam>
+/// <typeparam name="TResult">The type of the results.</typeparam>
+[PublicAPI]
+// ReSharper disable once InheritdocConsiderUsage
+public sealed class AsyncMapStatus<TInput, TResult> : AsyncMapStatus<TInput>
+{
+    private readonly Func<TInput, Task<TResult>> execute;
+
+    internal AsyncMapStatus(
+        Cell<bool> isRunning,
+        Cell<IReadOnlyList<AsyncItem<TInput>>> items,
+        Action dispose,
+        Func<TInput, Task<TResult>> execute)
+        : base(isRunning: isRunning, items: items, dispose: dispose) =>
+        this.execute = execute;
+
+    /// <summary>
+    ///     Puts one value into this pipeline and answers with the Task of that value alone. The
+    ///     value goes through the same strategy as a value from the source stream, thus this
+    ///     method obeys the concurrency rules of the pipeline. Use it to run a MapAsync pipeline
+    ///     from an async method, where the caller must wait for one value and not for the
+    ///     pipeline.
+    ///     <para>
+    ///         The Task ends one time, in each condition. It gives the result where the operation
+    ///         gives one and the strategy publishes it. That result is the same object that the
+    ///         results stream gets. It carries the exception where the operation throws and the
+    ///         strategy publishes that, and the errors stream gets the same exception.
+    ///     </para>
+    ///     <para>
+    ///         Four conditions cancel the Task. A cancellation that stops the value cancels it. A
+    ///         strategy that refuses the value cancels it. A strategy that does not publish the
+    ///         outcome cancels it also. Such a strategy says that no code wants the result, which
+    ///         is a cancellation at a different moment. A disposal of the pipeline before the
+    ///         admission of the value cancels it.
+    ///     </para>
+    ///     <para>
+    ///         Call this with no transaction open. It sends into the graph, thus a call in a
+    ///         transaction throws InvalidOperationException. An async method must not run in a
+    ///         transaction, thus this limit is the usual one and not a new rule.
+    ///     </para>
+    /// </summary>
+    /// <param name="value">The value to put into the pipeline.</param>
+    /// <returns>The Task of this value alone.</returns>
+    /// <exception cref="InvalidOperationException">A SodaFlow transaction is open.</exception>
+    public Task<TResult> Execute(TInput value) => this.execute(value);
 }
 
 /// <summary>
@@ -828,7 +887,7 @@ internal static class AsyncStreamUtility
     ///     <paramref name="source" />, <paramref name="results" />, <paramref name="errors" />,
     ///     <paramref name="operation" />, or <paramref name="strategy" /> is null.
     /// </exception>
-    internal static AsyncMapStatus<TInput> MapAsyncImpl<TInput, TResult, TStrategyInput>(
+    internal static AsyncMapStatus<TInput, TResult> MapAsyncImpl<TInput, TResult, TStrategyInput>(
         this Stream<TInput> source,
         StreamSink<TResult> results,
         StreamSink<Exception> errors,
@@ -1464,6 +1523,13 @@ internal sealed class AsyncMapExecutionManager<TInput, TResult, TStrategyInput> 
     //
     // Complete is not in a SodaFlow callback. A continuation on a background thread opens its own
     // transaction, and the deferred path opens one for each action. Thus Send is legal.
+    // Each value that Execute puts into this pipeline, with the TaskCompletionSource that the
+    // Task of that call answers. This sink is private to this manager, thus Execute is the one
+    // sender. Execute refuses a call in an open transaction, and it sends in a transaction of its
+    // own. This sink and `source` thus never fire in one transaction. One OrElse of the two is
+    // sufficient, and the pipeline keeps the value of each side.
+    private readonly StreamSink<Admission> executeRequests = StreamInternal.CreateSinkImpl<Admission>();
+
     private readonly StreamSink<Entry[]> queueUpdates =
         StreamInternal.CreateSinkImpl<Entry[]>(static (_, last) => last);
 
@@ -1556,7 +1622,7 @@ internal sealed class AsyncMapExecutionManager<TInput, TResult, TStrategyInput> 
         this.cancelOnDispose = cancelOnDispose;
     }
 
-    internal AsyncMapStatus<TInput> Attach(Stream<TInput> source)
+    internal AsyncMapStatus<TInput, TResult> Attach(Stream<TInput> source)
     {
         Cell<Entry[]> trackedCell =
             TransactionInternal.Apply((trans, _) =>
@@ -1576,10 +1642,18 @@ internal sealed class AsyncMapExecutionManager<TInput, TResult, TStrategyInput> 
                 // After a disposal this code does nothing permanently, because no code calls Admit
                 // again and thus no value goes to the queue or starts.
                 Stream<Entry[]> starts =
-                    source.MapImpl(o =>
+                    source.MapImpl(static o => new Admission(value: o, completion: null))
+                        .OrElseImpl(this.executeRequests)
+                        .MapImpl(admission =>
                     {
+                        TInput o = admission.Value;
+
                         if (this.disposed)
                         {
+                            // Execute answers in each condition, thus a value that arrives after a
+                            // disposal is a cancellation and not a value that disappears.
+                            admission.Completion?.TrySetCanceled();
+
                             return this.CurrentQueue(trackedCellLoop);
                         }
 
@@ -1606,7 +1680,8 @@ internal sealed class AsyncMapExecutionManager<TInput, TResult, TStrategyInput> 
                                 tracked: new AsyncTrackedItem<TStrategyInput>(
                                     item: incoming,
                                     status: AsyncItemStatus.Queued),
-                                value: o);
+                                value: o,
+                                completion: admission.Completion);
 
                         // The queue that the strategy reads holds each item that this pipeline
                         // tracks now. That is the value after each edit of this transaction. It
@@ -1643,6 +1718,18 @@ internal sealed class AsyncMapExecutionManager<TInput, TResult, TStrategyInput> 
 
                                 values[i] = entry.Value;
                             }
+                        }
+
+                        // A strategy refuses a value where it cancels `incoming` and does not
+                        // promote it. The entry then keeps the Queued status permanently, thus no
+                        // end comes for it, and Execute gets no answer from that path. A promoted item that a
+                        // cancellation holds is different: PromoteAndLaunch ends that one, and the
+                        // usual end path answers the Task.
+                        if (admission.Completion != null
+                            && cancellation.IsCancellationRequested
+                            && Array.IndexOf(array: promote, value: newEntryId) < 0)
+                        {
+                            admission.Completion.TrySetCanceled();
                         }
 
                         for (int i = 0; i < toStart.Count; i++)
@@ -1764,7 +1851,11 @@ internal sealed class AsyncMapExecutionManager<TInput, TResult, TStrategyInput> 
                     array: entries,
                     converter: static e => new AsyncItem<TInput>(value: e.Item.Value, status: e.Status)));
 
-        return new AsyncMapStatus<TInput>(isRunning: isRunning, items: items, dispose: this.Dispose);
+        return new AsyncMapStatus<TInput, TResult>(
+            isRunning: isRunning,
+            items: items,
+            dispose: this.Dispose,
+            execute: this.Execute);
     }
 
     // This is the one limit in this class where the code starts a Task and does not wait for it.
@@ -1913,6 +2004,27 @@ internal sealed class AsyncMapExecutionManager<TInput, TResult, TStrategyInput> 
     ///     only public path to a disposal. <see cref="disposeState" /> makes this method run one
     ///     time, because each thread can call it with no SodaFlow transaction open.
     /// </summary>
+    // Puts one value into this pipeline and answers with the Task of that value alone.
+    private Task<TResult> Execute(TInput value)
+    {
+        if (TransactionInternal.HasCurrentTransaction())
+        {
+            throw new InvalidOperationException("Execute may not be called inside a transaction.");
+        }
+
+        // RunContinuationsAsynchronously, and it is necessary and not a preference. Flush answers
+        // this source in the transaction that publishes. Without it, the continuation of the caller
+        // that awaits the Task runs there, on that thread. A send from that continuation throws.
+        TaskCompletionSource<TResult> completion =
+            new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        // The admission answers this source after a disposal, thus this code needs no test of its
+        // own for that.
+        this.executeRequests.SendImpl(new Admission(value: value, completion: completion));
+
+        return completion.Task;
+    }
+
     private void Dispose()
     {
         if (Interlocked.CompareExchange(location1: ref this.disposeState, value: 1, comparand: 0) != 0)
@@ -2155,13 +2267,23 @@ internal sealed class AsyncMapExecutionManager<TInput, TResult, TStrategyInput> 
             // the strategy gets a second end for an item that ended, and starts an item for it.
             List<PendingEnd> live = new();
 
+            // The TaskCompletionSource of each end in `live`, at the same index. An end carries
+            // none, because EndItem gets an item and not an entry, thus this reads it off the entry
+            // in the queue.
+            List<TaskCompletionSource<TResult>?> completions = new();
+
             // ReSharper disable once LoopCanBeConvertedToQuery - Done for performance reasons.
             // ReSharper disable once ForCanBeConvertedToForeach - Done for performance reasons.
             for (int i = 0; i < ends.Count; i++)
             {
-                if (Array.Exists(array: queue, match: entry => entry.Item.Id == ends[i].Item.Id))
+                Guid endId = ends[i].Item.Id;
+
+                Entry? endEntry = Array.Find(array: queue, match: entry => entry.Item.Id == endId);
+
+                if (endEntry != null)
                 {
                     live.Add(ends[i]);
+                    completions.Add(endEntry.Completion);
                 }
             }
 
@@ -2204,10 +2326,18 @@ internal sealed class AsyncMapExecutionManager<TInput, TResult, TStrategyInput> 
             AsyncStrategyResult<TStrategyInput> decision =
                 this.stateManager.OnCompleted(ended: ended, tracked: new TrackedItems(tracked));
 
-            foreach (PendingEnd end in live)
+            for (int i = 0; i < live.Count; i++)
             {
+                PendingEnd end = live[i];
+                TaskCompletionSource<TResult>? completion = completions[i];
+
                 if (!ContainsId(items: decision.Publish, id: end.Item.Id))
                 {
+                    // A strategy that does not publish says that no code wants this result. That is
+                    // a cancellation at a different moment, thus Execute answers as a cancellation
+                    // answers. The remarks of AsyncCompletion give the same rule.
+                    completion?.TrySetCanceled();
+
                     continue;
                 }
 
@@ -2216,9 +2346,14 @@ internal sealed class AsyncMapExecutionManager<TInput, TResult, TStrategyInput> 
                 end.Outcome.MatchVoid(
                     onSucceeded: operationResult => this.Publish(
                         operationResult: operationResult,
-                        tokenToCheck: tokenToCheck),
-                    onFailed: this.errors.SendImpl,
-                    onCanceled: null);
+                        tokenToCheck: tokenToCheck,
+                        completion: completion),
+                    onFailed: e =>
+                    {
+                        this.errors.SendImpl(e);
+                        completion?.TrySetException(e);
+                    },
+                    onCanceled: () => completion?.TrySetCanceled());
             }
 
             Guid[] promote = new Guid[decision.Next.Count];
@@ -2299,7 +2434,10 @@ internal sealed class AsyncMapExecutionManager<TInput, TResult, TStrategyInput> 
     ///         this operation, and an error stream that receives such a throw hides its source.
     ///     </para>
     /// </summary>
-    private void Publish(MapAsyncResult<TResult> operationResult, CancellationToken? tokenToCheck)
+    private void Publish(
+        MapAsyncResult<TResult> operationResult,
+        CancellationToken? tokenToCheck,
+        TaskCompletionSource<TResult>? completion)
     {
         TResult result;
 
@@ -2309,16 +2447,22 @@ internal sealed class AsyncMapExecutionManager<TInput, TResult, TStrategyInput> 
         }
         catch (OperationCanceledException) when (tokenToCheck is { IsCancellationRequested: true })
         {
+            completion?.TrySetCanceled();
+
             return;
         }
         catch (Exception e)
         {
             this.errors.SendImpl(e);
+            completion?.TrySetException(e);
 
             return;
         }
 
+        // The stream first, then the Task. The Task gives the same object that the results stream
+        // gets, thus a caller of Execute and a listener of that stream see one result.
         this.results.SendImpl(result);
+        completion?.TrySetResult(result);
     }
 
     // ---- The records of the tracked items. They are private to the execution engine, and a
@@ -2344,14 +2488,39 @@ internal sealed class AsyncMapExecutionManager<TInput, TResult, TStrategyInput> 
         public CancellationToken? TokenToCheck { get; }
     }
 
+    // One value that this pipeline admits: the value, and the TaskCompletionSource of the Execute
+    // call that gave it. Completion is null for a value from the source stream, which answers
+    // through the results stream and the errors stream alone.
+    private sealed class Admission
+    {
+        public Admission(TInput value, TaskCompletionSource<TResult>? completion)
+        {
+            this.Value = value;
+            this.Completion = completion;
+        }
+
+        public TInput Value { get; }
+
+        public TaskCompletionSource<TResult>? Completion { get; }
+    }
+
     private sealed class Entry
     {
-        public Entry(TInput value, AsyncQueuedItem<TInput> item, AsyncTrackedItem<TStrategyInput> tracked)
+        public Entry(
+            TInput value,
+            AsyncQueuedItem<TInput> item,
+            AsyncTrackedItem<TStrategyInput> tracked,
+            TaskCompletionSource<TResult>? completion)
         {
             this.Value = value;
             this.Item = item;
             this.Tracked = tracked;
+            this.Completion = completion;
         }
+
+        // The TaskCompletionSource of the Execute call that gave this value, and null for a value
+        // from the source stream. Flush answers it at the end of this item.
+        public TaskCompletionSource<TResult>? Completion { get; }
 
         public TInput Value { get; }
 
@@ -2364,7 +2533,11 @@ internal sealed class AsyncMapExecutionManager<TInput, TResult, TStrategyInput> 
         public AsyncItemStatus Status => this.Tracked.Status;
 
         public Entry WithStatus(AsyncItemStatus status) =>
-            new(value: this.Value, item: this.Item, tracked: this.Tracked.WithStatus(status));
+            new(
+                value: this.Value,
+                item: this.Item,
+                tracked: this.Tracked.WithStatus(status),
+                completion: this.Completion);
     }
 
     /// <summary>

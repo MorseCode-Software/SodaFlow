@@ -58,7 +58,7 @@ public static class AsyncStreamExtensions
     ///     <paramref name="source" />, <paramref name="results" />, <paramref name="errors" />,
     ///     <paramref name="operation" />, or <paramref name="strategy" /> is null.
     /// </exception>
-    public static AsyncMapStatus<TInput> MapAsync<TInput, TResult>(
+    public static AsyncMapStatus<TInput, TResult> MapAsync<TInput, TResult>(
         this Stream<TInput> source,
         StreamSink<TResult> results,
         StreamSink<Exception> errors,
@@ -116,7 +116,7 @@ public static class AsyncStreamExtensions
     ///     <paramref name="source" />, <paramref name="results" />, <paramref name="errors" />,
     ///     <paramref name="operation" />, or <paramref name="strategy" /> is null.
     /// </exception>
-    public static AsyncMapStatus<TInput> MapAsync<TInput, TResult, TStrategyInput>(
+    public static AsyncMapStatus<TInput, TResult> MapAsync<TInput, TResult, TStrategyInput>(
         this Stream<TInput> source,
         StreamSink<TResult> results,
         StreamSink<Exception> errors,
@@ -230,7 +230,7 @@ public static class AsyncStreamExtensions
     ///     <paramref name="source" />, <paramref name="results" />, <paramref name="errors" />,
     ///     <paramref name="operation" />, or <paramref name="strategy" /> is null.
     /// </exception>
-    public static AsyncMapStatus<TInput> MapAsync<TInput, TResult, TStrategyInput>(
+    public static AsyncMapStatus<TInput, TResult> MapAsync<TInput, TResult, TStrategyInput>(
         this Stream<TInput> source,
         StreamSink<TResult> results,
         StreamSink<Exception> errors,

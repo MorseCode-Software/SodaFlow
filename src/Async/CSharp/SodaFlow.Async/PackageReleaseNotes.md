@@ -1,5 +1,37 @@
 5.0.0
 
+Adds Execute, which puts one value into a pipeline and answers with the Task of
+that value alone. Use it to drive a MapAsync pipeline from an async method,
+where the caller waits for one value and not for the pipeline. The value goes
+through the strategy as a value from the source stream does, thus the call obeys
+the concurrency rules of the pipeline, and the result reaches the results stream
+as well. Execute gives the same object and does not divert it.
+
+The Task ends one time, in each condition. It gives the result where the
+operation gives one and the strategy publishes it. It carries the exception
+where the operation throws and the strategy publishes that, and the errors
+stream gets the same exception. It is canceled where a cancellation stops the
+value, where the strategy refuses the value, where the strategy does not publish
+the outcome, and where the pipeline is disposed before the value is admitted. A
+strategy that does not publish says that no code wants the result, which is a
+cancellation at a later moment, thus the Task treats it as one.
+
+Call Execute outside a transaction. It sends into the graph, thus a call with a
+transaction open throws InvalidOperationException. An async method has no place
+in a transaction, thus this limit is the usual one and not a new rule.
+
+The Task runs its continuations asynchronously. The pipeline answers it in the
+transaction that publishes, and a continuation on that thread would be in that
+transaction, where a send is not legal.
+
+MapAsync answers with a new AsyncMapStatus<TInput, TResult>, which extends the
+AsyncMapStatus<TInput> that it answered with before. Thus, the count of the type
+parameters a caller keeps says what that caller does: the non-generic
+AsyncMapStatus for IsRunning and the disposal, AsyncMapStatus<TInput> for Items
+also, and AsyncMapStatus<TInput, TResult> for Execute also. Source that names
+AsyncMapStatus<TInput> or AsyncMapStatus for the answer needs no edit, because
+the new type is a subclass of each.
+
 Fixed: a cancellation now ends each item that it cancels, and the pipeline
 stops tracking it. Two conditions left an item in the queue with no operation
 behind it, and IsRunning and Items reported that item for the life of the
@@ -122,10 +154,9 @@ and its OnCompleted signature, and one that reads results can filter the results
 stream instead.
 
 BREAKING, and the break is in SodaFlow.Async.Core 5.0.0, which this release
-takes: the AsyncMapStatus<TInput> that every MapAsync overload returns is a
-class where it was a readonly struct, and it extends a new non-generic
-AsyncMapStatus that carries IsRunning and Dispose. Items stays on the generic
-type.
+takes: the status that every MapAsync overload returns is a class where it was a
+readonly struct, and it extends a new non-generic AsyncMapStatus that carries
+IsRunning and Dispose. Items stays on the generic type.
 
 A caller that never reads Items can now hold an AsyncMapStatus and does not
 have to name the input type. A view model that shows a busy indicator and
@@ -205,12 +236,14 @@ with factory.FromValue(value) or factory.Construct(() => ...). The second
 one runs in the transaction that publishes, for a result that holds part of a
 graph.
 
-MapAsync returns an AsyncMapStatus<TInput>: IsRunning is a Cell<bool> that is
+MapAsync returns an AsyncMapStatus<TInput, TResult>: Execute puts one value in
+and answers with the Task of that value alone; IsRunning is a Cell<bool> that is
 true while at least one invocation is actually running, updating glitch-free in
 the same transaction as whatever caused it to change; Items lists everything
 tracked with its status; disposing it tears the pipeline down. IsRunning and
 disposal live on its non-generic base, AsyncMapStatus, so code that does not
-read Items can hold that instead of naming the input type.
+read Items can hold that instead of naming the input type, and Items lives on
+AsyncMapStatus<TInput> between the two.
 
 Operations are handed a CancellationToken combining the item's own cancellation
 with the strategy's. Honoring it is what makes cancellation take effect on work

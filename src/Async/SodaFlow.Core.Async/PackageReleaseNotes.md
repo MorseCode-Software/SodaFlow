@@ -1,5 +1,37 @@
 5.0.0
 
+Adds Execute, which puts one value into a pipeline and answers with the Task of
+that value alone. Use it to drive a MapAsync pipeline from an async method,
+where the caller waits for one value and not for the pipeline. The value goes
+through the strategy as a value from the source stream does, thus the call obeys
+the concurrency rules of the pipeline, and the result reaches the results stream
+as well. Execute gives the same object and does not divert it.
+
+The Task ends one time, in each condition. It gives the result where the
+operation gives one and the strategy publishes it. It carries the exception
+where the operation throws and the strategy publishes that, and the errors
+stream gets the same exception. It is canceled where a cancellation stops the
+value, where the strategy refuses the value, where the strategy does not publish
+the outcome, and where the pipeline is disposed before the value is admitted. A
+strategy that does not publish says that no code wants the result, which is a
+cancellation at a later moment, thus the Task treats it as one.
+
+Call Execute outside a transaction. It sends into the graph, thus a call with a
+transaction open throws InvalidOperationException. An async method has no place
+in a transaction, thus this limit is the usual one and not a new rule.
+
+The Task runs its continuations asynchronously. The pipeline answers it in the
+transaction that publishes, and a continuation on that thread would be in that
+transaction, where a send is not legal.
+
+Execute lives on a new AsyncMapStatus<TInput, TResult>, which extends
+AsyncMapStatus<TInput>, and MapAsyncImpl answers with that type. Thus, the count
+of the type parameters a caller keeps says what that caller does: the
+non-generic AsyncMapStatus for IsRunning and the disposal, AsyncMapStatus<TInput>
+for Items also, and AsyncMapStatus<TInput, TResult> for Execute also.
+AsyncMapStatus<TInput> is no longer sealed for this, and its constructor is
+private protected, thus no code outside this assembly can extend it.
+
 Fixed: a cancellation now ends each item that it cancels, and the pipeline
 stops tracking it. Two conditions left an item in the queue with no operation
 behind it, and IsRunning and Items reported that item for the life of the
@@ -213,8 +245,9 @@ pipeline for good. Upgrade the two together.
 About this package
 
 The engine behind MapAsync: the tracking, the concurrency strategies and the
-AsyncMapStatus a caller holds, generic in the input type when the caller wants
-the tracked items and non-generic when it does not. An operation answers with a
+AsyncMapStatus a caller holds, which comes in three widths: non-generic for
+IsRunning and the disposal, generic in the input type for the tracked items, and
+generic in the input type and the result type for Execute. An operation answers with a
 MapAsyncResult, which carries a value or a function that this engine calls in
 the transaction that publishes. Not installed directly - take SodaFlow.Async for
 C# or SodaFlow.FSharp.Async for F#, both of which bring it with them.

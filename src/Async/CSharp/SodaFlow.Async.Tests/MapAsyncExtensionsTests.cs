@@ -780,6 +780,391 @@ public sealed class MapAsyncExtensionsTests
         l.Unlisten();
     }
 
+    [Test]
+    public async Task Execute_GivesTheResultAndPublishesTheSameValue()
+    {
+        StreamSink<string> source = Stream.CreateSink<string>();
+        StreamSink<string> results = Stream.CreateSink<string>();
+        StreamSink<Exception> errors = Stream.CreateSink<Exception>();
+        ControlledOperation<string, string> op = new();
+        List<string> published = [];
+        IListener l = results.ListenStrong(published.Add);
+
+        AsyncMapStatus<string, string> status =
+            source.MapAsync(
+                results: results,
+                errors: errors,
+                operation: op.Operation,
+                strategy: AsyncConcurrencyStrategy.Parallel());
+
+        Task<string> task = status.Execute("a");
+
+        TestUtil.WaitUntil(() => op.HasStarted("a"));
+        op.Release(input: "a", result: "A");
+        TestUtil.WaitUntil(() => task.IsCompleted);
+
+        await Assert.That(task.Status).IsEqualTo(TaskStatus.RanToCompletion);
+        await Assert.That(await task).IsEqualTo("A");
+
+        await Assert.That(published)
+            .IsEquivalentTo(expected: ["A"], ordering: CollectionOrdering.Matching)
+            .Because("the value of the Task is the value that the results stream gets");
+
+        status.Dispose();
+        l.Unlisten();
+    }
+
+    [Test]
+    public async Task Execute_CarriesTheExceptionOfTheOperation()
+    {
+        StreamSink<string> source = Stream.CreateSink<string>();
+        StreamSink<string> results = Stream.CreateSink<string>();
+        StreamSink<Exception> errors = Stream.CreateSink<Exception>();
+        ControlledOperation<string, string> op = new();
+        InvalidOperationException thrown = new("boom");
+        List<Exception> reported = [];
+        IListener l = errors.ListenStrong(reported.Add);
+
+        AsyncMapStatus<string, string> status =
+            source.MapAsync(
+                results: results,
+                errors: errors,
+                operation: op.Operation,
+                strategy: AsyncConcurrencyStrategy.Parallel());
+
+        Task<string> task = status.Execute("a");
+
+        TestUtil.WaitUntil(() => op.HasStarted("a"));
+        op.Fail(input: "a", error: thrown);
+        TestUtil.WaitUntil(() => task.IsCompleted);
+
+        await Assert.That(task.IsFaulted).IsTrue();
+        await Assert.That(task.Exception?.InnerException).IsSameReferenceAs(thrown);
+
+        TestUtil.WaitUntil(() => reported.Count == 1);
+
+        await Assert.That(reported[0])
+            .IsSameReferenceAs(thrown)
+            .Because("the errors stream gets the same exception that the Task carries");
+
+        status.Dispose();
+        l.Unlisten();
+    }
+
+    [Test]
+    public async Task Execute_IsCanceledByACancellation()
+    {
+        StreamSink<string> source = Stream.CreateSink<string>();
+        StreamSink<string> results = Stream.CreateSink<string>();
+        StreamSink<Exception> errors = Stream.CreateSink<Exception>();
+        StreamSink<Unit> cancelAll = Stream.CreateSink<Unit>();
+        ControlledOperation<string, string> op = new();
+
+        AsyncMapStatus<string, string> status =
+            source.MapAsync(
+                results: results,
+                errors: errors,
+                operation: op.Operation,
+                strategy: AsyncConcurrencyStrategy.Parallel(),
+                cancelAll: cancelAll);
+
+        Task<string> task = status.Execute("a");
+
+        TestUtil.WaitUntil(() => op.HasStarted("a"));
+        cancelAll.Send(Unit.Value);
+        TestUtil.WaitUntil(() => task.IsCompleted);
+
+        await Assert.That(task.IsCanceled)
+            .IsTrue()
+            .Because("a cancellation of the value cancels the Task of Execute");
+
+        status.Dispose();
+    }
+
+    [Test]
+    public async Task Execute_IsCanceledWhereTheStrategyDoesNotPublish()
+    {
+        StreamSink<string> source = Stream.CreateSink<string>();
+        StreamSink<string> results = Stream.CreateSink<string>();
+        StreamSink<Exception> errors = Stream.CreateSink<Exception>();
+        ControlledOperation<string, string> op = new();
+
+        AsyncMapStatus<string, string> status =
+            source.MapAsync(
+                results: results,
+                errors: errors,
+                operation: op.Operation,
+                strategy: new DropEverythingStrategy());
+
+        Task<string> task = status.Execute("a");
+
+        TestUtil.WaitUntil(() => op.HasStarted("a"));
+        op.Release(input: "a", result: "A");
+        TestUtil.WaitUntil(() => task.IsCompleted);
+
+        await Assert.That(task.IsCanceled)
+            .IsTrue()
+            .Because("a strategy that does not publish says that no code wants the result");
+
+        status.Dispose();
+    }
+
+    [Test]
+    public async Task Execute_IsCanceledWhereTheStrategyRefusesTheValue()
+    {
+        StreamSink<string> source = Stream.CreateSink<string>();
+        StreamSink<string> results = Stream.CreateSink<string>();
+        StreamSink<Exception> errors = Stream.CreateSink<Exception>();
+        ControlledOperation<string, string> op = new();
+
+        AsyncMapStatus<string, string> status =
+            source.MapAsync(
+                results: results,
+                errors: errors,
+                operation: op.Operation,
+                strategy: new RefuseEverythingStrategy());
+
+        Task<string> task = status.Execute("a");
+
+        TestUtil.WaitUntil(() => task.IsCompleted);
+
+        await Assert.That(task.IsCanceled)
+            .IsTrue()
+            .Because("a refused value never ends, thus nothing else answers the Task");
+
+        await Assert.That(op.HasStarted("a")).IsFalse().Because("a refused value runs no operation");
+
+        status.Dispose();
+    }
+
+    [Test]
+    public async Task Execute_IsCanceledAfterADisposal()
+    {
+        StreamSink<string> source = Stream.CreateSink<string>();
+        StreamSink<string> results = Stream.CreateSink<string>();
+        StreamSink<Exception> errors = Stream.CreateSink<Exception>();
+        ControlledOperation<string, string> op = new();
+
+        AsyncMapStatus<string, string> status =
+            source.MapAsync(
+                results: results,
+                errors: errors,
+                operation: op.Operation,
+                strategy: AsyncConcurrencyStrategy.Parallel());
+
+        status.Dispose();
+
+        Task<string> task = status.Execute("a");
+
+        TestUtil.WaitUntil(() => task.IsCompleted);
+
+        await Assert.That(task.IsCanceled)
+            .IsTrue()
+            .Because("a disposed pipeline admits no value, thus the Task cannot give a result");
+
+        await Assert.That(op.HasStarted("a")).IsFalse();
+    }
+
+    [Test]
+    public async Task Execute_ObeysTheStrategy()
+    {
+        StreamSink<string> source = Stream.CreateSink<string>();
+        StreamSink<string> results = Stream.CreateSink<string>();
+        StreamSink<Exception> errors = Stream.CreateSink<Exception>();
+        ControlledOperation<string, string> op = new();
+
+        AsyncMapStatus<string, string> status =
+            source.MapAsync(
+                results: results,
+                errors: errors,
+                operation: op.Operation,
+                strategy: AsyncConcurrencyStrategy.Queue());
+
+        Task<string> first = status.Execute("a");
+
+        TestUtil.WaitUntil(() => op.HasStarted("a"));
+
+        Task<string> second = status.Execute("b");
+
+        Thread.Sleep(100);
+
+        await Assert.That(op.HasStarted("b"))
+            .IsFalse()
+            .Because("the Queue strategy holds the second value while the first one runs");
+
+        op.Release(input: "a", result: "A");
+        TestUtil.WaitUntil(() => op.HasStarted("b"));
+
+        op.Release(input: "b", result: "B");
+        TestUtil.WaitUntil(() => first.IsCompleted && second.IsCompleted);
+
+        await Assert.That(await first).IsEqualTo("A");
+        await Assert.That(await second).IsEqualTo("B");
+
+        status.Dispose();
+    }
+
+    [Test]
+    public async Task Execute_AndTheSourceStreamShareOneQueue()
+    {
+        StreamSink<string> source = Stream.CreateSink<string>();
+        StreamSink<string> results = Stream.CreateSink<string>();
+        StreamSink<Exception> errors = Stream.CreateSink<Exception>();
+        ControlledOperation<string, string> op = new();
+        List<string> published = [];
+        IListener l = results.ListenStrong(published.Add);
+
+        AsyncMapStatus<string, string> status =
+            source.MapAsync(
+                results: results,
+                errors: errors,
+                operation: op.Operation,
+                strategy: AsyncConcurrencyStrategy.Queue());
+
+        Cell<IReadOnlyList<AsyncItem<string>>> tracked = status.Items;
+
+        // A value from the source stream starts, and an Execute value waits behind it. The two go
+        // through one stream, thus this shows that the merge of the two keeps each value.
+        source.Send("a");
+        TestUtil.WaitUntil(() => op.HasStarted("a"));
+
+        Task<string> second = status.Execute("b");
+        TestUtil.WaitUntil(() => Transaction.Run(tracked.Sample).Count == 2);
+
+        await Assert.That(op.HasStarted("b"))
+            .IsFalse()
+            .Because("the Execute value obeys the same queue as a value from the source stream");
+
+        // A third value from the source stream, behind the Execute value.
+        source.Send("c");
+        TestUtil.WaitUntil(() => Transaction.Run(tracked.Sample).Count == 3);
+
+        op.Release(input: "a", result: "A");
+        TestUtil.WaitUntil(() => op.HasStarted("b"));
+
+        op.Release(input: "b", result: "B");
+        TestUtil.WaitUntil(() => op.HasStarted("c"));
+
+        op.Release(input: "c", result: "C");
+        TestUtil.WaitUntil(() => Transaction.Run(tracked.Sample).Count == 0);
+
+        await Assert.That(await second)
+            .IsEqualTo("B")
+            .Because("the Task of Execute gives the result of its own value");
+
+        TestUtil.WaitUntil(() => published.Count == 3);
+
+        await Assert.That(published)
+            .IsEquivalentTo(expected: ["A", "B", "C"], ordering: CollectionOrdering.Matching)
+            .Because("each value reaches the results stream, in the sequence of the admissions");
+
+        status.Dispose();
+        l.Unlisten();
+    }
+
+    [Test]
+    public async Task Execute_InsideATransaction_Throws()
+    {
+        StreamSink<string> source = Stream.CreateSink<string>();
+        StreamSink<string> results = Stream.CreateSink<string>();
+        StreamSink<Exception> errors = Stream.CreateSink<Exception>();
+        ControlledOperation<string, string> op = new();
+
+        AsyncMapStatus<string, string> status =
+            source.MapAsync(
+                results: results,
+                errors: errors,
+                operation: op.Operation,
+                strategy: AsyncConcurrencyStrategy.Parallel());
+
+        // The closure below reads this delegate and not `status`. A closure over `status` reads it
+        // after the disposal at the end of this method.
+        Func<string, Task<string>> execute = status.Execute;
+
+        bool threw = false;
+
+        try
+        {
+            Transaction.RunVoid(() => _ = execute("a"));
+        }
+        catch (InvalidOperationException)
+        {
+            threw = true;
+        }
+
+        status.Dispose();
+
+        await Assert.That(threw)
+            .IsTrue()
+            .Because("Execute sends into the graph, thus a transaction must not be open");
+    }
+
+    [Test]
+    public async Task Execute_TheContinuationDoesNotRunInATransaction()
+    {
+        StreamSink<string> source = Stream.CreateSink<string>();
+        StreamSink<string> results = Stream.CreateSink<string>();
+        StreamSink<Exception> errors = Stream.CreateSink<Exception>();
+        ControlledOperation<string, string> op = new();
+
+        AsyncMapStatus<string, string> status =
+            source.MapAsync(
+                results: results,
+                errors: errors,
+                operation: op.Operation,
+                strategy: AsyncConcurrencyStrategy.Parallel());
+
+        Task<string> task = status.Execute("a");
+
+        TestUtil.WaitUntil(() => op.HasStarted("a"));
+
+        // The pipeline answers the Task in the transaction that publishes. Where that answer runs
+        // the continuation of an await on that thread, a send from the continuation joins that
+        // transaction. It throws where the code is in a callback. ExecuteSynchronously asks for the
+        // worst condition: the continuation runs on the thread that answers, if the Task permits.
+        Task<bool> wasInTransaction = task.ContinueWith(
+            continuationFunction: static _ => Transaction.IsActive(),
+            cancellationToken: CancellationToken.None,
+            continuationOptions: TaskContinuationOptions.ExecuteSynchronously,
+            scheduler: TaskScheduler.Default);
+
+        op.Release(input: "a", result: "A");
+        TestUtil.WaitUntil(() => wasInTransaction.IsCompleted);
+
+        await Assert.That(await wasInTransaction)
+            .IsFalse()
+            .Because("the Task must not run its continuations in the transaction that publishes");
+
+        status.Dispose();
+    }
+
+    /// <summary>
+    ///     Refuses each value: it cancels the value and never promotes it, which is the documented
+    ///     method for a strategy to refuse one. The entry then keeps the Queued status permanently,
+    ///     thus no end comes for it.
+    /// </summary>
+    // ReSharper disable once InheritdocConsiderUsage
+    private sealed class RefuseEverythingStrategy : AsyncConcurrencyStrategy<Unit>
+    {
+        protected override Unit CreateState() => Unit.Value;
+
+        protected override IReadOnlyList<AsyncToStart<Unit>> Admit(
+            Unit state,
+            AsyncQueuedItem<Unit> incoming,
+            IReadOnlyList<AsyncTrackedItem<Unit>> tracked)
+        {
+            incoming.Cancel();
+
+            return AsyncStrategyResult<Unit>.None;
+        }
+
+        protected override AsyncStrategyResult<Unit> OnCompleted(
+            Unit state,
+            IReadOnlyList<AsyncEnd<Unit>> ended,
+            IReadOnlyList<AsyncTrackedItem<Unit>> tracked) =>
+            new(publish: ItemsOf(ended), next: AsyncStrategyResult<Unit>.None);
+    }
+
     private class Animal;
 
     private sealed class Dog : Animal;

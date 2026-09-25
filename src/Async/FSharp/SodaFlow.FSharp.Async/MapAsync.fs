@@ -236,7 +236,7 @@ let mapAsync
     (cancelMatching: Stream<IReadOnlyCollection<'TInput>> option)
     (cancelOnDispose: bool)
     (source: Stream<'TInput>)
-    : AsyncMapStatus<'TInput> =
+    : AsyncMapStatus<'TInput, 'TResult> =
     AsyncStreamUtility.MapAsyncImpl<'TInput, 'TResult, unit>(
         source,
         results,
@@ -288,7 +288,7 @@ let mapAsyncWithInputConverter
     (cancelMatching: Stream<IReadOnlyCollection<'TInput>> option)
     (cancelOnDispose: bool)
     (source: Stream<'TInput>)
-    : AsyncMapStatus<'TInput> =
+    : AsyncMapStatus<'TInput, 'TResult> =
     AsyncStreamUtility.MapAsyncImpl<'TInput, 'TResult, 'TStrategyInput>(
         source,
         results,

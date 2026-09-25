@@ -492,3 +492,60 @@ type ``MapAsync Tests``() =
 
             status.Dispose()
         }
+
+    [<Test>]
+    member _.``Execute gives the result of one value and obeys the strategy``() =
+        task {
+            let source = sinkS<string> ()
+            let results = sinkS<string> ()
+            let errors = sinkS<exn> ()
+            let op = ControlledOperation<string, string>()
+
+            let status =
+                source |> mapAsync results errors op.Operation (queueStrategy ()) None None true
+
+            let first = status.Execute "a"
+            waitUntil (fun () -> op.HasStarted "a")
+
+            let second = status.Execute "b"
+            Thread.Sleep 100
+
+            // queueStrategy holds the second value while the first one runs.
+            do! Expect.False(op.HasStarted "b")
+
+            op.Release("a", "A")
+            waitUntil (fun () -> op.HasStarted "b")
+            op.Release("b", "B")
+
+            let! firstResult = first
+            let! secondResult = second
+
+            do! Expect.Equal("A", firstResult)
+            do! Expect.Equal("B", secondResult)
+
+            status.Dispose()
+        }
+
+    [<Test>]
+    member _.``Execute cancels its task when a cancellation stops the value``() =
+        task {
+            let source = sinkS<string> ()
+            let results = sinkS<string> ()
+            let errors = sinkS<exn> ()
+            let cancelAll = sinkS<unit> ()
+            let op = ControlledOperation<string, string>()
+
+            let status =
+                source
+                |> mapAsync results errors op.Operation (parallelStrategy ()) (Some cancelAll) None true
+
+            let task = status.Execute "a"
+            waitUntil (fun () -> op.HasStarted "a")
+
+            cancelAll |> sendS ()
+            waitUntil (fun () -> task.IsCompleted)
+
+            do! Expect.True(task.IsCanceled)
+
+            status.Dispose()
+        }
