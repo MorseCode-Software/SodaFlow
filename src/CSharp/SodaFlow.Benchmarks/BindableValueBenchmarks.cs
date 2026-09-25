@@ -55,11 +55,11 @@ public class BindableValueBenchmarks
     private readonly IBindingScheduler immediateScheduler = BindingScheduler.Immediate;
 
     private readonly IOneWayBindableValue<int> valueWithAffineScheduler =
-        Cell.CreateSink(1)
-            .ToOneWay(scheduler: new SynchronizationContextBindingScheduler(new SynchronizationContext()));
+        new BindableFactory(new SynchronizationContextBindingScheduler(new SynchronizationContext()))
+            .CreateOneWay(Cell.CreateSink(1));
 
     private readonly IOneWayBindableValue<int> valueWithImmediateScheduler =
-        Cell.CreateSink(1).ToOneWay(scheduler: BindingScheduler.Immediate);
+        new BindableFactory(BindingScheduler.Immediate).CreateOneWay(Cell.CreateSink(1));
 
     /// <summary>The check where the scheduler has no thread of its own, so it answers a constant.</summary>
     [Benchmark(Description = "CheckAccess(), no affinity")]

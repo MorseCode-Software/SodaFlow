@@ -382,8 +382,8 @@ kept so that the same key gives back the same object.
 ```csharp
 MappedItems<IAccountRowViewModel> rows = page.Map(
     key => new AccountRowViewModel(
-        page.IdentityCell(key).Map(...).ToOneWay(),
-        page.StateCell(key).Map(...).ToOneWay()),
+        bindableFactory.CreateOneWay(page.IdentityCell(key).Map(...)),
+        bindableFactory.CreateOneWay(page.StateCell(key).Map(...))),
     onEvicted: static row => row.Dispose());
 ```
 

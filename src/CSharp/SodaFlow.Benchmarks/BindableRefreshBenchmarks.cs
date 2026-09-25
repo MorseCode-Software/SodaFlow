@@ -61,8 +61,8 @@ public class BindableRefreshBenchmarks
     /// </summary>
     public BindableRefreshBenchmarks()
     {
-        this.oneWay = this.oneWayCell.ToOneWay(scheduler: this.oneWayScheduler);
-        this.twoWay = this.twoWayCell.ToTwoWay(scheduler: this.twoWayScheduler);
+        this.oneWay = new BindableFactory(this.oneWayScheduler).CreateOneWay(this.oneWayCell);
+        this.twoWay = new BindableFactory(this.twoWayScheduler).CreateTwoWay(this.twoWayCell);
     }
 
     /// <summary>

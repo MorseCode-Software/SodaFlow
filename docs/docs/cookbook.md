@@ -173,12 +173,10 @@ ReactiveCollection<int, AccountIdentity, AccountState> page = accounts
 // One row object per key on the page, each bound to its own item.
 MappedItems<AccountRowViewModel> rows = page.Map(
     project: key => new AccountRowViewModel(
-        number: page.IdentityCell(key)
-            .Map(static identity => identity.Match(i => i.Number, () => string.Empty))
-            .ToOneWay(),
-        balance: page.StateCell(key)
-            .Map(static state => state.Match(s => s.Balance, () => 0L))
-            .ToOneWay()),
+        number: bindableFactory.CreateOneWay(
+            page.IdentityCell(key).Map(static identity => identity.Match(i => i.Number, () => string.Empty))),
+        balance: bindableFactory.CreateOneWay(
+            page.StateCell(key).Map(static state => state.Match(s => s.Balance, () => 0L)))),
     onEvicted: static row => row.Dispose());
 ```
 

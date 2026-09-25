@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using JetBrains.Annotations;
 using SodaFlow.Functional;
 
@@ -14,39 +15,41 @@ namespace SodaFlow.Bindable.ObjectModel;
 // ReSharper disable once InheritdocConsiderUsage
 public class BindableFactory : IBindableFactory
 {
-    private readonly IBindingScheduler? bindingScheduler;
+    private readonly IBindingScheduler bindingScheduler;
 
     /// <summary>
     ///     Creates an instance that builds bindable objects with the given scheduler.
     /// </summary>
     /// <param name="bindingScheduler">
-    ///     Moves notifications to the binding thread. A null value lets each bindable find the
-    ///     ambient scheduler. An application that builds its view models on the UI thread
-    ///     needs that. Supply a scheduler from a test.
+    ///     Moves notifications to the binding thread. An application captures it on the UI
+    ///     thread at its start, with <see cref="SynchronizationContextBindingScheduler.Capture" />.
+    ///     A test supplies <see cref="BindingScheduler.Immediate" />.
     /// </param>
-    public BindableFactory(IBindingScheduler? bindingScheduler) => this.bindingScheduler = bindingScheduler;
+    /// <exception cref="ArgumentNullException"><paramref name="bindingScheduler" /> is null.</exception>
+    public BindableFactory(IBindingScheduler bindingScheduler) =>
+        this.bindingScheduler = bindingScheduler ?? throw new ArgumentNullException(nameof(bindingScheduler));
 
     /// <inheritdoc />
     public IOneWayBindableValue<T> CreateOneWay<T>(Cell<T> cell, IEqualityComparer<T>? comparer = null) =>
-        cell.ToOneWay(scheduler: this.bindingScheduler, comparer: comparer);
+        cell.ToOneWayImpl(scheduler: this.bindingScheduler, comparer: comparer);
 
     /// <inheritdoc />
     public ITwoWayBindableValue<T> CreateTwoWay<T>(
         Cell<T> cell,
         StreamSink<T> editsStreamSink,
         IEqualityComparer<T>? comparer = null) =>
-        cell.ToTwoWay(editsStreamSink: editsStreamSink, scheduler: this.bindingScheduler, comparer: comparer);
+        cell.ToTwoWayImpl(editsStreamSink: editsStreamSink, scheduler: this.bindingScheduler, comparer: comparer);
 
     /// <inheritdoc />
     public ITwoWayBindableValue<T> CreateTwoWay<T>(CellSink<T> sink, IEqualityComparer<T>? comparer = null) =>
-        sink.ToTwoWay(scheduler: this.bindingScheduler, comparer: comparer);
+        sink.ToTwoWayImpl(scheduler: this.bindingScheduler, comparer: comparer);
 
     /// <inheritdoc />
     public IOneWayToSourceBindableValue<T> CreateOneWayToSource<T>(
         StreamSink<T> editsStreamSink,
         T initialValue,
         IEqualityComparer<T>? comparer = null) =>
-        editsStreamSink.ToOneWayToSource(
+        editsStreamSink.ToOneWayToSourceImpl(
             initialValue: initialValue,
             scheduler: this.bindingScheduler,
             comparer: comparer);
@@ -55,20 +58,19 @@ public class BindableFactory : IBindableFactory
     public IOneWayToSourceBindableValue<T> CreateOneWayToSource<T>(
         CellSink<T> sink,
         IEqualityComparer<T>? comparer = null) =>
-        sink.ToOneWayToSource(scheduler: this.bindingScheduler, comparer: comparer);
+        sink.ToOneWayToSourceImpl(scheduler: this.bindingScheduler, comparer: comparer);
 
     /// <inheritdoc />
     public IBindableAction<T> CreateBindableAction<T>(
         StreamSink<T> firingsStreamSink,
         Cell<bool>? isEnabledCell = null)
         where T : notnull =>
-        firingsStreamSink.ToBindableAction(
-            isEnabledCell: isEnabledCell,
-            scheduler: this.bindingScheduler);
+        firingsStreamSink.ToBindableActionImpl(scheduler: this.bindingScheduler, isEnabledCell: isEnabledCell);
 
     /// <inheritdoc />
     public IBindableAction CreateBindableAction(StreamSink<Unit> firingsStreamSink, Cell<bool>? isEnabledCell = null) =>
-        firingsStreamSink.ToBindableAction(
+        new BindableActions.BindableAction(
+            firingsStreamSink: firingsStreamSink,
             isEnabledCell: isEnabledCell,
             scheduler: this.bindingScheduler);
 
@@ -77,7 +79,8 @@ public class BindableFactory : IBindableFactory
         StreamSink<Maybe<T>> firingsStreamSink,
         Cell<bool>? isEnabledCell = null)
         where T : notnull =>
-        firingsStreamSink.ToBindableAction(
+        new BindableActions.BindableMaybeAction<T>(
+            firingsStreamSink: firingsStreamSink,
             isEnabledCell: isEnabledCell,
             scheduler: this.bindingScheduler);
 }

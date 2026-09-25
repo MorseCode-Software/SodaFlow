@@ -107,6 +107,15 @@ public sealed class BindableFactoryTests
     }
 
     /// <summary>
+    ///     The factory is the only way to build a bindable, and each bindable needs a scheduler.
+    ///     Thus, a factory with no scheduler fails at its construction, and not at the first
+    ///     notification on an incorrect thread.
+    /// </summary>
+    [Test]
+    public async Task TheFactoryRejectsANullScheduler() =>
+        await Assert.That(static () => new BindableFactory(null!)).ThrowsExactly<ArgumentNullException>();
+
+    /// <summary>
     ///     Keeps a record that the code asked it, and then operates as the immediate scheduler.
     ///     Thus, the bindable in the test continues to operate.
     /// </summary>

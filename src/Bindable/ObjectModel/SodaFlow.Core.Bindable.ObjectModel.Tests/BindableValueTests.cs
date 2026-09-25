@@ -259,7 +259,7 @@ public sealed class BindableValueTests
     {
         CellSink<int> c = Cell.CreateSink(0);
 
-        using IOneWayToSourceBindableValue<int> b = c.ToOneWayToSourceImpl();
+        using IOneWayToSourceBindableValue<int> b = c.ToOneWayToSourceImpl(scheduler: BindingScheduler.Immediate);
 
         await Assert.That(b.Value).IsEqualTo(0).Because("the getter starts at the sink's value");
 
@@ -273,7 +273,7 @@ public sealed class BindableValueTests
     public async Task OneWayToSourceStopsWritingOnceDisposed()
     {
         CellSink<int> c = Cell.CreateSink(0);
-        IOneWayToSourceBindableValue<int> b = c.ToOneWayToSourceImpl();
+        IOneWayToSourceBindableValue<int> b = c.ToOneWayToSourceImpl(scheduler: BindingScheduler.Immediate);
 
         b.Dispose();
         b.Value = 3;
@@ -283,7 +283,7 @@ public sealed class BindableValueTests
 
     // A view model builds its bindable objects on the thread where it runs, and it does not have
     // to know which thread the binding engine uses. These tests build on a different thread,
-    // with no SynchronizationContext to capture, and then test that the sampled value is
+    // with no SynchronizationContext, and then test that the sampled value is
     // correct.
     //
     // A defect in memory visibility does not always fail this test, because such a defect is
@@ -363,7 +363,7 @@ public sealed class BindableValueTests
     {
         CellSink<int> c = Cell.CreateSink(11);
 
-        using IOneWayToSourceBindableValue<int> b = await OnAnotherThread(() => c.ToOneWayToSourceImpl());
+        using IOneWayToSourceBindableValue<int> b = await OnAnotherThread(() => c.ToOneWayToSourceImpl(scheduler: BindingScheduler.Immediate));
 
         await Assert.That(b.Value).IsEqualTo(11);
 
@@ -404,7 +404,7 @@ public sealed class BindableValueTests
         [
             OneWay(c),
             TwoWay(c),
-            c.ToOneWayToSourceImpl(),
+            c.ToOneWayToSourceImpl(scheduler: BindingScheduler.Immediate),
             edits.ToBindableActionImpl(scheduler: BindingScheduler.Immediate)
         ];
 
@@ -414,5 +414,28 @@ public sealed class BindableValueTests
         }
 
         await Assert.That(all.Count).IsEqualTo(4);
+    }
+
+    // No bindable selects a scheduler for itself. Without one, a bindable built on a thread with
+    // no SynchronizationContext raised its notifications on whichever thread sent the value, and
+    // the binding engine failed later and far from the cause. Each construction now fails at once.
+    [Test]
+    public async Task EachBindableRejectsANullScheduler()
+    {
+        CellSink<int> c = Cell.CreateSink(0);
+        StreamSink<int> edits = Stream.CreateSink<int>();
+
+        await Assert.That(() => c.ToOneWayImpl(scheduler: null!)).ThrowsExactly<ArgumentNullException>();
+        await Assert.That(() => c.ToTwoWayImpl(scheduler: null!)).ThrowsExactly<ArgumentNullException>();
+
+        await Assert.That(() => c.ToTwoWayImpl(editsStreamSink: edits, scheduler: null!))
+            .ThrowsExactly<ArgumentNullException>();
+
+        await Assert.That(() => c.ToOneWayToSourceImpl(scheduler: null!)).ThrowsExactly<ArgumentNullException>();
+
+        await Assert.That(() => edits.ToOneWayToSourceImpl(initialValue: 0, scheduler: null!))
+            .ThrowsExactly<ArgumentNullException>();
+
+        await Assert.That(() => edits.ToBindableActionImpl(scheduler: null!)).ThrowsExactly<ArgumentNullException>();
     }
 }

@@ -1,16 +1,28 @@
 4.0.0
 
-No API change of its own. This release moves to SodaFlow 5.x and to
-SodaFlow.Bindable.ObjectModel.Core 4.x, and is a major because taking it
-obliges a consumer to take those.
+BREAKING: the extension methods are gone - ToOneWay, ToTwoWay,
+ToOneWayToSource and ToBindableAction, with BindableExtensionMethods, the
+class that held them. A bindable comes from an IBindableFactory, and from
+nothing else: CreateOneWay, CreateTwoWay, CreateOneWayToSource and
+CreateBindableAction take the same arguments, less the scheduler. Each
+extension method took a scheduler of its own, which let a view model pass one
+different from the one it was given, or none.
 
-It could not stay on 3.x. The dependencies are ranges that end before the
-next major, thus 3.0.2 cannot install beside SodaFlow 5.0.0. SodaFlow 5.0.0
-has breaking changes of its own - ListenOnce is weak now, among others - and
-its notes list them.
+BREAKING: new BindableFactory(scheduler) requires a scheduler, and throws
+ArgumentNullException for null. Null used to mean that each bindable found one
+for itself; BindingScheduler.Default, which that search read, is gone too.
+Build one factory at startup, on the UI thread:
+
+  new BindableFactory(SynchronizationContextBindingScheduler.Capture())
+
+and give it to each view model through its constructor, where
+BindingScheduler.Default = ... used to be. A test gives
+BindingScheduler.Immediate. SodaFlow.Bindable.ObjectModel.Core's notes say why
+there is no fallback now.
 
 Requires SodaFlow 5.x, SodaFlow.Bindable.ObjectModel.Core 4.x and
-SodaFlow.Functional 3.x.
+SodaFlow.Functional 3.x. SodaFlow 5.0.0 has breaking changes of its own -
+ListenOnce is weak now, among others - and its notes list them.
 
 3.0.2
 

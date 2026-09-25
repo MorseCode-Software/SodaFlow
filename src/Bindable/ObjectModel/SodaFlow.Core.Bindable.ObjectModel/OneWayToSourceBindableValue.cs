@@ -55,17 +55,16 @@ public static partial class BindableCoreExtensionMethods
         /// <param name="scheduler">
         ///     Identifies the binding thread. Thus, this class finds a read or a write of
         ///     <see cref="Value" /> from a different thread, and that access does not damage the
-        ///     cached value without a warning. A null value selects the ambient scheduler, as it
-        ///     does in the other classes.
+        ///     cached value without a warning.
         /// </param>
         internal OneWayToSourceBindableValue(
             Action<T> write,
             T initialValue,
             IEqualityComparer<T>? comparer,
-            IBindingScheduler? scheduler)
+            IBindingScheduler scheduler)
         {
             this.comparer = comparer ?? EqualityComparer<T>.Default;
-            this.scheduler = BindingScheduler.Resolve(scheduler);
+            this.scheduler = scheduler ?? throw new ArgumentNullException(nameof(scheduler));
             this.cachedValue = initialValue;
             this.write = write ?? throw new ArgumentNullException(nameof(write));
         }

@@ -7,9 +7,11 @@ open SodaFlow.Tests
 open TUnit.Core
 
 // Covers the F# surface rather than the behavior underneath it, which the Core tests already
-// pin. What is worth checking here is that each binding reaches the implementation it names and
-// carries its scheduler - the module is a wall of near-identical one-liners, so a copy-and-paste
-// slip between two of them would otherwise go unnoticed.
+// pin. What is worth checking here is that each member of the factory reaches the implementation
+// it names and carries its scheduler, because the factory is the only way to build a bindable.
+
+let private immediate =
+    BindableFactory(BindingScheduler.Immediate) :> IBindableFactory
 
 /// Records that it was asked, then behaves like the immediate scheduler.
 type private RecordingScheduler() =
@@ -31,7 +33,7 @@ type ``Object Model Tests``() =
     member _.``one way follows its cell``() =
         task {
             let c = sinkC 0
-            use b = Bindable.oneWayWithScheduler c BindingScheduler.Immediate
+            use b = immediate.ToOneWay c
             c |> sendC 7
             do! Expect.Equal(7, b.Value)
         }
@@ -40,7 +42,7 @@ type ``Object Model Tests``() =
     member _.``two way pushes writes into the graph``() =
         task {
             let c = sinkC 0
-            use b = Bindable.twoWayCSWithScheduler c BindingScheduler.Immediate
+            use b = immediate.ToTwoWay c
             b.Value <- 5
             do! Expect.Equal(5, c |> sampleC)
             do! Expect.Equal(5, b.Value)
@@ -50,7 +52,7 @@ type ``Object Model Tests``() =
     member _.``one way to source pushes writes into the graph``() =
         task {
             let c = sinkC 0
-            use b = Bindable.oneWayToSourceCS c
+            use b = immediate.ToOneWayToSource c
             b.Value <- 3
             do! Expect.Equal(3, c |> sampleC)
         }
@@ -60,7 +62,7 @@ type ``Object Model Tests``() =
         task {
             let sink = sinkS<unit> ()
             let fired = List<unit>()
-            use a = Bindable.toBindableActionAndScheduler sink BindingScheduler.Immediate
+            use a = immediate.ToBindableAction sink
             use _ = a.FiringsStream |> listenStrongS fired.Add
             a.Execute "whatever the XAML author bound"
             do! Expect.Equal(1, fired.Count)
@@ -72,8 +74,7 @@ type ``Object Model Tests``() =
             let sink = sinkS<int> ()
             let fired = List<int>()
 
-            use a =
-                Bindable.toBindableActionWithValueAndScheduler sink BindingScheduler.Immediate
+            use a = immediate.ToBindableAction sink
 
             use _ = a.FiringsStream |> listenStrongS fired.Add
             a.Execute 42
@@ -102,4 +103,25 @@ type ``Object Model Tests``() =
             c |> sendC 1
             do! Expect.Equal(1, b.Value)
             do! Expect.Equal(1, scheduler.Posts)
+        }
+
+    [<Test>]
+    member _.``an option action takes a value, an option, or null``() =
+        task {
+            let sink = sinkS<int option> ()
+            let fired = List<int option>()
+            use a = immediate.ToBindableOptionAction sink
+            use _ = a.FiringsStream |> listenStrongS fired.Add
+            a.Execute 1
+            a.Execute(Some 2)
+            a.Execute null
+            do! Expect.Sequence([ Some 1; Some 2; None ], fired)
+        }
+
+    [<Test>]
+    member _.``the factory rejects a null scheduler``() =
+        task {
+            do!
+                Expect.Throws<System.ArgumentNullException>(fun () ->
+                    BindableFactory(Unchecked.defaultof<IBindingScheduler>) |> ignore)
         }

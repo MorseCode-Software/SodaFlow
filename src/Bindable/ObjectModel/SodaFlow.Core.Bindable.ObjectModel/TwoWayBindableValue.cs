@@ -91,8 +91,7 @@ public static partial class BindableCoreExtensionMethods
         ///     callback.
         /// </param>
         /// <param name="scheduler">
-        ///     Moves notifications to the binding thread. A null value selects the ambient
-        ///     scheduler.
+        ///     Moves notifications to the binding thread.
         /// </param>
         /// <param name="comparer">
         ///     Tells you if a value changed. A null value selects the default comparer.
@@ -100,7 +99,7 @@ public static partial class BindableCoreExtensionMethods
         internal TwoWayBindableValue(
             Cell<T> cell,
             Action<T> write,
-            IBindingScheduler? scheduler,
+            IBindingScheduler scheduler,
             IEqualityComparer<T>? comparer)
             : base(scheduler)
         {
