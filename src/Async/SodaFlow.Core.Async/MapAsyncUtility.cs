@@ -1407,11 +1407,11 @@ internal sealed class AsyncMapExecutionManager<TInput, TResult, TStrategyInput> 
     // same transaction, cannot read the cell. It reads this field.
     //
     // Complete is the one writer and CurrentQueue is the one reader. Complete keeps its own two
-    // edits as local values, thus OnCompleted needs no field. One transaction holds one call of
-    // Complete, and one firing of `source` at most. A firing of `source` cannot come before a
-    // call of Complete in one transaction. The code that starts an operation goes through PostImpl
-    // into a transaction of its own. Thus, the queue after Complete is the only value that a read
-    // after it, in the same transaction, can want.
+    // edits as local values, thus OnCompleted needs no field. Complete runs through PostInternal,
+    // which gives it a transaction of its own. Thus, one transaction holds one call of Complete,
+    // and that call is the first work in it. A firing of `source` cannot come before it. Thus, the
+    // queue after Complete is the only value that a read after it, in the same transaction, can
+    // want.
     //
     // Owner is the transaction that the value belongs to. A transaction that ends, and a
     // transaction that throws, keep a value against an owner that no code uses again. The next
@@ -1419,11 +1419,12 @@ internal sealed class AsyncMapExecutionManager<TInput, TResult, TStrategyInput> 
     // this field. That is necessary, because Transaction discards its queue of last actions when
     // it throws.
     //
-    // A TransactionInternal.RunImpl in an open transaction joins it and does not make a second
-    // one. Thus, the owner of an admission, and the owner of an end in that admission, are the
-    // same object. Work that PostImpl defers runs in a transaction that Close makes, which is a
-    // different object. The cell keeps the value it took by then. Thus, the test of the identity
-    // is correct for the two conditions.
+    // PostInternal gives Complete a transaction of its own in each condition. Where no
+    // transaction is open, PostInternal opens one for it. Where one is open, Close runs Complete
+    // in a new transaction after it. Thus, Owner is always the transaction of Complete.
+    // The read that must find this field is an Admit in that same transaction. The publish of
+    // Complete sends a result, and the graph can send that result back to `source`. An Admit in a
+    // different transaction finds a different owner, and the cell holds the value by then.
     private (Entry[] Queue, TransactionInternal Owner)? completedQueueAndOwner;
 
     private readonly StreamSink<TResult> results;
@@ -1884,9 +1885,10 @@ internal sealed class AsyncMapExecutionManager<TInput, TResult, TStrategyInput> 
     {
         if (toStart.Item.Cancellation.IsCancellationRequested)
         {
-            // A cancellation removed this item with the Queued status. This code ends it
-            // immediately and does not call the operation. It uses the usual end path, thus a
-            // strategy such as Queue in the library starts the next item.
+            // A cancellation removed this item with the Queued status. This code ends it and
+            // does not call the operation. It uses the usual end path, thus a strategy such as
+            // Queue in the library starts the next item. Complete defers itself where a
+            // transaction is open, thus this call needs no deferral of its own.
             this.Complete(
                 item: toStart.Item,
                 pending: AsyncOutcome<MapAsyncResult<TResult>>.Canceled(),
@@ -1975,10 +1977,13 @@ internal sealed class AsyncMapExecutionManager<TInput, TResult, TStrategyInput> 
     ///     the same transaction, thus the Snapshot of a cancellation stream never reads a stale
     ///     entry. That Snapshot sees the entry from before this transaction, and a cancellation
     ///     can then remove it, or it does not see the entry at all, from after this transaction.
-    ///     This method can call itself. For example, it empties some Queued items that a
-    ///     cancellation removed, in one sequence, through the short path in PromoteAndLaunch. A
-    ///     SodaFlow transaction in a transaction is safe, but a very long queue with a
-    ///     cancellation on each item makes a depth of calls in relation to that length.
+    ///     This method runs through PostInternal, thus it never runs in a callback. Where a
+    ///     transaction is open, PostInternal defers this work to a new transaction that Close
+    ///     makes. A Send in a callback is not legal, and a caller of this method can be in one. A
+    ///     cancellation runs the registrations of a token on the thread that cancels it. This
+    ///     method can also call itself, through the short path in PromoteAndLaunch, and that call
+    ///     goes to the same queue. Thus, a long queue with a cancellation on each item does not
+    ///     make a depth of calls.
     /// </summary>
     private void Complete(
         AsyncQueuedItem<TStrategyInput> item,
