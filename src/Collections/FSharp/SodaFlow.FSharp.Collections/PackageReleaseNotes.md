@@ -8,6 +8,11 @@ Comparer.Default becomes sortByKey or orderByKey (); a call with any other
 comparer becomes sortByKeyWith comparer false or orderByKeyWith comparer
 false.
 
+BREAKING: map answers with a MappedItems<'TResult> that is a sealed class,
+where it was a readonly struct. Source that reads Items and calls Dispose needs
+no edit; a recompile does. The notes of SodaFlow.Collections.Core give the
+details.
+
 Adds sortByKeyDescending and orderByKeyDescending. A cell that moves between
 two key orders with the same comparer turns the list that the stage holds and
 does not sort each key again.

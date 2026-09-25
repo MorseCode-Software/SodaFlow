@@ -1966,6 +1966,11 @@ public sealed class CollectionViewTests
         mapped.Dispose();
 
         await Assert.That(released).IsEquivalentTo(expected: ["row 1", "row 2"], ordering: CollectionOrdering.Any);
+
+        // A second disposal does not release them again.
+        mapped.Dispose();
+
+        await Assert.That(released).IsEquivalentTo(expected: ["row 1", "row 2"], ordering: CollectionOrdering.Any);
     }
 
     /// <summary>

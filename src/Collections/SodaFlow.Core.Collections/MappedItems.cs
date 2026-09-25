@@ -36,11 +36,16 @@ public static class MappedItems
 ///         Bind to <see cref="Items" />, and put this object with the other resources of the
 ///         caller.
 ///     </para>
+///     <para>
+///         This is a class, as the status of <c>MapAsync</c> is. A copy of it is the same
+///         projection and not a second handle to dispose, and no default value exists whose
+///         disposal throws.
+///     </para>
 /// </remarks>
 /// <typeparam name="TResult">What each key is projected to.</typeparam>
 [PublicAPI]
 // ReSharper disable once InheritdocConsiderUsage
-public readonly struct MappedItems<TResult> : IDisposable
+public sealed class MappedItems<TResult> : IDisposable
 {
     private readonly Action dispose;
 
@@ -58,7 +63,8 @@ public readonly struct MappedItems<TResult> : IDisposable
     ///     Releases each object that the projection holds, which is each object that it built and
     ///     did not remove. This code calls the eviction callback for each one. Thus, a projection
     ///     that builds objects with resources releases all of them in one position, at each time of
-    ///     their departure.
+    ///     their departure. A second call never releases an object that the first one
+    ///     released, because the first one leaves the projection empty.
     /// </remarks>
     public void Dispose() => this.dispose();
 }

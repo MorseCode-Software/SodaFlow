@@ -19,7 +19,7 @@ public static class Listener
     ///     <see cref="IListener.Unlisten" /> does nothing.
     /// </summary>
     /// <remarks>
-    ///     Useful as the identity for <see cref="Append(IListener, IListener)" />, and as the
+    ///     Useful as the identity for <see cref="Append" />, and as the
     ///     result of a code path which has nothing to unsubscribe.
     /// </remarks>
     public static readonly IListener Empty = ListenerInternal.EmptyImpl;
@@ -101,9 +101,10 @@ public static class Listener
     /// <param name="listener2">The second listener.</param>
     /// <returns>An <see cref="IWeakListener" /> which unlistens the two given listeners.</returns>
     /// <remarks>
-    ///     This has a different name from <see cref="Append(IListener, IListener)" />, because
-    ///     <see cref="IWeakListener" /> and <see cref="IListener" /> give two overloads, and a pair
-    ///     of weak listeners matches one of them.
+    ///     This and <see cref="AppendStrong" /> have their own names, as
+    ///     <see cref="CreateWeakComposite" /> and <see cref="CreateStrongComposite" /> do. As
+    ///     overloads of <see cref="Append" />, a type that is weak and strong at once matches each
+    ///     of them, and the call does not compile.
     /// </remarks>
     public static IWeakListener AppendWeak(IWeakListener listener1, IWeakListener listener2) =>
         CreateWeakComposite([listener1, listener2]);
@@ -114,9 +115,12 @@ public static class Listener
     /// <param name="listener1">The first listener.</param>
     /// <param name="listener2">The second listener.</param>
     /// <returns>
-    ///     An <see cref="IStrongListener" /> which unlistens the two given listeners, and which
-    ///     A disposal does the same.
+    ///     An <see cref="IStrongListener" /> which unlistens the two given listeners, and a
+    ///     disposal does the same.
     /// </returns>
-    public static IStrongListener Append(IStrongListener listener1, IStrongListener listener2) =>
+    /// <remarks>
+    ///     See <see cref="AppendWeak" /> for the reason this has its own name.
+    /// </remarks>
+    public static IStrongListener AppendStrong(IStrongListener listener1, IStrongListener listener2) =>
         CreateStrongComposite([listener1, listener2]);
 }

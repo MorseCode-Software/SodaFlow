@@ -6,6 +6,14 @@ direction. Add isDescending: false to keep an existing order, or call
 ByKey() where the comparer was Comparer<TKey>.Default. Adds ByKey() and
 ByKeyDescending(), with the default comparer.
 
+BREAKING: MappedItems<TResult> is a sealed class, where it was a readonly
+struct, as the status of MapAsync is. A struct with a Dispose is a handle that
+each copy duplicates, and its default value threw at a disposal. Source that
+reads Items and calls Dispose needs no edit. Anything compiled against 1.x
+does, because a struct and a class are not the same type to the runtime.
+default(MappedItems<T>) is null now. A second Dispose never releases an object
+that the first one released.
+
 BREAKING for the two language surfaces: SortByKeyImpl takes the direction, and
 FilterByIdentityImpl takes a cell of the predicate in place of the predicate.
 A SodaFlow.Collections or SodaFlow.FSharp.Collections built against 1.x does

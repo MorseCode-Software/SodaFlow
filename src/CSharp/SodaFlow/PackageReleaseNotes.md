@@ -41,6 +41,15 @@ else holds the handler, because the node reaches it through a WeakReference.
 ListenOnceAsync is unchanged and stays strong. It answers with a task rather
 than a listener, so there is no handle a caller could hold.
 
+BREAKING: Listener.Append for two strong listeners is Listener.AppendStrong,
+as the weak one is AppendWeak and the composites are CreateWeakComposite and
+CreateStrongComposite. A call that passes two strong listeners still compiles,
+because it binds to the Append for two IListener values, and it answers with an
+IListener, where it answered with an IStrongListener. The two listeners in it
+still keep their streams alive, thus nothing stops firing, but the result has
+no Dispose. A call that assigns the result to an IStrongListener stops
+compiling. Rename each Append of two strong listeners to AppendStrong.
+
 BREAKING: requires SodaFlow.Core 5.x, where it required 2.0.0 or newer. That
 package changed the return type of an internal method this one is built
 against, so the two move together. Nothing it changed is in its public surface.

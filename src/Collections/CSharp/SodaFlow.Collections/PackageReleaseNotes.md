@@ -7,6 +7,11 @@ or call SortByKey() where the comparer was Comparer<TKey>.Default. The same
 applies to KeyOrder.ByKey(keyComparer), which is now ByKey(keyComparer,
 isDescending), in SodaFlow.Collections.Core.
 
+BREAKING: Map answers with a MappedItems<TResult> that is a sealed class,
+where it was a readonly struct. Source that reads Items and calls Dispose needs
+no edit; a recompile does. The notes of SodaFlow.Collections.Core give the
+details.
+
 Adds SortByKey() and SortByKeyDescending(), with the default comparer, to match
 SortBy and SortByDescending, and KeyOrder.ByKey() and ByKeyDescending() to
 match them. A cell that moves between two key orders with the same comparer

@@ -193,7 +193,7 @@ ReactiveCollection<Guid, AccountId, AccountState> topTen = accounts
 | `SortByKey` / `SortByKeyDescending` | Key order, over any stage, or a key comparer with a direction |
 | `SortByArrival` | The order items arrived in — the root's own order — over any stage |
 | `Take` | A count, or a `Cell<int>` |
-| `Slice` | An offset and a count, or a `Cell<int>` for either — see below |
+| `Slice` | An offset and a count, or a `Cell<int>` for each — see below |
 | `Map` | One object per key, in order — see below |
 
 `StateCell` answers for the collection you ask. On a filtered view it has no value for a key the
