@@ -6,8 +6,11 @@ transaction whose propagation throws discards each action that Post holds. Code
 that gives a promise to something outside the graph, and keeps that promise in a
 posted action, had no way to release that promise. An action here runs one time,
 in the failure of the transaction that owns the deferred work, and before the
-queues of that transaction go. A throw from such an action does not reach the
-caller, because the failure of the transaction is what the caller must see.
+queues of that transaction go. A throw from such an action does not stop the
+actions after it, and it does not replace the exception of the transaction. Where
+one action or more throws, the caller gets an AggregateException that holds the
+exception of the transaction first, and then each of those, thus no code loses a
+failure.
 
 SodaFlow.Core.Async is the first caller. Its Execute gives a Task to code outside
 the graph and completes that Task from a posted action, thus a transaction that

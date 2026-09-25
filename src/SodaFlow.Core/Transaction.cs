@@ -293,8 +293,9 @@ internal sealed class TransactionInternal
     ///     that promise in a posted action. Such code needs this method to release the promise. An
     ///     action here runs one time, in the failure of the transaction that owns the deferred work.
     ///     It runs before the queues of that transaction go. A throw from one of these actions does
-    ///     not go to the caller, because the failure of the transaction is what the caller must
-    ///     see.
+    ///     not stop the actions after it, and it does not replace the exception of the transaction.
+    ///     Where one action or more throws, the caller gets an AggregateException that holds the
+    ///     exception of the transaction first, and then each of those.
     /// </remarks>
     /// <param name="action">The action to run if this transaction fails.</param>
     internal void OnFailureInternal(Action action)
@@ -454,12 +455,17 @@ internal sealed class TransactionInternal
                 this.failureQueue = null;
             }
         }
-        catch
+        catch (Exception transactionException)
         {
             // The failure actions come first. Each one releases something that the deferred work
             // of this transaction promised to release, and the queues below hold that work.
             Queue<Action>? failures = this.failureQueue;
             this.failureQueue = null;
+
+            // A throw from one of these actions must not stop the actions after it, and it must not
+            // replace the exception of the transaction. Thus, this keeps each one and the code at
+            // the end of this block gives them all to the caller.
+            List<Exception>? failureExceptions = null;
 
             while (failures?.Count > 0)
             {
@@ -467,11 +473,9 @@ internal sealed class TransactionInternal
                 {
                     failures.Dequeue()();
                 }
-                catch
+                catch (Exception failureException)
                 {
-                    // ReSharper disable once EmptyGeneralCatchClause - The caller must see the
-                    // exception of the transaction. An action here releases something, thus a
-                    // throw from one is not the failure to report.
+                    (failureExceptions ??= []).Add(failureException);
                 }
             }
 
@@ -500,7 +504,17 @@ internal sealed class TransactionInternal
 
             this.splitQueue = null;
 
-            throw;
+            if (failureExceptions == null)
+            {
+                throw;
+            }
+
+            // The exception of the transaction comes first, because it is the failure that the
+            // caller asked about. A throw from a failure action comes after it, and no code loses
+            // it.
+            failureExceptions.Insert(index: 0, item: transactionException);
+
+            throw new AggregateException(failureExceptions);
         }
     }
 
