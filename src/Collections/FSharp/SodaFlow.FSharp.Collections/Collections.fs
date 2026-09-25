@@ -368,7 +368,26 @@ let sortByDescending
 /// </remarks>
 [<MethodImpl(MethodImplOptions.NoInlining)>]
 let filterByIdentity (predicate: 'TIdentity -> bool) (upstream: ReactiveCollection<'TKey, 'TIdentity, 'TState>) =
-    CollectionViewUtility.FilterByIdentityImpl(upstream, Func<_, _> predicate)
+    CollectionViewUtility.FilterByIdentityImpl(upstream, CellInternal.ConstantImpl(Func<_, _> predicate))
+
+/// <summary>
+///     Narrows the view with a predicate on the identity of each item that can change. Each
+///     change to the predicate builds this stage again, at a cost of <c>O(m log m)</c> in the size
+///     of the upstream. Thus, a criteria from a keystroke needs a Calm stage above this one.
+/// </summary>
+/// <param name="predicateCell">The predicate in force.</param>
+/// <param name="upstream">The collection or view to narrow.</param>
+/// <returns>A view with the items that the predicate accepts.</returns>
+/// <remarks>
+///     See <c>filterByIdentity</c>. A change to the predicate tests each item again, and a state
+///     edit still does not.
+/// </remarks>
+[<MethodImpl(MethodImplOptions.NoInlining)>]
+let filterByIdentityC
+    (predicateCell: Cell<'TIdentity -> bool>)
+    (upstream: ReactiveCollection<'TKey, 'TIdentity, 'TState>)
+    =
+    CollectionViewUtility.FilterByIdentityImpl(upstream, predicateCell |> mapC (fun predicate -> Func<_, _> predicate))
 
 /// <summary>
 ///     Reorders the view by a value from the immutable part of each item, which is its identity.

@@ -274,7 +274,63 @@ public static class CollectionViewExtensionMethods
         Func<TIdentity, bool> predicate)
         where TKey : notnull
         where TIdentity : notnull =>
-        CollectionViewUtility.FilterByIdentityImpl(upstream: upstream, predicate: predicate);
+        CollectionViewUtility.FilterByIdentityImpl(upstream: upstream, predicateCell: Cell.Constant(predicate));
+
+    /// <summary>
+    ///     Narrows the view with a predicate on the identity of each item that can change. Each
+    ///     change to the predicate builds this stage again, at a cost of <c>O(m log m)</c> in the
+    ///     size of the upstream.
+    /// </summary>
+    /// <typeparam name="TKey">The type of the keys.</typeparam>
+    /// <typeparam name="TIdentity">The type of the immutable part of an item.</typeparam>
+    /// <typeparam name="TState">The type of the mutable part of an item.</typeparam>
+    /// <param name="upstream">The collection or view to narrow.</param>
+    /// <param name="predicateCell">The predicate in force.</param>
+    /// <returns>A view with the items that the predicate accepts.</returns>
+    /// <remarks>
+    ///     See
+    ///     <see
+    ///         cref="FilterByIdentity{TKey,TIdentity,TState}(ReactiveCollection{TKey,TIdentity,TState},Func{TIdentity,bool})" />
+    ///     . A change to the predicate tests each item again, and a state edit still does not.
+    /// </remarks>
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    public static ReactiveCollection<TKey, TIdentity, TState> FilterByIdentity<TKey, TIdentity, TState>(
+        this ReactiveCollection<TKey, TIdentity, TState> upstream,
+        Cell<Func<TIdentity, bool>> predicateCell)
+        where TKey : notnull
+        where TIdentity : notnull =>
+        CollectionViewUtility.FilterByIdentityImpl(upstream: upstream, predicateCell: predicateCell);
+
+    /// <summary>
+    ///     Narrows the view with a predicate on the identity of each item from a different source,
+    ///     such as a search box or a toggle. Each change to the criteria builds this stage again,
+    ///     thus a criteria from a keystroke needs a Calm stage above this one.
+    /// </summary>
+    /// <typeparam name="TKey">The type of the keys.</typeparam>
+    /// <typeparam name="TIdentity">The type of the immutable part of an item.</typeparam>
+    /// <typeparam name="TState">The type of the mutable part of an item.</typeparam>
+    /// <typeparam name="TCriteria">The type of the criteria for the predicate.</typeparam>
+    /// <param name="upstream">The collection or view to narrow.</param>
+    /// <param name="criteriaCell">The criteria in force.</param>
+    /// <param name="predicate">Whether an item belongs in the view, given the criteria and its identity.</param>
+    /// <returns>A view with the items that the predicate accepts.</returns>
+    /// <remarks>
+    ///     See
+    ///     <see
+    ///         cref="FilterByIdentity{TKey,TIdentity,TState}(ReactiveCollection{TKey,TIdentity,TState},Func{TIdentity,bool})" />
+    ///     . A change to the criteria tests each item again, and a state edit still does not.
+    /// </remarks>
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    public static ReactiveCollection<TKey, TIdentity, TState> FilterByIdentity<TKey, TIdentity, TState, TCriteria>(
+        this ReactiveCollection<TKey, TIdentity, TState> upstream,
+        Cell<TCriteria> criteriaCell,
+        Func<TCriteria, TIdentity, bool> predicate)
+        where TKey : notnull
+        where TIdentity : notnull =>
+        CollectionViewUtility.FilterByIdentityImpl(
+            upstream: upstream,
+            predicateCell: criteriaCell.Map(criteria =>
+                (Func<TIdentity, bool>)(identity => predicate(arg1: criteria, arg2: identity))));
 
     /// <summary>
     ///     Reorders the view by a value from the immutable part of each item, which is its

@@ -181,12 +181,12 @@ internal static class CollectionViewUtility
     /// </remarks>
     internal static ReactiveCollection<TKey, TIdentity, TState> FilterByIdentityImpl<TKey, TIdentity, TState>(
         ReactiveCollection<TKey, TIdentity, TState> upstream,
-        Func<TIdentity, bool> predicate)
+        Cell<Func<TIdentity, bool>> predicateCell)
         where TKey : notnull
         where TIdentity : notnull =>
         BuildStage(
             upstream: upstream,
-            criteriaCell: CellInternal.ConstantImpl(predicate),
+            criteriaCell: predicateCell,
             rebuild: RebuildFilterByIdentity,
             processNewCriteria: ProcessFilterByIdentityNewCriteria,
             process: ProcessFilterByIdentity,

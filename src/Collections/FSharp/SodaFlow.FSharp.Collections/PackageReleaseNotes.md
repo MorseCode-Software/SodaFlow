@@ -18,6 +18,11 @@ reads the identity alone. Where one binding reads the identity and a different
 binding reads the state, take the two cells: identityCell sleeps through an
 edit to the state, and that is what makes it almost free to hold.
 
+Adds filterByIdentityC, which is filterByIdentity with a predicate in a cell,
+as filterC is to filter. A change to the predicate tests each item again and
+names what entered and what left. A state edit still does not test the
+predicate.
+
 1.0.1
 
 Adds the package icon that nuget.org shows beside this package. No source file

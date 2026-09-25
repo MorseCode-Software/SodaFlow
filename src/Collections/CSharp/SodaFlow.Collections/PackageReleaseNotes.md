@@ -18,6 +18,12 @@ reads the identity alone. Where one binding reads the identity and a different
 binding reads the state, take the two cells: IdentityCell sleeps through an
 edit to the state, and that is what makes it almost free to hold.
 
+Adds two overloads of FilterByIdentity, to match Filter: one that takes a cell
+of the predicate, and one that takes a criteria cell and a predicate of the
+criteria and the identity. A change to the predicate or to the criteria tests
+each item again and names what entered and what left. A state edit still does
+not test the predicate.
+
 1.0.1
 
 Adds the package icon that nuget.org shows beside this package. No source file

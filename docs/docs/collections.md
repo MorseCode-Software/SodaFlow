@@ -189,7 +189,7 @@ ReactiveCollection<Guid, AccountId, AccountState> topTen = accounts
 | `Filter` | A predicate, a `Cell<Func<TIdentity, TState, bool>>`, or a criteria cell plus a predicate |
 | `SortBy` / `SortByDescending` | A selector, a selector with explicit comparers, a `KeyOrder<…>`, or a `Cell<KeyOrder<…>>` — see below |
 | `SortByIdentity` / `SortByIdentityDescending` | The same, over the identity alone — see below |
-| `FilterByIdentity` | A predicate over the identity alone — see below |
+| `FilterByIdentity` | The same, over the identity alone — see below |
 | `SortByKey` | Key order, over any stage |
 | `SortByArrival` | The order items arrived in — the root's own order — over any stage |
 | `Take` | A count, or a `Cell<int>` |

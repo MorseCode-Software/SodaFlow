@@ -493,6 +493,113 @@ public sealed class CollectionViewTests
         await Assert.That(KeysOf(evens)).IsEquivalentTo(expected: [2, 4], ordering: CollectionOrdering.Matching);
     }
 
+    /// <summary>
+    ///     A predicate cell on the identity names what entered and what left when it changes, and
+    ///     a state edit after that change still does not test the predicate again.
+    /// </summary>
+    [Test]
+    public async Task FilterByIdentityFollowsAChangingPredicate()
+    {
+        StreamSink<CollectionEdit<int, ItemIdentity, ItemState>> edits =
+            Stream.CreateSink<CollectionEdit<int, ItemIdentity, ItemState>>();
+
+        CellSink<Func<ItemIdentity, bool>> predicate =
+            Cell.CreateSink<Func<ItemIdentity, bool>>(static identity => identity.Number % 2 == 0);
+
+        ReactiveCollection<int, ItemIdentity, ItemState> collection =
+            Create(
+                edits: edits,
+                TestUtil.Item(number: 1, name: "one", score: 10),
+                TestUtil.Item(number: 2, name: "two", score: 20),
+                TestUtil.Item(number: 3, name: "three", score: 30),
+                TestUtil.Item(number: 4, name: "four", score: 40));
+
+        ReactiveCollection<int, ItemIdentity, ItemState> view = collection.FilterByIdentity(predicateCell: predicate);
+
+        await Assert.That(KeysOf(view)).IsEquivalentTo(expected: [2, 4], ordering: CollectionOrdering.Matching);
+
+        List<string> operations = [];
+        List<bool> resets = [];
+
+        IListener l =
+            view.KeyChangesStream.ListenStrong(change =>
+            {
+                resets.Add(change.IsReset);
+                operations.AddRange(change.Operations.Select(Describe));
+            });
+
+        predicate.Send(static identity => identity.Number % 2 == 1);
+
+        await Assert.That(resets).IsEquivalentTo(expected: [false], ordering: CollectionOrdering.Matching);
+        await Assert.That(operations)
+            .IsEquivalentTo(
+                expected: ["ViewInsert:1", "ViewRemove:2", "ViewInsert:3", "ViewRemove:4"],
+                ordering: CollectionOrdering.Matching);
+        await Assert.That(KeysOf(view)).IsEquivalentTo(expected: [1, 3], ordering: CollectionOrdering.Matching);
+
+        operations.Clear();
+
+        edits.Send(TestUtil.Score(key: 3, score: -1));
+        edits.Send(TestUtil.Score(key: 2, score: -1));
+
+        l.Unlisten();
+
+        await Assert.That(operations).IsEquivalentTo(expected: ["ViewUpdate:3"], ordering: CollectionOrdering.Matching);
+        await Assert.That(KeysOf(view)).IsEquivalentTo(expected: [1, 3], ordering: CollectionOrdering.Matching);
+    }
+
+    /// <summary>
+    ///     A criteria cell with a predicate on the identity narrows as the criteria change, and a
+    ///     state edit cannot move a key into the view.
+    /// </summary>
+    [Test]
+    public async Task FilterByIdentityFollowsChangingCriteria()
+    {
+        StreamSink<CollectionEdit<int, ItemIdentity, ItemState>> edits =
+            Stream.CreateSink<CollectionEdit<int, ItemIdentity, ItemState>>();
+
+        CellSink<int> minimum = Cell.CreateSink(3);
+
+        ReactiveCollection<int, ItemIdentity, ItemState> collection =
+            Create(
+                edits: edits,
+                TestUtil.Item(number: 1, name: "one", score: 10),
+                TestUtil.Item(number: 2, name: "two", score: 20),
+                TestUtil.Item(number: 3, name: "three", score: 30),
+                TestUtil.Item(number: 4, name: "four", score: 40));
+
+        ReactiveCollection<int, ItemIdentity, ItemState> view =
+            collection.FilterByIdentity(
+                criteriaCell: minimum,
+                predicate: static (limit, identity) => identity.Number >= limit);
+
+        await Assert.That(KeysOf(view)).IsEquivalentTo(expected: [3, 4], ordering: CollectionOrdering.Matching);
+
+        List<string> operations = [];
+        int changes = 0;
+
+        IListener l =
+            view.KeyChangesStream.ListenStrong(change =>
+            {
+                changes++;
+                operations.AddRange(change.Operations.Select(Describe));
+            });
+
+        minimum.Send(2);
+
+        await Assert.That(operations).IsEquivalentTo(expected: ["ViewInsert:2"], ordering: CollectionOrdering.Matching);
+        await Assert.That(KeysOf(view)).IsEquivalentTo(expected: [2, 3, 4], ordering: CollectionOrdering.Matching);
+
+        // A state edit to a key that the criteria keep out cannot bring it in.
+        changes = 0;
+        edits.Send(TestUtil.Score(key: 1, score: 99));
+
+        l.Unlisten();
+
+        await Assert.That(changes).IsEqualTo(0);
+        await Assert.That(KeysOf(view)).IsEquivalentTo(expected: [2, 3, 4], ordering: CollectionOrdering.Matching);
+    }
+
     [Test]
     public async Task FilterByIdentityStillFollowsStructuralChange()
     {

@@ -5,7 +5,8 @@ ItemCellImpl and CreateItemCell on ReactiveCollection, and the projection for
 one item on an item change and on a view change. This assembly has no public
 API of its own.
 
-No other change.
+FilterByIdentityImpl takes a cell of the predicate in place of the predicate,
+thus the two language surfaces can give a predicate that changes.
 
 1.0.1
 

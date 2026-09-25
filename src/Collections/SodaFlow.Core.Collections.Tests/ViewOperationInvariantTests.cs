@@ -318,7 +318,7 @@ public sealed class ViewOperationInvariantTests
         ReactiveCollection<int, ItemIdentity, ItemState> byIdentity =
             CollectionViewUtility.FilterByIdentityImpl(
                 upstream: filtered,
-                predicate: static identity => identity.Number != 4);
+                predicateCell: Cell.Constant<Func<ItemIdentity, bool>>(static identity => identity.Number != 4));
 
         ReactiveCollection<int, ItemIdentity, ItemState> resorted =
             CollectionViewUtility.SortByImpl(
