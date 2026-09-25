@@ -216,10 +216,15 @@ cancellation stops the value, when the strategy refuses it, when the strategy de
 the outcome, or when the pipeline was already disposed. Declining to publish means nobody wants the
 result any more, which is a cancellation that arrived late, so the task treats it as one.
 
-The exception is a custom strategy that parks a value in the queue forever without cancelling it.
-Nothing ends such an item, so nothing completes its task. The documented way to refuse a value —
-cancel it in `Admit` and do not promote it — does complete the task, as a cancellation. Every
-built-in strategy completes it.
+Two things can leave it pending, and both are outside the position `Execute` is for. One is a custom
+strategy that parks a value in the queue forever without cancelling it: nothing ends such an item, so
+nothing completes its task. The documented way to refuse a value — cancel it in `Admit` and do not
+promote it — does complete the task, as a cancellation, and every built-in strategy completes it.
+
+The other is a transaction that throws. When a transaction is open, `Execute` defers the value into
+that transaction's post queue, and a transaction that throws discards that queue: the value never
+enters the pipeline, so nothing completes the task. You reach this by calling `Execute` inside a
+transaction of your own that then fails.
 
 There is a second overload taking a `Cell<TInput>`, for when the value to run is whatever the cell
 holds at that moment — again, from inside an operation:

@@ -1408,6 +1408,46 @@ public sealed class MapAsyncExtensionsTests
             new(publish: ItemsOf(ended), next: AsyncStrategyResult<Unit>.None);
     }
 
+    [Test]
+    public async Task AsyncStrategyResult_WithNoPublishList_Throws() =>
+        await Assert.That(new StrategyResultProbe().WithNullPublish)
+            .ThrowsExactly<ArgumentNullException>();
+
+    [Test]
+    public async Task AsyncStrategyResult_WithNoNextList_Throws() =>
+        await Assert.That(new StrategyResultProbe().WithNullNext)
+            .ThrowsExactly<ArgumentNullException>();
+
+    /// <summary>
+    ///     Reaches the constructor of AsyncStrategyResult, which a custom strategy can see and other
+    ///     code cannot. Publish was a bool before this release, thus a null list is a new path.
+    /// </summary>
+    // ReSharper disable once InheritdocConsiderUsage
+    private sealed class StrategyResultProbe : AsyncConcurrencyStrategy<Unit>
+    {
+        public void WithNullPublish() =>
+            // ReSharper disable once NullableWarningSuppressionIsUsed - Testing for exception on null.
+            _ = new AsyncStrategyResult<Unit>(publish: null!, next: AsyncStrategyResult<Unit>.None);
+
+        public void WithNullNext() =>
+            // ReSharper disable once NullableWarningSuppressionIsUsed - Testing for exception on null.
+            _ = new AsyncStrategyResult<Unit>(publish: AsyncStrategyResult<Unit>.PublishNone, next: null!);
+
+        protected override Unit CreateState() => Unit.Value;
+
+        protected override IReadOnlyList<AsyncToStart<Unit>> Admit(
+            Unit state,
+            AsyncQueuedItem<Unit> incoming,
+            IReadOnlyList<AsyncTrackedItem<Unit>> tracked) =>
+            AsyncStrategyResult<Unit>.None;
+
+        protected override AsyncStrategyResult<Unit> OnCompleted(
+            Unit state,
+            IReadOnlyList<AsyncEnd<Unit>> ended,
+            IReadOnlyList<AsyncTrackedItem<Unit>> tracked) =>
+            new(publish: ItemsOf(ended), next: AsyncStrategyResult<Unit>.None);
+    }
+
     private class Animal;
 
     private sealed class Dog : Animal;

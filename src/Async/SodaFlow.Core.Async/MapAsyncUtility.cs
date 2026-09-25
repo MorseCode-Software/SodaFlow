@@ -223,10 +223,18 @@ public sealed class AsyncMapStatus<TInput, TResult> : AsyncMapStatus<TInput>
     ///         admission of the value cancels it.
     ///     </para>
     ///     <para>
-    ///         One condition gives no end to the Task. A strategy that keeps a value in the queue
-    ///         permanently, and does not cancel that value, gives no end for the pipeline to read.
-    ///         Each strategy in this library ends each value. The documented method for a strategy
-    ///         to refuse a value cancels that value, thus it ends the Task.
+    ///         Two conditions give no end to the Task, and no one of them is in the position that
+    ///         this method is for. A strategy that keeps a value in the queue permanently, and does
+    ///         not cancel that value, gives no end for the pipeline to read. Each strategy in this
+    ///         library ends each value. The documented method for a strategy to refuse a value
+    ///         cancels that value, thus that method ends the Task.
+    ///     </para>
+    ///     <para>
+    ///         The other condition is a transaction that fails. Where a transaction is open, this
+    ///         method defers the value into the post queue of that transaction, and a transaction
+    ///         that throws discards that queue. The value then never enters the pipeline, thus
+    ///         nothing ends the Task. Code that calls this method in a transaction of its own, and
+    ///         throws in that transaction, meets this.
     ///     </para>
     ///     <para>
     ///         A call with a transaction open is legal. The code of an operation before its first
@@ -747,12 +755,17 @@ public abstract class AsyncMapBase
         ///     Tracked items to start now, or to promote now. Give <see cref="None" /> for no
         ///     items.
         /// </param>
+        /// <exception cref="ArgumentNullException">
+        ///     <paramref name="publish" /> or <paramref name="next" /> is null.
+        /// </exception>
         public AsyncStrategyResult(
             IReadOnlyList<AsyncQueuedItem<TInput>> publish,
             IReadOnlyList<AsyncToStart<TInput>> next)
         {
-            this.Publish = publish;
-            this.Next = next;
+            // A custom strategy makes this object. A null here fails in the engine, and the
+            // message there names nothing that the author of that strategy can act on.
+            this.Publish = publish ?? throw new ArgumentNullException(nameof(publish));
+            this.Next = next ?? throw new ArgumentNullException(nameof(next));
         }
 
         /// <summary>Each item whose outcome the pipeline sends.</summary>

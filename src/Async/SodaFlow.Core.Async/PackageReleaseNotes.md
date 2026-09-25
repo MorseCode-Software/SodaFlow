@@ -32,10 +32,17 @@ the outcome, and where the pipeline is disposed before the value is admitted. A
 strategy that does not publish says that no code wants the result, which is a
 cancellation at a later moment, thus the Task treats it as one.
 
-One condition gives no end to the Task. A strategy that keeps a value in the queue
-permanently, and does not cancel that value, gives the pipeline no end to read.
-Each strategy in this library ends each value, and the documented method for a
-strategy to refuse a value cancels that value, thus that method ends the Task.
+Two conditions give no end to the Task, and each one is outside the position that
+Execute is for. A strategy that keeps a value in the queue permanently, and does
+not cancel that value, gives the pipeline no end to read. Each strategy in this
+library ends each value, and the documented method for a strategy to refuse a
+value cancels that value, thus that method ends the Task.
+
+The other condition is a transaction that fails. Where a transaction is open,
+Execute defers the value into the post queue of that transaction, and a
+transaction that throws discards that queue. The value then never enters the
+pipeline, thus nothing ends the Task. Code that calls Execute in a transaction of
+its own, and throws in that transaction, meets this.
 
 A call with a transaction open is legal. The code of an operation before its first
 await runs in the transaction that started that operation, thus Execute cannot ask
