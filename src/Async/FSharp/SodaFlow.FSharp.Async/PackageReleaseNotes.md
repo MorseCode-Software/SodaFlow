@@ -1,5 +1,27 @@
 5.0.0
 
+Fixed: a cancellation now ends each item that it cancels, and the pipeline
+stops tracking it. Two conditions left an item in the queue with no operation
+behind it, and IsRunning and Items reported that item for the life of the
+pipeline.
+
+The first was a Queued item. A cancellation cancels the token of each item,
+and a Queued item runs no operation, thus nothing observed that token. The end
+of such an item waited for a promotion, and a promotion comes from the end of
+a different item, thus an item that no other end followed stayed in the queue.
+
+The second was a Running item, and it needed a particular shape of operation.
+Cancel() runs the registrations of a token on the thread that calls it. Where
+one of those ends the Task of the operation, and that Task runs its
+continuations on the completing thread, the end of the item ran on that
+thread, inside the callback of the listener for the cancellation stream. A
+send is not legal there, thus the end threw, and the throw went into the
+machinery of Cancel() where no code reports it. The strategy had the end of
+that item and the pipeline kept it. An operation that awaits a plain
+TaskCompletionSource, which a caller writes to wrap a callback API or to build
+a gate, meets this. An operation that awaits Task.Delay with the token does
+not, because that one schedules its continuation.
+
 BREAKING: the queue that a strategy reads in Admit and in OnCompleted is the
 queue as the pipeline holds it at the moment of the call, and not a snapshot
 from the start of the transaction. OnCompleted no longer finds the item that
