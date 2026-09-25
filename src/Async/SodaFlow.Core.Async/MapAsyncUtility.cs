@@ -156,7 +156,7 @@ public class AsyncMapStatus<TInput> : AsyncMapStatus
 }
 
 /// <summary>
-///     The status of a MapAsync pipeline, with the two Execute methods. MapAsync answers with this
+///     The status of a MapAsync pipeline, with the Execute methods. MapAsync answers with this
 ///     type. A caller that wants only <see cref="AsyncMapStatus.IsRunning" /> and the disposal
 ///     holds <see cref="AsyncMapStatus" />. One that also wants
 ///     <see cref="AsyncMapStatus{TInput}.Items" /> holds <see cref="AsyncMapStatus{TInput}" />, and
@@ -216,11 +216,17 @@ public sealed class AsyncMapStatus<TInput, TResult> : AsyncMapStatus<TInput>
     ///         strategy publishes that, and the errors stream gets the same exception.
     ///     </para>
     ///     <para>
-    ///         Four conditions cancel the Task. A cancellation that stops the value cancels it. A
+    ///         These conditions cancel the Task. A cancellation that stops the value cancels it. A
     ///         strategy that refuses the value cancels it. A strategy that does not publish the
     ///         outcome cancels it also. Such a strategy says that no code wants the result, which
     ///         is a cancellation at a different moment. A disposal of the pipeline before the
     ///         admission of the value cancels it.
+    ///     </para>
+    ///     <para>
+    ///         One condition gives no end to the Task. A strategy that keeps a value in the queue
+    ///         permanently, and does not cancel that value, gives no end for the pipeline to read.
+    ///         Each strategy in this library ends each value. The documented method for a strategy
+    ///         to refuse a value cancels that value, thus it ends the Task.
     ///     </para>
     ///     <para>
     ///         A call with a transaction open is legal. The code of an operation before its first
@@ -243,7 +249,7 @@ public sealed class AsyncMapStatus<TInput, TResult> : AsyncMapStatus<TInput>
     ///     are thus together in each condition.
     ///     <para>
     ///         This method has the same one purpose as <see cref="Execute(TInput)" />, and the Task
-    ///         obeys the same rules. Read that method for the two.
+    ///         obeys the same rules. Read the remarks of that method.
     ///     </para>
     /// </summary>
     /// <param name="value">The cell to read.</param>

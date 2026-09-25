@@ -6,9 +6,8 @@ that value alone.
 Execute has one purpose: the operation of a MapAsync pipeline calls a second
 MapAsync pipeline with it, and waits for the result of that one value. Thus, an
 operation can be a pipeline of its own, and the strategy of the inner pipeline
-controls the inner work. An operation is the one position where the two limits of
-Execute are already true: it runs with no transaction open, and it is an async
-method, thus it can await the Task.
+controls the inner work. An operation is an async method, thus it can await the
+Task.
 
 Other code does not use Execute. Code that has a value for a pipeline sends that
 value on the source stream of the pipeline, and reads the results stream. That is
@@ -32,6 +31,11 @@ value, where the strategy refuses the value, where the strategy does not publish
 the outcome, and where the pipeline is disposed before the value is admitted. A
 strategy that does not publish says that no code wants the result, which is a
 cancellation at a later moment, thus the Task treats it as one.
+
+One condition gives no end to the Task. A strategy that keeps a value in the queue
+permanently, and does not cancel that value, gives the pipeline no end to read.
+Each strategy in this library ends each value, and the documented method for a
+strategy to refuse a value cancels that value, thus that method ends the Task.
 
 A call with a transaction open is legal. The code of an operation before its first
 await runs in the transaction that started that operation, thus Execute cannot ask

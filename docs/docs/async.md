@@ -132,11 +132,11 @@ The returned status is itself reactive, which makes progress reporting straightf
 what is queued and running. Bind them directly to your UI. Disposing the status tears the pipeline
 down.
 
-The status comes in three widths, and you pick one by how many type parameters you keep. The
-declared return type is `AsyncMapStatus<TInput, TResult>`, which carries everything; assigning it
-to `AsyncMapStatus<TInput>` keeps `Items` and drops `Execute`; assigning it to the non-generic
-`AsyncMapStatus` keeps `IsRunning` and disposal and names no types at all. So a view model that
-shows a busy indicator and owns the pipeline's lifetime can hold the narrowest one:
+How much of the status you hold is your choice, and you make it by how many type parameters you
+keep. The declared return type is `AsyncMapStatus<TInput, TResult>`, which carries everything;
+assigning it to `AsyncMapStatus<TInput>` keeps `Items` and drops `Execute`; assigning it to the
+non-generic `AsyncMapStatus` keeps `IsRunning` and disposal and names no types at all. So a view
+model that shows a busy indicator and owns the pipeline's lifetime can hold the narrowest one:
 
 ```csharp
 AsyncMapStatus status = queries.MapAsync(
@@ -174,7 +174,7 @@ AsyncMapStatus<SaveRequest, SaveReceipt> saver = saveRequests.MapAsync(
 AsyncMapStatus<Batch, BatchReceipt> batcher = batches.MapAsync(
     results: batchesDone,
     errors: batchErrors,
-    operation: async (batch, factory, token) =>
+    operation: async (batch, factory, _) =>
     {
         List<SaveReceipt> receipts = [];
 
@@ -189,11 +189,16 @@ AsyncMapStatus<Batch, BatchReceipt> batcher = batches.MapAsync(
     strategy: AsyncConcurrencyStrategy.Parallel());
 ```
 
+Note the discarded token in that outer operation. `Execute` takes no `CancellationToken`, so an
+outer item's token cannot reach the inner pipeline: cancelling the outer item does not cancel the
+inner work it started. If you need that, cancel the inner pipeline through its own `cancelAll` or
+`cancelMatching`.
+
 An operation is an `async` method, so it can await the task — and it does not have to worry about
 transactions. The code of an operation before its first `await` actually runs *inside* the
 transaction that started it, so `Execute` cannot demand a caller with no transaction open. When one
-is open it defers the value to a transaction of its own, and the pipeline admits it once the caller's
-transaction ends.
+is open it defers the value to a transaction of its own, and the pipeline admits it once the
+caller's transaction ends.
 
 **Everywhere else, do not use it.** Code that has a value for a pipeline sends that value on the
 pipeline's source stream and reads the results stream. That is a pipeline's interface, and it keeps
@@ -204,12 +209,17 @@ The value goes through `Admit` and `OnCompleted` like any other, so the inner st
 difference between it and a value that arrived on the source stream. The result reaches the inner
 `results` stream as well — `Execute` gives you the same object, it does not divert it.
 
-**The task always finishes.** It carries the result when the operation returns one and the strategy
-publishes it; it carries the operation's exception when it throws and the strategy publishes that,
-and `errors` gets the same exception; and it is cancelled when a cancellation stops the value, when
-the strategy refuses it, when the strategy declines to publish the outcome, or when the pipeline was
-already disposed. Declining to publish means nobody wants the result any more, which is a
-cancellation that arrived late, so the task treats it as one.
+**The task finishes**, with one exception below. It carries the result when the operation returns
+one and the strategy publishes it; it carries the operation's exception when it throws and the
+strategy publishes that, and `errors` gets the same exception; and it is cancelled when a
+cancellation stops the value, when the strategy refuses it, when the strategy declines to publish
+the outcome, or when the pipeline was already disposed. Declining to publish means nobody wants the
+result any more, which is a cancellation that arrived late, so the task treats it as one.
+
+The exception is a custom strategy that parks a value in the queue forever without cancelling it.
+Nothing ends such an item, so nothing completes its task. The documented way to refuse a value —
+cancel it in `Admit` and do not promote it — does complete the task, as a cancellation. Every
+built-in strategy completes it.
 
 There is a second overload taking a `Cell<TInput>`, for when the value to run is whatever the cell
 holds at that moment — again, from inside an operation:
@@ -221,9 +231,9 @@ SaveReceipt receipt = await saver.Execute(currentRequest);
 
 It reads the cell inside the same transaction that puts the value in, so the pipeline admits the
 cell's value at that instant. Sampling the cell yourself and passing the result to the other
-overload is two transactions, and the cell can change between them. When the call defers — because a
-transaction was open — the read and the send travel together into the deferred transaction, so the
-guarantee still holds.
+overload is two transactions, and the cell can change between them. When the call defers — because
+a transaction was open — the read and the send travel together into the deferred transaction, so
+the guarantee still holds.
 
 In F#, both overloads are members on the returned status, the same as in C#, and the same rule about
 where to call them applies:

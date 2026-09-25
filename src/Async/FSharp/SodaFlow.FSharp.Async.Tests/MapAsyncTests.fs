@@ -549,3 +549,32 @@ type ``MapAsync Tests``() =
 
             status.Dispose()
         }
+
+    [<Test>]
+    member _.``Execute reads a cell in the transaction of the send``() =
+        task {
+            let source = sinkS<string> ()
+            let results = sinkS<string> ()
+            let errors = sinkS<exn> ()
+            let input = sinkC "a"
+            let op = ControlledOperation<string, string>()
+
+            let status =
+                source |> mapAsync results errors op.Operation (parallelStrategy ()) None None true
+
+            // The call that the documentation gives for F#, with no parentheses.
+            let task = status.Execute input
+
+            waitUntil (fun () -> op.HasStarted "a")
+
+            // A new value of the cell does not go to the item that runs.
+            input |> sendC "b"
+            Thread.Sleep 100
+            do! Expect.False(op.HasStarted "b")
+
+            op.Release("a", "A")
+            let! result = task
+            do! Expect.Equal("A", result)
+
+            status.Dispose()
+        }
