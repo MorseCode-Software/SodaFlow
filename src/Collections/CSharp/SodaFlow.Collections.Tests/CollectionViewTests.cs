@@ -562,10 +562,12 @@ public sealed class CollectionViewTests
         predicate.Send(static identity => identity.Number % 2 == 1);
 
         await Assert.That(resets).IsEquivalentTo(expected: [false], ordering: CollectionOrdering.Matching);
+
         await Assert.That(operations)
             .IsEquivalentTo(
                 expected: ["ViewInsert:1", "ViewRemove:2", "ViewInsert:3", "ViewRemove:4"],
                 ordering: CollectionOrdering.Matching);
+
         await Assert.That(KeysOf(view)).IsEquivalentTo(expected: [1, 3], ordering: CollectionOrdering.Matching);
 
         operations.Clear();
@@ -607,14 +609,9 @@ public sealed class CollectionViewTests
         await Assert.That(KeysOf(view)).IsEquivalentTo(expected: [3, 4], ordering: CollectionOrdering.Matching);
 
         List<string> operations = [];
-        int changes = 0;
 
         IListener l =
-            view.KeyChangesStream.ListenStrong(change =>
-            {
-                changes++;
-                operations.AddRange(change.Operations.Select(Describe));
-            });
+            view.KeyChangesStream.ListenStrong(change => operations.AddRange(change.Operations.Select(Describe)));
 
         minimum.Send(2);
 
@@ -622,12 +619,12 @@ public sealed class CollectionViewTests
         await Assert.That(KeysOf(view)).IsEquivalentTo(expected: [2, 3, 4], ordering: CollectionOrdering.Matching);
 
         // A state edit to a key that the criteria keep out cannot bring it in.
-        changes = 0;
+        operations.Clear();
         edits.Send(TestUtil.Score(key: 1, score: 99));
 
         l.Unlisten();
 
-        await Assert.That(changes).IsEqualTo(0);
+        await Assert.That(operations).IsEmpty();
         await Assert.That(KeysOf(view)).IsEquivalentTo(expected: [2, 3, 4], ordering: CollectionOrdering.Matching);
     }
 
