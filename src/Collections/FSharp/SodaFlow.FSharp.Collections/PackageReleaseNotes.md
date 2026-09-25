@@ -40,7 +40,8 @@ the stage again and reports a reset. It reports the keys that entered and
 left as inserts and removals, and it builds again and resets only when more
 keys move than a list of them is worth.
 
-Requires SodaFlow.FSharp 4.x and SodaFlow.Collections.Core 2.x.
+Requires SodaFlow.FSharp 5.x and SodaFlow.Collections.Core 2.x. SodaFlow.FSharp
+5.0.0 ships in the same release, and its own notes list what changed there.
 
 1.0.1
 

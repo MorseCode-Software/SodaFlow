@@ -15,6 +15,8 @@ Adds the internal members that the two language surfaces need for ItemCell:
 ItemCellImpl and CreateItemCell on ReactiveCollection, and the projection for
 one item on an item change and on a view change.
 
+Requires SodaFlow.Core 5.x, which ships in the same release.
+
 1.0.1
 
 Adds the package icon that nuget.org shows beside this package. No source file

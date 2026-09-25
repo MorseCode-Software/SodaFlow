@@ -41,8 +41,9 @@ the stage again and reports a reset. It reports the keys that entered and
 left as inserts and removals, and it builds again and resets only when more
 keys move than a list of them is worth.
 
-Requires SodaFlow 4.x, SodaFlow.Collections.Core 2.x and SodaFlow.Functional
-3.x.
+Requires SodaFlow 5.x, SodaFlow.Collections.Core 2.x and SodaFlow.Functional
+3.x. SodaFlow 5.0.0 ships in the same release, and its own notes list what
+changed there.
 
 1.0.1
 
