@@ -76,10 +76,19 @@ sensibly will do.
 You can also write your own by subclassing `AsyncConcurrencyStrategy<TInput, TState>`, with the
 `AsyncConcurrencyStrategy<TState>` shorthand when the strategy does not read the input either.
 `CreateState` makes the bookkeeping for one `MapAsync` call, `Admit` decides what starts, and
-`OnCompleted` decides whether the pipeline publishes the item and what starts next.
+`OnCompleted` decides which outcomes the pipeline publishes and what starts next.
 
-`OnCompleted` receives an `AsyncCompletion` — the operation returned, it threw (with the
-exception), or a cancellation stopped it — and never the result itself. That is what lets the
+`OnCompleted` is called once per transaction, with every item that ended in it as an
+`IReadOnlyList<AsyncEnd<TInput>>`. Usually that is one item. A cancellation is the case where it
+is not: `cancelAll` and `cancelMatching` can end several queued items and a running one at the
+same instant, and batching them into one call means you make a single decision against the queue
+they all left, rather than a sequence of decisions each of which still sees the others. Return
+`ItemsOf(ended)` to publish every outcome, `AsyncStrategyResult<TInput>.PublishNone` to publish
+none, or a list you build yourself to publish some — `SwitchLatest` does the last of these, since
+only the newest run should reach `results`.
+
+Each `AsyncEnd` carries the item and an `AsyncCompletion` — the operation returned, it threw (with
+the exception), or a cancellation stopped it — and never the result itself. That is what lets the
 pipeline build a result only for an item it is going to publish; see below. If you want to decide
 what to publish by looking at a value, filter the `results` stream downstream instead.
 
@@ -93,9 +102,9 @@ Two boundaries worth knowing, because they decide what "next" means:
 
 - In `Admit`, the list does **not** include the value being admitted; the pipeline adds it after
   the call.
-- In `OnCompleted`, the list does **not** include the item that just ended either; the pipeline
-  removes that one before the call, so you can take the first `Queued` item without checking
-  whether it is the one you were told about.
+- In `OnCompleted`, the list does **not** include any item in `ended` either; the pipeline
+  removes all of them before the call, so you can take the first `Queued` item without checking
+  whether it is one of the items you were told about.
 
 The list is the queue as the pipeline holds it at the moment of the call, not a snapshot from the
 start of the transaction. It does not change while your callback runs, and an item your decision
@@ -107,8 +116,9 @@ is what stops a queueing strategy from stalling because both believed an item wa
 
 `Queue` and `QueuePerGroup` are written this way: neither keeps a queue in its own state, because
 the pipeline already has one in the right order. `Queue` starts an item when nothing is `Running`
-and, on completion, starts the first item still `Queued`. `QueuePerGroup` does the same test per
-group.
+and, when items end, starts the first item still `Queued` — but only if nothing is `Running`,
+since a cancellation can end queued items while another is still going. `QueuePerGroup` does the
+same test per group, once for each group an end leaves free.
 
 ## Cancellation and status
 
