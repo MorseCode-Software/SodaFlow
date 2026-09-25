@@ -264,7 +264,7 @@ internal sealed class TransactionInternal
         queue[index] = @new;
     }
 
-    internal static void PostInternal(Action<TransactionInternal> action) =>
+    private static void PostInternal(Action<TransactionInternal> action) =>
         Apply((trans, createdNewTransaction) =>
         {
             if (createdNewTransaction)

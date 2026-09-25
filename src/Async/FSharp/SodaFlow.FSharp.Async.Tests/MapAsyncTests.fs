@@ -66,20 +66,30 @@ type private AlwaysStartStrategy<'TStrategyInput>() =
     override _.OnCompleted
         (
             _state: EmptyState,
-            _item: AsyncMapBase.AsyncQueuedItem<'TStrategyInput>,
-            completion: AsyncMapBase.AsyncCompletion,
+            ended: IReadOnlyList<AsyncMapBase.AsyncEnd<'TStrategyInput>>,
             _tracked: IReadOnlyList<AsyncMapBase.AsyncTrackedItem<'TStrategyInput>>
         ) =
-        let mutable ended = ""
+        for e in ended do
+            let mutable how = ""
 
-        completion.MatchVoid(
-            Action(fun () -> ended <- "succeeded"),
-            Action<exn>(fun e -> ended <- "failed:" + e.Message),
-            Action(fun () -> ended <- "canceled")
+            e.Completion.MatchVoid(
+                Action(fun () -> how <- "succeeded"),
+                Action<exn>(fun ex -> how <- "failed:" + ex.Message),
+                Action(fun () -> how <- "canceled")
+            )
+
+            lock completions (fun () -> completions.Add(how))
+
+        // A for loop and not Seq.map: F# refuses a protected member in a lambda.
+        let published = Array.zeroCreate<AsyncMapBase.AsyncQueuedItem<'TStrategyInput>> ended.Count
+
+        for i in 0 .. ended.Count - 1 do
+            published.[i] <- ended.[i].Item
+
+        AsyncMapBase.AsyncStrategyResult<'TStrategyInput>(
+            published :> IReadOnlyList<_>,
+            AsyncMapBase.AsyncStrategyResult<'TStrategyInput>.None
         )
-
-        lock completions (fun () -> completions.Add(ended))
-        AsyncMapBase.AsyncStrategyResult<'TStrategyInput>(true, AsyncMapBase.AsyncStrategyResult<'TStrategyInput>.None)
 
 /// A small custom strategy that uses EmptyState directly. The input type and the result type are
 /// `unit`, through the short AsyncConcurrencyStrategy of the F# module, which is not generic. Each
@@ -107,11 +117,19 @@ type private CountingStrategy() =
     override _.OnCompleted
         (
             _state: EmptyState,
-            _item: AsyncMapBase.AsyncQueuedItem<unit>,
-            _completion: AsyncMapBase.AsyncCompletion,
+            ended: IReadOnlyList<AsyncMapBase.AsyncEnd<unit>>,
             _tracked: IReadOnlyList<AsyncMapBase.AsyncTrackedItem<unit>>
         ) =
-        AsyncMapBase.AsyncStrategyResult<unit>(true, AsyncMapBase.AsyncStrategyResult<unit>.None)
+        // A for loop and not Seq.map: F# refuses a protected member in a lambda.
+        let published = Array.zeroCreate<AsyncMapBase.AsyncQueuedItem<unit>> ended.Count
+
+        for i in 0 .. ended.Count - 1 do
+            published.[i] <- ended.[i].Item
+
+        AsyncMapBase.AsyncStrategyResult<unit>(
+            published :> IReadOnlyList<_>,
+            AsyncMapBase.AsyncStrategyResult<unit>.None
+        )
 
 type ``MapAsync Tests``() =
 

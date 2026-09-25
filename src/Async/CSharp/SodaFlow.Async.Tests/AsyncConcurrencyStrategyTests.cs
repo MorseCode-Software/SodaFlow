@@ -270,9 +270,8 @@ public sealed class AsyncConcurrencyStrategyTests
 
         protected override AsyncStrategyResult<Unit> OnCompleted(
             int state,
-            AsyncQueuedItem<Unit> item,
-            AsyncCompletion completion,
+            IReadOnlyList<AsyncEnd<Unit>> ended,
             IReadOnlyList<AsyncTrackedItem<Unit>> tracked) =>
-            new(publish: true, next: AsyncStrategyResult<Unit>.None);
+            new(publish: ItemsOf(ended), next: AsyncStrategyResult<Unit>.None);
     }
 }

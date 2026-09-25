@@ -246,6 +246,120 @@ public sealed class MapAsyncExtensionsTests
     }
 
     [Test]
+    public async Task CancelMatching_EndsSeveralQueuedItemsInOneStep()
+    {
+        StreamSink<string> source = Stream.CreateSink<string>();
+        StreamSink<string> results = Stream.CreateSink<string>();
+        StreamSink<Exception> errors = Stream.CreateSink<Exception>();
+        StreamSink<IReadOnlyCollection<string>> cancelMatching = Stream.CreateSink<IReadOnlyCollection<string>>();
+        ControlledOperation<string, string> op = new();
+
+        AsyncMapStatus<string> status =
+            source.MapAsync(
+                results: results,
+                errors: errors,
+                operation: op.Operation,
+                strategy: AsyncConcurrencyStrategy.Queue(),
+                cancelMatching: cancelMatching);
+
+        Cell<IReadOnlyList<AsyncItem<string>>> tracked = status.Items;
+
+        source.Send("a");
+        TestUtil.WaitUntil(() => op.HasStarted("a"));
+
+        source.Send("b");
+        source.Send("c");
+        source.Send("d");
+        TestUtil.WaitUntil(() => Transaction.Run(tracked.Sample).Count == 4);
+
+        List<int> counts = [];
+        IListener l = tracked.Updates().ListenStrong(items => counts.Add(items.Count));
+
+        // One transaction ends "b", "c", and "d". One end for each of those gives the strategy
+        // three decisions, and the queue takes three edits that an observer can see.
+        cancelMatching.Send(["b", "c", "d"]);
+
+        TestUtil.WaitUntil(() => Transaction.Run(tracked.Sample).Count == 1);
+
+        Thread.Sleep(100);
+
+        await Assert.That(counts)
+            .IsEquivalentTo(expected: [1], ordering: CollectionOrdering.Matching)
+            .Because("the ends of one transaction should make one edit of the queue");
+
+        await Assert.That(op.HasStarted("b") || op.HasStarted("c") || op.HasStarted("d"))
+            .IsFalse()
+            .Because("no canceled item should start");
+
+        op.Release(input: "a", result: "A");
+        TestUtil.WaitUntil(() => Transaction.Run(tracked.Sample).Count == 0);
+
+        l.Unlisten();
+        status.Dispose();
+    }
+
+    [Test]
+    public async Task CancelMatching_GivesTheStrategyOneDecisionForTheWholeTransaction()
+    {
+        StreamSink<string> source = Stream.CreateSink<string>();
+        StreamSink<string> results = Stream.CreateSink<string>();
+        StreamSink<Exception> errors = Stream.CreateSink<Exception>();
+        StreamSink<IReadOnlyCollection<string>> cancelMatching = Stream.CreateSink<IReadOnlyCollection<string>>();
+        ControlledOperation<string, string> op = new();
+        QueueFromTrackedStrategy strategy = new();
+
+        AsyncMapStatus<string> status =
+            source.MapAsync(
+                results: results,
+                errors: errors,
+                operation: op.Operation,
+                strategy: strategy,
+                cancelMatching: cancelMatching);
+
+        Cell<IReadOnlyList<AsyncItem<string>>> tracked = status.Items;
+
+        source.Send("a");
+        TestUtil.WaitUntil(() => op.HasStarted("a"));
+
+        source.Send("b");
+        source.Send("c");
+        source.Send("d");
+        TestUtil.WaitUntil(() => Transaction.Run(tracked.Sample).Count == 4);
+
+        cancelMatching.Send(["b", "c", "d"]);
+
+        TestUtil.WaitUntil(() => Transaction.Run(tracked.Sample).Count == 1);
+
+        Thread.Sleep(100);
+
+        List<string> endedSaw;
+        List<string> completedSaw;
+
+        lock (strategy.EndedSaw)
+        {
+            endedSaw = [..strategy.EndedSaw];
+        }
+
+        lock (strategy.CompletedSaw)
+        {
+            completedSaw = [..strategy.CompletedSaw];
+        }
+
+        await Assert.That(endedSaw)
+            .IsEquivalentTo(expected: ["b,c,d"], ordering: CollectionOrdering.Matching)
+            .Because("one transaction should give one decision over each item that ends in it");
+
+        await Assert.That(completedSaw)
+            .IsEquivalentTo(expected: ["a:R"], ordering: CollectionOrdering.Matching)
+            .Because("the queue of that decision should hold no item that ends in it");
+
+        op.Release(input: "a", result: "A");
+        TestUtil.WaitUntil(() => Transaction.Run(tracked.Sample).Count == 0);
+
+        status.Dispose();
+    }
+
+    [Test]
     public async Task CancelOnDisposeTrue_CancelsInFlightItem()
     {
         StreamSink<string> source = Stream.CreateSink<string>();
@@ -687,16 +801,20 @@ public sealed class MapAsyncExtensionsTests
 
         protected override AsyncStrategyResult<Unit> OnCompleted(
             Unit state,
-            AsyncQueuedItem<Unit> item,
-            AsyncCompletion completion,
+            IReadOnlyList<AsyncEnd<Unit>> ended,
             IReadOnlyList<AsyncTrackedItem<Unit>> tracked)
         {
             lock (this.Completions)
             {
-                this.Completions.Add("completed");
+                for (int i = 0; i < ended.Count; i++)
+                {
+                    this.Completions.Add("completed");
+                }
             }
 
-            return new AsyncStrategyResult<Unit>(publish: false, next: AsyncStrategyResult<Unit>.None);
+            return new AsyncStrategyResult<Unit>(
+                publish: AsyncStrategyResult<Unit>.PublishNone,
+                next: AsyncStrategyResult<Unit>.None);
         }
     }
 
@@ -805,6 +923,7 @@ public sealed class MapAsyncExtensionsTests
     {
         public readonly List<string> AdmitSaw = [];
         public readonly List<string> CompletedSaw = [];
+        public readonly List<string> EndedSaw = [];
 
         protected override Unit CreateState() => Unit.Value;
 
@@ -826,8 +945,7 @@ public sealed class MapAsyncExtensionsTests
 
         protected override AsyncStrategyResult<string> OnCompleted(
             Unit state,
-            AsyncQueuedItem<string> item,
-            AsyncCompletion completion,
+            IReadOnlyList<AsyncEnd<string>> ended,
             IReadOnlyList<AsyncTrackedItem<string>> tracked)
         {
             lock (this.CompletedSaw)
@@ -835,13 +953,18 @@ public sealed class MapAsyncExtensionsTests
                 this.CompletedSaw.Add(Describe(tracked));
             }
 
-            // The queue no longer holds the item that ends, thus this takes the first Queued
-            // item with no test against that one.
+            lock (this.EndedSaw)
+            {
+                this.EndedSaw.Add(string.Join(separator: ",", values: ended.Select(static e => e.Item.Value)));
+            }
+
+            // The queue holds no item that ends now, thus this takes the first Queued item with no
+            // test against them.
             AsyncTrackedItem<string>? next =
                 tracked.FirstOrDefault(predicate: static candidate => candidate.Status == AsyncItemStatus.Queued);
 
             return new AsyncStrategyResult<string>(
-                publish: true,
+                publish: ItemsOf(ended),
                 next: next is null ? AsyncStrategyResult<string>.None : [new AsyncToStart<string>(next.Item)]);
         }
 
@@ -880,20 +1003,22 @@ public sealed class MapAsyncExtensionsTests
 
         protected override AsyncStrategyResult<TStrategyInput> OnCompleted(
             Unit state,
-            AsyncQueuedItem<TStrategyInput> item,
-            AsyncCompletion completion,
+            IReadOnlyList<AsyncEnd<TStrategyInput>> ended,
             IReadOnlyList<AsyncTrackedItem<TStrategyInput>> tracked)
         {
             lock (this.Completions)
             {
-                completion.MatchVoid(
-                    onSucceeded: () => this.Completions.Add("succeeded"),
-                    onFailed: e => this.Completions.Add("failed:" + e.Message),
-                    onCanceled: () => this.Completions.Add("canceled"));
+                foreach (AsyncEnd<TStrategyInput> end in ended)
+                {
+                    end.Completion.MatchVoid(
+                        onSucceeded: () => this.Completions.Add("succeeded"),
+                        onFailed: e => this.Completions.Add("failed:" + e.Message),
+                        onCanceled: () => this.Completions.Add("canceled"));
+                }
             }
 
             return new AsyncStrategyResult<TStrategyInput>(
-                publish: true,
+                publish: ItemsOf(ended),
                 next: AsyncStrategyResult<TStrategyInput>.None);
         }
     }

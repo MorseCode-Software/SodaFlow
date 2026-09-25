@@ -592,9 +592,33 @@ public abstract class AsyncMapBase
         }
     }
 
+    /// <summary>One item that ended, with how its operation ended.</summary>
+    /// <remarks>
+    ///     A cancellation can end more than one item in one transaction. It removes each Queued
+    ///     item, and it ends each Running item whose operation observes its token. The pipeline
+    ///     gives a strategy each of those in one call. Thus, the strategy makes one decision over
+    ///     the queue that holds no item of those ends.
+    /// </remarks>
+    /// <typeparam name="TInput">The type that the strategy reads.</typeparam>
+    [PublicAPI]
+    protected internal sealed class AsyncEnd<TInput>
+    {
+        internal AsyncEnd(AsyncQueuedItem<TInput> item, AsyncCompletion completion)
+        {
+            this.Item = item;
+            this.Completion = completion;
+        }
+
+        /// <summary>The item that ended. It is the instance from its Admit call.</summary>
+        public AsyncQueuedItem<TInput> Item { get; }
+
+        /// <summary>How the operation of that item ended.</summary>
+        public AsyncCompletion Completion { get; }
+    }
+
     /// <summary>
-    ///     The answer of a strategy: if the pipeline publishes the outcome that ended now, and
-    ///     which items to start next.
+    ///     The answer of a strategy: which outcomes of the items that ended now the pipeline
+    ///     publishes, and which items to start next.
     /// </summary>
     [PublicAPI]
     protected internal sealed class AsyncStrategyResult<TInput>
@@ -602,24 +626,30 @@ public abstract class AsyncMapBase
         /// <summary>An empty Next list. This decision starts no more items.</summary>
         public static readonly IReadOnlyList<AsyncToStart<TInput>> None = Array.Empty<AsyncToStart<TInput>>();
 
+        /// <summary>An empty Publish list. This decision sends no outcome.</summary>
+        public static readonly IReadOnlyList<AsyncQueuedItem<TInput>> PublishNone =
+            Array.Empty<AsyncQueuedItem<TInput>>();
+
         /// <summary>Builds the answer of a strategy from its two decisions.</summary>
         /// <param name="publish">
-        ///     True when the pipeline sends the outcome that ended now to the results or to the
-        ///     errors.
+        ///     Each item of this call whose outcome the pipeline sends to the results or to the
+        ///     errors. Give <see cref="PublishNone" /> for no items. An item that is not here is
+        ///     the same as a cancellation for a caller: the pipeline sends nothing for it.
         /// </param>
         /// <param name="next">
         ///     Tracked items to start now, or to promote now. Give <see cref="None" /> for no
         ///     items.
         /// </param>
-        public AsyncStrategyResult(bool publish, IReadOnlyList<AsyncToStart<TInput>> next)
+        public AsyncStrategyResult(
+            IReadOnlyList<AsyncQueuedItem<TInput>> publish,
+            IReadOnlyList<AsyncToStart<TInput>> next)
         {
             this.Publish = publish;
             this.Next = next;
         }
 
-        /// <summary>True when the pipeline sends the outcome that ended now to the results or to
-        /// the errors.</summary>
-        public bool Publish { get; }
+        /// <summary>Each item whose outcome the pipeline sends.</summary>
+        public IReadOnlyList<AsyncQueuedItem<TInput>> Publish { get; }
 
         /// <summary>Tracked items to start now, or to promote now, because of this decision.</summary>
         public IReadOnlyList<AsyncToStart<TInput>> Next { get; }
@@ -650,8 +680,7 @@ public abstract class AsyncMapBase
         ///     state in the closure.
         /// </summary>
         AsyncStrategyResult<TInput> OnCompleted(
-            AsyncQueuedItem<TInput> item,
-            AsyncCompletion completion,
+            IReadOnlyList<AsyncEnd<TInput>> ended,
             IReadOnlyList<AsyncTrackedItem<TInput>> tracked);
     }
 
@@ -681,13 +710,11 @@ public abstract class AsyncMapBase
             this.strategy.Admit(state: this.state, incoming: incoming, tracked: tracked);
 
         public AsyncStrategyResult<TInput> OnCompleted(
-            AsyncQueuedItem<TInput> item,
-            AsyncCompletion completion,
+            IReadOnlyList<AsyncEnd<TInput>> ended,
             IReadOnlyList<AsyncTrackedItem<TInput>> tracked) =>
             this.strategy.OnCompleted(
                 state: this.state,
-                item: item,
-                completion: completion,
+                ended: ended,
                 tracked: tracked);
     }
 }
@@ -949,14 +976,14 @@ public abstract class AsyncConcurrencyStrategy<TInput, TState>
         IReadOnlyList<AsyncTrackedItem<TInput>> tracked);
 
     /// <summary>
-    ///     Gives two answers for the outcome of an item at its end: if the pipeline publishes
-    ///     that outcome, and which tracked items start now because of it. For example, the next
+    ///     Gives two answers for the items that end now: which of their outcomes the pipeline
+    ///     publishes, and which tracked items start because of those ends. For example, the next
     ///     Queued item can start. The engine always calls this in a SodaFlow transaction, as it
-    ///     calls <see cref="Admit" />. Each
+    ///     calls <see cref="Admit" />, and one time for each transaction. Each
     ///     <see cref="AsyncMapBase.AsyncToStart{TInput}" /> from this method must contain an
     ///     <see cref="AsyncMapBase.AsyncQueuedItem{TInput}" /> from a previous
-    ///     <see cref="Admit" /> call. There is no path for a value with no admission.
-    ///     <paramref name="item" /> is the instance that this strategy got for this value in
+    ///     <see cref="Admit" /> call. There is no path for a value with no admission. Each item in
+    ///     <paramref name="ended" /> is the instance that this strategy got for that value in
     ///     <see cref="Admit" />. It is the same instance, thus ReferenceEquals against an item in
     ///     <paramref name="state" /> tells you if that item is the current run. The pipeline never
     ///     publishes a canceled outcome, at each return value from this method. A cancellation is
@@ -965,22 +992,40 @@ public abstract class AsyncConcurrencyStrategy<TInput, TState>
     ///     turn.
     /// </summary>
     /// <param name="state">The scheduling state of this MapAsync call.</param>
-    /// <param name="item">The item that ends now.</param>
-    /// <param name="completion">How the operation of that item ended.</param>
+    /// <param name="ended">
+    ///     Each item that ends now, with how its operation ended, in the sequence of their
+    ///     admissions. One transaction gives one call, thus a cancellation of more than one item
+    ///     is one decision and not one decision for each item. The list holds one item for the
+    ///     usual end of one operation.
+    /// </param>
     /// <param name="tracked">
     ///     Each item that the pipeline tracks, Queued or Running, in the sequence of their
-    ///     admissions. It does not hold <paramref name="item" />: the pipeline removes that one
-    ///     before this call, thus a strategy can select the first Queued item with no test against
-    ///     it. It holds each other item that the pipeline tracks at this moment, with the status
-    ///     that item has now, and an earlier edit of this same transaction is in it. An item that
-    ///     this decision starts is Queued in it, and not Running. This list does not change while
-    ///     this method runs.
+    ///     admissions. It holds no item of <paramref name="ended" />: the pipeline removes each of
+    ///     those before this call. Thus, a strategy can select the first Queued item with no test
+    ///     against them. It holds each other item that the pipeline tracks at this moment, with the
+    ///     status that item has now, and an earlier edit of this same transaction is in it. An item
+    ///     that this decision starts is Queued in it, and not Running. This list does not change
+    ///     while this method runs.
     /// </param>
     protected internal abstract AsyncStrategyResult<TInput> OnCompleted(
         TState state,
-        AsyncQueuedItem<TInput> item,
-        AsyncCompletion completion,
+        IReadOnlyList<AsyncEnd<TInput>> ended,
         IReadOnlyList<AsyncTrackedItem<TInput>> tracked);
+
+    /// <summary>The item of each end, which is the usual answer for the publish decision.</summary>
+    /// <param name="ended">The ends that <see cref="OnCompleted" /> got.</param>
+    /// <returns>One item for each end, in the same sequence.</returns>
+    protected static IReadOnlyList<AsyncQueuedItem<TInput>> ItemsOf(IReadOnlyList<AsyncEnd<TInput>> ended)
+    {
+        AsyncQueuedItem<TInput>[] items = new AsyncQueuedItem<TInput>[ended.Count];
+
+        for (int i = 0; i < ended.Count; i++)
+        {
+            items[i] = ended[i].Item;
+        }
+
+        return items;
+    }
 }
 
 /// <summary>
@@ -1090,10 +1135,9 @@ internal static class AsyncConcurrencyStrategyFactory
 
         protected internal override AsyncStrategyResult<TUnit> OnCompleted(
             TUnit state,
-            AsyncQueuedItem<TUnit> item,
-            AsyncCompletion completion,
+            IReadOnlyList<AsyncEnd<TUnit>> ended,
             IReadOnlyList<AsyncTrackedItem<TUnit>> tracked) =>
-            new(publish: true, next: AsyncStrategyResult<TUnit>.None);
+            new(publish: ItemsOf(ended), next: AsyncStrategyResult<TUnit>.None);
     }
 
     private sealed class QueueStrategy<TUnit>
@@ -1122,22 +1166,18 @@ internal static class AsyncConcurrencyStrategyFactory
 
         protected internal override AsyncStrategyResult<TUnit> OnCompleted(
             object? state,
-            AsyncQueuedItem<TUnit> item,
-            AsyncCompletion completion,
+            IReadOnlyList<AsyncEnd<TUnit>> ended,
             IReadOnlyList<AsyncTrackedItem<TUnit>> tracked)
         {
-            // `tracked` no longer holds the item that ends now, thus the test for the next item
-            // takes the first Queued item. The sequence of `tracked` is the sequence of the
-            // admissions.
+            // `tracked` holds no item of `ended`, thus the test for the next item takes the first
+            // Queued item. The sequence of `tracked` is the sequence of the admissions.
             //
-            // When a cancellation removed that next item during its wait, the execution engine
-            // finds that at the promotion and goes directly to AsyncCompletion.Canceled. That
-            // calls OnCompleted again, in a new transaction, where `tracked` no longer holds the
-            // canceled item and this code takes the one behind it.
-            AsyncTrackedItem<TUnit>? next = FirstQueued(tracked);
+            // One item starts, at each count of the ends. A cancellation can end the item that
+            // runs and some items that wait, and one item runs at a time whatever ended.
+            AsyncTrackedItem<TUnit>? next = IsBusy(tracked) ? null : FirstQueued(tracked);
 
             return new AsyncStrategyResult<TUnit>(
-                publish: true,
+                publish: ItemsOf(ended),
                 next: next is null
                     ? AsyncStrategyResult<TUnit>.None
                     : new[] { new AsyncToStart<TUnit>(next.Item) });
@@ -1214,24 +1254,42 @@ internal static class AsyncConcurrencyStrategyFactory
 
         protected internal override AsyncStrategyResult<TInput> OnCompleted(
             State state,
-            AsyncQueuedItem<TInput> item,
-            AsyncCompletion completion,
+            IReadOnlyList<AsyncEnd<TInput>> ended,
             IReadOnlyList<AsyncTrackedItem<TInput>> tracked)
         {
-            TGroup group = this.getGroup(item.Value);
+            // One item starts for each group that becomes free. The ends of one call can be in
+            // some groups, thus this reads the group of each one. A group with two ends gives one
+            // start, because the second test finds the first start in `started`.
+            List<AsyncToStart<TInput>> next = new();
+            List<TGroup> started = new();
 
-            // `tracked` no longer holds the item that ends now, thus the test for the next item
-            // takes the first Queued item of this group. The sequence of `tracked` is the sequence
-            // of the admissions, and a different group between two items of this group does not
-            // change that sequence.
-            AsyncTrackedItem<TInput>? next =
-                this.FirstQueued(tracked: tracked, state: state, group: group);
+            // ReSharper disable once ForCanBeConvertedToForeach - Done for performance reasons.
+            for (int i = 0; i < ended.Count; i++)
+            {
+                TGroup group = this.getGroup(ended[i].Item.Value);
 
-            return new AsyncStrategyResult<TInput>(
-                publish: true,
-                next: next is null
-                    ? AsyncStrategyResult<TInput>.None
-                    : new[] { new AsyncToStart<TInput>(next.Item) });
+                if (started.Exists(other => state.GroupComparer.Equals(x: other, y: group))
+                    || this.IsBusy(tracked: tracked, state: state, group: group))
+                {
+                    continue;
+                }
+
+                // `tracked` holds no item of `ended`, thus this takes the first Queued item of the
+                // group. The sequence of `tracked` is the sequence of the admissions, and a
+                // different group between two items of this group does not change that sequence.
+                AsyncTrackedItem<TInput>? first =
+                    this.FirstQueued(tracked: tracked, state: state, group: group);
+
+                if (first is null)
+                {
+                    continue;
+                }
+
+                started.Add(group);
+                next.Add(new AsyncToStart<TInput>(first.Item));
+            }
+
+            return new AsyncStrategyResult<TInput>(publish: ItemsOf(ended), next: next);
         }
 
         private bool IsBusy(IReadOnlyList<AsyncTrackedItem<TInput>> tracked, State state, TGroup group)
@@ -1309,21 +1367,31 @@ internal static class AsyncConcurrencyStrategyFactory
 
         protected internal override AsyncStrategyResult<TUnit> OnCompleted(
             State state,
-            AsyncQueuedItem<TUnit> item,
-            AsyncCompletion completion,
+            IReadOnlyList<AsyncEnd<TUnit>> ended,
             IReadOnlyList<AsyncTrackedItem<TUnit>> tracked)
         {
-            // Publish only when no newer run replaced this run.
-            bool isCurrent = state.Active != null && state.Active.Id == item.Id;
+            // Publish only the run that no newer run replaced. One call can hold the end of that
+            // run and the end of a run that it replaced, thus this tests each one.
+            List<AsyncQueuedItem<TUnit>> publish = new();
 
-            // This removes the reference at the end of the current run. Thus, the last QueuedItem,
-            // and its value, do not stay in memory after the pipeline becomes empty.
-            if (isCurrent)
+            // ReSharper disable once ForCanBeConvertedToForeach - Done for performance reasons.
+            for (int i = 0; i < ended.Count; i++)
             {
+                AsyncQueuedItem<TUnit> item = ended[i].Item;
+
+                if (state.Active == null || state.Active.Id != item.Id)
+                {
+                    continue;
+                }
+
+                // This removes the reference at the end of the current run. Thus, the last
+                // QueuedItem, and its value, do not stay in memory after the pipeline becomes
+                // empty.
                 state.Active = null;
+                publish.Add(item);
             }
 
-            return new AsyncStrategyResult<TUnit>(publish: isCurrent, next: AsyncStrategyResult<TUnit>.None);
+            return new AsyncStrategyResult<TUnit>(publish: publish, next: AsyncStrategyResult<TUnit>.None);
         }
 
         /// <summary>The item that runs, when there is one. Each new send replaces it.</summary>
@@ -1362,7 +1430,7 @@ internal static class AsyncConcurrencyStrategyFactory
 ///     <c>value</c> parameter that goes through <see cref="PromoteAndLaunch" /> into
 ///     <see cref="StartOperation" />.
 ///     The strategy reads no result at all. It reads <see cref="AsyncMapBase.AsyncCompletion" />,
-///     which says how the operation ended, and <see cref="Complete" /> asks it before this class
+///     which says how the operation ended, and <see cref="Flush" /> asks it before this class
 ///     makes the result. See <see cref="Publish" />.
 /// </summary>
 // ReSharper disable once InheritdocConsiderUsage
@@ -1403,15 +1471,14 @@ internal sealed class AsyncMapExecutionManager<TInput, TResult, TStrategyInput> 
 
     // The queue after the edits of Complete, with the transaction those edits belong to. A
     // Sample of the cell in a transaction gives the value from the start of that transaction. The
-    // cell takes a new value at the end of one. Thus, an Admit that runs after Complete, in the
-    // same transaction, cannot read the cell. It reads this field.
+    // cell takes a new value at the end of one. Thus, an Admit that runs after Flush, in the same
+    // transaction, cannot read the cell. It reads this field.
     //
-    // Complete is the one writer and CurrentQueue is the one reader. Complete keeps its own two
-    // edits as local values, thus OnCompleted needs no field. Complete runs through PostInternal,
-    // which gives it a transaction of its own. Thus, one transaction holds one call of Complete,
-    // and that call is the first work in it. A firing of `source` cannot come before it. Thus, the
-    // queue after Complete is the only value that a read after it, in the same transaction, can
-    // want.
+    // Flush is the one writer and CurrentQueue is the one reader. Flush keeps its own two edits as
+    // local values, thus OnCompleted needs no field. EndItem gives Flush a transaction of its own.
+    // Thus, one transaction holds one call of Flush, and that call is the first work in it. A
+    // firing of `source` cannot come before it. Thus, the queue after Flush is the only value that
+    // a read after it, in the same transaction, can want.
     //
     // Owner is the transaction that the value belongs to. A transaction that ends, and a
     // transaction that throws, keep a value against an owner that no code uses again. The next
@@ -1419,13 +1486,21 @@ internal sealed class AsyncMapExecutionManager<TInput, TResult, TStrategyInput> 
     // this field. That is necessary, because Transaction discards its queue of last actions when
     // it throws.
     //
-    // PostInternal gives Complete a transaction of its own in each condition. Where no
-    // transaction is open, PostInternal opens one for it. Where one is open, Close runs Complete
-    // in a new transaction after it. Thus, Owner is always the transaction of Complete.
-    // The read that must find this field is an Admit in that same transaction. The publish of
-    // Complete sends a result, and the graph can send that result back to `source`. An Admit in a
-    // different transaction finds a different owner, and the cell holds the value by then.
+    // EndItem gives Flush a transaction of its own in each condition. Where no transaction is
+    // open, EndItem calls Flush, and the Apply in Flush opens one. Where one is open, EndItem
+    // defers Flush, and Close runs it in a new transaction after that one. Thus, Owner is always
+    // the
+    // transaction of Flush. The read that must find this field is an Admit in that same
+    // transaction. The publish of Flush sends a result, and the graph can send that result back to
+    // `source`. An Admit in a different transaction finds a different owner, and the cell holds the
+    // value by then.
     private (Entry[] Queue, TransactionInternal Owner)? completedQueueAndOwner;
+
+    // The ends that this transaction made, and the transaction they belong to. One transaction
+    // gives the strategy one call, thus each end goes here and one Flush reads them all. A
+    // transaction that ends, and a transaction that throws, keep a list against an owner that no
+    // code uses again. The next transaction makes a list of its own.
+    private (List<PendingEnd> Ends, TransactionInternal Owner)? pendingEnds;
 
     private readonly StreamSink<TResult> results;
 
@@ -1869,11 +1944,13 @@ internal sealed class AsyncMapExecutionManager<TInput, TResult, TStrategyInput> 
     {
         if (toStart.Item.Cancellation.IsCancellationRequested)
         {
-            // A cancellation removed this item with the Queued status. This code ends it and
-            // does not call the operation. It uses the usual end path, thus a strategy such as
-            // Queue in the library starts the next item. Complete defers itself where a
-            // transaction is open, thus this call needs no deferral of its own.
-            this.Complete(
+            // A cancellation removed this item with the Queued status. This code ends it and does
+            // not call the operation. It uses the usual end path, thus a strategy such as Queue in
+            // the library starts the next item. EndItem defers itself where a transaction is open,
+            // thus this call needs no deferral of its own. It puts this end with each other end of
+            // the transaction, and one Flush after the transaction gives them to the strategy
+            // together.
+            this.EndItem(
                 item: toStart.Item,
                 pending: AsyncOutcome<MapAsyncResult<TResult>>.Canceled(),
                 trackedCell: trackedCell,
@@ -1923,7 +2000,7 @@ internal sealed class AsyncMapExecutionManager<TInput, TResult, TStrategyInput> 
                         token: linked.Token)
                     .ConfigureAwait(false);
 
-            this.Complete(
+            this.EndItem(
                 item: toStart.Item,
                 pending: AsyncOutcome<MapAsyncResult<TResult>>.Succeeded(operationResult),
                 trackedCell: trackedCell,
@@ -1931,7 +2008,7 @@ internal sealed class AsyncMapExecutionManager<TInput, TResult, TStrategyInput> 
         }
         catch (OperationCanceledException) when (linked.IsCancellationRequested)
         {
-            this.Complete(
+            this.EndItem(
                 item: toStart.Item,
                 pending: AsyncOutcome<MapAsyncResult<TResult>>.Canceled(),
                 trackedCell: trackedCell,
@@ -1939,7 +2016,7 @@ internal sealed class AsyncMapExecutionManager<TInput, TResult, TStrategyInput> 
         }
         catch (Exception ex)
         {
-            this.Complete(
+            this.EndItem(
                 item: toStart.Item,
                 pending: AsyncOutcome<MapAsyncResult<TResult>>.Failed(ex),
                 trackedCell: trackedCell,
@@ -1959,8 +2036,10 @@ internal sealed class AsyncMapExecutionManager<TInput, TResult, TStrategyInput> 
     // different item. Where no other item ended, the item stayed in the queue with the Queued
     // status, and no stream said that it ended.
     //
-    // This code runs in a registered listener callback, and Complete sends. Complete defers
-    // itself where a transaction is open, thus this code needs no deferral of its own.
+    // EndItem defers each end, because this code runs in a registered listener callback and a
+    // send is not legal there. Thus, a cancellation of more than one item gives the strategy one
+    // call and not one call for each item. That call reads the queue that holds no item of those
+    // ends.
     private void CancelTracked(
         IEnumerable<Entry> entries,
         Cell<Entry[]> trackedCell,
@@ -1981,7 +2060,7 @@ internal sealed class AsyncMapExecutionManager<TInput, TResult, TStrategyInput> 
                 continue;
             }
 
-            this.Complete(
+            this.EndItem(
                 item: e.Tracked.Item,
                 pending: AsyncOutcome<MapAsyncResult<TResult>>.Canceled(),
                 trackedCell: trackedCell,
@@ -1989,81 +2068,152 @@ internal sealed class AsyncMapExecutionManager<TInput, TResult, TStrategyInput> 
         }
     }
 
-    /// <summary>
-    ///     The one method that makes the effects of an item at its end. An item with no start,
-    ///     which a cancellation removed with the Queued status, also comes here. This method asks
-    ///     the strategy for its decision. Then, in one atomic SodaFlow transaction, it publishes
-    ///     the outcome if the strategy asks for that, removes the entry of this item, promotes
-    ///     each item that the strategy selects, and disposes the CancellationTokenSource of this
-    ///     item. The removal of the entry and the disposal of its CancellationTokenSource are in
-    ///     the same transaction, thus the Snapshot of a cancellation stream never reads a stale
-    ///     entry. That Snapshot sees the entry from before this transaction, and a cancellation
-    ///     can then remove it, or it does not see the entry at all, from after this transaction.
-    ///     This method runs through PostInternal, thus it never runs in a callback. Where a
-    ///     transaction is open, PostInternal defers this work to a new transaction that Close
-    ///     makes. A Send in a callback is not legal, and a caller of this method can be in one. A
-    ///     cancellation runs the registrations of a token on the thread that cancels it. This
-    ///     method can also call itself, through the short path in PromoteAndLaunch, and that call
-    ///     goes to the same queue. Thus, a long queue with a cancellation on each item does not
-    ///     make a depth of calls.
-    /// </summary>
-    private void Complete(
+    // Ends an item, and never from a SodaFlow callback.
+    //
+    // The operation of a Running item ends on the thread that cancels its token: Cancel() runs the
+    // registrations of the token, one of those completes the Task of the operation, and the
+    // continuation of that Task runs there. That thread is in the callback of the listener for a
+    // cancellation stream, thus a send from Flush throws, and the throw goes into the
+    // machinery of Cancel() where no code reports it. The item then had an OnCompleted and stayed
+    // in the queue. The strategy and the pipeline disagreed from that moment.
+    //
+    // A test for a transaction covers each path to here. A continuation on a thread from the pool
+    // has none and calls Flush. A continuation on the thread of a cancellation has one,
+    // and PostImpl gives the end its own transaction after that one closes.
+    private void EndItem(
         AsyncQueuedItem<TStrategyInput> item,
         AsyncOutcome<MapAsyncResult<TResult>> pending,
         Cell<Entry[]> trackedCell,
-        CancellationToken? tokenToCheck) =>
-        TransactionInternal.PostInternal(transaction =>
-        {
-            // A cancellation that arrived while the operation ran makes the item Canceled, also
-            // when the operation gave a result or threw.
-            AsyncOutcome<MapAsyncResult<TResult>> outcome =
-                tokenToCheck is { IsCancellationRequested: true }
-                    ? AsyncOutcome<MapAsyncResult<TResult>>.Canceled()
-                    : pending;
+        CancellationToken? tokenToCheck)
+    {
+        // A cancellation that arrived while the operation ran makes the item Canceled, also when
+        // the operation gave a result or threw.
+        AsyncOutcome<MapAsyncResult<TResult>> outcome =
+            tokenToCheck is { IsCancellationRequested: true }
+                ? AsyncOutcome<MapAsyncResult<TResult>>.Canceled()
+                : pending;
 
-            // An item ends one time. A cancellation ends a Queued item here, and a promotion of
-            // that same item ends it also. Thus, two paths can come to one item. The second path
-            // finds no entry and stops. Without this test, it calls OnCompleted a second time,
-            // and a strategy then starts a second item for that phantom end.
-            if (!Array.Exists(
-                    array: this.CurrentQueue(trackedCell),
-                    match: entry => entry.Item.Id == item.Id))
+        PendingEnd end = new(item: item, outcome: outcome, tokenToCheck: tokenToCheck);
+
+        TransactionInternal? current = TransactionInternal.GetCurrentTransaction();
+
+        if (current is null)
+        {
+            // A continuation on a thread from the pool. This end is the only one of its
+            // transaction, and Flush opens that transaction.
+            List<PendingEnd> alone = new() { end };
+            this.Flush(ends: alone, trackedCell: trackedCell);
+
+            return;
+        }
+
+        // A transaction is open, thus this code can be in a callback, where a send is not legal.
+        // The ends of this transaction go in one list, and one Flush after the transaction reads
+        // them. PostImpl gives that Flush a transaction of its own, where a send is legal and the
+        // cell holds the value that this transaction gave it.
+        if (this.pendingEnds is null || !ReferenceEquals(objA: this.pendingEnds.Value.Owner, objB: current))
+        {
+            this.pendingEnds = (Ends: new List<PendingEnd>(), Owner: current);
+
+            List<PendingEnd> ends = this.pendingEnds.Value.Ends;
+            TransactionInternal.PostImpl(() => this.Flush(ends: ends, trackedCell: trackedCell));
+        }
+
+        this.pendingEnds.Value.Ends.Add(end);
+    }
+
+    /// <summary>
+    ///     The one method that makes the effects of each item at its end. An item with no start,
+    ///     which a cancellation removed with the Queued status, also comes here. This method asks
+    ///     the strategy for one decision over each item that ends in one transaction. Then, in one
+    ///     atomic SodaFlow transaction, it publishes each outcome that the strategy asks for,
+    ///     removes the entry of each item, promotes each item that the strategy selects, and
+    ///     disposes the CancellationTokenSource of each one. The removal of an entry and the
+    ///     disposal of its CancellationTokenSource are in the same transaction, thus the Snapshot
+    ///     of a cancellation stream never reads a stale entry. That Snapshot sees the entry from
+    ///     before this transaction, and a cancellation can then remove it, or it does not see the
+    ///     entry at all, from after this transaction. EndItem gives this method each end, and never
+    ///     from a callback. Thus, a long queue with a cancellation on each item does not make a
+    ///     depth of calls.
+    /// </summary>
+    // Ends each item that this transaction ended, in one call to the strategy.
+    //
+    // A cancellation can end more than one item at one moment. CancelTracked removes each Queued
+    // item, and a Running item ends when its operation observes its token. One call for each of
+    // those asks the strategy for one decision at a time. Each of those decisions then reads a
+    // queue that holds the other items which end at the same moment. A strategy then starts an
+    // item that is about to end. One call over the queue that holds no item of those ends is one
+    // decision. That is the same rule that Admit and OnCompleted follow for one transaction.
+    private void Flush(IReadOnlyList<PendingEnd> ends, Cell<Entry[]> trackedCell) =>
+        TransactionInternal.Apply((transaction, _) =>
+        {
+            Entry[] queue = this.CurrentQueue(trackedCell);
+
+            // An item ends one time. A cancellation ends a Queued item, and a promotion of that
+            // same item ends it also, thus two paths can come to one item. An end for an item that
+            // the queue no longer holds is the second path, and it stops here. Without this test,
+            // the strategy gets a second end for an item that ended, and starts an item for it.
+            List<PendingEnd> live = new();
+
+            // ReSharper disable once LoopCanBeConvertedToQuery - Done for performance reasons.
+            // ReSharper disable once ForCanBeConvertedToForeach - Done for performance reasons.
+            for (int i = 0; i < ends.Count; i++)
             {
-                return;
+                if (Array.Exists(array: queue, match: entry => entry.Item.Id == ends[i].Item.Id))
+                {
+                    live.Add(ends[i]);
+                }
             }
 
-            // The removal comes first. Thus, the queue that OnCompleted reads, and the queue
-            // that an Admit of this same transaction reads, no longer hold the item that ends
-            // here. A loop from the result stream to the input stream makes one transaction of
-            // the two calls. The two must agree about what this pipeline holds.
-            //
-            // The two edits of this method are local values. The field below keeps the queue
-            // after the two, and the send gives it to the cell. Thus, the cell takes one value,
-            // and an Admit after this reads that same value. No code can return between the
-            // edits. A throw between them ends the transaction with no value at all.
+            if (live.Count == 0)
+            {
+                return UnitInternal.Value;
+            }
+
+            Guid[] removals = new Guid[live.Count];
+            AsyncEnd<TStrategyInput>[] ended = new AsyncEnd<TStrategyInput>[live.Count];
+
+            for (int i = 0; i < live.Count; i++)
+            {
+                removals[i] = live[i].Item.Id;
+
+                ended[i] =
+                    new AsyncEnd<TStrategyInput>(
+                        item: live[i].Item,
+                        completion: live[i].Outcome.Match(
+                            onSucceeded: static _ => AsyncCompletion.Succeeded(),
+                            onFailed: AsyncCompletion.Failed,
+                            onCanceled: AsyncCompletion.Canceled));
+            }
+
+            // The removals come first. Thus, the queue that OnCompleted reads, and the queue that
+            // an Admit of this same transaction reads, hold no item that ends here. A loop from
+            // the result stream to the input stream makes one transaction of the two calls. The
+            // two must agree about what this pipeline holds.
             Entry[] tracked =
                 Apply(
-                    list: trackedCell.SampleImpl(),
+                    list: queue,
                     mutation: new Mutation(
-                        remove: new[] { item.Id },
+                        remove: removals,
                         promote: Array.Empty<Guid>(),
                         add: Array.Empty<Entry>()));
 
-            // The strategy reads how the operation ended and not the result, thus this call comes
-            // before the construction of the result. See AsyncCompletion for what that gives: the
+            // The strategy reads how each operation ended and not its result, thus this call comes
+            // before the construction of a result. See AsyncCompletion for what that gives: the
             // pipeline makes a result only for an item that it publishes.
             AsyncStrategyResult<TStrategyInput> decision =
-                this.stateManager.OnCompleted(
-                    item: item,
-                    completion: outcome.Match(
-                        onSucceeded: static _ => AsyncCompletion.Succeeded(),
-                        onFailed: AsyncCompletion.Failed,
-                        onCanceled: AsyncCompletion.Canceled),
-                    tracked: new TrackedItems(tracked));
+                this.stateManager.OnCompleted(ended: ended, tracked: new TrackedItems(tracked));
 
-            if (decision.Publish)
+            foreach (PendingEnd end in live)
             {
-                outcome.MatchVoid(
+                if (!ContainsId(items: decision.Publish, id: end.Item.Id))
+                {
+                    continue;
+                }
+
+                CancellationToken? tokenToCheck = end.TokenToCheck;
+
+                end.Outcome.MatchVoid(
                     onSucceeded: operationResult => this.Publish(
                         operationResult: operationResult,
                         tokenToCheck: tokenToCheck),
@@ -2101,7 +2251,10 @@ internal sealed class AsyncMapExecutionManager<TInput, TResult, TStrategyInput> 
 
             this.queueUpdates.SendImpl(tracked);
 
-            item.Cancellation.Dispose();
+            foreach (PendingEnd end in live)
+            {
+                end.Item.Cancellation.Dispose();
+            }
 
             for (int i = 0; i < decision.Next.Count; i++)
             {
@@ -2110,7 +2263,24 @@ internal sealed class AsyncMapExecutionManager<TInput, TResult, TStrategyInput> 
                     value: values[i],
                     trackedCell: trackedCell);
             }
+
+            return UnitInternal.Value;
         });
+
+    private static bool ContainsId(IReadOnlyList<AsyncQueuedItem<TStrategyInput>> items, Guid id)
+    {
+        // ReSharper disable once LoopCanBeConvertedToQuery - Done for performance reasons.
+        // ReSharper disable once ForCanBeConvertedToForeach - Done for performance reasons.
+        for (int i = 0; i < items.Count; i++)
+        {
+            if (items[i].Id == id)
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
 
     /// <summary>
     ///     Makes the result of an item and sends it. This is the one code that calls the function
@@ -2153,6 +2323,26 @@ internal sealed class AsyncMapExecutionManager<TInput, TResult, TStrategyInput> 
 
     // ---- The records of the tracked items. They are private to the execution engine, and a
     // strategy cannot read them. ----
+
+    // One item that ended, with what its operation gave and the token to test at the publish.
+    private sealed class PendingEnd
+    {
+        public PendingEnd(
+            AsyncQueuedItem<TStrategyInput> item,
+            AsyncOutcome<MapAsyncResult<TResult>> outcome,
+            CancellationToken? tokenToCheck)
+        {
+            this.Item = item;
+            this.Outcome = outcome;
+            this.TokenToCheck = tokenToCheck;
+        }
+
+        public AsyncQueuedItem<TStrategyInput> Item { get; }
+
+        public AsyncOutcome<MapAsyncResult<TResult>> Outcome { get; }
+
+        public CancellationToken? TokenToCheck { get; }
+    }
 
     private sealed class Entry
     {

@@ -9,6 +9,24 @@ that item out by hand must drop the filter, or it skips a real item. Admit is
 unchanged in this: the value that the pipeline admits now is still absent,
 because the pipeline adds it after the call.
 
+BREAKING: OnCompleted takes each item that ends in one transaction, as an
+IReadOnlyList<AsyncEnd<TInput>>, in place of one item and one AsyncCompletion.
+An AsyncEnd holds those two values. The Publish property of AsyncStrategyResult
+names the items whose outcomes the pipeline publishes, in place of a bool.
+
+A cancellation can end more than one item at one moment: each Queued item that
+it removes, and each Running item whose operation observes its token. One call
+for each of those asked the strategy for one decision at a time, and each of
+those decisions read a queue that held the other items which end at the same
+moment. A strategy thus started an item that was about to end. One call over
+the queue that holds no item of those ends is one decision.
+
+A call of MapAsync with a strategy from this library needs no edit for this. A
+custom strategy that published every outcome returns ItemsOf(ended) in place of
+true, one that published none returns PublishNone in place of false, and one
+that starts the next Queued item must also test the queue, because more than
+one item can end at one moment.
+
 Fixed: a MapAsync call no longer stalls where the graph feeds results back
 into inputs. A published result can fire the input stream in the transaction
 that ended the previous item, thus OnCompleted and Admit run one after the
@@ -59,8 +77,8 @@ OnCompleted, the queue of the pipeline: each item that it tracks, Queued or
 Running, in the sequence of their admissions, with the status of each one. A
 strategy that schedules on that sequence alone keeps no queue of its own. In
 Admit the list does not hold the value that the pipeline admits now, and in
-OnCompleted it still holds the item that ends now. A call of MapAsync with a
-strategy from this library needs no edit for this.
+OnCompleted it holds no item that ends now. A call of MapAsync with a strategy
+from this library needs no edit for this.
 
 BREAKING: MapAsync has three overloads, where it had nine. The six that are gone
 each named a result type for the strategy, and a strategy no longer reads a

@@ -9,6 +9,28 @@ that item out by hand must drop the filter, or it skips a real item. Admit is
 unchanged in this: the value that the pipeline admits now is still absent,
 because the pipeline adds it after the call.
 
+BREAKING: OnCompleted takes each item that ends in one transaction, as an
+IReadOnlyList<AsyncEnd<TInput>>, in place of one AsyncQueuedItem and one
+AsyncCompletion. An AsyncEnd holds those two values. The Publish property of
+AsyncStrategyResult is an IReadOnlyList<AsyncQueuedItem<TInput>> in place of a
+bool, and it names the items whose outcomes the pipeline publishes.
+
+A cancellation can end more than one item at one moment: each Queued item that
+it removes, and each Running item whose operation observes its token. One call
+for each of those asked the strategy for one decision at a time, and each of
+those decisions read a queue that held the other items which end at the same
+moment. A strategy thus started an item that was about to end. One call over
+the queue that holds no item of those ends is one decision, which is the rule
+that Admit and OnCompleted already follow for one transaction.
+
+A custom strategy that published every outcome returns ItemsOf(ended), which is
+a static method on the base class, in place of true. One that published none
+returns AsyncStrategyResult<TInput>.PublishNone in place of false. One that
+decided for each item builds the list. A strategy that starts the next Queued
+item must also test the queue, because more than one item can end at one
+moment: Queue in this library starts nothing while an item is Running, and
+QueuePerGroup starts one item for each group that becomes free.
+
 Fixed: a MapAsync call no longer stalls where the graph feeds results back
 into inputs. A published result can fire the input stream in the transaction
 that ended the previous item, thus OnCompleted and Admit run one after the
@@ -57,10 +79,9 @@ instance, and the status of that item now.
 
 A strategy that schedules on the sequence alone thus keeps no queue of its own.
 Two limits decide what the next item is: in Admit the list does not hold the
-value that the pipeline admits now, and in OnCompleted it still holds the item
-that ends now. It is a snapshot from the start of the transaction, thus it does
-not change while the call runs, and an item that the call starts is Queued in
-it.
+value that the pipeline admits now, and in OnCompleted it holds no item that
+ends now. It does not change while the call runs, and an item that the call
+starts is Queued in it.
 
 Each custom strategy takes the new parameter, also one that does not read it.
 
