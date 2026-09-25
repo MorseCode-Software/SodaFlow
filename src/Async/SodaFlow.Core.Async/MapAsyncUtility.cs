@@ -1273,8 +1273,8 @@ internal static class AsyncConcurrencyStrategyFactory
             // `tracked` holds no item of `ended`, thus the test for the next item takes the first
             // Queued item. The sequence of `tracked` is the sequence of the admissions.
             //
-            // One item starts, at each count of the ends. A cancellation can end the item that
-            // runs and some items that wait, and one item runs at a time whatever ended.
+            // One item starts, whatever the count of the ends. A cancellation can end the item
+            // that runs and some items that wait, and one item runs at a time.
             AsyncTrackedItem<TUnit>? next = IsBusy(tracked) ? null : FirstQueued(tracked);
 
             return new AsyncStrategyResult<TUnit>(
@@ -1555,29 +1555,29 @@ internal sealed class AsyncMapExecutionManager<TInput, TResult, TStrategyInput> 
 
     private readonly Func<TInput, TStrategyInput> inputConverter;
 
-    // This carries the queue of tracked items after the edits that Complete makes. One sequence
-    // of edits makes the value a strategy reads. It makes the value of the cell also. Thus, the
-    // two cannot disagree.
-    //
-    // Complete sends one value for each transaction, because one transaction holds one call of
-    // Complete. See the OrElse in Attach. The coalesce keeps the last value, which is correct for
-    // each count of sends. Each edit applies to the queue that the edit before it made.
-    //
-    // Complete is not in a SodaFlow callback. A continuation on a background thread opens its own
-    // transaction, and the deferred path opens one for each action. Thus Send is legal.
     // Each value that Execute puts into this pipeline, with the TaskCompletionSource that the
     // Task of that call answers. This sink is private to this manager, thus Execute is the one
-    // sender. Execute refuses a call in an open transaction, and it sends in a transaction of its
-    // own. This sink and `source` thus never fire in one transaction. One OrElse of the two is
-    // sufficient, and the pipeline keeps the value of each side.
+    // sender. SendAdmission always sends in a transaction of its own: it opens one where none is
+    // open, and it defers where one is. This sink and `source` thus never fire in one transaction.
+    // One OrElse of the two is sufficient, and the pipeline keeps the value of each side.
     private readonly StreamSink<Admission> executeRequests = StreamInternal.CreateSinkImpl<Admission>();
 
+    // This carries the queue of tracked items after the edits that Flush makes. One sequence of
+    // edits makes the value a strategy reads. It makes the value of the cell also. Thus, the two
+    // cannot disagree.
+    //
+    // Flush sends one value for each transaction, because one transaction holds one call of Flush.
+    // See the OrElse in Attach. The coalesce keeps the last value, which is correct for each count
+    // of sends. Each edit applies to the queue that the edit before it made.
+    //
+    // Flush is not in a SodaFlow callback. A continuation on a background thread opens its own
+    // transaction, and the deferred path opens one for each action. Thus Send is legal.
     private readonly StreamSink<Entry[]> queueUpdates =
         StreamInternal.CreateSinkImpl<Entry[]>(static (_, last) => last);
 
     private readonly MapAsyncOperation<TInput, TResult> operation;
 
-    // The queue after the edits of Complete, with the transaction those edits belong to. A
+    // The queue after the edits of Flush, with the transaction those edits belong to. A
     // Sample of the cell in a transaction gives the value from the start of that transaction. The
     // cell takes a new value at the end of one. Thus, an Admit that runs after Flush, in the same
     // transaction, cannot read the cell. It reads this field.
@@ -1597,8 +1597,7 @@ internal sealed class AsyncMapExecutionManager<TInput, TResult, TStrategyInput> 
     // EndItem gives Flush a transaction of its own in each condition. Where no transaction is
     // open, EndItem calls Flush, and the Apply in Flush opens one. Where one is open, EndItem
     // defers Flush, and Close runs it in a new transaction after that one. Thus, Owner is always
-    // the
-    // transaction of Flush. The read that must find this field is an Admit in that same
+    // the transaction of Flush. The read that must find this field is an Admit in that same
     // transaction. The publish of Flush sends a result, and the graph can send that result back to
     // `source`. An Admit in a different transaction finds a different owner, and the cell holds the
     // value by then.
@@ -1614,7 +1613,7 @@ internal sealed class AsyncMapExecutionManager<TInput, TResult, TStrategyInput> 
 
     // This code makes this at the start, as the class remarks give, and never replaces it. No
     // lock protects it, and no lock is necessary. Only code in a SodaFlow transaction uses it:
-    // the Map in Attach, and the Transaction.RunVoid in Complete. SodaFlow puts each transaction
+    // the Map in Attach, and the Apply in Flush. SodaFlow puts each transaction
     // in the process in sequence behind one global lock, thus one transaction or no transaction
     // runs at a time, on each thread. This code uses that guarantee of one transaction
     // at a time. A SodaFlow implementation with no such guarantee makes a lock necessary for this
@@ -1676,7 +1675,7 @@ internal sealed class AsyncMapExecutionManager<TInput, TResult, TStrategyInput> 
                 // Map runs as usual transaction code and is not a registered listener callback.
                 // Thus, it runs in the transaction of the source. It must not Send. The
                 // transaction counts it as a callback while a send drives it. Thus, it returns the
-                // new queue into the graph, and Complete sends the edits that it makes.
+                // new queue into the graph, and Flush sends the edits that it makes.
                 //
                 // The pipeline tracks each admitted value from this moment. It adds the value with
                 // the Queued status, and then promotes it to Running for each ToStart that Admit
@@ -1800,12 +1799,12 @@ internal sealed class AsyncMapExecutionManager<TInput, TResult, TStrategyInput> 
                 //
                 // OrElse, and the sequence of the two is what makes it correct. One transaction
                 // gives at most one value here from each side. `source` is a stream, thus it fires
-                // one time for each transaction. One transaction holds one call of Complete,
+                // one time for each transaction. One transaction holds one call of Flush,
                 // because a continuation opens its own transaction and the deferred path opens one
                 // for each action.
                 //
                 // Where the two fire together, the graph of the caller makes `source` from the
-                // results. The value of `starts` then comes after the value of Complete. Complete
+                // results. The value of `starts` then comes after the value of Flush. Flush
                 // sends in its own body. The publish operation that admits the next value goes to
                 // `source` when this transaction sends the values it holds, which is after that
                 // body. OrElse takes the value on the left, thus `starts` is on the left.
@@ -1923,8 +1922,8 @@ internal sealed class AsyncMapExecutionManager<TInput, TResult, TStrategyInput> 
             continuationOptions: TaskContinuationOptions.OnlyOnFaulted | TaskContinuationOptions.ExecuteSynchronously,
             scheduler: TaskScheduler.Default);
 
-    // The queue that a strategy reads. A call of Complete in this transaction leaves the queue it
-    // made in completedQueueAndOwner, and this gives that value. Where no call of Complete in this
+    // The queue that a strategy reads. A call of Flush in this transaction leaves the queue it made
+    // in completedQueueAndOwner, and this gives that value. Where no call of Flush in this
     // transaction left one, the cell gives the queue from the start of the transaction, which is
     // the correct answer.
     //
@@ -2047,7 +2046,8 @@ internal sealed class AsyncMapExecutionManager<TInput, TResult, TStrategyInput> 
     ///     only public path to a disposal. <see cref="disposeState" /> makes this method run one
     ///     time, because each thread can call it with no SodaFlow transaction open.
     /// </summary>
-    // Puts one value into this pipeline and answers with the Task of that value alone.
+    // The two Execute methods of AsyncMapStatus<TInput, TResult> call these two. The remarks of
+    // those methods give the contract, and SendAdmission below gives the mechanism.
     private Task<TResult> Execute(TInput value)
     {
         TaskCompletionSource<TResult> completion = NewExecuteCompletion();
@@ -2057,7 +2057,8 @@ internal sealed class AsyncMapExecutionManager<TInput, TResult, TStrategyInput> 
         return completion.Task;
     }
 
-    // Puts the value of a cell into this pipeline, read in the transaction of the send.
+    // The read of the cell is in the function that this gives to SendAdmission. Thus, that read
+    // is in the transaction of the send and not in this method.
     private Task<TResult> ExecuteFromCell(Cell<TInput> value)
     {
         if (value is null)
@@ -2224,7 +2225,7 @@ internal sealed class AsyncMapExecutionManager<TInput, TResult, TStrategyInput> 
 
     // Cancels each entry that the test selects, and ends the Queued ones here.
     //
-    // A Running item observes its token and its operation ends, thus Complete runs for it on the
+    // A Running item observes its token and its operation ends, thus EndItem runs for it on the
     // usual path. A Queued item runs no operation, thus nothing observes its token. Before this,
     // the end of such an item waited for a promotion, and a promotion comes from the end of a
     // different item. Where no other item ended, the item stayed in the queue with the Queued
@@ -2322,22 +2323,27 @@ internal sealed class AsyncMapExecutionManager<TInput, TResult, TStrategyInput> 
     ///     the strategy for one decision over each item that ends in one transaction. Then, in one
     ///     atomic SodaFlow transaction, it publishes each outcome that the strategy asks for,
     ///     removes the entry of each item, promotes each item that the strategy selects, and
-    ///     disposes the CancellationTokenSource of each one. The removal of an entry and the
-    ///     disposal of its CancellationTokenSource are in the same transaction, thus the Snapshot
-    ///     of a cancellation stream never reads a stale entry. That Snapshot sees the entry from
-    ///     before this transaction, and a cancellation can then remove it, or it does not see the
-    ///     entry at all, from after this transaction. EndItem gives this method each end, and never
-    ///     from a callback. Thus, a long queue with a cancellation on each item does not make a
-    ///     depth of calls.
+    ///     disposes the CancellationTokenSource of each one.
+    ///     <para>
+    ///         One decision for each transaction, and not one for each item, because a cancellation
+    ///         can end more than one item at one moment. CancelTracked removes each Queued item, and
+    ///         a Running item ends when its operation observes its token. One call for each of those
+    ///         asks the strategy for one decision at a time. Each of those decisions then reads a
+    ///         queue that holds the other items which end at the same moment. A strategy then starts
+    ///         an item that is about to end. This is the same rule that Admit and OnCompleted follow
+    ///         for one transaction.
+    ///     </para>
+    ///     <para>
+    ///         The removal of an entry and the disposal of its CancellationTokenSource are in the
+    ///         same transaction, thus the Snapshot of a cancellation stream never reads a stale
+    ///         entry. That Snapshot sees the entry from before this transaction, and a cancellation
+    ///         can then remove it, or it does not see the entry at all, from after this transaction.
+    ///     </para>
+    ///     <para>
+    ///         EndItem gives this method each end, and never from a callback. Thus, a long queue
+    ///         with a cancellation on each item does not make a depth of calls.
+    ///     </para>
     /// </summary>
-    // Ends each item that this transaction ended, in one call to the strategy.
-    //
-    // A cancellation can end more than one item at one moment. CancelTracked removes each Queued
-    // item, and a Running item ends when its operation observes its token. One call for each of
-    // those asks the strategy for one decision at a time. Each of those decisions then reads a
-    // queue that holds the other items which end at the same moment. A strategy then starts an
-    // item that is about to end. One call over the queue that holds no item of those ends is one
-    // decision. That is the same rule that Admit and OnCompleted follow for one transaction.
     private void Flush(IReadOnlyList<PendingEnd> ends, Cell<Entry[]> trackedCell) =>
         TransactionInternal.Apply((transaction, _) =>
         {

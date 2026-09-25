@@ -185,7 +185,7 @@ public sealed class MapAsyncExtensionsTests
 
         // Cancel() runs the registrations of the token on this thread, one of those ends the
         // operation, and the continuation of that operation runs here, inside the callback of the
-        // listener for this stream. Complete sends, and a send in a callback throws. The throw
+        // listener for this stream. Flush sends, and a send in a callback throws. The throw
         // went into the machinery of Cancel() and no code reported it, thus the item kept the
         // Running status with no operation behind it.
         cancelAll.Send(Unit.Value);
@@ -1462,8 +1462,8 @@ public sealed class MapAsyncExtensionsTests
         List<string> received = [];
         IListener l = results.ListenStrong(received.Add);
 
-        // The input depends on the result. Thus Complete publishes, the input fires, and Admit
-        // runs in the transaction that Complete opened. The two read the queue, and the two must
+        // The input depends on the result. Thus Flush publishes, the input fires, and Admit
+        // runs in the transaction that Flush opened. The two read the queue, and the two must
         // see that the item which ends here does not count as an item that runs.
         Stream<string> input = trigger.OrElse(results.Filter(static r => r.Length < 2).Map(static r => r + "x"));
 
@@ -1486,7 +1486,7 @@ public sealed class MapAsyncExtensionsTests
         op.Release(input: "a", result: "a");
         TestUtil.WaitUntil(() => op.HasStarted("ax"));
 
-        // The queue after that transaction. Two edits got to the cell by two paths here: Complete
+        // The queue after that transaction. Two edits got to the cell by two paths here: Flush
         // sent one, and the transform that admitted "ax" returned one. The cell must keep the edit
         // that this pipeline made last, which is the admission. A cell that keeps the other one
         // holds an empty queue, and this assertion fails.

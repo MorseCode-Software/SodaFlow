@@ -10,8 +10,8 @@ namespace SodaFlow.Async;
 ///     listen on a Stream&lt;TInput&gt;, run an async operation for each send, put the result into
 ///     a StreamSink&lt;TResult&gt;, and give the Queued items and the Running items. They can also
 ///     connect to streams that cancel Queued work and Running work. The
-///     <see cref="AsyncMapStatus{TInput}" /> that they return is IDisposable, and a disposal of it
-///     stops the full pipeline.
+///     <see cref="AsyncMapStatus{TInput,TResult}" /> that they return is IDisposable, and a
+///     disposal of it stops the full pipeline.
 ///     <para>
 ///         The overloads are different only in the path from the <c>TInput</c> and the
 ///         <c>TResult</c> of the call to the types of the <c>strategy</c> argument. Select the
@@ -51,8 +51,8 @@ public static class AsyncStreamExtensions
     /// </param>
     /// <param name="cancelOnDispose">True when a disposal also cancels the tracked items. The default is true.</param>
     /// <returns>
-    ///     An <see cref="AsyncMapStatus{TInput}" /> that gives the Queued items and the Running
-    ///     items. A disposal of it stops the pipeline.
+    ///     An <see cref="AsyncMapStatus{TInput,TResult}" /> that gives the Queued items, the
+    ///     Running items, and Execute. A disposal of it stops the pipeline.
     /// </returns>
     /// <exception cref="ArgumentNullException">
     ///     <paramref name="source" />, <paramref name="results" />, <paramref name="errors" />,
@@ -109,8 +109,8 @@ public static class AsyncStreamExtensions
     /// </param>
     /// <param name="cancelOnDispose">True when a disposal also cancels the tracked items. The default is true.</param>
     /// <returns>
-    ///     An <see cref="AsyncMapStatus{TInput}" /> that gives the Queued items and the Running
-    ///     items. A disposal of it stops the pipeline.
+    ///     An <see cref="AsyncMapStatus{TInput,TResult}" /> that gives the Queued items, the
+    ///     Running items, and Execute. A disposal of it stops the pipeline.
     /// </returns>
     /// <exception cref="ArgumentNullException">
     ///     <paramref name="source" />, <paramref name="results" />, <paramref name="errors" />,
@@ -208,7 +208,7 @@ public static class AsyncStreamExtensions
     ///     for TInput. The limits of <paramref name="cancelAll" /> also apply here.
     /// </param>
     /// <param name="cancelOnDispose">
-    ///     True when a disposal of the <see cref="AsyncMapStatus{TInput}" /> also cancels each
+    ///     True when a disposal of the <see cref="AsyncMapStatus" /> also cancels each
     ///     item that the pipeline tracks at that time, Queued or Running. The default is true. At
     ///     each value, a disposal always stops the admission of more values. This code sets the
     ///     value here, at the setup, and not as a parameter of Dispose, because
@@ -221,10 +221,11 @@ public static class AsyncStreamExtensions
     ///     purpose.
     /// </param>
     /// <returns>
-    ///     An <see cref="AsyncMapStatus{TInput}" />. IsRunning is a Cell&lt;bool&gt; that is true
-    ///     while one call or more has the Running status, and a Queued item does not make it true.
-    ///     It updates with no glitch, in the transaction of the event that changes it. Items gives
-    ///     each tracked value with its status. A disposal of the status stops the pipeline.
+    ///     An <see cref="AsyncMapStatus{TInput,TResult}" />. IsRunning is a Cell&lt;bool&gt; that is
+    ///     true while one call or more has the Running status, and a Queued item does not make it
+    ///     true. It updates with no glitch, in the transaction of the event that changes it. Items
+    ///     gives each tracked value with its status. Execute puts one value in, for an operation
+    ///     that drives a second pipeline. A disposal of the status stops the pipeline.
     /// </returns>
     /// <exception cref="ArgumentNullException">
     ///     <paramref name="source" />, <paramref name="results" />, <paramref name="errors" />,
