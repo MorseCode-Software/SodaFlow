@@ -162,6 +162,44 @@ public sealed class MapAsyncExtensionsTests
     }
 
     [Test]
+    public async Task CancelAll_EndsARunningItemAndStopsTrackingIt()
+    {
+        StreamSink<string> source = Stream.CreateSink<string>();
+        StreamSink<string> results = Stream.CreateSink<string>();
+        StreamSink<Exception> errors = Stream.CreateSink<Exception>();
+        StreamSink<Unit> cancelAll = Stream.CreateSink<Unit>();
+        ControlledOperation<string, string> op = new();
+
+        AsyncMapStatus<string> status =
+            source.MapAsync(
+                results: results,
+                errors: errors,
+                operation: op.Operation,
+                strategy: AsyncConcurrencyStrategy.Parallel(),
+                cancelAll: cancelAll);
+
+        Cell<IReadOnlyList<AsyncItem<string>>> tracked = status.Items;
+
+        source.Send("a");
+        TestUtil.WaitUntil(() => op.HasStarted("a"));
+
+        // Cancel() runs the registrations of the token on this thread, one of those ends the
+        // operation, and the continuation of that operation runs here, inside the callback of the
+        // listener for this stream. Complete sends, and a send in a callback throws. The throw
+        // went into the machinery of Cancel() and no code reported it, thus the item kept the
+        // Running status with no operation behind it.
+        cancelAll.Send(Unit.Value);
+
+        TestUtil.WaitUntil(() => Transaction.Run(tracked.Sample).Count == 0);
+
+        await Assert.That(Transaction.Run(tracked.Sample))
+            .IsEmpty()
+            .Because("a cancellation of a running item should end it and stop the tracking");
+
+        status.Dispose();
+    }
+
+    [Test]
     public async Task CancelMatching_EndsAQueuedItemWithNoOtherCompletion()
     {
         StreamSink<string> source = Stream.CreateSink<string>();

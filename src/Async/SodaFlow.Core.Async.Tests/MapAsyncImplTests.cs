@@ -144,14 +144,12 @@ public sealed class MapAsyncImplTests
     ///     return it as an <see cref="AsyncMapBase.AsyncToStart{TInput}" /> in the same
     ///     <c>Admit</c> call. The contract of that method permits this, and the method to refuse a
     ///     value above is different, because it cancels the item and never promotes it. This
-    ///     sequence now stops the process. The branch in <c>PromoteAndLaunch</c> for an item that
-    ///     a cancellation removed calls <c>Complete</c> synchronously, inline, in the transaction
-    ///     that processes the admission. The branch for a usual start below it defers through
-    ///     <c>TransactionInternal.PostImpl</c> to prevent that. <c>Complete</c> then opens its own
-    ///     transaction with <c>TransactionInternal.RunImpl</c>, which is not legal while a
-    ///     transaction is open, and the <c>Send</c> in it throws
-    ///     <c>InvalidOperationException("Send may not be called inside a callback.")</c>. This
-    ///     test fails until <c>PromoteAndLaunch</c> defers that branch in the same manner.
+    ///     sequence stopped the process. The branch in <c>PromoteAndLaunch</c> for an item that a
+    ///     cancellation removed called <c>Complete</c> in the transaction that processes the
+    ///     admission. <c>Complete</c> opened a transaction of its own, and the <c>Send</c> in it
+    ///     threw <c>InvalidOperationException("Send may not be called inside a callback.")</c>.
+    ///     <c>Complete</c> goes through <c>TransactionInternal.PostInternal</c> now, which defers
+    ///     it to a new transaction where a <c>Send</c> is legal. This test fails without that.
     /// </summary>
     [Test]
     public async Task Admit_CancelingAndPromotingTheSameItemInOneCall_CompletesItAsCanceledInstead()
