@@ -85,6 +85,15 @@ public static class Transaction
     ///     Runs an action after the current transaction closes
     ///     or immediately if there is no current transaction.
     /// </summary>
+    /// <remarks>
+    ///     A transaction that fails while it propagates does not run the actions that this method
+    ///     holds. A listener that throws is one cause of such a failure. Thus, an action here is not
+    ///     a promise that this library keeps in each condition. Do not make one of these actions the
+    ///     only code that gives a value to code that waits. A TaskCompletionSource, or a callback
+    ///     of a different library, is such code. That code waits forever where the transaction
+    ///     fails. MapAsync gives the supported path for an await on one value. The Execute methods
+    ///     of the status that it answers with hold this rule.
+    /// </remarks>
     /// <param name="action">
     ///     The action to run after the current transaction closes
     ///     or immediately if there is no current transaction.

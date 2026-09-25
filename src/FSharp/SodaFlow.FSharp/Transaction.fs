@@ -67,6 +67,15 @@ let onStart a =
 /// <remarks>
 ///     The action runs with the transaction lock held, while the transaction closes. Thus, the rule
 ///     for a listener callback also applies: return quickly.
+///     <para>
+///         A transaction that fails while it propagates does not run the actions that this function
+///         holds. A listener that throws is one cause of such a failure. Thus, an action here is not
+///         a promise that this library keeps in each condition. Do not make one of these actions the
+///         only code that gives a value to code that waits. A TaskCompletionSource, or a callback of
+///         a different library, is such code. That code waits forever where the transaction fails.
+///         mapAsync gives the supported path for an await on one value. The Execute methods of the
+///         status that it answers with hold this rule.
+///     </para>
 /// </remarks>
 [<MethodImpl(MethodImplOptions.NoInlining)>]
 let post a = TransactionInternal.PostImpl(Action a)
