@@ -307,13 +307,18 @@ let filter (predicate: 'TIdentity -> 'TState -> bool) (upstream: ReactiveCollect
     CollectionViewUtility.FilterImpl(upstream, CellInternal.ConstantImpl(Func<_, _, _> predicate))
 
 /// <summary>
-///     Narrows the view with a predicate that can change. Each change to the predicate builds
-///     this stage again, at a cost of <c>O(m log m)</c> in the size of the upstream. Thus, a
-///     criteria from a keystroke needs a Calm stage above this one.
+///     Narrows the view with a predicate that can change. Each change to the predicate tests each
+///     item of the upstream again, and reports the keys that entered and left as inserts and
+///     removals, not as a reset. Thus, a criteria from a keystroke needs a Calm stage above this
+///     one.
 /// </summary>
 /// <param name="predicateCell">The predicate in force.</param>
 /// <param name="upstream">The collection or view to narrow.</param>
 /// <returns>A view with the items that the predicate accepts.</returns>
+/// <remarks>
+///     When more keys move than a list of them is worth, this stage builds again, at a cost of
+///     <c>O(m log m)</c> in the size of the upstream, and reports a reset.
+/// </remarks>
 [<MethodImpl(MethodImplOptions.NoInlining)>]
 let filterC
     (predicateCell: Cell<'TIdentity -> 'TState -> bool>)
@@ -372,15 +377,17 @@ let filterByIdentity (predicate: 'TIdentity -> bool) (upstream: ReactiveCollecti
 
 /// <summary>
 ///     Narrows the view with a predicate on the identity of each item that can change. Each
-///     change to the predicate builds this stage again, at a cost of <c>O(m log m)</c> in the size
-///     of the upstream. Thus, a criteria from a keystroke needs a Calm stage above this one.
+///     change to the predicate tests each item of the upstream again, and reports the keys that
+///     entered and left as inserts and removals, not as a reset. Thus, a criteria from a keystroke
+///     needs a Calm stage above this one.
 /// </summary>
 /// <param name="predicateCell">The predicate in force.</param>
 /// <param name="upstream">The collection or view to narrow.</param>
 /// <returns>A view with the items that the predicate accepts.</returns>
 /// <remarks>
-///     See <c>filterByIdentity</c>. A change to the predicate tests each item again, and a state
-///     edit still does not.
+///     See <c>filterByIdentity</c>. A state edit still does not test the predicate. When a change
+///     to the predicate moves more keys than a list of them is worth, this stage builds again, at a
+///     cost of <c>O(m log m)</c> in the size of the upstream, and reports a reset.
 /// </remarks>
 [<MethodImpl(MethodImplOptions.NoInlining)>]
 let filterByIdentityC

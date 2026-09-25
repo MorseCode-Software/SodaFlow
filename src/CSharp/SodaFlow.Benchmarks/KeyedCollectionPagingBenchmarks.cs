@@ -13,8 +13,8 @@ namespace SodaFlow.Benchmarks;
 /// <remarks>
 ///     <para>
 ///         This is a criteria change. <see cref="KeyedCollectionViewBenchmarks" /> reports it as the
-///         condition a chain loses. A change to a predicate rebuilds that stage, and the rebuild of a filter
-///         files each surviving key into a new ordered set. Thus, it is Θ(n) with an allocation for each
+///         condition a chain loses. A change to a predicate that moves enough keys rebuilds that stage, and
+///         the rebuild of a filter files each surviving key into a new ordered set. Thus, it is Θ(n) with an allocation for each
 ///         node, where a re-derivation sorts an array.
 ///     </para>
 ///     <para>
