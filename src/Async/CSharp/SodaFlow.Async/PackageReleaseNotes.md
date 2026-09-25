@@ -1,11 +1,28 @@
 5.0.0
 
 Adds Execute, which puts one value into a pipeline and answers with the Task of
-that value alone. Use it to drive a MapAsync pipeline from an async method,
-where the caller waits for one value and not for the pipeline. The value goes
-through the strategy as a value from the source stream does, thus the call obeys
-the concurrency rules of the pipeline, and the result reaches the results stream
-as well. Execute gives the same object and does not divert it.
+that value alone.
+
+Execute has one purpose: the operation of a MapAsync pipeline calls a second
+MapAsync pipeline with it, and waits for the result of that one value. Thus, an
+operation can be a pipeline of its own, and the strategy of the inner pipeline
+controls the inner work. An operation is the one position where the two limits of
+Execute are already true: it runs with no transaction open, and it is an async
+method, thus it can await the Task.
+
+Other code does not use Execute. Code that has a value for a pipeline sends that
+value on the source stream of the pipeline, and reads the results stream. That is
+the interface of a pipeline, and it keeps the identity of one value out of code
+that has no need of it.
+
+The value goes through the strategy as a value from the source stream does, thus
+the call obeys the concurrency rules of the pipeline, and the result reaches the
+results stream as well. Execute gives the same object and does not divert it.
+
+A second overload takes a Cell<TInput>. It reads the cell in the transaction that
+puts the value in, thus the pipeline admits the value that the cell has at that
+instant. A caller that samples the cell first, and then calls the other overload,
+has two transactions, and the cell can take a new value between them.
 
 The Task ends one time, in each condition. It gives the result where the
 operation gives one and the strategy publishes it. It carries the exception
@@ -16,9 +33,12 @@ the outcome, and where the pipeline is disposed before the value is admitted. A
 strategy that does not publish says that no code wants the result, which is a
 cancellation at a later moment, thus the Task treats it as one.
 
-Call Execute outside a transaction. It sends into the graph, thus a call with a
-transaction open throws InvalidOperationException. An async method has no place
-in a transaction, thus this limit is the usual one and not a new rule.
+A call with a transaction open is legal. The code of an operation before its first
+await runs in the transaction that started that operation, thus Execute cannot ask
+its caller for a thread with no transaction open. It defers the value to a
+transaction of its own in that condition, and the pipeline admits the value after
+the transaction of the caller ends. The overload that takes a cell reads that cell
+in the transaction of the send, thus a deferral carries the read with it.
 
 The Task runs its continuations asynchronously. The pipeline answers it in the
 transaction that publishes, and a continuation on that thread would be in that
@@ -237,7 +257,8 @@ one runs in the transaction that publishes, for a result that holds part of a
 graph.
 
 MapAsync returns an AsyncMapStatus<TInput, TResult>: Execute puts one value in
-and answers with the Task of that value alone; IsRunning is a Cell<bool> that is
+and answers with the Task of that value alone, for an operation that drives a
+second pipeline; IsRunning is a Cell<bool> that is
 true while at least one invocation is actually running, updating glitch-free in
 the same transaction as whatever caused it to change; Items lists everything
 tracked with its status; disposing it tears the pipeline down. IsRunning and

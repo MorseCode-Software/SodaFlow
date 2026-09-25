@@ -156,12 +156,17 @@ public class AsyncMapStatus<TInput> : AsyncMapStatus
 }
 
 /// <summary>
-///     The status of a MapAsync pipeline, with <see cref="Execute" />. MapAsync answers with this
+///     The status of a MapAsync pipeline, with the two Execute methods. MapAsync answers with this
 ///     type. A caller that wants only <see cref="AsyncMapStatus.IsRunning" /> and the disposal
 ///     holds <see cref="AsyncMapStatus" />. One that also wants
 ///     <see cref="AsyncMapStatus{TInput}.Items" /> holds <see cref="AsyncMapStatus{TInput}" />, and
-///     one that also wants <see cref="Execute" /> holds this type. Thus, the count of the type
+///     one that also wants an Execute method holds this type. Thus, the count of the type
 ///     parameters a caller keeps says what that caller does with the pipeline.
+///     <para>
+///         Execute has one purpose. The operation of a MapAsync pipeline calls a second MapAsync
+///         pipeline with it, and waits for the result of that one value. See
+///         <see cref="Execute(TInput)" />.
+///     </para>
 /// </summary>
 /// <typeparam name="TInput">The type of the input values.</typeparam>
 /// <typeparam name="TResult">The type of the results.</typeparam>
@@ -170,21 +175,40 @@ public class AsyncMapStatus<TInput> : AsyncMapStatus
 public sealed class AsyncMapStatus<TInput, TResult> : AsyncMapStatus<TInput>
 {
     private readonly Func<TInput, Task<TResult>> execute;
+    private readonly Func<Cell<TInput>, Task<TResult>> executeCell;
 
     internal AsyncMapStatus(
         Cell<bool> isRunning,
         Cell<IReadOnlyList<AsyncItem<TInput>>> items,
         Action dispose,
-        Func<TInput, Task<TResult>> execute)
-        : base(isRunning: isRunning, items: items, dispose: dispose) =>
+        Func<TInput, Task<TResult>> execute,
+        Func<Cell<TInput>, Task<TResult>> executeCell)
+        : base(isRunning: isRunning, items: items, dispose: dispose)
+    {
         this.execute = execute;
+        this.executeCell = executeCell;
+    }
 
     /// <summary>
-    ///     Puts one value into this pipeline and answers with the Task of that value alone. The
-    ///     value goes through the same strategy as a value from the source stream, thus this
-    ///     method obeys the concurrency rules of the pipeline. Use it to run a MapAsync pipeline
-    ///     from an async method, where the caller must wait for one value and not for the
-    ///     pipeline.
+    ///     Puts one value into this pipeline and answers with the Task of that value alone.
+    ///     <para>
+    ///         This method has one purpose. The operation of a MapAsync pipeline calls a second
+    ///         MapAsync pipeline with it, and waits for the result of that one value. Thus, an
+    ///         operation can be a pipeline of its own, and the strategy of the inner pipeline
+    ///         controls the inner work. An operation is an async method, thus it can await the
+    ///         Task.
+    ///     </para>
+    ///     <para>
+    ///         Other code does not use this method. Code that has a value for a pipeline sends that
+    ///         value on the source stream of the pipeline, and reads the results stream. That is
+    ///         the interface of a pipeline. It keeps the identity of one value out of code that
+    ///         does not use that identity.
+    ///     </para>
+    ///     <para>
+    ///         The value goes through the strategy as a value from the source stream does, thus the
+    ///         call obeys the concurrency rules of the pipeline. The result reaches the results
+    ///         stream also, and this method gives the same object.
+    ///     </para>
     ///     <para>
     ///         The Task ends one time, in each condition. It gives the result where the operation
     ///         gives one and the strategy publishes it. That result is the same object that the
@@ -199,15 +223,33 @@ public sealed class AsyncMapStatus<TInput, TResult> : AsyncMapStatus<TInput>
     ///         admission of the value cancels it.
     ///     </para>
     ///     <para>
-    ///         Call this with no transaction open. It sends into the graph, thus a call in a
-    ///         transaction throws InvalidOperationException. An async method must not run in a
-    ///         transaction, thus this limit is the usual one and not a new rule.
+    ///         A call with a transaction open is legal. The code of an operation before its first
+    ///         await runs in the transaction that started that operation. Thus, a caller of this
+    ///         method can have a transaction open. This method defers the value to a transaction of
+    ///         its own in that condition. The pipeline then admits the value after the transaction
+    ///         of the caller ends.
     ///     </para>
     /// </summary>
     /// <param name="value">The value to put into the pipeline.</param>
     /// <returns>The Task of this value alone.</returns>
-    /// <exception cref="InvalidOperationException">A SodaFlow transaction is open.</exception>
     public Task<TResult> Execute(TInput value) => this.execute(value);
+
+    /// <summary>
+    ///     Puts the value of a cell into this pipeline and answers with the Task of that value
+    ///     alone. This method reads the cell in the transaction that puts the value in. Thus, the
+    ///     pipeline admits the value that the cell has at that instant. A caller that samples a cell
+    ///     and then calls <see cref="Execute(TInput)" /> has two transactions, and the value of the
+    ///     cell can change between them. A deferral carries the read with it. The read and the send
+    ///     are thus together in each condition.
+    ///     <para>
+    ///         This method has the same one purpose as <see cref="Execute(TInput)" />, and the Task
+    ///         obeys the same rules. Read that method for the two.
+    ///     </para>
+    /// </summary>
+    /// <param name="value">The cell to read.</param>
+    /// <returns>The Task of the value that the cell gives.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="value" /> is null.</exception>
+    public Task<TResult> Execute(Cell<TInput> value) => this.executeCell(value);
 }
 
 /// <summary>
@@ -1855,7 +1897,8 @@ internal sealed class AsyncMapExecutionManager<TInput, TResult, TStrategyInput> 
             isRunning: isRunning,
             items: items,
             dispose: this.Dispose,
-            execute: this.Execute);
+            execute: this.Execute,
+            executeCell: this.ExecuteFromCell);
     }
 
     // This is the one limit in this class where the code starts a Task and does not wait for it.
@@ -2007,23 +2050,62 @@ internal sealed class AsyncMapExecutionManager<TInput, TResult, TStrategyInput> 
     // Puts one value into this pipeline and answers with the Task of that value alone.
     private Task<TResult> Execute(TInput value)
     {
-        if (TransactionInternal.HasCurrentTransaction())
-        {
-            throw new InvalidOperationException("Execute may not be called inside a transaction.");
-        }
+        TaskCompletionSource<TResult> completion = NewExecuteCompletion();
 
-        // RunContinuationsAsynchronously, and it is necessary and not a preference. Flush answers
-        // this source in the transaction that publishes. Without it, the continuation of the caller
-        // that awaits the Task runs there, on that thread. A send from that continuation throws.
-        TaskCompletionSource<TResult> completion =
-            new(TaskCreationOptions.RunContinuationsAsynchronously);
-
-        // The admission answers this source after a disposal, thus this code needs no test of its
-        // own for that.
-        this.executeRequests.SendImpl(new Admission(value: value, completion: completion));
+        this.SendAdmission(() => new Admission(value: value, completion: completion));
 
         return completion.Task;
     }
+
+    // Puts the value of a cell into this pipeline, read in the transaction of the send.
+    private Task<TResult> ExecuteFromCell(Cell<TInput> value)
+    {
+        if (value is null)
+        {
+            throw new ArgumentNullException(nameof(value));
+        }
+
+        TaskCompletionSource<TResult> completion = NewExecuteCompletion();
+
+        this.SendAdmission(() => new Admission(value: value.SampleImpl(), completion: completion));
+
+        return completion.Task;
+    }
+
+    // Sends one admission of an Execute call, and never in a transaction that other code opened.
+    //
+    // Execute is for a call from the operation of a pipeline, and such an operation begins in the
+    // transaction that started it. StartOperation goes through PostImpl, thus the code before the
+    // first await of an operation runs in that transaction. A caller of Execute can thus have a
+    // transaction open. Execute defers and does not throw, as EndItem does, and the admission gets
+    // a transaction of its own.
+    //
+    // `admission` makes the value in the transaction of the send and not before it. Thus, the
+    // overload that takes a cell reads that cell in the transaction that admits its value.
+    private void SendAdmission(Func<Admission> admission)
+    {
+        if (TransactionInternal.HasCurrentTransaction())
+        {
+            TransactionInternal.PostImpl(() => this.executeRequests.SendImpl(admission()));
+
+            return;
+        }
+
+        // One transaction for the value and the send. SendImpl opens one of its own where none is
+        // open, thus this code opens it first and `admission` runs in it.
+        TransactionInternal.RunImpl(() =>
+        {
+            this.executeRequests.SendImpl(admission());
+
+            return UnitInternal.Value;
+        });
+    }
+
+    private static TaskCompletionSource<TResult> NewExecuteCompletion() =>
+        // RunContinuationsAsynchronously, and it is necessary and not a preference. Flush answers
+        // this source in the transaction that publishes. Without it, the continuation of the caller
+        // that awaits the Task runs there, on that thread. A send from that continuation throws.
+        new(TaskCreationOptions.RunContinuationsAsynchronously);
 
     private void Dispose()
     {
