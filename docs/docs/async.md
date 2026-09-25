@@ -127,14 +127,16 @@ everything tracked, and `cancelMatching`, where a firing cancels tracked operati
 value. By default (`cancelOnDispose: true`) disposing the returned status also cancels
 whatever is in flight.
 
-The returned `AsyncMapStatus<TInput>` is itself reactive, which makes progress reporting
-straightforward: `IsRunning` is a `Cell<bool>`, and `Items` is a
-`Cell<IReadOnlyList<AsyncItem<TInput>>>` describing what is queued and running. Bind them
-directly to your UI. Disposing the status tears the pipeline down.
+The returned status is itself reactive, which makes progress reporting straightforward:
+`IsRunning` is a `Cell<bool>`, and `Items` is a `Cell<IReadOnlyList<AsyncItem<TInput>>>` describing
+what is queued and running. Bind them directly to your UI. Disposing the status tears the pipeline
+down.
 
-Only `Items` depends on the input type. `IsRunning` and disposal live on a non-generic base,
-`AsyncMapStatus`, so a view model that shows a busy indicator and owns the pipeline's lifetime
-can hold that and never name the input type:
+The status comes in three widths, and you pick one by how many type parameters you keep. The
+declared return type is `AsyncMapStatus<TInput, TResult>`, which carries everything; assigning it
+to `AsyncMapStatus<TInput>` keeps `Items` and drops `Execute`; assigning it to the non-generic
+`AsyncMapStatus` keeps `IsRunning` and disposal and names no types at all. So a view model that
+shows a busy indicator and owns the pipeline's lifetime can hold the narrowest one:
 
 ```csharp
 AsyncMapStatus status = queries.MapAsync(
@@ -144,6 +146,48 @@ AsyncMapStatus status = queries.MapAsync(
     strategy: AsyncConcurrencyStrategy.SwitchLatest());
 
 Cell<bool> busy = status.IsRunning;
+```
+
+## Awaiting one value with Execute
+
+Sometimes you are not reacting to a stream at all — you have one value, you are already in an
+`async` method, and you want that value's result back. But you still want the pipeline's
+concurrency rules to apply, so the call queues behind whatever else is in flight instead of racing
+it. That is what `Execute` is for:
+
+```csharp
+AsyncMapStatus<SaveRequest, SaveReceipt> status = saves.MapAsync(
+    results: saved,
+    errors: saveErrors,
+    operation: static async (request, factory, token) =>
+        factory.FromValue(await SaveAsync(request, token)),
+    strategy: AsyncConcurrencyStrategy.Queue());
+
+// Queues behind anything already running, exactly like a send on `saves`.
+SaveReceipt receipt = await status.Execute(request);
+```
+
+The value goes through `Admit` and `OnCompleted` like any other, so the strategy sees no difference
+between it and a value that arrived on the source stream. The result reaches the `results` stream as
+well — `Execute` gives you the same object, it does not divert it.
+
+**The task always finishes.** It carries the result when the operation returns one and the strategy
+publishes it; it carries the operation's exception when it throws and the strategy publishes that,
+and `errors` gets the same exception; and it is cancelled when a cancellation stops the value, when
+the strategy refuses it, when the strategy declines to publish the outcome, or when the pipeline was
+already disposed. Declining to publish means nobody wants the result any more, which is a
+cancellation that arrived late, so the task treats it as one.
+
+Call `Execute` outside a transaction. It sends into the graph, and a call with a transaction open
+throws `InvalidOperationException`. In practice this is not a new rule to remember: an `async` method
+has no business inside a transaction anyway.
+
+In F#, `Execute` is a member on the returned status, the same as in C#:
+
+```fsharp
+let status = source |> mapAsync results errors operation (queueStrategy ()) None None true
+
+let! receipt = status.Execute request
 ```
 
 ## Building a result in the transaction
