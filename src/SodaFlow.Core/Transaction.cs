@@ -264,22 +264,22 @@ internal sealed class TransactionInternal
         queue[index] = @new;
     }
 
-    internal static void PostImpl(Action action) =>
-        // A value of -1 makes it run before all split actions and deferred actions. It runs
-        // not in a transaction.
+    internal static void PostInternal(Action<TransactionInternal> action) =>
         Apply((trans, createdNewTransaction) =>
         {
             if (createdNewTransaction)
             {
-                action();
+                action(trans);
             }
             else
             {
-                trans.Post(_ => action());
+                trans.Post(action);
             }
 
             return UnitInternal.Value;
         });
+
+    internal static void PostImpl(Action action) => PostInternal(_ => action());
 
     // If the priority queue holds entries when SodaFlow changes the rank of a node, SodaFlow must build the queue again to keep it correct.
     private void CheckRegen()
