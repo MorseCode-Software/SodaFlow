@@ -1,5 +1,32 @@
 5.0.0
 
+Adds postWithFailure, a second form of post, which takes the action to run where
+the posted action does not run or does not complete. A transaction that fails
+while it propagates discards each action that post holds. Code that gives a
+value to something which waits, and gives that value from a posted action, had
+no way to release it, thus the waiting code waited forever.
+
+The release runs one time, and only where the posted action does not complete.
+Two conditions give that: the transaction fails before it runs the action, and
+the action itself throws. The argument is the exception of the transaction in
+the first condition, and the exception of the action in the second. An action
+that completes runs no release.
+
+A throw from a release does not stop the release of another posted action, and
+it does not replace the exception that caused it. The caller gets an
+AggregateException with that exception first and the throw from the release
+after it, thus no code loses a failure.
+
+The release belongs to one posted action, at the call that posts it, and not to
+a transaction. Thus, no code can ask for a release with nothing to release, and
+none must find the transaction that is open to ask.
+
+SodaFlow.Core.Async is the first caller. Its Execute gives a Task to code that
+waits, and it gives the value of that Task from a posted action.
+
+F# has no optional parameter on a let-bound function, thus the two forms are two
+names here, as mapAsync and mapAsyncWithInputConverter are.
+
 Fixed: the At member of the timer system no longer holds an alarm alive
 through the cell it reads. It listened to that cell with a strong listener,
 which the keep-alive set of the cell's graph roots, and that listener holds

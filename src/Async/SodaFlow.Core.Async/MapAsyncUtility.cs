@@ -2106,34 +2106,18 @@ internal sealed class AsyncMapExecutionManager<TInput, TResult, TStrategyInput> 
     // a transaction of its own.
     //
     // `admission` makes the value in the transaction of the send and not before it. Thus, the
-    // overload that takes a cell reads that cell in the transaction that admits its value.
+    // overload that takes a cell reads that cell in the transaction that admits its value. PostImpl
+    // gives that transaction: it opens one where none is open, and it defers to one where a
+    // transaction is open.
     //
-    // A throw while a transaction propagates discards the actions that PostImpl holds. The value
-    // then never enters the pipeline, and no end comes for the Task. Thus, the deferred path asks
-    // the transaction to cancel `completion` where that transaction fails. TrySetCanceled does
+    // A transaction that fails discards the actions that PostImpl holds. The value then never
+    // enters the pipeline, and no end comes for the Task. Thus, this gives PostImpl the release
+    // that cancels `completion`, which PostImpl runs where the send does not. TrySetCanceled does
     // nothing where the send ran, thus the two paths cannot disagree.
-    private void SendAdmission(Func<Admission> admission, TaskCompletionSource<TResult> completion)
-    {
-        TransactionInternal? current = TransactionInternal.GetCurrentTransaction();
-
-        if (current != null)
-        {
-            TransactionInternal.PostImpl(() => this.executeRequests.SendImpl(admission()));
-
-            current.OnFailureInternal(() => completion.TrySetCanceled());
-
-            return;
-        }
-
-        // One transaction for the value and the send. SendImpl opens one of its own where none is
-        // open, thus this code opens it first and `admission` runs in it.
-        TransactionInternal.RunImpl(() =>
-        {
-            this.executeRequests.SendImpl(admission());
-
-            return UnitInternal.Value;
-        });
-    }
+    private void SendAdmission(Func<Admission> admission, TaskCompletionSource<TResult> completion) =>
+        TransactionInternal.PostImpl(
+            action: () => this.executeRequests.SendImpl(admission()),
+            onFailure: _ => completion.TrySetCanceled());
 
     private static TaskCompletionSource<TResult> NewExecuteCompletion() =>
         // RunContinuationsAsynchronously, and it is necessary and not a preference. Flush answers

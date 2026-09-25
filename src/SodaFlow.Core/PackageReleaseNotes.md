@@ -1,20 +1,29 @@
 5.0.0
 
-Adds OnFailureInternal, for the packages that reach these internals. It is the
-counterpart of Post: Post runs an action after a transaction closes, and a
-transaction whose propagation throws discards each action that Post holds. Code
-that gives a promise to something outside the graph, and keeps that promise in a
-posted action, had no way to release that promise. An action here runs one time,
-in the failure of the transaction that owns the deferred work, and before the
-queues of that transaction go. A throw from such an action does not stop the
-actions after it, and it does not replace the exception of the transaction. Where
-one action or more throws, the caller gets an AggregateException that holds the
-exception of the transaction first, and then each of those, thus no code loses a
-failure.
+PostImpl takes one more argument, for the packages that reach these internals
+and for the public Post that SodaFlow and SodaFlow.FSharp give: the action to
+run where the posted action does not run or does not complete. A transaction
+that fails while it propagates discards each action that Post holds. Code that
+gives a value to something which waits, and gives that value from a posted
+action, had no way to release it, thus the waiting code waited forever.
 
-SodaFlow.Core.Async is the first caller. Its Execute gives a Task to code outside
-the graph and completes that Task from a posted action, thus a transaction that
-failed left the Task with no end.
+The release runs one time, and only where the posted action does not complete.
+Two conditions give that: the transaction fails before it runs the action, and
+the action itself throws. The argument is the exception of the transaction in
+the first condition, and the exception of the action in the second. An action
+that completes runs no release.
+
+A throw from a release does not stop the release of another posted action, and
+it does not replace the exception that caused it. The caller gets an
+AggregateException with that exception first and the throw from the release
+after it, thus no code loses a failure.
+
+The release belongs to one posted action, at the call that posts it, and not to
+a transaction. Thus, no code can ask for a release with nothing to release, and
+none must find the transaction that is open to ask.
+
+SodaFlow.Core.Async is the first caller. Its Execute gives a Task to code that
+waits, and it gives the value of that Task from a posted action.
 
 BREAKING for the packages that reach these internals: AttachListenerImpl is
 named AttachListenerInternal. The Impl suffix here marks a method that a public
