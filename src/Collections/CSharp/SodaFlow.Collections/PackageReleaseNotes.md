@@ -1,4 +1,16 @@
-1.1.0
+2.0.0
+
+BREAKING: SortByKey(keyComparer) is now SortByKey(keyComparer, isDescending),
+as each other sort that takes a comparer also names its direction. Code that
+passes a comparer stops compiling; add isDescending: false to keep its order,
+or call SortByKey() where the comparer was Comparer<TKey>.Default. The same
+applies to KeyOrder.ByKey(keyComparer), which is now ByKey(keyComparer,
+isDescending), in SodaFlow.Collections.Core.
+
+Adds SortByKey() and SortByKeyDescending(), with the default comparer, to match
+SortBy and SortByDescending, and KeyOrder.ByKey() and ByKeyDescending() to
+match them. A cell that moves between two key orders with the same comparer
+turns the list that the stage holds and does not sort each key again.
 
 Adds ItemCell, which gives the two parts of one item as one optional value. It
 follows the key as StateCell does, and it answers for the collection or the
@@ -24,13 +36,13 @@ criteria and the identity. A change to the predicate or to the criteria tests
 each item again and names what entered and what left. A state edit still does
 not test the predicate.
 
-Breaking: SortByKey(keyComparer) is now SortByKey(keyComparer, isDescending),
-as each other sort that takes a comparer also names its direction. Adds
-SortByKey() and SortByKeyDescending(), with the default comparer, to match
-SortBy and SortByDescending. KeyOrder has the same three: ByKey(),
-ByKeyDescending() and ByKey(keyComparer, isDescending). A cell that moves
-between two key orders with the same comparer turns the list that the stage
-holds and does not sort each key again.
+Fixed: the documentation of Filter said that a change to the predicate builds
+the stage again and reports a reset. It reports the keys that entered and
+left as inserts and removals, and it builds again and resets only when more
+keys move than a list of them is worth.
+
+Requires SodaFlow 4.x, SodaFlow.Collections.Core 2.x and SodaFlow.Functional
+3.x.
 
 1.0.1
 

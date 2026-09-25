@@ -1,16 +1,19 @@
-1.1.0
+2.0.0
+
+BREAKING: KeyOrder.ByKey(keyComparer) is now ByKey(keyComparer,
+isDescending), as each other factory that takes a comparer also names its
+direction. Add isDescending: false to keep an existing order, or call
+ByKey() where the comparer was Comparer<TKey>.Default. Adds ByKey() and
+ByKeyDescending(), with the default comparer.
+
+BREAKING for the two language surfaces: SortByKeyImpl takes the direction, and
+FilterByIdentityImpl takes a cell of the predicate in place of the predicate.
+A SodaFlow.Collections or SodaFlow.FSharp.Collections built against 1.x does
+not run against this; take the 2.x of each with it.
 
 Adds the internal members that the two language surfaces need for ItemCell:
 ItemCellImpl and CreateItemCell on ReactiveCollection, and the projection for
-one item on an item change and on a view change. This assembly has no public
-API of its own.
-
-FilterByIdentityImpl takes a cell of the predicate in place of the predicate,
-thus the two language surfaces can give a predicate that changes.
-
-Breaking: KeyOrder.ByKey(keyComparer) is now ByKey(keyComparer, isDescending).
-Adds ByKey() and ByKeyDescending(), with the default comparer. SortByKeyImpl
-takes the direction too.
+one item on an item change and on a view change.
 
 1.0.1
 
