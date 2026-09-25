@@ -425,6 +425,7 @@ public sealed class BindableValueTests
         CellSink<int> c = Cell.CreateSink(0);
         StreamSink<int> edits = Stream.CreateSink<int>();
 
+        // ReSharper disable NullableWarningSuppressionIsUsed - Testing for exception on null.
         await Assert.That(() => c.ToOneWayImpl(scheduler: null!)).ThrowsExactly<ArgumentNullException>();
         await Assert.That(() => c.ToTwoWayImpl(scheduler: null!)).ThrowsExactly<ArgumentNullException>();
 
@@ -437,5 +438,6 @@ public sealed class BindableValueTests
             .ThrowsExactly<ArgumentNullException>();
 
         await Assert.That(() => edits.ToBindableActionImpl(scheduler: null!)).ThrowsExactly<ArgumentNullException>();
+        // ReSharper restore NullableWarningSuppressionIsUsed
     }
 }

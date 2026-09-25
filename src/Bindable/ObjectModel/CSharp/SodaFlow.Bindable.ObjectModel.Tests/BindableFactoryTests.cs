@@ -113,6 +113,7 @@ public sealed class BindableFactoryTests
     /// </summary>
     [Test]
     public async Task TheFactoryRejectsANullScheduler() =>
+        // ReSharper disable once NullableWarningSuppressionIsUsed - Testing for exception on null.
         await Assert.That(static () => new BindableFactory(null!)).ThrowsExactly<ArgumentNullException>();
 
     /// <summary>
