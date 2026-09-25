@@ -1,3 +1,17 @@
+4.0.0
+
+No API change of its own. This release moves to SodaFlow 5.x and to
+SodaFlow.Bindable.ObjectModel.Core 4.x, and is a major because taking it
+obliges a consumer to take those.
+
+It could not stay on 3.x. The dependencies are ranges that end before the
+next major, thus 3.0.2 cannot install beside SodaFlow 5.0.0. SodaFlow 5.0.0
+has breaking changes of its own - ListenOnce is weak now, among others - and
+its notes list them.
+
+Requires SodaFlow 5.x, SodaFlow.Bindable.ObjectModel.Core 4.x and
+SodaFlow.Functional 3.x.
+
 3.0.2
 
 Adds the package icon that nuget.org shows beside this package.

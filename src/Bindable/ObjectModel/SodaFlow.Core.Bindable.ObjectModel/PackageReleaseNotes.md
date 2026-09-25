@@ -1,3 +1,15 @@
+4.0.0
+
+No API change of its own. This release moves to SodaFlow.Core 5.x, and is a
+major because taking it obliges a consumer to take that.
+
+It could not stay on 3.x. The dependency on SodaFlow.Core is a range that
+ends before the next major, thus 3.0.2 cannot install beside SodaFlow.Core
+5.0.0, and a consumer who takes SodaFlow 5.0.0 could not keep this package.
+Nothing here calls the internals that SodaFlow.Core 5.0.0 changed.
+
+Requires SodaFlow.Core 5.x.
+
 3.0.2
 
 Adds the package icon that nuget.org shows beside this package.
