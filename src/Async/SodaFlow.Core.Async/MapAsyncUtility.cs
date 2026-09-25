@@ -1957,21 +1957,6 @@ internal sealed class AsyncMapExecutionManager<TInput, TResult, TStrategyInput> 
         }
     }
 
-    /// <summary>
-    ///     The one method that makes the effects of an item at its end. An item with no start,
-    ///     which a cancellation removed with the Queued status, also comes here. This method asks
-    ///     the strategy for its decision. Then, in one atomic SodaFlow transaction, it publishes
-    ///     the outcome if the strategy asks for that, removes the entry of this item, promotes
-    ///     each item that the strategy selects, and disposes the CancellationTokenSource of this
-    ///     item. The removal of the entry and the disposal of its CancellationTokenSource are in
-    ///     the same transaction, thus the Snapshot of a cancellation stream never reads a stale
-    ///     entry. That Snapshot sees the entry from before this transaction, and a cancellation
-    ///     can then remove it, or it does not see the entry at all, from after this transaction.
-    ///     This method can call itself. For example, it empties some Queued items that a
-    ///     cancellation removed, in one sequence, through the short path in PromoteAndLaunch. A
-    ///     SodaFlow transaction in a transaction is safe, but a very long queue with a
-    ///     cancellation on each item makes a depth of calls in relation to that length.
-    /// </summary>
     // Cancels each entry that the test selects, and ends the Queued ones here.
     //
     // A Running item observes its token and its operation ends, thus Complete runs for it on the
@@ -2013,6 +1998,21 @@ internal sealed class AsyncMapExecutionManager<TInput, TResult, TStrategyInput> 
         }
     }
 
+    /// <summary>
+    ///     The one method that makes the effects of an item at its end. An item with no start,
+    ///     which a cancellation removed with the Queued status, also comes here. This method asks
+    ///     the strategy for its decision. Then, in one atomic SodaFlow transaction, it publishes
+    ///     the outcome if the strategy asks for that, removes the entry of this item, promotes
+    ///     each item that the strategy selects, and disposes the CancellationTokenSource of this
+    ///     item. The removal of the entry and the disposal of its CancellationTokenSource are in
+    ///     the same transaction, thus the Snapshot of a cancellation stream never reads a stale
+    ///     entry. That Snapshot sees the entry from before this transaction, and a cancellation
+    ///     can then remove it, or it does not see the entry at all, from after this transaction.
+    ///     This method can call itself. For example, it empties some Queued items that a
+    ///     cancellation removed, in one sequence, through the short path in PromoteAndLaunch. A
+    ///     SodaFlow transaction in a transaction is safe, but a very long queue with a
+    ///     cancellation on each item makes a depth of calls in relation to that length.
+    /// </summary>
     private void Complete(
         AsyncQueuedItem<TStrategyInput> item,
         AsyncOutcome<MapAsyncResult<TResult>> pending,
