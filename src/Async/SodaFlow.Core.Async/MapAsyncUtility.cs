@@ -1638,13 +1638,7 @@ internal sealed class AsyncMapExecutionManager<TInput, TResult, TStrategyInput> 
             this.cancelAllListener =
                 this.cancelAll
                     .SnapshotImpl(c: trackedCell, f: static (_, entries) => entries)
-                    .ListenImpl(static entries =>
-                    {
-                        foreach (Entry e in entries)
-                        {
-                            e.Item.Cancellation.Cancel();
-                        }
-                    });
+                    .ListenImpl(entries => this.CancelTracked(entries: entries, trackedCell: trackedCell));
         }
 
         if (this.cancelMatching != null)
@@ -1654,7 +1648,7 @@ internal sealed class AsyncMapExecutionManager<TInput, TResult, TStrategyInput> 
                     .SnapshotImpl(
                         c: trackedCell,
                         f: static (toCancel, entries) => (ToCancel: toCancel, Entries: entries))
-                    .ListenImpl(static pair =>
+                    .ListenImpl(pair =>
                     {
                         if (pair.ToCancel.Count == 0)
                         {
@@ -1667,14 +1661,10 @@ internal sealed class AsyncMapExecutionManager<TInput, TResult, TStrategyInput> 
                         // no conversion.
                         HashSet<TInput> targets = new(pair.ToCancel);
 
-                        // ReSharper disable once LoopCanBePartlyConvertedToQuery - Done for performance reasons.
-                        foreach (Entry e in pair.Entries)
-                        {
-                            if (targets.Contains(e.Item.Value))
-                            {
-                                e.Item.Cancellation.Cancel();
-                            }
-                        }
+                        this.CancelTracked(
+                            entries: pair.Entries,
+                            trackedCell: trackedCell,
+                            shouldCancel: e => targets.Contains(e.Item.Value));
                     });
         }
 
@@ -1687,13 +1677,7 @@ internal sealed class AsyncMapExecutionManager<TInput, TResult, TStrategyInput> 
         this.disposeCancelListener =
             this.disposeCancelTrigger
                 .SnapshotImpl(c: trackedCell, f: static (_, entries) => entries)
-                .ListenImpl(static entries =>
-                {
-                    foreach (Entry e in entries)
-                    {
-                        e.Item.Cancellation.Cancel();
-                    }
-                });
+                .ListenImpl(entries => this.CancelTracked(entries: entries, trackedCell: trackedCell));
 
         Cell<bool> isRunning =
             trackedCell.MapImpl(static entries =>
@@ -1967,6 +1951,44 @@ internal sealed class AsyncMapExecutionManager<TInput, TResult, TStrategyInput> 
         }
     }
 
+    // Cancels each entry that the test selects, and ends the Queued ones here.
+    //
+    // A Running item observes its token and its operation ends, thus Complete runs for it on the
+    // usual path. A Queued item runs no operation, thus nothing observes its token. Before this,
+    // the end of such an item waited for a promotion, and a promotion comes from the end of a
+    // different item. Where no other item ended, the item stayed in the queue with the Queued
+    // status, and no stream said that it ended.
+    //
+    // This code runs in a registered listener callback, and Complete sends. Complete defers
+    // itself where a transaction is open, thus this code needs no deferral of its own.
+    private void CancelTracked(
+        IEnumerable<Entry> entries,
+        Cell<Entry[]> trackedCell,
+        Func<Entry, bool>? shouldCancel = null)
+    {
+        // ReSharper disable once LoopCanBePartlyConvertedToQuery - Done for performance reasons.
+        foreach (Entry e in entries)
+        {
+            if (shouldCancel != null && !shouldCancel(e))
+            {
+                continue;
+            }
+
+            e.Item.Cancellation.Cancel();
+
+            if (e.Status != AsyncItemStatus.Queued)
+            {
+                continue;
+            }
+
+            this.Complete(
+                item: e.Tracked.Item,
+                pending: AsyncOutcome<MapAsyncResult<TResult>>.Canceled(),
+                trackedCell: trackedCell,
+                tokenToCheck: null);
+        }
+    }
+
     /// <summary>
     ///     The one method that makes the effects of an item at its end. An item with no start,
     ///     which a cancellation removed with the Queued status, also comes here. This method asks
@@ -1998,6 +2020,17 @@ internal sealed class AsyncMapExecutionManager<TInput, TResult, TStrategyInput> 
                 tokenToCheck is { IsCancellationRequested: true }
                     ? AsyncOutcome<MapAsyncResult<TResult>>.Canceled()
                     : pending;
+
+            // An item ends one time. A cancellation ends a Queued item here, and a promotion of
+            // that same item ends it also. Thus, two paths can come to one item. The second path
+            // finds no entry and stops. Without this test, it calls OnCompleted a second time,
+            // and a strategy then starts a second item for that phantom end.
+            if (!Array.Exists(
+                    array: this.CurrentQueue(trackedCell),
+                    match: entry => entry.Item.Id == item.Id))
+            {
+                return;
+            }
 
             // The removal comes first. Thus, the queue that OnCompleted reads, and the queue
             // that an Admit of this same transaction reads, no longer hold the item that ends

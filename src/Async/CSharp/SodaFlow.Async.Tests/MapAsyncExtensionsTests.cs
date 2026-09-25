@@ -200,6 +200,52 @@ public sealed class MapAsyncExtensionsTests
     }
 
     [Test]
+    public async Task CancelMatching_EndsAQueuedItemWithNoOtherCompletion()
+    {
+        StreamSink<string> source = Stream.CreateSink<string>();
+        StreamSink<string> results = Stream.CreateSink<string>();
+        StreamSink<Exception> errors = Stream.CreateSink<Exception>();
+        StreamSink<IReadOnlyCollection<string>> cancelMatching = Stream.CreateSink<IReadOnlyCollection<string>>();
+        ControlledOperation<string, string> op = new();
+
+        AsyncMapStatus<string> status =
+            source.MapAsync(
+                results: results,
+                errors: errors,
+                operation: op.Operation,
+                strategy: AsyncConcurrencyStrategy.Queue(),
+                cancelMatching: cancelMatching);
+
+        Cell<IReadOnlyList<AsyncItem<string>>> tracked = status.Items;
+
+        source.Send("a");
+        TestUtil.WaitUntil(() => op.HasStarted("a"));
+
+        // "b" waits behind "a" and runs no operation, thus nothing observes its token.
+        source.Send("b");
+        TestUtil.WaitUntil(() => Transaction.Run(tracked.Sample).Count == 2);
+
+        cancelMatching.Send(["b"]);
+
+        // Nothing else completes here. Before this, the end of "b" waited for a promotion, and a
+        // promotion comes from the end of "a". Thus "b" stayed in the queue with the Queued
+        // status.
+        TestUtil.WaitUntil(() => Transaction.Run(tracked.Sample).Count == 1);
+
+        await Assert.That(
+                Transaction.Run(tracked.Sample).Select(static item => item.Value + ":" + item.Status))
+            .IsEquivalentTo(expected: ["a:Running"], ordering: CollectionOrdering.Matching)
+            .Because("a cancellation should end a queued item and not wait for another completion");
+
+        await Assert.That(op.HasStarted("b")).IsFalse().Because("a canceled queued item should not run");
+
+        op.Release(input: "a", result: "A");
+        TestUtil.WaitUntil(() => Transaction.Run(tracked.Sample).Count == 0);
+
+        status.Dispose();
+    }
+
+    [Test]
     public async Task CancelOnDisposeTrue_CancelsInFlightItem()
     {
         StreamSink<string> source = Stream.CreateSink<string>();
