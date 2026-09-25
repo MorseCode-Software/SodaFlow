@@ -148,28 +148,61 @@ AsyncMapStatus status = queries.MapAsync(
 Cell<bool> busy = status.IsRunning;
 ```
 
-## Awaiting one value with Execute
+## Calling a pipeline from inside an operation
 
-Sometimes you are not reacting to a stream at all — you have one value, you are already in an
-`async` method, and you want that value's result back. But you still want the pipeline's
-concurrency rules to apply, so the call queues behind whatever else is in flight instead of racing
-it. That is what `Execute` is for:
+`Execute` exists for one situation: an operation of one `MapAsync` pipeline needs to run a *second*
+`MapAsync` pipeline and wait for that one value's result. It is the way to nest pipelines, and that
+is the whole of it.
+
+The reason it is needed is that the inner work has its own concurrency rules. Suppose each incoming
+request needs several documents saved, and saves to one document must not overlap. The outer
+pipeline handles requests; the inner one owns the save queue. The operation of the outer pipeline
+calls the inner one, and the inner strategy decides when each save actually runs:
 
 ```csharp
-AsyncMapStatus<SaveRequest, SaveReceipt> status = saves.MapAsync(
+// The inner pipeline: saves to the same document run one at a time.
+AsyncMapStatus<SaveRequest, SaveReceipt> saver = saveRequests.MapAsync(
     results: saved,
     errors: saveErrors,
     operation: static async (request, factory, token) =>
         factory.FromValue(await SaveAsync(request, token)),
-    strategy: AsyncConcurrencyStrategy.Queue());
+    strategy: AsyncConcurrencyStrategy
+        .QueuePerGroup<SaveRequest>()
+        .Create(static request => request.DocumentId));
 
-// Queues behind anything already running, exactly like a send on `saves`.
-SaveReceipt receipt = await status.Execute(request);
+// The outer pipeline: its operation drives the inner one and awaits each save.
+AsyncMapStatus<Batch, BatchReceipt> batcher = batches.MapAsync(
+    results: batchesDone,
+    errors: batchErrors,
+    operation: async (batch, factory, token) =>
+    {
+        List<SaveReceipt> receipts = [];
+
+        foreach (SaveRequest request in batch.Requests)
+        {
+            // Queues behind anything already saving that document.
+            receipts.Add(await saver.Execute(request));
+        }
+
+        return factory.FromValue(new BatchReceipt(receipts));
+    },
+    strategy: AsyncConcurrencyStrategy.Parallel());
 ```
 
-The value goes through `Admit` and `OnCompleted` like any other, so the strategy sees no difference
-between it and a value that arrived on the source stream. The result reaches the `results` stream as
-well — `Execute` gives you the same object, it does not divert it.
+An operation is an `async` method, so it can await the task — and it does not have to worry about
+transactions. The code of an operation before its first `await` actually runs *inside* the
+transaction that started it, so `Execute` cannot demand a caller with no transaction open. When one
+is open it defers the value to a transaction of its own, and the pipeline admits it once the caller's
+transaction ends.
+
+**Everywhere else, do not use it.** Code that has a value for a pipeline sends that value on the
+pipeline's source stream and reads the results stream. That is a pipeline's interface, and it keeps
+the identity of a single value out of code that has no business tracking it. Reaching for `Execute`
+from a view model or a command handler is a sign the graph should be wired up instead.
+
+The value goes through `Admit` and `OnCompleted` like any other, so the inner strategy sees no
+difference between it and a value that arrived on the source stream. The result reaches the inner
+`results` stream as well — `Execute` gives you the same object, it does not divert it.
 
 **The task always finishes.** It carries the result when the operation returns one and the strategy
 publishes it; it carries the operation's exception when it throws and the strategy publishes that,
@@ -178,16 +211,26 @@ the strategy refuses it, when the strategy declines to publish the outcome, or w
 already disposed. Declining to publish means nobody wants the result any more, which is a
 cancellation that arrived late, so the task treats it as one.
 
-Call `Execute` outside a transaction. It sends into the graph, and a call with a transaction open
-throws `InvalidOperationException`. In practice this is not a new rule to remember: an `async` method
-has no business inside a transaction anyway.
+There is a second overload taking a `Cell<TInput>`, for when the value to run is whatever the cell
+holds at that moment — again, from inside an operation:
 
-In F#, `Execute` is a member on the returned status, the same as in C#:
+```csharp
+// currentRequest is a Cell<SaveRequest> that some other part of the graph keeps up to date.
+SaveReceipt receipt = await saver.Execute(currentRequest);
+```
+
+It reads the cell inside the same transaction that puts the value in, so the pipeline admits the
+cell's value at that instant. Sampling the cell yourself and passing the result to the other
+overload is two transactions, and the cell can change between them. When the call defers — because a
+transaction was open — the read and the send travel together into the deferred transaction, so the
+guarantee still holds.
+
+In F#, both overloads are members on the returned status, the same as in C#, and the same rule about
+where to call them applies:
 
 ```fsharp
-let status = source |> mapAsync results errors operation (queueStrategy ()) None None true
-
-let! receipt = status.Execute request
+let! receipt = saver.Execute request
+let! current = saver.Execute currentRequest
 ```
 
 ## Building a result in the transaction
