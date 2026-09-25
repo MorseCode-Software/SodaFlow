@@ -15,7 +15,6 @@
         <PackageIcon>SodaFlow.png</PackageIcon>
         <AssemblyName>SodaFlow.Collections</AssemblyName>
         <RootNamespace>SodaFlow.Collections</RootNamespace>
-        <EnableDefaultItems>false</EnableDefaultItems>
         <Nullable>enable</Nullable>
         <LangVersion>10</LangVersion>
         <!--

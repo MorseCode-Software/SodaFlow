@@ -8,7 +8,6 @@
         -->
         <TargetFramework>netstandard2.0</TargetFramework>
         <Nullable>enable</Nullable>
-        <EnableDefaultItems>false</EnableDefaultItems>
         <LangVersion>10</LangVersion>
         <IsPackable>false</IsPackable>
     </PropertyGroup>

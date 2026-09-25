@@ -7,7 +7,6 @@
         <Nullable>enable</Nullable>
         <LangVersion>14</LangVersion>
         <IsPackable>false</IsPackable>
-        <EnableDefaultItems>false</EnableDefaultItems>
     </PropertyGroup>
 
     <ItemGroup>

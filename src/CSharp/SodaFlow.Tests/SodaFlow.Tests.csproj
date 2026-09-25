@@ -20,7 +20,6 @@
     <PropertyGroup>
         <AssemblyName>SodaFlow.Tests</AssemblyName>
         <RootNamespace>SodaFlow.Tests</RootNamespace>
-        <EnableDefaultItems>false</EnableDefaultItems>
         <IsPackable>false</IsPackable>
         <LangVersion>latest</LangVersion>
         <Nullable>enable</Nullable>

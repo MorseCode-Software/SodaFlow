@@ -5,7 +5,6 @@
         <TargetFramework>net10.0-windows</TargetFramework>
         <UseWPF>true</UseWPF>
         <Nullable>enable</Nullable>
-        <EnableDefaultItems>false</EnableDefaultItems>
         <LangVersion>14</LangVersion>
         <IsPackable>false</IsPackable>
     </PropertyGroup>

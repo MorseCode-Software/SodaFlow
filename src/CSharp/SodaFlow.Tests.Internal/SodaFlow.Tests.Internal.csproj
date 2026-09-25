@@ -20,7 +20,6 @@
     <PropertyGroup>
         <AssemblyName>SodaFlow.Tests.Internal</AssemblyName>
         <RootNamespace>SodaFlow.Tests.Internal</RootNamespace>
-        <EnableDefaultItems>false</EnableDefaultItems>
         <IsPackable>false</IsPackable>
     </PropertyGroup>
 

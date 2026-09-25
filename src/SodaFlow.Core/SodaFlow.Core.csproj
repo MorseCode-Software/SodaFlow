@@ -14,7 +14,6 @@
         <Description>SodaFlow - Functional Reactive Programming (FRP) library for .NET core library.</Description>
         <AssemblyName>SodaFlow.Core</AssemblyName>
         <RootNamespace>SodaFlow</RootNamespace>
-        <EnableDefaultItems>false</EnableDefaultItems>
         <PackageIcon>SodaFlow.png</PackageIcon>
         <!--
             This package ships as SodaFlow.Core and had no documentation file at all. The types a

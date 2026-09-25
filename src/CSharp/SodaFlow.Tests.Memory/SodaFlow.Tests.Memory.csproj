@@ -20,7 +20,6 @@
     <PropertyGroup>
         <AssemblyName>SodaFlow.Tests.Memory</AssemblyName>
         <RootNamespace>SodaFlow.Tests.Memory</RootNamespace>
-        <EnableDefaultItems>false</EnableDefaultItems>
         <IsPackable>false</IsPackable>
     </PropertyGroup>
 

@@ -29,7 +29,6 @@
     <PropertyGroup>
         <AssemblyName>SodaFlow.Core.Collections.Tests</AssemblyName>
         <RootNamespace>SodaFlow.Collections.Tests</RootNamespace>
-        <EnableDefaultItems>false</EnableDefaultItems>
         <Nullable>enable</Nullable>
         <!-- Never packed. Said here rather than inferred: what marked these as test
              projects was the reference to Microsoft.NET.Test.Sdk, which is gone. -->

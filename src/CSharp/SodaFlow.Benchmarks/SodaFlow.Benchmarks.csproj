@@ -26,7 +26,6 @@
     <PropertyGroup>
         <AssemblyName>SodaFlow.Benchmarks</AssemblyName>
         <RootNamespace>SodaFlow.Benchmarks</RootNamespace>
-        <EnableDefaultItems>false</EnableDefaultItems>
         <IsPackable>false</IsPackable>
     </PropertyGroup>
 

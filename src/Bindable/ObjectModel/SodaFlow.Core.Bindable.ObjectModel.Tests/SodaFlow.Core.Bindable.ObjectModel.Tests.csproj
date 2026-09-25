@@ -27,7 +27,6 @@
     <PropertyGroup>
         <AssemblyName>SodaFlow.Core.Bindable.ObjectModel.Tests</AssemblyName>
         <RootNamespace>SodaFlow.Bindable.ObjectModel.Tests</RootNamespace>
-        <EnableDefaultItems>false</EnableDefaultItems>
         <Nullable>enable</Nullable>
         <!-- Never packed. Nothing implies it since Microsoft.NET.Test.Sdk went, so it is stated. -->
         <IsPackable>false</IsPackable>
