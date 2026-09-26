@@ -109,6 +109,19 @@ moment. A strategy thus started an item that was about to end. One call over
 the queue that holds no item of those ends is one decision, which is the rule
 that Admit and OnCompleted already follow for one transaction.
 
+A cancellation is not the one path to this. Each operation that awaits a
+TaskCompletionSource ends on the thread that completes it, thus a listener which
+completes two of those ends two items in the transaction of that send. A loader
+that collects keys, asks one time, and answers each item that waits has that
+shape.
+
+The decision is one for each transaction, and the sends are not. A results sink
+and an errors sink come from a caller, and a SodaFlow sink with no coalesce
+function refuses a second send in one transaction. Thus, each outcome that the
+pipeline publishes gets a transaction of its own, in the sequence of the
+admissions, which is what a consumer of those streams saw before this release as
+well.
+
 A custom strategy that published every outcome returns ItemsOf(ended), which is
 a static method on the base class, in place of true. One that published none
 returns AsyncStrategyResult<TInput>.PublishNone in place of false. One that

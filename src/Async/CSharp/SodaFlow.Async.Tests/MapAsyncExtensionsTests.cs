@@ -781,6 +781,80 @@ public sealed class MapAsyncExtensionsTests
     }
 
     [Test]
+    public async Task TwoOperationsThatEndInOneTransaction_GiveOneDecisionAndTwoResults()
+    {
+        StreamSink<string> source = Stream.CreateSink<string>();
+        StreamSink<string> results = Stream.CreateSink<string>();
+        StreamSink<Exception> errors = Stream.CreateSink<Exception>();
+        ControlledOperation<string, string> op = new();
+        AlwaysStartStrategy<string> strategy = new();
+        List<string> published = [];
+        IListener l = results.ListenStrong(published.Add);
+
+        // The answer of a batched back end, as a stream. One send of it carries the answer for
+        // each item that waits. That is the shape of a loader which collects keys and asks one
+        // time.
+        StreamSink<Unit> batchAnswered = Stream.CreateSink<Unit>();
+
+        IListener batch =
+            batchAnswered.ListenStrong(_ =>
+            {
+                op.Release(input: "a", result: "A");
+                op.Release(input: "b", result: "B");
+            });
+
+        AsyncMapStatus<string, string> status =
+            source.MapAsync(results: results, errors: errors, operation: op.Operation, strategy: strategy);
+
+        source.Send("a");
+        source.Send("b");
+        TestUtil.WaitUntil(() => op.HasStarted("a") && op.HasStarted("b"));
+
+        // A cancellation is not the one path for two items to end at one moment. Each operation
+        // awaits a TaskCompletionSource, which runs its continuations on the thread that completes
+        // it. The listener above completes two of them. Thus, the two continuations run in the
+        // transaction of this send, and the two items end in it with no cancellation. No code here
+        // opens a transaction: one send on a sink is what makes it.
+        batchAnswered.Send(Unit.Value);
+
+        TestUtil.WaitUntil(() => Transaction.Run(status.Items.Sample).Count == 0);
+        TestUtil.WaitUntil(() => published.Count == 2);
+        Thread.Sleep(100);
+
+        List<string> endedSaw;
+        List<string> completions;
+
+        lock (strategy.EndedSaw)
+        {
+            endedSaw = [..strategy.EndedSaw];
+        }
+
+        lock (strategy.Completions)
+        {
+            completions = [..strategy.Completions];
+        }
+
+        await Assert.That(endedSaw)
+            .IsEquivalentTo(expected: ["a,b"], ordering: CollectionOrdering.Matching)
+            .Because("the ends of one transaction give the strategy one decision over both");
+
+        await Assert.That(completions)
+            .IsEquivalentTo(expected: ["succeeded", "succeeded"], ordering: CollectionOrdering.Matching)
+            .Because("no cancellation takes part in this");
+
+        // The sends are what the batching cannot put in one transaction. A sink that a caller
+        // made with no coalesce function refuses a second send in one transaction. Each outcome
+        // thus gets a transaction of its own, and each result goes to the stream.
+        await Assert.That(published)
+            .IsEquivalentTo(expected: ["A", "B"], ordering: CollectionOrdering.Matching)
+            .Because("each outcome reaches the results stream, in the sequence of the admissions");
+
+        status.Dispose();
+        batch.Unlisten();
+        l.Unlisten();
+    }
+
+    [Test]
     public async Task Execute_GivesTheResultAndPublishesTheSameValue()
     {
         StreamSink<string> source = Stream.CreateSink<string>();
@@ -1725,6 +1799,7 @@ public sealed class MapAsyncExtensionsTests
     {
         public readonly List<TStrategyInput> AdmittedValues = [];
         public readonly List<string> Completions = [];
+        public readonly List<string> EndedSaw = [];
 
         protected override Unit CreateState() => Unit.Value;
 
@@ -1746,6 +1821,12 @@ public sealed class MapAsyncExtensionsTests
             IReadOnlyList<AsyncEnd<TStrategyInput>> ended,
             IReadOnlyList<AsyncTrackedItem<TStrategyInput>> tracked)
         {
+            lock (this.EndedSaw)
+            {
+                this.EndedSaw.Add(
+                    string.Join(separator: ",", values: ended.Select(static e => e.Item.Value)));
+            }
+
             lock (this.Completions)
             {
                 foreach (AsyncEnd<TStrategyInput> end in ended)

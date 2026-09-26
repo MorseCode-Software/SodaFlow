@@ -2448,16 +2448,29 @@ internal sealed class AsyncMapExecutionManager<TInput, TResult, TStrategyInput> 
 
                 CancellationToken? tokenToCheck = end.TokenToCheck;
 
+                // One transaction for each outcome, and not one for all of them. A caller makes the
+                // results sink and the errors sink. A SodaFlow sink with no coalesce function
+                // refuses a second send in one transaction. One decision for each transaction is
+                // the rule for the strategy, and that rule says nothing about the count of the
+                // sends. Thus, each outcome gets a transaction of its own here, and the sequence of
+                // these posts is the sequence of the admissions.
+                //
+                // The release cancels the Task of an Execute call where this post does not run. A
+                // transaction that fails discards it, as it discards the send of an admission.
                 end.Outcome.MatchVoid(
-                    onSucceeded: operationResult => this.Publish(
-                        operationResult: operationResult,
-                        tokenToCheck: tokenToCheck,
-                        completion: completion),
-                    onFailed: e =>
-                    {
-                        this.errors.SendImpl(e);
-                        completion?.TrySetException(e);
-                    },
+                    onSucceeded: operationResult => TransactionInternal.PostImpl(
+                        action: () => this.Publish(
+                            operationResult: operationResult,
+                            tokenToCheck: tokenToCheck,
+                            completion: completion),
+                        onFailure: _ => completion?.TrySetCanceled()),
+                    onFailed: e => TransactionInternal.PostImpl(
+                        action: () =>
+                        {
+                            this.errors.SendImpl(e);
+                            completion?.TrySetException(e);
+                        },
+                        onFailure: _ => completion?.TrySetCanceled()),
                     onCanceled: () => completion?.TrySetCanceled());
             }
 

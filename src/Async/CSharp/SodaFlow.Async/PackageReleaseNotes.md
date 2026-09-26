@@ -107,6 +107,19 @@ those decisions read a queue that held the other items which end at the same
 moment. A strategy thus started an item that was about to end. One call over
 the queue that holds no item of those ends is one decision.
 
+A cancellation is not the one path to this. Each operation that awaits a
+TaskCompletionSource ends on the thread that completes it, thus a listener which
+completes two of those ends two items in the transaction of that send. A loader
+that collects keys, asks one time, and answers each item that waits has that
+shape.
+
+The decision is one for each transaction, and the sends are not. A results sink
+and an errors sink come from a caller, and a SodaFlow sink with no coalesce
+function refuses a second send in one transaction. Thus, each outcome that the
+pipeline publishes gets a transaction of its own, in the sequence of the
+admissions, which is what a consumer of those streams saw before this release as
+well.
+
 A call of MapAsync with a strategy from this library needs no edit for this. A
 custom strategy that published every outcome returns ItemsOf(ended) in place of
 true, one that published none returns PublishNone in place of false, and one
