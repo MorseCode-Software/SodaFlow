@@ -8,7 +8,7 @@ open TUnit.Core
 type ``Transaction Tests``() =
 
     [<Test>]
-    member _.``postWithFailure runs the release where the transaction fails``() =
+    member _.``postWithReleaseOnFailure runs the release where the transaction fails``() =
         task {
             let mutable ran = false
             let mutable cause: exn option = None
@@ -21,7 +21,9 @@ type ``Transaction Tests``() =
             let thrown =
                 try
                     runT (fun () ->
-                        Transaction.postWithFailure (fun e -> cause <- Some e) (fun () -> ran <- true)
+                        Transaction.postWithReleaseOnFailure
+                            (fun e -> cause <- Some e)
+                            (fun () -> ran <- true)
                         sink |> sendS 1)
 
                     None
@@ -37,13 +39,13 @@ type ``Transaction Tests``() =
         }
 
     [<Test>]
-    member _.``postWithFailure runs no release where the action completes``() =
+    member _.``postWithReleaseOnFailure runs no release where the action completes``() =
         task {
             let mutable ran = false
             let mutable released = false
 
             runT (fun () ->
-                Transaction.postWithFailure (fun _ -> released <- true) (fun () -> ran <- true))
+                Transaction.postWithReleaseOnFailure (fun _ -> released <- true) (fun () -> ran <- true))
 
             do! Expect.True ran
             do! Expect.False released
