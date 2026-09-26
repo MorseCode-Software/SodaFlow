@@ -1,6 +1,28 @@
 <Project>
 
     <!--
+        No default items, in any project here. A project builds only the Compile, None, and other
+        items it names, so a file added to a folder is not part of the build until someone lists it.
+        That is the point: adding a file is not a build change until it is said to be one.
+
+        Set here, once, rather than in each project, which is where it used to be - the same line
+        in all of them. A rule every project has to remember to repeat is one a new project can
+        forget, and nothing would notice: the build still passes, it just starts globbing. Here it
+        cannot be left out.
+
+        This file is imported before the SDK decides whether to add its default globs, so setting
+        the property here turns them off as surely as setting it in the project did. That was
+        checked rather than assumed: every project's evaluated items were captured before and after
+        the move, per target framework, and are identical.
+
+        samples/Directory.Build.props carries the same property, because nothing under samples/
+        reaches this file.
+    -->
+    <PropertyGroup>
+        <EnableDefaultItems>false</EnableDefaultItems>
+    </PropertyGroup>
+
+    <!--
         Every project here restores through a committed packages.lock.json, one per project beside
         its own file.
 

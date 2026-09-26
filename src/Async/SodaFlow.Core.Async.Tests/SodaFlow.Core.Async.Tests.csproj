@@ -29,7 +29,6 @@
     <PropertyGroup>
         <AssemblyName>SodaFlow.Core.Async.Tests</AssemblyName>
         <RootNamespace>SodaFlow.Async.Tests</RootNamespace>
-        <EnableDefaultItems>false</EnableDefaultItems>
         <Nullable>enable</Nullable>
         <!-- Never packed — appveyor.yml's after_test step names the seven packable projects explicitly. -->
         <IsPackable>false</IsPackable>

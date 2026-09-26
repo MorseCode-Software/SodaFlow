@@ -15,7 +15,6 @@
         <PackageIcon>SodaFlow.png</PackageIcon>
         <AssemblyName>SodaFlow</AssemblyName>
         <RootNamespace>SodaFlow</RootNamespace>
-        <EnableDefaultItems>false</EnableDefaultItems>
         <!--
             GenerateDocumentationFile rather than a per-configuration DocumentationFile path: this project
             multi-targets, and a single hard-coded path made all three target frameworks write over one

@@ -15,7 +15,6 @@
         <PackageIcon>SodaFlow.png</PackageIcon>
         <AssemblyName>SodaFlow.Core.Bindable.ObjectModel</AssemblyName>
         <RootNamespace>SodaFlow.Bindable.ObjectModel</RootNamespace>
-        <EnableDefaultItems>false</EnableDefaultItems>
         <Nullable>enable</Nullable>
         <LangVersion>10</LangVersion>
         <!--

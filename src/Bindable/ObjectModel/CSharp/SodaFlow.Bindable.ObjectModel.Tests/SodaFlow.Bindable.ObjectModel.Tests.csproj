@@ -23,7 +23,6 @@
     <PropertyGroup>
         <AssemblyName>SodaFlow.Bindable.ObjectModel.Tests</AssemblyName>
         <RootNamespace>SodaFlow.Bindable.ObjectModel.Tests</RootNamespace>
-        <EnableDefaultItems>false</EnableDefaultItems>
         <Nullable>enable</Nullable>
         <IsPackable>false</IsPackable>
     </PropertyGroup>

@@ -6,7 +6,6 @@
         <Nullable>enable</Nullable>
         <LangVersion>14</LangVersion>
         <IsPackable>false</IsPackable>
-        <EnableDefaultItems>false</EnableDefaultItems>
         <ApplicationManifest>app.manifest</ApplicationManifest>
     </PropertyGroup>
 

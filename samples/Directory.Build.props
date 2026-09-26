@@ -1,6 +1,15 @@
 <Project>
 
     <!--
+        No default items, in any sample project, for the reasons given where src/Directory.Build.props
+        sets the same property. It is duplicated rather than inherited for the reason at the top of
+        this file.
+    -->
+    <PropertyGroup>
+        <EnableDefaultItems>false</EnableDefaultItems>
+    </PropertyGroup>
+
+    <!--
         Every sample project restores through a committed packages.lock.json, one per project beside
         its own file, exactly as the projects under src/ do.
 

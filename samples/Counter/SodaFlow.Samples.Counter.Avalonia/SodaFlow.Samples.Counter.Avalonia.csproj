@@ -4,7 +4,6 @@
         <OutputType>WinExe</OutputType>
         <TargetFramework>net10.0</TargetFramework>
         <Nullable>enable</Nullable>
-        <EnableDefaultItems>false</EnableDefaultItems>
         <LangVersion>14</LangVersion>
         <IsPackable>false</IsPackable>
         <ApplicationManifest>app.manifest</ApplicationManifest>
