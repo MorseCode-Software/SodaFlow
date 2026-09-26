@@ -31,7 +31,6 @@
 
     <ItemGroup>
         <Compile Include="BindableAction.cs"/>
-        <Compile Include="BindableExtensionMethods.cs"/>
         <Compile Include="BindableFactory.cs"/>
         <Compile Include="IBindableAction.cs"/>
         <Compile Include="IBindableFactory.cs"/>

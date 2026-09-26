@@ -90,27 +90,24 @@ The bindable packages are the bridge to XAML. A cell or a sink goes in, and what
 an object that raises `INotifyPropertyChanged` for its `Value` property, or an `ICommand`, so
 WPF and Avalonia can bind to a SodaFlow graph without either side knowing about the other.
 
-| You have | You call | You bind to |
+Every bindable comes from an `IBindableFactory`, which holds the scheduler that all of them use.
+
+| You have | You call (C# / F#) | You bind to |
 | --- | --- | --- |
-| `Cell<T>` | `ToOneWay()` / `oneWay` | `IOneWayBindableValue<T>` — read-only |
-| `CellSink<T>`, or a `Cell<T>` plus a `StreamSink<T>` | `ToTwoWay()` / `twoWay` | `ITwoWayBindableValue<T>` — reads and writes |
-| `StreamSink<T>` plus an initial value | `ToOneWayToSource()` / `oneWayToSource` | `IOneWayToSourceBindableValue<T>` — write-only |
-| `StreamSink<T>` | `ToBindableAction()` / `toBindableAction` | `IBindableAction` — an `ICommand` |
+| `Cell<T>` | `CreateOneWay` / `ToOneWay` | `IOneWayBindableValue<T>` — read-only |
+| `CellSink<T>`, or a `Cell<T>` plus a `StreamSink<T>` | `CreateTwoWay` / `ToTwoWay` | `ITwoWayBindableValue<T>` — reads and writes |
+| `StreamSink<T>` plus an initial value, or a `CellSink<T>` | `CreateOneWayToSource` / `ToOneWayToSource` | `IOneWayToSourceBindableValue<T>` — write-only |
+| `StreamSink<T>` | `CreateBindableAction` / `ToBindableAction` | `IBindableAction` — an `ICommand` |
 
 Bind to `SomeProperty.Value`, not `SomeProperty`: a bindable value is an object whose `Value`
 changes, not the value itself. Bindable actions are the exception, being `ICommand`
 implementations already.
 
-Updates reach the UI through an `IBindingScheduler`, resolved when a bindable is constructed:
-an explicitly passed scheduler wins, then a process-wide `BindingScheduler.Default`, then the
-`SynchronizationContext` of the constructing thread, and failing all of those handlers run
-inline. A view model built on the UI thread therefore needs no configuration at all.
-
-Bindables may be constructed on any thread, so a view model never has to know which thread the
-binding engine uses — that is what lets it stay ignorant of the UI entirely. What it does need
-is for one of those to be resolvable: if construction happens somewhere with no
-`SynchronizationContext` to capture, set `BindingScheduler.Default` during startup.
-`BindingScheduler.Immediate` runs handlers inline, for tests and headless hosts.
+Updates reach the UI through the `IBindingScheduler` the factory was built with. Build one
+factory at startup, on the UI thread, with `SynchronizationContextBindingScheduler.Capture()`,
+and hand it to each view model; the thread a view model is built on then changes nothing.
+There is no process-wide default and no fallback. `BindingScheduler.Immediate` runs handlers
+inline, for tests and headless hosts.
 
 ## Versioning
 

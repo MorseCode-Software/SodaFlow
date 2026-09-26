@@ -1,3 +1,29 @@
+4.0.0
+
+BREAKING: BindingScheduler.Default is gone, and no bindable selects a
+scheduler for itself any more. Each one used to take, in order, the scheduler
+it was given, then Default, then the SynchronizationContext of the thread that
+built it, and last of all ran its handlers inline. That last step was silent:
+a view model built on a background thread raised PropertyChanged off the UI
+thread, and the binding engine failed later and far from the cause.
+
+Each construction now takes a scheduler and throws ArgumentNullException
+without one. The factories in SodaFlow.Bindable.ObjectModel and
+SodaFlow.FSharp.Bindable.ObjectModel are the only way to build a bindable,
+and each takes the scheduler once. Build one factory at startup, on the UI
+thread, with SynchronizationContextBindingScheduler.Capture(), and give it to
+each view model; a test gives BindingScheduler.Immediate.
+
+BREAKING for the two language surfaces: the internal construction methods take
+the scheduler as a required argument, and ToBindableActionImpl takes it before
+the enablement cell. A package built against 3.x does not run against this;
+take the 4.x of each with it.
+
+Requires SodaFlow.Core 5.x. It could not stay on 3.x: its dependency on
+SodaFlow.Core is a range that ends before the next major, thus 3.0.2 cannot
+install beside SodaFlow.Core 5.0.0. Nothing here calls the internals that
+SodaFlow.Core 5.0.0 changed.
+
 3.0.2
 
 Adds the package icon that nuget.org shows beside this package.

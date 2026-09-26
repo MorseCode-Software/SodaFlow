@@ -19,8 +19,8 @@ public static partial class BindableCoreExtensionMethods
 
         private int disposed;
 
-        protected BindableValueBase(IBindingScheduler? scheduler) =>
-            this.Scheduler = BindingScheduler.Resolve(scheduler);
+        protected BindableValueBase(IBindingScheduler scheduler) =>
+            this.Scheduler = scheduler ?? throw new ArgumentNullException(nameof(scheduler));
 
         /// <summary>The scheduler that moves a notification to the binding thread.</summary>
         protected IBindingScheduler Scheduler { get; }

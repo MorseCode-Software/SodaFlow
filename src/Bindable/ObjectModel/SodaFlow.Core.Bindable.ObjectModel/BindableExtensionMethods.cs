@@ -4,15 +4,16 @@ using System.Collections.Generic;
 namespace SodaFlow.Bindable.ObjectModel;
 
 /// <summary>
-///     Extension methods that give you a bindable. Each implementation is a private nested type.
-///     Thus, the public surface is the four interfaces only.
+///     The constructions of each bindable, for the factories of the two language surfaces. Each
+///     implementation is a private nested type. Thus, the public surface is the four interfaces
+///     only.
 /// </summary>
 public static partial class BindableCoreExtensionMethods
 {
     /// <summary>Shows a cell as a bindable property that a caller cannot write.</summary>
     internal static IOneWayBindableValue<T> ToOneWayImpl<T>(
         this Cell<T> cell,
-        IBindingScheduler? scheduler = null,
+        IBindingScheduler scheduler,
         IEqualityComparer<T>? comparer = null) =>
         new OneWayBindableValue<T>(cell: cell, scheduler: scheduler, comparer: comparer);
 
@@ -22,7 +23,7 @@ public static partial class BindableCoreExtensionMethods
     /// </summary>
     internal static ITwoWayBindableValue<T> ToTwoWayImpl<T>(
         this CellSink<T> sink,
-        IBindingScheduler? scheduler = null,
+        IBindingScheduler scheduler,
         IEqualityComparer<T>? comparer = null) =>
         new TwoWayBindableValue<T>(cell: sink, write: sink.SendImpl, scheduler: scheduler, comparer: comparer);
 
@@ -33,7 +34,7 @@ public static partial class BindableCoreExtensionMethods
     internal static ITwoWayBindableValue<T> ToTwoWayImpl<T>(
         this Cell<T> cell,
         StreamSink<T> editsStreamSink,
-        IBindingScheduler? scheduler = null,
+        IBindingScheduler scheduler,
         IEqualityComparer<T>? comparer = null)
     {
         if (editsStreamSink == null)
@@ -54,7 +55,7 @@ public static partial class BindableCoreExtensionMethods
     /// </summary>
     internal static IOneWayToSourceBindableValue<T> ToOneWayToSourceImpl<T>(
         this CellSink<T> sink,
-        IBindingScheduler? scheduler = null,
+        IBindingScheduler scheduler,
         IEqualityComparer<T>? comparer = null) =>
         new OneWayToSourceBindableValue<T>(
             write: sink.SendImpl,
@@ -69,7 +70,7 @@ public static partial class BindableCoreExtensionMethods
     internal static IOneWayToSourceBindableValue<T> ToOneWayToSourceImpl<T>(
         this StreamSink<T> editsStreamSink,
         T initialValue,
-        IBindingScheduler? scheduler = null,
+        IBindingScheduler scheduler,
         IEqualityComparer<T>? comparer = null) =>
         new OneWayToSourceBindableValue<T>(
             write: editsStreamSink.SendImpl,
@@ -80,15 +81,10 @@ public static partial class BindableCoreExtensionMethods
     /// <summary>
     ///     Shows a sink that exists as a command that carries its <c>CommandParameter</c>.
     /// </summary>
-    /// <remarks>
-    ///     For a <c>StreamSink&lt;Unit&gt;</c> the compiler selects the overload with no type
-    ///     parameter. To get the overload with a parameter for a unit sink, write
-    ///     <c>ToBindableAction&lt;Unit&gt;(...)</c>.
-    /// </remarks>
     internal static IBindableAction<T> ToBindableActionImpl<T>(
         this StreamSink<T> firingsStreamSink,
-        Cell<bool>? isEnabledCell = null,
-        IBindingScheduler? scheduler = null)
+        IBindingScheduler scheduler,
+        Cell<bool>? isEnabledCell = null)
         where T : notnull =>
         new BindableAction<T>(
             firingsStreamSink: firingsStreamSink,

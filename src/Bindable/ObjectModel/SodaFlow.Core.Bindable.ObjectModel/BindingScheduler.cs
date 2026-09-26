@@ -74,7 +74,7 @@ public sealed class SynchronizationContextBindingScheduler : IBindingScheduler
 
     // SodaFlow captures this with the context, because the two identify the binding thread in
     // different ways and one alone is not sufficient. It comes from the building thread.
-    // Capture and the ambient resolution both run on the binding thread. A caller that supplies
+    // Capture runs on the binding thread. A caller that supplies
     // a context of a different thread makes this identifier incorrect, and makes the test more
     // permissive. That is the direction with no risk.
     private readonly int bindingThreadId;
@@ -236,44 +236,17 @@ public sealed class ImmediateBindingScheduler : IBindingScheduler
     }
 }
 
-/// <summary>Finds the ambient scheduler.</summary>
+/// <summary>The schedulers that this package gives.</summary>
+/// <remarks>
+///     No scheduler applies to the full process, and a bindable never selects one for itself.
+///     Give one to the factory at the construction of the application, such as
+///     <see cref="SynchronizationContextBindingScheduler.Capture" /> on the UI thread, and give
+///     that factory to each view model. Thus, the thread that builds a view model does not
+///     change the thread that its notifications go to.
+/// </remarks>
 [PublicAPI]
 public static class BindingScheduler
 {
-    /// <summary>
-    ///     A scheduler for the full process. Set this at startup when the binding thread has no
-    ///     <see cref="SynchronizationContext" /> of its own. A UI framework that you write
-    ///     yourself, or a test host, has no such context. When this is null, each bindable
-    ///     captures the <see cref="SynchronizationContext" /> of the thread that constructed
-    ///     it.
-    /// </summary>
-    /// <remarks>
-    ///     You can build a bindable object on any thread, thus a view model does not have to
-    ///     know which thread the binding engine uses. But one of these must be available. Set
-    ///     this when the binding thread has no <see cref="SynchronizationContext" />, or when
-    ///     a build occurs where there is no context to capture.
-    /// </remarks>
-    public static IBindingScheduler? Default { get; set; }
-
     /// <summary>A scheduler for a test and for a host with no UI.</summary>
     public static IBindingScheduler Immediate => ImmediateBindingScheduler.Instance;
-
-    internal static IBindingScheduler Resolve(IBindingScheduler? scheduler)
-    {
-        if (scheduler != null)
-        {
-            return scheduler;
-        }
-
-        if (Default != null)
-        {
-            return Default;
-        }
-
-        SynchronizationContext? context = SynchronizationContext.Current;
-
-        return context != null
-            ? new SynchronizationContextBindingScheduler(context)
-            : ImmediateBindingScheduler.Instance;
-    }
 }

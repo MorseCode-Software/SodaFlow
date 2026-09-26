@@ -36,10 +36,10 @@ Stream<Func<int, int>> edits = new[]
 
 Cell<int> count = edits.Accum(0, (edit, n) => edit(n));
 
-// The view model's properties.
-IOneWayBindableValue<int> countValue = count.ToOneWay();
-IBindableAction incrementCommand = increment.ToBindableAction();
-IBindableAction resetCommand = reset.ToBindableAction(count.Map(n => n != 0));
+// The view model's properties, built by the factory it was given.
+IOneWayBindableValue<int> countValue = factory.CreateOneWay(count);
+IBindableAction incrementCommand = factory.CreateBindableAction(increment);
+IBindableAction resetCommand = factory.CreateBindableAction(reset, count.Map(n => n != 0));
 ```
 
 Notice what is absent: no `count` field, no `OnPropertyChanged("Count")`, and nothing that
@@ -48,15 +48,18 @@ follows the cell and the cell follows the count. They cannot disagree.
 
 ## What you can turn into a bindable
 
+Every bindable comes from an `IBindableFactory`; there is no other way to build one.
+
 | You have | You call | You get | Direction |
 | --- | --- | --- | --- |
-| `Cell<T>` | `ToOneWay()` | `IOneWayBindableValue<T>` | Graph to view |
-| `CellSink<T>` | `ToTwoWay()` | `ITwoWayBindableValue<T>` | Both |
-| `Cell<T>` + `StreamSink<T>` | `ToTwoWay(editsStreamSink)` | `ITwoWayBindableValue<T>` | Both |
-| `StreamSink<T>` + initial value | `ToOneWayToSource(initialValue)` | `IOneWayToSourceBindableValue<T>` | View to graph |
-| `StreamSink<T>` | `ToBindableAction()` | `IBindableAction<T>` | An `ICommand` |
+| `Cell<T>` | `CreateOneWay(cell)` | `IOneWayBindableValue<T>` | Graph to view |
+| `CellSink<T>` | `CreateTwoWay(sink)` | `ITwoWayBindableValue<T>` | Both |
+| `Cell<T>` + `StreamSink<T>` | `CreateTwoWay(cell, editsStreamSink)` | `ITwoWayBindableValue<T>` | Both |
+| `StreamSink<T>` + initial value | `CreateOneWayToSource(editsStreamSink, initialValue)` | `IOneWayToSourceBindableValue<T>` | View to graph |
+| `CellSink<T>` | `CreateOneWayToSource(sink)` | `IOneWayToSourceBindableValue<T>` | View to graph |
+| `StreamSink<T>` | `CreateBindableAction(sink)` | `IBindableAction<T>` | An `ICommand` |
 
-Two `ToTwoWay` overloads exist because there are two situations. A `CellSink<T>` is the simple
+Two `CreateTwoWay` overloads exist because there are two situations. A `CellSink<T>` is the simple
 one: the view is the only writer, and the sink is authoritative. Passing a `Cell<T>` and a
 separate `StreamSink<T>` is for when the graph computes the value but view edits have to enter
 as their own stream — validation, normalization, or any other rule between the edit and the
@@ -100,7 +103,7 @@ it. Setting a value the comparer considers unchanged does nothing at all.
 
 ## Commands
 
-`ToBindableAction` turns a `StreamSink<T>` into an `ICommand`. The `CommandParameter` is
+`CreateBindableAction` turns a `StreamSink<T>` into an `ICommand`. The `CommandParameter` is
 carried through to the stream, and enablement comes from an optional `Cell<bool>` — omit it
 and the command is always enabled. `CanExecuteChanged` is raised for you when that cell
 changes; nothing raises it by hand.
@@ -109,31 +112,32 @@ A disposed action reports `CanExecute` as false, so a torn-down view model canno
 through a stale binding.
 
 For a `StreamSink<Unit>` the parameterless overload wins overload resolution and yields the
-non-generic `IBindableAction`. Write `ToBindableAction<Unit>(...)` explicitly if you want the
-parameterized form for a unit sink.
+non-generic `IBindableAction`. Write `CreateBindableAction<Unit>(...)` explicitly if you want the
+parameterized form for a unit sink. A `StreamSink<Maybe<T>>` gives a command whose
+`CommandParameter` can be null, a `T`, or a `Maybe<T>`.
 
 ## The binding scheduler
 
-Notifications have to reach the UI on the UI thread. An `IBindingScheduler` does that, and one
-is resolved when each bindable is constructed, in this order:
+Notifications have to reach the UI on the UI thread. An `IBindingScheduler` does that, and the
+factory holds the one that every bindable it builds uses. `BindableFactory` requires one:
 
-1. a scheduler passed explicitly to the call;
-2. the process-wide `BindingScheduler.Default`, if it has been set;
-3. the `SynchronizationContext` of the thread doing the constructing;
-4. failing all of those, handlers run inline.
+```csharp
+// At startup, on the UI thread.
+IBindableFactory factory = new BindableFactory(SynchronizationContextBindingScheduler.Capture());
+```
 
-A view model built on the UI thread therefore needs no configuration at all: step 3 finds the
-context and everything works.
+Hand that factory to each view model, through its constructor. A bindable never picks a
+scheduler for itself, so the thread a view model happens to be built on changes nothing: build
+it on any thread, and its notifications still reach the thread the factory was given.
 
-Bindables may be constructed on **any** thread — a view model never has to know which thread
-the binding engine uses, which is the whole point of keeping it ignorant of the UI. What it
-does need is for one of those four steps to produce the right answer. If your view models are
-built somewhere with no `SynchronizationContext` to capture — a background thread, a custom UI
-framework, a headless host — set `BindingScheduler.Default` during startup, or pass a
-scheduler in. Otherwise step 4 silently dispatches inline, and updates reach the view on
-whichever thread happened to send them.
+There is no process-wide default and no fallback. An earlier version captured the constructing
+thread's `SynchronizationContext` and, when there was none, ran handlers inline without a word,
+so a view model built on a background thread raised `PropertyChanged` off the UI thread and the
+binding engine failed somewhere far from the cause. Requiring the scheduler up front moves that
+failure to the one line that builds the factory.
 
-`BindingScheduler.Immediate` runs handlers inline on purpose, which is what tests want.
+`BindingScheduler.Immediate` runs handlers inline on purpose, which is what tests and headless
+hosts want.
 
 ## Disposal
 
@@ -160,37 +164,32 @@ place.
 
 ## Testing, and injecting the scheduler
 
-`BindableFactory` holds one scheduler and hands it to everything it creates, so a view model
-can take an `IBindableFactory` through its constructor and a test can substitute
-`BindingScheduler.Immediate` for the real one. Without that substitution, assertions would
-race the UI thread's message pump.
+Because a view model takes its `IBindableFactory` through its constructor, a test builds it with
+`new BindableFactory(BindingScheduler.Immediate)` in place of the real one. Without that
+substitution, assertions would race the UI thread's message pump. `IBindableFactory` is an
+interface, so a test can also supply its own.
 
 ## F#
 
-The F# package exposes the same operations as a `Bindable` module, with the scheduler and
-comparer as named variants rather than optional arguments:
+The F# package builds bindables the same way, through an `IBindableFactory`:
 
 ```fsharp
 open SodaFlow
 open SodaFlow.Bindable.ObjectModel
 
+let factory =
+    BindableFactory(SynchronizationContextBindingScheduler.Capture()) :> IBindableFactory
+
 let incrementSink = sinkS<unit> ()
 let count = incrementSink |> accumS 0 (fun _ n -> n + 1)
 
-let countBindable = count |> Bindable.oneWay
-let increment = incrementSink |> Bindable.toBindableAction
+let countBindable = factory.ToOneWay count
+let increment = factory.ToBindableAction incrementSink
 ```
 
-`oneWay`, `twoWay`, `twoWayCS` (for a `CellSink`), `oneWayToSource` and `oneWayToSourceCS` each
-have `WithComparer`, `WithScheduler` and `WithSchedulerAndComparer` forms. Note the order of the
-last one: the scheduler is named before the comparer.
-
-`toBindableAction` is not one of them, because a command has no value to compare. It varies along
-its own axes instead — a value (`WithValue`, `WithOptionalValue`), an enablement cell
-(`AndIsEnabledCell`) and a scheduler (`AndScheduler`) — in every combination of the three, which
-is twelve functions in all.
-
-`BindableFactory` is available too, taking an optional scheduler.
+`ToOneWay`, `ToTwoWay`, `ToOneWayToSource` and `ToBindableAction` mirror the C# members and take
+an optional comparer or enablement cell. `ToBindableOptionAction` is the command whose
+`CommandParameter` can be null, a `'T`, or a `'T option`.
 
 > [!NOTE]
 > The generated [API reference](../api/index.md) carries the full parameter contract for every

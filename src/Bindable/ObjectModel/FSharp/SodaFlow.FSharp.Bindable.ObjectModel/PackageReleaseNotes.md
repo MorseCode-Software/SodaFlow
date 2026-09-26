@@ -1,3 +1,31 @@
+4.0.0
+
+BREAKING: the functions of the Bindable module are gone - oneWay, twoWay,
+twoWayCS, oneWayToSource, oneWayToSourceCS, toBindableAction and each of their
+WithComparer, WithScheduler, WithValue, AndIsEnabledCell and other forms. A
+bindable comes from an IBindableFactory, and from nothing else: ToOneWay,
+ToTwoWay, ToOneWayToSource and ToBindableAction take the same arguments, less
+the scheduler. Each function that took a scheduler let a view model pass one
+different from the one it was given, and each one that did not let the
+bindable find one for itself.
+
+Adds ToBindableOptionAction to IBindableFactory, the command whose
+CommandParameter can be null, a 'T, or a 'T option. Only the removed
+toBindableActionWithOptionalValue functions built it before.
+
+BREAKING: BindableFactory takes a scheduler, where the scheduler was optional,
+and throws ArgumentNullException for null. Build one factory at startup, on
+the UI thread:
+
+  BindableFactory(SynchronizationContextBindingScheduler.Capture())
+
+and give it to each view model. A test gives BindingScheduler.Immediate.
+SodaFlow.Bindable.ObjectModel.Core's notes say why there is no fallback now.
+
+Requires SodaFlow.FSharp 5.x and SodaFlow.Bindable.ObjectModel.Core 4.x.
+SodaFlow.FSharp 5.0.0 has breaking changes of its own - listenOnce is weak
+now, among others - and its notes list them.
+
 3.0.2
 
 Adds the package icon that nuget.org shows beside this package. No source file

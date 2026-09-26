@@ -44,13 +44,13 @@ public static partial class BindableCoreExtensionMethods
         internal BindableAction(
             StreamSink<T> firingsStreamSink,
             Cell<bool>? isEnabledCell,
-            IBindingScheduler? scheduler)
+            IBindingScheduler scheduler)
         {
             this.firingsStreamSink =
                 firingsStreamSink
                 ?? throw new ArgumentNullException(nameof(firingsStreamSink));
 
-            this.scheduler = BindingScheduler.Resolve(scheduler);
+            this.scheduler = scheduler ?? throw new ArgumentNullException(nameof(scheduler));
 
             Cell<bool> resolvedIsEnabledCell = isEnabledCell ?? CellInternal.ConstantImpl(true);
 

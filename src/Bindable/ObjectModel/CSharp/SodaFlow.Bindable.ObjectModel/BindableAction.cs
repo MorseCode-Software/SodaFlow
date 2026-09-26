@@ -1,18 +1,17 @@
 using System;
-using JetBrains.Annotations;
 using SodaFlow.Functional;
 
 namespace SodaFlow.Bindable.ObjectModel;
 
-[PublicAPI]
-public static partial class BindableExtensionMethods
+/// <summary>The commands that the factory builds for the C# surface.</summary>
+internal static class BindableActions
 {
     internal sealed class BindableAction : BindableCoreExtensionMethods.BindableAction<Unit>, IBindableAction
     {
         internal BindableAction(
             StreamSink<Unit> firingsStreamSink,
             Cell<bool>? isEnabledCell,
-            IBindingScheduler? scheduler)
+            IBindingScheduler scheduler)
             : base(firingsStreamSink: firingsStreamSink, isEnabledCell: isEnabledCell, scheduler: scheduler)
         {
         }
@@ -35,7 +34,7 @@ public static partial class BindableExtensionMethods
         internal BindableMaybeAction(
             StreamSink<Maybe<T>> firingsStreamSink,
             Cell<bool>? isEnabledCell,
-            IBindingScheduler? scheduler)
+            IBindingScheduler scheduler)
             : base(firingsStreamSink: firingsStreamSink, isEnabledCell: isEnabledCell, scheduler: scheduler)
         {
         }

@@ -36,7 +36,7 @@ public static partial class BindableCoreExtensionMethods
 
         internal OneWayBindableValue(
             Cell<T> cell,
-            IBindingScheduler? scheduler,
+            IBindingScheduler scheduler,
             IEqualityComparer<T>? comparer)
             : base(scheduler)
         {
