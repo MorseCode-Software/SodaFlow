@@ -38,7 +38,7 @@ internal sealed class TransactionInternal
     private bool isElevated;
     private Queue<Action>? lastQueue;
     private bool obtainedLock;
-    private Queue<Action<TransactionInternal>>? postQueue;
+    private Queue<PostEntry>? postQueue;
     private HashSet<Entry>? rerankEntriesSet;
 
     private List<Action>? sampleQueue;
@@ -231,10 +231,32 @@ internal sealed class TransactionInternal
     ///     Add an action to run after all last actions.
     /// </summary>
     /// <param name="action">The action to run after all last actions.</param>
-    private void Post(Action<TransactionInternal> action)
+    /// <param name="onFailure">
+    ///     The action to run where <paramref name="action" /> keeps no promise, with the exception
+    ///     that is the cause. Null where the caller gave none.
+    /// </param>
+    private void Post(Action<TransactionInternal> action, Action<Exception>? onFailure)
     {
         TransactionInternal owner = this.DeferredOwner;
-        (owner.postQueue ?? (owner.postQueue = new Queue<Action<TransactionInternal>>())).Enqueue(action);
+
+        (owner.postQueue ?? (owner.postQueue = new Queue<PostEntry>()))
+            .Enqueue(new PostEntry(action: action, onFailure: onFailure));
+    }
+
+    // Runs one release and answers with its own exception, or with null. A throw from a release
+    // must not replace the exception that caused it, and must not stop the releases after it.
+    private static Exception? RunRelease(Action<Exception> onFailure, Exception cause)
+    {
+        try
+        {
+            onFailure(cause);
+
+            return null;
+        }
+        catch (Exception e)
+        {
+            return e;
+        }
     }
 
     /// <summary>
@@ -264,22 +286,39 @@ internal sealed class TransactionInternal
         queue[index] = @new;
     }
 
-    internal static void PostInternal(Action<TransactionInternal> action) =>
+    private static void PostInternal(Action<TransactionInternal> action, Action<Exception>? onFailure) =>
         Apply((trans, createdNewTransaction) =>
         {
-            if (createdNewTransaction)
+            if (!createdNewTransaction)
+            {
+                trans.Post(action: action, onFailure: onFailure);
+
+                return UnitInternal.Value;
+            }
+
+            // No transaction was open, thus the action runs now, in the transaction that Apply
+            // made. A throw from it goes to the caller, and the release sees that throw first.
+            try
             {
                 action(trans);
             }
-            else
+            catch (Exception e) when (onFailure != null)
             {
-                trans.Post(action);
+                Exception? release = RunRelease(onFailure: onFailure, cause: e);
+
+                if (release == null)
+                {
+                    throw;
+                }
+
+                throw new AggregateException(e, release);
             }
 
             return UnitInternal.Value;
         });
 
-    internal static void PostImpl(Action action) => PostInternal(_ => action());
+    internal static void PostImpl(Action action, Action<Exception>? onFailure = null) =>
+        PostInternal(action: _ => action(), onFailure: onFailure);
 
     // If the priority queue holds entries when SodaFlow changes the rank of a node, SodaFlow must build the queue again to keep it correct.
     private void CheckRegen()
@@ -392,7 +431,26 @@ internal sealed class TransactionInternal
                 {
                     while (this.postQueue?.Count > 0)
                     {
-                        ExecuteInNewTransaction(action: this.postQueue.Dequeue(), runStartHooks: true);
+                        PostEntry entry = this.postQueue.Dequeue();
+
+                        try
+                        {
+                            ExecuteInNewTransaction(action: entry.Action, runStartHooks: true);
+                        }
+                        catch (Exception e) when (entry.OnFailure != null)
+                        {
+                            // This entry kept no promise, thus its own release runs here. The
+                            // entry is out of the queue, thus the catch of this method does not
+                            // run that release a second time.
+                            Exception? release = RunRelease(onFailure: entry.OnFailure, cause: e);
+
+                            if (release == null)
+                            {
+                                throw;
+                            }
+
+                            throw new AggregateException(e, release);
+                        }
                     }
 
                     Dictionary<int, Action<TransactionInternal>>? sq = this.splitQueue;
@@ -428,8 +486,30 @@ internal sealed class TransactionInternal
                 }
             }
         }
-        catch
+        catch (Exception transactionException)
         {
+            // The releases come first. Each entry that remains here kept no promise, because this
+            // transaction stops before it runs, and the queues below hold that deferred work. An
+            // entry that ran, and an entry that threw, are out of the queue and are not here.
+            List<Exception>? failureExceptions = null;
+
+            while (this.postQueue?.Count > 0)
+            {
+                Action<Exception>? onFailure = this.postQueue.Dequeue().OnFailure;
+
+                if (onFailure == null)
+                {
+                    continue;
+                }
+
+                Exception? release = RunRelease(onFailure: onFailure, cause: transactionException);
+
+                if (release != null)
+                {
+                    (failureExceptions ??= []).Add(release);
+                }
+            }
+
             // All of these become null and SodaFlow does not call Clear. The transaction
             // stops here, thus this releases the queues and not to empty them for a
             // second use. Clear keeps the list or the queue, and its backing array, at the
@@ -455,8 +535,29 @@ internal sealed class TransactionInternal
 
             this.splitQueue = null;
 
-            throw;
+            if (failureExceptions == null)
+            {
+                throw;
+            }
+
+            // The exception of the transaction comes first, because it is the failure that the
+            // caller asked about. A throw from a failure action comes after it, and no code loses
+            // it.
+            failureExceptions.Insert(index: 0, item: transactionException);
+
+            throw new AggregateException(failureExceptions);
         }
+    }
+
+    // One posted action, with the action to run where the posted one keeps no promise. A readonly
+    // struct, because a transaction makes one for each posted action, and the type is private.
+    private readonly struct PostEntry(Action<TransactionInternal> action, Action<Exception>? onFailure)
+    {
+        public Action<TransactionInternal> Action { get; } = action;
+
+        // Null where the caller of Post gave no release. Most posted actions keep no promise to
+        // code that waits, thus most entries have none.
+        public Action<Exception>? OnFailure { get; } = onFailure;
     }
 
     internal abstract class Entry : IDisposable

@@ -145,11 +145,12 @@ public sealed class MapAsyncImplTests
     ///     <c>Admit</c> call. The contract of that method permits this, and the method to refuse a
     ///     value above is different, because it cancels the item and never promotes it. This
     ///     sequence stopped the process. The branch in <c>PromoteAndLaunch</c> for an item that a
-    ///     cancellation removed called <c>Complete</c> in the transaction that processes the
-    ///     admission. <c>Complete</c> opened a transaction of its own, and the <c>Send</c> in it
-    ///     threw <c>InvalidOperationException("Send may not be called inside a callback.")</c>.
-    ///     <c>Complete</c> goes through <c>TransactionInternal.PostInternal</c> now, which defers
-    ///     it to a new transaction where a <c>Send</c> is legal. This test fails without that.
+    ///     cancellation removed ended it in the transaction that processes the admission. That end
+    ///     opened a transaction of its own, and the <c>Send</c> in it threw
+    ///     <c>InvalidOperationException("Send may not be called inside a callback.")</c>.
+    ///     <c>EndItem</c> defers each end where a transaction is open, and one <c>Flush</c> after
+    ///     that transaction gives them to the strategy where a <c>Send</c> is legal. This test
+    ///     fails without that.
     /// </summary>
     [Test]
     public async Task Admit_CancelingAndPromotingTheSameItemInOneCall_CompletesItAsCanceledInstead()
@@ -159,13 +160,14 @@ public sealed class MapAsyncImplTests
         StreamSink<Exception> errors = Stream.CreateSink<Exception>();
         List<int> received = [];
         IListener l = results.ListenStrong(received.Add);
+        CancelAndPromoteSameItemStrategy strategy = new();
 
         AsyncMapStatus<int> status =
             source.MapAsyncImpl(
                 results: results,
                 errors: errors,
                 operation: static (v, factory, _) => Task.FromResult(factory.FromValue(v)),
-                strategy: new CancelAndPromoteSameItemStrategy(),
+                strategy: strategy,
                 inputConverter: static v => v);
 
         await Assert.That(() => source.Send(1))
@@ -176,6 +178,17 @@ public sealed class MapAsyncImplTests
 
         Thread.Sleep(100);
         await Assert.That(received.Count).IsEqualTo(0).Because("A canceled outcome must never be published.");
+
+        List<int> endCounts;
+
+        lock (strategy.EndCounts)
+        {
+            endCounts = [..strategy.EndCounts];
+        }
+
+        await Assert.That(endCounts)
+            .IsEquivalentTo(expected: [1], ordering: CollectionOrdering.Matching)
+            .Because("The cancellation and the promotion end one item, thus the strategy sees it one time.");
 
         status.Dispose();
         l.Unlisten();
@@ -422,10 +435,9 @@ public sealed class MapAsyncImplTests
 
         protected internal override AsyncStrategyResult<TStrategyInput> OnCompleted(
             object? state,
-            AsyncQueuedItem<TStrategyInput> item,
-            AsyncCompletion completion,
+            IReadOnlyList<AsyncEnd<TStrategyInput>> ended,
             IReadOnlyList<AsyncTrackedItem<TStrategyInput>> tracked) =>
-            new(publish: true, next: AsyncStrategyResult<TStrategyInput>.None);
+            new(publish: ItemsOf(ended), next: AsyncStrategyResult<TStrategyInput>.None);
     }
 
     /// <summary>
@@ -456,10 +468,9 @@ public sealed class MapAsyncImplTests
 
         protected internal override AsyncStrategyResult<int> OnCompleted(
             object? state,
-            AsyncQueuedItem<int> item,
-            AsyncCompletion completion,
+            IReadOnlyList<AsyncEnd<int>> ended,
             IReadOnlyList<AsyncTrackedItem<int>> tracked) =>
-            new(publish: true, next: AsyncStrategyResult<int>.None);
+            new(publish: ItemsOf(ended), next: AsyncStrategyResult<int>.None);
     }
 
     /// <summary>
@@ -474,6 +485,8 @@ public sealed class MapAsyncImplTests
     // ReSharper disable once InheritdocConsiderUsage
     private sealed class CancelAndPromoteSameItemStrategy : AsyncConcurrencyStrategy<int, object?>
     {
+        public readonly List<int> EndCounts = [];
+
         protected override object? CreateState() => null;
 
         protected internal override IReadOnlyList<AsyncToStart<int>> Admit(
@@ -487,9 +500,15 @@ public sealed class MapAsyncImplTests
 
         protected internal override AsyncStrategyResult<int> OnCompleted(
             object? state,
-            AsyncQueuedItem<int> item,
-            AsyncCompletion completion,
-            IReadOnlyList<AsyncTrackedItem<int>> tracked) =>
-            new(publish: true, next: AsyncStrategyResult<int>.None);
+            IReadOnlyList<AsyncEnd<int>> ended,
+            IReadOnlyList<AsyncTrackedItem<int>> tracked)
+        {
+            lock (this.EndCounts)
+            {
+                this.EndCounts.Add(ended.Count);
+            }
+
+            return new AsyncStrategyResult<int>(publish: ItemsOf(ended), next: AsyncStrategyResult<int>.None);
+        }
     }
 }

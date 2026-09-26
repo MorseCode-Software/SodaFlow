@@ -67,6 +67,53 @@ let onStart a =
 /// <remarks>
 ///     The action runs with the transaction lock held, while the transaction closes. Thus, the rule
 ///     for a listener callback also applies: return quickly.
+///     <para>
+///         A transaction that fails while it propagates does not run the actions that this function
+///         holds. A listener that throws is one cause of such a failure. Thus, an action here is not
+///         a promise that this library keeps in each condition. An action can give a value to code
+///         that waits. A TaskCompletionSource, or a callback of a different library, is such code.
+///         Use <c>postWithFailureHandler</c> for that action, and release the waiting code there.
+///     </para>
 /// </remarks>
 [<MethodImpl(MethodImplOptions.NoInlining)>]
 let post a = TransactionInternal.PostImpl(Action a)
+
+/// <summary>
+///     Runs an action after the current transaction closes, or immediately when no transaction is
+///     open. Runs <paramref name="onFailure" /> where that action does not run or does not
+///     complete.
+/// </summary>
+/// <param name="onFailure">
+///     The action to run where <paramref name="a" /> does not complete, with the exception that is
+///     the cause.
+/// </param>
+/// <param name="a">The action to run.</param>
+/// <remarks>
+///     The action runs with the transaction lock held, while the transaction closes. Thus, the rule
+///     for a listener callback also applies: return quickly.
+///     <para>
+///         Use this where <paramref name="a" /> gives a value to code that waits, such as a
+///         TaskCompletionSource or a callback of a different library. A transaction that fails while
+///         it propagates does not run the actions that <c>post</c> holds, and that code then waits
+///         forever. <paramref name="onFailure" /> is where the caller releases it.
+///     </para>
+///     <para>
+///         <paramref name="onFailure" /> runs one time, and only where <paramref name="a" /> does
+///         not complete. Two conditions give that: the transaction fails before it runs the action,
+///         and the action itself throws. The argument is the exception of the transaction in the
+///         first condition, and the exception of the action in the second. An action that completes
+///         runs no release.
+///     </para>
+///     <para>
+///         A throw from <paramref name="onFailure" /> does not replace the exception that caused it.
+///         The caller gets an AggregateException with that exception first, and the throw from the
+///         release after it.
+///     </para>
+///     <para>
+///         This function is what C# spells as a second overload of Post. F# has no optional
+///         parameter on a let-bound function, thus the two forms are two names here.
+///     </para>
+/// </remarks>
+[<MethodImpl(MethodImplOptions.NoInlining)>]
+let postWithFailureHandler (onFailure: exn -> unit) a =
+    TransactionInternal.PostImpl(Action a, Action<exn> onFailure)

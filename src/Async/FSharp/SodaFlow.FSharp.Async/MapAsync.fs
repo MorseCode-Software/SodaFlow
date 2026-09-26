@@ -3,8 +3,8 @@
 ///     <c>Stream&lt;'TInput&gt;</c>, run an async operation for each send, put the result into a
 ///     <c>StreamSink&lt;'TResult&gt;</c>, and give the Queued items and the Running items. They can
 ///     also connect to streams that cancel Queued work and Running work. The
-///     <c>AsyncMapStatus&lt;'TInput&gt;</c> that each function here returns is IDisposable, and a
-///     disposal of it stops the full pipeline.
+///     <c>AsyncMapStatus&lt;'TInput, 'TResult&gt;</c> that each function here returns is
+///     IDisposable, and a disposal of it stops the full pipeline.
 /// </summary>
 /// <remarks>
 ///     This module is the F# equivalent of AsyncStreamExtensions and AsyncConcurrencyStrategy in
@@ -221,10 +221,12 @@ let private toUnitInternalStream (cancelAll: Stream<unit> option) : Stream<UnitI
 ///     pipeline ignores each subsequent send.
 /// </param>
 /// <returns>
-///     An <c>AsyncMapStatus&lt;'TInput&gt;</c>. <c>IsRunning</c> is a <c>Cell&lt;bool&gt;</c> that
-///     is true while one call or more has the Running status, and a Queued item does not make it
-///     true. It updates with no glitch, in the transaction of the event that changes it.
-///     <c>Items</c> gives each tracked value with its status. A disposal of it stops the pipeline.
+///     An <c>AsyncMapStatus&lt;'TInput, 'TResult&gt;</c>. <c>IsRunning</c> is a
+///     <c>Cell&lt;bool&gt;</c> that is true while one call or more has the Running status, and a
+///     Queued item does not make it true. It updates with no glitch, in the transaction of the
+///     event that changes it. <c>Items</c> gives each tracked value with its status.
+///     <c>Execute</c> puts one value in, for an operation that drives a second pipeline. A
+///     disposal of it stops the pipeline.
 /// </returns>
 [<MethodImpl(MethodImplOptions.NoInlining)>]
 let mapAsync
@@ -236,7 +238,7 @@ let mapAsync
     (cancelMatching: Stream<IReadOnlyCollection<'TInput>> option)
     (cancelOnDispose: bool)
     (source: Stream<'TInput>)
-    : AsyncMapStatus<'TInput> =
+    : AsyncMapStatus<'TInput, 'TResult> =
     AsyncStreamUtility.MapAsyncImpl<'TInput, 'TResult, unit>(
         source,
         results,
@@ -274,8 +276,8 @@ let mapAsync
 /// </param>
 /// <param name="source">The stream of inputs.</param>
 /// <returns>
-///     An <c>AsyncMapStatus&lt;'TInput&gt;</c> that gives the Queued items and the Running items.
-///     A disposal of it stops the pipeline.
+///     An <c>AsyncMapStatus&lt;'TInput, 'TResult&gt;</c> that gives the Queued items, the Running
+///     items, and <c>Execute</c>. A disposal of it stops the pipeline.
 /// </returns>
 [<MethodImpl(MethodImplOptions.NoInlining)>]
 let mapAsyncWithInputConverter
@@ -288,7 +290,7 @@ let mapAsyncWithInputConverter
     (cancelMatching: Stream<IReadOnlyCollection<'TInput>> option)
     (cancelOnDispose: bool)
     (source: Stream<'TInput>)
-    : AsyncMapStatus<'TInput> =
+    : AsyncMapStatus<'TInput, 'TResult> =
     AsyncStreamUtility.MapAsyncImpl<'TInput, 'TResult, 'TStrategyInput>(
         source,
         results,

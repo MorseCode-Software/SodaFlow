@@ -66,20 +66,30 @@ type private AlwaysStartStrategy<'TStrategyInput>() =
     override _.OnCompleted
         (
             _state: EmptyState,
-            _item: AsyncMapBase.AsyncQueuedItem<'TStrategyInput>,
-            completion: AsyncMapBase.AsyncCompletion,
+            ended: IReadOnlyList<AsyncMapBase.AsyncEnd<'TStrategyInput>>,
             _tracked: IReadOnlyList<AsyncMapBase.AsyncTrackedItem<'TStrategyInput>>
         ) =
-        let mutable ended = ""
+        for e in ended do
+            let mutable how = ""
 
-        completion.MatchVoid(
-            Action(fun () -> ended <- "succeeded"),
-            Action<exn>(fun e -> ended <- "failed:" + e.Message),
-            Action(fun () -> ended <- "canceled")
+            e.Completion.MatchVoid(
+                Action(fun () -> how <- "succeeded"),
+                Action<exn>(fun ex -> how <- "failed:" + ex.Message),
+                Action(fun () -> how <- "canceled")
+            )
+
+            lock completions (fun () -> completions.Add(how))
+
+        // A for loop and not Seq.map: F# refuses a protected member in a lambda.
+        let published = Array.zeroCreate<AsyncMapBase.AsyncQueuedItem<'TStrategyInput>> ended.Count
+
+        for i in 0 .. ended.Count - 1 do
+            published.[i] <- ended.[i].Item
+
+        AsyncMapBase.AsyncStrategyResult<'TStrategyInput>(
+            published :> IReadOnlyList<_>,
+            AsyncMapBase.AsyncStrategyResult<'TStrategyInput>.None
         )
-
-        lock completions (fun () -> completions.Add(ended))
-        AsyncMapBase.AsyncStrategyResult<'TStrategyInput>(true, AsyncMapBase.AsyncStrategyResult<'TStrategyInput>.None)
 
 /// A small custom strategy that uses EmptyState directly. The input type and the result type are
 /// `unit`, through the short AsyncConcurrencyStrategy of the F# module, which is not generic. Each
@@ -107,11 +117,19 @@ type private CountingStrategy() =
     override _.OnCompleted
         (
             _state: EmptyState,
-            _item: AsyncMapBase.AsyncQueuedItem<unit>,
-            _completion: AsyncMapBase.AsyncCompletion,
+            ended: IReadOnlyList<AsyncMapBase.AsyncEnd<unit>>,
             _tracked: IReadOnlyList<AsyncMapBase.AsyncTrackedItem<unit>>
         ) =
-        AsyncMapBase.AsyncStrategyResult<unit>(true, AsyncMapBase.AsyncStrategyResult<unit>.None)
+        // A for loop and not Seq.map: F# refuses a protected member in a lambda.
+        let published = Array.zeroCreate<AsyncMapBase.AsyncQueuedItem<unit>> ended.Count
+
+        for i in 0 .. ended.Count - 1 do
+            published.[i] <- ended.[i].Item
+
+        AsyncMapBase.AsyncStrategyResult<unit>(
+            published :> IReadOnlyList<_>,
+            AsyncMapBase.AsyncStrategyResult<unit>.None
+        )
 
 type ``MapAsync Tests``() =
 
@@ -471,6 +489,92 @@ type ``MapAsync Tests``() =
 
             waitUntil (fun () -> (status.Items |> sampleC).Count = 0)
             do! Expect.False(status.IsRunning |> sampleC)
+
+            status.Dispose()
+        }
+
+    [<Test>]
+    member _.``Execute gives the result of one value and obeys the strategy``() =
+        task {
+            let source = sinkS<string> ()
+            let results = sinkS<string> ()
+            let errors = sinkS<exn> ()
+            let op = ControlledOperation<string, string>()
+
+            let status =
+                source |> mapAsync results errors op.Operation (queueStrategy ()) None None true
+
+            let first = status.Execute "a"
+            waitUntil (fun () -> op.HasStarted "a")
+
+            let second = status.Execute "b"
+            Thread.Sleep 100
+
+            // queueStrategy holds the second value while the first one runs.
+            do! Expect.False(op.HasStarted "b")
+
+            op.Release("a", "A")
+            waitUntil (fun () -> op.HasStarted "b")
+            op.Release("b", "B")
+
+            let! firstResult = first
+            let! secondResult = second
+
+            do! Expect.Equal("A", firstResult)
+            do! Expect.Equal("B", secondResult)
+
+            status.Dispose()
+        }
+
+    [<Test>]
+    member _.``Execute cancels its task when a cancellation stops the value``() =
+        task {
+            let source = sinkS<string> ()
+            let results = sinkS<string> ()
+            let errors = sinkS<exn> ()
+            let cancelAll = sinkS<unit> ()
+            let op = ControlledOperation<string, string>()
+
+            let status =
+                source
+                |> mapAsync results errors op.Operation (parallelStrategy ()) (Some cancelAll) None true
+
+            let task = status.Execute "a"
+            waitUntil (fun () -> op.HasStarted "a")
+
+            cancelAll |> sendS ()
+            waitUntil (fun () -> task.IsCompleted)
+
+            do! Expect.True(task.IsCanceled)
+
+            status.Dispose()
+        }
+
+    [<Test>]
+    member _.``Execute reads a cell in the transaction of the send``() =
+        task {
+            let source = sinkS<string> ()
+            let results = sinkS<string> ()
+            let errors = sinkS<exn> ()
+            let input = sinkC "a"
+            let op = ControlledOperation<string, string>()
+
+            let status =
+                source |> mapAsync results errors op.Operation (parallelStrategy ()) None None true
+
+            // The call that the documentation gives for F#, with no parentheses.
+            let task = status.Execute input
+
+            waitUntil (fun () -> op.HasStarted "a")
+
+            // A new value of the cell does not go to the item that runs.
+            input |> sendC "b"
+            Thread.Sleep 100
+            do! Expect.False(op.HasStarted "b")
+
+            op.Release("a", "A")
+            let! result = task
+            do! Expect.Equal("A", result)
 
             status.Dispose()
         }
