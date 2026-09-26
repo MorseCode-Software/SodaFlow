@@ -1,6 +1,6 @@
 5.0.0
 
-Adds postWithReleaseOnFailure, a second form of post, which takes the action to
+Adds postWithFailureHandler, a second form of post, which takes the action to
 run where the posted action does not run or does not complete. A transaction that fails
 while it propagates discards each action that post holds. Code that gives a
 value to something which waits, and gives that value from a posted action, had

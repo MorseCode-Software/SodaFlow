@@ -72,7 +72,7 @@ let onStart a =
 ///         holds. A listener that throws is one cause of such a failure. Thus, an action here is not
 ///         a promise that this library keeps in each condition. An action can give a value to code
 ///         that waits. A TaskCompletionSource, or a callback of a different library, is such code.
-///         Use <c>postWithReleaseOnFailure</c> for that action, and release the waiting code there.
+///         Use <c>postWithFailureHandler</c> for that action, and release the waiting code there.
 ///     </para>
 /// </remarks>
 [<MethodImpl(MethodImplOptions.NoInlining)>]
@@ -115,5 +115,5 @@ let post a = TransactionInternal.PostImpl(Action a)
 ///     </para>
 /// </remarks>
 [<MethodImpl(MethodImplOptions.NoInlining)>]
-let postWithReleaseOnFailure (onFailure: exn -> unit) a =
+let postWithFailureHandler (onFailure: exn -> unit) a =
     TransactionInternal.PostImpl(Action a, Action<exn> onFailure)
