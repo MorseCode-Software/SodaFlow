@@ -283,12 +283,31 @@ let itemChangesStream (collection: ReactiveCollection<'TKey, 'TIdentity, 'TState
 // --- views --------------------------------------------------------------------------------
 
 /// <summary>Reorders by key, over any stage.</summary>
-/// <param name="keyComparer">The comparer to order keys by.</param>
 /// <param name="upstream">The collection or view to reorder.</param>
 /// <returns>A view ordered by key.</returns>
 [<MethodImpl(MethodImplOptions.NoInlining)>]
-let sortByKey (keyComparer: IComparer<'TKey>) (upstream: ReactiveCollection<'TKey, 'TIdentity, 'TState>) =
-    CollectionViewUtility.SortByKeyImpl(upstream, keyComparer)
+let sortByKey (upstream: ReactiveCollection<'TKey, 'TIdentity, 'TState>) =
+    CollectionViewUtility.SortByKeyImpl(upstream, Comparer<'TKey>.Default, false)
+
+/// <summary>Reorders by key, descending, over any stage.</summary>
+/// <param name="upstream">The collection or view to reorder.</param>
+/// <returns>A view ordered by key, descending.</returns>
+[<MethodImpl(MethodImplOptions.NoInlining)>]
+let sortByKeyDescending (upstream: ReactiveCollection<'TKey, 'TIdentity, 'TState>) =
+    CollectionViewUtility.SortByKeyImpl(upstream, Comparer<'TKey>.Default, true)
+
+/// <summary>Reorders by key, over any stage, with an explicit comparer.</summary>
+/// <param name="keyComparer">The comparer to order keys by.</param>
+/// <param name="isDescending">True when the sort uses the opposite direction.</param>
+/// <param name="upstream">The collection or view to reorder.</param>
+/// <returns>A view ordered by key.</returns>
+[<MethodImpl(MethodImplOptions.NoInlining)>]
+let sortByKeyWith
+    (keyComparer: IComparer<'TKey>)
+    (isDescending: bool)
+    (upstream: ReactiveCollection<'TKey, 'TIdentity, 'TState>)
+    =
+    CollectionViewUtility.SortByKeyImpl(upstream, keyComparer, isDescending)
 
 /// <summary>Reorders by arrival, which is the order of the collection. It is available above
 /// each stage.</summary>
@@ -307,13 +326,18 @@ let filter (predicate: 'TIdentity -> 'TState -> bool) (upstream: ReactiveCollect
     CollectionViewUtility.FilterImpl(upstream, CellInternal.ConstantImpl(Func<_, _, _> predicate))
 
 /// <summary>
-///     Narrows the view with a predicate that can change. Each change to the predicate builds
-///     this stage again, at a cost of <c>O(m log m)</c> in the size of the upstream. Thus, a
-///     criteria from a keystroke needs a Calm stage above this one.
+///     Narrows the view with a predicate that can change. Each change to the predicate tests each
+///     item of the upstream again, and reports the keys that entered and left as inserts and
+///     removals, not as a reset. Thus, a criteria from a keystroke needs a Calm stage above this
+///     one.
 /// </summary>
 /// <param name="predicateCell">The predicate in force.</param>
 /// <param name="upstream">The collection or view to narrow.</param>
 /// <returns>A view with the items that the predicate accepts.</returns>
+/// <remarks>
+///     When more keys move than a list of them is worth, this stage builds again, at a cost of
+///     <c>O(m log m)</c> in the size of the upstream, and reports a reset.
+/// </remarks>
 [<MethodImpl(MethodImplOptions.NoInlining)>]
 let filterC
     (predicateCell: Cell<'TIdentity -> 'TState -> bool>)
@@ -368,7 +392,28 @@ let sortByDescending
 /// </remarks>
 [<MethodImpl(MethodImplOptions.NoInlining)>]
 let filterByIdentity (predicate: 'TIdentity -> bool) (upstream: ReactiveCollection<'TKey, 'TIdentity, 'TState>) =
-    CollectionViewUtility.FilterByIdentityImpl(upstream, Func<_, _> predicate)
+    CollectionViewUtility.FilterByIdentityImpl(upstream, CellInternal.ConstantImpl(Func<_, _> predicate))
+
+/// <summary>
+///     Narrows the view with a predicate on the identity of each item that can change. Each
+///     change to the predicate tests each item of the upstream again, and reports the keys that
+///     entered and left as inserts and removals, not as a reset. Thus, a criteria from a keystroke
+///     needs a Calm stage above this one.
+/// </summary>
+/// <param name="predicateCell">The predicate in force.</param>
+/// <param name="upstream">The collection or view to narrow.</param>
+/// <returns>A view with the items that the predicate accepts.</returns>
+/// <remarks>
+///     See <c>filterByIdentity</c>. A state edit still does not test the predicate. When a change
+///     to the predicate moves more keys than a list of them is worth, this stage builds again, at a
+///     cost of <c>O(m log m)</c> in the size of the upstream, and reports a reset.
+/// </remarks>
+[<MethodImpl(MethodImplOptions.NoInlining)>]
+let filterByIdentityC
+    (predicateCell: Cell<'TIdentity -> bool>)
+    (upstream: ReactiveCollection<'TKey, 'TIdentity, 'TState>)
+    =
+    CollectionViewUtility.FilterByIdentityImpl(upstream, predicateCell |> mapC (fun predicate -> Func<_, _> predicate))
 
 /// <summary>
 ///     Reorders the view by a value from the immutable part of each item, which is its identity.
@@ -573,11 +618,24 @@ let orderByIdentityWith
     KeyOrder<'TKey, 'TIdentity, 'TState>.ByIdentity(Func<_, _> selector, sortComparer, keyComparer, isDescending)
 
 /// <summary>An order by key, over any stage.</summary>
-/// <param name="keyComparer">The comparer to order keys by.</param>
 /// <returns>The order.</returns>
 [<MethodImpl(MethodImplOptions.NoInlining)>]
-let orderByKey (keyComparer: IComparer<'TKey>) : KeyOrder<'TKey, 'TIdentity, 'TState> =
-    KeyOrder<'TKey, 'TIdentity, 'TState>.ByKey keyComparer
+let orderByKey () : KeyOrder<'TKey, 'TIdentity, 'TState> =
+    KeyOrder<'TKey, 'TIdentity, 'TState>.ByKey()
+
+/// <summary>An order by key, descending, over any stage.</summary>
+/// <returns>The order.</returns>
+[<MethodImpl(MethodImplOptions.NoInlining)>]
+let orderByKeyDescending () : KeyOrder<'TKey, 'TIdentity, 'TState> =
+    KeyOrder<'TKey, 'TIdentity, 'TState>.ByKeyDescending()
+
+/// <summary>An order by key, over any stage, with an explicit comparer.</summary>
+/// <param name="keyComparer">The comparer to order keys by.</param>
+/// <param name="isDescending">True when the sort uses the opposite direction.</param>
+/// <returns>The order.</returns>
+[<MethodImpl(MethodImplOptions.NoInlining)>]
+let orderByKeyWith (keyComparer: IComparer<'TKey>) (isDescending: bool) : KeyOrder<'TKey, 'TIdentity, 'TState> =
+    KeyOrder<'TKey, 'TIdentity, 'TState>.ByKey(keyComparer, isDescending)
 
 /// <summary>An order by arrival, which is the order of the collection. It is available above
 /// each stage.</summary>

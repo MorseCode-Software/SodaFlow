@@ -71,6 +71,39 @@ public sealed class SortOrderChangeTests
     }
 
     /// <summary>
+    ///     The key orders from the factories with no comparer share one comparer, thus a cell that
+    ///     moves between them reverses the list that the stage holds.
+    /// </summary>
+    [Test]
+    public async Task ReversingAKeyOrderReversesTheView()
+    {
+        StreamSink<CollectionEdit<int, ItemIdentity, ItemState>> edits =
+            Stream.CreateSink<CollectionEdit<int, ItemIdentity, ItemState>>();
+
+        ReactiveCollection<int, ItemIdentity, ItemState> collection =
+            Create(
+                edits: edits,
+                TestUtil.Item(number: 2, name: "two", score: 10),
+                TestUtil.Item(number: 3, name: "three", score: 30),
+                TestUtil.Item(number: 1, name: "one", score: 20));
+
+        CellSink<KeyOrder<int, ItemIdentity, ItemState>> order =
+            Cell.CreateSink(KeyOrder<int, ItemIdentity, ItemState>.ByKey());
+
+        ReactiveCollection<int, ItemIdentity, ItemState> sorted = collection.SortBy(order);
+
+        await Assert.That(KeysOf(sorted)).IsEquivalentTo(expected: [1, 2, 3], ordering: CollectionOrdering.Matching);
+
+        order.Send(KeyOrder<int, ItemIdentity, ItemState>.ByKeyDescending());
+
+        await Assert.That(KeysOf(sorted)).IsEquivalentTo(expected: [3, 2, 1], ordering: CollectionOrdering.Matching);
+
+        order.Send(KeyOrder<int, ItemIdentity, ItemState>.ByKey());
+
+        await Assert.That(KeysOf(sorted)).IsEquivalentTo(expected: [1, 2, 3], ordering: CollectionOrdering.Matching);
+    }
+
+    /// <summary>
     ///     A stage that gets its order in the opposite direction keeps the items with equal sort
     ///     values in the order of their keys, as a new descending sort does. It does not turn the
     ///     list that it held, which also turns those items. An edit after the reversal uses

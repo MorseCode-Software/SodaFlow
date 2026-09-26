@@ -20,7 +20,7 @@ namespace SodaFlow.Collections;
 ///     <para>
 ///         Code out of this assembly cannot make one. Build them with the factories here, which
 ///         are the equivalent of the sort methods. <c>SortBy</c> sorts on <c>By</c>,
-///         <c>SortByKey</c> sorts on <see cref="ByKey" />, and the other pairs agree in the same
+///         <c>SortByKey</c> sorts on <c>ByKey</c>, and the other pairs agree in the same
 ///         manner. An order is not attached to the collection of its construction, and only to
 ///         its type parameters. Thus, each view of the same shape can use one order.
 ///     </para>
@@ -56,7 +56,7 @@ public abstract class KeyOrder<TKey, TIdentity, TState>
     /// <remarks>
     ///     It is false for an order that makes its sort value from the key or from the identity
     ///     only, and a state edit cannot change the key or the identity. Thus, a stage does not sort
-    ///     a key again when it hears only that the key changed. <see cref="ByKey" /> is false, and
+    ///     a key again when it hears only that the key changed. <see cref="ByKey()" /> is false, and
     ///     <c>ByIdentity</c> is also false. An order on a full-item selector from the caller is
     ///     true, because this code cannot see if that selector read the state that it got.
     /// </remarks>
@@ -197,15 +197,27 @@ public abstract class KeyOrder<TKey, TIdentity, TState>
             isDescending: isDescending);
 
     /// <summary>Orders by key, over any stage.</summary>
+    /// <returns>The order.</returns>
+    public static KeyOrder<TKey, TIdentity, TState> ByKey() =>
+        ByKey(keyComparer: Comparer<TKey>.Default, isDescending: false);
+
+    /// <summary>Orders by key, descending, over any stage.</summary>
+    /// <returns>The order.</returns>
+    public static KeyOrder<TKey, TIdentity, TState> ByKeyDescending() =>
+        ByKey(keyComparer: Comparer<TKey>.Default, isDescending: true);
+
+    /// <summary>Orders by key, over any stage, with an explicit comparer.</summary>
     /// <param name="keyComparer">The comparer to order keys by.</param>
+    /// <param name="isDescending">True when the sort uses the opposite direction.</param>
     /// <returns>The order.</returns>
     /// <remarks>
     ///     The selector is a lambda and not a method group, thus each order from this code shares
     ///     one delegate instance. That lets this code identify two orders with the same comparer as
-    ///     the same order. The compiler caches a lambda that captures nothing. It caches a method
-    ///     group only from C# 11, and this assembly also compiles at C# 10.
+    ///     the same order, and two orders with the same comparer in opposite directions as the
+    ///     reverse of each other. The compiler caches a lambda that captures nothing. It caches a
+    ///     method group only from C# 11, and this assembly also compiles at C# 10.
     /// </remarks>
-    public static KeyOrder<TKey, TIdentity, TState> ByKey(IComparer<TKey> keyComparer)
+    public static KeyOrder<TKey, TIdentity, TState> ByKey(IComparer<TKey> keyComparer, bool isDescending)
     {
         Func<TKey, TIdentity, TKey> selector = static (key, _) => key;
 
@@ -214,7 +226,7 @@ public abstract class KeyOrder<TKey, TIdentity, TState>
             originalSelectorReference: selector,
             sortComparer: keyComparer,
             keyComparer: keyComparer,
-            isDescending: false);
+            isDescending: isDescending);
     }
 
     /// <summary>Orders by arrival - the collection's own order, available over any stage.</summary>

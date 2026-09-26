@@ -1,4 +1,21 @@
-1.1.0
+2.0.0
+
+BREAKING: sortByKey and orderByKey no longer take a comparer. sortByKey sorts
+by the default comparer, and orderByKey takes unit, as orderByArrival does.
+The comparer and the direction go to the new sortByKeyWith and
+orderByKeyWith, as the other With forms take them. A call that passed
+Comparer.Default becomes sortByKey or orderByKey (); a call with any other
+comparer becomes sortByKeyWith comparer false or orderByKeyWith comparer
+false.
+
+BREAKING: map answers with a MappedItems<'TResult> that is a sealed class,
+where it was a readonly struct. Source that reads Items and calls Dispose needs
+no edit; a recompile does. The notes of SodaFlow.Collections.Core give the
+details.
+
+Adds sortByKeyDescending and orderByKeyDescending. A cell that moves between
+two key orders with the same comparer turns the list that the stage holds and
+does not sort each key again.
 
 Adds itemCell, which gives the two parts of one item as one optional value. It
 follows the key as stateCell does, and it answers for the collection or the
@@ -17,6 +34,19 @@ comes from it is made again at that moment, and that includes a part which
 reads the identity alone. Where one binding reads the identity and a different
 binding reads the state, take the two cells: identityCell sleeps through an
 edit to the state, and that is what makes it almost free to hold.
+
+Adds filterByIdentityC, which is filterByIdentity with a predicate in a cell,
+as filterC is to filter. A change to the predicate tests each item again and
+names what entered and what left. A state edit still does not test the
+predicate.
+
+Fixed: the documentation of filterC said that a change to the predicate builds
+the stage again and reports a reset. It reports the keys that entered and
+left as inserts and removals, and it builds again and resets only when more
+keys move than a list of them is worth.
+
+Requires SodaFlow.FSharp 5.x and SodaFlow.Collections.Core 2.x. SodaFlow.FSharp
+5.0.0 ships in the same release, and its own notes list what changed there.
 
 1.0.1
 

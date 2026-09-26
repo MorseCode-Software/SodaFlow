@@ -18,9 +18,13 @@ namespace SodaFlow.Collections;
 ///         this code builds the order of a stage only at the first read of it.
 ///     </para>
 ///     <para>
-///         Know these three costs before you write a chain. First, a change to a predicate or to
-///         a limit builds that stage and each stage below it again, reports the change as a reset,
-///         and costs <c>O(m log m)</c>. Put a Calm stage above a criteria from a keystroke.
+///         Know these three costs before you write a chain. First, a change to a predicate tests
+///         each key of the upstream again, and reports the keys that entered and left as inserts
+///         and removals, not as a reset. The stages below adjust and do not build again. When
+///         more keys move than a list of them is worth, the filter builds again at a cost of
+///         <c>O(m log m)</c> and reports a reset, and so does each stage below it. A change to a
+///         limit, an offset, or an order always builds that stage and each stage below it again
+///         and reports a reset. Put a Calm stage above a criteria from a keystroke.
 ///         Second,
 ///         <see cref="Take{TKey,TIdentity,TState}(ReactiveCollection{TKey,TIdentity,TState},int)" />
 ///         and
@@ -42,15 +46,43 @@ public static class CollectionViewExtensionMethods
     /// <typeparam name="TIdentity">The type of the immutable part of an item.</typeparam>
     /// <typeparam name="TState">The type of the mutable part of an item.</typeparam>
     /// <param name="upstream">The collection or view to reorder.</param>
+    /// <returns>A view of <paramref name="upstream" /> ordered by key.</returns>
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    public static ReactiveCollection<TKey, TIdentity, TState> SortByKey<TKey, TIdentity, TState>(
+        this ReactiveCollection<TKey, TIdentity, TState> upstream)
+        where TKey : notnull
+        where TIdentity : notnull =>
+        upstream.SortByKey(keyComparer: Comparer<TKey>.Default, isDescending: false);
+
+    /// <summary>Reorders by key, descending, over any stage.</summary>
+    /// <typeparam name="TKey">The type of the keys.</typeparam>
+    /// <typeparam name="TIdentity">The type of the immutable part of an item.</typeparam>
+    /// <typeparam name="TState">The type of the mutable part of an item.</typeparam>
+    /// <param name="upstream">The collection or view to reorder.</param>
+    /// <returns>A view of <paramref name="upstream" /> ordered by key, descending.</returns>
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    public static ReactiveCollection<TKey, TIdentity, TState> SortByKeyDescending<TKey, TIdentity, TState>(
+        this ReactiveCollection<TKey, TIdentity, TState> upstream)
+        where TKey : notnull
+        where TIdentity : notnull =>
+        upstream.SortByKey(keyComparer: Comparer<TKey>.Default, isDescending: true);
+
+    /// <summary>Reorders by key, over any stage, with an explicit comparer.</summary>
+    /// <typeparam name="TKey">The type of the keys.</typeparam>
+    /// <typeparam name="TIdentity">The type of the immutable part of an item.</typeparam>
+    /// <typeparam name="TState">The type of the mutable part of an item.</typeparam>
+    /// <param name="upstream">The collection or view to reorder.</param>
     /// <param name="keyComparer">The comparer to order keys by.</param>
+    /// <param name="isDescending">True when the sort uses the opposite direction.</param>
     /// <returns>A view of <paramref name="upstream" /> ordered by key.</returns>
     [MethodImpl(MethodImplOptions.NoInlining)]
     public static ReactiveCollection<TKey, TIdentity, TState> SortByKey<TKey, TIdentity, TState>(
         this ReactiveCollection<TKey, TIdentity, TState> upstream,
-        IComparer<TKey> keyComparer)
+        IComparer<TKey> keyComparer,
+        bool isDescending)
         where TKey : notnull
         where TIdentity : notnull =>
-        CollectionViewUtility.SortByKeyImpl(upstream: upstream, keyComparer: keyComparer);
+        CollectionViewUtility.SortByKeyImpl(upstream: upstream, keyComparer: keyComparer, isDescending: isDescending);
 
     /// <summary>Reorders by arrival, which is the order of the collection. It is available above
     /// each stage.</summary>
@@ -82,8 +114,9 @@ public static class CollectionViewExtensionMethods
         CollectionViewUtility.FilterImpl(upstream: upstream, predicateCell: Cell.Constant(predicate));
 
     /// <summary>
-    ///     Narrows the view with a predicate that can change. Each change to the predicate builds
-    ///     this stage again, at a cost of <c>O(m log m)</c> in the size of the upstream.
+    ///     Narrows the view with a predicate that can change. Each change to the predicate tests
+    ///     each item of the upstream again, and reports the keys that entered and left as inserts
+    ///     and removals, not as a reset.
     /// </summary>
     /// <typeparam name="TKey">The type of the keys.</typeparam>
     /// <typeparam name="TIdentity">The type of the immutable part of an item.</typeparam>
@@ -91,6 +124,10 @@ public static class CollectionViewExtensionMethods
     /// <param name="upstream">The collection or view to narrow.</param>
     /// <param name="predicateCell">The predicate in force.</param>
     /// <returns>A view with the items that the predicate accepts.</returns>
+    /// <remarks>
+    ///     When more keys move than a list of them is worth, this stage builds again, at a cost of
+    ///     <c>O(m log m)</c> in the size of the upstream, and reports a reset.
+    /// </remarks>
     [MethodImpl(MethodImplOptions.NoInlining)]
     public static ReactiveCollection<TKey, TIdentity, TState> Filter<TKey, TIdentity, TState>(
         this ReactiveCollection<TKey, TIdentity, TState> upstream,
@@ -101,8 +138,8 @@ public static class CollectionViewExtensionMethods
 
     /// <summary>
     ///     Narrows the view with a predicate from a different source, such as a search box or a
-    ///     toggle. Each change to the criteria builds this stage again, thus a criteria from a
-    ///     keystroke needs a Calm stage above this one.
+    ///     toggle. Each change to the criteria tests each item of the upstream again, thus a
+    ///     criteria from a keystroke needs a Calm stage above this one.
     /// </summary>
     /// <typeparam name="TKey">The type of the keys.</typeparam>
     /// <typeparam name="TIdentity">The type of the immutable part of an item.</typeparam>
@@ -112,6 +149,12 @@ public static class CollectionViewExtensionMethods
     /// <param name="criteriaCell">The criteria in force.</param>
     /// <param name="predicate">Whether an item belongs in the view, given the criteria.</param>
     /// <returns>A view with the items that the predicate accepts.</returns>
+    /// <remarks>
+    ///     A change to the criteria reports the keys that entered and left as inserts and
+    ///     removals, not as a reset. When more keys move than a list of them is worth, this stage
+    ///     builds again, at a cost of <c>O(m log m)</c> in the size of the upstream, and reports a
+    ///     reset.
+    /// </remarks>
     [MethodImpl(MethodImplOptions.NoInlining)]
     public static ReactiveCollection<TKey, TIdentity, TState> Filter<TKey, TIdentity, TState, TCriteria>(
         this ReactiveCollection<TKey, TIdentity, TState> upstream,
@@ -274,7 +317,68 @@ public static class CollectionViewExtensionMethods
         Func<TIdentity, bool> predicate)
         where TKey : notnull
         where TIdentity : notnull =>
-        CollectionViewUtility.FilterByIdentityImpl(upstream: upstream, predicate: predicate);
+        CollectionViewUtility.FilterByIdentityImpl(upstream: upstream, predicateCell: Cell.Constant(predicate));
+
+    /// <summary>
+    ///     Narrows the view with a predicate on the identity of each item that can change. Each
+    ///     change to the predicate tests each item of the upstream again, and reports the keys
+    ///     that entered and left as inserts and removals, not as a reset.
+    /// </summary>
+    /// <typeparam name="TKey">The type of the keys.</typeparam>
+    /// <typeparam name="TIdentity">The type of the immutable part of an item.</typeparam>
+    /// <typeparam name="TState">The type of the mutable part of an item.</typeparam>
+    /// <param name="upstream">The collection or view to narrow.</param>
+    /// <param name="predicateCell">The predicate in force.</param>
+    /// <returns>A view with the items that the predicate accepts.</returns>
+    /// <remarks>
+    ///     See
+    ///     <see
+    ///         cref="FilterByIdentity{TKey,TIdentity,TState}(ReactiveCollection{TKey,TIdentity,TState},Func{TIdentity,bool})" />
+    ///     . A state edit still does not test the predicate. When a change to the predicate moves
+    ///     more keys than a list of them is worth, this stage builds again, at a cost of
+    ///     <c>O(m log m)</c> in the size of the upstream, and reports a reset.
+    /// </remarks>
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    public static ReactiveCollection<TKey, TIdentity, TState> FilterByIdentity<TKey, TIdentity, TState>(
+        this ReactiveCollection<TKey, TIdentity, TState> upstream,
+        Cell<Func<TIdentity, bool>> predicateCell)
+        where TKey : notnull
+        where TIdentity : notnull =>
+        CollectionViewUtility.FilterByIdentityImpl(upstream: upstream, predicateCell: predicateCell);
+
+    /// <summary>
+    ///     Narrows the view with a predicate on the identity of each item from a different source,
+    ///     such as a search box or a toggle. Each change to the criteria tests each item of the
+    ///     upstream again, thus a criteria from a keystroke needs a Calm stage above this one.
+    /// </summary>
+    /// <typeparam name="TKey">The type of the keys.</typeparam>
+    /// <typeparam name="TIdentity">The type of the immutable part of an item.</typeparam>
+    /// <typeparam name="TState">The type of the mutable part of an item.</typeparam>
+    /// <typeparam name="TCriteria">The type of the criteria for the predicate.</typeparam>
+    /// <param name="upstream">The collection or view to narrow.</param>
+    /// <param name="criteriaCell">The criteria in force.</param>
+    /// <param name="predicate">Whether an item belongs in the view, given the criteria and its identity.</param>
+    /// <returns>A view with the items that the predicate accepts.</returns>
+    /// <remarks>
+    ///     See
+    ///     <see
+    ///         cref="FilterByIdentity{TKey,TIdentity,TState}(ReactiveCollection{TKey,TIdentity,TState},Func{TIdentity,bool})" />
+    ///     . A change to the criteria reports the keys that entered and left as inserts and
+    ///     removals, not as a reset, and a state edit still does not test the predicate. When more
+    ///     keys move than a list of them is worth, this stage builds again, at a cost of
+    ///     <c>O(m log m)</c> in the size of the upstream, and reports a reset.
+    /// </remarks>
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    public static ReactiveCollection<TKey, TIdentity, TState> FilterByIdentity<TKey, TIdentity, TState, TCriteria>(
+        this ReactiveCollection<TKey, TIdentity, TState> upstream,
+        Cell<TCriteria> criteriaCell,
+        Func<TCriteria, TIdentity, bool> predicate)
+        where TKey : notnull
+        where TIdentity : notnull =>
+        CollectionViewUtility.FilterByIdentityImpl(
+            upstream: upstream,
+            predicateCell: criteriaCell.Map(criteria =>
+                (Func<TIdentity, bool>)(identity => predicate(arg1: criteria, arg2: identity))));
 
     /// <summary>
     ///     Reorders the view by a value from the immutable part of each item, which is its

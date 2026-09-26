@@ -215,6 +215,50 @@ type ``Collections Tests``() =
         }
 
     [<Test>]
+    member _.``filterByIdentityC follows a predicate that changes``() =
+        task {
+            let edits = sinkS<CollectionEdit<int, ItemIdentity, ItemState>> ()
+
+            let collection =
+                create keyOf [ item 1 "one" 10; item 2 "two" 20; item 3 "three" 30 ] [ edits ]
+
+            let predicate = sinkC (fun (identity: ItemIdentity) -> identity.Number % 2 = 0)
+            let view = collection |> filterByIdentityC predicate
+
+            do! Expect.Sequence([ 2 ], keysOf view)
+
+            predicate |> sendC (fun identity -> identity.Number % 2 = 1)
+
+            do! Expect.Sequence([ 1; 3 ], keysOf view)
+        }
+
+    [<Test>]
+    member _.``sortByKey orders by key in either direction``() =
+        task {
+            let edits = sinkS<CollectionEdit<int, ItemIdentity, ItemState>> ()
+
+            let collection =
+                create keyOf [ item 2 "two" 10; item 3 "three" 30; item 1 "one" 20 ] [ edits ]
+
+            do! Expect.Sequence([ 1; 2; 3 ], keysOf (collection |> sortByKey))
+            do! Expect.Sequence([ 3; 2; 1 ], keysOf (collection |> sortByKeyDescending))
+            do! Expect.Sequence([ 3; 2; 1 ], keysOf (collection |> sortByKeyWith Comparer<int>.Default true))
+
+            let order = sinkC (orderByKey ())
+            let sorted = collection |> sortByOrderC order
+
+            do! Expect.Sequence([ 1; 2; 3 ], keysOf sorted)
+
+            order |> sendC (orderByKeyDescending ())
+
+            do! Expect.Sequence([ 3; 2; 1 ], keysOf sorted)
+
+            order |> sendC (orderByKeyWith Comparer<int>.Default false)
+
+            do! Expect.Sequence([ 1; 2; 3 ], keysOf sorted)
+        }
+
+    [<Test>]
     member _.``createByIdentity takes the key from the identity``() =
         task {
             let edits = sinkS<CollectionEdit<int, SelfKeyedItemIdentity, ItemState>> ()

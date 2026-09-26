@@ -255,6 +255,37 @@ public sealed class CollectionViewTests
     }
 
     [Test]
+    public async Task SortByKeyOrdersByKeyInEitherDirection()
+    {
+        StreamSink<CollectionEdit<int, ItemIdentity, ItemState>> edits =
+            Stream.CreateSink<CollectionEdit<int, ItemIdentity, ItemState>>();
+
+        ReactiveCollection<int, ItemIdentity, ItemState> collection =
+            Create(
+                edits: edits,
+                TestUtil.Item(number: 2, name: "two", score: 10),
+                TestUtil.Item(number: 3, name: "three", score: 30),
+                TestUtil.Item(number: 1, name: "one", score: 20));
+
+        ReactiveCollection<int, ItemIdentity, ItemState> ascending = collection.SortByKey();
+        ReactiveCollection<int, ItemIdentity, ItemState> descending = collection.SortByKeyDescending();
+
+        ReactiveCollection<int, ItemIdentity, ItemState> explicitDescending =
+            collection.SortByKey(keyComparer: Comparer<int>.Default, isDescending: true);
+
+        await Assert.That(KeysOf(ascending)).IsEquivalentTo(expected: [1, 2, 3], ordering: CollectionOrdering.Matching);
+        await Assert.That(KeysOf(descending)).IsEquivalentTo(expected: [3, 2, 1], ordering: CollectionOrdering.Matching);
+
+        await Assert.That(KeysOf(explicitDescending))
+            .IsEquivalentTo(expected: [3, 2, 1], ordering: CollectionOrdering.Matching);
+
+        edits.Send(TestUtil.Add(TestUtil.Item(number: 4, name: "four", score: 0)));
+
+        await Assert.That(KeysOf(ascending)).IsEquivalentTo(expected: [1, 2, 3, 4], ordering: CollectionOrdering.Matching);
+        await Assert.That(KeysOf(descending)).IsEquivalentTo(expected: [4, 3, 2, 1], ordering: CollectionOrdering.Matching);
+    }
+
+    [Test]
     public async Task AReFilingUpdateReportsAMove()
     {
         StreamSink<CollectionEdit<int, ItemIdentity, ItemState>> edits =
@@ -491,6 +522,110 @@ public sealed class CollectionViewTests
 
         await Assert.That(operations).IsEquivalentTo(expected: ["ViewUpdate:2"], ordering: CollectionOrdering.Matching);
         await Assert.That(KeysOf(evens)).IsEquivalentTo(expected: [2, 4], ordering: CollectionOrdering.Matching);
+    }
+
+    /// <summary>
+    ///     A predicate cell on the identity names what entered and what left when it changes, and
+    ///     a state edit after that change still does not test the predicate again.
+    /// </summary>
+    [Test]
+    public async Task FilterByIdentityFollowsAChangingPredicate()
+    {
+        StreamSink<CollectionEdit<int, ItemIdentity, ItemState>> edits =
+            Stream.CreateSink<CollectionEdit<int, ItemIdentity, ItemState>>();
+
+        CellSink<Func<ItemIdentity, bool>> predicate =
+            Cell.CreateSink<Func<ItemIdentity, bool>>(static identity => identity.Number % 2 == 0);
+
+        ReactiveCollection<int, ItemIdentity, ItemState> collection =
+            Create(
+                edits: edits,
+                TestUtil.Item(number: 1, name: "one", score: 10),
+                TestUtil.Item(number: 2, name: "two", score: 20),
+                TestUtil.Item(number: 3, name: "three", score: 30),
+                TestUtil.Item(number: 4, name: "four", score: 40));
+
+        ReactiveCollection<int, ItemIdentity, ItemState> view = collection.FilterByIdentity(predicateCell: predicate);
+
+        await Assert.That(KeysOf(view)).IsEquivalentTo(expected: [2, 4], ordering: CollectionOrdering.Matching);
+
+        List<string> operations = [];
+        List<bool> resets = [];
+
+        IListener l =
+            view.KeyChangesStream.ListenStrong(change =>
+            {
+                resets.Add(change.IsReset);
+                operations.AddRange(change.Operations.Select(Describe));
+            });
+
+        predicate.Send(static identity => identity.Number % 2 == 1);
+
+        await Assert.That(resets).IsEquivalentTo(expected: [false], ordering: CollectionOrdering.Matching);
+
+        await Assert.That(operations)
+            .IsEquivalentTo(
+                expected: ["ViewInsert:1", "ViewRemove:2", "ViewInsert:3", "ViewRemove:4"],
+                ordering: CollectionOrdering.Matching);
+
+        await Assert.That(KeysOf(view)).IsEquivalentTo(expected: [1, 3], ordering: CollectionOrdering.Matching);
+
+        operations.Clear();
+
+        edits.Send(TestUtil.Score(key: 3, score: -1));
+        edits.Send(TestUtil.Score(key: 2, score: -1));
+
+        l.Unlisten();
+
+        await Assert.That(operations).IsEquivalentTo(expected: ["ViewUpdate:3"], ordering: CollectionOrdering.Matching);
+        await Assert.That(KeysOf(view)).IsEquivalentTo(expected: [1, 3], ordering: CollectionOrdering.Matching);
+    }
+
+    /// <summary>
+    ///     A criteria cell with a predicate on the identity narrows as the criteria change, and a
+    ///     state edit cannot move a key into the view.
+    /// </summary>
+    [Test]
+    public async Task FilterByIdentityFollowsChangingCriteria()
+    {
+        StreamSink<CollectionEdit<int, ItemIdentity, ItemState>> edits =
+            Stream.CreateSink<CollectionEdit<int, ItemIdentity, ItemState>>();
+
+        CellSink<int> minimum = Cell.CreateSink(3);
+
+        ReactiveCollection<int, ItemIdentity, ItemState> collection =
+            Create(
+                edits: edits,
+                TestUtil.Item(number: 1, name: "one", score: 10),
+                TestUtil.Item(number: 2, name: "two", score: 20),
+                TestUtil.Item(number: 3, name: "three", score: 30),
+                TestUtil.Item(number: 4, name: "four", score: 40));
+
+        ReactiveCollection<int, ItemIdentity, ItemState> view =
+            collection.FilterByIdentity(
+                criteriaCell: minimum,
+                predicate: static (limit, identity) => identity.Number >= limit);
+
+        await Assert.That(KeysOf(view)).IsEquivalentTo(expected: [3, 4], ordering: CollectionOrdering.Matching);
+
+        List<string> operations = [];
+
+        IListener l =
+            view.KeyChangesStream.ListenStrong(change => operations.AddRange(change.Operations.Select(Describe)));
+
+        minimum.Send(2);
+
+        await Assert.That(operations).IsEquivalentTo(expected: ["ViewInsert:2"], ordering: CollectionOrdering.Matching);
+        await Assert.That(KeysOf(view)).IsEquivalentTo(expected: [2, 3, 4], ordering: CollectionOrdering.Matching);
+
+        // A state edit to a key that the criteria keep out cannot bring it in.
+        operations.Clear();
+        edits.Send(TestUtil.Score(key: 1, score: 99));
+
+        l.Unlisten();
+
+        await Assert.That(operations).IsEmpty();
+        await Assert.That(KeysOf(view)).IsEquivalentTo(expected: [2, 3, 4], ordering: CollectionOrdering.Matching);
     }
 
     [Test]
@@ -1828,6 +1963,11 @@ public sealed class CollectionViewTests
 
         // The rows never left the view, thus an eviction never ran for them. A disposal releases
         // them, and without a disposal they continue after the code that built them.
+        mapped.Dispose();
+
+        await Assert.That(released).IsEquivalentTo(expected: ["row 1", "row 2"], ordering: CollectionOrdering.Any);
+
+        // A second disposal does not release them again.
         mapped.Dispose();
 
         await Assert.That(released).IsEquivalentTo(expected: ["row 1", "row 2"], ordering: CollectionOrdering.Any);
