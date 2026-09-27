@@ -45,6 +45,7 @@
         <Compile Include="CollectionViewChange.cs"/>
         <Compile Include="Polyfills.cs"/>
         <Compile Include="ViewStage.cs"/>
+        <Compile Include="CollectionFoldUtility.cs"/>
         <Compile Include="CollectionViewUtility.cs"/>
         <Compile Include="Item.cs"/>
         <Compile Include="KeyOrder.cs"/>

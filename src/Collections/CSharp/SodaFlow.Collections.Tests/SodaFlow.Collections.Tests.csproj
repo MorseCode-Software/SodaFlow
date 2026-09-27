@@ -43,6 +43,7 @@
     <ItemGroup>
         <Compile Include="..\..\..\TestPolyfills.cs" Link="TestPolyfills.cs"/>
         <Compile Include="..\..\..\TestParallelism.cs" Link="TestParallelism.cs"/>
+        <Compile Include="CollectionFoldTests.cs"/>
         <Compile Include="CollectionViewTests.cs"/>
         <Compile Include="KeyEqualityComparerTests.cs"/>
         <Compile Include="PerItemCellTests.cs"/>

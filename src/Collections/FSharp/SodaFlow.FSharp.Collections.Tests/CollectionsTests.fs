@@ -434,6 +434,53 @@ type ``Collections Tests``() =
         }
 
     [<Test>]
+    member _.``a fold starts from the store and follows each edit``() =
+        task {
+            let edits = sinkS<CollectionEdit<int, ItemIdentity, ItemState>> ()
+
+            let collection = create keyOf [ item 1 "one" 10; item 2 "two" 5 ] [ edits ]
+
+            // The fold reads the store at its construction, thus it does not wait for an edit.
+            let total = collection |> fold (fun state -> state.Score) 0 (+) (-)
+
+            do! Expect.Equal(15, total |> sampleC)
+
+            edits |> sendS (addEdit [ item 3 "three" 100 ])
+            do! Expect.Equal(115, total |> sampleC)
+
+            // An update replaces the value of its key, thus this is 115 - 5 + 7 and not 115 + 7.
+            edits |> sendS (updateEdit 2 (fun state -> { state with Score = 7 }))
+            do! Expect.Equal(117, total |> sampleC)
+
+            edits |> sendS (removeEdit [ 1; 3 ])
+            do! Expect.Equal(7, total |> sampleC)
+        }
+
+    [<Test>]
+    member _.``a fold of a view follows that view``() =
+        task {
+            let edits = sinkS<CollectionEdit<int, ItemIdentity, ItemState>> ()
+
+            let collection = create keyOf [ item 1 "one" 10; item 2 "two" 1 ] [ edits ]
+
+            let high = collection |> filter (fun _ state -> state.Score >= 5)
+            let total = high |> fold (fun state -> state.Score) 0 (+) (-)
+
+            do! Expect.Equal(10, total |> sampleC)
+
+            // An item that the filter refuses, and that stays refused, adds nothing.
+            edits |> sendS (updateEdit 2 (fun state -> { state with Score = 2 }))
+            do! Expect.Equal(10, total |> sampleC)
+
+            // The same item enters the view, and then leaves it.
+            edits |> sendS (updateEdit 2 (fun state -> { state with Score = 6 }))
+            do! Expect.Equal(16, total |> sampleC)
+
+            edits |> sendS (updateEdit 2 (fun state -> { state with Score = 0 }))
+            do! Expect.Equal(10, total |> sampleC)
+        }
+
+    [<Test>]
     member _.``a view answers for itself, not for the store behind it``() =
         task {
             let edits = sinkS<CollectionEdit<int, ItemIdentity, ItemState>> ()
