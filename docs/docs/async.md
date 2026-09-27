@@ -219,7 +219,7 @@ difference between it and a value that arrived on the source stream. The result 
 
 **The task finishes**, with one exception below. It carries the result when the operation returns
 one and the strategy publishes it; it carries the operation's exception when it throws and the
-strategy publishes that, and `errors` gets the same exception; and it is cancelled when a
+strategy publishes that, and `errors` gets the same exception; and it is canceled when a
 cancellation stops the value, when the strategy refuses it, when the strategy declines to publish
 the outcome, or when the pipeline was already disposed. Declining to publish means nobody wants the
 result any more, which is a cancellation that arrived late, so the task treats it as one.
@@ -290,7 +290,7 @@ so anything it builds is part of that same instant. Two things follow from that:
 
 - **Keep it short.** It holds the transaction while it runs. Do the waiting before it.
 - **It may not run at all.** The strategy decides whether the item publishes *before* the
-  pipeline builds the result, so a superseded or cancelled item never constructs anything. Do not
+  pipeline builds the result, so a superseded or canceled item never constructs anything. Do not
   put effects that matter outside the returned value inside it.
 
 If the function throws, the pipeline publishes that exception on `errors` instead of a result —
