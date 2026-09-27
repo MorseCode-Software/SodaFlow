@@ -1,3 +1,4 @@
+using System;
 using System.Threading;
 using System.Threading.Tasks;
 using SodaFlow.Functional;
@@ -9,6 +10,148 @@ namespace SodaFlow.Tests;
 
 public sealed class TransactionTests
 {
+    /// <summary>
+    ///     Runs an action in one transaction, and then sends on a sink whose listener throws. Thus,
+    ///     the transaction fails while it propagates, which is the failure that drops a posted
+    ///     action.
+    /// </summary>
+    /// <param name="inTransaction">Runs with the failing transaction open.</param>
+    /// <returns>The exception that the transaction gave.</returns>
+    private static Exception RunFailingTransaction(Action inTransaction)
+    {
+        StreamSink<int> sink = Stream.CreateSink<int>();
+        IListener listener = sink.ListenStrong(static _ => throw new InvalidOperationException("listener"));
+
+        try
+        {
+            Transaction.RunVoid(() =>
+            {
+                inTransaction();
+
+                sink.Send(1);
+            });
+        }
+        catch (Exception e)
+        {
+            return e;
+        }
+        finally
+        {
+            listener.Unlisten();
+        }
+
+        throw new InvalidOperationException("The transaction did not fail.");
+    }
+
+    [Test]
+    public async Task PostWithReleaseRunsTheReleaseWhereTheTransactionFails()
+    {
+        bool ran = false;
+        Exception? cause = null;
+
+        Exception thrown =
+            RunFailingTransaction(() => Transaction.Post(action: () => ran = true, onFailure: e => cause = e));
+
+        await Assert.That(ran).IsFalse().Because("a transaction that fails does not run a posted action");
+
+        await Assert.That(cause)
+            .IsSameReferenceAs(thrown)
+            .Because("the release gets the exception of the transaction");
+    }
+
+    [Test]
+    public async Task PostWithReleaseRunsNoReleaseWhereTheActionCompletes()
+    {
+        bool ran = false;
+        bool released = false;
+
+        Transaction.RunVoid(() => Transaction.Post(action: () => ran = true, onFailure: _ => released = true));
+
+        await Assert.That(ran).IsTrue();
+
+        await Assert.That(released)
+            .IsFalse()
+            .Because("an action that completes keeps its promise, thus the release does not run");
+    }
+
+    [Test]
+    public async Task PostWithReleaseRunsTheReleaseWhereTheActionThrows()
+    {
+        InvalidOperationException thrown = new("the action fails");
+        Exception? cause = null;
+
+        try
+        {
+            Transaction.RunVoid(() => Transaction.Post(action: () => throw thrown, onFailure: e => cause = e));
+        }
+        catch (Exception)
+        {
+            // The throw of the action fails the transaction, and this test is about the release.
+        }
+
+        await Assert.That(cause)
+            .IsSameReferenceAs(thrown)
+            .Because("the release gets the exception of the action where the action throws");
+    }
+
+    [Test]
+    public async Task PostWithReleaseWithNoTransactionRunsTheActionAndNoRelease()
+    {
+        bool ran = false;
+        bool released = false;
+
+        Transaction.Post(action: () => ran = true, onFailure: _ => released = true);
+
+        await Assert.That(ran).IsTrue().Because("a post with no transaction open runs the action now");
+        await Assert.That(released).IsFalse();
+    }
+
+    [Test]
+    public async Task PostWithReleaseWithNoTransactionRunsTheReleaseWhereTheActionThrows()
+    {
+        InvalidOperationException thrown = new("the action fails");
+        Exception? cause = null;
+        Exception? fromPost = null;
+
+        try
+        {
+            Transaction.Post(action: () => throw thrown, onFailure: e => cause = e);
+        }
+        catch (Exception e)
+        {
+            fromPost = e;
+        }
+
+        await Assert.That(cause).IsSameReferenceAs(thrown).Because("the release gets the cause");
+
+        await Assert.That(fromPost)
+            .IsSameReferenceAs(thrown)
+            .Because("the caller still gets the exception of the action");
+    }
+
+    [Test]
+    public async Task PostWithReleaseKeepsTheThrowFromTheRelease()
+    {
+        NotSupportedException fromRelease = new("the release fails");
+
+        Exception thrown =
+            RunFailingTransaction(() => Transaction.Post(action: static () => { }, onFailure: _ => throw fromRelease));
+
+        await Assert.That(thrown)
+            .IsTypeOf<AggregateException>()
+            .Because("a throw from the release does not replace the exception that caused it");
+
+        AggregateException aggregate = (AggregateException)thrown;
+
+        await Assert.That(aggregate.InnerExceptions.Count).IsEqualTo(2);
+
+        await Assert.That(aggregate.InnerExceptions[0])
+            .IsTypeOf<InvalidOperationException>()
+            .Because("the cause comes first");
+
+        await Assert.That(aggregate.InnerExceptions[1]).IsSameReferenceAs(fromRelease);
+    }
+
     [Test]
     public async Task Post()
     {

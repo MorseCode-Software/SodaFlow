@@ -7,10 +7,10 @@
 
 Functional Reactive Programming for .NET, in C# and F#.
 
-SodaFlow gives you two composable primitives: `Stream` for discrete events and
-`Cell` for values that change over time.  It also provides a transaction system that
-guarantees every derived value updates atomically and in dependency order.  This means that there are no
-glitches, no ordering bugs, and no manual subscription bookkeeping.
+SodaFlow gives you composable primitives: `Stream` for discrete events, `Cell` for values that
+change over time, and `Behavior` for values defined at every instant.  It also provides a
+transaction system that guarantees every derived value updates atomically and in dependency order.
+This means that there are no glitches, no ordering bugs, and no manual subscription bookkeeping.
 
 ## Packages
 

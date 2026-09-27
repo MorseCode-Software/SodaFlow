@@ -1,10 +1,57 @@
 ﻿module SodaFlow.Tests.Transaction
 
+open System
 open System.Threading
 open SodaFlow
 open TUnit.Core
 
 type ``Transaction Tests``() =
+
+    [<Test>]
+    member _.``postWithFailureHandler runs the release where the transaction fails``() =
+        task {
+            let mutable ran = false
+            let mutable cause: exn option = None
+
+            let sink = sinkS<int> ()
+
+            let listener =
+                sink |> listenStrongS (fun _ -> raise (InvalidOperationException "listener"))
+
+            let thrown =
+                try
+                    runT (fun () ->
+                        Transaction.postWithFailureHandler
+                            (fun e -> cause <- Some e)
+                            (fun () -> ran <- true)
+                        sink |> sendS 1)
+
+                    None
+                with e ->
+                    Some e
+
+            listener |> unlistenL
+
+            do! Expect.False ran
+            do! Expect.True thrown.IsSome
+            do! Expect.True cause.IsSome
+            do! Expect.Same(thrown.Value, cause.Value)
+        }
+
+    [<Test>]
+    member _.``postWithFailureHandler runs no release where the action completes``() =
+        task {
+            let mutable ran = false
+            let mutable released = false
+
+            runT (fun () ->
+                Transaction.postWithFailureHandler
+                    (fun _ -> released <- true)
+                    (fun () -> ran <- true))
+
+            do! Expect.True ran
+            do! Expect.False released
+        }
 
     [<Test>]
     member _.Post() =

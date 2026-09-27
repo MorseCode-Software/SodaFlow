@@ -1,6 +1,6 @@
 # Samples
 
-Four applications, each built twice — once in WPF and once in Avalonia — over one shared view
+Each application here is built twice — once in WPF and once in Avalonia — over one shared view
 model that knows about neither. Counter has a third head, on .NET Framework.
 
 | Sample | Libraries it uses | What it shows |
@@ -13,8 +13,7 @@ model that knows about neither. Counter has a third head, on .NET Framework.
 Accounts used to be the odd one out, referencing the projects under `src/` while the collections
 packages were unpublished and the sample was part of deciding what their API should be. That is
 over: `SodaFlow.Collections` 1.0.0 is released, so Accounts pins packages like the rest, and the
-samples workflow builds it, inspects it, and gates a merge on it exactly as it does the other
-three.
+samples workflow builds it, inspects it, and gates a merge on it exactly as it does the others.
 
 Each sample is a folder with its own solution. Open the one beside the sample —
 `Counter/SodaFlow.Samples.Counter.slnx`, `Search/SodaFlow.Samples.Search.slnx`,
@@ -33,11 +32,12 @@ Counter/
   SodaFlow.Samples.Counter.Avalonia/           net10.0         - the same, in Avalonia
 ```
 
-Counter is the one with a fourth project. Its view model stays on `netstandard2.0`, which is what
+Counter is the one with an extra head. Its view model stays on `netstandard2.0`, which is what
 lets a .NET Framework 4.8.1 copy of the WPF head reference it unchanged.
 
-Search, Bounce and Accounts have three: a `net10.0` view model, a `net10.0-windows` WPF head and a
-`net10.0` Avalonia head, all at C# 14.
+Search, Bounce and Accounts share one shape: a `net10.0` view model, a `net10.0-windows` WPF head
+and a `net10.0` Avalonia head, all at C# 14. Accounts adds a `net10.0` benchmarks project beside
+them, which measures the drain of its collection.
 
 The split is the point. A SodaFlow view model is built from cells, streams and bindables, none of
 which come from a UI framework, so the view model project targets a framework with no platform in

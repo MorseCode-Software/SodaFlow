@@ -1,5 +1,92 @@
 5.0.0
 
+Adds Execute, which puts one value into a pipeline and answers with the Task of
+that value alone.
+
+Execute has one purpose: the operation of a MapAsync pipeline calls a second
+MapAsync pipeline with it, and waits for the result of that one value. Thus, an
+operation can be a pipeline of its own, and the strategy of the inner pipeline
+controls the inner work. An operation is an async method, thus it can await the
+Task.
+
+Other code does not use Execute. Code that has a value for a pipeline sends that
+value on the source stream of the pipeline, and reads the results stream. That is
+the interface of a pipeline, and it keeps the identity of one value out of code
+that has no need of it.
+
+The value goes through the strategy as a value from the source stream does, thus
+the call obeys the concurrency rules of the pipeline, and the result reaches the
+results stream as well. Execute gives the same object and does not divert it.
+
+A second overload takes a Cell<TInput>. It reads the cell in the transaction that
+puts the value in, thus the pipeline admits the value that the cell has at that
+instant. A caller that samples the cell first, and then calls the other overload,
+has two transactions, and the cell can take a new value between them.
+
+The Task ends one time, in each condition. It gives the result where the
+operation gives one and the strategy publishes it. It carries the exception
+where the operation throws and the strategy publishes that, and the errors
+stream gets the same exception. It is canceled where a cancellation stops the
+value, where the strategy refuses the value, where the strategy does not publish
+the outcome, and where the pipeline is disposed before the value is admitted. A
+strategy that does not publish says that no code wants the result, which is a
+cancellation at a later moment, thus the Task treats it as one.
+
+One condition gives no end to the Task, and it is outside the position that Execute
+is for. A strategy that keeps a value in the queue permanently, and does not
+cancel that value, gives the pipeline no end to read. Each strategy in this
+library ends each value, and the documented method for a strategy to refuse a
+value cancels that value, thus that method ends the Task.
+
+A transaction that fails cancels the Task. Where a transaction is open, Execute
+defers the value into the post queue of that transaction. A throw while that
+transaction propagates discards that queue, thus the value never enters the
+pipeline, and Execute registers a cancellation for that condition. A throw from
+the body of a transaction is different: that transaction still closes, the queue
+still drains, and the pipeline admits the value.
+
+A call with a transaction open is legal. The code of an operation before its first
+await runs in the transaction that started that operation, thus Execute cannot ask
+its caller for a thread with no transaction open. It defers the value to a
+transaction of its own in that condition, and the pipeline admits the value after
+the transaction of the caller ends. The overload that takes a cell reads that cell
+in the transaction of the send, thus a deferral carries the read with it.
+
+The Task runs its continuations asynchronously. The pipeline answers it in the
+transaction that publishes, and a continuation on that thread would be in that
+transaction, where a send is not legal.
+
+mapAsync and mapAsyncWithInputConverter answer with a new
+AsyncMapStatus<'TInput, 'TResult>, which extends the AsyncMapStatus<'TInput>
+that they answered with before. Thus, the count of the type parameters a caller
+keeps says what that caller does: the non-generic AsyncMapStatus for IsRunning
+and the disposal, AsyncMapStatus<'TInput> for Items also, and
+AsyncMapStatus<'TInput, 'TResult> for Execute also. Code that annotates the
+answer AsyncMapStatus<'TInput> or AsyncMapStatus needs no edit, because the new
+type is a subclass of each.
+
+Fixed: a cancellation now ends each item that it cancels, and the pipeline
+stops tracking it. Two conditions left an item in the queue with no operation
+behind it, and IsRunning and Items reported that item for the life of the
+pipeline.
+
+The first was a Queued item. A cancellation cancels the token of each item,
+and a Queued item runs no operation, thus nothing observed that token. The end
+of such an item waited for a promotion, and a promotion comes from the end of
+a different item, thus an item that no other end followed stayed in the queue.
+
+The second was a Running item, and it needed a particular shape of operation.
+Cancel() runs the registrations of a token on the thread that calls it. Where
+one of those ends the Task of the operation, and that Task runs its
+continuations on the completing thread, the end of the item ran on that
+thread, inside the callback of the listener for the cancellation stream. A
+send is not legal there, thus the end threw, and the throw went into the
+machinery of Cancel() where no code reports it. The strategy had the end of
+that item and the pipeline kept it. An operation that awaits a plain
+TaskCompletionSource, which a caller writes to wrap a callback API or to build
+a gate, meets this. An operation that awaits Task.Delay with the token does
+not, because that one schedules its continuation.
+
 BREAKING: the queue that a strategy reads in Admit and in OnCompleted is the
 queue as the pipeline holds it at the moment of the call, and not a snapshot
 from the start of the transaction. OnCompleted no longer finds the item that
@@ -8,6 +95,45 @@ take the first Queued item with no test against it. A strategy that filtered
 that item out by hand must drop the filter, or it skips a real item. Admit is
 unchanged in this: the value that the pipeline admits now is still absent,
 because the pipeline adds it after the call.
+
+BREAKING: a strategy now has two hooks for the ends of its items. OnCompleted
+reads one item whose operation returned or threw, with the signature that it had
+before the release: one AsyncQueuedItem, one AsyncCompletion, and the queue.
+AsyncStrategyResult keeps its boolean Publish property. OnCanceled reads the
+items that a cancellation ended, as an IReadOnlyList<AsyncQueuedItem<TInput>>.
+
+A cancellation is what makes a list necessary. One send of cancelAll or of
+cancelMatching can end more than one item at one instant: each Queued item that
+it removes, and each Running item whose operation observes its token. Before this
+release, one call for each of them asked the strategy to decide again, and each of
+those decisions read a queue that held the other items which end at the same
+instant. Thus, a strategy started an item that was about to end. OnCanceled gets
+all of them in one call, over the queue that all of them leave.
+
+OnCanceled makes no publish decision, because a canceled item sends nothing to
+the results stream and nothing to the errors stream. Thus, it returns the items
+to start, as an IReadOnlyList<AsyncToStart<TInput>>, which is what Admit returns.
+Give AsyncStrategyResult<TInput>.None for no items.
+
+OnCompleted reads one item and never a list. A stream carries one value for each
+transaction, thus one such end is the most that a transaction can hold. The edit
+of the queue for that end is in the transaction that sends it, or a graph that
+reads Items and results together sees two instants where the pipeline made one. A
+caller that wants a result for a batch of inputs asks for that in the types: one
+MapAsync from TInput to a list of TInput, and a second from that list to a list
+of results. MapAsync is TInput to TResult, and it does not model two results at
+one instant.
+
+AsyncCompletion has two ends now, Succeeded and Failed, and Match and MatchVoid
+take two handlers. A cancellation is not one of those ends: it goes to OnCanceled,
+which reads the items alone, because a canceled end carries nothing to read.
+
+A call of mapAsync with a strategy from this library needs no edit for this. A
+custom strategy adds OnCanceled, which the compiler asks for, because the method
+is abstract: a default that starts nothing makes a queue stall where a
+cancellation ends the item that runs. A strategy that starts the next Queued item
+must test the queue in OnCanceled also, because more than one item can end at one
+instant.
 
 Fixed: a MapAsync call no longer stalls where the graph feeds results back
 into inputs. A published result can fire the input stream in the transaction
@@ -54,8 +180,8 @@ OnCompleted, the queue of the pipeline: each item that it tracks, Queued or
 Running, in the sequence of their admissions, with the status of each one. A
 strategy that schedules on that sequence alone keeps no queue of its own. In
 Admit the list does not hold the value that the pipeline admits now, and in
-OnCompleted it still holds the item that ends now. A call of MapAsync with a
-strategy from this library needs no edit for this.
+OnCompleted it holds no item that ends now. A call of mapAsync with a strategy
+from this library needs no edit for this.
 
 BREAKING: mapAsyncWithResultConverter and mapAsyncWithConverters are gone, and
 mapAsync and mapAsyncWithInputConverter stay. A strategy no longer reads a
@@ -73,10 +199,9 @@ stay needs no edit for this. A custom strategy changes its base type and its
 OnCompleted signature.
 
 BREAKING, and the break is in SodaFlow.Async.Core 5.0.0, which this release
-takes: the AsyncMapStatus<'TInput> that mapAsync and its siblings return is a
-class where it was a readonly struct, and it extends a new non-generic
-AsyncMapStatus that carries IsRunning and Dispose. Items stays on the generic
-type.
+takes: the status that mapAsync and its siblings return is a class where it was
+a readonly struct, and it extends a new non-generic AsyncMapStatus that carries
+IsRunning and Dispose. Items stays on the generic type.
 
 Code that binds the result and reads its members needs no edit. Code compiled
 against 4.x does, because a struct and a class are not the same type to the
@@ -159,10 +284,13 @@ with factory.FromValue value or factory.Construct (fun () -> ...). The
 second one runs in the transaction that publishes, for a result that holds part
 of a graph.
 
-Each returns an AsyncMapStatus<'TInput>: IsRunning is a Cell<bool> true while at
+Each returns an AsyncMapStatus<'TInput, 'TResult>: Execute puts one value in and
+answers with the Task of that value alone, for an operation that drives a second
+pipeline; IsRunning is a Cell<bool> true while at
 least one invocation is actually running, Items lists everything tracked with
 its status, and disposing it tears the pipeline down. IsRunning and disposal
 live on its non-generic base, AsyncMapStatus, which is what code that does not
-read Items can hold.
+read Items can hold, and Items lives on AsyncMapStatus<'TInput> between the
+two.
 
 Full notes: https://github.com/MorseCode-Software/SodaFlow/releases
