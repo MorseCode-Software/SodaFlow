@@ -299,6 +299,85 @@ public sealed class MapAsyncExtensionsTests
     }
 
     [Test]
+    public async Task OnCanceled_StartsTheNextQueuedItem()
+    {
+        StreamSink<string> source = Stream.CreateSink<string>();
+        StreamSink<string> results = Stream.CreateSink<string>();
+        StreamSink<Exception> errors = Stream.CreateSink<Exception>();
+        StreamSink<IReadOnlyCollection<string>> cancelMatching = Stream.CreateSink<IReadOnlyCollection<string>>();
+        ControlledOperation<string, string> op = new();
+
+        AsyncMapStatus<string> status =
+            source.MapAsync(
+                results: results,
+                errors: errors,
+                operation: op.Operation,
+                strategy: AsyncConcurrencyStrategy.Queue(),
+                cancelMatching: cancelMatching);
+
+        source.Send("a");
+        TestUtil.WaitUntil(() => op.HasStarted("a"));
+
+        source.Send("b");
+        TestUtil.WaitUntil(() => Transaction.Run(status.Items.Sample).Count == 2);
+
+        await Assert.That(op.HasStarted("b"))
+            .IsFalse()
+            .Because("the Queue strategy runs one operation at a time");
+
+        // No operation ends here, thus OnCanceled is the one method that can start "b". A strategy
+        // that starts nothing there holds a queue that waits for an item which no longer exists.
+        cancelMatching.Send(["a"]);
+        TestUtil.WaitUntil(() => op.HasStarted("b"));
+
+        op.Release(input: "b", result: "B");
+        TestUtil.WaitUntil(() => Transaction.Run(status.Items.Sample).Count == 0);
+
+        status.Dispose();
+    }
+
+    [Test]
+    public async Task OnCanceled_GetsACancellationOfOneItemAlone()
+    {
+        StreamSink<string> source = Stream.CreateSink<string>();
+        StreamSink<string> results = Stream.CreateSink<string>();
+        StreamSink<Exception> errors = Stream.CreateSink<Exception>();
+        StreamSink<IReadOnlyCollection<string>> cancelMatching = Stream.CreateSink<IReadOnlyCollection<string>>();
+        ControlledOperation<string, string> op = new();
+        QueueFromTrackedStrategy strategy = new();
+
+        AsyncMapStatus<string> status =
+            source.MapAsync(
+                results: results,
+                errors: errors,
+                operation: op.Operation,
+                strategy: strategy,
+                cancelMatching: cancelMatching);
+
+        source.Send("a");
+        TestUtil.WaitUntil(() => op.HasStarted("a"));
+
+        cancelMatching.Send(["a"]);
+        TestUtil.WaitUntil(() => Transaction.Run(status.Items.Sample).Count == 0);
+        Thread.Sleep(100);
+
+        List<string> endedSaw;
+
+        lock (strategy.EndedSaw)
+        {
+            endedSaw = [..strategy.EndedSaw];
+        }
+
+        // A list of one item is a list also. The outcome selects the method, and not the count of
+        // the items.
+        await Assert.That(endedSaw)
+            .IsEquivalentTo(expected: ["canceled:a"], ordering: CollectionOrdering.Matching)
+            .Because("one canceled item goes to OnCanceled, as a group of them does");
+
+        status.Dispose();
+    }
+
+    [Test]
     public async Task CancelMatching_GivesTheStrategyOneDecisionForTheWholeTransaction()
     {
         StreamSink<string> source = Stream.CreateSink<string>();

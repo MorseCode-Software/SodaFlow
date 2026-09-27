@@ -171,6 +171,51 @@ public sealed class AsyncConcurrencyStrategyTests
     }
 
     [Test]
+    public async Task QueuePerGroup_ACancellationStartsTheNextItemOfThatGroupAlone()
+    {
+        StreamSink<string> source = Stream.CreateSink<string>();
+        StreamSink<string> results = Stream.CreateSink<string>();
+        StreamSink<Exception> errors = Stream.CreateSink<Exception>();
+        StreamSink<IReadOnlyCollection<string>> cancelMatching = Stream.CreateSink<IReadOnlyCollection<string>>();
+        ControlledOperation<string, string> op = new();
+        List<string> received = [];
+        IListener l = results.ListenStrong(received.Add);
+
+        AsyncConcurrencyStrategyBase<string> strategy =
+            AsyncConcurrencyStrategy.QueuePerGroup<string>().Create(static v => v.Split('-')[0]);
+
+        AsyncMapStatus<string> status =
+            source.MapAsync(
+                results: results,
+                errors: errors,
+                operation: op.Operation,
+                strategy: strategy,
+                cancelMatching: cancelMatching);
+
+        source.Send("g1-a");
+        source.Send("g1-b");
+        source.Send("g2-a");
+
+        TestUtil.WaitUntil(() => op.HasStarted("g1-a") && op.HasStarted("g2-a"));
+        await Assert.That(op.HasStarted("g1-b")).IsFalse().Because("one item of a group runs at a time");
+
+        // No operation ends here, thus OnCanceled is the one method that can start "g1-b".
+        cancelMatching.Send(["g1-a"]);
+        TestUtil.WaitUntil(() => op.HasStarted("g1-b"));
+
+        op.Release(input: "g1-b", result: "B1");
+        op.Release(input: "g2-a", result: "A2");
+        TestUtil.WaitUntil(() => received.Count == 2);
+
+        await Assert.That(received)
+            .IsEquivalentTo(["B1", "A2"])
+            .Because("a canceled item publishes nothing, and the group of it goes on");
+
+        status.Dispose();
+        l.Unlisten();
+    }
+
+    [Test]
     public async Task SwitchLatest_SupersededRunIsNeverPublished()
     {
         StreamSink<string> source = Stream.CreateSink<string>();
