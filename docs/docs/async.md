@@ -78,14 +78,22 @@ You can also write your own by subclassing `AsyncConcurrencyStrategy<TInput, TSt
 `CreateState` makes the bookkeeping for one `MapAsync` call, `Admit` decides what starts, and
 `OnCompleted` decides which outcomes the pipeline publishes and what starts next.
 
-`OnCompleted` is called once per transaction, with every item that ended in it as an
-`IReadOnlyList<AsyncEnd<TInput>>`. Usually that is one item. A cancellation is the case where it
-is not: `cancelAll` and `cancelMatching` can end several queued items and a running one at the
-same instant, and batching them into one call means you make a single decision against the queue
-they all left, rather than a sequence of decisions each of which still sees the others. Return
-`ItemsOf(ended)` to publish every outcome, `AsyncStrategyResult<TInput>.PublishNone` to publish
-none, or a list you build yourself to publish some — `SwitchLatest` does the last of these, since
-only the newest run should reach `results`.
+`OnCompleted` takes the items that ended together, as an `IReadOnlyList<AsyncEnd<TInput>>`.
+Usually that is one item, and **a cancellation is the only case where it is more**: `cancelAll` and
+`cancelMatching` can end several queued items and a running one at the same instant, and no
+canceled end sends anything, so they arrive as one call — one decision and one `Items` edit for
+that instant, rather than a sequence of decisions and edits.
+
+An end that *does* send — a result or an error — is always alone in the call. A stream carries one
+value per transaction, and the queue edit for that end happens in the same transaction as its send,
+so a graph that reads `Items` and `results` together never sees two instants where the pipeline made
+one. If you want a result per batch of inputs, say so in the types: one `MapAsync` from `TInput` to
+a list, and a second from that list to a list of results. `MapAsync` is `TInput -> TResult` and does
+not model two results at one instant.
+
+Return `ItemsOf(ended)` to publish every outcome, `AsyncStrategyResult<TInput>.PublishNone` to
+publish none, or a list you build yourself to publish some — `SwitchLatest` does the last of these,
+since only the newest run should reach `results`.
 
 Each `AsyncEnd` carries the item and an `AsyncCompletion` — the operation returned, it threw (with
 the exception), or a cancellation stopped it — and never the result itself. That is what lets the

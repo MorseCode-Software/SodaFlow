@@ -711,9 +711,10 @@ public abstract class AsyncMapBase
     /// <summary>One item that ended, with how its operation ended.</summary>
     /// <remarks>
     ///     A cancellation can end more than one item in one transaction. It removes each Queued
-    ///     item, and it ends each Running item whose operation observes its token. The pipeline
-    ///     gives a strategy each of those in one call. Thus, the strategy makes one decision over
-    ///     the queue that holds no item of those ends.
+    ///     item, and it ends each Running item whose operation observes its token. A canceled end
+    ///     sends nothing, thus the pipeline gives a strategy each of those ends in one call. That
+    ///     call reads the queue that holds no item of those ends. An end that sends a result or an
+    ///     error is always alone in its call: one transaction carries one value of a stream.
     /// </remarks>
     /// <typeparam name="TInput">The type that the strategy reads.</typeparam>
     [PublicAPI]
@@ -1115,9 +1116,10 @@ public abstract class AsyncConcurrencyStrategy<TInput, TState>
     /// <param name="state">The scheduling state of this MapAsync call.</param>
     /// <param name="ended">
     ///     Each item that ends now, with how its operation ended, in the sequence of their
-    ///     admissions. One transaction gives one call, thus a cancellation of more than one item
-    ///     is one decision and not one decision for each item. The list holds one item for the
-    ///     usual end of one operation.
+    ///     admissions. A cancellation alone gives more than one item here. It can end more than
+    ///     one item at one instant, and it sends nothing for any of them. An end that sends a
+    ///     result or an error is always alone here. One transaction carries one value of a stream.
+    ///     The edit of the queue for such an end is also in the transaction that sends it.
     /// </param>
     /// <param name="tracked">
     ///     Each item that the pipeline tracks, Queued or Running, in the sequence of their
@@ -1623,11 +1625,13 @@ internal sealed class AsyncMapExecutionManager<TInput, TResult, TStrategyInput> 
     // value by then.
     private (Entry[] Queue, TransactionInternal Owner)? completedQueueAndOwner;
 
-    // The ends that this transaction made, and the transaction they belong to. One transaction
-    // gives the strategy one call, thus each end goes here and one Flush reads them all. A
-    // transaction that ends, and a transaction that throws, keep a list against an owner that no
-    // code uses again. The next transaction makes a list of its own.
-    private (List<PendingEnd> Ends, TransactionInternal Owner)? pendingEnds;
+    // The canceled ends that this transaction made, and the transaction they belong to. A
+    // cancellation can end more than one item at one instant, and no canceled end sends anything.
+    // Thus, one Flush reads them all, and the strategy makes one decision over them. An end that
+    // can send does not come here: see EndItem. A transaction that ends, and a transaction that
+    // throws, keep a list against an owner that no code uses again. The next transaction makes a
+    // list of its own.
+    private (List<PendingEnd> Ends, TransactionInternal Owner)? pendingCancellations;
 
     private readonly StreamSink<TResult> results;
 
@@ -2249,9 +2253,9 @@ internal sealed class AsyncMapExecutionManager<TInput, TResult, TStrategyInput> 
     // status, and no stream said that it ended.
     //
     // EndItem defers each end, because this code runs in a registered listener callback and a
-    // send is not legal there. Thus, a cancellation of more than one item gives the strategy one
-    // call and not one call for each item. That call reads the queue that holds no item of those
-    // ends.
+    // send is not legal there. A canceled end sends nothing, thus a cancellation of more than one
+    // item gives the strategy one call and not one call for each item. That call reads the queue
+    // that holds no item of those ends.
     private void CancelTracked(
         IEnumerable<Entry> entries,
         Cell<Entry[]> trackedCell,
@@ -2307,6 +2311,18 @@ internal sealed class AsyncMapExecutionManager<TInput, TResult, TStrategyInput> 
 
         PendingEnd end = new(item: item, outcome: outcome, tokenToCheck: tokenToCheck);
 
+        // A canceled end sends nothing. Each other end can send a result or an error. One
+        // transaction carries one value of a stream, thus one such end is the most that a
+        // transaction can hold. The edit of the queue for such an end also belongs in the
+        // transaction that sends its result. Where it is not, a graph that reads the queue and the
+        // result together sees two instants where the pipeline made one. Thus, this code collects
+        // only canceled ends in one list.
+        bool sends =
+            outcome.Match(
+                onSucceeded: static _ => true,
+                onFailed: static _ => true,
+                onCanceled: static () => false);
+
         TransactionInternal? current = TransactionInternal.GetCurrentTransaction();
 
         if (current is null)
@@ -2320,35 +2336,51 @@ internal sealed class AsyncMapExecutionManager<TInput, TResult, TStrategyInput> 
         }
 
         // A transaction is open, thus this code can be in a callback, where a send is not legal.
-        // The ends of this transaction go in one list, and one Flush after the transaction reads
-        // them. PostImpl gives that Flush a transaction of its own, where a send is legal and the
-        // cell holds the value that this transaction gave it.
-        if (this.pendingEnds is null || !ReferenceEquals(objA: this.pendingEnds.Value.Owner, objB: current))
+        // PostImpl gives the Flush a transaction of its own, where a send is legal and the cell
+        // holds the value that this transaction gave it.
+        if (sends)
         {
-            this.pendingEnds = (Ends: new List<PendingEnd>(), Owner: current);
+            List<PendingEnd> alone = new() { end };
+            TransactionInternal.PostImpl(() => this.Flush(ends: alone, trackedCell: trackedCell));
 
-            List<PendingEnd> ends = this.pendingEnds.Value.Ends;
+            return;
+        }
+
+        // The canceled ends of this transaction go in one list, and one Flush after the transaction
+        // reads them.
+        if (this.pendingCancellations is null
+            || !ReferenceEquals(objA: this.pendingCancellations.Value.Owner, objB: current))
+        {
+            this.pendingCancellations = (Ends: new List<PendingEnd>(), Owner: current);
+
+            List<PendingEnd> ends = this.pendingCancellations.Value.Ends;
             TransactionInternal.PostImpl(() => this.Flush(ends: ends, trackedCell: trackedCell));
         }
 
-        this.pendingEnds.Value.Ends.Add(end);
+        this.pendingCancellations.Value.Ends.Add(end);
     }
 
     /// <summary>
     ///     The one method that makes the effects of each item at its end. An item with no start,
     ///     which a cancellation removed with the Queued status, also comes here. This method asks
-    ///     the strategy for one decision over each item that ends in one transaction. Then, in one
-    ///     atomic SodaFlow transaction, it publishes each outcome that the strategy asks for,
-    ///     removes the entry of each item, promotes each item that the strategy selects, and
-    ///     disposes the CancellationTokenSource of each one.
+    ///     the strategy for one decision over the items that end together. Then, in one atomic
+    ///     SodaFlow transaction, it publishes each outcome that the strategy asks for, removes the
+    ///     entry of each item, promotes each item that the strategy selects, and disposes the
+    ///     CancellationTokenSource of each one.
     ///     <para>
-    ///         One decision for each transaction, and not one for each item, because a cancellation
-    ///         can end more than one item at one moment. CancelTracked removes each Queued item, and
-    ///         a Running item ends when its operation observes its token. One call for each of those
-    ///         asks the strategy for one decision at a time. Each of those decisions then reads a
-    ///         queue that holds the other items which end at the same moment. A strategy then starts
-    ///         an item that is about to end. This is the same rule that Admit and OnCompleted follow
-    ///         for one transaction.
+    ///         A cancellation can end more than one item at one instant, and no canceled end sends
+    ///         anything. Thus, EndItem gives all of those ends to one call of this method. One
+    ///         decision and one edit of the queue then answer one instant, and no observer of the
+    ///         queue sees a state between the ends.
+    ///     </para>
+    ///     <para>
+    ///         An end that sends a result or an error is alone in its call. One transaction carries
+    ///         one value of a stream, thus one such end is the most that a transaction can hold.
+    ///         The edit of the queue for that end is in this same transaction as its send. Where it
+    ///         is not, a graph that reads the queue and the result together sees two instants where
+    ///         the pipeline made one. A caller that wants results for a batch of inputs asks for
+    ///         that in the types. One MapAsync goes from TInput to a list of inputs, and a second
+    ///         goes from that list to a list of results.
     ///     </para>
     ///     <para>
     ///         The removal of an entry and the disposal of its CancellationTokenSource are in the
@@ -2448,29 +2480,19 @@ internal sealed class AsyncMapExecutionManager<TInput, TResult, TStrategyInput> 
 
                 CancellationToken? tokenToCheck = end.TokenToCheck;
 
-                // One transaction for each outcome, and not one for all of them. A caller makes the
-                // results sink and the errors sink. A SodaFlow sink with no coalesce function
-                // refuses a second send in one transaction. One decision for each transaction is
-                // the rule for the strategy, and that rule says nothing about the count of the
-                // sends. Thus, each outcome gets a transaction of its own here, and the sequence of
-                // these posts is the sequence of the admissions.
-                //
-                // The release cancels the Task of an Execute call where this post does not run. A
-                // transaction that fails discards it, as it discards the send of an admission.
+                // One send at the most reaches this code, because EndItem gives an end that sends
+                // a call of its own. Thus, the send is in the transaction that removed the item,
+                // and a graph that reads the queue and the result sees one instant.
                 end.Outcome.MatchVoid(
-                    onSucceeded: operationResult => TransactionInternal.PostImpl(
-                        action: () => this.Publish(
-                            operationResult: operationResult,
-                            tokenToCheck: tokenToCheck,
-                            completion: completion),
-                        onFailure: _ => completion?.TrySetCanceled()),
-                    onFailed: e => TransactionInternal.PostImpl(
-                        action: () =>
-                        {
-                            this.errors.SendImpl(e);
-                            completion?.TrySetException(e);
-                        },
-                        onFailure: _ => completion?.TrySetCanceled()),
+                    onSucceeded: operationResult => this.Publish(
+                        operationResult: operationResult,
+                        tokenToCheck: tokenToCheck,
+                        completion: completion),
+                    onFailed: e =>
+                    {
+                        this.errors.SendImpl(e);
+                        completion?.TrySetException(e);
+                    },
                     onCanceled: () => completion?.TrySetCanceled());
             }
 

@@ -101,26 +101,23 @@ AsyncCompletion. An AsyncEnd holds those two values. The Publish property of
 AsyncStrategyResult is an IReadOnlyList<AsyncQueuedItem<TInput>> in place of a
 bool, and it names the items whose outcomes the pipeline publishes.
 
-A cancellation can end more than one item at one moment: each Queued item that
-it removes, and each Running item whose operation observes its token. One call
-for each of those asked the strategy for one decision at a time, and each of
-those decisions read a queue that held the other items which end at the same
-moment. A strategy thus started an item that was about to end. One call over
-the queue that holds no item of those ends is one decision, which is the rule
-that Admit and OnCompleted already follow for one transaction.
+A cancellation is what makes a list necessary. One send of cancelAll or of
+cancelMatching can end more than one item at one instant: each Queued item that
+it removes, and each Running item whose operation observes its token. No canceled
+end sends anything to the results stream or to the errors stream, thus the
+pipeline gives each of those ends to one call. One decision and one edit of the
+queue then answer one instant, and no observer of Items sees a state between
+those ends. Before this release, one call for each of them asked the strategy to
+decide again, and the queue took an edit for each one.
 
-A cancellation is not the one path to this. Each operation that awaits a
-TaskCompletionSource ends on the thread that completes it, thus a listener which
-completes two of those ends two items in the transaction of that send. A loader
-that collects keys, asks one time, and answers each item that waits has that
-shape.
-
-The decision is one for each transaction, and the sends are not. A results sink
-and an errors sink come from a caller, and a SodaFlow sink with no coalesce
-function refuses a second send in one transaction. Thus, each outcome that the
-pipeline publishes gets a transaction of its own, in the sequence of the
-admissions, which is what a consumer of those streams saw before this release as
-well.
+An end that sends a result or an error is alone in its call, and the list holds
+one item there. A stream carries one value for each transaction, thus one such
+end is the most that a transaction can hold. The edit of the queue for that end
+is in the transaction that sends it, or a graph that reads Items and results
+together sees two instants where the pipeline made one. A caller that wants a
+result for a batch of inputs asks for that in the types: one MapAsync from TInput
+to a list of TInput, and a second from that list to a list of results. MapAsync
+is TInput to TResult, and it does not model two results at one instant.
 
 A custom strategy that published every outcome returns ItemsOf(ended), which is
 a static method on the base class, in place of true. One that published none

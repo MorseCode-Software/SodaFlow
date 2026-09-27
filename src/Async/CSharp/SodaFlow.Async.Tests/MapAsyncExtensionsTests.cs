@@ -781,7 +781,55 @@ public sealed class MapAsyncExtensionsTests
     }
 
     [Test]
-    public async Task TwoOperationsThatEndInOneTransaction_GiveOneDecisionAndTwoResults()
+    public async Task AResultAndTheQueueEditForItAreOneTransaction()
+    {
+        StreamSink<string> source = Stream.CreateSink<string>();
+        StreamSink<string> results = Stream.CreateSink<string>();
+        StreamSink<Exception> errors = Stream.CreateSink<Exception>();
+        ControlledOperation<string, string> op = new();
+
+        AsyncMapStatus<string, string> status =
+            source.MapAsync(
+                results: results,
+                errors: errors,
+                operation: op.Operation,
+                strategy: AsyncConcurrencyStrategy.Parallel());
+
+        // Snapshot reads the cell as it was at the start of the transaction that carries the result.
+        // The removal of the item and the send of its result are one transaction. Thus, this sees
+        // the queue before that removal, with the item in it. Where the send comes in a different
+        // transaction, the cell holds the removal and this sees an empty queue. A graph that reads
+        // the queue and the result together must not see two instants for one end.
+        List<string> seen = [];
+
+        // The closure below reads this cell and not `status`. A closure over `status` reads it
+        // after the disposal at the end of this method.
+        Cell<IReadOnlyList<AsyncItem<string>>> tracked = status.Items;
+
+        IListener probe =
+            Transaction.Run(() =>
+                results
+                    .Snapshot(
+                        c: tracked,
+                        f: static (r, items) => r + " with queue of " + items.Count)
+                    .ListenStrong(seen.Add));
+
+        source.Send("a");
+        TestUtil.WaitUntil(() => op.HasStarted("a"));
+
+        op.Release(input: "a", result: "A");
+        TestUtil.WaitUntil(() => seen.Count == 1);
+
+        await Assert.That(seen)
+            .IsEquivalentTo(expected: ["A with queue of 1"], ordering: CollectionOrdering.Matching)
+            .Because("the edit of the queue for an end is in the transaction that sends its result");
+
+        probe.Unlisten();
+        status.Dispose();
+    }
+
+    [Test]
+    public async Task TwoOperationsThatEndInOneTransaction_GiveOneDecisionForEach()
     {
         StreamSink<string> source = Stream.CreateSink<string>();
         StreamSink<string> results = Stream.CreateSink<string>();
@@ -791,9 +839,9 @@ public sealed class MapAsyncExtensionsTests
         List<string> published = [];
         IListener l = results.ListenStrong(published.Add);
 
-        // The answer of a batched back end, as a stream. One send of it carries the answer for
-        // each item that waits. That is the shape of a loader which collects keys and asks one
-        // time.
+        // One send releases the gate of each operation. A TaskCompletionSource runs its
+        // continuations on the thread that completes it. Thus, the two operations end in the
+        // transaction of this send, and no end here is a cancellation.
         StreamSink<Unit> batchAnswered = Stream.CreateSink<Unit>();
 
         IListener batch =
@@ -810,11 +858,6 @@ public sealed class MapAsyncExtensionsTests
         source.Send("b");
         TestUtil.WaitUntil(() => op.HasStarted("a") && op.HasStarted("b"));
 
-        // A cancellation is not the one path for two items to end at one moment. Each operation
-        // awaits a TaskCompletionSource, which runs its continuations on the thread that completes
-        // it. The listener above completes two of them. Thus, the two continuations run in the
-        // transaction of this send, and the two items end in it with no cancellation. No code here
-        // opens a transaction: one send on a sink is what makes it.
         batchAnswered.Send(Unit.Value);
 
         TestUtil.WaitUntil(() => Transaction.Run(status.Items.Sample).Count == 0);
@@ -822,32 +865,23 @@ public sealed class MapAsyncExtensionsTests
         Thread.Sleep(100);
 
         List<string> endedSaw;
-        List<string> completions;
 
         lock (strategy.EndedSaw)
         {
             endedSaw = [..strategy.EndedSaw];
         }
 
-        lock (strategy.Completions)
-        {
-            completions = [..strategy.Completions];
-        }
-
+        // Each of these ends sends a result, thus each one gets a decision of its own. A stream
+        // carries one value for each transaction. The edit of the queue for an end also belongs in
+        // the transaction that sends its result. Thus, one such end is the most that a transaction
+        // can hold. A canceled end sends nothing, and the pipeline collects only those in a list.
         await Assert.That(endedSaw)
-            .IsEquivalentTo(expected: ["a,b"], ordering: CollectionOrdering.Matching)
-            .Because("the ends of one transaction give the strategy one decision over both");
+            .IsEquivalentTo(expected: ["a", "b"], ordering: CollectionOrdering.Matching)
+            .Because("an end that sends a result is alone in its decision");
 
-        await Assert.That(completions)
-            .IsEquivalentTo(expected: ["succeeded", "succeeded"], ordering: CollectionOrdering.Matching)
-            .Because("no cancellation takes part in this");
-
-        // The sends are what the batching cannot put in one transaction. A sink that a caller
-        // made with no coalesce function refuses a second send in one transaction. Each outcome
-        // thus gets a transaction of its own, and each result goes to the stream.
         await Assert.That(published)
             .IsEquivalentTo(expected: ["A", "B"], ordering: CollectionOrdering.Matching)
-            .Because("each outcome reaches the results stream, in the sequence of the admissions");
+            .Because("each result reaches the stream, in the sequence of the admissions");
 
         status.Dispose();
         batch.Unlisten();
