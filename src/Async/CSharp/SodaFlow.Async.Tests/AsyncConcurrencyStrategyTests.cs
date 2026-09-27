@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using SodaFlow.Functional;
@@ -246,6 +247,80 @@ public sealed class AsyncConcurrencyStrategyTests
 
         status.Dispose();
         l.Unlisten();
+    }
+
+    [Test]
+    public async Task SwitchLatest_LeavesNoItemQueued()
+    {
+        StreamSink<string> source = Stream.CreateSink<string>();
+        StreamSink<string> results = Stream.CreateSink<string>();
+        StreamSink<Exception> errors = Stream.CreateSink<Exception>();
+        StreamSink<Unit> cancelAll = Stream.CreateSink<Unit>();
+        ControlledOperation<string, string> op = new();
+        List<string> statuses = [];
+
+        AsyncMapStatus<string> status =
+            source.MapAsync(
+                results: results,
+                errors: errors,
+                operation: op.Operation,
+                strategy: AsyncConcurrencyStrategy.SwitchLatest(),
+                cancelAll: cancelAll);
+
+        // Each value of the cell, and not a sample at one moment. OnCanceled must start a Queued
+        // item at any instant. The Admit of this strategy promotes each item that it admits, thus
+        // no value here holds such an item, and a cancellation starts nothing.
+        // The closure below reads this cell and not `status`. A closure over `status` reads it after
+        // the disposal at the end of this method.
+        Cell<IReadOnlyList<AsyncItem<string>>> tracked = status.Items;
+
+        IListener probe =
+            Transaction.Run(() =>
+                tracked.ListenStrong(
+                    items =>
+                    {
+                        lock (statuses)
+                        {
+                            statuses.AddRange(items.Select(static item => item.Value + ":" + item.Status));
+                        }
+                    }));
+
+        source.Send("a");
+        TestUtil.WaitUntil(() => op.HasStarted("a"));
+
+        // A new send cancels "a" and starts "b" in the same transaction.
+        source.Send("b");
+        TestUtil.WaitUntil(() => op.HasStarted("b"));
+
+        // A cancellation with one item in flight, which is the case that OnCanceled answers.
+        cancelAll.Send(Unit.Value);
+        TestUtil.WaitUntil(() => Transaction.Run(tracked.Sample).Count == 0);
+
+        source.Send("c");
+        TestUtil.WaitUntil(() => op.HasStarted("c"));
+        op.Release(input: "c", result: "C");
+        TestUtil.WaitUntil(() => Transaction.Run(tracked.Sample).Count == 0);
+
+        List<string> seen;
+
+        lock (statuses)
+        {
+            seen = [..statuses];
+        }
+
+        List<string> queued =
+            seen.FindAll(static s => s.EndsWith(value: ":Queued", comparisonType: StringComparison.Ordinal));
+
+        await Assert.That(queued)
+            .IsEmpty()
+            .Because("SwitchLatest promotes each item at its admission, thus none waits");
+
+        await Assert.That(seen)
+            .Contains("b:Running")
+            .Because("the probe reads the cell and would see a Queued item where one existed");
+
+        probe.Unlisten();
+        status.Dispose();
     }
 
     [Test]

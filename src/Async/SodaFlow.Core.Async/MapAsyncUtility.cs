@@ -1542,6 +1542,9 @@ internal static class AsyncConcurrencyStrategyFactory
                 state.Active = null;
             }
 
+            // Nothing starts at an end. The Admit above promotes each item that it admits, thus
+            // no item waits with the Queued status, and the queue holds nothing to start. The test
+            // SwitchLatest_LeavesNoItemQueued reads each value of the cell and holds that rule.
             return new AsyncStrategyResult<TUnit>(publish: active, next: AsyncStrategyResult<TUnit>.None);
         }
 
@@ -1562,6 +1565,8 @@ internal static class AsyncConcurrencyStrategyFactory
                 }
             }
 
+            // A cancellation starts nothing, for the cause that OnCompleted above gives: this
+            // strategy keeps no queue, because Admit promotes each item.
             return AsyncStrategyResult<TUnit>.None;
         }
 
