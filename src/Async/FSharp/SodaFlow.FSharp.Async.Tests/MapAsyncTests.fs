@@ -11,9 +11,9 @@ open SodaFlow.Tests
 open TUnit.Core
 
 // The tests below use a custom strategy that this file writes. That strategy subclasses
-// AsyncConcurrencyStrategy<'TInput,'TResult,'TState> and overrides Admit, OnCompleted, and
-// CreateState. A previous version of this file said that F# cannot do this. That was incorrect,
-// and the causes were more simple than a limit of the compiler:
+// AsyncConcurrencyStrategy<'TInput,'TResult,'TState> and overrides Admit, OnCompleted,
+// OnCanceled, and CreateState. A previous version of this file said that F# cannot do this. That
+// was incorrect, and the causes were more simple than a limit of the compiler:
 //   - This project had no ProjectReference to SodaFlow.Core.Async, and had only a
 //     reference through SodaFlow.FSharp.Async. The accessibility test in F# for the
 //     protected-internal types AsyncQueuedItem, AsyncToStart, AsyncOutcome, and
@@ -66,30 +66,35 @@ type private AlwaysStartStrategy<'TStrategyInput>() =
     override _.OnCompleted
         (
             _state: EmptyState,
-            ended: IReadOnlyList<AsyncMapBase.AsyncEnd<'TStrategyInput>>,
+            _item: AsyncMapBase.AsyncQueuedItem<'TStrategyInput>,
+            completion: AsyncMapBase.AsyncCompletion,
             _tracked: IReadOnlyList<AsyncMapBase.AsyncTrackedItem<'TStrategyInput>>
         ) =
-        for e in ended do
-            let mutable how = ""
+        let mutable how = ""
 
-            e.Completion.MatchVoid(
-                Action(fun () -> how <- "succeeded"),
-                Action<exn>(fun ex -> how <- "failed:" + ex.Message),
-                Action(fun () -> how <- "canceled")
-            )
+        completion.MatchVoid(
+            Action(fun () -> how <- "succeeded"),
+            Action<exn>(fun ex -> how <- "failed:" + ex.Message)
+        )
 
-            lock completions (fun () -> completions.Add(how))
-
-        // A for loop and not Seq.map: F# refuses a protected member in a lambda.
-        let published = Array.zeroCreate<AsyncMapBase.AsyncQueuedItem<'TStrategyInput>> ended.Count
-
-        for i in 0 .. ended.Count - 1 do
-            published.[i] <- ended.[i].Item
+        lock completions (fun () -> completions.Add(how))
 
         AsyncMapBase.AsyncStrategyResult<'TStrategyInput>(
-            published :> IReadOnlyList<_>,
+            true,
             AsyncMapBase.AsyncStrategyResult<'TStrategyInput>.None
         )
+
+    override _.OnCanceled
+        (
+            _state: EmptyState,
+            canceled: IReadOnlyList<AsyncMapBase.AsyncQueuedItem<'TStrategyInput>>,
+            _tracked: IReadOnlyList<AsyncMapBase.AsyncTrackedItem<'TStrategyInput>>
+        ) =
+        // A for loop and not Seq.iter: F# refuses a protected member in a lambda.
+        for _ in 0 .. canceled.Count - 1 do
+            lock completions (fun () -> completions.Add("canceled"))
+
+        AsyncMapBase.AsyncStrategyResult<'TStrategyInput>.None
 
 /// A small custom strategy that uses EmptyState directly. The input type and the result type are
 /// `unit`, through the short AsyncConcurrencyStrategy of the F# module, which is not generic. Each
@@ -117,19 +122,19 @@ type private CountingStrategy() =
     override _.OnCompleted
         (
             _state: EmptyState,
-            ended: IReadOnlyList<AsyncMapBase.AsyncEnd<unit>>,
+            _item: AsyncMapBase.AsyncQueuedItem<unit>,
+            _completion: AsyncMapBase.AsyncCompletion,
             _tracked: IReadOnlyList<AsyncMapBase.AsyncTrackedItem<unit>>
         ) =
-        // A for loop and not Seq.map: F# refuses a protected member in a lambda.
-        let published = Array.zeroCreate<AsyncMapBase.AsyncQueuedItem<unit>> ended.Count
+        AsyncMapBase.AsyncStrategyResult<unit>(true, AsyncMapBase.AsyncStrategyResult<unit>.None)
 
-        for i in 0 .. ended.Count - 1 do
-            published.[i] <- ended.[i].Item
-
-        AsyncMapBase.AsyncStrategyResult<unit>(
-            published :> IReadOnlyList<_>,
-            AsyncMapBase.AsyncStrategyResult<unit>.None
-        )
+    override _.OnCanceled
+        (
+            _state: EmptyState,
+            _canceled: IReadOnlyList<AsyncMapBase.AsyncQueuedItem<unit>>,
+            _tracked: IReadOnlyList<AsyncMapBase.AsyncTrackedItem<unit>>
+        ) =
+        AsyncMapBase.AsyncStrategyResult<unit>.None
 
 type ``MapAsync Tests``() =
 

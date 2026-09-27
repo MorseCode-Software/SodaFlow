@@ -179,16 +179,18 @@ public sealed class MapAsyncImplTests
         Thread.Sleep(100);
         await Assert.That(received.Count).IsEqualTo(0).Because("A canceled outcome must never be published.");
 
-        List<int> endCounts;
+        List<int> canceledCounts;
 
-        lock (strategy.EndCounts)
+        lock (strategy.CanceledCounts)
         {
-            endCounts = [..strategy.EndCounts];
+            canceledCounts = [..strategy.CanceledCounts];
         }
 
-        await Assert.That(endCounts)
+        await Assert.That(canceledCounts)
             .IsEquivalentTo(expected: [1], ordering: CollectionOrdering.Matching)
-            .Because("The cancellation and the promotion end one item, thus the strategy sees it one time.");
+            .Because(
+                "The cancellation and the promotion end one item, thus OnCanceled sees it one time. "
+                + "An empty list says that this end went to OnCompleted instead.");
 
         status.Dispose();
         l.Unlisten();
@@ -435,9 +437,16 @@ public sealed class MapAsyncImplTests
 
         protected internal override AsyncStrategyResult<TStrategyInput> OnCompleted(
             object? state,
-            IReadOnlyList<AsyncEnd<TStrategyInput>> ended,
+            AsyncQueuedItem<TStrategyInput> item,
+            AsyncCompletion completion,
             IReadOnlyList<AsyncTrackedItem<TStrategyInput>> tracked) =>
-            new(publish: ItemsOf(ended), next: AsyncStrategyResult<TStrategyInput>.None);
+            new(publish: true, next: AsyncStrategyResult<TStrategyInput>.None);
+
+        protected internal override IReadOnlyList<AsyncToStart<TStrategyInput>> OnCanceled(
+            object? state,
+            IReadOnlyList<AsyncQueuedItem<TStrategyInput>> canceled,
+            IReadOnlyList<AsyncTrackedItem<TStrategyInput>> tracked) =>
+            AsyncStrategyResult<TStrategyInput>.None;
     }
 
     /// <summary>
@@ -468,9 +477,16 @@ public sealed class MapAsyncImplTests
 
         protected internal override AsyncStrategyResult<int> OnCompleted(
             object? state,
-            IReadOnlyList<AsyncEnd<int>> ended,
+            AsyncQueuedItem<int> item,
+            AsyncCompletion completion,
             IReadOnlyList<AsyncTrackedItem<int>> tracked) =>
-            new(publish: ItemsOf(ended), next: AsyncStrategyResult<int>.None);
+            new(publish: true, next: AsyncStrategyResult<int>.None);
+
+        protected internal override IReadOnlyList<AsyncToStart<int>> OnCanceled(
+            object? state,
+            IReadOnlyList<AsyncQueuedItem<int>> canceled,
+            IReadOnlyList<AsyncTrackedItem<int>> tracked) =>
+            AsyncStrategyResult<int>.None;
     }
 
     /// <summary>
@@ -485,7 +501,7 @@ public sealed class MapAsyncImplTests
     // ReSharper disable once InheritdocConsiderUsage
     private sealed class CancelAndPromoteSameItemStrategy : AsyncConcurrencyStrategy<int, object?>
     {
-        public readonly List<int> EndCounts = [];
+        public readonly List<int> CanceledCounts = [];
 
         protected override object? CreateState() => null;
 
@@ -500,15 +516,22 @@ public sealed class MapAsyncImplTests
 
         protected internal override AsyncStrategyResult<int> OnCompleted(
             object? state,
-            IReadOnlyList<AsyncEnd<int>> ended,
+            AsyncQueuedItem<int> item,
+            AsyncCompletion completion,
+            IReadOnlyList<AsyncTrackedItem<int>> tracked) =>
+            new(publish: true, next: AsyncStrategyResult<int>.None);
+
+        protected internal override IReadOnlyList<AsyncToStart<int>> OnCanceled(
+            object? state,
+            IReadOnlyList<AsyncQueuedItem<int>> canceled,
             IReadOnlyList<AsyncTrackedItem<int>> tracked)
         {
-            lock (this.EndCounts)
+            lock (this.CanceledCounts)
             {
-                this.EndCounts.Add(ended.Count);
+                this.CanceledCounts.Add(canceled.Count);
             }
 
-            return new AsyncStrategyResult<int>(publish: ItemsOf(ended), next: AsyncStrategyResult<int>.None);
+            return AsyncStrategyResult<int>.None;
         }
     }
 }

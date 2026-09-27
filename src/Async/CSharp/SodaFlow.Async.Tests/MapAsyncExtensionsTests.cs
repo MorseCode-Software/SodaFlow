@@ -346,8 +346,8 @@ public sealed class MapAsyncExtensionsTests
         }
 
         await Assert.That(endedSaw)
-            .IsEquivalentTo(expected: ["b,c,d"], ordering: CollectionOrdering.Matching)
-            .Because("one transaction should give one decision over each item that ends in it");
+            .IsEquivalentTo(expected: ["canceled:b,c,d"], ordering: CollectionOrdering.Matching)
+            .Because("the cancellations of one transaction should give OnCanceled one decision");
 
         await Assert.That(completedSaw)
             .IsEquivalentTo(expected: ["a:R"], ordering: CollectionOrdering.Matching)
@@ -876,8 +876,10 @@ public sealed class MapAsyncExtensionsTests
         // the transaction that sends its result. Thus, one such end is the most that a transaction
         // can hold. A canceled end sends nothing, and the pipeline collects only those in a list.
         await Assert.That(endedSaw)
-            .IsEquivalentTo(expected: ["a", "b"], ordering: CollectionOrdering.Matching)
-            .Because("an end that sends a result is alone in its decision");
+            .IsEquivalentTo(
+                expected: ["completed:a", "completed:b"],
+                ordering: CollectionOrdering.Matching)
+            .Because("an end that sends a result goes to OnCompleted, alone in its decision");
 
         await Assert.That(published)
             .IsEquivalentTo(expected: ["A", "B"], ordering: CollectionOrdering.Matching)
@@ -1583,15 +1585,17 @@ public sealed class MapAsyncExtensionsTests
 
         protected override AsyncStrategyResult<Unit> OnCompleted(
             Unit state,
-            IReadOnlyList<AsyncEnd<Unit>> ended,
+            AsyncQueuedItem<Unit> item,
+            AsyncCompletion completion,
             IReadOnlyList<AsyncTrackedItem<Unit>> tracked) =>
-            new(publish: ItemsOf(ended), next: AsyncStrategyResult<Unit>.None);
-    }
+            new(publish: true, next: AsyncStrategyResult<Unit>.None);
 
-    [Test]
-    public async Task AsyncStrategyResult_WithNoPublishList_Throws() =>
-        await Assert.That(new StrategyResultProbe().WithNullPublish)
-            .ThrowsExactly<ArgumentNullException>();
+        protected override IReadOnlyList<AsyncToStart<Unit>> OnCanceled(
+            Unit state,
+            IReadOnlyList<AsyncQueuedItem<Unit>> canceled,
+            IReadOnlyList<AsyncTrackedItem<Unit>> tracked) =>
+            AsyncStrategyResult<Unit>.None;
+    }
 
     [Test]
     public async Task AsyncStrategyResult_WithNoNextList_Throws() =>
@@ -1605,13 +1609,9 @@ public sealed class MapAsyncExtensionsTests
     // ReSharper disable once InheritdocConsiderUsage
     private sealed class StrategyResultProbe : AsyncConcurrencyStrategy<Unit>
     {
-        public void WithNullPublish() =>
-            // ReSharper disable once NullableWarningSuppressionIsUsed - Testing for exception on null.
-            _ = new AsyncStrategyResult<Unit>(publish: null!, next: AsyncStrategyResult<Unit>.None);
-
         public void WithNullNext() =>
             // ReSharper disable once NullableWarningSuppressionIsUsed - Testing for exception on null.
-            _ = new AsyncStrategyResult<Unit>(publish: AsyncStrategyResult<Unit>.PublishNone, next: null!);
+            _ = new AsyncStrategyResult<Unit>(publish: false, next: null!);
 
         protected override Unit CreateState() => Unit.Value;
 
@@ -1623,9 +1623,16 @@ public sealed class MapAsyncExtensionsTests
 
         protected override AsyncStrategyResult<Unit> OnCompleted(
             Unit state,
-            IReadOnlyList<AsyncEnd<Unit>> ended,
+            AsyncQueuedItem<Unit> item,
+            AsyncCompletion completion,
             IReadOnlyList<AsyncTrackedItem<Unit>> tracked) =>
-            new(publish: ItemsOf(ended), next: AsyncStrategyResult<Unit>.None);
+            new(publish: true, next: AsyncStrategyResult<Unit>.None);
+
+        protected override IReadOnlyList<AsyncToStart<Unit>> OnCanceled(
+            Unit state,
+            IReadOnlyList<AsyncQueuedItem<Unit>> canceled,
+            IReadOnlyList<AsyncTrackedItem<Unit>> tracked) =>
+            AsyncStrategyResult<Unit>.None;
     }
 
     private class Animal;
@@ -1649,20 +1656,32 @@ public sealed class MapAsyncExtensionsTests
 
         protected override AsyncStrategyResult<Unit> OnCompleted(
             Unit state,
-            IReadOnlyList<AsyncEnd<Unit>> ended,
+            AsyncQueuedItem<Unit> item,
+            AsyncCompletion completion,
             IReadOnlyList<AsyncTrackedItem<Unit>> tracked)
         {
             lock (this.Completions)
             {
-                for (int i = 0; i < ended.Count; i++)
+                this.Completions.Add("completed");
+            }
+
+            return new AsyncStrategyResult<Unit>(publish: false, next: AsyncStrategyResult<Unit>.None);
+        }
+
+        protected override IReadOnlyList<AsyncToStart<Unit>> OnCanceled(
+            Unit state,
+            IReadOnlyList<AsyncQueuedItem<Unit>> canceled,
+            IReadOnlyList<AsyncTrackedItem<Unit>> tracked)
+        {
+            lock (this.Completions)
+            {
+                for (int i = 0; i < canceled.Count; i++)
                 {
-                    this.Completions.Add("completed");
+                    this.Completions.Add("canceled");
                 }
             }
 
-            return new AsyncStrategyResult<Unit>(
-                publish: AsyncStrategyResult<Unit>.PublishNone,
-                next: AsyncStrategyResult<Unit>.None);
+            return AsyncStrategyResult<Unit>.None;
         }
     }
 
@@ -1793,8 +1812,48 @@ public sealed class MapAsyncExtensionsTests
 
         protected override AsyncStrategyResult<string> OnCompleted(
             Unit state,
-            IReadOnlyList<AsyncEnd<string>> ended,
+            AsyncQueuedItem<string> item,
+            AsyncCompletion completion,
             IReadOnlyList<AsyncTrackedItem<string>> tracked)
+        {
+            this.Record(hook: "completed", values: item.Value, tracked: tracked);
+
+            return new AsyncStrategyResult<string>(publish: true, next: StartOne(tracked));
+        }
+
+        protected override IReadOnlyList<AsyncToStart<string>> OnCanceled(
+            Unit state,
+            IReadOnlyList<AsyncQueuedItem<string>> canceled,
+            IReadOnlyList<AsyncTrackedItem<string>> tracked)
+        {
+            this.Record(
+                hook: "canceled",
+                values: string.Join(separator: ",", values: canceled.Select(static c => c.Value)),
+                tracked: tracked);
+
+            return StartOne(tracked);
+        }
+
+        // The queue holds no item that ends now, thus this takes the first Queued item with no test
+        // against them.
+        private static IReadOnlyList<AsyncToStart<string>> StartOne(
+            IEnumerable<AsyncTrackedItem<string>> tracked)
+        {
+            AsyncTrackedItem<string>? next =
+                tracked.FirstOrDefault(predicate: static candidate => candidate.Status == AsyncItemStatus.Queued);
+
+            return next is null ? AsyncStrategyResult<string>.None : [new AsyncToStart<string>(next.Item)];
+        }
+
+        private static string Describe(IEnumerable<AsyncTrackedItem<string>> tracked) =>
+            string.Join(
+                separator: ",",
+                values: tracked.Select(
+                    static e => e.Item.Value + ":" + (e.Status == AsyncItemStatus.Running ? "R" : "Q")));
+
+        // The name of the method is part of the record. Thus, a test shows which method answered
+        // an end, and not only the values of that end.
+        private void Record(string hook, string values, IEnumerable<AsyncTrackedItem<string>> tracked)
         {
             lock (this.CompletedSaw)
             {
@@ -1803,24 +1862,9 @@ public sealed class MapAsyncExtensionsTests
 
             lock (this.EndedSaw)
             {
-                this.EndedSaw.Add(string.Join(separator: ",", values: ended.Select(static e => e.Item.Value)));
+                this.EndedSaw.Add(hook + ":" + values);
             }
-
-            // The queue holds no item that ends now, thus this takes the first Queued item with no
-            // test against them.
-            AsyncTrackedItem<string>? next =
-                tracked.FirstOrDefault(predicate: static candidate => candidate.Status == AsyncItemStatus.Queued);
-
-            return new AsyncStrategyResult<string>(
-                publish: ItemsOf(ended),
-                next: next is null ? AsyncStrategyResult<string>.None : [new AsyncToStart<string>(next.Item)]);
         }
-
-        private static string Describe(IEnumerable<AsyncTrackedItem<string>> tracked) =>
-            string.Join(
-                separator: ",",
-                values: tracked.Select(
-                    static e => e.Item.Value + ":" + (e.Status == AsyncItemStatus.Running ? "R" : "Q")));
     }
 
     /// <summary>
@@ -1852,29 +1896,47 @@ public sealed class MapAsyncExtensionsTests
 
         protected override AsyncStrategyResult<TStrategyInput> OnCompleted(
             Unit state,
-            IReadOnlyList<AsyncEnd<TStrategyInput>> ended,
+            AsyncQueuedItem<TStrategyInput> item,
+            AsyncCompletion completion,
+            IReadOnlyList<AsyncTrackedItem<TStrategyInput>> tracked)
+        {
+            lock (this.EndedSaw)
+            {
+                this.EndedSaw.Add("completed:" + item.Value);
+            }
+
+            lock (this.Completions)
+            {
+                completion.MatchVoid(
+                    onSucceeded: () => this.Completions.Add("succeeded"),
+                    onFailed: e => this.Completions.Add("failed:" + e.Message));
+            }
+
+            return new AsyncStrategyResult<TStrategyInput>(
+                publish: true,
+                next: AsyncStrategyResult<TStrategyInput>.None);
+        }
+
+        protected override IReadOnlyList<AsyncToStart<TStrategyInput>> OnCanceled(
+            Unit state,
+            IReadOnlyList<AsyncQueuedItem<TStrategyInput>> canceled,
             IReadOnlyList<AsyncTrackedItem<TStrategyInput>> tracked)
         {
             lock (this.EndedSaw)
             {
                 this.EndedSaw.Add(
-                    string.Join(separator: ",", values: ended.Select(static e => e.Item.Value)));
+                    "canceled:" + string.Join(separator: ",", values: canceled.Select(static c => c.Value)));
             }
 
             lock (this.Completions)
             {
-                foreach (AsyncEnd<TStrategyInput> end in ended)
+                for (int i = 0; i < canceled.Count; i++)
                 {
-                    end.Completion.MatchVoid(
-                        onSucceeded: () => this.Completions.Add("succeeded"),
-                        onFailed: e => this.Completions.Add("failed:" + e.Message),
-                        onCanceled: () => this.Completions.Add("canceled"));
+                    this.Completions.Add("canceled");
                 }
             }
 
-            return new AsyncStrategyResult<TStrategyInput>(
-                publish: ItemsOf(ended),
-                next: AsyncStrategyResult<TStrategyInput>.None);
+            return AsyncStrategyResult<TStrategyInput>.None;
         }
     }
 }
