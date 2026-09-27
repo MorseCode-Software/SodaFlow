@@ -75,32 +75,38 @@ sensibly will do.
 
 You can also write your own by subclassing `AsyncConcurrencyStrategy<TInput, TState>`, with the
 `AsyncConcurrencyStrategy<TState>` shorthand when the strategy does not read the input either.
-`CreateState` makes the bookkeeping for one `MapAsync` call, `Admit` decides what starts, and
-`OnCompleted` decides which outcomes the pipeline publishes and what starts next.
+`CreateState` makes the bookkeeping for one `MapAsync` call, `Admit` decides what starts, and two
+hooks handle the ends: `OnCompleted` for an operation that returned or threw, `OnCanceled` for a
+cancellation.
 
-`OnCompleted` takes the items that ended together, as an `IReadOnlyList<AsyncEnd<TInput>>`.
-Usually that is one item, and **a cancellation is the only case where it is more**: `cancelAll` and
-`cancelMatching` can end several queued items and a running one at the same instant, and no
-canceled end sends anything, so they arrive as one call — one decision and one `Items` edit for
-that instant, rather than a sequence of decisions and edits.
+**`OnCompleted` gets one item.** It takes the `AsyncQueuedItem` that ended, an `AsyncCompletion`
+saying which of the two ends it was, and the queue; it returns
+`new AsyncStrategyResult<TInput>(publish: bool, next: ...)`. One item and not a list, because a
+stream carries one value per transaction and the queue edit for that end happens in the same
+transaction as its send — so a graph that reads `Items` and `results` together never sees two
+instants where the pipeline made one. `publish: false` means nobody wants this result; the pipeline
+sends nothing and builds nothing, which is how `SwitchLatest` drops a run that a newer send
+replaced.
 
-An end that *does* send — a result or an error — is always alone in the call. A stream carries one
-value per transaction, and the queue edit for that end happens in the same transaction as its send,
-so a graph that reads `Items` and `results` together never sees two instants where the pipeline made
-one. If you want a result per batch of inputs, say so in the types: one `MapAsync` from `TInput` to
-a list, and a second from that list to a list of results. `MapAsync` is `TInput -> TResult` and does
+If you want a result per batch of inputs, say so in the types: one `MapAsync` from `TInput` to a
+list, and a second from that list to a list of results. `MapAsync` is `TInput -> TResult` and does
 not model two results at one instant.
 
-Return `ItemsOf(ended)` to publish every outcome, `AsyncStrategyResult<TInput>.PublishNone` to
-publish none, or a list you build yourself to publish some — `SwitchLatest` does the last of these,
-since only the newest run should reach `results`.
+**`OnCanceled` gets a list, and makes no publish decision.** `cancelAll` and `cancelMatching` can
+end several queued items and a running one at the same instant, and a canceled item sends nothing to
+`results` or `errors` — so they arrive as one call and one `Items` edit, rather than a sequence of
+decisions each of which still sees the others. There is nothing to publish, so the return type is
+just the items to start: `IReadOnlyList<AsyncToStart<TInput>>`, the same as `Admit` returns, with
+`AsyncStrategyResult<TInput>.None` for none. This is where a queueing strategy starts the next item
+after a cancellation frees its slot, and where a strategy holding a reference to its current run
+clears it.
 
-Each `AsyncEnd` carries the item and an `AsyncCompletion` — the operation returned, it threw (with
-the exception), or a cancellation stopped it — and never the result itself. That is what lets the
-pipeline build a result only for an item it is going to publish; see below. If you want to decide
-what to publish by looking at a value, filter the `results` stream downstream instead.
+`AsyncCompletion` says only that the operation returned or that it threw (with the exception), never
+the result itself. That is what lets the pipeline build a result only for an item it is going to
+publish; see below. If you want to decide what to publish by looking at a value, filter the
+`results` stream downstream instead.
 
-Both callbacks are also handed the pipeline's queue: every item it tracks, `Queued` or `Running`,
+Every hook is also handed the pipeline's queue: every item it tracks, `Queued` or `Running`,
 in admission order, as `IReadOnlyList<AsyncTrackedItem<TInput>>`. Each entry carries the
 `AsyncQueuedItem` the strategy was given at admission — the same instance, so `ReferenceEquals`
 works and `Cancel()` on it cancels that item — plus its current status. A strategy that schedules
@@ -110,9 +116,9 @@ Two boundaries worth knowing, because they decide what "next" means:
 
 - In `Admit`, the list does **not** include the value being admitted; the pipeline adds it after
   the call.
-- In `OnCompleted`, the list does **not** include any item in `ended` either; the pipeline
-  removes all of them before the call, so you can take the first `Queued` item without checking
-  whether it is one of the items you were told about.
+- In `OnCompleted` and `OnCanceled`, the list does **not** include the items that ended either;
+  the pipeline removes all of them before the call, so you can take the first `Queued` item
+  without checking whether it is one of the items you were told about.
 
 The list is the queue as the pipeline holds it at the moment of the call, not a snapshot from the
 start of the transaction. It does not change while your callback runs, and an item your decision

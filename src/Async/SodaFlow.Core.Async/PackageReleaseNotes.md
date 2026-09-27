@@ -95,36 +95,46 @@ that item out by hand must drop the filter, or it skips a real item. Admit is
 unchanged in this: the value that the pipeline admits now is still absent,
 because the pipeline adds it after the call.
 
-BREAKING: OnCompleted takes each item that ends in one transaction, as an
-IReadOnlyList<AsyncEnd<TInput>>, in place of one AsyncQueuedItem and one
-AsyncCompletion. An AsyncEnd holds those two values. The Publish property of
-AsyncStrategyResult is an IReadOnlyList<AsyncQueuedItem<TInput>> in place of a
-bool, and it names the items whose outcomes the pipeline publishes.
+BREAKING: a strategy now has two hooks for the ends of its items. OnCompleted
+reads one item whose operation returned or threw. OnCanceled reads the items that
+a cancellation ended. The signature of OnCompleted is the signature of the
+release before this one: one AsyncQueuedItem, one AsyncCompletion, and the queue.
+AsyncStrategyResult keeps its boolean Publish property.
 
 A cancellation is what makes a list necessary. One send of cancelAll or of
 cancelMatching can end more than one item at one instant: each Queued item that
-it removes, and each Running item whose operation observes its token. No canceled
-end sends anything to the results stream or to the errors stream, thus the
-pipeline gives each of those ends to one call. One decision and one edit of the
-queue then answer one instant, and no observer of Items sees a state between
-those ends. Before this release, one call for each of them asked the strategy to
-decide again, and the queue took an edit for each one.
+it removes, and each Running item whose operation observes its token. Before this
+release, one call for each of them asked the strategy to decide again, and the
+queue took an edit for each one. Each of those decisions read a queue that held
+the other items which end at the same instant, thus a strategy started an item
+that was about to end. OnCanceled gets all of them in one call, over the queue
+that all of them leave.
 
-An end that sends a result or an error is alone in its call, and the list holds
-one item there. A stream carries one value for each transaction, thus one such
-end is the most that a transaction can hold. The edit of the queue for that end
-is in the transaction that sends it, or a graph that reads Items and results
-together sees two instants where the pipeline made one. A caller that wants a
-result for a batch of inputs asks for that in the types: one MapAsync from TInput
-to a list of TInput, and a second from that list to a list of results. MapAsync
-is TInput to TResult, and it does not model two results at one instant.
+OnCanceled makes no publish decision, because a canceled item sends nothing to
+the results stream and nothing to the errors stream. Thus, it returns the items
+to start, as an IReadOnlyList<AsyncToStart<TInput>>, which is what Admit returns.
+Give AsyncStrategyResult<TInput>.None for no items. A strategy starts the next
+Queued item here, where a cancellation makes a position free. A strategy that
+holds a reference to its current run clears that reference here also.
 
-A custom strategy that published every outcome returns ItemsOf(ended), which is
-a static method on the base class, in place of true. One that published none
-returns AsyncStrategyResult<TInput>.PublishNone in place of false. One that
-decided for each item builds the list. A strategy that starts the next Queued
-item must also test the queue, because more than one item can end at one
-moment: Queue in this library starts nothing while an item is Running, and
+OnCompleted reads one item and never a list. A stream carries one value for each
+transaction, thus one such end is the most that a transaction can hold. The edit
+of the queue for that end is in the transaction that sends it, or a graph that
+reads Items and results together sees two instants where the pipeline made one. A
+caller that wants a result for a batch of inputs asks for that in the types: one
+MapAsync from TInput to a list of TInput, and a second from that list to a list
+of results. MapAsync is TInput to TResult, and it does not model two results at
+one instant.
+
+AsyncCompletion has two ends now, Succeeded and Failed, and Match and MatchVoid
+take two handlers. A cancellation is not one of those ends: it goes to OnCanceled,
+which reads the items alone, because a canceled end carries nothing to read.
+
+A custom strategy adds OnCanceled. The compiler asks for it, because the method
+is abstract: a default that starts nothing makes a queue stall where a
+cancellation ends the item that runs. A strategy that starts the next Queued item
+must also test the queue in OnCanceled, because more than one item can end at one
+instant: Queue in this library starts nothing while an item is Running, and
 QueuePerGroup starts one item for each group that becomes free.
 
 Fixed: a MapAsync call no longer stalls where the graph feeds results back
