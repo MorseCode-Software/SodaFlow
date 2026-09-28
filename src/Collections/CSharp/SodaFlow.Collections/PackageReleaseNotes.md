@@ -16,6 +16,18 @@ count of the items.
 select takes the identity and the state of an item, as the predicate of Filter
 and the selector of SortBy do.
 
+Adds FoldByIdentity, to match FilterByIdentity and SortByIdentity. Its select
+takes the identity alone. An edit of a state cannot change an identity, thus
+this fold reads only the changes that add or remove an item. The cell sends no
+value at an edit of a state, and that edit costs one test here. A count of the
+items is the usual example:
+
+  Cell<int> count = accounts.FoldByIdentity(
+      select: static _ => 1,
+      zero: 0,
+      add: static (a, b) => a + b,
+      subtract: static (a, b) => a - b);
+
 A group, and not one combine function, because only an invertible operation can
 answer an edit with no read of each item. A sum and a count are groups. A maximum
 is not one: sort the view and read its first key. The first value is a read of

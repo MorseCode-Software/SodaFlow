@@ -474,6 +474,29 @@ type ``Collections Tests``() =
         }
 
     [<Test>]
+    member _.``a fold by identity sends no value at a state edit``() =
+        task {
+            let edits = sinkS<CollectionEdit<int, ItemIdentity, ItemState>> ()
+
+            let collection = create keyOf [ item 1 "one" 10; item 2 "two" 5 ] [ edits ]
+
+            let numbers =
+                collection |> foldByIdentity (fun identity -> identity.Number) 0 (+) (-)
+
+            let seen = ResizeArray<int>()
+            use _ = numbers |> updatesC |> listenStrongS seen.Add
+
+            do! Expect.Equal(3, numbers |> sampleC)
+
+            edits |> sendS (updateEdit 2 (fun state -> { state with Score = 7 }))
+            do! Expect.Equal(0, seen.Count)
+
+            edits |> sendS (addEdit [ item 3 "three" 100 ])
+            do! Expect.Equal(6, numbers |> sampleC)
+            do! Expect.Equal(1, seen.Count)
+        }
+
+    [<Test>]
     member _.``a fold of a view follows that view``() =
         task {
             let edits = sinkS<CollectionEdit<int, ItemIdentity, ItemState>> ()

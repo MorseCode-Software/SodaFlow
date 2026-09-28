@@ -12,6 +12,14 @@ and not the count of the items.
 select takes the identity and the state of an item, as the predicate of filter
 and the selector of sortBy do.
 
+Adds foldByIdentity, to match filterByIdentity and sortByIdentity. Its select
+takes the identity alone. A state edit cannot change an identity, thus this fold
+reads only the changes that add or remove an item. The cell sends no value at a
+state edit, and that edit costs one test here. A count of the items is the usual
+example:
+
+  let count = accounts |> foldByIdentity (fun _ -> 1) 0 (+) (-)
+
 A group, and not one combine function, because only an invertible operation can
 answer an edit with no read of each item. A sum and a count are groups. A maximum
 is not one: sort the view and read its first key. The first value is a read of

@@ -1528,10 +1528,10 @@ internal static class CollectionViewUtility
 
         // A key that stays at its position also needs its update, or a stage below this one does
         // not learn about the change to its state. The comparison of the two windows cannot find
-        // such a key. A move above this stage carries a new state, and the key can end at the same
-        // position in the window, thus it is an update here. An insert of such a key replaces its
-        // item. This stage reports it as a removal and an insert at its position, as the root does,
-        // because the identity can change.
+        // such a key. A move above this stage carries a new state, and the key can end at its
+        // previous position in the window. Thus, the move is an update here. An insert of such a
+        // key replaces its item. This stage reports it as a removal and an insert at its position,
+        // as the root does, because the identity can change.
         foreach (ViewOperation<TKey> operation in change.Operations)
         {
             if (operation is not (ViewUpdate<TKey> or ViewMove<TKey> or ViewInsert<TKey>))

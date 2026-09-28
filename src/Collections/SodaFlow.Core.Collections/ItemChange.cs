@@ -42,13 +42,15 @@ public sealed class ItemChange<TKey, TIdentity, TState>
         CollectionSnapshot<TKey, TIdentity, TState> after,
         IReadOnlyDictionary<TKey, TState> newStates,
         HashSet<TKey> added,
-        HashSet<TKey> removed)
+        HashSet<TKey> removed,
+        bool isReset)
     {
         this.Before = before;
         this.After = after;
         this.NewStates = newStates;
         this.added = added;
         this.removed = removed;
+        this.IsReset = isReset;
     }
 
     /// <summary>The store as this transaction left it.</summary>
@@ -76,6 +78,18 @@ public sealed class ItemChange<TKey, TIdentity, TState>
 
     /// <summary>The keys this change removed.</summary>
     public IReadOnlyCollection<TKey> Removed => this.removed;
+
+    /// <summary>
+    ///     True when a view stage built its keys again and did not report each operation. The
+    ///     change then names each key of the view in <see cref="NewStates" />.
+    /// </summary>
+    /// <remarks>
+    ///     A reset puts a key in <see cref="Added" /> only when the view did not have it before.
+    ///     Thus, a key that one edit replaced in the same transaction, and that stays in the view,
+    ///     is in <see cref="NewStates" /> alone, with a new identity. Code that reads the identities
+    ///     from <see cref="Added" /> and <see cref="Removed" /> must read each key of a reset.
+    /// </remarks>
+    internal bool IsReset { get; }
 
     /// <summary>Whether the item count changed or a key changed.</summary>
     public bool IsStructural => this.added.Count > 0 || this.removed.Count > 0;

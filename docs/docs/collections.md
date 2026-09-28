@@ -540,6 +540,28 @@ The requirement behind all of these is that the group be commutative. The fold a
 `add` in whatever order a change enumerates its keys, so an operation whose result depends on that
 order — matrix products, say — would give answers that depend on the sequence of the edits.
 
+When the value depends only on the immutable part of each item, use `FoldByIdentity`, whose `select`
+receives the identity alone:
+
+```csharp
+Cell<int> count = accounts.FoldByIdentity(
+    select: static _ => 1,
+    zero: 0,
+    add: static (a, b) => a + b,
+    subtract: static (a, b) => a - b);
+```
+
+An edit to a state cannot change an identity, so this fold looks only at changes that add or remove
+an item. A balance edit costs it one check and sends nothing, where `Fold` with the same `select`
+would subtract and re-add every key in the edit and send the unchanged count again. It is to `Fold`
+what `FilterByIdentity` and `SortByIdentity` are to `Filter` and `SortBy`, and for the same reason
+the `select` cannot read the state it says it does not read.
+
+Two kinds of change still reach it without changing its value. A `Take` or `Slice` whose window a
+state edit reordered reports the keys that moved as removed and inserted again, and a view that
+resets makes it read every key in the view. In both, the cell sends a value equal to the one it
+had.
+
 What `Fold` avoids is a cell over the store:
 
 ```csharp
