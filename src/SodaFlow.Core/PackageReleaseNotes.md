@@ -43,7 +43,7 @@ captured update. Thus, the behavior can update before the output fires. A stream
 that fires more than once in a transaction gives one output firing for each, as
 SnapshotImpl does.
 
-SnapshotLatestImpl takes up to five behaviors or cells. All of its forms use one
+SnapshotLatestImpl takes up to seven behaviors or cells. All of its forms use one
 private method. Each form gives a capture for each behavior, a function that
 reads the captured values, and the function that puts them together. The
 captures are StreamInternal.Pulse on the updates of each behavior. The reads are
@@ -51,12 +51,17 @@ Behavior.Take, which LiftImpl also uses, and which is internal now and not
 private.
 
 Adds MergeMaybesImpl, for the Merge of streams of different types that SodaFlow
-and SodaFlow.FSharp give. It takes two, three, or four streams and a function
+and SodaFlow.FSharp give. It takes two to eight streams and a function
 that gets one MaybeInternal for each stream. The mechanism is the one of
 LiftImpl, with streams in place of the updates of behaviors. Each stream
 captures its firing and sends into one pulse. A coalesce operation that ranks
 above the pulse makes one output firing from the captured values. This is less
 expensive than a merge of mapped streams, and no stream has priority.
+
+LiftImpl takes up to eight behaviors or cells, where it took up to six, and
+SnapshotImpl takes up to seven, where it took up to four. They are for the wider
+Lift and Snapshot that SodaFlow gives. Each new form is the form before it with
+one more input.
 
 The name is not MergeImpl. With that name, the F# type inference at the call in
 mergeOptions2 also uses the MergeImpl for streams of one type. Thus,
