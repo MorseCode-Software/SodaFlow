@@ -39,8 +39,14 @@ SnapshotImpl does.
 SnapshotLatestImpl takes up to five behaviors or cells. All of its forms use one
 private method. Each form gives a capture for each behavior, a function that
 reads the captured values, and the function that puts them together. The
-captures and the reads are Behavior.Pulse and Behavior.Take, which LiftImpl also
-uses. They are internal now, and not private.
+captures are StreamInternal.Pulse on the updates of each behavior. The reads are
+Behavior.Take, which LiftImpl also uses, and which is internal now and not
+private.
+
+StreamInternal.Pulse is new. It connects a stream to a pulse, and it takes the
+place of the private Behavior.Pulse, which connected only the updates of a
+behavior. LiftImpl and SnapshotLatestImpl call it, and give it the updates of
+each behavior.
 
 BREAKING for the packages that reach these internals: AttachListenerImpl is
 named AttachListenerInternal. The Impl suffix here marks a method that a public
