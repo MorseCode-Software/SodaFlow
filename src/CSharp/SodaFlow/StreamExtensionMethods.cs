@@ -380,8 +380,8 @@ public static class StreamExtensionMethods
     /// <param name="c">The cell to put together with this one.</param>
     /// <param name="f">A function to change the stream value and cell value into a return value.</param>
     /// <returns>
-    ///     A stream that fires the result of the given function on the fired value and the value of the
-    ///     cell at the end of the transaction of each firing.
+    ///     A stream that fires the result of the given function on the fired value and the latest
+    ///     value of the cell.
     /// </returns>
     /// <remarks>
     ///     <see cref="Snapshot{T, T1, TResult}(Stream{T}, Cell{T1}, Func{T, T1, TResult})" /> gives the
@@ -414,8 +414,8 @@ public static class StreamExtensionMethods
     /// <param name="b">The behavior to put together with this one.</param>
     /// <param name="f">A function to change the stream value and behavior value into a return value.</param>
     /// <returns>
-    ///     A stream that fires the result of the given function on the fired value and the value of the
-    ///     behavior at the end of the transaction of each firing.
+    ///     A stream that fires the result of the given function on the fired value and the latest
+    ///     value of the behavior.
     /// </returns>
     /// <remarks>
     ///     <see cref="Snapshot{T, T1, TResult}(Stream{T}, Behavior{T1}, Func{T, T1, TResult})" /> gives

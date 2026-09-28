@@ -364,25 +364,19 @@ public class Stream<T>
     internal Stream<TResult> SnapshotLatestImpl<T1, TResult>(Cell<T1> c, Func<T, T1, TResult> f) =>
         this.SnapshotLatestImpl(b: c.BehaviorImpl, f: f);
 
-    // SnapshotImpl reads the behavior when this stream fires, thus it gives the value from before the
-    // transaction. This method must wait until the behavior has had its chance to update. It uses
-    // the same mechanism as Behavior.LiftImpl. This stream and the updates of the behavior both link
-    // into pulse.Node, and each one captures its value and sends into the pulse. The coalesce
-    // operation ranks above pulse.Node, thus the priority queue runs it only after all the ranked
-    // entries below it. At that time, the behavior has sent its update if it has one in this
-    // transaction. The behavior itself still holds its previous value, because it commits the update
-    // only after all the ranked entries. Thus, the captured update is the only source of the new
-    // value.
+    // SnapshotImpl reads the behavior when this stream fires. Thus, it gives the value from before the
+    // transaction. This method waits for the update of the behavior, with the mechanism of
+    // Behavior.LiftImpl. This stream and the updates of the behavior capture their values and send
+    // into pulse.Node. The coalesce operation ranks above pulse.Node. Thus, it runs after the
+    // behavior sends an update in this transaction. The behavior commits that update only at the end
+    // of the transaction, thus the captured update is the only source of the new value.
     //
-    // This stream can fire more than once in a transaction. SnapshotImpl gives one output firing for
-    // each one, thus this method keeps all of them and does not coalesce them. The behavior also
-    // sends into the pulse, and not only captures its value. Thus, a transaction in which only the
-    // behavior updates clears the captured value, and the closure does not hold a second reference to
-    // it for the full life of the stream.
+    // SnapshotImpl gives one output firing for each input firing, thus this method keeps all of them.
+    // The behavior also sends into the pulse. Thus, a transaction that updates only the behavior
+    // clears the captured value, and the closure does not keep a reference to it.
     //
-    // This cannot close a loop, as SnapshotImpl can. If the behavior depends on the output of this
-    // method in the same transaction, its new value depends on itself, and no rank can come after
-    // both.
+    // This cannot close a loop, as SnapshotImpl can. A behavior that depends on the output in the
+    // same transaction would need its own new value, and no rank is higher than both.
     internal Stream<TResult> SnapshotLatestImpl<T1, TResult>(Behavior<T1> b, Func<T, T1, TResult> f) =>
         TransactionInternal.Apply((trans, _) =>
         {
@@ -425,8 +419,8 @@ public class Stream<T>
                             T1 value = latest.TryGetValue(out T1 captured) ? captured : b.SampleNoTransaction();
                             latest = MaybeInternal<T1>.None;
 
-                            // The state is clear before f runs. Thus, an exception from f does not
-                            // leave a firing of this transaction to go out in the next one.
+                            // The state is clear before f runs. Thus, after an exception from f, the
+                            // next transaction does not send a firing of this transaction.
                             switch (pending.Count)
                             {
                                 case 0:

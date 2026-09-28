@@ -27,12 +27,14 @@ waits, and it gives the value of that Task from a posted action.
 
 Adds SnapshotLatestImpl, for the SnapshotLatest that SodaFlow and
 SodaFlow.FSharp give. It samples a behavior when a stream fires, as SnapshotImpl
-does, but it gives the value the behavior has at the end of the transaction and
-not the one from before it. It uses the mechanism of LiftImpl: the stream and
-the updates of the behavior send into one pulse, and a coalesce operation that
-ranks above both reads the captured update. Thus, the behavior has had its
-chance to update before the output fires. A stream that fires more than once in
-a transaction gives one output firing for each, as SnapshotImpl does.
+does. SnapshotImpl gives the value from before the transaction. SnapshotLatestImpl
+gives the value at the end of the transaction.
+
+It uses the mechanism of LiftImpl. The stream and the updates of the behavior
+send into one pulse. A coalesce operation that ranks above both reads the
+captured update. Thus, the behavior can update before the output fires. A stream
+that fires more than once in a transaction gives one output firing for each, as
+SnapshotImpl does.
 
 BREAKING for the packages that reach these internals: AttachListenerImpl is
 named AttachListenerInternal. The Impl suffix here marks a method that a public
