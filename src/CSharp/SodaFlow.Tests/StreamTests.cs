@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using SodaFlow.Functional;
@@ -928,6 +929,147 @@ public sealed class StreamTests
                     f: static (_, r) => r with { fromC1 = true })
                 .Filter(static t => t.fromC1)
                 .Map(static t => t.value);
+    }
+
+    [Test]
+    public async Task TestSnapshotLatestManyMatchesLift()
+    {
+        StreamSink<int> s = Stream.CreateSink<int>();
+        CellSink<int> c1 = Cell.CreateSink(0);
+        CellSink<int> c2 = Cell.CreateSink(0);
+        CellSink<int> c3 = Cell.CreateSink(0);
+        CellSink<int> c4 = Cell.CreateSink(0);
+        CellSink<int> c5 = Cell.CreateSink(0);
+        List<IListener> listeners = [];
+
+        // Each overload is compared with the one-cell form on a lifted cell of the same inputs. The
+        // one-cell form is compared with the Lift and Merge composition in
+        // TestSnapshotLatestMatchesLiftAndMerge. The behavior overloads get the same cells as behaviors.
+        List<string> lift2 = ListenTo(
+            s.SnapshotLatest(
+                c: c1.Lift(c2: c2, f: static (v1, v2) => $"{v1},{v2}"),
+                f: static (a, v) => $"{a}:{v}"));
+
+        List<string> actual2 = ListenTo(
+            s.SnapshotLatest(c1: c1, c2: c2, f: static (a, v1, v2) => $"{a}:{v1},{v2}"));
+
+        List<string> actual2B = ListenTo(
+            s.SnapshotLatest(
+                b1: c1.AsBehavior(),
+                b2: c2.AsBehavior(),
+                f: static (a, v1, v2) => $"{a}:{v1},{v2}"));
+
+        List<string> lift3 = ListenTo(
+            s.SnapshotLatest(
+                c: c1.Lift(c2: c2, c3: c3, f: static (v1, v2, v3) => $"{v1},{v2},{v3}"),
+                f: static (a, v) => $"{a}:{v}"));
+
+        List<string> actual3 = ListenTo(
+            s.SnapshotLatest(c1: c1, c2: c2, c3: c3, f: static (a, v1, v2, v3) => $"{a}:{v1},{v2},{v3}"));
+
+        List<string> actual3B = ListenTo(
+            s.SnapshotLatest(
+                b1: c1.AsBehavior(),
+                b2: c2.AsBehavior(),
+                b3: c3.AsBehavior(),
+                f: static (a, v1, v2, v3) => $"{a}:{v1},{v2},{v3}"));
+
+        List<string> lift4 = ListenTo(
+            s.SnapshotLatest(
+                c: c1.Lift(c2: c2, c3: c3, c4: c4, f: static (v1, v2, v3, v4) => $"{v1},{v2},{v3},{v4}"),
+                f: static (a, v) => $"{a}:{v}"));
+
+        List<string> actual4 = ListenTo(
+            s.SnapshotLatest(
+                c1: c1,
+                c2: c2,
+                c3: c3,
+                c4: c4,
+                f: static (a, v1, v2, v3, v4) => $"{a}:{v1},{v2},{v3},{v4}"));
+
+        List<string> actual4B = ListenTo(
+            s.SnapshotLatest(
+                b1: c1.AsBehavior(),
+                b2: c2.AsBehavior(),
+                b3: c3.AsBehavior(),
+                b4: c4.AsBehavior(),
+                f: static (a, v1, v2, v3, v4) => $"{a}:{v1},{v2},{v3},{v4}"));
+
+        List<string> lift5 = ListenTo(
+            s.SnapshotLatest(
+                c: c1.Lift(
+                    c2: c2,
+                    c3: c3,
+                    c4: c4,
+                    c5: c5,
+                    f: static (v1, v2, v3, v4, v5) => $"{v1},{v2},{v3},{v4},{v5}"),
+                f: static (a, v) => $"{a}:{v}"));
+
+        List<string> actual5 = ListenTo(
+            s.SnapshotLatest(
+                c1: c1,
+                c2: c2,
+                c3: c3,
+                c4: c4,
+                c5: c5,
+                f: static (a, v1, v2, v3, v4, v5) => $"{a}:{v1},{v2},{v3},{v4},{v5}"));
+
+        List<string> actual5B = ListenTo(
+            s.SnapshotLatest(
+                b1: c1.AsBehavior(),
+                b2: c2.AsBehavior(),
+                b3: c3.AsBehavior(),
+                b4: c4.AsBehavior(),
+                b5: c5.AsBehavior(),
+                f: static (a, v1, v2, v3, v4, v5) => $"{a}:{v1},{v2},{v3},{v4},{v5}"));
+
+        IReadOnlyList<Action<int>> sends = [s.Send, c1.Send, c2.Send, c3.Send, c4.Send, c5.Send];
+        Random random = new(5678);
+
+        for (int i = 1; i <= 500; i++)
+        {
+            // Each input gets a value in this transaction with a probability of one half, in a random
+            // sequence. Each value is different, thus a value in the wrong position gives a different
+            // string.
+            int[] order = [.. Enumerable.Range(start: 0, count: sends.Count).OrderBy(_ => random.Next())];
+            bool[] send = [.. order.Select(_ => random.Next(2) == 0)];
+            int transaction = i;
+
+            Transaction.RunVoid(() =>
+            {
+                for (int k = 0; k < order.Length; k++)
+                {
+                    if (send[k])
+                    {
+                        sends[order[k]](transaction * 10 + order[k]);
+                    }
+                }
+            });
+        }
+
+        foreach (IListener listener in listeners)
+        {
+            listener.Unlisten();
+        }
+
+        await Assert.That(lift5.Count).IsGreaterThan(0);
+        await Assert.That(actual2).IsEquivalentTo(expected: lift2, ordering: CollectionOrdering.Matching);
+        await Assert.That(actual2B).IsEquivalentTo(expected: lift2, ordering: CollectionOrdering.Matching);
+        await Assert.That(actual3).IsEquivalentTo(expected: lift3, ordering: CollectionOrdering.Matching);
+        await Assert.That(actual3B).IsEquivalentTo(expected: lift3, ordering: CollectionOrdering.Matching);
+        await Assert.That(actual4).IsEquivalentTo(expected: lift4, ordering: CollectionOrdering.Matching);
+        await Assert.That(actual4B).IsEquivalentTo(expected: lift4, ordering: CollectionOrdering.Matching);
+        await Assert.That(actual5).IsEquivalentTo(expected: lift5, ordering: CollectionOrdering.Matching);
+        await Assert.That(actual5B).IsEquivalentTo(expected: lift5, ordering: CollectionOrdering.Matching);
+
+        return;
+
+        List<string> ListenTo(Stream<string> stream)
+        {
+            List<string> @out = [];
+            listeners.Add(stream.ListenStrong(@out.Add));
+            return @out;
+        }
     }
 
     [Test]

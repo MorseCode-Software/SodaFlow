@@ -392,7 +392,7 @@ public static class StreamExtensionMethods
     ///     Unlike <see cref="Snapshot{T, T1, TResult}(Stream{T}, Cell{T1}, Func{T, T1, TResult})" />, this
     ///     cannot close a loop. Do not give a cell that the stream from this call updates in the same
     ///     transaction.
-    ///     To get the latest values of more than one cell, give a cell from
+    ///     Other overloads accept more than one cell. For more cells than they accept, give a cell from
     ///     <see cref="CellExtensionMethods.Lift{T, T2, TResult}(Cell{T}, Cell{T2}, Func{T, T2, TResult})" />.
     /// </remarks>
     [MethodImpl(MethodImplOptions.NoInlining)]
@@ -593,6 +593,290 @@ public static class StreamExtensionMethods
         Behavior<T4> b4,
         Func<T, T1, T2, T3, T4, TResult> f) =>
         s.SnapshotImpl(b1: b1, b2: b2, b3: b3, b4: b4, f: f);
+
+    /// <summary>
+    ///     Gives a stream that fires the result of the given function on the fired value and the latest
+    ///     values of the cells.
+    /// </summary>
+    /// <typeparam name="T">The type of the stream.</typeparam>
+    /// <typeparam name="T1">The type of the first cell.</typeparam>
+    /// <typeparam name="T2">The type of the second cell.</typeparam>
+    /// <typeparam name="TResult">The return type.</typeparam>
+    /// <param name="s">The stream.</param>
+    /// <param name="c1">The first cell to put together with this one.</param>
+    /// <param name="c2">The second cell to put together with this one.</param>
+    /// <param name="f">A function to change the stream value and cell values into a return value.</param>
+    /// <returns>
+    ///     A stream that fires the result of the given function on the fired value and the latest
+    ///     values of the cells.
+    /// </returns>
+    /// <remarks>
+    ///     <c>Snapshot</c> gives the values of the cells from before the transaction. This gives the new
+    ///     value of each cell that the same transaction updates, and the current value of each cell that it
+    ///     does not update. Only this stream causes the firing. An update of the cells alone does not. This
+    ///     cannot close a loop, as <c>Snapshot</c> can. Do not give a cell that the stream from this call
+    ///     updates in the same transaction.
+    /// </remarks>
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    public static Stream<TResult> SnapshotLatest<T, T1, T2, TResult>(
+        this Stream<T> s,
+        Cell<T1> c1,
+        Cell<T2> c2,
+        Func<T, T1, T2, TResult> f) =>
+        s.SnapshotLatestImpl(c1: c1, c2: c2, f: f);
+
+    /// <summary>
+    ///     Gives a stream that fires the result of the given function on the fired value and the latest
+    ///     values of the behaviors.
+    /// </summary>
+    /// <typeparam name="T">The type of the stream.</typeparam>
+    /// <typeparam name="T1">The type of the first behavior.</typeparam>
+    /// <typeparam name="T2">The type of the second behavior.</typeparam>
+    /// <typeparam name="TResult">The return type.</typeparam>
+    /// <param name="s">The stream.</param>
+    /// <param name="b1">The first behavior to put together with this one.</param>
+    /// <param name="b2">The second behavior to put together with this one.</param>
+    /// <param name="f">A function to change the stream value and behavior values into a return value.</param>
+    /// <returns>
+    ///     A stream that fires the result of the given function on the fired value and the latest
+    ///     values of the behaviors.
+    /// </returns>
+    /// <remarks>
+    ///     <c>Snapshot</c> gives the values of the behaviors from before the transaction. This gives the new
+    ///     value of each behavior that the same transaction updates, and the current value of each behavior
+    ///     that it does not update. Only this stream causes the firing. An update of the behaviors alone does
+    ///     not. This cannot close a loop, as <c>Snapshot</c> can. Do not give a behavior that the stream from
+    ///     this call updates in the same transaction.
+    /// </remarks>
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    public static Stream<TResult> SnapshotLatest<T, T1, T2, TResult>(
+        this Stream<T> s,
+        Behavior<T1> b1,
+        Behavior<T2> b2,
+        Func<T, T1, T2, TResult> f) =>
+        s.SnapshotLatestImpl(b1: b1, b2: b2, f: f);
+
+    /// <summary>
+    ///     Gives a stream that fires the result of the given function on the fired value and the latest
+    ///     values of the cells.
+    /// </summary>
+    /// <typeparam name="T">The type of the stream.</typeparam>
+    /// <typeparam name="T1">The type of the first cell.</typeparam>
+    /// <typeparam name="T2">The type of the second cell.</typeparam>
+    /// <typeparam name="T3">The type of the third cell.</typeparam>
+    /// <typeparam name="TResult">The return type.</typeparam>
+    /// <param name="s">The stream.</param>
+    /// <param name="c1">The first cell to put together with this one.</param>
+    /// <param name="c2">The second cell to put together with this one.</param>
+    /// <param name="c3">The third cell to put together with this one.</param>
+    /// <param name="f">A function to change the stream value and cell values into a return value.</param>
+    /// <returns>
+    ///     A stream that fires the result of the given function on the fired value and the latest
+    ///     values of the cells.
+    /// </returns>
+    /// <remarks>
+    ///     <c>Snapshot</c> gives the values of the cells from before the transaction. This gives the new
+    ///     value of each cell that the same transaction updates, and the current value of each cell that it
+    ///     does not update. Only this stream causes the firing. An update of the cells alone does not. This
+    ///     cannot close a loop, as <c>Snapshot</c> can. Do not give a cell that the stream from this call
+    ///     updates in the same transaction.
+    /// </remarks>
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    public static Stream<TResult> SnapshotLatest<T, T1, T2, T3, TResult>(
+        this Stream<T> s,
+        Cell<T1> c1,
+        Cell<T2> c2,
+        Cell<T3> c3,
+        Func<T, T1, T2, T3, TResult> f) =>
+        s.SnapshotLatestImpl(c1: c1, c2: c2, c3: c3, f: f);
+
+    /// <summary>
+    ///     Gives a stream that fires the result of the given function on the fired value and the latest
+    ///     values of the behaviors.
+    /// </summary>
+    /// <typeparam name="T">The type of the stream.</typeparam>
+    /// <typeparam name="T1">The type of the first behavior.</typeparam>
+    /// <typeparam name="T2">The type of the second behavior.</typeparam>
+    /// <typeparam name="T3">The type of the third behavior.</typeparam>
+    /// <typeparam name="TResult">The return type.</typeparam>
+    /// <param name="s">The stream.</param>
+    /// <param name="b1">The first behavior to put together with this one.</param>
+    /// <param name="b2">The second behavior to put together with this one.</param>
+    /// <param name="b3">The third behavior to put together with this one.</param>
+    /// <param name="f">A function to change the stream value and behavior values into a return value.</param>
+    /// <returns>
+    ///     A stream that fires the result of the given function on the fired value and the latest
+    ///     values of the behaviors.
+    /// </returns>
+    /// <remarks>
+    ///     <c>Snapshot</c> gives the values of the behaviors from before the transaction. This gives the new
+    ///     value of each behavior that the same transaction updates, and the current value of each behavior
+    ///     that it does not update. Only this stream causes the firing. An update of the behaviors alone does
+    ///     not. This cannot close a loop, as <c>Snapshot</c> can. Do not give a behavior that the stream from
+    ///     this call updates in the same transaction.
+    /// </remarks>
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    public static Stream<TResult> SnapshotLatest<T, T1, T2, T3, TResult>(
+        this Stream<T> s,
+        Behavior<T1> b1,
+        Behavior<T2> b2,
+        Behavior<T3> b3,
+        Func<T, T1, T2, T3, TResult> f) =>
+        s.SnapshotLatestImpl(b1: b1, b2: b2, b3: b3, f: f);
+
+    /// <summary>
+    ///     Gives a stream that fires the result of the given function on the fired value and the latest
+    ///     values of the cells.
+    /// </summary>
+    /// <typeparam name="T">The type of the stream.</typeparam>
+    /// <typeparam name="T1">The type of the first cell.</typeparam>
+    /// <typeparam name="T2">The type of the second cell.</typeparam>
+    /// <typeparam name="T3">The type of the third cell.</typeparam>
+    /// <typeparam name="T4">The type of the fourth cell.</typeparam>
+    /// <typeparam name="TResult">The return type.</typeparam>
+    /// <param name="s">The stream.</param>
+    /// <param name="c1">The first cell to put together with this one.</param>
+    /// <param name="c2">The second cell to put together with this one.</param>
+    /// <param name="c3">The third cell to put together with this one.</param>
+    /// <param name="c4">The fourth cell to put together with this one.</param>
+    /// <param name="f">A function to change the stream value and cell values into a return value.</param>
+    /// <returns>
+    ///     A stream that fires the result of the given function on the fired value and the latest
+    ///     values of the cells.
+    /// </returns>
+    /// <remarks>
+    ///     <c>Snapshot</c> gives the values of the cells from before the transaction. This gives the new
+    ///     value of each cell that the same transaction updates, and the current value of each cell that it
+    ///     does not update. Only this stream causes the firing. An update of the cells alone does not. This
+    ///     cannot close a loop, as <c>Snapshot</c> can. Do not give a cell that the stream from this call
+    ///     updates in the same transaction.
+    /// </remarks>
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    public static Stream<TResult> SnapshotLatest<T, T1, T2, T3, T4, TResult>(
+        this Stream<T> s,
+        Cell<T1> c1,
+        Cell<T2> c2,
+        Cell<T3> c3,
+        Cell<T4> c4,
+        Func<T, T1, T2, T3, T4, TResult> f) =>
+        s.SnapshotLatestImpl(c1: c1, c2: c2, c3: c3, c4: c4, f: f);
+
+    /// <summary>
+    ///     Gives a stream that fires the result of the given function on the fired value and the latest
+    ///     values of the behaviors.
+    /// </summary>
+    /// <typeparam name="T">The type of the stream.</typeparam>
+    /// <typeparam name="T1">The type of the first behavior.</typeparam>
+    /// <typeparam name="T2">The type of the second behavior.</typeparam>
+    /// <typeparam name="T3">The type of the third behavior.</typeparam>
+    /// <typeparam name="T4">The type of the fourth behavior.</typeparam>
+    /// <typeparam name="TResult">The return type.</typeparam>
+    /// <param name="s">The stream.</param>
+    /// <param name="b1">The first behavior to put together with this one.</param>
+    /// <param name="b2">The second behavior to put together with this one.</param>
+    /// <param name="b3">The third behavior to put together with this one.</param>
+    /// <param name="b4">The fourth behavior to put together with this one.</param>
+    /// <param name="f">A function to change the stream value and behavior values into a return value.</param>
+    /// <returns>
+    ///     A stream that fires the result of the given function on the fired value and the latest
+    ///     values of the behaviors.
+    /// </returns>
+    /// <remarks>
+    ///     <c>Snapshot</c> gives the values of the behaviors from before the transaction. This gives the new
+    ///     value of each behavior that the same transaction updates, and the current value of each behavior
+    ///     that it does not update. Only this stream causes the firing. An update of the behaviors alone does
+    ///     not. This cannot close a loop, as <c>Snapshot</c> can. Do not give a behavior that the stream from
+    ///     this call updates in the same transaction.
+    /// </remarks>
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    public static Stream<TResult> SnapshotLatest<T, T1, T2, T3, T4, TResult>(
+        this Stream<T> s,
+        Behavior<T1> b1,
+        Behavior<T2> b2,
+        Behavior<T3> b3,
+        Behavior<T4> b4,
+        Func<T, T1, T2, T3, T4, TResult> f) =>
+        s.SnapshotLatestImpl(b1: b1, b2: b2, b3: b3, b4: b4, f: f);
+
+    /// <summary>
+    ///     Gives a stream that fires the result of the given function on the fired value and the latest
+    ///     values of the cells.
+    /// </summary>
+    /// <typeparam name="T">The type of the stream.</typeparam>
+    /// <typeparam name="T1">The type of the first cell.</typeparam>
+    /// <typeparam name="T2">The type of the second cell.</typeparam>
+    /// <typeparam name="T3">The type of the third cell.</typeparam>
+    /// <typeparam name="T4">The type of the fourth cell.</typeparam>
+    /// <typeparam name="T5">The type of the fifth cell.</typeparam>
+    /// <typeparam name="TResult">The return type.</typeparam>
+    /// <param name="s">The stream.</param>
+    /// <param name="c1">The first cell to put together with this one.</param>
+    /// <param name="c2">The second cell to put together with this one.</param>
+    /// <param name="c3">The third cell to put together with this one.</param>
+    /// <param name="c4">The fourth cell to put together with this one.</param>
+    /// <param name="c5">The fifth cell to put together with this one.</param>
+    /// <param name="f">A function to change the stream value and cell values into a return value.</param>
+    /// <returns>
+    ///     A stream that fires the result of the given function on the fired value and the latest
+    ///     values of the cells.
+    /// </returns>
+    /// <remarks>
+    ///     <c>Snapshot</c> gives the values of the cells from before the transaction. This gives the new
+    ///     value of each cell that the same transaction updates, and the current value of each cell that it
+    ///     does not update. Only this stream causes the firing. An update of the cells alone does not. This
+    ///     cannot close a loop, as <c>Snapshot</c> can. Do not give a cell that the stream from this call
+    ///     updates in the same transaction.
+    /// </remarks>
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    public static Stream<TResult> SnapshotLatest<T, T1, T2, T3, T4, T5, TResult>(
+        this Stream<T> s,
+        Cell<T1> c1,
+        Cell<T2> c2,
+        Cell<T3> c3,
+        Cell<T4> c4,
+        Cell<T5> c5,
+        Func<T, T1, T2, T3, T4, T5, TResult> f) =>
+        s.SnapshotLatestImpl(c1: c1, c2: c2, c3: c3, c4: c4, c5: c5, f: f);
+
+    /// <summary>
+    ///     Gives a stream that fires the result of the given function on the fired value and the latest
+    ///     values of the behaviors.
+    /// </summary>
+    /// <typeparam name="T">The type of the stream.</typeparam>
+    /// <typeparam name="T1">The type of the first behavior.</typeparam>
+    /// <typeparam name="T2">The type of the second behavior.</typeparam>
+    /// <typeparam name="T3">The type of the third behavior.</typeparam>
+    /// <typeparam name="T4">The type of the fourth behavior.</typeparam>
+    /// <typeparam name="T5">The type of the fifth behavior.</typeparam>
+    /// <typeparam name="TResult">The return type.</typeparam>
+    /// <param name="s">The stream.</param>
+    /// <param name="b1">The first behavior to put together with this one.</param>
+    /// <param name="b2">The second behavior to put together with this one.</param>
+    /// <param name="b3">The third behavior to put together with this one.</param>
+    /// <param name="b4">The fourth behavior to put together with this one.</param>
+    /// <param name="b5">The fifth behavior to put together with this one.</param>
+    /// <param name="f">A function to change the stream value and behavior values into a return value.</param>
+    /// <returns>
+    ///     A stream that fires the result of the given function on the fired value and the latest
+    ///     values of the behaviors.
+    /// </returns>
+    /// <remarks>
+    ///     <c>Snapshot</c> gives the values of the behaviors from before the transaction. This gives the new
+    ///     value of each behavior that the same transaction updates, and the current value of each behavior
+    ///     that it does not update. Only this stream causes the firing. An update of the behaviors alone does
+    ///     not. This cannot close a loop, as <c>Snapshot</c> can. Do not give a behavior that the stream from
+    ///     this call updates in the same transaction.
+    /// </remarks>
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    public static Stream<TResult> SnapshotLatest<T, T1, T2, T3, T4, T5, TResult>(
+        this Stream<T> s,
+        Behavior<T1> b1,
+        Behavior<T2> b2,
+        Behavior<T3> b3,
+        Behavior<T4> b4,
+        Behavior<T5> b5,
+        Func<T, T1, T2, T3, T4, T5, TResult> f) =>
+        s.SnapshotLatestImpl(b1: b1, b2: b2, b3: b3, b4: b4, b5: b5, f: f);
 
     /// <summary>
     ///     Merges this stream with a second stream and drops the value of the second stream when they are

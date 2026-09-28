@@ -686,6 +686,58 @@ type ``Stream Tests``() =
         }
 
     [<Test>]
+    member _.``Test SnapshotLatest Many``() =
+        task {
+            let s = sinkS ()
+            let c1 = sinkC 1
+            let c2 = sinkC 2
+            let c3 = sinkC 3
+            let c4 = sinkC 4
+            let c5 = sinkC 5
+            let b1 = c1 |> asBehaviorC
+            let b2 = c2 |> asBehaviorC
+            let b3 = c3 |> asBehaviorC
+            let b4 = c4 |> asBehaviorC
+            let b5 = c5 |> asBehaviorC
+            let out = List<_>()
+
+            let listeners =
+                [ s |> snapshotLatest2C c1 c2 (fun a v1 v2 -> [ a; v1; v2 ])
+                  s |> snapshotLatest2B b1 b2 (fun a v1 v2 -> [ a; v1; v2 ])
+                  s |> snapshotLatest3C c1 c2 c3 (fun a v1 v2 v3 -> [ a; v1; v2; v3 ])
+                  s |> snapshotLatest3B b1 b2 b3 (fun a v1 v2 v3 -> [ a; v1; v2; v3 ])
+                  s |> snapshotLatest4C c1 c2 c3 c4 (fun a v1 v2 v3 v4 -> [ a; v1; v2; v3; v4 ])
+                  s |> snapshotLatest4B b1 b2 b3 b4 (fun a v1 v2 v3 v4 -> [ a; v1; v2; v3; v4 ])
+                  s |> snapshotLatest5C c1 c2 c3 c4 c5 (fun a v1 v2 v3 v4 v5 -> [ a; v1; v2; v3; v4; v5 ])
+                  s |> snapshotLatest5B b1 b2 b3 b4 b5 (fun a v1 v2 v3 v4 v5 -> [ a; v1; v2; v3; v4; v5 ]) ]
+                |> List.map (listenStrongS out.Add)
+
+            // The stream fires between the updates of the cells. Each result must see the new value of
+            // each cell that this transaction updates, and the current value of the others.
+            runT (fun () ->
+                c1 |> sendC 10
+                c3 |> sendC 30
+                s |> sendS 0
+                c5 |> sendC 50)
+
+            listeners |> List.iter unlistenL
+
+            // The results fire in the sequence of their ranks, which is not part of the contract.
+            do!
+                Expect.SameItems(
+                    [ [ 0; 10; 2 ]
+                      [ 0; 10; 2 ]
+                      [ 0; 10; 2; 30 ]
+                      [ 0; 10; 2; 30 ]
+                      [ 0; 10; 2; 30; 4 ]
+                      [ 0; 10; 2; 30; 4 ]
+                      [ 0; 10; 2; 30; 4; 50 ]
+                      [ 0; 10; 2; 30; 4; 50 ] ],
+                    out
+                )
+        }
+
+    [<Test>]
     member _.``Test SnapshotLatest Behavior``() =
         task {
             let s = sinkS ()

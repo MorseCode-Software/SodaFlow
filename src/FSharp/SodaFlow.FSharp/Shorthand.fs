@@ -507,6 +507,185 @@ let inline snapshotLatestAndTakeB behavior stream = Stream.snapshotLatestAndTake
 let inline snapshotLatestAndTakeC cell stream = Stream.snapshotLatestAndTake cell stream
 
 /// <summary>
+/// Samples the latest values of two behaviors when the stream fires, and fires the combination.
+/// </summary>
+/// <param name="behavior1">The first behavior to sample.</param>
+/// <param name="behavior2">The second behavior to sample.</param>
+/// <param name="f">Combines the fired value with the two sampled values.</param>
+/// <param name="stream">The stream that causes each firing of the result.</param>
+/// <returns>
+/// A stream firing <paramref name="f" /> applied to the fired value and the two sampled values.
+/// </returns>
+/// <remarks>
+/// Shorthand for <c>Stream.snapshotLatest2B</c>. See it for the full contract.
+///
+/// This samples and does not merge. Only the stream causes the firing. Each sampled value is the
+/// value at the end of the transaction of that firing. Thus, a behavior that the same transaction
+/// updates gives its new value, where <c>snapshot2B</c> gives its previous value. This cannot close
+/// a loop.
+/// </remarks>
+let inline snapshotLatest2B behavior1 behavior2 f stream =
+    Stream.snapshotLatest2B behavior1 behavior2 f stream
+
+/// <summary>
+/// Samples the latest values of two cells when the stream fires, and fires the combination.
+/// </summary>
+/// <param name="cell1">The first cell to sample.</param>
+/// <param name="cell2">The second cell to sample.</param>
+/// <param name="f">Combines the fired value with the two sampled values.</param>
+/// <param name="stream">The stream that causes each firing of the result.</param>
+/// <returns>
+/// A stream firing <paramref name="f" /> applied to the fired value and the two sampled values.
+/// </returns>
+/// <remarks>
+/// Shorthand for <c>Stream.snapshotLatest2</c>. See it for the full contract.
+///
+/// This samples and does not merge. Only the stream causes the firing. Each sampled value is the
+/// value at the end of the transaction of that firing. Thus, a cell that the same transaction
+/// updates gives its new value, where <c>snapshot2C</c> gives its previous value. This cannot close
+/// a loop.
+/// </remarks>
+let inline snapshotLatest2C cell1 cell2 f stream = Stream.snapshotLatest2 cell1 cell2 f stream
+
+/// <summary>
+/// Samples the latest values of three behaviors when the stream fires, and fires the combination.
+/// </summary>
+/// <param name="behavior1">The first behavior to sample.</param>
+/// <param name="behavior2">The second behavior to sample.</param>
+/// <param name="behavior3">The third behavior to sample.</param>
+/// <param name="f">Combines the fired value with the three sampled values.</param>
+/// <param name="stream">The stream that causes each firing of the result.</param>
+/// <returns>
+/// A stream firing <paramref name="f" /> applied to the fired value and the three sampled values.
+/// </returns>
+/// <remarks>
+/// Shorthand for <c>Stream.snapshotLatest3B</c>. See it for the full contract.
+///
+/// This samples and does not merge. Only the stream causes the firing. Each sampled value is the
+/// value at the end of the transaction of that firing. Thus, a behavior that the same transaction
+/// updates gives its new value, where <c>snapshot3B</c> gives its previous value. This cannot close
+/// a loop.
+/// </remarks>
+let inline snapshotLatest3B behavior1 behavior2 behavior3 f stream =
+    Stream.snapshotLatest3B behavior1 behavior2 behavior3 f stream
+
+/// <summary>
+/// Samples the latest values of three cells when the stream fires, and fires the combination.
+/// </summary>
+/// <param name="cell1">The first cell to sample.</param>
+/// <param name="cell2">The second cell to sample.</param>
+/// <param name="cell3">The third cell to sample.</param>
+/// <param name="f">Combines the fired value with the three sampled values.</param>
+/// <param name="stream">The stream that causes each firing of the result.</param>
+/// <returns>
+/// A stream firing <paramref name="f" /> applied to the fired value and the three sampled values.
+/// </returns>
+/// <remarks>
+/// Shorthand for <c>Stream.snapshotLatest3</c>. See it for the full contract.
+///
+/// This samples and does not merge. Only the stream causes the firing. Each sampled value is the
+/// value at the end of the transaction of that firing. Thus, a cell that the same transaction
+/// updates gives its new value, where <c>snapshot3C</c> gives its previous value. This cannot close
+/// a loop.
+/// </remarks>
+let inline snapshotLatest3C cell1 cell2 cell3 f stream =
+    Stream.snapshotLatest3 cell1 cell2 cell3 f stream
+
+/// <summary>
+/// Samples the latest values of four behaviors when the stream fires, and fires the combination.
+/// </summary>
+/// <param name="behavior1">The first behavior to sample.</param>
+/// <param name="behavior2">The second behavior to sample.</param>
+/// <param name="behavior3">The third behavior to sample.</param>
+/// <param name="behavior4">The fourth behavior to sample.</param>
+/// <param name="f">Combines the fired value with the four sampled values.</param>
+/// <param name="stream">The stream that causes each firing of the result.</param>
+/// <returns>
+/// A stream firing <paramref name="f" /> applied to the fired value and the four sampled values.
+/// </returns>
+/// <remarks>
+/// Shorthand for <c>Stream.snapshotLatest4B</c>. See it for the full contract.
+///
+/// This samples and does not merge. Only the stream causes the firing. Each sampled value is the
+/// value at the end of the transaction of that firing. Thus, a behavior that the same transaction
+/// updates gives its new value, where <c>snapshot4B</c> gives its previous value. This cannot close
+/// a loop.
+/// </remarks>
+let inline snapshotLatest4B behavior1 behavior2 behavior3 behavior4 f stream =
+    Stream.snapshotLatest4B behavior1 behavior2 behavior3 behavior4 f stream
+
+/// <summary>
+/// Samples the latest values of four cells when the stream fires, and fires the combination.
+/// </summary>
+/// <param name="cell1">The first cell to sample.</param>
+/// <param name="cell2">The second cell to sample.</param>
+/// <param name="cell3">The third cell to sample.</param>
+/// <param name="cell4">The fourth cell to sample.</param>
+/// <param name="f">Combines the fired value with the four sampled values.</param>
+/// <param name="stream">The stream that causes each firing of the result.</param>
+/// <returns>
+/// A stream firing <paramref name="f" /> applied to the fired value and the four sampled values.
+/// </returns>
+/// <remarks>
+/// Shorthand for <c>Stream.snapshotLatest4</c>. See it for the full contract.
+///
+/// This samples and does not merge. Only the stream causes the firing. Each sampled value is the
+/// value at the end of the transaction of that firing. Thus, a cell that the same transaction
+/// updates gives its new value, where <c>snapshot4C</c> gives its previous value. This cannot close
+/// a loop.
+/// </remarks>
+let inline snapshotLatest4C cell1 cell2 cell3 cell4 f stream =
+    Stream.snapshotLatest4 cell1 cell2 cell3 cell4 f stream
+
+/// <summary>
+/// Samples the latest values of five behaviors when the stream fires, and fires the combination.
+/// </summary>
+/// <param name="behavior1">The first behavior to sample.</param>
+/// <param name="behavior2">The second behavior to sample.</param>
+/// <param name="behavior3">The third behavior to sample.</param>
+/// <param name="behavior4">The fourth behavior to sample.</param>
+/// <param name="behavior5">The fifth behavior to sample.</param>
+/// <param name="f">Combines the fired value with the five sampled values.</param>
+/// <param name="stream">The stream that causes each firing of the result.</param>
+/// <returns>
+/// A stream firing <paramref name="f" /> applied to the fired value and the five sampled values.
+/// </returns>
+/// <remarks>
+/// Shorthand for <c>Stream.snapshotLatest5B</c>. See it for the full contract.
+///
+/// This samples and does not merge. Only the stream causes the firing. Each sampled value is the
+/// value at the end of the transaction of that firing. Thus, a behavior that the same transaction
+/// updates gives its new value, where <c>snapshot5B</c> gives its previous value. This cannot close
+/// a loop.
+/// </remarks>
+let inline snapshotLatest5B behavior1 behavior2 behavior3 behavior4 behavior5 f stream =
+    Stream.snapshotLatest5B behavior1 behavior2 behavior3 behavior4 behavior5 f stream
+
+/// <summary>
+/// Samples the latest values of five cells when the stream fires, and fires the combination.
+/// </summary>
+/// <param name="cell1">The first cell to sample.</param>
+/// <param name="cell2">The second cell to sample.</param>
+/// <param name="cell3">The third cell to sample.</param>
+/// <param name="cell4">The fourth cell to sample.</param>
+/// <param name="cell5">The fifth cell to sample.</param>
+/// <param name="f">Combines the fired value with the five sampled values.</param>
+/// <param name="stream">The stream that causes each firing of the result.</param>
+/// <returns>
+/// A stream firing <paramref name="f" /> applied to the fired value and the five sampled values.
+/// </returns>
+/// <remarks>
+/// Shorthand for <c>Stream.snapshotLatest5</c>. See it for the full contract.
+///
+/// This samples and does not merge. Only the stream causes the firing. Each sampled value is the
+/// value at the end of the transaction of that firing. Thus, a cell that the same transaction
+/// updates gives its new value, where <c>snapshot5C</c> gives its previous value. This cannot close
+/// a loop.
+/// </remarks>
+let inline snapshotLatest5C cell1 cell2 cell3 cell4 cell5 f stream =
+    Stream.snapshotLatest5 cell1 cell2 cell3 cell4 cell5 f stream
+
+/// <summary>
 /// Samples two behaviors when the stream fires, and fires the combination.
 /// </summary>
 /// <param name="behavior1">The first behavior to sample.</param>
