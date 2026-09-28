@@ -45,4 +45,8 @@
       </None>
     </ItemGroup>
 
+    <ItemGroup>
+      <None Include="PackageReleaseNotes.md" />
+    </ItemGroup>
+
 </Project>
