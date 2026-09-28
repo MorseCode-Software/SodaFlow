@@ -41,6 +41,13 @@ Adds the internal members that the two language surfaces need for ItemCell:
 ItemCellImpl and CreateItemCell on ReactiveCollection, and the projection for
 one item on an item change and on a view change.
 
+Fixed: the stage of a slice lost an edit to a key that kept its position in
+the window. The stage compares the window before a change with the window after
+it, and it gave only a ViewUpdate to a key that the comparison found in both. A
+ViewMove from a sort above carries a new state, and a replacement arrives as a
+ViewRemove and a ViewInsert. The stage now gives a ViewUpdate for the first,
+and a ViewRemove and a ViewInsert at the same index for the second.
+
 Requires SodaFlow.Core 5.x, which ships in the same release.
 
 1.0.1

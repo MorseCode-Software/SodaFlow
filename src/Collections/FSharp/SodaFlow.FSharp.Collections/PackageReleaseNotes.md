@@ -59,6 +59,16 @@ the stage again and reports a reset. It reports the keys that entered and
 left as inserts and removals, and it builds again and resets only when more
 keys move than a list of them is worth.
 
+Fixed: take and slice lost an edit to a key that kept its position in the
+window. A slice compares the window before a change with the window after it,
+and it gave only an update to a key that the comparison found in both. A sort
+above it reports a key that it files again as a move, and an item that one edit
+removes and adds again as a removal and an insert. The slice gave neither of the
+two, thus a stateCell, an identityCell, or a bound row on the window kept the
+previous value. A move is now an update below the slice. A replacement is a
+removal and an insert at the same position, as the root reports it, because the
+identity can change.
+
 Requires SodaFlow.FSharp 5.x and SodaFlow.Collections.Core 2.x. SodaFlow.FSharp
 5.0.0 ships in the same release, and its own notes list what changed there.
 
