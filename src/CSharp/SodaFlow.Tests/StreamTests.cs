@@ -869,6 +869,68 @@ public sealed class StreamTests
     }
 
     [Test]
+    public async Task TestSnapshotLatestMatchesLiftAndMerge()
+    {
+        CellSink<int> c1 = Cell.CreateSink(0);
+        CellSink<int> c2 = Cell.CreateSink(0);
+        List<string> expected = [];
+        List<string> actual = [];
+
+        IListener l1 = Reference(c1: c1, c2: c2, f: static (a, b) => $"{a},{b}").ListenStrong(expected.Add);
+
+        IListener l2 =
+            c1.Updates().SnapshotLatest(c: c2, f: static (a, b) => $"{a},{b}").ListenStrong(actual.Add);
+
+        Random random = new(1234);
+
+        for (int i = 1; i <= 500; i++)
+        {
+            int value = i;
+
+            // 0 updates c1, 1 updates c2, 2 updates c1 then c2, and 3 updates c2 then c1.
+            int choice = random.Next(4);
+
+            Transaction.RunVoid(() =>
+            {
+                if (choice is 0 or 2)
+                {
+                    c1.Send(value);
+                }
+
+                if (choice is 1 or 2 or 3)
+                {
+                    c2.Send(-value);
+                }
+
+                if (choice is 3)
+                {
+                    c1.Send(value);
+                }
+            });
+        }
+
+        l1.Unlisten();
+        l2.Unlisten();
+
+        await Assert.That(actual.Count).IsGreaterThan(0);
+        await Assert.That(actual).IsEquivalentTo(expected: expected, ordering: CollectionOrdering.Matching);
+
+        return;
+
+        // The composition that gave this result before SnapshotLatest existed. The lifted cell fires
+        // in each transaction that updates an input, with the new values. The merge keeps only the
+        // transactions in which c1 also fires.
+        static Stream<string> Reference(Cell<int> c1, Cell<int> c2, Func<int, int, string> f) =>
+            c1.Updates()
+                .Map(static _ => (fromC1: true, value: string.Empty))
+                .Merge(
+                    s2: c1.Lift(c2: c2, f: f).Updates().Map(static v => (fromC1: false, value: v)),
+                    f: static (_, r) => r with { fromC1 = true })
+                .Filter(static t => t.fromC1)
+                .Map(static t => t.value);
+    }
+
+    [Test]
     public async Task TestSnapshotLatestValues()
     {
         CellSink<int> c1 = Cell.CreateSink(1);
