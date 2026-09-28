@@ -35,10 +35,13 @@ the current value where it does not. Only the stream causes a firing, as with
 Snapshot. Thus, c1.Values().SnapshotLatest(c2, f) fires when c1 changes, and not
 when only c2 changes.
 
-It cannot close a loop. A cell that depends on the result in the same
-transaction would need its own new value. For the latest values of more than one
-cell, give it a cell from Lift. In a transaction, a lifted cell already has the
-new value.
+It cannot close a loop. Do not give it a cell that the result updates in the
+same transaction.
+
+SnapshotLatest takes up to five cells or up to five behaviors. It gives the new
+value of each one that the transaction updates, and the current value of each
+one that it does not update. For more cells, give it a cell from Lift. In a
+transaction, a lifted cell has the new value.
 
 Fixed: TimerSystem.At no longer holds an alarm alive through the cell it reads.
 It listened to that cell with a strong listener, which the keep-alive set of the

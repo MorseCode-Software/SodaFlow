@@ -40,10 +40,16 @@ the current value where it does not. Only the stream causes a firing, as with
 snapshot. Thus, c1 |> Cell.values |> Stream.snapshotLatest c2 f fires when c1
 changes, and not when only c2 changes.
 
-It cannot close a loop. A cell that depends on the result in the same
-transaction would need its own new value. For the latest values of more than one
-cell, give it a cell from lift2 or from one of the other lift functions. In a
-transaction, a lifted cell already has the new value.
+It cannot close a loop. Do not give it a cell that the result updates in the
+same transaction.
+
+snapshotLatest2 to snapshotLatest5 and snapshotLatest2B to snapshotLatest5B take
+two to five cells or behaviors, with the shorthand snapshotLatest2C to
+snapshotLatest5C and snapshotLatest2B to snapshotLatest5B. Each one gives the
+new value of each cell that the transaction updates, and the current value of
+each cell that it does not update. For more cells, give it a cell from lift2 or
+from one of the other lift functions. In a transaction, a lifted cell has the
+new value.
 
 Fixed: the At member of the timer system no longer holds an alarm alive
 through the cell it reads. It listened to that cell with a strong listener,
