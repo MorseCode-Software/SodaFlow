@@ -245,7 +245,7 @@ public sealed class AccountsViewModel : IAccountsViewModel
         IBindableAction sortByBalance,
         Stream<CollectionEdit<int, AccountIdentity, AccountState>> deposits,
         Stream<CollectionEdit<int, AccountIdentity, AccountState>> drains,
-        MappedItems<AccountRowViewModel> projectedRows)
+        IDisposable projectedRows)
     {
         this.Rows = rows;
         this.Total = total;
@@ -343,9 +343,9 @@ public sealed class AccountsViewModel : IAccountsViewModel
         }
     }
 
-    public static IAccountsViewModel Create() =>
-        Transaction.Run(static () =>
-            ForwardReference<AccountsViewModel>.WithoutCaptures(static viewModelLoop =>
+    public static IAccountsViewModel Create(IBindableFactory bindableFactory) =>
+        Transaction.Run(() =>
+            ForwardReference<AccountsViewModel>.WithoutCaptures(viewModelLoop =>
             {
                 StreamSink<Unit> nextPage = Stream.CreateSink<Unit>();
                 StreamSink<Unit> previousPage = Stream.CreateSink<Unit>();
@@ -448,7 +448,7 @@ public sealed class AccountsViewModel : IAccountsViewModel
                 // projection.
                 MappedItems<AccountRowViewModel> rows =
                     page.Map(
-                        project: key => Row(page: page, key: key),
+                        project: key => Row(bindableFactory: bindableFactory, page: page, key: key),
                         onEvicted: static row => row.Dispose());
 
                 // The deposits are the edits that the rows on the page send. The set of those
@@ -464,12 +464,12 @@ public sealed class AccountsViewModel : IAccountsViewModel
                 // The total folds the change and does not calculate the total again from the
                 // store. The change contains the two sides of it, thus a delta needs no other
                 // data.
-                long initialTotal = AccountSeed.Items.Sum(static item => item.State.Balance);
-
                 Cell<long> total =
-                    accounts.ItemChangesStream
-                        .Map(static change => DeltaOf(change))
-                        .Accum(initialState: initialTotal, f: static (delta, running) => running + delta);
+                    accounts.Fold(
+                        select: (identity, state) => state.Balance,
+                        zero: 0L,
+                        add: static (x, y) => x + y,
+                        subtract: static (x, y) => x - y);
 
                 Cell<int> pageCount =
                     filtered.KeysCell.Map(static keys =>
@@ -479,40 +479,48 @@ public sealed class AccountsViewModel : IAccountsViewModel
                     // A list of rows is a list of the interface of those rows, but a cell is a
                     // class and cannot be covariant. Thus, this code gives the conversion as the
                     // return type of the lambda.
-                    rows: rows.Items
-                        .Map(static IReadOnlyList<IAccountRowViewModel> (items) => items)
-                        .ToOneWay(),
-                    total: total.Map(static cents => "Total across all accounts: " + Money(cents))
-                        .ToOneWay(),
-                    page: offset.Lift(
+                    rows: bindableFactory.CreateOneWay(
+                        rows.Items
+                            .Map(static IReadOnlyList<IAccountRowViewModel> (items) => items)),
+                    total: bindableFactory.CreateOneWay(
+                        total.Map(static cents => "Total across all accounts: " + Money(cents))),
+                    page: bindableFactory.CreateOneWay(
+                        offset.Lift(
                             c2: pageCount,
                             f: static (at, count) =>
                                 string.Format(
                                     provider: CultureInfo.CurrentCulture,
                                     format: "Page {0:N0} of {1:N0}",
                                     arg0: at / PageSize + 1,
-                                    arg1: count))
-                        .ToOneWay(),
-                    filterDescription: showFrozen.Map(static showing =>
-                            showing ? "Showing all accounts" : "Showing active accounts only")
-                        .ToOneWay(),
-                    numberHeader: sort
-                        .Map(static selection => selection.Caption(column: AccountColumn.Number, name: "Number"))
-                        .ToOneWay(),
-                    holderHeader: sort
-                        .Map(static selection => selection.Caption(column: AccountColumn.Holder, name: "Holder"))
-                        .ToOneWay(),
-                    balanceHeader: sort
-                        .Map(static selection => selection.Caption(column: AccountColumn.Balance, name: "Balance"))
-                        .ToOneWay(),
-                    nextPage: nextPage.ToBindableAction(
-                        offset.Lift(c2: filtered.KeysCell, f: static (at, keys) => at + PageSize < keys.Count)),
-                    previousPage: previousPage.ToBindableAction(offset.Map(static at => at > 0)),
-                    showFrozen: showFrozen.ToTwoWay(),
-                    drainFrozenAccounts: drainFrozenAccounts.ToBindableAction(canDrain),
-                    sortByNumber: sortByNumber.ToBindableAction(),
-                    sortByHolder: sortByHolder.ToBindableAction(),
-                    sortByBalance: sortByBalance.ToBindableAction(),
+                                    arg1: count))),
+                    filterDescription: bindableFactory.CreateOneWay(
+                        showFrozen.Map(static showing =>
+                            showing ? "Showing all accounts" : "Showing active accounts only")),
+                    numberHeader: bindableFactory.CreateOneWay(
+                        sort
+                            .Map(static selection => selection.Caption(column: AccountColumn.Number, name: "Number"))),
+                    holderHeader: bindableFactory.CreateOneWay(
+                        sort
+                            .Map(static selection => selection.Caption(column: AccountColumn.Holder, name: "Holder"))),
+                    balanceHeader: bindableFactory.CreateOneWay(
+                        sort
+                            .Map(static selection =>
+                                selection.Caption(column: AccountColumn.Balance, name: "Balance"))),
+                    nextPage: bindableFactory.CreateBindableAction(
+                        firingsStreamSink: nextPage,
+                        isEnabledCell: offset.Lift(
+                            c2: filtered.KeysCell,
+                            f: static (at, keys) => at + PageSize < keys.Count)),
+                    previousPage: bindableFactory.CreateBindableAction(
+                        firingsStreamSink: previousPage,
+                        isEnabledCell: offset.Map(static at => at > 0)),
+                    showFrozen: bindableFactory.CreateTwoWay(showFrozen),
+                    drainFrozenAccounts: bindableFactory.CreateBindableAction(
+                        firingsStreamSink: drainFrozenAccounts,
+                        isEnabledCell: canDrain),
+                    sortByNumber: bindableFactory.CreateBindableAction(sortByNumber),
+                    sortByHolder: bindableFactory.CreateBindableAction(sortByHolder),
+                    sortByBalance: bindableFactory.CreateBindableAction(sortByBalance),
                     projectedRows: rows,
                     deposits: deposits,
                     drains: drains);
@@ -526,7 +534,7 @@ public sealed class AccountsViewModel : IAccountsViewModel
     /// </remarks>
     private static CollectionEdit<int, AccountIdentity, AccountState> Drain(
         // This is the type of the keys, and not the list interface of that type, because a drain
-        // reads all of the keys and a call through the class is faster than a call through the
+        // reads all the keys and a call through the class is faster than a call through the
         // interface.
         // ReSharper disable once SuggestBaseTypeForParameter
         OrderedKeys<int, AccountIdentity, AccountState> keys)
@@ -560,7 +568,10 @@ public sealed class AccountsViewModel : IAccountsViewModel
     ///     data of its own view. An account that the page does not hold has no holder, no balance,
     ///     and no target for a deposit.
     /// </remarks>
-    private static AccountRowViewModel Row(ReactiveCollection<int, AccountIdentity, AccountState> page, int key)
+    private static AccountRowViewModel Row(
+        IBindableFactory bindableFactory,
+        ReactiveCollection<int, AccountIdentity, AccountState> page,
+        int key)
     {
         Cell<Maybe<AccountIdentity>> identity = page.IdentityCell(key);
         Cell<Maybe<AccountState>> state = page.StateCell(key);
@@ -576,23 +587,23 @@ public sealed class AccountsViewModel : IAccountsViewModel
         StreamSink<Unit> deposit = Stream.CreateSink<Unit>();
 
         return new AccountRowViewModel(
-            number: identity
-                .Map(static current =>
-                    current.Match(
-                        onSome: static value => value.Number.ToString(CultureInfo.CurrentCulture),
-                        onNone: static () => string.Empty))
-                .ToOneWay(),
-            holder: identity
-                .Map(static current =>
-                    current.Match(onSome: static value => value.Holder, onNone: static () => string.Empty))
-                .ToOneWay(),
-            balance: state
-                .Map(static current => current.Match(onSome: Money, onNone: static () => string.Empty))
-                .ToOneWay(),
-            isFrozen: isFrozen.ToOneWay(),
+            number: bindableFactory.CreateOneWay(
+                identity
+                    .Map(static current =>
+                        current.Match(
+                            onSome: static value => value.Number.ToString(CultureInfo.CurrentCulture),
+                            onNone: static () => string.Empty))),
+            holder: bindableFactory.CreateOneWay(
+                identity
+                    .Map(static current =>
+                        current.Match(onSome: static value => value.Holder, onNone: static () => string.Empty))),
+            balance: bindableFactory.CreateOneWay(
+                state
+                    .Map(static current => current.Match(onSome: Money, onNone: static () => string.Empty))),
+            isFrozen: bindableFactory.CreateOneWay(isFrozen),
 
             // A frozen account disables this, and the view shows that...
-            deposit: deposit.ToBindableAction(canDeposit),
+            deposit: bindableFactory.CreateBindableAction(firingsStreamSink: deposit, isEnabledCell: canDeposit),
 
             // ...and the graph gates it, which is the rule. The enabled state of a command is a
             // copy that the graph sends to the binding thread, and the graph can change before the
@@ -605,37 +616,6 @@ public sealed class AccountsViewModel : IAccountsViewModel
                     .Gate(canDeposit)
                     .MapTo(static (AccountState current) =>
                         current with { Balance = current.Balance + DepositAmount })));
-    }
-
-    /// <summary>The change of the total, from the keys in this change.</summary>
-    /// <remarks>
-    ///     A new key has no state before the change, thus it adds only its new balance. A key
-    ///     that the change removes is not in the new states, thus it adds only the negative of
-    ///     its previous balance. This test is sufficient for the two conditions.
-    /// </remarks>
-    private static long DeltaOf(ItemChange<int, AccountIdentity, AccountState> change)
-    {
-        long delta = 0;
-
-        foreach (KeyValuePair<int, AccountState> pair in change.NewStates)
-        {
-            if (change.Before.States.TryGetState(key: pair.Key, state: out AccountState? was))
-            {
-                delta -= was.Balance;
-            }
-
-            delta += pair.Value.Balance;
-        }
-
-        foreach (int key in change.Removed)
-        {
-            if (change.Before.States.TryGetState(key: key, state: out AccountState? was))
-            {
-                delta -= was.Balance;
-            }
-        }
-
-        return delta;
     }
 
     /// <summary>Cents as a value in dollars.</summary>

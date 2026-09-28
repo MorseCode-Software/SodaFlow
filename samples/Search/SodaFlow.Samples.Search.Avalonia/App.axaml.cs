@@ -30,14 +30,8 @@ internal sealed class App : Application
     {
         if (this.ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
         {
-            // This code sets the scheduler before the first bindable, thus no subsequent
-            // code depends on the thread of a bindable. Without this, each bindable captures
-            // the synchronization context of the thread that constructs it. A view model
-            // that a different thread builds then gets the incorrect context, or no context,
-            // and runs inline.
-            BindingScheduler.Default = SynchronizationContextBindingScheduler.Capture();
-
-            ISearchViewModel viewModel = SearchViewModel.Create();
+            ISearchViewModel viewModel =
+                SearchViewModel.Create(new BindableFactory(SynchronizationContextBindingScheduler.Capture()));
 
             // This code assigns the window and does not show it. The lifetime shows this window
             // after this method returns, thus the window has its data context before it is on

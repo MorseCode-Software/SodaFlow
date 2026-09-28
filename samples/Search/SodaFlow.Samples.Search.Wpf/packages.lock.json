@@ -10,66 +10,66 @@
       },
       "SodaFlow": {
         "type": "Transitive",
-        "resolved": "4.0.0",
-        "contentHash": "s9EAg6KcD5snnlLqz1nKCLSgOcZMZmoOzm07Fzxm77fTtteAT3LHnjC0NjyWzDnhWzR5dnFD5lDqfp3b1fg6sg==",
+        "resolved": "5.0.0",
+        "contentHash": "6t16/75AZH8XbhSe/+54kMhBjpsub5gZREVDsZHRZu7rokiPqJYrXzt2n0eFQvkYBMulSOkz/ao4zU8DEsuV2g==",
         "dependencies": {
-          "SodaFlow.Core": "[4.0.0, 5.0.0)",
-          "SodaFlow.Functional": "[3.0.0, 4.0.0)",
+          "SodaFlow.Core": "[5.0.0, 6.0.0)",
+          "SodaFlow.Functional": "[3.0.1, 4.0.0)",
           "System.ValueTuple": "4.6.2"
         }
       },
       "SodaFlow.Async": {
         "type": "Transitive",
-        "resolved": "4.0.0",
-        "contentHash": "lzMyVNqyRVDJPWddITU9qwaBe1ehXOJ7wFALmtrpIi/HT1DzICBUxoZW7IUHdfmGYA574lHdgoCmSnhm9SSwqQ==",
+        "resolved": "5.0.0",
+        "contentHash": "FQwtU20X4LS65RPzheHHdFfcX4epCMDOf/pyI7YxowrYNWXwrzDYXg/1BF4iBa9ZeB0v0TbA6zpVnxaJ00y4DQ==",
         "dependencies": {
-          "SodaFlow": "[4.0.0, 5.0.0)",
-          "SodaFlow.Async.Core": "[4.0.0, 5.0.0)",
-          "SodaFlow.Functional": "[3.0.0, 4.0.0)",
+          "SodaFlow": "[5.0.0, 6.0.0)",
+          "SodaFlow.Async.Core": "[5.0.0, 6.0.0)",
+          "SodaFlow.Functional": "[3.0.1, 4.0.0)",
           "System.ValueTuple": "4.6.2"
         }
       },
       "SodaFlow.Async.Core": {
         "type": "Transitive",
-        "resolved": "4.0.0",
-        "contentHash": "hF/23CMlvvXCp/B5kK8qPUjMg4MLfOObImF4odKrPR2MmpZyL38SIt1G1v7ATiHEtzd8q7+rlHrQNvVQ3ZOBAA==",
+        "resolved": "5.0.0",
+        "contentHash": "AmFs0308UDrv7ms7Vj7Nx1GIDOc9x1tY1eH+BhocZRteHQ2T7vGneX9X2hi9+yBvkMDktqiPfpopaxIoHlLIEA==",
         "dependencies": {
-          "SodaFlow.Core": "[4.0.0, 5.0.0)",
+          "SodaFlow.Core": "[5.0.0, 6.0.0)",
           "System.ValueTuple": "4.6.2"
         }
       },
       "SodaFlow.Bindable.ObjectModel": {
         "type": "Transitive",
-        "resolved": "3.0.1",
-        "contentHash": "p9dau9DdItSqUKoLd7+8ui7xL/gWtmuBfy7ZGzW9fTM7PvFKF74XE+s7arc6g6Vgyxiap2R1pUZbWopBa9wbSA==",
+        "resolved": "4.0.0",
+        "contentHash": "rtFTmjT49XJfPLPr1S9eUFkXnfgxobeQxKImtRdzw+k1I9rmZ28xPrHOxODCeAIjoQHFnyHOJPRcCuDQgDQjrQ==",
         "dependencies": {
-          "SodaFlow": "[4.0.0, 5.0.0)",
-          "SodaFlow.Bindable.ObjectModel.Core": "[3.0.1, 4.0.0)",
-          "SodaFlow.Functional": "[3.0.0, 4.0.0)",
+          "SodaFlow": "[5.0.0, 6.0.0)",
+          "SodaFlow.Bindable.ObjectModel.Core": "[4.0.0, 5.0.0)",
+          "SodaFlow.Functional": "[3.0.1, 4.0.0)",
           "System.ValueTuple": "4.6.2"
         }
       },
       "SodaFlow.Bindable.ObjectModel.Core": {
         "type": "Transitive",
-        "resolved": "3.0.1",
-        "contentHash": "/9PTaQs2bb/cU3TPt0wNXe5yQPnWTBwoyMqCZ1g0KKY4T04LWdS7eo3CWfD4YUkTCzGr70hYtuKWvyNKl9xSBw==",
+        "resolved": "4.0.0",
+        "contentHash": "nMHa+5uFX2ZYjOCb+hvitsmMeO2VknrOe7nSxfhSlRq5h7h8FUj78k8a4pW4AoI2aMJwxUcaZ0CLmrSsx1tvRQ==",
         "dependencies": {
-          "SodaFlow.Core": "[4.0.0, 5.0.0)",
+          "SodaFlow.Core": "[5.0.0, 6.0.0)",
           "System.ValueTuple": "4.6.2"
         }
       },
       "SodaFlow.Core": {
         "type": "Transitive",
-        "resolved": "4.0.0",
-        "contentHash": "nWCwyGc7YC1vf1EmOPyRcckDzZqol6ouCK+imQ7ZXwH8rwlBvUVaCvKpQOpMVfLRDiDC3hN8sY5efkPlir9l3w==",
+        "resolved": "5.0.0",
+        "contentHash": "LSJtWDGie+NbVqOzY/s9PxiNO3d5hAFgiFqne2I6dYOHH/9zcKd0oVZtlobkQBU1lh7eFB5Qz1pzJHiG7ERlug==",
         "dependencies": {
           "System.ValueTuple": "4.6.2"
         }
       },
       "SodaFlow.Functional": {
         "type": "Transitive",
-        "resolved": "3.0.0",
-        "contentHash": "/Wg7COu6tAOHpeztFLTM8nWZc6p5qPr6KJtbjSo9g1qbIFe869WM8ZdWRKOaKI0A52A0Nt6fB+3GEackyhnH8w=="
+        "resolved": "3.0.1",
+        "contentHash": "EmrkuXTuIZ6HB55Yg7ZARNzCVEk4mq9y+2WI/aO6NhJ02uLMGZKK+FLDSCizfA6QRRdqWnMwFy51F1BA2tfkHA=="
       },
       "System.ValueTuple": {
         "type": "Transitive",
@@ -79,9 +79,9 @@
       "sodaflow.samples.search.viewmodels": {
         "type": "Project",
         "dependencies": {
-          "SodaFlow": "[4.0.0, )",
-          "SodaFlow.Async": "[4.0.0, )",
-          "SodaFlow.Bindable.ObjectModel": "[3.0.1, )"
+          "SodaFlow": "[5.0.0, )",
+          "SodaFlow.Async": "[5.0.0, )",
+          "SodaFlow.Bindable.ObjectModel": "[4.0.0, )"
         }
       }
     }
