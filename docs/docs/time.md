@@ -97,9 +97,65 @@ disarm — and that `SodaFlow.Time` needs its own `open`.
 
 ---
 
-A repeating timer is `At` plus a loop: when it fires, compute the next target and send that
-back into the cell. Because the feedback goes through a sink rather than through pure FRP
-logic, do the send in a `Transaction.Post` — see [Transactions](transactions.md).
+## A repeating timer
+
+`At` plus a cell loop, and nothing else — no sink, and no `Transaction.Post`. The alarm computes the
+next target, and the cell holding that target is what the alarm reads:
+
+# [C#](#tab/csharp)
+
+```csharp
+Stream<double> ticks =
+    Transaction.Run(() =>
+        Cell.Loop<Maybe<double>>()
+            .WithCaptures(deadline =>
+            {
+                Stream<double> alarm = timers.At(deadline.AsCell());
+
+                return (
+                    Cell: alarm.Map(static t => Maybe.Some(t + 5.0)).Hold(Maybe.Some(5.0)),
+                    Captures: alarm);
+            })
+            .Captures);
+```
+
+# [F#](#tab/fsharp)
+
+```fsharp
+let ticks =
+    Transaction.run (fun () ->
+        let struct (_, alarm) =
+            Cell.loop (fun deadline ->
+                let alarm = timers.At deadline
+                struct (alarm |> Stream.map (fun t -> Some(t + 5.0)) |> Stream.hold (Some 5.0), alarm))
+
+        alarm)
+```
+
+---
+
+The loop is the whole trick, and it is why this is ordinary FRP rather than a callback that sends
+into a sink: the deadline cell is defined in terms of the alarm that reads it. See
+[Loops](loops.md).
+
+**Missed ticks are made up, one per transaction.** The next target is the alarm's own time plus the
+period, so the period stays exact; if the process is suspended across a minute of them, the stream
+fires once per missed interval, each in its own transaction, as fast as transactions open.
+
+Reading the clock rather than the alarm's value changes nothing. Inside an alarm's transaction
+`timers.Time` *is* that alarm's time — that is what a behavior means, the value at that instant — so
+snapshotting it gives the same sequence. A repeating timer built on `At` is fixed-rate with
+catch-up, and dropping stale ticks is a decision outside the graph: compare a firing's time against
+a clock read in a later transaction.
+
+There is no `Periodic` in the library, and the loop above is why: it is short, it is ordinary FRP,
+and written out like this the catch-up behavior is visible instead of hidden behind an interval
+argument.
+
+Consider whether you need a tick stream at all. Bounce animates without one: a ball's position is a
+`Behavior` — a function of time — and the view samples it when it paints, at whatever frequency it
+likes. A stream of ticks invites code that adds a delta per tick, which is the state the graph is
+there to remove.
 
 ## `Debounce`
 
