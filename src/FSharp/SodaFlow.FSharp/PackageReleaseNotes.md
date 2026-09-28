@@ -1,5 +1,22 @@
 5.0.0
 
+Adds Time.debounce, and debounceS in the shorthand module, which fires the last
+value of a stream after a time with no other value. Each firing moves the alarm
+out, thus a sequence of firings with no space between them gives one value. A
+search box is the usual position for it: the text of each keystroke goes in, and
+one search comes out.
+
+  let searches = query |> updatesC |> Time.debounce timers (fun now -> now + 0.3)
+
+It is in the Time module and not in the Stream module, because it reads an
+ITimerSystem, and F# compiles Stream.fs before Time.fs. The second argument reads
+the time of a firing and gives the time to fire at. It must give a time after the
+time that it reads.
+
+The result is in a transaction of the alarm and never in the transaction of a
+firing. It cancels no work that started: give a strategy to mapAsync that cancels
+the operation it replaces for that, and debounce the input also.
+
 Adds postWithFailureHandler, a second form of post, which takes the action to
 run where the posted action does not run or does not complete. A transaction that fails
 while it propagates discards each action that post holds. Code that gives a

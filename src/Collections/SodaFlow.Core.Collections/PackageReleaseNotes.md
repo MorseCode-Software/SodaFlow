@@ -1,5 +1,23 @@
 2.0.0
 
+Adds the fold of a collection, which CollectionFoldUtility.FoldImpl gives to each
+language surface. A total, a count of a view, or an average had no operation
+here, thus each caller wrote the delta of a change by hand. The fold takes a
+group: a function that reads one state, a zero, an add, and a subtract. Each
+change carries the states before it and the states after it, thus the fold
+removes the previous value of each key that the change names and adds the new
+one. The cost of an edit is the count of the keys in that edit.
+
+A group, and not one combine function, because only an invertible operation can
+answer an edit with no read of each item. A sum and a count are groups. A maximum
+is not one, and this operation cannot give one.
+
+The first value is a read of the store at the construction, thus a caller gives
+no seed. A view folds its own items, because the States of a scoped snapshot hold
+the keys of that view alone. A change from a reset names each key of the view,
+thus the fold stays correct at a cost of the size of the view for that one
+change.
+
 BREAKING: KeyOrder.ByKey(keyComparer) is now ByKey(keyComparer,
 isDescending), as each other factory that takes a comparer also names its
 direction. Add isDescending: false to keep an existing order, or call

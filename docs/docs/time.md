@@ -101,6 +101,48 @@ A repeating timer is `At` plus a loop: when it fires, compute the next target an
 back into the cell. Because the feedback goes through a sink rather than through pure FRP
 logic, do the send in a `Transaction.Post` — see [Transactions](transactions.md).
 
+## `Debounce`
+
+`Debounce` fires the last value of a stream once a quiet time has passed with no other value. Each
+firing pushes the alarm out, so a burst of firings produces one value:
+
+# [C#](#tab/csharp)
+
+```csharp
+// One search per 300ms of quiet, rather than one per keystroke.
+Stream<string> searches = query.Updates().Debounce(timers, static now => now.AddMilliseconds(300));
+```
+
+# [F#](#tab/fsharp)
+
+```fsharp
+// One search per 300ms of quiet, rather than one per keystroke.
+let searches = query |> updatesC |> Time.debounce timers (fun now -> now.AddMilliseconds 300.0)
+```
+
+---
+
+The second argument is the deadline: given the time of a firing, return the time to fire at. It is
+a function rather than a duration because the time type is yours — `DateTime` for
+`SystemClockTimerSystem`, `double` seconds for `SecondsTimerSystem`, whatever your own
+implementation uses. It must return a time *after* the one it is given; an earlier time is a time
+the clock has already passed, and the alarm fires at the next transaction.
+
+Three things are worth knowing:
+
+- **The result is in the alarm's transaction**, never in the transaction of a firing. A graph that
+  reads both sees two instants, which is correct — they happen at two times.
+- **It does not cancel work already started.** Debouncing and `SwitchLatest` solve different halves
+  of the same problem: debouncing stops requests that should never have been made, and a cancelling
+  `MapAsync` strategy stops the ones already in flight whose results nobody wants. A search box
+  usually wants both. See [Asynchronous work](async.md).
+- **A firing that lands in the alarm's own transaction re-arms it** rather than being swallowed,
+  which is what makes a debounce safe to put in a loop.
+
+Writing this by hand takes a cell loop, a deadline cell, a `Hold` for the last value, and care about
+which side of an `OrElse` wins when a firing and the alarm share a transaction. That is the reason
+it is in the library.
+
 ## Testing
 
 `TimerSystem<T>` is built on `ITimerSystemImplementation<T>`, whose entire contract is `Now`,
