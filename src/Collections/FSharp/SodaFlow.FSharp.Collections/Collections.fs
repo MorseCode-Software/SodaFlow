@@ -862,7 +862,15 @@ let mapWith
 ///         remove each value that <c>add</c> includes, and <c>zero</c> changes no value. A sum and a
 ///         count are groups. A maximum is not one, because no function removes a value from a
 ///         maximum, and this operation cannot give one. Read the first key of a view with a sort
-///         for that.
+///         for that. The group must also be commutative: this code adds and subtracts in the
+///         sequence of the keys of a change.
+///     </para>
+///     <para>
+///         The accumulated type belongs to the caller, thus a group gives more than a sum. A pair
+///         of a sum and a count, with a map after it, gives an average. A map of one counter for
+///         each group gives a count for each group. A select of 1 or 0 counts the items that a
+///         condition accepts, with no filter stage. Where <c>add</c> and <c>subtract</c> are one
+///         function, such as exclusive or, the value is a fingerprint of the states.
 ///     </para>
 ///     <para>
 ///         A view folds its own items. The fold of a filter stage adds an item as the filter accepts

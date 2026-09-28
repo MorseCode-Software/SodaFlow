@@ -43,7 +43,17 @@ public static class CollectionFoldExtensionMethods
     ///         <paramref name="add" /> includes, and <paramref name="zero" /> changes no value. A sum
     ///         and a count are groups. A maximum is not one, because no function removes a value
     ///         from a maximum, and this operation cannot give one. Read the first key of a view
-    ///         with a sort for that.
+    ///         with a sort for that. The group must also be commutative: this code adds and
+    ///         subtracts in the sequence of the keys of a change.
+    ///     </para>
+    ///     <para>
+    ///         <typeparamref name="TAccumulate" /> is the type of the caller, thus a group gives
+    ///         more than a sum. A pair of a sum and a count, with a Map after it, gives an average.
+    ///         A map of one counter for each group gives a count for each group, where
+    ///         <paramref name="add" /> adds one to a counter and <paramref name="subtract" />
+    ///         removes one. A select of 1 or 0 counts the items that a condition accepts, with no
+    ///         Filter stage. Where <paramref name="add" /> and <paramref name="subtract" /> are one
+    ///         function, such as exclusive or, the value is a fingerprint of the states.
     ///     </para>
     ///     <para>
     ///         A view folds its own items. The fold of a Filter stage adds an item as the filter
