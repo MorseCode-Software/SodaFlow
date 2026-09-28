@@ -27,6 +27,23 @@ waits, and it gives the value of that Task from a posted action.
 F# has no optional parameter on a let-bound function, thus the two forms are two
 names here, as mapAsync and mapAsyncWithInputConverter are.
 
+Adds snapshotLatest, snapshotLatestB, snapshotLatestAndTake and
+snapshotLatestAndTakeB, with the shorthand snapshotLatestC, snapshotLatestB,
+snapshotLatestAndTakeC and snapshotLatestAndTakeB. snapshot gives the value from
+before the transaction, thus a stream that fires in the transaction that updates
+the cell sees the previous value. That is correct where a loop must read its own
+last state, and it is wrong where a change of one cell must read the value
+another cell has after the same change. snapshotLatest gives the new value where
+the transaction updates the cell, and the current value where it does not. Only
+the stream causes a firing, as with snapshot, thus
+c1 |> Cell.values |> Stream.snapshotLatest c2 f fires when c1 changes and not
+when only c2 does.
+
+It cannot close a loop, because a cell that depends on the result in the same
+transaction would need its own new value to compute it. For the latest values of
+more than one cell, give it a cell from lift2 or one of the other lift
+functions, whose value in a transaction is already the new one.
+
 Fixed: the At member of the timer system no longer holds an alarm alive
 through the cell it reads. It listened to that cell with a strong listener,
 which the keep-alive set of the cell's graph roots, and that listener holds

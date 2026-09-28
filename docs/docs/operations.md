@@ -54,6 +54,8 @@ handlers, timers, and network callbacks; everything downstream stays pure.
 | `s.Snapshot(c)` | `snapshotAndTakeC c s` | On each firing, take the cell's value, discarding the stream's. |
 | `s.Snapshot(c, f)` | `snapshotC c f s` | On each firing, combine the stream value with the cell's. |
 | `s.Snapshot(c1, c2, f)` | `snapshot2C c1 c2 f s` | Same, over more cells (up to 4). |
+| `s.SnapshotLatest(c)` | `snapshotLatestAndTakeC c s` | Like `Snapshot(c)`, but sees the cell's value after this transaction. |
+| `s.SnapshotLatest(c, f)` | `snapshotLatestC c f s` | Like `Snapshot(c, f)`, but sees the cell's value after this transaction. |
 | `s.Gate(c)` | `gateC c s` | Drop firings while a `Cell<bool>` is false. |
 | `s.Calm()` | `calmS s` | Suppress firings equal to the previous one. |
 | `s.Calm(comparer)` | `calmWithEqualityComparerS cmp s` | As above with an explicit comparer. |
@@ -70,6 +72,12 @@ handlers, timers, and network callbacks; everything downstream stays pure.
 
 The `Snapshot` family is the workhorse. `Gate` is `Snapshot` plus `Filter`; `MapTo` is `Map`
 with a constant. Reach for the specific one — it reads better and does less work.
+
+`Snapshot` sees the value a cell had *before* the current transaction, which is what lets a loop
+read its own last state. When a change of one cell should read another cell *after* the same
+change, use `SnapshotLatest`: `c1.Values().SnapshotLatest(c2, f)` fires only when `c1` changes,
+and gives `c2`'s new value if the same transaction also updated `c2`. It cannot close a loop, and
+for more than one cell you give it a cell from `Lift`.
 
 ## Cell operations
 

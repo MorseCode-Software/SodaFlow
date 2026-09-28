@@ -811,6 +811,134 @@ public sealed class StreamTests
     }
 
     [Test]
+    public async Task TestSnapshotLatestNoImplicitDelay()
+    {
+        StreamSink<char> s = Stream.CreateSink<char>();
+        Cell<char> c = s.Hold(' ');
+        List<char> @out = [];
+        IListener l = s.SnapshotLatest(c).ListenStrong(@out.Add);
+        s.Send('C');
+        s.Send('B');
+        s.Send('A');
+        l.Unlisten();
+        await Assert.That(@out).IsEquivalentTo(expected: ['C', 'B', 'A'], ordering: CollectionOrdering.Matching);
+    }
+
+    [Test]
+    public async Task TestSnapshotLatestSimultaneousUpdate()
+    {
+        CellSink<int> c1 = Cell.CreateSink(1);
+        CellSink<int> c2 = Cell.CreateSink(10);
+        List<string> snapshot = [];
+        List<string> latest = [];
+
+        IListener l1 =
+            c1.Updates().Snapshot(c: c2, f: static (a, b) => $"{a},{b}").ListenStrong(snapshot.Add);
+
+        IListener l2 =
+            c1.Updates().SnapshotLatest(c: c2, f: static (a, b) => $"{a},{b}").ListenStrong(latest.Add);
+
+        // The cell updates after the stream fires.
+        Transaction.RunVoid(() =>
+        {
+            c1.Send(2);
+            c2.Send(20);
+        });
+
+        // The cell updates before the stream fires.
+        Transaction.RunVoid(() =>
+        {
+            c2.Send(30);
+            c1.Send(3);
+        });
+
+        // Only the cell updates. This gives no firing.
+        c2.Send(40);
+
+        // Only the stream fires. This gives the current value of the cell.
+        c1.Send(4);
+
+        l1.Unlisten();
+        l2.Unlisten();
+
+        await Assert.That(snapshot)
+            .IsEquivalentTo(expected: ["2,10", "3,20", "4,40"], ordering: CollectionOrdering.Matching);
+
+        await Assert.That(latest)
+            .IsEquivalentTo(expected: ["2,20", "3,30", "4,40"], ordering: CollectionOrdering.Matching);
+    }
+
+    [Test]
+    public async Task TestSnapshotLatestValues()
+    {
+        CellSink<int> c1 = Cell.CreateSink(1);
+        CellSink<int> c2 = Cell.CreateSink(10);
+        List<int> @out = [];
+
+        IListener l =
+            Transaction.Run(() =>
+                c1.Values().SnapshotLatest(c: c2, f: static (a, b) => a + b).ListenStrong(@out.Add));
+
+        Transaction.RunVoid(() =>
+        {
+            c1.Send(2);
+            c2.Send(20);
+        });
+
+        l.Unlisten();
+        await Assert.That(@out).IsEquivalentTo(expected: [11, 22], ordering: CollectionOrdering.Matching);
+    }
+
+    [Test]
+    public async Task TestSnapshotLatestBehavior()
+    {
+        StreamSink<int> s = Stream.CreateSink<int>();
+        BehaviorSink<int> b = Behavior.CreateSink(0);
+        List<int> @out = [];
+        IListener l = s.SnapshotLatest(b: b, f: static (a, v) => a + v).ListenStrong(@out.Add);
+
+        Transaction.RunVoid(() =>
+        {
+            s.Send(1);
+            b.Send(100);
+        });
+
+        s.Send(2);
+        l.Unlisten();
+        await Assert.That(@out).IsEquivalentTo(expected: [101, 102], ordering: CollectionOrdering.Matching);
+    }
+
+    [Test]
+    public async Task TestSnapshotLatestLift()
+    {
+        CellSink<int> c1 = Cell.CreateSink(1);
+        CellSink<int> c2 = Cell.CreateSink(10);
+        CellSink<int> c3 = Cell.CreateSink(100);
+        List<int> @out = [];
+
+        IListener l =
+            c1.Updates()
+                .SnapshotLatest(c2.Lift(c2: c3, f: static (b, c) => b + c))
+                .ListenStrong(@out.Add);
+
+        Transaction.RunVoid(() =>
+        {
+            c1.Send(2);
+            c2.Send(20);
+            c3.Send(200);
+        });
+
+        Transaction.RunVoid(() =>
+        {
+            c3.Send(300);
+            c1.Send(3);
+        });
+
+        l.Unlisten();
+        await Assert.That(@out).IsEquivalentTo(expected: [220, 320], ordering: CollectionOrdering.Matching);
+    }
+
+    [Test]
     public async Task TestListen()
     {
         StreamSink<int> s = Stream.CreateSink<int>();

@@ -323,6 +323,117 @@ public static class StreamExtensionMethods
         s.SnapshotImpl(b: b, f: f);
 
     /// <summary>
+    ///     Gives a stream that fires the latest value of the cell at the moment of each firing.
+    /// </summary>
+    /// <typeparam name="T">The type of the stream.</typeparam>
+    /// <typeparam name="TResult">The return type.</typeparam>
+    /// <param name="s">The stream.</param>
+    /// <param name="c">The cell to put together with this one.</param>
+    /// <returns>
+    ///     A stream that fires the value of the cell at the end of the transaction of each firing.
+    /// </returns>
+    /// <remarks>
+    ///     <see cref="Snapshot{T, TResult}(Stream{T}, Cell{TResult})" /> gives the value of the cell from
+    ///     before the transaction. This gives the new value if the same transaction updates the cell,
+    ///     and the current value if it does not. Only this stream causes the firing. An update of the
+    ///     cell alone does not.
+    ///     The cell must not depend on the stream from this call in the same transaction. Thus, unlike
+    ///     <see cref="Snapshot{T, TResult}(Stream{T}, Cell{TResult})" />, this cannot close a loop.
+    ///     To get the latest values of more than one cell, give a cell from
+    ///     <see cref="CellExtensionMethods.Lift{T, T2, TResult}(Cell{T}, Cell{T2}, Func{T, T2, TResult})" />.
+    /// </remarks>
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    public static Stream<TResult> SnapshotLatest<T, TResult>(this Stream<T> s, Cell<TResult> c) =>
+        s.SnapshotLatestImpl(c);
+
+    /// <summary>
+    ///     Gives a stream that fires the latest value of the behavior at the moment of each firing.
+    /// </summary>
+    /// <typeparam name="T">The type of the stream.</typeparam>
+    /// <typeparam name="TResult">The return type.</typeparam>
+    /// <param name="s">The stream.</param>
+    /// <param name="b">The behavior to put together with this one.</param>
+    /// <returns>
+    ///     A stream that fires the value of the behavior at the end of the transaction of each firing.
+    /// </returns>
+    /// <remarks>
+    ///     <see cref="Snapshot{T, TResult}(Stream{T}, Behavior{TResult})" /> gives the value of the
+    ///     behavior from before the transaction. This gives the new value if the same transaction updates
+    ///     the behavior, and the current value if it does not. Only this stream causes the firing. An
+    ///     update of the behavior alone does not.
+    ///     The behavior must not depend on the stream from this call in the same transaction. Thus,
+    ///     unlike <see cref="Snapshot{T, TResult}(Stream{T}, Behavior{TResult})" />, this cannot close a
+    ///     loop.
+    /// </remarks>
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    public static Stream<TResult> SnapshotLatest<T, TResult>(this Stream<T> s, Behavior<TResult> b) =>
+        s.SnapshotLatestImpl(b);
+
+    /// <summary>
+    ///     Gives a stream that fires the result of the given function on the fired value and the latest
+    ///     value of the cell.
+    /// </summary>
+    /// <typeparam name="T">The type of the stream.</typeparam>
+    /// <typeparam name="T1">The type of the cell.</typeparam>
+    /// <typeparam name="TResult">The return type.</typeparam>
+    /// <param name="s">The stream.</param>
+    /// <param name="c">The cell to put together with this one.</param>
+    /// <param name="f">A function to change the stream value and cell value into a return value.</param>
+    /// <returns>
+    ///     A stream that fires the result of the given function on the fired value and the value of the
+    ///     cell at the end of the transaction of each firing.
+    /// </returns>
+    /// <remarks>
+    ///     <see cref="Snapshot{T, T1, TResult}(Stream{T}, Cell{T1}, Func{T, T1, TResult})" /> gives the
+    ///     value of the cell from before the transaction. This gives the new value if the same
+    ///     transaction updates the cell, and the current value if it does not. Only this stream causes
+    ///     the firing. An update of the cell alone does not. For example,
+    ///     <c>c1.Values().SnapshotLatest(c2, f)</c> fires when <c>c1</c> changes, with the value that
+    ///     <c>c2</c> has after the same transaction.
+    ///     The cell must not depend on the stream from this call in the same transaction. Thus, unlike
+    ///     <see cref="Snapshot{T, T1, TResult}(Stream{T}, Cell{T1}, Func{T, T1, TResult})" />, this
+    ///     cannot close a loop.
+    ///     To get the latest values of more than one cell, give a cell from
+    ///     <see cref="CellExtensionMethods.Lift{T, T2, TResult}(Cell{T}, Cell{T2}, Func{T, T2, TResult})" />.
+    /// </remarks>
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    public static Stream<TResult> SnapshotLatest<T, T1, TResult>(
+        this Stream<T> s,
+        Cell<T1> c,
+        Func<T, T1, TResult> f) =>
+        s.SnapshotLatestImpl(c: c, f: f);
+
+    /// <summary>
+    ///     Gives a stream that fires the result of the given function on the fired value and the latest
+    ///     value of the behavior.
+    /// </summary>
+    /// <typeparam name="T">The type of the stream.</typeparam>
+    /// <typeparam name="T1">The type of the behavior.</typeparam>
+    /// <typeparam name="TResult">The return type.</typeparam>
+    /// <param name="s">The stream.</param>
+    /// <param name="b">The behavior to put together with this one.</param>
+    /// <param name="f">A function to change the stream value and behavior value into a return value.</param>
+    /// <returns>
+    ///     A stream that fires the result of the given function on the fired value and the value of the
+    ///     behavior at the end of the transaction of each firing.
+    /// </returns>
+    /// <remarks>
+    ///     <see cref="Snapshot{T, T1, TResult}(Stream{T}, Behavior{T1}, Func{T, T1, TResult})" /> gives
+    ///     the value of the behavior from before the transaction. This gives the new value if the same
+    ///     transaction updates the behavior, and the current value if it does not. Only this stream
+    ///     causes the firing. An update of the behavior alone does not.
+    ///     The behavior must not depend on the stream from this call in the same transaction. Thus,
+    ///     unlike <see cref="Snapshot{T, T1, TResult}(Stream{T}, Behavior{T1}, Func{T, T1, TResult})" />,
+    ///     this cannot close a loop.
+    /// </remarks>
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    public static Stream<TResult> SnapshotLatest<T, T1, TResult>(
+        this Stream<T> s,
+        Behavior<T1> b,
+        Func<T, T1, TResult> f) =>
+        s.SnapshotLatestImpl(b: b, f: f);
+
+    /// <summary>
     ///     Gives a stream that fires the result of the given function on the fired value and the values
     ///     of the cells.
     /// </summary>
