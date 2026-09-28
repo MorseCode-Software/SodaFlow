@@ -47,9 +47,9 @@ Adds Merge for two, three, or four streams of different types. The result is a
 stream of value tuples with one Maybe for each stream, in the sequence of the
 parameters. It fires in each transaction in which one or more of the streams
 fire. Each element has the value of its stream if that stream fired, and no value
-if it did not. Thus, at least one element has a value. The Merge that takes a
-function needs streams of one type, and it must put simultaneous values into one
-value of that type. This Merge keeps each value, and no stream has priority.
+if it did not. Thus, one or more elements have a value. The Merge that takes a
+function must have streams of one type, and it must put simultaneous values into
+one value of that type. This Merge keeps each value, and no stream has priority.
 
 Fixed: TimerSystem.At no longer holds an alarm alive through the cell it reads.
 It listened to that cell with a strong listener, which the keep-alive set of the

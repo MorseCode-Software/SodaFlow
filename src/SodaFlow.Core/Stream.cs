@@ -892,12 +892,12 @@ public class Stream<T>
                 });
         });
 
-    // The MergeMaybesImpl methods use the mechanism of Behavior.LiftImpl, with streams and not the
-    // updates of behaviors. Each input captures its firing and sends into pulse.Node. The coalesce
-    // operation ranks above pulse.Node. Thus, it runs after all the inputs that fire in this
-    // transaction, and it makes one output firing from their captured values. An input that does
-    // not fire gives an empty value. An input that fires more than one time in a transaction gives the
-    // value of its last firing, as a lifted input does.
+    // The MergeMaybesImpl methods use the mechanism of Behavior.LiftImpl. Their inputs are streams, and not
+    // the updates of behaviors. Each input captures its firing and sends into pulse.Node. The coalesce
+    // operation ranks above pulse.Node. Thus, it runs after all the inputs that fire in this transaction, and
+    // it makes one output firing from their captured values. An input that does not fire gives an empty
+    // value. An input that fires more than one time in a transaction gives the value of its last firing, as a
+    // lifted input does.
     //
     // This is less expensive than a merge of mapped streams. Each merge of two streams makes a
     // stream, a coalesce operation, and a node link, and each input must have its own map. Also, the

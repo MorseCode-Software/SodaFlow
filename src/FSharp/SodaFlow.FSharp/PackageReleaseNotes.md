@@ -56,8 +56,8 @@ mergeOptions2S, mergeOptions3S, and mergeOptions4S. Each one merges two, three,
 or four streams of different types. The result is a stream of struct tuples with
 one option for each stream, in the sequence of the arguments. It fires in each
 transaction in which one or more of the streams fire. Each element is Some with
-the value of its stream if that stream fired, and None if it did not. Thus, at
-least one element is Some. merge needs streams of one type, and it must put
+the value of its stream if that stream fired, and None if it did not. Thus, one
+or more elements are Some. merge must have streams of one type, and it must put
 simultaneous values into one value of that type. mergeOptions keeps each value,
 and no stream has priority.
 

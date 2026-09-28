@@ -942,9 +942,9 @@ public sealed class StreamTests
         CellSink<int> c5 = Cell.CreateSink(0);
         List<IListener> listeners = [];
 
-        // Each overload is compared with the one-cell form on a lifted cell of the same inputs. The
-        // one-cell form is compared with the Lift and Merge composition in
-        // TestSnapshotLatestMatchesLiftAndMerge. The behavior overloads get the same cells as behaviors.
+        // This test compares each overload with the one-cell overload on a lifted cell of the same
+        // inputs. TestSnapshotLatestMatchesLiftAndMerge compares the one-cell overload with the Lift and
+        // Merge composition. The behavior overloads get the same cells as behaviors.
         List<string> lift2 = ListenTo(
             s.SnapshotLatest(
                 c: c1.Lift(c2: c2, f: static (v1, v2) => $"{v1},{v2}"),
@@ -1028,9 +1028,9 @@ public sealed class StreamTests
 
         for (int i = 1; i <= 500; i++)
         {
-            // Each input gets a value in this transaction with a probability of one half, in a random
-            // sequence. Each value is different, thus a value in the wrong position gives a different
-            // string.
+            // Each input gets a value in this transaction if random.Next(2) gives 0, in a random
+            // sequence. Each value is different. Thus, a value in an incorrect position gives a
+            // different string.
             int[] order = [.. Enumerable.Range(start: 0, count: sends.Count).OrderBy(_ => random.Next())];
             bool[] send = [.. order.Select(_ => random.Next(2) == 0)];
             int transaction = i;
@@ -1165,9 +1165,9 @@ public sealed class StreamTests
 
         for (int i = 1; i <= 500; i++)
         {
-            // Each input fires in this transaction with a probability of one half, in a random
-            // sequence. The values change with each transaction. Thus, a value that stays from an
-            // earlier transaction gives a different tuple.
+            // Each input fires in this transaction if random.Next(2) gives 0, in a random sequence.
+            // The values change with each transaction. Thus, a value that stays from an earlier
+            // transaction gives a different tuple.
             int[] order = [.. Enumerable.Range(start: 0, count: sends.Count).OrderBy(_ => random.Next())];
             bool[] send = [.. order.Select(_ => random.Next(2) == 0)];
             int transaction = i;

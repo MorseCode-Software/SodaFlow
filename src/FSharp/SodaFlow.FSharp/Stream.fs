@@ -1010,8 +1010,8 @@ let private toOption (m: MaybeInternal<_>) =
 ///     is <c>Some</c> with the value of its stream if that stream fired, and <c>None</c> if it did not.
 /// </returns>
 /// <remarks>
-///     At least one element of each firing is <c>Some</c>. No input has priority over the other inputs. Thus,
-///     the sequence of the streams changes only the sequence of the elements.
+///     One or more elements of each firing are <c>Some</c>. No input has priority over the other
+///     inputs. Thus, the sequence of the streams changes only the sequence of the elements.
 /// </remarks>
 [<MethodImpl(MethodImplOptions.NoInlining)>]
 let mergeOptions2 (stream: Stream<_>, stream2: Stream<_>) =
@@ -1028,8 +1028,8 @@ let mergeOptions2 (stream: Stream<_>, stream2: Stream<_>) =
 ///     is <c>Some</c> with the value of its stream if that stream fired, and <c>None</c> if it did not.
 /// </returns>
 /// <remarks>
-///     At least one element of each firing is <c>Some</c>. No input has priority over the other inputs. Thus,
-///     the sequence of the streams changes only the sequence of the elements.
+///     One or more elements of each firing are <c>Some</c>. No input has priority over the other
+///     inputs. Thus, the sequence of the streams changes only the sequence of the elements.
 /// </remarks>
 [<MethodImpl(MethodImplOptions.NoInlining)>]
 let mergeOptions3 (stream: Stream<_>, stream2: Stream<_>, stream3: Stream<_>) =
@@ -1051,8 +1051,8 @@ let mergeOptions3 (stream: Stream<_>, stream2: Stream<_>, stream3: Stream<_>) =
 ///     is <c>Some</c> with the value of its stream if that stream fired, and <c>None</c> if it did not.
 /// </returns>
 /// <remarks>
-///     At least one element of each firing is <c>Some</c>. No input has priority over the other inputs. Thus,
-///     the sequence of the streams changes only the sequence of the elements.
+///     One or more elements of each firing are <c>Some</c>. No input has priority over the other
+///     inputs. Thus, the sequence of the streams changes only the sequence of the elements.
 /// </remarks>
 [<MethodImpl(MethodImplOptions.NoInlining)>]
 let mergeOptions4 (stream: Stream<_>, stream2: Stream<_>, stream3: Stream<_>, stream4: Stream<_>) =

@@ -944,8 +944,8 @@ public static class StreamExtensionMethods
     ///     no value if it did not.
     /// </returns>
     /// <remarks>
-    ///     At least one element of each tuple has a value. No input has priority over the other inputs.
-    ///     Thus, the sequence of the parameters changes only the sequence of the elements.
+    ///     One or more elements of each tuple have a value. No input has priority over the other
+    ///     inputs. Thus, the sequence of the parameters changes only the sequence of the elements.
     /// </remarks>
     [MethodImpl(MethodImplOptions.NoInlining)]
     public static Stream<(Maybe<T>, Maybe<T2>)> Merge<T, T2>(this Stream<T> s, Stream<T2> s2) =>
@@ -967,8 +967,8 @@ public static class StreamExtensionMethods
     ///     no value if it did not.
     /// </returns>
     /// <remarks>
-    ///     At least one element of each tuple has a value. No input has priority over the other inputs.
-    ///     Thus, the sequence of the parameters changes only the sequence of the elements.
+    ///     One or more elements of each tuple have a value. No input has priority over the other
+    ///     inputs. Thus, the sequence of the parameters changes only the sequence of the elements.
     /// </remarks>
     [MethodImpl(MethodImplOptions.NoInlining)]
     public static Stream<(Maybe<T>, Maybe<T2>, Maybe<T3>)> Merge<T, T2, T3>(
@@ -998,8 +998,8 @@ public static class StreamExtensionMethods
     ///     no value if it did not.
     /// </returns>
     /// <remarks>
-    ///     At least one element of each tuple has a value. No input has priority over the other inputs.
-    ///     Thus, the sequence of the parameters changes only the sequence of the elements.
+    ///     One or more elements of each tuple have a value. No input has priority over the other
+    ///     inputs. Thus, the sequence of the parameters changes only the sequence of the elements.
     /// </remarks>
     [MethodImpl(MethodImplOptions.NoInlining)]
     public static Stream<(Maybe<T>, Maybe<T2>, Maybe<T3>, Maybe<T4>)> Merge<T, T2, T3, T4>(
