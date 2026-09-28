@@ -25,6 +25,23 @@ none must find the transaction that is open to ask.
 SodaFlow.Core.Async is the first caller. Its Execute gives a Task to code that
 waits, and it gives the value of that Task from a posted action.
 
+Adds SnapshotLatestImpl, for the SnapshotLatest that SodaFlow and
+SodaFlow.FSharp give. It samples a behavior when a stream fires, as SnapshotImpl
+does. SnapshotImpl gives the value from before the transaction. SnapshotLatestImpl
+gives the value at the end of the transaction.
+
+It uses the mechanism of LiftImpl. The stream and the updates of the behavior
+send into one pulse. A coalesce operation that ranks above both reads the
+captured update. Thus, the behavior can update before the output fires. A stream
+that fires more than once in a transaction gives one output firing for each, as
+SnapshotImpl does.
+
+SnapshotLatestImpl takes up to five behaviors or cells. All of its forms use one
+private method. Each form gives a capture for each behavior, a function that
+reads the captured values, and the function that puts them together. The
+captures and the reads are Behavior.Pulse and Behavior.Take, which LiftImpl also
+uses. They are internal now, and not private.
+
 BREAKING for the packages that reach these internals: AttachListenerImpl is
 named AttachListenerInternal. The Impl suffix here marks a method that a public
 extension forwards to, and the extension that forwarded to this one is gone from

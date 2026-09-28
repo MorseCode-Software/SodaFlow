@@ -315,6 +315,285 @@ let snapshotAndTakeB (behavior: Behavior<_>) (stream: Stream<_>) = stream.Snapsh
 let snapshotAndTake (cell: Cell<_>) (stream: Stream<_>) = stream.SnapshotImpl cell
 
 /// <summary>
+///     Samples the latest value of a behavior when the stream fires, and fires the combination.
+/// </summary>
+/// <param name="behavior">The behavior to sample.</param>
+/// <param name="f">Combines the fired value with the sampled value.</param>
+/// <param name="stream">The stream that causes each firing of the result.</param>
+/// <returns>
+///     A stream firing <paramref name="f" /> applied to the fired value and the sampled
+///     value.
+/// </returns>
+/// <remarks>
+///     This samples and does not merge. Only the stream causes the firing. An update of the behavior
+///     alone does not. Each sampled value is the value at the end of the transaction of that
+///     firing. Thus, a behavior that the same transaction updates gives its new value, where
+///     <c>snapshotB</c> gives its previous value.
+///     Unlike <c>snapshotB</c>, this cannot close a loop. Do not give a behavior that the result updates in
+///     the same transaction.
+/// </remarks>
+[<MethodImpl(MethodImplOptions.NoInlining)>]
+let snapshotLatestB (behavior: Behavior<_>) f (stream: Stream<_>) =
+    stream.SnapshotLatestImpl(behavior, (Func<_, _, _> f))
+
+/// <summary>
+///     Samples the latest value of a cell when the stream fires, and fires the combination.
+/// </summary>
+/// <param name="cell">The cell to sample.</param>
+/// <param name="f">Combines the fired value with the sampled value.</param>
+/// <param name="stream">The stream that causes each firing of the result.</param>
+/// <returns>
+///     A stream firing <paramref name="f" /> applied to the fired value and the sampled
+///     value.
+/// </returns>
+/// <remarks>
+///     This samples and does not merge. Only the stream causes the firing. An update of the cell
+///     alone does not. Each sampled value is the value at the end of the transaction of that
+///     firing. Thus, a cell that the same transaction updates gives its new value, where
+///     <c>snapshot</c> gives its previous value.
+///     Unlike <c>snapshot</c>, this cannot close a loop. Do not give a cell that the result updates in
+///     the same transaction. <c>snapshotLatest2</c> and the functions after it accept more than one
+///     cell. For more cells than they accept, give a cell from <c>Cell.lift2</c> or one of the other
+///     <c>lift</c> functions.
+/// </remarks>
+[<MethodImpl(MethodImplOptions.NoInlining)>]
+let snapshotLatest (cell: Cell<_>) f (stream: Stream<_>) =
+    stream.SnapshotLatestImpl(cell, (Func<_, _, _> f))
+
+/// <summary>
+///     Samples the latest value of a behavior when the stream fires, and fires the behavior's
+///     value, discarding the stream's own.
+/// </summary>
+/// <param name="behavior">The behavior to sample.</param>
+/// <param name="stream">The stream that causes each firing of the result.</param>
+/// <returns>A stream firing the behavior's latest value at each firing of the input.</returns>
+/// <remarks>
+///     This samples and does not merge. Only the stream causes the firing. An update of the behavior
+///     alone does not. Each sampled value is the value at the end of the transaction of that
+///     firing. Thus, a behavior that the same transaction updates gives its new value, where
+///     <c>snapshotAndTakeB</c> gives its previous value.
+///     Unlike <c>snapshotAndTakeB</c>, this cannot close a loop. Do not give a behavior that the result
+///     updates in the same transaction.
+/// </remarks>
+[<MethodImpl(MethodImplOptions.NoInlining)>]
+let snapshotLatestAndTakeB (behavior: Behavior<_>) (stream: Stream<_>) = stream.SnapshotLatestImpl behavior
+
+/// <summary>
+///     Samples the latest value of a cell when the stream fires, and fires the cell's value,
+///     discarding the stream's own.
+/// </summary>
+/// <param name="cell">The cell to sample.</param>
+/// <param name="stream">The stream that causes each firing of the result.</param>
+/// <returns>A stream firing the cell's latest value at each firing of the input.</returns>
+/// <remarks>
+///     This samples and does not merge. Only the stream causes the firing. An update of the cell
+///     alone does not. Each sampled value is the value at the end of the transaction of that
+///     firing. Thus, a cell that the same transaction updates gives its new value, where
+///     <c>snapshotAndTake</c> gives its previous value.
+///     Unlike <c>snapshotAndTake</c>, this cannot close a loop. Do not give a cell that the result updates in
+///     the same transaction. To get the latest values of more than one cell,
+///     give a cell from <c>Cell.lift2</c> or one of the other <c>lift</c> functions.
+/// </remarks>
+[<MethodImpl(MethodImplOptions.NoInlining)>]
+let snapshotLatestAndTake (cell: Cell<_>) (stream: Stream<_>) = stream.SnapshotLatestImpl cell
+
+/// <summary>
+///     Samples the latest values of two behaviors when the stream fires, and fires the combination.
+/// </summary>
+/// <param name="behavior1">The first behavior to sample.</param>
+/// <param name="behavior2">The second behavior to sample.</param>
+/// <param name="f">Combines the fired value with the two sampled values.</param>
+/// <param name="stream">The stream that causes each firing of the result.</param>
+/// <returns>
+///     A stream firing <paramref name="f" /> applied to the fired value and the two sampled values.
+/// </returns>
+/// <remarks>
+///     This samples and does not merge. Only the stream causes the firing. An update of the
+///     behaviors alone does not. Each sampled value is the value at the end of the transaction of
+///     that firing. Thus, a behavior that the same transaction updates gives its new value, where
+///     <c>snapshot2B</c> gives its previous value. Unlike <c>snapshot2B</c>, this cannot close a
+///     loop. Do not give a behavior that the result updates in the same transaction.
+/// </remarks>
+[<MethodImpl(MethodImplOptions.NoInlining)>]
+let snapshotLatest2B (behavior1: Behavior<_>) behavior2 f (stream: Stream<_>) =
+    stream.SnapshotLatestImpl(behavior1, behavior2, (Func<_, _, _, _> f))
+
+/// <summary>
+///     Samples the latest values of two cells when the stream fires, and fires the combination.
+/// </summary>
+/// <param name="cell1">The first cell to sample.</param>
+/// <param name="cell2">The second cell to sample.</param>
+/// <param name="f">Combines the fired value with the two sampled values.</param>
+/// <param name="stream">The stream that causes each firing of the result.</param>
+/// <returns>
+///     A stream firing <paramref name="f" /> applied to the fired value and the two sampled values.
+/// </returns>
+/// <remarks>
+///     This samples and does not merge. Only the stream causes the firing. An update of the cells
+///     alone does not. Each sampled value is the value at the end of the transaction of that
+///     firing. Thus, a cell that the same transaction updates gives its new value, where
+///     <c>snapshot2</c> gives its previous value. Unlike <c>snapshot2</c>, this cannot close a
+///     loop. Do not give a cell that the result updates in the same transaction.
+/// </remarks>
+[<MethodImpl(MethodImplOptions.NoInlining)>]
+let snapshotLatest2 (cell1: Cell<_>) cell2 f (stream: Stream<_>) =
+    stream.SnapshotLatestImpl(cell1, cell2, (Func<_, _, _, _> f))
+
+/// <summary>
+///     Samples the latest values of three behaviors when the stream fires, and fires the
+///     combination.
+/// </summary>
+/// <param name="behavior1">The first behavior to sample.</param>
+/// <param name="behavior2">The second behavior to sample.</param>
+/// <param name="behavior3">The third behavior to sample.</param>
+/// <param name="f">Combines the fired value with the three sampled values.</param>
+/// <param name="stream">The stream that causes each firing of the result.</param>
+/// <returns>
+///     A stream firing <paramref name="f" /> applied to the fired value and the three sampled
+///     values.
+/// </returns>
+/// <remarks>
+///     This samples and does not merge. Only the stream causes the firing. An update of the
+///     behaviors alone does not. Each sampled value is the value at the end of the transaction of
+///     that firing. Thus, a behavior that the same transaction updates gives its new value, where
+///     <c>snapshot3B</c> gives its previous value. Unlike <c>snapshot3B</c>, this cannot close a
+///     loop. Do not give a behavior that the result updates in the same transaction.
+/// </remarks>
+[<MethodImpl(MethodImplOptions.NoInlining)>]
+let snapshotLatest3B (behavior1: Behavior<_>) behavior2 behavior3 f (stream: Stream<_>) =
+    stream.SnapshotLatestImpl(behavior1, behavior2, behavior3, (Func<_, _, _, _, _> f))
+
+/// <summary>
+///     Samples the latest values of three cells when the stream fires, and fires the combination.
+/// </summary>
+/// <param name="cell1">The first cell to sample.</param>
+/// <param name="cell2">The second cell to sample.</param>
+/// <param name="cell3">The third cell to sample.</param>
+/// <param name="f">Combines the fired value with the three sampled values.</param>
+/// <param name="stream">The stream that causes each firing of the result.</param>
+/// <returns>
+///     A stream firing <paramref name="f" /> applied to the fired value and the three sampled
+///     values.
+/// </returns>
+/// <remarks>
+///     This samples and does not merge. Only the stream causes the firing. An update of the cells
+///     alone does not. Each sampled value is the value at the end of the transaction of that
+///     firing. Thus, a cell that the same transaction updates gives its new value, where
+///     <c>snapshot3</c> gives its previous value. Unlike <c>snapshot3</c>, this cannot close a
+///     loop. Do not give a cell that the result updates in the same transaction.
+/// </remarks>
+[<MethodImpl(MethodImplOptions.NoInlining)>]
+let snapshotLatest3 (cell1: Cell<_>) cell2 cell3 f (stream: Stream<_>) =
+    stream.SnapshotLatestImpl(cell1, cell2, cell3, (Func<_, _, _, _, _> f))
+
+/// <summary>
+///     Samples the latest values of four behaviors when the stream fires, and fires the
+///     combination.
+/// </summary>
+/// <param name="behavior1">The first behavior to sample.</param>
+/// <param name="behavior2">The second behavior to sample.</param>
+/// <param name="behavior3">The third behavior to sample.</param>
+/// <param name="behavior4">The fourth behavior to sample.</param>
+/// <param name="f">Combines the fired value with the four sampled values.</param>
+/// <param name="stream">The stream that causes each firing of the result.</param>
+/// <returns>
+///     A stream firing <paramref name="f" /> applied to the fired value and the four sampled
+///     values.
+/// </returns>
+/// <remarks>
+///     This samples and does not merge. Only the stream causes the firing. An update of the
+///     behaviors alone does not. Each sampled value is the value at the end of the transaction of
+///     that firing. Thus, a behavior that the same transaction updates gives its new value, where
+///     <c>snapshot4B</c> gives its previous value. Unlike <c>snapshot4B</c>, this cannot close a
+///     loop. Do not give a behavior that the result updates in the same transaction.
+/// </remarks>
+[<MethodImpl(MethodImplOptions.NoInlining)>]
+let snapshotLatest4B (behavior1: Behavior<_>) behavior2 behavior3 behavior4 f (stream: Stream<_>) =
+    stream.SnapshotLatestImpl(behavior1, behavior2, behavior3, behavior4, (Func<_, _, _, _, _, _> f))
+
+/// <summary>
+///     Samples the latest values of four cells when the stream fires, and fires the combination.
+/// </summary>
+/// <param name="cell1">The first cell to sample.</param>
+/// <param name="cell2">The second cell to sample.</param>
+/// <param name="cell3">The third cell to sample.</param>
+/// <param name="cell4">The fourth cell to sample.</param>
+/// <param name="f">Combines the fired value with the four sampled values.</param>
+/// <param name="stream">The stream that causes each firing of the result.</param>
+/// <returns>
+///     A stream firing <paramref name="f" /> applied to the fired value and the four sampled
+///     values.
+/// </returns>
+/// <remarks>
+///     This samples and does not merge. Only the stream causes the firing. An update of the cells
+///     alone does not. Each sampled value is the value at the end of the transaction of that
+///     firing. Thus, a cell that the same transaction updates gives its new value, where
+///     <c>snapshot4</c> gives its previous value. Unlike <c>snapshot4</c>, this cannot close a
+///     loop. Do not give a cell that the result updates in the same transaction.
+/// </remarks>
+[<MethodImpl(MethodImplOptions.NoInlining)>]
+let snapshotLatest4 (cell1: Cell<_>) cell2 cell3 cell4 f (stream: Stream<_>) =
+    stream.SnapshotLatestImpl(cell1, cell2, cell3, cell4, (Func<_, _, _, _, _, _> f))
+
+/// <summary>
+///     Samples the latest values of five behaviors when the stream fires, and fires the
+///     combination.
+/// </summary>
+/// <param name="behavior1">The first behavior to sample.</param>
+/// <param name="behavior2">The second behavior to sample.</param>
+/// <param name="behavior3">The third behavior to sample.</param>
+/// <param name="behavior4">The fourth behavior to sample.</param>
+/// <param name="behavior5">The fifth behavior to sample.</param>
+/// <param name="f">Combines the fired value with the five sampled values.</param>
+/// <param name="stream">The stream that causes each firing of the result.</param>
+/// <returns>
+///     A stream firing <paramref name="f" /> applied to the fired value and the five sampled
+///     values.
+/// </returns>
+/// <remarks>
+///     This samples and does not merge. Only the stream causes the firing. An update of the
+///     behaviors alone does not. Each sampled value is the value at the end of the transaction of
+///     that firing. Thus, a behavior that the same transaction updates gives its new value, where
+///     <c>snapshot5B</c> gives its previous value. Unlike <c>snapshot5B</c>, this cannot close a
+///     loop. Do not give a behavior that the result updates in the same transaction.
+/// </remarks>
+[<MethodImpl(MethodImplOptions.NoInlining)>]
+let snapshotLatest5B (behavior1: Behavior<_>) behavior2 behavior3 behavior4 behavior5 f (stream: Stream<_>) =
+    stream.SnapshotLatestImpl(
+        behavior1,
+        behavior2,
+        behavior3,
+        behavior4,
+        behavior5,
+        Func<_, _, _, _, _, _, _> f
+    )
+
+/// <summary>
+///     Samples the latest values of five cells when the stream fires, and fires the combination.
+/// </summary>
+/// <param name="cell1">The first cell to sample.</param>
+/// <param name="cell2">The second cell to sample.</param>
+/// <param name="cell3">The third cell to sample.</param>
+/// <param name="cell4">The fourth cell to sample.</param>
+/// <param name="cell5">The fifth cell to sample.</param>
+/// <param name="f">Combines the fired value with the five sampled values.</param>
+/// <param name="stream">The stream that causes each firing of the result.</param>
+/// <returns>
+///     A stream firing <paramref name="f" /> applied to the fired value and the five sampled
+///     values.
+/// </returns>
+/// <remarks>
+///     This samples and does not merge. Only the stream causes the firing. An update of the cells
+///     alone does not. Each sampled value is the value at the end of the transaction of that
+///     firing. Thus, a cell that the same transaction updates gives its new value, where
+///     <c>snapshot5</c> gives its previous value. Unlike <c>snapshot5</c>, this cannot close a
+///     loop. Do not give a cell that the result updates in the same transaction.
+/// </remarks>
+[<MethodImpl(MethodImplOptions.NoInlining)>]
+let snapshotLatest5 (cell1: Cell<_>) cell2 cell3 cell4 cell5 f (stream: Stream<_>) =
+    stream.SnapshotLatestImpl(cell1, cell2, cell3, cell4, cell5, (Func<_, _, _, _, _, _, _> f))
+
+/// <summary>
 ///     Samples two behaviors when the stream fires, and fires the combination.
 /// </summary>
 /// <param name="behavior1">The first behavior to sample.</param>

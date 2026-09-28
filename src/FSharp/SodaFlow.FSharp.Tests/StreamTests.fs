@@ -636,6 +636,125 @@ type ``Stream Tests``() =
         }
 
     [<Test>]
+    member _.``Test SnapshotLatest No Implicit Delay``() =
+        task {
+            let s = sinkS ()
+            let c = s |> holdS ' '
+            let out = List<_>()
+            let l = s |> snapshotLatestAndTakeC c |> listenStrongS out.Add
+            s |> sendS 'C'
+            s |> sendS 'B'
+            s |> sendS 'A'
+            l |> unlistenL
+            do! Expect.Sequence([ 'C'; 'B'; 'A' ], out)
+        }
+
+    [<Test>]
+    member _.``Test SnapshotLatest Simultaneous Update``() =
+        task {
+            let c1 = sinkC 1
+            let c2 = sinkC 10
+            let snapshot = List<_>()
+            let latest = List<_>()
+
+            let l1 =
+                c1 |> updatesC |> snapshotC c2 (fun a b -> $"{a},{b}") |> listenStrongS snapshot.Add
+
+            let l2 =
+                c1 |> updatesC |> snapshotLatestC c2 (fun a b -> $"{a},{b}") |> listenStrongS latest.Add
+
+            // The cell updates after the stream fires.
+            runT (fun () ->
+                c1 |> sendC 2
+                c2 |> sendC 20)
+
+            // The cell updates before the stream fires.
+            runT (fun () ->
+                c2 |> sendC 30
+                c1 |> sendC 3)
+
+            // Only the cell updates. This gives no firing.
+            c2 |> sendC 40
+
+            // Only the stream fires. This gives the current value of the cell.
+            c1 |> sendC 4
+
+            l1 |> unlistenL
+            l2 |> unlistenL
+            do! Expect.Sequence([ "2,10"; "3,20"; "4,40" ], snapshot)
+            do! Expect.Sequence([ "2,20"; "3,30"; "4,40" ], latest)
+        }
+
+    [<Test>]
+    member _.``Test SnapshotLatest Many``() =
+        task {
+            let s = sinkS ()
+            let c1 = sinkC 1
+            let c2 = sinkC 2
+            let c3 = sinkC 3
+            let c4 = sinkC 4
+            let c5 = sinkC 5
+            let b1 = c1 |> asBehaviorC
+            let b2 = c2 |> asBehaviorC
+            let b3 = c3 |> asBehaviorC
+            let b4 = c4 |> asBehaviorC
+            let b5 = c5 |> asBehaviorC
+            let out = List<_>()
+
+            let listeners =
+                [ s |> snapshotLatest2C c1 c2 (fun a v1 v2 -> [ a; v1; v2 ])
+                  s |> snapshotLatest2B b1 b2 (fun a v1 v2 -> [ a; v1; v2 ])
+                  s |> snapshotLatest3C c1 c2 c3 (fun a v1 v2 v3 -> [ a; v1; v2; v3 ])
+                  s |> snapshotLatest3B b1 b2 b3 (fun a v1 v2 v3 -> [ a; v1; v2; v3 ])
+                  s |> snapshotLatest4C c1 c2 c3 c4 (fun a v1 v2 v3 v4 -> [ a; v1; v2; v3; v4 ])
+                  s |> snapshotLatest4B b1 b2 b3 b4 (fun a v1 v2 v3 v4 -> [ a; v1; v2; v3; v4 ])
+                  s |> snapshotLatest5C c1 c2 c3 c4 c5 (fun a v1 v2 v3 v4 v5 -> [ a; v1; v2; v3; v4; v5 ])
+                  s |> snapshotLatest5B b1 b2 b3 b4 b5 (fun a v1 v2 v3 v4 v5 -> [ a; v1; v2; v3; v4; v5 ]) ]
+                |> List.map (listenStrongS out.Add)
+
+            // The stream fires between the updates of the cells. Each result must see the new value of
+            // each cell that this transaction updates, and the current value of the others.
+            runT (fun () ->
+                c1 |> sendC 10
+                c3 |> sendC 30
+                s |> sendS 0
+                c5 |> sendC 50)
+
+            listeners |> List.iter unlistenL
+
+            // The results fire in the sequence of their ranks, which is not part of the contract.
+            do!
+                Expect.SameItems(
+                    [ [ 0; 10; 2 ]
+                      [ 0; 10; 2 ]
+                      [ 0; 10; 2; 30 ]
+                      [ 0; 10; 2; 30 ]
+                      [ 0; 10; 2; 30; 4 ]
+                      [ 0; 10; 2; 30; 4 ]
+                      [ 0; 10; 2; 30; 4; 50 ]
+                      [ 0; 10; 2; 30; 4; 50 ] ],
+                    out
+                )
+        }
+
+    [<Test>]
+    member _.``Test SnapshotLatest Behavior``() =
+        task {
+            let s = sinkS ()
+            let b = sinkB 0
+            let out = List<_>()
+            let l = s |> snapshotLatestB b (+) |> listenStrongS out.Add
+
+            runT (fun () ->
+                s |> sendS 1
+                b |> sendB 100)
+
+            s |> sendS 2
+            l |> unlistenL
+            do! Expect.Sequence([ 101; 102 ], out)
+        }
+
+    [<Test>]
     member _.``Test Listen``() =
         task {
             let out = listenAndDrop ()

@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using SodaFlow.Functional;
@@ -808,6 +809,337 @@ public sealed class StreamTests
         s.Send('A');
         l.Unlisten();
         await Assert.That(@out).IsEquivalentTo(expected: ['C', 'B', 'A'], ordering: CollectionOrdering.Matching);
+    }
+
+    [Test]
+    public async Task TestSnapshotLatestNoImplicitDelay()
+    {
+        StreamSink<char> s = Stream.CreateSink<char>();
+        Cell<char> c = s.Hold(' ');
+        List<char> @out = [];
+        IListener l = s.SnapshotLatest(c).ListenStrong(@out.Add);
+        s.Send('C');
+        s.Send('B');
+        s.Send('A');
+        l.Unlisten();
+        await Assert.That(@out).IsEquivalentTo(expected: ['C', 'B', 'A'], ordering: CollectionOrdering.Matching);
+    }
+
+    [Test]
+    public async Task TestSnapshotLatestSimultaneousUpdate()
+    {
+        CellSink<int> c1 = Cell.CreateSink(1);
+        CellSink<int> c2 = Cell.CreateSink(10);
+        List<string> snapshot = [];
+        List<string> latest = [];
+
+        IListener l1 =
+            c1.Updates().Snapshot(c: c2, f: static (a, b) => $"{a},{b}").ListenStrong(snapshot.Add);
+
+        IListener l2 =
+            c1.Updates().SnapshotLatest(c: c2, f: static (a, b) => $"{a},{b}").ListenStrong(latest.Add);
+
+        // The cell updates after the stream fires.
+        Transaction.RunVoid(() =>
+        {
+            c1.Send(2);
+            c2.Send(20);
+        });
+
+        // The cell updates before the stream fires.
+        Transaction.RunVoid(() =>
+        {
+            c2.Send(30);
+            c1.Send(3);
+        });
+
+        // Only the cell updates. This gives no firing.
+        c2.Send(40);
+
+        // Only the stream fires. This gives the current value of the cell.
+        c1.Send(4);
+
+        l1.Unlisten();
+        l2.Unlisten();
+
+        await Assert.That(snapshot)
+            .IsEquivalentTo(expected: ["2,10", "3,20", "4,40"], ordering: CollectionOrdering.Matching);
+
+        await Assert.That(latest)
+            .IsEquivalentTo(expected: ["2,20", "3,30", "4,40"], ordering: CollectionOrdering.Matching);
+    }
+
+    [Test]
+    public async Task TestSnapshotLatestMatchesLiftAndMerge()
+    {
+        CellSink<int> c1 = Cell.CreateSink(0);
+        CellSink<int> c2 = Cell.CreateSink(0);
+        List<string> expected = [];
+        List<string> actual = [];
+
+        IListener l1 = Reference(c1: c1, c2: c2, f: static (a, b) => $"{a},{b}").ListenStrong(expected.Add);
+
+        IListener l2 =
+            c1.Updates().SnapshotLatest(c: c2, f: static (a, b) => $"{a},{b}").ListenStrong(actual.Add);
+
+        Random random = new(1234);
+
+        for (int i = 1; i <= 500; i++)
+        {
+            int value = i;
+
+            // 0 updates c1, 1 updates c2, 2 updates c1 then c2, and 3 updates c2 then c1.
+            int choice = random.Next(4);
+
+            Transaction.RunVoid(() =>
+            {
+                if (choice is 0 or 2)
+                {
+                    c1.Send(value);
+                }
+
+                if (choice is 1 or 2 or 3)
+                {
+                    c2.Send(-value);
+                }
+
+                if (choice is 3)
+                {
+                    c1.Send(value);
+                }
+            });
+        }
+
+        l1.Unlisten();
+        l2.Unlisten();
+
+        await Assert.That(actual.Count).IsGreaterThan(0);
+        await Assert.That(actual).IsEquivalentTo(expected: expected, ordering: CollectionOrdering.Matching);
+
+        return;
+
+        // Before SnapshotLatest, this composition gave this result. The lifted cell fires
+        // in each transaction that updates an input, with the new values. The merge keeps only the
+        // transactions in which c1 also fires.
+        static Stream<string> Reference(Cell<int> c1, Cell<int> c2, Func<int, int, string> f) =>
+            c1.Updates()
+                .Map(static _ => (fromC1: true, value: string.Empty))
+                .Merge(
+                    s2: c1.Lift(c2: c2, f: f).Updates().Map(static v => (fromC1: false, value: v)),
+                    f: static (_, r) => r with { fromC1 = true })
+                .Filter(static t => t.fromC1)
+                .Map(static t => t.value);
+    }
+
+    [Test]
+    public async Task TestSnapshotLatestManyMatchesLift()
+    {
+        StreamSink<int> s = Stream.CreateSink<int>();
+        CellSink<int> c1 = Cell.CreateSink(0);
+        CellSink<int> c2 = Cell.CreateSink(0);
+        CellSink<int> c3 = Cell.CreateSink(0);
+        CellSink<int> c4 = Cell.CreateSink(0);
+        CellSink<int> c5 = Cell.CreateSink(0);
+        List<IListener> listeners = [];
+
+        // Each overload is compared with the one-cell form on a lifted cell of the same inputs. The
+        // one-cell form is compared with the Lift and Merge composition in
+        // TestSnapshotLatestMatchesLiftAndMerge. The behavior overloads get the same cells as behaviors.
+        List<string> lift2 = ListenTo(
+            s.SnapshotLatest(
+                c: c1.Lift(c2: c2, f: static (v1, v2) => $"{v1},{v2}"),
+                f: static (a, v) => $"{a}:{v}"));
+
+        List<string> actual2 = ListenTo(
+            s.SnapshotLatest(c1: c1, c2: c2, f: static (a, v1, v2) => $"{a}:{v1},{v2}"));
+
+        List<string> actual2B = ListenTo(
+            s.SnapshotLatest(
+                b1: c1.AsBehavior(),
+                b2: c2.AsBehavior(),
+                f: static (a, v1, v2) => $"{a}:{v1},{v2}"));
+
+        List<string> lift3 = ListenTo(
+            s.SnapshotLatest(
+                c: c1.Lift(c2: c2, c3: c3, f: static (v1, v2, v3) => $"{v1},{v2},{v3}"),
+                f: static (a, v) => $"{a}:{v}"));
+
+        List<string> actual3 = ListenTo(
+            s.SnapshotLatest(c1: c1, c2: c2, c3: c3, f: static (a, v1, v2, v3) => $"{a}:{v1},{v2},{v3}"));
+
+        List<string> actual3B = ListenTo(
+            s.SnapshotLatest(
+                b1: c1.AsBehavior(),
+                b2: c2.AsBehavior(),
+                b3: c3.AsBehavior(),
+                f: static (a, v1, v2, v3) => $"{a}:{v1},{v2},{v3}"));
+
+        List<string> lift4 = ListenTo(
+            s.SnapshotLatest(
+                c: c1.Lift(c2: c2, c3: c3, c4: c4, f: static (v1, v2, v3, v4) => $"{v1},{v2},{v3},{v4}"),
+                f: static (a, v) => $"{a}:{v}"));
+
+        List<string> actual4 = ListenTo(
+            s.SnapshotLatest(
+                c1: c1,
+                c2: c2,
+                c3: c3,
+                c4: c4,
+                f: static (a, v1, v2, v3, v4) => $"{a}:{v1},{v2},{v3},{v4}"));
+
+        List<string> actual4B = ListenTo(
+            s.SnapshotLatest(
+                b1: c1.AsBehavior(),
+                b2: c2.AsBehavior(),
+                b3: c3.AsBehavior(),
+                b4: c4.AsBehavior(),
+                f: static (a, v1, v2, v3, v4) => $"{a}:{v1},{v2},{v3},{v4}"));
+
+        List<string> lift5 = ListenTo(
+            s.SnapshotLatest(
+                c: c1.Lift(
+                    c2: c2,
+                    c3: c3,
+                    c4: c4,
+                    c5: c5,
+                    f: static (v1, v2, v3, v4, v5) => $"{v1},{v2},{v3},{v4},{v5}"),
+                f: static (a, v) => $"{a}:{v}"));
+
+        List<string> actual5 = ListenTo(
+            s.SnapshotLatest(
+                c1: c1,
+                c2: c2,
+                c3: c3,
+                c4: c4,
+                c5: c5,
+                f: static (a, v1, v2, v3, v4, v5) => $"{a}:{v1},{v2},{v3},{v4},{v5}"));
+
+        List<string> actual5B = ListenTo(
+            s.SnapshotLatest(
+                b1: c1.AsBehavior(),
+                b2: c2.AsBehavior(),
+                b3: c3.AsBehavior(),
+                b4: c4.AsBehavior(),
+                b5: c5.AsBehavior(),
+                f: static (a, v1, v2, v3, v4, v5) => $"{a}:{v1},{v2},{v3},{v4},{v5}"));
+
+        IReadOnlyList<Action<int>> sends = [s.Send, c1.Send, c2.Send, c3.Send, c4.Send, c5.Send];
+        Random random = new(5678);
+
+        for (int i = 1; i <= 500; i++)
+        {
+            // Each input gets a value in this transaction with a probability of one half, in a random
+            // sequence. Each value is different, thus a value in the wrong position gives a different
+            // string.
+            int[] order = [.. Enumerable.Range(start: 0, count: sends.Count).OrderBy(_ => random.Next())];
+            bool[] send = [.. order.Select(_ => random.Next(2) == 0)];
+            int transaction = i;
+
+            Transaction.RunVoid(() =>
+            {
+                for (int k = 0; k < order.Length; k++)
+                {
+                    if (send[k])
+                    {
+                        sends[order[k]](transaction * 10 + order[k]);
+                    }
+                }
+            });
+        }
+
+        foreach (IListener listener in listeners)
+        {
+            listener.Unlisten();
+        }
+
+        await Assert.That(lift5.Count).IsGreaterThan(0);
+        await Assert.That(actual2).IsEquivalentTo(expected: lift2, ordering: CollectionOrdering.Matching);
+        await Assert.That(actual2B).IsEquivalentTo(expected: lift2, ordering: CollectionOrdering.Matching);
+        await Assert.That(actual3).IsEquivalentTo(expected: lift3, ordering: CollectionOrdering.Matching);
+        await Assert.That(actual3B).IsEquivalentTo(expected: lift3, ordering: CollectionOrdering.Matching);
+        await Assert.That(actual4).IsEquivalentTo(expected: lift4, ordering: CollectionOrdering.Matching);
+        await Assert.That(actual4B).IsEquivalentTo(expected: lift4, ordering: CollectionOrdering.Matching);
+        await Assert.That(actual5).IsEquivalentTo(expected: lift5, ordering: CollectionOrdering.Matching);
+        await Assert.That(actual5B).IsEquivalentTo(expected: lift5, ordering: CollectionOrdering.Matching);
+
+        return;
+
+        List<string> ListenTo(Stream<string> stream)
+        {
+            List<string> @out = [];
+            listeners.Add(stream.ListenStrong(@out.Add));
+            return @out;
+        }
+    }
+
+    [Test]
+    public async Task TestSnapshotLatestValues()
+    {
+        CellSink<int> c1 = Cell.CreateSink(1);
+        CellSink<int> c2 = Cell.CreateSink(10);
+        List<int> @out = [];
+
+        IListener l =
+            Transaction.Run(() =>
+                c1.Values().SnapshotLatest(c: c2, f: static (a, b) => a + b).ListenStrong(@out.Add));
+
+        Transaction.RunVoid(() =>
+        {
+            c1.Send(2);
+            c2.Send(20);
+        });
+
+        l.Unlisten();
+        await Assert.That(@out).IsEquivalentTo(expected: [11, 22], ordering: CollectionOrdering.Matching);
+    }
+
+    [Test]
+    public async Task TestSnapshotLatestBehavior()
+    {
+        StreamSink<int> s = Stream.CreateSink<int>();
+        BehaviorSink<int> b = Behavior.CreateSink(0);
+        List<int> @out = [];
+        IListener l = s.SnapshotLatest(b: b, f: static (a, v) => a + v).ListenStrong(@out.Add);
+
+        Transaction.RunVoid(() =>
+        {
+            s.Send(1);
+            b.Send(100);
+        });
+
+        s.Send(2);
+        l.Unlisten();
+        await Assert.That(@out).IsEquivalentTo(expected: [101, 102], ordering: CollectionOrdering.Matching);
+    }
+
+    [Test]
+    public async Task TestSnapshotLatestLift()
+    {
+        CellSink<int> c1 = Cell.CreateSink(1);
+        CellSink<int> c2 = Cell.CreateSink(10);
+        CellSink<int> c3 = Cell.CreateSink(100);
+        List<int> @out = [];
+
+        IListener l =
+            c1.Updates()
+                .SnapshotLatest(c2.Lift(c2: c3, f: static (b, c) => b + c))
+                .ListenStrong(@out.Add);
+
+        Transaction.RunVoid(() =>
+        {
+            c1.Send(2);
+            c2.Send(20);
+            c3.Send(200);
+        });
+
+        Transaction.RunVoid(() =>
+        {
+            c3.Send(300);
+            c1.Send(3);
+        });
+
+        l.Unlisten();
+        await Assert.That(@out).IsEquivalentTo(expected: [220, 320], ordering: CollectionOrdering.Matching);
     }
 
     [Test]
