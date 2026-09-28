@@ -352,7 +352,7 @@ public sealed class AccountsViewModelOptimizedDrain : IAccountsViewModel
                 // data.
                 Cell<long> total =
                     accounts.Fold(
-                        select: (identity, state) => state.Balance,
+                        select: static (_, state) => state.Balance,
                         zero: 0L,
                         add: static (x, y) => x + y,
                         subtract: static (x, y) => x - y);
