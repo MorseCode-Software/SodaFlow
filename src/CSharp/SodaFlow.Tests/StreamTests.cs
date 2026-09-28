@@ -1458,6 +1458,7 @@ public sealed class StreamTests
         foreach ((string name, List<string> actual, List<string> expected) in checks)
         {
             await Assert.That(expected.Count).IsGreaterThan(0).Because(name);
+
             await Assert.That(actual)
                 .IsEquivalentTo(expected: expected, ordering: CollectionOrdering.Matching)
                 .Because(name);
@@ -1609,6 +1610,7 @@ public sealed class StreamTests
         foreach ((string name, List<string> actual, List<string> expected) in checks)
         {
             await Assert.That(expected.Count).IsGreaterThan(0).Because(name);
+
             await Assert.That(actual)
                 .IsEquivalentTo(expected: expected, ordering: CollectionOrdering.Matching)
                 .Because(name);
