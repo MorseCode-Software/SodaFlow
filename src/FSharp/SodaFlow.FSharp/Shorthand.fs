@@ -1223,6 +1223,21 @@ let inline calmWithEqualityComparerS equalityComparer stream =
 let inline calmS stream = Stream.calm stream
 
 /// <summary>
+/// Fires the last value of a stream after a time with no other value.
+/// </summary>
+/// <param name="timers">The timer system that gives the clock and the alarms.</param>
+/// <param name="deadline">The time to fire at, from the time of a firing.</param>
+/// <param name="stream">The stream to debounce.</param>
+/// <returns>A stream firing the last value, one time, after a time with no other value.</returns>
+/// <remarks>
+/// Shorthand for <c>Time.debounce</c>. See it for the full contract.
+///
+/// Each firing moves the alarm out, thus a sequence of firings with no space between them gives one
+/// value. The result is in a transaction of the alarm and never in the transaction of a firing.
+/// </remarks>
+let inline debounceS timers deadline stream = Time.debounce timers deadline stream
+
+/// <summary>
 /// Folds state across firings into a cell, with an initial state computed on first use.
 /// </summary>
 /// <param name="initialState">The lazy state to start from.</param>

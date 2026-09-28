@@ -1,5 +1,23 @@
 2.0.0
 
+Adds Fold, an extension method on ReactiveCollection, for a total, a count, or
+an average that follows the collection. It takes select, zero, add, and
+subtract. Each change carries the states before it and the states after it, thus
+Fold removes the previous value of each key that the change names and adds the
+new one. The cost of an edit is the count of the keys in that edit, and not the
+count of the items.
+
+  Cell<long> total = accounts.Fold(
+      select: static state => state.Balance,
+      zero: 0L,
+      add: static (a, b) => a + b,
+      subtract: static (a, b) => a - b);
+
+A group, and not one combine function, because only an invertible operation can
+answer an edit with no read of each item. A sum and a count are groups. A maximum
+is not one: sort the view and read its first key. The first value is a read of
+the store, thus a caller gives no seed. A view folds its own items.
+
 BREAKING: SortByKey(keyComparer) is now SortByKey(keyComparer, isDescending),
 as each other sort that takes a comparer also names its direction. Code that
 passes a comparer stops compiling; add isDescending: false to keep its order,

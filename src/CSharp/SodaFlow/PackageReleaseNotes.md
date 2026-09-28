@@ -1,5 +1,21 @@
 5.0.0
 
+Adds Debounce, an extension method on Stream, which fires the last value after a
+time with no other value. Each firing moves the alarm out, thus a sequence of
+firings with no space between them gives one value. A search box is the usual
+position for it: the text of each keystroke goes in, and one search comes out.
+
+  Stream<string> searches =
+      query.Updates().Debounce(timers, static now => now.AddMilliseconds(300));
+
+The second argument reads the time of a firing and gives the time to fire at. It
+is a function and not a duration, because the type of a time belongs to the timer
+system. It must give a time after the time that it reads.
+
+The result is in a transaction of the alarm and never in the transaction of a
+firing. Debounce cancels no work that started: give a strategy to MapAsync that
+cancels the operation it replaces for that, and debounce the input also.
+
 Adds an overload of Post, which takes the action to run where the posted action
 does not run or does not complete. A transaction that fails while it propagates
 discards each action that Post holds. Code that gives a value to something which

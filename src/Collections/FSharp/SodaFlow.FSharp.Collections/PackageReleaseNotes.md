@@ -1,5 +1,19 @@
 2.0.0
 
+Adds fold, for a total, a count, or an average that follows the collection. It
+takes select, zero, add, and subtract, and then the collection, thus it composes
+with the pipe operator. Each change carries the states before it and the states
+after it, thus fold removes the previous value of each key that the change names
+and adds the new one. The cost of an edit is the count of the keys in that edit,
+and not the count of the items.
+
+  let total = accounts |> fold (fun state -> state.Balance) 0L (+) (-)
+
+A group, and not one combine function, because only an invertible operation can
+answer an edit with no read of each item. A sum and a count are groups. A maximum
+is not one: sort the view and read its first key. The first value is a read of
+the store, thus a caller gives no seed. A view folds its own items.
+
 BREAKING: sortByKey and orderByKey no longer take a comparer. sortByKey sorts
 by the default comparer, and orderByKey takes unit, as orderByArrival does.
 The comparer and the direction go to the new sortByKeyWith and

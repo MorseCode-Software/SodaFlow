@@ -36,6 +36,7 @@
         <Compile Include="BehaviorTests.cs"/>
         <Compile Include="CellTests.cs"/>
         <Compile Include="CommonTests.cs"/>
+        <Compile Include="DebounceTests.cs"/>
         <Compile Include="DenotationalSemanticsTests.cs"/>
         <Compile Include="EitherTests.cs"/>
         <Compile Include="EnumerableExtensionMethodsTests.cs"/>

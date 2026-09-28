@@ -845,3 +845,62 @@ let mapWith
     (collection: ReactiveCollection<'TKey, 'TIdentity, 'TState>)
     =
     CollectionViewUtility.MapImpl(collection, Func<_, _> project, retainedBeyondTheView, Action<_> onEvicted)
+
+/// <summary>
+///     Folds the state of each item into one cell, and keeps that cell current as the collection
+///     changes.
+/// </summary>
+/// <remarks>
+///     <para>
+///         The cost of one edit is the count of the keys in that edit, and not the count of the
+///         items. Each change carries the states before it and the states after it. Thus, this code
+///         removes the previous value of a key and adds the new one. A fold written by hand usually
+///         reads the store again, which is <c>O(n)</c> for each edit.
+///     </para>
+///     <para>
+///         <c>add</c> and <c>subtract</c> must make a group with <c>zero</c>: <c>subtract</c> must
+///         remove each value that <c>add</c> includes, and <c>zero</c> changes no value. A sum and a
+///         count are groups. A maximum is not one, because no function removes a value from a
+///         maximum, and this operation cannot give one. Read the first key of a view with a sort
+///         for that. The group must also be commutative: this code adds and subtracts in the
+///         sequence of the keys of a change.
+///     </para>
+///     <para>
+///         The accumulated type belongs to the caller, thus a group gives more than a sum. A pair
+///         of a sum and a count, with a map after it, gives an average. A map of one counter for
+///         each group gives a count for each group. A select of 1 or 0 counts the items that a
+///         condition accepts, with no filter stage. Where <c>add</c> and <c>subtract</c> are one
+///         function, such as exclusive or, the value is a fingerprint of the states.
+///     </para>
+///     <para>
+///         A view folds its own items. The fold of a filter stage adds an item as the filter accepts
+///         it, and removes the item as the filter refuses it. Thus, the value follows the view and
+///         not the store.
+///     </para>
+///     <para>
+///         A floating-point type is a group that loses precision. Each edit adds one operation to
+///         the value. Thus, a long sequence of edits can move the value away from the sum of the
+///         items. Fold a decimal, or an integer of the smallest unit, where that matters.
+///     </para>
+/// </remarks>
+/// <param name="select">The part of a state that this fold adds, such as a balance.</param>
+/// <param name="zero">The value for no items, which must be the identity of <c>add</c>.</param>
+/// <param name="add">Adds the value of one item to the accumulated value.</param>
+/// <param name="subtract">Removes the value of one item from the accumulated value.</param>
+/// <param name="collection">The collection or view to fold.</param>
+/// <returns>A cell with the folded value of the items that the collection holds.</returns>
+[<MethodImpl(MethodImplOptions.NoInlining)>]
+let fold
+    (select: 'TState -> 'TAccumulate)
+    (zero: 'TAccumulate)
+    (add: 'TAccumulate -> 'TAccumulate -> 'TAccumulate)
+    (subtract: 'TAccumulate -> 'TAccumulate -> 'TAccumulate)
+    (collection: ReactiveCollection<'TKey, 'TIdentity, 'TState>)
+    =
+    CollectionFoldUtility.FoldImpl(
+        collection,
+        Func<_, _> select,
+        zero,
+        Func<_, _, _> add,
+        Func<_, _, _> subtract
+    )

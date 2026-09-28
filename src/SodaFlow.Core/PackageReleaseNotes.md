@@ -1,5 +1,12 @@
 5.0.0
 
+Adds StreamExtensionMethodsInternal.DebounceImpl, which each language surface
+gives as a debounce of a stream. It fires the last value after a time with no
+other value, and each firing moves the alarm out. The method takes the clock,
+a function that makes an alarm from a cell, a function that arms a deadline, and
+the value for no deadline. Thus, it holds no optional type, as FilterSomeImpl
+does not.
+
 PostImpl takes one more argument, for the packages that reach these internals
 and for the public Post that SodaFlow and SodaFlow.FSharp give: the action to
 run where the posted action does not run or does not complete. A transaction

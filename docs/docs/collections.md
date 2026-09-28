@@ -493,10 +493,56 @@ avoided.
 Everything above depends on a screenful. A total depends on every item, which makes it the honest
 test of whether this collection is good for anything but windows.
 
-It is, but not by holding a cell over the store:
+It is, and `Fold` is the operation:
 
 ```csharp
-// Reads the whole collection on every edit.
+Cell<long> total = accounts.Fold(
+    select: static state => state.Balance,
+    zero: 0L,
+    add: static (a, b) => a + b,
+    subtract: static (a, b) => a - b);
+```
+
+It takes a group rather than one combining function — `zero`, `add`, and its inverse `subtract` —
+and that is the whole design. An edit replaces the value of a key, so the fold subtracts what the
+key contributed before and adds what it contributes now. The cost of an edit is the number of keys
+*in that edit*, whatever the size of the collection. The first value comes from reading the store
+once, at construction, so nothing has to supply a seed.
+
+The group is also the limit. A maximum is not one — nothing subtracts a value from a maximum — so
+`Fold` cannot express it. Sort the view and read its first key instead. Neither can it express
+anything order-dependent (first, last), string concatenation (not commutative), or a product where a
+value might be zero.
+
+Inside the limit there is more room than a sum, because the accumulated type is yours. Carry a tuple
+and divide at the end for an average:
+
+```csharp
+Cell<(long Sum, int Count)> parts = accounts.Fold(
+    select: static state => (Sum: state.Balance, Count: 1),
+    zero: (Sum: 0L, Count: 0),
+    add: static (a, b) => (Sum: a.Sum + b.Sum, Count: a.Count + b.Count),
+    subtract: static (a, b) => (Sum: a.Sum - b.Sum, Count: a.Count - b.Count));
+
+Cell<double> average = parts.Map(static p => p.Count == 0 ? 0 : (double)p.Sum / p.Count);
+```
+
+Carry `(n, Σx, Σx²)` the same way for a variance, or several unrelated totals to get them in one
+pass. Carry a map for group-by counts, where `add` increments a bucket and `subtract` decrements it,
+dropping a bucket that reaches zero — an update that moves an item between buckets falls out of
+subtracting its old contribution and adding its new one. `select: state => state.IsOpen ? 1 : 0`
+counts matching items with no `Filter` stage at all. And where `add` and `subtract` are the *same*
+function, as with exclusive or, you get an order-independent fingerprint of the states, which answers
+"are these the same?" without comparing them.
+
+The requirement behind all of these is that the group be commutative. The fold applies `subtract` and
+`add` in whatever order a change enumerates its keys, so an operation whose result depends on that
+order — matrix products, say — would give answers that depend on the sequence of the edits.
+
+What `Fold` avoids is a cell over the store:
+
+```csharp
+// Reads the whole collection on every edit. Don't.
 Cell<long> total = accounts.SnapshotCell.Map(static snapshot =>
 {
     long sum = 0;
@@ -508,16 +554,6 @@ Cell<long> total = accounts.SnapshotCell.Map(static snapshot =>
 
     return sum;
 });
-```
-
-Fold the change stream instead. The change carries the keys that moved and their new states, and
-snapshotting `SnapshotCell` *inside* the transaction still yields the version the transaction
-started from — which is where the old values come from, so nothing has to be kept alongside:
-
-```csharp
-Cell<long> total = accounts.ItemChangesStream
-    .Snapshot(accounts.SnapshotCell, static (change, before) => DeltaOf(change, before))
-    .Accum(initialTotal, static (delta, running) => running + delta);
 ```
 
 | Items | Re-derived | Folded |
@@ -532,16 +568,32 @@ re-derivation that follows the collection, so 1,933 times at a hundred thousand.
 from every other table here: summing builds nothing per item, so this is a pure processor win with
 no allocation story at all.
 
-### A total over a filtered view
+Floating point deserves one warning. A group that loses precision is still a group, but each edit
+adds an operation to the running value, so a long sequence of edits can drift from the sum of the
+items. Fold a `decimal`, or an integer of the smallest unit — the Accounts sample keeps balances in
+cents for exactly this reason.
 
-The fold above is over the root, and it totals the root. `ItemChangesStream` reports the shared
-store, so folding it on a filtered view counts items the filter excludes — silently, and it is on
-the root rather than the interface so that reaching for it off a view has to be written out.
+### A total over a view
 
-A view-scoped total folds `KeyChangesStream`, which carries exactly the four cases that can move
-one. `ViewMove` counts the same way `ViewUpdate` does, and for the same reason: a re-file that
-moved a key reports the move alone, so it is the operation carrying the new value. Treating a
-move as position-only drops that edit from the total.
+`Fold` on a view totals that view. A view is a collection, and its `ItemChangesStream` is scoped to
+it: an item arrives when the filter accepts it, leaves when the filter refuses it, and an edit to
+an item the view does not hold reports nothing at all. So the same call reads however far down the
+chain you put it.
+
+```csharp
+Cell<long> visibleTotal = accounts.Filter(static (_, state) => state.IsOpen).Fold(/* ... */);
+```
+
+A reset is the one change that costs more. A stage that rebuilt rather than adjusted — a sort given
+a new order, a slice whose offset moved, a filter whose predicate moved more keys than listing them
+would be worth, or any stage under one that reset — reports a reset, and the item change built from
+it names every key in the view. `Fold` stays correct across that, at Θ(view) for that one change
+rather than Θ(keys edited).
+
+If you need an aggregate `Fold` cannot express, fold `KeyChangesStream` yourself. It carries exactly
+the four cases that can move a view-scoped value. `ViewMove` counts the same way `ViewUpdate` does,
+and for the same reason: a re-file that moved a key reports the move alone, so it is the operation
+carrying the new value. Treating a move as position-only drops that edit from the total.
 
 | Operation | Contribution |
 | --- | --- |
@@ -567,24 +619,14 @@ long DeltaOf(CollectionViewChange<Guid, AccountId, AccountState> change, Guid ke
 Both are the *store*, not this view's contents — those are `change.Keys`. `Before` is the same
 object as the previous change's `After`, so following a sequence of changes retains no more than
 following their `After` alone would, and a transaction that moved only a criteria leaves the two
-the same instance.
-
-Before these carried `Before`, the old value had to come from sampling `SnapshotCell` inside the
-same transaction, which works because a cell read during a transaction still holds the value it
-started with. That still works and the stage code still does it, but it is knowledge the API should
-not have required.
-
-The one case with no delta is `IsReset`. A stage that rebuilt rather than adjusted — a sort given a
-new order, a slice whose offset moved, a filter whose predicate moved more keys than listing them
-would be worth, or any stage under one that reset — reports a reset carrying no operations, so a
-view-scoped fold has to recompute from `change.Keys`, which is Θ(view). It is not something a fold
-can avoid by editing carefully: handle it. The root fold has no such case, which is the price of a
-total that follows a view rather than a store.
+the same instance. A hand-rolled fold also has to handle `IsReset` itself, which carries no
+operations: recompute from `change.Keys`.
 
 Use `StateMap`'s `Pairs` rather than `Keys` with a lookup for each. Both answer the same question; the second
 costs an O(log32 n) search per item and reads the trie in key order rather than in storage order,
 which measured three times slower at every size and made summing one field cost more than sorting
-the whole collection. That was found by writing this benchmark the wrong way first.
+the whole collection. That was found by writing this benchmark the wrong way first. `Fold` uses
+`Pairs` for its first value for this reason.
 
 ## Measuring it
 

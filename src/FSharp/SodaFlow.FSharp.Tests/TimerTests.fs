@@ -7,6 +7,42 @@ open SodaFlow
 open SodaFlow.Time
 open TUnit.Core
 
+/// A clock that a test moves, with the timer system over it. A test of a wait on the true clock
+/// measures the machine and not the graph.
+type private ManualTimer(time: int, callback: unit -> unit) =
+    let mutable canceled = false
+
+    member _.Time = time
+    member _.Canceled = canceled
+    member _.Fire() = callback ()
+
+    interface ITimer with
+        member _.Cancel() = canceled <- true
+        member _.Dispose() = canceled <- true
+
+type private ManualImplementation() =
+    let timers = List<ManualTimer>()
+    let mutable now = 0
+
+    member _.AdvanceTo value = now <- value
+
+    interface ITimerSystemImplementation<int> with
+        member _.Now = now
+        member _.Start _ = ()
+
+        member _.SetTimer time callback =
+            let timer = new ManualTimer(time, callback)
+            timers.Add timer
+            timer :> ITimer
+
+        member _.RunTimersTo value =
+            // A copy, because a callback here can set a timer of its own.
+            let due = timers |> Seq.filter (fun timer -> not timer.Canceled && timer.Time <= value) |> Seq.toList
+
+            for timer in due do
+                timers.Remove timer |> ignore
+                timer.Fire()
+
 type ``Timer Tests``() =
 
     [<Test>]
@@ -44,4 +80,43 @@ type ``Timer Tests``() =
             let count = lock l (fun () -> l.Count)
 
             do! Expect.Equal(2, count)
+        }
+
+    [<Test>]
+    member _.``debounce fires the last value after a quiet time``() =
+        task {
+            let implementation = ManualImplementation()
+            let timers = TimerSystem<int>(implementation, (fun _ -> ())) :> ITimerSystem<int>
+            let keys = StreamSink.create<string> ()
+            let seen = List<string>()
+
+            let advanceTo value =
+                implementation.AdvanceTo value
+                // The timer system reads the clock at the start of a transaction.
+                Transaction.run (fun () -> ())
+
+            let l =
+                Transaction.run (fun () ->
+                    keys
+                    |> Time.debounce timers (fun now -> now + 10)
+                    |> Stream.listenStrong seen.Add)
+
+            keys |> StreamSink.send "a"
+            advanceTo 3
+            keys |> StreamSink.send "ab"
+            advanceTo 6
+            keys |> StreamSink.send "abc"
+
+            do! Expect.Equal(0, seen.Count)
+
+            // The last firing was at 6, thus the alarm is at 16.
+            advanceTo 16
+            do! Expect.Sequence([ "abc" ], seen)
+
+            // The debounce works again after it fired.
+            keys |> StreamSink.send "z"
+            advanceTo 26
+            do! Expect.Sequence([ "abc"; "z" ], seen)
+
+            l |> StrongListener.unlisten
         }
