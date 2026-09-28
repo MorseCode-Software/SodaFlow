@@ -1068,6 +1068,52 @@ let inline mergeS f (stream, stream2) = Stream.merge f (stream, stream2)
 let inline orElseS (stream, stream2) = Stream.orElse (stream, stream2)
 
 /// <summary>
+/// Merges two streams of different types into one stream of pairs.
+/// </summary>
+/// <param name="stream">The first stream.</param>
+/// <param name="stream2">The second stream.</param>
+/// <returns>
+/// A stream that fires in each transaction in which one or more of the streams fire. Each element
+/// is <c>Some</c> with the value of its stream if that stream fired, and <c>None</c> if it did not.
+/// </returns>
+/// <remarks>
+/// Shorthand for <c>Stream.mergeOptions2</c>. See it for the full contract.
+/// </remarks>
+let inline mergeOptions2S (stream, stream2) = Stream.mergeOptions2 (stream, stream2)
+
+/// <summary>
+/// Merges three streams of different types into one stream of triples.
+/// </summary>
+/// <param name="stream">The first stream.</param>
+/// <param name="stream2">The second stream.</param>
+/// <param name="stream3">The third stream.</param>
+/// <returns>
+/// A stream that fires in each transaction in which one or more of the streams fire. Each element
+/// is <c>Some</c> with the value of its stream if that stream fired, and <c>None</c> if it did not.
+/// </returns>
+/// <remarks>
+/// Shorthand for <c>Stream.mergeOptions3</c>. See it for the full contract.
+/// </remarks>
+let inline mergeOptions3S (stream, stream2, stream3) = Stream.mergeOptions3 (stream, stream2, stream3)
+
+/// <summary>
+/// Merges four streams of different types into one stream of quadruples.
+/// </summary>
+/// <param name="stream">The first stream.</param>
+/// <param name="stream2">The second stream.</param>
+/// <param name="stream3">The third stream.</param>
+/// <param name="stream4">The fourth stream.</param>
+/// <returns>
+/// A stream that fires in each transaction in which one or more of the streams fire. Each element
+/// is <c>Some</c> with the value of its stream if that stream fired, and <c>None</c> if it did not.
+/// </returns>
+/// <remarks>
+/// Shorthand for <c>Stream.mergeOptions4</c>. See it for the full contract.
+/// </remarks>
+let inline mergeOptions4S (stream, stream2, stream3, stream4) =
+    Stream.mergeOptions4 (stream, stream2, stream3, stream4)
+
+/// <summary>
 /// Keeps only the firings whose value satisfies a predicate.
 /// </summary>
 /// <param name="predicate">Gives true when the result keeps the value.</param>

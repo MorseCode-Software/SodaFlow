@@ -1073,6 +1073,152 @@ public sealed class StreamTests
     }
 
     [Test]
+    public async Task TestMergeTwoTypes()
+    {
+        StreamSink<int> s1 = Stream.CreateSink<int>();
+        StreamSink<string> s2 = Stream.CreateSink<string>();
+        List<(Maybe<int>, Maybe<string>)> @out = [];
+        IListener l = s1.Merge(s2).ListenStrong(@out.Add);
+
+        s1.Send(1);
+        s2.Send("a");
+
+        Transaction.RunVoid(() =>
+        {
+            s2.Send("b");
+            s1.Send(2);
+        });
+
+        // A transaction in which no input fires gives no firing.
+        Transaction.RunVoid(static () => { });
+
+        l.Unlisten();
+
+        List<(Maybe<int>, Maybe<string>)> expected =
+        [
+            (Maybe.Some(1), Maybe<string>.None),
+            (Maybe<int>.None, Maybe.Some("a")),
+            (Maybe.Some(2), Maybe.Some("b"))
+        ];
+
+        await Assert.That(@out).IsEquivalentTo(expected: expected, ordering: CollectionOrdering.Matching);
+    }
+
+    [Test]
+    public async Task TestMergeManyTypesMatchesMapAndMerge()
+    {
+        StreamSink<int> s1 = Stream.CreateSink<int>();
+        StreamSink<string> s2 = Stream.CreateSink<string>();
+        StreamSink<char> s3 = Stream.CreateSink<char>();
+        StreamSink<long> s4 = Stream.CreateSink<long>();
+        List<IListener> listeners = [];
+
+        // The reference maps each stream to a tuple that has a value only in its own element. The
+        // same-type Merge puts simultaneous tuples together, and each element gets the value that
+        // one of the two tuples has.
+        List<(Maybe<int>, Maybe<string>)> expected2 = ListenTo(
+            s1.Map(static a => (Maybe.Some(a), Maybe<string>.None))
+                .Merge(
+                    s2: s2.Map(static b => (Maybe<int>.None, Maybe.Some(b))),
+                    f: static (l, r) => (l.Item1.OrElse(r.Item1), l.Item2.OrElse(r.Item2))));
+
+        List<(Maybe<int>, Maybe<string>)> merge2 = ListenTo(s1.Merge(s2));
+
+        List<(Maybe<int>, Maybe<string>, Maybe<char>)> expected3 = ListenTo(
+            s1.Map(static a => (Maybe.Some(a), Maybe<string>.None, Maybe<char>.None))
+                .Merge(
+                    s2: s2.Map(static b => (Maybe<int>.None, Maybe.Some(b), Maybe<char>.None)),
+                    f: Combine3)
+                .Merge(
+                    s2: s3.Map(static c => (Maybe<int>.None, Maybe<string>.None, Maybe.Some(c))),
+                    f: Combine3));
+
+        List<(Maybe<int>, Maybe<string>, Maybe<char>)> merge3 = ListenTo(s1.Merge(s2: s2, s3: s3));
+
+        List<(Maybe<int>, Maybe<string>, Maybe<char>, Maybe<long>)> expected4 = ListenTo(
+            s1.Map(static a => (Maybe.Some(a), Maybe<string>.None, Maybe<char>.None, Maybe<long>.None))
+                .Merge(
+                    s2: s2.Map(
+                        static b => (Maybe<int>.None, Maybe.Some(b), Maybe<char>.None, Maybe<long>.None)),
+                    f: Combine4)
+                .Merge(
+                    s2: s3.Map(
+                        static c => (Maybe<int>.None, Maybe<string>.None, Maybe.Some(c), Maybe<long>.None)),
+                    f: Combine4)
+                .Merge(
+                    s2: s4.Map(
+                        static d => (Maybe<int>.None, Maybe<string>.None, Maybe<char>.None, Maybe.Some(d))),
+                    f: Combine4));
+
+        List<(Maybe<int>, Maybe<string>, Maybe<char>, Maybe<long>)> merge4 =
+            ListenTo(s1.Merge(s2: s2, s3: s3, s4: s4));
+
+        IReadOnlyList<Action<int>> sends =
+        [
+            s1.Send,
+            v => s2.Send($"s{v}"),
+            v => s3.Send((char)('a' + v % 26)),
+            v => s4.Send(v * 1000L)
+        ];
+
+        Random random = new(4321);
+
+        for (int i = 1; i <= 500; i++)
+        {
+            // Each input fires in this transaction with a probability of one half, in a random
+            // sequence. The values change with each transaction. Thus, a value that stays from an
+            // earlier transaction gives a different tuple.
+            int[] order = [.. Enumerable.Range(start: 0, count: sends.Count).OrderBy(_ => random.Next())];
+            bool[] send = [.. order.Select(_ => random.Next(2) == 0)];
+            int transaction = i;
+
+            Transaction.RunVoid(() =>
+            {
+                for (int k = 0; k < order.Length; k++)
+                {
+                    if (send[k])
+                    {
+                        sends[order[k]](transaction * 10 + order[k]);
+                    }
+                }
+            });
+        }
+
+        foreach (IListener listener in listeners)
+        {
+            listener.Unlisten();
+        }
+
+        await Assert.That(expected4.Count).IsGreaterThan(0);
+        await Assert.That(merge2).IsEquivalentTo(expected: expected2, ordering: CollectionOrdering.Matching);
+        await Assert.That(merge3).IsEquivalentTo(expected: expected3, ordering: CollectionOrdering.Matching);
+        await Assert.That(merge4).IsEquivalentTo(expected: expected4, ordering: CollectionOrdering.Matching);
+
+        return;
+
+        static (Maybe<int>, Maybe<string>, Maybe<char>) Combine3(
+            (Maybe<int>, Maybe<string>, Maybe<char>) l,
+            (Maybe<int>, Maybe<string>, Maybe<char>) r) =>
+            (l.Item1.OrElse(r.Item1), l.Item2.OrElse(r.Item2), l.Item3.OrElse(r.Item3));
+
+        static (Maybe<int>, Maybe<string>, Maybe<char>, Maybe<long>) Combine4(
+            (Maybe<int>, Maybe<string>, Maybe<char>, Maybe<long>) l,
+            (Maybe<int>, Maybe<string>, Maybe<char>, Maybe<long>) r) =>
+            (
+                l.Item1.OrElse(r.Item1),
+                l.Item2.OrElse(r.Item2),
+                l.Item3.OrElse(r.Item3),
+                l.Item4.OrElse(r.Item4));
+
+        List<TOut> ListenTo<TOut>(Stream<TOut> stream)
+        {
+            List<TOut> @out = [];
+            listeners.Add(stream.ListenStrong(@out.Add));
+            return @out;
+        }
+    }
+
+    [Test]
     public async Task TestSnapshotLatestValues()
     {
         CellSink<int> c1 = Cell.CreateSink(1);

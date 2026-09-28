@@ -738,6 +738,54 @@ type ``Stream Tests``() =
         }
 
     [<Test>]
+    member _.``Test MergeOptions``() =
+        task {
+            let s1 = sinkS ()
+            let s2 = sinkS ()
+            let s3 = sinkS ()
+            let s4 = sinkS ()
+            let out2 = List<_>()
+            let out3 = List<_>()
+            let out4 = List<_>()
+
+            let listeners =
+                [ (s1, s2) |> mergeOptions2S |> listenStrongS out2.Add
+                  (s1, s2, s3) |> mergeOptions3S |> listenStrongS out3.Add
+                  (s1, s2, s3, s4) |> mergeOptions4S |> listenStrongS out4.Add ]
+
+            s1 |> sendS 1
+            s3 |> sendS 'c'
+
+            runT (fun () ->
+                s4 |> sendS 4L
+                s2 |> sendS "b"
+                s1 |> sendS 2)
+
+            // A transaction in which no input fires gives no firing.
+            runT ignore
+
+            listeners |> List.iter unlistenL
+
+            do! Expect.Sequence([ struct (Some 1, None); struct (Some 2, Some "b") ], out2)
+
+            do!
+                Expect.Sequence(
+                    [ struct (Some 1, None, None)
+                      struct (None, None, Some 'c')
+                      struct (Some 2, Some "b", None) ],
+                    out3
+                )
+
+            do!
+                Expect.Sequence(
+                    [ struct (Some 1, None, None, None)
+                      struct (None, None, Some 'c', None)
+                      struct (Some 2, Some "b", None, Some 4L) ],
+                    out4
+                )
+        }
+
+    [<Test>]
     member _.``Test SnapshotLatest Behavior``() =
         task {
             let s = sinkS ()
