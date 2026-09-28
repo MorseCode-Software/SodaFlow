@@ -304,6 +304,79 @@ public static class CellExtensionMethods
         c.LiftImpl(b2: c2, b3: c3, b4: c4, b5: c5, b6: c6, f: f);
 
     /// <summary>
+    ///     Lifts a function of seven arguments into cells. The cell from this call always has the
+    ///     value of that function on the values of the input cells.
+    /// </summary>
+    /// <typeparam name="T">The type of the first cell.</typeparam>
+    /// <typeparam name="T2">The type of the second cell.</typeparam>
+    /// <typeparam name="T3">The type of the third cell.</typeparam>
+    /// <typeparam name="T4">The type of the fourth cell.</typeparam>
+    /// <typeparam name="T5">The type of the fifth cell.</typeparam>
+    /// <typeparam name="T6">The type of the sixth cell.</typeparam>
+    /// <typeparam name="T7">The type of the seventh cell.</typeparam>
+    /// <typeparam name="TResult">The type of the result.</typeparam>
+    /// <param name="c">The first cell.</param>
+    /// <param name="c2">The second cell.</param>
+    /// <param name="c3">The third cell.</param>
+    /// <param name="c4">The fourth cell.</param>
+    /// <param name="c5">The fifth cell.</param>
+    /// <param name="c6">The sixth cell.</param>
+    /// <param name="c7">The seventh cell.</param>
+    /// <param name="f">The function to lift into the cells. It must be a pure function.</param>
+    /// <returns>
+    ///     A cell with the value of <paramref name="f" /> on the values of the input cells.
+    /// </returns>
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    public static Cell<TResult> Lift<T, T2, T3, T4, T5, T6, T7, TResult>(
+        this Cell<T> c,
+        Cell<T2> c2,
+        Cell<T3> c3,
+        Cell<T4> c4,
+        Cell<T5> c5,
+        Cell<T6> c6,
+        Cell<T7> c7,
+        Func<T, T2, T3, T4, T5, T6, T7, TResult> f) =>
+        c.LiftImpl(b2: c2, b3: c3, b4: c4, b5: c5, b6: c6, b7: c7, f: f);
+
+    /// <summary>
+    ///     Lifts a function of eight arguments into cells. The cell from this call always has the
+    ///     value of that function on the values of the input cells.
+    /// </summary>
+    /// <typeparam name="T">The type of the first cell.</typeparam>
+    /// <typeparam name="T2">The type of the second cell.</typeparam>
+    /// <typeparam name="T3">The type of the third cell.</typeparam>
+    /// <typeparam name="T4">The type of the fourth cell.</typeparam>
+    /// <typeparam name="T5">The type of the fifth cell.</typeparam>
+    /// <typeparam name="T6">The type of the sixth cell.</typeparam>
+    /// <typeparam name="T7">The type of the seventh cell.</typeparam>
+    /// <typeparam name="T8">The type of the eighth cell.</typeparam>
+    /// <typeparam name="TResult">The type of the result.</typeparam>
+    /// <param name="c">The first cell.</param>
+    /// <param name="c2">The second cell.</param>
+    /// <param name="c3">The third cell.</param>
+    /// <param name="c4">The fourth cell.</param>
+    /// <param name="c5">The fifth cell.</param>
+    /// <param name="c6">The sixth cell.</param>
+    /// <param name="c7">The seventh cell.</param>
+    /// <param name="c8">The eighth cell.</param>
+    /// <param name="f">The function to lift into the cells. It must be a pure function.</param>
+    /// <returns>
+    ///     A cell with the value of <paramref name="f" /> on the values of the input cells.
+    /// </returns>
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    public static Cell<TResult> Lift<T, T2, T3, T4, T5, T6, T7, T8, TResult>(
+        this Cell<T> c,
+        Cell<T2> c2,
+        Cell<T3> c3,
+        Cell<T4> c4,
+        Cell<T5> c5,
+        Cell<T6> c6,
+        Cell<T7> c7,
+        Cell<T8> c8,
+        Func<T, T2, T3, T4, T5, T6, T7, T8, TResult> f) =>
+        c.LiftImpl(b2: c2, b3: c3, b4: c4, b5: c5, b6: c6, b7: c7, b8: c8, f: f);
+
+    /// <summary>
     ///     Apply a value in a cell to a function in a cell.  This is the primitive for all function lifting.
     /// </summary>
     /// <typeparam name="T">The type of the cell.</typeparam>

@@ -1219,6 +1219,425 @@ public sealed class StreamTests
     }
 
     [Test]
+    public async Task TestWideOverloadsMatchALiftOfAList()
+    {
+        StreamSink<int> s = Stream.CreateSink<int>();
+        CellSink<int> c1 = Cell.CreateSink(1);
+        CellSink<int> c2 = Cell.CreateSink(2);
+        CellSink<int> c3 = Cell.CreateSink(3);
+        CellSink<int> c4 = Cell.CreateSink(4);
+        CellSink<int> c5 = Cell.CreateSink(5);
+        CellSink<int> c6 = Cell.CreateSink(6);
+        CellSink<int> c7 = Cell.CreateSink(7);
+        CellSink<int> c8 = Cell.CreateSink(8);
+        IReadOnlyList<Cell<int>> cells = [c1, c2, c3, c4, c5, c6, c7, c8];
+        Behavior<int> b1 = c1.AsBehavior();
+        Behavior<int> b2 = c2.AsBehavior();
+        Behavior<int> b3 = c3.AsBehavior();
+        Behavior<int> b4 = c4.AsBehavior();
+        Behavior<int> b5 = c5.AsBehavior();
+        Behavior<int> b6 = c6.AsBehavior();
+        Behavior<int> b7 = c7.AsBehavior();
+        Behavior<int> b8 = c8.AsBehavior();
+        IReadOnlyList<Behavior<int>> behaviors = [b1, b2, b3, b4, b5, b6, b7, b8];
+        List<IListener> listeners = [];
+        List<(string name, List<string> actual, List<string> expected)> checks = [];
+
+        // Each reference is the Lift of a list of the first cells or behaviors. That Lift has one form
+        // for each count. Thus, the references do not use the overloads that this test examines. A
+        // lifted behavior has no stream of its own, thus SnapshotLatest on s reads it in each
+        // transaction. Snapshot on s reads the initial value of a lifted cell until an input updates,
+        // and each input starts with a different value.
+        Cell<string> lift7 =
+            c1.Lift(
+                c2: c2,
+                c3: c3,
+                c4: c4,
+                c5: c5,
+                c6: c6,
+                c7: c7,
+                f: static (v1, v2, v3, v4, v5, v6, v7) => Join(v1, v2, v3, v4, v5, v6, v7));
+
+        Check(name: "Updates of a Lift of seven cells", actual: lift7.Updates(), expected: LiftCells(7).Updates());
+        Check(name: "Snapshot of a Lift of seven cells", actual: s.Snapshot(lift7), expected: s.Snapshot(LiftCells(7)));
+
+        Cell<string> lift8 =
+            c1.Lift(
+                c2: c2,
+                c3: c3,
+                c4: c4,
+                c5: c5,
+                c6: c6,
+                c7: c7,
+                c8: c8,
+                f: static (v1, v2, v3, v4, v5, v6, v7, v8) => Join(v1, v2, v3, v4, v5, v6, v7, v8));
+
+        Check(name: "Updates of a Lift of eight cells", actual: lift8.Updates(), expected: LiftCells(8).Updates());
+        Check(name: "Snapshot of a Lift of eight cells", actual: s.Snapshot(lift8), expected: s.Snapshot(LiftCells(8)));
+
+        Check(
+            name: "Lift of seven behaviors",
+            actual: s.SnapshotLatest(
+                b1.Lift(
+                    b2: b2,
+                    b3: b3,
+                    b4: b4,
+                    b5: b5,
+                    b6: b6,
+                    b7: b7,
+                    f: static (v1, v2, v3, v4, v5, v6, v7) => Join(v1, v2, v3, v4, v5, v6, v7))),
+            expected: s.SnapshotLatest(LiftBehaviors(7)));
+
+        Check(
+            name: "Lift of eight behaviors",
+            actual: s.SnapshotLatest(
+                b1.Lift(
+                    b2: b2,
+                    b3: b3,
+                    b4: b4,
+                    b5: b5,
+                    b6: b6,
+                    b7: b7,
+                    b8: b8,
+                    f: static (v1, v2, v3, v4, v5, v6, v7, v8) => Join(v1, v2, v3, v4, v5, v6, v7, v8))),
+            expected: s.SnapshotLatest(LiftBehaviors(8)));
+
+        Check(
+            name: "Snapshot of five cells",
+            actual: s.Snapshot(
+                c1: c1,
+                c2: c2,
+                c3: c3,
+                c4: c4,
+                c5: c5,
+                f: static (a, v1, v2, v3, v4, v5) => $"{a}:{Join(v1, v2, v3, v4, v5)}"),
+            expected: s.Snapshot(c: LiftCells(5), f: static (a, v) => $"{a}:{v}"));
+
+        Check(
+            name: "Snapshot of five behaviors",
+            actual: s.Snapshot(
+                b1: b1,
+                b2: b2,
+                b3: b3,
+                b4: b4,
+                b5: b5,
+                f: static (a, v1, v2, v3, v4, v5) => $"{a}:{Join(v1, v2, v3, v4, v5)}"),
+            expected: s.Snapshot(b: LiftBehaviors(5), f: static (a, v) => $"{a}:{v}"));
+
+        Check(
+            name: "Snapshot of six cells",
+            actual: s.Snapshot(
+                c1: c1,
+                c2: c2,
+                c3: c3,
+                c4: c4,
+                c5: c5,
+                c6: c6,
+                f: static (a, v1, v2, v3, v4, v5, v6) => $"{a}:{Join(v1, v2, v3, v4, v5, v6)}"),
+            expected: s.Snapshot(c: LiftCells(6), f: static (a, v) => $"{a}:{v}"));
+
+        Check(
+            name: "Snapshot of six behaviors",
+            actual: s.Snapshot(
+                b1: b1,
+                b2: b2,
+                b3: b3,
+                b4: b4,
+                b5: b5,
+                b6: b6,
+                f: static (a, v1, v2, v3, v4, v5, v6) => $"{a}:{Join(v1, v2, v3, v4, v5, v6)}"),
+            expected: s.Snapshot(b: LiftBehaviors(6), f: static (a, v) => $"{a}:{v}"));
+
+        Check(
+            name: "Snapshot of seven cells",
+            actual: s.Snapshot(
+                c1: c1,
+                c2: c2,
+                c3: c3,
+                c4: c4,
+                c5: c5,
+                c6: c6,
+                c7: c7,
+                f: static (a, v1, v2, v3, v4, v5, v6, v7) => $"{a}:{Join(v1, v2, v3, v4, v5, v6, v7)}"),
+            expected: s.Snapshot(c: LiftCells(7), f: static (a, v) => $"{a}:{v}"));
+
+        Check(
+            name: "Snapshot of seven behaviors",
+            actual: s.Snapshot(
+                b1: b1,
+                b2: b2,
+                b3: b3,
+                b4: b4,
+                b5: b5,
+                b6: b6,
+                b7: b7,
+                f: static (a, v1, v2, v3, v4, v5, v6, v7) => $"{a}:{Join(v1, v2, v3, v4, v5, v6, v7)}"),
+            expected: s.Snapshot(b: LiftBehaviors(7), f: static (a, v) => $"{a}:{v}"));
+
+        Check(
+            name: "SnapshotLatest of six cells",
+            actual: s.SnapshotLatest(
+                c1: c1,
+                c2: c2,
+                c3: c3,
+                c4: c4,
+                c5: c5,
+                c6: c6,
+                f: static (a, v1, v2, v3, v4, v5, v6) => $"{a}:{Join(v1, v2, v3, v4, v5, v6)}"),
+            expected: s.SnapshotLatest(c: LiftCells(6), f: static (a, v) => $"{a}:{v}"));
+
+        Check(
+            name: "SnapshotLatest of six behaviors",
+            actual: s.SnapshotLatest(
+                b1: b1,
+                b2: b2,
+                b3: b3,
+                b4: b4,
+                b5: b5,
+                b6: b6,
+                f: static (a, v1, v2, v3, v4, v5, v6) => $"{a}:{Join(v1, v2, v3, v4, v5, v6)}"),
+            expected: s.SnapshotLatest(b: LiftBehaviors(6), f: static (a, v) => $"{a}:{v}"));
+
+        Check(
+            name: "SnapshotLatest of seven cells",
+            actual: s.SnapshotLatest(
+                c1: c1,
+                c2: c2,
+                c3: c3,
+                c4: c4,
+                c5: c5,
+                c6: c6,
+                c7: c7,
+                f: static (a, v1, v2, v3, v4, v5, v6, v7) => $"{a}:{Join(v1, v2, v3, v4, v5, v6, v7)}"),
+            expected: s.SnapshotLatest(c: LiftCells(7), f: static (a, v) => $"{a}:{v}"));
+
+        Check(
+            name: "SnapshotLatest of seven behaviors",
+            actual: s.SnapshotLatest(
+                b1: b1,
+                b2: b2,
+                b3: b3,
+                b4: b4,
+                b5: b5,
+                b6: b6,
+                b7: b7,
+                f: static (a, v1, v2, v3, v4, v5, v6, v7) => $"{a}:{Join(v1, v2, v3, v4, v5, v6, v7)}"),
+            expected: s.SnapshotLatest(b: LiftBehaviors(7), f: static (a, v) => $"{a}:{v}"));
+
+        IReadOnlyList<Action<int>> sends =
+            [s.Send, c1.Send, c2.Send, c3.Send, c4.Send, c5.Send, c6.Send, c7.Send, c8.Send];
+
+        Random random = new(8765);
+
+        for (int i = 1; i <= 500; i++)
+        {
+            // Each input gets a value in this transaction if random.Next(2) gives 0, in a random
+            // sequence. Each value is different. Thus, a value in an incorrect position gives a
+            // different string.
+            int[] order = [.. Enumerable.Range(start: 0, count: sends.Count).OrderBy(_ => random.Next())];
+            bool[] send = [.. order.Select(_ => random.Next(2) == 0)];
+            int transaction = i;
+
+            Transaction.RunVoid(() =>
+            {
+                for (int k = 0; k < order.Length; k++)
+                {
+                    if (send[k])
+                    {
+                        sends[order[k]](transaction * 10 + order[k]);
+                    }
+                }
+            });
+        }
+
+        foreach (IListener listener in listeners)
+        {
+            listener.Unlisten();
+        }
+
+        foreach ((string name, List<string> actual, List<string> expected) in checks)
+        {
+            await Assert.That(expected.Count).IsGreaterThan(0).Because(name);
+            await Assert.That(actual)
+                .IsEquivalentTo(expected: expected, ordering: CollectionOrdering.Matching)
+                .Because(name);
+        }
+
+        return;
+
+        static string Join(params int[] values) => string.Join(separator: ",", values: values);
+
+        Cell<string> LiftCells(int count) =>
+            cells.Take(count).Lift(f: static values => string.Join(separator: ",", values: values));
+
+        Behavior<string> LiftBehaviors(int count) =>
+            behaviors.Take(count).Lift(f: static values => string.Join(separator: ",", values: values));
+
+        void Check(string name, Stream<string> actual, Stream<string> expected) =>
+            checks.Add((name, ListenTo(actual), ListenTo(expected)));
+
+        List<string> ListenTo(Stream<string> stream)
+        {
+            List<string> @out = [];
+            listeners.Add(stream.ListenStrong(@out.Add));
+            return @out;
+        }
+    }
+
+    [Test]
+    public async Task TestMergeFiveToEightTypesMatchesAMergeOfSlots()
+    {
+        StreamSink<int> s1 = Stream.CreateSink<int>();
+        StreamSink<string> s2 = Stream.CreateSink<string>();
+        StreamSink<char> s3 = Stream.CreateSink<char>();
+        StreamSink<long> s4 = Stream.CreateSink<long>();
+        StreamSink<bool> s5 = Stream.CreateSink<bool>();
+        StreamSink<short> s6 = Stream.CreateSink<short>();
+        StreamSink<byte> s7 = Stream.CreateSink<byte>();
+        StreamSink<uint> s8 = Stream.CreateSink<uint>();
+        List<IListener> listeners = [];
+
+        // The reference gives each stream a list of slots with a value only in its own slot. The Merge
+        // for streams of one type puts the slots of simultaneous lists together. That Merge has one
+        // form for each count, thus the reference does not use the overloads that this test examines.
+        IReadOnlyList<Stream<string>> texts =
+        [
+            s1.Map(static v => $"{v}"),
+            s2.Map(static v => $"{v}"),
+            s3.Map(static v => $"{v}"),
+            s4.Map(static v => $"{v}"),
+            s5.Map(static v => $"{v}"),
+            s6.Map(static v => $"{v}"),
+            s7.Map(static v => $"{v}"),
+            s8.Map(static v => $"{v}")
+        ];
+
+        List<(string name, List<string> actual, List<string> expected)> checks =
+        [
+            (
+                "Merge of five streams",
+                ListenTo(
+                    s1.Merge(s2: s2, s3: s3, s4: s4, s5: s5)
+                        .Map(static t => Show(
+                            Slot(t.Item1),
+                            Slot(t.Item2),
+                            Slot(t.Item3),
+                            Slot(t.Item4),
+                            Slot(t.Item5)))),
+                ListenTo(Reference(5))),
+            (
+                "Merge of six streams",
+                ListenTo(
+                    s1.Merge(s2: s2, s3: s3, s4: s4, s5: s5, s6: s6)
+                        .Map(static t => Show(
+                            Slot(t.Item1),
+                            Slot(t.Item2),
+                            Slot(t.Item3),
+                            Slot(t.Item4),
+                            Slot(t.Item5),
+                            Slot(t.Item6)))),
+                ListenTo(Reference(6))),
+            (
+                "Merge of seven streams",
+                ListenTo(
+                    s1.Merge(s2: s2, s3: s3, s4: s4, s5: s5, s6: s6, s7: s7)
+                        .Map(static t => Show(
+                            Slot(t.Item1),
+                            Slot(t.Item2),
+                            Slot(t.Item3),
+                            Slot(t.Item4),
+                            Slot(t.Item5),
+                            Slot(t.Item6),
+                            Slot(t.Item7)))),
+                ListenTo(Reference(7))),
+            (
+                "Merge of eight streams",
+                ListenTo(
+                    s1.Merge(s2: s2, s3: s3, s4: s4, s5: s5, s6: s6, s7: s7, s8: s8)
+                        .Map(static t => Show(
+                            Slot(t.Item1),
+                            Slot(t.Item2),
+                            Slot(t.Item3),
+                            Slot(t.Item4),
+                            Slot(t.Item5),
+                            Slot(t.Item6),
+                            Slot(t.Item7),
+                            Slot(t.Item8)))),
+                ListenTo(Reference(8)))
+        ];
+
+        IReadOnlyList<Action<int>> sends =
+        [
+            s1.Send,
+            v => s2.Send($"s{v}"),
+            v => s3.Send((char)('a' + v % 26)),
+            v => s4.Send(v * 1000L),
+            v => s5.Send(v % 2 == 0),
+            v => s6.Send((short)v),
+            v => s7.Send((byte)(v % 256)),
+            v => s8.Send((uint)v)
+        ];
+
+        Random random = new(9876);
+
+        for (int i = 1; i <= 500; i++)
+        {
+            // Each input fires in this transaction if random.Next(2) gives 0, in a random sequence.
+            // The values change with each transaction. Thus, a value that stays from an earlier
+            // transaction gives a different string.
+            int[] order = [.. Enumerable.Range(start: 0, count: sends.Count).OrderBy(_ => random.Next())];
+            bool[] send = [.. order.Select(_ => random.Next(2) == 0)];
+            int transaction = i;
+
+            Transaction.RunVoid(() =>
+            {
+                for (int k = 0; k < order.Length; k++)
+                {
+                    if (send[k])
+                    {
+                        sends[order[k]](transaction * 10 + order[k]);
+                    }
+                }
+            });
+        }
+
+        foreach (IListener listener in listeners)
+        {
+            listener.Unlisten();
+        }
+
+        foreach ((string name, List<string> actual, List<string> expected) in checks)
+        {
+            await Assert.That(expected.Count).IsGreaterThan(0).Because(name);
+            await Assert.That(actual)
+                .IsEquivalentTo(expected: expected, ordering: CollectionOrdering.Matching)
+                .Because(name);
+        }
+
+        return;
+
+        Stream<string> Reference(int count) =>
+            texts.Take(count)
+                .Select((text, index) => text.Map(v => Slots(index: index, count: count, value: v)))
+                .Merge(f: static (l, r) => [.. l.Zip(second: r, resultSelector: static (x, y) => x == "-" ? y : x)])
+                .Map(static slots => Show(slots));
+
+        static string[] Slots(int index, int count, string value) =>
+            [.. Enumerable.Range(start: 0, count: count).Select(i => i == index ? value : "-")];
+
+        static string Slot<T>(Maybe<T> m) => m.Match(onSome: static v => $"{v}", onNone: static () => "-");
+
+        static string Show(params string[] slots) => string.Join(separator: "|", value: slots);
+
+        List<string> ListenTo(Stream<string> stream)
+        {
+            List<string> @out = [];
+            listeners.Add(stream.ListenStrong(@out.Add));
+            return @out;
+        }
+    }
+
+    [Test]
     public async Task TestSnapshotLatestValues()
     {
         CellSink<int> c1 = Cell.CreateSink(1);
