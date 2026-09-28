@@ -1527,19 +1527,34 @@ internal static class CollectionViewUtility
         }
 
         // A key that stays at its position also needs its update, or a stage below this one does
-        // not learn about the change to its state.
+        // not learn about the change to its state. The comparison of the two windows cannot find
+        // such a key. A move above this stage carries a new state, and the key can end at its
+        // previous position in the window. Thus, the move is an update here. An insert of such a
+        // key replaces its item. This stage reports it as a removal and an insert at its position,
+        // as the root does, because the identity can change.
         foreach (ViewOperation<TKey> operation in change.Operations)
         {
-            if (operation is not ViewUpdate<TKey> update)
+            if (operation is not (ViewUpdate<TKey> or ViewMove<TKey> or ViewInsert<TKey>))
             {
                 continue;
             }
 
-            int index = keys.IndexOfInternal(update.Key);
+            int index = keys.IndexOfInternal(operation.Key);
 
-            if (index >= 0 && (common < 0 || index < common))
+            if (index < 0 || (common >= 0 && index >= common))
             {
-                operations.Add(new ViewUpdate<TKey>(key: update.Key, index: index));
+                continue;
+            }
+
+            if (operation is ViewInsert<TKey>)
+            {
+                operations.Add(new ViewRemove<TKey>(key: operation.Key, index: index));
+                operations.Add(new ViewInsert<TKey>(key: operation.Key, index: index));
+                changesMembership = true;
+            }
+            else
+            {
+                operations.Add(new ViewUpdate<TKey>(key: operation.Key, index: index));
             }
         }
 

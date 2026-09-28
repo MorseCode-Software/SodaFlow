@@ -306,7 +306,8 @@ public sealed class CollectionViewChange<TKey, TIdentity, TState>
                 after: this.After,
                 newStates: newStates,
                 added: added,
-                removed: removed);
+                removed: removed,
+                isReset: true);
         }
 
         // ReSharper disable once ForCanBeConvertedToForeach
@@ -345,7 +346,8 @@ public sealed class CollectionViewChange<TKey, TIdentity, TState>
             after: this.After,
             newStates: newStates,
             added: added,
-            removed: removed);
+            removed: removed,
+            isReset: false);
     }
 
     /// <summary>The key's value as this change left it, or its absence.</summary>

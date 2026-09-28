@@ -309,7 +309,8 @@ internal sealed class RootCollection<TKey, TIdentity, TState>
                 after: after,
                 newStates: newStates,
                 added: added,
-                removed: removed));
+                removed: removed,
+                isReset: false));
     }
 
     /// <inheritdoc />

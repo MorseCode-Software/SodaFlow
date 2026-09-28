@@ -27,7 +27,7 @@ public sealed class CollectionFoldShapeTests
         Cell<(long Sum, int Count)> parts =
             Transaction.Run(() =>
                 collection.Fold(
-                    select: static state => (Sum: state.Score, Count: 1),
+                    select: static (_, state) => (Sum: state.Score, Count: 1),
                     zero: (Sum: 0L, Count: 0),
                     add: static (a, b) => (Sum: a.Sum + b.Sum, Count: a.Count + b.Count),
                     subtract: static (a, b) => (Sum: a.Sum - b.Sum, Count: a.Count - b.Count)));
@@ -60,7 +60,7 @@ public sealed class CollectionFoldShapeTests
         Cell<ImmutableSortedDictionary<string, int>> byBucket =
             Transaction.Run(() =>
                 collection.Fold(
-                    select: static state => ImmutableSortedDictionary<string, int>.Empty.Add(key: Bucket(state), value: 1),
+                    select: static (_, state) => ImmutableSortedDictionary<string, int>.Empty.Add(key: Bucket(state), value: 1),
                     zero: ImmutableSortedDictionary<string, int>.Empty,
                     add: static (a, b) => Combine(left: a, right: b, sign: 1),
                     subtract: static (a, b) => Combine(left: a, right: b, sign: -1)));
@@ -96,7 +96,7 @@ public sealed class CollectionFoldShapeTests
         Cell<int> high =
             Transaction.Run(() =>
                 collection.Fold(
-                    select: static state => state.Score >= 20 ? 1 : 0,
+                    select: static (_, state) => state.Score >= 20 ? 1 : 0,
                     zero: 0,
                     add: static (a, b) => a + b,
                     subtract: static (a, b) => a - b));
@@ -106,7 +106,7 @@ public sealed class CollectionFoldShapeTests
         Cell<int> fingerprint =
             Transaction.Run(() =>
                 collection.Fold(
-                    select: static state => state.Score * 31,
+                    select: static (_, state) => state.Score * 31,
                     zero: 0,
                     add: static (a, b) => a ^ b,
                     subtract: static (a, b) => a ^ b));

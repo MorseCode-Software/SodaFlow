@@ -920,6 +920,82 @@ public sealed class CollectionViewTests
     }
 
     [Test]
+    public async Task TakeReportsAReplacedItemThatKeepsItsPosition()
+    {
+        StreamSink<CollectionEdit<int, ItemIdentity, ItemState>> edits =
+            Stream.CreateSink<CollectionEdit<int, ItemIdentity, ItemState>>();
+
+        ReactiveCollection<int, ItemIdentity, ItemState> collection =
+            Create(
+                edits: edits,
+                TestUtil.Item(number: 1, name: "one", score: 10),
+                TestUtil.Item(number: 2, name: "two", score: 20),
+                TestUtil.Item(number: 3, name: "three", score: 30));
+
+        ReactiveCollection<int, ItemIdentity, ItemState> lowestTwo =
+            collection
+                .SortBy(static (_, state) => state.Score)
+                .Take(2);
+
+        Cell<Maybe<ItemState>> state = lowestTwo.StateCell(1);
+        Cell<Maybe<ItemIdentity>> identity = lowestTwo.IdentityCell(1);
+
+        // One edit replaces the item of key 1, and the new score keeps the key first. The window
+        // holds the same keys in the same sequence, thus a comparison of the two windows finds no
+        // difference. The sort above names key 1 as a removal and an insert, and not as an update.
+        edits.Send(
+            TestUtil.Remove(1)
+                .CombineWith(
+                    TestUtil.Add(
+                        new Item<ItemIdentity, ItemState>(
+                            identity: new ItemIdentity(Number: 1, Code: "R1"),
+                            state: new ItemState(Name: "replaced", Score: 15)))));
+
+        await Assert.That(KeysOf(lowestTwo)).IsEquivalentTo(expected: [1, 2], ordering: CollectionOrdering.Matching);
+
+        await Assert.That(state.Sample().Match(onSome: static s => s.Score, onNone: static () => -1))
+            .IsEqualTo(15)
+            .Because("the window must report the new state of a key that keeps its position");
+
+        await Assert.That(identity.Sample().Match(onSome: static i => i.Code, onNone: static () => "gone"))
+            .IsEqualTo("R1")
+            .Because("the replacement can change the identity");
+    }
+
+    [Test]
+    public async Task TakeReportsAMovedItemThatKeepsItsPosition()
+    {
+        StreamSink<CollectionEdit<int, ItemIdentity, ItemState>> edits =
+            Stream.CreateSink<CollectionEdit<int, ItemIdentity, ItemState>>();
+
+        ReactiveCollection<int, ItemIdentity, ItemState> collection =
+            Create(
+                edits: edits,
+                TestUtil.Item(number: 1, name: "one", score: 10),
+                TestUtil.Item(number: 2, name: "two", score: 20),
+                TestUtil.Item(number: 3, name: "three", score: 30),
+                TestUtil.Item(number: 4, name: "four", score: 40));
+
+        ReactiveCollection<int, ItemIdentity, ItemState> lowestThree =
+            collection
+                .SortBy(static (_, state) => state.Score)
+                .Take(3);
+
+        Cell<Maybe<ItemState>> state = lowestThree.StateCell(3);
+
+        // The sort files key 4 first, which puts it before key 3. It then files key 3 at its
+        // previous position, and reports that as a move and not as an update. The window holds the
+        // keys 1, 2, and 3 before the edit and after it.
+        edits.Send(TestUtil.Score(key: 4, score: 25).CombineWith(TestUtil.Score(key: 3, score: 22)));
+
+        await Assert.That(KeysOf(lowestThree)).IsEquivalentTo(expected: [1, 2, 3], ordering: CollectionOrdering.Matching);
+
+        await Assert.That(state.Sample().Match(onSome: static s => s.Score, onNone: static () => -1))
+            .IsEqualTo(22)
+            .Because("a move above the window carries the new state of the key");
+    }
+
+    [Test]
     public async Task TakeFollowsAChangingLimit()
     {
         StreamSink<CollectionEdit<int, ItemIdentity, ItemState>> edits =

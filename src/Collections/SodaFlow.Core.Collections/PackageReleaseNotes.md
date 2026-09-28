@@ -3,10 +3,18 @@
 Adds the fold of a collection, which CollectionFoldUtility.FoldImpl gives to each
 language surface. A total, a count of a view, or an average had no operation
 here, thus each caller wrote the delta of a change by hand. The fold takes a
-group: a function that reads one state, a zero, an add, and a subtract. Each
-change carries the states before it and the states after it, thus the fold
-removes the previous value of each key that the change names and adds the new
-one. The cost of an edit is the count of the keys in that edit.
+group: a function that reads the identity and the state of one item, a zero, an
+add, and a subtract. Each change carries the states before it and the states
+after it, thus the fold removes the previous value of each key that the change
+names and adds the new one. The cost of an edit is the count of the keys in that
+edit.
+
+CollectionFoldUtility.FoldByIdentityImpl gives the fold of the identities. It
+reads only the item changes that add or remove a key, and each reset. A reset
+puts a key in Added only when the view did not have it before, thus it does not
+name a key that one edit replaced and that stays in the view. The fold reads
+each key of a reset for that cause. ItemChange has an internal IsReset for it,
+and its constructor takes that value.
 
 A group, and not one combine function, because only an invertible operation can
 answer an edit with no read of each item. A sum and a count are groups. A maximum
@@ -40,6 +48,13 @@ not run against this; take the 2.x of each with it.
 Adds the internal members that the two language surfaces need for ItemCell:
 ItemCellImpl and CreateItemCell on ReactiveCollection, and the projection for
 one item on an item change and on a view change.
+
+Fixed: the stage of a slice lost an edit to a key that kept its position in
+the window. The stage compares the window before a change with the window after
+it, and it gave only a ViewUpdate to a key that the comparison found in both. A
+ViewMove from a sort above carries a new state, and a replacement arrives as a
+ViewRemove and a ViewInsert. The stage now gives a ViewUpdate for the first,
+and a ViewRemove and a ViewInsert at the same index for the second.
 
 Requires SodaFlow.Core 5.x, which ships in the same release.
 

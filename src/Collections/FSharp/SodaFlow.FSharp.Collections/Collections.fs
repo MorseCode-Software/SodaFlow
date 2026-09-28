@@ -847,8 +847,7 @@ let mapWith
     CollectionViewUtility.MapImpl(collection, Func<_, _> project, retainedBeyondTheView, Action<_> onEvicted)
 
 /// <summary>
-///     Folds the state of each item into one cell, and keeps that cell current as the collection
-///     changes.
+///     Folds each item into one cell, and keeps that cell current as the collection changes.
 /// </summary>
 /// <remarks>
 ///     <para>
@@ -883,7 +882,9 @@ let mapWith
 ///         items. Fold a decimal, or an integer of the smallest unit, where that matters.
 ///     </para>
 /// </remarks>
-/// <param name="select">The part of a state that this fold adds, such as a balance.</param>
+/// <param name="select">
+///     The part of an item that this fold adds, from its identity and its state, such as a balance.
+/// </param>
 /// <param name="zero">The value for no items, which must be the identity of <c>add</c>.</param>
 /// <param name="add">Adds the value of one item to the accumulated value.</param>
 /// <param name="subtract">Removes the value of one item from the accumulated value.</param>
@@ -891,13 +892,57 @@ let mapWith
 /// <returns>A cell with the folded value of the items that the collection holds.</returns>
 [<MethodImpl(MethodImplOptions.NoInlining)>]
 let fold
-    (select: 'TState -> 'TAccumulate)
+    (select: 'TIdentity -> 'TState -> 'TAccumulate)
     (zero: 'TAccumulate)
     (add: 'TAccumulate -> 'TAccumulate -> 'TAccumulate)
     (subtract: 'TAccumulate -> 'TAccumulate -> 'TAccumulate)
     (collection: ReactiveCollection<'TKey, 'TIdentity, 'TState>)
     =
     CollectionFoldUtility.FoldImpl(
+        collection,
+        Func<_, _, _> select,
+        zero,
+        Func<_, _, _> add,
+        Func<_, _, _> subtract
+    )
+
+/// <summary>
+///     Folds the identity of each item into one cell, and keeps that cell current as the collection
+///     adds and removes items.
+/// </summary>
+/// <remarks>
+///     <para>
+///         This gives the same value as <c>fold</c> with a select that reads only the identity, and
+///         it costs less to keep. A state edit cannot change an identity, thus this fold reads only
+///         the changes that add or remove an item. The cell sends no value at a state edit, and the
+///         cost of that edit here is one test. The select receives the identity and not the state,
+///         thus it cannot read the state that it says it does not read.
+///     </para>
+///     <para>
+///         A count of the items, and a count for each group of an identity, are the usual examples.
+///         The rules of <c>add</c>, <c>subtract</c>, and <c>zero</c> are the rules of <c>fold</c>.
+///     </para>
+///     <para>
+///         A slice can name a key that stays in its window as a removal and an add. A state edit
+///         that moves the keys of the window does this. The cell then sends a value that is equal
+///         to its previous value.
+///     </para>
+/// </remarks>
+/// <param name="select">The part of an identity that this fold adds.</param>
+/// <param name="zero">The value for no items, which must be the identity of <c>add</c>.</param>
+/// <param name="add">Adds the value of one item to the accumulated value.</param>
+/// <param name="subtract">Removes the value of one item from the accumulated value.</param>
+/// <param name="collection">The collection or view to fold.</param>
+/// <returns>A cell with the folded value of the items that the collection holds.</returns>
+[<MethodImpl(MethodImplOptions.NoInlining)>]
+let foldByIdentity
+    (select: 'TIdentity -> 'TAccumulate)
+    (zero: 'TAccumulate)
+    (add: 'TAccumulate -> 'TAccumulate -> 'TAccumulate)
+    (subtract: 'TAccumulate -> 'TAccumulate -> 'TAccumulate)
+    (collection: ReactiveCollection<'TKey, 'TIdentity, 'TState>)
+    =
+    CollectionFoldUtility.FoldByIdentityImpl(
         collection,
         Func<_, _> select,
         zero,
