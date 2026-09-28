@@ -441,7 +441,7 @@ type ``Collections Tests``() =
             let collection = create keyOf [ item 1 "one" 10; item 2 "two" 5 ] [ edits ]
 
             // The fold reads the store at its construction, thus it does not wait for an edit.
-            let total = collection |> fold (fun state -> state.Score) 0 (+) (-)
+            let total = collection |> fold (fun _ state -> state.Score) 0 (+) (-)
 
             do! Expect.Equal(15, total |> sampleC)
 
@@ -457,6 +457,23 @@ type ``Collections Tests``() =
         }
 
     [<Test>]
+    member _.``the select of a fold reads the identity and the state``() =
+        task {
+            let edits = sinkS<CollectionEdit<int, ItemIdentity, ItemState>> ()
+
+            let collection = create keyOf [ item 1 "one" 10; item 2 "two" 5 ] [ edits ]
+
+            let weighted =
+                collection
+                |> fold (fun identity state -> identity.Number * 100 + state.Score) 0 (+) (-)
+
+            do! Expect.Equal(315, weighted |> sampleC)
+
+            edits |> sendS (updateEdit 2 (fun state -> { state with Score = 7 }))
+            do! Expect.Equal(317, weighted |> sampleC)
+        }
+
+    [<Test>]
     member _.``a fold of a view follows that view``() =
         task {
             let edits = sinkS<CollectionEdit<int, ItemIdentity, ItemState>> ()
@@ -464,7 +481,7 @@ type ``Collections Tests``() =
             let collection = create keyOf [ item 1 "one" 10; item 2 "two" 1 ] [ edits ]
 
             let high = collection |> filter (fun _ state -> state.Score >= 5)
-            let total = high |> fold (fun state -> state.Score) 0 (+) (-)
+            let total = high |> fold (fun _ state -> state.Score) 0 (+) (-)
 
             do! Expect.Equal(10, total |> sampleC)
 

@@ -7,7 +7,10 @@ after it, thus fold removes the previous value of each key that the change names
 and adds the new one. The cost of an edit is the count of the keys in that edit,
 and not the count of the items.
 
-  let total = accounts |> fold (fun state -> state.Balance) 0L (+) (-)
+  let total = accounts |> fold (fun _ state -> state.Balance) 0L (+) (-)
+
+select takes the identity and the state of an item, as the predicate of filter
+and the selector of sortBy do.
 
 A group, and not one combine function, because only an invertible operation can
 answer an edit with no read of each item. A sum and a count are groups. A maximum

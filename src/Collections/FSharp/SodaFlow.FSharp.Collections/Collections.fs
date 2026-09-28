@@ -847,8 +847,7 @@ let mapWith
     CollectionViewUtility.MapImpl(collection, Func<_, _> project, retainedBeyondTheView, Action<_> onEvicted)
 
 /// <summary>
-///     Folds the state of each item into one cell, and keeps that cell current as the collection
-///     changes.
+///     Folds each item into one cell, and keeps that cell current as the collection changes.
 /// </summary>
 /// <remarks>
 ///     <para>
@@ -883,7 +882,9 @@ let mapWith
 ///         items. Fold a decimal, or an integer of the smallest unit, where that matters.
 ///     </para>
 /// </remarks>
-/// <param name="select">The part of a state that this fold adds, such as a balance.</param>
+/// <param name="select">
+///     The part of an item that this fold adds, from its identity and its state, such as a balance.
+/// </param>
 /// <param name="zero">The value for no items, which must be the identity of <c>add</c>.</param>
 /// <param name="add">Adds the value of one item to the accumulated value.</param>
 /// <param name="subtract">Removes the value of one item from the accumulated value.</param>
@@ -891,7 +892,7 @@ let mapWith
 /// <returns>A cell with the folded value of the items that the collection holds.</returns>
 [<MethodImpl(MethodImplOptions.NoInlining)>]
 let fold
-    (select: 'TState -> 'TAccumulate)
+    (select: 'TIdentity -> 'TState -> 'TAccumulate)
     (zero: 'TAccumulate)
     (add: 'TAccumulate -> 'TAccumulate -> 'TAccumulate)
     (subtract: 'TAccumulate -> 'TAccumulate -> 'TAccumulate)
@@ -899,7 +900,7 @@ let fold
     =
     CollectionFoldUtility.FoldImpl(
         collection,
-        Func<_, _> select,
+        Func<_, _, _> select,
         zero,
         Func<_, _, _> add,
         Func<_, _, _> subtract

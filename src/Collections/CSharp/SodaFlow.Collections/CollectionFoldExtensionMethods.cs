@@ -12,15 +12,17 @@ namespace SodaFlow.Collections;
 public static class CollectionFoldExtensionMethods
 {
     /// <summary>
-    ///     Folds the state of each item into one cell, and keeps that cell current as the
-    ///     collection changes.
+    ///     Folds each item into one cell, and keeps that cell current as the collection changes.
     /// </summary>
     /// <typeparam name="TKey">The type of the keys.</typeparam>
     /// <typeparam name="TIdentity">The type of the immutable part of an item.</typeparam>
     /// <typeparam name="TState">The type of the mutable part of an item.</typeparam>
     /// <typeparam name="TAccumulate">The type of the value that the fold gives.</typeparam>
     /// <param name="collection">The collection or view to fold.</param>
-    /// <param name="select">The part of a state that this fold adds, such as a balance.</param>
+    /// <param name="select">
+    ///     The part of an item that this fold adds, from its identity and its state, such as a
+    ///     balance.
+    /// </param>
     /// <param name="zero">
     ///     The value for no items, which must be the identity of <paramref name="add" />.
     /// </param>
@@ -70,7 +72,7 @@ public static class CollectionFoldExtensionMethods
     [MethodImpl(MethodImplOptions.NoInlining)]
     public static Cell<TAccumulate> Fold<TKey, TIdentity, TState, TAccumulate>(
         this ReactiveCollection<TKey, TIdentity, TState> collection,
-        Func<TState, TAccumulate> select,
+        Func<TIdentity, TState, TAccumulate> select,
         TAccumulate zero,
         Func<TAccumulate, TAccumulate, TAccumulate> add,
         Func<TAccumulate, TAccumulate, TAccumulate> subtract)

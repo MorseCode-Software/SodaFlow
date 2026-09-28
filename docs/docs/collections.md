@@ -497,7 +497,7 @@ It is, and `Fold` is the operation:
 
 ```csharp
 Cell<long> total = accounts.Fold(
-    select: static state => state.Balance,
+    select: static (_, state) => state.Balance,
     zero: 0L,
     add: static (a, b) => a + b,
     subtract: static (a, b) => a - b);
@@ -507,7 +507,8 @@ It takes a group rather than one combining function — `zero`, `add`, and its i
 and that is the whole design. An edit replaces the value of a key, so the fold subtracts what the
 key contributed before and adds what it contributes now. The cost of an edit is the number of keys
 *in that edit*, whatever the size of the collection. The first value comes from reading the store
-once, at construction, so nothing has to supply a seed.
+once, at construction, so nothing has to supply a seed. `select` receives the identity and the state
+of each item, as the predicate of `Filter` and the selector of `SortBy` do.
 
 The group is also the limit. A maximum is not one — nothing subtracts a value from a maximum — so
 `Fold` cannot express it. Sort the view and read its first key instead. Neither can it express
@@ -519,7 +520,7 @@ and divide at the end for an average:
 
 ```csharp
 Cell<(long Sum, int Count)> parts = accounts.Fold(
-    select: static state => (Sum: state.Balance, Count: 1),
+    select: static (_, state) => (Sum: state.Balance, Count: 1),
     zero: (Sum: 0L, Count: 0),
     add: static (a, b) => (Sum: a.Sum + b.Sum, Count: a.Count + b.Count),
     subtract: static (a, b) => (Sum: a.Sum - b.Sum, Count: a.Count - b.Count));
@@ -530,7 +531,7 @@ Cell<double> average = parts.Map(static p => p.Count == 0 ? 0 : (double)p.Sum / 
 Carry `(n, Σx, Σx²)` the same way for a variance, or several unrelated totals to get them in one
 pass. Carry a map for group-by counts, where `add` increments a bucket and `subtract` decrements it,
 dropping a bucket that reaches zero — an update that moves an item between buckets falls out of
-subtracting its old contribution and adding its new one. `select: state => state.IsOpen ? 1 : 0`
+subtracting its old contribution and adding its new one. `select: (_, state) => state.IsOpen ? 1 : 0`
 counts matching items with no `Filter` stage at all. And where `add` and `subtract` are the *same*
 function, as with exclusive or, you get an order-independent fingerprint of the states, which answers
 "are these the same?" without comparing them.

@@ -210,7 +210,7 @@ public sealed class CollectionFoldTests
         Cell<int> count =
             Transaction.Run(() =>
                 collection.Fold(
-                    select: static _ => 1,
+                    select: static (_, _) => 1,
                     zero: 0,
                     add: static (a, b) => a + b,
                     subtract: static (a, b) => a - b));
@@ -283,6 +283,36 @@ public sealed class CollectionFoldTests
     }
 
     [Test]
+    public async Task TheSelectOfAFoldReadsTheIdentityAndTheState()
+    {
+        StreamSink<CollectionEdit<int, ItemIdentity, ItemState>> edits =
+            Stream.CreateSink<CollectionEdit<int, ItemIdentity, ItemState>>();
+
+        ReactiveCollection<int, ItemIdentity, ItemState> collection =
+            Create(edits: edits, initial: [TestUtil.Item(number: 1, name: "a", score: 10)]);
+
+        Cell<int> weighted = Transaction.Run(() => Weighted(collection));
+
+        await Assert.That(Transaction.Run(weighted.Sample)).IsEqualTo(110);
+
+        edits.Send(TestUtil.Score(key: 1, score: 20));
+        await Assert.That(Transaction.Run(weighted.Sample)).IsEqualTo(120);
+
+        // The replacement changes the identity of key 1. The fold must remove the value of the
+        // previous identity. A fold that reads the identity after the change for the two values
+        // removes 1120 in place of 120, and gives 120 - 1120 + 1130 = 130.
+        edits.Send(
+            TestUtil.Remove(1)
+                .CombineWith(
+                    TestUtil.Add(
+                        new Item<ItemIdentity, ItemState>(
+                            identity: new ItemIdentity(Number: 1, Code: "R1"),
+                            state: new ItemState(Name: "r", Score: 30)))));
+
+        await Assert.That(Transaction.Run(weighted.Sample)).IsEqualTo(1130);
+    }
+
+    [Test]
     public async Task AFoldOfEachViewMatchesASumOfItsItemsAfterRandomEdits()
     {
         // The seed is fixed, thus a failure occurs again at each run.
@@ -316,6 +346,7 @@ public sealed class CollectionFoldTests
                 });
 
         Cell<int>[] totals = Transaction.Run(() => views.Select(static view => Total(view.View)).ToArray());
+        Cell<int>[] weighted = Transaction.Run(() => views.Select(static view => Weighted(view.View)).ToArray());
         HashSet<int> present = [];
 
         for (int step = 0; step < 400; step++)
@@ -375,11 +406,20 @@ public sealed class CollectionFoldTests
             for (int index = 0; index < views.Length; index++)
             {
                 ReactiveCollection<int, ItemIdentity, ItemState> view = views[index].View;
-                int expected =
-                    Transaction.Run(() => view.SnapshotCell.Sample()).States.Pairs.Sum(static pair => pair.Value.Score);
+                CollectionSnapshot<int, ItemIdentity, ItemState> snapshot =
+                    Transaction.Run(() => view.SnapshotCell.Sample());
+
+                int expected = snapshot.States.Pairs.Sum(static pair => pair.Value.Score);
+
+                int expectedWeighted =
+                    snapshot.States.Pairs.Sum(pair =>
+                        WeightOf(identity: snapshot.Identities[pair.Key], state: pair.Value));
 
                 await Assert.That(Transaction.Run(totals[index].Sample)).IsEqualTo(expected)
                     .Because($"the fold of the view \"{views[index].Name}\" at step {step}");
+
+                await Assert.That(Transaction.Run(weighted[index].Sample)).IsEqualTo(expectedWeighted)
+                    .Because($"the fold of the identity and the state of \"{views[index].Name}\" at step {step}");
             }
         }
     }
@@ -394,8 +434,23 @@ public sealed class CollectionFoldTests
 
     private static Cell<int> Total(ReactiveCollection<int, ItemIdentity, ItemState> collection) =>
         collection.Fold(
-            select: static state => state.Score,
+            select: static (_, state) => state.Score,
             zero: 0,
             add: static (a, b) => a + b,
             subtract: static (a, b) => a - b);
+
+    /// <summary>A fold that reads the two parts of each item, thus a change of the identity moves it.</summary>
+    private static Cell<int> Weighted(ReactiveCollection<int, ItemIdentity, ItemState> collection) =>
+        collection.Fold(
+            select: static (identity, state) => WeightOf(identity: identity, state: state),
+            zero: 0,
+            add: static (a, b) => a + b,
+            subtract: static (a, b) => a - b);
+
+    /// <summary>
+    ///     The number of the key times 100, 1000 for an identity that a replacement made, and the
+    ///     score.
+    /// </summary>
+    private static int WeightOf(ItemIdentity identity, ItemState state) =>
+        (identity.Number * 100) + (identity.Code.StartsWith("R", StringComparison.Ordinal) ? 1000 : 0) + state.Score;
 }

@@ -8,10 +8,13 @@ new one. The cost of an edit is the count of the keys in that edit, and not the
 count of the items.
 
   Cell<long> total = accounts.Fold(
-      select: static state => state.Balance,
+      select: static (_, state) => state.Balance,
       zero: 0L,
       add: static (a, b) => a + b,
       subtract: static (a, b) => a - b);
+
+select takes the identity and the state of an item, as the predicate of Filter
+and the selector of SortBy do.
 
 A group, and not one combine function, because only an invertible operation can
 answer an edit with no read of each item. A sum and a count are groups. A maximum

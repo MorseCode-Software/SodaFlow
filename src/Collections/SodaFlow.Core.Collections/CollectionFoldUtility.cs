@@ -25,22 +25,22 @@ namespace SodaFlow.Collections;
 internal static class CollectionFoldUtility
 {
     /// <summary>
-    ///     Folds the state of each item of a collection into one cell, and keeps that cell current
-    ///     with the changes of the collection.
+    ///     Folds each item of a collection into one cell, and keeps that cell current with the
+    ///     changes of the collection.
     /// </summary>
     /// <typeparam name="TKey">The type of the keys.</typeparam>
     /// <typeparam name="TIdentity">The type of the immutable part of an item.</typeparam>
     /// <typeparam name="TState">The type of the mutable part of an item.</typeparam>
     /// <typeparam name="TAccumulate">The type of the value that the fold gives.</typeparam>
     /// <param name="collection">The collection to fold.</param>
-    /// <param name="select">The part of a state that the fold adds.</param>
+    /// <param name="select">The part of an item that the fold adds, from its identity and its state.</param>
     /// <param name="zero">The identity of <paramref name="add" />, which is the value for no items.</param>
     /// <param name="add">Adds the value of one item to the accumulated value.</param>
     /// <param name="subtract">Removes the value of one item from the accumulated value.</param>
     /// <returns>A cell with the folded value of each item that the collection holds.</returns>
     internal static Cell<TAccumulate> FoldImpl<TKey, TIdentity, TState, TAccumulate>(
         ReactiveCollection<TKey, TIdentity, TState> collection,
-        Func<TState, TAccumulate> select,
+        Func<TIdentity, TState, TAccumulate> select,
         TAccumulate zero,
         Func<TAccumulate, TAccumulate, TAccumulate> add,
         Func<TAccumulate, TAccumulate, TAccumulate> subtract)
@@ -51,11 +51,15 @@ internal static class CollectionFoldUtility
             // The first value comes from the store, because a fold of no changes is a fold of the
             // items that the collection holds now. A view gives its own items here: the States of a
             // scoped snapshot hold the keys of that view alone.
+            CollectionSnapshot<TKey, TIdentity, TState> snapshot = collection.SnapshotCell.SampleImpl();
+
             TAccumulate initial =
-                collection.SnapshotCell.SampleImpl()
-                    .States.Pairs.Aggregate(
-                        seed: zero,
-                        func: (running, pair) => add(arg1: running, arg2: select(pair.Value)));
+                snapshot.States.Pairs.Aggregate(
+                    seed: zero,
+                    func: (running, pair) =>
+                        add(
+                            arg1: running,
+                            arg2: select(arg1: IdentityOf(snapshot: snapshot, key: pair.Key), arg2: pair.Value)));
 
             return collection.ItemChangesStream.AccumImpl(
                 initialState: initial,
@@ -72,8 +76,8 @@ internal static class CollectionFoldUtility
     ///     change names and removes the value that the key had before the change.
     /// </summary>
     /// <remarks>
-    ///     The test for a previous value is a read of the states before the change, and not a test
-    ///     against the added keys. A key that the change added has no previous state, thus one
+    ///     The test for a previous value is a read of the items before the change, and not a test
+    ///     against the added keys. A key that the change added has no previous item, thus one
     ///     lookup answers the two conditions. That lookup is <c>O(1)</c>, and a test against the
     ///     added keys is a search of a collection.
     ///     <para>
@@ -83,11 +87,16 @@ internal static class CollectionFoldUtility
     ///         removes the previous value of that key, thus the second loop must not remove it
     ///         again.
     ///     </para>
+    ///     <para>
+    ///         The value to remove reads the identity from before the change, and the value to add
+    ///         reads the identity from after it. A replacement of an item can change the identity of
+    ///         its key.
+    ///     </para>
     /// </remarks>
     private static TAccumulate Apply<TKey, TIdentity, TState, TAccumulate>(
         ItemChange<TKey, TIdentity, TState> change,
         TAccumulate running,
-        Func<TState, TAccumulate> select,
+        Func<TIdentity, TState, TAccumulate> select,
         Func<TAccumulate, TAccumulate, TAccumulate> add,
         Func<TAccumulate, TAccumulate, TAccumulate> subtract)
         where TKey : notnull
@@ -97,23 +106,39 @@ internal static class CollectionFoldUtility
 
         foreach (KeyValuePair<TKey, TState> pair in change.NewStates)
         {
-            if (change.Before.States.TryGetState(key: pair.Key, state: out TState? was))
+            if (change.Before.TryGetHalves(key: pair.Key, identity: out TIdentity? wasIdentity, state: out TState? was))
             {
-                result = subtract(arg1: result, arg2: select(was));
+                result = subtract(arg1: result, arg2: select(arg1: wasIdentity, arg2: was));
             }
 
-            result = add(arg1: result, arg2: select(pair.Value));
+            result = add(
+                arg1: result,
+                arg2: select(arg1: IdentityOf(snapshot: change.After, key: pair.Key), arg2: pair.Value));
         }
 
         foreach (TKey key in change.Removed)
         {
             if (!change.NewStates.ContainsKey(key)
-                && change.Before.States.TryGetState(key: key, state: out TState? was))
+                && change.Before.TryGetHalves(key: key, identity: out TIdentity? wasIdentity, state: out TState? was))
             {
-                result = subtract(arg1: result, arg2: select(was));
+                result = subtract(arg1: result, arg2: select(arg1: wasIdentity, arg2: was));
             }
         }
 
         return result;
     }
+
+    /// <summary>The identity of a key that the snapshot must have.</summary>
+    /// <remarks>
+    ///     The identity map and the state map of a snapshot hold the same keys. Thus, a key with a
+    ///     state and no identity is a defect of this assembly, and this code does not skip it.
+    /// </remarks>
+    private static TIdentity IdentityOf<TKey, TIdentity, TState>(
+        CollectionSnapshot<TKey, TIdentity, TState> snapshot,
+        TKey key)
+        where TKey : notnull
+        where TIdentity : notnull =>
+        snapshot.TryGetIdentity(key: key, identity: out TIdentity? identity)
+            ? identity
+            : throw new InvalidOperationException($"Key '{key}' has a state and no identity.");
 }
