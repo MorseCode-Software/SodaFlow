@@ -60,17 +60,16 @@ changes, and not when only c2 changes.
 It cannot close a loop. Do not give it a cell that the result updates in the
 same transaction.
 
-snapshotLatest2 to snapshotLatest5 and snapshotLatest2B to snapshotLatest5B take
-two to five cells or behaviors, with the shorthand snapshotLatest2C to
-snapshotLatest5C and snapshotLatest2B to snapshotLatest5B. Each one gives the
+snapshotLatest2 to snapshotLatest7 and snapshotLatest2B to snapshotLatest7B take
+two to seven cells or behaviors, with the shorthand snapshotLatest2C to
+snapshotLatest7C and snapshotLatest2B to snapshotLatest7B. Each one gives the
 new value of each cell that the transaction updates, and the current value of
 each cell that it does not update. For more cells, give it a cell from lift2 or
 from one of the other lift functions. In a transaction, a lifted cell has the
 new value.
 
-Adds mergeOptions2, mergeOptions3, and mergeOptions4, with the shorthand
-mergeOptions2S, mergeOptions3S, and mergeOptions4S. Each one merges two, three,
-or four streams of different types. The result is a stream of struct tuples with
+Adds mergeOptions2 to mergeOptions8, with the shorthand mergeOptions2S to
+mergeOptions8S. Each one merges two to eight streams of different types. The result is a stream of struct tuples with
 one option for each stream, in the sequence of the arguments. It fires in each
 transaction in which one or more of the streams fire. Each element is Some with
 the value of its stream if that stream fired, and None if it did not. Thus, one

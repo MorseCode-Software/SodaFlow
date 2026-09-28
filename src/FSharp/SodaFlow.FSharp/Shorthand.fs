@@ -686,6 +686,108 @@ let inline snapshotLatest5C cell1 cell2 cell3 cell4 cell5 f stream =
     Stream.snapshotLatest5 cell1 cell2 cell3 cell4 cell5 f stream
 
 /// <summary>
+/// Samples the latest values of six behaviors when the stream fires, and fires the combination.
+/// </summary>
+/// <param name="behavior1">The first behavior to sample.</param>
+/// <param name="behavior2">The second behavior to sample.</param>
+/// <param name="behavior3">The third behavior to sample.</param>
+/// <param name="behavior4">The fourth behavior to sample.</param>
+/// <param name="behavior5">The fifth behavior to sample.</param>
+/// <param name="behavior6">The sixth behavior to sample.</param>
+/// <param name="f">Combines the fired value with the six sampled values.</param>
+/// <param name="stream">The stream that causes each firing of the result.</param>
+/// <returns>
+/// A stream firing <paramref name="f" /> applied to the fired value and the six sampled values.
+/// </returns>
+/// <remarks>
+/// Shorthand for <c>Stream.snapshotLatest6B</c>. See it for the full contract.
+///
+/// This samples and does not merge. Only the stream causes the firing. Each sampled value is the
+/// value at the end of the transaction of that firing. Thus, a behavior that the same transaction
+/// updates gives its new value, where <c>snapshot6B</c> gives its previous value. This cannot close
+/// a loop.
+/// </remarks>
+let inline snapshotLatest6B behavior1 behavior2 behavior3 behavior4 behavior5 behavior6 f stream =
+    Stream.snapshotLatest6B behavior1 behavior2 behavior3 behavior4 behavior5 behavior6 f stream
+
+/// <summary>
+/// Samples the latest values of six cells when the stream fires, and fires the combination.
+/// </summary>
+/// <param name="cell1">The first cell to sample.</param>
+/// <param name="cell2">The second cell to sample.</param>
+/// <param name="cell3">The third cell to sample.</param>
+/// <param name="cell4">The fourth cell to sample.</param>
+/// <param name="cell5">The fifth cell to sample.</param>
+/// <param name="cell6">The sixth cell to sample.</param>
+/// <param name="f">Combines the fired value with the six sampled values.</param>
+/// <param name="stream">The stream that causes each firing of the result.</param>
+/// <returns>
+/// A stream firing <paramref name="f" /> applied to the fired value and the six sampled values.
+/// </returns>
+/// <remarks>
+/// Shorthand for <c>Stream.snapshotLatest6</c>. See it for the full contract.
+///
+/// This samples and does not merge. Only the stream causes the firing. Each sampled value is the
+/// value at the end of the transaction of that firing. Thus, a cell that the same transaction
+/// updates gives its new value, where <c>snapshot6C</c> gives its previous value. This cannot close
+/// a loop.
+/// </remarks>
+let inline snapshotLatest6C cell1 cell2 cell3 cell4 cell5 cell6 f stream =
+    Stream.snapshotLatest6 cell1 cell2 cell3 cell4 cell5 cell6 f stream
+
+/// <summary>
+/// Samples the latest values of seven behaviors when the stream fires, and fires the combination.
+/// </summary>
+/// <param name="behavior1">The first behavior to sample.</param>
+/// <param name="behavior2">The second behavior to sample.</param>
+/// <param name="behavior3">The third behavior to sample.</param>
+/// <param name="behavior4">The fourth behavior to sample.</param>
+/// <param name="behavior5">The fifth behavior to sample.</param>
+/// <param name="behavior6">The sixth behavior to sample.</param>
+/// <param name="behavior7">The seventh behavior to sample.</param>
+/// <param name="f">Combines the fired value with the seven sampled values.</param>
+/// <param name="stream">The stream that causes each firing of the result.</param>
+/// <returns>
+/// A stream firing <paramref name="f" /> applied to the fired value and the seven sampled values.
+/// </returns>
+/// <remarks>
+/// Shorthand for <c>Stream.snapshotLatest7B</c>. See it for the full contract.
+///
+/// This samples and does not merge. Only the stream causes the firing. Each sampled value is the
+/// value at the end of the transaction of that firing. Thus, a behavior that the same transaction
+/// updates gives its new value, where <c>snapshot7B</c> gives its previous value. This cannot close
+/// a loop.
+/// </remarks>
+let inline snapshotLatest7B behavior1 behavior2 behavior3 behavior4 behavior5 behavior6 behavior7 f stream =
+    Stream.snapshotLatest7B behavior1 behavior2 behavior3 behavior4 behavior5 behavior6 behavior7 f stream
+
+/// <summary>
+/// Samples the latest values of seven cells when the stream fires, and fires the combination.
+/// </summary>
+/// <param name="cell1">The first cell to sample.</param>
+/// <param name="cell2">The second cell to sample.</param>
+/// <param name="cell3">The third cell to sample.</param>
+/// <param name="cell4">The fourth cell to sample.</param>
+/// <param name="cell5">The fifth cell to sample.</param>
+/// <param name="cell6">The sixth cell to sample.</param>
+/// <param name="cell7">The seventh cell to sample.</param>
+/// <param name="f">Combines the fired value with the seven sampled values.</param>
+/// <param name="stream">The stream that causes each firing of the result.</param>
+/// <returns>
+/// A stream firing <paramref name="f" /> applied to the fired value and the seven sampled values.
+/// </returns>
+/// <remarks>
+/// Shorthand for <c>Stream.snapshotLatest7</c>. See it for the full contract.
+///
+/// This samples and does not merge. Only the stream causes the firing. Each sampled value is the
+/// value at the end of the transaction of that firing. Thus, a cell that the same transaction
+/// updates gives its new value, where <c>snapshot7C</c> gives its previous value. This cannot close
+/// a loop.
+/// </remarks>
+let inline snapshotLatest7C cell1 cell2 cell3 cell4 cell5 cell6 cell7 f stream =
+    Stream.snapshotLatest7 cell1 cell2 cell3 cell4 cell5 cell6 cell7 f stream
+
+/// <summary>
 /// Samples two behaviors when the stream fires, and fires the combination.
 /// </summary>
 /// <param name="behavior1">The first behavior to sample.</param>
@@ -1112,6 +1214,84 @@ let inline mergeOptions3S (stream, stream2, stream3) = Stream.mergeOptions3 (str
 /// </remarks>
 let inline mergeOptions4S (stream, stream2, stream3, stream4) =
     Stream.mergeOptions4 (stream, stream2, stream3, stream4)
+
+/// <summary>
+/// Merges five streams of different types into one stream of tuples.
+/// </summary>
+/// <param name="stream">The first stream.</param>
+/// <param name="stream2">The second stream.</param>
+/// <param name="stream3">The third stream.</param>
+/// <param name="stream4">The fourth stream.</param>
+/// <param name="stream5">The fifth stream.</param>
+/// <returns>
+/// A stream that fires in each transaction in which one or more of the streams fire. Each element
+/// is <c>Some</c> with the value of its stream if that stream fired, and <c>None</c> if it did not.
+/// </returns>
+/// <remarks>
+/// Shorthand for <c>Stream.mergeOptions5</c>. See it for the full contract.
+/// </remarks>
+let inline mergeOptions5S (stream, stream2, stream3, stream4, stream5) =
+    Stream.mergeOptions5 (stream, stream2, stream3, stream4, stream5)
+
+/// <summary>
+/// Merges six streams of different types into one stream of tuples.
+/// </summary>
+/// <param name="stream">The first stream.</param>
+/// <param name="stream2">The second stream.</param>
+/// <param name="stream3">The third stream.</param>
+/// <param name="stream4">The fourth stream.</param>
+/// <param name="stream5">The fifth stream.</param>
+/// <param name="stream6">The sixth stream.</param>
+/// <returns>
+/// A stream that fires in each transaction in which one or more of the streams fire. Each element
+/// is <c>Some</c> with the value of its stream if that stream fired, and <c>None</c> if it did not.
+/// </returns>
+/// <remarks>
+/// Shorthand for <c>Stream.mergeOptions6</c>. See it for the full contract.
+/// </remarks>
+let inline mergeOptions6S (stream, stream2, stream3, stream4, stream5, stream6) =
+    Stream.mergeOptions6 (stream, stream2, stream3, stream4, stream5, stream6)
+
+/// <summary>
+/// Merges seven streams of different types into one stream of tuples.
+/// </summary>
+/// <param name="stream">The first stream.</param>
+/// <param name="stream2">The second stream.</param>
+/// <param name="stream3">The third stream.</param>
+/// <param name="stream4">The fourth stream.</param>
+/// <param name="stream5">The fifth stream.</param>
+/// <param name="stream6">The sixth stream.</param>
+/// <param name="stream7">The seventh stream.</param>
+/// <returns>
+/// A stream that fires in each transaction in which one or more of the streams fire. Each element
+/// is <c>Some</c> with the value of its stream if that stream fired, and <c>None</c> if it did not.
+/// </returns>
+/// <remarks>
+/// Shorthand for <c>Stream.mergeOptions7</c>. See it for the full contract.
+/// </remarks>
+let inline mergeOptions7S (stream, stream2, stream3, stream4, stream5, stream6, stream7) =
+    Stream.mergeOptions7 (stream, stream2, stream3, stream4, stream5, stream6, stream7)
+
+/// <summary>
+/// Merges eight streams of different types into one stream of tuples.
+/// </summary>
+/// <param name="stream">The first stream.</param>
+/// <param name="stream2">The second stream.</param>
+/// <param name="stream3">The third stream.</param>
+/// <param name="stream4">The fourth stream.</param>
+/// <param name="stream5">The fifth stream.</param>
+/// <param name="stream6">The sixth stream.</param>
+/// <param name="stream7">The seventh stream.</param>
+/// <param name="stream8">The eighth stream.</param>
+/// <returns>
+/// A stream that fires in each transaction in which one or more of the streams fire. Each element
+/// is <c>Some</c> with the value of its stream if that stream fired, and <c>None</c> if it did not.
+/// </returns>
+/// <remarks>
+/// Shorthand for <c>Stream.mergeOptions8</c>. See it for the full contract.
+/// </remarks>
+let inline mergeOptions8S (stream, stream2, stream3, stream4, stream5, stream6, stream7, stream8) =
+    Stream.mergeOptions8 (stream, stream2, stream3, stream4, stream5, stream6, stream7, stream8)
 
 /// <summary>
 /// Keeps only the firings whose value satisfies a predicate.

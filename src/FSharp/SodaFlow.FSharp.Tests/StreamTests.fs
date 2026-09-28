@@ -694,11 +694,15 @@ type ``Stream Tests``() =
             let c3 = sinkC 3
             let c4 = sinkC 4
             let c5 = sinkC 5
+            let c6 = sinkC 6
+            let c7 = sinkC 7
             let b1 = c1 |> asBehaviorC
             let b2 = c2 |> asBehaviorC
             let b3 = c3 |> asBehaviorC
             let b4 = c4 |> asBehaviorC
             let b5 = c5 |> asBehaviorC
+            let b6 = c6 |> asBehaviorC
+            let b7 = c7 |> asBehaviorC
             let out = List<_>()
 
             let listeners =
@@ -709,7 +713,17 @@ type ``Stream Tests``() =
                   s |> snapshotLatest4C c1 c2 c3 c4 (fun a v1 v2 v3 v4 -> [ a; v1; v2; v3; v4 ])
                   s |> snapshotLatest4B b1 b2 b3 b4 (fun a v1 v2 v3 v4 -> [ a; v1; v2; v3; v4 ])
                   s |> snapshotLatest5C c1 c2 c3 c4 c5 (fun a v1 v2 v3 v4 v5 -> [ a; v1; v2; v3; v4; v5 ])
-                  s |> snapshotLatest5B b1 b2 b3 b4 b5 (fun a v1 v2 v3 v4 v5 -> [ a; v1; v2; v3; v4; v5 ]) ]
+                  s |> snapshotLatest5B b1 b2 b3 b4 b5 (fun a v1 v2 v3 v4 v5 -> [ a; v1; v2; v3; v4; v5 ])
+                  s
+                  |> snapshotLatest6C c1 c2 c3 c4 c5 c6 (fun a v1 v2 v3 v4 v5 v6 -> [ a; v1; v2; v3; v4; v5; v6 ])
+                  s
+                  |> snapshotLatest6B b1 b2 b3 b4 b5 b6 (fun a v1 v2 v3 v4 v5 v6 -> [ a; v1; v2; v3; v4; v5; v6 ])
+                  s
+                  |> snapshotLatest7C c1 c2 c3 c4 c5 c6 c7 (fun a v1 v2 v3 v4 v5 v6 v7 ->
+                      [ a; v1; v2; v3; v4; v5; v6; v7 ])
+                  s
+                  |> snapshotLatest7B b1 b2 b3 b4 b5 b6 b7 (fun a v1 v2 v3 v4 v5 v6 v7 ->
+                      [ a; v1; v2; v3; v4; v5; v6; v7 ]) ]
                 |> List.map (listenStrongS out.Add)
 
             // The stream fires between the updates of the cells. Each result must see the new value of
@@ -718,7 +732,8 @@ type ``Stream Tests``() =
                 c1 |> sendC 10
                 c3 |> sendC 30
                 s |> sendS 0
-                c5 |> sendC 50)
+                c5 |> sendC 50
+                c7 |> sendC 70)
 
             listeners |> List.iter unlistenL
 
@@ -732,7 +747,11 @@ type ``Stream Tests``() =
                       [ 0; 10; 2; 30; 4 ]
                       [ 0; 10; 2; 30; 4 ]
                       [ 0; 10; 2; 30; 4; 50 ]
-                      [ 0; 10; 2; 30; 4; 50 ] ],
+                      [ 0; 10; 2; 30; 4; 50 ]
+                      [ 0; 10; 2; 30; 4; 50; 6 ]
+                      [ 0; 10; 2; 30; 4; 50; 6 ]
+                      [ 0; 10; 2; 30; 4; 50; 6; 70 ]
+                      [ 0; 10; 2; 30; 4; 50; 6; 70 ] ],
                     out
                 )
         }
@@ -744,22 +763,39 @@ type ``Stream Tests``() =
             let s2 = sinkS ()
             let s3 = sinkS ()
             let s4 = sinkS ()
+            let s5 = sinkS ()
+            let s6 = sinkS ()
+            let s7 = sinkS ()
+            let s8 = sinkS ()
             let out2 = List<_>()
             let out3 = List<_>()
             let out4 = List<_>()
+            let out5 = List<_>()
+            let out6 = List<_>()
+            let out7 = List<_>()
+            let out8 = List<_>()
 
             let listeners =
                 [ (s1, s2) |> mergeOptions2S |> listenStrongS out2.Add
                   (s1, s2, s3) |> mergeOptions3S |> listenStrongS out3.Add
-                  (s1, s2, s3, s4) |> mergeOptions4S |> listenStrongS out4.Add ]
+                  (s1, s2, s3, s4) |> mergeOptions4S |> listenStrongS out4.Add
+                  (s1, s2, s3, s4, s5) |> mergeOptions5S |> listenStrongS out5.Add
+                  (s1, s2, s3, s4, s5, s6) |> mergeOptions6S |> listenStrongS out6.Add
+                  (s1, s2, s3, s4, s5, s6, s7) |> mergeOptions7S |> listenStrongS out7.Add
+                  (s1, s2, s3, s4, s5, s6, s7, s8) |> mergeOptions8S |> listenStrongS out8.Add ]
 
             s1 |> sendS 1
             s3 |> sendS 'c'
+            s5 |> sendS true
 
             runT (fun () ->
                 s4 |> sendS 4L
+                s8 |> sendS 8u
                 s2 |> sendS "b"
+                s6 |> sendS 6s
                 s1 |> sendS 2)
+
+            s7 |> sendS 7uy
 
             // A transaction in which no input fires gives no firing.
             runT ignore
@@ -782,6 +818,44 @@ type ``Stream Tests``() =
                       struct (None, None, Some 'c', None)
                       struct (Some 2, Some "b", None, Some 4L) ],
                     out4
+                )
+
+            do!
+                Expect.Sequence(
+                    [ struct (Some 1, None, None, None, None)
+                      struct (None, None, Some 'c', None, None)
+                      struct (None, None, None, None, Some true)
+                      struct (Some 2, Some "b", None, Some 4L, None) ],
+                    out5
+                )
+
+            do!
+                Expect.Sequence(
+                    [ struct (Some 1, None, None, None, None, None)
+                      struct (None, None, Some 'c', None, None, None)
+                      struct (None, None, None, None, Some true, None)
+                      struct (Some 2, Some "b", None, Some 4L, None, Some 6s) ],
+                    out6
+                )
+
+            do!
+                Expect.Sequence(
+                    [ struct (Some 1, None, None, None, None, None, None)
+                      struct (None, None, Some 'c', None, None, None, None)
+                      struct (None, None, None, None, Some true, None, None)
+                      struct (Some 2, Some "b", None, Some 4L, None, Some 6s, None)
+                      struct (None, None, None, None, None, None, Some 7uy) ],
+                    out7
+                )
+
+            do!
+                Expect.Sequence(
+                    [ struct (Some 1, None, None, None, None, None, None, None)
+                      struct (None, None, Some 'c', None, None, None, None, None)
+                      struct (None, None, None, None, Some true, None, None, None)
+                      struct (Some 2, Some "b", None, Some 4L, None, Some 6s, None, Some 8u)
+                      struct (None, None, None, None, None, None, Some 7uy, None) ],
+                    out8
                 )
         }
 

@@ -594,6 +594,148 @@ let snapshotLatest5 (cell1: Cell<_>) cell2 cell3 cell4 cell5 f (stream: Stream<_
     stream.SnapshotLatestImpl(cell1, cell2, cell3, cell4, cell5, (Func<_, _, _, _, _, _, _> f))
 
 /// <summary>
+///     Samples the latest values of six behaviors when the stream fires, and fires the
+///     combination.
+/// </summary>
+/// <param name="behavior1">The first behavior to sample.</param>
+/// <param name="behavior2">The second behavior to sample.</param>
+/// <param name="behavior3">The third behavior to sample.</param>
+/// <param name="behavior4">The fourth behavior to sample.</param>
+/// <param name="behavior5">The fifth behavior to sample.</param>
+/// <param name="behavior6">The sixth behavior to sample.</param>
+/// <param name="f">Combines the fired value with the six sampled values.</param>
+/// <param name="stream">The stream that causes each firing of the result.</param>
+/// <returns>
+///     A stream firing <paramref name="f" /> applied to the fired value and the six sampled
+///     values.
+/// </returns>
+/// <remarks>
+///     This samples and does not merge. Only the stream causes the firing. An update of the
+///     behaviors alone does not. Each sampled value is the value at the end of the transaction of
+///     that firing. Thus, a behavior that the same transaction updates gives its new value, where
+///     <c>snapshot6B</c> gives its previous value. Unlike <c>snapshot6B</c>, this cannot close a
+///     loop. Do not give a behavior that the result updates in the same transaction.
+/// </remarks>
+[<MethodImpl(MethodImplOptions.NoInlining)>]
+let snapshotLatest6B (behavior1: Behavior<_>) behavior2 behavior3 behavior4 behavior5 behavior6 f (stream: Stream<_>) =
+    stream.SnapshotLatestImpl(
+        behavior1,
+        behavior2,
+        behavior3,
+        behavior4,
+        behavior5,
+        behavior6,
+        Func<_, _, _, _, _, _, _, _> f
+    )
+
+/// <summary>
+///     Samples the latest values of six cells when the stream fires, and fires the combination.
+/// </summary>
+/// <param name="cell1">The first cell to sample.</param>
+/// <param name="cell2">The second cell to sample.</param>
+/// <param name="cell3">The third cell to sample.</param>
+/// <param name="cell4">The fourth cell to sample.</param>
+/// <param name="cell5">The fifth cell to sample.</param>
+/// <param name="cell6">The sixth cell to sample.</param>
+/// <param name="f">Combines the fired value with the six sampled values.</param>
+/// <param name="stream">The stream that causes each firing of the result.</param>
+/// <returns>
+///     A stream firing <paramref name="f" /> applied to the fired value and the six sampled
+///     values.
+/// </returns>
+/// <remarks>
+///     This samples and does not merge. Only the stream causes the firing. An update of the cells
+///     alone does not. Each sampled value is the value at the end of the transaction of that
+///     firing. Thus, a cell that the same transaction updates gives its new value, where
+///     <c>snapshot6</c> gives its previous value. Unlike <c>snapshot6</c>, this cannot close a
+///     loop. Do not give a cell that the result updates in the same transaction.
+/// </remarks>
+[<MethodImpl(MethodImplOptions.NoInlining)>]
+let snapshotLatest6 (cell1: Cell<_>) cell2 cell3 cell4 cell5 cell6 f (stream: Stream<_>) =
+    stream.SnapshotLatestImpl(
+        cell1,
+        cell2,
+        cell3,
+        cell4,
+        cell5,
+        cell6,
+        Func<_, _, _, _, _, _, _, _> f
+    )
+
+/// <summary>
+///     Samples the latest values of seven behaviors when the stream fires, and fires the
+///     combination.
+/// </summary>
+/// <param name="behavior1">The first behavior to sample.</param>
+/// <param name="behavior2">The second behavior to sample.</param>
+/// <param name="behavior3">The third behavior to sample.</param>
+/// <param name="behavior4">The fourth behavior to sample.</param>
+/// <param name="behavior5">The fifth behavior to sample.</param>
+/// <param name="behavior6">The sixth behavior to sample.</param>
+/// <param name="behavior7">The seventh behavior to sample.</param>
+/// <param name="f">Combines the fired value with the seven sampled values.</param>
+/// <param name="stream">The stream that causes each firing of the result.</param>
+/// <returns>
+///     A stream firing <paramref name="f" /> applied to the fired value and the seven sampled
+///     values.
+/// </returns>
+/// <remarks>
+///     This samples and does not merge. Only the stream causes the firing. An update of the
+///     behaviors alone does not. Each sampled value is the value at the end of the transaction of
+///     that firing. Thus, a behavior that the same transaction updates gives its new value, where
+///     <c>snapshot7B</c> gives its previous value. Unlike <c>snapshot7B</c>, this cannot close a
+///     loop. Do not give a behavior that the result updates in the same transaction.
+/// </remarks>
+[<MethodImpl(MethodImplOptions.NoInlining)>]
+let snapshotLatest7B (behavior1: Behavior<_>) behavior2 behavior3 behavior4 behavior5 behavior6 behavior7 f (stream: Stream<_>) =
+    stream.SnapshotLatestImpl(
+        behavior1,
+        behavior2,
+        behavior3,
+        behavior4,
+        behavior5,
+        behavior6,
+        behavior7,
+        Func<_, _, _, _, _, _, _, _, _> f
+    )
+
+/// <summary>
+///     Samples the latest values of seven cells when the stream fires, and fires the combination.
+/// </summary>
+/// <param name="cell1">The first cell to sample.</param>
+/// <param name="cell2">The second cell to sample.</param>
+/// <param name="cell3">The third cell to sample.</param>
+/// <param name="cell4">The fourth cell to sample.</param>
+/// <param name="cell5">The fifth cell to sample.</param>
+/// <param name="cell6">The sixth cell to sample.</param>
+/// <param name="cell7">The seventh cell to sample.</param>
+/// <param name="f">Combines the fired value with the seven sampled values.</param>
+/// <param name="stream">The stream that causes each firing of the result.</param>
+/// <returns>
+///     A stream firing <paramref name="f" /> applied to the fired value and the seven sampled
+///     values.
+/// </returns>
+/// <remarks>
+///     This samples and does not merge. Only the stream causes the firing. An update of the cells
+///     alone does not. Each sampled value is the value at the end of the transaction of that
+///     firing. Thus, a cell that the same transaction updates gives its new value, where
+///     <c>snapshot7</c> gives its previous value. Unlike <c>snapshot7</c>, this cannot close a
+///     loop. Do not give a cell that the result updates in the same transaction.
+/// </remarks>
+[<MethodImpl(MethodImplOptions.NoInlining)>]
+let snapshotLatest7 (cell1: Cell<_>) cell2 cell3 cell4 cell5 cell6 cell7 f (stream: Stream<_>) =
+    stream.SnapshotLatestImpl(
+        cell1,
+        cell2,
+        cell3,
+        cell4,
+        cell5,
+        cell6,
+        cell7,
+        Func<_, _, _, _, _, _, _, _, _> f
+    )
+
+/// <summary>
 ///     Samples two behaviors when the stream fires, and fires the combination.
 /// </summary>
 /// <param name="behavior1">The first behavior to sample.</param>
@@ -1061,6 +1203,190 @@ let mergeOptions4 (stream: Stream<_>, stream2: Stream<_>, stream3: Stream<_>, st
         stream3,
         stream4,
         (fun m1 m2 m3 m4 -> struct (toOption m1, toOption m2, toOption m3, toOption m4))
+    )
+
+/// <summary>
+///     Merges five streams of different types into one stream of tuples.
+/// </summary>
+/// <param name="stream">The first stream.</param>
+/// <param name="stream2">The second stream.</param>
+/// <param name="stream3">The third stream.</param>
+/// <param name="stream4">The fourth stream.</param>
+/// <param name="stream5">The fifth stream.</param>
+/// <returns>
+///     A stream that fires in each transaction in which one or more of the streams fire. Each element
+///     is <c>Some</c> with the value of its stream if that stream fired, and <c>None</c> if it did not.
+/// </returns>
+/// <remarks>
+///     One or more elements of each firing are <c>Some</c>. No input has priority over the other
+///     inputs. Thus, the sequence of the streams changes only the sequence of the elements.
+/// </remarks>
+[<MethodImpl(MethodImplOptions.NoInlining)>]
+let mergeOptions5
+    (
+        stream: Stream<_>,
+        stream2: Stream<_>,
+        stream3: Stream<_>,
+        stream4: Stream<_>,
+        stream5: Stream<_>
+    ) =
+    stream.MergeMaybesImpl(
+        stream2,
+        stream3,
+        stream4,
+        stream5,
+        (fun m1 m2 m3 m4 m5 ->
+            struct (
+                toOption m1,
+                toOption m2,
+                toOption m3,
+                toOption m4,
+                toOption m5
+            ))
+    )
+
+/// <summary>
+///     Merges six streams of different types into one stream of tuples.
+/// </summary>
+/// <param name="stream">The first stream.</param>
+/// <param name="stream2">The second stream.</param>
+/// <param name="stream3">The third stream.</param>
+/// <param name="stream4">The fourth stream.</param>
+/// <param name="stream5">The fifth stream.</param>
+/// <param name="stream6">The sixth stream.</param>
+/// <returns>
+///     A stream that fires in each transaction in which one or more of the streams fire. Each element
+///     is <c>Some</c> with the value of its stream if that stream fired, and <c>None</c> if it did not.
+/// </returns>
+/// <remarks>
+///     One or more elements of each firing are <c>Some</c>. No input has priority over the other
+///     inputs. Thus, the sequence of the streams changes only the sequence of the elements.
+/// </remarks>
+[<MethodImpl(MethodImplOptions.NoInlining)>]
+let mergeOptions6
+    (
+        stream: Stream<_>,
+        stream2: Stream<_>,
+        stream3: Stream<_>,
+        stream4: Stream<_>,
+        stream5: Stream<_>,
+        stream6: Stream<_>
+    ) =
+    stream.MergeMaybesImpl(
+        stream2,
+        stream3,
+        stream4,
+        stream5,
+        stream6,
+        (fun m1 m2 m3 m4 m5 m6 ->
+            struct (
+                toOption m1,
+                toOption m2,
+                toOption m3,
+                toOption m4,
+                toOption m5,
+                toOption m6
+            ))
+    )
+
+/// <summary>
+///     Merges seven streams of different types into one stream of tuples.
+/// </summary>
+/// <param name="stream">The first stream.</param>
+/// <param name="stream2">The second stream.</param>
+/// <param name="stream3">The third stream.</param>
+/// <param name="stream4">The fourth stream.</param>
+/// <param name="stream5">The fifth stream.</param>
+/// <param name="stream6">The sixth stream.</param>
+/// <param name="stream7">The seventh stream.</param>
+/// <returns>
+///     A stream that fires in each transaction in which one or more of the streams fire. Each element
+///     is <c>Some</c> with the value of its stream if that stream fired, and <c>None</c> if it did not.
+/// </returns>
+/// <remarks>
+///     One or more elements of each firing are <c>Some</c>. No input has priority over the other
+///     inputs. Thus, the sequence of the streams changes only the sequence of the elements.
+/// </remarks>
+[<MethodImpl(MethodImplOptions.NoInlining)>]
+let mergeOptions7
+    (
+        stream: Stream<_>,
+        stream2: Stream<_>,
+        stream3: Stream<_>,
+        stream4: Stream<_>,
+        stream5: Stream<_>,
+        stream6: Stream<_>,
+        stream7: Stream<_>
+    ) =
+    stream.MergeMaybesImpl(
+        stream2,
+        stream3,
+        stream4,
+        stream5,
+        stream6,
+        stream7,
+        (fun m1 m2 m3 m4 m5 m6 m7 ->
+            struct (
+                toOption m1,
+                toOption m2,
+                toOption m3,
+                toOption m4,
+                toOption m5,
+                toOption m6,
+                toOption m7
+            ))
+    )
+
+/// <summary>
+///     Merges eight streams of different types into one stream of tuples.
+/// </summary>
+/// <param name="stream">The first stream.</param>
+/// <param name="stream2">The second stream.</param>
+/// <param name="stream3">The third stream.</param>
+/// <param name="stream4">The fourth stream.</param>
+/// <param name="stream5">The fifth stream.</param>
+/// <param name="stream6">The sixth stream.</param>
+/// <param name="stream7">The seventh stream.</param>
+/// <param name="stream8">The eighth stream.</param>
+/// <returns>
+///     A stream that fires in each transaction in which one or more of the streams fire. Each element
+///     is <c>Some</c> with the value of its stream if that stream fired, and <c>None</c> if it did not.
+/// </returns>
+/// <remarks>
+///     One or more elements of each firing are <c>Some</c>. No input has priority over the other
+///     inputs. Thus, the sequence of the streams changes only the sequence of the elements.
+/// </remarks>
+[<MethodImpl(MethodImplOptions.NoInlining)>]
+let mergeOptions8
+    (
+        stream: Stream<_>,
+        stream2: Stream<_>,
+        stream3: Stream<_>,
+        stream4: Stream<_>,
+        stream5: Stream<_>,
+        stream6: Stream<_>,
+        stream7: Stream<_>,
+        stream8: Stream<_>
+    ) =
+    stream.MergeMaybesImpl(
+        stream2,
+        stream3,
+        stream4,
+        stream5,
+        stream6,
+        stream7,
+        stream8,
+        (fun m1 m2 m3 m4 m5 m6 m7 m8 ->
+            struct (
+                toOption m1,
+                toOption m2,
+                toOption m3,
+                toOption m4,
+                toOption m5,
+                toOption m6,
+                toOption m7,
+                toOption m8
+            ))
     )
 
 /// <summary>

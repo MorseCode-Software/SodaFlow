@@ -47,17 +47,17 @@ handlers, timers, and network callbacks; everything downstream stays pure.
 | `s.Choose(f)` | `chooseS f s` | Map and filter in one step: fire only the values `f` produced. |
 | `s.Merge(s2, f)` | `mergeS f (s, s2)` | Combine two streams; `f` resolves simultaneous firings. |
 | `s.OrElse(s2)` | `orElseS (s, s2)` | Combine two streams; on simultaneity the left wins. |
-| `s.Merge(s2)` | `mergeOptions2S (s, s2)` | Combine streams of different types into a tuple of `Maybe<T>` / `option`, one element per stream, set for each stream that fired. Up to four streams. |
+| `s.Merge(s2)` | `mergeOptions2S (s, s2)` | Combine streams of different types into a tuple of `Maybe<T>` / `option`, one element per stream, set for each stream that fired. Up to eight streams. |
 | `streams.Merge(f)` | `mergeAllS f streams` | Merge a collection of streams. |
 | `streams.OrElse()` | `orElseAllS streams` | Left-biased merge of a collection. |
 | `s.Hold(initial)` | `holdS initial s` | Turn into a cell remembering the latest value. |
 | `s.HoldLazy(lazy)` | `holdLazyS v s` | As above with a lazy initial value. |
 | `s.Snapshot(c)` | `snapshotAndTakeC c s` | On each firing, take the cell's value, discarding the stream's. |
 | `s.Snapshot(c, f)` | `snapshotC c f s` | On each firing, combine the stream value with the cell's. |
-| `s.Snapshot(c1, c2, f)` | `snapshot2C c1 c2 f s` | Same, over more cells (up to 4). |
+| `s.Snapshot(c1, c2, f)` | `snapshot2C c1 c2 f s` | Same, over more cells: up to 7 in C#, 8 in F#. |
 | `s.SnapshotLatest(c)` | `snapshotLatestAndTakeC c s` | Like `Snapshot(c)`, but sees the cell's value after this transaction. |
 | `s.SnapshotLatest(c, f)` | `snapshotLatestC c f s` | Like `Snapshot(c, f)`, but sees the cell's value after this transaction. |
-| `s.SnapshotLatest(c1, c2, f)` | `snapshotLatest2C c1 c2 f s` | Same, over more cells (up to 5). |
+| `s.SnapshotLatest(c1, c2, f)` | `snapshotLatest2C c1 c2 f s` | Same, over more cells (up to 7). |
 | `s.Gate(c)` | `gateC c s` | Drop firings while a `Cell<bool>` is false. |
 | `s.Calm()` | `calmS s` | Suppress firings equal to the previous one. |
 | `s.Calm(comparer)` | `calmWithEqualityComparerS cmp s` | As above with an explicit comparer. |
@@ -79,7 +79,7 @@ with a constant. Reach for the specific one — it reads better and does less wo
 read its own last state. When a change of one cell should read another cell *after* the same
 change, use `SnapshotLatest`: `c1.Values().SnapshotLatest(c2, f)` fires only when `c1` changes,
 and gives `c2`'s new value if the same transaction also updated `c2`. It cannot close a loop. It
-takes up to five cells; beyond that, give it a cell from `Lift`, whose value inside a transaction
+takes up to seven cells; beyond that, give it a cell from `Lift`, whose value inside a transaction
 is already the new one.
 
 ## Cell operations
@@ -89,7 +89,7 @@ is already the new one.
 | `c.Sample()` | `sampleC c` | Read the current value *now*. An imperative escape hatch. |
 | `c.SampleLazy()` | `sampleLazyC c` | Read on demand, for use inside loops. |
 | `c.Map(f)` | `mapC f c` | Transform the value. |
-| `c.Lift(c2, f)` | `lift2C f (c, c2)` | Combine two cells. Overloads to 6 in C#, 8 in F#. |
+| `c.Lift(c2, f)` | `lift2C f (c, c2)` | Combine two cells. Overloads up to 8 cells in both languages. |
 | `cells.Lift()` | `liftAllC id cells` | Combine a collection into `Cell<IReadOnlyList<T>>`. F#'s `liftAllC` always takes a combining function; C# also has `cells.Lift(f)`. |
 | `c.Apply(cf)` | `applyC cf c` | Apply a function held in a cell. The primitive `Lift` is built from. |
 | `c.Calm()` | `calmC c` | Suppress updates equal to the previous value. |
