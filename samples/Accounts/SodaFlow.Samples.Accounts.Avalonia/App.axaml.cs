@@ -29,13 +29,9 @@ internal sealed class App : Application
     {
         if (this.ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
         {
-            // This code sets the scheduler before the first bindable, thus no subsequent code
-            // depends on the thread of a bindable. This is more important here than in the other
-            // samples, because this view model builds one bindable for each row, as the rows come
-            // into view.
-            BindingScheduler.Default = SynchronizationContextBindingScheduler.Capture();
-
-            IAccountsViewModel viewModel = AccountsViewModelOptimizedDrain.Create();
+            IAccountsViewModel viewModel =
+                AccountsViewModelOptimizedDrain.Create(
+                    new BindableFactory(SynchronizationContextBindingScheduler.Capture()));
 
             desktop.MainWindow = new MainWindow { DataContext = viewModel };
 

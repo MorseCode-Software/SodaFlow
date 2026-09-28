@@ -111,12 +111,13 @@ public sealed class BounceViewModel : IBounceViewModel
         }
     }
 
+    /// <param name="bindableFactory">The bindable factory.</param>
     /// <param name="handleException">
     ///     This receives each exception from a wait on a timer and from a timer that fires. A
     ///     timer callback does not run on a call stack of the caller, thus there is no other
     ///     destination for its exception.
     /// </param>
-    public static IBounceViewModel Create(Action<Exception> handleException)
+    public static IBounceViewModel Create(IBindableFactory bindableFactory, Action<Exception> handleException)
     {
         SecondsTimerSystem timers = new(handleException);
 
@@ -162,7 +163,7 @@ public sealed class BounceViewModel : IBounceViewModel
 
                     IScene[] scenes = [simple, walls, grab, ricochets];
 
-                    // This is the most simple two-way condition. The view is the only writer and
+                    // This is simplest two-way condition. The view is the only writer and
                     // the sink holds the correct value. This code gives no scheduler, thus the
                     // graph finds the ambient scheduler. The sample sets that scheduler at its
                     // start, thus the thread of this construction has no effect.
@@ -175,21 +176,20 @@ public sealed class BounceViewModel : IBounceViewModel
                         Stream: selected.Updates().Map(scene => Array.IndexOf(array: scenes, value: scene)),
                         Captures: new BounceViewModel(
                             scenes: scenes,
-                            selectedScene: selected.ToTwoWay(),
-                            selectedSummary: selected.Map(static scene => scene.Summary).ToOneWay(),
+                            selectedScene: bindableFactory.CreateTwoWay(selected),
+                            selectedSummary: bindableFactory.CreateOneWay(selected.Map(static scene => scene.Summary)),
 
                             // This code knows the scenes with damping, because this code gave the
                             // damping to them. Thus, the answer is the set of those scenes, and no
                             // scene holds a flag.
-                            isDampingAvailable:
-                            selected
-                                .Map(scene =>
-                                    ReferenceEquals(objA: scene, objB: walls)
-                                    || ReferenceEquals(objA: scene, objB: grab)
-                                    || ReferenceEquals(objA: scene, objB: ricochets))
-                                .ToOneWay(),
-                            dampingEnabled: dampingEnabled.ToTwoWay(),
-                            damping: damping.ToTwoWay())
+                            isDampingAvailable: bindableFactory.CreateOneWay(
+                                selected
+                                    .Map(scene =>
+                                        ReferenceEquals(objA: scene, objB: walls)
+                                        || ReferenceEquals(objA: scene, objB: grab)
+                                        || ReferenceEquals(objA: scene, objB: ricochets))),
+                            dampingEnabled: bindableFactory.CreateTwoWay(dampingEnabled),
+                            damping: bindableFactory.CreateTwoWay(damping))
                     );
 
                     Stream<Unit> ActivatedAt(int index) =>

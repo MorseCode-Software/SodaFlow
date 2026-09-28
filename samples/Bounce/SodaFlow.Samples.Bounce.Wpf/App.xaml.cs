@@ -35,19 +35,10 @@ internal sealed partial class App
     {
         base.OnStartup(e);
 
-        // This code sets the scheduler before the first bindable, thus no subsequent code
-        // depends on the thread of a bindable. Without this, each bindable captures the
-        // synchronization context of the thread that constructs it. A view model that a
-        // different thread builds then gets the incorrect context, or no context, and runs
-        // inline.
-        BindingScheduler.Default = SynchronizationContextBindingScheduler.Capture();
-
-        // The handler receives each exception from a wait on a timer and from a timer that
-        // fires. A timer callback does not run on a call stack of the caller, thus there is
-        // no other destination for its exception. This code uses Trace and not Debug, because
-        // the compiler removes Debug.WriteLine from a release build and the handler then does
-        // nothing.
-        this.viewModel = BounceViewModel.Create(static ex => Trace.WriteLine(ex));
+        this.viewModel =
+            BounceViewModel.Create(
+                bindableFactory: new BindableFactory(SynchronizationContextBindingScheduler.Capture()),
+                handleException: static ex => Trace.WriteLine(ex));
 
         MainWindow window = new() { DataContext = this.viewModel };
 

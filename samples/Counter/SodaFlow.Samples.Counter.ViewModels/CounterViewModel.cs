@@ -83,12 +83,12 @@ public sealed class CounterViewModel
         }
     }
 
-    public static ICounterViewModel Create() =>
+    public static ICounterViewModel Create(IBindableFactory bindableFactory) =>
         // There is one transaction for the full graph. No code here fires during the
         // construction, thus this transaction changes no behavior in this sample. It stays the
         // correct practice, because a graph with a Values() stream loses its first value without
         // a transaction, and gives no message.
-        Transaction.Run(static () =>
+        Transaction.Run(() =>
         {
             StreamSink<Unit> increment = Stream.CreateSink<Unit>();
             StreamSink<Unit> decrement = Stream.CreateSink<Unit>();
@@ -108,13 +108,15 @@ public sealed class CounterViewModel
             Cell<int> count = edits.Accum(initialState: 0, f: static (edit, n) => edit(n));
 
             return new CounterViewModel(
-                count: count.ToOneWay(),
-                countText: count.Map(static n => n.ToString(CultureInfo.CurrentCulture)).ToOneWay(),
-                increment: increment.ToBindableAction(),
-                decrement: decrement.ToBindableAction(),
+                count: bindableFactory.CreateOneWay(count),
+                countText: bindableFactory.CreateOneWay(count.Map(static n => n.ToString(CultureInfo.CurrentCulture))),
+                increment: bindableFactory.CreateBindableAction(increment),
+                decrement: bindableFactory.CreateBindableAction(decrement),
 
                 // The enabled state is one more cell. No code raises CanExecuteChanged
                 // manually. The command follows the cell, and the cell follows the count.
-                reset: reset.ToBindableAction(count.Map(static n => n != 0)));
+                reset: bindableFactory.CreateBindableAction(
+                    firingsStreamSink: reset,
+                    isEnabledCell: count.Map(static n => n != 0)));
         });
 }

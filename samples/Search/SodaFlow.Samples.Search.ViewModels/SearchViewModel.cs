@@ -103,8 +103,8 @@ public sealed class SearchViewModel : ISearchViewModel
         }
     }
 
-    public static ISearchViewModel Create() =>
-        Transaction.Run(static () =>
+    public static ISearchViewModel Create(IBindableFactory bindableFactory) =>
+        Transaction.Run(() =>
         {
             CellSink<string> query = Cell.CreateSink(string.Empty);
             StreamSink<Unit> cancel = Stream.CreateSink<Unit>();
@@ -130,7 +130,8 @@ public sealed class SearchViewModel : ISearchViewModel
                 searches.MapAsync(
                     results: found,
                     errors: failed,
-                    operation: Catalog.SearchAsync,
+                    operation: static async (query, factory, token) =>
+                        factory.FromValue(await Catalog.SearchAsync(query: query, cancellationToken: token)),
 
                     // The full concurrency policy is in one argument. A new keystroke replaces
                     // the search in operation, and the search that it replaces cannot publish.
@@ -165,12 +166,15 @@ public sealed class SearchViewModel : ISearchViewModel
 
             return new SearchViewModel(
                 status: searchStatus,
-                query: query.ToTwoWay(), // Two-way: the view writes here, and the cell stays authoritative.
-                results: results.ToOneWay(),
-                summary: summary.ToOneWay(),
-                error: error.ToOneWay(),
-                hasError: error.Map(static e => e.Length > 0).ToOneWay(),
-                isBusy: busy.ToOneWay(),
-                cancel: cancel.ToBindableAction(busy)); // Cancel is offered only while something is actually running.
+                query:
+                bindableFactory.CreateTwoWay(query), // Two-way: the view writes here, and the cell stays authoritative.
+                results: bindableFactory.CreateOneWay(results),
+                summary: bindableFactory.CreateOneWay(summary),
+                error: bindableFactory.CreateOneWay(error),
+                hasError: bindableFactory.CreateOneWay(error.Map(static e => e.Length > 0)),
+                isBusy: bindableFactory.CreateOneWay(busy),
+                cancel: bindableFactory.CreateBindableAction(
+                    firingsStreamSink: cancel,
+                    isEnabledCell: busy)); // Cancel is offered only while something is actually running.
         });
 }

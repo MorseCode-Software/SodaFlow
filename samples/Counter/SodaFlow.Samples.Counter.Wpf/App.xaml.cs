@@ -30,14 +30,7 @@ internal sealed partial class App
     {
         base.OnStartup(e);
 
-        // This code sets the scheduler before the first bindable, thus no subsequent code
-        // depends on the thread of a bindable. Without this, each bindable captures the
-        // synchronization context of the thread that constructs it. A view model that a
-        // different thread builds then gets the incorrect context, or no context, and runs
-        // inline.
-        BindingScheduler.Default = SynchronizationContextBindingScheduler.Capture();
-
-        this.viewModel = CounterViewModel.Create();
+        this.viewModel = CounterViewModel.Create(new BindableFactory(SynchronizationContextBindingScheduler.Capture()));
 
         MainWindow window = new() { DataContext = this.viewModel };
 

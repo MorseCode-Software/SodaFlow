@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Globalization;
 using BenchmarkDotNet.Attributes;
 using JetBrains.Annotations;
+using SodaFlow.Bindable.ObjectModel;
 using SodaFlow.Samples.Accounts.ViewModels;
 
 namespace SodaFlow.Samples.Accounts.DrainBenchmarks;
@@ -11,6 +12,8 @@ namespace SodaFlow.Samples.Accounts.DrainBenchmarks;
 /// use.</summary>
 internal static class ViewModels
 {
+    private static readonly IBindableFactory BindableFactory = new BindableFactory(ImmediateBindingScheduler.Instance);
+
     /// <summary>AccountsViewModel: drainable accounts are a filtered ReactiveCollection.</summary>
     public const string Original = "Original";
 
@@ -20,8 +23,8 @@ internal static class ViewModels
     public static IAccountsViewModel Create(string name) =>
         name switch
         {
-            Original => AccountsViewModel.Create(),
-            OptimizedDrain => AccountsViewModelOptimizedDrain.Create(),
+            Original => AccountsViewModel.Create(BindableFactory),
+            OptimizedDrain => AccountsViewModelOptimizedDrain.Create(BindableFactory),
             _ => throw new ArgumentOutOfRangeException(
                 paramName: nameof(name),
                 actualValue: name,
