@@ -433,6 +433,355 @@ let inline snapshotAndTakeB behavior stream = Stream.snapshotAndTakeB behavior s
 let inline snapshotAndTakeC cell stream = Stream.snapshotAndTake cell stream
 
 /// <summary>
+/// Samples two behaviors when the stream fires, and fires the combination.
+/// </summary>
+/// <param name="behavior1">The first behavior to sample.</param>
+/// <param name="behavior2">The second behavior to sample.</param>
+/// <param name="f">Combines the fired value with the two sampled values.</param>
+/// <param name="stream">The stream that causes each firing of the result.</param>
+/// <returns>
+/// A stream firing <paramref name="f" /> applied to the fired value and the two sampled
+/// values.
+/// </returns>
+/// <remarks>
+/// Shorthand for <c>Stream.snapshot2B</c>. See it for the full contract.
+///
+/// This samples and does not merge. Only the stream causes the firing, and each sampled value is
+/// the value at the start of the transaction of that firing. Thus, a cell that the same
+/// transaction updates gives its previous value. The result does not change when the graph
+/// operates in a different sequence.
+/// </remarks>
+let inline snapshot2B behavior1 behavior2 f stream =
+    Stream.snapshot2B behavior1 behavior2 f stream
+
+/// <summary>
+/// Samples two cells when the stream fires, and fires the combination.
+/// </summary>
+/// <param name="cell1">The first cell to sample.</param>
+/// <param name="cell2">The second cell to sample.</param>
+/// <param name="f">Combines the fired value with the two sampled values.</param>
+/// <param name="stream">The stream that causes each firing of the result.</param>
+/// <returns>
+/// A stream firing <paramref name="f" /> applied to the fired value and the two sampled
+/// values.
+/// </returns>
+/// <remarks>
+/// Shorthand for <c>Stream.snapshot2</c>. See it for the full contract.
+///
+/// This samples and does not merge. Only the stream causes the firing, and each sampled value is
+/// the value at the start of the transaction of that firing. Thus, a cell that the same
+/// transaction updates gives its previous value. The result does not change when the graph
+/// operates in a different sequence.
+/// </remarks>
+let inline snapshot2C cell1 cell2 f stream = Stream.snapshot2 cell1 cell2 f stream
+
+/// <summary>
+/// Samples three behaviors when the stream fires, and fires the combination.
+/// </summary>
+/// <param name="behavior1">The first behavior to sample.</param>
+/// <param name="behavior2">The second behavior to sample.</param>
+/// <param name="behavior3">The third behavior to sample.</param>
+/// <param name="f">Combines the fired value with the three sampled values.</param>
+/// <param name="stream">The stream that causes each firing of the result.</param>
+/// <returns>
+/// A stream firing <paramref name="f" /> applied to the fired value and the three sampled
+/// values.
+/// </returns>
+/// <remarks>
+/// Shorthand for <c>Stream.snapshot3B</c>. See it for the full contract.
+///
+/// This samples and does not merge. Only the stream causes the firing, and each sampled value is
+/// the value at the start of the transaction of that firing. Thus, a cell that the same
+/// transaction updates gives its previous value. The result does not change when the graph
+/// operates in a different sequence.
+/// </remarks>
+let inline snapshot3B behavior1 behavior2 behavior3 f stream =
+    Stream.snapshot3B behavior1 behavior2 behavior3 f stream
+
+/// <summary>
+/// Samples three cells when the stream fires, and fires the combination.
+/// </summary>
+/// <param name="cell1">The first cell to sample.</param>
+/// <param name="cell2">The second cell to sample.</param>
+/// <param name="cell3">The third cell to sample.</param>
+/// <param name="f">Combines the fired value with the three sampled values.</param>
+/// <param name="stream">The stream that causes each firing of the result.</param>
+/// <returns>
+/// A stream firing <paramref name="f" /> applied to the fired value and the three sampled
+/// values.
+/// </returns>
+/// <remarks>
+/// Shorthand for <c>Stream.snapshot3</c>. See it for the full contract.
+///
+/// This samples and does not merge. Only the stream causes the firing, and each sampled value is
+/// the value at the start of the transaction of that firing. Thus, a cell that the same
+/// transaction updates gives its previous value. The result does not change when the graph
+/// operates in a different sequence.
+/// </remarks>
+let inline snapshot3C cell1 cell2 cell3 f stream =
+    Stream.snapshot3 cell1 cell2 cell3 f stream
+
+/// <summary>
+/// Samples four behaviors when the stream fires, and fires the combination.
+/// </summary>
+/// <param name="behavior1">The first behavior to sample.</param>
+/// <param name="behavior2">The second behavior to sample.</param>
+/// <param name="behavior3">The third behavior to sample.</param>
+/// <param name="behavior4">The fourth behavior to sample.</param>
+/// <param name="f">Combines the fired value with the four sampled values.</param>
+/// <param name="stream">The stream that causes each firing of the result.</param>
+/// <returns>
+/// A stream firing <paramref name="f" /> applied to the fired value and the four sampled
+/// values.
+/// </returns>
+/// <remarks>
+/// Shorthand for <c>Stream.snapshot4B</c>. See it for the full contract.
+///
+/// This samples and does not merge. Only the stream causes the firing, and each sampled value is
+/// the value at the start of the transaction of that firing. Thus, a cell that the same
+/// transaction updates gives its previous value. The result does not change when the graph
+/// operates in a different sequence.
+/// </remarks>
+let inline snapshot4B behavior1 behavior2 behavior3 behavior4 f stream =
+    Stream.snapshot4B behavior1 behavior2 behavior3 behavior4 f stream
+
+/// <summary>
+/// Samples four cells when the stream fires, and fires the combination.
+/// </summary>
+/// <param name="cell1">The first cell to sample.</param>
+/// <param name="cell2">The second cell to sample.</param>
+/// <param name="cell3">The third cell to sample.</param>
+/// <param name="cell4">The fourth cell to sample.</param>
+/// <param name="f">Combines the fired value with the four sampled values.</param>
+/// <param name="stream">The stream that causes each firing of the result.</param>
+/// <returns>
+/// A stream firing <paramref name="f" /> applied to the fired value and the four sampled
+/// values.
+/// </returns>
+/// <remarks>
+/// Shorthand for <c>Stream.snapshot4</c>. See it for the full contract.
+///
+/// This samples and does not merge. Only the stream causes the firing, and each sampled value is
+/// the value at the start of the transaction of that firing. Thus, a cell that the same
+/// transaction updates gives its previous value. The result does not change when the graph
+/// operates in a different sequence.
+/// </remarks>
+let inline snapshot4C cell1 cell2 cell3 cell4 f stream =
+    Stream.snapshot4 cell1 cell2 cell3 cell4 f stream
+
+/// <summary>
+/// Samples five behaviors when the stream fires, and fires the combination.
+/// </summary>
+/// <param name="behavior1">The first behavior to sample.</param>
+/// <param name="behavior2">The second behavior to sample.</param>
+/// <param name="behavior3">The third behavior to sample.</param>
+/// <param name="behavior4">The fourth behavior to sample.</param>
+/// <param name="behavior5">The fifth behavior to sample.</param>
+/// <param name="f">Combines the fired value with the five sampled values.</param>
+/// <param name="stream">The stream that causes each firing of the result.</param>
+/// <returns>
+/// A stream firing <paramref name="f" /> applied to the fired value and the five sampled
+/// values.
+/// </returns>
+/// <remarks>
+/// Shorthand for <c>Stream.snapshot5B</c>. See it for the full contract.
+///
+/// This samples and does not merge. Only the stream causes the firing, and each sampled value is
+/// the value at the start of the transaction of that firing. Thus, a cell that the same
+/// transaction updates gives its previous value. The result does not change when the graph
+/// operates in a different sequence.
+/// </remarks>
+let inline snapshot5B behavior1 behavior2 behavior3 behavior4 behavior5 f stream =
+    Stream.snapshot5B behavior1 behavior2 behavior3 behavior4 behavior5 f stream
+
+/// <summary>
+/// Samples five cells when the stream fires, and fires the combination.
+/// </summary>
+/// <param name="cell1">The first cell to sample.</param>
+/// <param name="cell2">The second cell to sample.</param>
+/// <param name="cell3">The third cell to sample.</param>
+/// <param name="cell4">The fourth cell to sample.</param>
+/// <param name="cell5">The fifth cell to sample.</param>
+/// <param name="f">Combines the fired value with the five sampled values.</param>
+/// <param name="stream">The stream that causes each firing of the result.</param>
+/// <returns>
+/// A stream firing <paramref name="f" /> applied to the fired value and the five sampled
+/// values.
+/// </returns>
+/// <remarks>
+/// Shorthand for <c>Stream.snapshot5</c>. See it for the full contract.
+///
+/// This samples and does not merge. Only the stream causes the firing, and each sampled value is
+/// the value at the start of the transaction of that firing. Thus, a cell that the same
+/// transaction updates gives its previous value. The result does not change when the graph
+/// operates in a different sequence.
+/// </remarks>
+let inline snapshot5C cell1 cell2 cell3 cell4 cell5 f stream =
+    Stream.snapshot5 cell1 cell2 cell3 cell4 cell5 f stream
+
+/// <summary>
+/// Samples six behaviors when the stream fires, and fires the combination.
+/// </summary>
+/// <param name="behavior1">The first behavior to sample.</param>
+/// <param name="behavior2">The second behavior to sample.</param>
+/// <param name="behavior3">The third behavior to sample.</param>
+/// <param name="behavior4">The fourth behavior to sample.</param>
+/// <param name="behavior5">The fifth behavior to sample.</param>
+/// <param name="behavior6">The sixth behavior to sample.</param>
+/// <param name="f">Combines the fired value with the six sampled values.</param>
+/// <param name="stream">The stream that causes each firing of the result.</param>
+/// <returns>
+/// A stream firing <paramref name="f" /> applied to the fired value and the six sampled
+/// values.
+/// </returns>
+/// <remarks>
+/// Shorthand for <c>Stream.snapshot6B</c>. See it for the full contract.
+///
+/// This samples and does not merge. Only the stream causes the firing, and each sampled value is
+/// the value at the start of the transaction of that firing. Thus, a cell that the same
+/// transaction updates gives its previous value. The result does not change when the graph
+/// operates in a different sequence.
+/// </remarks>
+let inline snapshot6B behavior1 behavior2 behavior3 behavior4 behavior5 behavior6 f stream =
+    Stream.snapshot6B behavior1 behavior2 behavior3 behavior4 behavior5 behavior6 f stream
+
+/// <summary>
+/// Samples six cells when the stream fires, and fires the combination.
+/// </summary>
+/// <param name="cell1">The first cell to sample.</param>
+/// <param name="cell2">The second cell to sample.</param>
+/// <param name="cell3">The third cell to sample.</param>
+/// <param name="cell4">The fourth cell to sample.</param>
+/// <param name="cell5">The fifth cell to sample.</param>
+/// <param name="cell6">The sixth cell to sample.</param>
+/// <param name="f">Combines the fired value with the six sampled values.</param>
+/// <param name="stream">The stream that causes each firing of the result.</param>
+/// <returns>
+/// A stream firing <paramref name="f" /> applied to the fired value and the six sampled
+/// values.
+/// </returns>
+/// <remarks>
+/// Shorthand for <c>Stream.snapshot6</c>. See it for the full contract.
+///
+/// This samples and does not merge. Only the stream causes the firing, and each sampled value is
+/// the value at the start of the transaction of that firing. Thus, a cell that the same
+/// transaction updates gives its previous value. The result does not change when the graph
+/// operates in a different sequence.
+/// </remarks>
+let inline snapshot6C cell1 cell2 cell3 cell4 cell5 cell6 f stream =
+    Stream.snapshot6 cell1 cell2 cell3 cell4 cell5 cell6 f stream
+
+/// <summary>
+/// Samples seven behaviors when the stream fires, and fires the combination.
+/// </summary>
+/// <param name="behavior1">The first behavior to sample.</param>
+/// <param name="behavior2">The second behavior to sample.</param>
+/// <param name="behavior3">The third behavior to sample.</param>
+/// <param name="behavior4">The fourth behavior to sample.</param>
+/// <param name="behavior5">The fifth behavior to sample.</param>
+/// <param name="behavior6">The sixth behavior to sample.</param>
+/// <param name="behavior7">The seventh behavior to sample.</param>
+/// <param name="f">Combines the fired value with the seven sampled values.</param>
+/// <param name="stream">The stream that causes each firing of the result.</param>
+/// <returns>
+/// A stream firing <paramref name="f" /> applied to the fired value and the seven sampled
+/// values.
+/// </returns>
+/// <remarks>
+/// Shorthand for <c>Stream.snapshot7B</c>. See it for the full contract.
+///
+/// This samples and does not merge. Only the stream causes the firing, and each sampled value is
+/// the value at the start of the transaction of that firing. Thus, a cell that the same
+/// transaction updates gives its previous value. The result does not change when the graph
+/// operates in a different sequence.
+/// </remarks>
+let inline snapshot7B behavior1 behavior2 behavior3 behavior4 behavior5 behavior6 behavior7 f stream =
+    Stream.snapshot7B behavior1 behavior2 behavior3 behavior4 behavior5 behavior6 behavior7 f stream
+
+/// <summary>
+/// Samples seven cells when the stream fires, and fires the combination.
+/// </summary>
+/// <param name="cell1">The first cell to sample.</param>
+/// <param name="cell2">The second cell to sample.</param>
+/// <param name="cell3">The third cell to sample.</param>
+/// <param name="cell4">The fourth cell to sample.</param>
+/// <param name="cell5">The fifth cell to sample.</param>
+/// <param name="cell6">The sixth cell to sample.</param>
+/// <param name="cell7">The seventh cell to sample.</param>
+/// <param name="f">Combines the fired value with the seven sampled values.</param>
+/// <param name="stream">The stream that causes each firing of the result.</param>
+/// <returns>
+/// A stream firing <paramref name="f" /> applied to the fired value and the seven sampled
+/// values.
+/// </returns>
+/// <remarks>
+/// Shorthand for <c>Stream.snapshot7</c>. See it for the full contract.
+///
+/// This samples and does not merge. Only the stream causes the firing, and each sampled value is
+/// the value at the start of the transaction of that firing. Thus, a cell that the same
+/// transaction updates gives its previous value. The result does not change when the graph
+/// operates in a different sequence.
+/// </remarks>
+let inline snapshot7C cell1 cell2 cell3 cell4 cell5 cell6 cell7 f stream =
+    Stream.snapshot7 cell1 cell2 cell3 cell4 cell5 cell6 cell7 f stream
+
+/// <summary>
+/// Samples eight behaviors when the stream fires, and fires the combination.
+/// </summary>
+/// <param name="behavior1">The first behavior to sample.</param>
+/// <param name="behavior2">The second behavior to sample.</param>
+/// <param name="behavior3">The third behavior to sample.</param>
+/// <param name="behavior4">The fourth behavior to sample.</param>
+/// <param name="behavior5">The fifth behavior to sample.</param>
+/// <param name="behavior6">The sixth behavior to sample.</param>
+/// <param name="behavior7">The seventh behavior to sample.</param>
+/// <param name="behavior8">The eighth behavior to sample.</param>
+/// <param name="f">Combines the fired value with the eight sampled values.</param>
+/// <param name="stream">The stream that causes each firing of the result.</param>
+/// <returns>
+/// A stream firing <paramref name="f" /> applied to the fired value and the eight sampled
+/// values.
+/// </returns>
+/// <remarks>
+/// Shorthand for <c>Stream.snapshot8B</c>. See it for the full contract.
+///
+/// This samples and does not merge. Only the stream causes the firing, and each sampled value is
+/// the value at the start of the transaction of that firing. Thus, a cell that the same
+/// transaction updates gives its previous value. The result does not change when the graph
+/// operates in a different sequence.
+/// </remarks>
+let inline snapshot8B behavior1 behavior2 behavior3 behavior4 behavior5 behavior6 behavior7 behavior8 f stream =
+    Stream.snapshot8B behavior1 behavior2 behavior3 behavior4 behavior5 behavior6 behavior7 behavior8 f stream
+
+/// <summary>
+/// Samples eight cells when the stream fires, and fires the combination.
+/// </summary>
+/// <param name="cell1">The first cell to sample.</param>
+/// <param name="cell2">The second cell to sample.</param>
+/// <param name="cell3">The third cell to sample.</param>
+/// <param name="cell4">The fourth cell to sample.</param>
+/// <param name="cell5">The fifth cell to sample.</param>
+/// <param name="cell6">The sixth cell to sample.</param>
+/// <param name="cell7">The seventh cell to sample.</param>
+/// <param name="cell8">The eighth cell to sample.</param>
+/// <param name="f">Combines the fired value with the eight sampled values.</param>
+/// <param name="stream">The stream that causes each firing of the result.</param>
+/// <returns>
+/// A stream firing <paramref name="f" /> applied to the fired value and the eight sampled
+/// values.
+/// </returns>
+/// <remarks>
+/// Shorthand for <c>Stream.snapshot8</c>. See it for the full contract.
+///
+/// This samples and does not merge. Only the stream causes the firing, and each sampled value is
+/// the value at the start of the transaction of that firing. Thus, a cell that the same
+/// transaction updates gives its previous value. The result does not change when the graph
+/// operates in a different sequence.
+/// </remarks>
+let inline snapshot8C cell1 cell2 cell3 cell4 cell5 cell6 cell7 cell8 f stream =
+    Stream.snapshot8 cell1 cell2 cell3 cell4 cell5 cell6 cell7 cell8 f stream
+
+/// <summary>
 /// Samples the latest value of a behavior when the stream fires, and fires the combination.
 /// </summary>
 /// <param name="behavior">The behavior to sample.</param>
@@ -788,300 +1137,7 @@ let inline snapshotLatest7C cell1 cell2 cell3 cell4 cell5 cell6 cell7 f stream =
     Stream.snapshotLatest7 cell1 cell2 cell3 cell4 cell5 cell6 cell7 f stream
 
 /// <summary>
-/// Samples two behaviors when the stream fires, and fires the combination.
-/// </summary>
-/// <param name="behavior1">The first behavior to sample.</param>
-/// <param name="behavior2">The second behavior to sample.</param>
-/// <param name="f">Combines the fired value with the two sampled values.</param>
-/// <param name="stream">The stream that causes each firing of the result.</param>
-/// <returns>
-/// A stream firing <paramref name="f" /> applied to the fired value and the two sampled
-/// values.
-/// </returns>
-/// <remarks>
-/// Shorthand for <c>Stream.snapshot2B</c>. See it for the full contract.
-///
-/// This samples and does not merge. Only the stream causes the firing, and each sampled value is
-/// the value at the start of the transaction of that firing. Thus, a cell that the same
-/// transaction updates gives its previous value. The result does not change when the graph
-/// operates in a different sequence.
-/// </remarks>
-let inline snapshot2B behavior1 behavior2 f stream =
-    Stream.snapshot2B behavior1 behavior2 f stream
-
-/// <summary>
-/// Samples two cells when the stream fires, and fires the combination.
-/// </summary>
-/// <param name="cell1">The first cell to sample.</param>
-/// <param name="cell2">The second cell to sample.</param>
-/// <param name="f">Combines the fired value with the two sampled values.</param>
-/// <param name="stream">The stream that causes each firing of the result.</param>
-/// <returns>
-/// A stream firing <paramref name="f" /> applied to the fired value and the two sampled
-/// values.
-/// </returns>
-/// <remarks>
-/// Shorthand for <c>Stream.snapshot2</c>. See it for the full contract.
-///
-/// This samples and does not merge. Only the stream causes the firing, and each sampled value is
-/// the value at the start of the transaction of that firing. Thus, a cell that the same
-/// transaction updates gives its previous value. The result does not change when the graph
-/// operates in a different sequence.
-/// </remarks>
-let inline snapshot2C cell1 cell2 f stream = Stream.snapshot2 cell1 cell2 f stream
-
-/// <summary>
-/// Samples three behaviors when the stream fires, and fires the combination.
-/// </summary>
-/// <param name="behavior1">The first behavior to sample.</param>
-/// <param name="behavior2">The second behavior to sample.</param>
-/// <param name="behavior3">The third behavior to sample.</param>
-/// <param name="f">Combines the fired value with the three sampled values.</param>
-/// <param name="stream">The stream that causes each firing of the result.</param>
-/// <returns>
-/// A stream firing <paramref name="f" /> applied to the fired value and the three sampled
-/// values.
-/// </returns>
-/// <remarks>
-/// Shorthand for <c>Stream.snapshot3B</c>. See it for the full contract.
-///
-/// This samples and does not merge. Only the stream causes the firing, and each sampled value is
-/// the value at the start of the transaction of that firing. Thus, a cell that the same
-/// transaction updates gives its previous value. The result does not change when the graph
-/// operates in a different sequence.
-/// </remarks>
-let inline snapshot3B behavior1 behavior2 behavior3 f stream =
-    Stream.snapshot3B behavior1 behavior2 behavior3 f stream
-
-/// <summary>
-/// Samples three cells when the stream fires, and fires the combination.
-/// </summary>
-/// <param name="cell1">The first cell to sample.</param>
-/// <param name="cell2">The second cell to sample.</param>
-/// <param name="cell3">The third cell to sample.</param>
-/// <param name="f">Combines the fired value with the three sampled values.</param>
-/// <param name="stream">The stream that causes each firing of the result.</param>
-/// <returns>
-/// A stream firing <paramref name="f" /> applied to the fired value and the three sampled
-/// values.
-/// </returns>
-/// <remarks>
-/// Shorthand for <c>Stream.snapshot3</c>. See it for the full contract.
-///
-/// This samples and does not merge. Only the stream causes the firing, and each sampled value is
-/// the value at the start of the transaction of that firing. Thus, a cell that the same
-/// transaction updates gives its previous value. The result does not change when the graph
-/// operates in a different sequence.
-/// </remarks>
-let inline snapshot3C cell1 cell2 cell3 f stream =
-    Stream.snapshot3 cell1 cell2 cell3 f stream
-
-/// <summary>
-/// Samples four behaviors when the stream fires, and fires the combination.
-/// </summary>
-/// <param name="behavior1">The first behavior to sample.</param>
-/// <param name="behavior2">The second behavior to sample.</param>
-/// <param name="behavior3">The third behavior to sample.</param>
-/// <param name="behavior4">The fourth behavior to sample.</param>
-/// <param name="f">Combines the fired value with the four sampled values.</param>
-/// <param name="stream">The stream that causes each firing of the result.</param>
-/// <returns>
-/// A stream firing <paramref name="f" /> applied to the fired value and the four sampled
-/// values.
-/// </returns>
-/// <remarks>
-/// Shorthand for <c>Stream.snapshot4B</c>. See it for the full contract.
-///
-/// This samples and does not merge. Only the stream causes the firing, and each sampled value is
-/// the value at the start of the transaction of that firing. Thus, a cell that the same
-/// transaction updates gives its previous value. The result does not change when the graph
-/// operates in a different sequence.
-/// </remarks>
-let inline snapshot4B behavior1 behavior2 behavior3 behavior4 f stream =
-    Stream.snapshot4B behavior1 behavior2 behavior3 behavior4 f stream
-
-/// <summary>
-/// Samples four cells when the stream fires, and fires the combination.
-/// </summary>
-/// <param name="cell1">The first cell to sample.</param>
-/// <param name="cell2">The second cell to sample.</param>
-/// <param name="cell3">The third cell to sample.</param>
-/// <param name="cell4">The fourth cell to sample.</param>
-/// <param name="f">Combines the fired value with the four sampled values.</param>
-/// <param name="stream">The stream that causes each firing of the result.</param>
-/// <returns>
-/// A stream firing <paramref name="f" /> applied to the fired value and the four sampled
-/// values.
-/// </returns>
-/// <remarks>
-/// Shorthand for <c>Stream.snapshot4</c>. See it for the full contract.
-///
-/// This samples and does not merge. Only the stream causes the firing, and each sampled value is
-/// the value at the start of the transaction of that firing. Thus, a cell that the same
-/// transaction updates gives its previous value. The result does not change when the graph
-/// operates in a different sequence.
-/// </remarks>
-let inline snapshot4C cell1 cell2 cell3 cell4 f stream =
-    Stream.snapshot4 cell1 cell2 cell3 cell4 f stream
-
-/// <summary>
-/// Samples five behaviors when the stream fires, and fires the combination.
-/// </summary>
-/// <param name="behavior1">The first behavior to sample.</param>
-/// <param name="behavior2">The second behavior to sample.</param>
-/// <param name="behavior3">The third behavior to sample.</param>
-/// <param name="behavior4">The fourth behavior to sample.</param>
-/// <param name="behavior5">The fifth behavior to sample.</param>
-/// <param name="f">Combines the fired value with the five sampled values.</param>
-/// <param name="stream">The stream that causes each firing of the result.</param>
-/// <returns>
-/// A stream firing <paramref name="f" /> applied to the fired value and the five sampled
-/// values.
-/// </returns>
-/// <remarks>
-/// Shorthand for <c>Stream.snapshot5B</c>. See it for the full contract.
-///
-/// This samples and does not merge. Only the stream causes the firing, and each sampled value is
-/// the value at the start of the transaction of that firing. Thus, a cell that the same
-/// transaction updates gives its previous value. The result does not change when the graph
-/// operates in a different sequence.
-/// </remarks>
-let inline snapshot5B behavior1 behavior2 behavior3 behavior4 behavior5 f stream =
-    Stream.snapshot5B behavior1 behavior2 behavior3 behavior4 behavior5 f stream
-
-/// <summary>
-/// Samples five cells when the stream fires, and fires the combination.
-/// </summary>
-/// <param name="cell1">The first cell to sample.</param>
-/// <param name="cell2">The second cell to sample.</param>
-/// <param name="cell3">The third cell to sample.</param>
-/// <param name="cell4">The fourth cell to sample.</param>
-/// <param name="cell5">The fifth cell to sample.</param>
-/// <param name="f">Combines the fired value with the five sampled values.</param>
-/// <param name="stream">The stream that causes each firing of the result.</param>
-/// <returns>
-/// A stream firing <paramref name="f" /> applied to the fired value and the five sampled
-/// values.
-/// </returns>
-/// <remarks>
-/// Shorthand for <c>Stream.snapshot5</c>. See it for the full contract.
-///
-/// This samples and does not merge. Only the stream causes the firing, and each sampled value is
-/// the value at the start of the transaction of that firing. Thus, a cell that the same
-/// transaction updates gives its previous value. The result does not change when the graph
-/// operates in a different sequence.
-/// </remarks>
-let inline snapshot5C cell1 cell2 cell3 cell4 cell5 f stream =
-    Stream.snapshot5 cell1 cell2 cell3 cell4 cell5 f stream
-
-/// <summary>
-/// Samples six behaviors when the stream fires, and fires the combination.
-/// </summary>
-/// <param name="behavior1">The first behavior to sample.</param>
-/// <param name="behavior2">The second behavior to sample.</param>
-/// <param name="behavior3">The third behavior to sample.</param>
-/// <param name="behavior4">The fourth behavior to sample.</param>
-/// <param name="behavior5">The fifth behavior to sample.</param>
-/// <param name="behavior6">The sixth behavior to sample.</param>
-/// <param name="f">Combines the fired value with the six sampled values.</param>
-/// <param name="stream">The stream that causes each firing of the result.</param>
-/// <returns>
-/// A stream firing <paramref name="f" /> applied to the fired value and the six sampled
-/// values.
-/// </returns>
-/// <remarks>
-/// Shorthand for <c>Stream.snapshot6B</c>. See it for the full contract.
-///
-/// This samples and does not merge. Only the stream causes the firing, and each sampled value is
-/// the value at the start of the transaction of that firing. Thus, a cell that the same
-/// transaction updates gives its previous value. The result does not change when the graph
-/// operates in a different sequence.
-/// </remarks>
-let inline snapshot6B behavior1 behavior2 behavior3 behavior4 behavior5 behavior6 f stream =
-    Stream.snapshot6B behavior1 behavior2 behavior3 behavior4 behavior5 behavior6 f stream
-
-/// <summary>
-/// Samples six cells when the stream fires, and fires the combination.
-/// </summary>
-/// <param name="cell1">The first cell to sample.</param>
-/// <param name="cell2">The second cell to sample.</param>
-/// <param name="cell3">The third cell to sample.</param>
-/// <param name="cell4">The fourth cell to sample.</param>
-/// <param name="cell5">The fifth cell to sample.</param>
-/// <param name="cell6">The sixth cell to sample.</param>
-/// <param name="f">Combines the fired value with the six sampled values.</param>
-/// <param name="stream">The stream that causes each firing of the result.</param>
-/// <returns>
-/// A stream firing <paramref name="f" /> applied to the fired value and the six sampled
-/// values.
-/// </returns>
-/// <remarks>
-/// Shorthand for <c>Stream.snapshot6</c>. See it for the full contract.
-///
-/// This samples and does not merge. Only the stream causes the firing, and each sampled value is
-/// the value at the start of the transaction of that firing. Thus, a cell that the same
-/// transaction updates gives its previous value. The result does not change when the graph
-/// operates in a different sequence.
-/// </remarks>
-let inline snapshot6C cell1 cell2 cell3 cell4 cell5 cell6 f stream =
-    Stream.snapshot6 cell1 cell2 cell3 cell4 cell5 cell6 f stream
-
-/// <summary>
-/// Samples seven behaviors when the stream fires, and fires the combination.
-/// </summary>
-/// <param name="behavior1">The first behavior to sample.</param>
-/// <param name="behavior2">The second behavior to sample.</param>
-/// <param name="behavior3">The third behavior to sample.</param>
-/// <param name="behavior4">The fourth behavior to sample.</param>
-/// <param name="behavior5">The fifth behavior to sample.</param>
-/// <param name="behavior6">The sixth behavior to sample.</param>
-/// <param name="behavior7">The seventh behavior to sample.</param>
-/// <param name="f">Combines the fired value with the seven sampled values.</param>
-/// <param name="stream">The stream that causes each firing of the result.</param>
-/// <returns>
-/// A stream firing <paramref name="f" /> applied to the fired value and the seven sampled
-/// values.
-/// </returns>
-/// <remarks>
-/// Shorthand for <c>Stream.snapshot7B</c>. See it for the full contract.
-///
-/// This samples and does not merge. Only the stream causes the firing, and each sampled value is
-/// the value at the start of the transaction of that firing. Thus, a cell that the same
-/// transaction updates gives its previous value. The result does not change when the graph
-/// operates in a different sequence.
-/// </remarks>
-let inline snapshot7B behavior1 behavior2 behavior3 behavior4 behavior5 behavior6 behavior7 f stream =
-    Stream.snapshot7B behavior1 behavior2 behavior3 behavior4 behavior5 behavior6 behavior7 f stream
-
-/// <summary>
-/// Samples seven cells when the stream fires, and fires the combination.
-/// </summary>
-/// <param name="cell1">The first cell to sample.</param>
-/// <param name="cell2">The second cell to sample.</param>
-/// <param name="cell3">The third cell to sample.</param>
-/// <param name="cell4">The fourth cell to sample.</param>
-/// <param name="cell5">The fifth cell to sample.</param>
-/// <param name="cell6">The sixth cell to sample.</param>
-/// <param name="cell7">The seventh cell to sample.</param>
-/// <param name="f">Combines the fired value with the seven sampled values.</param>
-/// <param name="stream">The stream that causes each firing of the result.</param>
-/// <returns>
-/// A stream firing <paramref name="f" /> applied to the fired value and the seven sampled
-/// values.
-/// </returns>
-/// <remarks>
-/// Shorthand for <c>Stream.snapshot7</c>. See it for the full contract.
-///
-/// This samples and does not merge. Only the stream causes the firing, and each sampled value is
-/// the value at the start of the transaction of that firing. Thus, a cell that the same
-/// transaction updates gives its previous value. The result does not change when the graph
-/// operates in a different sequence.
-/// </remarks>
-let inline snapshot7C cell1 cell2 cell3 cell4 cell5 cell6 cell7 f stream =
-    Stream.snapshot7 cell1 cell2 cell3 cell4 cell5 cell6 cell7 f stream
-
-/// <summary>
-/// Samples eight behaviors when the stream fires, and fires the combination.
+/// Samples the latest values of eight behaviors when the stream fires, and fires the combination.
 /// </summary>
 /// <param name="behavior1">The first behavior to sample.</param>
 /// <param name="behavior2">The second behavior to sample.</param>
@@ -1094,22 +1150,21 @@ let inline snapshot7C cell1 cell2 cell3 cell4 cell5 cell6 cell7 f stream =
 /// <param name="f">Combines the fired value with the eight sampled values.</param>
 /// <param name="stream">The stream that causes each firing of the result.</param>
 /// <returns>
-/// A stream firing <paramref name="f" /> applied to the fired value and the eight sampled
-/// values.
+/// A stream firing <paramref name="f" /> applied to the fired value and the eight sampled values.
 /// </returns>
 /// <remarks>
-/// Shorthand for <c>Stream.snapshot8B</c>. See it for the full contract.
+/// Shorthand for <c>Stream.snapshotLatest7B</c>. See it for the full contract.
 ///
-/// This samples and does not merge. Only the stream causes the firing, and each sampled value is
-/// the value at the start of the transaction of that firing. Thus, a cell that the same
-/// transaction updates gives its previous value. The result does not change when the graph
-/// operates in a different sequence.
+/// This samples and does not merge. Only the stream causes the firing. Each sampled value is the
+/// value at the end of the transaction of that firing. Thus, a behavior that the same transaction
+/// updates gives its new value, where <c>snapshot7B</c> gives its previous value. This cannot close
+/// a loop.
 /// </remarks>
-let inline snapshot8B behavior1 behavior2 behavior3 behavior4 behavior5 behavior6 behavior7 behavior8 f stream =
-    Stream.snapshot8B behavior1 behavior2 behavior3 behavior4 behavior5 behavior6 behavior7 behavior8 f stream
+let inline snapshotLatest8B behavior1 behavior2 behavior3 behavior4 behavior5 behavior6 behavior7 behavior8 f stream =
+    Stream.snapshotLatest8B behavior1 behavior2 behavior3 behavior4 behavior5 behavior6 behavior7 behavior8 f stream
 
 /// <summary>
-/// Samples eight cells when the stream fires, and fires the combination.
+/// Samples the latest values of eight cells when the stream fires, and fires the combination.
 /// </summary>
 /// <param name="cell1">The first cell to sample.</param>
 /// <param name="cell2">The second cell to sample.</param>
@@ -1122,19 +1177,18 @@ let inline snapshot8B behavior1 behavior2 behavior3 behavior4 behavior5 behavior
 /// <param name="f">Combines the fired value with the eight sampled values.</param>
 /// <param name="stream">The stream that causes each firing of the result.</param>
 /// <returns>
-/// A stream firing <paramref name="f" /> applied to the fired value and the eight sampled
-/// values.
+/// A stream firing <paramref name="f" /> applied to the fired value and the eight sampled values.
 /// </returns>
 /// <remarks>
-/// Shorthand for <c>Stream.snapshot8</c>. See it for the full contract.
+/// Shorthand for <c>Stream.snapshotLatest7</c>. See it for the full contract.
 ///
-/// This samples and does not merge. Only the stream causes the firing, and each sampled value is
-/// the value at the start of the transaction of that firing. Thus, a cell that the same
-/// transaction updates gives its previous value. The result does not change when the graph
-/// operates in a different sequence.
+/// This samples and does not merge. Only the stream causes the firing. Each sampled value is the
+/// value at the end of the transaction of that firing. Thus, a cell that the same transaction
+/// updates gives its new value, where <c>snapshot7C</c> gives its previous value. This cannot close
+/// a loop.
 /// </remarks>
-let inline snapshot8C cell1 cell2 cell3 cell4 cell5 cell6 cell7 cell8 f stream =
-    Stream.snapshot8 cell1 cell2 cell3 cell4 cell5 cell6 cell7 cell8 f stream
+let inline snapshotLatest8C cell1 cell2 cell3 cell4 cell5 cell6 cell7 cell8 f stream =
+    Stream.snapshotLatest8 cell1 cell2 cell3 cell4 cell5 cell6 cell7 cell8 f stream
 
 /// <summary>
 /// Merges two streams, combining the values where the two fire in one transaction.

@@ -43,7 +43,7 @@ captured update. Thus, the behavior can update before the output fires. A stream
 that fires more than once in a transaction gives one output firing for each, as
 SnapshotImpl does.
 
-SnapshotLatestImpl takes up to seven behaviors or cells. All of its forms use one
+SnapshotLatestImpl takes up to eight behaviors or cells. All of its forms use one
 private method. Each form gives a capture for each behavior, a function that
 reads the captured values, and the function that puts them together. The
 captures are StreamInternal.Pulse on the updates of each behavior. The reads are
@@ -59,7 +59,7 @@ above the pulse makes one output firing from the captured values. This is less
 expensive than a merge of mapped streams, and no stream has priority.
 
 LiftImpl takes up to eight behaviors or cells, where it took up to six, and
-SnapshotImpl takes up to seven, where it took up to four. They are for the wider
+SnapshotImpl takes up to eight, where it took up to four. They are for the wider
 Lift and Snapshot that SodaFlow gives. Each new form is the form before it with
 one more input.
 

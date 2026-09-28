@@ -1375,6 +1375,34 @@ public sealed class StreamTests
             expected: s.Snapshot(b: LiftBehaviors(7), f: static (a, v) => $"{a}:{v}"));
 
         Check(
+            name: "Snapshot of eight cells",
+            actual: s.Snapshot(
+                c1: c1,
+                c2: c2,
+                c3: c3,
+                c4: c4,
+                c5: c5,
+                c6: c6,
+                c7: c7,
+                c8: c8,
+                f: static (a, v1, v2, v3, v4, v5, v6, v7, v8) => $"{a}:{Join(v1, v2, v3, v4, v5, v6, v7, v8)}"),
+            expected: s.Snapshot(c: LiftCells(8), f: static (a, v) => $"{a}:{v}"));
+
+        Check(
+            name: "Snapshot of eight behaviors",
+            actual: s.Snapshot(
+                b1: b1,
+                b2: b2,
+                b3: b3,
+                b4: b4,
+                b5: b5,
+                b6: b6,
+                b7: b7,
+                b8: b8,
+                f: static (a, v1, v2, v3, v4, v5, v6, v7, v8) => $"{a}:{Join(v1, v2, v3, v4, v5, v6, v7, v8)}"),
+            expected: s.Snapshot(b: LiftBehaviors(8), f: static (a, v) => $"{a}:{v}"));
+
+        Check(
             name: "SnapshotLatest of six cells",
             actual: s.SnapshotLatest(
                 c1: c1,
@@ -1423,6 +1451,34 @@ public sealed class StreamTests
                 b7: b7,
                 f: static (a, v1, v2, v3, v4, v5, v6, v7) => $"{a}:{Join(v1, v2, v3, v4, v5, v6, v7)}"),
             expected: s.SnapshotLatest(b: LiftBehaviors(7), f: static (a, v) => $"{a}:{v}"));
+
+        Check(
+            name: "SnapshotLatest of eight cells",
+            actual: s.SnapshotLatest(
+                c1: c1,
+                c2: c2,
+                c3: c3,
+                c4: c4,
+                c5: c5,
+                c6: c6,
+                c7: c7,
+                c8: c8,
+                f: static (a, v1, v2, v3, v4, v5, v6, v7, v8) => $"{a}:{Join(v1, v2, v3, v4, v5, v6, v7, v8)}"),
+            expected: s.SnapshotLatest(c: LiftCells(8), f: static (a, v) => $"{a}:{v}"));
+
+        Check(
+            name: "SnapshotLatest of eight behaviors",
+            actual: s.SnapshotLatest(
+                b1: b1,
+                b2: b2,
+                b3: b3,
+                b4: b4,
+                b5: b5,
+                b6: b6,
+                b7: b7,
+                b8: b8,
+                f: static (a, v1, v2, v3, v4, v5, v6, v7, v8) => $"{a}:{Join(v1, v2, v3, v4, v5, v6, v7, v8)}"),
+            expected: s.SnapshotLatest(b: LiftBehaviors(8), f: static (a, v) => $"{a}:{v}"));
 
         IReadOnlyList<Action<int>> sends =
             [s.Send, c1.Send, c2.Send, c3.Send, c4.Send, c5.Send, c6.Send, c7.Send, c8.Send];

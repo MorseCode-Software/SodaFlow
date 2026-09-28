@@ -60,9 +60,9 @@ changes, and not when only c2 changes.
 It cannot close a loop. Do not give it a cell that the result updates in the
 same transaction.
 
-snapshotLatest2 to snapshotLatest7 and snapshotLatest2B to snapshotLatest7B take
-two to seven cells or behaviors, with the shorthand snapshotLatest2C to
-snapshotLatest7C and snapshotLatest2B to snapshotLatest7B. Each one gives the
+snapshotLatest2 to snapshotLatest8 and snapshotLatest2B to snapshotLatest8B take
+two to eight cells or behaviors, with the shorthand snapshotLatest2C to
+snapshotLatest8C and snapshotLatest2B to snapshotLatest8B. Each one gives the
 new value of each cell that the transaction updates, and the current value of
 each cell that it does not update. For more cells, give it a cell from lift2 or
 from one of the other lift functions. In a transaction, a lifted cell has the

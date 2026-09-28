@@ -54,7 +54,7 @@ when only c2 changes.
 It cannot close a loop. Do not give it a cell that the result updates in the
 same transaction.
 
-SnapshotLatest takes up to seven cells or up to seven behaviors. It gives the new
+SnapshotLatest takes up to eight cells or up to eight behaviors. It gives the new
 value of each one that the transaction updates, and the current value of each
 one that it does not update. For more cells, give it a cell from Lift. In a
 transaction, a lifted cell has the new value.
@@ -68,7 +68,7 @@ function must have streams of one type, and it must put simultaneous values into
 one value of that type. This Merge keeps each value, and no stream has priority.
 
 Lift takes up to eight cells or up to eight behaviors, where it took up to six.
-Snapshot takes up to seven cells or up to seven behaviors, where it took up to
+Snapshot takes up to eight cells or up to eight behaviors, where it took up to
 four. With the value of the stream, its function gets eight values, as the
 function of the widest Lift does. SnapshotLatest has the same limit.
 

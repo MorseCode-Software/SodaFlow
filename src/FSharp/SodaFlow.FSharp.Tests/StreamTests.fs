@@ -696,6 +696,7 @@ type ``Stream Tests``() =
             let c5 = sinkC 5
             let c6 = sinkC 6
             let c7 = sinkC 7
+            let c8 = sinkC 8
             let b1 = c1 |> asBehaviorC
             let b2 = c2 |> asBehaviorC
             let b3 = c3 |> asBehaviorC
@@ -703,6 +704,7 @@ type ``Stream Tests``() =
             let b5 = c5 |> asBehaviorC
             let b6 = c6 |> asBehaviorC
             let b7 = c7 |> asBehaviorC
+            let b8 = c8 |> asBehaviorC
             let out = List<_>()
 
             let listeners =
@@ -723,7 +725,13 @@ type ``Stream Tests``() =
                       [ a; v1; v2; v3; v4; v5; v6; v7 ])
                   s
                   |> snapshotLatest7B b1 b2 b3 b4 b5 b6 b7 (fun a v1 v2 v3 v4 v5 v6 v7 ->
-                      [ a; v1; v2; v3; v4; v5; v6; v7 ]) ]
+                      [ a; v1; v2; v3; v4; v5; v6; v7 ])
+                  s
+                  |> snapshotLatest8C c1 c2 c3 c4 c5 c6 c7 c8 (fun a v1 v2 v3 v4 v5 v6 v7 v8 ->
+                      [ a; v1; v2; v3; v4; v5; v6; v7; v8 ])
+                  s
+                  |> snapshotLatest8B b1 b2 b3 b4 b5 b6 b7 b8 (fun a v1 v2 v3 v4 v5 v6 v7 v8 ->
+                      [ a; v1; v2; v3; v4; v5; v6; v7; v8 ]) ]
                 |> List.map (listenStrongS out.Add)
 
             // The stream fires between the updates of the cells. Each result must see the new value of
@@ -751,7 +759,9 @@ type ``Stream Tests``() =
                       [ 0; 10; 2; 30; 4; 50; 6 ]
                       [ 0; 10; 2; 30; 4; 50; 6 ]
                       [ 0; 10; 2; 30; 4; 50; 6; 70 ]
-                      [ 0; 10; 2; 30; 4; 50; 6; 70 ] ],
+                      [ 0; 10; 2; 30; 4; 50; 6; 70 ]
+                      [ 0; 10; 2; 30; 4; 50; 6; 70; 8 ]
+                      [ 0; 10; 2; 30; 4; 50; 6; 70; 8 ] ],
                     out
                 )
         }
