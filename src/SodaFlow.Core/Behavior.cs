@@ -418,7 +418,7 @@ public class Behavior<T>
     ///     input, thus the step that puts the inputs together does not read the value from the
     ///     behavior.
     /// </summary>
-    private static IListener Pulse<TInput>(
+    internal static IListener Pulse<TInput>(
         Behavior<TInput> input,
         Stream<UnitInternal> pulse,
         TransactionInternal trans,
@@ -447,7 +447,7 @@ public class Behavior<T>
     ///     closure does not hold a second reference to the last value of each input for the full
     ///     life of the lifted behavior.
     /// </remarks>
-    private static TInput Take<TInput>(ref MaybeInternal<TInput> pending, Behavior<TInput> input)
+    internal static TInput Take<TInput>(ref MaybeInternal<TInput> pending, Behavior<TInput> input)
     {
         TInput value = pending.TryGetValue(out TInput captured) ? captured : input.SampleNoTransaction();
         pending = MaybeInternal<TInput>.None;

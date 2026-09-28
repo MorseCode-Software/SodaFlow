@@ -364,93 +364,114 @@ public class Stream<T>
     internal Stream<TResult> SnapshotLatestImpl<T1, TResult>(Cell<T1> c, Func<T, T1, TResult> f) =>
         this.SnapshotLatestImpl(b: c.BehaviorImpl, f: f);
 
-    // SnapshotImpl reads the behavior when this stream fires. Thus, it gives the value from before the
-    // transaction. This method waits for the update of the behavior, with the mechanism of
-    // Behavior.LiftImpl. This stream and the updates of the behavior capture their values and send
-    // into pulse.Node. The coalesce operation ranks above pulse.Node. Thus, it runs after the
-    // behavior sends an update in this transaction. The behavior commits that update only at the end
-    // of the transaction, thus the captured update is the only source of the new value.
-    //
-    // SnapshotImpl gives one output firing for each input firing, thus this method keeps all of them.
-    // The behavior also sends into the pulse. Thus, a transaction that updates only the behavior
-    // clears the captured value, and the closure does not keep a reference to it.
-    //
-    // This cannot close a loop, as SnapshotImpl can. If the output updates the behavior in the same
-    // transaction, the behavior must have its new value before it can calculate that value. No rank
-    // can be higher than the output and the behavior.
     internal Stream<TResult> SnapshotLatestImpl<T1, TResult>(Behavior<T1> b, Func<T, T1, TResult> f) =>
         TransactionInternal.Apply((trans, _) =>
         {
             Stream<UnitInternal> pulse = new(this.KeepListenersAlive);
-            Stream<TResult> @out = new(this.KeepListenersAlive);
 
-            List<T> pending = [];
-            MaybeInternal<T1> latest = MaybeInternal<T1>.None;
+            MaybeInternal<T1> p1 = MaybeInternal<T1>.None;
 
-            IListener l1 =
-                this.Listen(
-                    target: pulse.Node,
+            return this.SnapshotLatest(
+                trans: trans,
+                pulse: pulse,
+                captures:
+                [
+                    Behavior<T1>.Pulse(
+                        input: b,
+                        pulse: pulse,
+                        trans: trans,
+                        capture: v => p1 = MaybeInternal.Some(v))
+                ],
+                take: () => Behavior<T1>.Take(pending: ref p1, input: b),
+                f: f);
+        });
+
+    // SnapshotImpl reads the behaviors when this stream fires. Thus, it gives the values from before
+    // the transaction. The SnapshotLatestImpl methods wait for the updates of the behaviors, with the
+    // mechanism of Behavior.LiftImpl. Each behavior captures its update and sends into pulse.Node,
+    // and this stream keeps its firings and also sends into pulse.Node. The coalesce operation ranks
+    // above pulse.Node. Thus, it runs after each behavior sends its update in this transaction. A
+    // behavior commits its update only at the end of the transaction, thus the captured update is
+    // the only source of the new value.
+    //
+    // SnapshotImpl gives one output firing for each input firing, thus this method keeps all of them.
+    // The behaviors also send into the pulse. Thus, a transaction that updates only the behaviors
+    // clears the captured values, and the closure does not keep a reference to them.
+    //
+    // This cannot close a loop, as SnapshotImpl can. If the output updates a behavior in the same
+    // transaction, the behavior must have its new value before it can calculate that value. No rank
+    // can be higher than the output and the behavior.
+    private Stream<TResult> SnapshotLatest<TValues, TResult>(
+        TransactionInternal trans,
+        Stream<UnitInternal> pulse,
+        // ReSharper disable once ParameterTypeCanBeEnumerable.Local - Typed as array for performance reasons
+        IListener[] captures,
+        Func<TValues> take,
+        Func<T, TValues, TResult> f)
+    {
+        Stream<TResult> @out = new(this.KeepListenersAlive);
+
+        List<T> pending = [];
+
+        IListener l1 =
+            this.Listen(
+                target: pulse.Node,
+                trans: trans,
+                action: (trans2, a) =>
+                {
+                    pending.Add(a);
+                    pulse.Send(trans: trans2, a: UnitInternal.Value);
+                },
+                suppressEarlierFirings: false);
+
+        IListener l2 =
+            pulse.Coalesce(trans1: trans, f: static (x, _) => x)
+                .Listen(
+                    target: @out.Node,
                     trans: trans,
-                    action: (trans2, a) =>
+                    action: (trans2, _) =>
                     {
-                        pending.Add(a);
-                        pulse.Send(trans: trans2, a: UnitInternal.Value);
+                        TValues values = take();
+
+                        // The state is clear before f runs. Thus, after an exception from f, the
+                        // next transaction does not send a firing of this transaction.
+                        switch (pending.Count)
+                        {
+                            case 0:
+                                return;
+                            case 1:
+                            {
+                                T a = pending[0];
+                                pending.Clear();
+                                @out.Send(trans: trans2, a: f(arg1: a, arg2: values));
+                                return;
+                            }
+                            default:
+                            {
+                                T[] firings = [.. pending];
+                                pending.Clear();
+
+                                foreach (T a in firings)
+                                {
+                                    @out.Send(trans: trans2, a: f(arg1: a, arg2: values));
+                                }
+
+                                return;
+                            }
+                        }
                     },
                     suppressEarlierFirings: false);
 
-            IListener l2 =
-                b.Updates()
-                    .Listen(
-                        target: pulse.Node,
-                        trans: trans,
-                        action: (trans2, v) =>
-                        {
-                            latest = MaybeInternal.Some(v);
-                            pulse.Send(trans: trans2, a: UnitInternal.Value);
-                        },
-                        suppressEarlierFirings: false);
+        Stream<TResult> result = @out.UnsafeAttachListener(l1).UnsafeAttachListener(l2);
 
-            IListener l3 =
-                pulse.Coalesce(trans1: trans, f: static (x, _) => x)
-                    .Listen(
-                        target: @out.Node,
-                        trans: trans,
-                        action: (trans2, _) =>
-                        {
-                            T1 value = latest.TryGetValue(out T1 captured) ? captured : b.SampleNoTransaction();
-                            latest = MaybeInternal<T1>.None;
+        // ReSharper disable once LoopCanBeConvertedToQuery - Foreach for performance reasons
+        foreach (IListener capture in captures)
+        {
+            result = result.UnsafeAttachListener(capture);
+        }
 
-                            // The state is clear before f runs. Thus, after an exception from f, the
-                            // next transaction does not send a firing of this transaction.
-                            switch (pending.Count)
-                            {
-                                case 0:
-                                    return;
-                                case 1:
-                                {
-                                    T a = pending[0];
-                                    pending.Clear();
-                                    @out.Send(trans: trans2, a: f(arg1: a, arg2: value));
-                                    return;
-                                }
-                                default:
-                                {
-                                    T[] firings = [.. pending];
-                                    pending.Clear();
-
-                                    foreach (T a in firings)
-                                    {
-                                        @out.Send(trans: trans2, a: f(arg1: a, arg2: value));
-                                    }
-
-                                    return;
-                                }
-                            }
-                        },
-                        suppressEarlierFirings: false);
-
-            return @out.UnsafeAttachListener(l1).UnsafeAttachListener(l2).UnsafeAttachListener(l3);
-        });
+        return result;
+    }
 
     internal Stream<T> OrElseImpl(Stream<T> s) => this.MergeImpl(s: s, f: static (left, _) => left);
 
