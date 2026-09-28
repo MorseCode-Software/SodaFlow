@@ -43,10 +43,23 @@ captures are StreamInternal.Pulse on the updates of each behavior. The reads are
 Behavior.Take, which LiftImpl also uses, and which is internal now and not
 private.
 
+Adds MergeMaybesImpl, for the Merge of streams of different types that SodaFlow
+and SodaFlow.FSharp give. It takes two, three, or four streams and a function
+that gets one MaybeInternal for each stream. The mechanism is the one of
+LiftImpl, with streams in place of the updates of behaviors. Each stream
+captures its firing and sends into one pulse. A coalesce operation that ranks
+above the pulse makes one output firing from the captured values. This is less
+expensive than a merge of mapped streams, and no stream has priority.
+
+The name is not MergeImpl. With that name, the F# type inference at the call in
+mergeOptions2 also uses the MergeImpl for streams of one type. Thus,
+mergeOptions2 accepts only two streams of one type. The F# package builds without an
+error, and a call with two types fails only in the code that calls it.
+
 StreamInternal.Pulse is new. It connects a stream to a pulse, and it takes the
 place of the private Behavior.Pulse, which connected only the updates of a
-behavior. LiftImpl and SnapshotLatestImpl call it, and give it the updates of
-each behavior.
+behavior. LiftImpl, SnapshotLatestImpl, and MergeMaybesImpl call it, and give it
+the updates of a behavior where the input is a behavior.
 
 BREAKING for the packages that reach these internals: AttachListenerImpl is
 named AttachListenerInternal. The Impl suffix here marks a method that a public

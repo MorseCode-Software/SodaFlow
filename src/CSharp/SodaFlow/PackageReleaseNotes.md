@@ -43,6 +43,14 @@ value of each one that the transaction updates, and the current value of each
 one that it does not update. For more cells, give it a cell from Lift. In a
 transaction, a lifted cell has the new value.
 
+Adds Merge for two, three, or four streams of different types. The result is a
+stream of value tuples with one Maybe for each stream, in the sequence of the
+parameters. It fires in each transaction in which one or more of the streams
+fire. Each element has the value of its stream if that stream fired, and no value
+if it did not. Thus, at least one element has a value. The Merge that takes a
+function needs streams of one type, and it must put simultaneous values into one
+value of that type. This Merge keeps each value, and no stream has priority.
+
 Fixed: TimerSystem.At no longer holds an alarm alive through the cell it reads.
 It listened to that cell with a strong listener, which the keep-alive set of the
 cell's graph roots, and that listener holds the alarm sink. So every call to At
