@@ -5,6 +5,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using JetBrains.Annotations;
 using SodaFlow.Functional;
+using SodaFlow.Time;
 
 namespace SodaFlow;
 
@@ -774,4 +775,53 @@ public static class StreamExtensionMethods
     [MethodImpl(MethodImplOptions.NoInlining)]
     public static Stream<TResult> Choose<T, TResult>(this Stream<T> s, Func<T, Maybe<TResult>> f) =>
         s.MapImpl(f).FilterSomeImpl<TResult, Maybe<TResult>>(static (m, a) => m.MatchSome(a));
+
+    /// <summary>
+    ///     Fires the last value after a time with no other value. Each firing moves the alarm out,
+    ///     thus a sequence of firings with no space between them gives one value.
+    /// </summary>
+    /// <typeparam name="T">The type of the values fired by the stream.</typeparam>
+    /// <typeparam name="TTime">The type that the timer system uses for a point in time.</typeparam>
+    /// <param name="s">The stream to debounce.</param>
+    /// <param name="timers">The timer system that gives the clock and the alarms.</param>
+    /// <param name="deadline">
+    ///     The time to fire at, from the time of a firing. For a
+    ///     <see cref="SystemClockTimerSystem" />, a quiet time of 300 milliseconds is
+    ///     <c>static now =&gt; now.AddMilliseconds(300)</c>.
+    /// </param>
+    /// <returns>
+    ///     A stream that fires the last value of <paramref name="s" />, one time, after a time with
+    ///     no other value.
+    /// </returns>
+    /// <remarks>
+    ///     Each value that a quiet time follows fires one time, and the values before it fire never.
+    ///     A search box is the usual position for this: the text of each keystroke goes in, and one
+    ///     search comes out.
+    ///     <para>
+    ///         The result is in a transaction of the alarm and never in the transaction of a firing.
+    ///         Thus, a graph that reads the two sees two instants, which is correct: the values are
+    ///         at two times.
+    ///     </para>
+    ///     <para>
+    ///         This does not cancel work that started. Where each value starts an operation, give a
+    ///         strategy to MapAsync that cancels the operation it replaces, and debounce the input
+    ///         also. The first stops the requests that no code wants, and the second stops the
+    ///         requests before they start.
+    ///     </para>
+    ///     <para>
+    ///         <paramref name="deadline" /> must give a time after the time that it reads. An
+    ///         earlier time is a time that the clock went by, and it fires at the next transaction.
+    ///     </para>
+    /// </remarks>
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    public static Stream<T> Debounce<T, TTime>(
+        this Stream<T> s,
+        ITimerSystem<TTime> timers,
+        Func<TTime, TTime> deadline)
+        where TTime : IComparable<TTime> =>
+        s.DebounceImpl(
+            time: timers.Time,
+            at: timers.At,
+            arm: now => Maybe.Some(deadline(now)),
+            disarmed: Maybe<TTime>.None);
 }

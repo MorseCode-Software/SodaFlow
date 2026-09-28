@@ -15,6 +15,7 @@ module SodaFlow.Time
 open System
 open System.Linq
 open System.Collections.Generic
+open System.Runtime.CompilerServices
 open System.Threading
 
 /// <summary>
@@ -425,3 +426,43 @@ type private SecondsTimerSystemImplementation() =
 /// </remarks>
 type SecondsTimerSystem(handleException: exn -> unit) =
     inherit TimerSystem<float>(SecondsTimerSystemImplementation(), handleException)
+
+/// <summary>
+///     Fires the last value of a stream after a time with no other value. Each firing moves the
+///     alarm out, thus a sequence of firings with no space between them gives one value.
+/// </summary>
+/// <remarks>
+///     Each value that a quiet time follows fires one time, and the values before it fire never. A
+///     search box is the usual position for this: the text of each keystroke goes in, and one search
+///     comes out.
+///
+///     The result is in a transaction of the alarm and never in the transaction of a firing. Thus, a
+///     graph that reads the two sees two instants, which is correct: the values are at two times.
+///
+///     This does not cancel work that started. Where each value starts an operation, give a strategy
+///     to <c>mapAsync</c> that cancels the operation it replaces, and debounce the input also. The
+///     first stops the requests that no code wants, and the second stops the requests before they
+///     start.
+///
+///     <c>deadline</c> must give a time after the time that it reads. An earlier time is a time
+///     that the clock went by, and it fires at the next transaction.
+/// </remarks>
+/// <param name="timers">The timer system that gives the clock and the alarms.</param>
+/// <param name="deadline">
+///     The time to fire at, from the time of a firing. For a <c>SecondsTimerSystem</c>, a quiet time
+///     of 300 milliseconds is <c>fun now -> now + 0.3</c>.
+/// </param>
+/// <param name="stream">The stream to debounce.</param>
+/// <returns>
+///     A stream that fires the last value of <paramref name="stream" />, one time, after a time with
+///     no other value.
+/// </returns>
+[<MethodImpl(MethodImplOptions.NoInlining)>]
+let debounce (timers: ITimerSystem<'T>) (deadline: 'T -> 'T) (stream: Stream<'A>) =
+    StreamExtensionMethodsInternal.DebounceImpl(
+        stream,
+        timers.Time,
+        Func<Cell<'T option>, Stream<'T>>(timers.At),
+        Func<'T, 'T option>(fun now -> Some(deadline now)),
+        None
+    )
