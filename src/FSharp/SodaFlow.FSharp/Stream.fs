@@ -995,6 +995,74 @@ let merge f (stream: Stream<_>, stream2) =
 [<MethodImpl(MethodImplOptions.NoInlining)>]
 let orElse (stream: Stream<_>, stream2) = stream.OrElseImpl stream2
 
+let private toOption (m: MaybeInternal<_>) =
+    match m.TryGetValue() with
+    | true, v -> Some v
+    | _ -> None
+
+/// <summary>
+///     Merges two streams of different types into one stream of pairs.
+/// </summary>
+/// <param name="stream">The first stream.</param>
+/// <param name="stream2">The second stream.</param>
+/// <returns>
+///     A stream that fires in each transaction in which one or more of the streams fire. Each element
+///     is <c>Some</c> with the value of its stream if that stream fired, and <c>None</c> if it did not.
+/// </returns>
+/// <remarks>
+///     One or more elements of each firing are <c>Some</c>. No input has priority over the other
+///     inputs. Thus, the sequence of the streams changes only the sequence of the elements.
+/// </remarks>
+[<MethodImpl(MethodImplOptions.NoInlining)>]
+let mergeOptions2 (stream: Stream<_>, stream2: Stream<_>) =
+    stream.MergeMaybesImpl(stream2, (fun m1 m2 -> struct (toOption m1, toOption m2)))
+
+/// <summary>
+///     Merges three streams of different types into one stream of triples.
+/// </summary>
+/// <param name="stream">The first stream.</param>
+/// <param name="stream2">The second stream.</param>
+/// <param name="stream3">The third stream.</param>
+/// <returns>
+///     A stream that fires in each transaction in which one or more of the streams fire. Each element
+///     is <c>Some</c> with the value of its stream if that stream fired, and <c>None</c> if it did not.
+/// </returns>
+/// <remarks>
+///     One or more elements of each firing are <c>Some</c>. No input has priority over the other
+///     inputs. Thus, the sequence of the streams changes only the sequence of the elements.
+/// </remarks>
+[<MethodImpl(MethodImplOptions.NoInlining)>]
+let mergeOptions3 (stream: Stream<_>, stream2: Stream<_>, stream3: Stream<_>) =
+    stream.MergeMaybesImpl(
+        stream2,
+        stream3,
+        (fun m1 m2 m3 -> struct (toOption m1, toOption m2, toOption m3))
+    )
+
+/// <summary>
+///     Merges four streams of different types into one stream of quadruples.
+/// </summary>
+/// <param name="stream">The first stream.</param>
+/// <param name="stream2">The second stream.</param>
+/// <param name="stream3">The third stream.</param>
+/// <param name="stream4">The fourth stream.</param>
+/// <returns>
+///     A stream that fires in each transaction in which one or more of the streams fire. Each element
+///     is <c>Some</c> with the value of its stream if that stream fired, and <c>None</c> if it did not.
+/// </returns>
+/// <remarks>
+///     One or more elements of each firing are <c>Some</c>. No input has priority over the other
+///     inputs. Thus, the sequence of the streams changes only the sequence of the elements.
+/// </remarks>
+[<MethodImpl(MethodImplOptions.NoInlining)>]
+let mergeOptions4 (stream: Stream<_>, stream2: Stream<_>, stream3: Stream<_>, stream4: Stream<_>) =
+    stream.MergeMaybesImpl(
+        stream2,
+        stream3,
+        stream4,
+        (fun m1 m2 m3 m4 -> struct (toOption m1, toOption m2, toOption m3, toOption m4))
+    )
+
 /// <summary>
 ///     Keeps only the firings whose value satisfies a predicate.
 /// </summary>

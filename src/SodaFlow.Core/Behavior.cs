@@ -225,8 +225,16 @@ public class Behavior<T>
 
             IListener[] listeners =
             [
-                Pulse(input: this, pulse: pulse, trans: trans, capture: v => p1 = MaybeInternal.Some(v)),
-                Pulse(input: b2, pulse: pulse, trans: trans, capture: v => p2 = MaybeInternal.Some(v))
+                StreamInternal.Pulse(
+                    input: this.Updates(),
+                    pulse: pulse,
+                    trans: trans,
+                    capture: v => p1 = MaybeInternal.Some(v)),
+                StreamInternal.Pulse(
+                    input: b2.Updates(),
+                    pulse: pulse,
+                    trans: trans,
+                    capture: v => p2 = MaybeInternal.Some(v))
             ];
 
             return HoldLifted(
@@ -257,9 +265,21 @@ public class Behavior<T>
 
             IListener[] listeners =
             [
-                Pulse(input: this, pulse: pulse, trans: trans, capture: v => p1 = MaybeInternal.Some(v)),
-                Pulse(input: b2, pulse: pulse, trans: trans, capture: v => p2 = MaybeInternal.Some(v)),
-                Pulse(input: b3, pulse: pulse, trans: trans, capture: v => p3 = MaybeInternal.Some(v))
+                StreamInternal.Pulse(
+                    input: this.Updates(),
+                    pulse: pulse,
+                    trans: trans,
+                    capture: v => p1 = MaybeInternal.Some(v)),
+                StreamInternal.Pulse(
+                    input: b2.Updates(),
+                    pulse: pulse,
+                    trans: trans,
+                    capture: v => p2 = MaybeInternal.Some(v)),
+                StreamInternal.Pulse(
+                    input: b3.Updates(),
+                    pulse: pulse,
+                    trans: trans,
+                    capture: v => p3 = MaybeInternal.Some(v))
             ];
 
             return HoldLifted(
@@ -294,10 +314,26 @@ public class Behavior<T>
 
             IListener[] listeners =
             [
-                Pulse(input: this, pulse: pulse, trans: trans, capture: v => p1 = MaybeInternal.Some(v)),
-                Pulse(input: b2, pulse: pulse, trans: trans, capture: v => p2 = MaybeInternal.Some(v)),
-                Pulse(input: b3, pulse: pulse, trans: trans, capture: v => p3 = MaybeInternal.Some(v)),
-                Pulse(input: b4, pulse: pulse, trans: trans, capture: v => p4 = MaybeInternal.Some(v))
+                StreamInternal.Pulse(
+                    input: this.Updates(),
+                    pulse: pulse,
+                    trans: trans,
+                    capture: v => p1 = MaybeInternal.Some(v)),
+                StreamInternal.Pulse(
+                    input: b2.Updates(),
+                    pulse: pulse,
+                    trans: trans,
+                    capture: v => p2 = MaybeInternal.Some(v)),
+                StreamInternal.Pulse(
+                    input: b3.Updates(),
+                    pulse: pulse,
+                    trans: trans,
+                    capture: v => p3 = MaybeInternal.Some(v)),
+                StreamInternal.Pulse(
+                    input: b4.Updates(),
+                    pulse: pulse,
+                    trans: trans,
+                    capture: v => p4 = MaybeInternal.Some(v))
             ];
 
             return HoldLifted(
@@ -336,11 +372,31 @@ public class Behavior<T>
 
             IListener[] listeners =
             [
-                Pulse(input: this, pulse: pulse, trans: trans, capture: v => p1 = MaybeInternal.Some(v)),
-                Pulse(input: b2, pulse: pulse, trans: trans, capture: v => p2 = MaybeInternal.Some(v)),
-                Pulse(input: b3, pulse: pulse, trans: trans, capture: v => p3 = MaybeInternal.Some(v)),
-                Pulse(input: b4, pulse: pulse, trans: trans, capture: v => p4 = MaybeInternal.Some(v)),
-                Pulse(input: b5, pulse: pulse, trans: trans, capture: v => p5 = MaybeInternal.Some(v))
+                StreamInternal.Pulse(
+                    input: this.Updates(),
+                    pulse: pulse,
+                    trans: trans,
+                    capture: v => p1 = MaybeInternal.Some(v)),
+                StreamInternal.Pulse(
+                    input: b2.Updates(),
+                    pulse: pulse,
+                    trans: trans,
+                    capture: v => p2 = MaybeInternal.Some(v)),
+                StreamInternal.Pulse(
+                    input: b3.Updates(),
+                    pulse: pulse,
+                    trans: trans,
+                    capture: v => p3 = MaybeInternal.Some(v)),
+                StreamInternal.Pulse(
+                    input: b4.Updates(),
+                    pulse: pulse,
+                    trans: trans,
+                    capture: v => p4 = MaybeInternal.Some(v)),
+                StreamInternal.Pulse(
+                    input: b5.Updates(),
+                    pulse: pulse,
+                    trans: trans,
+                    capture: v => p5 = MaybeInternal.Some(v))
             ];
 
             return HoldLifted(
@@ -383,12 +439,36 @@ public class Behavior<T>
 
             IListener[] listeners =
             [
-                Pulse(input: this, pulse: pulse, trans: trans, capture: v => p1 = MaybeInternal.Some(v)),
-                Pulse(input: b2, pulse: pulse, trans: trans, capture: v => p2 = MaybeInternal.Some(v)),
-                Pulse(input: b3, pulse: pulse, trans: trans, capture: v => p3 = MaybeInternal.Some(v)),
-                Pulse(input: b4, pulse: pulse, trans: trans, capture: v => p4 = MaybeInternal.Some(v)),
-                Pulse(input: b5, pulse: pulse, trans: trans, capture: v => p5 = MaybeInternal.Some(v)),
-                Pulse(input: b6, pulse: pulse, trans: trans, capture: v => p6 = MaybeInternal.Some(v))
+                StreamInternal.Pulse(
+                    input: this.Updates(),
+                    pulse: pulse,
+                    trans: trans,
+                    capture: v => p1 = MaybeInternal.Some(v)),
+                StreamInternal.Pulse(
+                    input: b2.Updates(),
+                    pulse: pulse,
+                    trans: trans,
+                    capture: v => p2 = MaybeInternal.Some(v)),
+                StreamInternal.Pulse(
+                    input: b3.Updates(),
+                    pulse: pulse,
+                    trans: trans,
+                    capture: v => p3 = MaybeInternal.Some(v)),
+                StreamInternal.Pulse(
+                    input: b4.Updates(),
+                    pulse: pulse,
+                    trans: trans,
+                    capture: v => p4 = MaybeInternal.Some(v)),
+                StreamInternal.Pulse(
+                    input: b5.Updates(),
+                    pulse: pulse,
+                    trans: trans,
+                    capture: v => p5 = MaybeInternal.Some(v)),
+                StreamInternal.Pulse(
+                    input: b6.Updates(),
+                    pulse: pulse,
+                    trans: trans,
+                    capture: v => p6 = MaybeInternal.Some(v))
             ];
 
             return HoldLifted(
@@ -412,27 +492,6 @@ public class Behavior<T>
                         arg6: b6.SampleNoTransaction()),
                 listeners: listeners);
         });
-
-    /// <summary>
-    ///     Connects one lifted input to the shared pulse stream. It keeps the new value of that
-    ///     input, thus the step that puts the inputs together does not read the value from the
-    ///     behavior.
-    /// </summary>
-    internal static IListener Pulse<TInput>(
-        Behavior<TInput> input,
-        Stream<UnitInternal> pulse,
-        TransactionInternal trans,
-        Action<TInput> capture) =>
-        input.Updates()
-            .Listen(
-                target: pulse.Node,
-                trans: trans,
-                action: (trans2, v) =>
-                {
-                    capture(v);
-                    pulse.Send(trans: trans2, a: UnitInternal.Value);
-                },
-                suppressEarlierFirings: false);
 
     /// <summary>
     ///     Reads the value of an input for this firing. If the input updated in this

@@ -68,6 +68,20 @@ each cell that it does not update. For more cells, give it a cell from lift2 or
 from one of the other lift functions. In a transaction, a lifted cell has the
 new value.
 
+Adds mergeOptions2, mergeOptions3, and mergeOptions4, with the shorthand
+mergeOptions2S, mergeOptions3S, and mergeOptions4S. Each one merges two, three,
+or four streams of different types. The result is a stream of struct tuples with
+one option for each stream, in the sequence of the arguments. It fires in each
+transaction in which one or more of the streams fire. Each element is Some with
+the value of its stream if that stream fired, and None if it did not. Thus, one
+or more elements are Some. merge must have streams of one type, and it must put
+simultaneous values into one value of that type. mergeOptions keeps each value,
+and no stream has priority.
+
+The result is a struct tuple, as the state and the output of collect are. A
+merged stream can fire in a large number of transactions, and a struct tuple
+does not allocate a tuple for each firing.
+
 Fixed: the At member of the timer system no longer holds an alarm alive
 through the cell it reads. It listened to that cell with a strong listener,
 which the keep-alive set of the cell's graph roots, and that listener holds

@@ -47,6 +47,7 @@ handlers, timers, and network callbacks; everything downstream stays pure.
 | `s.Choose(f)` | `chooseS f s` | Map and filter in one step: fire only the values `f` produced. |
 | `s.Merge(s2, f)` | `mergeS f (s, s2)` | Combine two streams; `f` resolves simultaneous firings. |
 | `s.OrElse(s2)` | `orElseS (s, s2)` | Combine two streams; on simultaneity the left wins. |
+| `s.Merge(s2)` | `mergeOptions2S (s, s2)` | Combine streams of different types into a tuple of `Maybe<T>` / `option`, one element per stream, set for each stream that fired. Up to four streams. |
 | `streams.Merge(f)` | `mergeAllS f streams` | Merge a collection of streams. |
 | `streams.OrElse()` | `orElseAllS streams` | Left-biased merge of a collection. |
 | `s.Hold(initial)` | `holdS initial s` | Turn into a cell remembering the latest value. |

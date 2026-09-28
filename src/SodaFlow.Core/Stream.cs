@@ -10,6 +10,30 @@ internal static class StreamInternal
     internal static Stream<T> NeverImpl<T>() => new();
     internal static StreamSink<T> CreateSinkImpl<T>() => new();
     internal static StreamSink<T> CreateSinkImpl<T>(Func<T, T, T> coalesce) => new(coalesce);
+
+    /// <summary>
+    ///     Connects one input stream to a shared pulse stream. Each firing of the input gives its
+    ///     value to <paramref name="capture" /> and then sends into the pulse. Thus, the step that
+    ///     puts the inputs together reads the captured value, and not the value of a behavior.
+    /// </summary>
+    /// <remarks>
+    ///     Behavior.LiftImpl, SnapshotLatestImpl, and MergeMaybesImpl use this. For a behavior, give
+    ///     the stream of its updates.
+    /// </remarks>
+    internal static IListener Pulse<TInput>(
+        Stream<TInput> input,
+        Stream<UnitInternal> pulse,
+        TransactionInternal trans,
+        Action<TInput> capture) =>
+        input.Listen(
+            target: pulse.Node,
+            trans: trans,
+            action: (trans2, v) =>
+            {
+                capture(v);
+                pulse.Send(trans: trans2, a: UnitInternal.Value);
+            },
+            suppressEarlierFirings: false);
 }
 
 /// <summary>
@@ -376,8 +400,8 @@ public class Stream<T>
                 pulse: pulse,
                 captures:
                 [
-                    Behavior<T1>.Pulse(
-                        input: b,
+                    StreamInternal.Pulse(
+                        input: b.Updates(),
                         pulse: pulse,
                         trans: trans,
                         capture: v => p1 = MaybeInternal.Some(v))
@@ -408,13 +432,13 @@ public class Stream<T>
                 pulse: pulse,
                 captures:
                 [
-                    Behavior<T1>.Pulse(
-                        input: b1,
+                    StreamInternal.Pulse(
+                        input: b1.Updates(),
                         pulse: pulse,
                         trans: trans,
                         capture: v => p1 = MaybeInternal.Some(v)),
-                    Behavior<T2>.Pulse(
-                        input: b2,
+                    StreamInternal.Pulse(
+                        input: b2.Updates(),
                         pulse: pulse,
                         trans: trans,
                         capture: v => p2 = MaybeInternal.Some(v))
@@ -451,18 +475,18 @@ public class Stream<T>
                 pulse: pulse,
                 captures:
                 [
-                    Behavior<T1>.Pulse(
-                        input: b1,
+                    StreamInternal.Pulse(
+                        input: b1.Updates(),
                         pulse: pulse,
                         trans: trans,
                         capture: v => p1 = MaybeInternal.Some(v)),
-                    Behavior<T2>.Pulse(
-                        input: b2,
+                    StreamInternal.Pulse(
+                        input: b2.Updates(),
                         pulse: pulse,
                         trans: trans,
                         capture: v => p2 = MaybeInternal.Some(v)),
-                    Behavior<T3>.Pulse(
-                        input: b3,
+                    StreamInternal.Pulse(
+                        input: b3.Updates(),
                         pulse: pulse,
                         trans: trans,
                         capture: v => p3 = MaybeInternal.Some(v))
@@ -508,23 +532,23 @@ public class Stream<T>
                 pulse: pulse,
                 captures:
                 [
-                    Behavior<T1>.Pulse(
-                        input: b1,
+                    StreamInternal.Pulse(
+                        input: b1.Updates(),
                         pulse: pulse,
                         trans: trans,
                         capture: v => p1 = MaybeInternal.Some(v)),
-                    Behavior<T2>.Pulse(
-                        input: b2,
+                    StreamInternal.Pulse(
+                        input: b2.Updates(),
                         pulse: pulse,
                         trans: trans,
                         capture: v => p2 = MaybeInternal.Some(v)),
-                    Behavior<T3>.Pulse(
-                        input: b3,
+                    StreamInternal.Pulse(
+                        input: b3.Updates(),
                         pulse: pulse,
                         trans: trans,
                         capture: v => p3 = MaybeInternal.Some(v)),
-                    Behavior<T4>.Pulse(
-                        input: b4,
+                    StreamInternal.Pulse(
+                        input: b4.Updates(),
                         pulse: pulse,
                         trans: trans,
                         capture: v => p4 = MaybeInternal.Some(v))
@@ -575,28 +599,28 @@ public class Stream<T>
                 pulse: pulse,
                 captures:
                 [
-                    Behavior<T1>.Pulse(
-                        input: b1,
+                    StreamInternal.Pulse(
+                        input: b1.Updates(),
                         pulse: pulse,
                         trans: trans,
                         capture: v => p1 = MaybeInternal.Some(v)),
-                    Behavior<T2>.Pulse(
-                        input: b2,
+                    StreamInternal.Pulse(
+                        input: b2.Updates(),
                         pulse: pulse,
                         trans: trans,
                         capture: v => p2 = MaybeInternal.Some(v)),
-                    Behavior<T3>.Pulse(
-                        input: b3,
+                    StreamInternal.Pulse(
+                        input: b3.Updates(),
                         pulse: pulse,
                         trans: trans,
                         capture: v => p3 = MaybeInternal.Some(v)),
-                    Behavior<T4>.Pulse(
-                        input: b4,
+                    StreamInternal.Pulse(
+                        input: b4.Updates(),
                         pulse: pulse,
                         trans: trans,
                         capture: v => p4 = MaybeInternal.Some(v)),
-                    Behavior<T5>.Pulse(
-                        input: b5,
+                    StreamInternal.Pulse(
+                        input: b5.Updates(),
                         pulse: pulse,
                         trans: trans,
                         capture: v => p5 = MaybeInternal.Some(v))
@@ -729,6 +753,182 @@ public class Stream<T>
 
     internal Stream<T> Merge(TransactionInternal trans, Stream<T> s, Func<T, T, T> f) =>
         this.Merge(trans: trans, s: s).Coalesce(trans1: trans, f: f);
+
+    internal Stream<TResult> MergeMaybesImpl<T2, TResult>(
+        Stream<T2> s2,
+        Func<MaybeInternal<T>, MaybeInternal<T2>, TResult> f) =>
+        TransactionInternal.Apply((trans, _) =>
+        {
+            Stream<UnitInternal> pulse = new(this.KeepListenersAlive);
+
+            MaybeInternal<T> p1 = MaybeInternal<T>.None;
+            MaybeInternal<T2> p2 = MaybeInternal<T2>.None;
+
+            return this.MergeMaybes(
+                trans: trans,
+                pulse: pulse,
+                captures:
+                [
+                    StreamInternal.Pulse(
+                        input: this,
+                        pulse: pulse,
+                        trans: trans,
+                        capture: v => p1 = MaybeInternal.Some(v)),
+                    StreamInternal.Pulse(
+                        input: s2,
+                        pulse: pulse,
+                        trans: trans,
+                        capture: v => p2 = MaybeInternal.Some(v))
+                ],
+                combine: () =>
+                {
+                    MaybeInternal<T> v1 = p1;
+                    MaybeInternal<T2> v2 = p2;
+                    p1 = MaybeInternal<T>.None;
+                    p2 = MaybeInternal<T2>.None;
+
+                    return f(arg1: v1, arg2: v2);
+                });
+        });
+
+    internal Stream<TResult> MergeMaybesImpl<T2, T3, TResult>(
+        Stream<T2> s2,
+        Stream<T3> s3,
+        Func<MaybeInternal<T>, MaybeInternal<T2>, MaybeInternal<T3>, TResult> f) =>
+        TransactionInternal.Apply((trans, _) =>
+        {
+            Stream<UnitInternal> pulse = new(this.KeepListenersAlive);
+
+            MaybeInternal<T> p1 = MaybeInternal<T>.None;
+            MaybeInternal<T2> p2 = MaybeInternal<T2>.None;
+            MaybeInternal<T3> p3 = MaybeInternal<T3>.None;
+
+            return this.MergeMaybes(
+                trans: trans,
+                pulse: pulse,
+                captures:
+                [
+                    StreamInternal.Pulse(
+                        input: this,
+                        pulse: pulse,
+                        trans: trans,
+                        capture: v => p1 = MaybeInternal.Some(v)),
+                    StreamInternal.Pulse(
+                        input: s2,
+                        pulse: pulse,
+                        trans: trans,
+                        capture: v => p2 = MaybeInternal.Some(v)),
+                    StreamInternal.Pulse(
+                        input: s3,
+                        pulse: pulse,
+                        trans: trans,
+                        capture: v => p3 = MaybeInternal.Some(v))
+                ],
+                combine: () =>
+                {
+                    MaybeInternal<T> v1 = p1;
+                    MaybeInternal<T2> v2 = p2;
+                    MaybeInternal<T3> v3 = p3;
+                    p1 = MaybeInternal<T>.None;
+                    p2 = MaybeInternal<T2>.None;
+                    p3 = MaybeInternal<T3>.None;
+
+                    return f(arg1: v1, arg2: v2, arg3: v3);
+                });
+        });
+
+    internal Stream<TResult> MergeMaybesImpl<T2, T3, T4, TResult>(
+        Stream<T2> s2,
+        Stream<T3> s3,
+        Stream<T4> s4,
+        Func<MaybeInternal<T>, MaybeInternal<T2>, MaybeInternal<T3>, MaybeInternal<T4>, TResult> f) =>
+        TransactionInternal.Apply((trans, _) =>
+        {
+            Stream<UnitInternal> pulse = new(this.KeepListenersAlive);
+
+            MaybeInternal<T> p1 = MaybeInternal<T>.None;
+            MaybeInternal<T2> p2 = MaybeInternal<T2>.None;
+            MaybeInternal<T3> p3 = MaybeInternal<T3>.None;
+            MaybeInternal<T4> p4 = MaybeInternal<T4>.None;
+
+            return this.MergeMaybes(
+                trans: trans,
+                pulse: pulse,
+                captures:
+                [
+                    StreamInternal.Pulse(
+                        input: this,
+                        pulse: pulse,
+                        trans: trans,
+                        capture: v => p1 = MaybeInternal.Some(v)),
+                    StreamInternal.Pulse(
+                        input: s2,
+                        pulse: pulse,
+                        trans: trans,
+                        capture: v => p2 = MaybeInternal.Some(v)),
+                    StreamInternal.Pulse(
+                        input: s3,
+                        pulse: pulse,
+                        trans: trans,
+                        capture: v => p3 = MaybeInternal.Some(v)),
+                    StreamInternal.Pulse(
+                        input: s4,
+                        pulse: pulse,
+                        trans: trans,
+                        capture: v => p4 = MaybeInternal.Some(v))
+                ],
+                combine: () =>
+                {
+                    MaybeInternal<T> v1 = p1;
+                    MaybeInternal<T2> v2 = p2;
+                    MaybeInternal<T3> v3 = p3;
+                    MaybeInternal<T4> v4 = p4;
+                    p1 = MaybeInternal<T>.None;
+                    p2 = MaybeInternal<T2>.None;
+                    p3 = MaybeInternal<T3>.None;
+                    p4 = MaybeInternal<T4>.None;
+
+                    return f(arg1: v1, arg2: v2, arg3: v3, arg4: v4);
+                });
+        });
+
+    // The MergeMaybesImpl methods use the mechanism of Behavior.LiftImpl. Their inputs are streams, and not
+    // the updates of behaviors. Each input captures its firing and sends into pulse.Node. The coalesce
+    // operation ranks above pulse.Node. Thus, it runs after all the inputs that fire in this transaction, and
+    // it makes one output firing from their captured values. An input that does not fire gives an empty
+    // value. An input that fires more than one time in a transaction gives the value of its last firing, as a
+    // lifted input does.
+    //
+    // This is less expensive than a merge of mapped streams. Each merge of two streams makes a
+    // stream, a coalesce operation, and a node link, and each input must have its own map. Also, the
+    // inputs have no left and no right, thus no input has priority over the other inputs.
+    private Stream<TResult> MergeMaybes<TResult>(
+        TransactionInternal trans,
+        Stream<UnitInternal> pulse,
+        // ReSharper disable once ParameterTypeCanBeEnumerable.Local - Typed as array for performance reasons
+        IListener[] captures,
+        Func<TResult> combine)
+    {
+        Stream<TResult> @out = new(this.KeepListenersAlive);
+
+        IListener l =
+            pulse.Coalesce(trans1: trans, f: static (x, _) => x)
+                .Listen(
+                    target: @out.Node,
+                    trans: trans,
+                    action: (trans2, _) => @out.Send(trans: trans2, a: combine()),
+                    suppressEarlierFirings: false);
+
+        Stream<TResult> result = @out.UnsafeAttachListener(l);
+
+        // ReSharper disable once LoopCanBeConvertedToQuery - Foreach for performance reasons
+        foreach (IListener capture in captures)
+        {
+            result = result.UnsafeAttachListener(capture);
+        }
+
+        return result;
+    }
 
     internal Stream<T> Coalesce(TransactionInternal trans1, Func<T, T, T> f)
     {

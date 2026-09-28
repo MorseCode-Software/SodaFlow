@@ -932,6 +932,92 @@ public static class StreamExtensionMethods
     public static Stream<T> Merge<T>(this Stream<T> s, Stream<T> s2, Func<T, T, T> f) => s.MergeImpl(s: s2, f: f);
 
     /// <summary>
+    ///     Merges this stream with a stream of a different type. The stream from this call fires in each
+    ///     transaction in which one or more of the streams fire.
+    /// </summary>
+    /// <typeparam name="T">The type of this stream.</typeparam>
+    /// <typeparam name="T2">The type of the second stream.</typeparam>
+    /// <param name="s">The stream.</param>
+    /// <param name="s2">The second stream to merge with this one.</param>
+    /// <returns>
+    ///     A stream of tuples with one element for each of the two streams, in the sequence of the
+    ///     parameters. An element has the value of its stream if that stream fired in the transaction, and
+    ///     no value if it did not.
+    /// </returns>
+    /// <remarks>
+    ///     One or more elements of each tuple have a value. No input has priority over the other
+    ///     inputs. Thus, the sequence of the parameters changes only the sequence of the elements.
+    /// </remarks>
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    public static Stream<(Maybe<T>, Maybe<T2>)> Merge<T, T2>(this Stream<T> s, Stream<T2> s2) =>
+        s.MergeMaybesImpl(s2: s2, f: static (m1, m2) => (ToMaybe(m1), ToMaybe(m2)));
+
+    /// <summary>
+    ///     Merges this stream with two streams of other types. The stream from this call fires in each
+    ///     transaction in which one or more of the three streams fire.
+    /// </summary>
+    /// <typeparam name="T">The type of this stream.</typeparam>
+    /// <typeparam name="T2">The type of the second stream.</typeparam>
+    /// <typeparam name="T3">The type of the third stream.</typeparam>
+    /// <param name="s">The stream.</param>
+    /// <param name="s2">The second stream to merge with this one.</param>
+    /// <param name="s3">The third stream to merge with this one.</param>
+    /// <returns>
+    ///     A stream of tuples with one element for each of the three streams, in the sequence of the
+    ///     parameters. An element has the value of its stream if that stream fired in the transaction, and
+    ///     no value if it did not.
+    /// </returns>
+    /// <remarks>
+    ///     One or more elements of each tuple have a value. No input has priority over the other
+    ///     inputs. Thus, the sequence of the parameters changes only the sequence of the elements.
+    /// </remarks>
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    public static Stream<(Maybe<T>, Maybe<T2>, Maybe<T3>)> Merge<T, T2, T3>(
+        this Stream<T> s,
+        Stream<T2> s2,
+        Stream<T3> s3) =>
+        s.MergeMaybesImpl(
+            s2: s2,
+            s3: s3,
+            f: static (m1, m2, m3) => (ToMaybe(m1), ToMaybe(m2), ToMaybe(m3)));
+
+    /// <summary>
+    ///     Merges this stream with three streams of other types. The stream from this call fires in each
+    ///     transaction in which one or more of the four streams fire.
+    /// </summary>
+    /// <typeparam name="T">The type of this stream.</typeparam>
+    /// <typeparam name="T2">The type of the second stream.</typeparam>
+    /// <typeparam name="T3">The type of the third stream.</typeparam>
+    /// <typeparam name="T4">The type of the fourth stream.</typeparam>
+    /// <param name="s">The stream.</param>
+    /// <param name="s2">The second stream to merge with this one.</param>
+    /// <param name="s3">The third stream to merge with this one.</param>
+    /// <param name="s4">The fourth stream to merge with this one.</param>
+    /// <returns>
+    ///     A stream of tuples with one element for each of the four streams, in the sequence of the
+    ///     parameters. An element has the value of its stream if that stream fired in the transaction, and
+    ///     no value if it did not.
+    /// </returns>
+    /// <remarks>
+    ///     One or more elements of each tuple have a value. No input has priority over the other
+    ///     inputs. Thus, the sequence of the parameters changes only the sequence of the elements.
+    /// </remarks>
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    public static Stream<(Maybe<T>, Maybe<T2>, Maybe<T3>, Maybe<T4>)> Merge<T, T2, T3, T4>(
+        this Stream<T> s,
+        Stream<T2> s2,
+        Stream<T3> s3,
+        Stream<T4> s4) =>
+        s.MergeMaybesImpl(
+            s2: s2,
+            s3: s3,
+            s4: s4,
+            f: static (m1, m2, m3, m4) => (ToMaybe(m1), ToMaybe(m2), ToMaybe(m3), ToMaybe(m4)));
+
+    private static Maybe<T> ToMaybe<T>(MaybeInternal<T> m) =>
+        m.TryGetValue(out T value) ? Maybe.Some(value) : Maybe<T>.None;
+
+    /// <summary>
     ///     Return a stream that only outputs events for which the predicate returns <code>true</code>.
     /// </summary>
     /// <typeparam name="T">The type of the stream.</typeparam>
