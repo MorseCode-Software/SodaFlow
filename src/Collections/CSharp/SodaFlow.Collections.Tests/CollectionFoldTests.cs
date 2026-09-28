@@ -1,4 +1,6 @@
+using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading.Tasks;
 using TUnit.Assertions;
 using TUnit.Assertions.Extensions;
@@ -224,6 +226,162 @@ public sealed class CollectionFoldTests
 
         edits.Send(TestUtil.Remove(1));
         await Assert.That(Transaction.Run(count.Sample)).IsEqualTo(1);
+    }
+
+    [Test]
+    public async Task AFoldOfAViewRemovesTheValueOfAReplacedItemOneTime()
+    {
+        StreamSink<CollectionEdit<int, ItemIdentity, ItemState>> edits =
+            Stream.CreateSink<CollectionEdit<int, ItemIdentity, ItemState>>();
+
+        ReactiveCollection<int, ItemIdentity, ItemState> collection =
+            Create(
+                edits: edits,
+                initial: [TestUtil.Item(number: 1, name: "a", score: 10), TestUtil.Item(number: 2, name: "b", score: 20)]);
+
+        ReactiveCollection<int, ItemIdentity, ItemState> high =
+            Transaction.Run(() => collection.Filter(static (_, state) => state.Score >= 5));
+
+        Cell<int> total = Transaction.Run(() => Total(high));
+
+        // One edit removes key 2 and adds it again. The view names key 2 as a removal and as an
+        // add. A fold that removes the previous value for each of the two gives 10 - 20 + 7.
+        edits.Send(TestUtil.Remove(2).CombineWith(TestUtil.Add(TestUtil.Item(number: 2, name: "c", score: 7))));
+
+        await Assert.That(Transaction.Run(total.Sample)).IsEqualTo(17);
+    }
+
+    [Test]
+    public async Task AFoldOfAWindowFollowsTheKeysThatAnAddMovesInTheWindow()
+    {
+        StreamSink<CollectionEdit<int, ItemIdentity, ItemState>> edits =
+            Stream.CreateSink<CollectionEdit<int, ItemIdentity, ItemState>>();
+
+        ReactiveCollection<int, ItemIdentity, ItemState> collection =
+            Create(
+                edits: edits,
+                initial:
+                [
+                    TestUtil.Item(number: 1, name: "a", score: 10),
+                    TestUtil.Item(number: 2, name: "b", score: 20),
+                    TestUtil.Item(number: 3, name: "c", score: 30)
+                ]);
+
+        ReactiveCollection<int, ItemIdentity, ItemState> lowest =
+            Transaction.Run(() => collection.SortBy(static (_, state) => state.Score).Take(2));
+
+        Cell<int> total = Transaction.Run(() => Total(lowest));
+
+        await Assert.That(Transaction.Run(total.Sample)).IsEqualTo(30);
+
+        // The new item goes to the first position. The window removes each key after the common
+        // part and inserts the keys again, thus key 1 is a removal and an add of one change.
+        edits.Send(TestUtil.Add(TestUtil.Item(number: 4, name: "d", score: 1)));
+
+        await Assert.That(Transaction.Run(total.Sample)).IsEqualTo(11)
+            .Because("the window holds the scores 1 and 10");
+    }
+
+    [Test]
+    public async Task AFoldOfEachViewMatchesASumOfItsItemsAfterRandomEdits()
+    {
+        // The seed is fixed, thus a failure occurs again at each run.
+        Random random = new(20260928);
+
+        StreamSink<CollectionEdit<int, ItemIdentity, ItemState>> edits =
+            Stream.CreateSink<CollectionEdit<int, ItemIdentity, ItemState>>();
+
+        CellSink<int> limit = Cell.CreateSink(3);
+        ReactiveCollection<int, ItemIdentity, ItemState> collection = Create(edits);
+
+        // Each view gives its changes from a different stage: the root, a filter on the state, a
+        // filter on the identity, a sort, windows that an edit moves, a filter below a window, and
+        // a window that a change of its limit builds again.
+        (string Name, ReactiveCollection<int, ItemIdentity, ItemState> View)[] views =
+            Transaction.Run(() =>
+                new (string, ReactiveCollection<int, ItemIdentity, ItemState>)[]
+                {
+                    ("root", collection),
+                    ("filter", collection.Filter(static (_, state) => state.Score >= 50)),
+                    ("filter by identity", collection.FilterByIdentity(static identity => identity.Number % 2 == 1)),
+                    ("sort", collection.SortBy(static (_, state) => state.Score)),
+                    ("sort and take", collection.SortBy(static (_, state) => state.Score).Take(3)),
+                    ("sort and slice", collection.SortBy(static (_, state) => state.Score).Slice(offset: 2, limit: 3)),
+                    (
+                        "filter below a window",
+                        collection.SortBy(static (_, state) => state.Score)
+                            .Take(5)
+                            .Filter(static (_, state) => state.Score >= 30)),
+                    ("take a limit", collection.SortByKey().Take(limit.AsCell()))
+                });
+
+        Cell<int>[] totals = Transaction.Run(() => views.Select(static view => Total(view.View)).ToArray());
+        HashSet<int> present = [];
+
+        for (int step = 0; step < 400; step++)
+        {
+            List<CollectionEdit<int, ItemIdentity, ItemState>> parts = [];
+
+            foreach (int key in Enumerable.Range(start: 1, count: 10).Where(_ => random.Next(4) == 0))
+            {
+                int score = random.Next(100);
+
+                if (!present.Contains(key))
+                {
+                    parts.Add(TestUtil.Add(TestUtil.Item(number: key, name: "a", score: score)));
+                    present.Add(key);
+
+                    continue;
+                }
+
+                switch (random.Next(3))
+                {
+                    case 0:
+                        parts.Add(TestUtil.Score(key: key, score: score));
+
+                        break;
+
+                    case 1:
+                        parts.Add(TestUtil.Remove(key));
+                        present.Remove(key);
+
+                        break;
+
+                    default:
+                        parts.Add(
+                            TestUtil.Remove(key)
+                                .CombineWith(
+                                    TestUtil.Add(
+                                        new Item<ItemIdentity, ItemState>(
+                                            identity: new ItemIdentity(Number: key, Code: $"R{step}"),
+                                            state: new ItemState(Name: "r", Score: score)))));
+
+                        break;
+                }
+            }
+
+            int nextLimit = random.Next(6);
+
+            Transaction.RunVoid(() =>
+            {
+                if (parts.Count > 0)
+                {
+                    edits.Send(parts.Aggregate(static (left, right) => left.CombineWith(right)));
+                }
+
+                limit.Send(nextLimit);
+            });
+
+            for (int index = 0; index < views.Length; index++)
+            {
+                ReactiveCollection<int, ItemIdentity, ItemState> view = views[index].View;
+                int expected =
+                    Transaction.Run(() => view.SnapshotCell.Sample()).States.Pairs.Sum(static pair => pair.Value.Score);
+
+                await Assert.That(Transaction.Run(totals[index].Sample)).IsEqualTo(expected)
+                    .Because($"the fold of the view \"{views[index].Name}\" at step {step}");
+            }
+        }
     }
 
     private static ReactiveCollection<int, ItemIdentity, ItemState> Create(

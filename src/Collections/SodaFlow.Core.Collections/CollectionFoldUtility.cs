@@ -77,8 +77,11 @@ internal static class CollectionFoldUtility
     ///     lookup answers the two conditions. That lookup is <c>O(1)</c>, and a test against the
     ///     added keys is a search of a collection.
     ///     <para>
-    ///         A removed key is not in the states after the change. Thus, the first loop cannot
-    ///         find it, and the second loop removes the value of each one.
+    ///         The second loop removes the value of each removed key that the first loop did not
+    ///         read. A view can name one key as a removal and as an add. An edit that replaces an
+    ///         item does this, and so does a slice that moves a key in its window. The first loop
+    ///         removes the previous value of that key, thus the second loop must not remove it
+    ///         again.
     ///     </para>
     /// </remarks>
     private static TAccumulate Apply<TKey, TIdentity, TState, TAccumulate>(
@@ -104,7 +107,8 @@ internal static class CollectionFoldUtility
 
         foreach (TKey key in change.Removed)
         {
-            if (change.Before.States.TryGetState(key: key, state: out TState? was))
+            if (!change.NewStates.ContainsKey(key)
+                && change.Before.States.TryGetState(key: key, state: out TState? was))
             {
                 result = subtract(arg1: result, arg2: select(was));
             }
