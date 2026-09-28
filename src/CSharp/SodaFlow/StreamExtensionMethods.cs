@@ -337,8 +337,8 @@ public static class StreamExtensionMethods
     ///     before the transaction. This gives the new value if the same transaction updates the cell,
     ///     and the current value if it does not. Only this stream causes the firing. An update of the
     ///     cell alone does not.
-    ///     The cell must not depend on the stream from this call in the same transaction. Thus, unlike
-    ///     <see cref="Snapshot{T, TResult}(Stream{T}, Cell{TResult})" />, this cannot close a loop.
+    ///     Unlike <see cref="Snapshot{T, TResult}(Stream{T}, Cell{TResult})" />, this cannot close a loop.
+    ///     Do not give a cell that the stream from this call updates in the same transaction.
     ///     To get the latest values of more than one cell, give a cell from
     ///     <see cref="CellExtensionMethods.Lift{T, T2, TResult}(Cell{T}, Cell{T2}, Func{T, T2, TResult})" />.
     /// </remarks>
@@ -361,9 +361,8 @@ public static class StreamExtensionMethods
     ///     behavior from before the transaction. This gives the new value if the same transaction updates
     ///     the behavior, and the current value if it does not. Only this stream causes the firing. An
     ///     update of the behavior alone does not.
-    ///     The behavior must not depend on the stream from this call in the same transaction. Thus,
-    ///     unlike <see cref="Snapshot{T, TResult}(Stream{T}, Behavior{TResult})" />, this cannot close a
-    ///     loop.
+    ///     Unlike <see cref="Snapshot{T, TResult}(Stream{T}, Behavior{TResult})" />, this cannot close a
+    ///     loop. Do not give a behavior that the stream from this call updates in the same transaction.
     /// </remarks>
     [MethodImpl(MethodImplOptions.NoInlining)]
     public static Stream<TResult> SnapshotLatest<T, TResult>(this Stream<T> s, Behavior<TResult> b) =>
@@ -390,9 +389,9 @@ public static class StreamExtensionMethods
     ///     the firing. An update of the cell alone does not. For example,
     ///     <c>c1.Values().SnapshotLatest(c2, f)</c> fires when <c>c1</c> changes, with the value that
     ///     <c>c2</c> has after the same transaction.
-    ///     The cell must not depend on the stream from this call in the same transaction. Thus, unlike
-    ///     <see cref="Snapshot{T, T1, TResult}(Stream{T}, Cell{T1}, Func{T, T1, TResult})" />, this
-    ///     cannot close a loop.
+    ///     Unlike <see cref="Snapshot{T, T1, TResult}(Stream{T}, Cell{T1}, Func{T, T1, TResult})" />, this
+    ///     cannot close a loop. Do not give a cell that the stream from this call updates in the same
+    ///     transaction.
     ///     To get the latest values of more than one cell, give a cell from
     ///     <see cref="CellExtensionMethods.Lift{T, T2, TResult}(Cell{T}, Cell{T2}, Func{T, T2, TResult})" />.
     /// </remarks>
@@ -422,9 +421,9 @@ public static class StreamExtensionMethods
     ///     the value of the behavior from before the transaction. This gives the new value if the same
     ///     transaction updates the behavior, and the current value if it does not. Only this stream
     ///     causes the firing. An update of the behavior alone does not.
-    ///     The behavior must not depend on the stream from this call in the same transaction. Thus,
-    ///     unlike <see cref="Snapshot{T, T1, TResult}(Stream{T}, Behavior{T1}, Func{T, T1, TResult})" />,
-    ///     this cannot close a loop.
+    ///     Unlike <see cref="Snapshot{T, T1, TResult}(Stream{T}, Behavior{T1}, Func{T, T1, TResult})" />,
+    ///     this cannot close a loop. Do not give a behavior that the stream from this call updates in the
+    ///     same transaction.
     /// </remarks>
     [MethodImpl(MethodImplOptions.NoInlining)]
     public static Stream<TResult> SnapshotLatest<T, T1, TResult>(

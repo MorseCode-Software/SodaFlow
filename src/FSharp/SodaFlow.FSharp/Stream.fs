@@ -329,8 +329,8 @@ let snapshotAndTake (cell: Cell<_>) (stream: Stream<_>) = stream.SnapshotImpl ce
 ///     alone does not. Each sampled value is the value at the end of the transaction of that
 ///     firing. Thus, a behavior that the same transaction updates gives its new value, where
 ///     <c>snapshotB</c> gives its previous value.
-///     The behavior must not depend on the result in the same transaction. Thus, unlike
-///     <c>snapshotB</c>, this cannot close a loop.
+///     Unlike <c>snapshotB</c>, this cannot close a loop. Do not give a behavior that the result updates in
+///     the same transaction.
 /// </remarks>
 [<MethodImpl(MethodImplOptions.NoInlining)>]
 let snapshotLatestB (behavior: Behavior<_>) f (stream: Stream<_>) =
@@ -351,8 +351,8 @@ let snapshotLatestB (behavior: Behavior<_>) f (stream: Stream<_>) =
 ///     alone does not. Each sampled value is the value at the end of the transaction of that
 ///     firing. Thus, a cell that the same transaction updates gives its new value, where
 ///     <c>snapshot</c> gives its previous value.
-///     The cell must not depend on the result in the same transaction. Thus, unlike
-///     <c>snapshot</c>, this cannot close a loop. To get the latest values of more than one cell,
+///     Unlike <c>snapshot</c>, this cannot close a loop. Do not give a cell that the result updates in
+///     the same transaction. To get the latest values of more than one cell,
 ///     give a cell from <c>Cell.lift2</c> or one of the other <c>lift</c> functions.
 /// </remarks>
 [<MethodImpl(MethodImplOptions.NoInlining)>]
@@ -371,8 +371,8 @@ let snapshotLatest (cell: Cell<_>) f (stream: Stream<_>) =
 ///     alone does not. Each sampled value is the value at the end of the transaction of that
 ///     firing. Thus, a behavior that the same transaction updates gives its new value, where
 ///     <c>snapshotAndTakeB</c> gives its previous value.
-///     The behavior must not depend on the result in the same transaction. Thus, unlike
-///     <c>snapshotAndTakeB</c>, this cannot close a loop.
+///     Unlike <c>snapshotAndTakeB</c>, this cannot close a loop. Do not give a behavior that the result
+///     updates in the same transaction.
 /// </remarks>
 [<MethodImpl(MethodImplOptions.NoInlining)>]
 let snapshotLatestAndTakeB (behavior: Behavior<_>) (stream: Stream<_>) = stream.SnapshotLatestImpl behavior
@@ -389,8 +389,8 @@ let snapshotLatestAndTakeB (behavior: Behavior<_>) (stream: Stream<_>) = stream.
 ///     alone does not. Each sampled value is the value at the end of the transaction of that
 ///     firing. Thus, a cell that the same transaction updates gives its new value, where
 ///     <c>snapshotAndTake</c> gives its previous value.
-///     The cell must not depend on the result in the same transaction. Thus, unlike
-///     <c>snapshotAndTake</c>, this cannot close a loop. To get the latest values of more than one cell,
+///     Unlike <c>snapshotAndTake</c>, this cannot close a loop. Do not give a cell that the result updates in
+///     the same transaction. To get the latest values of more than one cell,
 ///     give a cell from <c>Cell.lift2</c> or one of the other <c>lift</c> functions.
 /// </remarks>
 [<MethodImpl(MethodImplOptions.NoInlining)>]

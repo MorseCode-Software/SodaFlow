@@ -375,8 +375,9 @@ public class Stream<T>
     // The behavior also sends into the pulse. Thus, a transaction that updates only the behavior
     // clears the captured value, and the closure does not keep a reference to it.
     //
-    // This cannot close a loop, as SnapshotImpl can. A behavior that depends on the output in the
-    // same transaction would need its own new value, and no rank is higher than both.
+    // This cannot close a loop, as SnapshotImpl can. If the output updates the behavior in the same
+    // transaction, the behavior must have its new value before it can calculate that value. No rank
+    // can be higher than the output and the behavior.
     internal Stream<TResult> SnapshotLatestImpl<T1, TResult>(Behavior<T1> b, Func<T, T1, TResult> f) =>
         TransactionInternal.Apply((trans, _) =>
         {

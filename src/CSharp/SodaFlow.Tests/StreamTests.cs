@@ -917,7 +917,7 @@ public sealed class StreamTests
 
         return;
 
-        // The composition that gave this result before SnapshotLatest existed. The lifted cell fires
+        // Before SnapshotLatest, this composition gave this result. The lifted cell fires
         // in each transaction that updates an input, with the new values. The merge keeps only the
         // transactions in which c1 also fires.
         static Stream<string> Reference(Cell<int> c1, Cell<int> c2, Func<int, int, string> f) =>
