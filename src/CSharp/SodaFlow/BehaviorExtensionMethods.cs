@@ -209,6 +209,79 @@ public static class BehaviorExtensionMethods
         b.LiftImpl(b2: b2, b3: b3, b4: b4, b5: b5, b6: b6, f: f);
 
     /// <summary>
+    ///     Lifts a function of seven arguments into behaviors. The behavior from this call always has the
+    ///     value of that function on the values of the input behaviors.
+    /// </summary>
+    /// <typeparam name="T">The type of the first behavior.</typeparam>
+    /// <typeparam name="T2">The type of the second behavior.</typeparam>
+    /// <typeparam name="T3">The type of the third behavior.</typeparam>
+    /// <typeparam name="T4">The type of the fourth behavior.</typeparam>
+    /// <typeparam name="T5">The type of the fifth behavior.</typeparam>
+    /// <typeparam name="T6">The type of the sixth behavior.</typeparam>
+    /// <typeparam name="T7">The type of the seventh behavior.</typeparam>
+    /// <typeparam name="TResult">The type of the result.</typeparam>
+    /// <param name="b">The first behavior.</param>
+    /// <param name="b2">The second behavior.</param>
+    /// <param name="b3">The third behavior.</param>
+    /// <param name="b4">The fourth behavior.</param>
+    /// <param name="b5">The fifth behavior.</param>
+    /// <param name="b6">The sixth behavior.</param>
+    /// <param name="b7">The seventh behavior.</param>
+    /// <param name="f">The function to lift into the behaviors. It must be a pure function.</param>
+    /// <returns>
+    ///     A behavior with the value of <paramref name="f" /> on the values of the input behaviors.
+    /// </returns>
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    public static Behavior<TResult> Lift<T, T2, T3, T4, T5, T6, T7, TResult>(
+        this Behavior<T> b,
+        Behavior<T2> b2,
+        Behavior<T3> b3,
+        Behavior<T4> b4,
+        Behavior<T5> b5,
+        Behavior<T6> b6,
+        Behavior<T7> b7,
+        Func<T, T2, T3, T4, T5, T6, T7, TResult> f) =>
+        b.LiftImpl(b2: b2, b3: b3, b4: b4, b5: b5, b6: b6, b7: b7, f: f);
+
+    /// <summary>
+    ///     Lifts a function of eight arguments into behaviors. The behavior from this call always has the
+    ///     value of that function on the values of the input behaviors.
+    /// </summary>
+    /// <typeparam name="T">The type of the first behavior.</typeparam>
+    /// <typeparam name="T2">The type of the second behavior.</typeparam>
+    /// <typeparam name="T3">The type of the third behavior.</typeparam>
+    /// <typeparam name="T4">The type of the fourth behavior.</typeparam>
+    /// <typeparam name="T5">The type of the fifth behavior.</typeparam>
+    /// <typeparam name="T6">The type of the sixth behavior.</typeparam>
+    /// <typeparam name="T7">The type of the seventh behavior.</typeparam>
+    /// <typeparam name="T8">The type of the eighth behavior.</typeparam>
+    /// <typeparam name="TResult">The type of the result.</typeparam>
+    /// <param name="b">The first behavior.</param>
+    /// <param name="b2">The second behavior.</param>
+    /// <param name="b3">The third behavior.</param>
+    /// <param name="b4">The fourth behavior.</param>
+    /// <param name="b5">The fifth behavior.</param>
+    /// <param name="b6">The sixth behavior.</param>
+    /// <param name="b7">The seventh behavior.</param>
+    /// <param name="b8">The eighth behavior.</param>
+    /// <param name="f">The function to lift into the behaviors. It must be a pure function.</param>
+    /// <returns>
+    ///     A behavior with the value of <paramref name="f" /> on the values of the input behaviors.
+    /// </returns>
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    public static Behavior<TResult> Lift<T, T2, T3, T4, T5, T6, T7, T8, TResult>(
+        this Behavior<T> b,
+        Behavior<T2> b2,
+        Behavior<T3> b3,
+        Behavior<T4> b4,
+        Behavior<T5> b5,
+        Behavior<T6> b6,
+        Behavior<T7> b7,
+        Behavior<T8> b8,
+        Func<T, T2, T3, T4, T5, T6, T7, T8, TResult> f) =>
+        b.LiftImpl(b2: b2, b3: b3, b4: b4, b5: b5, b6: b6, b7: b7, b8: b8, f: f);
+
+    /// <summary>
     ///     Apply a value in a behavior to a function in a behavior.  This is the primitive for all function lifting.
     /// </summary>
     /// <typeparam name="T">The type of the behavior.</typeparam>

@@ -324,6 +324,468 @@ public static class StreamExtensionMethods
         s.SnapshotImpl(b: b, f: f);
 
     /// <summary>
+    ///     Gives a stream that fires the result of the given function on the fired value and the values
+    ///     of the cells.
+    /// </summary>
+    /// <typeparam name="T">The type of the stream.</typeparam>
+    /// <typeparam name="T1">The type of the first cell.</typeparam>
+    /// <typeparam name="T2">The type of the second cell.</typeparam>
+    /// <typeparam name="TResult">The return type.</typeparam>
+    /// <param name="s">The stream.</param>
+    /// <param name="c1">The first cell to put together with this one.</param>
+    /// <param name="c2">The second cell to put together with this one.</param>
+    /// <param name="f">A function to change the stream value and cell values into a return value.</param>
+    /// <returns>
+    ///     A stream that fires the result of the given function on the fired value and the values of
+    ///     the cells.
+    /// </returns>
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    public static Stream<TResult> Snapshot<T, T1, T2, TResult>(
+        this Stream<T> s,
+        Cell<T1> c1,
+        Cell<T2> c2,
+        Func<T, T1, T2, TResult> f) =>
+        s.SnapshotImpl(c1: c1, c2: c2, f: f);
+
+    /// <summary>
+    ///     Gives a stream that fires the result of the given function on the fired value and the values
+    ///     of the behaviors.
+    /// </summary>
+    /// <typeparam name="T">The type of the stream.</typeparam>
+    /// <typeparam name="T1">The type of the first behavior.</typeparam>
+    /// <typeparam name="T2">The type of the second behavior.</typeparam>
+    /// <typeparam name="TResult">The return type.</typeparam>
+    /// <param name="s">The stream.</param>
+    /// <param name="b1">The first behavior to put together with this one.</param>
+    /// <param name="b2">The second behavior to put together with this one.</param>
+    /// <param name="f">A function to change the stream value and behavior values into a return value.</param>
+    /// <returns>
+    ///     A stream that fires the result of the given function on the fired value and the values of
+    ///     the behaviors.
+    /// </returns>
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    public static Stream<TResult> Snapshot<T, T1, T2, TResult>(
+        this Stream<T> s,
+        Behavior<T1> b1,
+        Behavior<T2> b2,
+        Func<T, T1, T2, TResult> f) =>
+        s.SnapshotImpl(b1: b1, b2: b2, f: f);
+
+    /// <summary>
+    ///     Gives a stream that fires the result of the given function on the fired value and the values
+    ///     of the cells.
+    /// </summary>
+    /// <typeparam name="T">The type of the stream.</typeparam>
+    /// <typeparam name="T1">The type of the first cell.</typeparam>
+    /// <typeparam name="T2">The type of the second cell.</typeparam>
+    /// <typeparam name="T3">The type of the third cell.</typeparam>
+    /// <typeparam name="TResult">The return type.</typeparam>
+    /// <param name="s">The stream.</param>
+    /// <param name="c1">The first cell to put together with this one.</param>
+    /// <param name="c2">The second cell to put together with this one.</param>
+    /// <param name="c3">The third cell to put together with this one.</param>
+    /// <param name="f">A function to change the stream value and cell values into a return value.</param>
+    /// <returns>
+    ///     A stream that fires the result of the given function on the fired value and the values of
+    ///     the cells.
+    /// </returns>
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    public static Stream<TResult> Snapshot<T, T1, T2, T3, TResult>(
+        this Stream<T> s,
+        Cell<T1> c1,
+        Cell<T2> c2,
+        Cell<T3> c3,
+        Func<T, T1, T2, T3, TResult> f) =>
+        s.SnapshotImpl(c1: c1, c2: c2, c3: c3, f: f);
+
+    /// <summary>
+    ///     Gives a stream that fires the result of the given function on the fired value and the values
+    ///     of the behaviors.
+    /// </summary>
+    /// <typeparam name="T">The type of the stream.</typeparam>
+    /// <typeparam name="T1">The type of the first behavior.</typeparam>
+    /// <typeparam name="T2">The type of the second behavior.</typeparam>
+    /// <typeparam name="T3">The type of the third behavior.</typeparam>
+    /// <typeparam name="TResult">The return type.</typeparam>
+    /// <param name="s">The stream.</param>
+    /// <param name="b1">The first behavior to put together with this one.</param>
+    /// <param name="b2">The second behavior to put together with this one.</param>
+    /// <param name="b3">The third behavior to put together with this one.</param>
+    /// <param name="f">A function to change the stream value and behavior values into a return value.</param>
+    /// <returns>
+    ///     A stream that fires the result of the given function on the fired value and the values of
+    ///     the behaviors.
+    /// </returns>
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    public static Stream<TResult> Snapshot<T, T1, T2, T3, TResult>(
+        this Stream<T> s,
+        Behavior<T1> b1,
+        Behavior<T2> b2,
+        Behavior<T3> b3,
+        Func<T, T1, T2, T3, TResult> f) =>
+        s.SnapshotImpl(b1: b1, b2: b2, b3: b3, f: f);
+
+    /// <summary>
+    ///     Gives a stream that fires the result of the given function on the fired value and the values
+    ///     of the cells.
+    /// </summary>
+    /// <typeparam name="T">The type of the stream.</typeparam>
+    /// <typeparam name="T1">The type of the first cell.</typeparam>
+    /// <typeparam name="T2">The type of the second cell.</typeparam>
+    /// <typeparam name="T3">The type of the third cell.</typeparam>
+    /// <typeparam name="T4">The type of the fourth cell.</typeparam>
+    /// <typeparam name="TResult">The return type.</typeparam>
+    /// <param name="s">The stream.</param>
+    /// <param name="c1">The first cell to put together with this one.</param>
+    /// <param name="c2">The second cell to put together with this one.</param>
+    /// <param name="c3">The third cell to put together with this one.</param>
+    /// <param name="c4">The fourth cell to put together with this one.</param>
+    /// <param name="f">A function to change the stream value and cell values into a return value.</param>
+    /// <returns>
+    ///     A stream that fires the result of the given function on the fired value and the values of
+    ///     the cells.
+    /// </returns>
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    public static Stream<TResult> Snapshot<T, T1, T2, T3, T4, TResult>(
+        this Stream<T> s,
+        Cell<T1> c1,
+        Cell<T2> c2,
+        Cell<T3> c3,
+        Cell<T4> c4,
+        Func<T, T1, T2, T3, T4, TResult> f) =>
+        s.SnapshotImpl(c1: c1, c2: c2, c3: c3, c4: c4, f: f);
+
+    /// <summary>
+    ///     Gives a stream that fires the result of the given function on the fired value and the values
+    ///     of the behaviors.
+    /// </summary>
+    /// <typeparam name="T">The type of the stream.</typeparam>
+    /// <typeparam name="T1">The type of the first behavior.</typeparam>
+    /// <typeparam name="T2">The type of the second behavior.</typeparam>
+    /// <typeparam name="T3">The type of the third behavior.</typeparam>
+    /// <typeparam name="T4">The type of the fourth behavior.</typeparam>
+    /// <typeparam name="TResult">The return type.</typeparam>
+    /// <param name="s">The stream.</param>
+    /// <param name="b1">The first behavior to put together with this one.</param>
+    /// <param name="b2">The second behavior to put together with this one.</param>
+    /// <param name="b3">The third behavior to put together with this one.</param>
+    /// <param name="b4">The fourth behavior to put together with this one.</param>
+    /// <param name="f">A function to change the stream value and behavior values into a return value.</param>
+    /// <returns>
+    ///     A stream that fires the result of the given function on the fired value and the values of
+    ///     the behaviors.
+    /// </returns>
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    public static Stream<TResult> Snapshot<T, T1, T2, T3, T4, TResult>(
+        this Stream<T> s,
+        Behavior<T1> b1,
+        Behavior<T2> b2,
+        Behavior<T3> b3,
+        Behavior<T4> b4,
+        Func<T, T1, T2, T3, T4, TResult> f) =>
+        s.SnapshotImpl(b1: b1, b2: b2, b3: b3, b4: b4, f: f);
+
+    /// <summary>
+    ///     Gives a stream that fires the result of the given function on the fired value and the values
+    ///     of the cells.
+    /// </summary>
+    /// <typeparam name="T">The type of the stream.</typeparam>
+    /// <typeparam name="T1">The type of the first cell.</typeparam>
+    /// <typeparam name="T2">The type of the second cell.</typeparam>
+    /// <typeparam name="T3">The type of the third cell.</typeparam>
+    /// <typeparam name="T4">The type of the fourth cell.</typeparam>
+    /// <typeparam name="T5">The type of the fifth cell.</typeparam>
+    /// <typeparam name="TResult">The return type.</typeparam>
+    /// <param name="s">The stream.</param>
+    /// <param name="c1">The first cell to put together with this one.</param>
+    /// <param name="c2">The second cell to put together with this one.</param>
+    /// <param name="c3">The third cell to put together with this one.</param>
+    /// <param name="c4">The fourth cell to put together with this one.</param>
+    /// <param name="c5">The fifth cell to put together with this one.</param>
+    /// <param name="f">A function to change the stream value and cell values into a return value.</param>
+    /// <returns>
+    ///     A stream that fires the result of the given function on the fired value and the values of
+    ///     the cells.
+    /// </returns>
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    public static Stream<TResult> Snapshot<T, T1, T2, T3, T4, T5, TResult>(
+        this Stream<T> s,
+        Cell<T1> c1,
+        Cell<T2> c2,
+        Cell<T3> c3,
+        Cell<T4> c4,
+        Cell<T5> c5,
+        Func<T, T1, T2, T3, T4, T5, TResult> f) =>
+        s.SnapshotImpl(c1: c1, c2: c2, c3: c3, c4: c4, c5: c5, f: f);
+
+    /// <summary>
+    ///     Gives a stream that fires the result of the given function on the fired value and the values
+    ///     of the behaviors.
+    /// </summary>
+    /// <typeparam name="T">The type of the stream.</typeparam>
+    /// <typeparam name="T1">The type of the first behavior.</typeparam>
+    /// <typeparam name="T2">The type of the second behavior.</typeparam>
+    /// <typeparam name="T3">The type of the third behavior.</typeparam>
+    /// <typeparam name="T4">The type of the fourth behavior.</typeparam>
+    /// <typeparam name="T5">The type of the fifth behavior.</typeparam>
+    /// <typeparam name="TResult">The return type.</typeparam>
+    /// <param name="s">The stream.</param>
+    /// <param name="b1">The first behavior to put together with this one.</param>
+    /// <param name="b2">The second behavior to put together with this one.</param>
+    /// <param name="b3">The third behavior to put together with this one.</param>
+    /// <param name="b4">The fourth behavior to put together with this one.</param>
+    /// <param name="b5">The fifth behavior to put together with this one.</param>
+    /// <param name="f">A function to change the stream value and behavior values into a return value.</param>
+    /// <returns>
+    ///     A stream that fires the result of the given function on the fired value and the values of
+    ///     the behaviors.
+    /// </returns>
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    public static Stream<TResult> Snapshot<T, T1, T2, T3, T4, T5, TResult>(
+        this Stream<T> s,
+        Behavior<T1> b1,
+        Behavior<T2> b2,
+        Behavior<T3> b3,
+        Behavior<T4> b4,
+        Behavior<T5> b5,
+        Func<T, T1, T2, T3, T4, T5, TResult> f) =>
+        s.SnapshotImpl(b1: b1, b2: b2, b3: b3, b4: b4, b5: b5, f: f);
+
+    /// <summary>
+    ///     Gives a stream that fires the result of the given function on the fired value and the values
+    ///     of the cells.
+    /// </summary>
+    /// <typeparam name="T">The type of the stream.</typeparam>
+    /// <typeparam name="T1">The type of the first cell.</typeparam>
+    /// <typeparam name="T2">The type of the second cell.</typeparam>
+    /// <typeparam name="T3">The type of the third cell.</typeparam>
+    /// <typeparam name="T4">The type of the fourth cell.</typeparam>
+    /// <typeparam name="T5">The type of the fifth cell.</typeparam>
+    /// <typeparam name="T6">The type of the sixth cell.</typeparam>
+    /// <typeparam name="TResult">The return type.</typeparam>
+    /// <param name="s">The stream.</param>
+    /// <param name="c1">The first cell to put together with this one.</param>
+    /// <param name="c2">The second cell to put together with this one.</param>
+    /// <param name="c3">The third cell to put together with this one.</param>
+    /// <param name="c4">The fourth cell to put together with this one.</param>
+    /// <param name="c5">The fifth cell to put together with this one.</param>
+    /// <param name="c6">The sixth cell to put together with this one.</param>
+    /// <param name="f">A function to change the stream value and cell values into a return value.</param>
+    /// <returns>
+    ///     A stream that fires the result of the given function on the fired value and the values of
+    ///     the cells.
+    /// </returns>
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    public static Stream<TResult> Snapshot<T, T1, T2, T3, T4, T5, T6, TResult>(
+        this Stream<T> s,
+        Cell<T1> c1,
+        Cell<T2> c2,
+        Cell<T3> c3,
+        Cell<T4> c4,
+        Cell<T5> c5,
+        Cell<T6> c6,
+        Func<T, T1, T2, T3, T4, T5, T6, TResult> f) =>
+        s.SnapshotImpl(c1: c1, c2: c2, c3: c3, c4: c4, c5: c5, c6: c6, f: f);
+
+    /// <summary>
+    ///     Gives a stream that fires the result of the given function on the fired value and the values
+    ///     of the behaviors.
+    /// </summary>
+    /// <typeparam name="T">The type of the stream.</typeparam>
+    /// <typeparam name="T1">The type of the first behavior.</typeparam>
+    /// <typeparam name="T2">The type of the second behavior.</typeparam>
+    /// <typeparam name="T3">The type of the third behavior.</typeparam>
+    /// <typeparam name="T4">The type of the fourth behavior.</typeparam>
+    /// <typeparam name="T5">The type of the fifth behavior.</typeparam>
+    /// <typeparam name="T6">The type of the sixth behavior.</typeparam>
+    /// <typeparam name="TResult">The return type.</typeparam>
+    /// <param name="s">The stream.</param>
+    /// <param name="b1">The first behavior to put together with this one.</param>
+    /// <param name="b2">The second behavior to put together with this one.</param>
+    /// <param name="b3">The third behavior to put together with this one.</param>
+    /// <param name="b4">The fourth behavior to put together with this one.</param>
+    /// <param name="b5">The fifth behavior to put together with this one.</param>
+    /// <param name="b6">The sixth behavior to put together with this one.</param>
+    /// <param name="f">A function to change the stream value and behavior values into a return value.</param>
+    /// <returns>
+    ///     A stream that fires the result of the given function on the fired value and the values of
+    ///     the behaviors.
+    /// </returns>
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    public static Stream<TResult> Snapshot<T, T1, T2, T3, T4, T5, T6, TResult>(
+        this Stream<T> s,
+        Behavior<T1> b1,
+        Behavior<T2> b2,
+        Behavior<T3> b3,
+        Behavior<T4> b4,
+        Behavior<T5> b5,
+        Behavior<T6> b6,
+        Func<T, T1, T2, T3, T4, T5, T6, TResult> f) =>
+        s.SnapshotImpl(b1: b1, b2: b2, b3: b3, b4: b4, b5: b5, b6: b6, f: f);
+
+    /// <summary>
+    ///     Gives a stream that fires the result of the given function on the fired value and the values
+    ///     of the cells.
+    /// </summary>
+    /// <typeparam name="T">The type of the stream.</typeparam>
+    /// <typeparam name="T1">The type of the first cell.</typeparam>
+    /// <typeparam name="T2">The type of the second cell.</typeparam>
+    /// <typeparam name="T3">The type of the third cell.</typeparam>
+    /// <typeparam name="T4">The type of the fourth cell.</typeparam>
+    /// <typeparam name="T5">The type of the fifth cell.</typeparam>
+    /// <typeparam name="T6">The type of the sixth cell.</typeparam>
+    /// <typeparam name="T7">The type of the seventh cell.</typeparam>
+    /// <typeparam name="TResult">The return type.</typeparam>
+    /// <param name="s">The stream.</param>
+    /// <param name="c1">The first cell to put together with this one.</param>
+    /// <param name="c2">The second cell to put together with this one.</param>
+    /// <param name="c3">The third cell to put together with this one.</param>
+    /// <param name="c4">The fourth cell to put together with this one.</param>
+    /// <param name="c5">The fifth cell to put together with this one.</param>
+    /// <param name="c6">The sixth cell to put together with this one.</param>
+    /// <param name="c7">The seventh cell to put together with this one.</param>
+    /// <param name="f">A function to change the stream value and cell values into a return value.</param>
+    /// <returns>
+    ///     A stream that fires the result of the given function on the fired value and the values of
+    ///     the cells.
+    /// </returns>
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    public static Stream<TResult> Snapshot<T, T1, T2, T3, T4, T5, T6, T7, TResult>(
+        this Stream<T> s,
+        Cell<T1> c1,
+        Cell<T2> c2,
+        Cell<T3> c3,
+        Cell<T4> c4,
+        Cell<T5> c5,
+        Cell<T6> c6,
+        Cell<T7> c7,
+        Func<T, T1, T2, T3, T4, T5, T6, T7, TResult> f) =>
+        s.SnapshotImpl(c1: c1, c2: c2, c3: c3, c4: c4, c5: c5, c6: c6, c7: c7, f: f);
+
+    /// <summary>
+    ///     Gives a stream that fires the result of the given function on the fired value and the values
+    ///     of the behaviors.
+    /// </summary>
+    /// <typeparam name="T">The type of the stream.</typeparam>
+    /// <typeparam name="T1">The type of the first behavior.</typeparam>
+    /// <typeparam name="T2">The type of the second behavior.</typeparam>
+    /// <typeparam name="T3">The type of the third behavior.</typeparam>
+    /// <typeparam name="T4">The type of the fourth behavior.</typeparam>
+    /// <typeparam name="T5">The type of the fifth behavior.</typeparam>
+    /// <typeparam name="T6">The type of the sixth behavior.</typeparam>
+    /// <typeparam name="T7">The type of the seventh behavior.</typeparam>
+    /// <typeparam name="TResult">The return type.</typeparam>
+    /// <param name="s">The stream.</param>
+    /// <param name="b1">The first behavior to put together with this one.</param>
+    /// <param name="b2">The second behavior to put together with this one.</param>
+    /// <param name="b3">The third behavior to put together with this one.</param>
+    /// <param name="b4">The fourth behavior to put together with this one.</param>
+    /// <param name="b5">The fifth behavior to put together with this one.</param>
+    /// <param name="b6">The sixth behavior to put together with this one.</param>
+    /// <param name="b7">The seventh behavior to put together with this one.</param>
+    /// <param name="f">A function to change the stream value and behavior values into a return value.</param>
+    /// <returns>
+    ///     A stream that fires the result of the given function on the fired value and the values of
+    ///     the behaviors.
+    /// </returns>
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    public static Stream<TResult> Snapshot<T, T1, T2, T3, T4, T5, T6, T7, TResult>(
+        this Stream<T> s,
+        Behavior<T1> b1,
+        Behavior<T2> b2,
+        Behavior<T3> b3,
+        Behavior<T4> b4,
+        Behavior<T5> b5,
+        Behavior<T6> b6,
+        Behavior<T7> b7,
+        Func<T, T1, T2, T3, T4, T5, T6, T7, TResult> f) =>
+        s.SnapshotImpl(b1: b1, b2: b2, b3: b3, b4: b4, b5: b5, b6: b6, b7: b7, f: f);
+
+    /// <summary>
+    ///     Gives a stream that fires the result of the given function on the fired value and the values
+    ///     of the cells.
+    /// </summary>
+    /// <typeparam name="T">The type of the stream.</typeparam>
+    /// <typeparam name="T1">The type of the first cell.</typeparam>
+    /// <typeparam name="T2">The type of the second cell.</typeparam>
+    /// <typeparam name="T3">The type of the third cell.</typeparam>
+    /// <typeparam name="T4">The type of the fourth cell.</typeparam>
+    /// <typeparam name="T5">The type of the fifth cell.</typeparam>
+    /// <typeparam name="T6">The type of the sixth cell.</typeparam>
+    /// <typeparam name="T7">The type of the seventh cell.</typeparam>
+    /// <typeparam name="T8">The type of the eighth cell.</typeparam>
+    /// <typeparam name="TResult">The return type.</typeparam>
+    /// <param name="s">The stream.</param>
+    /// <param name="c1">The first cell to put together with this one.</param>
+    /// <param name="c2">The second cell to put together with this one.</param>
+    /// <param name="c3">The third cell to put together with this one.</param>
+    /// <param name="c4">The fourth cell to put together with this one.</param>
+    /// <param name="c5">The fifth cell to put together with this one.</param>
+    /// <param name="c6">The sixth cell to put together with this one.</param>
+    /// <param name="c7">The seventh cell to put together with this one.</param>
+    /// <param name="c8">The eighth cell to put together with this one.</param>
+    /// <param name="f">A function to change the stream value and cell values into a return value.</param>
+    /// <returns>
+    ///     A stream that fires the result of the given function on the fired value and the values of
+    ///     the cells.
+    /// </returns>
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    public static Stream<TResult> Snapshot<T, T1, T2, T3, T4, T5, T6, T7, T8, TResult>(
+        this Stream<T> s,
+        Cell<T1> c1,
+        Cell<T2> c2,
+        Cell<T3> c3,
+        Cell<T4> c4,
+        Cell<T5> c5,
+        Cell<T6> c6,
+        Cell<T7> c7,
+        Cell<T8> c8,
+        Func<T, T1, T2, T3, T4, T5, T6, T7, T8, TResult> f) =>
+        s.SnapshotImpl(c1: c1, c2: c2, c3: c3, c4: c4, c5: c5, c6: c6, c7: c7, c8: c8, f: f);
+
+    /// <summary>
+    ///     Gives a stream that fires the result of the given function on the fired value and the values
+    ///     of the behaviors.
+    /// </summary>
+    /// <typeparam name="T">The type of the stream.</typeparam>
+    /// <typeparam name="T1">The type of the first behavior.</typeparam>
+    /// <typeparam name="T2">The type of the second behavior.</typeparam>
+    /// <typeparam name="T3">The type of the third behavior.</typeparam>
+    /// <typeparam name="T4">The type of the fourth behavior.</typeparam>
+    /// <typeparam name="T5">The type of the fifth behavior.</typeparam>
+    /// <typeparam name="T6">The type of the sixth behavior.</typeparam>
+    /// <typeparam name="T7">The type of the seventh behavior.</typeparam>
+    /// <typeparam name="T8">The type of the eighth behavior.</typeparam>
+    /// <typeparam name="TResult">The return type.</typeparam>
+    /// <param name="s">The stream.</param>
+    /// <param name="b1">The first behavior to put together with this one.</param>
+    /// <param name="b2">The second behavior to put together with this one.</param>
+    /// <param name="b3">The third behavior to put together with this one.</param>
+    /// <param name="b4">The fourth behavior to put together with this one.</param>
+    /// <param name="b5">The fifth behavior to put together with this one.</param>
+    /// <param name="b6">The sixth behavior to put together with this one.</param>
+    /// <param name="b7">The seventh behavior to put together with this one.</param>
+    /// <param name="b8">The eighth behavior to put together with this one.</param>
+    /// <param name="f">A function to change the stream value and behavior values into a return value.</param>
+    /// <returns>
+    ///     A stream that fires the result of the given function on the fired value and the values of
+    ///     the behaviors.
+    /// </returns>
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    public static Stream<TResult> Snapshot<T, T1, T2, T3, T4, T5, T6, T7, T8, TResult>(
+        this Stream<T> s,
+        Behavior<T1> b1,
+        Behavior<T2> b2,
+        Behavior<T3> b3,
+        Behavior<T4> b4,
+        Behavior<T5> b5,
+        Behavior<T6> b6,
+        Behavior<T7> b7,
+        Behavior<T8> b8,
+        Func<T, T1, T2, T3, T4, T5, T6, T7, T8, TResult> f) =>
+        s.SnapshotImpl(b1: b1, b2: b2, b3: b3, b4: b4, b5: b5, b6: b6, b7: b7, b8: b8, f: f);
+
+    /// <summary>
     ///     Gives a stream that fires the latest value of the cell at the moment of each firing.
     /// </summary>
     /// <typeparam name="T">The type of the stream.</typeparam>
@@ -432,168 +894,6 @@ public static class StreamExtensionMethods
         Behavior<T1> b,
         Func<T, T1, TResult> f) =>
         s.SnapshotLatestImpl(b: b, f: f);
-
-    /// <summary>
-    ///     Gives a stream that fires the result of the given function on the fired value and the values
-    ///     of the cells.
-    /// </summary>
-    /// <typeparam name="T">The type of the stream.</typeparam>
-    /// <typeparam name="T1">The type of the first cell.</typeparam>
-    /// <typeparam name="T2">The type of the second cell.</typeparam>
-    /// <typeparam name="TResult">The return type.</typeparam>
-    /// <param name="s">The stream.</param>
-    /// <param name="c1">The first cell to put together with this one.</param>
-    /// <param name="c2">The second cell to put together with this one.</param>
-    /// <param name="f">A function to change the stream value and cell value into a return value.</param>
-    /// <returns>
-    ///     A stream that fires the result of the given function on the fired value and the values of
-    ///     the cells.
-    /// </returns>
-    [MethodImpl(MethodImplOptions.NoInlining)]
-    public static Stream<TResult> Snapshot<T, T1, T2, TResult>(
-        this Stream<T> s,
-        Cell<T1> c1,
-        Cell<T2> c2,
-        Func<T, T1, T2, TResult> f) =>
-        s.SnapshotImpl(c1: c1, c2: c2, f: f);
-
-    /// <summary>
-    ///     Gives a stream that fires the result of the given function on the fired value and the values
-    ///     of the behaviors.
-    /// </summary>
-    /// <typeparam name="T">The type of the stream.</typeparam>
-    /// <typeparam name="T1">The type of the first behavior.</typeparam>
-    /// <typeparam name="T2">The type of the second behavior.</typeparam>
-    /// <typeparam name="TResult">The return type.</typeparam>
-    /// <param name="s">The stream.</param>
-    /// <param name="b1">The first behavior to put together with this one.</param>
-    /// <param name="b2">The second behavior to put together with this one.</param>
-    /// <param name="f">A function to change the stream value and behavior value into a return value.</param>
-    /// <returns>
-    ///     A stream that fires the result of the given function on the fired value and the values of
-    ///     the behaviors.
-    /// </returns>
-    [MethodImpl(MethodImplOptions.NoInlining)]
-    public static Stream<TResult> Snapshot<T, T1, T2, TResult>(
-        this Stream<T> s,
-        Behavior<T1> b1,
-        Behavior<T2> b2,
-        Func<T, T1, T2, TResult> f) =>
-        s.SnapshotImpl(b1: b1, b2: b2, f: f);
-
-    /// <summary>
-    ///     Gives a stream that fires the result of the given function on the fired value and the values
-    ///     of the cells.
-    /// </summary>
-    /// <typeparam name="T">The type of the stream.</typeparam>
-    /// <typeparam name="T1">The type of the first cell.</typeparam>
-    /// <typeparam name="T2">The type of the second cell.</typeparam>
-    /// <typeparam name="T3">The type of the third cell.</typeparam>
-    /// <typeparam name="TResult">The return type.</typeparam>
-    /// <param name="s">The stream.</param>
-    /// <param name="c1">The first cell to put together with this one.</param>
-    /// <param name="c2">The second cell to put together with this one.</param>
-    /// <param name="c3">The third cell to put together with this one.</param>
-    /// <param name="f">A function to change the stream value and cell value into a return value.</param>
-    /// <returns>
-    ///     A stream that fires the result of the given function on the fired value and the values of
-    ///     the cells.
-    /// </returns>
-    [MethodImpl(MethodImplOptions.NoInlining)]
-    public static Stream<TResult> Snapshot<T, T1, T2, T3, TResult>(
-        this Stream<T> s,
-        Cell<T1> c1,
-        Cell<T2> c2,
-        Cell<T3> c3,
-        Func<T, T1, T2, T3, TResult> f) =>
-        s.SnapshotImpl(c1: c1, c2: c2, c3: c3, f: f);
-
-    /// <summary>
-    ///     Gives a stream that fires the result of the given function on the fired value and the values
-    ///     of the behaviors.
-    /// </summary>
-    /// <typeparam name="T">The type of the stream.</typeparam>
-    /// <typeparam name="T1">The type of the first behavior.</typeparam>
-    /// <typeparam name="T2">The type of the second behavior.</typeparam>
-    /// <typeparam name="T3">The type of the third behavior.</typeparam>
-    /// <typeparam name="TResult">The return type.</typeparam>
-    /// <param name="s">The stream.</param>
-    /// <param name="b1">The first behavior to put together with this one.</param>
-    /// <param name="b2">The second behavior to put together with this one.</param>
-    /// <param name="b3">The third behavior to put together with this one.</param>
-    /// <param name="f">A function to change the stream value and behavior value into a return value.</param>
-    /// <returns>
-    ///     A stream that fires the result of the given function on the fired value and the values of
-    ///     the behaviors.
-    /// </returns>
-    [MethodImpl(MethodImplOptions.NoInlining)]
-    public static Stream<TResult> Snapshot<T, T1, T2, T3, TResult>(
-        this Stream<T> s,
-        Behavior<T1> b1,
-        Behavior<T2> b2,
-        Behavior<T3> b3,
-        Func<T, T1, T2, T3, TResult> f) =>
-        s.SnapshotImpl(b1: b1, b2: b2, b3: b3, f: f);
-
-    /// <summary>
-    ///     Gives a stream that fires the result of the given function on the fired value and the values
-    ///     of the cells.
-    /// </summary>
-    /// <typeparam name="T">The type of the stream.</typeparam>
-    /// <typeparam name="T1">The type of the first cell.</typeparam>
-    /// <typeparam name="T2">The type of the second cell.</typeparam>
-    /// <typeparam name="T3">The type of the third cell.</typeparam>
-    /// <typeparam name="T4">The type of the fourth cell.</typeparam>
-    /// <typeparam name="TResult">The return type.</typeparam>
-    /// <param name="s">The stream.</param>
-    /// <param name="c1">The first cell to put together with this one.</param>
-    /// <param name="c2">The second cell to put together with this one.</param>
-    /// <param name="c3">The third cell to put together with this one.</param>
-    /// <param name="c4">The fourth cell to put together with this one.</param>
-    /// <param name="f">A function to change the stream value and cell value into a return value.</param>
-    /// <returns>
-    ///     A stream that fires the result of the given function on the fired value and the values of
-    ///     the cells.
-    /// </returns>
-    [MethodImpl(MethodImplOptions.NoInlining)]
-    public static Stream<TResult> Snapshot<T, T1, T2, T3, T4, TResult>(
-        this Stream<T> s,
-        Cell<T1> c1,
-        Cell<T2> c2,
-        Cell<T3> c3,
-        Cell<T4> c4,
-        Func<T, T1, T2, T3, T4, TResult> f) =>
-        s.SnapshotImpl(c1: c1, c2: c2, c3: c3, c4: c4, f: f);
-
-    /// <summary>
-    ///     Gives a stream that fires the result of the given function on the fired value and the values
-    ///     of the behaviors.
-    /// </summary>
-    /// <typeparam name="T">The type of the stream.</typeparam>
-    /// <typeparam name="T1">The type of the first behavior.</typeparam>
-    /// <typeparam name="T2">The type of the second behavior.</typeparam>
-    /// <typeparam name="T3">The type of the third behavior.</typeparam>
-    /// <typeparam name="T4">The type of the fourth behavior.</typeparam>
-    /// <typeparam name="TResult">The return type.</typeparam>
-    /// <param name="s">The stream.</param>
-    /// <param name="b1">The first behavior to put together with this one.</param>
-    /// <param name="b2">The second behavior to put together with this one.</param>
-    /// <param name="b3">The third behavior to put together with this one.</param>
-    /// <param name="b4">The fourth behavior to put together with this one.</param>
-    /// <param name="f">A function to change the stream value and behavior value into a return value.</param>
-    /// <returns>
-    ///     A stream that fires the result of the given function on the fired value and the values of
-    ///     the behaviors.
-    /// </returns>
-    [MethodImpl(MethodImplOptions.NoInlining)]
-    public static Stream<TResult> Snapshot<T, T1, T2, T3, T4, TResult>(
-        this Stream<T> s,
-        Behavior<T1> b1,
-        Behavior<T2> b2,
-        Behavior<T3> b3,
-        Behavior<T4> b4,
-        Func<T, T1, T2, T3, T4, TResult> f) =>
-        s.SnapshotImpl(b1: b1, b2: b2, b3: b3, b4: b4, f: f);
 
     /// <summary>
     ///     Gives a stream that fires the result of the given function on the fired value and the latest
@@ -880,6 +1180,282 @@ public static class StreamExtensionMethods
         s.SnapshotLatestImpl(b1: b1, b2: b2, b3: b3, b4: b4, b5: b5, f: f);
 
     /// <summary>
+    ///     Gives a stream that fires the result of the given function on the fired value and the latest
+    ///     values of the cells.
+    /// </summary>
+    /// <typeparam name="T">The type of the stream.</typeparam>
+    /// <typeparam name="T1">The type of the first cell.</typeparam>
+    /// <typeparam name="T2">The type of the second cell.</typeparam>
+    /// <typeparam name="T3">The type of the third cell.</typeparam>
+    /// <typeparam name="T4">The type of the fourth cell.</typeparam>
+    /// <typeparam name="T5">The type of the fifth cell.</typeparam>
+    /// <typeparam name="T6">The type of the sixth cell.</typeparam>
+    /// <typeparam name="TResult">The return type.</typeparam>
+    /// <param name="s">The stream.</param>
+    /// <param name="c1">The first cell to put together with this one.</param>
+    /// <param name="c2">The second cell to put together with this one.</param>
+    /// <param name="c3">The third cell to put together with this one.</param>
+    /// <param name="c4">The fourth cell to put together with this one.</param>
+    /// <param name="c5">The fifth cell to put together with this one.</param>
+    /// <param name="c6">The sixth cell to put together with this one.</param>
+    /// <param name="f">A function to change the stream value and cell values into a return value.</param>
+    /// <returns>
+    ///     A stream that fires the result of the given function on the fired value and the latest
+    ///     values of the cells.
+    /// </returns>
+    /// <remarks>
+    ///     <c>Snapshot</c> gives the values of the cells from before the transaction. This gives the new
+    ///     value of each cell that the same transaction updates, and the current value of each cell that it
+    ///     does not update. Only this stream causes the firing. An update of the cells alone does not. This
+    ///     cannot close a loop, as <c>Snapshot</c> can. Do not give a cell that the stream from this call
+    ///     updates in the same transaction.
+    /// </remarks>
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    public static Stream<TResult> SnapshotLatest<T, T1, T2, T3, T4, T5, T6, TResult>(
+        this Stream<T> s,
+        Cell<T1> c1,
+        Cell<T2> c2,
+        Cell<T3> c3,
+        Cell<T4> c4,
+        Cell<T5> c5,
+        Cell<T6> c6,
+        Func<T, T1, T2, T3, T4, T5, T6, TResult> f) =>
+        s.SnapshotLatestImpl(c1: c1, c2: c2, c3: c3, c4: c4, c5: c5, c6: c6, f: f);
+
+    /// <summary>
+    ///     Gives a stream that fires the result of the given function on the fired value and the latest
+    ///     values of the behaviors.
+    /// </summary>
+    /// <typeparam name="T">The type of the stream.</typeparam>
+    /// <typeparam name="T1">The type of the first behavior.</typeparam>
+    /// <typeparam name="T2">The type of the second behavior.</typeparam>
+    /// <typeparam name="T3">The type of the third behavior.</typeparam>
+    /// <typeparam name="T4">The type of the fourth behavior.</typeparam>
+    /// <typeparam name="T5">The type of the fifth behavior.</typeparam>
+    /// <typeparam name="T6">The type of the sixth behavior.</typeparam>
+    /// <typeparam name="TResult">The return type.</typeparam>
+    /// <param name="s">The stream.</param>
+    /// <param name="b1">The first behavior to put together with this one.</param>
+    /// <param name="b2">The second behavior to put together with this one.</param>
+    /// <param name="b3">The third behavior to put together with this one.</param>
+    /// <param name="b4">The fourth behavior to put together with this one.</param>
+    /// <param name="b5">The fifth behavior to put together with this one.</param>
+    /// <param name="b6">The sixth behavior to put together with this one.</param>
+    /// <param name="f">A function to change the stream value and behavior values into a return value.</param>
+    /// <returns>
+    ///     A stream that fires the result of the given function on the fired value and the latest
+    ///     values of the behaviors.
+    /// </returns>
+    /// <remarks>
+    ///     <c>Snapshot</c> gives the values of the behaviors from before the transaction. This gives the new
+    ///     value of each behavior that the same transaction updates, and the current value of each behavior
+    ///     that it does not update. Only this stream causes the firing. An update of the behaviors alone does
+    ///     not. This cannot close a loop, as <c>Snapshot</c> can. Do not give a behavior that the stream from
+    ///     this call updates in the same transaction.
+    /// </remarks>
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    public static Stream<TResult> SnapshotLatest<T, T1, T2, T3, T4, T5, T6, TResult>(
+        this Stream<T> s,
+        Behavior<T1> b1,
+        Behavior<T2> b2,
+        Behavior<T3> b3,
+        Behavior<T4> b4,
+        Behavior<T5> b5,
+        Behavior<T6> b6,
+        Func<T, T1, T2, T3, T4, T5, T6, TResult> f) =>
+        s.SnapshotLatestImpl(b1: b1, b2: b2, b3: b3, b4: b4, b5: b5, b6: b6, f: f);
+
+    /// <summary>
+    ///     Gives a stream that fires the result of the given function on the fired value and the latest
+    ///     values of the cells.
+    /// </summary>
+    /// <typeparam name="T">The type of the stream.</typeparam>
+    /// <typeparam name="T1">The type of the first cell.</typeparam>
+    /// <typeparam name="T2">The type of the second cell.</typeparam>
+    /// <typeparam name="T3">The type of the third cell.</typeparam>
+    /// <typeparam name="T4">The type of the fourth cell.</typeparam>
+    /// <typeparam name="T5">The type of the fifth cell.</typeparam>
+    /// <typeparam name="T6">The type of the sixth cell.</typeparam>
+    /// <typeparam name="T7">The type of the seventh cell.</typeparam>
+    /// <typeparam name="TResult">The return type.</typeparam>
+    /// <param name="s">The stream.</param>
+    /// <param name="c1">The first cell to put together with this one.</param>
+    /// <param name="c2">The second cell to put together with this one.</param>
+    /// <param name="c3">The third cell to put together with this one.</param>
+    /// <param name="c4">The fourth cell to put together with this one.</param>
+    /// <param name="c5">The fifth cell to put together with this one.</param>
+    /// <param name="c6">The sixth cell to put together with this one.</param>
+    /// <param name="c7">The seventh cell to put together with this one.</param>
+    /// <param name="f">A function to change the stream value and cell values into a return value.</param>
+    /// <returns>
+    ///     A stream that fires the result of the given function on the fired value and the latest
+    ///     values of the cells.
+    /// </returns>
+    /// <remarks>
+    ///     <c>Snapshot</c> gives the values of the cells from before the transaction. This gives the new
+    ///     value of each cell that the same transaction updates, and the current value of each cell that it
+    ///     does not update. Only this stream causes the firing. An update of the cells alone does not. This
+    ///     cannot close a loop, as <c>Snapshot</c> can. Do not give a cell that the stream from this call
+    ///     updates in the same transaction.
+    /// </remarks>
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    public static Stream<TResult> SnapshotLatest<T, T1, T2, T3, T4, T5, T6, T7, TResult>(
+        this Stream<T> s,
+        Cell<T1> c1,
+        Cell<T2> c2,
+        Cell<T3> c3,
+        Cell<T4> c4,
+        Cell<T5> c5,
+        Cell<T6> c6,
+        Cell<T7> c7,
+        Func<T, T1, T2, T3, T4, T5, T6, T7, TResult> f) =>
+        s.SnapshotLatestImpl(c1: c1, c2: c2, c3: c3, c4: c4, c5: c5, c6: c6, c7: c7, f: f);
+
+    /// <summary>
+    ///     Gives a stream that fires the result of the given function on the fired value and the latest
+    ///     values of the behaviors.
+    /// </summary>
+    /// <typeparam name="T">The type of the stream.</typeparam>
+    /// <typeparam name="T1">The type of the first behavior.</typeparam>
+    /// <typeparam name="T2">The type of the second behavior.</typeparam>
+    /// <typeparam name="T3">The type of the third behavior.</typeparam>
+    /// <typeparam name="T4">The type of the fourth behavior.</typeparam>
+    /// <typeparam name="T5">The type of the fifth behavior.</typeparam>
+    /// <typeparam name="T6">The type of the sixth behavior.</typeparam>
+    /// <typeparam name="T7">The type of the seventh behavior.</typeparam>
+    /// <typeparam name="TResult">The return type.</typeparam>
+    /// <param name="s">The stream.</param>
+    /// <param name="b1">The first behavior to put together with this one.</param>
+    /// <param name="b2">The second behavior to put together with this one.</param>
+    /// <param name="b3">The third behavior to put together with this one.</param>
+    /// <param name="b4">The fourth behavior to put together with this one.</param>
+    /// <param name="b5">The fifth behavior to put together with this one.</param>
+    /// <param name="b6">The sixth behavior to put together with this one.</param>
+    /// <param name="b7">The seventh behavior to put together with this one.</param>
+    /// <param name="f">A function to change the stream value and behavior values into a return value.</param>
+    /// <returns>
+    ///     A stream that fires the result of the given function on the fired value and the latest
+    ///     values of the behaviors.
+    /// </returns>
+    /// <remarks>
+    ///     <c>Snapshot</c> gives the values of the behaviors from before the transaction. This gives the new
+    ///     value of each behavior that the same transaction updates, and the current value of each behavior
+    ///     that it does not update. Only this stream causes the firing. An update of the behaviors alone does
+    ///     not. This cannot close a loop, as <c>Snapshot</c> can. Do not give a behavior that the stream from
+    ///     this call updates in the same transaction.
+    /// </remarks>
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    public static Stream<TResult> SnapshotLatest<T, T1, T2, T3, T4, T5, T6, T7, TResult>(
+        this Stream<T> s,
+        Behavior<T1> b1,
+        Behavior<T2> b2,
+        Behavior<T3> b3,
+        Behavior<T4> b4,
+        Behavior<T5> b5,
+        Behavior<T6> b6,
+        Behavior<T7> b7,
+        Func<T, T1, T2, T3, T4, T5, T6, T7, TResult> f) =>
+        s.SnapshotLatestImpl(b1: b1, b2: b2, b3: b3, b4: b4, b5: b5, b6: b6, b7: b7, f: f);
+
+    /// <summary>
+    ///     Gives a stream that fires the result of the given function on the fired value and the latest
+    ///     values of the cells.
+    /// </summary>
+    /// <typeparam name="T">The type of the stream.</typeparam>
+    /// <typeparam name="T1">The type of the first cell.</typeparam>
+    /// <typeparam name="T2">The type of the second cell.</typeparam>
+    /// <typeparam name="T3">The type of the third cell.</typeparam>
+    /// <typeparam name="T4">The type of the fourth cell.</typeparam>
+    /// <typeparam name="T5">The type of the fifth cell.</typeparam>
+    /// <typeparam name="T6">The type of the sixth cell.</typeparam>
+    /// <typeparam name="T7">The type of the seventh cell.</typeparam>
+    /// <typeparam name="T8">The type of the eighth cell.</typeparam>
+    /// <typeparam name="TResult">The return type.</typeparam>
+    /// <param name="s">The stream.</param>
+    /// <param name="c1">The first cell to put together with this one.</param>
+    /// <param name="c2">The second cell to put together with this one.</param>
+    /// <param name="c3">The third cell to put together with this one.</param>
+    /// <param name="c4">The fourth cell to put together with this one.</param>
+    /// <param name="c5">The fifth cell to put together with this one.</param>
+    /// <param name="c6">The sixth cell to put together with this one.</param>
+    /// <param name="c7">The seventh cell to put together with this one.</param>
+    /// <param name="c8">The eighth cell to put together with this one.</param>
+    /// <param name="f">A function to change the stream value and cell values into a return value.</param>
+    /// <returns>
+    ///     A stream that fires the result of the given function on the fired value and the latest
+    ///     values of the cells.
+    /// </returns>
+    /// <remarks>
+    ///     <c>Snapshot</c> gives the values of the cells from before the transaction. This gives the new
+    ///     value of each cell that the same transaction updates, and the current value of each cell that it
+    ///     does not update. Only this stream causes the firing. An update of the cells alone does not. This
+    ///     cannot close a loop, as <c>Snapshot</c> can. Do not give a cell that the stream from this call
+    ///     updates in the same transaction.
+    /// </remarks>
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    public static Stream<TResult> SnapshotLatest<T, T1, T2, T3, T4, T5, T6, T7, T8, TResult>(
+        this Stream<T> s,
+        Cell<T1> c1,
+        Cell<T2> c2,
+        Cell<T3> c3,
+        Cell<T4> c4,
+        Cell<T5> c5,
+        Cell<T6> c6,
+        Cell<T7> c7,
+        Cell<T8> c8,
+        Func<T, T1, T2, T3, T4, T5, T6, T7, T8, TResult> f) =>
+        s.SnapshotLatestImpl(c1: c1, c2: c2, c3: c3, c4: c4, c5: c5, c6: c6, c7: c7, c8: c8, f: f);
+
+    /// <summary>
+    ///     Gives a stream that fires the result of the given function on the fired value and the latest
+    ///     values of the behaviors.
+    /// </summary>
+    /// <typeparam name="T">The type of the stream.</typeparam>
+    /// <typeparam name="T1">The type of the first behavior.</typeparam>
+    /// <typeparam name="T2">The type of the second behavior.</typeparam>
+    /// <typeparam name="T3">The type of the third behavior.</typeparam>
+    /// <typeparam name="T4">The type of the fourth behavior.</typeparam>
+    /// <typeparam name="T5">The type of the fifth behavior.</typeparam>
+    /// <typeparam name="T6">The type of the sixth behavior.</typeparam>
+    /// <typeparam name="T7">The type of the seventh behavior.</typeparam>
+    /// <typeparam name="T8">The type of the eighth behavior.</typeparam>
+    /// <typeparam name="TResult">The return type.</typeparam>
+    /// <param name="s">The stream.</param>
+    /// <param name="b1">The first behavior to put together with this one.</param>
+    /// <param name="b2">The second behavior to put together with this one.</param>
+    /// <param name="b3">The third behavior to put together with this one.</param>
+    /// <param name="b4">The fourth behavior to put together with this one.</param>
+    /// <param name="b5">The fifth behavior to put together with this one.</param>
+    /// <param name="b6">The sixth behavior to put together with this one.</param>
+    /// <param name="b7">The seventh behavior to put together with this one.</param>
+    /// <param name="b8">The eighth behavior to put together with this one.</param>
+    /// <param name="f">A function to change the stream value and behavior values into a return value.</param>
+    /// <returns>
+    ///     A stream that fires the result of the given function on the fired value and the latest
+    ///     values of the behaviors.
+    /// </returns>
+    /// <remarks>
+    ///     <c>Snapshot</c> gives the values of the behaviors from before the transaction. This gives the new
+    ///     value of each behavior that the same transaction updates, and the current value of each behavior
+    ///     that it does not update. Only this stream causes the firing. An update of the behaviors alone does
+    ///     not. This cannot close a loop, as <c>Snapshot</c> can. Do not give a behavior that the stream from
+    ///     this call updates in the same transaction.
+    /// </remarks>
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    public static Stream<TResult> SnapshotLatest<T, T1, T2, T3, T4, T5, T6, T7, T8, TResult>(
+        this Stream<T> s,
+        Behavior<T1> b1,
+        Behavior<T2> b2,
+        Behavior<T3> b3,
+        Behavior<T4> b4,
+        Behavior<T5> b5,
+        Behavior<T6> b6,
+        Behavior<T7> b7,
+        Behavior<T8> b8,
+        Func<T, T1, T2, T3, T4, T5, T6, T7, T8, TResult> f) =>
+        s.SnapshotLatestImpl(b1: b1, b2: b2, b3: b3, b4: b4, b5: b5, b6: b6, b7: b7, b8: b8, f: f);
+
+    /// <summary>
     ///     Merges this stream with a second stream and drops the value of the second stream when they are
     ///     simultaneous.
     /// </summary>
@@ -1013,6 +1589,193 @@ public static class StreamExtensionMethods
             s3: s3,
             s4: s4,
             f: static (m1, m2, m3, m4) => (ToMaybe(m1), ToMaybe(m2), ToMaybe(m3), ToMaybe(m4)));
+
+    /// <summary>
+    ///     Merges this stream with four streams of other types. The stream from this call fires in each
+    ///     transaction in which one or more of the five streams fire.
+    /// </summary>
+    /// <typeparam name="T">The type of this stream.</typeparam>
+    /// <typeparam name="T2">The type of the second stream.</typeparam>
+    /// <typeparam name="T3">The type of the third stream.</typeparam>
+    /// <typeparam name="T4">The type of the fourth stream.</typeparam>
+    /// <typeparam name="T5">The type of the fifth stream.</typeparam>
+    /// <param name="s">The stream.</param>
+    /// <param name="s2">The second stream to merge with this one.</param>
+    /// <param name="s3">The third stream to merge with this one.</param>
+    /// <param name="s4">The fourth stream to merge with this one.</param>
+    /// <param name="s5">The fifth stream to merge with this one.</param>
+    /// <returns>
+    ///     A stream of tuples with one element for each of the five streams, in the sequence of the
+    ///     parameters. An element has the value of its stream if that stream fired in the transaction, and
+    ///     no value if it did not.
+    /// </returns>
+    /// <remarks>
+    ///     One or more elements of each tuple have a value. No input has priority over the other
+    ///     inputs. Thus, the sequence of the parameters changes only the sequence of the elements.
+    /// </remarks>
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    public static Stream<(Maybe<T>, Maybe<T2>, Maybe<T3>, Maybe<T4>, Maybe<T5>)> Merge<T, T2, T3, T4, T5>(
+        this Stream<T> s,
+        Stream<T2> s2,
+        Stream<T3> s3,
+        Stream<T4> s4,
+        Stream<T5> s5) =>
+        s.MergeMaybesImpl(
+            s2: s2,
+            s3: s3,
+            s4: s4,
+            s5: s5,
+            f: static (m1, m2, m3, m4, m5) =>
+                (ToMaybe(m1), ToMaybe(m2), ToMaybe(m3), ToMaybe(m4), ToMaybe(m5)));
+
+    /// <summary>
+    ///     Merges this stream with five streams of other types. The stream from this call fires in each
+    ///     transaction in which one or more of the six streams fire.
+    /// </summary>
+    /// <typeparam name="T">The type of this stream.</typeparam>
+    /// <typeparam name="T2">The type of the second stream.</typeparam>
+    /// <typeparam name="T3">The type of the third stream.</typeparam>
+    /// <typeparam name="T4">The type of the fourth stream.</typeparam>
+    /// <typeparam name="T5">The type of the fifth stream.</typeparam>
+    /// <typeparam name="T6">The type of the sixth stream.</typeparam>
+    /// <param name="s">The stream.</param>
+    /// <param name="s2">The second stream to merge with this one.</param>
+    /// <param name="s3">The third stream to merge with this one.</param>
+    /// <param name="s4">The fourth stream to merge with this one.</param>
+    /// <param name="s5">The fifth stream to merge with this one.</param>
+    /// <param name="s6">The sixth stream to merge with this one.</param>
+    /// <returns>
+    ///     A stream of tuples with one element for each of the six streams, in the sequence of the
+    ///     parameters. An element has the value of its stream if that stream fired in the transaction, and
+    ///     no value if it did not.
+    /// </returns>
+    /// <remarks>
+    ///     One or more elements of each tuple have a value. No input has priority over the other
+    ///     inputs. Thus, the sequence of the parameters changes only the sequence of the elements.
+    /// </remarks>
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    public static Stream<(Maybe<T>, Maybe<T2>, Maybe<T3>, Maybe<T4>, Maybe<T5>, Maybe<T6>)>
+        Merge<T, T2, T3, T4, T5, T6>(
+        this Stream<T> s,
+        Stream<T2> s2,
+        Stream<T3> s3,
+        Stream<T4> s4,
+        Stream<T5> s5,
+        Stream<T6> s6) =>
+        s.MergeMaybesImpl(
+            s2: s2,
+            s3: s3,
+            s4: s4,
+            s5: s5,
+            s6: s6,
+            f: static (m1, m2, m3, m4, m5, m6) =>
+                (ToMaybe(m1), ToMaybe(m2), ToMaybe(m3), ToMaybe(m4), ToMaybe(m5), ToMaybe(m6)));
+
+    /// <summary>
+    ///     Merges this stream with six streams of other types. The stream from this call fires in each
+    ///     transaction in which one or more of the seven streams fire.
+    /// </summary>
+    /// <typeparam name="T">The type of this stream.</typeparam>
+    /// <typeparam name="T2">The type of the second stream.</typeparam>
+    /// <typeparam name="T3">The type of the third stream.</typeparam>
+    /// <typeparam name="T4">The type of the fourth stream.</typeparam>
+    /// <typeparam name="T5">The type of the fifth stream.</typeparam>
+    /// <typeparam name="T6">The type of the sixth stream.</typeparam>
+    /// <typeparam name="T7">The type of the seventh stream.</typeparam>
+    /// <param name="s">The stream.</param>
+    /// <param name="s2">The second stream to merge with this one.</param>
+    /// <param name="s3">The third stream to merge with this one.</param>
+    /// <param name="s4">The fourth stream to merge with this one.</param>
+    /// <param name="s5">The fifth stream to merge with this one.</param>
+    /// <param name="s6">The sixth stream to merge with this one.</param>
+    /// <param name="s7">The seventh stream to merge with this one.</param>
+    /// <returns>
+    ///     A stream of tuples with one element for each of the seven streams, in the sequence of the
+    ///     parameters. An element has the value of its stream if that stream fired in the transaction, and
+    ///     no value if it did not.
+    /// </returns>
+    /// <remarks>
+    ///     One or more elements of each tuple have a value. No input has priority over the other
+    ///     inputs. Thus, the sequence of the parameters changes only the sequence of the elements.
+    /// </remarks>
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    public static Stream<(Maybe<T>, Maybe<T2>, Maybe<T3>, Maybe<T4>, Maybe<T5>, Maybe<T6>, Maybe<T7>)>
+        Merge<T, T2, T3, T4, T5, T6, T7>(
+        this Stream<T> s,
+        Stream<T2> s2,
+        Stream<T3> s3,
+        Stream<T4> s4,
+        Stream<T5> s5,
+        Stream<T6> s6,
+        Stream<T7> s7) =>
+        s.MergeMaybesImpl(
+            s2: s2,
+            s3: s3,
+            s4: s4,
+            s5: s5,
+            s6: s6,
+            s7: s7,
+            f: static (m1, m2, m3, m4, m5, m6, m7) =>
+                (ToMaybe(m1), ToMaybe(m2), ToMaybe(m3), ToMaybe(m4), ToMaybe(m5), ToMaybe(m6), ToMaybe(m7)));
+
+    /// <summary>
+    ///     Merges this stream with seven streams of other types. The stream from this call fires in each
+    ///     transaction in which one or more of the eight streams fire.
+    /// </summary>
+    /// <typeparam name="T">The type of this stream.</typeparam>
+    /// <typeparam name="T2">The type of the second stream.</typeparam>
+    /// <typeparam name="T3">The type of the third stream.</typeparam>
+    /// <typeparam name="T4">The type of the fourth stream.</typeparam>
+    /// <typeparam name="T5">The type of the fifth stream.</typeparam>
+    /// <typeparam name="T6">The type of the sixth stream.</typeparam>
+    /// <typeparam name="T7">The type of the seventh stream.</typeparam>
+    /// <typeparam name="T8">The type of the eighth stream.</typeparam>
+    /// <param name="s">The stream.</param>
+    /// <param name="s2">The second stream to merge with this one.</param>
+    /// <param name="s3">The third stream to merge with this one.</param>
+    /// <param name="s4">The fourth stream to merge with this one.</param>
+    /// <param name="s5">The fifth stream to merge with this one.</param>
+    /// <param name="s6">The sixth stream to merge with this one.</param>
+    /// <param name="s7">The seventh stream to merge with this one.</param>
+    /// <param name="s8">The eighth stream to merge with this one.</param>
+    /// <returns>
+    ///     A stream of tuples with one element for each of the eight streams, in the sequence of the
+    ///     parameters. An element has the value of its stream if that stream fired in the transaction, and
+    ///     no value if it did not.
+    /// </returns>
+    /// <remarks>
+    ///     One or more elements of each tuple have a value. No input has priority over the other
+    ///     inputs. Thus, the sequence of the parameters changes only the sequence of the elements.
+    /// </remarks>
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    public static Stream<(Maybe<T>, Maybe<T2>, Maybe<T3>, Maybe<T4>, Maybe<T5>, Maybe<T6>, Maybe<T7>, Maybe<T8>)>
+        Merge<T, T2, T3, T4, T5, T6, T7, T8>(
+        this Stream<T> s,
+        Stream<T2> s2,
+        Stream<T3> s3,
+        Stream<T4> s4,
+        Stream<T5> s5,
+        Stream<T6> s6,
+        Stream<T7> s7,
+        Stream<T8> s8) =>
+        s.MergeMaybesImpl(
+            s2: s2,
+            s3: s3,
+            s4: s4,
+            s5: s5,
+            s6: s6,
+            s7: s7,
+            s8: s8,
+            f: static (m1, m2, m3, m4, m5, m6, m7, m8) =>
+                (
+                    ToMaybe(m1),
+                    ToMaybe(m2),
+                    ToMaybe(m3),
+                    ToMaybe(m4),
+                    ToMaybe(m5),
+                    ToMaybe(m6),
+                    ToMaybe(m7),
+                    ToMaybe(m8)));
 
     private static Maybe<T> ToMaybe<T>(MaybeInternal<T> m) =>
         m.TryGetValue(out T value) ? Maybe.Some(value) : Maybe<T>.None;

@@ -126,6 +126,44 @@ public class Cell<T>
                 b6: b6.BehaviorImpl,
                 f: f));
 
+    internal Cell<TResult> LiftImpl<T2, T3, T4, T5, T6, T7, TResult>(
+        Cell<T2> b2,
+        Cell<T3> b3,
+        Cell<T4> b4,
+        Cell<T5> b5,
+        Cell<T6> b6,
+        Cell<T7> b7,
+        Func<T, T2, T3, T4, T5, T6, T7, TResult> f) =>
+        new(
+            this.BehaviorImpl.LiftImpl(
+                b2: b2.BehaviorImpl,
+                b3: b3.BehaviorImpl,
+                b4: b4.BehaviorImpl,
+                b5: b5.BehaviorImpl,
+                b6: b6.BehaviorImpl,
+                b7: b7.BehaviorImpl,
+                f: f));
+
+    internal Cell<TResult> LiftImpl<T2, T3, T4, T5, T6, T7, T8, TResult>(
+        Cell<T2> b2,
+        Cell<T3> b3,
+        Cell<T4> b4,
+        Cell<T5> b5,
+        Cell<T6> b6,
+        Cell<T7> b7,
+        Cell<T8> b8,
+        Func<T, T2, T3, T4, T5, T6, T7, T8, TResult> f) =>
+        new(
+            this.BehaviorImpl.LiftImpl(
+                b2: b2.BehaviorImpl,
+                b3: b3.BehaviorImpl,
+                b4: b4.BehaviorImpl,
+                b5: b5.BehaviorImpl,
+                b6: b6.BehaviorImpl,
+                b7: b7.BehaviorImpl,
+                b8: b8.BehaviorImpl,
+                f: f));
+
     internal Cell<TResult> ApplyImpl<TResult>(Cell<Func<T, TResult>> bf) =>
         new(this.BehaviorImpl.ApplyImpl(bf.BehaviorImpl));
 

@@ -380,6 +380,198 @@ public class Stream<T>
         return @out.UnsafeAttachListener(l);
     }
 
+    internal Stream<TResult> SnapshotImpl<T1, T2, T3, T4, T5, TResult>(
+        Cell<T1> c1,
+        Cell<T2> c2,
+        Cell<T3> c3,
+        Cell<T4> c4,
+        Cell<T5> c5,
+        Func<T, T1, T2, T3, T4, T5, TResult> f) =>
+        this.SnapshotImpl(
+            b1: c1.BehaviorImpl,
+            b2: c2.BehaviorImpl,
+            b3: c3.BehaviorImpl,
+            b4: c4.BehaviorImpl,
+            b5: c5.BehaviorImpl,
+            f: f);
+
+    internal Stream<TResult> SnapshotImpl<T1, T2, T3, T4, T5, TResult>(
+        Behavior<T1> b1,
+        Behavior<T2> b2,
+        Behavior<T3> b3,
+        Behavior<T4> b4,
+        Behavior<T5> b5,
+        Func<T, T1, T2, T3, T4, T5, TResult> f)
+    {
+        Stream<TResult> @out = new(this.KeepListenersAlive);
+
+        IListener l =
+            this.Listen(
+                target: @out.Node,
+                action: (trans2, a) =>
+                    @out.Send(
+                        trans: trans2,
+                        a: f(
+                            arg1: a,
+                            arg2: b1.SampleNoTransaction(),
+                            arg3: b2.SampleNoTransaction(),
+                            arg4: b3.SampleNoTransaction(),
+                            arg5: b4.SampleNoTransaction(),
+                            arg6: b5.SampleNoTransaction())));
+
+        return @out.UnsafeAttachListener(l);
+    }
+
+    internal Stream<TResult> SnapshotImpl<T1, T2, T3, T4, T5, T6, TResult>(
+        Cell<T1> c1,
+        Cell<T2> c2,
+        Cell<T3> c3,
+        Cell<T4> c4,
+        Cell<T5> c5,
+        Cell<T6> c6,
+        Func<T, T1, T2, T3, T4, T5, T6, TResult> f) =>
+        this.SnapshotImpl(
+            b1: c1.BehaviorImpl,
+            b2: c2.BehaviorImpl,
+            b3: c3.BehaviorImpl,
+            b4: c4.BehaviorImpl,
+            b5: c5.BehaviorImpl,
+            b6: c6.BehaviorImpl,
+            f: f);
+
+    internal Stream<TResult> SnapshotImpl<T1, T2, T3, T4, T5, T6, TResult>(
+        Behavior<T1> b1,
+        Behavior<T2> b2,
+        Behavior<T3> b3,
+        Behavior<T4> b4,
+        Behavior<T5> b5,
+        Behavior<T6> b6,
+        Func<T, T1, T2, T3, T4, T5, T6, TResult> f)
+    {
+        Stream<TResult> @out = new(this.KeepListenersAlive);
+
+        IListener l =
+            this.Listen(
+                target: @out.Node,
+                action: (trans2, a) =>
+                    @out.Send(
+                        trans: trans2,
+                        a: f(
+                            arg1: a,
+                            arg2: b1.SampleNoTransaction(),
+                            arg3: b2.SampleNoTransaction(),
+                            arg4: b3.SampleNoTransaction(),
+                            arg5: b4.SampleNoTransaction(),
+                            arg6: b5.SampleNoTransaction(),
+                            arg7: b6.SampleNoTransaction())));
+
+        return @out.UnsafeAttachListener(l);
+    }
+
+    internal Stream<TResult> SnapshotImpl<T1, T2, T3, T4, T5, T6, T7, TResult>(
+        Cell<T1> c1,
+        Cell<T2> c2,
+        Cell<T3> c3,
+        Cell<T4> c4,
+        Cell<T5> c5,
+        Cell<T6> c6,
+        Cell<T7> c7,
+        Func<T, T1, T2, T3, T4, T5, T6, T7, TResult> f) =>
+        this.SnapshotImpl(
+            b1: c1.BehaviorImpl,
+            b2: c2.BehaviorImpl,
+            b3: c3.BehaviorImpl,
+            b4: c4.BehaviorImpl,
+            b5: c5.BehaviorImpl,
+            b6: c6.BehaviorImpl,
+            b7: c7.BehaviorImpl,
+            f: f);
+
+    internal Stream<TResult> SnapshotImpl<T1, T2, T3, T4, T5, T6, T7, TResult>(
+        Behavior<T1> b1,
+        Behavior<T2> b2,
+        Behavior<T3> b3,
+        Behavior<T4> b4,
+        Behavior<T5> b5,
+        Behavior<T6> b6,
+        Behavior<T7> b7,
+        Func<T, T1, T2, T3, T4, T5, T6, T7, TResult> f)
+    {
+        Stream<TResult> @out = new(this.KeepListenersAlive);
+
+        IListener l =
+            this.Listen(
+                target: @out.Node,
+                action: (trans2, a) =>
+                    @out.Send(
+                        trans: trans2,
+                        a: f(
+                            arg1: a,
+                            arg2: b1.SampleNoTransaction(),
+                            arg3: b2.SampleNoTransaction(),
+                            arg4: b3.SampleNoTransaction(),
+                            arg5: b4.SampleNoTransaction(),
+                            arg6: b5.SampleNoTransaction(),
+                            arg7: b6.SampleNoTransaction(),
+                            arg8: b7.SampleNoTransaction())));
+
+        return @out.UnsafeAttachListener(l);
+    }
+
+    internal Stream<TResult> SnapshotImpl<T1, T2, T3, T4, T5, T6, T7, T8, TResult>(
+        Cell<T1> c1,
+        Cell<T2> c2,
+        Cell<T3> c3,
+        Cell<T4> c4,
+        Cell<T5> c5,
+        Cell<T6> c6,
+        Cell<T7> c7,
+        Cell<T8> c8,
+        Func<T, T1, T2, T3, T4, T5, T6, T7, T8, TResult> f) =>
+        this.SnapshotImpl(
+            b1: c1.BehaviorImpl,
+            b2: c2.BehaviorImpl,
+            b3: c3.BehaviorImpl,
+            b4: c4.BehaviorImpl,
+            b5: c5.BehaviorImpl,
+            b6: c6.BehaviorImpl,
+            b7: c7.BehaviorImpl,
+            b8: c8.BehaviorImpl,
+            f: f);
+
+    internal Stream<TResult> SnapshotImpl<T1, T2, T3, T4, T5, T6, T7, T8, TResult>(
+        Behavior<T1> b1,
+        Behavior<T2> b2,
+        Behavior<T3> b3,
+        Behavior<T4> b4,
+        Behavior<T5> b5,
+        Behavior<T6> b6,
+        Behavior<T7> b7,
+        Behavior<T8> b8,
+        Func<T, T1, T2, T3, T4, T5, T6, T7, T8, TResult> f)
+    {
+        Stream<TResult> @out = new(this.KeepListenersAlive);
+
+        IListener l =
+            this.Listen(
+                target: @out.Node,
+                action: (trans2, a) =>
+                    @out.Send(
+                        trans: trans2,
+                        a: f(
+                            arg1: a,
+                            arg2: b1.SampleNoTransaction(),
+                            arg3: b2.SampleNoTransaction(),
+                            arg4: b3.SampleNoTransaction(),
+                            arg5: b4.SampleNoTransaction(),
+                            arg6: b5.SampleNoTransaction(),
+                            arg7: b6.SampleNoTransaction(),
+                            arg8: b7.SampleNoTransaction(),
+                            arg9: b8.SampleNoTransaction())));
+
+        return @out.UnsafeAttachListener(l);
+    }
+
     internal Stream<TResult> SnapshotLatestImpl<TResult>(Cell<TResult> c) => this.SnapshotLatestImpl(c.BehaviorImpl);
 
     internal Stream<TResult> SnapshotLatestImpl<TResult>(Behavior<TResult> b) =>
@@ -636,6 +828,312 @@ public class Stream<T>
                     f(arg1: a, arg2: v.Item1, arg3: v.Item2, arg4: v.Item3, arg5: v.Item4, arg6: v.Item5));
         });
 
+    internal Stream<TResult> SnapshotLatestImpl<T1, T2, T3, T4, T5, T6, TResult>(
+        Cell<T1> c1,
+        Cell<T2> c2,
+        Cell<T3> c3,
+        Cell<T4> c4,
+        Cell<T5> c5,
+        Cell<T6> c6,
+        Func<T, T1, T2, T3, T4, T5, T6, TResult> f) =>
+        this.SnapshotLatestImpl(
+            b1: c1.BehaviorImpl,
+            b2: c2.BehaviorImpl,
+            b3: c3.BehaviorImpl,
+            b4: c4.BehaviorImpl,
+            b5: c5.BehaviorImpl,
+            b6: c6.BehaviorImpl,
+            f: f);
+
+    internal Stream<TResult> SnapshotLatestImpl<T1, T2, T3, T4, T5, T6, TResult>(
+        Behavior<T1> b1,
+        Behavior<T2> b2,
+        Behavior<T3> b3,
+        Behavior<T4> b4,
+        Behavior<T5> b5,
+        Behavior<T6> b6,
+        Func<T, T1, T2, T3, T4, T5, T6, TResult> f) =>
+        TransactionInternal.Apply((trans, _) =>
+        {
+            Stream<UnitInternal> pulse = new(this.KeepListenersAlive);
+
+            MaybeInternal<T1> p1 = MaybeInternal<T1>.None;
+            MaybeInternal<T2> p2 = MaybeInternal<T2>.None;
+            MaybeInternal<T3> p3 = MaybeInternal<T3>.None;
+            MaybeInternal<T4> p4 = MaybeInternal<T4>.None;
+            MaybeInternal<T5> p5 = MaybeInternal<T5>.None;
+            MaybeInternal<T6> p6 = MaybeInternal<T6>.None;
+
+            return this.SnapshotLatest(
+                trans: trans,
+                pulse: pulse,
+                captures:
+                [
+                    StreamInternal.Pulse(
+                        input: b1.Updates(),
+                        pulse: pulse,
+                        trans: trans,
+                        capture: v => p1 = MaybeInternal.Some(v)),
+                    StreamInternal.Pulse(
+                        input: b2.Updates(),
+                        pulse: pulse,
+                        trans: trans,
+                        capture: v => p2 = MaybeInternal.Some(v)),
+                    StreamInternal.Pulse(
+                        input: b3.Updates(),
+                        pulse: pulse,
+                        trans: trans,
+                        capture: v => p3 = MaybeInternal.Some(v)),
+                    StreamInternal.Pulse(
+                        input: b4.Updates(),
+                        pulse: pulse,
+                        trans: trans,
+                        capture: v => p4 = MaybeInternal.Some(v)),
+                    StreamInternal.Pulse(
+                        input: b5.Updates(),
+                        pulse: pulse,
+                        trans: trans,
+                        capture: v => p5 = MaybeInternal.Some(v)),
+                    StreamInternal.Pulse(
+                        input: b6.Updates(),
+                        pulse: pulse,
+                        trans: trans,
+                        capture: v => p6 = MaybeInternal.Some(v))
+                ],
+                take: () =>
+                    (
+                        Behavior<T1>.Take(pending: ref p1, input: b1),
+                        Behavior<T2>.Take(pending: ref p2, input: b2),
+                        Behavior<T3>.Take(pending: ref p3, input: b3),
+                        Behavior<T4>.Take(pending: ref p4, input: b4),
+                        Behavior<T5>.Take(pending: ref p5, input: b5),
+                        Behavior<T6>.Take(pending: ref p6, input: b6)),
+                f: (a, v) =>
+                    f(
+                        arg1: a,
+                        arg2: v.Item1,
+                        arg3: v.Item2,
+                        arg4: v.Item3,
+                        arg5: v.Item4,
+                        arg6: v.Item5,
+                        arg7: v.Item6));
+        });
+
+    internal Stream<TResult> SnapshotLatestImpl<T1, T2, T3, T4, T5, T6, T7, TResult>(
+        Cell<T1> c1,
+        Cell<T2> c2,
+        Cell<T3> c3,
+        Cell<T4> c4,
+        Cell<T5> c5,
+        Cell<T6> c6,
+        Cell<T7> c7,
+        Func<T, T1, T2, T3, T4, T5, T6, T7, TResult> f) =>
+        this.SnapshotLatestImpl(
+            b1: c1.BehaviorImpl,
+            b2: c2.BehaviorImpl,
+            b3: c3.BehaviorImpl,
+            b4: c4.BehaviorImpl,
+            b5: c5.BehaviorImpl,
+            b6: c6.BehaviorImpl,
+            b7: c7.BehaviorImpl,
+            f: f);
+
+    internal Stream<TResult> SnapshotLatestImpl<T1, T2, T3, T4, T5, T6, T7, TResult>(
+        Behavior<T1> b1,
+        Behavior<T2> b2,
+        Behavior<T3> b3,
+        Behavior<T4> b4,
+        Behavior<T5> b5,
+        Behavior<T6> b6,
+        Behavior<T7> b7,
+        Func<T, T1, T2, T3, T4, T5, T6, T7, TResult> f) =>
+        TransactionInternal.Apply((trans, _) =>
+        {
+            Stream<UnitInternal> pulse = new(this.KeepListenersAlive);
+
+            MaybeInternal<T1> p1 = MaybeInternal<T1>.None;
+            MaybeInternal<T2> p2 = MaybeInternal<T2>.None;
+            MaybeInternal<T3> p3 = MaybeInternal<T3>.None;
+            MaybeInternal<T4> p4 = MaybeInternal<T4>.None;
+            MaybeInternal<T5> p5 = MaybeInternal<T5>.None;
+            MaybeInternal<T6> p6 = MaybeInternal<T6>.None;
+            MaybeInternal<T7> p7 = MaybeInternal<T7>.None;
+
+            return this.SnapshotLatest(
+                trans: trans,
+                pulse: pulse,
+                captures:
+                [
+                    StreamInternal.Pulse(
+                        input: b1.Updates(),
+                        pulse: pulse,
+                        trans: trans,
+                        capture: v => p1 = MaybeInternal.Some(v)),
+                    StreamInternal.Pulse(
+                        input: b2.Updates(),
+                        pulse: pulse,
+                        trans: trans,
+                        capture: v => p2 = MaybeInternal.Some(v)),
+                    StreamInternal.Pulse(
+                        input: b3.Updates(),
+                        pulse: pulse,
+                        trans: trans,
+                        capture: v => p3 = MaybeInternal.Some(v)),
+                    StreamInternal.Pulse(
+                        input: b4.Updates(),
+                        pulse: pulse,
+                        trans: trans,
+                        capture: v => p4 = MaybeInternal.Some(v)),
+                    StreamInternal.Pulse(
+                        input: b5.Updates(),
+                        pulse: pulse,
+                        trans: trans,
+                        capture: v => p5 = MaybeInternal.Some(v)),
+                    StreamInternal.Pulse(
+                        input: b6.Updates(),
+                        pulse: pulse,
+                        trans: trans,
+                        capture: v => p6 = MaybeInternal.Some(v)),
+                    StreamInternal.Pulse(
+                        input: b7.Updates(),
+                        pulse: pulse,
+                        trans: trans,
+                        capture: v => p7 = MaybeInternal.Some(v))
+                ],
+                take: () =>
+                    (
+                        Behavior<T1>.Take(pending: ref p1, input: b1),
+                        Behavior<T2>.Take(pending: ref p2, input: b2),
+                        Behavior<T3>.Take(pending: ref p3, input: b3),
+                        Behavior<T4>.Take(pending: ref p4, input: b4),
+                        Behavior<T5>.Take(pending: ref p5, input: b5),
+                        Behavior<T6>.Take(pending: ref p6, input: b6),
+                        Behavior<T7>.Take(pending: ref p7, input: b7)),
+                f: (a, v) =>
+                    f(
+                        arg1: a,
+                        arg2: v.Item1,
+                        arg3: v.Item2,
+                        arg4: v.Item3,
+                        arg5: v.Item4,
+                        arg6: v.Item5,
+                        arg7: v.Item6,
+                        arg8: v.Item7));
+        });
+
+    internal Stream<TResult> SnapshotLatestImpl<T1, T2, T3, T4, T5, T6, T7, T8, TResult>(
+        Cell<T1> c1,
+        Cell<T2> c2,
+        Cell<T3> c3,
+        Cell<T4> c4,
+        Cell<T5> c5,
+        Cell<T6> c6,
+        Cell<T7> c7,
+        Cell<T8> c8,
+        Func<T, T1, T2, T3, T4, T5, T6, T7, T8, TResult> f) =>
+        this.SnapshotLatestImpl(
+            b1: c1.BehaviorImpl,
+            b2: c2.BehaviorImpl,
+            b3: c3.BehaviorImpl,
+            b4: c4.BehaviorImpl,
+            b5: c5.BehaviorImpl,
+            b6: c6.BehaviorImpl,
+            b7: c7.BehaviorImpl,
+            b8: c8.BehaviorImpl,
+            f: f);
+
+    internal Stream<TResult> SnapshotLatestImpl<T1, T2, T3, T4, T5, T6, T7, T8, TResult>(
+        Behavior<T1> b1,
+        Behavior<T2> b2,
+        Behavior<T3> b3,
+        Behavior<T4> b4,
+        Behavior<T5> b5,
+        Behavior<T6> b6,
+        Behavior<T7> b7,
+        Behavior<T8> b8,
+        Func<T, T1, T2, T3, T4, T5, T6, T7, T8, TResult> f) =>
+        TransactionInternal.Apply((trans, _) =>
+        {
+            Stream<UnitInternal> pulse = new(this.KeepListenersAlive);
+
+            MaybeInternal<T1> p1 = MaybeInternal<T1>.None;
+            MaybeInternal<T2> p2 = MaybeInternal<T2>.None;
+            MaybeInternal<T3> p3 = MaybeInternal<T3>.None;
+            MaybeInternal<T4> p4 = MaybeInternal<T4>.None;
+            MaybeInternal<T5> p5 = MaybeInternal<T5>.None;
+            MaybeInternal<T6> p6 = MaybeInternal<T6>.None;
+            MaybeInternal<T7> p7 = MaybeInternal<T7>.None;
+            MaybeInternal<T8> p8 = MaybeInternal<T8>.None;
+
+            return this.SnapshotLatest(
+                trans: trans,
+                pulse: pulse,
+                captures:
+                [
+                    StreamInternal.Pulse(
+                        input: b1.Updates(),
+                        pulse: pulse,
+                        trans: trans,
+                        capture: v => p1 = MaybeInternal.Some(v)),
+                    StreamInternal.Pulse(
+                        input: b2.Updates(),
+                        pulse: pulse,
+                        trans: trans,
+                        capture: v => p2 = MaybeInternal.Some(v)),
+                    StreamInternal.Pulse(
+                        input: b3.Updates(),
+                        pulse: pulse,
+                        trans: trans,
+                        capture: v => p3 = MaybeInternal.Some(v)),
+                    StreamInternal.Pulse(
+                        input: b4.Updates(),
+                        pulse: pulse,
+                        trans: trans,
+                        capture: v => p4 = MaybeInternal.Some(v)),
+                    StreamInternal.Pulse(
+                        input: b5.Updates(),
+                        pulse: pulse,
+                        trans: trans,
+                        capture: v => p5 = MaybeInternal.Some(v)),
+                    StreamInternal.Pulse(
+                        input: b6.Updates(),
+                        pulse: pulse,
+                        trans: trans,
+                        capture: v => p6 = MaybeInternal.Some(v)),
+                    StreamInternal.Pulse(
+                        input: b7.Updates(),
+                        pulse: pulse,
+                        trans: trans,
+                        capture: v => p7 = MaybeInternal.Some(v)),
+                    StreamInternal.Pulse(
+                        input: b8.Updates(),
+                        pulse: pulse,
+                        trans: trans,
+                        capture: v => p8 = MaybeInternal.Some(v))
+                ],
+                take: () =>
+                    (
+                        Behavior<T1>.Take(pending: ref p1, input: b1),
+                        Behavior<T2>.Take(pending: ref p2, input: b2),
+                        Behavior<T3>.Take(pending: ref p3, input: b3),
+                        Behavior<T4>.Take(pending: ref p4, input: b4),
+                        Behavior<T5>.Take(pending: ref p5, input: b5),
+                        Behavior<T6>.Take(pending: ref p6, input: b6),
+                        Behavior<T7>.Take(pending: ref p7, input: b7),
+                        Behavior<T8>.Take(pending: ref p8, input: b8)),
+                f: (a, v) =>
+                    f(
+                        arg1: a,
+                        arg2: v.Item1,
+                        arg3: v.Item2,
+                        arg4: v.Item3,
+                        arg5: v.Item4,
+                        arg6: v.Item5,
+                        arg7: v.Item6,
+                        arg8: v.Item7,
+                        arg9: v.Item8));
+        });
+
     // SnapshotImpl reads the behaviors when this stream fires. Thus, it gives the values from before
     // the transaction. The SnapshotLatestImpl methods wait for the updates of the behaviors, with the
     // mechanism of Behavior.LiftImpl. Each behavior captures its update and sends into pulse.Node,
@@ -889,6 +1387,372 @@ public class Stream<T>
                     p4 = MaybeInternal<T4>.None;
 
                     return f(arg1: v1, arg2: v2, arg3: v3, arg4: v4);
+                });
+        });
+
+    internal Stream<TResult> MergeMaybesImpl<T2, T3, T4, T5, TResult>(
+        Stream<T2> s2,
+        Stream<T3> s3,
+        Stream<T4> s4,
+        Stream<T5> s5,
+        Func<
+            MaybeInternal<T>,
+            MaybeInternal<T2>,
+            MaybeInternal<T3>,
+            MaybeInternal<T4>,
+            MaybeInternal<T5>,
+            TResult> f) =>
+        TransactionInternal.Apply((trans, _) =>
+        {
+            Stream<UnitInternal> pulse = new(this.KeepListenersAlive);
+
+            MaybeInternal<T> p1 = MaybeInternal<T>.None;
+            MaybeInternal<T2> p2 = MaybeInternal<T2>.None;
+            MaybeInternal<T3> p3 = MaybeInternal<T3>.None;
+            MaybeInternal<T4> p4 = MaybeInternal<T4>.None;
+            MaybeInternal<T5> p5 = MaybeInternal<T5>.None;
+
+            return this.MergeMaybes(
+                trans: trans,
+                pulse: pulse,
+                captures:
+                [
+                    StreamInternal.Pulse(
+                        input: this,
+                        pulse: pulse,
+                        trans: trans,
+                        capture: v => p1 = MaybeInternal.Some(v)),
+                    StreamInternal.Pulse(
+                        input: s2,
+                        pulse: pulse,
+                        trans: trans,
+                        capture: v => p2 = MaybeInternal.Some(v)),
+                    StreamInternal.Pulse(
+                        input: s3,
+                        pulse: pulse,
+                        trans: trans,
+                        capture: v => p3 = MaybeInternal.Some(v)),
+                    StreamInternal.Pulse(
+                        input: s4,
+                        pulse: pulse,
+                        trans: trans,
+                        capture: v => p4 = MaybeInternal.Some(v)),
+                    StreamInternal.Pulse(
+                        input: s5,
+                        pulse: pulse,
+                        trans: trans,
+                        capture: v => p5 = MaybeInternal.Some(v))
+                ],
+                combine: () =>
+                {
+                    MaybeInternal<T> v1 = p1;
+                    MaybeInternal<T2> v2 = p2;
+                    MaybeInternal<T3> v3 = p3;
+                    MaybeInternal<T4> v4 = p4;
+                    MaybeInternal<T5> v5 = p5;
+                    p1 = MaybeInternal<T>.None;
+                    p2 = MaybeInternal<T2>.None;
+                    p3 = MaybeInternal<T3>.None;
+                    p4 = MaybeInternal<T4>.None;
+                    p5 = MaybeInternal<T5>.None;
+
+                    return f(
+                        arg1: v1,
+                        arg2: v2,
+                        arg3: v3,
+                        arg4: v4,
+                        arg5: v5);
+                });
+        });
+
+    internal Stream<TResult> MergeMaybesImpl<T2, T3, T4, T5, T6, TResult>(
+        Stream<T2> s2,
+        Stream<T3> s3,
+        Stream<T4> s4,
+        Stream<T5> s5,
+        Stream<T6> s6,
+        Func<
+            MaybeInternal<T>,
+            MaybeInternal<T2>,
+            MaybeInternal<T3>,
+            MaybeInternal<T4>,
+            MaybeInternal<T5>,
+            MaybeInternal<T6>,
+            TResult> f) =>
+        TransactionInternal.Apply((trans, _) =>
+        {
+            Stream<UnitInternal> pulse = new(this.KeepListenersAlive);
+
+            MaybeInternal<T> p1 = MaybeInternal<T>.None;
+            MaybeInternal<T2> p2 = MaybeInternal<T2>.None;
+            MaybeInternal<T3> p3 = MaybeInternal<T3>.None;
+            MaybeInternal<T4> p4 = MaybeInternal<T4>.None;
+            MaybeInternal<T5> p5 = MaybeInternal<T5>.None;
+            MaybeInternal<T6> p6 = MaybeInternal<T6>.None;
+
+            return this.MergeMaybes(
+                trans: trans,
+                pulse: pulse,
+                captures:
+                [
+                    StreamInternal.Pulse(
+                        input: this,
+                        pulse: pulse,
+                        trans: trans,
+                        capture: v => p1 = MaybeInternal.Some(v)),
+                    StreamInternal.Pulse(
+                        input: s2,
+                        pulse: pulse,
+                        trans: trans,
+                        capture: v => p2 = MaybeInternal.Some(v)),
+                    StreamInternal.Pulse(
+                        input: s3,
+                        pulse: pulse,
+                        trans: trans,
+                        capture: v => p3 = MaybeInternal.Some(v)),
+                    StreamInternal.Pulse(
+                        input: s4,
+                        pulse: pulse,
+                        trans: trans,
+                        capture: v => p4 = MaybeInternal.Some(v)),
+                    StreamInternal.Pulse(
+                        input: s5,
+                        pulse: pulse,
+                        trans: trans,
+                        capture: v => p5 = MaybeInternal.Some(v)),
+                    StreamInternal.Pulse(
+                        input: s6,
+                        pulse: pulse,
+                        trans: trans,
+                        capture: v => p6 = MaybeInternal.Some(v))
+                ],
+                combine: () =>
+                {
+                    MaybeInternal<T> v1 = p1;
+                    MaybeInternal<T2> v2 = p2;
+                    MaybeInternal<T3> v3 = p3;
+                    MaybeInternal<T4> v4 = p4;
+                    MaybeInternal<T5> v5 = p5;
+                    MaybeInternal<T6> v6 = p6;
+                    p1 = MaybeInternal<T>.None;
+                    p2 = MaybeInternal<T2>.None;
+                    p3 = MaybeInternal<T3>.None;
+                    p4 = MaybeInternal<T4>.None;
+                    p5 = MaybeInternal<T5>.None;
+                    p6 = MaybeInternal<T6>.None;
+
+                    return f(
+                        arg1: v1,
+                        arg2: v2,
+                        arg3: v3,
+                        arg4: v4,
+                        arg5: v5,
+                        arg6: v6);
+                });
+        });
+
+    internal Stream<TResult> MergeMaybesImpl<T2, T3, T4, T5, T6, T7, TResult>(
+        Stream<T2> s2,
+        Stream<T3> s3,
+        Stream<T4> s4,
+        Stream<T5> s5,
+        Stream<T6> s6,
+        Stream<T7> s7,
+        Func<
+            MaybeInternal<T>,
+            MaybeInternal<T2>,
+            MaybeInternal<T3>,
+            MaybeInternal<T4>,
+            MaybeInternal<T5>,
+            MaybeInternal<T6>,
+            MaybeInternal<T7>,
+            TResult> f) =>
+        TransactionInternal.Apply((trans, _) =>
+        {
+            Stream<UnitInternal> pulse = new(this.KeepListenersAlive);
+
+            MaybeInternal<T> p1 = MaybeInternal<T>.None;
+            MaybeInternal<T2> p2 = MaybeInternal<T2>.None;
+            MaybeInternal<T3> p3 = MaybeInternal<T3>.None;
+            MaybeInternal<T4> p4 = MaybeInternal<T4>.None;
+            MaybeInternal<T5> p5 = MaybeInternal<T5>.None;
+            MaybeInternal<T6> p6 = MaybeInternal<T6>.None;
+            MaybeInternal<T7> p7 = MaybeInternal<T7>.None;
+
+            return this.MergeMaybes(
+                trans: trans,
+                pulse: pulse,
+                captures:
+                [
+                    StreamInternal.Pulse(
+                        input: this,
+                        pulse: pulse,
+                        trans: trans,
+                        capture: v => p1 = MaybeInternal.Some(v)),
+                    StreamInternal.Pulse(
+                        input: s2,
+                        pulse: pulse,
+                        trans: trans,
+                        capture: v => p2 = MaybeInternal.Some(v)),
+                    StreamInternal.Pulse(
+                        input: s3,
+                        pulse: pulse,
+                        trans: trans,
+                        capture: v => p3 = MaybeInternal.Some(v)),
+                    StreamInternal.Pulse(
+                        input: s4,
+                        pulse: pulse,
+                        trans: trans,
+                        capture: v => p4 = MaybeInternal.Some(v)),
+                    StreamInternal.Pulse(
+                        input: s5,
+                        pulse: pulse,
+                        trans: trans,
+                        capture: v => p5 = MaybeInternal.Some(v)),
+                    StreamInternal.Pulse(
+                        input: s6,
+                        pulse: pulse,
+                        trans: trans,
+                        capture: v => p6 = MaybeInternal.Some(v)),
+                    StreamInternal.Pulse(
+                        input: s7,
+                        pulse: pulse,
+                        trans: trans,
+                        capture: v => p7 = MaybeInternal.Some(v))
+                ],
+                combine: () =>
+                {
+                    MaybeInternal<T> v1 = p1;
+                    MaybeInternal<T2> v2 = p2;
+                    MaybeInternal<T3> v3 = p3;
+                    MaybeInternal<T4> v4 = p4;
+                    MaybeInternal<T5> v5 = p5;
+                    MaybeInternal<T6> v6 = p6;
+                    MaybeInternal<T7> v7 = p7;
+                    p1 = MaybeInternal<T>.None;
+                    p2 = MaybeInternal<T2>.None;
+                    p3 = MaybeInternal<T3>.None;
+                    p4 = MaybeInternal<T4>.None;
+                    p5 = MaybeInternal<T5>.None;
+                    p6 = MaybeInternal<T6>.None;
+                    p7 = MaybeInternal<T7>.None;
+
+                    return f(
+                        arg1: v1,
+                        arg2: v2,
+                        arg3: v3,
+                        arg4: v4,
+                        arg5: v5,
+                        arg6: v6,
+                        arg7: v7);
+                });
+        });
+
+    internal Stream<TResult> MergeMaybesImpl<T2, T3, T4, T5, T6, T7, T8, TResult>(
+        Stream<T2> s2,
+        Stream<T3> s3,
+        Stream<T4> s4,
+        Stream<T5> s5,
+        Stream<T6> s6,
+        Stream<T7> s7,
+        Stream<T8> s8,
+        Func<
+            MaybeInternal<T>,
+            MaybeInternal<T2>,
+            MaybeInternal<T3>,
+            MaybeInternal<T4>,
+            MaybeInternal<T5>,
+            MaybeInternal<T6>,
+            MaybeInternal<T7>,
+            MaybeInternal<T8>,
+            TResult> f) =>
+        TransactionInternal.Apply((trans, _) =>
+        {
+            Stream<UnitInternal> pulse = new(this.KeepListenersAlive);
+
+            MaybeInternal<T> p1 = MaybeInternal<T>.None;
+            MaybeInternal<T2> p2 = MaybeInternal<T2>.None;
+            MaybeInternal<T3> p3 = MaybeInternal<T3>.None;
+            MaybeInternal<T4> p4 = MaybeInternal<T4>.None;
+            MaybeInternal<T5> p5 = MaybeInternal<T5>.None;
+            MaybeInternal<T6> p6 = MaybeInternal<T6>.None;
+            MaybeInternal<T7> p7 = MaybeInternal<T7>.None;
+            MaybeInternal<T8> p8 = MaybeInternal<T8>.None;
+
+            return this.MergeMaybes(
+                trans: trans,
+                pulse: pulse,
+                captures:
+                [
+                    StreamInternal.Pulse(
+                        input: this,
+                        pulse: pulse,
+                        trans: trans,
+                        capture: v => p1 = MaybeInternal.Some(v)),
+                    StreamInternal.Pulse(
+                        input: s2,
+                        pulse: pulse,
+                        trans: trans,
+                        capture: v => p2 = MaybeInternal.Some(v)),
+                    StreamInternal.Pulse(
+                        input: s3,
+                        pulse: pulse,
+                        trans: trans,
+                        capture: v => p3 = MaybeInternal.Some(v)),
+                    StreamInternal.Pulse(
+                        input: s4,
+                        pulse: pulse,
+                        trans: trans,
+                        capture: v => p4 = MaybeInternal.Some(v)),
+                    StreamInternal.Pulse(
+                        input: s5,
+                        pulse: pulse,
+                        trans: trans,
+                        capture: v => p5 = MaybeInternal.Some(v)),
+                    StreamInternal.Pulse(
+                        input: s6,
+                        pulse: pulse,
+                        trans: trans,
+                        capture: v => p6 = MaybeInternal.Some(v)),
+                    StreamInternal.Pulse(
+                        input: s7,
+                        pulse: pulse,
+                        trans: trans,
+                        capture: v => p7 = MaybeInternal.Some(v)),
+                    StreamInternal.Pulse(
+                        input: s8,
+                        pulse: pulse,
+                        trans: trans,
+                        capture: v => p8 = MaybeInternal.Some(v))
+                ],
+                combine: () =>
+                {
+                    MaybeInternal<T> v1 = p1;
+                    MaybeInternal<T2> v2 = p2;
+                    MaybeInternal<T3> v3 = p3;
+                    MaybeInternal<T4> v4 = p4;
+                    MaybeInternal<T5> v5 = p5;
+                    MaybeInternal<T6> v6 = p6;
+                    MaybeInternal<T7> v7 = p7;
+                    MaybeInternal<T8> v8 = p8;
+                    p1 = MaybeInternal<T>.None;
+                    p2 = MaybeInternal<T2>.None;
+                    p3 = MaybeInternal<T3>.None;
+                    p4 = MaybeInternal<T4>.None;
+                    p5 = MaybeInternal<T5>.None;
+                    p6 = MaybeInternal<T6>.None;
+                    p7 = MaybeInternal<T7>.None;
+                    p8 = MaybeInternal<T8>.None;
+
+                    return f(
+                        arg1: v1,
+                        arg2: v2,
+                        arg3: v3,
+                        arg4: v4,
+                        arg5: v5,
+                        arg6: v6,
+                        arg7: v7,
+                        arg8: v8);
                 });
         });
 

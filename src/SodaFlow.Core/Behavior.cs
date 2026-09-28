@@ -493,6 +493,181 @@ public class Behavior<T>
                 listeners: listeners);
         });
 
+    internal Behavior<TResult> LiftImpl<T2, T3, T4, T5, T6, T7, TResult>(
+        Behavior<T2> b2,
+        Behavior<T3> b3,
+        Behavior<T4> b4,
+        Behavior<T5> b5,
+        Behavior<T6> b6,
+        Behavior<T7> b7,
+        Func<T, T2, T3, T4, T5, T6, T7, TResult> f) =>
+        TransactionInternal.Apply((trans, _) =>
+        {
+            Stream<UnitInternal> pulse = new(this.stream.KeepListenersAlive);
+
+            MaybeInternal<T> p1 = MaybeInternal<T>.None;
+            MaybeInternal<T2> p2 = MaybeInternal<T2>.None;
+            MaybeInternal<T3> p3 = MaybeInternal<T3>.None;
+            MaybeInternal<T4> p4 = MaybeInternal<T4>.None;
+            MaybeInternal<T5> p5 = MaybeInternal<T5>.None;
+            MaybeInternal<T6> p6 = MaybeInternal<T6>.None;
+            MaybeInternal<T7> p7 = MaybeInternal<T7>.None;
+
+            IListener[] listeners =
+            [
+                StreamInternal.Pulse(
+                    input: this.Updates(),
+                    pulse: pulse,
+                    trans: trans,
+                    capture: v => p1 = MaybeInternal.Some(v)),
+                StreamInternal.Pulse(
+                    input: b2.Updates(),
+                    pulse: pulse,
+                    trans: trans,
+                    capture: v => p2 = MaybeInternal.Some(v)),
+                StreamInternal.Pulse(
+                    input: b3.Updates(),
+                    pulse: pulse,
+                    trans: trans,
+                    capture: v => p3 = MaybeInternal.Some(v)),
+                StreamInternal.Pulse(
+                    input: b4.Updates(),
+                    pulse: pulse,
+                    trans: trans,
+                    capture: v => p4 = MaybeInternal.Some(v)),
+                StreamInternal.Pulse(
+                    input: b5.Updates(),
+                    pulse: pulse,
+                    trans: trans,
+                    capture: v => p5 = MaybeInternal.Some(v)),
+                StreamInternal.Pulse(
+                    input: b6.Updates(),
+                    pulse: pulse,
+                    trans: trans,
+                    capture: v => p6 = MaybeInternal.Some(v)),
+                StreamInternal.Pulse(
+                    input: b7.Updates(),
+                    pulse: pulse,
+                    trans: trans,
+                    capture: v => p7 = MaybeInternal.Some(v))
+            ];
+
+            return HoldLifted(
+                pulse: pulse,
+                trans: trans,
+                recombine: () =>
+                    f(
+                        arg1: Take(pending: ref p1, input: this),
+                        arg2: Take(pending: ref p2, input: b2),
+                        arg3: Take(pending: ref p3, input: b3),
+                        arg4: Take(pending: ref p4, input: b4),
+                        arg5: Take(pending: ref p5, input: b5),
+                        arg6: Take(pending: ref p6, input: b6),
+                        arg7: Take(pending: ref p7, input: b7)),
+                initialValue: () =>
+                    f(
+                        arg1: this.SampleNoTransaction(),
+                        arg2: b2.SampleNoTransaction(),
+                        arg3: b3.SampleNoTransaction(),
+                        arg4: b4.SampleNoTransaction(),
+                        arg5: b5.SampleNoTransaction(),
+                        arg6: b6.SampleNoTransaction(),
+                        arg7: b7.SampleNoTransaction()),
+                listeners: listeners);
+        });
+
+    internal Behavior<TResult> LiftImpl<T2, T3, T4, T5, T6, T7, T8, TResult>(
+        Behavior<T2> b2,
+        Behavior<T3> b3,
+        Behavior<T4> b4,
+        Behavior<T5> b5,
+        Behavior<T6> b6,
+        Behavior<T7> b7,
+        Behavior<T8> b8,
+        Func<T, T2, T3, T4, T5, T6, T7, T8, TResult> f) =>
+        TransactionInternal.Apply((trans, _) =>
+        {
+            Stream<UnitInternal> pulse = new(this.stream.KeepListenersAlive);
+
+            MaybeInternal<T> p1 = MaybeInternal<T>.None;
+            MaybeInternal<T2> p2 = MaybeInternal<T2>.None;
+            MaybeInternal<T3> p3 = MaybeInternal<T3>.None;
+            MaybeInternal<T4> p4 = MaybeInternal<T4>.None;
+            MaybeInternal<T5> p5 = MaybeInternal<T5>.None;
+            MaybeInternal<T6> p6 = MaybeInternal<T6>.None;
+            MaybeInternal<T7> p7 = MaybeInternal<T7>.None;
+            MaybeInternal<T8> p8 = MaybeInternal<T8>.None;
+
+            IListener[] listeners =
+            [
+                StreamInternal.Pulse(
+                    input: this.Updates(),
+                    pulse: pulse,
+                    trans: trans,
+                    capture: v => p1 = MaybeInternal.Some(v)),
+                StreamInternal.Pulse(
+                    input: b2.Updates(),
+                    pulse: pulse,
+                    trans: trans,
+                    capture: v => p2 = MaybeInternal.Some(v)),
+                StreamInternal.Pulse(
+                    input: b3.Updates(),
+                    pulse: pulse,
+                    trans: trans,
+                    capture: v => p3 = MaybeInternal.Some(v)),
+                StreamInternal.Pulse(
+                    input: b4.Updates(),
+                    pulse: pulse,
+                    trans: trans,
+                    capture: v => p4 = MaybeInternal.Some(v)),
+                StreamInternal.Pulse(
+                    input: b5.Updates(),
+                    pulse: pulse,
+                    trans: trans,
+                    capture: v => p5 = MaybeInternal.Some(v)),
+                StreamInternal.Pulse(
+                    input: b6.Updates(),
+                    pulse: pulse,
+                    trans: trans,
+                    capture: v => p6 = MaybeInternal.Some(v)),
+                StreamInternal.Pulse(
+                    input: b7.Updates(),
+                    pulse: pulse,
+                    trans: trans,
+                    capture: v => p7 = MaybeInternal.Some(v)),
+                StreamInternal.Pulse(
+                    input: b8.Updates(),
+                    pulse: pulse,
+                    trans: trans,
+                    capture: v => p8 = MaybeInternal.Some(v))
+            ];
+
+            return HoldLifted(
+                pulse: pulse,
+                trans: trans,
+                recombine: () =>
+                    f(
+                        arg1: Take(pending: ref p1, input: this),
+                        arg2: Take(pending: ref p2, input: b2),
+                        arg3: Take(pending: ref p3, input: b3),
+                        arg4: Take(pending: ref p4, input: b4),
+                        arg5: Take(pending: ref p5, input: b5),
+                        arg6: Take(pending: ref p6, input: b6),
+                        arg7: Take(pending: ref p7, input: b7),
+                        arg8: Take(pending: ref p8, input: b8)),
+                initialValue: () =>
+                    f(
+                        arg1: this.SampleNoTransaction(),
+                        arg2: b2.SampleNoTransaction(),
+                        arg3: b3.SampleNoTransaction(),
+                        arg4: b4.SampleNoTransaction(),
+                        arg5: b5.SampleNoTransaction(),
+                        arg6: b6.SampleNoTransaction(),
+                        arg7: b7.SampleNoTransaction(),
+                        arg8: b8.SampleNoTransaction()),
+                listeners: listeners);
+        });
+
     /// <summary>
     ///     Reads the value of an input for this firing. If the input updated in this
     ///     transaction, this is the captured value. If it did not, this is the current value of

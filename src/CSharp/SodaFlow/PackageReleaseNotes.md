@@ -54,18 +54,23 @@ when only c2 changes.
 It cannot close a loop. Do not give it a cell that the result updates in the
 same transaction.
 
-SnapshotLatest takes up to five cells or up to five behaviors. It gives the new
+SnapshotLatest takes up to eight cells or up to eight behaviors. It gives the new
 value of each one that the transaction updates, and the current value of each
 one that it does not update. For more cells, give it a cell from Lift. In a
 transaction, a lifted cell has the new value.
 
-Adds Merge for two, three, or four streams of different types. The result is a
+Adds Merge for two to eight streams of different types. The result is a
 stream of value tuples with one Maybe for each stream, in the sequence of the
 parameters. It fires in each transaction in which one or more of the streams
 fire. Each element has the value of its stream if that stream fired, and no value
 if it did not. Thus, one or more elements have a value. The Merge that takes a
 function must have streams of one type, and it must put simultaneous values into
 one value of that type. This Merge keeps each value, and no stream has priority.
+
+Lift takes up to eight cells or up to eight behaviors, where it took up to six.
+Snapshot takes up to eight cells or up to eight behaviors, where it took up to
+four. With the value of the stream, its function gets eight values, as the
+function of the widest Lift does. SnapshotLatest has the same limit.
 
 Fixed: TimerSystem.At no longer holds an alarm alive through the cell it reads.
 It listened to that cell with a strong listener, which the keep-alive set of the
