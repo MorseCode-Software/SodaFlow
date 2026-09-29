@@ -767,6 +767,153 @@ type ``Stream Tests``() =
         }
 
     [<Test>]
+    member _.``Test Wide Forms Match A Lift Of A List``() =
+        task {
+            let s = sinkS ()
+            let c1 = sinkC 1
+            let c2 = sinkC 2
+            let c3 = sinkC 3
+            let c4 = sinkC 4
+            let c5 = sinkC 5
+            let c6 = sinkC 6
+            let c7 = sinkC 7
+            let c8 = sinkC 8
+            let cells = [ c1; c2; c3; c4; c5; c6; c7; c8 ]
+            let b1 = c1 |> asBehaviorC
+            let b2 = c2 |> asBehaviorC
+            let b3 = c3 |> asBehaviorC
+            let b4 = c4 |> asBehaviorC
+            let b5 = c5 |> asBehaviorC
+            let b6 = c6 |> asBehaviorC
+            let b7 = c7 |> asBehaviorC
+            let b8 = c8 |> asBehaviorC
+            let behaviors = [ b1; b2; b3; b4; b5; b6; b7; b8 ]
+            let join (values: seq<int>) = String.Join(",", values)
+            let liftCells count = cells |> List.take count |> liftAllC (fun values -> join values)
+            let liftBehaviors count = behaviors |> List.take count |> liftAllB (fun values -> join values)
+            let listeners = List<_>()
+            let checks = List<_>()
+
+            let listenTo stream =
+                let out = List<string>()
+                listeners.Add(stream |> listenStrongS out.Add)
+                out
+
+            let check name actual expected =
+                checks.Add((name, listenTo actual, listenTo expected))
+
+            // Each reference is the lift of a list of the first cells or behaviors. That lift has one
+            // form for each count, thus the references do not use the functions that this test
+            // examines. Snapshot on s reads the initial value of a lifted cell until an input updates,
+            // and each input starts with a different value.
+            let lift7 =
+                (c1, c2, c3, c4, c5, c6, c7)
+                |> lift7C (fun v1 v2 v3 v4 v5 v6 v7 -> join [ v1; v2; v3; v4; v5; v6; v7 ])
+
+            let lift8 =
+                (c1, c2, c3, c4, c5, c6, c7, c8)
+                |> lift8C (fun v1 v2 v3 v4 v5 v6 v7 v8 -> join [ v1; v2; v3; v4; v5; v6; v7; v8 ])
+
+            check "updates of lift7C" (lift7 |> updatesC) (liftCells 7 |> updatesC)
+            check "snapshot of lift7C" (s |> snapshotAndTakeC lift7) (s |> snapshotAndTakeC (liftCells 7))
+            check "updates of lift8C" (lift8 |> updatesC) (liftCells 8 |> updatesC)
+            check "snapshot of lift8C" (s |> snapshotAndTakeC lift8) (s |> snapshotAndTakeC (liftCells 8))
+
+            check
+                "lift7B"
+                (s
+                 |> snapshotLatestAndTakeB (
+                     (b1, b2, b3, b4, b5, b6, b7)
+                     |> lift7B (fun v1 v2 v3 v4 v5 v6 v7 -> join [ v1; v2; v3; v4; v5; v6; v7 ])
+                 ))
+                (s |> snapshotLatestAndTakeB (liftBehaviors 7))
+
+            check
+                "lift8B"
+                (s
+                 |> snapshotLatestAndTakeB (
+                     (b1, b2, b3, b4, b5, b6, b7, b8)
+                     |> lift8B (fun v1 v2 v3 v4 v5 v6 v7 v8 -> join [ v1; v2; v3; v4; v5; v6; v7; v8 ])
+                 ))
+                (s |> snapshotLatestAndTakeB (liftBehaviors 8))
+
+            let expectedSnapshot count =
+                s |> snapshotC (liftCells count) (fun a v -> $"{a}:{v}")
+
+            check
+                "snapshot5C"
+                (s |> snapshot5C c1 c2 c3 c4 c5 (fun a v1 v2 v3 v4 v5 -> $"{a}:{join [ v1; v2; v3; v4; v5 ]}"))
+                (expectedSnapshot 5)
+
+            check
+                "snapshot5B"
+                (s |> snapshot5B b1 b2 b3 b4 b5 (fun a v1 v2 v3 v4 v5 -> $"{a}:{join [ v1; v2; v3; v4; v5 ]}"))
+                (expectedSnapshot 5)
+
+            check
+                "snapshot6C"
+                (s
+                 |> snapshot6C c1 c2 c3 c4 c5 c6 (fun a v1 v2 v3 v4 v5 v6 -> $"{a}:{join [ v1; v2; v3; v4; v5; v6 ]}"))
+                (expectedSnapshot 6)
+
+            check
+                "snapshot6B"
+                (s
+                 |> snapshot6B b1 b2 b3 b4 b5 b6 (fun a v1 v2 v3 v4 v5 v6 -> $"{a}:{join [ v1; v2; v3; v4; v5; v6 ]}"))
+                (expectedSnapshot 6)
+
+            check
+                "snapshot7C"
+                (s
+                 |> snapshot7C c1 c2 c3 c4 c5 c6 c7 (fun a v1 v2 v3 v4 v5 v6 v7 ->
+                     $"{a}:{join [ v1; v2; v3; v4; v5; v6; v7 ]}"))
+                (expectedSnapshot 7)
+
+            check
+                "snapshot7B"
+                (s
+                 |> snapshot7B b1 b2 b3 b4 b5 b6 b7 (fun a v1 v2 v3 v4 v5 v6 v7 ->
+                     $"{a}:{join [ v1; v2; v3; v4; v5; v6; v7 ]}"))
+                (expectedSnapshot 7)
+
+            check
+                "snapshot8C"
+                (s
+                 |> snapshot8C c1 c2 c3 c4 c5 c6 c7 c8 (fun a v1 v2 v3 v4 v5 v6 v7 v8 ->
+                     $"{a}:{join [ v1; v2; v3; v4; v5; v6; v7; v8 ]}"))
+                (expectedSnapshot 8)
+
+            check
+                "snapshot8B"
+                (s
+                 |> snapshot8B b1 b2 b3 b4 b5 b6 b7 b8 (fun a v1 v2 v3 v4 v5 v6 v7 v8 ->
+                     $"{a}:{join [ v1; v2; v3; v4; v5; v6; v7; v8 ]}"))
+                (expectedSnapshot 8)
+
+            let sends: (int -> unit) list =
+                (fun v -> s |> sendS v) :: [ for c in cells -> fun v -> c |> sendC v ]
+
+            let random = Random(8765)
+
+            for i in 1..500 do
+                // Each input gets a value in this transaction if random.Next(2) gives 0, in a random
+                // sequence. Each value is different. Thus, a value in an incorrect position gives a
+                // different string.
+                let order = [ 0 .. sends.Length - 1 ] |> List.sortBy (fun _ -> random.Next())
+                let send = order |> List.map (fun _ -> random.Next(2) = 0)
+
+                runT (fun () ->
+                    List.zip order send
+                    |> List.iter (fun (k, go) -> if go then sends[k] (i * 10 + k)))
+
+            listeners |> Seq.iter unlistenL
+
+            for name, actual, expected in checks do
+                do! Expect.True(expected.Count > 0, name)
+                do! Expect.Sequence(expected, actual, name)
+        }
+
+    [<Test>]
     member _.``Test MergeOptions``() =
         task {
             let s1 = sinkS ()
