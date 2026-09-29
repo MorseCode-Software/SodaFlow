@@ -1127,7 +1127,7 @@ let snapshotLatest8B (behavior1: Behavior<_>) behavior2 behavior3 behavior4 beha
 ///     This samples and does not merge. Only the stream causes the firing. An update of the cells
 ///     alone does not. Each sampled value is the value at the end of the transaction of that
 ///     firing. Thus, a cell that the same transaction updates gives its new value, where
-///     <c>snapshot7</c> gives its previous value. Unlike <c>snapshot7</c>, this cannot close a
+///     <c>snapshot8</c> gives its previous value. Unlike <c>snapshot8</c>, this cannot close a
 ///     loop. Do not give a cell that the result updates in the same transaction.
 /// </remarks>
 [<MethodImpl(MethodImplOptions.NoInlining)>]

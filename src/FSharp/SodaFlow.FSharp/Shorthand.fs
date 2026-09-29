@@ -1153,11 +1153,11 @@ let inline snapshotLatest7C cell1 cell2 cell3 cell4 cell5 cell6 cell7 f stream =
 /// A stream firing <paramref name="f" /> applied to the fired value and the eight sampled values.
 /// </returns>
 /// <remarks>
-/// Shorthand for <c>Stream.snapshotLatest7B</c>. See it for the full contract.
+/// Shorthand for <c>Stream.snapshotLatest8B</c>. See it for the full contract.
 ///
 /// This samples and does not merge. Only the stream causes the firing. Each sampled value is the
 /// value at the end of the transaction of that firing. Thus, a behavior that the same transaction
-/// updates gives its new value, where <c>snapshot7B</c> gives its previous value. This cannot close
+/// updates gives its new value, where <c>snapshot8B</c> gives its previous value. This cannot close
 /// a loop.
 /// </remarks>
 let inline snapshotLatest8B behavior1 behavior2 behavior3 behavior4 behavior5 behavior6 behavior7 behavior8 f stream =
@@ -1180,11 +1180,11 @@ let inline snapshotLatest8B behavior1 behavior2 behavior3 behavior4 behavior5 be
 /// A stream firing <paramref name="f" /> applied to the fired value and the eight sampled values.
 /// </returns>
 /// <remarks>
-/// Shorthand for <c>Stream.snapshotLatest7</c>. See it for the full contract.
+/// Shorthand for <c>Stream.snapshotLatest8</c>. See it for the full contract.
 ///
 /// This samples and does not merge. Only the stream causes the firing. Each sampled value is the
 /// value at the end of the transaction of that firing. Thus, a cell that the same transaction
-/// updates gives its new value, where <c>snapshot7C</c> gives its previous value. This cannot close
+/// updates gives its new value, where <c>snapshot8C</c> gives its previous value. This cannot close
 /// a loop.
 /// </remarks>
 let inline snapshotLatest8C cell1 cell2 cell3 cell4 cell5 cell6 cell7 cell8 f stream =
