@@ -39,7 +39,6 @@
     </ItemGroup>
 
     <ItemGroup>
-        <Compile Include="Utils.fs"/>
         <Compile Include="Transaction.fs"/>
         <Compile Include="Listener.fs"/>
         <Compile Include="StreamSink.fs"/>

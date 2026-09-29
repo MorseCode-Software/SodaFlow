@@ -38,39 +38,39 @@ handlers, timers, and network callbacks; everything downstream stays pure.
 
 ## Stream operations
 
-| C# | F# alias | Meaning                                                                                                                                                |
-| --- | --- |--------------------------------------------------------------------------------------------------------------------------------------------------------|
-| `s.Map(f)` | `mapS f s` | Transform each value.                                                                                                                                  |
-| `s.MapTo(v)` | `mapToS v s` | Replace each value with a constant.                                                                                                                    |
-| `s.Filter(pred)` | `filterS pred s` | Drop firings failing the predicate.                                                                                                                    |
-| `s.FilterSome()` | `filterSomeS s` | Unwrap `Maybe<T>` / `option`, dropping empties.                                                                                                        |
-| `s.Choose(f)` | `chooseS f s` | Map and filter in one step: fire only the values `f` produced.                                                                                         |
-| `s.Merge(s2, f)` | `mergeS f (s, s2)` | Combine two streams; `f` resolves simultaneous firings.                                                                                                |
-| `s.OrElse(s2)` | `orElseS (s, s2)` | Combine two streams; on simultaneity the left wins.                                                                                                    |
+| C# | F# alias | Meaning |
+| --- | --- | --- |
+| `s.Map(f)` | `mapS f s` | Transform each value. |
+| `s.MapTo(v)` | `mapToS v s` | Replace each value with a constant. |
+| `s.Filter(pred)` | `filterS pred s` | Drop firings failing the predicate. |
+| `s.FilterSome()` | `filterSomeS s` | Unwrap `Maybe<T>` / `option`, dropping empties. |
+| `s.Choose(f)` | `chooseS f s` | Map and filter in one step: fire only the values `f` produced. |
+| `s.Merge(s2, f)` | `mergeS f (s, s2)` | Combine two streams; `f` resolves simultaneous firings. |
+| `s.OrElse(s2)` | `orElseS (s, s2)` | Combine two streams; on simultaneity the left wins. |
 | `s.Merge(s2)` | `mergeOptions2S (s, s2)` | Combine streams of different types into a tuple of `Maybe<T>` / `option`, one element per stream, set for each stream that fired. Up to eight streams. |
-| `streams.Merge(f)` | `mergeAllS f streams` | Merge a collection of streams.                                                                                                                         |
-| `streams.OrElse()` | `orElseAllS streams` | Left-biased merge of a collection.                                                                                                                     |
-| `s.Hold(initial)` | `holdS initial s` | Turn into a cell remembering the latest value.                                                                                                         |
-| `s.HoldLazy(lazy)` | `holdLazyS v s` | As above with a lazy initial value.                                                                                                                    |
-| `s.Snapshot(c)` | `snapshotAndTakeC c s` | On each firing, take the cell's value, discarding the stream's.                                                                                        |
-| `s.Snapshot(c, f)` | `snapshotC c f s` | On each firing, combine the stream value with the cell's.                                                                                              |
-| `s.Snapshot(c1, c2, f)` | `snapshot2C c1 c2 f s` | Same, over more cells (up to 8).                                                                                                                       |
-| `s.SnapshotLatest(c)` | `snapshotLatestAndTakeC c s` | Like `Snapshot(c)`, but sees the cell's value after this transaction.                                                                                  |
-| `s.SnapshotLatest(c, f)` | `snapshotLatestC c f s` | Like `Snapshot(c, f)`, but sees the cell's value after this transaction.                                                                               |
-| `s.SnapshotLatest(c1, c2, f)` | `snapshotLatest2C c1 c2 f s` | Same, over more cells (up to 7).                                                                                                                       |
-| `s.Gate(c)` | `gateC c s` | Drop firings while a `Cell<bool>` is false.                                                                                                            |
-| `s.Calm()` | `calmS s` | Suppress firings equal to the previous one.                                                                                                            |
-| `s.Calm(comparer)` | `calmWithEqualityComparerS cmp s` | As above with an explicit comparer.                                                                                                                    |
-| `s.Accum(initial, f)` | `accumS initial f s` | Fold into a **cell** holding the accumulated state.                                                                                                    |
-| `s.AccumLazy(initial, f)` | `accumLazyS initial f s` | As above with a `Lazy<T>` initial state, for a fold whose starting value comes from the graph it is part of.                                           |
-| `s.Collect(initial, f)` | `collectS initial f s` | Mealy machine: emit an output and a new state.                                                                                                         |
-| `s.CollectLazy(initial, f)` | `collectLazyS initial f s` | As above with a `Lazy<T>` initial state.                                                                                                               |
-| `s.Once()` | `onceS s` | Only the next firing, then never again.                                                                                                                |
-| `s.Listen(handler)` | `listenS handler s` | Subscribe. Returns `IWeakListener`; does **not** keep the graph alive.                                                                                 |
-| `s.ListenStrong(handler)` | `listenStrongS handler s` | Subscribe and keep the graph alive. Returns `IStrongListener`.                                                                                         |
-| `s.ListenOnce(handler)` | `listenOnceS handler s` | Subscribe, then unsubscribe after one firing. Returns `IWeakListener`; does **not** keep the graph alive.                                              |
-| `s.ListenOnceStrong(handler)` | `listenOnceStrongS handler s` | As above, keeping the graph alive until that firing. Returns `IStrongListener`.                                                                        |
-| `s.ListenOnceAsync()` | `listenOnceAsyncS s` | The next firing as a `Task<T>`.                                                                                                                        |
+| `streams.Merge(f)` | `mergeAllS f streams` | Merge a collection of streams. |
+| `streams.OrElse()` | `orElseAllS streams` | Left-biased merge of a collection. |
+| `s.Hold(initial)` | `holdS initial s` | Turn into a cell remembering the latest value. |
+| `s.HoldLazy(lazy)` | `holdLazyS v s` | As above with a lazy initial value. |
+| `s.Snapshot(c)` | `snapshotAndTakeC c s` | On each firing, take the cell's value, discarding the stream's. |
+| `s.Snapshot(c, f)` | `snapshotC c f s` | On each firing, combine the stream value with the cell's. |
+| `s.Snapshot(c1, c2, f)` | `snapshot2C c1 c2 f s` | Same, over more cells (up to 8). |
+| `s.SnapshotLatest(c)` | `snapshotLatestAndTakeC c s` | Like `Snapshot(c)`, but sees the cell's value after this transaction. |
+| `s.SnapshotLatest(c, f)` | `snapshotLatestC c f s` | Like `Snapshot(c, f)`, but sees the cell's value after this transaction. |
+| `s.SnapshotLatest(c1, c2, f)` | `snapshotLatest2C c1 c2 f s` | Same, over more cells (up to 8). |
+| `s.Gate(c)` | `gateC c s` | Drop firings while a `Cell<bool>` is false. |
+| `s.Calm()` | `calmS s` | Suppress firings equal to the previous one. |
+| `s.Calm(comparer)` | `calmWithEqualityComparerS cmp s` | As above with an explicit comparer. |
+| `s.Accum(initial, f)` | `accumS initial f s` | Fold into a **cell** holding the accumulated state. |
+| `s.AccumLazy(initial, f)` | `accumLazyS initial f s` | As above with a `Lazy<T>` initial state, for a fold whose starting value comes from the graph it is part of. |
+| `s.Collect(initial, f)` | `collectS initial f s` | Mealy machine: emit an output and a new state. |
+| `s.CollectLazy(initial, f)` | `collectLazyS initial f s` | As above with a `Lazy<T>` initial state. |
+| `s.Once()` | `onceS s` | Only the next firing, then never again. |
+| `s.Listen(handler)` | `listenS handler s` | Subscribe. Returns `IWeakListener`; does **not** keep the graph alive. |
+| `s.ListenStrong(handler)` | `listenStrongS handler s` | Subscribe and keep the graph alive. Returns `IStrongListener`. |
+| `s.ListenOnce(handler)` | `listenOnceS handler s` | Subscribe, then unsubscribe after one firing. Returns `IWeakListener`; does **not** keep the graph alive. |
+| `s.ListenOnceStrong(handler)` | `listenOnceStrongS handler s` | As above, keeping the graph alive until that firing. Returns `IStrongListener`. |
+| `s.ListenOnceAsync()` | `listenOnceAsyncS s` | The next firing as a `Task<T>`. |
 
 The `Snapshot` family is the workhorse. `Gate` is `Snapshot` plus `Filter`; `MapTo` is `Map`
 with a constant. Reach for the specific one — it reads better and does less work.
@@ -79,7 +79,7 @@ with a constant. Reach for the specific one — it reads better and does less wo
 read its own last state. When a change of one cell should read another cell *after* the same
 change, use `SnapshotLatest`: `c1.Values().SnapshotLatest(c2, f)` fires only when `c1` changes,
 and gives `c2`'s new value if the same transaction also updated `c2`. It cannot close a loop. It
-takes up to seven cells; beyond that, give it a cell from `Lift`, whose value inside a transaction
+takes up to eight cells; beyond that, give it a cell from `Lift`, whose value inside a transaction
 is already the new one.
 
 ## Cell operations

@@ -328,9 +328,9 @@ let lift6 f (cell: Cell<_>, cell2, cell3, cell4, cell5, cell6) =
 ///     There is no glitch. When some of the inputs change in one transaction, the result updates one
 ///     time, with each new value, and not one time for each input.
 /// </remarks>
-let lift7 f (cell, cell2, cell3, cell4, cell5, cell6, cell7) =
-    ((cell, cell2, cell3, cell4, cell5, cell6) |> lift6 tuple6S, cell7)
-    |> lift2 (fun struct (a, b, c, d, e, f') -> f a b c d e f')
+[<MethodImpl(MethodImplOptions.NoInlining)>]
+let lift7 f (cell: Cell<_>, cell2, cell3, cell4, cell5, cell6, cell7) =
+    cell.LiftImpl(cell2, cell3, cell4, cell5, cell6, cell7, Func<_, _, _, _, _, _, _, _> f)
 
 /// <summary>
 ///     Combines eight cells into one whose value is a function of all of theirs.
@@ -352,9 +352,9 @@ let lift7 f (cell, cell2, cell3, cell4, cell5, cell6, cell7) =
 ///     There is no glitch. When some of the inputs change in one transaction, the result updates one
 ///     time, with each new value, and not one time for each input.
 /// </remarks>
-let lift8 f (cell, cell2, cell3, cell4, cell5, cell6, cell7, cell8) =
-    ((cell, cell2, cell3, cell4, cell5, cell6) |> lift6 tuple6S, cell7, cell8)
-    |> lift3 (fun struct (a, b, c, d, e, f') -> f a b c d e f')
+[<MethodImpl(MethodImplOptions.NoInlining)>]
+let lift8 f (cell: Cell<_>, cell2, cell3, cell4, cell5, cell6, cell7, cell8) =
+    cell.LiftImpl(cell2, cell3, cell4, cell5, cell6, cell7, cell8, Func<_, _, _, _, _, _, _, _, _> f)
 
 /// <summary>
 ///     Suppresses updates whose value the given function considers equal to the last one that got

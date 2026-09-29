@@ -69,8 +69,7 @@ one value of that type. This Merge keeps each value, and no stream has priority.
 
 Lift takes up to eight cells or up to eight behaviors, where it took up to six.
 Snapshot takes up to eight cells or up to eight behaviors, where it took up to
-four. With the value of the stream, its function gets eight values, as the
-function of the widest Lift does. SnapshotLatest has the same limit.
+four. SnapshotLatest has the same limit.
 
 Fixed: TimerSystem.At no longer holds an alarm alive through the cell it reads.
 It listened to that cell with a strong listener, which the keep-alive set of the

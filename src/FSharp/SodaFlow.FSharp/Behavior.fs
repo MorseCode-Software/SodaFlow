@@ -254,11 +254,17 @@ let lift6 f (behavior: Behavior<_>, behavior2, behavior3, behavior4, behavior5, 
 ///     There is no glitch. When some of the inputs change in one transaction, the result updates one
 ///     time, with each new value, and not one time for each input.
 /// </remarks>
-let lift7 f (behavior, behavior2, behavior3, behavior4, behavior5, behavior6, behavior7) =
-    ((behavior, behavior2, behavior3, behavior4, behavior5, behavior6)
-     |> lift6 tuple6S,
-     behavior7)
-    |> lift2 (fun struct (a, b, c, d, e, f') g -> f a b c d e f' g)
+[<MethodImpl(MethodImplOptions.NoInlining)>]
+let lift7 f (behavior: Behavior<_>, behavior2, behavior3, behavior4, behavior5, behavior6, behavior7) =
+    behavior.LiftImpl(
+        behavior2,
+        behavior3,
+        behavior4,
+        behavior5,
+        behavior6,
+        behavior7,
+        Func<_, _, _, _, _, _, _, _> f
+    )
 
 /// <summary>
 ///     Combines eight behaviors into one whose value is a function of all of theirs.
@@ -280,12 +286,21 @@ let lift7 f (behavior, behavior2, behavior3, behavior4, behavior5, behavior6, be
 ///     There is no glitch. When some of the inputs change in one transaction, the result updates one
 ///     time, with each new value, and not one time for each input.
 /// </remarks>
-let lift8 f (behavior, behavior2, behavior3, behavior4, behavior5, behavior6, behavior7, behavior8) =
-    ((behavior, behavior2, behavior3, behavior4, behavior5, behavior6)
-     |> lift6 tuple6S,
-     behavior7,
-     behavior8)
-    |> lift3 (fun struct (a, b, c, d, e, f') g h -> f a b c d e f' g h)
+[<MethodImpl(MethodImplOptions.NoInlining)>]
+let lift8
+    f
+    (behavior: Behavior<_>, behavior2, behavior3, behavior4, behavior5, behavior6, behavior7, behavior8)
+    =
+    behavior.LiftImpl(
+        behavior2,
+        behavior3,
+        behavior4,
+        behavior5,
+        behavior6,
+        behavior7,
+        behavior8,
+        Func<_, _, _, _, _, _, _, _, _> f
+    )
 
 [<MethodImpl(MethodImplOptions.NoInlining)>]
 let private liftAllCollection f (behaviors: IReadOnlyCollection<'Behavior>) =
