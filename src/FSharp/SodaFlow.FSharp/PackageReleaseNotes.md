@@ -69,9 +69,10 @@ from one of the other lift functions. In a transaction, a lifted cell has the
 new value.
 
 Adds mergeOptions2 to mergeOptions8, with the shorthand mergeOptions2S to
-mergeOptions8S. Each one merges two to eight streams of different types. The result is a stream of struct tuples with
-one option for each stream, in the sequence of the arguments. It fires in each
-transaction in which one or more of the streams fire. Each element is Some with
+mergeOptions8S. Each one merges two to eight streams of different types. The
+result is a stream of struct tuples with one option for each stream, in the
+sequence of the arguments. It fires in each transaction in which one or more of
+the streams fire. Each element is Some with
 the value of its stream if that stream fired, and None if it did not. Thus, one
 or more elements are Some. merge must have streams of one type, and it must put
 simultaneous values into one value of that type. mergeOptions keeps each value,
@@ -80,6 +81,12 @@ and no stream has priority.
 The result is a struct tuple, as the state and the output of collect are. A
 merged stream can fire in a large number of transactions, and a struct tuple
 does not allocate a tuple for each firing.
+
+lift7, lift8, and snapshot5 to snapshot8, with their B forms, now call the
+Core form for their count, as lift6 and snapshot4 do. Before, each one put
+together narrower lifts or snapshots through a struct tuple, which made more
+streams and a tuple each time one of them fired. The values that they give
+do not change.
 
 Fixed: the At member of the timer system no longer holds an alarm alive
 through the cell it reads. It listened to that cell with a strong listener,
