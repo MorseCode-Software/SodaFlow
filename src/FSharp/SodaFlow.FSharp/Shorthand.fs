@@ -750,8 +750,29 @@ let inline snapshot7C cell1 cell2 cell3 cell4 cell5 cell6 cell7 f stream =
 /// transaction updates gives its previous value. The result does not change when the graph
 /// operates in a different sequence.
 /// </remarks>
-let inline snapshot8B behavior1 behavior2 behavior3 behavior4 behavior5 behavior6 behavior7 behavior8 f stream =
-    Stream.snapshot8B behavior1 behavior2 behavior3 behavior4 behavior5 behavior6 behavior7 behavior8 f stream
+let inline snapshot8B
+    behavior1
+    behavior2
+    behavior3
+    behavior4
+    behavior5
+    behavior6
+    behavior7
+    behavior8
+    f
+    stream
+    =
+    Stream.snapshot8B
+        behavior1
+        behavior2
+        behavior3
+        behavior4
+        behavior5
+        behavior6
+        behavior7
+        behavior8
+        f
+        stream
 
 /// <summary>
 /// Samples eight cells when the stream fires, and fires the combination.
@@ -1160,8 +1181,29 @@ let inline snapshotLatest7C cell1 cell2 cell3 cell4 cell5 cell6 cell7 f stream =
 /// updates gives its new value, where <c>snapshot8B</c> gives its previous value. This cannot close
 /// a loop.
 /// </remarks>
-let inline snapshotLatest8B behavior1 behavior2 behavior3 behavior4 behavior5 behavior6 behavior7 behavior8 f stream =
-    Stream.snapshotLatest8B behavior1 behavior2 behavior3 behavior4 behavior5 behavior6 behavior7 behavior8 f stream
+let inline snapshotLatest8B
+    behavior1
+    behavior2
+    behavior3
+    behavior4
+    behavior5
+    behavior6
+    behavior7
+    behavior8
+    f
+    stream
+    =
+    Stream.snapshotLatest8B
+        behavior1
+        behavior2
+        behavior3
+        behavior4
+        behavior5
+        behavior6
+        behavior7
+        behavior8
+        f
+        stream
 
 /// <summary>
 /// Samples the latest values of eight cells when the stream fires, and fires the combination.

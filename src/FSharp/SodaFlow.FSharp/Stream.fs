@@ -512,6 +512,7 @@ let snapshot5B (behavior1: Behavior<_>) behavior2 behavior3 behavior4 behavior5 
 ///     transaction updates gives its previous value. The result does not change when the graph
 ///     operates in a different sequence.
 /// </remarks>
+[<MethodImpl(MethodImplOptions.NoInlining)>]
 let snapshot5 (cell1: Cell<_>) cell2 cell3 cell4 cell5 f (stream: Stream<_>) =
     stream.SnapshotImpl(cell1, cell2, cell3, cell4, cell5, (Func<_, _, _, _, _, _, _> f))
 
@@ -537,8 +538,25 @@ let snapshot5 (cell1: Cell<_>) cell2 cell3 cell4 cell5 f (stream: Stream<_>) =
 ///     operates in a different sequence.
 /// </remarks>
 [<MethodImpl(MethodImplOptions.NoInlining)>]
-let snapshot6B (behavior1: Behavior<_>) behavior2 behavior3 behavior4 behavior5 behavior6 f (stream: Stream<_>) =
-    stream.SnapshotImpl(behavior1, behavior2, behavior3, behavior4, behavior5, behavior6, (Func<_, _, _, _, _, _, _, _> f))
+let snapshot6B
+    (behavior1: Behavior<_>)
+    behavior2
+    behavior3
+    behavior4
+    behavior5
+    behavior6
+    f
+    (stream: Stream<_>)
+    =
+    stream.SnapshotImpl(
+        behavior1,
+        behavior2,
+        behavior3,
+        behavior4,
+        behavior5,
+        behavior6,
+        Func<_, _, _, _, _, _, _, _> f
+    )
 
 /// <summary>
 ///     Samples six cells when the stream fires, and fires the combination.
@@ -561,6 +579,7 @@ let snapshot6B (behavior1: Behavior<_>) behavior2 behavior3 behavior4 behavior5 
 ///     transaction updates gives its previous value. The result does not change when the graph
 ///     operates in a different sequence.
 /// </remarks>
+[<MethodImpl(MethodImplOptions.NoInlining)>]
 let snapshot6 (cell1: Cell<_>) cell2 cell3 cell4 cell5 cell6 f (stream: Stream<_>) =
     stream.SnapshotImpl(cell1, cell2, cell3, cell4, cell5, cell6, (Func<_, _, _, _, _, _, _, _> f))
 
@@ -587,8 +606,27 @@ let snapshot6 (cell1: Cell<_>) cell2 cell3 cell4 cell5 cell6 f (stream: Stream<_
 ///     operates in a different sequence.
 /// </remarks>
 [<MethodImpl(MethodImplOptions.NoInlining)>]
-let snapshot7B (behavior1: Behavior<_>) behavior2 behavior3 behavior4 behavior5 behavior6 behavior7 f (stream: Stream<_>) =
-    stream.SnapshotImpl(behavior1, behavior2, behavior3, behavior4, behavior5, behavior6, behavior7, (Func<_, _, _, _, _, _, _, _, _> f))
+let snapshot7B
+    (behavior1: Behavior<_>)
+    behavior2
+    behavior3
+    behavior4
+    behavior5
+    behavior6
+    behavior7
+    f
+    (stream: Stream<_>)
+    =
+    stream.SnapshotImpl(
+        behavior1,
+        behavior2,
+        behavior3,
+        behavior4,
+        behavior5,
+        behavior6,
+        behavior7,
+        Func<_, _, _, _, _, _, _, _, _> f
+    )
 
 /// <summary>
 ///     Samples seven cells when the stream fires, and fires the combination.
@@ -612,6 +650,7 @@ let snapshot7B (behavior1: Behavior<_>) behavior2 behavior3 behavior4 behavior5 
 ///     transaction updates gives its previous value. The result does not change when the graph
 ///     operates in a different sequence.
 /// </remarks>
+[<MethodImpl(MethodImplOptions.NoInlining)>]
 let snapshot7 (cell1: Cell<_>) cell2 cell3 cell4 cell5 cell6 cell7 f (stream: Stream<_>) =
     stream.SnapshotImpl(cell1, cell2, cell3, cell4, cell5, cell6, cell7, (Func<_, _, _, _, _, _, _, _, _> f))
 
@@ -639,8 +678,29 @@ let snapshot7 (cell1: Cell<_>) cell2 cell3 cell4 cell5 cell6 cell7 f (stream: St
 ///     operates in a different sequence.
 /// </remarks>
 [<MethodImpl(MethodImplOptions.NoInlining)>]
-let snapshot8B (behavior1: Behavior<_>) behavior2 behavior3 behavior4 behavior5 behavior6 behavior7 behavior8 f (stream: Stream<_>) =
-    stream.SnapshotImpl(behavior1, behavior2, behavior3, behavior4, behavior5, behavior6, behavior7, behavior8, (Func<_, _, _, _, _, _, _, _, _, _> f))
+let snapshot8B
+    (behavior1: Behavior<_>)
+    behavior2
+    behavior3
+    behavior4
+    behavior5
+    behavior6
+    behavior7
+    behavior8
+    f
+    (stream: Stream<_>)
+    =
+    stream.SnapshotImpl(
+        behavior1,
+        behavior2,
+        behavior3,
+        behavior4,
+        behavior5,
+        behavior6,
+        behavior7,
+        behavior8,
+        Func<_, _, _, _, _, _, _, _, _, _> f
+    )
 
 /// <summary>
 ///     Samples eight cells when the stream fires, and fires the combination.
@@ -665,8 +725,19 @@ let snapshot8B (behavior1: Behavior<_>) behavior2 behavior3 behavior4 behavior5 
 ///     transaction updates gives its previous value. The result does not change when the graph
 ///     operates in a different sequence.
 /// </remarks>
+[<MethodImpl(MethodImplOptions.NoInlining)>]
 let snapshot8 (cell1: Cell<_>) cell2 cell3 cell4 cell5 cell6 cell7 cell8 f (stream: Stream<_>) =
-    stream.SnapshotImpl(cell1, cell2, cell3, cell4, cell5, cell6, cell7, cell8, (Func<_, _, _, _, _, _, _, _, _, _> f))
+    stream.SnapshotImpl(
+        cell1,
+        cell2,
+        cell3,
+        cell4,
+        cell5,
+        cell6,
+        cell7,
+        cell8,
+        Func<_, _, _, _, _, _, _, _, _, _> f
+    )
 
 /// <summary>
 ///     Samples the latest value of a cell when the stream fires, and fires the combination.
@@ -949,7 +1020,16 @@ let snapshotLatest5 (cell1: Cell<_>) cell2 cell3 cell4 cell5 f (stream: Stream<_
 ///     loop. Do not give a behavior that the result updates in the same transaction.
 /// </remarks>
 [<MethodImpl(MethodImplOptions.NoInlining)>]
-let snapshotLatest6B (behavior1: Behavior<_>) behavior2 behavior3 behavior4 behavior5 behavior6 f (stream: Stream<_>) =
+let snapshotLatest6B
+    (behavior1: Behavior<_>)
+    behavior2
+    behavior3
+    behavior4
+    behavior5
+    behavior6
+    f
+    (stream: Stream<_>)
+    =
     stream.SnapshotLatestImpl(
         behavior1,
         behavior2,
@@ -1019,7 +1099,17 @@ let snapshotLatest6 (cell1: Cell<_>) cell2 cell3 cell4 cell5 cell6 f (stream: St
 ///     loop. Do not give a behavior that the result updates in the same transaction.
 /// </remarks>
 [<MethodImpl(MethodImplOptions.NoInlining)>]
-let snapshotLatest7B (behavior1: Behavior<_>) behavior2 behavior3 behavior4 behavior5 behavior6 behavior7 f (stream: Stream<_>) =
+let snapshotLatest7B
+    (behavior1: Behavior<_>)
+    behavior2
+    behavior3
+    behavior4
+    behavior5
+    behavior6
+    behavior7
+    f
+    (stream: Stream<_>)
+    =
     stream.SnapshotLatestImpl(
         behavior1,
         behavior2,
@@ -1093,7 +1183,18 @@ let snapshotLatest7 (cell1: Cell<_>) cell2 cell3 cell4 cell5 cell6 cell7 f (stre
 ///     loop. Do not give a behavior that the result updates in the same transaction.
 /// </remarks>
 [<MethodImpl(MethodImplOptions.NoInlining)>]
-let snapshotLatest8B (behavior1: Behavior<_>) behavior2 behavior3 behavior4 behavior5 behavior6 behavior7 behavior8 f (stream: Stream<_>) =
+let snapshotLatest8B
+    (behavior1: Behavior<_>)
+    behavior2
+    behavior3
+    behavior4
+    behavior5
+    behavior6
+    behavior7
+    behavior8
+    f
+    (stream: Stream<_>)
+    =
     stream.SnapshotLatestImpl(
         behavior1,
         behavior2,
