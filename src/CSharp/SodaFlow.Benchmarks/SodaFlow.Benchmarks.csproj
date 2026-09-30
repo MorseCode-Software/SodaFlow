@@ -6,10 +6,10 @@
              sharply between them. Benchmarks declare the runtimes they run on as jobs, so a
              single run reports each; this pair is what those jobs are built from.
 
-             Not net60, for the reason it never was: a project reference resolves to the
-             libraries' net60 assets whatever the modern target here is, so the assembly measured
+             Not net6.0, for the reason it never was: a project reference resolves to the
+             libraries' net6.0 assets whatever the modern target here is, so the assembly measured
              is the one a consumer gets either way, while the runtime running it is one still in
-             support. Targeting net60 here costs six warnings - its own end-of-life notice, and
+             support. Targeting net6.0 here costs six warnings - its own end-of-life notice, and
              BenchmarkDotNet's dependencies declining to claim support for it.
 
              net10.0 rather than the net8.0 this was, and the reason is entirely about the build

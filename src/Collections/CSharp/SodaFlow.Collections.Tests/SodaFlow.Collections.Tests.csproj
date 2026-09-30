@@ -2,10 +2,10 @@
 
     <PropertyGroup>
         <!--
-            Single-targeted at net472, unlike the sibling source projects' net472;net60;netstandard2.0:
+            Single-targeted at net472, unlike the sibling source projects' net472;net6.0;netstandard2.0:
             dotnet test needs one concrete assembly to run, and net472 is what matches the rest of
             this solution's own target — a netstandard2.0 build wouldn't be runnable at all, and
-            nothing here exercises a net60 one.
+            nothing here exercises a net6.0 one.
         -->
         <TargetFrameworks>net10.0;net472</TargetFrameworks>
         <OutputType>Exe</OutputType>

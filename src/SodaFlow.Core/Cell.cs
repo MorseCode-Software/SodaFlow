@@ -37,7 +37,7 @@ public class Cell<T>
     // transaction lock. A release without an acquire gives that reader no guarantee. The reader could see the reference from this
     // write and then read the fields of the Stream from a stale cache. This is the usual
     // double-checked locking problem. The x86 and x64 architectures prevent the sequence change
-    // that shows it, but arm64 does not. Consumers of net60 and netstandard2.0 run on arm64.
+    // that shows it, but arm64 does not. Consumers of net6.0 and netstandard2.0 run on arm64.
     //
     // A stale null is not a defect, because the reader then takes the slow path and gets the
     // same answer. Volatile prevents the incomplete Stream.

@@ -10,9 +10,8 @@
         "compiled shape (modules as static classes, FSharpFunc in every signature), and those",
         "assemblies carry no /// comments to render anyway. See docs/fsharp-api.md.",
         "",
-        "TargetFramework is pinned because every project here multi-targets net472, net60 and",
-        "netstandard2.0. Without pinning, DocFX builds all three and emits duplicate members.",
-        "net60 is the alias these projects use for net6.0; the output folder is literally 'net60'."
+        "TargetFramework is pinned because every project here multi-targets net472, net6.0 and",
+        "netstandard2.0. Without pinning, DocFX builds all three and emits duplicate members."
       ],
       "src": [
         {
@@ -32,7 +31,7 @@
       ],
       "dest": "api",
       "properties": {
-        "TargetFramework": "net60",
+        "TargetFramework": "net6.0",
         "Configuration": "Release"
       },
       "memberLayout": "separatePages",

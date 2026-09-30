@@ -22,7 +22,7 @@ This means that there are no glitches, no ordering bugs, and no manual subscript
 | `SodaFlow.Bindable.ObjectModel`<br>[![Latest Stable Version](https://img.shields.io/nuget/v/SodaFlow.Bindable.ObjectModel.svg)](http://www.nuget.org/packages/SodaFlow.Bindable.ObjectModel/) | `SodaFlow.FSharp.Bindable.ObjectModel`<br>[![Latest Stable Version](https://img.shields.io/nuget/v/SodaFlow.FSharp.Bindable.ObjectModel.svg)](http://www.nuget.org/packages/SodaFlow.FSharp.Bindable.ObjectModel/) | Bindable support for XAML UIs. |
 | `SodaFlow.Collections`<br>[![Latest Stable Version](https://img.shields.io/nuget/v/SodaFlow.Collections.svg)](http://www.nuget.org/packages/SodaFlow.Collections/) | `SodaFlow.FSharp.Collections`<br>[![Latest Stable Version](https://img.shields.io/nuget/v/SodaFlow.FSharp.Collections.svg)](http://www.nuget.org/packages/SodaFlow.FSharp.Collections/) | Large keyed collections with per-item observation. |
 
-All libraries target `net472`, `net60`, and `netstandard2.0`.
+All libraries target `net472`, `net6.0`, and `netstandard2.0`.
 
 NOTE: `Sodium.Functional` is only needed by the C# libraries, as it provides types that are built-in to F#.  Whereas C# uses `Maybe`, `Either`, and `Unit` from this package,
 the F# libraries simply use the built-in types `option`, discriminated unions, and `unit` respectively.
