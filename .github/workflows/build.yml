@@ -95,7 +95,7 @@ jobs:
   # that will never report - so any rename here has to be paired with a ruleset change.
   build:
     name: Build
-    # Windows because src targets net472 alongside net60 and netstandard2.0, and the test projects
+    # Windows because src targets net472 alongside net6.0 and netstandard2.0, and the test projects
     # target net472 alongside net10.0. The .NET Framework reference assemblies come from a package
     # rather than an installed targeting pack - see src/Directory.Build.props - so this is a choice
     # about running the net472 tests, not about being able to build them.
@@ -126,7 +126,7 @@ jobs:
           #
           # 6.0 is the one thing genuinely missing: no 6.0 SDK, no 6.0 runtime, and - the part that
           # matters - no 6.0 entry under the reference packs on disk. That absence is why the lock
-          # files record no framework package for net60: with the SDK installed the pack is found
+          # files record no framework package for net6.0: with the SDK installed the pack is found
           # locally and nothing is downloaded. Drop this and the build has to fetch
           # Microsoft.NETCore.App.Ref from NuGet, which is a package appearing where the lock file
           # expects none - the shape of NU1004 that a locked restore refuses. Dropping it means

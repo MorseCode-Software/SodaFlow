@@ -41,7 +41,7 @@ jobs:
 
       - uses: actions/setup-dotnet@v6
         with:
-          # 6.0 for the net60 target the docs are generated against, 8.0 to run DocFX itself.
+          # 6.0 for the net6.0 target the docs are generated against, 8.0 to run DocFX itself.
           dotnet-version: |
             6.0.x
             8.0.x
@@ -49,7 +49,7 @@ jobs:
       - name: Restore tools
         run: dotnet tool restore
 
-      # Only the projects DocFX extracts, and only their net60 target. Building the whole
+      # Only the projects DocFX extracts, and only their net6.0 target. Building the whole
       # solution here would fail: it also targets net472, which needs Windows.
       - name: Restore projects
         run: |

@@ -1,7 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
     <PropertyGroup>
-        <TargetFrameworks>net472;net60;netstandard2.0</TargetFrameworks>
+        <TargetFrameworks>net472;net6.0;netstandard2.0</TargetFrameworks>
         <!--
             Nullable annotations are missing from the net472 and netstandard2.0 reference assemblies,
             which is why a few calls carry a suppression that reads as unnecessary against net6.0
