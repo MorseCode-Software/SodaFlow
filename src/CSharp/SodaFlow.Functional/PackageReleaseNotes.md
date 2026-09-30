@@ -1,3 +1,10 @@
+3.0.2
+
+The documentation comments are rewritten in Simplified Technical English, and
+the ones that the rewrite damaged are repaired. Only the comments changed since
+3.0.1: the compiled code is the same, and the XML documentation file that ships
+beside the assembly is what differs.
+
 3.0.1
 
 Adds the package icon that nuget.org shows beside this package.

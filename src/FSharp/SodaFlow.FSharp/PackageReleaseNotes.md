@@ -1,3 +1,13 @@
+5.0.1
+
+lift7, lift8, and snapshot5 to snapshot8, with their B forms, now call the
+Core form for their count, as lift6 and snapshot4 do. Before, each one put
+together narrower lifts or snapshots through a struct tuple, which made more
+streams and a tuple each time one of them fired. The values that they give
+do not change.
+
+No public signature changes, and no dependency version changes.
+
 5.0.0
 
 Adds Time.debounce, and debounceS in the shorthand module, which fires the last
@@ -81,12 +91,6 @@ and no stream has priority.
 The result is a struct tuple, as the state and the output of collect are. A
 merged stream can fire in a large number of transactions, and a struct tuple
 does not allocate a tuple for each firing.
-
-lift7, lift8, and snapshot5 to snapshot8, with their B forms, now call the
-Core form for their count, as lift6 and snapshot4 do. Before, each one put
-together narrower lifts or snapshots through a struct tuple, which made more
-streams and a tuple each time one of them fired. The values that they give
-do not change.
 
 Fixed: the At member of the timer system no longer holds an alarm alive
 through the cell it reads. It listened to that cell with a strong listener,
