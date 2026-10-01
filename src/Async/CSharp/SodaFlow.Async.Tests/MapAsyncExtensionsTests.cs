@@ -1732,6 +1732,41 @@ public sealed class MapAsyncExtensionsTests
     }
 
     [Test]
+    public async Task ExecuteWithAMaybeCell_WhereTheInputTypeIsMaybe_TakesANestedMaybe()
+    {
+        StreamSink<Maybe<string>> source = Stream.CreateSink<Maybe<string>>();
+        StreamSink<string> results = Stream.CreateSink<string>();
+        StreamSink<Exception> errors = Stream.CreateSink<Exception>();
+        CellSink<Maybe<Maybe<string>>> someNone = Cell.CreateSink(Maybe.Some(Maybe<string>.None));
+        CellSink<Maybe<Maybe<string>>> none = Cell.CreateSink(Maybe<Maybe<string>>.None);
+
+        AsyncMapStatus<Maybe<string>, string> status =
+            source.MapAsync(
+                results: results,
+                errors: errors,
+                operation: static (v, factory, _) =>
+                    Task.FromResult(
+                        factory.FromValue(v.Match(onSome: static s => s, onNone: static () => "none"))),
+                strategy: AsyncConcurrencyStrategy.Parallel());
+
+        // Here the cell holds a Maybe of the TInput, thus the overload for a Maybe takes the call.
+        Task<Maybe<string>> admitted = status.Execute(someNone);
+        Task<Maybe<string>> skipped = status.Execute(none);
+
+        TestUtil.WaitUntil(() => admitted.IsCompleted && skipped.IsCompleted);
+
+        await Assert.That(await admitted)
+            .IsEqualTo(Maybe.Some("none"))
+            .Because("Some None admits the value None");
+
+        await Assert.That(await skipped)
+            .IsEqualTo(Maybe<string>.None)
+            .Because("None admits nothing");
+
+        status.Dispose();
+    }
+
+    [Test]
     public async Task Execute_RunsOneMapAsyncFromTheOperationOfAnother()
     {
         StreamSink<string> outerSource = Stream.CreateSink<string>();
