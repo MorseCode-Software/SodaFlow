@@ -1,3 +1,16 @@
+5.0.1
+
+No public API change. Adds the internal path that the Execute overload for a
+Cell<Maybe<TInput>> in SodaFlow.Async 5.1.0 uses. That path reads an optional
+input in the transaction of the send, and admits nothing where the input is
+missing.
+
+The pipeline now holds an internal completion type for each Execute call, where
+it held a TaskCompletionSource<TResult>. Thus, the Task of a call can have a
+type that is not TResult, and the pipeline sets it in the transaction that
+publishes, with no added continuation. The Execute overloads that were here
+before behave as they did.
+
 5.0.0
 
 Adds Execute, which puts one value into a pipeline and answers with the Task of

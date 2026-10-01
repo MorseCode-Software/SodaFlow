@@ -176,17 +176,20 @@ public sealed class AsyncMapStatus<TInput, TResult> : AsyncMapStatus<TInput>
 {
     private readonly Func<TInput, Task<TResult>> execute;
     private readonly Func<Cell<TInput>, Task<TResult>> executeCell;
+    private readonly ExecuteIfSomeAction<TInput, TResult> executeIfSome;
 
     internal AsyncMapStatus(
         Cell<bool> isRunning,
         Cell<IReadOnlyList<AsyncItem<TInput>>> items,
         Action dispose,
         Func<TInput, Task<TResult>> execute,
-        Func<Cell<TInput>, Task<TResult>> executeCell)
+        Func<Cell<TInput>, Task<TResult>> executeCell,
+        ExecuteIfSomeAction<TInput, TResult> executeIfSome)
         : base(isRunning: isRunning, items: items, dispose: dispose)
     {
         this.execute = execute;
         this.executeCell = executeCell;
+        this.executeIfSome = executeIfSome;
     }
 
     /// <summary>
@@ -265,6 +268,17 @@ public sealed class AsyncMapStatus<TInput, TResult> : AsyncMapStatus<TInput>
     /// <returns>The Task of the value that the cell gives.</returns>
     /// <exception cref="ArgumentNullException"><paramref name="value" /> is null.</exception>
     public Task<TResult> Execute(Cell<TInput> value) => this.executeCell(value);
+
+    // The Execute path for an input that can be missing. This assembly cannot refer to the Maybe
+    // type of each language, thus each wrapper adds the public overload and calls this method.
+    // `read` runs in the transaction of the send, as the read of the cell does for
+    // Execute(Cell<TInput>). Where it gives no value, the pipeline admits nothing and calls
+    // `onNone` in that transaction.
+    internal void ExecuteIfSome(
+        Func<MaybeInternal<TInput>> read,
+        ExecuteCompletion<TResult> completion,
+        Action onNone) =>
+        this.executeIfSome(read: read, completion: completion, onNone: onNone);
 }
 
 /// <summary>
@@ -320,6 +334,53 @@ public abstract class AsyncMapStatus : IDisposable
         GC.SuppressFinalize(this);
     }
 }
+
+// The answer of one Execute call. The pipeline holds this type and not a TaskCompletionSource,
+// because the Task of a call can have a type that is not TResult. An overload for an optional
+// input gives an optional result, and the change occurs here, in the transaction that publishes.
+// A continuation on a Task<TResult> can do the same change, but it adds an asynchronous step
+// between the result and the caller.
+internal abstract class ExecuteCompletion<TResult>
+{
+    public abstract void TrySetResult(TResult result);
+
+    public abstract void TrySetException(Exception error);
+
+    public abstract void TrySetCanceled();
+}
+
+internal sealed class ExecuteCompletion<TResult, TOutput> : ExecuteCompletion<TResult>
+{
+    private readonly Func<TResult, TOutput> toOutput;
+
+    // RunContinuationsAsynchronously, and it is necessary and not a preference. Flush answers this
+    // source in the transaction that publishes. Without it, the continuation of the caller that
+    // awaits the Task runs there, on that thread. A send from that continuation throws.
+    private readonly TaskCompletionSource<TOutput> source =
+        new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+    public ExecuteCompletion(Func<TResult, TOutput> toOutput) => this.toOutput = toOutput;
+
+    public Task<TOutput> Task => this.source.Task;
+
+    public override void TrySetResult(TResult result) => this.source.TrySetResult(this.toOutput(result));
+
+    public override void TrySetException(Exception error) => this.source.TrySetException(error);
+
+    public override void TrySetCanceled() => this.source.TrySetCanceled();
+
+    // Gives an answer that no result made. The overload for an optional input calls this when it
+    // reads no input.
+    public void TrySetOutput(TOutput output) => this.source.TrySetResult(output);
+}
+
+// The Execute path for an input that can be missing. See ExecuteIfSome on
+// AsyncMapStatus<TInput, TResult>. This is a named delegate and not an Action, because a call can
+// then give each argument with its name.
+internal delegate void ExecuteIfSomeAction<TInput, TResult>(
+    Func<MaybeInternal<TInput>> read,
+    ExecuteCompletion<TResult> completion,
+    Action onNone);
 
 /// <summary>
 ///     The shared base of the two parts of a MapAsync pipeline: the strategy
@@ -1630,7 +1691,7 @@ internal sealed class AsyncMapExecutionManager<TInput, TResult, TStrategyInput> 
 
     private readonly Func<TInput, TStrategyInput> inputConverter;
 
-    // Each value that Execute puts into this pipeline, with the TaskCompletionSource that the
+    // Each value that Execute puts into this pipeline, with the ExecuteCompletion that the
     // Task of that call answers. This sink is private to this manager, thus Execute is the one
     // sender. SendAdmission always sends in a transaction of its own: it opens one where none is
     // open, and it defers where one is. This sink and `source` thus never fire in one transaction.
@@ -1974,7 +2035,8 @@ internal sealed class AsyncMapExecutionManager<TInput, TResult, TStrategyInput> 
             items: items,
             dispose: this.Dispose,
             execute: this.Execute,
-            executeCell: this.ExecuteFromCell);
+            executeCell: this.ExecuteFromCell,
+            executeIfSome: this.ExecuteIfSome);
     }
 
     // This is the one limit in this class where the code starts a Task and does not wait for it.
@@ -2116,21 +2178,14 @@ internal sealed class AsyncMapExecutionManager<TInput, TResult, TStrategyInput> 
         return result;
     }
 
-    /// <summary>
-    ///     Stops this pipeline. See <see cref="AsyncMapStatus.Dispose" /> for the full
-    ///     contract. The cancelOnDispose value at Attach sets the cancellation of the tracked
-    ///     items, and this method has no parameter for it, because IDisposable.Dispose() is the
-    ///     only public path to a disposal. <see cref="disposeState" /> makes this method run one
-    ///     time, because each thread can call it with no SodaFlow transaction open.
-    /// </summary>
-    // The two Execute methods of AsyncMapStatus<TInput, TResult> call these two. The remarks of
+    // The three Execute methods of AsyncMapStatus<TInput, TResult> call these three. The remarks of
     // those methods give the contract, and SendAdmission below gives the mechanism.
     private Task<TResult> Execute(TInput value)
     {
-        TaskCompletionSource<TResult> completion = NewExecuteCompletion();
+        ExecuteCompletion<TResult, TResult> completion = NewExecuteCompletion();
 
-        this.SendAdmission(
-            admission: () => new Admission(value: value, completion: completion),
+        SendAdmission(
+            send: () => this.SendExecuteRequest(value: value, completion: completion),
             completion: completion);
 
         return completion.Task;
@@ -2145,14 +2200,36 @@ internal sealed class AsyncMapExecutionManager<TInput, TResult, TStrategyInput> 
             throw new ArgumentNullException(nameof(value));
         }
 
-        TaskCompletionSource<TResult> completion = NewExecuteCompletion();
+        ExecuteCompletion<TResult, TResult> completion = NewExecuteCompletion();
 
-        this.SendAdmission(
-            admission: () => new Admission(value: value.SampleImpl(), completion: completion),
+        SendAdmission(
+            send: () => this.SendExecuteRequest(value: value.SampleImpl(), completion: completion),
             completion: completion);
 
         return completion.Task;
     }
+
+    // The caller makes `completion`, because the type of its Task is the type of the caller. The
+    // read and the test of the value are in the transaction of the send, for the same cause as in
+    // ExecuteFromCell. Where `read` gives no value at that instant, the call admits nothing. It
+    // does not wait for a value.
+    private void ExecuteIfSome(
+        Func<MaybeInternal<TInput>> read,
+        ExecuteCompletion<TResult> completion,
+        Action onNone) =>
+        SendAdmission(
+            send: () =>
+            {
+                if (read().TryGetValue(out TInput value))
+                {
+                    this.SendExecuteRequest(value: value, completion: completion);
+                }
+                else
+                {
+                    onNone();
+                }
+            },
+            completion: completion);
 
     // Sends one admission of an Execute call, and never in a transaction that other code opened.
     //
@@ -2162,26 +2239,32 @@ internal sealed class AsyncMapExecutionManager<TInput, TResult, TStrategyInput> 
     // transaction open. Execute defers and does not throw, as EndItem does, and the admission gets
     // a transaction of its own.
     //
-    // `admission` makes the value in the transaction of the send and not before it. Thus, the
-    // overload that takes a cell reads that cell in the transaction that admits its value. PostImpl
-    // gives that transaction: it opens one where none is open, and it defers to one where a
-    // transaction is open.
+    // `send` makes the value in the transaction of the send and not before it. Thus, an overload
+    // that takes a cell reads that cell in the transaction that admits its value. PostImpl gives
+    // that transaction: it opens one where none is open, and it defers to one where a transaction
+    // is open.
     //
     // A transaction that fails discards the actions that PostImpl holds. The value then never
     // enters the pipeline, and no end comes for the Task. Thus, this gives PostImpl the release
     // that cancels `completion`, which PostImpl runs where the send does not. TrySetCanceled does
     // nothing where the send ran, thus the two paths cannot disagree.
-    private void SendAdmission(Func<Admission> admission, TaskCompletionSource<TResult> completion) =>
+    private static void SendAdmission(Action send, ExecuteCompletion<TResult> completion) =>
         TransactionInternal.PostImpl(
-            action: () => this.executeRequests.SendImpl(admission()),
+            action: send,
             onFailure: _ => completion.TrySetCanceled());
 
-    private static TaskCompletionSource<TResult> NewExecuteCompletion() =>
-        // RunContinuationsAsynchronously, and it is necessary and not a preference. Flush answers
-        // this source in the transaction that publishes. Without it, the continuation of the caller
-        // that awaits the Task runs there, on that thread. A send from that continuation throws.
-        new(TaskCreationOptions.RunContinuationsAsynchronously);
+    private void SendExecuteRequest(TInput value, ExecuteCompletion<TResult> completion) =>
+        this.executeRequests.SendImpl(new Admission(value: value, completion: completion));
 
+    private static ExecuteCompletion<TResult, TResult> NewExecuteCompletion() => new(static result => result);
+
+    /// <summary>
+    ///     Stops this pipeline. See <see cref="AsyncMapStatus.Dispose" /> for the full
+    ///     contract. The cancelOnDispose value at Attach sets the cancellation of the tracked
+    ///     items, and this method has no parameter for it, because IDisposable.Dispose() is the
+    ///     only public path to a disposal. <see cref="disposeState" /> makes this method run one
+    ///     time, because each thread can call it with no SodaFlow transaction open.
+    /// </summary>
     private void Dispose()
     {
         if (Interlocked.CompareExchange(location1: ref this.disposeState, value: 1, comparand: 0) != 0)
@@ -2469,10 +2552,10 @@ internal sealed class AsyncMapExecutionManager<TInput, TResult, TStrategyInput> 
             // the strategy gets a second end for an item that ended, and starts an item for it.
             List<PendingEnd> live = new();
 
-            // The TaskCompletionSource of each end in `live`, at the same index. An end carries
+            // The ExecuteCompletion of each end in `live`, at the same index. An end carries
             // none, because EndItem gets an item and not an entry, thus this reads it off the entry
             // in the queue.
-            List<TaskCompletionSource<TResult>?> completions = new();
+            List<ExecuteCompletion<TResult>?> completions = new();
 
             // ReSharper disable once LoopCanBeConvertedToQuery - Done for performance reasons.
             // ReSharper disable once ForCanBeConvertedToForeach - Done for performance reasons.
@@ -2561,7 +2644,7 @@ internal sealed class AsyncMapExecutionManager<TInput, TResult, TStrategyInput> 
             for (int i = 0; i < live.Count; i++)
             {
                 PendingEnd end = live[i];
-                TaskCompletionSource<TResult>? completion = completions[i];
+                ExecuteCompletion<TResult>? completion = completions[i];
 
                 if (!publish)
                 {
@@ -2660,7 +2743,7 @@ internal sealed class AsyncMapExecutionManager<TInput, TResult, TStrategyInput> 
     private void Publish(
         MapAsyncResult<TResult> operationResult,
         CancellationToken? tokenToCheck,
-        TaskCompletionSource<TResult>? completion)
+        ExecuteCompletion<TResult>? completion)
     {
         TResult result;
 
@@ -2711,7 +2794,7 @@ internal sealed class AsyncMapExecutionManager<TInput, TResult, TStrategyInput> 
         public CancellationToken? TokenToCheck { get; }
     }
 
-    // One value that this pipeline admits: the value, and the TaskCompletionSource of the Execute
+    // One value that this pipeline admits: the value, and the ExecuteCompletion of the Execute
     // call that gave it. Completion is null for a value from the source stream, which answers
     // through the results stream and the errors stream alone.
     //
@@ -2720,7 +2803,7 @@ internal sealed class AsyncMapExecutionManager<TInput, TResult, TStrategyInput> 
     // protected-internal records of AsyncMapBase into sealed classes, and it does not apply here.
     private readonly struct Admission
     {
-        public Admission(TInput value, TaskCompletionSource<TResult>? completion)
+        public Admission(TInput value, ExecuteCompletion<TResult>? completion)
         {
             this.Value = value;
             this.Completion = completion;
@@ -2728,7 +2811,7 @@ internal sealed class AsyncMapExecutionManager<TInput, TResult, TStrategyInput> 
 
         public TInput Value { get; }
 
-        public TaskCompletionSource<TResult>? Completion { get; }
+        public ExecuteCompletion<TResult>? Completion { get; }
     }
 
     private sealed class Entry
@@ -2737,7 +2820,7 @@ internal sealed class AsyncMapExecutionManager<TInput, TResult, TStrategyInput> 
             TInput value,
             AsyncQueuedItem<TInput> item,
             AsyncTrackedItem<TStrategyInput> tracked,
-            TaskCompletionSource<TResult>? completion)
+            ExecuteCompletion<TResult>? completion)
         {
             this.Value = value;
             this.Item = item;
@@ -2745,9 +2828,9 @@ internal sealed class AsyncMapExecutionManager<TInput, TResult, TStrategyInput> 
             this.Completion = completion;
         }
 
-        // The TaskCompletionSource of the Execute call that gave this value, and null for a value
+        // The ExecuteCompletion of the Execute call that gave this value, and null for a value
         // from the source stream. Flush answers it at the end of this item.
-        public TaskCompletionSource<TResult>? Completion { get; }
+        public ExecuteCompletion<TResult>? Completion { get; }
 
         public TInput Value { get; }
 
