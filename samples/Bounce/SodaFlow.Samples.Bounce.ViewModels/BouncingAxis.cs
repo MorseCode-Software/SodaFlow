@@ -143,25 +143,19 @@ internal static class BouncingAxis
     internal static Maybe<double> NextBounceTime(Flight flight, double min, double max) =>
         TimeToReach(flight: flight, bound: min).Earlier(TimeToReach(flight: flight, bound: max));
 
-    /// <summary>
-    ///     Selects between two moments, and each moment can be missing.
-    /// </summary>
+    /// <summary>The first of the two moments, or the one moment that is available.</summary>
     /// <remarks>
     ///     The two calculations here have the same result: two candidate moments, and each one
-    ///     can be missing. The answer is the first of the two. This is an extension member and not
-    ///     a static method with two maybes, because the subject of the question is one of the two
-    ///     moments. It is private, thus the name of the second moment stays in this file.
+    ///     can be missing. The answer is the first of the two. This is an extension method, because
+    ///     the subject of the question is one of the two moments. It is private, thus the name of
+    ///     the second moment stays in this file.
     /// </remarks>
-    extension(Maybe<double> first)
-    {
-        /// <summary>The first of the two moments, or the one moment that is available.</summary>
-        private Maybe<double> Earlier(Maybe<double> second) =>
-            first.Match(
-                onSome: a => second.Match(
-                    onSome: b => Maybe.Some(Math.Min(val1: a, val2: b)),
-                    onNone: () => Maybe.Some(a)),
-                onNone: () => second);
-    }
+    private static Maybe<double> Earlier(this Maybe<double> first, Maybe<double> second) =>
+        first.Match(
+            onSome: a => second.Match(
+                onSome: b => Maybe.Some(Math.Min(val1: a, val2: b)),
+                onNone: () => Maybe.Some(a)),
+            onNone: () => second);
 
     /// <summary>
     ///     The flight that starts where the given flight touches a bound, in the opposite
