@@ -9,7 +9,7 @@
             nulls, on the other two it is not annotated at all, so the equality operators in Either.cs
             suppress at every one of them.
         -->
-        <LangVersion>latest</LangVersion>
+        <LangVersion>14</LangVersion>
         <Nullable>enable</Nullable>
     </PropertyGroup>
 

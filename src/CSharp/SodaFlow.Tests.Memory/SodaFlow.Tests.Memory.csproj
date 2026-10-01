@@ -8,7 +8,7 @@
         <!-- The usings are listed per file here, as everywhere else in this repository. -->
         <TUnitImplicitUsings>disable</TUnitImplicitUsings>
         <TUnitAssertionsImplicitUsings>disable</TUnitAssertionsImplicitUsings>
-        <LangVersion>latest</LangVersion>
+        <LangVersion>14</LangVersion>
         <Nullable>enable</Nullable>
     </PropertyGroup>
 

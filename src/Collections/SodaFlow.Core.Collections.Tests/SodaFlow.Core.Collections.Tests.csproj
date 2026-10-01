@@ -17,7 +17,7 @@
         <!-- TUnit's source generator refuses anything below C# 12 (TUNIT_LANG_001), and at exactly
              12 its own IsEmpty extension resolves to the one for System.IO.Stream, so latest it is
              - as in the other test projects. -->
-        <LangVersion>latest</LangVersion>
+        <LangVersion>14</LangVersion>
         <Nullable>enable</Nullable>
     </PropertyGroup>
 
