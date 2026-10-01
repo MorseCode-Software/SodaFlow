@@ -255,11 +255,11 @@ overload is two transactions, and the cell can change between them. When the cal
 a transaction was open — the read and the send travel together into the deferred transaction, so
 the guarantee still holds.
 
-When there may be nothing to run, C# has an overload taking a `Cell<Maybe<TInput>>`. If the cell
-holds `Some` at the instant of the send, the pipeline admits its value and the task gives `Some`
-with the result. If it holds `None`, nothing is admitted, the operation does not run, and the task
-gives `None` — it does not wait for the cell to fill. The check happens in the same transaction as
-the read, so the guarantee above covers it too.
+When there may be nothing to run, there is an overload taking a `Cell<Maybe<TInput>>` (a
+`Cell<'TInput option>` in F#). If the cell holds `Some` at the instant of the send, the pipeline
+admits its value and the task gives `Some` with the result. If it holds `None`, nothing is admitted,
+the operation does not run, and the task gives `None` — it does not wait for the cell to fill. The
+check happens in the same transaction as the read, so the guarantee above covers it too.
 
 ```csharp
 // pendingRequest is a Cell<Maybe<SaveRequest>> that holds None while nothing is waiting.
@@ -269,14 +269,16 @@ Maybe<SaveReceipt> receipt = await saver.Execute(pendingRequest);
 `None` means only that the cell held `None`. Every other outcome is the same as for the overloads
 above: a cancellation still cancels the task, and an operation's exception still faults it. If
 `TInput` is itself a `Maybe<T>`, a `Cell<TInput>` goes to the plain cell overload instead, which
-admits `None` as an ordinary value.
+admits `None` as an ordinary value, and this overload takes a `Cell<Maybe<Maybe<T>>>`.
 
-In F#, the value and cell overloads are members on the returned status, the same as in C#, and the
-same rule about where to call them applies. The `Maybe` overload is C# only:
+In F#, the value and cell overloads are members on the returned status, the same as in C#. The
+option overload is a type extension in the `SodaFlow.Async` module, so it is in scope wherever you
+have opened that module to call `mapAsync`. The same rule about where to call any of them applies:
 
 ```fsharp
 let! receipt = saver.Execute request
 let! current = saver.Execute currentRequest
+let! pending = saver.Execute pendingRequest // a Cell<SaveRequest option>; gives SaveReceipt option
 ```
 
 ## Building a result in the transaction

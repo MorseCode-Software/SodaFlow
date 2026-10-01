@@ -1,3 +1,26 @@
+5.1.0
+
+Adds an Execute overload that takes a Cell<'TInput option> and answers with a
+Task<'TResult option>. Where the cell holds Some, the pipeline admits its value
+and the Task gives Some with the result. Where the cell holds None, the pipeline
+admits nothing, the operation does not run, and the Task gives None. The
+overload does not wait for the cell to hold Some.
+
+The overload reads the cell and tests it in the transaction that puts the value
+in, as the Cell<'TInput> overload does. Thus, the decision and the value come
+from one instant. For an admitted value, the Task obeys each rule of Execute: a
+cancellation cancels it, and an exception from the operation faults it. Thus,
+None tells only that the cell held None.
+
+The overload is an optional type extension on AsyncMapStatus<'TInput, 'TResult>
+in the SodaFlow.Async module, thus it is in scope where that module is open.
+Where 'TInput is itself an option, a Cell<'TInput> goes to the intrinsic
+overload, which admits None as a value, and this overload takes a
+Cell<'TInput option>, which is an option of an option.
+
+This release takes SodaFlow.Async.Core 5.0.1, which adds the internal path that
+the overload uses.
+
 5.0.0
 
 Adds Execute, which puts one value into a pipeline and answers with the Task of

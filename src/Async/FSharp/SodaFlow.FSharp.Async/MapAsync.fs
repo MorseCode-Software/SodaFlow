@@ -7,12 +7,12 @@
 ///     IDisposable, and a disposal of it stops the full pipeline.
 /// </summary>
 /// <remarks>
-///     This module is the F# equivalent of AsyncStreamExtensions and AsyncConcurrencyStrategy in
-///     the C# wrapper SodaFlow.Async. It uses the F# <c>unit</c> and not
-///     <c>SodaFlow.Functional.Unit</c> for a value that a strategy does not use. F# has no
-///     overload and no optional parameter on a let-bound function. Thus, the nine MapAsync
-///     overloads in C# are four functions with different names here, and each cancellation
-///     argument is explicit and has no default.
+///     This module is the F# equivalent of AsyncStreamExtensions, AsyncConcurrencyStrategy, and
+///     AsyncMapStatusExtensions in the C# wrapper SodaFlow.Async. It uses the F# <c>unit</c> and
+///     not <c>SodaFlow.Functional.Unit</c> for a value that a strategy does not use. It uses
+///     <c>option</c> where C# uses <c>Maybe</c>. F# has no overload and no optional parameter on a
+///     let-bound function. Thus, the MapAsync overloads in C# are functions with different names
+///     here, and each cancellation argument is explicit and has no default.
 /// </remarks>
 module SodaFlow.Async
 
@@ -302,3 +302,49 @@ let mapAsyncWithInputConverter
         (cancelMatching |> Option.toObj),
         cancelOnDispose
     )
+
+// The C# wrapper adds the same overload for Maybe<'T>, in AsyncMapStatusExtensions. This assembly
+// adds it as an optional type extension, thus it is in scope where this module is open. An
+// intrinsic Execute that applies wins over this member. Thus, where 'TInput is itself an option, a
+// Cell<'TInput> goes to the intrinsic overload, and this member takes a Cell<'TInput option>.
+type AsyncMapStatus<'TInput, 'TResult> with
+
+    /// <summary>
+    ///     Puts the value of a cell into this pipeline only where the cell holds <c>Some</c>, and
+    ///     answers with the Task of that value alone. This method reads the cell in the transaction
+    ///     that puts the value in, as the <c>Execute</c> overload for a <c>Cell&lt;'TInput&gt;</c>
+    ///     does.
+    ///     <para>
+    ///         Where the cell holds <c>Some</c> at that instant, the pipeline admits its value. The
+    ///         Task then gives <c>Some</c> with the result, and it obeys the rules of
+    ///         <c>Execute</c> for each other condition.
+    ///     </para>
+    ///     <para>
+    ///         Where the cell holds <c>None</c> at that instant, the pipeline admits nothing and
+    ///         the operation does not run. The Task gives <c>None</c>. This method does not wait
+    ///         for the cell to hold <c>Some</c>. A cancellation never gives <c>None</c>, thus
+    ///         <c>None</c> always tells that the cell held <c>None</c>.
+    ///     </para>
+    /// </summary>
+    /// <param name="value">The cell to read.</param>
+    /// <returns>
+    ///     The Task of the value that the cell gives, or a Task that gives <c>None</c> where the
+    ///     cell holds <c>None</c>.
+    /// </returns>
+    [<MethodImpl(MethodImplOptions.NoInlining)>]
+    member status.Execute(value: Cell<'TInput option>) : Task<'TResult option> =
+        if isNull value then
+            nullArg (nameof value)
+
+        let completion = ExecuteCompletion<'TResult, 'TResult option>(Func<_, _> Some)
+
+        status.ExecuteIfSome(
+            Func<_>(fun () ->
+                match value.SampleImpl() with
+                | Some v -> MaybeInternal.Some v
+                | None -> MaybeInternal<'TInput>.None),
+            completion,
+            Action(fun () -> completion.TrySetOutput None)
+        )
+
+        completion.Task
