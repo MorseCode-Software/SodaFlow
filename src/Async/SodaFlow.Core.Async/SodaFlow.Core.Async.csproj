@@ -2,7 +2,7 @@
 
     <PropertyGroup>
         <TargetFrameworks>net472;net6.0;netstandard2.0</TargetFrameworks>
-        <LangVersion>latest</LangVersion>
+        <LangVersion>14</LangVersion>
         <Nullable>enable</Nullable>
     </PropertyGroup>
 
@@ -16,7 +16,6 @@
         <AssemblyName>SodaFlow.Core.Async</AssemblyName>
         <RootNamespace>SodaFlow.Async</RootNamespace>
         <Nullable>enable</Nullable>
-        <LangVersion>10</LangVersion>
         <!--
             The types a consumer actually holds — AsyncMapStatus, AsyncItem, AsyncConcurrencyStrategy
             and friends — are declared here, not in the language wrappers, so without this their
