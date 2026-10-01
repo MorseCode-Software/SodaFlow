@@ -336,7 +336,10 @@ type AsyncMapStatus<'TInput, 'TResult> with
         if isNull value then
             nullArg (nameof value)
 
-        let completion = ExecuteCompletion<'TResult, 'TResult option>(Func<_, _> Some)
+        // The parameter is an inref. F# makes no delegate for an inref argument, and it needs the
+        // address of a value that it can point to.
+        let toOutput = Func<'TResult, 'TResult option> Some
+        let completion = ExecuteCompletion<'TResult, 'TResult option>(&toOutput)
 
         status.ExecuteIfSome(
             Func<_>(fun () ->

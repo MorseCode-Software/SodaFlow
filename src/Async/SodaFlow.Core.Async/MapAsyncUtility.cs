@@ -349,17 +349,16 @@ internal abstract class ExecuteCompletion<TResult>
     public abstract void TrySetCanceled();
 }
 
-internal sealed class ExecuteCompletion<TResult, TOutput> : ExecuteCompletion<TResult>
+internal sealed class ExecuteCompletion<TResult, TOutput>(in Func<TResult, TOutput> toOutput)
+    : ExecuteCompletion<TResult>
 {
-    private readonly Func<TResult, TOutput> toOutput;
+    private readonly Func<TResult, TOutput> toOutput = toOutput;
 
     // RunContinuationsAsynchronously, and it is necessary and not a preference. Flush answers this
     // source in the transaction that publishes. Without it, the continuation of the caller that
     // awaits the Task runs there, on that thread. A send from that continuation throws.
     private readonly TaskCompletionSource<TOutput> source =
         new(TaskCreationOptions.RunContinuationsAsynchronously);
-
-    public ExecuteCompletion(Func<TResult, TOutput> toOutput) => this.toOutput = toOutput;
 
     public Task<TOutput> Task => this.source.Task;
 
@@ -765,7 +764,7 @@ public abstract class AsyncMapBase
     protected internal sealed class AsyncStrategyResult<TInput>
     {
         /// <summary>An empty Next list. This decision starts no more items.</summary>
-        public static readonly IReadOnlyList<AsyncToStart<TInput>> None = Array.Empty<AsyncToStart<TInput>>();
+        public static readonly IReadOnlyList<AsyncToStart<TInput>> None = [];
 
         /// <summary>Builds the answer of a strategy from its two decisions.</summary>
         /// <param name="publish">
@@ -840,17 +839,13 @@ public abstract class AsyncMapBase
     ///     <typeparamref name="TState" />.
     /// </summary>
     // ReSharper disable once InheritdocConsiderUsage
-    internal class StateManager<TInput, TState>
+    internal class StateManager<TInput, TState>(
+        in AsyncConcurrencyStrategy<TInput, TState> strategy,
+        in TState state)
         : IStateManager<TInput>
     {
-        private readonly TState state;
-        private readonly AsyncConcurrencyStrategy<TInput, TState> strategy;
-
-        public StateManager(AsyncConcurrencyStrategy<TInput, TState> strategy, TState state)
-        {
-            this.strategy = strategy;
-            this.state = state;
-        }
+        private readonly TState state = state;
+        private readonly AsyncConcurrencyStrategy<TInput, TState> strategy = strategy;
 
         public IReadOnlyList<AsyncToStart<TInput>> Admit(
             AsyncQueuedItem<TInput> incoming,
@@ -1301,12 +1296,10 @@ internal static class AsyncConcurrencyStrategyFactory
     internal static AsyncConcurrencyStrategyBase<TUnit> SwitchLatest<TUnit>() =>
         SwitchLatestStrategy<TUnit>.Instance;
 
-    private sealed class ParallelStrategy<TUnit>
+    private sealed class ParallelStrategy<TUnit>(in TUnit unitValue)
         : AsyncConcurrencyStrategy<TUnit, TUnit>
     {
-        private readonly TUnit unitValue;
-
-        public ParallelStrategy(TUnit unitValue) => this.unitValue = unitValue;
+        private readonly TUnit unitValue = unitValue;
 
         protected override TUnit CreateState() => this.unitValue;
 
@@ -1314,7 +1307,7 @@ internal static class AsyncConcurrencyStrategyFactory
             TUnit state,
             AsyncQueuedItem<TUnit> incoming,
             IReadOnlyList<AsyncTrackedItem<TUnit>> tracked) =>
-            new[] { new AsyncToStart<TUnit>(incoming) };
+            [new(incoming)];
 
         protected internal override AsyncStrategyResult<TUnit> OnCompleted(
             TUnit state,
@@ -1353,7 +1346,7 @@ internal static class AsyncConcurrencyStrategyFactory
                 // The item keeps the Queued status, and a cancellation can remove it during the
                 // wait. The pipeline holds it, thus this strategy does not.
                 ? AsyncStrategyResult<TUnit>.None
-                : new[] { new AsyncToStart<TUnit>(incoming) };
+                : [new AsyncToStart<TUnit>(incoming)];
 
         protected internal override AsyncStrategyResult<TUnit> OnCompleted(
             object? state,
@@ -1380,7 +1373,7 @@ internal static class AsyncConcurrencyStrategyFactory
 
             return next is null
                 ? AsyncStrategyResult<TUnit>.None
-                : new[] { new AsyncToStart<TUnit>(next.Item) };
+                : [new AsyncToStart<TUnit>(next.Item)];
         }
 
         private static bool IsBusy(IReadOnlyList<AsyncTrackedItem<TUnit>> tracked)
@@ -1422,18 +1415,14 @@ internal static class AsyncConcurrencyStrategyFactory
     ///     queue operates independently. A group selector puts each input in a group.
     /// </summary>
     // ReSharper disable once InheritdocConsiderUsage
-    private sealed class QueuePerGroupStrategy<TUnit, TInput, TGroup>
+    private sealed class QueuePerGroupStrategy<TUnit, TInput, TGroup>(
+        in Func<TInput, TGroup> getGroup,
+        in IEqualityComparer<TGroup>? groupComparer)
         : AsyncConcurrencyStrategy<TInput, QueuePerGroupStrategy<TUnit, TInput, TGroup>.State>
         where TGroup : notnull
     {
-        private readonly Func<TInput, TGroup> getGroup;
-        private readonly IEqualityComparer<TGroup>? groupComparer;
-
-        public QueuePerGroupStrategy(Func<TInput, TGroup> getGroup, IEqualityComparer<TGroup>? groupComparer)
-        {
-            this.getGroup = getGroup;
-            this.groupComparer = groupComparer;
-        }
+        private readonly Func<TInput, TGroup> getGroup = getGroup;
+        private readonly IEqualityComparer<TGroup>? groupComparer = groupComparer;
 
         protected override State CreateState() => new(this.groupComparer);
 
@@ -1449,7 +1438,7 @@ internal static class AsyncConcurrencyStrategyFactory
                 // The item keeps the Queued status, and a cancellation can remove it during the
                 // wait. The pipeline holds it, thus this strategy does not.
                 ? AsyncStrategyResult<TInput>.None
-                : new[] { new AsyncToStart<TInput>(incoming) };
+                : [new AsyncToStart<TInput>(incoming)];
         }
 
         protected internal override AsyncStrategyResult<TInput> OnCompleted(
@@ -1475,7 +1464,7 @@ internal static class AsyncConcurrencyStrategyFactory
                 publish: true,
                 next: first is null
                     ? AsyncStrategyResult<TInput>.None
-                    : new[] { new AsyncToStart<TInput>(first.Item) });
+                    : [new AsyncToStart<TInput>(first.Item)]);
         }
 
         protected internal override IReadOnlyList<AsyncToStart<TInput>> OnCanceled(
@@ -1486,8 +1475,8 @@ internal static class AsyncConcurrencyStrategyFactory
             // One item starts for each group that becomes free. The items of one call can be in
             // more than one group, thus this reads the group of each one. A group with two of them
             // gives one start, because the second test finds the first start in `started`.
-            List<AsyncToStart<TInput>> next = new();
-            List<TGroup> started = new();
+            List<AsyncToStart<TInput>> next = [];
+            List<TGroup> started = [];
 
             // ReSharper disable once ForCanBeConvertedToForeach - Done for performance reasons.
             for (int i = 0; i < canceled.Count; i++)
@@ -1554,12 +1543,10 @@ internal static class AsyncConcurrencyStrategyFactory
         ///     The comparer for the group keys. This strategy holds no queue: the queue of the
         ///     pipeline holds each item, and a group is a test on that queue.
         /// </summary>
-        public sealed class State
+        public sealed class State(in IEqualityComparer<TGroup>? groupComparer)
         {
-            internal readonly IEqualityComparer<TGroup> GroupComparer;
-
-            public State(IEqualityComparer<TGroup>? groupComparer) =>
-                this.GroupComparer = groupComparer ?? EqualityComparer<TGroup>.Default;
+            internal readonly IEqualityComparer<TGroup> GroupComparer =
+                groupComparer ?? EqualityComparer<TGroup>.Default;
         }
     }
 
@@ -1585,7 +1572,7 @@ internal static class AsyncConcurrencyStrategyFactory
             state.Active?.Cancel();
             state.Active = incoming;
 
-            return new[] { new AsyncToStart<TUnit>(incoming) };
+            return [new AsyncToStart<TUnit>(incoming)];
         }
 
         protected internal override AsyncStrategyResult<TUnit> OnCompleted(
@@ -1925,9 +1912,9 @@ internal sealed class AsyncMapExecutionManager<TInput, TResult, TStrategyInput> 
                         return Apply(
                             list: tracked,
                             mutation: new Mutation(
-                                remove: Array.Empty<Guid>(),
+                                remove: [],
                                 promote: promote,
-                                add: new[] { newEntry }));
+                                add: [newEntry]));
                     });
 
                 // Hold and not Accum. This class makes the queue itself, with Apply, and
@@ -1947,7 +1934,7 @@ internal sealed class AsyncMapExecutionManager<TInput, TResult, TStrategyInput> 
                 // `source` when this transaction sends the values it holds, which is after that
                 // body. OrElse takes the value on the left, thus `starts` is on the left.
                 Cell<Entry[]> trackedCell =
-                    starts.OrElseImpl(this.queueUpdates).HoldImpl(Array.Empty<Entry>());
+                    starts.OrElseImpl(this.queueUpdates).HoldImpl([]);
 
                 trackedCellLoop.Loop(trans: trans, c: trackedCell);
 
@@ -2000,7 +1987,8 @@ internal sealed class AsyncMapExecutionManager<TInput, TResult, TStrategyInput> 
                         // which is Entry.Value, with the default equality comparer for TInput.
                         // cancelMatching uses TInput and not TStrategyInput, thus this code needs
                         // no conversion.
-                        HashSet<TInput> targets = new(pair.ToCancel);
+                        HashSet<TInput> targets =
+                            new(collection: pair.ToCancel, comparer: EqualityComparer<TInput>.Default);
 
                         this.CancelTracked(
                             entries: pair.Entries,
@@ -2465,7 +2453,7 @@ internal sealed class AsyncMapExecutionManager<TInput, TResult, TStrategyInput> 
         {
             // A continuation on a thread from the pool. This end is the only one of its
             // transaction, and Flush opens that transaction.
-            List<PendingEnd> alone = new() { end };
+            List<PendingEnd> alone = [end];
             this.Flush(ends: alone, sends: sends, trackedCell: trackedCell);
 
             return;
@@ -2476,7 +2464,7 @@ internal sealed class AsyncMapExecutionManager<TInput, TResult, TStrategyInput> 
         // holds the value that this transaction gave it.
         if (sends)
         {
-            List<PendingEnd> alone = new() { end };
+            List<PendingEnd> alone = [end];
 
             TransactionInternal.PostImpl(
                 () => this.Flush(ends: alone, sends: true, trackedCell: trackedCell));
@@ -2489,7 +2477,7 @@ internal sealed class AsyncMapExecutionManager<TInput, TResult, TStrategyInput> 
         if (this.pendingCancellations is null
             || !ReferenceEquals(objA: this.pendingCancellations.Value.Owner, objB: current))
         {
-            this.pendingCancellations = (Ends: new List<PendingEnd>(), Owner: current);
+            this.pendingCancellations = (Ends: [], Owner: current);
 
             List<PendingEnd> ends = this.pendingCancellations.Value.Ends;
 
@@ -2550,12 +2538,12 @@ internal sealed class AsyncMapExecutionManager<TInput, TResult, TStrategyInput> 
             // same item ends it also, thus two paths can come to one item. An end for an item that
             // the queue no longer holds is the second path, and it stops here. Without this test,
             // the strategy gets a second end for an item that ended, and starts an item for it.
-            List<PendingEnd> live = new();
+            List<PendingEnd> live = [];
 
             // The ExecuteCompletion of each end in `live`, at the same index. An end carries
             // none, because EndItem gets an item and not an entry, thus this reads it off the entry
             // in the queue.
-            List<ExecuteCompletion<TResult>?> completions = new();
+            List<ExecuteCompletion<TResult>?> completions = [];
 
             // ReSharper disable once LoopCanBeConvertedToQuery - Done for performance reasons.
             // ReSharper disable once ForCanBeConvertedToForeach - Done for performance reasons.
@@ -2593,8 +2581,8 @@ internal sealed class AsyncMapExecutionManager<TInput, TResult, TStrategyInput> 
                     list: queue,
                     mutation: new Mutation(
                         remove: removals,
-                        promote: Array.Empty<Guid>(),
-                        add: Array.Empty<Entry>()));
+                        promote: [],
+                        add: []));
 
             IReadOnlyList<AsyncToStart<TStrategyInput>> next;
             bool publish;
@@ -2699,9 +2687,9 @@ internal sealed class AsyncMapExecutionManager<TInput, TResult, TStrategyInput> 
                 Apply(
                     list: tracked,
                     mutation: new Mutation(
-                        remove: Array.Empty<Guid>(),
+                        remove: [],
                         promote: promote,
-                        add: Array.Empty<Entry>()));
+                        add: []));
 
             this.completedQueueAndOwner = (Queue: tracked, Owner: transaction);
 
@@ -2775,23 +2763,16 @@ internal sealed class AsyncMapExecutionManager<TInput, TResult, TStrategyInput> 
     // strategy cannot read them. ----
 
     // One item that ended, with what its operation gave and the token to test at the publish.
-    private sealed class PendingEnd
+    private sealed class PendingEnd(
+        in AsyncQueuedItem<TStrategyInput> item,
+        in AsyncOutcome<MapAsyncResult<TResult>> outcome,
+        in CancellationToken? tokenToCheck)
     {
-        public PendingEnd(
-            AsyncQueuedItem<TStrategyInput> item,
-            AsyncOutcome<MapAsyncResult<TResult>> outcome,
-            CancellationToken? tokenToCheck)
-        {
-            this.Item = item;
-            this.Outcome = outcome;
-            this.TokenToCheck = tokenToCheck;
-        }
+        public AsyncQueuedItem<TStrategyInput> Item { get; } = item;
 
-        public AsyncQueuedItem<TStrategyInput> Item { get; }
+        public AsyncOutcome<MapAsyncResult<TResult>> Outcome { get; } = outcome;
 
-        public AsyncOutcome<MapAsyncResult<TResult>> Outcome { get; }
-
-        public CancellationToken? TokenToCheck { get; }
+        public CancellationToken? TokenToCheck { get; } = tokenToCheck;
     }
 
     // One value that this pipeline admits: the value, and the ExecuteCompletion of the Execute
@@ -2801,44 +2782,30 @@ internal sealed class AsyncMapExecutionManager<TInput, TResult, TStrategyInput> 
     // A readonly struct, because the pipeline makes one of these for each value that it admits. The
     // type is private, thus no code can make a default instance of it. That is what made the
     // protected-internal records of AsyncMapBase into sealed classes, and it does not apply here.
-    private readonly struct Admission
+    private readonly struct Admission(in TInput value, in ExecuteCompletion<TResult>? completion)
     {
-        public Admission(TInput value, ExecuteCompletion<TResult>? completion)
-        {
-            this.Value = value;
-            this.Completion = completion;
-        }
+        public TInput Value { get; } = value;
 
-        public TInput Value { get; }
-
-        public ExecuteCompletion<TResult>? Completion { get; }
+        public ExecuteCompletion<TResult>? Completion { get; } = completion;
     }
 
-    private sealed class Entry
+    private sealed class Entry(
+        in TInput value,
+        in AsyncQueuedItem<TInput> item,
+        in AsyncTrackedItem<TStrategyInput> tracked,
+        in ExecuteCompletion<TResult>? completion)
     {
-        public Entry(
-            TInput value,
-            AsyncQueuedItem<TInput> item,
-            AsyncTrackedItem<TStrategyInput> tracked,
-            ExecuteCompletion<TResult>? completion)
-        {
-            this.Value = value;
-            this.Item = item;
-            this.Tracked = tracked;
-            this.Completion = completion;
-        }
-
         // The ExecuteCompletion of the Execute call that gave this value, and null for a value
         // from the source stream. Flush answers it at the end of this item.
-        public ExecuteCompletion<TResult>? Completion { get; }
+        public ExecuteCompletion<TResult>? Completion { get; } = completion;
 
-        public TInput Value { get; }
+        public TInput Value { get; } = value;
 
-        public AsyncQueuedItem<TInput> Item { get; }
+        public AsyncQueuedItem<TInput> Item { get; } = item;
 
         // The same item in the types of the strategy, with its status. This is what the queue
         // that Admit and OnCompleted read is made of, and the status lives here alone.
-        public AsyncTrackedItem<TStrategyInput> Tracked { get; }
+        public AsyncTrackedItem<TStrategyInput> Tracked { get; } = tracked;
 
         public AsyncItemStatus Status => this.Tracked.Status;
 
@@ -2857,11 +2824,9 @@ internal sealed class AsyncMapExecutionManager<TInput, TResult, TStrategyInput> 
     ///     what makes this safe to give away.
     /// </summary>
     // ReSharper disable once InheritdocConsiderUsage
-    private sealed class TrackedItems : IReadOnlyList<AsyncTrackedItem<TStrategyInput>>
+    private sealed class TrackedItems(in Entry[] entries) : IReadOnlyList<AsyncTrackedItem<TStrategyInput>>
     {
-        private readonly Entry[] entries;
-
-        public TrackedItems(Entry[] entries) => this.entries = entries;
+        private readonly Entry[] entries = entries;
 
         public int Count => this.entries.Length;
 
@@ -2873,23 +2838,13 @@ internal sealed class AsyncMapExecutionManager<TInput, TResult, TStrategyInput> 
         IEnumerator IEnumerable.GetEnumerator() => this.GetEnumerator();
     }
 
-    private sealed class Mutation
+    private sealed class Mutation(in Guid[] remove, in Guid[] promote, in Entry[] add)
     {
-        public Mutation(
-            Guid[] remove,
-            Guid[] promote,
-            Entry[] add)
-        {
-            this.Remove = remove;
-            this.Promote = promote;
-            this.Add = add;
-        }
+        public Guid[] Remove { get; } = remove;
 
-        public Guid[] Remove { get; }
+        public Guid[] Promote { get; } = promote;
 
-        public Guid[] Promote { get; }
-
-        public Entry[] Add { get; }
+        public Entry[] Add { get; } = add;
     }
 }
 
