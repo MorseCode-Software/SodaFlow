@@ -16,7 +16,7 @@
         <AssemblyName>SodaFlow.Async</AssemblyName>
         <RootNamespace>SodaFlow.Async</RootNamespace>
         <Nullable>enable</Nullable>
-        <LangVersion>10</LangVersion>
+        <LangVersion>14</LangVersion>
         <!--
             GenerateDocumentationFile rather than an explicit DocumentationFile path: this project
             multi-targets, and a single hard-coded path would make all three target frameworks write over
