@@ -12,9 +12,7 @@ namespace SodaFlow.Async;
 [PublicAPI]
 // ReSharper disable once InheritdocConsiderUsage
 public abstract class AsyncConcurrencyStrategy<TState>
-    : AsyncConcurrencyStrategy<Unit, TState>
-{
-}
+    : AsyncConcurrencyStrategy<Unit, TState>;
 
 /// <summary>
 ///     The entry point, which is not generic, for the strategies in the library: Parallel, Queue,

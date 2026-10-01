@@ -1,6 +1,7 @@
 module SodaFlow.Async.Tests.MapAsyncTests
 
 open System
+open System.Collections.Concurrent
 open System.Collections.Generic
 open System.Threading
 open System.Threading.Tasks
@@ -580,6 +581,217 @@ type ``MapAsync Tests``() =
             op.Release("a", "A")
             let! result = task
             do! Expect.Equal("A", result)
+
+            status.Dispose()
+        }
+
+    [<Test>]
+    member _.``Execute with an option cell gives Some with the result where the cell holds Some``() =
+        task {
+            let source = sinkS<string> ()
+            let results = sinkS<string> ()
+            let errors = sinkS<exn> ()
+            let input = sinkC (Some "a")
+            let op = ControlledOperation<string, string>()
+
+            let status =
+                source |> mapAsync results errors op.Operation (parallelStrategy ()) None None true
+
+            let task = status.Execute input
+
+            waitUntil (fun () -> op.HasStarted "a")
+            op.Release("a", "A")
+
+            let! result = task
+            do! Expect.Equal(Some "A", result)
+
+            status.Dispose()
+        }
+
+    [<Test>]
+    member _.``Execute with an option cell gives None and admits nothing where the cell holds None``() =
+        task {
+            let source = sinkS<string> ()
+            let results = sinkS<string> ()
+            let errors = sinkS<exn> ()
+            let input = sinkC (None: string option)
+            let started = ConcurrentQueue<string>()
+
+            let operation (v: string) (factory: ResultFactory<string>) (_: CancellationToken) =
+                started.Enqueue v
+                Task.FromResult(factory.FromValue(v.ToUpperInvariant()))
+
+            let status =
+                source |> mapAsync results errors operation (parallelStrategy ()) None None true
+
+            let task = status.Execute input
+            waitUntil (fun () -> task.IsCompleted)
+
+            do! Expect.Equal(TaskStatus.RanToCompletion, task.Status)
+            do! Expect.Equal(None, task.Result)
+            do! Expect.True(started.IsEmpty, "A cell that holds None puts no value into the pipeline.")
+            do! Expect.Equal(0, (status.Items |> sampleC).Count)
+
+            status.Dispose()
+        }
+
+    [<Test>]
+    member _.``Execute with an option cell reads the cell in the transaction of the send``() =
+        task {
+            let source = sinkS<string> ()
+            let results = sinkS<string> ()
+            let errors = sinkS<exn> ()
+            let input = sinkC (None: string option)
+            let op = ControlledOperation<string, string>()
+
+            let status =
+                source |> mapAsync results errors op.Operation (parallelStrategy ()) None None true
+
+            // A sample in this transaction gives None. The call defers, thus the read is in a new
+            // transaction, where the cell holds Some.
+            let task =
+                runT (fun () ->
+                    input |> sendC (Some "b")
+                    status.Execute input)
+
+            waitUntil (fun () -> op.HasStarted "b")
+            op.Release("b", "B")
+
+            let! result = task
+            do! Expect.Equal(Some "B", result, "The read is in the transaction of the send.")
+
+            status.Dispose()
+        }
+
+    [<Test>]
+    member _.``Execute with an option cell tests for None in the transaction of the send``() =
+        task {
+            let source = sinkS<string> ()
+            let results = sinkS<string> ()
+            let errors = sinkS<exn> ()
+            let input = sinkC (Some "a")
+            let op = ControlledOperation<string, string>()
+
+            let status =
+                source |> mapAsync results errors op.Operation (parallelStrategy ()) None None true
+
+            // A sample in this transaction gives Some, but the cell holds None in the transaction of
+            // the send. Thus, a test at the call admits "a", and a test at the send admits nothing.
+            let task =
+                runT (fun () ->
+                    input |> sendC None
+                    status.Execute input)
+
+            // A wait with a time limit, because a test at the call admits "a", and no code releases
+            // it. A bare await then waits permanently and does not fail.
+            waitUntil (fun () -> task.IsCompleted)
+
+            let! result = task
+            do! Expect.Equal(None, result)
+            do! Expect.False(op.HasStarted "a", "The test for None is in the transaction of the send.")
+
+            status.Dispose()
+        }
+
+    [<Test>]
+    member _.``Execute with an option cell is canceled and does not give None by a cancellation``() =
+        task {
+            let source = sinkS<string> ()
+            let results = sinkS<string> ()
+            let errors = sinkS<exn> ()
+            let cancelAll = sinkS<unit> ()
+            let input = sinkC (Some "a")
+            let op = ControlledOperation<string, string>()
+
+            let status =
+                source
+                |> mapAsync results errors op.Operation (parallelStrategy ()) (Some cancelAll) None true
+
+            let task = status.Execute input
+            waitUntil (fun () -> op.HasStarted "a")
+
+            cancelAll |> sendS ()
+            waitUntil (fun () -> task.IsCompleted)
+
+            do! Expect.True(task.IsCanceled)
+
+            status.Dispose()
+        }
+
+    [<Test>]
+    member _.``Execute with an option cell carries the exception of the operation``() =
+        task {
+            let source = sinkS<string> ()
+            let results = sinkS<string> ()
+            let errors = sinkS<exn> ()
+            let input = sinkC (Some "a")
+            let op = ControlledOperation<string, string>()
+            let thrown = InvalidOperationException "boom"
+
+            let status =
+                source |> mapAsync results errors op.Operation (parallelStrategy ()) None None true
+
+            let task = status.Execute input
+            waitUntil (fun () -> op.HasStarted "a")
+
+            op.Fail("a", thrown)
+            waitUntil (fun () -> task.IsCompleted)
+
+            // ControlledOperation reads t.Result in a continuation, thus the operation itself throws
+            // an AggregateException that contains `thrown`. The pipeline gives that exception
+            // unchanged, and GetBaseException finds `thrown` in it.
+            do! Expect.True(task.IsFaulted)
+            do! Expect.Same(thrown, task.Exception.GetBaseException())
+
+            status.Dispose()
+        }
+
+    [<Test>]
+    member _.``Execute with an option cell throws for a null cell``() =
+        task {
+            let source = sinkS<string> ()
+            let results = sinkS<string> ()
+            let errors = sinkS<exn> ()
+            let op = ControlledOperation<string, string>()
+
+            let status =
+                source |> mapAsync results errors op.Operation (parallelStrategy ()) None None true
+
+            do!
+                Expect.Throws<ArgumentNullException>(
+                    (fun () -> status.Execute(null: Cell<string option>) |> ignore),
+                    "A null cell has no value to read."
+                )
+
+            status.Dispose()
+        }
+
+    [<Test>]
+    member _.``Execute where the input type is an option takes a nested option cell``() =
+        task {
+            let source = sinkS<string option> ()
+            let results = sinkS<string> ()
+            let errors = sinkS<exn> ()
+
+            let operation (v: string option) (factory: ResultFactory<string>) (_: CancellationToken) =
+                Task.FromResult(factory.FromValue(defaultArg v "none"))
+
+            let status =
+                source |> mapAsync results errors operation (parallelStrategy ()) None None true
+
+            // A Cell<'TInput> goes to the intrinsic overload, which admits None as a value.
+            let plain = status.Execute(sinkC (None: string option))
+
+            // A Cell<'TInput option> goes to the overload for an option. Some None admits the value
+            // None, and None admits nothing.
+            let someNone = status.Execute(sinkC (Some(None: string option)))
+            let none = status.Execute(sinkC (None: string option option))
+
+            waitUntil (fun () -> plain.IsCompleted && someNone.IsCompleted && none.IsCompleted)
+
+            do! Expect.Equal("none", plain.Result)
+            do! Expect.Equal(Some "none", someNone.Result)
+            do! Expect.Equal(None, none.Result)
 
             status.Dispose()
         }
