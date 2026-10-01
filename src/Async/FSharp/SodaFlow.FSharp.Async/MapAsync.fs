@@ -152,16 +152,14 @@ let private toUnitInternalStream (cancelAll: Stream<unit> option) : Stream<UnitI
     | Some s -> s.MapImpl(Func<_, _>(fun (_: unit) -> UnitInternal.Value))
     | None -> null
 
-// The four mapAsync functions below are different only in the path from the 'TInput and the
-// 'TResult of the call to the types of `strategy`. The overloads in the C# wrapper are different
-// along the same axis. These are functions with different names, because F# has no optional
-// parameter and no overload on a let binding.
+// The mapAsync functions below are different only in the path from the 'TInput of the call to the
+// input type of `strategy`. The overloads in the C# wrapper are different along the same axis.
+// These are functions with different names, because F# has no optional parameter and no overload
+// on a let binding.
 //
-//   mapAsync                     strategy reads no type      (parallelStrategy, queueStrategy,
+//   mapAsync                     strategy reads no input     (parallelStrategy, queueStrategy,
 //                                                             switchLatestStrategy)
 //   mapAsyncWithInputConverter   strategy reads the input    (queuePerGroupStrategy)
-//   mapAsyncWithResultConverter  strategy reads the result
-//   mapAsyncWithConverters       strategy reads the two types
 //
 // There is no function for a 'TInput that is a subtype of the input type of the strategy. F#
 // cannot give that constraint between two open type parameters, and `fun v -> v` as the converter
