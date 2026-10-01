@@ -12,6 +12,12 @@ type that is not TResult, and the pipeline sets it in the transaction that
 publishes, with no added continuation. The Execute overloads that were here
 before behave as they did.
 
+The project now compiles as C# 14, and its internal code uses it: primary
+constructors, and collection expressions in place of arrays and lists that the
+code made by hand. No public type changes. Each kind of collection expression
+here was compiled and read back, and none makes more objects than the code
+before it. The tests give the same results before and after.
+
 5.0.0
 
 Adds Execute, which puts one value into a pipeline and answers with the Task of

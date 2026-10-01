@@ -17,6 +17,14 @@ method in the new AsyncMapStatusExtensions class. Where TInput is itself a
 Maybe<T>, a Cell<TInput> goes to the overload on the type, which admits None as
 a value, and this overload takes a Cell<Maybe<Maybe<T>>>.
 
+The documentation of the MapAsync overloads and of AsyncConcurrencyStrategy now
+agrees with the code. Since 5.0.0, a strategy has no result type and there is no
+result converter, but the documentation still told of both. It also said that
+the overload for a strategy that reads the input publishes no result. That
+overload publishes each result, as each overload does. The documentation of
+AsyncConcurrencyStrategy now also says which class to subclass for a custom
+strategy that reads no input. No code changed with these corrections.
+
 This release takes SodaFlow.Async.Core 5.0.1, which adds the internal path that
 the overload uses.
 
