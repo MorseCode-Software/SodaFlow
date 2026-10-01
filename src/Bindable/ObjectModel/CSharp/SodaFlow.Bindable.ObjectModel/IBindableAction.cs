@@ -10,6 +10,4 @@ namespace SodaFlow.Bindable.ObjectModel;
 /// </summary>
 [PublicAPI]
 // ReSharper disable once InheritdocConsiderUsage
-public interface IBindableAction : IBindableAction<Unit>
-{
-}
+public interface IBindableAction : IBindableAction<Unit>;

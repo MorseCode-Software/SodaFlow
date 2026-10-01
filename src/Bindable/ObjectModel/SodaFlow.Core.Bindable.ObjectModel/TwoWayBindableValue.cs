@@ -96,6 +96,7 @@ public static partial class BindableCoreExtensionMethods
         /// <param name="comparer">
         ///     Tells you if a value changed. A null value selects the default comparer.
         /// </param>
+        // ReSharper disable once InheritdocConsiderUsage - The base is a primary constructor, and its only documentation is the summary of BindableValueBase, which does not describe these parameters.
         internal TwoWayBindableValue(
             Cell<T> cell,
             Action<T> write,

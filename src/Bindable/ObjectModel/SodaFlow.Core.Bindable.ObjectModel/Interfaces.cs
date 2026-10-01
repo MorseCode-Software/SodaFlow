@@ -12,9 +12,7 @@ namespace SodaFlow.Bindable.ObjectModel;
 /// </summary>
 [PublicAPI]
 // ReSharper disable once InheritdocConsiderUsage
-public interface IBindable : IDisposable
-{
-}
+public interface IBindable : IDisposable;
 
 /// <summary>
 ///     The part of a bindable value that a caller can read, in each direction of flow.
@@ -146,9 +144,7 @@ public interface ITwoWayBindableValue<T> : IOneWayBindableValue<T>, IWritableBin
 /// </remarks>
 [PublicAPI]
 // ReSharper disable once InheritdocConsiderUsage
-public interface IOneWayToSourceBindableValue<T> : IWritableBindableValue<T>
-{
-}
+public interface IOneWayToSourceBindableValue<T> : IWritableBindableValue<T>;
 
 /// <summary>
 ///     An <see cref="ICommand" /> that moves its <c>CommandParameter</c> to the stream. A
