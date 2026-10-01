@@ -77,7 +77,7 @@ internal static class CollectionViewUtility
 
                                         return new StageResult<TKey, TIdentity, TState>(
                                             keys: rebuilt,
-                                            operations: Array.Empty<ViewOperation<TKey>>(),
+                                            operations: [],
                                             isReset: true,
                                             before: change.Before,
                                             after: change.After,
@@ -438,7 +438,7 @@ internal static class CollectionViewUtility
 
                                 return new StageResult<TKey, TIdentity, TState>(
                                     keys: state,
-                                    operations: Array.Empty<ViewOperation<TKey>>(),
+                                    operations: [],
                                     isReset: false,
                                     before: beforeAndAfter,
                                     after: beforeAndAfter,
@@ -452,7 +452,7 @@ internal static class CollectionViewUtility
                             bool reordersOnly) =>
                             new(
                                 keys: keys,
-                                operations: Array.Empty<ViewOperation<TKey>>(),
+                                operations: [],
                                 isReset: true,
                                 before: context.Snapshot.ScopedTo(state),
                                 after: snapshot.ScopedTo(keys),
@@ -689,7 +689,7 @@ internal static class CollectionViewUtility
         }
 
         OrderedKeys<TKey, TIdentity, TState> keys = state;
-        List<ViewOperation<TKey>> operations = new();
+        List<ViewOperation<TKey>> operations = [];
         bool movesKeys = false;
         bool changesMembership = false;
 
@@ -816,7 +816,7 @@ internal static class CollectionViewUtility
         int numberOfOperations = 0;
 
         OrderedKeys<TKey, TIdentity, TState> keys = state;
-        List<ViewOperation<TKey>> operations = new();
+        List<ViewOperation<TKey>> operations = [];
         bool movesKeys = false;
         bool changesMembership = false;
 
@@ -887,7 +887,7 @@ internal static class CollectionViewUtility
         int numberOfOperations = 0;
 
         OrderedKeys<TKey, TIdentity, TState> keys = state;
-        List<ViewOperation<TKey>> operations = new();
+        List<ViewOperation<TKey>> operations = [];
         bool movesKeys = false;
         bool changesMembership = false;
 
@@ -958,7 +958,7 @@ internal static class CollectionViewUtility
         bool refilingCostsWork = state.Order.DependsOnState;
 
         OrderedKeys<TKey, TIdentity, TState> keys = state;
-        List<ViewOperation<TKey>> operations = new();
+        List<ViewOperation<TKey>> operations = [];
         bool movesKeys = false;
         bool changesMembership = false;
 
@@ -1148,7 +1148,7 @@ internal static class CollectionViewUtility
         bool refilingCostsWork = state.Order.DependsOnState;
 
         OrderedKeys<TKey, TIdentity, TState> keys = state;
-        List<ViewOperation<TKey>> operations = new();
+        List<ViewOperation<TKey>> operations = [];
         bool movesKeys = false;
         bool changesMembership = false;
 
@@ -1300,7 +1300,7 @@ internal static class CollectionViewUtility
         {
             return new StageResult<TKey, TIdentity, TState>(
                 keys: state,
-                operations: Array.Empty<ViewOperation<TKey>>(),
+                operations: [],
                 before: snapshot,
                 after: snapshot,
                 movesKeys: false,
@@ -1325,7 +1325,7 @@ internal static class CollectionViewUtility
         where TIdentity : notnull
     {
         OrderedKeys<TKey, TIdentity, TState> keys = state;
-        List<ViewOperation<TKey>> operations = new();
+        List<ViewOperation<TKey>> operations = [];
         bool movesKeys = false;
         bool changesMembership = false;
 
@@ -1494,15 +1494,15 @@ internal static class CollectionViewUtility
         OrderedKeys<TKey, TIdentity, TState> keys =
             new RangeKeys<TKey, TIdentity, TState>(source: change.Keys, offset: bounds.Offset, limit: bounds.Limit);
 
-        List<ViewOperation<TKey>> operations = new();
+        List<ViewOperation<TKey>> operations = [];
         bool changesMembership = false;
 
         int common = -1;
 
         if (change.MovesKeys || change.ChangesMembership)
         {
-            List<TKey> before = new(state);
-            List<TKey> after = new(keys);
+            List<TKey> before = [.. state];
+            List<TKey> after = [.. keys];
 
             common = 0;
 

@@ -132,7 +132,7 @@ internal sealed class RootCollection<TKey, TIdentity, TState>
                         return new CollectionSnapshot<TKey, TIdentity, TState>(
                             identities: identities.ToImmutable(),
                             states: ImmutableStateMap<TState>.Create(keyEqualityComparer)
-                                .With(updated: states, removed: Array.Empty<TKey>()),
+                                .With(updated: states, removed: []),
                             arrivals: arrivals.ToImmutable(),
                             nextArrival: arrivals.Count);
                     });
