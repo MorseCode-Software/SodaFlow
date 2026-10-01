@@ -9,8 +9,10 @@ namespace SodaFlow.Async.Tests;
 
 internal static class TestUtil
 {
-    /// <summary>Reads <paramref name="condition" /> until it is true, or fails the test at a
-    /// timeout.</summary>
+    /// <summary>
+    ///     Reads <paramref name="condition" /> until it is true, or fails the test at a
+    ///     timeout.
+    /// </summary>
     public static void WaitUntil([InstantHandle] Func<bool> condition, int timeoutMs = 5000)
     {
         Stopwatch stopwatch = Stopwatch.StartNew();

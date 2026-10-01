@@ -29,8 +29,10 @@ internal sealed record AccountIdentity(int Number, string Holder) : IIdentity<in
 // ReSharper disable once InheritdocConsiderUsage
 internal sealed record AccountState(long Balance, bool IsFrozen)
 {
-    /// <summary>True when a drain empties this account. The account is frozen and has a
-    /// balance.</summary>
+    /// <summary>
+    ///     True when a drain empties this account. The account is frozen and has a
+    ///     balance.
+    /// </summary>
     /// <remarks>
     ///     This is a name here, and no code writes it at each use. The two view models are
     ///     different in the method that finds the drainable accounts, and not in the set of those
@@ -66,28 +68,95 @@ internal static class AccountSeed
     private static readonly string[] Surnames =
     [
         // ReSharper disable StringLiteralTypo
-        "Ackroyd", "Bhatt", "Calloway", "Dimitrova", "Eze", "Fairbairn", "Gruber", "Haddad",
-        "Ivanov", "Jarrett", "Kowalski", "Lindqvist", "Moreau", "Nakamura", "Okonkwo", "Pereira",
-        "Quill", "Rasmussen", "Sørensen", "Tanaka", "Urquhart", "Varga", "Whitlock", "Xu",
-        "Yilmaz", "Zielinski", "Abernathy", "Brennan", "Castellano", "Delacroix", "Eriksson",
-        "Fonseca", "Galloway", "Hartmann", "Ishikawa", "Jovanovic", "Kaur", "Lachance", "Mbeki",
-        "Novak", "Oyelaran", "Petrakis", "Quintero", "Rahman", "Szabo", "Thorne", "Ueda", "Vasquez"
+        "Ackroyd",
+        "Bhatt",
+        "Calloway",
+        "Dimitrova",
+        "Eze",
+        "Fairbairn",
+        "Gruber",
+        "Haddad",
+        "Ivanov",
+        "Jarrett",
+        "Kowalski",
+        "Lindqvist",
+        "Moreau",
+        "Nakamura",
+        "Okonkwo",
+        "Pereira",
+        "Quill",
+        "Rasmussen",
+        "Sørensen",
+        "Tanaka",
+        "Urquhart",
+        "Varga",
+        "Whitlock",
+        "Xu",
+        "Yilmaz",
+        "Zielinski",
+        "Abernathy",
+        "Brennan",
+        "Castellano",
+        "Delacroix",
+        "Eriksson",
+        "Fonseca",
+        "Galloway",
+        "Hartmann",
+        "Ishikawa",
+        "Jovanovic",
+        "Kaur",
+        "Lachance",
+        "Mbeki",
+        "Novak",
+        "Oyelaran",
+        "Petrakis",
+        "Quintero",
+        "Rahman",
+        "Szabo",
+        "Thorne",
+        "Ueda",
+        "Vasquez"
         // ReSharper restore StringLiteralTypo
     ];
 
     private static readonly string[] GivenNames =
     [
         // ReSharper disable StringLiteralTypo
-        "Ada", "Bruno", "Chidi", "Dagny", "Elif", "Farid", "Greta", "Hiro", "Imani", "Jonas",
-        "Kalani", "Leila", "Mateo", "Nadia", "Omar", "Priya", "Rafael", "Saoirse", "Tomasz",
-        "Uma", "Viktor", "Wren", "Yusuf", "Zara"
+        "Ada",
+        "Bruno",
+        "Chidi",
+        "Dagny",
+        "Elif",
+        "Farid",
+        "Greta",
+        "Hiro",
+        "Imani",
+        "Jonas",
+        "Kalani",
+        "Leila",
+        "Mateo",
+        "Nadia",
+        "Omar",
+        "Priya",
+        "Rafael",
+        "Saoirse",
+        "Tomasz",
+        "Uma",
+        "Viktor",
+        "Wren",
+        "Yusuf",
+        "Zara"
         // ReSharper restore StringLiteralTypo
     ];
 
-    /// <summary>The accounts, built one time and shared, because no code can change an
-    /// item.</summary>
+    /// <summary>
+    ///     The accounts, built one time and shared, because no code can change an
+    ///     item.
+    /// </summary>
     internal static IReadOnlyList<Item<AccountIdentity, AccountState>> Items { get; } =
-        [.. Enumerable.Range(start: 0, count: Count).Select(Create)];
+    [
+        .. Enumerable.Range(start: 0, count: Count).Select(Create)
+    ];
 
     private static Item<AccountIdentity, AccountState> Create(int index)
     {
@@ -98,8 +167,8 @@ internal static class AccountSeed
         uint forHolder = Scramble(forState);
 
         // Each surname with each given name, and not a small set of pairs many times.
-        string holder = Surnames[forHolder % Surnames.Length] + ", " +
-                        GivenNames[forHolder / Surnames.Length % GivenNames.Length];
+        string holder =
+            Surnames[forHolder % Surnames.Length] + ", " + GivenNames[forHolder / Surnames.Length % GivenNames.Length];
 
         // The balances are different to the cent, thus two equal balances are rare. The two
         // highest bits are zero for one account in four, and that is the quantity of frozen
@@ -109,8 +178,10 @@ internal static class AccountSeed
             state: new AccountState(Balance: forState % MaximumBalance + 1, IsFrozen: forState >> 30 == 0));
     }
 
-    /// <summary>A hash with a low cost and a constant result, thus the seed is the same at each
-    /// run and on each runtime.</summary>
+    /// <summary>
+    ///     A hash with a low cost and a constant result, thus the seed is the same at each
+    ///     run and on each runtime.
+    /// </summary>
     /// <remarks>
     ///     This code does not use <see cref="System.Random" />. A seeded instance gives the same
     ///     values, but that is a compatibility statement about a previous algorithm, and this

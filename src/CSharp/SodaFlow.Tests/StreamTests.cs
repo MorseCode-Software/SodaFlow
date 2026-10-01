@@ -945,83 +945,92 @@ public sealed class StreamTests
         // This test compares each overload with the one-cell overload on a lifted cell of the same
         // inputs. TestSnapshotLatestMatchesLiftAndMerge compares the one-cell overload with the Lift and
         // Merge composition. The behavior overloads get the same cells as behaviors.
-        List<string> lift2 = ListenTo(
-            s.SnapshotLatest(
-                c: c1.Lift(c2: c2, f: static (v1, v2) => $"{v1},{v2}"),
-                f: static (a, v) => $"{a}:{v}"));
+        List<string> lift2 =
+            ListenTo(
+                s.SnapshotLatest(
+                    c: c1.Lift(c2: c2, f: static (v1, v2) => $"{v1},{v2}"),
+                    f: static (a, v) => $"{a}:{v}"));
 
-        List<string> actual2 = ListenTo(
-            s.SnapshotLatest(c1: c1, c2: c2, f: static (a, v1, v2) => $"{a}:{v1},{v2}"));
+        List<string> actual2 = ListenTo(s.SnapshotLatest(c1: c1, c2: c2, f: static (a, v1, v2) => $"{a}:{v1},{v2}"));
 
-        List<string> actual2B = ListenTo(
-            s.SnapshotLatest(
-                b1: c1.AsBehavior(),
-                b2: c2.AsBehavior(),
-                f: static (a, v1, v2) => $"{a}:{v1},{v2}"));
+        List<string> actual2B =
+            ListenTo(
+                s.SnapshotLatest(
+                    b1: c1.AsBehavior(),
+                    b2: c2.AsBehavior(),
+                    f: static (a, v1, v2) => $"{a}:{v1},{v2}"));
 
-        List<string> lift3 = ListenTo(
-            s.SnapshotLatest(
-                c: c1.Lift(c2: c2, c3: c3, f: static (v1, v2, v3) => $"{v1},{v2},{v3}"),
-                f: static (a, v) => $"{a}:{v}"));
+        List<string> lift3 =
+            ListenTo(
+                s.SnapshotLatest(
+                    c: c1.Lift(c2: c2, c3: c3, f: static (v1, v2, v3) => $"{v1},{v2},{v3}"),
+                    f: static (a, v) => $"{a}:{v}"));
 
-        List<string> actual3 = ListenTo(
-            s.SnapshotLatest(c1: c1, c2: c2, c3: c3, f: static (a, v1, v2, v3) => $"{a}:{v1},{v2},{v3}"));
+        List<string> actual3 =
+            ListenTo(s.SnapshotLatest(c1: c1, c2: c2, c3: c3, f: static (a, v1, v2, v3) => $"{a}:{v1},{v2},{v3}"));
 
-        List<string> actual3B = ListenTo(
-            s.SnapshotLatest(
-                b1: c1.AsBehavior(),
-                b2: c2.AsBehavior(),
-                b3: c3.AsBehavior(),
-                f: static (a, v1, v2, v3) => $"{a}:{v1},{v2},{v3}"));
+        List<string> actual3B =
+            ListenTo(
+                s.SnapshotLatest(
+                    b1: c1.AsBehavior(),
+                    b2: c2.AsBehavior(),
+                    b3: c3.AsBehavior(),
+                    f: static (a, v1, v2, v3) => $"{a}:{v1},{v2},{v3}"));
 
-        List<string> lift4 = ListenTo(
-            s.SnapshotLatest(
-                c: c1.Lift(c2: c2, c3: c3, c4: c4, f: static (v1, v2, v3, v4) => $"{v1},{v2},{v3},{v4}"),
-                f: static (a, v) => $"{a}:{v}"));
+        List<string> lift4 =
+            ListenTo(
+                s.SnapshotLatest(
+                    c: c1.Lift(c2: c2, c3: c3, c4: c4, f: static (v1, v2, v3, v4) => $"{v1},{v2},{v3},{v4}"),
+                    f: static (a, v) => $"{a}:{v}"));
 
-        List<string> actual4 = ListenTo(
-            s.SnapshotLatest(
-                c1: c1,
-                c2: c2,
-                c3: c3,
-                c4: c4,
-                f: static (a, v1, v2, v3, v4) => $"{a}:{v1},{v2},{v3},{v4}"));
+        List<string> actual4 =
+            ListenTo(
+                s.SnapshotLatest(
+                    c1: c1,
+                    c2: c2,
+                    c3: c3,
+                    c4: c4,
+                    f: static (a, v1, v2, v3, v4) => $"{a}:{v1},{v2},{v3},{v4}"));
 
-        List<string> actual4B = ListenTo(
-            s.SnapshotLatest(
-                b1: c1.AsBehavior(),
-                b2: c2.AsBehavior(),
-                b3: c3.AsBehavior(),
-                b4: c4.AsBehavior(),
-                f: static (a, v1, v2, v3, v4) => $"{a}:{v1},{v2},{v3},{v4}"));
+        List<string> actual4B =
+            ListenTo(
+                s.SnapshotLatest(
+                    b1: c1.AsBehavior(),
+                    b2: c2.AsBehavior(),
+                    b3: c3.AsBehavior(),
+                    b4: c4.AsBehavior(),
+                    f: static (a, v1, v2, v3, v4) => $"{a}:{v1},{v2},{v3},{v4}"));
 
-        List<string> lift5 = ListenTo(
-            s.SnapshotLatest(
-                c: c1.Lift(
+        List<string> lift5 =
+            ListenTo(
+                s.SnapshotLatest(
+                    c: c1.Lift(
+                        c2: c2,
+                        c3: c3,
+                        c4: c4,
+                        c5: c5,
+                        f: static (v1, v2, v3, v4, v5) => $"{v1},{v2},{v3},{v4},{v5}"),
+                    f: static (a, v) => $"{a}:{v}"));
+
+        List<string> actual5 =
+            ListenTo(
+                s.SnapshotLatest(
+                    c1: c1,
                     c2: c2,
                     c3: c3,
                     c4: c4,
                     c5: c5,
-                    f: static (v1, v2, v3, v4, v5) => $"{v1},{v2},{v3},{v4},{v5}"),
-                f: static (a, v) => $"{a}:{v}"));
+                    f: static (a, v1, v2, v3, v4, v5) => $"{a}:{v1},{v2},{v3},{v4},{v5}"));
 
-        List<string> actual5 = ListenTo(
-            s.SnapshotLatest(
-                c1: c1,
-                c2: c2,
-                c3: c3,
-                c4: c4,
-                c5: c5,
-                f: static (a, v1, v2, v3, v4, v5) => $"{a}:{v1},{v2},{v3},{v4},{v5}"));
-
-        List<string> actual5B = ListenTo(
-            s.SnapshotLatest(
-                b1: c1.AsBehavior(),
-                b2: c2.AsBehavior(),
-                b3: c3.AsBehavior(),
-                b4: c4.AsBehavior(),
-                b5: c5.AsBehavior(),
-                f: static (a, v1, v2, v3, v4, v5) => $"{a}:{v1},{v2},{v3},{v4},{v5}"));
+        List<string> actual5B =
+            ListenTo(
+                s.SnapshotLatest(
+                    b1: c1.AsBehavior(),
+                    b2: c2.AsBehavior(),
+                    b3: c3.AsBehavior(),
+                    b4: c4.AsBehavior(),
+                    b5: c5.AsBehavior(),
+                    f: static (a, v1, v2, v3, v4, v5) => $"{a}:{v1},{v2},{v3},{v4},{v5}"));
 
         IReadOnlyList<Action<int>> sends = [s.Send, c1.Send, c2.Send, c3.Send, c4.Send, c5.Send];
         Random random = new(5678);
@@ -1090,7 +1099,9 @@ public sealed class StreamTests
         });
 
         // A transaction in which no input fires gives no firing.
-        Transaction.RunVoid(static () => { });
+        Transaction.RunVoid(static () =>
+        {
+        });
 
         l.Unlisten();
 
@@ -1116,49 +1127,46 @@ public sealed class StreamTests
         // The reference maps each stream to a tuple that has a value only in its own element. The
         // same-type Merge puts simultaneous tuples together, and each element gets the value that
         // one of the two tuples has.
-        List<(Maybe<int>, Maybe<string>)> expected2 = ListenTo(
-            s1.Map(static a => (Maybe.Some(a), Maybe<string>.None))
-                .Merge(
-                    s2: s2.Map(static b => (Maybe<int>.None, Maybe.Some(b))),
-                    f: static (l, r) => (l.Item1.OrElse(r.Item1), l.Item2.OrElse(r.Item2))));
+        List<(Maybe<int>, Maybe<string>)> expected2 =
+            ListenTo(
+                s1.Map(static a => (Maybe.Some(a), Maybe<string>.None))
+                    .Merge(
+                        s2: s2.Map(static b => (Maybe<int>.None, Maybe.Some(b))),
+                        f: static (l, r) => (l.Item1.OrElse(r.Item1), l.Item2.OrElse(r.Item2))));
 
         List<(Maybe<int>, Maybe<string>)> merge2 = ListenTo(s1.Merge(s2));
 
-        List<(Maybe<int>, Maybe<string>, Maybe<char>)> expected3 = ListenTo(
-            s1.Map(static a => (Maybe.Some(a), Maybe<string>.None, Maybe<char>.None))
-                .Merge(
-                    s2: s2.Map(static b => (Maybe<int>.None, Maybe.Some(b), Maybe<char>.None)),
-                    f: Combine3)
-                .Merge(
-                    s2: s3.Map(static c => (Maybe<int>.None, Maybe<string>.None, Maybe.Some(c))),
-                    f: Combine3));
+        List<(Maybe<int>, Maybe<string>, Maybe<char>)> expected3 =
+            ListenTo(
+                s1.Map(static a => (Maybe.Some(a), Maybe<string>.None, Maybe<char>.None))
+                    .Merge(
+                        s2: s2.Map(static b => (Maybe<int>.None, Maybe.Some(b), Maybe<char>.None)),
+                        f: Combine3)
+                    .Merge(
+                        s2: s3.Map(static c => (Maybe<int>.None, Maybe<string>.None, Maybe.Some(c))),
+                        f: Combine3));
 
         List<(Maybe<int>, Maybe<string>, Maybe<char>)> merge3 = ListenTo(s1.Merge(s2: s2, s3: s3));
 
-        List<(Maybe<int>, Maybe<string>, Maybe<char>, Maybe<long>)> expected4 = ListenTo(
-            s1.Map(static a => (Maybe.Some(a), Maybe<string>.None, Maybe<char>.None, Maybe<long>.None))
-                .Merge(
-                    s2: s2.Map(
-                        static b => (Maybe<int>.None, Maybe.Some(b), Maybe<char>.None, Maybe<long>.None)),
-                    f: Combine4)
-                .Merge(
-                    s2: s3.Map(
-                        static c => (Maybe<int>.None, Maybe<string>.None, Maybe.Some(c), Maybe<long>.None)),
-                    f: Combine4)
-                .Merge(
-                    s2: s4.Map(
-                        static d => (Maybe<int>.None, Maybe<string>.None, Maybe<char>.None, Maybe.Some(d))),
-                    f: Combine4));
+        List<(Maybe<int>, Maybe<string>, Maybe<char>, Maybe<long>)> expected4 =
+            ListenTo(
+                s1.Map(static a => (Maybe.Some(a), Maybe<string>.None, Maybe<char>.None, Maybe<long>.None))
+                    .Merge(
+                        s2: s2.Map(static b => (Maybe<int>.None, Maybe.Some(b), Maybe<char>.None, Maybe<long>.None)),
+                        f: Combine4)
+                    .Merge(
+                        s2: s3.Map(static c => (Maybe<int>.None, Maybe<string>.None, Maybe.Some(c), Maybe<long>.None)),
+                        f: Combine4)
+                    .Merge(
+                        s2: s4.Map(static d => (Maybe<int>.None, Maybe<string>.None, Maybe<char>.None, Maybe.Some(d))),
+                        f: Combine4));
 
         List<(Maybe<int>, Maybe<string>, Maybe<char>, Maybe<long>)> merge4 =
             ListenTo(s1.Merge(s2: s2, s3: s3, s4: s4));
 
         IReadOnlyList<Action<int>> sends =
         [
-            s1.Send,
-            v => s2.Send($"s{v}"),
-            v => s3.Send((char)('a' + v % 26)),
-            v => s4.Send(v * 1000L)
+            s1.Send, v => s2.Send($"s{v}"), v => s3.Send((char)('a' + v % 26)), v => s4.Send(v * 1000L)
         ];
 
         Random random = new(4321);
@@ -1204,11 +1212,11 @@ public sealed class StreamTests
         static (Maybe<int>, Maybe<string>, Maybe<char>, Maybe<long>) Combine4(
             (Maybe<int>, Maybe<string>, Maybe<char>, Maybe<long>) l,
             (Maybe<int>, Maybe<string>, Maybe<char>, Maybe<long>) r) =>
-            (
-                l.Item1.OrElse(r.Item1),
-                l.Item2.OrElse(r.Item2),
-                l.Item3.OrElse(r.Item3),
-                l.Item4.OrElse(r.Item4));
+        (
+            l.Item1.OrElse(r.Item1),
+            l.Item2.OrElse(r.Item2),
+            l.Item3.OrElse(r.Item3),
+            l.Item4.OrElse(r.Item4));
 
         List<TOut> ListenTo<TOut>(Stream<TOut> stream)
         {
@@ -1481,7 +1489,9 @@ public sealed class StreamTests
             expected: s.SnapshotLatest(b: LiftBehaviors(8), f: static (a, v) => $"{a}:{v}"));
 
         IReadOnlyList<Action<int>> sends =
-            [s.Send, c1.Send, c2.Send, c3.Send, c4.Send, c5.Send, c6.Send, c7.Send, c8.Send];
+        [
+            s.Send, c1.Send, c2.Send, c3.Send, c4.Send, c5.Send, c6.Send, c7.Send, c8.Send
+        ];
 
         Random random = new(8765);
 
@@ -1575,51 +1585,55 @@ public sealed class StreamTests
                 "Merge of five streams",
                 ListenTo(
                     s1.Merge(s2: s2, s3: s3, s4: s4, s5: s5)
-                        .Map(static t => Show(
-                            Slot(t.Item1),
-                            Slot(t.Item2),
-                            Slot(t.Item3),
-                            Slot(t.Item4),
-                            Slot(t.Item5)))),
+                        .Map(static t =>
+                            Show(
+                                Slot(t.Item1),
+                                Slot(t.Item2),
+                                Slot(t.Item3),
+                                Slot(t.Item4),
+                                Slot(t.Item5)))),
                 ListenTo(Reference(5))),
             (
                 "Merge of six streams",
                 ListenTo(
                     s1.Merge(s2: s2, s3: s3, s4: s4, s5: s5, s6: s6)
-                        .Map(static t => Show(
-                            Slot(t.Item1),
-                            Slot(t.Item2),
-                            Slot(t.Item3),
-                            Slot(t.Item4),
-                            Slot(t.Item5),
-                            Slot(t.Item6)))),
+                        .Map(static t =>
+                            Show(
+                                Slot(t.Item1),
+                                Slot(t.Item2),
+                                Slot(t.Item3),
+                                Slot(t.Item4),
+                                Slot(t.Item5),
+                                Slot(t.Item6)))),
                 ListenTo(Reference(6))),
             (
                 "Merge of seven streams",
                 ListenTo(
                     s1.Merge(s2: s2, s3: s3, s4: s4, s5: s5, s6: s6, s7: s7)
-                        .Map(static t => Show(
-                            Slot(t.Item1),
-                            Slot(t.Item2),
-                            Slot(t.Item3),
-                            Slot(t.Item4),
-                            Slot(t.Item5),
-                            Slot(t.Item6),
-                            Slot(t.Item7)))),
+                        .Map(static t =>
+                            Show(
+                                Slot(t.Item1),
+                                Slot(t.Item2),
+                                Slot(t.Item3),
+                                Slot(t.Item4),
+                                Slot(t.Item5),
+                                Slot(t.Item6),
+                                Slot(t.Item7)))),
                 ListenTo(Reference(7))),
             (
                 "Merge of eight streams",
                 ListenTo(
                     s1.Merge(s2: s2, s3: s3, s4: s4, s5: s5, s6: s6, s7: s7, s8: s8)
-                        .Map(static t => Show(
-                            Slot(t.Item1),
-                            Slot(t.Item2),
-                            Slot(t.Item3),
-                            Slot(t.Item4),
-                            Slot(t.Item5),
-                            Slot(t.Item6),
-                            Slot(t.Item7),
-                            Slot(t.Item8)))),
+                        .Map(static t =>
+                            Show(
+                                Slot(t.Item1),
+                                Slot(t.Item2),
+                                Slot(t.Item3),
+                                Slot(t.Item4),
+                                Slot(t.Item5),
+                                Slot(t.Item6),
+                                Slot(t.Item7),
+                                Slot(t.Item8)))),
                 ListenTo(Reference(8)))
         ];
 
@@ -1681,7 +1695,9 @@ public sealed class StreamTests
                 .Map(static slots => Show(slots));
 
         static string[] Slots(int index, int count, string value) =>
-            [.. Enumerable.Range(start: 0, count: count).Select(i => i == index ? value : "-")];
+        [
+            .. Enumerable.Range(start: 0, count: count).Select(i => i == index ? value : "-")
+        ];
 
         static string Slot<T>(Maybe<T> m) => m.Match(onSome: static v => $"{v}", onNone: static () => "-");
 

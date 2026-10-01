@@ -97,14 +97,8 @@ internal static class Catalog
         // and Trim gives a new string at each call with a space to remove.
         string trimmed = query.Trim();
 
-        if (string.Equals(a: trimmed, b: "fail", comparisonType: StringComparison.OrdinalIgnoreCase))
-        {
-            throw new InvalidOperationException("The catalog is unavailable. Try again shortly.");
-        }
-
-        return
-        [
-            .. Entries.Where(e => e.Contains(value: trimmed, comparisonType: StringComparison.OrdinalIgnoreCase))
-        ];
+        return string.Equals(a: trimmed, b: "fail", comparisonType: StringComparison.OrdinalIgnoreCase)
+            ? throw new InvalidOperationException("The catalog is unavailable. Try again shortly.")
+            : [.. Entries.Where(e => e.Contains(value: trimmed, comparisonType: StringComparison.OrdinalIgnoreCase))];
     }
 }

@@ -1,13 +1,14 @@
 #if !NETCOREAPP3_0_OR_GREATER && !NETSTANDARD2_1_OR_GREATER
 using JetBrains.Annotations;
 
+// ReSharper disable MemberCanBeFileLocal
+
 // ReSharper disable once CheckNamespace
 namespace System.Diagnostics.CodeAnalysis
 {
     // ReSharper disable once RedundantAttributeUsageProperty
     [AttributeUsage(AttributeTargets.Parameter, Inherited = false)]
     // ReSharper disable once InheritdocConsiderUsage
-    // ReSharper disable once MemberCanBeFileLocal - CollectionSnapshot.cs uses it, and the compiler finds this attribute by its full name.
     internal sealed class MaybeNullWhenAttribute : Attribute
     {
         /// <summary>Initializes the attribute with the specified return value condition.</summary>

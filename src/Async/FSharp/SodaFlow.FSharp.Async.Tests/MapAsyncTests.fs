@@ -73,17 +73,11 @@ type private AlwaysStartStrategy<'TStrategyInput>() =
         ) =
         let mutable how = ""
 
-        completion.MatchVoid(
-            Action(fun () -> how <- "succeeded"),
-            Action<exn>(fun ex -> how <- "failed:" + ex.Message)
-        )
+        completion.MatchVoid(Action(fun () -> how <- "succeeded"), Action<exn>(fun ex -> how <- "failed:" + ex.Message))
 
         lock completions (fun () -> completions.Add(how))
 
-        AsyncMapBase.AsyncStrategyResult<'TStrategyInput>(
-            true,
-            AsyncMapBase.AsyncStrategyResult<'TStrategyInput>.None
-        )
+        AsyncMapBase.AsyncStrategyResult<'TStrategyInput>(true, AsyncMapBase.AsyncStrategyResult<'TStrategyInput>.None)
 
     override _.OnCanceled
         (
@@ -449,11 +443,7 @@ type ``MapAsync Tests``() =
             let received = List<exn>()
             let l = errors |> listenStrongS received.Add
 
-            let operation
-                (_: string)
-                (_: ResultFactory<string>)
-                (_: CancellationToken)
-                : Task<MapAsyncResult<string>> =
+            let operation (_: string) (_: ResultFactory<string>) (_: CancellationToken) : Task<MapAsyncResult<string>> =
                 Task.FromException<MapAsyncResult<string>>(thrown)
 
             let status =
@@ -566,7 +556,8 @@ type ``MapAsync Tests``() =
             let op = ControlledOperation<string, string>()
 
             let status =
-                source |> mapAsync results errors op.Operation (parallelStrategy ()) None None true
+                source
+                |> mapAsync results errors op.Operation (parallelStrategy ()) None None true
 
             // The call that the documentation gives for F#, with no parentheses.
             let task = status.Execute input
@@ -595,7 +586,8 @@ type ``MapAsync Tests``() =
             let op = ControlledOperation<string, string>()
 
             let status =
-                source |> mapAsync results errors op.Operation (parallelStrategy ()) None None true
+                source
+                |> mapAsync results errors op.Operation (parallelStrategy ()) None None true
 
             let task = status.Execute input
 
@@ -645,7 +637,8 @@ type ``MapAsync Tests``() =
             let op = ControlledOperation<string, string>()
 
             let status =
-                source |> mapAsync results errors op.Operation (parallelStrategy ()) None None true
+                source
+                |> mapAsync results errors op.Operation (parallelStrategy ()) None None true
 
             // A sample in this transaction gives None. The call defers, thus the read is in a new
             // transaction, where the cell holds Some.
@@ -673,7 +666,8 @@ type ``MapAsync Tests``() =
             let op = ControlledOperation<string, string>()
 
             let status =
-                source |> mapAsync results errors op.Operation (parallelStrategy ()) None None true
+                source
+                |> mapAsync results errors op.Operation (parallelStrategy ()) None None true
 
             // A sample in this transaction gives Some, but the cell holds None in the transaction of
             // the send. Thus, a test at the call admits "a", and a test at the send admits nothing.
@@ -729,7 +723,8 @@ type ``MapAsync Tests``() =
             let thrown = InvalidOperationException "boom"
 
             let status =
-                source |> mapAsync results errors op.Operation (parallelStrategy ()) None None true
+                source
+                |> mapAsync results errors op.Operation (parallelStrategy ()) None None true
 
             let task = status.Execute input
             waitUntil (fun () -> op.HasStarted "a")
@@ -755,7 +750,8 @@ type ``MapAsync Tests``() =
             let op = ControlledOperation<string, string>()
 
             let status =
-                source |> mapAsync results errors op.Operation (parallelStrategy ()) None None true
+                source
+                |> mapAsync results errors op.Operation (parallelStrategy ()) None None true
 
             do!
                 Expect.Throws<ArgumentNullException>(

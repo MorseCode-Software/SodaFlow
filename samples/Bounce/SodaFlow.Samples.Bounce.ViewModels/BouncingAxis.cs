@@ -152,9 +152,10 @@ internal static class BouncingAxis
     /// </remarks>
     private static Maybe<double> Earlier(this Maybe<double> first, Maybe<double> second) =>
         first.Match(
-            onSome: a => second.Match(
-                onSome: b => Maybe.Some(Math.Min(val1: a, val2: b)),
-                onNone: () => Maybe.Some(a)),
+            onSome: a =>
+                second.Match(
+                    onSome: b => Maybe.Some(Math.Min(val1: a, val2: b)),
+                    onNone: () => Maybe.Some(a)),
             onNone: () => second);
 
     /// <summary>

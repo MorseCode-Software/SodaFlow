@@ -59,9 +59,11 @@ public static class AsyncMapStatusExtensions
         ExecuteCompletion<TResult, Maybe<TResult>> completion = new(Maybe<TResult>.Some);
 
         status.ExecuteIfSome(
-            read: () => value.SampleImpl().Match(
-                onSome: MaybeInternal.Some,
-                onNone: static () => MaybeInternal<TInput>.None),
+            read: () =>
+                value.SampleImpl()
+                    .Match(
+                        onSome: MaybeInternal.Some,
+                        onNone: static () => MaybeInternal<TInput>.None),
             completion: completion,
             onNone: () => completion.TrySetOutput(Maybe<TResult>.None));
 

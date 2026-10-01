@@ -166,8 +166,10 @@ internal sealed class ObservationShape
         });
     }
 
-    /// <summary>The keys that observers are bound to: even, thus the filter keeps them, and at a distance
-    /// from each other.</summary>
+    /// <summary>
+    ///     The keys that observers are bound to: even, thus the filter keeps them, and at a distance
+    ///     from each other.
+    /// </summary>
     /// <remarks>
     ///     The stride is even for each size this runs at, thus each key is too.
     ///     <see cref="VerifyPremises" /> checks that, and does not accept it without a test. An

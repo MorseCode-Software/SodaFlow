@@ -29,8 +29,10 @@ namespace SodaFlow.Samples.Search.ViewModels;
 // ReSharper disable once InheritdocConsiderUsage
 public interface ISearchViewModel : IDisposable
 {
-    /// <summary>The text from the user. This is two-way, thus the view reads it and writes
-    /// it.</summary>
+    /// <summary>
+    ///     The text from the user. This is two-way, thus the view reads it and writes
+    ///     it.
+    /// </summary>
     ITwoWayBindableValue<string> Query { get; }
 
     IOneWayBindableValue<IReadOnlyList<string>> Results { get; }
@@ -40,8 +42,10 @@ public interface ISearchViewModel : IDisposable
 
     IOneWayBindableValue<string> Error { get; }
 
-    /// <summary>This is not part of <see cref="Error" />, thus the view can bind the visibility
-    /// to it.</summary>
+    /// <summary>
+    ///     This is not part of <see cref="Error" />, thus the view can bind the visibility
+    ///     to it.
+    /// </summary>
     IOneWayBindableValue<bool> HasError { get; }
 
     IOneWayBindableValue<bool> IsBusy { get; }

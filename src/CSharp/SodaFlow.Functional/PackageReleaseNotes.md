@@ -1,163 +1,131 @@
 3.0.2
 
-The documentation comments are rewritten in Simplified Technical English, and
-the ones that the rewrite damaged are repaired. Only the comments changed since
-3.0.1: the compiled code is the same, and the XML documentation file that ships
-beside the assembly is what differs.
+The documentation comments are rewritten in Simplified Technical English, and the ones that the rewrite damaged are
+repaired. Only the comments changed since 3.0.1: the compiled code is the same, and the XML documentation file that
+ships beside the assembly is what differs.
 
 3.0.1
 
 Adds the package icon that nuget.org shows beside this package.
 
-Unit.Equals now carries NotNullWhen on every target framework, where it carried
-the attribute on .NET only. The attribute comes from an internal polyfill on
-net472 and netstandard2.0, which do not declare it themselves. This tells a
+Unit.Equals now carries NotNullWhen on every target framework, where it carried the attribute on .NET only. The
+attribute comes from an internal polyfill on net472 and netstandard2.0, which do not declare it themselves. This tells a
 caller's compiler what the method already did, and changes nothing at run time.
 
 3.0.0
 
-BREAKING: Unit is a readonly struct rather than a sealed class. It is a type
-with exactly one value, so a struct is what it should always have been:
-nothing to allocate, nothing to be null, and nothing to reference-compare.
-It now implements IEquatable<Unit>, IComparable<Unit>, IStructuralEquatable
-and IStructuralComparable, and ToString returns "()".
+BREAKING: Unit is a readonly struct rather than a sealed class. It is a type with exactly one value, so a struct is what
+it should always have been:
+nothing to allocate, nothing to be null, and nothing to reference-compare. It now implements IEquatable<Unit>,
+IComparable<Unit>, IStructuralEquatable and IStructuralComparable, and ToString returns "()".
 
-This breaks in both directions. In source, Unit u = null no longer compiles,
-and neither does anything else which treated it as a reference. In binary, a
-generic instantiated over Unit - Stream<Unit>, StreamSink<Unit>, Func<Unit>
-- is a different type at runtime once Unit is a struct, so an assembly
-compiled against the old one will not bind against this. Recompile rather
-than mix.
+This breaks in both directions. In source, Unit u = null no longer compiles, and neither does anything else which
+treated it as a reference. In binary, a generic instantiated over Unit - Stream<Unit>, StreamSink<Unit>, Func<Unit>
 
-The == operator no longer asks whether either side is null, because neither
-side can be. Two Units are equal, and that is the whole of it.
+- is a different type at runtime once Unit is a struct, so an assembly compiled against the old one will not bind
+  against this. Recompile rather than mix.
 
-Everything else here is a cleanup with no effect on behavior: nullable
-annotations completed, the build made warning-free, and the vendored
-JetBrains annotations replaced by a reference to the package they came from,
-which is not redistributed.
+The == operator no longer asks whether either side is null, because neither side can be. Two Units are equal, and that
+is the whole of it.
+
+Everything else here is a cleanup with no effect on behavior: nullable annotations completed, the build made
+warning-free, and the vendored JetBrains annotations replaced by a reference to the package they came from, which is not
+redistributed.
 
 2.0.0
 
-BREAKING: WhereMaybe and AllMaybeOrNone are gone, renamed to WhereSome and
-AllSomeOrNone. Both did exactly what the new names say, under old ones that
-named the type where every other member here names the case that has a value.
-Rename the calls; nothing else about either changed. These are renames and not
-deprecations because the package is days old and there is no installed base
-worth carrying the old names for.
+BREAKING: WhereMaybe and AllMaybeOrNone are gone, renamed to WhereSome and AllSomeOrNone. Both did exactly what the new
+names say, under old ones that named the type where every other member here names the case that has a value. Rename the
+calls; nothing else about either changed. These are renames and not deprecations because the package is days old and
+there is no installed base worth carrying the old names for.
 
-New: a Maybe<T> vocabulary large enough to use without falling back to Match
-for everything.
+New: a Maybe<T> vocabulary large enough to use without falling back to Match for everything.
 
-Building one: Maybe.SomeIf(condition, value) and its lazy overload turn an
-if/then which produces a value in one branch and nothing in the other straight
-into a Maybe<T>. Maybe.SomeNotNull, and the ToMaybe / ToNullable extension
-methods, bridge to and from null references and Nullable<T>. SomeNotNull is
-deliberately not what Some does: Some(null) still contains null, which is what
-lets Maybe<string> tell no value apart from the value null.
+Building one: Maybe.SomeIf (condition, value) and its lazy overload turn an if/then which produces a value in one branch
+and nothing in the other straight into a Maybe<T>. Maybe.SomeNotNull, and the ToMaybe / ToNullable extension methods,
+bridge to and from null references and Nullable<T>. SomeNotNull is deliberately not what Some does: Some (null) still
+contains null, which is what lets Maybe<string> tell no value apart from the value null.
 
-Working with one: ValueOr, ValueOrDefault, ValueOrThrow, OrElse, Where,
-Select, and Lift for two, three and four inputs. Select and Where complete the
-set the compiler looks for, so query syntax now works over a Maybe<T> - the
-SelectMany it needed was already there.
+Working with one: ValueOr, ValueOrDefault, ValueOrThrow, OrElse, Where, Select, and Lift for two, three and four inputs.
+Select and Where complete the set the compiler looks for, so query syntax now works over a Maybe<T> - the SelectMany it
+needed was already there.
 
-Across an await: MapAsync, BindAsync and WhereAsync on Maybe<T>, for when the
-work is asynchronous, and the same operators on Task<Maybe<T>> - along with
-Map, Bind, Where, Match, OrElse, ValueOr, ValueOrDefault and ValueOrThrow - so
-a chain which starts asynchronously can be continued without awaiting in the
-middle of it. MatchAsync only ever covered the consuming side. Nothing runs on
-the empty path, which returns one cached completed task per type rather than
+Across an await: MapAsync, BindAsync and WhereAsync on Maybe<T>, for when the work is asynchronous, and the same
+operators on Task<Maybe<T>> - along with Map, Bind, Where, Match, OrElse, ValueOr, ValueOrDefault and ValueOrThrow - so
+a chain which starts asynchronously can be continued without awaiting in the middle of it. MatchAsync only ever covered
+the consuming side. Nothing runs on the empty path, which returns one cached completed task per type rather than
 allocating per miss.
 
-There is deliberately no Maybe<Task<T>> to Task<Maybe<T>> conversion: that
-shape almost always means Map was used where MapAsync was meant, and shipping
-the repair would make the mistake easier to keep.
+There is deliberately no Maybe<Task<T>> to Task<Maybe<T>> conversion: that shape almost always means Map was used where
+MapAsync was meant, and shipping the repair would make the mistake easier to keep.
 
-Sequences: Choose to map and filter in one step, an AllSomeOrNone overload
-taking the mapping function, ToEnumerable, and FirstOrNone, LastOrNone,
-SingleOrNone and ElementAtOrNone for the LINQ operators whose OrDefault forms
-cannot say whether they found anything, and MinOrNone, MaxOrNone and
-AggregateOrNone for the ones which throw on an empty sequence rather than
-answer at all. MinOrNone and MaxOrNone skip nulls the way Min and Max do, since
-Comparer<T>.Default sorts null before everything; a sequence of nothing but
-nulls has nothing to compare and gives no value, where LINQ gives null. SingleOrNone still throws when there is
-more than one element, exactly as SingleOrDefault does: that is a contradicted
-assumption rather than a missing answer.
+Sequences: Choose to map and filter in one step, an AllSomeOrNone overload taking the mapping function, ToEnumerable,
+and FirstOrNone, LastOrNone, SingleOrNone and ElementAtOrNone for the LINQ operators whose OrDefault forms cannot say
+whether they found anything, and MinOrNone, MaxOrNone and AggregateOrNone for the ones which throw on an empty sequence
+rather than answer at all. MinOrNone and MaxOrNone skip nulls the way Min and Max do, since Comparer<T>.Default sorts
+null before everything; a sequence of nothing but nulls has nothing to compare and gives no value, where LINQ gives
+null. SingleOrNone still throws when there is more than one element, exactly as SingleOrDefault does: that is a
+contradicted assumption rather than a missing answer.
 
-Parsing and lookup, replacing bool Try...(v, out result) with
-Maybe<TResult> Try...(v): TryParse for every numeric type, plus Boolean, Char,
-Guid, DateTime, DateTimeOffset, TimeSpan and Uri, on string; TryParseEnum and
-TryParseDefinedEnum, the second of which rejects the undeclared numbers
-Enum.TryParse accepts; and TryGetValue on IReadOnlyDictionary<TKey, TValue>.
+Parsing and lookup, replacing bool Try... (v, out result) with Maybe<TResult> Try... (v): TryParse for every numeric
+type, plus Boolean, Char, Guid, DateTime, DateTimeOffset, TimeSpan and Uri, on string; TryParseEnum and
+TryParseDefinedEnum, the second of which rejects the undeclared numbers Enum.TryParse accepts; and TryGetValue on
+IReadOnlyDictionary<TKey, TValue>.
 
-Maybe.FromTryGet adapts any other method of that shape, including ones this
-package has never heard of, and the TryGet delegate types it takes are public.
+Maybe.FromTryGet adapts any other method of that shape, including ones this package has never heard of, and the TryGet
+delegate types it takes are public.
 
-Nullable reference types are enabled. The annotations say what the members
-already documented: a null string parses as no value, a null sequence counts as
-empty, a null dictionary has no entry, a null comparer means the default one,
-and ValueOrDefault answers with something that may be null.
+Nullable reference types are enabled. The annotations say what the members already documented: a null string parses as
+no value, a null sequence counts as empty, a null dictionary has no entry, a null comparer means the default one, and
+ValueOrDefault answers with something that may be null.
 
-SomeNotNull and ToMaybe now take T? for a reference type, which is the point of
-them - whether the reference is null is the question they are asked.
+SomeNotNull and ToMaybe now take T? for a reference type, which is the point of them - whether the reference is null is
+the question they are asked.
 
-Nullability is carried by the type argument, as it is for every other generic
-container. Maybe<string> cannot hold null and Maybe<string?> can; the same for
-each position of an Either. Some(null) still stores a null rather than
-collapsing to None, so the type argument has to be a nullable one to allow it,
-and Match hands back exactly what was stored.
+Nullability is carried by the type argument, as it is for every other generic container. Maybe<string> cannot hold null
+and Maybe<string?> can; the same for each position of an Either. Some (null) still stores a null rather than collapsing
+to None, so the type argument has to be a nullable one to allow it, and Match hands back exactly what was stored.
 
-This can produce new warnings in code that has nullable enabled and was passing
-null where the annotations now say not to. It changes no behavior and no
-signature: nothing was made non-generic, nothing was renamed, and nothing that
+This can produce new warnings in code that has nullable enabled and was passing null where the annotations now say not
+to. It changes no behavior and no signature: nothing was made non-generic, nothing was renamed, and nothing that
 compiled without nullable enabled stops compiling.
 
-New on Either: Swap, on the two-case either only, which exchanges the cases.
-It is how an operation that only addresses the second case reaches the first,
-and swapping twice gives back the original. There is no Swap beyond two cases,
-where there is no single exchange to make.
+New on Either: Swap, on the two-case either only, which exchanges the cases. It is how an operation that only addresses
+the second case reaches the first, and swapping twice gives back the original. There is no Swap beyond two cases, where
+there is no single exchange to make.
 
-Maybe<T> also implements IComparable<Maybe<T>>, ordering no value before every
-value, which is how Nullable<T> is ordered under Comparer<T>.Default. OrderBy
-and Array.Sort therefore work on it, and do so without boxing. No < and >
-operators come with it: Nullable<T> has them and they answer false in both
-directions when either side is absent, so !(a < b) stops meaning a >= b.
+Maybe<T> also implements IComparable<Maybe<T>>, ordering no value before every value, which is how Nullable<T> is
+ordered under Comparer<T>.Default. OrderBy and Array.Sort therefore work on it, and do so without boxing. No < and >
+operators come with it: Nullable<T> has them and they answer false in both directions when either side is absent, so !
+(a < b) stops meaning a >= b.
 
-Fixed: Maybe<T> and all seven Either arities now implement IEquatable<T>.
-They are structs which did not, so EqualityComparer<T>.Default could not find a
-typed comparison and fell back to the one which compares through
-Equals(object), boxing both operands on every comparison - in Distinct,
-Contains, IndexOf, GroupBy and every dictionary lookup. Being structs is how
-these types avoid allocating, and this made them allocate anyway, in exactly
-the collection-heavy code which would notice. No behavior change: the new
-Equals is the same comparison the == operator already made.
+Fixed: Maybe<T> and all seven Either arities now implement IEquatable<T>. They are structs which did not, so
+EqualityComparer<T>.Default could not find a typed comparison and fell back to the one which compares through Equals
+(object), boxing both operands on every comparison - in Distinct, Contains, IndexOf, GroupBy and every dictionary
+lookup. Being structs is how these types avoid allocating, and this made them allocate anyway, in exactly the
+collection-heavy code which would notice. No behavior change: the new Equals is the same comparison the == operator
+already made.
 
-Apart from the removal above, everything here is new API, and nothing else that
-shipped in 1.0.x has changed behavior.
+Apart from the removal above, everything here is new API, and nothing else that shipped in 1.0.x has changed behavior.
 
-This package depends on nothing, so it declares no ranges of its own. What it
-gains is a ceiling in everyone else's: the packages built on it - SodaFlow,
-SodaFlow.Async and SodaFlow.Bindable.ObjectModel - now declare it as a range
-bounded at the next major. A consumer on an older one of those cannot be moved
-onto this version by a restore that resolves cleanly and then fails on a method
-the rename took away.
+This package depends on nothing, so it declares no ranges of its own. What it gains is a ceiling in everyone else's: the
+packages built on it - SodaFlow, SodaFlow.Async and SodaFlow.Bindable.ObjectModel - now declare it as a range bounded at
+the next major. A consumer on an older one of those cannot be moved onto this version by a restore that resolves cleanly
+and then fails on a method the rename took away.
 
 1.0.2
 
-Carries the release notes below, which 1.0.1 shipped without. No code change
-since 1.0.1 - the mechanism that reads these from a file landed after that
-version was tagged, so there was no way to attach them to it.
+Carries the release notes below, which 1.0.1 shipped without. No code change since 1.0.1 - the mechanism that reads
+these from a file landed after that version was tagged, so there was no way to attach them to it.
 
 1.0.1
 
 Complete XML documentation for every public type and member.
 
-Fixed: Maybe<T>.Map carried a typeparam tag for the containing type's
-parameter, which is not legal on a method.
+Fixed: Maybe<T>.Map carried a typeparam tag for the containing type's parameter, which is not legal on a method.
 
-No API change. This package does not depend on SodaFlow.Core, so it was
-unaffected by the breaking change in the rest of the 2.0.0 release and stays
-on 1.x.
+No API change. This package does not depend on SodaFlow.Core, so it was unaffected by the breaking change in the rest of
+the 2.0.0 release and stays on 1.x.
 
 ---
 
@@ -166,12 +134,10 @@ About this package
 The small functional vocabulary the C# API needs and C# does not ship with:
 Maybe<T>, Either<T1,T2> through Either of eight cases, and Unit.
 
-No FRP in it, and no dependency on anything else here, so it can be used on its
-own. F# already has option, Result and unit, which is why SodaFlow.FSharp does
-not reference it.
+No FRP in it, and no dependency on anything else here, so it can be used on its own. F# already has option, Result and
+unit, which is why SodaFlow.FSharp does not reference it.
 
-Maybe<T> has no property that hands out the value unchecked: reach it with
-Match, or one of the helpers built on it, so the case where there is none has
-to be answered for. Either works the same way.
+Maybe<T> has no property that hands out the value unchecked: reach it with Match, or one of the helpers built on it, so
+the case where there is none has to be answered for. Either works the same way.
 
 Full notes: https://github.com/MorseCode-Software/SodaFlow/releases

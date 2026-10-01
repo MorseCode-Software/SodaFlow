@@ -83,8 +83,10 @@ public sealed class ViewOperationInvariantTests
         ];
     }
 
-    /// <summary>A sequence of edits that makes each stage add a key, remove a key, update a key, and
-/// sort a key again.</summary>
+    /// <summary>
+    ///     A sequence of edits that makes each stage add a key, remove a key, update a key, and
+    ///     sort a key again.
+    /// </summary>
     private static void SendEdits(StreamSink<CollectionEdit<int, ItemIdentity, ItemState>> edits)
     {
         // This sorts again in the score order, and moves rows into the filter and the slice and out

@@ -12,9 +12,17 @@ namespace SodaFlow.Benchmarks;
 ///         a benchmark, and nothing here has to name it.
 ///     </para>
 ///     <para>
-///         Run everything, which takes a while, with <c>dotnet run -c Release --project
-///         src/CSharp/SodaFlow.Benchmarks -- --filter *</c>, or one class with <c>--filter
-///         *BindableValue*</c>. Release is not optional - BenchmarkDotNet refuses to measure a debug build,
+///         Run everything, which takes a while, with
+///         <c>
+///             dotnet run -c Release --project
+///             src/CSharp/SodaFlow.Benchmarks -- --filter *
+///         </c>
+///         , or one class with
+///         <c>
+///             --filter
+///             *BindableValue*
+///         </c>
+///         . Release is not optional - BenchmarkDotNet refuses to measure a debug build,
 ///         and is right to.
 ///     </para>
 /// </remarks>

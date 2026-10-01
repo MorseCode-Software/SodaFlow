@@ -276,14 +276,13 @@ public sealed class AsyncConcurrencyStrategyTests
 
         IListener probe =
             Transaction.Run(() =>
-                tracked.ListenStrong(
-                    items =>
+                tracked.ListenStrong(items =>
+                {
+                    lock (statuses)
                     {
-                        lock (statuses)
-                        {
-                            statuses.AddRange(items.Select(static item => item.Value + ":" + item.Status));
-                        }
-                    }));
+                        statuses.AddRange(items.Select(static item => item.Value + ":" + item.Status));
+                    }
+                }));
 
         source.Send("a");
         TestUtil.WaitUntil(() => op.HasStarted("a"));
@@ -305,7 +304,7 @@ public sealed class AsyncConcurrencyStrategyTests
 
         lock (statuses)
         {
-            seen = [..statuses];
+            seen = [.. statuses];
         }
 
         List<string> queued =

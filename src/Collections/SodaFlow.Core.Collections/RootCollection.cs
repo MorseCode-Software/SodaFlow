@@ -70,8 +70,10 @@ internal sealed class RootCollection<TKey, TIdentity, TState>
         this.orderedByArrival.Value.KeyChangesStream;
 
     /// <inheritdoc />
-    /// <remarks>On the collection this is the full store, and it sends a value at each
-    /// change.</remarks>
+    /// <remarks>
+    ///     On the collection this is the full store, and it sends a value at each
+    ///     change.
+    /// </remarks>
     public override Cell<CollectionSnapshot<TKey, TIdentity, TState>> SnapshotCell { get; }
 
     /// <inheritdoc />

@@ -233,8 +233,7 @@ public sealed class MapAsyncExtensionsTests
         // status.
         TestUtil.WaitUntil(() => Transaction.Run(tracked.Sample).Count == 1);
 
-        await Assert.That(
-                Transaction.Run(tracked.Sample).Select(static item => item.Value + ":" + item.Status))
+        await Assert.That(Transaction.Run(tracked.Sample).Select(static item => item.Value + ":" + item.Status))
             .IsEquivalentTo(expected: ["a:Running"], ordering: CollectionOrdering.Matching)
             .Because("a cancellation should end a queued item and not wait for another completion");
 
@@ -366,7 +365,7 @@ public sealed class MapAsyncExtensionsTests
 
         lock (strategy.EndedSaw)
         {
-            endedSaw = [..strategy.EndedSaw];
+            endedSaw = [.. strategy.EndedSaw];
         }
 
         // A list of one item is a list also. The outcome selects the method, and not the count of
@@ -417,12 +416,12 @@ public sealed class MapAsyncExtensionsTests
 
         lock (strategy.EndedSaw)
         {
-            endedSaw = [..strategy.EndedSaw];
+            endedSaw = [.. strategy.EndedSaw];
         }
 
         lock (strategy.CompletedSaw)
         {
-            completedSaw = [..strategy.CompletedSaw];
+            completedSaw = [.. strategy.CompletedSaw];
         }
 
         await Assert.That(endedSaw)
@@ -606,13 +605,14 @@ public sealed class MapAsyncExtensionsTests
             source.MapAsync(
                 results: results,
                 errors: errors,
-                operation: (v, factory, _) => Task.FromResult(
-                    factory.Construct(() =>
-                    {
-                        inTransaction = Transaction.IsActive();
+                operation: (v, factory, _) =>
+                    Task.FromResult(
+                        factory.Construct(() =>
+                        {
+                            inTransaction = Transaction.IsActive();
 
-                        return v.ToUpperInvariant();
-                    })),
+                            return v.ToUpperInvariant();
+                        })),
                 strategy: AsyncConcurrencyStrategy.Parallel());
 
         source.Send("hello");
@@ -642,16 +642,17 @@ public sealed class MapAsyncExtensionsTests
             source.MapAsync(
                 results: results,
                 errors: errors,
-                operation: (v, factory, _) => Task.FromResult(
-                    factory.Construct(() =>
-                    {
-                        lock (constructions)
+                operation: (v, factory, _) =>
+                    Task.FromResult(
+                        factory.Construct(() =>
                         {
-                            constructions.Add(v);
-                        }
+                            lock (constructions)
+                            {
+                                constructions.Add(v);
+                            }
 
-                        return v;
-                    })),
+                            return v;
+                        })),
                 strategy: strategy);
 
         source.Send("hello");
@@ -685,22 +686,23 @@ public sealed class MapAsyncExtensionsTests
             source.MapAsync(
                 results: results,
                 errors: errors,
-                operation: (v, factory, _) => Task.Run(
-                    function: () =>
-                    {
-                        release.Wait(millisecondsTimeout: 5000);
-
-                        return factory.Construct(() =>
+                operation: (v, factory, _) =>
+                    Task.Run(
+                        function: () =>
                         {
-                            lock (constructions)
-                            {
-                                constructions.Add(v);
-                            }
+                            release.Wait(millisecondsTimeout: 5000);
 
-                            return v;
-                        });
-                    },
-                    cancellationToken: CancellationToken.None),
+                            return factory.Construct(() =>
+                            {
+                                lock (constructions)
+                                {
+                                    constructions.Add(v);
+                                }
+
+                                return v;
+                            });
+                        },
+                        cancellationToken: CancellationToken.None),
                 strategy: strategy,
                 cancelAll: cancelAll);
 
@@ -737,8 +739,7 @@ public sealed class MapAsyncExtensionsTests
             source.MapAsync(
                 results: results,
                 errors: errors,
-                operation: (_, factory, _) => Task.FromResult(
-                    factory.Construct(() => throw thrown)),
+                operation: (_, factory, _) => Task.FromResult(factory.Construct(() => throw thrown)),
                 strategy: AsyncConcurrencyStrategy.Parallel());
 
         source.Send("hello");
@@ -764,9 +765,10 @@ public sealed class MapAsyncExtensionsTests
             source.MapAsync(
                 results: results,
                 errors: errors,
-                operation: static (v, factory, _) => v == "fail"
-                    ? Task.FromException<MapAsyncResult<string>>(new InvalidOperationException("no"))
-                    : Task.FromResult(factory.FromValue(v)),
+                operation: static (v, factory, _) =>
+                    v == "fail"
+                        ? Task.FromException<MapAsyncResult<string>>(new InvalidOperationException("no"))
+                        : Task.FromResult(factory.FromValue(v)),
                 strategy: strategy);
 
         source.Send("ok");
@@ -948,7 +950,7 @@ public sealed class MapAsyncExtensionsTests
 
         lock (strategy.EndedSaw)
         {
-            endedSaw = [..strategy.EndedSaw];
+            endedSaw = [.. strategy.EndedSaw];
         }
 
         // Each of these ends sends a result, thus each one gets a decision of its own. A stream
@@ -1734,8 +1736,7 @@ public sealed class MapAsyncExtensionsTests
                 results: results,
                 errors: errors,
                 operation: static (v, factory, _) =>
-                    Task.FromResult(
-                        factory.FromValue(v.Match(onSome: static s => s, onNone: static () => "none"))),
+                    Task.FromResult(factory.FromValue(v.Match(onSome: static s => s, onNone: static () => "none"))),
                 strategy: AsyncConcurrencyStrategy.Parallel());
 
         // Here the cell has the TInput of the pipeline, thus the instance overload takes the call.
@@ -1765,8 +1766,7 @@ public sealed class MapAsyncExtensionsTests
                 results: results,
                 errors: errors,
                 operation: static (v, factory, _) =>
-                    Task.FromResult(
-                        factory.FromValue(v.Match(onSome: static s => s, onNone: static () => "none"))),
+                    Task.FromResult(factory.FromValue(v.Match(onSome: static s => s, onNone: static () => "none"))),
                 strategy: AsyncConcurrencyStrategy.Parallel());
 
         // Here the cell holds a Maybe of the TInput, thus the overload for a Maybe takes the call.
@@ -1993,11 +1993,12 @@ public sealed class MapAsyncExtensionsTests
         // the continuation of an await on that thread, a send from the continuation joins that
         // transaction. It throws where the code is in a callback. ExecuteSynchronously asks for the
         // worst condition: the continuation runs on the thread that answers, if the Task permits.
-        Task<bool> wasInTransaction = task.ContinueWith(
-            continuationFunction: static _ => Transaction.IsActive(),
-            cancellationToken: CancellationToken.None,
-            continuationOptions: TaskContinuationOptions.ExecuteSynchronously,
-            scheduler: TaskScheduler.Default);
+        Task<bool> wasInTransaction =
+            task.ContinueWith(
+                continuationFunction: static _ => Transaction.IsActive(),
+                cancellationToken: CancellationToken.None,
+                continuationOptions: TaskContinuationOptions.ExecuteSynchronously,
+                scheduler: TaskScheduler.Default);
 
         op.Release(input: "a", result: "A");
         TestUtil.WaitUntil(() => wasInTransaction.IsCompleted);
@@ -2009,127 +2010,10 @@ public sealed class MapAsyncExtensionsTests
         status.Dispose();
     }
 
-    /// <summary>
-    ///     Refuses each value: it cancels the value and never promotes it, which is the documented
-    ///     method for a strategy to refuse one. The entry then keeps the Queued status permanently,
-    ///     thus no end comes for it.
-    /// </summary>
-    // ReSharper disable once InheritdocConsiderUsage
-    private sealed class RefuseEverythingStrategy : AsyncConcurrencyStrategy<Unit>
-    {
-        protected override Unit CreateState() => Unit.Value;
-
-        protected override IReadOnlyList<AsyncToStart<Unit>> Admit(
-            Unit state,
-            AsyncQueuedItem<Unit> incoming,
-            IReadOnlyList<AsyncTrackedItem<Unit>> tracked)
-        {
-            incoming.Cancel();
-
-            return AsyncStrategyResult<Unit>.None;
-        }
-
-        protected override AsyncStrategyResult<Unit> OnCompleted(
-            Unit state,
-            AsyncQueuedItem<Unit> item,
-            AsyncCompletion completion,
-            IReadOnlyList<AsyncTrackedItem<Unit>> tracked) =>
-            new(publish: true, next: AsyncStrategyResult<Unit>.None);
-
-        protected override IReadOnlyList<AsyncToStart<Unit>> OnCanceled(
-            Unit state,
-            IReadOnlyList<AsyncQueuedItem<Unit>> canceled,
-            IReadOnlyList<AsyncTrackedItem<Unit>> tracked) =>
-            AsyncStrategyResult<Unit>.None;
-    }
-
     [Test]
     public async Task AsyncStrategyResult_WithNoNextList_Throws() =>
         await Assert.That(new StrategyResultProbe().WithNullNext)
             .ThrowsExactly<ArgumentNullException>();
-
-    /// <summary>
-    ///     Reaches the constructor of AsyncStrategyResult, which a custom strategy can see and other
-    ///     code cannot. Publish was a bool before this release, thus a null list is a new path.
-    /// </summary>
-    // ReSharper disable once InheritdocConsiderUsage
-    private sealed class StrategyResultProbe : AsyncConcurrencyStrategy<Unit>
-    {
-        public void WithNullNext() =>
-            // ReSharper disable once NullableWarningSuppressionIsUsed - Testing for exception on null.
-            _ = new AsyncStrategyResult<Unit>(publish: false, next: null!);
-
-        protected override Unit CreateState() => Unit.Value;
-
-        protected override IReadOnlyList<AsyncToStart<Unit>> Admit(
-            Unit state,
-            AsyncQueuedItem<Unit> incoming,
-            IReadOnlyList<AsyncTrackedItem<Unit>> tracked) =>
-            AsyncStrategyResult<Unit>.None;
-
-        protected override AsyncStrategyResult<Unit> OnCompleted(
-            Unit state,
-            AsyncQueuedItem<Unit> item,
-            AsyncCompletion completion,
-            IReadOnlyList<AsyncTrackedItem<Unit>> tracked) =>
-            new(publish: true, next: AsyncStrategyResult<Unit>.None);
-
-        protected override IReadOnlyList<AsyncToStart<Unit>> OnCanceled(
-            Unit state,
-            IReadOnlyList<AsyncQueuedItem<Unit>> canceled,
-            IReadOnlyList<AsyncTrackedItem<Unit>> tracked) =>
-            AsyncStrategyResult<Unit>.None;
-    }
-
-    private class Animal;
-
-    private sealed class Dog : Animal;
-
-    /// <summary>Starts each item immediately and then refuses to publish its result. It shows
-    /// that the pipeline makes a result only for an item that it publishes.</summary>
-    // ReSharper disable once InheritdocConsiderUsage
-    private sealed class DropEverythingStrategy : AsyncConcurrencyStrategy<Unit>
-    {
-        public readonly List<string> Completions = [];
-
-        protected override Unit CreateState() => Unit.Value;
-
-        protected override IReadOnlyList<AsyncToStart<Unit>> Admit(
-            Unit state,
-            AsyncQueuedItem<Unit> incoming,
-            IReadOnlyList<AsyncTrackedItem<Unit>> tracked) =>
-            [new(incoming)];
-
-        protected override AsyncStrategyResult<Unit> OnCompleted(
-            Unit state,
-            AsyncQueuedItem<Unit> item,
-            AsyncCompletion completion,
-            IReadOnlyList<AsyncTrackedItem<Unit>> tracked)
-        {
-            lock (this.Completions)
-            {
-                this.Completions.Add("completed");
-            }
-
-            return new AsyncStrategyResult<Unit>(publish: false, next: AsyncStrategyResult<Unit>.None);
-        }
-
-        protected override IReadOnlyList<AsyncToStart<Unit>> OnCanceled(
-            Unit state,
-            IReadOnlyList<AsyncQueuedItem<Unit>> canceled,
-            IReadOnlyList<AsyncTrackedItem<Unit>> tracked)
-        {
-            lock (this.Completions)
-            {
-                for (int i = 0; i < canceled.Count; i++)
-                {
-                    this.Completions.Add("canceled");
-                }
-            }
-
-            return AsyncStrategyResult<Unit>.None;
-        }
-    }
 
     /// <summary>
     ///     Queues each item and starts one at a time, as the Queue strategy in the library does,
@@ -2232,6 +2116,124 @@ public sealed class MapAsyncExtensionsTests
         status.Dispose();
     }
 
+    /// <summary>
+    ///     Refuses each value: it cancels the value and never promotes it, which is the documented
+    ///     method for a strategy to refuse one. The entry then keeps the Queued status permanently,
+    ///     thus no end comes for it.
+    /// </summary>
+    // ReSharper disable once InheritdocConsiderUsage
+    private sealed class RefuseEverythingStrategy : AsyncConcurrencyStrategy<Unit>
+    {
+        protected override Unit CreateState() => Unit.Value;
+
+        protected override IReadOnlyList<AsyncToStart<Unit>> Admit(
+            Unit state,
+            AsyncQueuedItem<Unit> incoming,
+            IReadOnlyList<AsyncTrackedItem<Unit>> tracked)
+        {
+            incoming.Cancel();
+
+            return AsyncStrategyResult<Unit>.None;
+        }
+
+        protected override AsyncStrategyResult<Unit> OnCompleted(
+            Unit state,
+            AsyncQueuedItem<Unit> item,
+            AsyncCompletion completion,
+            IReadOnlyList<AsyncTrackedItem<Unit>> tracked) =>
+            new(publish: true, next: AsyncStrategyResult<Unit>.None);
+
+        protected override IReadOnlyList<AsyncToStart<Unit>> OnCanceled(
+            Unit state,
+            IReadOnlyList<AsyncQueuedItem<Unit>> canceled,
+            IReadOnlyList<AsyncTrackedItem<Unit>> tracked) =>
+            AsyncStrategyResult<Unit>.None;
+    }
+
+    /// <summary>
+    ///     Reaches the constructor of AsyncStrategyResult, which a custom strategy can see and other
+    ///     code cannot. Publish was a bool before this release, thus a null list is a new path.
+    /// </summary>
+    // ReSharper disable once InheritdocConsiderUsage
+    private sealed class StrategyResultProbe : AsyncConcurrencyStrategy<Unit>
+    {
+        public void WithNullNext() =>
+            // ReSharper disable once NullableWarningSuppressionIsUsed - Testing for exception on null.
+            _ = new AsyncStrategyResult<Unit>(publish: false, next: null!);
+
+        protected override Unit CreateState() => Unit.Value;
+
+        protected override IReadOnlyList<AsyncToStart<Unit>> Admit(
+            Unit state,
+            AsyncQueuedItem<Unit> incoming,
+            IReadOnlyList<AsyncTrackedItem<Unit>> tracked) =>
+            AsyncStrategyResult<Unit>.None;
+
+        protected override AsyncStrategyResult<Unit> OnCompleted(
+            Unit state,
+            AsyncQueuedItem<Unit> item,
+            AsyncCompletion completion,
+            IReadOnlyList<AsyncTrackedItem<Unit>> tracked) =>
+            new(publish: true, next: AsyncStrategyResult<Unit>.None);
+
+        protected override IReadOnlyList<AsyncToStart<Unit>> OnCanceled(
+            Unit state,
+            IReadOnlyList<AsyncQueuedItem<Unit>> canceled,
+            IReadOnlyList<AsyncTrackedItem<Unit>> tracked) =>
+            AsyncStrategyResult<Unit>.None;
+    }
+
+    private class Animal;
+
+    private sealed class Dog : Animal;
+
+    /// <summary>
+    ///     Starts each item immediately and then refuses to publish its result. It shows
+    ///     that the pipeline makes a result only for an item that it publishes.
+    /// </summary>
+    // ReSharper disable once InheritdocConsiderUsage
+    private sealed class DropEverythingStrategy : AsyncConcurrencyStrategy<Unit>
+    {
+        public readonly List<string> Completions = [];
+
+        protected override Unit CreateState() => Unit.Value;
+
+        protected override IReadOnlyList<AsyncToStart<Unit>> Admit(
+            Unit state,
+            AsyncQueuedItem<Unit> incoming,
+            IReadOnlyList<AsyncTrackedItem<Unit>> tracked) => [new(incoming)];
+
+        protected override AsyncStrategyResult<Unit> OnCompleted(
+            Unit state,
+            AsyncQueuedItem<Unit> item,
+            AsyncCompletion completion,
+            IReadOnlyList<AsyncTrackedItem<Unit>> tracked)
+        {
+            lock (this.Completions)
+            {
+                this.Completions.Add("completed");
+            }
+
+            return new AsyncStrategyResult<Unit>(publish: false, next: AsyncStrategyResult<Unit>.None);
+        }
+
+        protected override IReadOnlyList<AsyncToStart<Unit>> OnCanceled(
+            Unit state,
+            IReadOnlyList<AsyncQueuedItem<Unit>> canceled,
+            IReadOnlyList<AsyncTrackedItem<Unit>> tracked)
+        {
+            lock (this.Completions)
+            {
+                for (int i = 0; i < canceled.Count; i++)
+                {
+                    this.Completions.Add("canceled");
+                }
+            }
+
+            return AsyncStrategyResult<Unit>.None;
+        }
+    }
+
     private sealed class QueueFromTrackedStrategy : AsyncConcurrencyStrategy<string, Unit>
     {
         public readonly List<string> AdmitSaw = [];
@@ -2282,8 +2284,7 @@ public sealed class MapAsyncExtensionsTests
 
         // The queue holds no item that ends now, thus this takes the first Queued item with no test
         // against them.
-        private static IReadOnlyList<AsyncToStart<string>> StartOne(
-            IEnumerable<AsyncTrackedItem<string>> tracked)
+        private static IReadOnlyList<AsyncToStart<string>> StartOne(IEnumerable<AsyncTrackedItem<string>> tracked)
         {
             AsyncTrackedItem<string>? next =
                 tracked.FirstOrDefault(predicate: static candidate => candidate.Status == AsyncItemStatus.Queued);
@@ -2294,8 +2295,8 @@ public sealed class MapAsyncExtensionsTests
         private static string Describe(IEnumerable<AsyncTrackedItem<string>> tracked) =>
             string.Join(
                 separator: ",",
-                values: tracked.Select(
-                    static e => e.Item.Value + ":" + (e.Status == AsyncItemStatus.Running ? "R" : "Q")));
+                values: tracked.Select(static e =>
+                    e.Item.Value + ":" + (e.Status == AsyncItemStatus.Running ? "R" : "Q")));
 
         // The name of the method is part of the record. Thus, a test shows which method answered
         // an end, and not only the values of that end.

@@ -363,7 +363,8 @@ public sealed class BindableValueTests
     {
         CellSink<int> c = Cell.CreateSink(11);
 
-        using IOneWayToSourceBindableValue<int> b = await OnAnotherThread(() => c.ToOneWayToSourceImpl(scheduler: BindingScheduler.Immediate));
+        using IOneWayToSourceBindableValue<int> b =
+            await OnAnotherThread(() => c.ToOneWayToSourceImpl(scheduler: BindingScheduler.Immediate));
 
         await Assert.That(b.Value).IsEqualTo(11);
 

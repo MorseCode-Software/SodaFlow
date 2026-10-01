@@ -51,8 +51,10 @@ internal sealed class CollisionScene : IScene
     /// </remarks>
     private const double SimultaneousWithin = 1e-9;
 
-    /// <summary>This is the interval that <see cref="BouncingAxis" /> uses, for the same
-    /// cause.</summary>
+    /// <summary>
+    ///     This is the interval that <see cref="BouncingAxis" /> uses, for the same
+    ///     cause.
+    /// </summary>
     private const double MinimumInterval = 1e-6;
 
     /// <summary>
@@ -89,7 +91,6 @@ internal sealed class CollisionScene : IScene
     ///     than one millisecond. No alarm is that accurate. The alarm comes some milliseconds
     ///     after that, and the ball is then twelve pixels through the wall. Three balls that
     ///     stopped and then collide show this, because the three move below the floor together.
-    ///
     ///     A bounce here applies the change at the same instant. The bounce then occurs before the
     ///     true position by this distance. For that cause this limit is a distance and not a time.
     ///     A user cannot see one pixel at each speed, but one millisecond is one pixel for a slow
@@ -158,30 +159,29 @@ internal sealed class CollisionScene : IScene
 
         Cell<IReadOnlyList<Body>> world =
             Cell.Loop<IReadOnlyList<Body>>()
-                .WithoutCaptures(
-                    bodies =>
-                    {
-                        // This alarm is set for the next event, and it is not set when no event
-                        // occurs. No code reschedules it. The world gives the target, thus a new
-                        // world gives a new target.
-                        Cell<Maybe<double>> nextEvent = bodies.Map(NextEventTime);
+                .WithoutCaptures(bodies =>
+                {
+                    // This alarm is set for the next event, and it is not set when no event
+                    // occurs. No code reschedules it. The world gives the target, thus a new
+                    // world gives a new target.
+                    Cell<Maybe<double>> nextEvent = bodies.Map(NextEventTime);
 
-                        // The two lambdas give the list as their return type. Step and Initial
-                        // give arrays, and a stream of arrays is not a stream of lists.
-                        Stream<IReadOnlyList<Body>> stepped =
-                            timers
-                                .At(nextEvent)
-                                .Snapshot(
-                                    c1: bodies,
-                                    c2: restitution,
-                                    f: static IReadOnlyList<Body> (time, w, e) =>
-                                        Step(world: w, time: time, restitution: e));
+                    // The two lambdas give the list as their return type. Step and Initial
+                    // give arrays, and a stream of arrays is not a stream of lists.
+                    Stream<IReadOnlyList<Body>> stepped =
+                        timers
+                            .At(nextEvent)
+                            .Snapshot(
+                                c1: bodies,
+                                c2: restitution,
+                                f: static IReadOnlyList<Body> (time, w, e) =>
+                                    Step(world: w, time: time, restitution: e));
 
-                        return restarts
-                            .Snapshot(b: timers.Time, f: static IReadOnlyList<Body> (_, time) => Initial(time))
-                            .OrElse(stepped)
-                            .Hold(Initial(now));
-                    });
+                    return restarts
+                        .Snapshot(b: timers.Time, f: static IReadOnlyList<Body> (_, time) => Initial(time))
+                        .OrElse(stepped)
+                        .Hold(Initial(now));
+                });
 
         Ball[] balls = new Ball[Arrangement.Starts.Count];
 
@@ -217,8 +217,10 @@ internal sealed class CollisionScene : IScene
     /// <inheritdoc />
     public IReadOnlyList<Ball> Balls { get; }
 
-    /// <summary>The world that each ball starts from, and returns to when a user selects the tab
-    /// again.</summary>
+    /// <summary>
+    ///     The world that each ball starts from, and returns to when a user selects the tab
+    ///     again.
+    /// </summary>
     private static Body[] Initial(double time)
     {
         Body[] bodies = new Body[Arrangement.Starts.Count];
@@ -247,13 +249,12 @@ internal sealed class CollisionScene : IScene
         int index,
         bool horizontal) =>
         world
-            .Map(
-                w =>
-                {
-                    Flight flight = horizontal ? w[index].X : w[index].Y;
+            .Map(w =>
+            {
+                Flight flight = horizontal ? w[index].X : w[index].Y;
 
-                    return timers.Time.Map(flight.PositionAt);
-                })
+                return timers.Time.Map(flight.PositionAt);
+            })
             .SwitchB();
 
     /// <summary>The time of the next event, or none when no event occurs.</summary>
@@ -284,11 +285,12 @@ internal sealed class CollisionScene : IScene
                 double limit = e.Horizontal ? Arrangement.Width : Arrangement.Height;
 
                 next[e.Index] =
-                    next[e.Index].Reflected(
-                        horizontal: e.Horizontal,
-                        min: next[e.Index].Radius,
-                        max: limit - next[e.Index].Radius,
-                        restitution: restitution);
+                    next[e.Index]
+                        .Reflected(
+                            horizontal: e.Horizontal,
+                            min: next[e.Index].Radius,
+                            max: limit - next[e.Index].Radius,
+                            restitution: restitution);
             }
             else
             {
@@ -359,19 +361,22 @@ internal sealed class CollisionScene : IScene
 
             if (atOrBeyond)
             {
-                body = body.Reflected(
-                    horizontal: horizontal,
-                    min: min,
-                    max: max,
-                    restitution: restitution);
+                body =
+                    body.Reflected(
+                        horizontal: horizontal,
+                        min: min,
+                        max: max,
+                        restitution: restitution);
             }
         }
 
         return body;
     }
 
-    /// <summary>Each event that occurs next, in no sequence. Walls come first, then pairs of
-    /// balls.</summary>
+    /// <summary>
+    ///     Each event that occurs next, in no sequence. Walls come first, then pairs of
+    ///     balls.
+    /// </summary>
     private static IEnumerable<Event> Events(IReadOnlyList<Body> world)
     {
         for (int i = 0; i < world.Count; i++)
@@ -637,8 +642,10 @@ internal sealed class CollisionScene : IScene
                     min: body.Radius,
                     max: Arrangement.Height - body.Radius)));
 
-    /// <summary>The distance that one axis of a ball can move before that axis goes out of the
-    /// box.</summary>
+    /// <summary>
+    ///     The distance that one axis of a ball can move before that axis goes out of the
+    ///     box.
+    /// </summary>
     private static double RoomOnAxis(double position, double direction, double min, double max)
     {
         if (direction > 0.0)
@@ -656,17 +663,21 @@ internal sealed class CollisionScene : IScene
         /// <summary>The area. Each ball is a disc of one density.</summary>
         public double Mass => this.Radius * this.Radius;
 
-        /// <summary>The same movement, written as if it started at
-        /// <paramref name="time" />.</summary>
+        /// <summary>
+        ///     The same movement, written as if it started at
+        ///     <paramref name="time" />.
+        /// </summary>
         public Body RebasedTo(double time) =>
             this with
             {
-                X = new Flight(
+                X =
+                new Flight(
                     StartTime: time,
                     Position: this.X.PositionAt(time),
                     Velocity: this.X.VelocityAt(time),
                     Acceleration: this.X.Acceleration),
-                Y = new Flight(
+                Y =
+                new Flight(
                     StartTime: time,
                     Position: this.Y.PositionAt(time),
                     Velocity: this.Y.VelocityAt(time),
@@ -682,11 +693,7 @@ internal sealed class CollisionScene : IScene
             };
 
         public Body WithVelocity(double velocityX, double velocityY) =>
-            this with
-            {
-                X = this.X with { Velocity = velocityX },
-                Y = this.Y with { Velocity = velocityY }
-            };
+            this with { X = this.X with { Velocity = velocityX }, Y = this.Y with { Velocity = velocityY } };
 
         /// <summary>
         ///     The same ball with one axis in the opposite direction, after it reached a

@@ -37,8 +37,10 @@ public sealed class BounceViewModel : IBounceViewModel
 
     private const double LargestDamping = 1.1;
 
-    /// <summary>The initial position of the slider. It has a large loss, thus damping shows a
-    /// result on the screen.</summary>
+    /// <summary>
+    ///     The initial position of the slider. It has a large loss, thus damping shows a
+    ///     result on the screen.
+    /// </summary>
     private const double InitialDamping = 0.7;
 
     private readonly IReadOnlyList<IDisposable> disposables;
@@ -62,8 +64,10 @@ public sealed class BounceViewModel : IBounceViewModel
     }
 
     /// <inheritdoc />
-    /// <remarks>The smallest scene is first, thus the sequence of the scenes is the sequence of
-    /// the idea.</remarks>
+    /// <remarks>
+    ///     The smallest scene is first, thus the sequence of the scenes is the sequence of
+    ///     the idea.
+    /// </remarks>
     public IReadOnlyList<IScene> Scenes { get; }
 
     /// <inheritdoc />

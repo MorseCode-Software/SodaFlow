@@ -1,248 +1,194 @@
 5.0.1
 
-No API change and no change in behavior. The four MutableListener extension
-methods, SetListener, ClearListener, Unlisten, and GetListenerWithWeakReference,
-were members of a C# 14 extension block, and they are ordinary extension methods
-now. Visual Studio and Rider did not show the documentation of a member of an
-extension block correctly. Each method keeps its name, parameters, and
-attributes, thus code compiled against 5.0.0 binds to this release unchanged.
+No API change and no change in behavior. The four MutableListener extension methods, SetListener, ClearListener,
+Unlisten, and GetListenerWithWeakReference, were members of a C# 14 extension block, and they are ordinary extension
+methods now. Visual Studio and Rider did not show the documentation of a member of an extension block correctly. Each
+method keeps its name, parameters, and attributes, thus code compiled against 5.0.0 binds to this release unchanged.
 
 5.0.0
 
-Adds Debounce, an extension method on Stream, which fires the last value after a
-time with no other value. Each firing moves the alarm out, thus a sequence of
-firings with no space between them gives one value. A search box is the usual
+Adds Debounce, an extension method on Stream, which fires the last value after a time with no other value. Each firing
+moves the alarm out, thus a sequence of firings with no space between them gives one value. A search box is the usual
 position for it: the text of each keystroke goes in, and one search comes out.
 
-  Stream<string> searches =
-      query.Updates().Debounce(timers, static now => now.AddMilliseconds(300));
+Stream<string> searches = query.Updates ().Debounce (timers, static now => now.AddMilliseconds (300));
 
-The second argument reads the time of a firing and gives the time to fire at. It
-is a function and not a duration, because the type of a time belongs to the timer
-system. It must give a time after the time that it reads.
+The second argument reads the time of a firing and gives the time to fire at. It is a function and not a duration,
+because the type of a time belongs to the timer system. It must give a time after the time that it reads.
 
-The result is in a transaction of the alarm and never in the transaction of a
-firing. Debounce cancels no work that started: give a strategy to MapAsync that
-cancels the operation it replaces for that, and debounce the input also.
+The result is in a transaction of the alarm and never in the transaction of a firing. Debounce cancels no work that
+started: give a strategy to MapAsync that cancels the operation it replaces for that, and debounce the input also.
 
-Adds an overload of Post, which takes the action to run where the posted action
-does not run or does not complete. A transaction that fails while it propagates
-discards each action that Post holds. Code that gives a value to something which
-waits, and gives that value from a posted action, had no way to release it, thus
-the waiting code waited forever.
+Adds an overload of Post, which takes the action to run where the posted action does not run or does not complete. A
+transaction that fails while it propagates discards each action that Post holds. Code that gives a value to something
+which waits, and gives that value from a posted action, had no way to release it, thus the waiting code waited forever.
 
-The release runs one time, and only where the posted action does not complete.
-Two conditions give that: the transaction fails before it runs the action, and
-the action itself throws. The argument is the exception of the transaction in
-the first condition, and the exception of the action in the second. An action
-that completes runs no release.
+The release runs one time, and only where the posted action does not complete. Two conditions give that: the transaction
+fails before it runs the action, and the action itself throws. The argument is the exception of the transaction in the
+first condition, and the exception of the action in the second. An action that completes runs no release.
 
-A throw from a release does not stop the release of another posted action, and
-it does not replace the exception that caused it. The caller gets an
-AggregateException with that exception first and the throw from the release
-after it, thus no code loses a failure.
+A throw from a release does not stop the release of another posted action, and it does not replace the exception that
+caused it. The caller gets an AggregateException with that exception first and the throw from the release after it, thus
+no code loses a failure.
 
-The release belongs to one posted action, at the call that posts it, and not to
-a transaction. Thus, no code can ask for a release with nothing to release, and
-none must find the transaction that is open to ask.
+The release belongs to one posted action, at the call that posts it, and not to a transaction. Thus, no code can ask for
+a release with nothing to release, and none must find the transaction that is open to ask.
 
-SodaFlow.Core.Async is the first caller. Its Execute gives a Task to code that
-waits, and it gives the value of that Task from a posted action.
+SodaFlow.Core.Async is the first caller. Its Execute gives a Task to code that waits, and it gives the value of that
+Task from a posted action.
 
-Adds SnapshotLatest, with the forms that Snapshot has for one cell or behavior.
-Snapshot gives the value from before the transaction. Thus, a stream that fires
-in the transaction that updates the cell sees the previous value. A loop must
-read its own last state, thus that is correct there. It is wrong where a change
-of one cell must read the value that another cell has after the same change.
+Adds SnapshotLatest, with the forms that Snapshot has for one cell or behavior. Snapshot gives the value from before the
+transaction. Thus, a stream that fires in the transaction that updates the cell sees the previous value. A loop must
+read its own last state, thus that is correct there. It is wrong where a change of one cell must read the value that
+another cell has after the same change.
 
-SnapshotLatest gives the new value where the transaction updates the cell, and
-the current value where it does not. Only the stream causes a firing, as with
-Snapshot. Thus, c1.Values().SnapshotLatest(c2, f) fires when c1 changes, and not
+SnapshotLatest gives the new value where the transaction updates the cell, and the current value where it does not. Only
+the stream causes a firing, as with Snapshot. Thus, c1.Values ().SnapshotLatest (c2, f) fires when c1 changes, and not
 when only c2 changes.
 
-It cannot close a loop. Do not give it a cell that the result updates in the
-same transaction.
+It cannot close a loop. Do not give it a cell that the result updates in the same transaction.
 
-SnapshotLatest takes up to eight cells or up to eight behaviors. It gives the new
-value of each one that the transaction updates, and the current value of each
-one that it does not update. For more cells, give it a cell from Lift. In a
+SnapshotLatest takes up to eight cells or up to eight behaviors. It gives the new value of each one that the transaction
+updates, and the current value of each one that it does not update. For more cells, give it a cell from Lift. In a
 transaction, a lifted cell has the new value.
 
-Adds Merge for two to eight streams of different types. The result is a
-stream of value tuples with one Maybe for each stream, in the sequence of the
-parameters. It fires in each transaction in which one or more of the streams
-fire. Each element has the value of its stream if that stream fired, and no value
-if it did not. Thus, one or more elements have a value. The Merge that takes a
-function must have streams of one type, and it must put simultaneous values into
-one value of that type. This Merge keeps each value, and no stream has priority.
+Adds Merge for two to eight streams of different types. The result is a stream of value tuples with one Maybe for each
+stream, in the sequence of the parameters. It fires in each transaction in which one or more of the streams fire. Each
+element has the value of its stream if that stream fired, and no value if it did not. Thus, one or more elements have a
+value. The Merge that takes a function must have streams of one type, and it must put simultaneous values into one value
+of that type. This Merge keeps each value, and no stream has priority.
 
-Lift takes up to eight cells or up to eight behaviors, where it took up to six.
-Snapshot takes up to eight cells or up to eight behaviors, where it took up to
-four. SnapshotLatest has the same limit.
+Lift takes up to eight cells or up to eight behaviors, where it took up to six. Snapshot takes up to eight cells or up
+to eight behaviors, where it took up to four. SnapshotLatest has the same limit.
 
-Fixed: TimerSystem.At no longer holds an alarm alive through the cell it reads.
-It listened to that cell with a strong listener, which the keep-alive set of the
-cell's graph roots, and that listener holds the alarm sink. So every call to At
-on a long-lived cell left an alarm and a listener that nothing could collect,
-however long ago the caller let go of the stream. The listener is weak now and
-the alarm holds it, which is the arrangement every other derived stream in this
-library uses, and it gives the same lifetime from the other side: the alarm
-keeps its listener while a caller keeps the alarm, and both go when the caller
-does.
+Fixed: TimerSystem.At no longer holds an alarm alive through the cell it reads. It listened to that cell with a strong
+listener, which the keep-alive set of the cell's graph roots, and that listener holds the alarm sink. So every call to
+At on a long-lived cell left an alarm and a listener that nothing could collect, however long ago the caller let go of
+the stream. The listener is weak now and the alarm holds it, which is the arrangement every other derived stream in this
+library uses, and it gives the same lifetime from the other side: the alarm keeps its listener while a caller keeps the
+alarm, and both go when the caller does.
 
-BREAKING: Stream.AttachListener is gone. It tied a listener's lifetime to a
-chosen stream, which is how a combinator keeps its own wiring alive, and every
-combinator in this library does that through an internal method rather than
-through this one. Nothing outside the library called it, and nothing outside
-could: building a primitive that way also needs the weak Listen overload taking
-a node, which is internal, and a handler that sends, which throws. It named a
-part of how the graph is assembled that the rest of this API keeps behind the
-primitives it gives you.
+BREAKING: Stream.AttachListener is gone. It tied a listener's lifetime to a chosen stream, which is how a combinator
+keeps its own wiring alive, and every combinator in this library does that through an internal method rather than
+through this one. Nothing outside the library called it, and nothing outside could: building a primitive that way also
+needs the weak Listen overload taking a node, which is internal, and a handler that sends, which throws. It named a part
+of how the graph is assembled that the rest of this API keeps behind the primitives it gives you.
 
-If a call to it exists, the listener it attached was already tied to the stream
-by the method that made it. Hold the listener for as long as the subscription
-should live, or use ListenStrong, which roots it for you.
+If a call to it exists, the listener it attached was already tied to the stream by the method that made it. Hold the
+listener for as long as the subscription should live, or use ListenStrong, which roots it for you.
 
-BREAKING: ListenOnce returns IWeakListener, where it returned IStrongListener,
-and ListenOnceStrong is new and does what ListenOnce used to do. The one-shot
-listeners now divide the way Listen and ListenStrong have divided since 4.0.0:
+BREAKING: ListenOnce returns IWeakListener, where it returned IStrongListener, and ListenOnceStrong is new and does what
+ListenOnce used to do. The one-shot listeners now divide the way Listen and ListenStrong have divided since 4.0.0:
 the short name does not root the stream.
 
-This one breaks quietly, and more quietly than the 4.0.0 swap did. Assigning the
-result to an IStrongListener stops compiling and is easy to find. Discarding it
-- which a one-shot subscription invites, since there is often nothing a caller
-wants to do with the listener - keeps compiling and becomes a subscription that
-fires only where no collection happens first. Rename every existing ListenOnce
-call to ListenOnceStrong, then decide which of them want to be weak.
+This one breaks quietly, and more quietly than the 4.0.0 swap did. Assigning the result to an IStrongListener stops
+compiling and is easy to find. Discarding it
 
-Where a call keeps the weak listener, keep it until the firing arrives: nothing
-else holds the handler, because the node reaches it through a WeakReference.
+- which a one-shot subscription invites, since there is often nothing a caller wants to do with the listener - keeps
+  compiling and becomes a subscription that fires only where no collection happens first. Rename every existing
+  ListenOnce call to ListenOnceStrong, then decide which of them want to be weak.
 
-ListenOnceAsync is unchanged and stays strong. It answers with a task rather
-than a listener, so there is no handle a caller could hold.
+Where a call keeps the weak listener, keep it until the firing arrives: nothing else holds the handler, because the node
+reaches it through a WeakReference.
 
-BREAKING: Listener.Append for two strong listeners is Listener.AppendStrong,
-as the weak one is AppendWeak and the composites are CreateWeakComposite and
-CreateStrongComposite. A call that passes two strong listeners still compiles,
-because it binds to the Append for two IListener values, and it answers with an
-IListener, where it answered with an IStrongListener. The two listeners in it
-still keep their streams alive, thus nothing stops firing, but the result has
-no Dispose. A call that assigns the result to an IStrongListener stops
-compiling. Rename each Append of two strong listeners to AppendStrong.
+ListenOnceAsync is unchanged and stays strong. It answers with a task rather than a listener, so there is no handle a
+caller could hold.
 
-BREAKING: requires SodaFlow.Core 5.x, where it required 2.0.0 or newer. That
-package changed the return type of an internal method this one is built
-against, so the two move together. Nothing it changed is in its public surface.
+BREAKING: Listener.Append for two strong listeners is Listener.AppendStrong, as the weak one is AppendWeak and the
+composites are CreateWeakComposite and CreateStrongComposite. A call that passes two strong listeners still compiles,
+because it binds to the Append for two IListener values, and it answers with an IListener, where it answered with an
+IStrongListener. The two listeners in it still keep their streams alive, thus nothing stops firing, but the result has
+no Dispose. A call that assigns the result to an IStrongListener stops compiling. Rename each Append of two strong
+listeners to AppendStrong.
+
+BREAKING: requires SodaFlow.Core 5.x, where it required 2.0.0 or newer. That package changed the return type of an
+internal method this one is built against, so the two move together. Nothing it changed is in its public surface.
 
 4.0.1
 
-Adds the package icon that nuget.org shows beside this package. No source file
-changed since 4.0.0.
+Adds the package icon that nuget.org shows beside this package. No source file changed since 4.0.0.
 
-Every package here ships this release together, so the dependency versions
-move with it.
+Every package here ships this release together, so the dependency versions move with it.
 
 4.0.0
 
-BREAKING: requires SodaFlow.Core 4.x, where it required 3.x. That
-package removed internal members this one is built against, so the two
-have to move together; nothing it removed is in its public surface, and
-nothing here changed shape because of it.
+BREAKING: requires SodaFlow.Core 4.x, where it required 3.x. That package removed internal members this one is built
+against, so the two have to move together; nothing it removed is in its public surface, and nothing here changed shape
+because of it.
 
-BREAKING: requires SodaFlow.Functional 3.x, where it required 2.x. Unit is a
-struct there now, and this package's surface is full of Stream<Unit> and its
-relatives, so the two move together. Nothing in this package's own API
-changed shape.
+BREAKING: requires SodaFlow.Functional 3.x, where it required 2.x. Unit is a struct there now, and this package's
+surface is full of Stream<Unit> and its relatives, so the two move together. Nothing in this package's own API changed
+shape.
 
-BREAKING: the JetBrains annotation attributes which were compiled into the
-SodaFlow namespace - SodaFlow.PureAttribute, SodaFlow.NotNullAttribute and
-fifty more - are gone. They were a vendored copy, public by accident rather
-than by intent, and are replaced by a reference to the JetBrains.Annotations
-package which is not redistributed with this one. Nothing here was meant to
-be consumed through them.
+BREAKING: the JetBrains annotation attributes which were compiled into the SodaFlow namespace - SodaFlow.PureAttribute,
+SodaFlow.NotNullAttribute and fifty more - are gone. They were a vendored copy, public by accident rather than by
+intent, and are replaced by a reference to the JetBrains.Annotations package which is not redistributed with this one.
+Nothing here was meant to be consumed through them.
 
-The build is warning-free, which it was not: the unreachable-code warnings
-in the priority queue are gone.
+The build is warning-free, which it was not: the unreachable-code warnings in the priority queue are gone.
 
-Requires System.ValueTuple 4.6.2, where it required 4.4.0. Nothing here
-uses it differently: this repository named two versions of it, one in
-the shipping projects and one in the test projects, and now names a
-single version in both. A consumer does nothing about this; NuGet
-resolves the higher floor.
+Requires System.ValueTuple 4.6.2, where it required 4.4.0. Nothing here uses it differently: this repository named two
+versions of it, one in the shipping projects and one in the test projects, and now names a single version in both. A
+consumer does nothing about this; NuGet resolves the higher floor.
 
 3.0.0
 
-New: ForwardReference constructs a value which can refer to itself while it is
-being constructed.
+New: ForwardReference constructs a value which can refer to itself while it is being constructed.
 
     Node node = ForwardReference<Node>.WithoutCaptures(
         reference => new Node(new Child(reference.AsCell())));
 
-It is the single-valued case of a cell loop. A loop lets a cell be referred to
-before it exists and is closed with the cell the reference turned out to mean;
-this produces one value rather than a series of them, and closes the loop with
-a constant cell, so the reference resolves to that value and never changes.
+It is the single-valued case of a cell loop. A loop lets a cell be referred to before it exists and is closed with the
+cell the reference turned out to mean; this produces one value rather than a series of them, and closes the loop with a
+constant cell, so the reference resolves to that value and never changes.
 
-What it is for is the knot two objects tie when each needs the other at
-construction. Without it one of them has to be built half-formed and completed
-afterward, through a settable member that has no business being settable once
-the graph is up. Here nothing is mutable and no half-built object is reachable,
-because the reference cannot be read before the constructing function returns -
-doing so throws, as it does for any looped cell.
+What it is for is the knot two objects tie when each needs the other at construction. Without it one of them has to be
+built half-formed and completed afterward, through a settable member that has no business being settable once the graph
+is up. Here nothing is mutable and no half-built object is reachable, because the reference cannot be read before the
+constructing function returns - doing so throws, as it does for any looped cell.
 
-WithCaptures returns whatever else the construction is worth keeping, as it
-does on a loop, and infers its capture type from the function. The value type
-is named on ForwardReference<T> rather than on the methods, which is what
-leaves the capture type free to be inferred.
+WithCaptures returns whatever else the construction is worth keeping, as it does on a loop, and infers its capture type
+from the function. The value type is named on ForwardReference<T> rather than on the methods, which is what leaves the
+capture type free to be inferred.
 
 C# only for now; there is no F# counterpart yet.
 
-BREAKING: Stream.FilterMaybe is renamed to Stream.FilterSome. It does exactly
-what it always did; the old name said "stream of Maybe" where what the method
-actually selects is the case that has a value.
+BREAKING: Stream.FilterMaybe is renamed to Stream.FilterSome. It does exactly what it always did; the old name said
+"stream of Maybe" where what the method actually selects is the case that has a value.
 
-This one breaks loudly. There is no overload left under the old name, so every
-call site is a compile error naming the method, and the fix is a rename.
-Nothing about the behavior, the transaction semantics or the type changed.
+This one breaks loudly. There is no overload left under the old name, so every call site is a compile error naming the
+method, and the fix is a rename. Nothing about the behavior, the transaction semantics or the type changed.
 
-New: Stream.Choose(f) maps and filters in one step, firing only the values the
-function produced. It is exactly Map(f).FilterSome(), for the common case where
-deciding whether an event should pass is the same work as producing the value
-to pass on - parsing, looking up, narrowing a type. The spelled-out form is
-still there for when the intermediate Stream<Maybe<T>> is wanted for itself.
+New: Stream.Choose (f) maps and filters in one step, firing only the values the function produced. It is exactly Map (f)
+.FilterSome (), for the common case where deciding whether an event should pass is the same work as producing the value
+to pass on - parsing, looking up, narrowing a type. The spelled-out form is still there for when the intermediate
+Stream<Maybe<T>> is wanted for itself.
 
-SodaFlow.FSharp gets the same pair: filterOptionS is renamed to filterSomeS,
-and chooseS is added. Some names the case that has a value in both languages,
-so both APIs now say so.
+SodaFlow.FSharp gets the same pair: filterOptionS is renamed to filterSomeS, and chooseS is added. Some names the case
+that has a value in both languages, so both APIs now say so.
 
-Requires SodaFlow.Core 3.x. The internal helper this calls was renamed in step,
-so a 2.x core resolved against this package would throw
-MissingMethodException. This package's dependency on SodaFlow.Core is declared
-as a range bounded at the next major, so that pairing is refused at restore
-rather than discovered at runtime.
+Requires SodaFlow.Core 3.x. The internal helper this calls was renamed in step, so a 2.x core resolved against this
+package would throw MissingMethodException. This package's dependency on SodaFlow.Core is declared as a range bounded at
+the next major, so that pairing is refused at restore rather than discovered at runtime.
 
 2.0.1
 
-Adds the release notes below. 2.0.0 shipped without any, because the mechanism
-that reads them from a file landed after that version was tagged. No code
-change since 2.0.0.
+Adds the release notes below. 2.0.0 shipped without any, because the mechanism that reads them from a file landed after
+that version was tagged. No code change since 2.0.0.
 
 2.0.0
 
-BREAKING: the two listen methods swapped names. Listen is now the weak listener
-and ListenStrong the strong one, on both Stream and Cell.
+BREAKING: the two listen methods swapped names. Listen is now the weak listener and ListenStrong the strong one, on both
+Stream and Cell.
 
-This one breaks quietly. Assigning the result to an IStrongListener stops
-compiling and is easy to find, but code that discards the result, or holds it
-in a var or an IListener, keeps compiling and silently becomes a weak
-subscription - which fails later, as listeners that quietly stop firing. Rename
-every existing Listen call to ListenStrong first, then decide which of them
-actually wanted to be weak.
+This one breaks quietly. Assigning the result to an IStrongListener stops compiling and is easy to find, but code that
+discards the result, or holds it in a var or an IListener, keeps compiling and silently becomes a weak subscription -
+which fails later, as listeners that quietly stop firing. Rename every existing Listen call to ListenStrong first, then
+decide which of them actually wanted to be weak.
 
-Fixed: alarms were never delivered while the thread pool was saturated. The
-timer loop ran on the pool, needing a pool thread on every iteration, so under
-pool pressure it was never scheduled and no alarm fired at all. It now waits on
-a dedicated background thread.
+Fixed: alarms were never delivered while the thread pool was saturated. The timer loop ran on the pool, needing a pool
+thread on every iteration, so under pool pressure it was never scheduled and no alarm fired at all. It now waits on a
+dedicated background thread.
 
 Every public type and member is documented, and six comments that wrote
 <param name="x" /> where <paramref name="x" /> was meant are corrected - each
@@ -254,8 +200,7 @@ Requires SodaFlow.Core 2.0.0 or newer.
 
 About this package
 
-The C# surface over SodaFlow.Core: extension methods and static factories for
-streams, cells, behaviors, transactions and the timer systems. Install this to
-use SodaFlow from C#; it brings the core with it.
+The C# surface over SodaFlow.Core: extension methods and static factories for streams, cells, behaviors, transactions
+and the timer systems. Install this to use SodaFlow from C#; it brings the core with it.
 
 Full notes: https://github.com/MorseCode-Software/SodaFlow/releases

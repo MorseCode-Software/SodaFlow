@@ -143,14 +143,18 @@
         and leaves every other package where its own last tag put it. This follows the per-component
         tagging inherited from the Sodium repository this code came from.
 
-        A commit with no matching tag builds as a prerelease of the next patch, e.g.
-        1.0.1-alpha.0.7, where 7 counts commits since the tag. CI can therefore build and pack every
-        commit while only tagged builds ever produce a version worth publishing.
+        A commit with no matching tag builds at the version of the last matching tag, because
+        MinVerIgnoreHeight is on. See below. Without MinVerIgnoreHeight, MinVer gives such a commit
+        a prerelease of the next patch, such as 1.0.1-alpha.0.7. Thus, only a new tag moves the
+        version of a package. A package declares each dependency at the version that the
+        dependency has at the same commit: its tag there, or else its last tag. Thus, packages that
+        release together must have their tags on one commit. The Publish task in build.cake pushes
+        only from a tag build.
 
         To collapse several packages onto one release train, give them the same prefix; they then
         version and release together off a single tag.
 
-        MinVerIgnoreHeight is on for exactly this reason: without it, height counts every commit in
+        MinVerIgnoreHeight is on because, without it, height counts every commit in
         the whole repository, not just commits touching a given project, so any package's version
         keeps drifting to a new prerelease (1.0.1-alpha.0.1, .2, .3...) as soon as anything else in
         the repo moves — even changes nowhere near that project. That also poisons every dependent's

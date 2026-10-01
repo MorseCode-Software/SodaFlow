@@ -1,139 +1,109 @@
 4.0.0
 
-BREAKING: the functions of the Bindable module are gone - oneWay, twoWay,
-twoWayCS, oneWayToSource, oneWayToSourceCS, toBindableAction and each of their
-WithComparer, WithScheduler, WithValue, AndIsEnabledCell and other forms. A
-bindable comes from an IBindableFactory, and from nothing else: ToOneWay,
-ToTwoWay, ToOneWayToSource and ToBindableAction take the same arguments, less
-the scheduler. Each function that took a scheduler let a view model pass one
-different from the one it was given, and each one that did not let the
-bindable find one for itself.
+BREAKING: the functions of the Bindable module are gone - oneWay, twoWay, twoWayCS, oneWayToSource, oneWayToSourceCS,
+toBindableAction and each of their WithComparer, WithScheduler, WithValue, AndIsEnabledCell and other forms. A bindable
+comes from an IBindableFactory, and from nothing else: ToOneWay, ToTwoWay, ToOneWayToSource and ToBindableAction take
+the same arguments, less the scheduler. Each function that took a scheduler let a view model pass one different from the
+one it was given, and each one that did not let the bindable find one for itself.
 
-Adds ToBindableOptionAction to IBindableFactory, the command whose
-CommandParameter can be null, a 'T, or a 'T option. Only the removed
-toBindableActionWithOptionalValue functions built it before.
+Adds ToBindableOptionAction to IBindableFactory, the command whose CommandParameter can be null, a 'T, or a 'T option.
+Only the removed toBindableActionWithOptionalValue functions built it before.
 
-BREAKING: BindableFactory takes a scheduler, where the scheduler was optional,
-and throws ArgumentNullException for null. Build one factory at startup, on
-the UI thread:
+BREAKING: BindableFactory takes a scheduler, where the scheduler was optional, and throws ArgumentNullException for
+null. Build one factory at startup, on the UI thread:
 
-  BindableFactory(SynchronizationContextBindingScheduler.Capture())
+BindableFactory (SynchronizationContextBindingScheduler.Capture ())
 
-and give it to each view model. A test gives BindingScheduler.Immediate.
-SodaFlow.Bindable.ObjectModel.Core's notes say why there is no fallback now.
+and give it to each view model. A test gives BindingScheduler.Immediate. SodaFlow.Bindable.ObjectModel.Core's notes say
+why there is no fallback now.
 
-Requires SodaFlow.FSharp 5.x and SodaFlow.Bindable.ObjectModel.Core 4.x.
-SodaFlow.FSharp 5.0.0 has breaking changes of its own - listenOnce is weak
-now, among others - and its notes list them.
+Requires SodaFlow.FSharp 5.x and SodaFlow.Bindable.ObjectModel.Core 4.x. SodaFlow.FSharp 5.0.0 has breaking changes of
+its own - listenOnce is weak now, among others - and its notes list them.
 
 3.0.2
 
-Adds the package icon that nuget.org shows beside this package. No source file
-changed since 3.0.1.
+Adds the package icon that nuget.org shows beside this package. No source file changed since 3.0.1.
 
-Every package here ships this release together, so the dependency versions
-move with it.
+Every package here ships this release together, so the dependency versions move with it.
 
 3.0.1
 
-No code change. This release exists to move a dependency floor, so that
-a new install gets the fix in SodaFlow.Bindable.ObjectModel.Core 3.0.1.
+No code change. This release exists to move a dependency floor, so that a new install gets the fix in
+SodaFlow.Bindable.ObjectModel.Core 3.0.1.
 
-A two-way bindable did not raise PropertyChanged for a write made through
-it, so only the control that made the write ever learned of the new
-value. Bind a checkbox and a slider to the same property and the slider
-can never follow the checkbox. See that package's notes for why, and for
-what is announced now.
+A two-way bindable did not raise PropertyChanged for a write made through it, so only the control that made the write
+ever learned of the new value. Bind a checkbox and a slider to the same property and the slider can never follow the
+checkbox. See that package's notes for why, and for what is announced now.
 
-Strictly, this release is not what delivers the fix. The dependency was
-already a range, and 3.0.1 satisfies it, so a consumer who upgrades the
-core package directly gets the fix whether or not they take this. But
-NuGet resolves the lowest version a range allows, so a fresh install of
-3.0.0 would go on resolving core 3.0.0 and never see it. Moving the floor
-is what makes the fixed version the one a consumer gets by default.
+Strictly, this release is not what delivers the fix. The dependency was already a range, and 3.0.1 satisfies it, so a
+consumer who upgrades the core package directly gets the fix whether or not they take this. But NuGet resolves the
+lowest version a range allows, so a fresh install of 3.0.0 would go on resolving core 3.0.0 and never see it. Moving the
+floor is what makes the fixed version the one a consumer gets by default.
 
 3.0.0
 
-BREAKING: three functions are renamed, because their arguments are now
-in the order the rest of the module uses - scheduler before comparer.
-oneWayWithComparerAndScheduler, twoWayWithComparerAndScheduler and
-twoWayCSWithComparerAndScheduler become oneWayWithSchedulerAndComparer,
-twoWayWithSchedulerAndComparer and twoWayCSWithSchedulerAndComparer,
-taking their arguments in that order too.
+BREAKING: three functions are renamed, because their arguments are now in the order the rest of the module uses -
+scheduler before comparer. oneWayWithComparerAndScheduler, twoWayWithComparerAndScheduler and
+twoWayCSWithComparerAndScheduler become oneWayWithSchedulerAndComparer, twoWayWithSchedulerAndComparer and
+twoWayCSWithSchedulerAndComparer, taking their arguments in that order too.
 
-One-way-to-source gains the scheduler variants the other three already
-had: oneWayToSourceWithScheduler,
-oneWayToSourceWithSchedulerAndComparer, oneWayToSourceCSWithScheduler
-and oneWayToSourceCSWithSchedulerAndComparer. A scheduler is what
-identifies the binding thread, so passing one is what lets that
-bindable's Value throw when it is touched from another - see
-SodaFlow.Bindable.ObjectModel.Core.
+One-way-to-source gains the scheduler variants the other three already had: oneWayToSourceWithScheduler,
+oneWayToSourceWithSchedulerAndComparer, oneWayToSourceCSWithScheduler and oneWayToSourceCSWithSchedulerAndComparer. A
+scheduler is what identifies the binding thread, so passing one is what lets that bindable's Value throw when it is
+touched from another - see SodaFlow.Bindable.ObjectModel.Core.
 
-Otherwise this release moves to SodaFlow.Bindable.ObjectModel.Core 3.x
-and SodaFlow.FSharp 4.x, and would be a major for either alone.
+Otherwise this release moves to SodaFlow.Bindable.ObjectModel.Core 3.x and SodaFlow.FSharp 4.x, and would be a major for
+either alone.
 
-Worth reading that package's notes rather than skipping this: Execute now
-rejects null for every type argument, and being a behavior change behind an
-unchanged signature, it is the kind that surfaces at runtime rather than at
-compile time.
+Worth reading that package's notes rather than skipping this: Execute now rejects null for every type argument, and
+being a behavior change behind an unchanged signature, it is the kind that surfaces at runtime rather than at compile
+time.
 
-BREAKING: requires FSharp.Core 11.0.100, where it required 4.5.2. A
-consumer still on FSharp.Core 4.x cannot take this release. Nothing in
-this package's own code turns on anything that changed between those
-versions - it compiles against 11.0.100 unaltered - but the floor is
-written into the package, so the requirement is real whether or not the
-code exercises it. It moves because the shipping projects and the test
-projects now compile against one version of FSharp.Core instead of
-disagreeing about it.
+BREAKING: requires FSharp.Core 11.0.100, where it required 4.5.2. A consumer still on FSharp.Core 4.x cannot take this
+release. Nothing in this package's own code turns on anything that changed between those versions - it compiles against
+11.0.100 unaltered - but the floor is written into the package, so the requirement is real whether or not the code
+exercises it. It moves because the shipping projects and the test projects now compile against one version of
+FSharp.Core instead of disagreeing about it.
 
 2.0.0
 
-No code change. This release exists to move a dependency, and is a major
-version because of what moving it does to a consumer.
+No code change. This release exists to move a dependency, and is a major version because of what moving it does to a
+consumer.
 
-Dependencies between these packages are now declared as ranges bounded at
-the next major, so NuGet refuses a pairing which would fail rather than
-resolving it and leaving the failure until the code runs. This package now
-requires SodaFlow.FSharp 3.x and SodaFlow.Bindable.ObjectModel.Core 2.x.
+Dependencies between these packages are now declared as ranges bounded at the next major, so NuGet refuses a pairing
+which would fail rather than resolving it and leaving the failure until the code runs. This package now requires
+SodaFlow.FSharp 3.x and SodaFlow.Bindable.ObjectModel.Core 2.x.
 
-That ceiling is why this is not a minor version. Taking this release obliges
-a consumer to take those majors as well, and one who names SodaFlow.FSharp
-directly, or who uses anything removed there, cannot adopt it without
-changing their own code. A version they cannot adopt is not a minor one.
+That ceiling is why this is not a minor version. Taking this release obliges a consumer to take those majors as well,
+and one who names SodaFlow.FSharp directly, or who uses anything removed there, cannot adopt it without changing their
+own code. A version they cannot adopt is not a minor one.
 
 1.0.0
 
 First release.
 
-Exposes an FRP graph to a XAML binding engine, so a view model can hold cells
-and streams and let WPF or Avalonia bind to them directly.
+Exposes an FRP graph to a XAML binding engine, so a view model can hold cells and streams and let WPF or Avalonia bind
+to them directly.
 
-  Bindable.oneWay cell                     a read-only observable property
-  Bindable.twoWay cell editsSink           the view writes, the graph decides
-  Bindable.twoWayCS cellSink               the same, where the sink is the graph
-  Bindable.oneWayToSource sink initial     control state pushed into the graph
-  Bindable.toBindableAction sink           an ICommand carrying no parameter
-  Bindable.toBindableActionWithValue sink  an ICommand carrying its parameter
+Bindable.oneWay cell a read-only observable property Bindable.twoWay cell editsSink the view writes, the graph decides
+Bindable.twoWayCS cellSink the same, where the sink is the graph Bindable.oneWayToSource sink initial control state
+pushed into the graph Bindable.toBindableAction sink an ICommand carrying no parameter
+Bindable.toBindableActionWithValue sink an ICommand carrying its parameter
 
-Each has WithComparer, WithScheduler and WithComparerAndScheduler variants; the
-command functions take AndIsEnabledCell to drive enablement from a Cell<bool>.
-BindableFactory takes an optional IBindingScheduler for injection, which is how
-a test substitutes BindingScheduler.Immediate for a real dispatcher.
+Each has WithComparer, WithScheduler and WithComparerAndScheduler variants; the command functions take AndIsEnabledCell
+to drive enablement from a Cell<bool>. BindableFactory takes an optional IBindingScheduler for injection, which is how a
+test substitutes BindingScheduler.Immediate for a real dispatcher.
 
-The binding path is {Binding SomeProperty.Value} - the property name raised on
-PropertyChanged is always "Value".
+The binding path is {Binding SomeProperty.Value} - the property name raised on PropertyChanged is always "Value".
 
-A two-way value is optimistic: it shows the write immediately so it does not
-fight the caret, then reconciles against the cell once the graph settles,
-correcting anything the graph normalized or rejected.
+A two-way value is optimistic: it shows the write immediately so it does not fight the caret, then reconciles against
+the cell once the graph settles, correcting anything the graph normalized or rejected.
 
-Bindables may be constructed on any thread, so a view model needs no knowledge
-of the binding thread. Every one of them is IDisposable and holds a weak
-subscription, so a bindable that becomes unreachable without being disposed is
-collected rather than rooted for the lifetime of the sink it observes. Writes
-never reach a sink from inside a callback.
+Bindables may be constructed on any thread, so a view model needs no knowledge of the binding thread. Every one of them
+is IDisposable and holds a weak subscription, so a bindable that becomes unreachable without being disposed is collected
+rather than rooted for the lifetime of the sink it observes. Writes never reach a sink from inside a callback.
 
-Depends on SodaFlow.FSharp and SodaFlow.Bindable.ObjectModel.Core, so installing
-this brings the FRP operations along with it.
+Depends on SodaFlow.FSharp and SodaFlow.Bindable.ObjectModel.Core, so installing this brings the FRP operations along
+with it.
 
 Full notes: https://github.com/MorseCode-Software/SodaFlow/releases

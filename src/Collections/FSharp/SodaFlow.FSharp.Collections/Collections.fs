@@ -898,13 +898,7 @@ let fold
     (subtract: 'TAccumulate -> 'TAccumulate -> 'TAccumulate)
     (collection: ReactiveCollection<'TKey, 'TIdentity, 'TState>)
     =
-    CollectionFoldUtility.FoldImpl(
-        collection,
-        Func<_, _, _> select,
-        zero,
-        Func<_, _, _> add,
-        Func<_, _, _> subtract
-    )
+    CollectionFoldUtility.FoldImpl(collection, Func<_, _, _> select, zero, Func<_, _, _> add, Func<_, _, _> subtract)
 
 /// <summary>
 ///     Folds the identity of each item into one cell, and keeps that cell current as the collection

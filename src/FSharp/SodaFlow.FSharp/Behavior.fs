@@ -256,15 +256,7 @@ let lift6 f (behavior: Behavior<_>, behavior2, behavior3, behavior4, behavior5, 
 /// </remarks>
 [<MethodImpl(MethodImplOptions.NoInlining)>]
 let lift7 f (behavior: Behavior<_>, behavior2, behavior3, behavior4, behavior5, behavior6, behavior7) =
-    behavior.LiftImpl(
-        behavior2,
-        behavior3,
-        behavior4,
-        behavior5,
-        behavior6,
-        behavior7,
-        Func<_, _, _, _, _, _, _, _> f
-    )
+    behavior.LiftImpl(behavior2, behavior3, behavior4, behavior5, behavior6, behavior7, Func<_, _, _, _, _, _, _, _> f)
 
 /// <summary>
 ///     Combines eight behaviors into one whose value is a function of all of theirs.
@@ -287,10 +279,7 @@ let lift7 f (behavior: Behavior<_>, behavior2, behavior3, behavior4, behavior5, 
 ///     time, with each new value, and not one time for each input.
 /// </remarks>
 [<MethodImpl(MethodImplOptions.NoInlining)>]
-let lift8
-    f
-    (behavior: Behavior<_>, behavior2, behavior3, behavior4, behavior5, behavior6, behavior7, behavior8)
-    =
+let lift8 f (behavior: Behavior<_>, behavior2, behavior3, behavior4, behavior5, behavior6, behavior7, behavior8) =
     behavior.LiftImpl(
         behavior2,
         behavior3,

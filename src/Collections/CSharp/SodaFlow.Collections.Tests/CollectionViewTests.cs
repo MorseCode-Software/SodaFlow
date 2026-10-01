@@ -274,15 +274,20 @@ public sealed class CollectionViewTests
             collection.SortByKey(keyComparer: Comparer<int>.Default, isDescending: true);
 
         await Assert.That(KeysOf(ascending)).IsEquivalentTo(expected: [1, 2, 3], ordering: CollectionOrdering.Matching);
-        await Assert.That(KeysOf(descending)).IsEquivalentTo(expected: [3, 2, 1], ordering: CollectionOrdering.Matching);
+
+        await Assert.That(KeysOf(descending))
+            .IsEquivalentTo(expected: [3, 2, 1], ordering: CollectionOrdering.Matching);
 
         await Assert.That(KeysOf(explicitDescending))
             .IsEquivalentTo(expected: [3, 2, 1], ordering: CollectionOrdering.Matching);
 
         edits.Send(TestUtil.Add(TestUtil.Item(number: 4, name: "four", score: 0)));
 
-        await Assert.That(KeysOf(ascending)).IsEquivalentTo(expected: [1, 2, 3, 4], ordering: CollectionOrdering.Matching);
-        await Assert.That(KeysOf(descending)).IsEquivalentTo(expected: [4, 3, 2, 1], ordering: CollectionOrdering.Matching);
+        await Assert.That(KeysOf(ascending))
+            .IsEquivalentTo(expected: [1, 2, 3, 4], ordering: CollectionOrdering.Matching);
+
+        await Assert.That(KeysOf(descending))
+            .IsEquivalentTo(expected: [4, 3, 2, 1], ordering: CollectionOrdering.Matching);
     }
 
     [Test]
@@ -988,7 +993,8 @@ public sealed class CollectionViewTests
         // keys 1, 2, and 3 before the edit and after it.
         edits.Send(TestUtil.Score(key: 4, score: 25).CombineWith(TestUtil.Score(key: 3, score: 22)));
 
-        await Assert.That(KeysOf(lowestThree)).IsEquivalentTo(expected: [1, 2, 3], ordering: CollectionOrdering.Matching);
+        await Assert.That(KeysOf(lowestThree))
+            .IsEquivalentTo(expected: [1, 2, 3], ordering: CollectionOrdering.Matching);
 
         await Assert.That(state.Sample().Match(onSome: static s => s.Score, onNone: static () => -1))
             .IsEqualTo(22)
@@ -2127,8 +2133,10 @@ public sealed class CollectionViewTests
         await Assert.That(operations).IsEquivalentTo(expected: ["ViewInsert:1"], ordering: CollectionOrdering.Matching);
     }
 
-    /// <summary>Five thousand items with the scores 1 to 5,000. Each test of the limit starts from
-    /// them.</summary>
+    /// <summary>
+    ///     Five thousand items with the scores 1 to 5,000. Each test of the limit starts from
+    ///     them.
+    /// </summary>
     private static ReactiveCollection<int, ItemIdentity, ItemState> FiveThousand(
         Stream<CollectionEdit<int, ItemIdentity, ItemState>> edits) =>
         Create(

@@ -32,14 +32,14 @@
             its internals through InternalsVisibleTo, and 4.0.0 would throw MethodAccessException.
             The floor is in that package's dependency range rather than anything written here.
         -->
-        <PackageReference Include="SodaFlow" Version="5.0.0" />
-        <PackageReference Include="SodaFlow.Collections" Version="2.0.0" />
-        <PackageReference Include="SodaFlow.Bindable.ObjectModel" Version="4.0.0" />
+        <PackageReference Include="SodaFlow" Version="5.0.0"/>
+        <PackageReference Include="SodaFlow.Collections" Version="2.0.0"/>
+        <PackageReference Include="SodaFlow.Bindable.ObjectModel" Version="4.0.0"/>
     </ItemGroup>
 
     <ItemGroup>
         <Compile Include="Accounts.cs"/>
-        <Compile Include="AccountsViewModelOptimizedDrain.cs" />
+        <Compile Include="AccountsViewModelOptimizedDrain.cs"/>
         <Compile Include="IAccountsViewModel.cs"/>
         <Compile Include="AccountsViewModel.cs"/>
     </ItemGroup>

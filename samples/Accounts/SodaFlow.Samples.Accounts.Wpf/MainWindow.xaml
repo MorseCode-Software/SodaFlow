@@ -26,19 +26,24 @@
     <StackPanel Margin="16">
         <StackPanel.Resources>
             <Style TargetType="Button">
-                <Setter Property="Padding" Value="10,4"/>
-                <Setter Property="Margin" Value="0,0,8,0"/>
+                <Setter Property="Padding"
+                        Value="10,4" />
+                <Setter Property="Margin"
+                        Value="0,0,8,0" />
             </Style>
 
             <!-- WPF has no toggle switch, so this is a CheckBox drawn as one. It is still a
                  CheckBox underneath - the same keyboard handling, focus visual and automation
                  toggle pattern - and IsChecked is what binds. -->
-            <Style x:Key="ToggleSwitch" TargetType="CheckBox">
-                <Setter Property="Cursor" Value="Hand"/>
+            <Style x:Key="ToggleSwitch"
+                   TargetType="CheckBox">
+                <Setter Property="Cursor"
+                        Value="Hand" />
                 <Setter Property="Template">
                     <Setter.Value>
                         <ControlTemplate TargetType="CheckBox">
-                            <StackPanel Orientation="Horizontal" Background="Transparent">
+                            <StackPanel Orientation="Horizontal"
+                                        Background="Transparent">
                                 <Border x:Name="Track"
                                         Width="40"
                                         Height="20"
@@ -50,19 +55,25 @@
                                              Height="14"
                                              Margin="3,0"
                                              Fill="White"
-                                             HorizontalAlignment="Left"/>
+                                             HorizontalAlignment="Left" />
                                 </Border>
-                                <ContentPresenter Margin="8,0,0,0" VerticalAlignment="Center"/>
+                                <ContentPresenter Margin="8,0,0,0"
+                                                  VerticalAlignment="Center" />
                             </StackPanel>
                             <ControlTemplate.Triggers>
-                                <Trigger Property="IsChecked" Value="True">
+                                <Trigger Property="IsChecked"
+                                         Value="True">
                                     <Setter TargetName="Track"
                                             Property="Background"
-                                            Value="{DynamicResource {x:Static SystemColors.HighlightBrushKey}}"/>
-                                    <Setter TargetName="Thumb" Property="HorizontalAlignment" Value="Right"/>
+                                            Value="{DynamicResource {x:Static SystemColors.HighlightBrushKey}}" />
+                                    <Setter TargetName="Thumb"
+                                            Property="HorizontalAlignment"
+                                            Value="Right" />
                                 </Trigger>
-                                <Trigger Property="IsEnabled" Value="False">
-                                    <Setter Property="Opacity" Value="0.5"/>
+                                <Trigger Property="IsEnabled"
+                                         Value="False">
+                                    <Setter Property="Opacity"
+                                            Value="0.5" />
                                 </Trigger>
                             </ControlTemplate.Triggers>
                         </ControlTemplate>
@@ -73,7 +84,7 @@
 
         <TextBlock Text="{Binding FilterDescription.Value}"
                    FontWeight="SemiBold"
-                   Margin="0,0,0,12"/>
+                   Margin="0,0,0,12" />
 
         <Border BorderBrush="Gainsboro"
                 BorderThickness="1"
@@ -86,34 +97,34 @@
                      way it runs are one piece of view model state rather than three. -->
                 <Grid Margin="0,0,0,6">
                     <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="70"/>
-                        <ColumnDefinition Width="*"/>
-                        <ColumnDefinition Width="90"/>
-                        <ColumnDefinition Width="100"/>
+                        <ColumnDefinition Width="70" />
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="90" />
+                        <ColumnDefinition Width="100" />
                     </Grid.ColumnDefinitions>
                     <Button Grid.Column="0"
                             Content="{Binding NumberHeader.Value}"
                             Command="{Binding SortByNumber}"
                             HorizontalContentAlignment="Left"
                             Padding="0,2"
-                            Margin="0"/>
+                            Margin="0" />
                     <Button Grid.Column="1"
                             Content="{Binding HolderHeader.Value}"
                             Command="{Binding SortByHolder}"
                             HorizontalContentAlignment="Left"
                             Padding="0,2"
-                            Margin="0"/>
+                            Margin="0" />
                     <Button Grid.Column="2"
                             Content="{Binding BalanceHeader.Value}"
                             Command="{Binding SortByBalance}"
                             HorizontalContentAlignment="Right"
                             Padding="0,2"
-                            Margin="0"/>
+                            Margin="0" />
                 </Grid>
 
                 <Border BorderBrush="Gainsboro"
                         BorderThickness="0,0,0,1"
-                        Margin="0,0,0,6"/>
+                        Margin="0,0,0,6" />
 
                 <!-- A frozen row grays out and says so where its button would be. That is only
                      what the row looks like: the view model gates the deposit itself, so the
@@ -121,45 +132,55 @@
                 <ItemsControl ItemsSource="{Binding Rows.Value}">
                     <ItemsControl.ItemTemplate>
                         <DataTemplate DataType="{x:Type viewModels:IAccountRowViewModel}">
-                            <Grid x:Name="Row" Margin="0,2">
+                            <Grid x:Name="Row"
+                                  Margin="0,2">
                                 <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="70"/>
-                                    <ColumnDefinition Width="*"/>
-                                    <ColumnDefinition Width="90"/>
-                                    <ColumnDefinition Width="100"/>
+                                    <ColumnDefinition Width="70" />
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="90" />
+                                    <ColumnDefinition Width="100" />
                                 </Grid.ColumnDefinitions>
                                 <TextBlock Grid.Column="0"
                                            Text="{Binding Number.Value}"
                                            Foreground="Gray"
-                                           VerticalAlignment="Center"/>
+                                           VerticalAlignment="Center" />
                                 <TextBlock Grid.Column="1"
                                            Text="{Binding Holder.Value}"
-                                           VerticalAlignment="Center"/>
+                                           VerticalAlignment="Center" />
                                 <TextBlock Grid.Column="2"
                                            Text="{Binding Balance.Value}"
                                            HorizontalAlignment="Right"
                                            VerticalAlignment="Center"
-                                           FontFamily="Consolas"/>
+                                           FontFamily="Consolas" />
                                 <Button x:Name="Deposit"
                                         Grid.Column="3"
                                         Content="Pay $100"
                                         Command="{Binding Deposit}"
                                         Padding="6,1"
-                                        Margin="12,0,0,0"/>
+                                        Margin="12,0,0,0" />
                                 <TextBlock x:Name="Frozen"
                                            Grid.Column="3"
                                            Text="Frozen"
                                            Visibility="Collapsed"
                                            HorizontalAlignment="Center"
                                            VerticalAlignment="Center"
-                                           Margin="12,0,0,0"/>
+                                           Margin="12,0,0,0" />
                             </Grid>
                             <DataTemplate.Triggers>
-                                <DataTrigger Binding="{Binding IsFrozen.Value}" Value="True">
-                                    <Setter TargetName="Row" Property="TextElement.Foreground" Value="Gray"/>
-                                    <Setter TargetName="Row" Property="TextElement.FontStyle" Value="Italic"/>
-                                    <Setter TargetName="Deposit" Property="Visibility" Value="Collapsed"/>
-                                    <Setter TargetName="Frozen" Property="Visibility" Value="Visible"/>
+                                <DataTrigger Binding="{Binding IsFrozen.Value}"
+                                             Value="True">
+                                    <Setter TargetName="Row"
+                                            Property="TextElement.Foreground"
+                                            Value="Gray" />
+                                    <Setter TargetName="Row"
+                                            Property="TextElement.FontStyle"
+                                            Value="Italic" />
+                                    <Setter TargetName="Deposit"
+                                            Property="Visibility"
+                                            Value="Collapsed" />
+                                    <Setter TargetName="Frozen"
+                                            Property="Visibility"
+                                            Value="Visible" />
                                 </DataTrigger>
                             </DataTemplate.Triggers>
                         </DataTemplate>
@@ -170,39 +191,43 @@
         </Border>
 
         <TextBlock Text="{Binding Total.Value}"
-                   Margin="0,0,0,12"/>
+                   Margin="0,0,0,12" />
 
         <Grid Margin="0,0,0,8">
             <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="Auto"/>
-                <ColumnDefinition Width="Auto"/>
-                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="*" />
             </Grid.ColumnDefinitions>
-            <Button Grid.Column="0" Content="Previous" Command="{Binding PreviousPage}"/>
-            <Button Grid.Column="1" Content="Next" Command="{Binding NextPage}"/>
+            <Button Grid.Column="0"
+                    Content="Previous"
+                    Command="{Binding PreviousPage}" />
+            <Button Grid.Column="1"
+                    Content="Next"
+                    Command="{Binding NextPage}" />
             <TextBlock Grid.Column="2"
                        Text="{Binding Page.Value}"
                        HorizontalAlignment="Right"
-                       VerticalAlignment="Center"/>
+                       VerticalAlignment="Center" />
         </Grid>
 
         <!-- The drain empties every frozen account whether or not they are showing, and is
              disabled once none has anything left. -->
         <Grid Margin="0,4,0,0">
             <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="*"/>
-                <ColumnDefinition Width="Auto"/>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
             </Grid.ColumnDefinitions>
             <CheckBox Grid.Column="0"
                       Style="{StaticResource ToggleSwitch}"
                       Content="Show frozen accounts"
                       IsChecked="{Binding ShowFrozen.Value, Mode=TwoWay}"
                       HorizontalAlignment="Left"
-                      VerticalAlignment="Center"/>
+                      VerticalAlignment="Center" />
             <Button Grid.Column="1"
                     Content="Drain frozen accounts"
                     Command="{Binding DrainFrozenAccounts}"
-                    Margin="0"/>
+                    Margin="0" />
         </Grid>
 
     </StackPanel>

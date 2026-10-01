@@ -135,7 +135,12 @@ public sealed class TransactionTests
         NotSupportedException fromRelease = new("the release fails");
 
         Exception thrown =
-            RunFailingTransaction(() => Transaction.Post(action: static () => { }, onFailure: _ => throw fromRelease));
+            RunFailingTransaction(() =>
+                Transaction.Post(
+                    action: static () =>
+                    {
+                    },
+                    onFailure: _ => throw fromRelease));
 
         await Assert.That(thrown)
             .IsTypeOf<AggregateException>()

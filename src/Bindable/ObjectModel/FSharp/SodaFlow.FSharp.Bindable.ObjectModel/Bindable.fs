@@ -24,8 +24,8 @@ module internal Bindable =
 
         interface IBindableAction
 
-    type internal BindableOptionAction<'T>(firingsStreamSink, isEnabledCell: Cell<bool> option, scheduler: IBindingScheduler)
-        =
+    type internal BindableOptionAction<'T>
+        (firingsStreamSink, isEnabledCell: Cell<bool> option, scheduler: IBindingScheduler) =
         inherit
             BindableCoreExtensionMethods.BindableAction<'T option>(
                 firingsStreamSink,

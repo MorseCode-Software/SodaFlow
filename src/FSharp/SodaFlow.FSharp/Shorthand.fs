@@ -750,29 +750,8 @@ let inline snapshot7C cell1 cell2 cell3 cell4 cell5 cell6 cell7 f stream =
 /// transaction updates gives its previous value. The result does not change when the graph
 /// operates in a different sequence.
 /// </remarks>
-let inline snapshot8B
-    behavior1
-    behavior2
-    behavior3
-    behavior4
-    behavior5
-    behavior6
-    behavior7
-    behavior8
-    f
-    stream
-    =
-    Stream.snapshot8B
-        behavior1
-        behavior2
-        behavior3
-        behavior4
-        behavior5
-        behavior6
-        behavior7
-        behavior8
-        f
-        stream
+let inline snapshot8B behavior1 behavior2 behavior3 behavior4 behavior5 behavior6 behavior7 behavior8 f stream =
+    Stream.snapshot8B behavior1 behavior2 behavior3 behavior4 behavior5 behavior6 behavior7 behavior8 f stream
 
 /// <summary>
 /// Samples eight cells when the stream fires, and fires the combination.
@@ -820,7 +799,8 @@ let inline snapshot8C cell1 cell2 cell3 cell4 cell5 cell6 cell7 cell8 f stream =
 /// updates gives its new value, where <c>snapshotB</c> gives its previous value. This cannot close a
 /// loop.
 /// </remarks>
-let inline snapshotLatestB behavior f stream = Stream.snapshotLatestB behavior f stream
+let inline snapshotLatestB behavior f stream =
+    Stream.snapshotLatestB behavior f stream
 
 /// <summary>
 /// Samples the latest value of a cell when the stream fires, and fires the combination.
@@ -857,7 +837,8 @@ let inline snapshotLatestC cell f stream = Stream.snapshotLatest cell f stream
 /// updates gives its new value, where <c>snapshotAndTakeB</c> gives its previous value. This cannot close a
 /// loop.
 /// </remarks>
-let inline snapshotLatestAndTakeB behavior stream = Stream.snapshotLatestAndTakeB behavior stream
+let inline snapshotLatestAndTakeB behavior stream =
+    Stream.snapshotLatestAndTakeB behavior stream
 
 /// <summary>
 /// Samples the latest value of a cell when the stream fires, and fires the cell's value,
@@ -874,7 +855,8 @@ let inline snapshotLatestAndTakeB behavior stream = Stream.snapshotLatestAndTake
 /// updates gives its new value, where <c>snapshotAndTakeC</c> gives its previous value. This cannot close a
 /// loop.
 /// </remarks>
-let inline snapshotLatestAndTakeC cell stream = Stream.snapshotLatestAndTake cell stream
+let inline snapshotLatestAndTakeC cell stream =
+    Stream.snapshotLatestAndTake cell stream
 
 /// <summary>
 /// Samples the latest values of two behaviors when the stream fires, and fires the combination.
@@ -915,7 +897,8 @@ let inline snapshotLatest2B behavior1 behavior2 f stream =
 /// updates gives its new value, where <c>snapshot2C</c> gives its previous value. This cannot close
 /// a loop.
 /// </remarks>
-let inline snapshotLatest2C cell1 cell2 f stream = Stream.snapshotLatest2 cell1 cell2 f stream
+let inline snapshotLatest2C cell1 cell2 f stream =
+    Stream.snapshotLatest2 cell1 cell2 f stream
 
 /// <summary>
 /// Samples the latest values of three behaviors when the stream fires, and fires the combination.
@@ -1181,29 +1164,8 @@ let inline snapshotLatest7C cell1 cell2 cell3 cell4 cell5 cell6 cell7 f stream =
 /// updates gives its new value, where <c>snapshot8B</c> gives its previous value. This cannot close
 /// a loop.
 /// </remarks>
-let inline snapshotLatest8B
-    behavior1
-    behavior2
-    behavior3
-    behavior4
-    behavior5
-    behavior6
-    behavior7
-    behavior8
-    f
-    stream
-    =
-    Stream.snapshotLatest8B
-        behavior1
-        behavior2
-        behavior3
-        behavior4
-        behavior5
-        behavior6
-        behavior7
-        behavior8
-        f
-        stream
+let inline snapshotLatest8B behavior1 behavior2 behavior3 behavior4 behavior5 behavior6 behavior7 behavior8 f stream =
+    Stream.snapshotLatest8B behavior1 behavior2 behavior3 behavior4 behavior5 behavior6 behavior7 behavior8 f stream
 
 /// <summary>
 /// Samples the latest values of eight cells when the stream fires, and fires the combination.
@@ -1292,7 +1254,8 @@ let inline mergeOptions2S (stream, stream2) = Stream.mergeOptions2 (stream, stre
 /// <remarks>
 /// Shorthand for <c>Stream.mergeOptions3</c>. See it for the full contract.
 /// </remarks>
-let inline mergeOptions3S (stream, stream2, stream3) = Stream.mergeOptions3 (stream, stream2, stream3)
+let inline mergeOptions3S (stream, stream2, stream3) =
+    Stream.mergeOptions3 (stream, stream2, stream3)
 
 /// <summary>
 /// Merges four streams of different types into one stream of quadruples.

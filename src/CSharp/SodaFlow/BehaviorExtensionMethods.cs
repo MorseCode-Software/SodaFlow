@@ -68,8 +68,10 @@ public static class BehaviorExtensionMethods
     /// <param name="f">
     ///     Function to apply to change the values.  It must be a pure function.
     /// </param>
-    /// <returns>A behavior which fires values transformed by <paramref name="f" /> for each value fired by
-    /// this behavior.</returns>
+    /// <returns>
+    ///     A behavior which fires values transformed by <paramref name="f" /> for each value fired by
+    ///     this behavior.
+    /// </returns>
     [MethodImpl(MethodImplOptions.NoInlining)]
     public static Behavior<TResult> Map<T, TResult>(this Behavior<T> b, Func<T, TResult> f) => b.MapImpl(f);
 

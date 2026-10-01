@@ -538,16 +538,7 @@ let snapshot5 (cell1: Cell<_>) cell2 cell3 cell4 cell5 f (stream: Stream<_>) =
 ///     operates in a different sequence.
 /// </remarks>
 [<MethodImpl(MethodImplOptions.NoInlining)>]
-let snapshot6B
-    (behavior1: Behavior<_>)
-    behavior2
-    behavior3
-    behavior4
-    behavior5
-    behavior6
-    f
-    (stream: Stream<_>)
-    =
+let snapshot6B (behavior1: Behavior<_>) behavior2 behavior3 behavior4 behavior5 behavior6 f (stream: Stream<_>) =
     stream.SnapshotImpl(
         behavior1,
         behavior2,
@@ -727,17 +718,7 @@ let snapshot8B
 /// </remarks>
 [<MethodImpl(MethodImplOptions.NoInlining)>]
 let snapshot8 (cell1: Cell<_>) cell2 cell3 cell4 cell5 cell6 cell7 cell8 f (stream: Stream<_>) =
-    stream.SnapshotImpl(
-        cell1,
-        cell2,
-        cell3,
-        cell4,
-        cell5,
-        cell6,
-        cell7,
-        cell8,
-        Func<_, _, _, _, _, _, _, _, _, _> f
-    )
+    stream.SnapshotImpl(cell1, cell2, cell3, cell4, cell5, cell6, cell7, cell8, Func<_, _, _, _, _, _, _, _, _, _> f)
 
 /// <summary>
 ///     Samples the latest value of a cell when the stream fires, and fires the combination.
@@ -962,14 +943,7 @@ let snapshotLatest4 (cell1: Cell<_>) cell2 cell3 cell4 f (stream: Stream<_>) =
 /// </remarks>
 [<MethodImpl(MethodImplOptions.NoInlining)>]
 let snapshotLatest5B (behavior1: Behavior<_>) behavior2 behavior3 behavior4 behavior5 f (stream: Stream<_>) =
-    stream.SnapshotLatestImpl(
-        behavior1,
-        behavior2,
-        behavior3,
-        behavior4,
-        behavior5,
-        Func<_, _, _, _, _, _, _> f
-    )
+    stream.SnapshotLatestImpl(behavior1, behavior2, behavior3, behavior4, behavior5, Func<_, _, _, _, _, _, _> f)
 
 /// <summary>
 ///     Samples the latest values of five cells when the stream fires, and fires the combination.
@@ -1020,16 +994,7 @@ let snapshotLatest5 (cell1: Cell<_>) cell2 cell3 cell4 cell5 f (stream: Stream<_
 ///     loop. Do not give a behavior that the result updates in the same transaction.
 /// </remarks>
 [<MethodImpl(MethodImplOptions.NoInlining)>]
-let snapshotLatest6B
-    (behavior1: Behavior<_>)
-    behavior2
-    behavior3
-    behavior4
-    behavior5
-    behavior6
-    f
-    (stream: Stream<_>)
-    =
+let snapshotLatest6B (behavior1: Behavior<_>) behavior2 behavior3 behavior4 behavior5 behavior6 f (stream: Stream<_>) =
     stream.SnapshotLatestImpl(
         behavior1,
         behavior2,
@@ -1064,15 +1029,7 @@ let snapshotLatest6B
 /// </remarks>
 [<MethodImpl(MethodImplOptions.NoInlining)>]
 let snapshotLatest6 (cell1: Cell<_>) cell2 cell3 cell4 cell5 cell6 f (stream: Stream<_>) =
-    stream.SnapshotLatestImpl(
-        cell1,
-        cell2,
-        cell3,
-        cell4,
-        cell5,
-        cell6,
-        Func<_, _, _, _, _, _, _, _> f
-    )
+    stream.SnapshotLatestImpl(cell1, cell2, cell3, cell4, cell5, cell6, Func<_, _, _, _, _, _, _, _> f)
 
 /// <summary>
 ///     Samples the latest values of seven behaviors when the stream fires, and fires the
@@ -1146,16 +1103,7 @@ let snapshotLatest7B
 /// </remarks>
 [<MethodImpl(MethodImplOptions.NoInlining)>]
 let snapshotLatest7 (cell1: Cell<_>) cell2 cell3 cell4 cell5 cell6 cell7 f (stream: Stream<_>) =
-    stream.SnapshotLatestImpl(
-        cell1,
-        cell2,
-        cell3,
-        cell4,
-        cell5,
-        cell6,
-        cell7,
-        Func<_, _, _, _, _, _, _, _, _> f
-    )
+    stream.SnapshotLatestImpl(cell1, cell2, cell3, cell4, cell5, cell6, cell7, Func<_, _, _, _, _, _, _, _, _> f)
 
 /// <summary>
 ///     Samples the latest values of eight behaviors when the stream fires, and fires the
@@ -1315,11 +1263,7 @@ let mergeOptions2 (stream: Stream<_>, stream2: Stream<_>) =
 /// </remarks>
 [<MethodImpl(MethodImplOptions.NoInlining)>]
 let mergeOptions3 (stream: Stream<_>, stream2: Stream<_>, stream3: Stream<_>) =
-    stream.MergeMaybesImpl(
-        stream2,
-        stream3,
-        (fun m1 m2 m3 -> struct (toOption m1, toOption m2, toOption m3))
-    )
+    stream.MergeMaybesImpl(stream2, stream3, (fun m1 m2 m3 -> struct (toOption m1, toOption m2, toOption m3)))
 
 /// <summary>
 ///     Merges four streams of different types into one stream of quadruples.
@@ -1362,27 +1306,13 @@ let mergeOptions4 (stream: Stream<_>, stream2: Stream<_>, stream3: Stream<_>, st
 ///     inputs. Thus, the sequence of the streams changes only the sequence of the elements.
 /// </remarks>
 [<MethodImpl(MethodImplOptions.NoInlining)>]
-let mergeOptions5
-    (
-        stream: Stream<_>,
-        stream2: Stream<_>,
-        stream3: Stream<_>,
-        stream4: Stream<_>,
-        stream5: Stream<_>
-    ) =
+let mergeOptions5 (stream: Stream<_>, stream2: Stream<_>, stream3: Stream<_>, stream4: Stream<_>, stream5: Stream<_>) =
     stream.MergeMaybesImpl(
         stream2,
         stream3,
         stream4,
         stream5,
-        (fun m1 m2 m3 m4 m5 ->
-            struct (
-                toOption m1,
-                toOption m2,
-                toOption m3,
-                toOption m4,
-                toOption m5
-            ))
+        (fun m1 m2 m3 m4 m5 -> struct (toOption m1, toOption m2, toOption m3, toOption m4, toOption m5))
     )
 
 /// <summary>
@@ -1418,15 +1348,7 @@ let mergeOptions6
         stream4,
         stream5,
         stream6,
-        (fun m1 m2 m3 m4 m5 m6 ->
-            struct (
-                toOption m1,
-                toOption m2,
-                toOption m3,
-                toOption m4,
-                toOption m5,
-                toOption m6
-            ))
+        (fun m1 m2 m3 m4 m5 m6 -> struct (toOption m1, toOption m2, toOption m3, toOption m4, toOption m5, toOption m6))
     )
 
 /// <summary>
@@ -1466,15 +1388,7 @@ let mergeOptions7
         stream6,
         stream7,
         (fun m1 m2 m3 m4 m5 m6 m7 ->
-            struct (
-                toOption m1,
-                toOption m2,
-                toOption m3,
-                toOption m4,
-                toOption m5,
-                toOption m6,
-                toOption m7
-            ))
+            struct (toOption m1, toOption m2, toOption m3, toOption m4, toOption m5, toOption m6, toOption m7))
     )
 
 /// <summary>
@@ -1517,16 +1431,14 @@ let mergeOptions8
         stream7,
         stream8,
         (fun m1 m2 m3 m4 m5 m6 m7 m8 ->
-            struct (
-                toOption m1,
-                toOption m2,
-                toOption m3,
-                toOption m4,
-                toOption m5,
-                toOption m6,
-                toOption m7,
-                toOption m8
-            ))
+            struct (toOption m1,
+                    toOption m2,
+                    toOption m3,
+                    toOption m4,
+                    toOption m5,
+                    toOption m6,
+                    toOption m7,
+                    toOption m8))
     )
 
 /// <summary>

@@ -19,10 +19,11 @@
         The headers are three buttons and one sort stage, not three chains to choose between: the
         stage holds its order in a cell, so a click re-files the keys it already has.
     -->
-    <StackPanel Margin="16" Spacing="12">
+    <StackPanel Margin="16"
+                Spacing="12">
 
         <TextBlock Text="{Binding FilterDescription.Value}"
-                   FontWeight="SemiBold"/>
+                   FontWeight="SemiBold" />
 
         <Border BorderBrush="{DynamicResource SystemControlForegroundBaseMediumLowBrush}"
                 BorderThickness="1"
@@ -38,23 +39,23 @@
                             Command="{Binding SortByNumber}"
                             HorizontalAlignment="Stretch"
                             HorizontalContentAlignment="Left"
-                            Padding="0,2"/>
+                            Padding="0,2" />
                     <Button Grid.Column="1"
                             Content="{Binding HolderHeader.Value}"
                             Command="{Binding SortByHolder}"
                             HorizontalAlignment="Stretch"
                             HorizontalContentAlignment="Left"
-                            Padding="0,2"/>
+                            Padding="0,2" />
                     <Button Grid.Column="2"
                             Content="{Binding BalanceHeader.Value}"
                             Command="{Binding SortByBalance}"
                             HorizontalAlignment="Stretch"
                             HorizontalContentAlignment="Right"
-                            Padding="0,2"/>
+                            Padding="0,2" />
                 </Grid>
 
                 <Border BorderBrush="{DynamicResource SystemControlForegroundBaseMediumLowBrush}"
-                        BorderThickness="0,0,0,1"/>
+                        BorderThickness="0,0,0,1" />
 
                 <!-- A frozen row grays out and says so where its button would be. That is only
                      what the row looks like: the view model gates the deposit itself, so the
@@ -62,8 +63,10 @@
                 <ItemsControl ItemsSource="{Binding Rows.Value}">
                     <ItemsControl.Styles>
                         <Style Selector="Grid.frozen > TextBlock">
-                            <Setter Property="Foreground" Value="Gray"/>
-                            <Setter Property="FontStyle" Value="Italic"/>
+                            <Setter Property="Foreground"
+                                    Value="Gray" />
+                            <Setter Property="FontStyle"
+                                    Value="Italic" />
                         </Style>
                     </ItemsControl.Styles>
                     <ItemsControl.ItemTemplate>
@@ -74,15 +77,15 @@
                                 <TextBlock Grid.Column="0"
                                            Text="{Binding Number.Value}"
                                            Opacity="0.6"
-                                           VerticalAlignment="Center"/>
+                                           VerticalAlignment="Center" />
                                 <TextBlock Grid.Column="1"
                                            Text="{Binding Holder.Value}"
-                                           VerticalAlignment="Center"/>
+                                           VerticalAlignment="Center" />
                                 <TextBlock Grid.Column="2"
                                            Text="{Binding Balance.Value}"
                                            HorizontalAlignment="Right"
                                            VerticalAlignment="Center"
-                                           FontFamily="Consolas,Menlo,monospace"/>
+                                           FontFamily="Consolas,Menlo,monospace" />
                                 <Button Grid.Column="3"
                                         Content="Pay $100"
                                         Command="{Binding Deposit}"
@@ -90,13 +93,13 @@
                                         HorizontalAlignment="Stretch"
                                         HorizontalContentAlignment="Center"
                                         Padding="6,2"
-                                        Margin="12,0,0,0"/>
+                                        Margin="12,0,0,0" />
                                 <TextBlock Grid.Column="3"
                                            Text="Frozen"
                                            IsVisible="{Binding IsFrozen.Value}"
                                            HorizontalAlignment="Center"
                                            VerticalAlignment="Center"
-                                           Margin="12,0,0,0"/>
+                                           Margin="12,0,0,0" />
                             </Grid>
                         </DataTemplate>
                     </ItemsControl.ItemTemplate>
@@ -105,19 +108,20 @@
             </StackPanel>
         </Border>
 
-        <TextBlock Text="{Binding Total.Value}"/>
+        <TextBlock Text="{Binding Total.Value}" />
 
-        <Grid ColumnDefinitions="Auto,Auto,*" ColumnSpacing="8">
+        <Grid ColumnDefinitions="Auto,Auto,*"
+              ColumnSpacing="8">
             <Button Grid.Column="0"
                     Content="Previous"
-                    Command="{Binding PreviousPage}"/>
+                    Command="{Binding PreviousPage}" />
             <Button Grid.Column="1"
                     Content="Next"
-                    Command="{Binding NextPage}"/>
+                    Command="{Binding NextPage}" />
             <TextBlock Grid.Column="2"
                        Text="{Binding Page.Value}"
                        HorizontalAlignment="Right"
-                       VerticalAlignment="Center"/>
+                       VerticalAlignment="Center" />
         </Grid>
 
         <!-- The label is given as both the on and off content, so it sits beside the switch and
@@ -130,11 +134,11 @@
                           IsChecked="{Binding ShowFrozen.Value}"
                           OnContent="Show frozen accounts"
                           OffContent="Show frozen accounts"
-                          VerticalAlignment="Center"/>
+                          VerticalAlignment="Center" />
             <Button Grid.Column="1"
                     Content="Drain frozen accounts"
                     Command="{Binding DrainFrozenAccounts}"
-                    VerticalAlignment="Center"/>
+                    VerticalAlignment="Center" />
         </Grid>
 
     </StackPanel>

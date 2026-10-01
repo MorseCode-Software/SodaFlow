@@ -26,8 +26,10 @@ namespace SodaFlow.Collections;
 internal sealed class ProjectedCellCache<TKey, TProjected>
     where TKey : notnull
 {
-    /// <summary>The number of entries that this cache holds before a sweep removes the entries
-    /// with no observer.</summary>
+    /// <summary>
+    ///     The number of entries that this cache holds before a sweep removes the entries
+    ///     with no observer.
+    /// </summary>
     /// <remarks>
     ///     A sweep reads each entry, thus one sweep for each add makes the cost of a full cache
     ///     quadratic. This code waits for a sufficient number of entries, and that keeps the cost
@@ -52,8 +54,10 @@ internal sealed class ProjectedCellCache<TKey, TProjected>
             ? cached
             : null;
 
-    /// <summary>Records the cell for a key. It first removes the entries with no observer, when
-    /// their count is sufficient.</summary>
+    /// <summary>
+    ///     Records the cell for a key. It first removes the entries with no observer, when
+    ///     their count is sufficient.
+    /// </summary>
     internal void Set(TKey key, Cell<TProjected> cell)
     {
         this.Prune();
