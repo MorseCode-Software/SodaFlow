@@ -300,6 +300,7 @@ file sealed class ScopedIdentityMap<TKey, TIdentity, TState> : IReadOnlyDictiona
 
     public bool ContainsKey(TKey key) => this.visible.Contains(key) && this.inner.ContainsKey(key);
 
+    // ReSharper disable NullableWarningSuppressionIsUsed - With no MaybeNullWhen on this target, a false result gives default!, and no caller reads it.
 #if NET
     public bool TryGetValue(TKey key, [MaybeNullWhen(false)] out TIdentity value) =>
         this.inner.TryGet(key: key, value: out value) && this.visible.Contains(key);
@@ -312,11 +313,11 @@ file sealed class ScopedIdentityMap<TKey, TIdentity, TState> : IReadOnlyDictiona
             return true;
         }
 
-        // ReSharper disable once NullableWarningSuppressionIsUsed
         value = default!;
         return false;
     }
 #endif
+    // ReSharper restore NullableWarningSuppressionIsUsed
 
     public IEnumerator<KeyValuePair<TKey, TIdentity>> GetEnumerator() =>
         this.visible
