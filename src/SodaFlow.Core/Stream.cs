@@ -636,9 +636,9 @@ public class Stream<T>
                         capture: v => p2 = MaybeInternal.Some(v))
                 ],
                 take: () =>
-                    (
-                        Behavior<T1>.Take(pending: ref p1, input: b1),
-                        Behavior<T2>.Take(pending: ref p2, input: b2)),
+                (
+                    Behavior<T1>.Take(pending: ref p1, input: b1),
+                    Behavior<T2>.Take(pending: ref p2, input: b2)),
                 f: (a, v) => f(arg1: a, arg2: v.Item1, arg3: v.Item2));
         });
 
@@ -684,10 +684,10 @@ public class Stream<T>
                         capture: v => p3 = MaybeInternal.Some(v))
                 ],
                 take: () =>
-                    (
-                        Behavior<T1>.Take(pending: ref p1, input: b1),
-                        Behavior<T2>.Take(pending: ref p2, input: b2),
-                        Behavior<T3>.Take(pending: ref p3, input: b3)),
+                (
+                    Behavior<T1>.Take(pending: ref p1, input: b1),
+                    Behavior<T2>.Take(pending: ref p2, input: b2),
+                    Behavior<T3>.Take(pending: ref p3, input: b3)),
                 f: (a, v) => f(arg1: a, arg2: v.Item1, arg3: v.Item2, arg4: v.Item3));
         });
 
@@ -746,11 +746,11 @@ public class Stream<T>
                         capture: v => p4 = MaybeInternal.Some(v))
                 ],
                 take: () =>
-                    (
-                        Behavior<T1>.Take(pending: ref p1, input: b1),
-                        Behavior<T2>.Take(pending: ref p2, input: b2),
-                        Behavior<T3>.Take(pending: ref p3, input: b3),
-                        Behavior<T4>.Take(pending: ref p4, input: b4)),
+                (
+                    Behavior<T1>.Take(pending: ref p1, input: b1),
+                    Behavior<T2>.Take(pending: ref p2, input: b2),
+                    Behavior<T3>.Take(pending: ref p3, input: b3),
+                    Behavior<T4>.Take(pending: ref p4, input: b4)),
                 f: (a, v) => f(arg1: a, arg2: v.Item1, arg3: v.Item2, arg4: v.Item3, arg5: v.Item4));
         });
 
@@ -818,12 +818,12 @@ public class Stream<T>
                         capture: v => p5 = MaybeInternal.Some(v))
                 ],
                 take: () =>
-                    (
-                        Behavior<T1>.Take(pending: ref p1, input: b1),
-                        Behavior<T2>.Take(pending: ref p2, input: b2),
-                        Behavior<T3>.Take(pending: ref p3, input: b3),
-                        Behavior<T4>.Take(pending: ref p4, input: b4),
-                        Behavior<T5>.Take(pending: ref p5, input: b5)),
+                (
+                    Behavior<T1>.Take(pending: ref p1, input: b1),
+                    Behavior<T2>.Take(pending: ref p2, input: b2),
+                    Behavior<T3>.Take(pending: ref p3, input: b3),
+                    Behavior<T4>.Take(pending: ref p4, input: b4),
+                    Behavior<T5>.Take(pending: ref p5, input: b5)),
                 f: (a, v) =>
                     f(arg1: a, arg2: v.Item1, arg3: v.Item2, arg4: v.Item3, arg5: v.Item4, arg6: v.Item5));
         });
@@ -901,13 +901,13 @@ public class Stream<T>
                         capture: v => p6 = MaybeInternal.Some(v))
                 ],
                 take: () =>
-                    (
-                        Behavior<T1>.Take(pending: ref p1, input: b1),
-                        Behavior<T2>.Take(pending: ref p2, input: b2),
-                        Behavior<T3>.Take(pending: ref p3, input: b3),
-                        Behavior<T4>.Take(pending: ref p4, input: b4),
-                        Behavior<T5>.Take(pending: ref p5, input: b5),
-                        Behavior<T6>.Take(pending: ref p6, input: b6)),
+                (
+                    Behavior<T1>.Take(pending: ref p1, input: b1),
+                    Behavior<T2>.Take(pending: ref p2, input: b2),
+                    Behavior<T3>.Take(pending: ref p3, input: b3),
+                    Behavior<T4>.Take(pending: ref p4, input: b4),
+                    Behavior<T5>.Take(pending: ref p5, input: b5),
+                    Behavior<T6>.Take(pending: ref p6, input: b6)),
                 f: (a, v) =>
                     f(
                         arg1: a,
@@ -1001,14 +1001,14 @@ public class Stream<T>
                         capture: v => p7 = MaybeInternal.Some(v))
                 ],
                 take: () =>
-                    (
-                        Behavior<T1>.Take(pending: ref p1, input: b1),
-                        Behavior<T2>.Take(pending: ref p2, input: b2),
-                        Behavior<T3>.Take(pending: ref p3, input: b3),
-                        Behavior<T4>.Take(pending: ref p4, input: b4),
-                        Behavior<T5>.Take(pending: ref p5, input: b5),
-                        Behavior<T6>.Take(pending: ref p6, input: b6),
-                        Behavior<T7>.Take(pending: ref p7, input: b7)),
+                (
+                    Behavior<T1>.Take(pending: ref p1, input: b1),
+                    Behavior<T2>.Take(pending: ref p2, input: b2),
+                    Behavior<T3>.Take(pending: ref p3, input: b3),
+                    Behavior<T4>.Take(pending: ref p4, input: b4),
+                    Behavior<T5>.Take(pending: ref p5, input: b5),
+                    Behavior<T6>.Take(pending: ref p6, input: b6),
+                    Behavior<T7>.Take(pending: ref p7, input: b7)),
                 f: (a, v) =>
                     f(
                         arg1: a,
@@ -1112,15 +1112,15 @@ public class Stream<T>
                         capture: v => p8 = MaybeInternal.Some(v))
                 ],
                 take: () =>
-                    (
-                        Behavior<T1>.Take(pending: ref p1, input: b1),
-                        Behavior<T2>.Take(pending: ref p2, input: b2),
-                        Behavior<T3>.Take(pending: ref p3, input: b3),
-                        Behavior<T4>.Take(pending: ref p4, input: b4),
-                        Behavior<T5>.Take(pending: ref p5, input: b5),
-                        Behavior<T6>.Take(pending: ref p6, input: b6),
-                        Behavior<T7>.Take(pending: ref p7, input: b7),
-                        Behavior<T8>.Take(pending: ref p8, input: b8)),
+                (
+                    Behavior<T1>.Take(pending: ref p1, input: b1),
+                    Behavior<T2>.Take(pending: ref p2, input: b2),
+                    Behavior<T3>.Take(pending: ref p3, input: b3),
+                    Behavior<T4>.Take(pending: ref p4, input: b4),
+                    Behavior<T5>.Take(pending: ref p5, input: b5),
+                    Behavior<T6>.Take(pending: ref p6, input: b6),
+                    Behavior<T7>.Take(pending: ref p7, input: b7),
+                    Behavior<T8>.Take(pending: ref p8, input: b8)),
                 f: (a, v) =>
                     f(
                         arg1: a,

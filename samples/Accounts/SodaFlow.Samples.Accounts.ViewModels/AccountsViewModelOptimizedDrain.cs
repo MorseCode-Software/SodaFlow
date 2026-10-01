@@ -45,9 +45,9 @@ public sealed class AccountsViewModelOptimizedDrain : IAccountsViewModel
     /// <summary>The format for each value on the screen.</summary>
     private static readonly NumberFormatInfo UsDollars = CultureInfo.GetCultureInfo("en-US").NumberFormat;
 
-    private readonly IReadOnlyList<IDisposable> disposables;
-
     private readonly Stream<CollectionEdit<int, AccountIdentity, AccountState>> deposits;
+
+    private readonly IReadOnlyList<IDisposable> disposables;
     private readonly Stream<CollectionEdit<int, AccountIdentity, AccountState>> drains;
 
     private AccountsViewModelOptimizedDrain(

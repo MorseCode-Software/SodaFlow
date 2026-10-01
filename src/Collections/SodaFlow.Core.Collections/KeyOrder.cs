@@ -62,8 +62,10 @@ public abstract class KeyOrder<TKey, TIdentity, TState>
     /// </remarks>
     internal abstract bool DependsOnState { get; }
 
-    /// <summary>True when this code knows that <paramref name="other" /> orders the keys as this
-    /// order does.</summary>
+    /// <summary>
+    ///     True when this code knows that <paramref name="other" /> orders the keys as this
+    ///     order does.
+    /// </summary>
     /// <param name="other">The order to compare against.</param>
     /// <returns>
     ///     True only when the two orders are the same and this code knows it. False means that

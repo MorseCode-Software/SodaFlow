@@ -63,12 +63,13 @@ internal static class CollectionFoldUtility
 
             return collection.ItemChangesStream.AccumImpl(
                 initialState: initial,
-                f: (change, running) => Apply(
-                    change: change,
-                    running: running,
-                    select: select,
-                    add: add,
-                    subtract: subtract));
+                f: (change, running) =>
+                    Apply(
+                        change: change,
+                        running: running,
+                        select: select,
+                        add: add,
+                        subtract: subtract));
         });
 
     /// <summary>
@@ -120,12 +121,13 @@ internal static class CollectionFoldUtility
                 .FilterImpl(static change => change.IsStructural || change.IsReset)
                 .AccumImpl(
                     initialState: initial,
-                    f: (change, running) => ApplyIdentities(
-                        change: change,
-                        running: running,
-                        select: select,
-                        add: add,
-                        subtract: subtract));
+                    f: (change, running) =>
+                        ApplyIdentities(
+                            change: change,
+                            running: running,
+                            select: select,
+                            add: add,
+                            subtract: subtract));
         });
 
     /// <summary>
@@ -168,9 +170,10 @@ internal static class CollectionFoldUtility
                 result = subtract(arg1: result, arg2: select(arg1: wasIdentity, arg2: was));
             }
 
-            result = add(
-                arg1: result,
-                arg2: select(arg1: IdentityOf(snapshot: change.After, key: pair.Key), arg2: pair.Value));
+            result =
+                add(
+                    arg1: result,
+                    arg2: select(arg1: IdentityOf(snapshot: change.After, key: pair.Key), arg2: pair.Value));
         }
 
         foreach (TKey key in change.Removed)

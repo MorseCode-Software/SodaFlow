@@ -168,8 +168,10 @@ public static class CellExtensionMethods
     /// <param name="f">
     ///     Function to apply to change the values.  It must be a pure function.
     /// </param>
-    /// <returns>A cell which fires values transformed by <paramref name="f" /> for each value fired by this
-    /// cell.</returns>
+    /// <returns>
+    ///     A cell which fires values transformed by <paramref name="f" /> for each value fired by this
+    ///     cell.
+    /// </returns>
     [MethodImpl(MethodImplOptions.NoInlining)]
     public static Cell<TResult> Map<T, TResult>(this Cell<T> c, Func<T, TResult> f) => c.MapImpl(f);
 

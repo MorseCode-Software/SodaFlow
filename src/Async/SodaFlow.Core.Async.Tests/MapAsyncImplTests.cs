@@ -183,7 +183,7 @@ public sealed class MapAsyncImplTests
 
         lock (strategy.CanceledCounts)
         {
-            canceledCounts = [..strategy.CanceledCounts];
+            canceledCounts = [.. strategy.CanceledCounts];
         }
 
         await Assert.That(canceledCounts)
@@ -411,8 +411,10 @@ public sealed class MapAsyncImplTests
             .ThrowsExactly<ArgumentNullException>();
     }
 
-    /// <summary>Starts each item immediately and records the converted value of each item at its
-    /// admission.</summary>
+    /// <summary>
+    ///     Starts each item immediately and records the converted value of each item at its
+    ///     admission.
+    /// </summary>
     // ReSharper disable once InheritdocConsiderUsage
     private sealed class RecordingStrategy<TStrategyInput>
         : AsyncConcurrencyStrategy<TStrategyInput, object?>

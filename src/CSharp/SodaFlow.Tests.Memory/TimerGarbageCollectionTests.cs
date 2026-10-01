@@ -37,9 +37,11 @@ public sealed class TimerGarbageCollectionTests
 
     public TimerGarbageCollectionTests() =>
         this.timers =
-            new TimerSystem<int>(implementation: this.implementation, handleException: static _ =>
-            {
-            });
+            new TimerSystem<int>(
+                implementation: this.implementation,
+                handleException: static _ =>
+                {
+                });
 
     [Test]
     public async Task AnAlarmStillFiresAfterACollectionTakesEverythingButTheStream()
@@ -157,9 +159,9 @@ public sealed class TimerGarbageCollectionTests
     {
         private readonly List<ManualTimer> timers = [];
 
-        public int Now { get; private set; }
-
         public int SetTimerCount { get; private set; }
+
+        public int Now { get; private set; }
 
         public void Start(Action<Exception> handleException)
         {

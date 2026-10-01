@@ -44,8 +44,10 @@ internal enum AccountColumn
 // ReSharper disable once InheritdocConsiderUsage
 internal sealed record SortSelection(AccountColumn Column, bool IsDescending)
 {
-    /// <summary>The comparer for a holder, as one instance and not a new instance for each
-    /// order.</summary>
+    /// <summary>
+    ///     The comparer for a holder, as one instance and not a new instance for each
+    ///     order.
+    /// </summary>
     /// <remarks>
     ///     <see cref="StringComparer.CurrentCultureIgnoreCase" /> builds a new comparer at each
     ///     read. A sort stage identifies the order that it holds, and the same order in the
@@ -86,8 +88,10 @@ internal sealed record SortSelection(AccountColumn Column, bool IsDescending)
         };
 }
 
-/// <summary>The operations that a view model needs on a sort selection that can be
-/// missing.</summary>
+/// <summary>
+///     The operations that a view model needs on a sort selection that can be
+///     missing.
+/// </summary>
 /// <remarks>
 ///     <para>
 ///         The subject of each operation is the <see cref="Maybe{T}" /> and not the selection in
@@ -102,13 +106,17 @@ internal sealed record SortSelection(AccountColumn Column, bool IsDescending)
 /// </remarks>
 internal static class SortSelectionExtensions
 {
-    /// <summary>The order that applies. It is arrival order until a user clicks a
-    /// header.</summary>
+    /// <summary>
+    ///     The order that applies. It is arrival order until a user clicks a
+    ///     header.
+    /// </summary>
     internal static AccountOrder Order(this Maybe<SortSelection> sortSelection) =>
         sortSelection.Map(static selection => selection.Order).ValueOr(AccountOrder.ByArrival);
 
-    /// <summary>The result of a click on a header. The same column reverses the direction,
-    /// and a different column becomes the sort column.</summary>
+    /// <summary>
+    ///     The result of a click on a header. The same column reverses the direction,
+    ///     and a different column becomes the sort column.
+    /// </summary>
     /// <remarks>
     ///     A new column starts at the smallest value. The balance starts at the largest
     ///     value, because a user usually wants a list of balances in that direction.
@@ -138,8 +146,10 @@ internal static class SortSelectionExtensions
             onNone: static () => string.Empty);
 }
 
-/// <summary>One row. It holds the cells that follow one account through the view that shows
-/// it.</summary>
+/// <summary>
+///     One row. It holds the cells that follow one account through the view that shows
+///     it.
+/// </summary>
 // ReSharper disable once InheritdocConsiderUsage
 internal sealed class AccountRowViewModel : IAccountRowViewModel
 {
@@ -162,6 +172,12 @@ internal sealed class AccountRowViewModel : IAccountRowViewModel
         this.disposables = [number, holder, balance, isFrozen, deposit];
     }
 
+    /// <summary>
+    ///     The edits that the deposits of this row make. The graph gates them, and the list
+    ///     sends them back in.
+    /// </summary>
+    internal Stream<CollectionEdit<int, AccountIdentity, AccountState>> DepositsStream { get; }
+
     /// <inheritdoc />
     public IOneWayBindableValue<string> Number { get; }
 
@@ -176,10 +192,6 @@ internal sealed class AccountRowViewModel : IAccountRowViewModel
 
     /// <inheritdoc />
     public IBindableAction Deposit { get; }
-
-    /// <summary>The edits that the deposits of this row make. The graph gates them, and the list
-    /// sends them back in.</summary>
-    internal Stream<CollectionEdit<int, AccountIdentity, AccountState>> DepositsStream { get; }
 
     /// <inheritdoc />
     public void Dispose()
@@ -221,9 +233,9 @@ public sealed class AccountsViewModel : IAccountsViewModel
     /// <summary>The format for each value on the screen.</summary>
     private static readonly NumberFormatInfo UsDollars = CultureInfo.GetCultureInfo("en-US").NumberFormat;
 
-    private readonly IReadOnlyList<IDisposable> disposables;
-
     private readonly Stream<CollectionEdit<int, AccountIdentity, AccountState>> deposits;
+
+    private readonly IReadOnlyList<IDisposable> disposables;
     private readonly Stream<CollectionEdit<int, AccountIdentity, AccountState>> drains;
 
     private AccountsViewModel(

@@ -205,12 +205,14 @@ public sealed class PerItemCellTests
                     c2: stateCell,
                     f: static (identity, state) =>
                         identity.Match(
-                            onSome: i => state.Match(
-                                onSome: s => i.Code + ":" + s.Name,
-                                onNone: static () => "identity with no state"),
-                            onNone: () => state.Match(
-                                onSome: static _ => "state with no identity",
-                                onNone: static () => "gone")))
+                            onSome: i =>
+                                state.Match(
+                                    onSome: s => i.Code + ":" + s.Name,
+                                    onNone: static () => "identity with no state"),
+                            onNone: () =>
+                                state.Match(
+                                    onSome: static _ => "state with no identity",
+                                    onNone: static () => "gone")))
                 .Values()
                 .ListenStrong(fromPair.Add);
 

@@ -368,8 +368,10 @@ file sealed class ScopedStateMap<TKey, TIdentity, TState> : StateMap<TKey, TStat
         this.visible.Select(key => new KeyValuePair<TKey, TState>(key: key, value: this.StateOf(key)));
 
     /// <summary>The state of a key this view holds.</summary>
-    /// <remarks>This throws an exception and does not give a default value, for the cause in the
-    /// identity map.</remarks>
+    /// <remarks>
+    ///     This throws an exception and does not give a default value, for the cause in the
+    ///     identity map.
+    /// </remarks>
     private TState StateOf(TKey key) =>
         this.inner.TryGetState(key: key, state: out TState? state)
             ? state

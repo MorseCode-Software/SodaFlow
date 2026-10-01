@@ -21,9 +21,7 @@ type ``Transaction Tests``() =
             let thrown =
                 try
                     runT (fun () ->
-                        Transaction.postWithFailureHandler
-                            (fun e -> cause <- Some e)
-                            (fun () -> ran <- true)
+                        Transaction.postWithFailureHandler (fun e -> cause <- Some e) (fun () -> ran <- true)
                         sink |> sendS 1)
 
                     None
@@ -44,10 +42,7 @@ type ``Transaction Tests``() =
             let mutable ran = false
             let mutable released = false
 
-            runT (fun () ->
-                Transaction.postWithFailureHandler
-                    (fun _ -> released <- true)
-                    (fun () -> ran <- true))
+            runT (fun () -> Transaction.postWithFailureHandler (fun _ -> released <- true) (fun () -> ran <- true))
 
             do! Expect.True ran
             do! Expect.False released

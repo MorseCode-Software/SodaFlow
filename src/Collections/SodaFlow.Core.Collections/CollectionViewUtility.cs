@@ -119,8 +119,10 @@ internal static class CollectionViewUtility
             orderCell: CellInternal.ConstantImpl(
                 KeyOrder<TKey, TIdentity, TState>.ByKey(keyComparer: keyComparer, isDescending: isDescending)));
 
-    /// <summary>Reorders by arrival, which is the order of the collection. It is available above
-    /// each stage.</summary>
+    /// <summary>
+    ///     Reorders by arrival, which is the order of the collection. It is available above
+    ///     each stage.
+    /// </summary>
     internal static ReactiveCollection<TKey, TIdentity, TState> SortByArrivalImpl<TKey, TIdentity, TState>(
         ReactiveCollection<TKey, TIdentity, TState> upstream)
         where TKey : notnull

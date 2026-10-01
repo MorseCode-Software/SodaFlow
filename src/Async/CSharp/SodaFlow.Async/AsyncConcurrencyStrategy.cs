@@ -51,12 +51,16 @@ public abstract class AsyncConcurrencyStrategy
     private static readonly AsyncConcurrencyStrategyBase<Unit> SwitchLatestInstance =
         AsyncConcurrencyStrategyFactory.SwitchLatest<Unit>();
 
-    /// <summary>Each send starts its own operation immediately. The results come in the sequence
-    /// of their ends.</summary>
+    /// <summary>
+    ///     Each send starts its own operation immediately. The results come in the sequence
+    ///     of their ends.
+    /// </summary>
     public static AsyncConcurrencyStrategyBase<Unit> Parallel() => ParallelInstance;
 
-    /// <summary>One operation or no operation runs at a time. A subsequent send goes to the
-    /// queue, and the queue runs in sequence.</summary>
+    /// <summary>
+    ///     One operation or no operation runs at a time. A subsequent send goes to the
+    ///     queue, and the queue runs in sequence.
+    /// </summary>
     public static AsyncConcurrencyStrategyBase<Unit> Queue() => QueueInstance;
 
     /// <summary>

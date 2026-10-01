@@ -102,9 +102,6 @@ internal static class Catalog
             throw new InvalidOperationException("The catalog is unavailable. Try again shortly.");
         }
 
-        return
-        [
-            .. Entries.Where(e => e.Contains(value: trimmed, comparisonType: StringComparison.OrdinalIgnoreCase))
-        ];
+        return [.. Entries.Where(e => e.Contains(value: trimmed, comparisonType: StringComparison.OrdinalIgnoreCase))];
     }
 }

@@ -32,9 +32,14 @@ public sealed class CollectionFoldShapeTests
                     add: static (a, b) => (Sum: a.Sum + b.Sum, Count: a.Count + b.Count),
                     subtract: static (a, b) => (Sum: a.Sum - b.Sum, Count: a.Count - b.Count)));
 
-        Cell<double> average = Transaction.Run(() => parts.Map(static p => p.Count == 0 ? 0.0 : (double)p.Sum / p.Count));
+        Cell<double> average =
+            Transaction.Run(() => parts.Map(static p => p.Count == 0 ? 0.0 : (double)p.Sum / p.Count));
 
-        edits.Send(TestUtil.Add(TestUtil.Item(number: 1, name: "a", score: 10), TestUtil.Item(number: 2, name: "b", score: 20)));
+        edits.Send(
+            TestUtil.Add(
+                TestUtil.Item(number: 1, name: "a", score: 10),
+                TestUtil.Item(number: 2, name: "b", score: 20)));
+
         await Assert.That(Transaction.Run(average.Sample)).IsEqualTo(15.0);
 
         edits.Send(TestUtil.Score(key: 2, score: 50));
@@ -60,7 +65,8 @@ public sealed class CollectionFoldShapeTests
         Cell<ImmutableSortedDictionary<string, int>> byBucket =
             Transaction.Run(() =>
                 collection.Fold(
-                    select: static (_, state) => ImmutableSortedDictionary<string, int>.Empty.Add(key: Bucket(state), value: 1),
+                    select: static (_, state) =>
+                        ImmutableSortedDictionary<string, int>.Empty.Add(key: Bucket(state), value: 1),
                     zero: ImmutableSortedDictionary<string, int>.Empty,
                     add: static (a, b) => Combine(left: a, right: b, sign: 1),
                     subtract: static (a, b) => Combine(left: a, right: b, sign: -1)));
@@ -111,17 +117,27 @@ public sealed class CollectionFoldShapeTests
                     add: static (a, b) => a ^ b,
                     subtract: static (a, b) => a ^ b));
 
-        edits.Send(TestUtil.Add(TestUtil.Item(number: 1, name: "a", score: 5), TestUtil.Item(number: 2, name: "b", score: 50)));
+        edits.Send(
+            TestUtil.Add(
+                TestUtil.Item(number: 1, name: "a", score: 5),
+                TestUtil.Item(number: 2, name: "b", score: 50)));
+
         await Assert.That(Transaction.Run(high.Sample)).IsEqualTo(1);
 
         int before = Transaction.Run(fingerprint.Sample);
 
         edits.Send(TestUtil.Score(key: 1, score: 30));
-        await Assert.That(Transaction.Run(high.Sample)).IsEqualTo(2).Because("the item crossed the line without a Filter stage");
+
+        await Assert.That(Transaction.Run(high.Sample))
+            .IsEqualTo(2)
+            .Because("the item crossed the line without a Filter stage");
 
         // The same set of states again, by the other order of the edits, gives the same fingerprint.
         edits.Send(TestUtil.Score(key: 1, score: 5));
-        await Assert.That(Transaction.Run(fingerprint.Sample)).IsEqualTo(before).Because("a group of this shape does not read the order");
+
+        await Assert.That(Transaction.Run(fingerprint.Sample))
+            .IsEqualTo(before)
+            .Because("a group of this shape does not read the order");
     }
 
     private static string Bucket(ItemState state) => state.Score >= 20 ? "high" : "low";

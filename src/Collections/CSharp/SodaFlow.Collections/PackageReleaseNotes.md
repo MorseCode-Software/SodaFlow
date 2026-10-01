@@ -1,199 +1,146 @@
 2.0.0
 
-Adds Fold, an extension method on ReactiveCollection, for a total, a count, or
-an average that follows the collection. It takes select, zero, add, and
-subtract. Each change carries the states before it and the states after it, thus
-Fold removes the previous value of each key that the change names and adds the
-new one. The cost of an edit is the count of the keys in that edit, and not the
-count of the items.
+Adds Fold, an extension method on ReactiveCollection, for a total, a count, or an average that follows the collection.
+It takes select, zero, add, and subtract. Each change carries the states before it and the states after it, thus Fold
+removes the previous value of each key that the change names and adds the new one. The cost of an edit is the count of
+the keys in that edit, and not the count of the items.
 
-  Cell<long> total = accounts.Fold(
-      select: static (_, state) => state.Balance,
-      zero: 0L,
-      add: static (a, b) => a + b,
-      subtract: static (a, b) => a - b);
+Cell<long> total = accounts.Fold (select: static (_, state) => state.Balance, zero: 0L, add: static (a, b) => a + b,
+subtract: static (a, b) => a - b);
 
-select takes the identity and the state of an item, as the predicate of Filter
-and the selector of SortBy do.
+select takes the identity and the state of an item, as the predicate of Filter and the selector of SortBy do.
 
-Adds FoldByIdentity, to match FilterByIdentity and SortByIdentity. Its select
-takes the identity alone. An edit of a state cannot change an identity, thus
-this fold reads only the changes that add or remove an item. The cell sends no
-value at an edit of a state, and that edit costs one test here. A count of the
-items is the usual example:
+Adds FoldByIdentity, to match FilterByIdentity and SortByIdentity. Its select takes the identity alone. An edit of a
+state cannot change an identity, thus this fold reads only the changes that add or remove an item. The cell sends no
+value at an edit of a state, and that edit costs one test here. A count of the items is the usual example:
 
-  Cell<int> count = accounts.FoldByIdentity(
-      select: static _ => 1,
-      zero: 0,
-      add: static (a, b) => a + b,
-      subtract: static (a, b) => a - b);
+Cell<int> count = accounts.FoldByIdentity (select: static _ => 1, zero: 0, add: static (a, b) => a + b, subtract: static
+(a, b) => a - b);
 
-A group, and not one combine function, because only an invertible operation can
-answer an edit with no read of each item. A sum and a count are groups. A maximum
-is not one: sort the view and read its first key. The first value is a read of
-the store, thus a caller gives no seed. A view folds its own items.
+A group, and not one combine function, because only an invertible operation can answer an edit with no read of each
+item. A sum and a count are groups. A maximum is not one: sort the view and read its first key. The first value is a
+read of the store, thus a caller gives no seed. A view folds its own items.
 
-BREAKING: SortByKey(keyComparer) is now SortByKey(keyComparer, isDescending),
-as each other sort that takes a comparer also names its direction. Code that
-passes a comparer stops compiling; add isDescending: false to keep its order,
-or call SortByKey() where the comparer was Comparer<TKey>.Default. The same
-applies to KeyOrder.ByKey(keyComparer), which is now ByKey(keyComparer,
-isDescending), in SodaFlow.Collections.Core.
+BREAKING: SortByKey (keyComparer) is now SortByKey (keyComparer, isDescending), as each other sort that takes a comparer
+also names its direction. Code that passes a comparer stops compiling; add isDescending: false to keep its order, or
+call SortByKey () where the comparer was Comparer<TKey>.Default. The same applies to KeyOrder.ByKey (keyComparer), which
+is now ByKey (keyComparer, isDescending), in SodaFlow.Collections.Core.
 
-BREAKING: Map answers with a MappedItems<TResult> that is a sealed class,
-where it was a readonly struct. Source that reads Items and calls Dispose needs
-no edit; a recompile does. The notes of SodaFlow.Collections.Core give the
-details.
+BREAKING: Map answers with a MappedItems<TResult> that is a sealed class, where it was a readonly struct. Source that
+reads Items and calls Dispose needs no edit; a recompile does. The notes of SodaFlow.Collections.Core give the details.
 
-Adds SortByKey() and SortByKeyDescending(), with the default comparer, to match
-SortBy and SortByDescending, and KeyOrder.ByKey() and ByKeyDescending() to
-match them. A cell that moves between two key orders with the same comparer
+Adds SortByKey () and SortByKeyDescending (), with the default comparer, to match SortBy and SortByDescending, and
+KeyOrder.ByKey () and ByKeyDescending () to match them. A cell that moves between two key orders with the same comparer
 turns the list that the stage holds and does not sort each key again.
 
-Adds ItemCell, which gives the two parts of one item as one optional value. It
-follows the key as StateCell does, and it answers for the collection or the
-view that a caller asks, with the same cache for each key.
+Adds ItemCell, which gives the two parts of one item as one optional value. It follows the key as StateCell does, and it
+answers for the collection or the view that a caller asks, with the same cache for each key.
 
-Use it for a value that reads the identity and the state together. A lift of
-IdentityCell against StateCell does the same work, and it gives two optional
-values, thus four combinations, of which the store cannot give two: an
-identity with no state, and a state with no identity. One cell gives one
-optional value and removes the two branches that no code can reach. It also
-costs one cell and not two cells with a lift above them.
+Use it for a value that reads the identity and the state together. A lift of IdentityCell against StateCell does the
+same work, and it gives two optional values, thus four combinations, of which the store cannot give two: an identity
+with no state, and a state with no identity. One cell gives one optional value and removes the two branches that no code
+can reach. It also costs one cell and not two cells with a lift above them.
 
-It is not the correct selection for each row. An item holds the state, thus
-ItemCell sends a value at each edit to the state of its key. Each value that
-comes from it is made again at that moment, and that includes a part which
-reads the identity alone. Where one binding reads the identity and a different
-binding reads the state, take the two cells: IdentityCell sleeps through an
-edit to the state, and that is what makes it almost free to hold.
+It is not the correct selection for each row. An item holds the state, thus ItemCell sends a value at each edit to the
+state of its key. Each value that comes from it is made again at that moment, and that includes a part which reads the
+identity alone. Where one binding reads the identity and a different binding reads the state, take the two cells:
+IdentityCell sleeps through an edit to the state, and that is what makes it almost free to hold.
 
-Adds two overloads of FilterByIdentity, to match Filter: one that takes a cell
-of the predicate, and one that takes a criteria cell and a predicate of the
-criteria and the identity. A change to the predicate or to the criteria tests
-each item again and names what entered and what left. A state edit still does
-not test the predicate.
+Adds two overloads of FilterByIdentity, to match Filter: one that takes a cell of the predicate, and one that takes a
+criteria cell and a predicate of the criteria and the identity. A change to the predicate or to the criteria tests each
+item again and names what entered and what left. A state edit still does not test the predicate.
 
-Fixed: the documentation of Filter said that a change to the predicate builds
-the stage again and reports a reset. It reports the keys that entered and
-left as inserts and removals, and it builds again and resets only when more
-keys move than a list of them is worth.
+Fixed: the documentation of Filter said that a change to the predicate builds the stage again and reports a reset. It
+reports the keys that entered and left as inserts and removals, and it builds again and resets only when more keys move
+than a list of them is worth.
 
-Fixed: Take and Slice lost an edit to a key that kept its position in the
-window. A slice compares the window before a change with the window after it,
-and it gave only an update to a key that the comparison found in both. A sort
-above it reports a key that it files again as a move, and an item that one edit
-removes and adds again as a removal and an insert. The slice gave neither of the
-two, thus a StateCell, an IdentityCell, or a bound row on the window kept the
-previous value. A move is now an update below the slice. A replacement is a
-removal and an insert at the same position, as the root reports it, because the
-identity can change.
+Fixed: Take and Slice lost an edit to a key that kept its position in the window. A slice compares the window before a
+change with the window after it, and it gave only an update to a key that the comparison found in both. A sort above it
+reports a key that it files again as a move, and an item that one edit removes and adds again as a removal and an
+insert. The slice gave neither of the two, thus a StateCell, an IdentityCell, or a bound row on the window kept the
+previous value. A move is now an update below the slice. A replacement is a removal and an insert at the same position,
+as the root reports it, because the identity can change.
 
-Requires SodaFlow 5.x, SodaFlow.Collections.Core 2.x and SodaFlow.Functional
-3.x. SodaFlow 5.0.0 ships in the same release, and its own notes list what
-changed there.
+Requires SodaFlow 5.x, SodaFlow.Collections.Core 2.x and SodaFlow.Functional 3.x. SodaFlow 5.0.0 ships in the same
+release, and its own notes list what changed there.
 
 1.0.1
 
-Adds the package icon that nuget.org shows beside this package. No source file
-changed since 1.0.0.
+Adds the package icon that nuget.org shows beside this package. No source file changed since 1.0.0.
 
-Every package here ships this release together, so the dependency versions
-move with it.
+Every package here ships this release together, so the dependency versions move with it.
 
 1.0.0
 
 First release.
 
-Requires SodaFlow 4.x, SodaFlow.Collections.Core 1.x and SodaFlow.Functional
-3.x. Installing this brings the C# API it extends, so one install gives you the
-whole surface.
+Requires SodaFlow 4.x, SodaFlow.Collections.Core 1.x and SodaFlow.Functional 3.x. Installing this brings the C# API it
+extends, so one install gives you the whole surface.
 
 ---
 
 About this package
 
-A large keyed collection for cases where the number of items being actively
-observed is a small fraction of the total - a hundred thousand accounts behind
-a list showing twenty rows.
+A large keyed collection for cases where the number of items being actively observed is a small fraction of the total -
+a hundred thousand accounts behind a list showing twenty rows.
 
-One cell holds the whole snapshot, one stream carries resolved changes, and a
-per-item observer is a filter over that stream costing one hash lookup per
-transaction, independent of collection size. No cell is nested inside another
-cell's value, so nothing builds graph nodes inside a fold.
+One cell holds the whole snapshot, one stream carries resolved changes, and a per-item observer is a filter over that
+stream costing one hash lookup per transaction, independent of collection size. No cell is nested inside another cell's
+value, so nothing builds graph nodes inside a fold.
 
-Everything that can change the collection is declared at construction. Create
-takes the initial contents and every edit stream; there is no Send, no sink, no
-method that mutates a live collection.
+Everything that can change the collection is declared at construction. Create takes the initial contents and every edit
+stream; there is no Send, no sink, no method that mutates a live collection.
 
-  StateCell(key)      one item, no value while the collection you asked
-                      does not hold it - so a filtered view answers for
-                      itself, at the same cost as asking the collection
-  IdentityCell(key)   its immutable half, moving only when that key enters
-                      or leaves the collection you asked - so a view answers
-                      for itself here too, and a state edit never wakes one
-  ShapeCell           fires on count or key change only
-  SnapshotCell        the whole store, on every change
-  KeysCell            the keys in order, moving only when membership or
-                      order does - a state edit that moves no key leaves it
-  KeyChangesStream    how the keys moved: positions, no states
-  ItemChangesStream   how the items changed: states, no positions
+StateCell (key)      one item, no value while the collection you asked does not hold it - so a filtered view answers for
+itself, at the same cost as asking the collection IdentityCell (key)   its immutable half, moving only when that key
+enters or leaves the collection you asked - so a view answers for itself here too, and a state edit never wakes one
+ShapeCell fires on count or key change only SnapshotCell the whole store, on every change KeysCell the keys in order,
+moving only when membership or order does - a state edit that moves no key leaves it KeyChangesStream how the keys
+moved: positions, no states ItemChangesStream how the items changed: states, no positions
 
-The last two are a pair rather than one thing in two shapes. Bind a list to the
-first, because a list has to know where a row went; fold the second for a total
-or an average, because it names what changed and so costs what changed rather
+The last two are a pair rather than one thing in two shapes. Bind a list to the first, because a list has to know where
+a row went; fold the second for a total or an average, because it names what changed and so costs what changed rather
 than what the collection holds.
 
-A view is a collection, not a handle on one. Filter, SortBy and the rest take a
-ReactiveCollection and return one, and what comes back answers for itself: its
-keys, its changes, its snapshot, its items and its per-item cells all hold what
+A view is a collection, not a handle on one. Filter, SortBy and the rest take a ReactiveCollection and return one, and
+what comes back answers for itself: its keys, its changes, its snapshot, its items and its per-item cells all hold what
 it holds and nothing else. Nothing on it leads back to what it came from.
 
-There is no interface, and that is deliberate: one implementation, not meant to
-be substituted or mocked, and concrete so the language surfaces can reach what
-they need without a cast.
+There is no interface, and that is deliberate: one implementation, not meant to be substituted or mocked, and concrete
+so the language surfaces can reach what they need without a cast.
 
-Map ends a chain: one object per key, in order, kept so the same key gives back
-the same object. It is what a list binds to - build each row from StateCell and
-IdentityCell inside the projection and every row follows its own item, so one
-edit moves one row rather than rebuilding the list. What it keeps is bounded,
-counting keys that have left rather than keys in the view, and it hands back a
-MappedItems to dispose the way MapAsync hands back a status.
+Map ends a chain: one object per key, in order, kept so the same key gives back the same object. It is what a list binds
+to - build each row from StateCell and IdentityCell inside the projection and every row follows its own item, so one
+edit moves one row rather than rebuilding the list. What it keeps is bounded, counting keys that have left rather than
+keys in the view, and it hands back a MappedItems to dispose the way MapAsync hands back a status.
 
-Views chain and stay incremental. Filter, FilterByIdentity, SortBy, SortByDescending,
-SortByIdentity, SortByIdentityDescending, SortByKey, Take and Slice each take a
-ReactiveCollection and return one, the way Where takes and returns an
-IEnumerable, and an item seen through two views is literally the same cell.
+Views chain and stay incremental. Filter, FilterByIdentity, SortBy, SortByDescending, SortByIdentity,
+SortByIdentityDescending, SortByKey, Take and Slice each take a ReactiveCollection and return one, the way Where takes
+and returns an IEnumerable, and an item seen through two views is literally the same cell.
 
-SortBy also takes a Cell<KeyOrder<TKey, TIdentity, TState>>, which is how a
-clickable column header is written. An order carries its own sort value type
-inside itself, so one cell holds orders sorting by an int and by a string
-alike, while the sort key stays a real generic parameter down to the comparer.
-Build them with the factories on KeyOrder - By, ByDescending, ByIdentity,
-ByIdentityDescending and ByKey - which mirror those sorts one for one.
+SortBy also takes a Cell<KeyOrder<TKey, TIdentity, TState>>, which is how a clickable column header is written. An order
+carries its own sort value type inside itself, so one cell holds orders sorting by an int and by a string alike, while
+the sort key stays a real generic parameter down to the comparer. Build them with the factories on KeyOrder - By,
+ByDescending, ByIdentity, ByIdentityDescending and ByKey - which mirror those sorts one for one.
 
-An order can have more than one level. ThenBy, ThenByDescending, ThenByIdentity
-and ThenByIdentityDescending refine an order with a level that decides only
-between keys it ranks equal, each level in its own direction and with its own
-sort value type, so nothing is boxed. SortBy takes a KeyOrder directly as well
-as in a cell, which is how a multi-level sort that never changes is written.
+An order can have more than one level. ThenBy, ThenByDescending, ThenByIdentity and ThenByIdentityDescending refine an
+order with a level that decides only between keys it ranks equal, each level in its own direction and with its own sort
+value type, so nothing is boxed. SortBy takes a KeyOrder directly as well as in a cell, which is how a multi-level sort
+that never changes is written.
 
-A collection keeps its items in the order they arrived rather than sorting them
-by key: initial items in the order they were enumerated, additions at the end,
-and a key removed and added back is a new arrival. Keys are never compared, so
-TKey needs no order of its own. SortByKey still orders by key, and SortByArrival
-and KeyOrder.ByArrival take a sorted view back to arrival order.
+A collection keeps its items in the order they arrived rather than sorting them by key: initial items in the order they
+were enumerated, additions at the end, and a key removed and added back is a new arrival. Keys are never compared, so
+TKey needs no order of its own. SortByKey still orders by key, and SortByArrival and KeyOrder.ByArrival take a sorted
+view back to arrival order.
 
-Slice(offset, limit) is the paging window, and Take is the case of it that
-starts at zero. There is no Skip: a window with both ends is bounded, which is
-what keeps the stage at O(limit) per transaction.
+Slice (offset, limit) is the paging window, and Take is the case of it that starts at zero. There is no Skip: a window
+with both ends is bounded, which is what keeps the stage at O (limit) per transaction.
 
-An identity that implements IIdentity<TKey> carries its own key, and
-ReactiveCollection.Create - on the non-generic companion - takes it from there
-rather than asking for a selector. Optional; the selector overloads remain.
+An identity that implements IIdentity<TKey> carries its own key, and ReactiveCollection.Create - on the non-generic
+companion - takes it from there rather than asking for a selector. Optional; the selector overloads remain.
 
-  collection.SortByDescending((_, s) => s.Balance)
-            .Filter((_, s) => !s.IsFrozen)
-            .Take(10)
+collection.SortByDescending ((_, s) => s.Balance)
+.Filter ((_, s) => !s.IsFrozen)
+.Take (10)
 
 Full notes: https://github.com/MorseCode-Software/SodaFlow/releases

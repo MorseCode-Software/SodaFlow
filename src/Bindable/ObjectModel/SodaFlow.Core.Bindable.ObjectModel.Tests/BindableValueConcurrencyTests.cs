@@ -458,8 +458,10 @@ public sealed class BindableValueConcurrencyTests
         /// <inheritdoc />
         public void Post(Action action) => this.queue.Enqueue(action);
 
-        /// <summary>Runs each action in the queue, and also an action that another action
-        /// adds while this method runs.</summary>
+        /// <summary>
+        ///     Runs each action in the queue, and also an action that another action
+        ///     adds while this method runs.
+        /// </summary>
         /// <returns>The number of actions that ran.</returns>
         internal int RunAll()
         {

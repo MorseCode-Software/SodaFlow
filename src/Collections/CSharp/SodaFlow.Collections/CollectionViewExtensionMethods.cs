@@ -84,8 +84,10 @@ public static class CollectionViewExtensionMethods
         where TIdentity : notnull =>
         CollectionViewUtility.SortByKeyImpl(upstream: upstream, keyComparer: keyComparer, isDescending: isDescending);
 
-    /// <summary>Reorders by arrival, which is the order of the collection. It is available above
-    /// each stage.</summary>
+    /// <summary>
+    ///     Reorders by arrival, which is the order of the collection. It is available above
+    ///     each stage.
+    /// </summary>
     /// <typeparam name="TKey">The type of the keys.</typeparam>
     /// <typeparam name="TIdentity">The type of the immutable part of an item.</typeparam>
     /// <typeparam name="TState">The type of the mutable part of an item.</typeparam>

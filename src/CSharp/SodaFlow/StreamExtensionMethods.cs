@@ -216,8 +216,10 @@ public static class StreamExtensionMethods
     ///     <see cref="Snapshot{T, TResult}(Stream{T}, Cell{TResult})" /> on the cell. Other than this, the
     ///     function must be a pure function.
     /// </param>
-    /// <returns>A stream which fires values transformed by <paramref name="f" /> for each value fired by this
-    /// stream.</returns>
+    /// <returns>
+    ///     A stream which fires values transformed by <paramref name="f" /> for each value fired by this
+    ///     stream.
+    /// </returns>
     [MethodImpl(MethodImplOptions.NoInlining)]
     public static Stream<TResult> Map<T, TResult>(this Stream<T> s, Func<T, TResult> f) => s.MapImpl(f);
 
@@ -1656,12 +1658,12 @@ public static class StreamExtensionMethods
     [MethodImpl(MethodImplOptions.NoInlining)]
     public static Stream<(Maybe<T>, Maybe<T2>, Maybe<T3>, Maybe<T4>, Maybe<T5>, Maybe<T6>)>
         Merge<T, T2, T3, T4, T5, T6>(
-        this Stream<T> s,
-        Stream<T2> s2,
-        Stream<T3> s3,
-        Stream<T4> s4,
-        Stream<T5> s5,
-        Stream<T6> s6) =>
+            this Stream<T> s,
+            Stream<T2> s2,
+            Stream<T3> s3,
+            Stream<T4> s4,
+            Stream<T5> s5,
+            Stream<T6> s6) =>
         s.MergeMaybesImpl(
             s2: s2,
             s3: s3,
@@ -1701,13 +1703,13 @@ public static class StreamExtensionMethods
     [MethodImpl(MethodImplOptions.NoInlining)]
     public static Stream<(Maybe<T>, Maybe<T2>, Maybe<T3>, Maybe<T4>, Maybe<T5>, Maybe<T6>, Maybe<T7>)>
         Merge<T, T2, T3, T4, T5, T6, T7>(
-        this Stream<T> s,
-        Stream<T2> s2,
-        Stream<T3> s3,
-        Stream<T4> s4,
-        Stream<T5> s5,
-        Stream<T6> s6,
-        Stream<T7> s7) =>
+            this Stream<T> s,
+            Stream<T2> s2,
+            Stream<T3> s3,
+            Stream<T4> s4,
+            Stream<T5> s5,
+            Stream<T6> s6,
+            Stream<T7> s7) =>
         s.MergeMaybesImpl(
             s2: s2,
             s3: s3,
@@ -1750,14 +1752,14 @@ public static class StreamExtensionMethods
     [MethodImpl(MethodImplOptions.NoInlining)]
     public static Stream<(Maybe<T>, Maybe<T2>, Maybe<T3>, Maybe<T4>, Maybe<T5>, Maybe<T6>, Maybe<T7>, Maybe<T8>)>
         Merge<T, T2, T3, T4, T5, T6, T7, T8>(
-        this Stream<T> s,
-        Stream<T2> s2,
-        Stream<T3> s3,
-        Stream<T4> s4,
-        Stream<T5> s5,
-        Stream<T6> s6,
-        Stream<T7> s7,
-        Stream<T8> s8) =>
+            this Stream<T> s,
+            Stream<T2> s2,
+            Stream<T3> s3,
+            Stream<T4> s4,
+            Stream<T5> s5,
+            Stream<T6> s6,
+            Stream<T7> s7,
+            Stream<T8> s8) =>
         s.MergeMaybesImpl(
             s2: s2,
             s3: s3,
@@ -1767,15 +1769,15 @@ public static class StreamExtensionMethods
             s7: s7,
             s8: s8,
             f: static (m1, m2, m3, m4, m5, m6, m7, m8) =>
-                (
-                    ToMaybe(m1),
-                    ToMaybe(m2),
-                    ToMaybe(m3),
-                    ToMaybe(m4),
-                    ToMaybe(m5),
-                    ToMaybe(m6),
-                    ToMaybe(m7),
-                    ToMaybe(m8)));
+            (
+                ToMaybe(m1),
+                ToMaybe(m2),
+                ToMaybe(m3),
+                ToMaybe(m4),
+                ToMaybe(m5),
+                ToMaybe(m6),
+                ToMaybe(m7),
+                ToMaybe(m8)));
 
     private static Maybe<T> ToMaybe<T>(MaybeInternal<T> m) =>
         m.TryGetValue(out T value) ? Maybe.Some(value) : Maybe<T>.None;

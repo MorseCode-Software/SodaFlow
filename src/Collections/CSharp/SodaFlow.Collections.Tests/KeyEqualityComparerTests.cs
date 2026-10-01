@@ -9,8 +9,10 @@ using TUnit.Core;
 
 namespace SodaFlow.Collections.Tests;
 
-/// <summary>The immutable part of an item whose key is a string with a comparer that is not
-/// strict.</summary>
+/// <summary>
+///     The immutable part of an item whose key is a string with a comparer that is not
+///     strict.
+/// </summary>
 internal sealed record NamedIdentity(string Name);
 
 /// <summary>The mutable part of such an item.</summary>

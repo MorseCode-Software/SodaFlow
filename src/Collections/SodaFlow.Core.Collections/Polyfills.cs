@@ -1,7 +1,7 @@
-// ReSharper disable MemberCanBeFileLocal - Each type here is a polyfill that the compiler finds by its full name, which a file type does not keep.
-
 #if !NETCOREAPP3_0_OR_GREATER && !NETSTANDARD2_1_OR_GREATER
 using JetBrains.Annotations;
+
+// ReSharper disable MemberCanBeFileLocal
 
 // ReSharper disable once CheckNamespace
 namespace System.Diagnostics.CodeAnalysis

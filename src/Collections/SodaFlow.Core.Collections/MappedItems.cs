@@ -4,8 +4,10 @@ using JetBrains.Annotations;
 
 namespace SodaFlow.Collections;
 
-/// <summary>The position of the default limit of a projection. Thus, the two language surfaces name
-/// one value.</summary>
+/// <summary>
+///     The position of the default limit of a projection. Thus, the two language surfaces name
+///     one value.
+/// </summary>
 [PublicAPI]
 public static class MappedItems
 {
@@ -102,8 +104,10 @@ internal sealed class MappedItemCache<TKey, TResult>
     /// <summary>The keys no longer in the view, most recently departed at the front.</summary>
     private readonly LinkedList<TKey> departed = new();
 
-    /// <summary>The position of each key that left. Thus, a departure and a return each cost
-    /// <c>O(1)</c>.</summary>
+    /// <summary>
+    ///     The position of each key that left. Thus, a departure and a return each cost
+    ///     <c>O(1)</c>.
+    /// </summary>
     private readonly Dictionary<TKey, LinkedListNode<TKey>> departedNodes;
 
     private readonly IEqualityComparer<TKey> keyEqualityComparer;
@@ -111,8 +115,10 @@ internal sealed class MappedItemCache<TKey, TResult>
     private readonly Action<TResult>? onEvicted;
     private readonly Func<TKey, TResult> project;
 
-    /// <summary>Each projected object that an eviction did not remove, in the view and out of
-    /// it.</summary>
+    /// <summary>
+    ///     Each projected object that an eviction did not remove, in the view and out of
+    ///     it.
+    /// </summary>
     private readonly Dictionary<TKey, TResult> projected;
 
     private readonly int retainedBeyondTheView;
@@ -180,8 +186,10 @@ internal sealed class MappedItemCache<TKey, TResult>
         return results;
     }
 
-    /// <summary>Removes each object that this code holds, and sends a message for each one as an
-    /// eviction does.</summary>
+    /// <summary>
+    ///     Removes each object that this code holds, and sends a message for each one as an
+    ///     eviction does.
+    /// </summary>
     internal void ReleaseAll()
     {
         if (this.onEvicted is not null)

@@ -37,7 +37,10 @@ type private ManualImplementation() =
 
         member _.RunTimersTo value =
             // A copy, because a callback here can set a timer of its own.
-            let due = timers |> Seq.filter (fun timer -> not timer.Canceled && timer.Time <= value) |> Seq.toList
+            let due =
+                timers
+                |> Seq.filter (fun timer -> not timer.Canceled && timer.Time <= value)
+                |> Seq.toList
 
             for timer in due do
                 timers.Remove timer |> ignore

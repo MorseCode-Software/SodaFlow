@@ -195,8 +195,10 @@ internal sealed class GrabScene : IInteractiveScene
                 ? max
                 : value;
 
-    /// <summary>The ball below the given point. The ball with the nearest center has
-    /// priority.</summary>
+    /// <summary>
+    ///     The ball below the given point. The ball with the nearest center has
+    ///     priority.
+    /// </summary>
     private Maybe<int> BallAt(double x, double y)
     {
         Maybe<int> found = Maybe<int>.None;

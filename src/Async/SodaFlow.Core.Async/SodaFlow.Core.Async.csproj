@@ -39,13 +39,13 @@
     </ItemGroup>
 
     <ItemGroup>
-      <None Include="..\..\..\logo\SodaFlow.png" Pack="true" PackagePath="\">
-        <Link>SodaFlow.png</Link>
-      </None>
+        <None Include="..\..\..\logo\SodaFlow.png" Pack="true" PackagePath="\">
+            <Link>SodaFlow.png</Link>
+        </None>
     </ItemGroup>
 
     <ItemGroup>
-      <None Include="PackageReleaseNotes.md" />
+        <None Include="PackageReleaseNotes.md"/>
     </ItemGroup>
 
 </Project>

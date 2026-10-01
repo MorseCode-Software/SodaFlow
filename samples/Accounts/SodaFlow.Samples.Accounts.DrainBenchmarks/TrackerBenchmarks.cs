@@ -21,8 +21,10 @@ namespace SodaFlow.Samples.Accounts.DrainBenchmarks;
 ///     <para>
 ///         The inputs are the values that <c>ItemChange</c> gives to the fold, with the same
 ///         types. The new states come through <see cref="IReadOnlyDictionary{TKey,TValue}" />, the
-///         removed keys come through a <see cref="HashSet{T}" /> behind <see
-///         cref="IReadOnlyCollection{T}" />, and the changed keys are
+///         removed keys come through a <see cref="HashSet{T}" /> behind
+///         <see
+///             cref="IReadOnlyCollection{T}" />
+///         , and the changed keys are
 ///         <c>NewStates.Keys.Concat(Removed)</c>, which is the definition of <c>ChangedKeys</c>.
 ///         <see cref="State" /> replaces the internal <c>AccountState</c> of the view model.
 ///     </para>
@@ -32,14 +34,6 @@ namespace SodaFlow.Samples.Accounts.DrainBenchmarks;
 public class TrackerBenchmarks
 {
     private const int AccountCount = 100_000;
-
-    // ReSharper disable NullableWarningSuppressionIsUsed - Set in Setup
-    private IReadOnlyDictionary<int, State> drainNewStates = null!;
-    private ImmutableHashSet<int> drainable = null!;
-    private IReadOnlyDictionary<int, State> payNewStates = null!;
-    private IReadOnlyCollection<int> removed = null!;
-
-    // ReSharper restore NullableWarningSuppressionIsUsed - Set in Setup
 
     [GlobalSetup]
     public void Setup()
@@ -66,32 +60,41 @@ public class TrackerBenchmarks
         this.payNewStates = new Dictionary<int, State> { [active] = new(Balance: 200_00, IsFrozen: false) };
 
         // A Drain sets each drainable account to zero, thus all of them go out of the set.
-        this.drainNewStates = frozen.ToDictionary(keySelector: static key => key, elementSelector: static _ => new State(Balance: 0, IsFrozen: true));
+        this.drainNewStates =
+            frozen.ToDictionary(
+                keySelector: static key => key,
+                elementSelector: static _ => new State(Balance: 0, IsFrozen: true));
     }
 
     [Benchmark(Baseline = true)]
     [BenchmarkCategory("Pay")]
-    public ImmutableHashSet<int> FormerPay() => Former(drainableAccountKeys: this.drainable, newStates: this.payNewStates, removed: this.removed);
+    public ImmutableHashSet<int> FormerPay() =>
+        Former(drainableAccountKeys: this.drainable, newStates: this.payNewStates, removed: this.removed);
 
     [Benchmark]
     [BenchmarkCategory("Pay")]
-    public ImmutableHashSet<int> SinglePassPay() => SinglePass(keys: this.drainable, newStates: this.payNewStates, removed: this.removed);
+    public ImmutableHashSet<int> SinglePassPay() =>
+        SinglePass(keys: this.drainable, newStates: this.payNewStates, removed: this.removed);
 
     [Benchmark]
     [BenchmarkCategory("Drain")]
-    public ImmutableHashSet<int> FormerDrain() => Former(drainableAccountKeys: this.drainable, newStates: this.drainNewStates, removed: this.removed);
+    public ImmutableHashSet<int> FormerDrain() =>
+        Former(drainableAccountKeys: this.drainable, newStates: this.drainNewStates, removed: this.removed);
 
     [Benchmark]
     [BenchmarkCategory("Drain")]
-    public ImmutableHashSet<int> SinglePassDrain() => SinglePass(keys: this.drainable, newStates: this.drainNewStates, removed: this.removed);
+    public ImmutableHashSet<int> SinglePassDrain() =>
+        SinglePass(keys: this.drainable, newStates: this.drainNewStates, removed: this.removed);
 
     [Benchmark]
     [BenchmarkCategory("Pay")]
-    public ImmutableHashSet<int> HybridPay() => Hybrid(keys: this.drainable, newStates: this.payNewStates, removed: this.removed);
+    public ImmutableHashSet<int> HybridPay() =>
+        Hybrid(keys: this.drainable, newStates: this.payNewStates, removed: this.removed);
 
     [Benchmark]
     [BenchmarkCategory("Drain")]
-    public ImmutableHashSet<int> HybridDrain() => Hybrid(keys: this.drainable, newStates: this.drainNewStates, removed: this.removed);
+    public ImmutableHashSet<int> HybridDrain() =>
+        Hybrid(keys: this.drainable, newStates: this.drainNewStates, removed: this.removed);
 
     /// <summary>
     ///     This calls <c>Contains</c> on the initial set while no membership changes, thus a Pay
@@ -165,8 +168,10 @@ public class TrackerBenchmarks
         return builder.ToImmutable();
     }
 
-    /// <summary>This reads the change one time, and uses a builder only after the membership of
-    /// a key changes.</summary>
+    /// <summary>
+    ///     This reads the change one time, and uses a builder only after the membership of
+    ///     a key changes.
+    /// </summary>
     private static ImmutableHashSet<int> SinglePass(
         ImmutableHashSet<int> keys,
         IReadOnlyDictionary<int, State> newStates,
@@ -207,4 +212,12 @@ public class TrackerBenchmarks
     {
         public bool IsDrainable => this.IsFrozen && this.Balance != 0;
     }
+
+    // ReSharper disable NullableWarningSuppressionIsUsed - Set in Setup
+    private IReadOnlyDictionary<int, State> drainNewStates = null!;
+    private ImmutableHashSet<int> drainable = null!;
+    private IReadOnlyDictionary<int, State> payNewStates = null!;
+    private IReadOnlyCollection<int> removed = null!;
+
+    // ReSharper restore NullableWarningSuppressionIsUsed - Set in Setup
 }

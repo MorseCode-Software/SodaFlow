@@ -39,8 +39,10 @@ public interface IAccountRowViewModel : IDisposable
     /// <summary>True when the account is frozen. The views show this with a gray row.</summary>
     IOneWayBindableValue<bool> IsFrozen { get; }
 
-    /// <summary>Pays one hundred dollars into the account of this row. It is disabled when the
-    /// account is frozen.</summary>
+    /// <summary>
+    ///     Pays one hundred dollars into the account of this row. It is disabled when the
+    ///     account is frozen.
+    /// </summary>
     /// <remarks>
     ///     A view can hide this for a frozen account, but that is presentation and not the rule.
     ///     The view model gates the deposit, thus no path to the command can pay into a frozen
@@ -121,8 +123,10 @@ public interface IAccountsViewModel : IDisposable
     /// </remarks>
     IBindableAction DrainFrozenAccounts { get; }
 
-    /// <summary>Sorts on the account number, or reverses the direction when the list sorts on
-    /// it.</summary>
+    /// <summary>
+    ///     Sorts on the account number, or reverses the direction when the list sorts on
+    ///     it.
+    /// </summary>
     /// <remarks>
     ///     A sort on the account number uses the identity part of an account, and no edit can
     ///     change that part. Thus, with this order a deposit changes a balance and cannot move a
@@ -131,8 +135,10 @@ public interface IAccountsViewModel : IDisposable
     /// </remarks>
     IBindableAction SortByNumber { get; }
 
-    /// <summary>Sorts on the holder, or reverses the direction. This order also uses only the
-    /// identity.</summary>
+    /// <summary>
+    ///     Sorts on the holder, or reverses the direction. This order also uses only the
+    ///     identity.
+    /// </summary>
     IBindableAction SortByHolder { get; }
 
     /// <summary>Sorts on the balance, or reverses the direction.</summary>

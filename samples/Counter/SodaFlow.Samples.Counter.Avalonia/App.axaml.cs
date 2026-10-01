@@ -32,8 +32,7 @@ internal sealed class App : Application
         if (this.ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
         {
             ICounterViewModel viewModel =
-                CounterViewModel.Create(
-                    new BindableFactory(SynchronizationContextBindingScheduler.Capture()));
+                CounterViewModel.Create(new BindableFactory(SynchronizationContextBindingScheduler.Capture()));
 
             // This code assigns the window and does not show it. The lifetime shows this window
             // after this method returns, thus the window has its data context before it is on

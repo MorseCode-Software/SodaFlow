@@ -168,7 +168,8 @@ public sealed class DebounceTests
                         Stream<string> echo = result.Filter(static value => value == "a").MapTo("b");
 
                         return (Stream: keys.OrElse(echo), Captures: result);
-                    }).Captures);
+                    })
+                    .Captures);
 
         IStrongListener l = Transaction.Run(() => debounced.ListenStrong(seen.Add));
 
@@ -203,7 +204,11 @@ public sealed class DebounceTests
             this.implementation = new Implementation();
 
             this.Timers =
-                new TimerSystem<int>(implementation: this.implementation, handleException: static _ => { });
+                new TimerSystem<int>(
+                    implementation: this.implementation,
+                    handleException: static _ =>
+                    {
+                    });
         }
 
         internal ITimerSystem<int> Timers { get; }
@@ -215,7 +220,10 @@ public sealed class DebounceTests
         internal void AdvanceTo(int now)
         {
             this.implementation.AdvanceTo(now);
-            Transaction.RunVoid(static () => { });
+
+            Transaction.RunVoid(static () =>
+            {
+            });
         }
 
         private sealed class Implementation : ITimerSystemImplementation<int>
@@ -239,7 +247,7 @@ public sealed class DebounceTests
             public void RunTimersTo(int now)
             {
                 // A copy, because a callback here can set a timer of its own.
-                ManualTimer[] due = [..this.timers.Where(timer => !timer.Canceled && timer.Time <= now)];
+                ManualTimer[] due = [.. this.timers.Where(timer => !timer.Canceled && timer.Time <= now)];
 
                 foreach (ManualTimer timer in due)
                 {

@@ -17,8 +17,10 @@ internal static class BindableActions
         }
 
         /// <inheritdoc />
-        /// <remarks>A command with no parameter discards its parameter. Thus, the type of that
-        /// parameter cannot be incorrect.</remarks>
+        /// <remarks>
+        ///     A command with no parameter discards its parameter. Thus, the type of that
+        ///     parameter cannot be incorrect.
+        /// </remarks>
         protected override void ValidateParameter(object? value)
         {
         }
@@ -48,8 +50,10 @@ internal static class BindableActions
                 + ", or null.");
 
         /// <inheritdoc />
-        /// <remarks>A command with no parameter discards its parameter. Thus, the type of that
-        /// parameter cannot be incorrect.</remarks>
+        /// <remarks>
+        ///     A command with no parameter discards its parameter. Thus, the type of that
+        ///     parameter cannot be incorrect.
+        /// </remarks>
         protected override void ValidateParameter(object? value)
         {
             if (value is null or T or Maybe<T>)

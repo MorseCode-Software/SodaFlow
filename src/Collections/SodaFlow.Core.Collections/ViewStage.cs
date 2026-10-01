@@ -22,8 +22,10 @@ internal sealed class ViewStage<TKey, TIdentity, TState> : ReactiveCollection<TK
 
     private readonly Lazy<Cell<IReadOnlyDictionary<TKey, TIdentity>>> shapeCell;
 
-    /// <summary>This code builds it at its first use, thus a stage that no code reads has no cost
-    /// for it.</summary>
+    /// <summary>
+    ///     This code builds it at its first use, thus a stage that no code reads has no cost
+    ///     for it.
+    /// </summary>
     /// <remarks>
     ///     Each one of these is one node for each stage, and the graph calculates it again at each
     ///     transaction. A measurement of the scope on the snapshot, before this code made it lazy,

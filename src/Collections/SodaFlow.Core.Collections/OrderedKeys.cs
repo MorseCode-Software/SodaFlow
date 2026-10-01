@@ -148,8 +148,10 @@ internal sealed class SortedEntryComparer<TKey, TSortKey> : IComparer<SortedEntr
     }
 }
 
-/// <summary>Two sort values, compared one level at a time. An order with more than one level uses
-/// this type as the sort value of a key.</summary>
+/// <summary>
+///     Two sort values, compared one level at a time. An order with more than one level uses
+///     this type as the sort value of a key.
+/// </summary>
 /// <remarks>
 ///     This struct holds the two levels as their own types, thus an order with more than one level
 ///     keeps the sort value type of each level to its comparer and boxes none of them. A third
@@ -260,8 +262,10 @@ internal abstract class ProjectedKeyOrder<TKey, TIdentity, TState, TSortKey>(
     /// </remarks>
     internal abstract TSortKey Project(TKey key, CollectionSnapshot<TKey, TIdentity, TState> snapshot);
 
-    /// <summary>The exception that <see cref="Project" /> throws for a key that the snapshot does
-    /// not hold.</summary>
+    /// <summary>
+    ///     The exception that <see cref="Project" /> throws for a key that the snapshot does
+    ///     not hold.
+    /// </summary>
     protected static InvalidOperationException KeyNotInSnapshot(TKey key) =>
         new(
             $"The snapshot does not hold the key {key}, so it has no sort value to file it under. "
@@ -362,8 +366,10 @@ internal sealed class ArrivalOrder<TKey, TIdentity, TState> : ProjectedKeyOrder<
         snapshot.TryGetArrival(key: key, arrival: out long arrival) ? arrival : throw KeyNotInSnapshot(key);
 }
 
-/// <summary>The second level of an order whose sort values are never equal. Such an order needs no
-/// second level.</summary>
+/// <summary>
+///     The second level of an order whose sort values are never equal. Such an order needs no
+///     second level.
+/// </summary>
 /// <remarks>
 ///     This throws an exception and does not answer. A call to it means that two keys have the same
 ///     sort value, and this code gives each sort value one time. Such a set is incorrect, and an

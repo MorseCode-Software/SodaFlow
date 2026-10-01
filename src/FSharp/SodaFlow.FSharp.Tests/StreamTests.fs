@@ -658,10 +658,16 @@ type ``Stream Tests``() =
             let latest = List<_>()
 
             let l1 =
-                c1 |> updatesC |> snapshotC c2 (fun a b -> $"{a},{b}") |> listenStrongS snapshot.Add
+                c1
+                |> updatesC
+                |> snapshotC c2 (fun a b -> $"{a},{b}")
+                |> listenStrongS snapshot.Add
 
             let l2 =
-                c1 |> updatesC |> snapshotLatestC c2 (fun a b -> $"{a},{b}") |> listenStrongS latest.Add
+                c1
+                |> updatesC
+                |> snapshotLatestC c2 (fun a b -> $"{a},{b}")
+                |> listenStrongS latest.Add
 
             // The cell updates after the stream fires.
             runT (fun () ->
@@ -714,8 +720,10 @@ type ``Stream Tests``() =
                   s |> snapshotLatest3B b1 b2 b3 (fun a v1 v2 v3 -> [ a; v1; v2; v3 ])
                   s |> snapshotLatest4C c1 c2 c3 c4 (fun a v1 v2 v3 v4 -> [ a; v1; v2; v3; v4 ])
                   s |> snapshotLatest4B b1 b2 b3 b4 (fun a v1 v2 v3 v4 -> [ a; v1; v2; v3; v4 ])
-                  s |> snapshotLatest5C c1 c2 c3 c4 c5 (fun a v1 v2 v3 v4 v5 -> [ a; v1; v2; v3; v4; v5 ])
-                  s |> snapshotLatest5B b1 b2 b3 b4 b5 (fun a v1 v2 v3 v4 v5 -> [ a; v1; v2; v3; v4; v5 ])
+                  s
+                  |> snapshotLatest5C c1 c2 c3 c4 c5 (fun a v1 v2 v3 v4 v5 -> [ a; v1; v2; v3; v4; v5 ])
+                  s
+                  |> snapshotLatest5B b1 b2 b3 b4 b5 (fun a v1 v2 v3 v4 v5 -> [ a; v1; v2; v3; v4; v5 ])
                   s
                   |> snapshotLatest6C c1 c2 c3 c4 c5 c6 (fun a v1 v2 v3 v4 v5 v6 -> [ a; v1; v2; v3; v4; v5; v6 ])
                   s
@@ -789,8 +797,13 @@ type ``Stream Tests``() =
             let b8 = c8 |> asBehaviorC
             let behaviors = [ b1; b2; b3; b4; b5; b6; b7; b8 ]
             let join (values: seq<int>) = String.Join(",", values)
-            let liftCells count = cells |> List.take count |> liftAllC (fun values -> join values)
-            let liftBehaviors count = behaviors |> List.take count |> liftAllB (fun values -> join values)
+
+            let liftCells count =
+                cells |> List.take count |> liftAllC (fun values -> join values)
+
+            let liftBehaviors count =
+                behaviors |> List.take count |> liftAllB (fun values -> join values)
+
             let listeners = List<_>()
             let checks = List<_>()
 
@@ -842,12 +855,14 @@ type ``Stream Tests``() =
 
             check
                 "snapshot5C"
-                (s |> snapshot5C c1 c2 c3 c4 c5 (fun a v1 v2 v3 v4 v5 -> $"{a}:{join [ v1; v2; v3; v4; v5 ]}"))
+                (s
+                 |> snapshot5C c1 c2 c3 c4 c5 (fun a v1 v2 v3 v4 v5 -> $"{a}:{join [ v1; v2; v3; v4; v5 ]}"))
                 (expectedSnapshot 5)
 
             check
                 "snapshot5B"
-                (s |> snapshot5B b1 b2 b3 b4 b5 (fun a v1 v2 v3 v4 v5 -> $"{a}:{join [ v1; v2; v3; v4; v5 ]}"))
+                (s
+                 |> snapshot5B b1 b2 b3 b4 b5 (fun a v1 v2 v3 v4 v5 -> $"{a}:{join [ v1; v2; v3; v4; v5 ]}"))
                 (expectedSnapshot 5)
 
             check
@@ -904,7 +919,9 @@ type ``Stream Tests``() =
 
                 runT (fun () ->
                     List.zip order send
-                    |> List.iter (fun (k, go) -> if go then sends[k] (i * 10 + k)))
+                    |> List.iter (fun (k, go) ->
+                        if go then
+                            sends[k](i * 10 + k)))
 
             listeners |> Seq.iter unlistenL
 

@@ -34,8 +34,8 @@ internal sealed class SceneView : FrameworkElement
             ownerType: typeof(SceneView),
             typeMetadata: new FrameworkPropertyMetadata(
                 defaultValue: null,
-                flags: FrameworkPropertyMetadataOptions.AffectsMeasure |
-                       FrameworkPropertyMetadataOptions.AffectsRender));
+                flags: FrameworkPropertyMetadataOptions.AffectsMeasure
+                       | FrameworkPropertyMetadataOptions.AffectsRender));
 
     private static readonly Brush BoxBrush = Freeze(new SolidColorBrush(Color.FromRgb(r: 250, g: 250, b: 252)));
 

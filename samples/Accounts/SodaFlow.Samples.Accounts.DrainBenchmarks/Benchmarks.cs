@@ -8,17 +8,19 @@ using SodaFlow.Samples.Accounts.ViewModels;
 
 namespace SodaFlow.Samples.Accounts.DrainBenchmarks;
 
-/// <summary>The view models to test, with the name that the benchmarks and the footprint mode
-/// use.</summary>
+/// <summary>
+///     The view models to test, with the name that the benchmarks and the footprint mode
+///     use.
+/// </summary>
 internal static class ViewModels
 {
-    private static readonly IBindableFactory BindableFactory = new BindableFactory(ImmediateBindingScheduler.Instance);
-
     /// <summary>AccountsViewModel: drainable accounts are a filtered ReactiveCollection.</summary>
     public const string Original = "Original";
 
     /// <summary>AccountsViewModelOptimizedDrain: drainable accounts are an ImmutableHashSet folded over item changes.</summary>
     public const string OptimizedDrain = "OptimizedDrain";
+
+    private static readonly IBindableFactory BindableFactory = new BindableFactory(ImmediateBindingScheduler.Instance);
 
     public static IAccountsViewModel Create(string name) =>
         name switch
@@ -288,12 +290,6 @@ public class ToggleFrozenBenchmarks
 [UsedImplicitly]
 public class ToggleBalanceSortBenchmarks
 {
-    // ReSharper disable NullableWarningSuppressionIsUsed
-    private IAccountsViewModel viewModel = null!;
-    private IReadOnlyList<IAccountRowViewModel> rowsBefore = null!;
-
-    // ReSharper restore NullableWarningSuppressionIsUsed
-
     [Params(ViewModels.Original, ViewModels.OptimizedDrain)]
     [UsedImplicitly]
     public string ViewModel { get; set; } = ViewModels.Original;
@@ -329,10 +325,18 @@ public class ToggleBalanceSortBenchmarks
         this.rowsBefore = null!;
         // ReSharper restore NullableWarningSuppressionIsUsed
     }
+
+    // ReSharper disable NullableWarningSuppressionIsUsed
+    private IAccountsViewModel viewModel = null!;
+    private IReadOnlyList<IAccountRowViewModel> rowsBefore = null!;
+
+    // ReSharper restore NullableWarningSuppressionIsUsed
 }
 
-/// <summary>The test that the toggle benchmarks do, after the measurement, that a click had a
-/// result.</summary>
+/// <summary>
+///     The test that the toggle benchmarks do, after the measurement, that a click had a
+///     result.
+/// </summary>
 file static class RowList
 {
     /// <summary>Throws an exception when the row list is the same list as before the click.</summary>

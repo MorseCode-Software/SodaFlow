@@ -36,7 +36,10 @@ public sealed class CollectionFoldTests
         ReactiveCollection<int, ItemIdentity, ItemState> collection =
             Create(
                 edits: edits,
-                initial: [TestUtil.Item(number: 1, name: "a", score: 10), TestUtil.Item(number: 2, name: "b", score: 5)]);
+                initial:
+                [
+                    TestUtil.Item(number: 1, name: "a", score: 10), TestUtil.Item(number: 2, name: "b", score: 5)
+                ]);
 
         // The fold is built after the collection, thus it reads the store and does not wait for an
         // edit. Without that read, this value is 0 until something changes.
@@ -58,23 +61,27 @@ public sealed class CollectionFoldTests
 
         edits.Send(TestUtil.Add(TestUtil.Item(number: 2, name: "b", score: 5)));
 
-        await Assert.That(Transaction.Run(total.Sample)).IsEqualTo(15)
+        await Assert.That(Transaction.Run(total.Sample))
+            .IsEqualTo(15)
             .Because("an add adds its own value");
 
         // An update must remove the previous value of the key. Without that, this value is 15 + 7.
         edits.Send(TestUtil.Score(key: 2, score: 7));
 
-        await Assert.That(Transaction.Run(total.Sample)).IsEqualTo(17)
+        await Assert.That(Transaction.Run(total.Sample))
+            .IsEqualTo(17)
             .Because("an update replaces the value of its key");
 
         edits.Send(TestUtil.Remove(1));
 
-        await Assert.That(Transaction.Run(total.Sample)).IsEqualTo(7)
+        await Assert.That(Transaction.Run(total.Sample))
+            .IsEqualTo(7)
             .Because("a removal removes the value of its key");
 
         edits.Send(TestUtil.Remove(2));
 
-        await Assert.That(Transaction.Run(total.Sample)).IsEqualTo(0)
+        await Assert.That(Transaction.Run(total.Sample))
+            .IsEqualTo(0)
             .Because("an empty collection folds to zero");
     }
 
@@ -87,7 +94,10 @@ public sealed class CollectionFoldTests
         ReactiveCollection<int, ItemIdentity, ItemState> collection =
             Create(
                 edits: edits,
-                initial: [TestUtil.Item(number: 1, name: "a", score: 10), TestUtil.Item(number: 2, name: "b", score: 5)]);
+                initial:
+                [
+                    TestUtil.Item(number: 1, name: "a", score: 10), TestUtil.Item(number: 2, name: "b", score: 5)
+                ]);
 
         Cell<int> total = Transaction.Run(() => Total(collection));
         List<int> seen = [];
@@ -117,7 +127,10 @@ public sealed class CollectionFoldTests
         ReactiveCollection<int, ItemIdentity, ItemState> collection =
             Create(
                 edits: edits,
-                initial: [TestUtil.Item(number: 1, name: "a", score: 10), TestUtil.Item(number: 2, name: "b", score: 1)]);
+                initial:
+                [
+                    TestUtil.Item(number: 1, name: "a", score: 10), TestUtil.Item(number: 2, name: "b", score: 1)
+                ]);
 
         // The filter accepts a score of 5 and above.
         ReactiveCollection<int, ItemIdentity, ItemState> high =
@@ -126,7 +139,8 @@ public sealed class CollectionFoldTests
         Cell<int> total = Transaction.Run(() => Total(high));
         Cell<int> storeTotal = Transaction.Run(() => Total(collection));
 
-        await Assert.That(Transaction.Run(total.Sample)).IsEqualTo(10)
+        await Assert.That(Transaction.Run(total.Sample))
+            .IsEqualTo(10)
             .Because("the view holds one item at the start");
 
         // An update of an item that the filter refuses, and that the filter refuses again. The fold
@@ -134,22 +148,26 @@ public sealed class CollectionFoldTests
         // of the view, adds a value that the view does not hold.
         edits.Send(TestUtil.Score(key: 2, score: 2));
 
-        await Assert.That(Transaction.Run(total.Sample)).IsEqualTo(10)
+        await Assert.That(Transaction.Run(total.Sample))
+            .IsEqualTo(10)
             .Because("an item outside the view adds nothing");
 
-        await Assert.That(Transaction.Run(storeTotal.Sample)).IsEqualTo(12)
+        await Assert.That(Transaction.Run(storeTotal.Sample))
+            .IsEqualTo(12)
             .Because("the store holds it");
 
         // The same item enters the view.
         edits.Send(TestUtil.Score(key: 2, score: 6));
 
-        await Assert.That(Transaction.Run(total.Sample)).IsEqualTo(16)
+        await Assert.That(Transaction.Run(total.Sample))
+            .IsEqualTo(16)
             .Because("an item that enters the view adds its value");
 
         // And leaves it again.
         edits.Send(TestUtil.Score(key: 2, score: 0));
 
-        await Assert.That(Transaction.Run(total.Sample)).IsEqualTo(10)
+        await Assert.That(Transaction.Run(total.Sample))
+            .IsEqualTo(10)
             .Because("an item that leaves the view removes its value");
     }
 
@@ -178,12 +196,14 @@ public sealed class CollectionFoldTests
 
         Cell<int> total = Transaction.Run(() => Total(window));
 
-        await Assert.That(Transaction.Run(total.Sample)).IsEqualTo(10)
+        await Assert.That(Transaction.Run(total.Sample))
+            .IsEqualTo(10)
             .Because("the window holds the first item");
 
         limit.Send(2);
 
-        await Assert.That(Transaction.Run(total.Sample)).IsEqualTo(30)
+        await Assert.That(Transaction.Run(total.Sample))
+            .IsEqualTo(30)
             .Because("a reset adds the item that entered");
 
         limit.Send(3);
@@ -191,7 +211,8 @@ public sealed class CollectionFoldTests
 
         limit.Send(1);
 
-        await Assert.That(Transaction.Run(total.Sample)).IsEqualTo(10)
+        await Assert.That(Transaction.Run(total.Sample))
+            .IsEqualTo(10)
             .Because("a reset removes the items that left");
 
         // An edit after a reset moves the fold by its own keys.
@@ -222,7 +243,8 @@ public sealed class CollectionFoldTests
         // An update names a key that the collection holds, thus the count does not change.
         edits.Send(TestUtil.Score(key: 2, score: 7));
 
-        await Assert.That(Transaction.Run(count.Sample)).IsEqualTo(2)
+        await Assert.That(Transaction.Run(count.Sample))
+            .IsEqualTo(2)
             .Because("an update adds no item");
 
         edits.Send(TestUtil.Remove(1));
@@ -238,7 +260,10 @@ public sealed class CollectionFoldTests
         ReactiveCollection<int, ItemIdentity, ItemState> collection =
             Create(
                 edits: edits,
-                initial: [TestUtil.Item(number: 1, name: "a", score: 10), TestUtil.Item(number: 2, name: "b", score: 20)]);
+                initial:
+                [
+                    TestUtil.Item(number: 1, name: "a", score: 10), TestUtil.Item(number: 2, name: "b", score: 20)
+                ]);
 
         ReactiveCollection<int, ItemIdentity, ItemState> high =
             Transaction.Run(() => collection.Filter(static (_, state) => state.Score >= 5));
@@ -279,7 +304,8 @@ public sealed class CollectionFoldTests
         // part and inserts the keys again. Thus, key 1 is a removal and an add of one change.
         edits.Send(TestUtil.Add(TestUtil.Item(number: 4, name: "d", score: 1)));
 
-        await Assert.That(Transaction.Run(total.Sample)).IsEqualTo(11)
+        await Assert.That(Transaction.Run(total.Sample))
+            .IsEqualTo(11)
             .Because("the window holds the scores 1 and 10");
     }
 
@@ -322,7 +348,10 @@ public sealed class CollectionFoldTests
         ReactiveCollection<int, ItemIdentity, ItemState> collection =
             Create(
                 edits: edits,
-                initial: [TestUtil.Item(number: 1, name: "a", score: 10), TestUtil.Item(number: 2, name: "b", score: 5)]);
+                initial:
+                [
+                    TestUtil.Item(number: 1, name: "a", score: 10), TestUtil.Item(number: 2, name: "b", score: 5)
+                ]);
 
         Cell<int> count =
             Transaction.Run(() =>
@@ -340,7 +369,8 @@ public sealed class CollectionFoldTests
         // An edit of the states of the two keys. A fold that reads each change sends 2 again here.
         edits.Send(TestUtil.Score(key: 1, score: 11).CombineWith(TestUtil.Score(key: 2, score: 6)));
 
-        await Assert.That(seen).IsEmpty()
+        await Assert.That(seen)
+            .IsEmpty()
             .Because("an edit of a state cannot change an identity");
 
         edits.Send(TestUtil.Add(TestUtil.Item(number: 3, name: "c", score: 1)));
@@ -423,9 +453,11 @@ public sealed class CollectionFoldTests
             limit.Send(4);
         });
 
-        await Assert.That(KeysOfWindow(window)).IsEquivalentTo(expected: [1, 2, 3], ordering: CollectionOrdering.Matching);
+        await Assert.That(KeysOfWindow(window))
+            .IsEquivalentTo(expected: [1, 2, 3], ordering: CollectionOrdering.Matching);
 
-        await Assert.That(Transaction.Run(total.Sample)).IsEqualTo(1600)
+        await Assert.That(Transaction.Run(total.Sample))
+            .IsEqualTo(1600)
             .Because("the fold must read the new identity of key 2");
     }
 
@@ -457,7 +489,9 @@ public sealed class CollectionFoldTests
         // 1 and 2 again, thus the fold reads a change that holds the same identities.
         edits.Send(TestUtil.Score(key: 1, score: 25));
 
-        await Assert.That(KeysOfWindow(lowest)).IsEquivalentTo(expected: [2, 1, 3], ordering: CollectionOrdering.Matching);
+        await Assert.That(KeysOfWindow(lowest))
+            .IsEquivalentTo(expected: [2, 1, 3], ordering: CollectionOrdering.Matching);
+
         await Assert.That(Transaction.Run(total.Sample)).IsEqualTo(600);
     }
 
@@ -569,16 +603,19 @@ public sealed class CollectionFoldTests
                     snapshot.States.Pairs.Sum(pair =>
                         WeightOf(identity: snapshot.Identities[pair.Key], state: pair.Value));
 
-                await Assert.That(Transaction.Run(totals[index].Sample)).IsEqualTo(expected)
+                await Assert.That(Transaction.Run(totals[index].Sample))
+                    .IsEqualTo(expected)
                     .Because($"the fold of the view \"{views[index].Name}\" at step {step}");
 
                 int expectedByIdentity =
                     snapshot.Identities.Sum(static pair => IdentityWeightOf(pair.Value));
 
-                await Assert.That(Transaction.Run(weighted[index].Sample)).IsEqualTo(expectedWeighted)
+                await Assert.That(Transaction.Run(weighted[index].Sample))
+                    .IsEqualTo(expectedWeighted)
                     .Because($"the fold of the identity and the state of \"{views[index].Name}\" at step {step}");
 
-                await Assert.That(Transaction.Run(byIdentity[index].Sample)).IsEqualTo(expectedByIdentity)
+                await Assert.That(Transaction.Run(byIdentity[index].Sample))
+                    .IsEqualTo(expectedByIdentity)
                     .Because($"the fold of the identity of \"{views[index].Name}\" at step {step}");
             }
         }
@@ -631,5 +668,7 @@ public sealed class CollectionFoldTests
         identity.Number * 100 + (identity.Code[0] == 'R' ? 1000 : 0);
 
     private static List<int> KeysOfWindow(ReactiveCollection<int, ItemIdentity, ItemState> view) =>
-        [.. Transaction.Run(() => view.KeysCell.Sample())];
+    [
+        .. Transaction.Run(() => view.KeysCell.Sample())
+    ];
 }

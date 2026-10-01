@@ -1,189 +1,146 @@
 4.0.0
 
-BREAKING: BindingScheduler.Default is gone, and no bindable selects a
-scheduler for itself any more. Each one used to take, in order, the scheduler
-it was given, then Default, then the SynchronizationContext of the thread that
-built it, and last of all ran its handlers inline. That last step was silent:
-a view model built on a background thread raised PropertyChanged off the UI
-thread, and the binding engine failed later and far from the cause.
+BREAKING: BindingScheduler.Default is gone, and no bindable selects a scheduler for itself any more. Each one used to
+take, in order, the scheduler it was given, then Default, then the SynchronizationContext of the thread that built it,
+and last of all ran its handlers inline. That last step was silent:
+a view model built on a background thread raised PropertyChanged off the UI thread, and the binding engine failed later
+and far from the cause.
 
-Each construction now takes a scheduler and throws ArgumentNullException
-without one. The factories in SodaFlow.Bindable.ObjectModel and
-SodaFlow.FSharp.Bindable.ObjectModel are the only way to build a bindable,
-and each takes the scheduler once. Build one factory at startup, on the UI
-thread, with SynchronizationContextBindingScheduler.Capture(), and give it to
-each view model; a test gives BindingScheduler.Immediate.
+Each construction now takes a scheduler and throws ArgumentNullException without one. The factories in
+SodaFlow.Bindable.ObjectModel and SodaFlow.FSharp.Bindable.ObjectModel are the only way to build a bindable, and each
+takes the scheduler once. Build one factory at startup, on the UI thread, with
+SynchronizationContextBindingScheduler.Capture (), and give it to each view model; a test gives
+BindingScheduler.Immediate.
 
-BREAKING for the two language surfaces: the internal construction methods take
-the scheduler as a required argument, and ToBindableActionImpl takes it before
-the enablement cell. A package built against 3.x does not run against this;
-take the 4.x of each with it.
+BREAKING for the two language surfaces: the internal construction methods take the scheduler as a required argument, and
+ToBindableActionImpl takes it before the enablement cell. A package built against 3.x does not run against this; take
+the 4.x of each with it.
 
-Requires SodaFlow.Core 5.x. It could not stay on 3.x: its dependency on
-SodaFlow.Core is a range that ends before the next major, thus 3.0.2 cannot
-install beside SodaFlow.Core 5.0.0. Nothing here calls the internals that
-SodaFlow.Core 5.0.0 changed.
+Requires SodaFlow.Core 5.x. It could not stay on 3.x: its dependency on SodaFlow.Core is a range that ends before the
+next major, thus 3.0.2 cannot install beside SodaFlow.Core 5.0.0. Nothing here calls the internals that SodaFlow.Core
+5.0.0 changed.
 
 3.0.2
 
 Adds the package icon that nuget.org shows beside this package.
 
-Two exception messages are built with a target-typed new and with their
-concatenation laid out differently. The messages themselves, and everything
-else, are unchanged.
+Two exception messages are built with a target-typed new and with their concatenation laid out differently. The messages
+themselves, and everything else, are unchanged.
 
-Every package here ships this release together, so the dependency versions
-move with it.
+Every package here ships this release together, so the dependency versions move with it.
 
 3.0.1
 
-Fixed: a two-way bindable now raises PropertyChanged for a write made
-through it, so more than one control can bind to the same value.
+Fixed: a two-way bindable now raises PropertyChanged for a write made through it, so more than one control can bind to
+the same value.
 
-The reconciliation pass compared the cell against the cached value to
-decide whether anything had changed. The setter has already moved that
-cached value optimistically, so a write the graph accepted unchanged
-looked like nothing having happened and was never announced. Only the
-control that wrote it knew: a checkbox and a slider bound to the same
+The reconciliation pass compared the cell against the cached value to decide whether anything had changed. The setter
+has already moved that cached value optimistically, so a write the graph accepted unchanged looked like nothing having
+happened and was never announced. Only the control that wrote it knew: a checkbox and a slider bound to the same
 property left the slider unable to follow the checkbox, permanently.
 
-Notifications now go out whenever the settled value differs from either
-the cached value - the writer's correction, as before - or the value last
-announced, which is what every other binding is showing. A write that
-changes nothing is still silent, and what is announced is still what the
-graph settled on rather than what was optimistically written, so a value
-the graph rejected or normalized never reaches a binding.
+Notifications now go out whenever the settled value differs from either the cached value - the writer's correction, as
+before - or the value last announced, which is what every other binding is showing. A write that changes nothing is
+still silent, and what is announced is still what the graph settled on rather than what was optimistically written, so a
+value the graph rejected or normalized never reaches a binding.
 
-Expect one notification where there was none, per write that changes the
-value. Code that treated PropertyChanged as meaning "the graph changed
-this, not the view" no longer can, and never reliably could: an update
-arriving from the graph in the same turn was indistinguishable already.
+Expect one notification where there was none, per write that changes the value. Code that treated PropertyChanged as
+meaning "the graph changed this, not the view" no longer can, and never reliably could: an update arriving from the
+graph in the same turn was indistinguishable already.
 
 3.0.0
 
-BREAKING: requires SodaFlow.Core 4.x, where it required 3.x. That
-package removed internal members, and this one is rebuilt against what
-replaced them.
+BREAKING: requires SodaFlow.Core 4.x, where it required 3.x. That package removed internal members, and this one is
+rebuilt against what replaced them.
 
-BREAKING: IBindableAction.Execute rejects null whatever the action's type
-argument, where it previously accepted null for a type which could represent
-one.
+BREAKING: IBindableAction.Execute rejects null whatever the action's type argument, where it previously accepted null
+for a type which could represent one.
 
-Passing null to an action over a reference type used to fire its stream with
-null; it now throws InvalidOperationException, which is what it always did
-for a value type. One rule instead of two, and the rule the nullable
-annotations already stated. Code relying on a null firing has to send it
-another way - the sink is still there - or stop.
+Passing null to an action over a reference type used to fire its stream with null; it now throws
+InvalidOperationException, which is what it always did for a value type. One rule instead of two, and the rule the
+nullable annotations already stated. Code relying on a null firing has to send it another way - the sink is still
+there - or stop.
 
-This one is quiet. The signature is unchanged, so nothing stops compiling;
-the exception arrives at runtime, from a call which used to work.
+This one is quiet. The signature is unchanged, so nothing stops compiling; the exception arrives at runtime, from a call
+which used to work.
 
-Fixed: a two-way bindable no longer puts a value back on screen that the
-caller has already replaced, and no longer discards a write.
+Fixed: a two-way bindable no longer puts a value back on screen that the caller has already replaced, and no longer
+discards a write.
 
-The update handler wrote back the value the update carried. Running
-later, on the binding thread, after a setter had moved the cached value
-on, that put the older value up and then raised a second notification to
-take it away again - visible in a text box as a flicker back to what was
-just typed over. It samples the cell instead, so an update arriving late
-says what is true rather than what was true when it fired.
+The update handler wrote back the value the update carried. Running later, on the binding thread, after a setter had
+moved the cached value on, that put the older value up and then raised a second notification to take it away again -
+visible in a text box as a flicker back to what was just typed over. It samples the cell instead, so an update arriving
+late says what is true rather than what was true when it fired.
 
-The setter skips a write whose value matches the cached one. That reads
-the cache as a statement about the graph, when it is only a statement
-about the last time the two were compared: between an update and the
-refresh it queues, they disagree, and a write matching the stale cache
-was dropped even though the graph never held that value. The check now
+The setter skips a write whose value matches the cached one. That reads the cache as a statement about the graph, when
+it is only a statement about the last time the two were compared: between an update and the refresh it queues, they
+disagree, and a write matching the stale cache was dropped even though the graph never held that value. The check now
 stands down while a refresh is outstanding and lets the write through.
 
-Documented, rather than changed: a bindable's Value belongs to the
-binding engine. The instance can be constructed on any thread, but the
-property is read and written on the binding thread and nowhere else.
-Reaching for it from application code is a procedural way around the
-graph anyway - the value it reports is one the graph already holds, and
-a value pushed into it is one a sink can be sent directly - so this
-costs nothing that was worth having. A binding engine already calls from
-the right thread; it is worth a look at application code which reads or
-sets these from a background task.
+Documented, rather than changed: a bindable's Value belongs to the binding engine. The instance can be constructed on
+any thread, but the property is read and written on the binding thread and nowhere else. Reaching for it from
+application code is a procedural way around the graph anyway - the value it reports is one the graph already holds, and
+a value pushed into it is one a sink can be sent directly - so this costs nothing that was worth having. A binding
+engine already calls from the right thread; it is worth a look at application code which reads or sets these from a
+background task.
 
-Also documented: an IBindingScheduler must not wait for the action it is
-given. Post is called from inside a transaction, which holds a
-process-wide lock, and the binding thread reaches this library through
-setters that open transactions of their own - so a scheduler which hands
-work over and blocks until it finishes can deadlock against a binding
-thread already waiting for that lock. Anything built on a dispatcher is
-fine; a hand-written scheduler needs the care.
+Also documented: an IBindingScheduler must not wait for the action it is given. Post is called from inside a
+transaction, which holds a process-wide lock, and the binding thread reaches this library through setters that open
+transactions of their own - so a scheduler which hands work over and blocks until it finishes can deadlock against a
+binding thread already waiting for that lock. Anything built on a dispatcher is fine; a hand-written scheduler needs the
+care.
 
-BREAKING: IBindingScheduler gains CheckAccess, so a scheduler written
-outside this package has to implement it. It answers whether the calling
-thread is the one the scheduler posts to - the name is
-DispatcherObject's, because the question is the same one and the answer
-is used the same way - and it is deliberately biased: an implementation
-which cannot tell MUST return true. A wrong true gives up a diagnostic
-that was never promised; a wrong false throws on correct code.
+BREAKING: IBindingScheduler gains CheckAccess, so a scheduler written outside this package has to implement it. It
+answers whether the calling thread is the one the scheduler posts to - the name is DispatcherObject's, because the
+question is the same one and the answer is used the same way - and it is deliberately biased: an implementation which
+cannot tell MUST return true. A wrong true gives up a diagnostic that was never promised; a wrong false throws on
+correct code.
 
-What it buys: a bindable's Value now throws InvalidOperationException
-when it is read or written from anywhere but the binding thread, instead
-of quietly returning a stale value - or, for a large struct, a torn one.
-Only raised where the scheduler is certain, so nothing is accused that
-cannot be proven. ImmediateBindingScheduler answers true
-unconditionally, having no thread of its own, so tests and headless
-hosts are unaffected.
+What it buys: a bindable's Value now throws InvalidOperationException when it is read or written from anywhere but the
+binding thread, instead of quietly returning a stale value - or, for a large struct, a torn one. Only raised where the
+scheduler is certain, so nothing is accused that cannot be proven. ImmediateBindingScheduler answers true
+unconditionally, having no thread of its own, so tests and headless hosts are unaffected.
 
-This will turn code that has been working by luck into code that throws.
-That is the point, but it is worth knowing before upgrading rather than
-after.
+This will turn code that has been working by luck into code that throws. That is the point, but it is worth knowing
+before upgrading rather than after.
 
-ToOneWayToSource takes an optional scheduler now. It had none - nothing
-flows back out to the view, so there was nothing to marshal - which also
-left it the one bindable whose Value could not be checked. It still
-schedules nothing; the scheduler is there to say which thread is the
-right one.
+ToOneWayToSource takes an optional scheduler now. It had none - nothing flows back out to the view, so there was nothing
+to marshal - which also left it the one bindable whose Value could not be checked. It still schedules nothing; the
+scheduler is there to say which thread is the right one.
 
-The check adds about 2ns to reading Value on .NET 8, and about 2.3ns on
-.NET Framework, allocating nothing. It cost far more before the two
-halves were reordered: reading SynchronizationContext.Current is not the
-cheap thread-local fetch it looks like, and on .NET Framework asking it
-first made the check 13.0ns rather than 3.1ns, and the whole read 18.3ns
-rather than 6.4ns. The thread id is compared first, and the context only
-if that fails. See SodaFlow.Benchmarks, which found it and which runs on
-both runtimes because this is the kind of thing that differs between
-them.
+The check adds about 2ns to reading Value on .NET 8, and about 2.3ns on .NET Framework, allocating nothing. It cost far
+more before the two halves were reordered: reading SynchronizationContext.Current is not the cheap thread-local fetch it
+looks like, and on .NET Framework asking it first made the check 13.0ns rather than 3.1ns, and the whole read 18.3ns
+rather than 6.4ns. The thread id is compared first, and the context only if that fails. See SodaFlow.Benchmarks, which
+found it and which runs on both runtimes because this is the kind of thing that differs between them.
 
-Requires System.ValueTuple 4.6.2, where it required 4.4.0. Nothing here
-uses it differently: this repository named two versions of it, one in
-the shipping projects and one in the test projects, and now names a
-single version in both. A consumer does nothing about this; NuGet
-resolves the higher floor.
+Requires System.ValueTuple 4.6.2, where it required 4.4.0. Nothing here uses it differently: this repository named two
+versions of it, one in the shipping projects and one in the test projects, and now names a single version in both. A
+consumer does nothing about this; NuGet resolves the higher floor.
 
 2.0.0
 
-No code change. This release exists to move a dependency, and is a major
-version because of what moving it does to a consumer.
+No code change. This release exists to move a dependency, and is a major version because of what moving it does to a
+consumer.
 
-Dependencies between these packages are now declared as ranges bounded at
-the next major, so NuGet refuses a pairing which would fail rather than
-resolving it and leaving the failure until the code runs. This package now
-requires SodaFlow.Core 3.x, where it required 2.x before.
+Dependencies between these packages are now declared as ranges bounded at the next major, so NuGet refuses a pairing
+which would fail rather than resolving it and leaving the failure until the code runs. This package now requires
+SodaFlow.Core 3.x, where it required 2.x before.
 
-That ceiling is why this is not a minor version. Taking this release obliges
-a consumer to take SodaFlow.Core 3.x as well, and one who names
-SodaFlow.Core directly, or who uses anything removed there, cannot adopt it
-without changing their own code. A version they cannot adopt is not a minor
-one.
+That ceiling is why this is not a minor version. Taking this release obliges a consumer to take SodaFlow.Core 3.x as
+well, and one who names SodaFlow.Core directly, or who uses anything removed there, cannot adopt it without changing
+their own code. A version they cannot adopt is not a minor one.
 
 1.0.0
 
 First release.
 
-The engine behind the SodaFlow bindable object model. Declares the interfaces a
-XAML binding engine needs - IOneWayBindableValue, ITwoWayBindableValue,
-IOneWayToSourceBindableValue and IBindableAction - along with the
-implementations behind them and the IBindingScheduler that marshals
-notifications onto the binding thread.
+The engine behind the SodaFlow bindable object model. Declares the interfaces a XAML binding engine needs -
+IOneWayBindableValue, ITwoWayBindableValue, IOneWayToSourceBindableValue and IBindableAction - along with the
+implementations behind them and the IBindingScheduler that marshals notifications onto the binding thread.
 
-You do not install this directly. Take SodaFlow.Bindable.ObjectModel for C# or
-SodaFlow.FSharp.Bindable.ObjectModel for F#; both bring this with them, and both
-are what expose its operations.
+You do not install this directly. Take SodaFlow.Bindable.ObjectModel for C# or SodaFlow.FSharp.Bindable.ObjectModel for
+F#; both bring this with them, and both are what expose its operations.
 
 Depends on SodaFlow.Core.
 
