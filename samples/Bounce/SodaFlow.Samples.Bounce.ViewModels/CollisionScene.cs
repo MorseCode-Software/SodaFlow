@@ -776,16 +776,13 @@ internal sealed class CollisionScene : IScene
 /// </remarks>
 file static class MaybeExtensions
 {
-    extension(Maybe<double> maybe)
+    /// <summary>The moment, if there is one.</summary>
+    public static bool TryGetValue(this Maybe<double> maybe, out double value)
     {
-        /// <summary>The moment, if there is one.</summary>
-        public bool TryGetValue(out double value)
-        {
-            (bool hasValue, double found) =
-                maybe.Match(onSome: static v => (true, v), onNone: static () => (false, 0.0));
+        (bool hasValue, double found) =
+            maybe.Match(onSome: static v => (true, v), onNone: static () => (false, 0.0));
 
-            value = found;
-            return hasValue;
-        }
+        value = found;
+        return hasValue;
     }
 }

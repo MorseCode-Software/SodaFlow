@@ -28,27 +28,18 @@ internal static class Arrangement
         new(X: 150.0, Y: 220.0, VelocityX: -240.0, VelocityY: -40.0, Radius: 11.0, Color: "#27AE60")
     ];
 
-    /// <summary>
-    ///     The initial flights of a ball, as members of the start that gives them.
-    /// </summary>
-    /// <remarks>
-    ///     This is an extension block and not a set of methods on <see cref="Start" />. Thus, the
-    ///     record keeps its one subject, which is the initial position of a ball, and the code that
-    ///     makes a <see cref="Flight" /> stays here with <see cref="Gravity" />. The vertical
-    ///     flight uses that gravity. The call reads as a member call with each shape, and that is
-    ///     the purpose.
-    /// </remarks>
-    extension(Start start)
-    {
-        /// <summary>The initial horizontal flight of a ball, and its flight after a
-        /// throw.</summary>
-        public Flight InitialX(double now) =>
-            new(StartTime: now, Position: start.X, Velocity: start.VelocityX, Acceleration: 0.0);
+    // The initial flights of a ball are extension methods and not methods on Start. Thus, the
+    // record keeps its one subject, which is the initial position of a ball. The code that makes a
+    // Flight stays here with Gravity, which the vertical flight uses. The call reads as a member
+    // call, and that is the purpose.
 
-        /// <summary>The initial vertical flight of a ball.</summary>
-        public Flight InitialY(double now) =>
-            new(StartTime: now, Position: start.Y, Velocity: start.VelocityY, Acceleration: Gravity);
-    }
+    /// <summary>The initial horizontal flight of a ball, and its flight after a throw.</summary>
+    public static Flight InitialX(this Start start, double now) =>
+        new(StartTime: now, Position: start.X, Velocity: start.VelocityX, Acceleration: 0.0);
+
+    /// <summary>The initial vertical flight of a ball.</summary>
+    public static Flight InitialY(this Start start, double now) =>
+        new(StartTime: now, Position: start.Y, Velocity: start.VelocityY, Acceleration: Gravity);
 
     /// <summary>The initial position of one ball, its speed, and its appearance.</summary>
     // ReSharper disable once InheritdocConsiderUsage
