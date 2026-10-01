@@ -1,14 +1,14 @@
 #if !NETCOREAPP3_0_OR_GREATER && !NETSTANDARD2_1_OR_GREATER
 using JetBrains.Annotations;
 
-// ReSharper disable MemberCanBeFileLocal
+// ReSharper disable MemberCanBeFileLocal - Each type here is a polyfill that the compiler finds by its full name, which a file type does not keep.
+// ReSharper disable InheritdocConsiderUsage
+// ReSharper disable CheckNamespace
+// ReSharper disable RedundantAttributeUsageProperty
 
-// ReSharper disable once CheckNamespace
 namespace System.Diagnostics.CodeAnalysis
 {
-    // ReSharper disable once RedundantAttributeUsageProperty
     [AttributeUsage(AttributeTargets.Parameter, Inherited = false)]
-    // ReSharper disable once InheritdocConsiderUsage
     internal sealed class MaybeNullWhenAttribute : Attribute
     {
         /// <summary>Initializes the attribute with the specified return value condition.</summary>
@@ -16,7 +16,6 @@ namespace System.Diagnostics.CodeAnalysis
         ///     The condition on the return value. When the method returns this value, the parameter
         ///     can be null.
         /// </param>
-        // ReSharper disable once InheritdocConsiderUsage
         public MaybeNullWhenAttribute(bool returnValue) => this.ReturnValue = returnValue;
 
         /// <summary>Gets the return value condition.</summary>
@@ -28,9 +27,7 @@ namespace System.Diagnostics.CodeAnalysis
     ///     Gives that the parameter is not null when a method returns
     ///     <see cref="ReturnValue" />, at each type of the parameter that permits null.
     /// </summary>
-    // ReSharper disable once RedundantAttributeUsageProperty
     [AttributeUsage(AttributeTargets.Parameter, Inherited = false)]
-    // ReSharper disable once InheritdocConsiderUsage
     internal sealed class NotNullWhenAttribute : Attribute
     {
         /// <summary>Initializes the attribute with the specified return value condition.</summary>
@@ -38,7 +35,6 @@ namespace System.Diagnostics.CodeAnalysis
         ///     The condition on the return value. When the method returns this value, the parameter
         ///     is not null.
         /// </param>
-        // ReSharper disable once InheritdocConsiderUsage
         public NotNullWhenAttribute(bool returnValue) => this.ReturnValue = returnValue;
 
         /// <summary>Gets the return value condition.</summary>
