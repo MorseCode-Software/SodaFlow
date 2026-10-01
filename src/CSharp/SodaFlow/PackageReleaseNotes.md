@@ -1,3 +1,12 @@
+5.0.1
+
+No API change and no change in behavior. The four MutableListener extension
+methods, SetListener, ClearListener, Unlisten, and GetListenerWithWeakReference,
+were members of a C# 14 extension block, and they are ordinary extension methods
+now. Visual Studio and Rider did not show the documentation of a member of an
+extension block correctly. Each method keeps its name, parameters, and
+attributes, thus code compiled against 5.0.0 binds to this release unchanged.
+
 5.0.0
 
 Adds Debounce, an extension method on Stream, which fires the last value after a
