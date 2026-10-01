@@ -90,11 +90,9 @@ internal sealed record SortSelection(AccountColumn Column, bool IsDescending)
 /// missing.</summary>
 /// <remarks>
 ///     <para>
-///         This is an extension block and not a set of static methods on
-///         <see cref="SortSelection" />, because the subject of each operation is the
-///         <see cref="Maybe{T}" /> and not the selection in it. Before, they were static methods
-///         whose first parameter was that subject. C# had no better shape. Now a type from a
-///         different assembly can get members of its own.
+///         The subject of each operation is the <see cref="Maybe{T}" /> and not the selection in
+///         it. Thus, these are extension methods on the <see cref="Maybe{T}" />, and not methods
+///         on <see cref="SortSelection" />.
 ///     </para>
 ///     <para>
 ///         <c>Order</c> gives the largest benefit. Each caller needs the order that applies, and
@@ -104,40 +102,40 @@ internal sealed record SortSelection(AccountColumn Column, bool IsDescending)
 /// </remarks>
 internal static class SortSelectionExtensions
 {
-    extension(Maybe<SortSelection> sortSelection)
+    /// <summary>The order that applies. It is arrival order until a user clicks a
+    /// header.</summary>
+    internal static AccountOrder Order(this Maybe<SortSelection> sortSelection) =>
+        sortSelection.Map(static selection => selection.Order).ValueOr(AccountOrder.ByArrival);
+
+    /// <summary>The result of a click on a header. The same column reverses the direction,
+    /// and a different column becomes the sort column.</summary>
+    /// <remarks>
+    ///     A new column starts at the smallest value. The balance starts at the largest
+    ///     value, because a user usually wants a list of balances in that direction.
+    /// </remarks>
+    internal static SortSelection UpdateSort(this Maybe<SortSelection> sortSelection, AccountColumn column)
     {
-        /// <summary>The order that applies. It is arrival order until a user clicks a
-        /// header.</summary>
-        internal AccountOrder Order =>
-            sortSelection.Map(static selection => selection.Order).ValueOr(AccountOrder.ByArrival);
+        return sortSelection.Match(
+            onSome: selection =>
+                column == selection.Column
+                    ? selection with { IsDescending = !selection.IsDescending }
+                    : CreateNewSortSelection(column),
+            onNone: () => CreateNewSortSelection(column));
 
-        /// <summary>The result of a click on a header. The same column reverses the direction,
-        /// and a different column becomes the sort column.</summary>
-        /// <remarks>
-        ///     A new column starts at the smallest value. The balance starts at the largest
-        ///     value, because a user usually wants a list of balances in that direction.
-        /// </remarks>
-        internal SortSelection UpdateSort(AccountColumn column)
-        {
-            return sortSelection.Match(
-                onSome: selection =>
-                    column == selection.Column
-                        ? selection with { IsDescending = !selection.IsDescending }
-                        : CreateNewSortSelection(column),
-                onNone: () => CreateNewSortSelection(column));
-
-            static SortSelection CreateNewSortSelection(AccountColumn column) =>
-                new(Column: column, IsDescending: column == AccountColumn.Balance);
-        }
-
-        /// <summary>The text of a header, with a mark when it is the sort column.</summary>
-        internal string Caption(AccountColumn column, string name) =>
-            name
-            + sortSelection.Match(
-                onSome: selection =>
-                    column == selection.Column ? selection.IsDescending ? " \u25bc" : " \u25b2" : string.Empty,
-                onNone: static () => string.Empty);
+        static SortSelection CreateNewSortSelection(AccountColumn column) =>
+            new(Column: column, IsDescending: column == AccountColumn.Balance);
     }
+
+    /// <summary>The text of a header, with a mark when it is the sort column.</summary>
+    internal static string Caption(
+        this Maybe<SortSelection> sortSelection,
+        AccountColumn column,
+        string name) =>
+        name
+        + sortSelection.Match(
+            onSome: selection =>
+                column == selection.Column ? selection.IsDescending ? " \u25bc" : " \u25b2" : string.Empty,
+            onNone: static () => string.Empty);
 }
 
 /// <summary>One row. It holds the cells that follow one account through the view that shows
@@ -418,7 +416,7 @@ public sealed class AccountsViewModel : IAccountsViewModel
                         .Filter(
                             criteriaCell: showFrozen,
                             predicate: static (showing, _, state) => showing || !state.IsFrozen)
-                        .SortBy(sort.Map(static selection => selection.Order));
+                        .SortBy(sort.Map(static selection => selection.Order()));
 
                 // A change of page moves an offset. A change of the filter sends the offset back
                 // to the first page, because an offset that stays after the removal of its rows

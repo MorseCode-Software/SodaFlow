@@ -304,7 +304,7 @@ public sealed class AccountsViewModelOptimizedDrain : IAccountsViewModel
                         .Filter(
                             criteriaCell: showFrozen,
                             predicate: static (showing, _, state) => showing || !state.IsFrozen)
-                        .SortBy(sort.Map(static selection => selection.Order));
+                        .SortBy(sort.Map(static selection => selection.Order()));
 
                 // A change of page moves an offset. A change of the filter sends the offset back
                 // to the first page, because an offset that stays after the removal of its rows
