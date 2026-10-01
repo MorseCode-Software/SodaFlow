@@ -32,6 +32,7 @@
 
     <ItemGroup>
         <Compile Include="AsyncConcurrencyStrategy.cs"/>
+        <Compile Include="AsyncMapStatusExtensions.cs"/>
         <Compile Include="MapAsyncExtensions.cs"/>
     </ItemGroup>
 

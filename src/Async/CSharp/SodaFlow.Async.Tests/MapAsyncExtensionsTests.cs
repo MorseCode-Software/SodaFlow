@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
@@ -1417,6 +1418,317 @@ public sealed class MapAsyncExtensionsTests
         status.Dispose();
 
         await Assert.That(threw).IsTrue().Because("a null cell has no value to read");
+    }
+
+    [Test]
+    public async Task ExecuteWithAMaybeCell_WithSome_GivesSomeAndPublishesTheSameValue()
+    {
+        StreamSink<string> source = Stream.CreateSink<string>();
+        StreamSink<string> results = Stream.CreateSink<string>();
+        StreamSink<Exception> errors = Stream.CreateSink<Exception>();
+        CellSink<Maybe<string>> input = Cell.CreateSink(Maybe.Some("a"));
+        ControlledOperation<string, string> op = new();
+        List<string> published = [];
+        IListener l = results.ListenStrong(published.Add);
+
+        AsyncMapStatus<string, string> status =
+            source.MapAsync(
+                results: results,
+                errors: errors,
+                operation: op.Operation,
+                strategy: AsyncConcurrencyStrategy.Parallel());
+
+        Task<Maybe<string>> task = status.Execute(input);
+
+        TestUtil.WaitUntil(() => op.HasStarted("a"));
+        op.Release(input: "a", result: "A");
+        TestUtil.WaitUntil(() => task.IsCompleted);
+
+        await Assert.That(await task).IsEqualTo(Maybe.Some("A"));
+
+        await Assert.That(published)
+            .IsEquivalentTo(expected: ["A"], ordering: CollectionOrdering.Matching)
+            .Because("the value in the Task is the value that the results stream gets");
+
+        status.Dispose();
+        l.Unlisten();
+    }
+
+    [Test]
+    public async Task ExecuteWithAMaybeCell_WithNone_GivesNoneAndAdmitsNothing()
+    {
+        StreamSink<string> source = Stream.CreateSink<string>();
+        StreamSink<string> results = Stream.CreateSink<string>();
+        StreamSink<Exception> errors = Stream.CreateSink<Exception>();
+        CellSink<Maybe<string>> input = Cell.CreateSink(Maybe<string>.None);
+        ConcurrentQueue<string> started = new();
+        List<string> published = [];
+        List<IReadOnlyList<AsyncItem<string>>> itemUpdates = [];
+        IListener publishedListener = results.ListenStrong(published.Add);
+
+        AsyncMapStatus<string, string> status =
+            source.MapAsync(
+                results: results,
+                errors: errors,
+                operation: (v, factory, _) =>
+                {
+                    started.Enqueue(v);
+
+                    return Task.FromResult(factory.FromValue(v.ToUpperInvariant()));
+                },
+                strategy: AsyncConcurrencyStrategy.Parallel());
+
+        IListener itemsListener = status.Items.Updates().ListenStrong(itemUpdates.Add);
+
+        Task<Maybe<string>> task = status.Execute(input);
+
+        TestUtil.WaitUntil(() => task.IsCompleted);
+
+        await Assert.That(task.Status).IsEqualTo(TaskStatus.RanToCompletion);
+        await Assert.That(await task).IsEqualTo(Maybe<string>.None);
+
+        await Assert.That(started)
+            .IsEmpty()
+            .Because("a cell that holds None puts no value into the pipeline");
+
+        await Assert.That(itemUpdates)
+            .IsEmpty()
+            .Because("the pipeline never tracks an item for a cell that holds None");
+
+        await Assert.That(published).IsEmpty();
+
+        status.Dispose();
+        itemsListener.Unlisten();
+        publishedListener.Unlisten();
+    }
+
+    [Test]
+    public async Task ExecuteWithAMaybeCell_ReadsTheCellInTheTransactionOfTheSend()
+    {
+        StreamSink<string> source = Stream.CreateSink<string>();
+        StreamSink<string> results = Stream.CreateSink<string>();
+        StreamSink<Exception> errors = Stream.CreateSink<Exception>();
+        CellSink<Maybe<string>> input = Cell.CreateSink(Maybe<string>.None);
+        ControlledOperation<string, string> op = new();
+
+        AsyncMapStatus<string, string> status =
+            source.MapAsync(
+                results: results,
+                errors: errors,
+                operation: op.Operation,
+                strategy: AsyncConcurrencyStrategy.Parallel());
+
+        // The closure below reads this delegate and not `status`. A closure over `status` reads it
+        // after the disposal at the end of this method.
+        Func<Cell<Maybe<string>>, Task<Maybe<string>>> execute = status.Execute;
+
+        // A Sample in this transaction gives None, which is the value from the start of it. The
+        // call defers, thus the read is in a new transaction, where the cell holds Some.
+        Task<Maybe<string>> task = InOneTransaction();
+
+        TestUtil.WaitUntil(() => op.HasStarted("b"));
+        op.Release(input: "b", result: "B");
+        TestUtil.WaitUntil(() => task.IsCompleted);
+
+        await Assert.That(await task)
+            .IsEqualTo(Maybe.Some("B"))
+            .Because("the read is in the transaction of the send and not at the call");
+
+        status.Dispose();
+
+        return;
+
+        Task<Maybe<string>> InOneTransaction()
+        {
+            Task<Maybe<string>>? answer = null;
+
+            Transaction.RunVoid(() =>
+            {
+                input.Send(Maybe.Some("b"));
+
+                answer = execute(input);
+            });
+
+            return answer ?? throw new InvalidOperationException("Execute gave no Task.");
+        }
+    }
+
+    [Test]
+    public async Task ExecuteWithAMaybeCell_TestsForNoneInTheTransactionOfTheSend()
+    {
+        StreamSink<string> source = Stream.CreateSink<string>();
+        StreamSink<string> results = Stream.CreateSink<string>();
+        StreamSink<Exception> errors = Stream.CreateSink<Exception>();
+        CellSink<Maybe<string>> input = Cell.CreateSink(Maybe.Some("a"));
+        ControlledOperation<string, string> op = new();
+
+        AsyncMapStatus<string, string> status =
+            source.MapAsync(
+                results: results,
+                errors: errors,
+                operation: op.Operation,
+                strategy: AsyncConcurrencyStrategy.Parallel());
+
+        // The closure below reads this delegate and not `status`. A closure over `status` reads it
+        // after the disposal at the end of this method.
+        Func<Cell<Maybe<string>>, Task<Maybe<string>>> execute = status.Execute;
+
+        // The opposite of the test above. A Sample in this transaction gives Some, but the cell
+        // holds None in the transaction of the send. Thus, a test at the call admits "a", and a
+        // test at the send admits nothing.
+        Task<Maybe<string>> task = InOneTransaction();
+
+        TestUtil.WaitUntil(() => task.IsCompleted);
+
+        await Assert.That(await task).IsEqualTo(Maybe<string>.None);
+
+        await Assert.That(op.HasStarted("a"))
+            .IsFalse()
+            .Because("the test for None is in the transaction of the send and not at the call");
+
+        status.Dispose();
+
+        return;
+
+        Task<Maybe<string>> InOneTransaction()
+        {
+            Task<Maybe<string>>? answer = null;
+
+            Transaction.RunVoid(() =>
+            {
+                input.Send(Maybe<string>.None);
+
+                answer = execute(input);
+            });
+
+            return answer ?? throw new InvalidOperationException("Execute gave no Task.");
+        }
+    }
+
+    [Test]
+    public async Task ExecuteWithAMaybeCell_IsCanceledAndDoesNotGiveNoneByACancellation()
+    {
+        StreamSink<string> source = Stream.CreateSink<string>();
+        StreamSink<string> results = Stream.CreateSink<string>();
+        StreamSink<Exception> errors = Stream.CreateSink<Exception>();
+        StreamSink<Unit> cancelAll = Stream.CreateSink<Unit>();
+        CellSink<Maybe<string>> input = Cell.CreateSink(Maybe.Some("a"));
+        ControlledOperation<string, string> op = new();
+
+        AsyncMapStatus<string, string> status =
+            source.MapAsync(
+                results: results,
+                errors: errors,
+                operation: op.Operation,
+                strategy: AsyncConcurrencyStrategy.Parallel(),
+                cancelAll: cancelAll);
+
+        Task<Maybe<string>> task = status.Execute(input);
+
+        TestUtil.WaitUntil(() => op.HasStarted("a"));
+        cancelAll.Send(Unit.Value);
+        TestUtil.WaitUntil(() => task.IsCompleted);
+
+        await Assert.That(task.IsCanceled)
+            .IsTrue()
+            .Because("None tells only that the cell held None, thus a cancellation stays a cancellation");
+
+        status.Dispose();
+    }
+
+    [Test]
+    public async Task ExecuteWithAMaybeCell_CarriesTheExceptionOfTheOperation()
+    {
+        StreamSink<string> source = Stream.CreateSink<string>();
+        StreamSink<string> results = Stream.CreateSink<string>();
+        StreamSink<Exception> errors = Stream.CreateSink<Exception>();
+        CellSink<Maybe<string>> input = Cell.CreateSink(Maybe.Some("a"));
+        ControlledOperation<string, string> op = new();
+        InvalidOperationException thrown = new("boom");
+
+        AsyncMapStatus<string, string> status =
+            source.MapAsync(
+                results: results,
+                errors: errors,
+                operation: op.Operation,
+                strategy: AsyncConcurrencyStrategy.Parallel());
+
+        Task<Maybe<string>> task = status.Execute(input);
+
+        TestUtil.WaitUntil(() => op.HasStarted("a"));
+        op.Fail(input: "a", error: thrown);
+        TestUtil.WaitUntil(() => task.IsCompleted);
+
+        await Assert.That(task.IsFaulted).IsTrue();
+        await Assert.That(task.Exception?.InnerException).IsSameReferenceAs(thrown);
+
+        status.Dispose();
+    }
+
+    [Test]
+    public async Task ExecuteWithAMaybeCell_WithNoCell_Throws()
+    {
+        StreamSink<string> source = Stream.CreateSink<string>();
+        StreamSink<string> results = Stream.CreateSink<string>();
+        StreamSink<Exception> errors = Stream.CreateSink<Exception>();
+        ControlledOperation<string, string> op = new();
+
+        AsyncMapStatus<string, string> status =
+            source.MapAsync(
+                results: results,
+                errors: errors,
+                operation: op.Operation,
+                strategy: AsyncConcurrencyStrategy.Parallel());
+
+        // The closure below reads this delegate and not `status`. A closure over `status` reads it
+        // after the disposal at the end of this method.
+        Func<Cell<Maybe<string>>, Task<Maybe<string>>> execute = status.Execute;
+
+        bool threw = false;
+
+        try
+        {
+            // ReSharper disable once NullableWarningSuppressionIsUsed - Testing for exception on null.
+            _ = execute(null!);
+        }
+        catch (ArgumentNullException)
+        {
+            threw = true;
+        }
+
+        status.Dispose();
+
+        await Assert.That(threw).IsTrue().Because("a null cell has no value to read");
+    }
+
+    [Test]
+    public async Task ExecuteWithAMaybeCell_WhereTheInputTypeIsMaybe_AdmitsNoneAsAValue()
+    {
+        StreamSink<Maybe<string>> source = Stream.CreateSink<Maybe<string>>();
+        StreamSink<string> results = Stream.CreateSink<string>();
+        StreamSink<Exception> errors = Stream.CreateSink<Exception>();
+        CellSink<Maybe<string>> input = Cell.CreateSink(Maybe<string>.None);
+
+        AsyncMapStatus<Maybe<string>, string> status =
+            source.MapAsync(
+                results: results,
+                errors: errors,
+                operation: static (v, factory, _) =>
+                    Task.FromResult(
+                        factory.FromValue(v.Match(onSome: static s => s, onNone: static () => "none"))),
+                strategy: AsyncConcurrencyStrategy.Parallel());
+
+        // Here the cell has the TInput of the pipeline, thus the instance overload takes the call.
+        // That overload admits None as a value, and the Task gives TResult and not Maybe<TResult>.
+        Task<string> task = status.Execute(input);
+
+        TestUtil.WaitUntil(() => task.IsCompleted);
+
+        await Assert.That(await task)
+            .IsEqualTo("none")
+            .Because("a pipeline whose input is a Maybe admits None as a value");
+
+        status.Dispose();
     }
 
     [Test]
