@@ -2,7 +2,7 @@
 
     <PropertyGroup>
         <TargetFrameworks>net472;net6.0;netstandard2.0</TargetFrameworks>
-        <LangVersion>latest</LangVersion>
+        <LangVersion>14</LangVersion>
         <Nullable>enable</Nullable>
     </PropertyGroup>
 
@@ -16,7 +16,6 @@
         <AssemblyName>SodaFlow.Async</AssemblyName>
         <RootNamespace>SodaFlow.Async</RootNamespace>
         <Nullable>enable</Nullable>
-        <LangVersion>14</LangVersion>
         <!--
             GenerateDocumentationFile rather than an explicit DocumentationFile path: this project
             multi-targets, and a single hard-coded path would make all three target frameworks write over
