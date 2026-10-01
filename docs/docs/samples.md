@@ -33,9 +33,10 @@ Counter/
 ```
 
 Counter's view model stays on `netstandard2.0`, which is what lets a .NET Framework 4.8.1 copy of
-its WPF head reference it unchanged. Search, Bounce and Accounts have one head per framework on
-.NET 10: a `net10.0` view model, a `net10.0-windows` WPF head and a `net10.0` Avalonia head, all at
-C# 14.
+its WPF head reference it unchanged. Both still compile as C# 14: the language version is a
+compiler setting, and the code uses nothing that needs a newer runtime. Search, Bounce and Accounts
+have one head per framework on .NET 10: a `net10.0` view model, a `net10.0-windows` WPF head and a
+`net10.0` Avalonia head, all at C# 14.
 
 The split is the point rather than an accident of layout. A SodaFlow view model is built from
 cells, streams and bindables, none of which come from a UI framework, so the view model project
