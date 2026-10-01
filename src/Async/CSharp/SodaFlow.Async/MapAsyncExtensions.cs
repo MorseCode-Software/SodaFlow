@@ -13,25 +13,24 @@ namespace SodaFlow.Async;
 ///     <see cref="AsyncMapStatus{TInput,TResult}" /> that they return is IDisposable, and a
 ///     disposal of it stops the full pipeline.
 ///     <para>
-///         The overloads are different only in the path from the <c>TInput</c> and the
-///         <c>TResult</c> of the call to the types of the <c>strategy</c> argument. Select the
-///         overload for your strategy. A strategy that only schedules, such as Parallel, Queue,
-///         or SwitchLatest, uses no type of the two, thus it needs no converter. A strategy that
-///         reads the input, such as QueuePerGroup, needs a <c>TInput</c> that is its input type
-///         or that a converter can change into its input type. Each overload sends the call to
-///         the last overload, which takes the two converters explicitly and needs no relation
-///         between the types.
+///         The overloads are different only in the path from the <c>TInput</c> of the call to the
+///         input type of the <c>strategy</c> argument. Select the overload for your strategy. A
+///         strategy that only schedules, such as Parallel, Queue, or SwitchLatest, does not read
+///         the input, thus it needs no converter. A strategy that reads the input, such as
+///         QueuePerGroup, needs a <c>TInput</c> that is its input type or a subtype of it. Where
+///         that is not true, it needs a converter that changes <c>TInput</c> into its input type.
+///         Each other overload is the last overload with a fixed converter. The last overload
+///         takes the converter explicitly and needs no relation between the types.
 ///     </para>
 /// </summary>
 [PublicAPI]
 public static class AsyncStreamExtensions
 {
     /// <summary>
-    ///     For a strategy that uses only the schedule, and not
-    ///     <typeparamref name="TInput" /> or <typeparamref name="TResult" />. Those strategies are
-    ///     Parallel, Queue, and SwitchLatest. This overload changes the two types to
-    ///     <see cref="Unit" /> before the strategy, thus it needs no converter. See the
-    ///     canonical
+    ///     For a strategy that uses only the schedule and does not read
+    ///     <typeparamref name="TInput" />. Those strategies are Parallel, Queue, and SwitchLatest.
+    ///     This overload changes each input to <see cref="Unit" /> before the strategy, thus it
+    ///     needs no converter. See the canonical
     ///     <see
     ///         cref="MapAsync{TInput,TResult,TStrategyInput}(Stream{TInput},StreamSink{TResult},StreamSink{Exception},MapAsyncOperation{TInput,TResult},AsyncConcurrencyStrategyBase{TStrategyInput},Func{TInput,TStrategyInput},Stream{Unit},Stream{IReadOnlyCollection{TInput}},bool)" />
     ///     overload for the full parameter contract.
@@ -78,10 +77,9 @@ public static class AsyncStreamExtensions
             cancelOnDispose: cancelOnDispose);
 
     /// <summary>
-    ///     For a strategy that reads the input and publishes no result, because this overload
-    ///     changes the result type to <see cref="Unit" />. Here
-    ///     <typeparamref name="TInput" /> is the <typeparamref name="TStrategyInput" /> of the
-    ///     strategy, thus this overload needs no converter. See the canonical
+    ///     For a strategy that reads the input. Here <typeparamref name="TInput" /> is the
+    ///     <typeparamref name="TStrategyInput" /> of the strategy or a subtype of it, thus this
+    ///     overload needs no converter. See the canonical
     ///     <see
     ///         cref="MapAsync{TInput,TResult,TStrategyInput}(Stream{TInput},StreamSink{TResult},StreamSink{Exception},MapAsyncOperation{TInput,TResult},AsyncConcurrencyStrategyBase{TStrategyInput},Func{TInput,TStrategyInput},Stream{Unit},Stream{IReadOnlyCollection{TInput}},bool)" />
     ///     overload for the full parameter contract.
@@ -137,13 +135,13 @@ public static class AsyncStreamExtensions
             cancelOnDispose: cancelOnDispose);
 
     /// <summary>
-    ///     The fully general shape that each other MapAsync overload sends its call to. It is the
-    ///     only overload with no necessary relation between <typeparamref name="TInput" /> and
-    ///     <typeparamref name="TStrategyInput" />, because the caller gives
-    ///     <paramref name="inputConverter" /> explicitly. Use a narrower overload where one
-    ///     applies, because those overloads let most calls omit that converter. Use this overload
-    ///     when the input type of <paramref name="strategy" /> has no inheritance relation to the
-    ///     <typeparamref name="TInput" /> of the call.
+    ///     The fully general shape. Each other MapAsync overload is this overload with a fixed
+    ///     converter. It is the only overload with no necessary relation between
+    ///     <typeparamref name="TInput" /> and <typeparamref name="TStrategyInput" />, because the
+    ///     caller gives <paramref name="inputConverter" /> explicitly. Use a narrower overload
+    ///     where one applies, because those overloads let most calls omit that converter. Use this
+    ///     overload when the input type of <paramref name="strategy" /> has no inheritance relation
+    ///     to the <typeparamref name="TInput" /> of the call.
     /// </summary>
     /// <typeparam name="TInput">
     ///     The type in the source stream. It is the input for each call of

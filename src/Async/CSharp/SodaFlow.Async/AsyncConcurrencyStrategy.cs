@@ -16,9 +16,10 @@ public abstract class AsyncConcurrencyStrategy<TState>
 
 /// <summary>
 ///     The entry point, which is not generic, for the strategies in the library: Parallel, Queue,
-///     QueuePerGroup, and SwitchLatest. Each one uses only the schedule, and not the
-///     <c>TInput</c> or the <c>TResult</c> of the call, thus the two types are
-///     <see cref="Unit" />. The schedule of each one is in one shared position, the internal
+///     QueuePerGroup, and SwitchLatest. Parallel, Queue, and SwitchLatest use only the schedule and
+///     do not read the <c>TInput</c> of the call, thus their input type is <see cref="Unit" />.
+///     QueuePerGroup reads the input to find its group, thus its input type is the <c>TInput</c> of
+///     the call. The schedule of each one is in one shared position, the internal
 ///     <c>AsyncConcurrencyStrategyFactory</c> in SodaFlow.Core.Async. That factory is generic over
 ///     the type of a value that a strategy does not use, because Core has no dependency on
 ///     SodaFlow.Functional and thus no type of its own for it. The static methods below give
@@ -27,9 +28,8 @@ public abstract class AsyncConcurrencyStrategy<TState>
 ///     <c>cancelAll</c> and for other values. This class, and its short base classes below, which
 ///     are <see cref="AsyncConcurrencyStrategy{TState}" /> and
 ///     <see cref="AsyncConcurrencyStrategy{TInput,TState}" />, have no relation to that shared
-///     factory. They are here only to let a consumer with a custom strategy on
-///     <see cref="Unit" /> subclass
-///     <see cref="AsyncConcurrencyStrategy{TInput,TState}" /> and write
+///     factory. They are here only to let a consumer with a custom strategy on <see cref="Unit" />
+///     subclass <see cref="AsyncConcurrencyStrategy{TInput,TState}" /> and write
 ///     <see cref="Unit" /> one time.
 /// </summary>
 [PublicAPI]
