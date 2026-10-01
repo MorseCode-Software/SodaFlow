@@ -44,8 +44,7 @@ public sealed class CounterViewModel
         this.Decrement = decrement;
         this.Reset = reset;
 
-        this.disposables =
-            new IDisposable[] { count, countText, increment, decrement, reset };
+        this.disposables = [count, countText, increment, decrement, reset];
     }
 
     #endregion

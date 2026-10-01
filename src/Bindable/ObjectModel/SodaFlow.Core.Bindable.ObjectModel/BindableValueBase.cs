@@ -12,18 +12,17 @@ public static partial class BindableCoreExtensionMethods
     ///     method that a caller can call more than one time.
     /// </summary>
     // ReSharper disable once InheritdocConsiderUsage
-    private abstract class BindableValueBase : INotifyPropertyChanged, IDisposable
+    private abstract class BindableValueBase(in IBindingScheduler scheduler)
+        : INotifyPropertyChanged, IDisposable
     {
         /// <summary>This is cached, thus each notification makes no allocation.</summary>
         private static readonly PropertyChangedEventArgs ValueChangedEventArgs = new("Value");
 
         private int disposed;
 
-        protected BindableValueBase(IBindingScheduler scheduler) =>
-            this.Scheduler = scheduler ?? throw new ArgumentNullException(nameof(scheduler));
-
         /// <summary>The scheduler that moves a notification to the binding thread.</summary>
-        protected IBindingScheduler Scheduler { get; }
+        protected IBindingScheduler Scheduler { get; } =
+            scheduler ?? throw new ArgumentNullException(nameof(scheduler));
 
         /// <summary>This is true after <see cref="Dispose" /> runs.</summary>
         protected bool IsDisposed => Volatile.Read(ref this.disposed) != 0;

@@ -11,9 +11,9 @@
             say which runtime it is running on, and reading one never means following a path into
             the other.
 
-            C# 10, the view model's version. .NET Framework defaults to 7.3, and this code is
-            written the way the rest of the sample is - file-scoped namespaces and target-typed
-            new - which needs nothing from the runtime.
+            C# 14, as every project in the samples is. .NET Framework defaults to 7.3, and this
+            code is written the way the rest of the sample is - file-scoped namespaces and
+            target-typed new - which needs nothing from the runtime.
 
             The reference assemblies come from a package rather than an installed targeting pack;
             see samples/Directory.Build.props.
@@ -22,7 +22,7 @@
         <TargetFramework>net481</TargetFramework>
         <UseWPF>true</UseWPF>
         <Nullable>enable</Nullable>
-        <LangVersion>10</LangVersion>
+        <LangVersion>14</LangVersion>
         <IsPackable>false</IsPackable>
     </PropertyGroup>
 

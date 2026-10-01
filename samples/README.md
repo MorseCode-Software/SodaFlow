@@ -33,7 +33,9 @@ Counter/
 ```
 
 Counter is the one with an extra head. Its view model stays on `netstandard2.0`, which is what
-lets a .NET Framework 4.8.1 copy of the WPF head reference it unchanged.
+lets a .NET Framework 4.8.1 copy of the WPF head reference it unchanged. Both still compile as
+C# 14: the language version is a compiler setting, and the code uses nothing that needs a newer
+runtime.
 
 Search, Bounce and Accounts share one shape: a `net10.0` view model, a `net10.0-windows` WPF head
 and a `net10.0` Avalonia head, all at C# 14. Accounts adds a `net10.0` benchmarks project beside

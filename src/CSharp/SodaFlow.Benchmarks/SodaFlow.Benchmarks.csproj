@@ -19,7 +19,7 @@
              installed, which cost about 26 seconds on each of two jobs for one benchmark
              executable nobody runs in CI. -->
         <TargetFrameworks>net472;net10.0</TargetFrameworks>
-        <LangVersion>latest</LangVersion>
+        <LangVersion>14</LangVersion>
         <Nullable>enable</Nullable>
     </PropertyGroup>
 

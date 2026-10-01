@@ -160,7 +160,7 @@ internal sealed class SortedEntryComparer<TKey, TSortKey> : IComparer<SortedEntr
 /// <typeparam name="TSecond">
 ///     The type of the level that selects between the keys that the first level ranks equal.
 /// </typeparam>
-internal readonly struct SortPair<TFirst, TSecond>
+file readonly struct SortPair<TFirst, TSecond>
 {
     internal SortPair(TFirst first, TSecond second)
     {
@@ -185,7 +185,7 @@ internal readonly struct SortPair<TFirst, TSecond>
 ///     The type of the level that selects between the keys that the first level ranks equal.
 /// </typeparam>
 // ReSharper disable once InheritdocConsiderUsage
-internal sealed class SortPairComparer<TFirst, TSecond> : IComparer<SortPair<TFirst, TSecond>>
+file sealed class SortPairComparer<TFirst, TSecond> : IComparer<SortPair<TFirst, TSecond>>
 {
     private readonly IComparer<TFirst> first;
     private readonly bool firstIsDescending;
@@ -236,17 +236,16 @@ internal sealed class SortPairComparer<TFirst, TSecond> : IComparer<SortPair<TFi
 /// <typeparam name="TState">The type of the mutable part of an item.</typeparam>
 /// <typeparam name="TSortKey">The type of the projected sort value.</typeparam>
 // ReSharper disable once InheritdocConsiderUsage
-internal abstract class ProjectedKeyOrder<TKey, TIdentity, TState, TSortKey> : KeyOrder<TKey, TIdentity, TState>
+internal abstract class ProjectedKeyOrder<TKey, TIdentity, TState, TSortKey>(
+    in IEqualityComparer<TKey> keyEqualityComparer)
+    : KeyOrder<TKey, TIdentity, TState>
     where TKey : notnull
     where TIdentity : notnull
 {
-    protected ProjectedKeyOrder(IEqualityComparer<TKey> keyEqualityComparer) =>
-        this.KeyEqualityComparer = keyEqualityComparer;
-
     /// <summary>Compares two entries in this order.</summary>
     protected internal abstract SortedEntryComparer<TKey, TSortKey> EntryComparer { get; }
 
-    protected IEqualityComparer<TKey> KeyEqualityComparer { get; }
+    protected IEqualityComparer<TKey> KeyEqualityComparer { get; } = keyEqualityComparer;
 
     /// <summary>The sort value of <paramref name="key" /> in this order.</summary>
     /// <param name="key">A key that the snapshot holds.</param>
@@ -686,7 +685,7 @@ internal sealed class SortKeyOrder<TKey, TIdentity, TState, TSortKey>
     }
 }
 
-internal sealed class SortedKeys<TKey, TIdentity, TState, TSortKey> : OrderedKeys<TKey, TIdentity, TState>
+file sealed class SortedKeys<TKey, TIdentity, TState, TSortKey> : OrderedKeys<TKey, TIdentity, TState>
     where TKey : notnull
     where TIdentity : notnull
 {

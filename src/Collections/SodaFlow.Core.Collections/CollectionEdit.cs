@@ -34,8 +34,8 @@ public sealed class CollectionEdit<TKey, TIdentity, TState>
     public static CollectionEdit<TKey, TIdentity, TState> Empty { get; } =
         new(
             updates: new Dictionary<TKey, Func<TState, TState>>(),
-            adds: Array.Empty<Item<TIdentity, TState>>(),
-            removes: Array.Empty<TKey>());
+            adds: [],
+            removes: []);
 
     /// <summary>The transforms to apply, by key.</summary>
     public IReadOnlyDictionary<TKey, Func<TState, TState>> Updates { get; }
@@ -53,14 +53,14 @@ public sealed class CollectionEdit<TKey, TIdentity, TState>
     public static CollectionEdit<TKey, TIdentity, TState> Update(TKey key, Func<TState, TState> transform) =>
         new(
             updates: new Dictionary<TKey, Func<TState, TState>> { [key] = transform },
-            adds: Array.Empty<Item<TIdentity, TState>>(),
-            removes: Array.Empty<TKey>());
+            adds: [],
+            removes: []);
 
     /// <summary>An edit adding one or more items.</summary>
     /// <param name="items">The items to add.</param>
     /// <returns>The edit.</returns>
     public static CollectionEdit<TKey, TIdentity, TState> Add(params Item<TIdentity, TState>[] items) =>
-        new(updates: new Dictionary<TKey, Func<TState, TState>>(), adds: items, removes: Array.Empty<TKey>());
+        new(updates: new Dictionary<TKey, Func<TState, TState>>(), adds: items, removes: []);
 
     /// <summary>An edit removing one or more keys.</summary>
     /// <param name="keys">The keys to remove.</param>
@@ -68,7 +68,7 @@ public sealed class CollectionEdit<TKey, TIdentity, TState>
     public static CollectionEdit<TKey, TIdentity, TState> Remove(params TKey[] keys) =>
         new(
             updates: new Dictionary<TKey, Func<TState, TState>>(),
-            adds: Array.Empty<Item<TIdentity, TState>>(),
+            adds: [],
             removes: keys);
 
     /// <summary>

@@ -31,20 +31,6 @@ public sealed class CollectionSnapshot<TKey, TIdentity, TState>
     /// <summary>The keys that this snapshot accepts, or <see langword="null" /> for the full store.</summary>
     private readonly OrderedKeys<TKey, TIdentity, TState>? visible;
 
-    /// <summary>
-    ///     The scoped faces of the two maps. This code builds them at their first use, because the
-    ///     important paths use <see cref="TryGetHalves" /> and read no face. Those paths
-    ///     are a new build of a stage and a test of a predicate.
-    /// </summary>
-    /// <remarks>
-    ///     There is no lock here. Two threads can each build one, and this code discards one of
-    ///     the two. The two are immutable and give the same answers, thus the only cost is one
-    ///     allocation.
-    /// </remarks>
-    private IReadOnlyDictionary<TKey, TIdentity>? scopedIdentities;
-
-    private StateMap<TKey, TState>? scopedStates;
-
     internal CollectionSnapshot(
         ImmutableDictionary<TKey, TIdentity> identities,
         ImmutableStateMap<TKey, TState> states,
@@ -74,6 +60,12 @@ public sealed class CollectionSnapshot<TKey, TIdentity, TState>
     /// </summary>
     internal ImmutableStateMap<TKey, TState> StatesImpl { get; }
 
+    // Identities and States build their scoped faces at their first use, because the important
+    // paths use TryGetHalves and read no face. Those paths are a new build of a stage and a test
+    // of a predicate. There is no lock. Two threads can each build one, and this code discards one
+    // of the two. The two are immutable and give the same answers, thus the only cost is one
+    // allocation.
+
     /// <summary>
     ///     The immutable part of each item. This code replaces this object only at a structural
     ///     edit, thus a test of the two references is a correct test for a change of the shape.
@@ -81,14 +73,14 @@ public sealed class CollectionSnapshot<TKey, TIdentity, TState>
     public IReadOnlyDictionary<TKey, TIdentity> Identities =>
         this.visible is null
             ? this.IdentitiesImpl
-            : this.scopedIdentities ??=
+            : field ??=
                 new ScopedIdentityMap<TKey, TIdentity, TState>(inner: this.IdentitiesImpl, visible: this.visible);
 
     /// <summary>The mutable part of each item.</summary>
     public StateMap<TKey, TState> States =>
         this.visible is null
             ? this.StatesImpl
-            : this.scopedStates ??=
+            : field ??=
                 new ScopedStateMap<TKey, TIdentity, TState>(inner: this.StatesImpl, visible: this.visible);
 
     /// <summary>
@@ -280,7 +272,7 @@ public sealed class CollectionSnapshot<TKey, TIdentity, TState>
 ///     them in the sequence of the storage.
 /// </remarks>
 // ReSharper disable once InheritdocConsiderUsage
-internal sealed class ScopedIdentityMap<TKey, TIdentity, TState> : IReadOnlyDictionary<TKey, TIdentity>
+file sealed class ScopedIdentityMap<TKey, TIdentity, TState> : IReadOnlyDictionary<TKey, TIdentity>
     where TKey : notnull
     where TIdentity : notnull
 {
@@ -347,7 +339,7 @@ internal sealed class ScopedIdentityMap<TKey, TIdentity, TState> : IReadOnlyDict
 
 /// <summary>The state map of a snapshot, admitting only the keys one view holds.</summary>
 // ReSharper disable once InheritdocConsiderUsage
-internal sealed class ScopedStateMap<TKey, TIdentity, TState> : StateMap<TKey, TState>
+file sealed class ScopedStateMap<TKey, TIdentity, TState> : StateMap<TKey, TState>
     where TKey : notnull
     where TIdentity : notnull
 {
