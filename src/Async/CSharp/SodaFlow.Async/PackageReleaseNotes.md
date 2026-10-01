@@ -12,12 +12,10 @@ from one instant. For an admitted value, the Task obeys each rule of Execute: a
 cancellation cancels it, and an exception from the operation faults it. Thus,
 None tells only that the cell held None.
 
-SodaFlow.Async.Core cannot refer to Maybe, thus the overload is a C# 14
-extension member in the new AsyncMapStatusExtensions class, and this project
-now compiles as C# 14. The overload compiles to an ordinary extension method,
-thus a caller needs no newer language version. Where TInput is itself a
+SodaFlow.Async.Core cannot refer to Maybe, thus the overload is an extension
+method in the new AsyncMapStatusExtensions class. Where TInput is itself a
 Maybe<T>, a Cell<TInput> goes to the overload on the type, which admits None as
-a value.
+a value, and this overload takes a Cell<Maybe<Maybe<T>>>.
 
 This release takes SodaFlow.Async.Core 5.0.1, which adds the internal path that
 the overload uses.

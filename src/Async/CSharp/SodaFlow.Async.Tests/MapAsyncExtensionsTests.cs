@@ -1702,6 +1702,26 @@ public sealed class MapAsyncExtensionsTests
     }
 
     [Test]
+    public async Task ExecuteWithAMaybeCell_WithNoStatus_Throws()
+    {
+        CellSink<Maybe<string>> input = Cell.CreateSink(Maybe.Some("a"));
+
+        bool threw = false;
+
+        try
+        {
+            // ReSharper disable once NullableWarningSuppressionIsUsed - Testing for exception on null.
+            _ = AsyncMapStatusExtensions.Execute<string, string>(status: null!, value: input);
+        }
+        catch (ArgumentNullException)
+        {
+            threw = true;
+        }
+
+        await Assert.That(threw).IsTrue().Because("an extension method can get a null receiver");
+    }
+
+    [Test]
     public async Task ExecuteWithAMaybeCell_WhereTheInputTypeIsMaybe_AdmitsNoneAsAValue()
     {
         StreamSink<Maybe<string>> source = Stream.CreateSink<Maybe<string>>();
