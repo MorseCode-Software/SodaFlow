@@ -27,12 +27,17 @@ public abstract class AsyncConcurrencyStrategy<TState>
 ///     SodaFlow.Functional and thus no type of its own for it. The static methods below give
 ///     <see cref="Unit" /> as that type argument and return the result. Thus, a consumer of this C#
 ///     wrapper gets a version with the <see cref="Unit" /> type, which this wrapper also uses for
-///     <c>cancelAll</c> and for other values. This class, and its short base classes below, which
-///     are <see cref="AsyncConcurrencyStrategy{TState}" /> and
-///     <see cref="AsyncConcurrencyStrategy{TInput,TState}" />, have no relation to that shared
-///     factory. They are here only to let a consumer with a custom strategy on <see cref="Unit" />
-///     subclass <see cref="AsyncConcurrencyStrategy{TInput,TState}" /> and write
-///     <see cref="Unit" /> one time.
+///     <c>cancelAll</c> and for other values.
+///     <para>
+///         As a base class, this class has no relation to that shared factory. This class and
+///         <see cref="AsyncConcurrencyStrategy{TState}" /> are short versions of
+///         <see cref="AsyncConcurrencyStrategy{TInput,TState}" /> in SodaFlow.Core.Async, for a
+///         custom strategy that reads no input. Subclass
+///         <see cref="AsyncConcurrencyStrategy{TState}" /> for such a strategy with a state of its
+///         own, and this class for such a strategy with no state. The short version gives
+///         <see cref="Unit" /> for each type that the strategy does not use, thus the subclass
+///         does not write it.
+///     </para>
 /// </summary>
 [PublicAPI]
 // ReSharper disable once InheritdocConsiderUsage
