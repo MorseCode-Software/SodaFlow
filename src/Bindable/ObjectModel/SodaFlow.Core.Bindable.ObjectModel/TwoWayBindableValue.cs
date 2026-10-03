@@ -28,12 +28,12 @@ public static partial class BindableCoreExtensionMethods
     ///         refused.
     ///     </para>
     ///     <para>
-    ///         You can build this on any thread. The thread that builds the instance samples
-    ///         the initial value, and the scheduler moves each subsequent change to the binding
-    ///         thread. Only the code that publishes the instance puts the building thread and
-    ///         the binding thread in sequence. That code must do this in all conditions, because
-    ///         <c>comparer</c>, <c>listener</c> and <c>write</c> are usual fields that a reader
-    ///         needs.
+    ///         You can build this on any thread. The building transaction samples the initial
+    ///         value when it closes, and the scheduler moves each subsequent change to the binding
+    ///         thread. Only the code that publishes the instance puts the building thread
+    ///         and the binding thread in sequence. That code must do this in all conditions,
+    ///         because <c>comparer</c>, <c>listener</c>, and <c>write</c> are usual fields that a
+    ///         reader needs.
     ///     </para>
     ///     <para>
     ///         The setter writes the cached value on the calling thread and does not use the
@@ -59,9 +59,18 @@ public static partial class BindableCoreExtensionMethods
         /// <summary>
         ///     The last value that the binding engine saw. Only the binding thread reads and
         ///     writes it, which is what lets it be a usual field. See
-        ///     <see cref="IWritableBindableValue{T}" /> for the cause.
+        ///     <see cref="IWritableBindableValue{T}" /> for the cause. Call
+        ///     <see cref="ResolveInitialValue" /> before each use.
         /// </summary>
         private T cachedValue;
+
+        /// <summary>
+        ///     The sample from the constructor, until the first use of the cached value. Then it
+        ///     is null. See <see cref="SampleAtCloseAndListenToUpdates{T}" /> for the cause. Only
+        ///     the binding thread touches this field, for the cause that applies to the cached
+        ///     value.
+        /// </summary>
+        private InitialSample<T>? initialValue;
 
         /// <summary>
         ///     The last value that <see cref="BindableValueBase.PropertyChanged" /> announced.
@@ -108,9 +117,8 @@ public static partial class BindableCoreExtensionMethods
             this.write = write ?? throw new ArgumentNullException(nameof(write));
             this.comparer = comparer ?? EqualityComparer<T>.Default;
 
-            // ReSharper disable once NullableWarningSuppressionIsUsed - Replaced with the sampled value
-            // in the transaction below, which happens before the constructor completes and before the
-            // listener is attached.
+            // ReSharper disable once NullableWarningSuppressionIsUsed - Never read. ResolveInitialValue
+            // replaces it with the sample before the first use of the cached value.
             this.cachedValue = default!;
 
             // ReSharper disable once NullableWarningSuppressionIsUsed - As above.
@@ -124,17 +132,8 @@ public static partial class BindableCoreExtensionMethods
             // Thus, the listener cannot write over the sample that this code takes. The scheduled
             // work runs after that, on the binding thread, and a newer update wins.
 
-            this.listener =
-                TransactionInternal.RunImpl(() =>
-                {
-                    this.cachedValue = cell.SampleImpl();
-
-                    // This announces nothing, and it must announce nothing. A binding reads the
-                    // property when it attaches, thus the binding sees the initial value.
-                    this.lastNotifiedValue = this.cachedValue;
-
-                    return ListenToUpdates(cell: cell, handler: this.OnSourceChanged);
-                });
+            (this.initialValue, this.listener) =
+                SampleAtCloseAndListenToUpdates(cell: cell, handler: this.OnSourceChanged);
         }
 
         /// <inheritdoc />
@@ -146,6 +145,7 @@ public static partial class BindableCoreExtensionMethods
             get
             {
                 this.Scheduler.VerifyAccess("ITwoWayBindableValue<T>.Value");
+                this.ResolveInitialValue();
 
                 return this.cachedValue;
             }
@@ -154,6 +154,11 @@ public static partial class BindableCoreExtensionMethods
             {
                 this.Scheduler.VerifyAccess("ITwoWayBindableValue<T>.Value");
                 this.ThrowIfDisposed();
+
+                // This must occur before the equality test below, and not in it. While the queue
+                // holds a refresh, that test does not run. If the setter writes the cached value
+                // before it reads the sample, a subsequent read writes the sample over the write.
+                this.ResolveInitialValue();
 
                 // This code can discard a write when the cached value is equal, but only while
                 // that cached value is the value of the cell. The cached value is a record of the
@@ -265,6 +270,8 @@ public static partial class BindableCoreExtensionMethods
                         return;
                     }
 
+                    this.ResolveInitialValue();
+
                     T authoritative = this.Cell.SampleImpl();
 
                     // Two values can be behind the cell, and each one is a cause to announce.
@@ -308,6 +315,26 @@ public static partial class BindableCoreExtensionMethods
                     Interlocked.Decrement(ref this.pendingRefreshes);
                 }
             });
+        }
+
+        /// <summary>
+        ///     Puts the sample from the constructor into the cached value and the last notified
+        ///     value, one time only.
+        /// </summary>
+        /// <remarks>
+        ///     This announces nothing, and it must announce nothing. A binding reads the property
+        ///     when it attaches, thus the binding sees the initial value.
+        /// </remarks>
+        private void ResolveInitialValue()
+        {
+            if (this.initialValue == null)
+            {
+                return;
+            }
+
+            this.cachedValue = this.initialValue.Read();
+            this.lastNotifiedValue = this.cachedValue;
+            this.initialValue = null;
         }
 
         protected override void DisposeCore() => this.listener.Unlisten();

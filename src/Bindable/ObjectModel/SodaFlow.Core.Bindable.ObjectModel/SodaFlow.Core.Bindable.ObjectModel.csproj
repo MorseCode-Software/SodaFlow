@@ -34,6 +34,7 @@
         <Compile Include="BindableAction.cs"/>
         <Compile Include="BindableValueBase.cs"/>
         <Compile Include="BindingScheduler.cs"/>
+        <Compile Include="InitialSample.cs"/>
         <Compile Include="Interfaces.cs"/>
         <Compile Include="OneWayBindableValue.cs"/>
         <Compile Include="OneWayToSourceBindableValue.cs"/>

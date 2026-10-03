@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Runtime.CompilerServices;
 using System.Threading;
 using System.Threading.Tasks;
 using TUnit.Assertions;
@@ -266,6 +267,495 @@ public sealed class BindableValueConcurrencyTests
             });
 
         await Assert.That(b.Value).IsEqualTo(5);
+    }
+
+    // This is the same condition as the two tests above, for the availability of a command.
+    // There is one test for each direction. A command that keeps its first availability and
+    // ignores the update fails only one of the two, and the first availability selects which.
+    [Test]
+    public async Task ActionConstructedInsideATransactionWhichThenEnablesIt()
+    {
+        CellSink<bool> enabled = Cell.CreateSink(false);
+
+        using IBindableAction<int> a =
+            Transaction.Run(() =>
+            {
+                IBindableAction<int> created =
+                    Stream.CreateSink<int>()
+                        .ToBindableActionImpl(isEnabledCell: enabled, scheduler: BindingScheduler.Immediate);
+
+                enabled.Send(true);
+
+                return created;
+            });
+
+        await Assert.That(a.CanExecute(null))
+            .IsTrue()
+            .Because("the update fired after the listener was attached and is newer than the sample");
+    }
+
+    [Test]
+    public async Task ActionConstructedInsideATransactionWhichThenDisablesIt()
+    {
+        CellSink<bool> enabled = Cell.CreateSink(true);
+
+        using IBindableAction<int> a =
+            Transaction.Run(() =>
+            {
+                IBindableAction<int> created =
+                    Stream.CreateSink<int>()
+                        .ToBindableActionImpl(isEnabledCell: enabled, scheduler: BindingScheduler.Immediate);
+
+                enabled.Send(false);
+
+                return created;
+            });
+
+        await Assert.That(a.CanExecute(null))
+            .IsFalse()
+            .Because("the update fired after the listener was attached and is newer than the sample");
+    }
+
+    // A caller can build a bindable in a loop, where the cell has no value until the loop
+    // closes. The building transaction samples the cell when it closes, and the first read
+    // gets that value. These tests use the scheduler that queues. Thus, they show that the value
+    // is there before any post runs, and that the build posts nothing.
+    [Test]
+    public async Task OneWayConstructedInsideALoopHasItsValueBeforeTheSchedulerRuns()
+    {
+        QueueingScheduler scheduler = new();
+
+        (_, IOneWayBindableValue<string> b) =
+            Cell.Loop<string>()
+                .WithCaptures(cellLoop =>
+                    (Cell: Cell.Constant("looped"), Captures: cellLoop.ToOneWayImpl(scheduler: scheduler)));
+
+        using (b)
+        {
+            await Assert.That(b.Value).IsEqualTo("looped");
+            await Assert.That(scheduler.RunAll()).IsEqualTo(0).Because("the build posts nothing");
+        }
+    }
+
+    [Test]
+    public async Task TwoWayConstructedInsideALoopHasItsValueBeforeTheSchedulerRuns()
+    {
+        QueueingScheduler scheduler = new();
+        StreamSink<string> edits = Stream.CreateSink<string>();
+
+        (_, ITwoWayBindableValue<string> b) =
+            Cell.Loop<string>()
+                .WithCaptures(cellLoop =>
+                    (Cell: Cell.Constant("looped"),
+                        Captures: cellLoop.ToTwoWayImpl(editsStreamSink: edits, scheduler: scheduler)));
+
+        using (b)
+        {
+            await Assert.That(b.Value).IsEqualTo("looped");
+            await Assert.That(scheduler.RunAll()).IsEqualTo(0).Because("the build posts nothing");
+        }
+    }
+
+    [Test]
+    public async Task ActionConstructedInsideALoopHasItsAvailabilityBeforeTheSchedulerRuns()
+    {
+        QueueingScheduler scheduler = new();
+
+        (_, IBindableAction<int> a) =
+            Cell.Loop<bool>()
+                .WithCaptures(cellLoop =>
+                    (Cell: Cell.Constant(true),
+                        Captures: Stream.CreateSink<int>()
+                            .ToBindableActionImpl(isEnabledCell: cellLoop, scheduler: scheduler)));
+
+        using (a)
+        {
+            await Assert.That(a.CanExecute(null)).IsTrue();
+            await Assert.That(scheduler.RunAll()).IsEqualTo(0).Because("the build posts nothing");
+        }
+    }
+
+    // These are the tests of a build in a transaction that then updates the cell, with the
+    // build in a loop.
+    [Test]
+    public async Task OneWayConstructedInsideALoopAndATransactionWhichThenFires()
+    {
+        CellSink<int> c = Cell.CreateSink(2);
+
+        (_, IOneWayBindableValue<int> b) =
+            Cell.Loop<int>()
+                .WithCaptures(cellLoop =>
+                {
+                    IOneWayBindableValue<int> created =
+                        Transaction.Run(() =>
+                        {
+                            IOneWayBindableValue<int> inner =
+                                cellLoop.ToOneWayImpl(scheduler: BindingScheduler.Immediate);
+
+                            c.Send(5);
+
+                            return inner;
+                        });
+
+                    return (Cell: c, Captures: created);
+                });
+
+        using (b)
+        {
+            await Assert.That(b.Value)
+                .IsEqualTo(5)
+                .Because("the update fired after the listener was attached and is newer than the sample");
+        }
+    }
+
+    [Test]
+    public async Task TwoWayConstructedInsideALoopAndATransactionWhichThenFires()
+    {
+        StreamSink<int> s = Stream.CreateSink<int>();
+
+        (_, ITwoWayBindableValue<int> b) =
+            Cell.Loop<int>()
+                .WithCaptures(cellLoop =>
+                {
+                    ITwoWayBindableValue<int> created =
+                        Transaction.Run(() =>
+                        {
+                            ITwoWayBindableValue<int> inner =
+                                cellLoop.ToTwoWayImpl(editsStreamSink: s, scheduler: BindingScheduler.Immediate);
+
+                            s.Send(5);
+
+                            return inner;
+                        });
+
+                    return (Cell: s.Hold(2), Captures: created);
+                });
+
+        using (b)
+        {
+            await Assert.That(b.Value)
+                .IsEqualTo(5)
+                .Because("the update fired after the listener was attached and is newer than the sample");
+        }
+    }
+
+    [Test]
+    public async Task ActionConstructedInsideALoopAndATransactionWhichThenEnablesIt()
+    {
+        CellSink<bool> enabled = Cell.CreateSink(false);
+
+        (_, IBindableAction<int> a) =
+            Cell.Loop<bool>()
+                .WithCaptures(cellLoop =>
+                {
+                    IBindableAction<int> created =
+                        Transaction.Run(() =>
+                        {
+                            IBindableAction<int> inner =
+                                Stream.CreateSink<int>()
+                                    .ToBindableActionImpl(isEnabledCell: cellLoop, scheduler: BindingScheduler.Immediate);
+
+                            enabled.Send(true);
+
+                            return inner;
+                        });
+
+                    return (Cell: enabled, Captures: created);
+                });
+
+        using (a)
+        {
+            await Assert.That(a.CanExecute(null))
+                .IsTrue()
+                .Because("the update fired after the listener was attached and is newer than the sample");
+        }
+    }
+
+    [Test]
+    public async Task ActionConstructedInsideALoopAndATransactionWhichThenDisablesIt()
+    {
+        CellSink<bool> enabled = Cell.CreateSink(true);
+
+        (_, IBindableAction<int> a) =
+            Cell.Loop<bool>()
+                .WithCaptures(cellLoop =>
+                {
+                    IBindableAction<int> created =
+                        Transaction.Run(() =>
+                        {
+                            IBindableAction<int> inner =
+                                Stream.CreateSink<int>()
+                                    .ToBindableActionImpl(isEnabledCell: cellLoop, scheduler: BindingScheduler.Immediate);
+
+                            enabled.Send(false);
+
+                            return inner;
+                        });
+
+                    return (Cell: enabled, Captures: created);
+                });
+
+        using (a)
+        {
+            await Assert.That(a.CanExecute(null))
+                .IsFalse()
+                .Because("the update fired after the listener was attached and is newer than the sample");
+        }
+    }
+
+    // The sample stays lazy until the first use of the cached value, and an update can arrive
+    // before that use. Each path that writes the cached value must read the sample first.
+    // Otherwise, a subsequent read writes the sample over the newer value.
+    [Test]
+    public async Task OneWayUpdateBeforeTheFirstReadIsNotReplacedByTheSample()
+    {
+        QueueingScheduler scheduler = new();
+        CellSink<string> c = Cell.CreateSink("sampled");
+
+        using IOneWayBindableValue<string> b = c.ToOneWayImpl(scheduler: scheduler);
+
+        c.Send("updated");
+        _ = scheduler.RunAll();
+
+        await Assert.That(b.Value).IsEqualTo("updated");
+    }
+
+    [Test]
+    public async Task TwoWayUpdateBeforeTheFirstReadIsNotReplacedByTheSample()
+    {
+        QueueingScheduler scheduler = new();
+        CellSink<string> c = Cell.CreateSink("sampled");
+
+        using ITwoWayBindableValue<string> b = c.ToTwoWayImpl(scheduler: scheduler);
+
+        c.Send("updated");
+        _ = scheduler.RunAll();
+
+        await Assert.That(b.Value).IsEqualTo("updated");
+    }
+
+    // The setter does not run its equality test while the queue holds a refresh. Thus, this is
+    // the one path where the setter writes the cached value with no read before it.
+    [Test]
+    public async Task TwoWayWriteBeforeTheFirstReadIsNotReplacedByTheSample()
+    {
+        QueueingScheduler scheduler = new();
+        CellSink<string> c = Cell.CreateSink("sampled");
+
+        using ITwoWayBindableValue<string> b = c.ToTwoWayImpl(scheduler: scheduler);
+
+        c.Send("updated");
+
+        b.Value = "written";
+
+        await Assert.That(b.Value)
+            .IsEqualTo("written")
+            .Because("the setter writes the cached value optimistically");
+
+        _ = scheduler.RunAll();
+
+        await Assert.That(b.Value).IsEqualTo("written");
+        await Assert.That(c.Sample()).IsEqualTo("written");
+    }
+
+    // The sample is the value at the build, and not the value at the first read. A sample at
+    // the first read gets the newest value. Then the updates in the queue arrive and move the
+    // value back to earlier values.
+    [Test]
+    public async Task OneWayFirstReadAfterQueuedUpdatesGetsTheValueAtTheBuild()
+    {
+        QueueingScheduler scheduler = new();
+        CellSink<string> c = Cell.CreateSink("built");
+
+        using IOneWayBindableValue<string> b = c.ToOneWayImpl(scheduler: scheduler);
+
+        c.Send("first");
+        c.Send("second");
+
+        List<string> seen = [b.Value];
+
+        using IDisposable listening = b.ListenForValueChanges(seen.Add);
+
+        _ = scheduler.RunAll();
+
+        await Assert.That(seen)
+            .IsEquivalentTo(expected: ["built", "first", "second"], ordering: CollectionOrdering.Matching);
+    }
+
+    // A read in the loop block, before the block returns, asks for a value that does not exist
+    // yet. Thus, it throws, as Sample on the looped cell throws there. The throw must not stay
+    // with the bindable. After the loop closes, a read gets the value of the cell.
+    [Test]
+    public async Task OneWayReadInsideTheLoopBlockThrowsOnlyThere()
+    {
+        (_, (IOneWayBindableValue<string> b, Exception? caught)) =
+            Cell.Loop<string>()
+                .WithCaptures(static cellLoop =>
+                {
+                    IOneWayBindableValue<string> created =
+                        cellLoop.ToOneWayImpl(scheduler: BindingScheduler.Immediate);
+
+                    return (Cell: Cell.Constant("looped"), Captures: (created, Caught(() => _ = created.Value)));
+                });
+
+        using (b)
+        {
+            await Assert.That(caught).IsTypeOf<InvalidOperationException>();
+            await Assert.That(b.Value).IsEqualTo("looped");
+        }
+    }
+
+    [Test]
+    public async Task TwoWayReadInsideTheLoopBlockThrowsOnlyThere()
+    {
+        StreamSink<string> edits = Stream.CreateSink<string>();
+
+        (_, (ITwoWayBindableValue<string> b, Exception? caught)) =
+            Cell.Loop<string>()
+                .WithCaptures(cellLoop =>
+                {
+                    ITwoWayBindableValue<string> created =
+                        cellLoop.ToTwoWayImpl(editsStreamSink: edits, scheduler: BindingScheduler.Immediate);
+
+                    return (Cell: Cell.Constant("looped"), Captures: (created, Caught(() => _ = created.Value)));
+                });
+
+        using (b)
+        {
+            await Assert.That(caught).IsTypeOf<InvalidOperationException>();
+            await Assert.That(b.Value).IsEqualTo("looped");
+        }
+    }
+
+    [Test]
+    public async Task ActionReadInsideTheLoopBlockThrowsOnlyThere()
+    {
+        (_, (IBindableAction<int> a, Exception? caught)) =
+            Cell.Loop<bool>()
+                .WithCaptures(static cellLoop =>
+                {
+                    IBindableAction<int> created =
+                        Stream.CreateSink<int>()
+                            .ToBindableActionImpl(isEnabledCell: cellLoop, scheduler: BindingScheduler.Immediate);
+
+                    return (Cell: Cell.Constant(true), Captures: (created, Caught(() => _ = created.CanExecute(null))));
+                });
+
+        using (a)
+        {
+            await Assert.That(caught).IsTypeOf<InvalidOperationException>();
+            await Assert.That(a.CanExecute(null)).IsTrue();
+        }
+    }
+
+    // The code that publishes a bindable must do so after the transaction that builds it
+    // closes. This test publishes it before that, to a thread that reads it immediately. That
+    // read needs the transaction lock, which the building thread holds until the close. Thus,
+    // the read waits, and then gets the value after the update.
+    [Test]
+    public async Task AReadOnAnotherThreadBeforeTheBuildingTransactionClosesWaitsForTheClose()
+    {
+        CellSink<int> c = Cell.CreateSink(2);
+        QueueingScheduler scheduler = new();
+        StrongBox<int> read = new();
+
+        (IOneWayBindableValue<int> b, Thread reader, bool readerBlocked) =
+            Transaction.Run(() =>
+            {
+                IOneWayBindableValue<int> created = c.ToOneWayImpl(scheduler: scheduler);
+
+                Thread thread = new(() => read.Value = created.Value) { IsBackground = true };
+                thread.Start();
+
+                bool blocked =
+                    SpinWait.SpinUntil(
+                        condition: () => (thread.ThreadState & ThreadState.WaitSleepJoin) != 0,
+                        timeout: TimeSpan.FromSeconds(5));
+
+                c.Send(5);
+
+                return (created, thread, blocked);
+            });
+
+        reader.Join();
+
+        using (b)
+        {
+            await Assert.That(readerBlocked)
+                .IsTrue()
+                .Because("the reader must wait before the close, or this test shows nothing");
+
+            await Assert.That(read.Value).IsEqualTo(5);
+        }
+    }
+
+    // This is the test above, with one more update after the close and before the reader gets
+    // the lock. The post runs in that interval, because the building transaction runs its posts
+    // before it releases the lock. The reader must get the value at the close, and not the
+    // value after the post. The value after the post is newer than the delivery of the update in
+    // the building transaction, which is still in the queue. Thus, that delivery moves the value
+    // back to an earlier value.
+    [Test]
+    public async Task AReadOnAnotherThreadThatAnUpdateAfterTheCloseOvertakesGetsTheValueAtTheClose()
+    {
+        CellSink<int> c = Cell.CreateSink(2);
+        QueueingScheduler scheduler = new();
+        StrongBox<int> read = new();
+
+        (IOneWayBindableValue<int> b, Thread reader, bool readerBlocked) =
+            Transaction.Run(() =>
+            {
+                IOneWayBindableValue<int> created = c.ToOneWayImpl(scheduler: scheduler);
+
+                Thread thread = new(() => read.Value = created.Value) { IsBackground = true };
+                thread.Start();
+
+                bool blocked =
+                    SpinWait.SpinUntil(
+                        condition: () => (thread.ThreadState & ThreadState.WaitSleepJoin) != 0,
+                        timeout: TimeSpan.FromSeconds(5));
+
+                c.Send(5);
+                Transaction.Post(() => c.Send(9));
+
+                return (created, thread, blocked);
+            });
+
+        reader.Join();
+
+        using (b)
+        {
+            await Assert.That(readerBlocked)
+                .IsTrue()
+                .Because("the reader must wait before the close, or this test shows nothing");
+
+            List<int> seen = [read.Value];
+
+            using IDisposable listening = b.ListenForValueChanges(seen.Add);
+
+            _ = scheduler.RunAll();
+
+            await Assert.That(seen)
+                .IsEquivalentTo(expected: [5, 9], ordering: CollectionOrdering.Matching)
+                .Because("the value moves forward only");
+        }
+    }
+
+    /// <summary>
+    ///     Runs <paramref name="body" /> and gives the exception that it threw.
+    /// </summary>
+    private static Exception? Caught(Action body)
+    {
+        try
+        {
+            body();
+
+            return null;
+        }
+        catch (Exception e)
+        {
+            return e;
+        }
     }
 
     /// <summary>

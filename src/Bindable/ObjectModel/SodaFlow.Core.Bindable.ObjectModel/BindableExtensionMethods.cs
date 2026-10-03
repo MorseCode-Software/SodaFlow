@@ -110,6 +110,23 @@ public static partial class BindableCoreExtensionMethods
         cell.UpdatesImpl.ListenImpl(handler);
 
     /// <summary>
+    ///     Takes a sample of a cell at the close of the transaction and listens to its updates,
+    ///     in one transaction. Thus, no update enters the interval between the two.
+    /// </summary>
+    /// <remarks>
+    ///     The code that publishes the bindable must do this after that transaction closes. Then
+    ///     the first read on the binding thread gets the value immediately, and no post is
+    ///     necessary. See <see cref="InitialSample{T}" /> for the cause of the wait for the close,
+    ///     and for the result of a read before the close.
+    /// </remarks>
+    private static (InitialSample<T> InitialValue, IListener Listener) SampleAtCloseAndListenToUpdates<T>(
+        Cell<T> cell,
+        Action<T> handler) =>
+        TransactionInternal.Apply((transaction, _) =>
+            (InitialSample<T>.Take(transaction: transaction, cell: cell),
+                ListenToUpdates(cell: cell, handler: handler)));
+
+    /// <summary>
     ///     Sends a value into the graph after the current <see cref="TransactionInternal" />
     ///     ends. Thus, the send cannot run in a callback.
     /// </summary>

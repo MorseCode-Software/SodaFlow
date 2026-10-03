@@ -14,15 +14,28 @@ public static partial class BindableCoreExtensionMethods
     ///     available.
     /// </summary>
     /// <remarks>
-    ///     You can build this on any thread. The thread that builds the instance samples the
-    ///     availability, and the binding thread reads it. For that cause the field that holds it
-    ///     is volatile. The scheduler moves each subsequent change to the binding thread.
+    ///     You can build this on any thread. The building transaction samples the availability
+    ///     when it closes, and the binding thread reads that sample. The scheduler moves each
+    ///     subsequent change to the binding thread. <see cref="Dispose" /> can run on any thread,
+    ///     thus only atomic operations change the field that holds the availability.
     /// </remarks>
     // ReSharper disable once InheritdocConsiderUsage
     internal class BindableAction<T> : IBindableAction<T>
         where T : notnull
     {
+        private const int NotSampled = 0;
+
+        private const int NotExecutable = 1;
+
+        private const int Executable = 2;
+
         private readonly StreamSink<T> firingsStreamSink;
+
+        /// <summary>
+        ///     The sample from the constructor. See <see cref="SampleAtCloseAndListenToUpdates{T}" />
+        ///     for the cause. <see cref="ReadCanExecute" /> reads it one time only.
+        /// </summary>
+        private readonly InitialSample<bool> initialCanExecute;
 
         /// <summary>
         ///     This field is necessary. The subscription to the availability cell is weak, thus
@@ -33,11 +46,10 @@ public static partial class BindableCoreExtensionMethods
         private readonly IBindingScheduler scheduler;
 
         /// <summary>
-        ///     This field is volatile, because the constructor samples it on the thread that
-        ///     built the command and the binding engine reads it on a different thread. A bool
-        ///     needs no box for this.
+        ///     <see cref="NotSampled" />, <see cref="NotExecutable" />, or
+        ///     <see cref="Executable" />. Read it with <see cref="ReadCanExecute" />.
         /// </summary>
-        private volatile bool canExecute;
+        private int canExecute;
 
         private int disposed;
 
@@ -54,12 +66,8 @@ public static partial class BindableCoreExtensionMethods
 
             Cell<bool> resolvedIsEnabledCell = isEnabledCell ?? CellInternal.ConstantImpl(true);
 
-            this.listener =
-                TransactionInternal.RunImpl(() =>
-                {
-                    this.canExecute = resolvedIsEnabledCell.SampleImpl();
-                    return ListenToUpdates(cell: resolvedIsEnabledCell, handler: this.OnIsEnabledChanged);
-                });
+            (this.initialCanExecute, this.listener) =
+                SampleAtCloseAndListenToUpdates(cell: resolvedIsEnabledCell, handler: this.OnIsEnabledChanged);
 
             this.IsEnabledCell = resolvedIsEnabledCell;
         }
@@ -72,7 +80,7 @@ public static partial class BindableCoreExtensionMethods
         /// <inheritdoc />
         public Cell<bool> IsEnabledCell { get; }
 
-        public bool CanExecute(object? parameter) => this.canExecute && Volatile.Read(ref this.disposed) == 0;
+        public bool CanExecute(object? parameter) => Volatile.Read(ref this.disposed) == 0 && this.ReadCanExecute();
 
         public void Execute(object? parameter)
         {
@@ -100,8 +108,13 @@ public static partial class BindableCoreExtensionMethods
 
             this.listener.Unlisten();
 
-            bool wasExecutable = this.canExecute;
-            this.canExecute = false;
+            // This reads the sample first, thus the exchange gives a value and not NotSampled.
+            // A binding engine can attach to CanExecuteChanged before it calls CanExecute, and
+            // that engine must also get the notification.
+            _ = this.ReadCanExecute();
+
+            bool wasExecutable =
+                Interlocked.Exchange(location1: ref this.canExecute, value: NotExecutable) == Executable;
 
             // This code removes the handlers before it raises the notification. Thus, a handler
             // cannot attach again and cannot run two times. The local variable keeps the one
@@ -165,13 +178,36 @@ public static partial class BindableCoreExtensionMethods
                     return;
                 }
 
-                if (this.canExecute == value)
+                if (this.ReadCanExecute() == value)
                 {
                     return;
                 }
 
-                this.canExecute = value;
+                Volatile.Write(location: ref this.canExecute, value: value ? Executable : NotExecutable);
                 this.CanExecuteChanged?.Invoke(sender: this, e: EventArgs.Empty);
             });
+
+        /// <summary>
+        ///     Gives the availability, and puts the sample from the constructor into the field
+        ///     on the first read.
+        /// </summary>
+        private bool ReadCanExecute()
+        {
+            int state = Volatile.Read(ref this.canExecute);
+
+            if (state == NotSampled)
+            {
+                int sampled = this.initialCanExecute.Read() ? Executable : NotExecutable;
+
+                // Dispose can write the field between the read above and this line. Its value
+                // is newer than the sample, thus it wins.
+                int previous =
+                    Interlocked.CompareExchange(location1: ref this.canExecute, value: sampled, comparand: NotSampled);
+
+                state = previous == NotSampled ? sampled : previous;
+            }
+
+            return state == Executable;
+        }
     }
 }
