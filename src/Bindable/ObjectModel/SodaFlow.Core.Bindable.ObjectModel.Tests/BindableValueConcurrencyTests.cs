@@ -689,6 +689,58 @@ public sealed class BindableValueConcurrencyTests
         }
     }
 
+    // This is the test above, with one more update after the close and before the reader gets
+    // the lock. The post runs in that interval, because the building transaction runs its posts
+    // before it releases the lock. The reader must get the value at the close, and not the
+    // value after the post. The value after the post is newer than the delivery of the update in
+    // the building transaction, which is still in the queue. Thus, that delivery moves the value
+    // back to an earlier value.
+    [Test]
+    public async Task AReadOnAnotherThreadThatAnUpdateAfterTheCloseOvertakesGetsTheValueAtTheClose()
+    {
+        CellSink<int> c = Cell.CreateSink(2);
+        QueueingScheduler scheduler = new();
+        StrongBox<int> read = new();
+
+        (IOneWayBindableValue<int> b, Thread reader, bool readerBlocked) =
+            Transaction.Run(() =>
+            {
+                IOneWayBindableValue<int> created = c.ToOneWayImpl(scheduler: scheduler);
+
+                Thread thread = new(() => read.Value = created.Value) { IsBackground = true };
+                thread.Start();
+
+                bool blocked =
+                    SpinWait.SpinUntil(
+                        condition: () => (thread.ThreadState & ThreadState.WaitSleepJoin) != 0,
+                        timeout: TimeSpan.FromSeconds(5));
+
+                c.Send(5);
+                Transaction.Post(() => c.Send(9));
+
+                return (created, thread, blocked);
+            });
+
+        reader.Join();
+
+        using (b)
+        {
+            await Assert.That(readerBlocked)
+                .IsTrue()
+                .Because("the reader must wait before the close, or this test shows nothing");
+
+            List<int> seen = [read.Value];
+
+            using IDisposable listening = b.ListenForValueChanges(seen.Add);
+
+            _ = scheduler.RunAll();
+
+            await Assert.That(seen)
+                .IsEquivalentTo(expected: [5, 9], ordering: CollectionOrdering.Matching)
+                .Because("the value moves forward only");
+        }
+    }
+
     /// <summary>
     ///     Runs <paramref name="body" /> and gives the exception that it threw.
     /// </summary>

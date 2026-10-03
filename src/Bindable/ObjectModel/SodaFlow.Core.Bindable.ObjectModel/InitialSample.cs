@@ -17,11 +17,12 @@ public static partial class BindableCoreExtensionMethods
     ///     <para>
     ///         A <see cref="Read" /> before that phase samples the cell. That occurs only when
     ///         code reads the bindable before the building transaction closes. On a different
-    ///         thread, that sample waits for the transaction lock, thus it gets the value after
-    ///         the close. On the building thread, it gets the value of the cell at that time. In
-    ///         the loop block, it throws, as a sample of the looped cell throws there. This type
-    ///         keeps no exception, thus a read after the loop closes gets the value.
-    ///         <see cref="Lazy{T}" /> keeps the exception, and that is why this type is not one.
+    ///         thread, that sample waits for the transaction lock. Then the read gives the value
+    ///         from the sample phase. On the building thread, it gets the value of the cell at
+    ///         that time. In the loop block, it throws, as a sample of the looped cell throws
+    ///         there. This type keeps no exception, thus a read after the loop closes gets the
+    ///         value. <see cref="Lazy{T}" /> keeps the exception, and that is why this type is
+    ///         not one.
     ///     </para>
     /// </remarks>
     // ReSharper disable once InheritdocConsiderUsage
@@ -60,7 +61,27 @@ public static partial class BindableCoreExtensionMethods
         /// <summary>
         ///     Gives the value from the sample phase, or samples the cell before that phase.
         /// </summary>
-        internal T Read() => this.sampled ? this.value : this.cell.SampleImpl();
+        /// <remarks>
+        ///     A sample from <see cref="Read" /> does not call <see cref="Set" />. On the building
+        ///     thread, it gets a value from before the close, and <see cref="sampled" /> means the
+        ///     value at the close. Each bindable also uses a successful read one time only.
+        /// </remarks>
+        internal T Read()
+        {
+            if (this.sampled)
+            {
+                return this.value;
+            }
+
+            T current = this.cell.SampleImpl();
+
+            // A read on a different thread waits in SampleImpl for the close, and the sample
+            // phase runs before the close. Thus, the value from that phase can be there now. Use
+            // it and not the sample. A different transaction can run after the close and before
+            // this read gets the lock. Then the sample is newer than the deliveries in the
+            // queue, and those deliveries move the value back to an earlier value.
+            return this.sampled ? this.value : current;
+        }
 
         private void Set(T sampledValue)
         {
