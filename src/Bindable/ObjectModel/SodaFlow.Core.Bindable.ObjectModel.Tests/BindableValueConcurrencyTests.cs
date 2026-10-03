@@ -268,6 +268,53 @@ public sealed class BindableValueConcurrencyTests
         await Assert.That(b.Value).IsEqualTo(5);
     }
 
+    // This is the same condition as the two tests above, for the availability of a command.
+    // There is one test for each direction. A command that keeps its first availability and
+    // ignores the update fails only one of the two, and the first availability selects which.
+    [Test]
+    public async Task ActionConstructedInsideATransactionWhichThenEnablesIt()
+    {
+        CellSink<bool> enabled = Cell.CreateSink(false);
+
+        using IBindableAction<int> a =
+            Transaction.Run(() =>
+            {
+                IBindableAction<int> created =
+                    Stream.CreateSink<int>()
+                        .ToBindableActionImpl(isEnabledCell: enabled, scheduler: BindingScheduler.Immediate);
+
+                enabled.Send(true);
+
+                return created;
+            });
+
+        await Assert.That(a.CanExecute(null))
+            .IsTrue()
+            .Because("the update fired after the listener was attached and is newer than the sample");
+    }
+
+    [Test]
+    public async Task ActionConstructedInsideATransactionWhichThenDisablesIt()
+    {
+        CellSink<bool> enabled = Cell.CreateSink(true);
+
+        using IBindableAction<int> a =
+            Transaction.Run(() =>
+            {
+                IBindableAction<int> created =
+                    Stream.CreateSink<int>()
+                        .ToBindableActionImpl(isEnabledCell: enabled, scheduler: BindingScheduler.Immediate);
+
+                enabled.Send(false);
+
+                return created;
+            });
+
+        await Assert.That(a.CanExecute(null))
+            .IsFalse()
+            .Because("the update fired after the listener was attached and is newer than the sample");
+    }
+
     /// <summary>
     ///     Runs <paramref name="body" /> on a different thread and gives the exception that it
     ///     threw.
