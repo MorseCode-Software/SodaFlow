@@ -1,3 +1,14 @@
+4.0.1
+
+No change in API or behavior. This release raises the dependency floor, so that a new install gets
+SodaFlow.Bindable.ObjectModel.Core 4.0.1, which lets a bindable be built from a looped cell. That package's notes have
+the details.
+
+NuGet resolves the lowest version a range allows, so a fresh install of 4.0.0 would go on resolving core 4.0.0. A
+consumer who references the core package directly gets the fix either way.
+
+The floor on SodaFlow.FSharp moves up from 5.0.0 to 5.0.1, the version already released.
+
 4.0.0
 
 BREAKING: the functions of the Bindable module are gone - oneWay, twoWay, twoWayCS, oneWayToSource, oneWayToSourceCS,
