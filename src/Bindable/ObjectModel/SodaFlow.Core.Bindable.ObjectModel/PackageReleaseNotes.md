@@ -1,3 +1,23 @@
+4.0.1
+
+Fixed: a bindable can be built from a looped cell. Each bindable used to sample its cell in its constructor. Inside a
+loop block the looped cell has no value yet, so building a one-way value, a two-way value, or a command from it threw
+"BehaviorLoop was sampled before it was looped".
+
+A bindable now takes its initial value when the transaction that builds it closes, and the loop is defined by then. As
+in 4.0.0, the first read returns that value immediately: building a bindable posts nothing to the scheduler and raises
+no notification, and a command with no enablement cell is available from the start.
+
+One visible difference: a bindable built in a transaction that then changes its cell starts with the changed value. It
+used to start with the earlier value and announce the change with PropertyChanged or CanExecuteChanged once the
+scheduler ran. Now there is no change to announce.
+
+As before, hand a bindable to the binding thread only after the transaction that builds it has closed. A read inside the
+loop block itself, before the block returns, throws, just as Sample on the looped cell does there. Reads after the loop
+closes work.
+
+Requires SodaFlow.Core 5.x, as 4.0.0 did. The members of SodaFlow.Core that this release calls are all in 5.0.0.
+
 4.0.0
 
 BREAKING: BindingScheduler.Default is gone, and no bindable selects a scheduler for itself any more. Each one used to
