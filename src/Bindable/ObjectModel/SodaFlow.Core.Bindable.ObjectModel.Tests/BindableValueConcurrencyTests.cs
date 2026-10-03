@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Runtime.CompilerServices;
 using System.Threading;
 using System.Threading.Tasks;
 using TUnit.Assertions;
@@ -316,9 +317,9 @@ public sealed class BindableValueConcurrencyTests
     }
 
     // A caller can build a bindable in a loop, where the cell has no value until the loop
-    // closes. The constructor takes a lazy sample, and the first read gets its value. These
-    // tests use the scheduler that queues. Thus, they show that the value is there before any
-    // post runs, and that the build posts nothing.
+    // closes. The building transaction samples the cell when it closes, and the first read
+    // gets that value. These tests use the scheduler that queues. Thus, they show that the value
+    // is there before any post runs, and that the build posts nothing.
     [Test]
     public async Task OneWayConstructedInsideALoopHasItsValueBeforeTheSchedulerRuns()
     {
@@ -555,6 +556,154 @@ public sealed class BindableValueConcurrencyTests
 
         await Assert.That(b.Value).IsEqualTo("written");
         await Assert.That(c.Sample()).IsEqualTo("written");
+    }
+
+    // The sample is the value at the build, and not the value at the first read. A sample at
+    // the first read gets the newest value. Then the updates in the queue arrive and move the
+    // value back to earlier values.
+    [Test]
+    public async Task OneWayFirstReadAfterQueuedUpdatesGetsTheValueAtTheBuild()
+    {
+        QueueingScheduler scheduler = new();
+        CellSink<string> c = Cell.CreateSink("built");
+
+        using IOneWayBindableValue<string> b = c.ToOneWayImpl(scheduler: scheduler);
+
+        c.Send("first");
+        c.Send("second");
+
+        List<string> seen = [b.Value];
+
+        using IDisposable listening = b.ListenForValueChanges(seen.Add);
+
+        _ = scheduler.RunAll();
+
+        await Assert.That(seen)
+            .IsEquivalentTo(expected: ["built", "first", "second"], ordering: CollectionOrdering.Matching);
+    }
+
+    // A read in the loop block, before the block returns, asks for a value that does not exist
+    // yet. Thus, it throws, as Sample on the looped cell throws there. The throw must not stay
+    // with the bindable. After the loop closes, a read gets the value of the cell.
+    [Test]
+    public async Task OneWayReadInsideTheLoopBlockThrowsOnlyThere()
+    {
+        (_, (IOneWayBindableValue<string> b, Exception? caught)) =
+            Cell.Loop<string>()
+                .WithCaptures(static cellLoop =>
+                {
+                    IOneWayBindableValue<string> created =
+                        cellLoop.ToOneWayImpl(scheduler: BindingScheduler.Immediate);
+
+                    return (Cell: Cell.Constant("looped"), Captures: (created, Caught(() => _ = created.Value)));
+                });
+
+        using (b)
+        {
+            await Assert.That(caught).IsTypeOf<InvalidOperationException>();
+            await Assert.That(b.Value).IsEqualTo("looped");
+        }
+    }
+
+    [Test]
+    public async Task TwoWayReadInsideTheLoopBlockThrowsOnlyThere()
+    {
+        StreamSink<string> edits = Stream.CreateSink<string>();
+
+        (_, (ITwoWayBindableValue<string> b, Exception? caught)) =
+            Cell.Loop<string>()
+                .WithCaptures(cellLoop =>
+                {
+                    ITwoWayBindableValue<string> created =
+                        cellLoop.ToTwoWayImpl(editsStreamSink: edits, scheduler: BindingScheduler.Immediate);
+
+                    return (Cell: Cell.Constant("looped"), Captures: (created, Caught(() => _ = created.Value)));
+                });
+
+        using (b)
+        {
+            await Assert.That(caught).IsTypeOf<InvalidOperationException>();
+            await Assert.That(b.Value).IsEqualTo("looped");
+        }
+    }
+
+    [Test]
+    public async Task ActionReadInsideTheLoopBlockThrowsOnlyThere()
+    {
+        (_, (IBindableAction<int> a, Exception? caught)) =
+            Cell.Loop<bool>()
+                .WithCaptures(static cellLoop =>
+                {
+                    IBindableAction<int> created =
+                        Stream.CreateSink<int>()
+                            .ToBindableActionImpl(isEnabledCell: cellLoop, scheduler: BindingScheduler.Immediate);
+
+                    return (Cell: Cell.Constant(true), Captures: (created, Caught(() => _ = created.CanExecute(null))));
+                });
+
+        using (a)
+        {
+            await Assert.That(caught).IsTypeOf<InvalidOperationException>();
+            await Assert.That(a.CanExecute(null)).IsTrue();
+        }
+    }
+
+    // The code that publishes a bindable must do so after the transaction that builds it
+    // closes. This test publishes it before that, to a thread that reads it immediately. That
+    // read needs the transaction lock, which the building thread holds until the close. Thus,
+    // the read waits, and then gets the value after the update.
+    [Test]
+    public async Task AReadOnAnotherThreadBeforeTheBuildingTransactionClosesWaitsForTheClose()
+    {
+        CellSink<int> c = Cell.CreateSink(2);
+        QueueingScheduler scheduler = new();
+        StrongBox<int> read = new();
+
+        (IOneWayBindableValue<int> b, Thread reader, bool readerBlocked) =
+            Transaction.Run(() =>
+            {
+                IOneWayBindableValue<int> created = c.ToOneWayImpl(scheduler: scheduler);
+
+                Thread thread = new(() => read.Value = created.Value) { IsBackground = true };
+                thread.Start();
+
+                bool blocked =
+                    SpinWait.SpinUntil(
+                        condition: () => (thread.ThreadState & ThreadState.WaitSleepJoin) != 0,
+                        timeout: TimeSpan.FromSeconds(5));
+
+                c.Send(5);
+
+                return (created, thread, blocked);
+            });
+
+        reader.Join();
+
+        using (b)
+        {
+            await Assert.That(readerBlocked)
+                .IsTrue()
+                .Because("the reader must wait before the close, or this test shows nothing");
+
+            await Assert.That(read.Value).IsEqualTo(5);
+        }
+    }
+
+    /// <summary>
+    ///     Runs <paramref name="body" /> and gives the exception that it threw.
+    /// </summary>
+    private static Exception? Caught(Action body)
+    {
+        try
+        {
+            body();
+
+            return null;
+        }
+        catch (Exception e)
+        {
+            return e;
+        }
     }
 
     /// <summary>

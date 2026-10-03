@@ -10,9 +10,9 @@ public static partial class BindableCoreExtensionMethods
     ///     <see cref="System.ComponentModel.INotifyPropertyChanged" />.
     /// </summary>
     /// <remarks>
-    ///     You can build this on any thread. The thread that builds the instance takes a lazy
-    ///     sample of the initial value, and the scheduler moves each subsequent change to the
-    ///     binding thread. Thus, only the binding thread reads the sample and writes the cached
+    ///     You can build this on any thread. The building transaction samples the initial value
+    ///     when it closes, and the scheduler moves each subsequent change to the binding
+    ///     thread. Thus, only the binding thread reads the sample and writes the cached
     ///     value. Only the code that publishes the instance puts the building thread and the
     ///     binding thread in sequence. That code must do this in all conditions, because
     ///     <c>comparer</c> and <c>listener</c> are usual fields that a reader needs.
@@ -36,9 +36,9 @@ public static partial class BindableCoreExtensionMethods
 
         /// <summary>
         ///     The sample from the constructor, until the first use of the cached value. Then it
-        ///     is null. See <see cref="SampleLazyAndListenToUpdates{T}" /> for the cause.
+        ///     is null. See <see cref="SampleAtCloseAndListenToUpdates{T}" /> for the cause.
         /// </summary>
-        private Lazy<T>? initialValue;
+        private InitialSample<T>? initialValue;
 
         internal OneWayBindableValue(
             Cell<T> cell,
@@ -61,7 +61,7 @@ public static partial class BindableCoreExtensionMethods
             // Thus, the listener cannot write over the sample that this code takes. The scheduled
             // work runs after that, on the binding thread, and a newer update wins.
             (this.initialValue, this.listener) =
-                SampleLazyAndListenToUpdates(cell: cell, handler: this.OnSourceChanged);
+                SampleAtCloseAndListenToUpdates(cell: cell, handler: this.OnSourceChanged);
         }
 
         /// <inheritdoc />
@@ -113,7 +113,7 @@ public static partial class BindableCoreExtensionMethods
                 return;
             }
 
-            this.cachedValue = this.initialValue.Value;
+            this.cachedValue = this.initialValue.Read();
             this.initialValue = null;
         }
 

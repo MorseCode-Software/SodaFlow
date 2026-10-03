@@ -14,8 +14,8 @@ public static partial class BindableCoreExtensionMethods
     ///     available.
     /// </summary>
     /// <remarks>
-    ///     You can build this on any thread. The thread that builds the instance takes a lazy
-    ///     sample of the availability, and the binding thread reads it. The scheduler moves each
+    ///     You can build this on any thread. The building transaction samples the availability
+    ///     when it closes, and the binding thread reads that sample. The scheduler moves each
     ///     subsequent change to the binding thread. <see cref="Dispose" /> can run on any thread,
     ///     thus only atomic operations change the field that holds the availability.
     /// </remarks>
@@ -32,10 +32,10 @@ public static partial class BindableCoreExtensionMethods
         private readonly StreamSink<T> firingsStreamSink;
 
         /// <summary>
-        ///     The sample from the constructor. See <see cref="SampleLazyAndListenToUpdates{T}" />
+        ///     The sample from the constructor. See <see cref="SampleAtCloseAndListenToUpdates{T}" />
         ///     for the cause. <see cref="ReadCanExecute" /> reads it one time only.
         /// </summary>
-        private readonly Lazy<bool> initialCanExecute;
+        private readonly InitialSample<bool> initialCanExecute;
 
         /// <summary>
         ///     This field is necessary. The subscription to the availability cell is weak, thus
@@ -67,7 +67,7 @@ public static partial class BindableCoreExtensionMethods
             Cell<bool> resolvedIsEnabledCell = isEnabledCell ?? CellInternal.ConstantImpl(true);
 
             (this.initialCanExecute, this.listener) =
-                SampleLazyAndListenToUpdates(cell: resolvedIsEnabledCell, handler: this.OnIsEnabledChanged);
+                SampleAtCloseAndListenToUpdates(cell: resolvedIsEnabledCell, handler: this.OnIsEnabledChanged);
 
             this.IsEnabledCell = resolvedIsEnabledCell;
         }
@@ -197,7 +197,7 @@ public static partial class BindableCoreExtensionMethods
 
             if (state == NotSampled)
             {
-                int sampled = this.initialCanExecute.Value ? Executable : NotExecutable;
+                int sampled = this.initialCanExecute.Read() ? Executable : NotExecutable;
 
                 // Dispose can write the field between the read above and this line. Its value
                 // is newer than the sample, thus it wins.
