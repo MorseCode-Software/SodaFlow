@@ -110,6 +110,31 @@ public static partial class BindableCoreExtensionMethods
         cell.UpdatesImpl.ListenImpl(handler);
 
     /// <summary>
+    ///     Takes a lazy sample of a cell and listens to its updates in one transaction. Thus, no
+    ///     update enters the interval between the two.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         The sample is lazy because the caller can build the bindable in a loop. There,
+    ///         the cell has no value until the loop closes, and a usual sample throws. A lazy
+    ///         sample gets its value when the transaction that builds the bindable closes. The
+    ///         code that publishes the bindable runs after that. Thus, the first read on the
+    ///         binding thread gets the value immediately, and no post is necessary.
+    ///     </para>
+    ///     <para>
+    ///         Do not read the sample before that transaction closes. Outside a loop, that read
+    ///         gets the value that the cell has at that time, and a subsequent update corrects
+    ///         it. In a loop, that read throws, and the lazy value keeps the exception for each
+    ///         subsequent read.
+    ///     </para>
+    /// </remarks>
+    private static (Lazy<T> InitialValue, IListener Listener) SampleLazyAndListenToUpdates<T>(
+        Cell<T> cell,
+        Action<T> handler) =>
+        TransactionInternal.RunImpl(() =>
+            (cell.SampleLazyImpl(), ListenToUpdates(cell: cell, handler: handler)));
+
+    /// <summary>
     ///     Sends a value into the graph after the current <see cref="TransactionInternal" />
     ///     ends. Thus, the send cannot run in a callback.
     /// </summary>
