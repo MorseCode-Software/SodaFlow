@@ -453,7 +453,9 @@ public sealed class BindableValueConcurrencyTests
                         {
                             IBindableAction<int> inner =
                                 Stream.CreateSink<int>()
-                                    .ToBindableActionImpl(isEnabledCell: cellLoop, scheduler: BindingScheduler.Immediate);
+                                    .ToBindableActionImpl(
+                                        isEnabledCell: cellLoop,
+                                        scheduler: BindingScheduler.Immediate);
 
                             enabled.Send(true);
 
@@ -485,7 +487,9 @@ public sealed class BindableValueConcurrencyTests
                         {
                             IBindableAction<int> inner =
                                 Stream.CreateSink<int>()
-                                    .ToBindableActionImpl(isEnabledCell: cellLoop, scheduler: BindingScheduler.Immediate);
+                                    .ToBindableActionImpl(
+                                        isEnabledCell: cellLoop,
+                                        scheduler: BindingScheduler.Immediate);
 
                             enabled.Send(false);
 
