@@ -66,6 +66,16 @@ public interface IReadableBindableValue<T> : IBindable, INotifyPropertyChanged
 ///         runs for a long time on a background thread delays the setter, and with
 ///         it the binding thread, for the full time that it runs.
 ///     </para>
+///     <para>
+///         A throw from the graph does not leave the setter. A binding engine
+///         catches a throw from a setter, and can discard it or show it as a
+///         validation error. A throw from the graph is a defect, thus the setter
+///         gives it to the scheduler, which throws it on the binding thread. A
+///         scheduler on a message loop lets it reach that loop.
+///         <see cref="BindingScheduler.Immediate" /> throws it immediately, thus the
+///         caller of the setter gets it. A write in an open transaction waits for
+///         the close of that transaction, and a throw leaves that close.
+///     </para>
 /// </remarks>
 [PublicAPI]
 // ReSharper disable once InheritdocConsiderUsage

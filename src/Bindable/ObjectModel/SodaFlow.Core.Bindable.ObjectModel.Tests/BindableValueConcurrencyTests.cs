@@ -863,6 +863,101 @@ public sealed class BindableValueConcurrencyTests
         await Assert.That(c.Sample()).IsEqualTo(0);
     }
 
+    // A binding engine catches a throw from a setter. Avalonia discards it, or shows it as a
+    // validation error that the refresh then removes. A throw from the graph is a defect. Thus, the
+    // setter gives it to the scheduler, which throws it outside the binding engine. The refresh
+    // comes first, thus the property agrees with the cell at the throw.
+    [Test]
+    public async Task TwoWayReportsAThrowFromTheGraphOnTheBindingThread()
+    {
+        InvalidOperationException defect = new("The graph refused the value.");
+        QueueingScheduler scheduler = new();
+        StreamSink<string> edits = Stream.CreateSink<string>();
+        Cell<string> accepted = edits.Map(v => v == "refused" ? throw defect : v).Hold("kept");
+
+        using ITwoWayBindableValue<string> b = accepted.ToTwoWayImpl(editsStreamSink: edits, scheduler: scheduler);
+
+        List<string> observed = [];
+
+        using IDisposable _ = b.ListenForValueChanges(observed.Add);
+
+        // Caught runs the lambda before it returns, thus the lambda cannot have a longer life than
+        // the using block.
+        // ReSharper disable AccessToDisposedClosure
+        Exception? caught = Caught(() => b.Value = "refused");
+
+        // ReSharper restore AccessToDisposedClosure
+
+        Exception? thrown = await Assert.That(scheduler.RunAll).ThrowsExactly<InvalidOperationException>();
+
+        await Assert.That(caught).IsNull().Because("the binding engine is not the place to report a defect");
+        await Assert.That(thrown).IsSameReferenceAs(defect);
+
+        await Assert.That(observed)
+            .IsEquivalentTo(expected: ["kept"], ordering: CollectionOrdering.Matching)
+            .Because("the refresh ran before the throw");
+
+        await Assert.That(scheduler.RunAll()).IsEqualTo(0).Because("the throw comes one time");
+    }
+
+    // A one-way-to-source value has no refresh, but a binding engine catches its throw in the same
+    // way.
+    [Test]
+    public async Task OneWayToSourceReportsAThrowFromTheGraphOnTheBindingThread()
+    {
+        InvalidOperationException defect = new("The graph refused the value.");
+        QueueingScheduler scheduler = new();
+        StreamSink<string> edits = Stream.CreateSink<string>();
+        Cell<string> accepted = edits.Map(v => v == "refused" ? throw defect : v).Hold("kept");
+
+        using IOneWayToSourceBindableValue<string> b =
+            edits.ToOneWayToSourceImpl(initialValue: "kept", scheduler: scheduler);
+
+        // Caught runs the lambda before it returns, thus the lambda cannot have a longer life than
+        // the using block.
+        // ReSharper disable AccessToDisposedClosure
+        Exception? caught = Caught(() => b.Value = "refused");
+
+        // ReSharper restore AccessToDisposedClosure
+
+        Exception? thrown = await Assert.That(scheduler.RunAll).ThrowsExactly<InvalidOperationException>();
+
+        await Assert.That(caught).IsNull().Because("the binding engine is not the place to report a defect");
+        await Assert.That(thrown).IsSameReferenceAs(defect);
+        await Assert.That(accepted.Sample()).IsEqualTo("kept");
+        await Assert.That(scheduler.RunAll()).IsEqualTo(0).Because("the throw comes one time");
+    }
+
+    // A write in an open transaction waits for the close of that transaction. Thus, a throw from
+    // the graph leaves that close, and the code that opened the transaction gets it. A binding
+    // engine opens no transaction, thus that code is not a binding engine. The scheduler does not
+    // throw it a second time.
+    [Test]
+    public async Task AWriteInAnOpenTransactionLeavesItsThrowToThatTransaction()
+    {
+        InvalidOperationException defect = new("The graph refused the value.");
+        QueueingScheduler scheduler = new();
+        StreamSink<string> edits = Stream.CreateSink<string>();
+        Cell<string> accepted = edits.Map(v => v == "refused" ? throw defect : v).Hold("kept");
+
+        using ITwoWayBindableValue<string> b = accepted.ToTwoWayImpl(editsStreamSink: edits, scheduler: scheduler);
+
+        // The lambda runs immediately in RunVoid, thus it cannot have a longer life than the
+        // using block.
+        // ReSharper disable AccessToDisposedClosure
+        Exception? thrown =
+            await Assert.That(() => Transaction.RunVoid(() => b.Value = "refused"))
+                .ThrowsExactly<InvalidOperationException>();
+
+        // ReSharper restore AccessToDisposedClosure
+
+        await Assert.That(thrown).IsSameReferenceAs(defect);
+
+        scheduler.RunAll();
+
+        await Assert.That(b.Value).IsEqualTo("kept");
+    }
+
     // Nothing changes for a scheduler with no thread of its own. Thus, each test that exists,
     // and each host with no UI, continues to operate.
     [Test]

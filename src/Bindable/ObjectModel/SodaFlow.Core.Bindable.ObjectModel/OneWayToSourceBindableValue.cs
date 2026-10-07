@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Runtime.ExceptionServices;
 using System.Threading;
 
 namespace SodaFlow.Bindable.ObjectModel;
@@ -16,8 +17,9 @@ public static partial class BindableCoreExtensionMethods
     ///     the initial value. Only the code that publishes the instance puts that
     ///     thread and the binding thread in sequence, and that code must do this for
     ///     <c>comparer</c> and <c>write</c> in all conditions.
-    ///     This class has no scheduler, because no value moves back out to the view
-    ///     and thus there is nothing to move between threads. The binding engine reads
+    ///     This class posts no value through its scheduler, because no value moves
+    ///     back out to the view. It posts only the throw of a write that fails. See
+    ///     <see cref="IWritableBindableValue{T}" />. The binding engine reads
     ///     and writes the cached value on the binding thread, and no other code
     ///     touches it. See <see cref="IWritableBindableValue{T}" />.
     /// </remarks>
@@ -27,9 +29,9 @@ public static partial class BindableCoreExtensionMethods
         private readonly IEqualityComparer<T> comparer;
 
         /// <summary>
-        ///     This field only tells you which thread the binding engine is on. This class
-        ///     posts nothing through it, because no value moves back out to the view.
-        ///     Thus, it schedules no work.
+        ///     This field tells you which thread the binding engine is on. This class
+        ///     posts no value through it, because no value moves back out to the view. It
+        ///     posts only the throw of a write that fails.
         /// </summary>
         private readonly IBindingScheduler scheduler;
 
@@ -98,18 +100,27 @@ public static partial class BindableCoreExtensionMethods
 
                 this.cachedValue = value;
 
-                // This code tests again in the post and does not depend on the test above.
-                // PostWrite defers while a transaction is open. Thus, a Dispose between the two
-                // can let this write reach the graph.
-                PostWrite(() =>
+                try
                 {
-                    if (Volatile.Read(ref this.disposed) != 0)
+                    // This code tests again in the post and does not depend on the test above.
+                    // PostWrite defers while a transaction is open. Thus, a Dispose between the two
+                    // can let this write reach the graph.
+                    PostWrite(() =>
                     {
-                        return;
-                    }
+                        if (Volatile.Read(ref this.disposed) != 0)
+                        {
+                            return;
+                        }
 
-                    this.write(value);
-                });
+                        this.write(value);
+                    });
+                }
+                catch (Exception e)
+                {
+                    // A binding engine catches a throw from a setter, thus the scheduler throws it
+                    // on the binding thread. See the two-way value for the cause.
+                    this.scheduler.Post(ExceptionDispatchInfo.Capture(e).Throw);
+                }
             }
         }
 
